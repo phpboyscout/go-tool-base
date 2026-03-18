@@ -2,7 +2,7 @@
 title: "Deep Cobra Integration for ErrorHandler Specification"
 description: "Replace explicit ErrorHandler.Fatal() calls in command Run functions with idiomatic RunE error returns, routing all errors through a centralized Execute wrapper that feeds the StandardErrorHandler pipeline."
 date: 2026-03-18
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - cobra
@@ -25,7 +25,7 @@ Date
 :   18 March 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 

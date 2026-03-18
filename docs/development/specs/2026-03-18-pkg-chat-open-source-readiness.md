@@ -2,7 +2,7 @@
 title: "pkg/chat Open-Source Readiness Specification"
 description: "Migrate the Gemini SDK off the deprecated google/generative-ai-go, introduce a ProviderFactory registry for external extensibility, replace the ClaudeCodeLocal stub with a first-class ProviderClaudeLocal implementation, and add ProviderOpenAICompatible for OpenAI-compatible backends."
 date: 2026-03-18
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -26,7 +26,7 @@ Date
 :   18 March 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
