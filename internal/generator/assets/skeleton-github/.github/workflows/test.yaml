@@ -1,0 +1,110 @@
+name: tests
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  unittests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: go mod download
+        run: go mod download
+      - name: go test
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -race -v -coverprofile /tmp/cover.out $(go list ./... | grep -v '/mocks/') 2>&1 | tee /tmp/gotest.log
+      - name: Parse test results
+        id: test-results
+        if: always()
+        run: |
+          if [ -f /tmp/gotest.log ]; then
+            TOTAL_TESTS=$(grep -E "^=== RUN" /tmp/gotest.log | wc -l | tr -d ' \n\r' || echo "0")
+            PASSED_TESTS=$(grep -c "^--- PASS" /tmp/gotest.log | tr -d ' \n\r' || echo "0")
+            FAILED_TESTS=$(grep -c "^--- FAIL" /tmp/gotest.log | tr -d ' \n\r' || echo "0")
+            SKIPPED_TESTS=$(grep -c "^--- SKIP" /tmp/gotest.log | tr -d ' \n\r' || echo "0")
+            TOTAL_TESTS=${TOTAL_TESTS:-0}
+            PASSED_TESTS=${PASSED_TESTS:-0}
+            FAILED_TESTS=${FAILED_TESTS:-0}
+            SKIPPED_TESTS=${SKIPPED_TESTS:-0}
+            case $TOTAL_TESTS in ''|*[!0-9]*) TOTAL_TESTS=0 ;; esac
+            case $PASSED_TESTS in ''|*[!0-9]*) PASSED_TESTS=0 ;; esac
+            case $FAILED_TESTS in ''|*[!0-9]*) FAILED_TESTS=0 ;; esac
+            case $SKIPPED_TESTS in ''|*[!0-9]*) SKIPPED_TESTS=0 ;; esac
+            if [ "$FAILED_TESTS" -gt 0 ]; then
+              TEST_STATUS="❌ FAILED"
+            elif [ "$TOTAL_TESTS" -eq 0 ]; then
+              TEST_STATUS="⚠️ NO TESTS"
+            else
+              TEST_STATUS="✅ PASSED"
+            fi
+          else
+            TOTAL_TESTS=0
+            PASSED_TESTS=0
+            FAILED_TESTS=0
+            SKIPPED_TESTS=0
+            TEST_STATUS="⚠️ NO TEST LOG"
+          fi
+          if [ -f /tmp/cover.out ]; then
+            COVERAGE=$(go tool cover -func=/tmp/cover.out | grep "^total:" | awk '{print $NF}' 2>/dev/null || echo "N/A")
+          else
+            COVERAGE="N/A"
+          fi
+          echo "total-tests=$TOTAL_TESTS" >> $GITHUB_OUTPUT
+          echo "passed-tests=$PASSED_TESTS" >> $GITHUB_OUTPUT
+          echo "failed-tests=$FAILED_TESTS" >> $GITHUB_OUTPUT
+          echo "skipped-tests=$SKIPPED_TESTS" >> $GITHUB_OUTPUT
+          echo "test-status=$TEST_STATUS" >> $GITHUB_OUTPUT
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+      - name: Find existing comment
+        if: github.event_name == 'pull_request'
+        id: find-comment
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ "{{" }} github.event.pull_request.number {{ "}}" }}
+          body-includes: "<!-- test-summary-comment -->"
+      - name: Create or update PR comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ "{{" }} steps.find-comment.outputs.comment-id {{ "}}" }}
+          issue-number: ${{ "{{" }} github.event.pull_request.number {{ "}}" }}
+          edit-mode: replace
+          body: |
+            <!-- test-summary-comment -->
+            ## 🧪 Go Unit Test Results
+
+            **Status:** ${{ "{{" }} steps.test-results.outputs.test-status {{ "}}" }}
+
+            ### Test Results
+            | Metric | Count |
+            |--------|-------|
+            | Total Tests | ${{ "{{" }} steps.test-results.outputs.total-tests {{ "}}" }} |
+            | ✅ Passed | ${{ "{{" }} steps.test-results.outputs.passed-tests {{ "}}" }} |
+            | ❌ Failed | ${{ "{{" }} steps.test-results.outputs.failed-tests {{ "}}" }} |
+            | ⏭️ Skipped | ${{ "{{" }} steps.test-results.outputs.skipped-tests {{ "}}" }} |
+
+            ### Coverage
+            **Overall Coverage:** ${{ "{{" }} steps.test-results.outputs.coverage {{ "}}" }}
+
+            🔗 [View full workflow run](${{ "{{" }} github.server_url {{ "}}" }}/${{ "{{" }} github.repository {{ "}}" }}/actions/runs/${{ "{{" }} github.run_id {{ "}}" }})
+
+            ---
+            *Last updated: ${{ "{{" }} github.event.pull_request.head.sha {{ "}}" }}*
+      - name: Upload test log
+        uses: actions/upload-artifact@v4
+        with:
+          name: unittest-results
+          path: |
+            /tmp/gotest.log
+            /tmp/cover.out
+          if-no-files-found: error

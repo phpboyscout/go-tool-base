@@ -1,0 +1,87 @@
+version: "2"
+run:
+  modules-download-mode: mod
+  issues-exit-code: 1
+  tests: false
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - cyclop
+    - dupl
+    - durationcheck
+    - err113
+    - errcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - fatcontext
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - godot
+    - gosec
+    - gosmopolitan
+    - loggercheck
+    - makezero
+    - mnd
+    - musttag
+    - nestif
+    - nilerr
+    - nilnesserr
+    - nlreturn
+    - noctx
+    - prealloc
+    - protogetter
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - wsl_v5
+    - zerologlint
+  disable:
+    - perfsprint
+    - wrapcheck
+    - wsl
+  settings:
+    gosmopolitan:
+      allow-time-local: true
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - "{{ .ModulePath }}"
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

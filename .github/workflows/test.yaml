@@ -1,0 +1,39 @@
+name: tests
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  golangci-lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          args: --timeout=30m
+  unittests:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: go mod download
+        run: go mod download
+      - name: go test
+        run: go test -v -coverprofile /tmp/cover.out ./...
+      - name: Upload test log
+        uses: actions/upload-artifact@v7
+        with:
+          name: unittest-results
+          path: /tmp/cover.out
+          if-no-files-found: error

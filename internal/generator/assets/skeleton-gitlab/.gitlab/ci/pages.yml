@@ -1,0 +1,11 @@
+pages:
+  stage: pages
+  image: python:3.x
+  script:
+    - pip install zensical
+    - zensical build --site-dir public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

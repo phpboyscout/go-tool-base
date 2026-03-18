@@ -1,0 +1,83 @@
+version: 2
+project_name: gtb
+force_token: github
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - main: ./cmd/gtb
+    env:
+      - CGO_ENABLED=0
+      - GOLANG_FIPS=1
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/phpboyscout/gtb/internal/version.version={{.Version}} -X github.com/phpboyscout/gtb/internal/version.commit={{.Commit}} -X github.com/phpboyscout/gtb/internal/version.date={{.Date}}
+archives:
+  - formats: ["tar.gz"]
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+release:
+  use_existing_draft: true
+  replace_existing_artifacts: true
+  make_latest: true
+  mode: replace
+changelog:
+  use: "github"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug fixes"
+      regexp: '^.*?(bug|fix)(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+github_urls:
+  api: https://api.github.com/
+  upload: https://uploads.github.com/
+  download: https://github.com/
+  skip_tls_verify: false
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev{{.ShortCommit}}"
+
+homebrew_casks:
+  - name: gtb
+    binary: gtb
+    conflicts:
+      - formula: gtb
+    commit_author:
+      name: goreleaserbot
+      email: matt@phpboyscout.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: "https://github.com/phpboyscout/gtb"
+    description: "A helper utility for interacting and managing gtb repos and resources"
+    dependencies:
+      - formula: go
+      - formula: golangci-lint
+    repository:
+      owner: phpboyscout
+      name: homebrew
+      branch: main
+      token: "{{ .Env.GITHUB_TOKEN }}"

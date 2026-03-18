@@ -1,0 +1,73 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:recommended',
+  ],
+  enabledManagers: [
+    'gomod',
+    'pre-commit',
+  ],
+  automerge: false,
+  prHourlyLimit: 10,
+  prConcurrentLimit: 10,
+  branchConcurrentLimit: 20,
+  'pre-commit': {
+    enabled: true,
+  },
+  labels: [
+    'renovate:{{depName}}',
+    'datasource:{{datasource}}',
+  ],
+  ignorePaths: [
+    '**/vendor/**',
+    '**/assets/**',
+  ],
+  gomod: {
+    managerFilePatterns: [
+      '/go\\.mod$/',
+    ],
+  },
+  semanticCommitType: 'chore',
+  packageRules: [
+    {
+      matchDatasources: [
+        'gomod-datasource',
+      ],
+      matchUpdateTypes: [
+        'patch',
+      ],
+      groupName: 'go dependencies',
+      groupSlug: 'go-deps',
+      automerge: true,
+      automergeType: 'pr',
+    },
+    {
+      matchDatasources: [
+        'gomod-datasource',
+      ],
+      matchUpdateTypes: [
+        'minor',
+      ],
+      groupName: 'go dependencies (minor)',
+      groupSlug: 'go-deps',
+      automerge: false,
+      automergeType: 'pr',
+    },
+    {
+      matchDatasources: [
+        'gomod-datasource',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+      groupName: 'go dependencies (major)',
+      groupSlug: 'go-deps-major',
+      automerge: false,
+      dependencyDashboardApproval: true,
+      labels: [
+        'major-update',
+      ],
+      semanticCommitType: 'fix',
+    },
+  ],
+}

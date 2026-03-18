@@ -1,0 +1,11 @@
+ai:
+  provider: ""
+openai:
+  api:
+    key: ""
+anthropic:
+  api:
+    key: ""
+gemini:
+  api:
+    key: ""

@@ -1,0 +1,66 @@
+version: 2
+project_name: {{ .Name }}
+force_token: {{ .ReleaseProvider }}
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: cmd/{{ .Name }}/main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{ "{{" }}.Version{{ "}}" }}
+      - -X main.commit={{ "{{" }}.Commit{{ "}}" }}
+      - -X main.date={{ "{{" }}.Date{{ "}}" }}
+
+archives:
+  - formats: [ "tar.gz" ]
+    name_template: >-
+      {{ "{{" }} .ProjectName {{ "}}" }}_
+      {{ "{{" }}- title .Os {{ "}}" }}_
+      {{ "{{" }}- if eq .Arch "amd64" {{ "}}" }}x86_64
+      {{ "{{" }}- else if eq .Arch "386" {{ "}}" }}i386
+      {{ "{{" }}- else {{ "}}" }}{{ "{{" }} .Arch {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+      {{ "{{" }}- if .Arm {{ "}}" }}v{{ "{{" }} .Arm {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+
+release:
+  use_existing_draft: true
+  replace_existing_artifacts: true
+  make_latest: true
+  mode: replace
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ "{{" }} incpatch .Version {{ "}}" }}-dev{{ "{{" }}.ShortCommit{{ "}}" }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+{{ if eq .ReleaseProvider "github" -}}
+github_urls:
+  api: https://{{ .Host }}/api/v3/
+  upload: https://{{ .Host }}/api/uploads/
+  download: https://{{ .Host }}/
+  skip_tls_verify: false
+{{ else -}}
+gitlab_urls:
+  api: https://{{ .Host }}/api/v4/
+  download: https://{{ .Host }}/
+  skip_tls_verify: false
+{{ end -}}

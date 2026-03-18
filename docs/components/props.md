@@ -1,0 +1,442 @@
+---
+title: Props
+description: Dependency injection container identifying tool metadata and providing access to global services.
+date: 2026-02-16
+tags: [components, props, dependency-injection, architecture]
+authors: [Matt Cockayne <matt@phpboyscout.com>]
+---
+
+# Props
+
+## Overview
+
+Props serves as the primary data structure that carries essential information about your tool and provides access to various services and configurations. It's designed to be passed to all major components and commands in your CLI application.
+
+## Design Rationale
+
+Props is intentionally designed as a concrete dependency injection container rather than using Go's `context.Context` for passing dependencies. This design choice provides several key benefits:
+
+### Type Safety and Compile-Time Checks
+
+Unlike `context.Context` which stores values as `interface{}`, Props provides concrete types for all dependencies:
+
+```go
+// Props approach - Type safe, IDE-friendly
+func NewCommand(props *props.Props) *cobra.Command {
+    props.Logger.Info("Starting command")     // ✅ Compile-time type checking
+    host := props.Config.GetString("db.host") // ✅ Known interface methods
+    return cmd
+}
+
+// Context approach - Runtime type assertions required
+func NewCommand(ctx context.Context) *cobra.Command {
+    logger := ctx.Value("logger").(*log.Logger) // ❌ Runtime panic risk
+    config := ctx.Value("config").(SomeInterface) // ❌ No compile-time guarantee
+    return cmd
+}
+```
+
+### Clear Dependency Declaration
+
+Props makes dependencies explicit and discoverable:
+
+- **Discoverability**: IDEs can provide accurate autocomplete and navigation
+- **Documentation**: Each field is clearly documented with its purpose
+- **Refactoring**: Changes to dependency interfaces are caught at compile time
+- **Testing**: Easy to create test doubles with concrete interfaces
+
+### Performance Benefits
+
+- **No runtime type assertions**: All types are known at compile time
+- **Reduced allocations**: No boxing/unboxing of interface{} values
+- **Better inlining**: Compiler can optimize concrete type access
+
+## Core Structure
+
+```go
+type Props struct {
+    Tool         Tool                       // Tool metadata and settings
+    Logger       *log.Logger                // Configured logger instance
+    Config       config.Containable         // Configuration container
+    Assets       Assets                     // Embedded assets wrapper interface
+    FS           afero.Fs                   // Filesystem abstraction
+    Version      version.Version            // Version information (pkg/version.Version interface)
+    ErrorHandler errorhandling.ErrorHandler // Error Handler interface
+}
+```
+
+!!! note "ErrorHandler is an Interface"
+    The `ErrorHandler` field is an interface type, not a pointer. This enables easy mocking and custom implementations for testing.
+
+## Constants and Types
+
+### Feature Commands
+
+Feature commands are identifiers used to enable or disable built-in functionality:
+
+```go
+type FeatureCmd string
+
+const (
+    UpdateCmd = FeatureCmd("update") // Self-update functionality
+    InitCmd   = FeatureCmd("init")   // Configuration initialisation
+    McpCmd    = FeatureCmd("mcp")    // Model Context Protocol server
+    DocsCmd   = FeatureCmd("docs")   // Interactive documentation browser
+    AiCmd     = FeatureCmd("ai")     // AI-powered features
+)
+```
+
+### Default Behavior
+
+`props.Tool` automatically handles default feature states. `IsEnabled` prioritizes configured features but falls back to built-in defaults if no explicit configuration is found.
+
+`pkg/props` defines a standard set of features enabled by default:
+- `update`
+- `init`
+- `mcp`
+- `docs`
+
+#### The `SetFeatures` Constructor
+
+The preferred way to define a tool's feature set in code is using the `props.SetFeatures` constructor. It automatically applies all default features first, allowing you to only specify overrides:
+
+```go
+// Returns defaults (Update, Init, Mcp, Docs enabled)
+Features: props.SetFeatures(),
+
+// Starts with defaults, but disables 'init' and enables 'ai'
+Features: props.SetFeatures(
+    props.Disable(props.InitCmd),
+    props.Enable(props.AiCmd),
+),
+```
+
+!!! tip "Enabling vs Disabling Features"
+    To disable default features or enable optional features (like `ai`), use the `SetFeatures` helper in your tool configuration:
+
+    ```go
+    Features: props.SetFeatures(
+        props.Disable(props.InitCmd),
+        props.Enable(props.AiCmd),
+    ),
+    ```
+
+    You can check feature status using the helper methods:
+    `props.Tool.IsEnabled(props.AiCmd)` or `props.Tool.IsDisabled(props.InitCmd)`.
+
+## Components
+
+### Tool Metadata
+
+The `Tool` struct contains essential information about your CLI tool:
+
+```go
+type Tool struct {
+    Name          string                   `json:"name" yaml:"name"`
+    Summary       string                   `json:"summary" yaml:"summary"`
+    Description   string                   `json:"description" yaml:"description"`
+    Features      []Feature                `json:"features" yaml:"features"`
+    ReleaseSource ReleaseSource            `json:"release_source" yaml:"release_source"`
+    Help          errorhandling.HelpConfig `json:"-" yaml:"-"`
+}
+
+// ReleaseSource identifies where the tool's releases are hosted.
+type ReleaseSource struct {
+    Type  string `json:"type" yaml:"type"`   // "github" or "gitlab"
+    Owner string `json:"owner" yaml:"owner"` // Organisation or user
+    Repo  string `json:"repo" yaml:"repo"`   // Repository name
+}
+
+// Feature represents the configuration state of a feature (Enabled/Disabled).
+type Feature struct {
+    Cmd     FeatureCmd `json:"cmd" yaml:"cmd"`
+    Enabled bool       `json:"enabled" yaml:"enabled"`
+}
+
+// FeatureState is a functional option used to mutate the feature list.
+type FeatureState func([]Feature) []Feature
+```
+
+!!! info "Help Configuration"
+    `Tool.Help` accepts any value that implements the `errorhandling.HelpConfig` interface (`SupportMessage() string`). Use `errorhandling.SlackHelp` or `errorhandling.TeamsHelp` for built-in support channel messages, or pass `nil` for no help message. The field is set programmatically — it is not read from YAML/JSON config files.
+
+**Example:**
+```go
+p := &props.Props{
+    Tool: props.Tool{
+        Name:        "awesome-cli",
+        Summary:     "An awesome command-line tool",
+        Description: "A comprehensive CLI tool for managing awesome things",
+        ReleaseSource: props.ReleaseSource{
+            Type:  "github",
+            Owner: "mycompany",
+            Repo:  "awesome-cli",
+        },
+        Features: props.SetFeatures(
+            props.Enable(props.AiCmd),
+        ),
+    },
+    // ... other fields
+}
+
+// Set the help channel after constructing Props
+p.Tool.Help = errorhandling.SlackHelp{
+    Channel: "#support",
+    Team:    "myteam",
+}
+```
+
+### Version Information
+
+Version tracking for updates and display. The `Version` field on `Props` uses the `version.Version` interface from `pkg/version`:
+
+```go
+// pkg/version
+type Version interface {
+    GetVersion() string
+    GetCommit() string
+    GetDate() string
+    String() string
+    Compare(other string) int
+    IsDevelopment() bool
+}
+```
+
+**Example:**
+```go
+Version: version.NewInfo("1.0.0", "abc123def456", "2024-01-15T10:30:00Z")
+```
+
+### Logger Configuration
+
+Structured logging with configurable output:
+
+```go
+logger := log.NewWithOptions(os.Stderr, log.Options{
+    ReportCaller:    false,
+    ReportTimestamp: true,
+    TimeFormat:      time.Kitchen,
+    Level:           log.InfoLevel,
+    Formatter:       log.TextFormatter,
+})
+```
+
+**Log Levels:**
+
+- `log.DebugLevel` - Detailed debugging information
+- `log.InfoLevel` - General information
+- `log.WarnLevel` - Warning messages
+- `log.ErrorLevel` - Error messages
+
+### Filesystem Abstraction
+
+The `FS` field uses the afero library for filesystem abstraction, enabling easy testing:
+
+```go
+import "github.com/spf13/afero"
+
+// Production: real filesystem
+FS: afero.NewOsFs()
+
+// Testing: in-memory filesystem
+FS: afero.NewMemMapFs()
+```
+
+### Embedded Assets
+
+The `Assets` field holds a wrapper for embedded filesystems (configurations, templates, etc.):
+
+```go
+//go:embed assets/*
+var assets embed.FS
+
+props := &props.Props{
+    Assets: props.NewAssets(props.AssetMap{"root": &assets}),
+}
+```
+
+Subcommands can register their own assets:
+
+```go
+func NewCmdSub(p *props.Props) *cobra.Command {
+    p.Assets.Register("sub", &assets)
+    // ...
+}
+```
+
+## Usage Patterns
+
+### Basic Initialization
+
+```go
+func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
+    logger := log.NewWithOptions(os.Stderr, log.Options{
+        ReportTimestamp: true,
+        Level:           log.InfoLevel,
+    })
+
+    p := &props.Props{
+        Tool: props.Tool{
+            Name:        "mytool",
+            Summary:     "My CLI tool",
+            Description: "Does amazing things",
+            ReleaseSource: props.ReleaseSource{
+                Type:  "github",
+                Owner: "myorg",
+                Repo:  "mytool",
+            },
+        },
+        Logger:  logger,
+        Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
+        FS:      afero.NewOsFs(),
+        Version: v,
+    }
+
+    p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+
+    rootCmd := root.NewCmdRoot(p)
+    return rootCmd, p
+}
+```
+
+### Passing to Custom Commands
+
+```go
+func NewCustomCommand(props *props.Props) *cobra.Command {
+    cmd := &cobra.Command{
+        Use:   "custom",
+        Short: "A custom command",
+        RunE: func(cmd *cobra.Command, args []string) error {
+            return runCustomCommand(cmd.Context(), props)
+        },
+    }
+    return cmd
+}
+
+func runCustomCommand(ctx context.Context, props *props.Props) error {
+    props.Logger.Info("Running custom command")
+
+    data, err := afero.ReadFile(props.FS, "data.txt")
+    if err != nil {
+        return errors.Wrap(err, "failed to read data file")
+    }
+
+    props.Logger.Info("Command completed successfully")
+    return nil
+}
+```
+
+### Configuration Integration
+
+```go
+func runDatabaseCommand(ctx context.Context, props *props.Props) error {
+    dbHost := props.Config.GetString("database.host")
+    dbPort := props.Config.GetInt("database.port")
+
+    props.Logger.Info("Connecting to database", "host", dbHost, "port", dbPort)
+    return nil
+}
+
+func NewDatabaseCommand(props *props.Props) *cobra.Command {
+    return &cobra.Command{
+        Use:   "database",
+        Short: "Database operations",
+        RunE: func(cmd *cobra.Command, args []string) error {
+            return runDatabaseCommand(cmd.Context(), props)
+        },
+    }
+}
+```
+
+## Advanced Configuration
+
+### Conditional Features
+
+```go
+Tool: props.Tool{
+    Name: "enterprise-tool",
+    Features: props.SetFeatures(
+        props.Disable(props.UpdateCmd), // Disable auto-updates in enterprise
+    ),
+}
+```
+
+### Copy-on-Write Filesystem
+
+```go
+import "github.com/spf13/afero"
+
+baseFs := afero.NewReadOnlyFs(afero.NewOsFs())
+overlayFs := afero.NewMemMapFs()
+cowFs := afero.NewCopyOnWriteFs(baseFs, overlayFs)
+
+props.FS = cowFs
+```
+
+## Testing with Props
+
+```go
+func createTestProps() *props.Props {
+    logger := log.New(io.Discard)
+    memFs := afero.NewMemMapFs()
+
+    return &props.Props{
+        Tool: props.Tool{
+            Name:    "test-tool",
+            Summary: "Test tool",
+        },
+        Logger:  logger,
+        FS:      memFs,
+        Version: version.NewInfo("0.0.0-test", "", ""),
+    }
+}
+```
+
+## Best Practices
+
+### 1. Use ReleaseSource for Repository Identity
+
+`ReleaseSource` is the single source of truth for where the tool's releases are hosted. It supports both GitHub and GitLab:
+
+```go
+// GitHub
+ReleaseSource: props.ReleaseSource{
+    Type:  "github",
+    Owner: "your-org",
+    Repo:  "tool-name",
+},
+
+// GitLab (including self-hosted)
+ReleaseSource: props.ReleaseSource{
+    Type:  "gitlab",
+    Owner: "your-group",
+    Repo:  "tool-name",
+},
+```
+
+### 2. Consistent Tool Metadata
+
+```go
+Tool: props.Tool{
+    Name:        "kebab-case-name",
+    Summary:     "Brief description",
+    Description: "Longer description that explains the tool's purpose and capabilities",
+    ReleaseSource: props.ReleaseSource{
+        Type:  "github",
+        Owner: "your-org",
+        Repo:  "tool-name",
+    },
+}
+```
+
+### 3. Set Help After Construction
+
+Since `Tool.Help` is an interface (not serializable), assign it programmatically after building `Props`:
+
+```go
+p := &props.Props{Tool: props.Tool{...}}
+p.Tool.Help = errorhandling.SlackHelp{Team: "Platform", Channel: "#help"}
+p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+```
+
+The Props component provides a robust foundation for building maintainable and testable CLI applications with GTB.

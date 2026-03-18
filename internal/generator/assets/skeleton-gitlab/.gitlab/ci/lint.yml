@@ -1,0 +1,9 @@
+golangci-lint:
+  stage: lint
+  image: golangci/golangci-lint:latest
+  script:
+    - go mod tidy
+    - golangci-lint run --timeout=30m
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

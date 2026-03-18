@@ -1,0 +1,11 @@
+log:
+  level: info
+github:
+  url:
+    api: https://api.github.com
+    upload: https://uploads.github.com
+  auth:
+    env: GITHUB_TOKEN
+  ssh:
+    key:
+      env: GITHUB_KEY

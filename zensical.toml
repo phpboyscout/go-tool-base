@@ -1,0 +1,77 @@
+[project]
+site_name = "Go Base"
+site_description = "A foundation for building and generating go based tools and applications"
+site_author = "Matt Cockayne"
+site_url = "https://github.com/phpboyscout/gtb"
+copyright = """
+Copyright &copy; 2026 Matt Cockayne
+"""
+extra_css = ["stylesheets/extra.css"]
+
+[project.theme]
+language = "en"
+features = [
+    "announce.dismiss",
+    "content.action.edit",
+    "content.action.view",
+    "content.code.annotate",
+    "content.code.copy",
+    "content.code.select",
+    "content.footnote.tooltips",
+    "content.tabs.link",
+    "content.tooltips",
+    "header.autohide",
+    # "navigation.expand",
+    "navigation.footer",
+    "navigation.indexes",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.instant.progress",
+    "navigation.path",
+    #"navigation.prune",
+    "navigation.sections",
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.top",
+    "navigation.tracking",
+    "search.highlight",
+    "toc.follow",
+    "toc.integrate",
+]
+
+[project.theme.font]
+text = "Inter"
+code = "Jetbrains Mono"
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+
+[project.extra.status]
+draft = "Draft"
+DRAFT = "Draft"
+in-review = "In Review"
+IN-REVIEW = "In Review"
+approved = "Approved"
+APPROVED = "Approved"
+in-progress = "In Progress"
+IN-PROGRESS = "In Progress"
+implemented = "Implemented"
+IMPLEMENTED = "Implemented"
+superseded = "Superseded"
+SUPERSEDED = "Superseded"
+rejected = "Rejected"
+REJECTED = "Rejected"
+deprecated = "Deprecated"
+DEPRECATED = "Deprecated"
+
+#[[project.extra.social]]
+#icon = "fontawesome/brands/github"
+#link = "https://github.com/user/repo"

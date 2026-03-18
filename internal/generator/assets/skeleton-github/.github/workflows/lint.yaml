@@ -1,0 +1,84 @@
+name: lint
+on:
+  pull_request:
+    paths:
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'mocks/**'
+      - '*.go'
+      - go.mod
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  golangci-lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: go mod tidy
+        run: go mod tidy
+      - name: golangci-lint
+        id: lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=30m
+      - name: Get enabled linters
+        if: always()
+        id: get-linters
+        run: |
+          golangci-lint linters | sed -n '/^Enabled by your configuration linters:/,/^Disabled by your configuration linters:/p' | grep -E "^[a-z]" > /tmp/enabled-linters.txt || true
+      - name: Generate lint report
+        if: always()
+        id: generate-lint-report
+        run: |
+          echo "<!-- lint-summary-comment -->" > lint-report.md
+          echo "## 🔍 Go Lint Results" >> lint-report.md
+          echo "" >> lint-report.md
+          if [[ "${{ "{{" }} steps.lint.outcome {{ "}}" }}" == "failure" ]]; then
+            echo "❌ **LINTING FAILED** - Code quality issues found." >> lint-report.md
+          else
+            echo "✅ **LINTING PASSED** - No code quality issues found." >> lint-report.md
+          fi
+          echo "" >> lint-report.md
+          echo "### 📋 Enabled Linters" >> lint-report.md
+          echo "" >> lint-report.md
+          if [[ -f /tmp/enabled-linters.txt ]]; then
+            echo "<details>" >> lint-report.md
+            echo "<summary>Click to view all enabled linters</summary>" >> lint-report.md
+            echo "" >> lint-report.md
+            echo "\`\`\`" >> lint-report.md
+            cat /tmp/enabled-linters.txt >> lint-report.md
+            echo "\`\`\`" >> lint-report.md
+            echo "</details>" >> lint-report.md
+          else
+            echo "Could not retrieve enabled linters list." >> lint-report.md
+          fi
+          echo "" >> lint-report.md
+          echo "🔗 [View full workflow run](${{ "{{" }} github.server_url {{ "}}" }}/${{ "{{" }} github.repository {{ "}}" }}/actions/runs/${{ "{{" }} github.run_id {{ "}}" }})" >> lint-report.md
+          echo "" >> lint-report.md
+          echo "---" >> lint-report.md
+          echo "*Last updated: ${{ "{{" }} github.event.pull_request.head.sha {{ "}}" }}*" >> lint-report.md
+      - name: Find existing comment
+        if: always() && github.event_name == 'pull_request'
+        id: find-comment
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ "{{" }} github.event.pull_request.number {{ "}}" }}
+          body-includes: 'lint-summary-comment'
+      - name: Create or update PR comment
+        if: always() && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ "{{" }} steps.find-comment.outputs.comment-id {{ "}}" }}
+          issue-number: ${{ "{{" }} github.event.pull_request.number {{ "}}" }}
+          body-path: lint-report.md
+          edit-mode: replace

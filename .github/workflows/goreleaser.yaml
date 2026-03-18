@@ -1,0 +1,60 @@
+# .github/workflows/goreleaser.yml
+name: goreleaser
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    types:
+      - "opened"
+      - "synchronize"
+      - "reopened"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  id-token: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      - name: Install documentation tools
+        run: pip install zensical
+
+      - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: echo "flags=--snapshot" >> $GITHUB_ENV
+
+      - name: Run GoReleaser ${{ env.flags }}
+        uses: goreleaser/goreleaser-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --verbose ${{ env.flags }}
+
+      # Upload PR artifacts if on a PR branch
+      - name: Upload PR artifacts
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-binaries-${{ github.event.number }}
+          path: dist/**
+          if-no-files-found: error
+          retention-days: 7

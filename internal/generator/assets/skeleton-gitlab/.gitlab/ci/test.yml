@@ -1,0 +1,15 @@
+unit-tests:
+  stage: test
+  image: golang:latest
+  script:
+    - go mod download
+    - go test -race -v -coverprofile cover.out $(go list ./... | grep -v '/mocks/')
+  coverage: '/^total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - cover.out
+    when: always
