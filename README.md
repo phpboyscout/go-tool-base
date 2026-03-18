@@ -111,6 +111,3 @@ Standardized layout for GTB projects:
 ├── go.mod
 └── README.md
 ```
-
----
-*Built with ❤️ by the PTPS Team.*
