@@ -44,6 +44,23 @@ type SkeletonConfig struct {
 	TeamsTeam    string
 }
 
+// splitRepoPath splits a repository path on the last '/', returning the org
+// (everything before) and repo name (everything after). This supports both
+// simple GitHub paths ("org/repo") and deeply-nested GitLab group paths
+// ("group/subgroup/repo").
+func splitRepoPath(repo string) (org, repoName string, err error) {
+	i := strings.LastIndex(repo, "/")
+	if i <= 0 {
+		return "", "", errors.Newf("invalid repository format: path must contain '/' with a non-empty org (e.g. org/repo)")
+	}
+
+	if i == len(repo)-1 {
+		return "", "", errors.Newf("invalid repository format: repository name must not be empty (e.g. org/repo)")
+	}
+
+	return repo[:i], repo[i+1:], nil
+}
+
 func releaseProviderForHost(host string) string {
 	if strings.Contains(host, "gitlab") {
 		return "gitlab"
@@ -85,11 +102,9 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig) error {
 	g.props.Logger.Infof("Generating skeleton for %s in %s...", config.Name, config.Path)
 
-	parts := strings.Split(config.Repo, "/")
-
-	const expectedParts = 2
-	if len(parts) != expectedParts {
-		return errors.Newf("invalid repository format, expected org/repo")
+	org, repoName, err := splitRepoPath(config.Repo)
+	if err != nil {
+		return err
 	}
 
 	if config.Host == "" {
@@ -124,8 +139,8 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 		Host:              config.Host,
 		ModulePath:        fmt.Sprintf("%s/%s", config.Host, config.Repo),
 		Description:       config.Description,
-		Org:               parts[0],
-		RepoName:          parts[1],
+		Org:               org,
+		RepoName:          repoName,
 		ReleaseProvider:   releaseProviderForHost(config.Host),
 		GoToolBaseVersion: g.currentVersion(),
 		GoVersion:         resolveGoVersion(config.GoVersion),
@@ -348,11 +363,9 @@ func (g *Generator) renderSkeletonTemplate(fullPath, tmplStr string, data any) e
 }
 
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
-	parts := strings.Split(config.Repo, "/")
-
-	const expectedParts = 2
-	if len(parts) != expectedParts {
-		return errors.Newf("invalid repository format, expected org/repo")
+	org, repoName, err := splitRepoPath(config.Repo)
+	if err != nil {
+		return err
 	}
 
 	manifest := Manifest{
@@ -371,15 +384,9 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
 			},
 		},
 		ReleaseSource: ManifestReleaseSource{
-			Type: func() string {
-				if strings.Contains(config.Host, "gitlab") {
-					return "gitlab"
-				}
-
-				return "github"
-			}(),
-			Owner: parts[0],
-			Repo:  parts[1],
+			Type:  releaseProviderForHost(config.Host),
+			Owner: org,
+			Repo:  repoName,
 		},
 		Version: ManifestVersion{
 			GoToolBase: func() string {
