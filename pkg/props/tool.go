@@ -83,10 +83,11 @@ func Disable(cmd FeatureCmd) FeatureState {
 }
 
 type ReleaseSource struct {
-	Type  string `json:"type" yaml:"type"`
-	Host  string `json:"host" yaml:"host"`
-	Owner string `json:"owner" yaml:"owner"`
-	Repo  string `json:"repo" yaml:"repo"`
+	Type    string `json:"type" yaml:"type"`
+	Host    string `json:"host" yaml:"host"`
+	Owner   string `json:"owner" yaml:"owner"`
+	Repo    string `json:"repo" yaml:"repo"`
+	Private bool   `json:"private" yaml:"private"`
 }
 
 type Tool struct {

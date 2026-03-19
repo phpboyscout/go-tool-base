@@ -19,6 +19,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/phpboyscout/gtb/pkg/props"
+	"github.com/phpboyscout/gtb/pkg/vcs"
 	githubvcs "github.com/phpboyscout/gtb/pkg/vcs/github"
 	gitlabvcs "github.com/phpboyscout/gtb/pkg/vcs/gitlab"
 	"github.com/phpboyscout/gtb/pkg/vcs/release"
@@ -110,6 +111,12 @@ func NewUpdater(props *props.Props, version string, force bool) (*SelfUpdater, e
 		vcsProvider = strings.ToLower(props.Config.GetString("vcs.provider"))
 	}
 
+	if props.Tool.ReleaseSource.Private {
+		if err = requireReleaseToken(vcsProvider, props); err != nil {
+			return nil, err
+		}
+	}
+
 	if vcsProvider == "gitlab" {
 		releaseClient, err = gitlabvcs.NewReleaseProvider(props.Config.Sub("gitlab"))
 	} else {
@@ -134,6 +141,32 @@ func NewUpdater(props *props.Props, version string, force bool) (*SelfUpdater, e
 		CurrentVersion: ver.FormatVersionString(props.Version.GetVersion(), true),
 		Fs:             props.FS,
 	}, nil
+}
+
+// requireReleaseToken returns an error if no authentication token is available
+// for the given VCS provider. Used to give a clear error for private repositories
+// before attempting an unauthenticated API call that would fail with a 401.
+func requireReleaseToken(vcsProvider string, p *props.Props) error {
+	var (
+		cfg         = p.Config.Sub(vcsProvider)
+		fallbackEnv string
+	)
+
+	switch vcsProvider {
+	case "gitlab":
+		fallbackEnv = "GITLAB_TOKEN"
+	default:
+		fallbackEnv = "GITHUB_TOKEN"
+	}
+
+	if vcs.ResolveToken(cfg, fallbackEnv) == "" {
+		return errors.WithHint(
+			errors.Newf("no %s token available for private repository", strings.ToUpper(vcsProvider)),
+			fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable updates", fallbackEnv, vcsProvider),
+		)
+	}
+
+	return nil
 }
 
 func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command) bool {
