@@ -1329,6 +1329,11 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 
 	releaseProvider, org, repoName := m.GetReleaseSource()
 
+	subcommands, err := g.buildSkeletonSubcommands(m.Commands)
+	if err != nil {
+		return err
+	}
+
 	data := templates.SkeletonRootData{
 		Name:             m.Properties.Name,
 		Description:      string(m.Properties.Description),
@@ -1339,6 +1344,7 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 		Private:          m.ReleaseSource.Private,
 		DisabledFeatures: disabledFeatures,
 		EnabledFeatures:  enabledFeatures,
+		Subcommands:      subcommands,
 	}
 
 	f := templates.SkeletonRoot(data)
@@ -1360,4 +1366,30 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 	}
 
 	return nil
+}
+
+// buildSkeletonSubcommands converts the top-level manifest commands into the
+// SkeletonSubcommand descriptors that SkeletonRoot uses to render the
+// gtbRoot.NewCmdRoot(p, sub1.NewCmdSub1(p), ...) call.
+func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]templates.SkeletonSubcommand, error) {
+	moduleName, err := g.getModuleName()
+	if err != nil {
+		return nil, err
+	}
+
+	subs := make([]templates.SkeletonSubcommand, 0, len(commands))
+
+	for _, cmd := range commands {
+		pkgAlias := strings.ReplaceAll(cmd.Name, "-", "_")
+		importPath := fmt.Sprintf("%s/pkg/cmd/%s", moduleName, cmd.Name)
+		constructor := "NewCmd" + PascalCase(cmd.Name)
+
+		subs = append(subs, templates.SkeletonSubcommand{
+			ImportPath:  importPath,
+			PkgAlias:    pkgAlias,
+			Constructor: constructor,
+		})
+	}
+
+	return subs, nil
 }

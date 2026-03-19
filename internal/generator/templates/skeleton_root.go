@@ -4,6 +4,14 @@ import (
 	"github.com/dave/jennifer/jen"
 )
 
+// SkeletonSubcommand describes a top-level command that must be registered in
+// the generated NewCmdRoot function.
+type SkeletonSubcommand struct {
+	ImportPath  string // e.g. "github.com/org/repo/pkg/cmd/serve"
+	PkgAlias    string // e.g. "serve"
+	Constructor string // e.g. "NewCmdServe"
+}
+
 type SkeletonRootData struct {
 	Name             string
 	Description      string
@@ -19,6 +27,7 @@ type SkeletonRootData struct {
 	SlackTeam        string
 	TeamsChannel     string
 	TeamsTeam        string
+	Subcommands      []SkeletonSubcommand
 }
 
 func SkeletonRoot(data SkeletonRootData) *jen.File {
@@ -32,8 +41,16 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("github.com/phpboyscout/gtb/pkg/errorhandling", "New").Call(jen.Id("logger"), jen.Id("p").Dot("Tool").Dot("Help"))
 
+	subCmdArgs := make([]jen.Code, 0, 1+len(data.Subcommands))
+	subCmdArgs = append(subCmdArgs, jen.Id("p"))
+
+	for _, sub := range data.Subcommands {
+		f.ImportAlias(sub.ImportPath, sub.PkgAlias)
+		subCmdArgs = append(subCmdArgs, jen.Qual(sub.ImportPath, sub.Constructor).Call(jen.Id("p")))
+	}
+
 	rootCmdInit := jen.Id("rootCmd").Op(":=").Qual("github.com/phpboyscout/gtb/pkg/cmd/root", "NewCmdRoot").Call(
-		jen.Id("p"),
+		subCmdArgs...,
 	)
 
 	toolDict := buildToolDict(data)

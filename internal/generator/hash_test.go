@@ -65,6 +65,7 @@ func TestHashUpdateOnRegeneration(t *testing.T) {
 
 	require.NoError(t, fs.MkdirAll(".gtb", 0755))
 	require.NoError(t, afero.WriteFile(fs, ".gtb/manifest.yaml", manifestBytes, 0644))
+	require.NoError(t, afero.WriteFile(fs, "go.mod", []byte("module github.com/test/project\n\ngo 1.22\n"), 0644))
 
 	// Write the file to disk matchiing the hash
 	cmdDir := filepath.Join("pkg", "cmd", cmdName)
