@@ -38,6 +38,7 @@ go run main.go regenerate project
 - **Rebuilds `cmd.go`**: Updates Cobra definitions, flags, and descriptions.
 - **Refreshes Assets**: Re-bundles any static assets into the binary.
 - **Injects Imports**: Ensures all subcommands are correctly imported and registered in parent commands.
+- **Manages Lifecycle Files**: Creates or removes `init.go` based on the `withInitializer` value in the manifest for each command. If `withInitializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
 - **Runs Linting**: Automatically executes `golangci-lint run --fix` to ensure the generated code is squeaky clean.
 - **Conflict Detection**: Checks if `cmd.go` files have been manually modified and prompts for confirmation before overwriting (unless `--force` is used).
 
@@ -64,9 +65,11 @@ go run main.go regenerate manifest
 
 It parses your project's AST (Abstract Syntax Tree) to find `cobra.Command` definitions and extracts:
 
-- Command names and descriptions.
-- Flag definitions.
-- Parent/Child relationships.
+- Command names, descriptions, aliases, and positional argument validation.
+- Flag definitions (name, type, description, shorthand, default, required, persistent).
+- Parent/child relationships, including the variadic-argument registration pattern used by the generated root command.
+- Enabled options per command: `withAssets` (detected from `assets/` directory or `//go:embed` directive), `persistentPreRun`/`preRun` (detected from hook function calls), and `withInitializer` (detected from the presence of `init.go`).
+- Project-level properties: `name`, `description`, `features`, and `release_source` are recovered from the `props.Props{Tool: ...}` literal in `pkg/cmd/root/cmd.go`.
 
 !!! tip "Source of Truth"
     While `regenerate manifest` is a powerful recovery tool, we recommend treating the **Manifest** as your source of truth and driving changes through it (or `generate` commands) rather than the other way around.

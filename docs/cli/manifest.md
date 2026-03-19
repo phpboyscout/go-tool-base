@@ -73,6 +73,7 @@ commands:
     - **protected**: Whether the command is write-protected (preventing overwrite).
     - **persistentPreRun**: Whether to generate a persistent pre-run hook.
     - **preRun**: Whether to generate a pre-run hook.
+    - **withInitializer**: Whether to generate a config Initializer for this command (`init.go` + `Init<Name>` stub in `main.go`).
     - **mutuallyExclusive**: A list of flag groups where only one flag can be set (e.g., `[["json", "yaml"]]`).
     - **requiredTogether**: A list of flag groups that must be set together.
     - **flags**: A list of flags associated with the command.

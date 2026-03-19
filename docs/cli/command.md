@@ -58,7 +58,14 @@ go run main.go generate command -n cat --parent dog
 go run main.go generate command -n mouse --parent dog/cat
 ```
 
-### 3. Adding Flags 🚩
+### 3. Interactive Mode 🎛️
+
+Running `generate command` without any flags launches a **multi-stage interactive wizard**, similar to `generate project`. The wizard walks you through the core fields first (name, description, parent, options), then conditionally presents additional stages based on your choices:
+
+- **Flag Definition stage**: Enabled by selecting "Add Flags" in the main form. Each flag has its own dedicated form with one field per property. After submitting a flag you can tick "Add Another Flag" to keep adding more. A running summary of already-defined flags is shown at the top of each subsequent form for reference.
+- **AI Prompt stage**: Enabled by selecting "Set AI Prompt" in the main form.
+
+### 3a. Adding Flags via CLI 🚩
 
 You can define flags during generation using the `--flag` (`-f`) argument. The full format is `name:type:description:persistent:shorthand:required:default:defaultIsCode`.
 
@@ -87,7 +94,7 @@ go run main.go generate command -n root -f "config:string:Config file:true"
 
 Need to add a flag to an existing command? Check out the [Add Flag](add-flag.md) utility!
 
-### 4. Smart Asset Handling 📦
+### 3b. Smart Asset Handling 📦
 
 Need configuration files or static assets? Use the `--assets` flag.
 
@@ -101,12 +108,18 @@ You can generate lifecycle hook stubs for your command:
 
 - `--persistent-pre-run`: Generate a `PersistentPreRun` hook (runs before this command and all subcommands).
 - `--pre-run`: Generate a `PreRun` hook (runs before this command only).
-- `--with-initializer`: Generate a config Initializer for this command.
+- `--with-initializer`: Generate a config Initializer for this command (creates `init.go` and adds an `Init<Name>` stub in `main.go`).
 
 ```bash
 # Generate a command with a PersistentPreRun hook and an initializer
 go run main.go generate command -n serve --persistent-pre-run --with-initializer
 ```
+
+!!! note "Options are authoritative"
+    The options you pass to `generate command` are always written directly to the manifest. If you re-run the command **without** an option that was previously enabled, that option is removed from the manifest and its associated files are cleaned up. For example, omitting `--with-initializer` on a subsequent run will remove `init.go` from the command directory.
+
+!!! tip "Updating existing commands"
+    If you add a lifecycle hook option to a command whose `main.go` already exists (and you're not using `--force`), the generator will **append the missing stub** to your existing implementation file rather than overwriting it. It will also inject any required imports. Your existing logic is never modified.
 
 ### 5. Command Protection 🛡️
 
