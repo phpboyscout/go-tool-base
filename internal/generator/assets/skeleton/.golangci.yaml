@@ -79,6 +79,9 @@ formatters:
     goimports:
       local-prefixes:
         - "{{ .ModulePath }}"
+    gofumpt:
+      module-path: "{{ .ModulePath }}"
+      extra-rules: true
   exclusions:
     generated: lax
     paths:
