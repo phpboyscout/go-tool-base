@@ -184,6 +184,7 @@ func (m *Manifest) GetReleaseSource() (sourceType, owner, repo string) {
 
 type ManifestReleaseSource struct {
 	Type  string `yaml:"type"`
+	Host  string `yaml:"host"`
 	Owner string `yaml:"owner"`
 	Repo  string `yaml:"repo"`
 }

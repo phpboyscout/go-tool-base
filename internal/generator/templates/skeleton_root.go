@@ -8,6 +8,7 @@ type SkeletonRootData struct {
 	Name             string
 	Description      string
 	ReleaseProvider  string
+	Host             string
 	Org              string
 	RepoName         string
 	DisabledFeatures []string
@@ -76,6 +77,7 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		jen.Id("Description"): jen.Lit(data.Description),
 		jen.Id("ReleaseSource"): jen.Qual("github.com/phpboyscout/gtb/pkg/props", "ReleaseSource").Values(jen.Dict{
 			jen.Id("Type"):  jen.Lit(data.ReleaseProvider),
+			jen.Id("Host"):  jen.Lit(data.Host),
 			jen.Id("Owner"): jen.Lit(data.Org),
 			jen.Id("Repo"):  jen.Lit(data.RepoName),
 		}),

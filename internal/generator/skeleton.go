@@ -200,6 +200,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 			Name:             data.Name,
 			Description:      data.Description,
 			ReleaseProvider:  data.ReleaseProvider,
+			Host:             data.Host,
 			Org:              data.Org,
 			RepoName:         data.RepoName,
 			DisabledFeatures: data.DisabledFeatures,
@@ -385,6 +386,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
 		},
 		ReleaseSource: ManifestReleaseSource{
 			Type:  releaseProviderForHost(config.Host),
+			Host:  config.Host,
 			Owner: org,
 			Repo:  repoName,
 		},
