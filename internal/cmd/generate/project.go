@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -143,8 +144,13 @@ func (o *SkeletonOptions) runWizard() error {
 			}
 
 			backendLabel := "GitHub"
+			repoDesc := "The repository path in org/repo format."
+			repoPlaceholder := "org/repo"
+
 			if o.GitBackend == "gitlab" {
 				backendLabel = "GitLab"
+				repoDesc = "The repository path. GitLab supports nested groups — use the full path and the last segment will be treated as the repository name (e.g. group/subgroup/repo)."
+				repoPlaceholder = "group/subgroup/repo"
 			}
 
 			stage2 := huh.NewGroup(
@@ -161,12 +167,16 @@ func (o *SkeletonOptions) runWizard() error {
 					}),
 				huh.NewInput().
 					Title("Repository").
-					Description("The repository path in org/repo format.").
-					Placeholder("org/repo").
+					Description(repoDesc).
+					Placeholder(repoPlaceholder).
 					Value(&o.Repo).
 					Validate(func(s string) error {
 						if s == "" {
 							return ErrRepositoryRequired
+						}
+
+						if !strings.Contains(s, "/") {
+							return ErrRepositoryInvalidFormat
 						}
 
 						return nil
