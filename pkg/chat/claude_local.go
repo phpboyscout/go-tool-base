@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/phpboyscout/gtb/pkg/props"
 )
 
@@ -113,10 +114,10 @@ func (c *ClaudeLocal) buildPrompt(prompt string) string {
 		return prompt
 	}
 
-	parts := append(c.pending, prompt)
+	pending := c.pending
 	c.pending = nil
 
-	return strings.Join(parts, "\n\n---\n\n")
+	return strings.Join(append(pending, prompt), "\n\n---\n\n")
 }
 
 // buildArgs constructs the base argument list for a claude subprocess invocation.
