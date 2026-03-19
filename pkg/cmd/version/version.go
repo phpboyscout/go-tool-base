@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/gtb/pkg/props"
+	p "github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/setup"
 )
 
@@ -16,7 +16,7 @@ const (
 	versionCheckTimeout = 60 * time.Second
 )
 
-func NewCmdVersion(props *props.Props) *cobra.Command {
+func NewCmdVersion(props *p.Props) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
 		Short: "Print version of this program",
@@ -26,6 +26,10 @@ func NewCmdVersion(props *props.Props) *cobra.Command {
 				"version", props.Version.GetVersion(),
 				"Build", props.Version.GetCommit(),
 				"Built On", props.Version.GetDate())
+
+			if props.Tool.IsDisabled(p.UpdateCmd) || props.Version.IsDevelopment() {
+				return nil
+			}
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), versionCheckTimeout)
 			defer cancel()

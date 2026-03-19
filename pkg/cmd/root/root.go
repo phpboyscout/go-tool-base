@@ -197,6 +197,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues) bool {
 	// Skip update checks in various conditions
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
+		(props.Version != nil && props.Version.IsDevelopment()) ||
 		redirectingToUpdate ||
 		flags.CI ||
 		props.Config.GetBool("ci") {
@@ -350,6 +351,10 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		configureLogging(props, flags, cfg, mcpLogLevel)
 
 		// Check for updates
+		if props.Tool.IsDisabled(p.UpdateCmd) {
+			return nil
+		}
+
 		updateResult := checkForUpdates(cmd.Context(), cmd, props, flags)
 		if updateResult.Error != nil {
 			return updateResult.Error
