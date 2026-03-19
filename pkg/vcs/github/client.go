@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/vcs"
 )
 
 const (
@@ -218,26 +218,22 @@ func NewGitHubClient(cfg config.Containable) (*GHClient, error) {
 		return nil, err
 	}
 
-	token, err := GetGitHubToken(cfg)
-	if err != nil {
-		return nil, err
+	// Token is optional: public repositories work without authentication.
+	// Private repositories will receive a 401 from the API if no token is set.
+	if token := vcs.ResolveToken(cfg, "GITHUB_TOKEN"); token != "" {
+		client = client.WithAuthToken(token)
 	}
 
-	return &GHClient{client.WithAuthToken(token), cfg}, nil
+	return &GHClient{client, cfg}, nil
 }
 
+// GetGitHubToken returns the GitHub token from config, erroring when none is
+// available. Use this where a token is strictly required (e.g. git operations).
+// For release/update operations on public repos, prefer vcs.ResolveToken directly.
 func GetGitHubToken(cfg config.Containable) (string, error) {
-	var token string
-	if cfg.Has("auth.env") {
-		token = os.Getenv(cfg.GetString("auth.env"))
-	}
-
-	if cfg.Has("auth.value") {
-		token = cfg.GetString("auth.value")
-	}
-
+	token := vcs.ResolveToken(cfg, "GITHUB_TOKEN")
 	if token == "" {
-		return token, errors.New("could not find a valid GITHUB_TOKEN, please check your configuration ")
+		return "", errors.New("could not find a valid GITHUB_TOKEN, please check your configuration")
 	}
 
 	return token, nil

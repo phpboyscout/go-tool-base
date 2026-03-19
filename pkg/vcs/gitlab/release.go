@@ -5,12 +5,11 @@ import (
 	"io"
 	"net/http"
 
-	"os"
-
 	"github.com/cockroachdb/errors"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/vcs"
 	"github.com/phpboyscout/gtb/pkg/vcs/release"
 )
 
@@ -79,19 +78,7 @@ func NewReleaseProvider(cfg config.Containable) (release.Provider, error) {
 		return nil, errors.New("gitlab configuration is missing")
 	}
 
-	token := ""
-	if cfg.Has("auth.env") {
-		token = os.Getenv(cfg.GetString("auth.env"))
-	}
-
-	if cfg.Has("auth.value") {
-		token = cfg.GetString("auth.value")
-	}
-
-	// Wait, we don't have a specific Gitlab config right now, maybe default to environment variables
-	if token == "" {
-		token = os.Getenv("GITLAB_TOKEN")
-	}
+	token := vcs.ResolveToken(cfg, "GITLAB_TOKEN")
 
 	baseURL := cfg.GetString("url.api")
 	if baseURL == "" {
