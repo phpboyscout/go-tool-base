@@ -820,6 +820,7 @@ func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, strin
 
 	cmd := &ManifestCommand{}
 	g.detectAssets(path, f, cmd)
+	g.detectInitializer(path, cmd)
 
 	// Find NewCmd... function
 	pkgName := filepath.Base(filepath.Dir(path))
@@ -1123,6 +1124,16 @@ func (g *Generator) detectAssets(path string, f *dst.File, cmd *ManifestCommand)
 				}
 			}
 		}
+	}
+}
+
+// detectInitializer sets cmd.WithInitializer if an init.go file exists in the
+// same directory as path, which is the canonical indicator that the command was
+// generated with the Config Initialiser option.
+func (g *Generator) detectInitializer(path string, cmd *ManifestCommand) {
+	initPath := filepath.Join(filepath.Dir(path), "init.go")
+	if exists, _ := afero.Exists(g.props.FS, initPath); exists {
+		cmd.WithInitializer = true
 	}
 }
 

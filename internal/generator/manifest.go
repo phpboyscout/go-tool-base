@@ -65,6 +65,7 @@ type ManifestCommand struct {
 	Hash              string            `yaml:"hash,omitempty"` // Deprecated: use Hashes
 	Hashes            map[string]string `yaml:"hashes,omitempty"`
 	WithAssets        bool              `yaml:"with_assets,omitempty"`
+	WithInitializer   bool              `yaml:"with_initializer,omitempty"`
 	Protected         *bool             `yaml:"protected,omitempty"`
 	PersistentPreRun  bool              `yaml:"persistent_pre_run,omitempty"`
 	PreRun            bool              `yaml:"pre_run,omitempty"`
@@ -237,7 +238,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 
 	if len(pathParts) == 0 {
 		g.updateRootCommand(&m, mFlags, hashes)
-	} else if !updateCommandRecursive(&m.Commands, pathParts, g.config.Name, g.config.Short, g.config.Long, g.config.Aliases, g.config.Args, hashes, g.config.WithAssets, g.config.PersistentPreRun, g.config.PreRun, g.config.Protected, g.config.Hidden, mFlags) {
+	} else if !updateCommandRecursive(&m.Commands, pathParts, g.config.Name, g.config.Short, g.config.Long, g.config.Aliases, g.config.Args, hashes, g.config.WithAssets, g.config.WithInitializer, g.config.PersistentPreRun, g.config.PreRun, g.config.Protected, g.config.Hidden, mFlags) {
 		return errors.Newf("%w: %s", ErrParentPathNotFound, g.config.Parent)
 	}
 
@@ -266,6 +267,7 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 			m.Commands[i].Args = g.config.Args
 			m.Commands[i].Hashes = hashes
 			m.Commands[i].WithAssets = g.config.WithAssets
+			m.Commands[i].WithInitializer = g.config.WithInitializer
 			m.Commands[i].PersistentPreRun = g.config.PersistentPreRun
 			m.Commands[i].PreRun = g.config.PreRun
 			m.Commands[i].Hidden = g.config.Hidden
@@ -283,45 +285,38 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 
 	if !found {
 		m.Commands = append(m.Commands, ManifestCommand{
-			Name:            g.config.Name,
-			Description:     MultilineString(g.config.Short),
-			LongDescription: MultilineString(g.config.Long),
-			Aliases:         g.config.Aliases,
-			Args:            g.config.Args,
-			Hidden:          g.config.Hidden,
-			Flags:           mFlags,
-			Hashes:          hashes,
-			Protected:       g.config.Protected,
-			// Aliases, Hidden, MutuallyExclusive are not usually set via config flags for root/new commands yet
-			// unless we add config support. For now, manifest updates preserve them if they existed?
-			// But here we are creating a new one.
-			// The user request implies *updating manifest to reflect correct properties* and *regenerate*.
-			// It implies manually editing manifest is the source of truth for these advanced props.
-			// So when updating, we should preserve existing values if we are not careful.
-			// But updateRootCommand overwrites fields. I should check if I need to preserve them.
-			// Currently updateRootCommand finds by name and overwrites desc, etc.
-			// It does NOT touch Aliases/Hidden/MutuallyExclusive if I don't set them.
-			// But for NEW commands, they will be empty/false.
-			// For EXISTING commands (found=true case), I should probably not wipe them out.
+			Name:             g.config.Name,
+			Description:      MultilineString(g.config.Short),
+			LongDescription:  MultilineString(g.config.Long),
+			Aliases:          g.config.Aliases,
+			Args:             g.config.Args,
+			Hidden:           g.config.Hidden,
+			Flags:            mFlags,
+			Hashes:           hashes,
+			Protected:        g.config.Protected,
+			WithAssets:       g.config.WithAssets,
+			WithInitializer:  g.config.WithInitializer,
+			PersistentPreRun: g.config.PersistentPreRun,
+			PreRun:           g.config.PreRun,
 		})
 	}
 }
 
-func updateCommandRecursive(commands *[]ManifestCommand, parentPath []string, name, description, longDescription string, aliases []string, args string, hashes map[string]string, withAssets, persistentPreRun, preRun bool, protected *bool, hidden bool, flags []ManifestFlag) bool {
+func updateCommandRecursive(commands *[]ManifestCommand, parentPath []string, name, description, longDescription string, aliases []string, args string, hashes map[string]string, withAssets, withInitializer, persistentPreRun, preRun bool, protected *bool, hidden bool, flags []ManifestFlag) bool {
 	if len(parentPath) == 0 {
 		return false
 	}
 
 	for i := range *commands {
 		if (*commands)[i].Name == parentPath[0] {
-			return handleCommandRecursiveUpdate(commands, i, parentPath, name, description, longDescription, aliases, args, hashes, withAssets, persistentPreRun, preRun, protected, hidden, flags)
+			return handleCommandRecursiveUpdate(commands, i, parentPath, name, description, longDescription, aliases, args, hashes, withAssets, withInitializer, persistentPreRun, preRun, protected, hidden, flags)
 		}
 	}
 
 	return false
 }
 
-func handleCommandRecursiveUpdate(commands *[]ManifestCommand, idx int, parentPath []string, name, description, longDescription string, aliases []string, args string, hashes map[string]string, withAssets, persistentPreRun, preRun bool, protected *bool, hidden bool, flags []ManifestFlag) bool {
+func handleCommandRecursiveUpdate(commands *[]ManifestCommand, idx int, parentPath []string, name, description, longDescription string, aliases []string, args string, hashes map[string]string, withAssets, withInitializer, persistentPreRun, preRun bool, protected *bool, hidden bool, flags []ManifestFlag) bool {
 	if len(parentPath) == 1 {
 		// Found the parent
 		found := false
@@ -334,6 +329,7 @@ func handleCommandRecursiveUpdate(commands *[]ManifestCommand, idx int, parentPa
 				(*commands)[idx].Commands[j].Args = args
 				(*commands)[idx].Commands[j].Hashes = hashes
 				(*commands)[idx].Commands[j].WithAssets = withAssets
+				(*commands)[idx].Commands[j].WithInitializer = withInitializer
 				(*commands)[idx].Commands[j].PersistentPreRun = persistentPreRun
 				(*commands)[idx].Commands[j].PreRun = preRun
 				(*commands)[idx].Commands[j].Hidden = hidden
@@ -358,6 +354,7 @@ func handleCommandRecursiveUpdate(commands *[]ManifestCommand, idx int, parentPa
 				Args:             args,
 				Hashes:           hashes,
 				WithAssets:       withAssets,
+				WithInitializer:  withInitializer,
 				PersistentPreRun: persistentPreRun,
 				PreRun:           preRun,
 				Hidden:           hidden,
@@ -369,7 +366,7 @@ func handleCommandRecursiveUpdate(commands *[]ManifestCommand, idx int, parentPa
 		return true
 	}
 	// Descend further
-	return updateCommandRecursive(&(*commands)[idx].Commands, parentPath[1:], name, description, longDescription, aliases, args, hashes, withAssets, persistentPreRun, preRun, protected, hidden, flags)
+	return updateCommandRecursive(&(*commands)[idx].Commands, parentPath[1:], name, description, longDescription, aliases, args, hashes, withAssets, withInitializer, persistentPreRun, preRun, protected, hidden, flags)
 }
 
 func (g *Generator) FindCommandParentPath(name string) ([]string, error) {
@@ -472,25 +469,10 @@ func (g *Generator) findManifestCommand() (*ManifestCommand, error) {
 }
 
 func (g *Generator) syncConfigWithCommand(cmd *ManifestCommand) {
-	g.syncPreRunConfig(cmd)
 	g.syncDisplayConfig(cmd)
-
-	if !g.config.WithAssets && cmd.WithAssets {
-		g.config.WithAssets = true
-	}
 
 	if g.config.Args == "" && cmd.Args != "" {
 		g.config.Args = cmd.Args
-	}
-}
-
-func (g *Generator) syncPreRunConfig(cmd *ManifestCommand) {
-	if !g.config.PersistentPreRun && cmd.PersistentPreRun {
-		g.config.PersistentPreRun = true
-	}
-
-	if !g.config.PreRun && cmd.PreRun {
-		g.config.PreRun = true
 	}
 }
 

@@ -80,13 +80,13 @@ func TestUpdateCommandRecursive_Deep(t *testing.T) {
 	}
 
 	// Update existing command 'b'
-	updated := updateCommandRecursive(&cmds, []string{"a"}, "b", "new short", "new long", nil, "", map[string]string{"cmd.go": "new-hash"}, false, false, false, nil, false, nil)
+	updated := updateCommandRecursive(&cmds, []string{"a"}, "b", "new short", "new long", nil, "", map[string]string{"cmd.go": "new-hash"}, false, false, false, false, nil, false, nil)
 	assert.True(t, updated)
 	assert.Equal(t, "new short", string(cmds[0].Commands[0].Description))
 	assert.Equal(t, "new-hash", cmds[0].Commands[0].Hashes["cmd.go"])
 
 	// Add new command 'c' under 'b'
-	updated = updateCommandRecursive(&cmds, []string{"a", "b"}, "c", "short c", "", nil, "", map[string]string{"cmd.go": "hash-c"}, false, false, false, nil, false, nil)
+	updated = updateCommandRecursive(&cmds, []string{"a", "b"}, "c", "short c", "", nil, "", map[string]string{"cmd.go": "hash-c"}, false, false, false, false, nil, false, nil)
 	assert.True(t, updated)
 	require.Len(t, cmds[0].Commands[0].Commands, 1)
 	assert.Equal(t, "c", cmds[0].Commands[0].Commands[0].Name)
