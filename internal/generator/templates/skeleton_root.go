@@ -73,9 +73,9 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 func buildToolDict(data SkeletonRootData) jen.Dict {
 	toolDict := jen.Dict{
-		jen.Id("Name"):        jen.Lit(data.Name),
-		jen.Id("Summary"):     jen.Lit(data.Name + " utility"),
-		jen.Id("Description"): jen.Lit(data.Description),
+		jen.Id("Name"):          jen.Lit(data.Name),
+		jen.Id("Summary"):       jen.Lit(data.Name + " utility"),
+		jen.Id("Description"):   jen.Lit(data.Description),
 		jen.Id("ReleaseSource"): jen.Qual("github.com/phpboyscout/gtb/pkg/props", "ReleaseSource").Values(buildReleaseSourceDict(data)),
 	}
 
