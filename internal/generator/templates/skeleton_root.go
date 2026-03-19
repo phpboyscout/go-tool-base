@@ -11,6 +11,7 @@ type SkeletonRootData struct {
 	Host             string
 	Org              string
 	RepoName         string
+	Private          bool
 	DisabledFeatures []string
 	EnabledFeatures  []string
 	HelpType         string // "slack", "teams", or ""
@@ -75,12 +76,7 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		jen.Id("Name"):        jen.Lit(data.Name),
 		jen.Id("Summary"):     jen.Lit(data.Name + " utility"),
 		jen.Id("Description"): jen.Lit(data.Description),
-		jen.Id("ReleaseSource"): jen.Qual("github.com/phpboyscout/gtb/pkg/props", "ReleaseSource").Values(jen.Dict{
-			jen.Id("Type"):  jen.Lit(data.ReleaseProvider),
-			jen.Id("Host"):  jen.Lit(data.Host),
-			jen.Id("Owner"): jen.Lit(data.Org),
-			jen.Id("Repo"):  jen.Lit(data.RepoName),
-		}),
+		jen.Id("ReleaseSource"): jen.Qual("github.com/phpboyscout/gtb/pkg/props", "ReleaseSource").Values(buildReleaseSourceDict(data)),
 	}
 
 	switch data.HelpType {
@@ -101,6 +97,21 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 	}
 
 	return toolDict
+}
+
+func buildReleaseSourceDict(data SkeletonRootData) jen.Dict {
+	d := jen.Dict{
+		jen.Id("Type"):  jen.Lit(data.ReleaseProvider),
+		jen.Id("Host"):  jen.Lit(data.Host),
+		jen.Id("Owner"): jen.Lit(data.Org),
+		jen.Id("Repo"):  jen.Lit(data.RepoName),
+	}
+
+	if data.Private {
+		d[jen.Id("Private")] = jen.True()
+	}
+
+	return d
 }
 
 func buildFeatures(data SkeletonRootData) []jen.Code {

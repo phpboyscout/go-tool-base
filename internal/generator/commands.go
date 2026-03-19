@@ -1179,6 +1179,7 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 		Host:             m.ReleaseSource.Host,
 		Org:              org,
 		RepoName:         repoName,
+		Private:          m.ReleaseSource.Private,
 		DisabledFeatures: disabledFeatures,
 		EnabledFeatures:  enabledFeatures,
 	}

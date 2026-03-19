@@ -19,6 +19,7 @@ type SkeletonOptions struct {
 	GitBackend   string
 	Repo         string
 	Host         string
+	Private      bool
 	Description  string
 	Path         string
 	GoVersion    string
@@ -53,6 +54,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVarP(&opts.Repo, "repo", "r", "", "Repository in org/repo format")
 	cmd.Flags().StringVar(&opts.GitBackend, "git-backend", "github", "Git backend (github or gitlab)")
 	cmd.Flags().StringVar(&opts.Host, "host", "", "Git host (defaults to backend's canonical host)")
+	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "A tool built with gtb", "Project description")
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Destination path")
 	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", []string{"init", "update", "mcp", "docs"}, "Features to enable (init, update, mcp, docs)")
@@ -181,6 +183,12 @@ func (o *SkeletonOptions) runWizard() error {
 
 						return nil
 					}),
+				huh.NewConfirm().
+					Title("Private Repository").
+					Description("Does this repository require authentication to access releases? Enable for private repos; leave off for public ones.").
+					Affirmative("Private").
+					Negative("Public").
+					Value(&o.Private),
 			).
 				Title(fmt.Sprintf("%s Repository", backendLabel)).
 				Description(fmt.Sprintf("Configure the %s repository that will host your new tool.\n", backendLabel))
@@ -275,6 +283,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		Name:         o.Name,
 		Repo:         o.Repo,
 		Host:         host,
+		Private:      o.Private,
 		Description:  o.Description,
 		Path:         o.Path,
 		GoVersion:    o.GoVersion,

@@ -37,6 +37,7 @@ type SkeletonConfig struct {
 	Path         string
 	GoVersion    string // overrides autodetected version when set
 	Features     []ManifestFeature
+	Private      bool   // true if the repository requires authentication to access
 	HelpType     string // "slack", "teams", or ""
 	SlackChannel string
 	SlackTeam    string
@@ -128,6 +129,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 		GoVersion         string
 		DisabledFeatures  []string
 		EnabledFeatures   []string
+		Private           bool
 		HelpType          string
 		SlackChannel      string
 		SlackTeam         string
@@ -146,6 +148,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 		GoVersion:         resolveGoVersion(config.GoVersion),
 		DisabledFeatures:  calculateDisabledFeatures(config.Features),
 		EnabledFeatures:   calculateEnabledFeatures(config.Features),
+		Private:           config.Private,
 		HelpType:          config.HelpType,
 		SlackChannel:      config.SlackChannel,
 		SlackTeam:         config.SlackTeam,
@@ -187,6 +190,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 	GoVersion         string
 	DisabledFeatures  []string
 	EnabledFeatures   []string
+	Private           bool
 	HelpType          string
 	SlackChannel      string
 	SlackTeam         string
@@ -203,6 +207,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 			Host:             data.Host,
 			Org:              data.Org,
 			RepoName:         data.RepoName,
+			Private:          data.Private,
 			DisabledFeatures: data.DisabledFeatures,
 			EnabledFeatures:  data.EnabledFeatures,
 			HelpType:         data.HelpType,
@@ -310,6 +315,7 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any) err
 		GoVersion         string
 		DisabledFeatures  []string
 		EnabledFeatures   []string
+		Private           bool
 		HelpType          string
 		SlackChannel      string
 		SlackTeam         string
@@ -383,10 +389,11 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
 			},
 		},
 		ReleaseSource: ManifestReleaseSource{
-			Type:  releaseProviderForHost(config.Host),
-			Host:  config.Host,
-			Owner: org,
-			Repo:  repoName,
+			Type:    releaseProviderForHost(config.Host),
+			Host:    config.Host,
+			Owner:   org,
+			Repo:    repoName,
+			Private: config.Private,
 		},
 		Version: ManifestVersion{
 			GoToolBase: func() string {
