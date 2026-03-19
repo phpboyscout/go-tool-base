@@ -372,8 +372,6 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
 	manifest := Manifest{
 		Properties: ManifestProperties{
 			Name:        config.Name,
-			Repo:        config.Repo,
-			Host:        config.Host,
 			Description: MultilineString(config.Description),
 			Features:    config.Features,
 			Help: ManifestHelp{

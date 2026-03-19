@@ -88,7 +88,7 @@ func TestSkeletonRun(t *testing.T) {
 	content, err = afero.ReadFile(fs, "test-project/.gtb/manifest.yaml")
 	assert.NoError(t, err)
 	assert.Contains(t, string(content), "name: test-tool")
-	assert.Contains(t, string(content), "repo: phpboyscout/test-tool")
+	assert.Contains(t, string(content), "host: github.com")
 	assert.Contains(t, string(content), "owner: phpboyscout")
 	assert.Contains(t, string(content), "repo: test-tool")
 	assert.Contains(t, string(content), "gtb: v1.2.3")

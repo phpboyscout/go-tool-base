@@ -162,8 +162,6 @@ type ManifestFeature struct {
 
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`
-	Repo        string            `yaml:"repo"`
-	Host        string            `yaml:"host"`
 	Description MultilineString   `yaml:"description"`
 	Features    []ManifestFeature `yaml:"features"`
 	Help        ManifestHelp      `yaml:"help,omitempty"`

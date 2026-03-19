@@ -66,8 +66,8 @@ func TestGenerateSkeleton(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "test-project", m.Properties.Name)
-	assert.Equal(t, "phpboyscout/test-project", m.Properties.Repo)
 	assert.Equal(t, "github", m.ReleaseSource.Type)
+	assert.Equal(t, "github.com", m.ReleaseSource.Host)
 	assert.Equal(t, "phpboyscout", m.ReleaseSource.Owner)
 	assert.Equal(t, "test-project", m.ReleaseSource.Repo)
 
@@ -122,8 +122,8 @@ func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
 	var m Manifest
 	require.NoError(t, yaml.Unmarshal(data, &m))
 
-	assert.Equal(t, "myorg/mygroup/my-tool", m.Properties.Repo)
 	assert.Equal(t, "gitlab", m.ReleaseSource.Type)
+	assert.Equal(t, "gitlab.com", m.ReleaseSource.Host)
 	// org is everything before the last slash
 	assert.Equal(t, "myorg/mygroup", m.ReleaseSource.Owner)
 	// repo name is the segment after the last slash
