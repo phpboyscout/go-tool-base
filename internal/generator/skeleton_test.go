@@ -91,6 +91,74 @@ func TestGenerateSkeleton(t *testing.T) {
 	assert.Contains(t, content, "Repo:  \"test-project\"")
 }
 
+func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	logger := log.New(io.Discard)
+	p := &props.Props{
+		FS:     fs,
+		Logger: logger,
+	}
+
+	g := New(p, &Config{})
+	g.runCommand = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+		return []byte("done"), nil
+	}
+
+	config := SkeletonConfig{
+		Name:        "my-tool",
+		Repo:        "myorg/mygroup/my-tool",
+		Host:        "gitlab.com",
+		Description: "A tool in a nested GitLab group",
+		Path:        "/work",
+	}
+
+	err := g.GenerateSkeleton(context.Background(), config)
+	require.NoError(t, err)
+
+	manifestPath := "/work/.gtb/manifest.yaml"
+	data, err := afero.ReadFile(fs, manifestPath)
+	require.NoError(t, err)
+
+	var m Manifest
+	require.NoError(t, yaml.Unmarshal(data, &m))
+
+	assert.Equal(t, "myorg/mygroup/my-tool", m.Properties.Repo)
+	assert.Equal(t, "gitlab", m.ReleaseSource.Type)
+	// org is everything before the last slash
+	assert.Equal(t, "myorg/mygroup", m.ReleaseSource.Owner)
+	// repo name is the segment after the last slash
+	assert.Equal(t, "my-tool", m.ReleaseSource.Repo)
+}
+
+func TestSplitRepoPath(t *testing.T) {
+	tests := []struct {
+		input       string
+		wantOrg     string
+		wantRepo    string
+		wantErr     bool
+	}{
+		{"org/repo", "org", "repo", false},
+		{"group/subgroup/repo", "group/subgroup", "repo", false},
+		{"a/b/c/d", "a/b/c", "d", false},
+		{"noslash", "", "", true},
+		{"/noleadingorg", "", "", true},
+		{"notrailingrepo/", "", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			org, repo, err := splitRepoPath(tt.input)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantOrg, org)
+				assert.Equal(t, tt.wantRepo, repo)
+			}
+		})
+	}
+}
+
 func TestCalculateDisabledFeatures(t *testing.T) {
 	tests := []struct {
 		name     string
