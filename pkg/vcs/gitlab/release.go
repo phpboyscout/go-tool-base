@@ -6,10 +6,9 @@ import (
 	"net/http"
 
 	"os"
-	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/vcs/release"
@@ -57,7 +56,7 @@ type gitlabAsset struct {
 
 func (a *gitlabAsset) GetID() int64 {
 	// Let's use the DB ID or an extracted int from the link
-	return int64(a.link.ID)
+	return a.link.ID
 }
 
 func (a *gitlabAsset) GetName() string {
@@ -153,7 +152,7 @@ func (p *GitLabReleaseProvider) ListReleases(ctx context.Context, owner, repo st
 	projectPath := owner + "/" + repo
 
 	rels, _, err := p.client.Releases.ListReleases(projectPath, &gitlab.ListReleasesOptions{
-		ListOptions: gitlab.ListOptions{PerPage: limit},
+		ListOptions: gitlab.ListOptions{PerPage: int64(limit)},
 	}, gitlab.WithContext(ctx))
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -180,14 +179,7 @@ func (p *GitLabReleaseProvider) DownloadReleaseAsset(ctx context.Context, owner,
 	}
 
 	if p.token != "" {
-		// Try multiple header types used by GitLab
-		if strings.Contains(url, "/api/v4/") {
-			req.Header.Set("PRIVATE-TOKEN", p.token)
-		} else {
-			// For direct web links, Job tokens or generic auth might be needed.
-			// But usually for release assets, PRIVATE-TOKEN works if it's the API.
-			req.Header.Set("PRIVATE-TOKEN", p.token)
-		}
+		req.Header.Set("PRIVATE-TOKEN", p.token)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -196,7 +188,7 @@ func (p *GitLabReleaseProvider) DownloadReleaseAsset(ctx context.Context, owner,
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return nil, "", errors.Newf("failed to download asset: status %d", resp.StatusCode)
 	}
