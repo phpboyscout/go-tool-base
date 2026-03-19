@@ -18,9 +18,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X main.version={{ "{{" }}.Version{{ "}}" }}
-      - -X main.commit={{ "{{" }}.Commit{{ "}}" }}
-      - -X main.date={{ "{{" }}.Date{{ "}}" }}
+      - -X {{ .ModulePath }}/internal/version.version={{ "{{" }}.Version{{ "}}" }}
+      - -X {{ .ModulePath }}/internal/version.commit={{ "{{" }}.Commit{{ "}}" }}
+      - -X {{ .ModulePath }}/internal/version.date={{ "{{" }}.Date{{ "}}" }}
 
 archives:
   - formats: [ "tar.gz" ]
