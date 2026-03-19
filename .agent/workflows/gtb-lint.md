@@ -23,6 +23,14 @@ Extract the nested block into a named helper method. The extracted function shou
 ### 6. `cyclop` — high cyclomatic complexity
 Extract sub-logic into named functions or methods. Prefer named functions over closures: closures count toward the outer function's complexity score, named functions do not. Aim to bring each function to a complexity of ≤ 10.
 
+### Any other linter
+For issue types not listed above, apply the same principle: **resolve in order of complexity, simplest first**. A useful heuristic is:
+- Issues that require only a local, single-line fix (e.g. a missing argument, a wrong type, a redundant call) come before
+- Issues that require restructuring a single function, which come before
+- Issues that require splitting or reorganising multiple functions or files.
+
+When in doubt, fix the issue that touches the fewest lines first.
+
 ---
 
 ## Rules
