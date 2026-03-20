@@ -7,13 +7,12 @@ before:
     - go generate ./...
 
 builds:
-  - main: ./cmd/gtb
+  - id: gtb-darwin
+    main: ./cmd/gtb
     env:
       - CGO_ENABLED=0
       - GOLANG_FIPS=1
     goos:
-      - linux
-      - windows
       - darwin
     goarch:
       - amd64
@@ -23,6 +22,35 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/phpboyscout/gtb/internal/version.version={{.Version}} -X github.com/phpboyscout/gtb/internal/version.commit={{.Commit}} -X github.com/phpboyscout/gtb/internal/version.date={{.Date}}
+  - id: gtb
+    main: ./cmd/gtb
+    env:
+      - CGO_ENABLED=0
+      - GOLANG_FIPS=1
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/phpboyscout/gtb/internal/version.version={{.Version}} -X github.com/phpboyscout/gtb/internal/version.commit={{.Commit}} -X github.com/phpboyscout/gtb/internal/version.date={{.Date}}
+
+signs:
+  - ids:
+      - gtb-darwin
+    artifacts: binary
+    cmd: codesign
+    args:
+      - "--force"
+      - "--options"
+      - "runtime"
+      - "--sign"
+      - "Developer ID Application: MATTHEW JOHN COCKAYNE (7M39CAN7U6)"
+      - "${artifact}"
 archives:
   - formats: ["tar.gz"]
     # this name template makes the OS and Arch compatible with the results of `uname`.

@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -45,6 +45,19 @@ jobs:
       - name: Install documentation tools
         run: pip install zensical
 
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_DEV_CERT }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEV_CERT_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+          rm certificate.p12
+
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: echo "flags=--snapshot" >> $GITHUB_ENV
 
@@ -56,6 +69,26 @@ jobs:
           distribution: goreleaser
           version: "~> v2"
           args: release --clean --verbose ${{ env.flags }}
+
+      # Notarize macOS binaries (requires APPLE_NOTARY_ISSUER_ID, APPLE_NOTARY_KEY_ID,
+      # and APPLE_NOTARY_KEY secrets — create an App Store Connect API key at
+      # appstoreconnect.apple.com → Users and Access → Integrations → App Store Connect API)
+      - name: Notarize macOS binaries
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: |
+          echo "$APPLE_NOTARY_KEY_BASE64" | base64 --decode > notary_key.p8
+          for archive in dist/gtb_Darwin_*.tar.gz; do
+            xcrun notarytool submit "$archive" \
+              --key notary_key.p8 \
+              --key-id "$APPLE_NOTARY_KEY_ID" \
+              --issuer "$APPLE_NOTARY_ISSUER_ID" \
+              --wait
+          done
+          rm notary_key.p8
 
       # Upload PR artifacts if on a PR branch
       - name: Upload PR artifacts
