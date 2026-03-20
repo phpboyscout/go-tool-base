@@ -49,7 +49,9 @@ func TestController_Controls(t *testing.T) {
 		assert.True(t, c.IsRunning())
 
 		c.Stop()
-		assert.Equal(t, int64(1), cntrs.Stopped.Load())
+		assert.Eventually(t, func() bool {
+			return cntrs.Stopped.Load() == int64(1)
+		}, 1*time.Second, 10*time.Millisecond)
 		assert.True(t, c.IsStopped())
 	})
 

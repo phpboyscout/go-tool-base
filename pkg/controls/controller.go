@@ -2,6 +2,7 @@ package controls
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,10 +12,16 @@ import (
 	"time"
 )
 
+// ErrShutdown is the cause attached to the controller context when a graceful
+// shutdown is initiated. Callers can distinguish a controlled stop from an
+// upstream cancellation via context.Cause(ctx) == controls.ErrShutdown.
+var ErrShutdown = errors.New("controller shutdown")
+
 const DefaultShutdownTimeout = 5 * time.Second
 
 type Controller struct {
 	ctx             context.Context
+	cancel          context.CancelCauseFunc
 	logger          *slog.Logger
 	messages        chan Message
 	health          chan HealthMessage
@@ -173,7 +180,13 @@ func (c *Controller) startErrorAndContextHandler() {
 					ctxCancelled = true
 
 					c.logger.Warn("Context cancelled")
-					c.Stop()
+
+					// Only initiate a stop if one is not already in progress,
+					// to prevent a second Stop when handleStopMessage cancels
+					// the context itself to unblock StartFuncs.
+					if !c.IsStopping() && !c.IsStopped() {
+						c.Stop()
+					}
 				}
 			}
 		}
@@ -200,7 +213,11 @@ func (c *Controller) handleStopMessage() {
 	}
 
 	if c.IsStopping() {
-		ctx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
+		// Cancel the controller context so all StartFuncs blocking on
+		// ctx.Done() are unblocked before the shutdown timeout fires.
+		c.cancel(ErrShutdown)
+
+		ctx, cancel := context.WithTimeout(c.ctx, c.shutdownTimeout)
 		defer cancel()
 
 		stopping := 0 - c.services.stop(ctx)
@@ -232,8 +249,11 @@ func WithLogger(logger *slog.Logger) ControllerOpt {
 }
 
 func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
+	ctx, cancel := context.WithCancelCause(ctx)
+
 	c := &Controller{
 		ctx:             ctx,
+		cancel:          cancel,
 		logger:          slog.New(slog.NewTextHandler(os.Stdout, nil)),
 		messages:        make(chan Message),
 		health:          make(chan HealthMessage),
