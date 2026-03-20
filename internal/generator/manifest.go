@@ -48,6 +48,7 @@ type Manifest struct {
 	Properties    ManifestProperties    `yaml:"properties"`
 	ReleaseSource ManifestReleaseSource `yaml:"release_source"`
 	Version       ManifestVersion       `yaml:"version"`
+	Hashes        map[string]string     `yaml:"hashes,omitempty"` // project-level file hashes (relative path → SHA256)
 	Commands      []ManifestCommand     `yaml:"commands,omitempty"`
 }
 

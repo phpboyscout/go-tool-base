@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -156,15 +157,29 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 		TeamsTeam:         config.TeamsTeam,
 	}
 
+	// Load existing project-level hashes so we can detect customised files.
+	storedHashes := g.loadProjectFileHashes(config.Path)
+
 	if err := g.generateSkeletonGoFiles(config.Path, data); err != nil {
 		return err
 	}
 
-	if err := g.generateSkeletonTemplateFiles(config.Path, data); err != nil {
+	writtenHashes, err := g.generateSkeletonTemplateFiles(config.Path, data, storedHashes)
+	if err != nil {
 		return err
 	}
 
-	if err := g.writeSkeletonManifest(config); err != nil {
+	// Merge: keep stored hashes for any files the user chose to skip so that
+	// subsequent runs can still detect further modifications to those files.
+	finalHashes := make(map[string]string, len(storedHashes)+len(writtenHashes))
+	for k, v := range storedHashes {
+		finalHashes[k] = v
+	}
+	for k, v := range writtenHashes {
+		finalHashes[k] = v
+	}
+
+	if err := g.writeSkeletonManifest(config, finalHashes); err != nil {
 		return err
 	}
 
@@ -175,6 +190,25 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 	g.props.Logger.Infof("Successfully generated skeleton in %s", config.Path)
 
 	return nil
+}
+
+// loadProjectFileHashes reads the existing manifest at the given path and
+// returns the stored project-level file hashes, or an empty map if no
+// manifest exists yet.
+func (g *Generator) loadProjectFileHashes(projectPath string) map[string]string {
+	manifestPath := filepath.Join(projectPath, ".gtb", "manifest.yaml")
+
+	raw, err := afero.ReadFile(g.props.FS, manifestPath)
+	if err != nil {
+		return make(map[string]string)
+	}
+
+	var m Manifest
+	if err := yaml.Unmarshal(raw, &m); err != nil || m.Hashes == nil {
+		return make(map[string]string)
+	}
+
+	return m.Hashes
 }
 
 func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
@@ -243,61 +277,24 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 	return nil
 }
 
-func (g *Generator) walkCommonSkeletonAsset(destPath string, data any, path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
+func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, storedHashes map[string]string) (map[string]string, error) {
+	collectedHashes := make(map[string]string)
 
-	if d.IsDir() {
-		return nil
-	}
-
-	relPath, relErr := filepath.Rel("assets/skeleton", path)
-	if relErr != nil {
-		return errors.Newf("failed to get relative path: %w", relErr)
-	}
-
-	content, readErr := skeletonAssets.ReadFile(path)
-	if readErr != nil {
-		return errors.Newf("failed to read embedded file %s: %w", path, readErr)
-	}
-
-	return g.renderSkeletonTemplate(filepath.Join(destPath, relPath), string(content), data)
-}
-
-func (g *Generator) walkProviderSkeletonAsset(destPath, providerRoot string, providerFS embed.FS, data any, path string, d fs.DirEntry, err error) error {
-	if err != nil {
-		return err
-	}
-
-	if d.IsDir() {
-		return nil
-	}
-
-	relPath, relErr := filepath.Rel(providerRoot, path)
-	if relErr != nil {
-		return errors.Newf("failed to get relative path: %w", relErr)
-	}
-
-	content, readErr := providerFS.ReadFile(path)
-	if readErr != nil {
-		return errors.Newf("failed to read embedded provider file %s: %w", path, readErr)
-	}
-
-	return g.renderSkeletonTemplate(filepath.Join(destPath, relPath), string(content), data)
-}
-
-func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any) error {
 	tmplFiles := map[string]string{
 		"pkg/cmd/root/assets/init/config.yaml": templates.SkeletonConfig,
 		"go.mod":                               templates.SkeletonGoMod,
 	}
 
-	for path, tmplStr := range tmplFiles {
-		fullPath := filepath.Join(destPath, path)
-		if err := g.renderSkeletonTemplate(fullPath, tmplStr, data); err != nil {
-			return err
+	for relPath, tmplStr := range tmplFiles {
+		fullPath := filepath.Join(destPath, relPath)
+
+		hash, err := g.renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr, data, storedHashes)
+		if err != nil {
+			g.props.Logger.Warnf("Skipped %s: %v", relPath, err)
+			continue
 		}
+
+		collectedHashes[relPath] = hash
 	}
 
 	// Extract the provider so we can filter CI files appropriately.
@@ -327,9 +324,31 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any) err
 
 	// Walk the common skeleton assets.
 	if err := fs.WalkDir(skeletonAssets, "assets/skeleton", func(path string, d fs.DirEntry, err error) error {
-		return g.walkCommonSkeletonAsset(destPath, data, path, d, err)
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		relPath, err := filepath.Rel("assets/skeleton", path)
+		if err != nil {
+			return errors.Newf("failed to get relative path: %w", err)
+		}
+
+		content, err := skeletonAssets.ReadFile(path)
+		if err != nil {
+			return errors.Newf("failed to read embedded file %s: %w", path, err)
+		}
+
+		hash, err := g.renderAndHashSkeletonTemplate(filepath.Join(destPath, relPath), relPath, string(content), data, storedHashes)
+		if err != nil {
+			g.props.Logger.Warnf("Skipped %s: %v", relPath, err)
+			return nil // non-fatal, continue walk
+		}
+
+		collectedHashes[relPath] = hash
+
+		return nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 
 	// Walk the provider-specific CI assets.
@@ -338,38 +357,86 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any) err
 		providerFS, providerRoot = skeletonGitLabAssets, "assets/skeleton-gitlab"
 	}
 
-	return fs.WalkDir(providerFS, providerRoot, func(path string, d fs.DirEntry, err error) error {
-		return g.walkProviderSkeletonAsset(destPath, providerRoot, providerFS, data, path, d, err)
-	})
+	if err := fs.WalkDir(providerFS, providerRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+
+		relPath, err := filepath.Rel(providerRoot, path)
+		if err != nil {
+			return errors.Newf("failed to get relative path: %w", err)
+		}
+
+		content, err := providerFS.ReadFile(path)
+		if err != nil {
+			return errors.Newf("failed to read embedded provider file %s: %w", path, err)
+		}
+
+		hash, err := g.renderAndHashSkeletonTemplate(filepath.Join(destPath, relPath), relPath, string(content), data, storedHashes)
+		if err != nil {
+			g.props.Logger.Warnf("Skipped %s: %v", relPath, err)
+			return nil // non-fatal, continue walk
+		}
+
+		collectedHashes[relPath] = hash
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return collectedHashes, nil
 }
 
-func (g *Generator) renderSkeletonTemplate(fullPath, tmplStr string, data any) error {
+// renderAndHashSkeletonTemplate renders a template to disk, checking the
+// stored hash first so customised files are not silently overwritten.
+// It returns the SHA256 hash of the content that was written.
+func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr string, data any, storedHashes map[string]string) (string, error) {
+	// If the file already exists, verify the user has not customised it.
+	if exists, _ := afero.Exists(g.props.FS, fullPath); exists {
+		existingContent, err := afero.ReadFile(g.props.FS, fullPath)
+		if err != nil {
+			return "", errors.Newf("failed to read existing file %s: %w", fullPath, err)
+		}
+
+		currentHash := calculateHash(existingContent)
+		storedHash := storedHashes[relPath]
+
+		if storedHash != "" && storedHash != currentHash && !g.config.Force {
+			g.props.Logger.Warnf("Conflict detected for %s: File has been manually modified.", fullPath)
+
+			if !g.promptOverwrite(fullPath) {
+				g.props.Logger.Warnf("Skipping overwrite of %s", fullPath)
+
+				return "", errors.Newf("overwrite skipped by user")
+			}
+
+			g.props.Logger.Warnf("Overwriting modified file %s", fullPath)
+		}
+	}
+
 	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
-		return errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
+		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
 	}
 
 	tmpl, err := template.New(fullPath).Parse(tmplStr)
 	if err != nil {
-		return errors.Newf("failed to parse template %s: %w", fullPath, err)
+		return "", errors.Newf("failed to parse template %s: %w", fullPath, err)
 	}
 
-	f, err := g.props.FS.Create(fullPath)
-	if err != nil {
-		return errors.Newf("failed to create file %s: %w", fullPath, err)
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", errors.Newf("failed to execute template %s: %w", fullPath, err)
 	}
 
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if err := tmpl.Execute(f, data); err != nil {
-		return errors.Newf("failed to execute template %s: %w", fullPath, err)
+	if err := afero.WriteFile(g.props.FS, fullPath, buf.Bytes(), os.ModePerm); err != nil {
+		return "", errors.Newf("failed to write file %s: %w", fullPath, err)
 	}
 
-	return nil
+	return calculateHash(buf.Bytes()), nil
 }
 
-func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
+func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {
 	org, repoName, err := splitRepoPath(config.Repo)
 	if err != nil {
 		return err
@@ -404,6 +471,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig) error {
 				return ""
 			}(),
 		},
+		Hashes: fileHashes,
 	}
 
 	manifestDir := filepath.Join(config.Path, ".gtb")
