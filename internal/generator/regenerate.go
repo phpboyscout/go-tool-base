@@ -60,6 +60,13 @@ func (g *Generator) RegenerateProject(ctx context.Context) error {
 		if err := cmd.Run(); err != nil {
 			g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
 		}
+
+		// Post-processing may have modified tracked skeleton files. Refresh
+		// their hashes so the next run does not flag those changes as
+		// user customisations.
+		if err := g.refreshProjectFileHashes(g.config.Path); err != nil {
+			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
+		}
 	}
 
 	g.props.Logger.Info("Project regeneration complete.")

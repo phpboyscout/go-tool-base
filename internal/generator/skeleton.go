@@ -185,9 +185,71 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
 		g.runSkeletonPostProcessing(ctx, config.Path)
+
+		// Post-processing tools (go mod tidy, golangci-lint) may have modified
+		// tracked files. Refresh their hashes so the next run does not flag
+		// post-processing changes as user customisations.
+		if err := g.refreshProjectFileHashes(config.Path); err != nil {
+			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
+		}
 	}
 
 	g.props.Logger.Infof("Successfully generated skeleton in %s", config.Path)
+
+	return nil
+}
+
+// refreshProjectFileHashes re-reads every file currently tracked in
+// Manifest.Hashes and updates the stored hash to match its current content.
+// This is called after post-processing tools (go mod tidy, golangci-lint,
+// gofumpt) have run so that their modifications do not appear as conflicts on
+// the next invocation. Only files already present in Manifest.Hashes are
+// touched — AI-generated command files (tracked in ManifestCommand.Hashes)
+// are unaffected.
+func (g *Generator) refreshProjectFileHashes(projectPath string) error {
+	manifestPath := filepath.Join(projectPath, ".gtb", "manifest.yaml")
+
+	raw, err := afero.ReadFile(g.props.FS, manifestPath)
+	if err != nil {
+		return errors.Newf("failed to read manifest: %w", err)
+	}
+
+	var m Manifest
+	if err := yaml.Unmarshal(raw, &m); err != nil {
+		return errors.Newf("failed to unmarshal manifest: %w", err)
+	}
+
+	if len(m.Hashes) == 0 {
+		return nil
+	}
+
+	for relPath := range m.Hashes {
+		content, readErr := afero.ReadFile(g.props.FS, filepath.Join(projectPath, relPath))
+		if readErr != nil {
+			// File removed by post-processing; drop it from tracking.
+			delete(m.Hashes, relPath)
+
+			continue
+		}
+
+		m.Hashes[relPath] = calculateHash(content)
+	}
+
+	f, err := g.props.FS.Create(manifestPath)
+	if err != nil {
+		return errors.Newf("failed to open manifest for writing: %w", err)
+	}
+
+	defer func() { _ = f.Close() }()
+
+	enc := yaml.NewEncoder(f)
+
+	const indent = 2
+	enc.SetIndent(indent)
+
+	if err := enc.Encode(m); err != nil {
+		return errors.Newf("failed to write manifest: %w", err)
+	}
 
 	return nil
 }
