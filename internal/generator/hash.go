@@ -41,7 +41,7 @@ func (g *Generator) verifyHash(path string) error {
 	if storedHash != "" && storedHash != currentHash && !g.config.Force {
 		g.props.Logger.Warnf("Conflict detected for %s: File has been manually modified.", path)
 
-		confirm := g.promptOverwrite(path)
+		confirm := g.promptOverwrite(path, nil, nil)
 		if !confirm {
 			g.props.Logger.Warnf("Skipping overwrite of %s", path)
 
@@ -54,24 +54,56 @@ func (g *Generator) verifyHash(path string) error {
 	return nil
 }
 
-func (g *Generator) promptOverwrite(path string) bool {
-	// Skip prompt in non-interactive environments
+// promptOverwrite returns true if the file at path should be overwritten.
+// existing and newContent are optional; when both are provided the user can
+// choose to view a full-screen diff before deciding.
+func (g *Generator) promptOverwrite(path string, existing, newContent []byte) bool {
+	switch g.config.Overwrite {
+	case "allow":
+		return true
+	case "deny":
+		return false
+	}
+
+	// Default: ask — skip prompt in non-interactive environments
 	if os.Getenv("GTB_NON_INTERACTIVE") == "true" {
 		return false
 	}
 
-	confirm := false // Default to false for safety
+	hasDiff := existing != nil && newContent != nil
 
-	err := huh.NewConfirm().
-		Title("Refusing to overwrite " + path).
-		Description("The file has been modified since it was last generated. Do you want to overwrite it?").
-		Value(&confirm).
-		Run()
-	if err != nil {
-		g.props.Logger.Warnf("Prompt failed (non-interactive?): %v. Skipping overwrite.", err)
+	for {
+		action := "no"
 
-		return false
+		var opts []huh.Option[string]
+		opts = append(opts,
+			huh.NewOption("Yes — overwrite with incoming version", "yes"),
+			huh.NewOption("No  — keep my changes", "no"),
+		)
+
+		if hasDiff {
+			opts = append(opts, huh.NewOption("View diff", "view"))
+		}
+
+		err := huh.NewSelect[string]().
+			Title("Conflict: " + path + " has been modified since it was last generated.").
+			Description("What would you like to do?").
+			Options(opts...).
+			Value(&action).
+			Run()
+		if err != nil {
+			g.props.Logger.Warnf("Prompt failed (non-interactive?): %v. Skipping overwrite.", err)
+
+			return false
+		}
+
+		switch action {
+		case "yes":
+			return true
+		case "no":
+			return false
+		case "view":
+			return runDiffPager(path, existing, newContent)
+		}
 	}
-
-	return confirm
 }

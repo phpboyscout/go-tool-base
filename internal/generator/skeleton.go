@@ -459,29 +459,6 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 // stored hash first so customised files are not silently overwritten.
 // It returns the SHA256 hash of the content that was written.
 func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr string, data any, storedHashes map[string]string) (string, error) {
-	// If the file already exists, verify the user has not customised it.
-	if exists, _ := afero.Exists(g.props.FS, fullPath); exists {
-		existingContent, err := afero.ReadFile(g.props.FS, fullPath)
-		if err != nil {
-			return "", errors.Newf("failed to read existing file %s: %w", fullPath, err)
-		}
-
-		currentHash := calculateHash(existingContent)
-		storedHash := storedHashes[relPath]
-
-		if storedHash != "" && storedHash != currentHash && !g.config.Force {
-			g.props.Logger.Warnf("Conflict detected for %s: File has been manually modified.", fullPath)
-
-			if !g.promptOverwrite(fullPath) {
-				g.props.Logger.Warnf("Skipping overwrite of %s", fullPath)
-
-				return "", errors.Newf("overwrite skipped by user")
-			}
-
-			g.props.Logger.Warnf("Overwriting modified file %s", fullPath)
-		}
-	}
-
 	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
 	}
@@ -496,11 +473,36 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 		return "", errors.Newf("failed to execute template %s: %w", fullPath, err)
 	}
 
-	if err := afero.WriteFile(g.props.FS, fullPath, buf.Bytes(), os.ModePerm); err != nil {
+	newContent := buf.Bytes()
+
+	// If the file already exists, verify the user has not customised it.
+	if exists, _ := afero.Exists(g.props.FS, fullPath); exists {
+		existingContent, err := afero.ReadFile(g.props.FS, fullPath)
+		if err != nil {
+			return "", errors.Newf("failed to read existing file %s: %w", fullPath, err)
+		}
+
+		currentHash := calculateHash(existingContent)
+		storedHash := storedHashes[relPath]
+
+		if storedHash != "" && storedHash != currentHash && !g.config.Force {
+			g.props.Logger.Warnf("Conflict detected for %s: File has been manually modified.", fullPath)
+
+			if !g.promptOverwrite(fullPath, existingContent, newContent) {
+				g.props.Logger.Warnf("Skipping overwrite of %s", fullPath)
+
+				return "", errors.Newf("overwrite skipped by user")
+			}
+
+			g.props.Logger.Warnf("Overwriting modified file %s", fullPath)
+		}
+	}
+
+	if err := afero.WriteFile(g.props.FS, fullPath, newContent, os.ModePerm); err != nil {
 		return "", errors.Newf("failed to write file %s: %w", fullPath, err)
 	}
 
-	return calculateHash(buf.Bytes()), nil
+	return calculateHash(newContent), nil
 }
 
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {

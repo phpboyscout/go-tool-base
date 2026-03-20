@@ -25,6 +25,7 @@ type SkeletonOptions struct {
 	GoVersion    string
 	Features     []string
 	HelpType     string
+	Overwrite    string
 	SlackChannel string
 	SlackTeam    string
 	TeamsChannel string
@@ -60,6 +61,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", []string{"init", "update", "mcp", "docs"}, "Features to enable (init, update, mcp, docs)")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
+	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().StringVar(&opts.SlackChannel, "slack-channel", "", "Slack channel for help (e.g. #my-team-help)")
 	cmd.Flags().StringVar(&opts.SlackTeam, "slack-team", "", "Slack team name (e.g. My Team)")
 	cmd.Flags().StringVar(&opts.TeamsChannel, "teams-channel", "", "Microsoft Teams channel for help")
@@ -240,8 +242,13 @@ func (o *SkeletonOptions) runWizard() error {
 }
 
 func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
+	if o.Overwrite != "allow" && o.Overwrite != "deny" && o.Overwrite != "ask" {
+		return fmt.Errorf("invalid --overwrite value %q: must be allow, deny, or ask", o.Overwrite)
+	}
+
 	gen := generator.New(p, &generator.Config{
-		Path: o.Path,
+		Path:      o.Path,
+		Overwrite: o.Overwrite,
 	})
 
 	features := make([]generator.ManifestFeature, 0, len(o.Features))

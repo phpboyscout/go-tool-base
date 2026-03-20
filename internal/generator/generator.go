@@ -28,6 +28,7 @@ type Config struct {
 	Flags            []string
 	Force            bool
 	Hidden           bool
+	Overwrite        string // allow, deny, or ask (default ask)
 	Long             string
 	Name             string
 	Parent           string

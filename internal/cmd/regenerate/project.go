@@ -2,6 +2,7 @@ package regenerate
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -12,6 +13,7 @@ import (
 type ProjectOptions struct {
 	Path       string
 	Force      bool
+	Overwrite   string
 	UpdateDocs bool
 }
 
@@ -30,15 +32,21 @@ Does not overwrite implementation files (main.go) unless --force is provided.`,
 
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing main.go implementation files")
+	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().BoolVar(&opts.UpdateDocs, "update-docs", false, "Use AI to update existing documentation")
 
 	return cmd
 }
 
 func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
+	if o.Overwrite != "allow" && o.Overwrite != "deny" && o.Overwrite != "ask" {
+		return fmt.Errorf("invalid --overwrite value %q: must be allow, deny, or ask", o.Overwrite)
+	}
+
 	cfg := &generator.Config{
 		Path:       o.Path,
 		Force:      o.Force,
+		Overwrite:  o.Overwrite,
 		UpdateDocs: o.UpdateDocs,
 	}
 
