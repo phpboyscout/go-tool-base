@@ -181,7 +181,7 @@ func (c *Controller) startErrorAndContextHandler() {
 				if !ctxCancelled {
 					ctxCancelled = true
 
-					c.logger.Warn(fmt.Sprintf("Stopping due to context cancellation: %v", c.GetContext().Err()))
+					c.logger.Debug(fmt.Sprintf("Stopping due to context cancellation: %v", c.GetContext().Err()))
 
 					if !c.IsStopping() && !c.IsStopped() {
 						c.Stop()
