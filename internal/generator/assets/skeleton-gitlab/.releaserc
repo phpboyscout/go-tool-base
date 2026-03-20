@@ -1,0 +1,14 @@
+branches:
+  - main
+tagFormat: "v${version}"
+plugins:
+  - "@semantic-release/commit-analyzer"
+  - - "@semantic-release/release-notes-generator"
+    - presetConfig:
+        types:
+          - { type: "feat", section: "Features" }
+          - { type: "fix", section: "Bug Fixes" }
+          - { type: "chore", section: "Chores", hidden: false }
+          - { type: "perf", section: "Performance Improvements", hidden: false }
+          - { type: "revert", section: "Reverts", hidden: false }
+  - "@semantic-release/changelog"

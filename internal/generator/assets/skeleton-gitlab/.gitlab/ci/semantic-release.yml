@@ -1,0 +1,22 @@
+semantic-release:
+  stage: release
+  image: node:22
+  variables:
+    GIT_AUTHOR_NAME: "semantic-release"
+    GIT_AUTHOR_EMAIL: "semantic-release@gitlab.com"
+    GIT_COMMITTER_NAME: "semantic-release"
+    GIT_COMMITTER_EMAIL: "semantic-release@gitlab.com"
+  script:
+    # Configure git to authenticate pushes (tag creation) using GL_TOKEN.
+    # GL_TOKEN must be a project or group access token with write_repository scope,
+    # set as a masked CI/CD variable named GL_TOKEN.
+    - git remote set-url origin "https://oauth2:${GL_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    - npm install --no-save
+        semantic-release
+        @semantic-release/commit-analyzer
+        @semantic-release/release-notes-generator
+        @semantic-release/changelog
+    - npx semantic-release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: on_success

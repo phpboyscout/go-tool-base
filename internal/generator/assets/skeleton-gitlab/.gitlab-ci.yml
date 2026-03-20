@@ -1,6 +1,7 @@
 include:
   - local: .gitlab/ci/test.yml
   - local: .gitlab/ci/lint.yml
+  - local: .gitlab/ci/semantic-release.yml
   - local: .gitlab/ci/release.yml
   - local: .gitlab/ci/pages.yml
 
