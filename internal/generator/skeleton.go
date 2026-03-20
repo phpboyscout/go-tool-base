@@ -189,7 +189,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 		// Post-processing tools (go mod tidy, golangci-lint) may have modified
 		// tracked files. Refresh their hashes so the next run does not flag
 		// post-processing changes as user customisations.
-		if err := g.refreshProjectFileHashes(config.Path); err != nil {
+		if err := g.refreshProjectFileHashes(config.Path, writtenHashes); err != nil {
 			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
 		}
 	}
@@ -199,14 +199,19 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 	return nil
 }
 
-// refreshProjectFileHashes re-reads every file currently tracked in
-// Manifest.Hashes and updates the stored hash to match its current content.
-// This is called after post-processing tools (go mod tidy, golangci-lint,
-// gofumpt) have run so that their modifications do not appear as conflicts on
-// the next invocation. Only files already present in Manifest.Hashes are
-// touched — AI-generated command files (tracked in ManifestCommand.Hashes)
-// are unaffected.
-func (g *Generator) refreshProjectFileHashes(projectPath string) error {
+// refreshProjectFileHashes re-reads the files in writtenKeys and updates
+// their stored hashes in Manifest.Hashes to reflect any modifications made by
+// post-processing tools (go mod tidy, golangci-lint, gofumpt).
+//
+// Only files present in writtenKeys are refreshed. Files where the user
+// declined an overwrite are intentionally absent from writtenKeys and therefore
+// retain their previously stored hash, ensuring the conflict is detected again
+// on the next invocation.
+func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map[string]string) error {
+	if len(writtenKeys) == 0 {
+		return nil
+	}
+
 	manifestPath := filepath.Join(projectPath, ".gtb", "manifest.yaml")
 
 	raw, err := afero.ReadFile(g.props.FS, manifestPath)
@@ -219,11 +224,11 @@ func (g *Generator) refreshProjectFileHashes(projectPath string) error {
 		return errors.Newf("failed to unmarshal manifest: %w", err)
 	}
 
-	if len(m.Hashes) == 0 {
-		return nil
+	if m.Hashes == nil {
+		m.Hashes = make(map[string]string)
 	}
 
-	for relPath := range m.Hashes {
+	for relPath := range writtenKeys {
 		content, readErr := afero.ReadFile(g.props.FS, filepath.Join(projectPath, relPath))
 		if readErr != nil {
 			// File removed by post-processing; drop it from tracking.

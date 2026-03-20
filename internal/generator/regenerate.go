@@ -44,7 +44,8 @@ func (g *Generator) RegenerateProject(ctx context.Context) error {
 		}
 	}
 
-	if err := g.regenerateSkeletonFiles(m); err != nil {
+	writtenSkeletonHashes, err := g.regenerateSkeletonFiles(m)
+	if err != nil {
 		return err
 	}
 
@@ -64,7 +65,7 @@ func (g *Generator) RegenerateProject(ctx context.Context) error {
 		// Post-processing may have modified tracked skeleton files. Refresh
 		// their hashes so the next run does not flag those changes as
 		// user customisations.
-		if err := g.refreshProjectFileHashes(g.config.Path); err != nil {
+		if err := g.refreshProjectFileHashes(g.config.Path, writtenSkeletonHashes); err != nil {
 			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
 		}
 	}
@@ -237,7 +238,7 @@ func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]temp
 // the current GTB version, protecting any user customisations via hash
 // comparison before overwriting. Resulting hashes are persisted back to the
 // manifest so subsequent runs can detect further modifications.
-func (g *Generator) regenerateSkeletonFiles(m Manifest) error {
+func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, error) {
 	g.props.Logger.Info("Regenerating project skeleton files...")
 
 	_, org, repoName := m.GetReleaseSource()
@@ -291,7 +292,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) error {
 
 	writtenHashes, err := g.generateSkeletonTemplateFiles(g.config.Path, data, storedHashes)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Merge: keep stored hashes for files the user chose to skip so that
@@ -305,7 +306,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) error {
 		finalHashes[k] = v
 	}
 
-	return g.persistProjectHashes(finalHashes)
+	return writtenHashes, g.persistProjectHashes(finalHashes)
 }
 
 // persistProjectHashes reads the current manifest, updates the top-level
