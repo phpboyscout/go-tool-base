@@ -6,7 +6,7 @@ This document maps the complete call graphs for all generation and regeneration 
 
 ## Combined Call Graph
 
-The diagram below shows all four commands simultaneously. There are two shared subgraphs: **Shared root/cmd.go rendering** (intersection of `generate project` and `regenerate project`) and **Shared command pipeline** (intersection of `generate command` and `regenerate project`). `regenerate manifest` has an entirely independent pipeline.
+The diagram below shows all four commands simultaneously. There are three shared subgraphs: **Shared root/cmd.go rendering** (intersection of `generate project` and `regenerate project`), **Shared skeleton template files** (intersection of `generate project` and `regenerate project`), and **Shared command pipeline** (intersection of `generate command` and `regenerate project`). `regenerate manifest` has an entirely independent pipeline.
 
 ```mermaid
 flowchart TD
@@ -22,8 +22,8 @@ flowchart TD
         GP_RUN["SkeletonOptions.Run()"]
         GenSkel["GenerateSkeleton()"]
         SkelGo["generateSkeletonGoFiles()\ncmd/main.go · version.go"]
-        SkelTmpl["generateSkeletonTemplateFiles()\ngo.mod · config.yaml · CI assets"]
-        SkelMani["writeSkeletonManifest()\n.gtb/manifest.yaml  (commands: [])"]
+        GP_LOADHASH["loadProjectFileHashes()\n.gtb/manifest.yaml → storedHashes"]
+        SkelMani["writeSkeletonManifest(fileHashes)\n.gtb/manifest.yaml  (commands: [] · Hashes: {…})"]
     end
 
     %% ── generate command (unique) ────────────────────────────────
@@ -41,6 +41,7 @@ flowchart TD
         RepGen["RegenerateProject()"]
         RRC_PREP["regenerateRootCommand()\n└ buildSkeletonSubcommands()"]
         RCREC["regenerateCommandRecursive()\nsetupCommandConfig()\nprepareRegenerationData()\nresolveGenerationFlags()\nprepareGenerationData()"]
+        REGEN_SKEL["regenerateSkeletonFiles()\n└ persistProjectHashes()\n.gtb/manifest.yaml ← Hashes: {…}"]
     end
 
     %% ── regenerate manifest (unique) ─────────────────────────────
@@ -58,6 +59,12 @@ flowchart TD
         SKELROOT["templates.SkeletonRoot(SkeletonRootData)\n→ pkg/cmd/root/cmd.go"]
     end
 
+    %% ── Shared skeleton template files ───────────────────────────
+    subgraph SKELSHARED ["◈  Shared skeleton template files"]
+        SKELTMPL["generateSkeletonTemplateFiles(storedHashes)\ngo.mod · config.yaml · CI assets"]
+        RENDER["renderAndHashSkeletonTemplate()\n· checks stored hash before write\n· returns hash of written content"]
+    end
+
     %% ── Shared command pipeline ───────────────────────────────────
     subgraph SHARED ["⬡  Shared command pipeline  (generate command + regenerate project)"]
         PERF["performGeneration()"]
@@ -68,24 +75,29 @@ flowchart TD
 
     %% ── Edges ────────────────────────────────────────────────────
     GP --> GP_VOP --> GP_RUN --> GenSkel
-    GenSkel --> SkelGo & SkelTmpl & SkelMani
+    GenSkel --> SkelGo & GP_LOADHASH & SkelMani
+    GP_LOADHASH --> SKELTMPL
     GenSkel -->|"SkeletonConfig\n(user input)"| BSRD
 
     GC --> GC_VOP --> GC_RUN --> Gen --> GC_PREP --> AI --> PERF
 
     RP --> RP_RUN --> RepGen --> RRC_PREP --> RCREC --> PERF
+    RepGen --> REGEN_SKEL
+    REGEN_SKEL --> SKELTMPL
     RRC_PREP -->|"Manifest\n(all fields)"| BSRD
     RCREC -->|"recurse for\neach subcommand"| RCREC
 
     RM --> RM_RUN --> RepMani --> SCAN --> BTREE --> UMANI_RM
 
     BSRD --> SKELROOT
+    SKELTMPL --> RENDER
 
     PERF --> GCF --> POST --> PIPE
 
     %% ── Styles ───────────────────────────────────────────────────
     style SHARED fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
     style ROOTSHARED fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    style SKELSHARED fill:#ecfdf5,stroke:#059669,color:#064e3b
     style GENPRO fill:#f0fdf4,stroke:#16a34a,color:#14532d
     style GENCMD fill:#fefce8,stroke:#ca8a04,color:#713f12
     style REGPRO fill:#fff7ed,stroke:#ea580c,color:#7c2d12
@@ -200,12 +212,10 @@ Steps 1 (asset files) is **fatal** — a failure stops the pipeline. Steps 2–5
 | Function | File | Purpose |
 |---|---|---|
 | `runWizard()` | `internal/cmd/generate/project.go` | Multi-stage huh form: project basics, git config, help config |
-| `GenerateSkeleton()` | `skeleton.go` | Top-level orchestrator for skeleton creation |
+| `GenerateSkeleton()` | `skeleton.go` | Top-level orchestrator: loads stored hashes, writes Go files + template files, persists manifest with hashes |
 | `generateSkeletonGoFiles()` | `skeleton.go` | Renders `main.go`, `version.go`, `root/cmd.go` via Jennifer |
-| `generateSkeletonTemplateFiles()` | `skeleton.go` | Renders `go.mod`, assets, CI files from `text/template` |
-| `writeSkeletonManifest()` | `skeleton.go` | Creates the initial `manifest.yaml` with empty `commands: []` |
-| `walkCommonSkeletonAsset()` | `skeleton.go` | Copies embedded common skeleton files to project |
-| `walkProviderSkeletonAsset()` | `skeleton.go` | Copies embedded GitHub/GitLab-specific CI files |
+| `loadProjectFileHashes()` | `skeleton.go` | Reads existing manifest and returns its top-level `Hashes` map (empty map on first run) |
+| `writeSkeletonManifest(fileHashes)` | `skeleton.go` | Creates the initial `manifest.yaml` with empty `commands: []` and the written file hashes |
 | `splitRepoPath()` | `skeleton.go` | Parses `org/repo` format from repo flag |
 | `releaseProviderForHost()` | `skeleton.go` | Maps host string to GitHub or GitLab provider |
 | `resolveGoVersion()` | `skeleton.go` | Detects Go toolchain version for `go.mod` |
@@ -224,13 +234,15 @@ Steps 1 (asset files) is **fatal** — a failure stops the pipeline. Steps 2–5
 
 | Function | File | Purpose |
 |---|---|---|
-| `RegenerateProject()` | `regenerate.go` | Reads manifest, regenerates root + all commands |
+| `RegenerateProject()` | `regenerate.go` | Reads manifest, regenerates root + all commands + skeleton template files |
 | `regenerateRootCommand()` | `regenerate.go` | Re-renders `pkg/cmd/root/cmd.go` via `buildSkeletonRootData` + `SkeletonRoot` |
 | `buildSkeletonRootData()` | `regenerate.go` | Maps all manifest fields (incl. `Properties.Help`) to `SkeletonRootData` — the authoritative manifest → root data builder |
 | `buildSkeletonSubcommands()` | `regenerate.go` | Builds `[]SkeletonSubcommand` from manifest commands for root template |
 | `regenerateCommandRecursive()` | `regenerate.go` | Depth-first traversal calling `performGeneration` + `postGenerate` per command |
 | `setupCommandConfig()` | `regenerate.go` | Populates generator config from a manifest command entry |
 | `prepareRegenerationData()` | `regenerate.go` | Builds `CommandData` from manifest (flags, options, metadata) |
+| `regenerateSkeletonFiles()` | `regenerate.go` | Reconstructs skeleton template data from manifest, calls `generateSkeletonTemplateFiles`, merges hashes |
+| `persistProjectHashes()` | `regenerate.go` | Reads current manifest, sets `Hashes` field, writes it back to disk |
 
 ### `regenerate manifest` — only path
 
@@ -280,6 +292,8 @@ These functions are called by more than one command path.
 | `getModuleName()` | `generator.go` | generate command, regenerate project, regenerate manifest |
 | `calculateHash()` | `hash.go` | generate command, regenerate project, regenerate manifest |
 | `buildSkeletonSubcommands()` | `regenerate.go` | regenerate project, (generate project via SkeletonRoot) |
+| `generateSkeletonTemplateFiles()` | `skeleton.go` | generate project, regenerate project |
+| `renderAndHashSkeletonTemplate()` | `skeleton.go` | generate project, regenerate project |
 
 ---
 
@@ -287,16 +301,18 @@ These functions are called by more than one command path.
 
 ```
 generate project
-  └─ writeSkeletonManifest()    → creates manifest.yaml (commands: [])
+  ├─ writeSkeletonManifest()    → creates manifest.yaml (commands: [] · Hashes: {file → sha256, …})
+  └─ loadProjectFileHashes()    → reads existing Hashes before writing (detects customisations on re-run)
 
 generate command
   └─ updateManifest()           → adds/updates a single command entry
 
 regenerate project
-  └─ updateManifest() × N       → updates every command entry (via postGenerate in recursion)
+  ├─ updateManifest() × N       → updates every command entry (via postGenerate in recursion)
+  └─ persistProjectHashes()     → updates Manifest.Hashes with hashes of re-written skeleton files
 
 regenerate manifest
-  └─ RegenerateManifest()       → rebuilds commands list from source, preserves properties/release_source
+  └─ RegenerateManifest()       → rebuilds commands list from source, preserves properties/release_source/hashes
 ```
 
 The manifest is the single source of truth for `regenerate project` — it reads nothing from the filesystem except the manifest itself. `regenerate manifest` does the inverse: it reads the filesystem and reconstructs the manifest, making it a recovery tool when the manifest drifts from the code.
@@ -315,7 +331,7 @@ The `internal/generator` package is split into focused files:
 | `files.go` | `GenerateCommandFile`, `generateRegistrationFile`, `handleExecutionFile`, `handleInitializerFile`, `generateAssetFiles` |
 | `stubs.go` | `ensureHookStubs`, `ensureImport` |
 | `hash.go` | `calculateHash`, `verifyHash`, `promptOverwrite` |
-| `regenerate.go` | `RegenerateProject`, `regenerateCommandRecursive`, `regenerateRootCommand`, `buildSkeletonRootData`, `buildSkeletonSubcommands` |
+| `regenerate.go` | `RegenerateProject`, `regenerateCommandRecursive`, `regenerateRootCommand`, `buildSkeletonRootData`, `buildSkeletonSubcommands`, `regenerateSkeletonFiles`, `persistProjectHashes` |
 | `removal.go` | `Remove`, `performRemoval`, `cleanupDocumentation` |
 | `manifest.go` | `Manifest` types, `loadManifest`, `MarshalYAML` implementations |
 | `manifest_update.go` | `updateManifest`, `updateCommandRecursive`, `ManifestCommandUpdate`, `updateParentCmdHash` |
@@ -323,7 +339,7 @@ The `internal/generator` package is split into focused files:
 | `manifest_scan.go` | `RegenerateManifest`, `scanCommands`, `scanRecursive`, `buildCmdTree` |
 | `ast.go` | AST manipulation: `registerSubcommand`, `deregisterSubcommand` |
 | `ast_extract.go` | AST reading: `extractCommandMetadata`, `extractProjectProperties` |
-| `skeleton.go` | `GenerateSkeleton` and all skeleton helpers |
+| `skeleton.go` | `GenerateSkeleton`, `generateSkeletonGoFiles`, `generateSkeletonTemplateFiles`, `renderAndHashSkeletonTemplate`, `loadProjectFileHashes`, `writeSkeletonManifest` |
 | `generator.go` | `Generator` struct, `New`, `verifyProject`, shared utilities |
 
 ---
@@ -342,6 +358,8 @@ The `internal/generator` package is split into focused files:
 
 **`buildSkeletonRootData` makes the root rendering intersection explicit.** `regenerateRootCommand` now calls `buildSkeletonRootData(manifest, subcommands)` — the single authoritative function that maps every manifest field to `SkeletonRootData`, including the five `ManifestHelp` fields (`HelpType`, `SlackChannel`, `SlackTeam`, `TeamsChannel`, `TeamsTeam`) that were previously silently dropped on every regeneration. Adding a new project-level setting to the manifest now requires updating only this one function.
 
-**`generate project` is otherwise separate.** Beyond the `SkeletonRoot` template it shares with `regenerate project`, it writes files that are never touched by other commands (`go.mod`, `main.go`, CI assets) and creates an empty manifest. It does not participate in the per-command generation pipeline at all.
+**Project skeleton files are now hash-tracked and protected.** `Manifest.Hashes` (top-level `map[string]string`, keyed by relative file path) records the SHA256 of every file written by `generateSkeletonTemplateFiles`. Before overwriting any existing file, `renderAndHashSkeletonTemplate` compares the current content hash against the stored value. A mismatch means the user has customised the file — the generator prompts before overwriting and skips non-interactively. Both `generate project` (via `writeSkeletonManifest`) and `regenerate project` (via `persistProjectHashes`) update `Manifest.Hashes` after each run, so customisation state is tracked across invocations.
+
+**`generate project` is otherwise separate.** Beyond the shared skeleton template and `SkeletonRoot` template it shares with `regenerate project`, it writes files that are never touched by the per-command pipeline (`cmd/main.go`, CI assets) and creates an empty manifest. It does not participate in the per-command generation pipeline at all.
 
 **`regenerate manifest` is a recovery tool.** It is the only command that does not write Go source files — it only reads them. It does not share either the `SkeletonRoot` template or the `CommandPipeline` sequence.
