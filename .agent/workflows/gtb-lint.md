@@ -39,6 +39,7 @@ When in doubt, fix the issue that touches the fewest lines first.
 - **Run tests after every fix**, not just at the end. Structural changes (nestif, cyclop) can silently alter behaviour.
 - **One linter category per commit** where practical. Mix only when changes are inseparable (e.g. a dependency migration that also fixes errcheck in the same file).
 - After all issues are resolved, run `golangci-lint run` once more to confirm a clean output before committing.
+- **Do not commit without user approval** — present a summary of changes and a proposed commit message, then wait for explicit confirmation. See the **Commit Approval Protocol** in the `gtb-dev` skill.
 - **Do not attribute AI in commits** — no `Co-Authored-By:` trailers, no mention of AI assistance. The committing developer owns the change entirely.
 
 ## Verification

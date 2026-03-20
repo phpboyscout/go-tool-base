@@ -116,6 +116,20 @@ Any alteration to functionality **MUST** trigger a review of associated document
 
 All commits **must** follow [Conventional Commits](https://www.conventionalcommits.org/). Semantic-release reads these to determine version bumps and changelog sections — an incorrect type can suppress a release or inflate a version.
 
+### Commit Approval Protocol
+
+**Do not run `git commit` unless the user has explicitly approved it.**
+
+After completing any unit of work that is ready to commit:
+
+1. Present a summary of the changes made (files modified, what changed and why).
+2. Propose a commit message following the Conventional Commits format below.
+3. Ask the user to review and confirm before proceeding.
+
+Only run `git commit` after receiving explicit approval. The user takes full responsibility for every commit — they must have the opportunity to validate the appropriateness of the change and the accuracy of the message before it enters the permanent git history.
+
+If the user explicitly directs you to commit without review (e.g. "just commit it"), you may proceed directly.
+
 ### Point of order: AI authorship
 
 **Do not add AI attribution to any commit** — no `Co-Authored-By:` trailers naming an AI, no mention of AI tools in commit messages, no references to AI assistance in any form. Every commit is created and signed off by the developer who runs `git commit`. That developer takes full responsibility for the code, its correctness, and any consequences that follow. AI assistance during development is a private implementation detail of the developer's workflow, not a fact that belongs in the permanent project history.
