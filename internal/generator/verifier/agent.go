@@ -58,7 +58,9 @@ The project was just generated. Please:
 6. Repeat verification ONLY if changes were made or if errors persist. Do NOT re-run builds or tests if they already succeeded and no code was changed.
 7. When the project builds successfully and tests pass, reply with "SUCCESS". If you cannot fix it after 5 attempts at fixing the same error, reply with "FAILURE" and the reason.
 
-Do not ask for user permission. Use the provided tools. Start by listing the directory.`, cmdDir)
+Do not ask for user permission. Use the provided tools. Start by listing the directory.
+
+IMPORTANT: Do NOT add any "// Code generated" markers, auto-generated headers, or machine-generated notices to any file you write. Write only idiomatic, hand-authored Go code.`, cmdDir)
 
 	// 3. Start Chat Loop
 	// The client.Chat method handles the ReAct loop (executing tools until text response).

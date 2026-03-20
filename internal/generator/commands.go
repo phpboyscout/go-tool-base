@@ -47,6 +47,7 @@ REQUIREMENTS:
 - DO NOT access fields in 'opts' that are not listed above. If the script uses variables that are not flags, define them as local variables.
 - DO NOT use 'fmt' for logging. Use 'props.Logger' instead.
 - DO NOT use the exec command to run external commands, the converted code should be self contained, using only go code.
+- DO NOT include any auto-generated code markers, "// Code generated" comments, or machine-generated file headers. Write only idiomatic, hand-authored Go code.
 - Use explicit error handling.
 - Use structured logging: props.Logger.Info("msg", "key", "val").
 - You must also generate a unit test file for the converted code.

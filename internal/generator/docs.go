@@ -61,7 +61,7 @@ Sections:
 * "## Functions"
 * "## Usage"
 
-IMPORTANT: Return ONLY raw Markdown.
+IMPORTANT: Return ONLY raw Markdown. Do NOT include any "auto-generated" notices, machine-generated disclaimers, or generation timestamps in the output.
 `
 
 var commandDocumentationSystemPrompt = `You are an expert technical writer and software engineer.
@@ -133,7 +133,7 @@ You must provide content for the following sections as a minimum:
 * "## Flags" - A Markdown table of flags. Columns: Name, Description, Default, Required. Do not include a raw help dump.
 * "## Examples" - Examples of how to use the command. Start commands with "$ %s".
 
-IMPORTANT: Return ONLY the raw Markdown content. Do not wrap the output in ` + "`" + `markdown` + "`" + ` code blocks.
+IMPORTANT: Return ONLY the raw Markdown content. Do not wrap the output in ` + "`" + `markdown` + "`" + ` code blocks. Do NOT include any "auto-generated" notices, machine-generated disclaimers, or generation timestamps in the output.
 `
 
 // GenerateDocs generates documentation for the command or package.
