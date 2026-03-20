@@ -174,12 +174,14 @@ func (c *Controller) startErrorAndContextHandler() {
 		for {
 			select {
 			case err := <-c.Errors():
-				c.logger.Error(err.Error())
+				if !errors.Is(err, context.Canceled) {
+					c.logger.Error(err.Error())
+				}
 			case <-c.GetContext().Done():
 				if !ctxCancelled {
 					ctxCancelled = true
 
-					c.logger.Warn("Context cancelled")
+					c.logger.Warn("Context cancelled: %v", c.GetContext().Err())
 
 					// Only initiate a stop if one is not already in progress,
 					// to prevent a second Stop when handleStopMessage cancels
