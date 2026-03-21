@@ -98,6 +98,12 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 		}
 	}
 
+	if err := writeGitignore(props.FS, opts.Dir); err != nil {
+		props.Logger.Warnf("failed to write .gitignore: %s", err)
+	}
+
+	warnIfAPIKeysInGitRepo(props, opts.Dir)
+
 	return targetFile, cfg.WriteConfigAs(targetFile)
 }
 
@@ -149,6 +155,67 @@ func initializeConfig(props *props.Props, dir, targetFile string, clean bool) (*
 	}
 
 	return cfg, nil
+}
+
+const gitignoreContent = `# Ignore files that may contain secrets
+*.env
+*.secret
+*.key
+`
+
+// writeGitignore creates a .gitignore in the config directory if one doesn't already exist.
+func writeGitignore(fs afero.Fs, configDir string) error {
+	gitignorePath := filepath.Join(configDir, ".gitignore")
+
+	exists, err := afero.Exists(fs, gitignorePath)
+	if err != nil {
+		return errors.Wrap(err, "checking .gitignore existence")
+	}
+
+	if exists {
+		return nil
+	}
+
+	const filePerm = 0o644
+
+	return afero.WriteFile(fs, gitignorePath, []byte(gitignoreContent), filePerm)
+}
+
+// warnIfAPIKeysInGitRepo logs a warning if config files in a git repo appear to contain API keys.
+func warnIfAPIKeysInGitRepo(p *props.Props, configDir string) {
+	// Check if parent directory is a git repo
+	_, err := p.FS.Stat(filepath.Join(filepath.Dir(configDir), ".git"))
+	if err != nil {
+		return // not a git repo
+	}
+
+	patterns := []string{"sk-", "api_key", "token", "secret"}
+
+	_ = afero.Walk(p.FS, configDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		data, readErr := afero.ReadFile(p.FS, path)
+		if readErr != nil {
+			return readErr
+		}
+
+		content := string(data)
+		for _, pattern := range patterns {
+			if strings.Contains(content, pattern) {
+				p.Logger.Warnf("config file may contain API keys — ensure it is gitignored: %s", path)
+
+				return filepath.SkipDir
+			}
+		}
+
+		return nil
+	})
 }
 
 // configureSSHKeyConfig holds the form options for SSH key configuration.
