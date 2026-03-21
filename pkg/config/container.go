@@ -178,7 +178,7 @@ func (c *Container) ToJSON() string {
 
 	bs, err := json.Marshal(s)
 	if err != nil {
-		c.logger.Error("unable to marshal config to YAML", "stacktrace", fmt.Sprintf("%+v", err))
+		c.logger.Error("unable to marshal config to JSON", "stacktrace", fmt.Sprintf("%+v", err))
 	}
 
 	return string(bs)
