@@ -2,7 +2,7 @@
 title: "Root Command Hardening Specification"
 description: "Remove os.Exit from library code and eliminate package-level mutable state in the root command package to improve testability and reentrancy."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - cmd
