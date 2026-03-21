@@ -99,11 +99,6 @@ type Tool struct {
 
 	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
-
-	// Deprecated: Use Features instead
-	Disable []FeatureCmd `json:"disable" yaml:"disable"`
-	// Deprecated: Use Features instead
-	Enable []FeatureCmd `json:"enable" yaml:"enable"`
 }
 
 // isDefaultEnabled returns true if the feature is enabled by default.
@@ -119,27 +114,14 @@ func isDefaultEnabled(cmd FeatureCmd) bool {
 }
 
 // IsEnabled checks if a feature is enabled.
-// It prioritizes the new Features slice, falling back to Disable/Enable slices for backward compatibility,
-// and finally falling back to the built-in defaults.
+// It checks the Features slice first, falling back to built-in defaults.
 func (t Tool) IsEnabled(cmd FeatureCmd) bool {
-	// 1. Check Features slice (the new source of truth)
 	for _, f := range t.Features {
 		if f.Cmd == cmd {
 			return f.Enabled
 		}
 	}
 
-	// 2. Fallback: Check explicit Enable list (if populated)
-	if slices.Contains(t.Enable, cmd) {
-		return true
-	}
-
-	// 3. Fallback: Check explicit Disable list
-	if slices.Contains(t.Disable, cmd) {
-		return false
-	}
-
-	// 4. Default behavior: fallback to built-in defaults
 	return isDefaultEnabled(cmd)
 }
 

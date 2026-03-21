@@ -620,11 +620,16 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			mockCfg := configMocks.NewMockContainable(t)
 			mockCfg.EXPECT().GetBool("ci").Return(tt.configCI).Maybe()
 
-			// Create props
+			// Create props — build features that disable the specified commands
+			var disableMutators []p.FeatureState
+			for _, cmd := range tt.toolDisabled {
+				disableMutators = append(disableMutators, p.Disable(cmd))
+			}
+
 			props := &p.Props{
 				Tool: p.Tool{
-					Disable: tt.toolDisabled,
-					Name:    "test-tool",
+					Features: p.SetFeatures(disableMutators...),
+					Name:     "test-tool",
 				},
 				Config: mockCfg,
 				FS:     afero.NewMemMapFs(),
