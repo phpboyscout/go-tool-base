@@ -124,6 +124,38 @@ Features: props.SetFeatures(
     You can check feature status using the helper methods:
     `props.Tool.IsEnabled(props.AiCmd)` or `props.Tool.IsDisabled(props.InitCmd)`.
 
+## Narrow Interfaces
+
+Props provides narrow role-based interfaces that `*Props` satisfies. When writing functions that only need a subset of Props, prefer these interfaces to declare minimal dependencies:
+
+| Interface | Methods | Use When |
+|-----------|---------|----------|
+| `LoggerProvider` | `GetLogger()` | You only need logging |
+| `ConfigProvider` | `GetConfig()` | You only need configuration |
+| `FileSystemProvider` | `GetFS()` | You only need filesystem access |
+| `AssetProvider` | `GetAssets()` | You only need embedded assets |
+| `VersionProvider` | `GetVersion()` | You only need version info |
+| `ErrorHandlerProvider` | `GetErrorHandler()` | You only need error handling |
+| `ToolMetadataProvider` | `GetTool()` | You only need tool metadata |
+| `LoggingConfigProvider` | `GetLogger()`, `GetConfig()` | You need logging + config |
+| `CoreProvider` | `GetLogger()`, `GetConfig()`, `GetFS()` | You need the three most common capabilities |
+
+### Example
+
+```go
+// Before: opaque dependency on all of Props
+func generateDocs(p *props.Props) error { ... }
+
+// After: declares exactly what it needs
+func generateDocs(p props.LoggingConfigProvider) error {
+    p.GetLogger().Info("generating docs")
+    dir := p.GetConfig().GetString("docs.output_dir")
+    ...
+}
+```
+
+Migration is optional and incremental — `*Props` continues to work everywhere.
+
 ## Components
 
 ### Tool Metadata

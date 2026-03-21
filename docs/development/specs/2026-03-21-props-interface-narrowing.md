@@ -2,7 +2,7 @@
 title: "Props Interface Narrowing Specification"
 description: "Add narrow role-based interfaces intersecting the Props god object so consumers can declare minimal dependencies."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - props
