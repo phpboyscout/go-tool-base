@@ -2,7 +2,7 @@
 title: "Controller State Race Fix Specification"
 description: "Fix check-then-act race condition in handleStopMessage by holding stateMutex for the full state transition or using atomic compare-and-swap."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - controls
