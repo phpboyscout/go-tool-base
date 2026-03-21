@@ -2,6 +2,8 @@ package props
 
 import (
 	"io"
+	"io/fs"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 
@@ -9,6 +11,38 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// spyFile wraps an fs.File and tracks whether Close was called.
+type spyFile struct {
+	fs.File
+	closed atomic.Bool
+}
+
+func (f *spyFile) Close() error {
+	f.closed.Store(true)
+	return f.File.Close()
+}
+
+func (f *spyFile) Read(p []byte) (int, error)          { return f.File.Read(p) }
+func (f *spyFile) Stat() (fs.FileInfo, error)           { return f.File.Stat() }
+
+// spyFS wraps an fs.FS and returns spyFiles that track Close calls.
+type spyFS struct {
+	inner fs.FS
+	files []*spyFile
+}
+
+func (s *spyFS) Open(name string) (fs.File, error) {
+	f, err := s.inner.Open(name)
+	if err != nil {
+		return nil, err
+	}
+
+	sf := &spyFile{File: f}
+	s.files = append(s.files, sf)
+
+	return sf, nil
+}
 
 func TestAssets_Shadowing(t *testing.T) {
 	fs1 := fstest.MapFS{
@@ -177,4 +211,90 @@ func TestAssets_Names(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{"a", "b"}, assets.Names())
+}
+
+func TestOpenMergedCSV_SingleFS(t *testing.T) {
+	fs1 := fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("id,name\n1,alice\n2,bob")},
+	}
+
+	assets := NewAssets(AssetMap{"root": fs1})
+
+	f, err := assets.Open("data.csv")
+	require.NoError(t, err)
+
+	data, _ := io.ReadAll(f)
+	assert.Contains(t, string(data), "1,alice")
+	assert.Contains(t, string(data), "2,bob")
+}
+
+func TestOpenMergedCSV_MultipleFS(t *testing.T) {
+	fs1 := fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("id,name\n1,alice")},
+	}
+	fs2 := fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("2,bob")},
+	}
+	fs3 := fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("3,carol")},
+	}
+
+	assets := NewAssets(AssetMap{
+		"a": fs1,
+		"b": fs2,
+		"c": fs3,
+	})
+
+	f, err := assets.Open("data.csv")
+	require.NoError(t, err)
+
+	data, _ := io.ReadAll(f)
+	assert.Contains(t, string(data), "1,alice")
+	assert.Contains(t, string(data), "2,bob")
+	assert.Contains(t, string(data), "3,carol")
+}
+
+func TestOpenMergedCSV_NotFound(t *testing.T) {
+	fs1 := fstest.MapFS{}
+	assets := NewAssets(AssetMap{"root": fs1})
+
+	_, err := assets.Open("missing.csv")
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestOpenMergedCSV_EmptyCSV(t *testing.T) {
+	fs1 := fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("")},
+	}
+	assets := NewAssets(AssetMap{"root": fs1})
+
+	_, err := assets.Open("data.csv")
+	assert.ErrorIs(t, err, fs.ErrNotExist)
+}
+
+func TestOpenMergedCSV_FilesClosedPromptly(t *testing.T) {
+	spy1 := &spyFS{inner: fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("id,name\n1,alice")},
+	}}
+	spy2 := &spyFS{inner: fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("2,bob")},
+	}}
+	spy3 := &spyFS{inner: fstest.MapFS{
+		"data.csv": &fstest.MapFile{Data: []byte("3,carol")},
+	}}
+
+	a := &embeddedAssets{
+		embedded: map[string]fs.FS{"a": spy1, "b": spy2, "c": spy3},
+		order:    []string{"a", "b", "c"},
+	}
+
+	f, err := a.openMergedCSV("data.csv")
+	require.NoError(t, err)
+	require.NotNil(t, f)
+
+	// All spy files should have been closed before openMergedCSV returned
+	for _, spy := range []*spyFS{spy1, spy2, spy3} {
+		require.Len(t, spy.files, 1, "expected exactly one file opened per FS")
+		assert.True(t, spy.files[0].closed.Load(), "file should be closed before function returns")
+	}
 }

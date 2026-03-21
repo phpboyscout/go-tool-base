@@ -240,6 +240,20 @@ func unmarshalStructuredData(data []byte, ext string) (map[string]any, error) {
 	return current, err
 }
 
+// readCSVFromFS reads all CSV rows from a single filesystem.
+// The file is closed before this function returns.
+func (a *embeddedAssets) readCSVFromFS(ef fs.FS, name string) ([][]string, error) {
+	f, err := ef.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	reader := csv.NewReader(f)
+
+	return reader.ReadAll()
+}
+
 func (a *embeddedAssets) openMergedCSV(name string) (fs.File, error) {
 	var allRows [][]string
 
@@ -251,31 +265,18 @@ func (a *embeddedAssets) openMergedCSV(name string) (fs.File, error) {
 			continue
 		}
 
-		f, err := ef.Open(name)
-		if err != nil {
+		rows, err := a.readCSVFromFS(ef, name)
+		if err != nil || len(rows) == 0 {
 			continue
 		}
 
-		defer func() { _ = f.Close() }()
-
-		reader := csv.NewReader(f)
-
-		rows, err := reader.ReadAll()
-		if err != nil {
-			continue
+		if !found {
+			allRows = rows
+		} else {
+			allRows = append(allRows, rows...)
 		}
 
-		if len(rows) > 0 {
-			if !found {
-				allRows = rows
-			} else {
-				// Skip header if it exists and matches?
-				// For now, just append all rows after the first file
-				allRows = append(allRows, rows...)
-			}
-
-			found = true
-		}
+		found = true
 	}
 
 	if !found {
