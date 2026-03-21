@@ -33,14 +33,14 @@ func (v *AgentVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir st
 
 	// 1. Register tools
 	tools := []chat.Tool{
-		agent.ReadFileTool(projectRoot),
-		agent.WriteFileTool(projectRoot),
-		agent.ListDirTool(projectRoot),
-		agent.GoBuildTool(projectRoot),
-		agent.GoTestTool(projectRoot),
-		agent.GoGetTool(projectRoot),
-		agent.GoModTidyTool(projectRoot),
-		agent.LinterTool(projectRoot),
+		agent.ReadFileTool(v.props.FS, projectRoot),
+		agent.WriteFileTool(v.props.FS, projectRoot),
+		agent.ListDirTool(v.props.FS, projectRoot),
+		agent.GoBuildTool(v.props.FS, projectRoot),
+		agent.GoTestTool(v.props.FS, projectRoot),
+		agent.GoGetTool(v.props.FS, projectRoot),
+		agent.GoModTidyTool(v.props.FS, projectRoot),
+		agent.LinterTool(v.props.FS, projectRoot),
 	}
 
 	if err := aiClient.SetTools(tools); err != nil {

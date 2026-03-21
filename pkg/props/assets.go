@@ -247,6 +247,7 @@ func (a *embeddedAssets) readCSVFromFS(ef fs.FS, name string) ([][]string, error
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = f.Close() }()
 
 	reader := csv.NewReader(f)
