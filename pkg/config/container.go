@@ -21,6 +21,14 @@ type Containable interface {
 	GetString(key string) string
 	GetTime(key string) time.Time
 	GetDuration(key string) time.Duration
+	// GetViper returns the underlying Viper instance for advanced operations
+	// not exposed by the Containable interface. This is an intentional escape
+	// hatch for power users who need Viper's full API (e.g., MergeConfig,
+	// BindPFlag, or direct access to config file watching).
+	//
+	// Prefer the typed accessor methods (GetString, GetInt, etc.) for standard
+	// configuration reads. Use GetViper only when the Containable interface
+	// does not cover your use case.
 	GetViper() *viper.Viper
 	Has(key string) bool
 	IsSet(key string) bool
