@@ -81,9 +81,14 @@ func (c *Claude) Ask(question string, target any) error {
 		toolName = c.cfg.SchemaName
 	}
 
+	maxTokens := c.cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = DefaultMaxTokensClaude
+	}
+
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
-		MaxTokens: int64(DefaultMaxTokensPerChunk),
+		MaxTokens: int64(maxTokens),
 		Messages:  c.messages,
 	}
 
@@ -155,14 +160,23 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 		return "", err
 	}
 
-	const maxSteps = 20
+	maxSteps := c.cfg.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = DefaultMaxSteps
+	}
+
+	maxTokens := c.cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = DefaultMaxTokensClaude
+	}
+
 	for step := range maxSteps {
 		c.props.Logger.Debug("Claude History State", "step", step)
 		c.logHistory()
 
 		params := anthropic.MessageNewParams{
 			Model:     anthropic.Model(c.cfg.Model),
-			MaxTokens: int64(DefaultMaxTokensPerChunk),
+			MaxTokens: int64(maxTokens),
 			Messages:  c.messages,
 			Tools:     c.toolParams,
 		}
@@ -202,7 +216,7 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 		return fullText.String(), nil
 	}
 
-	return "", errors.New("Claude reached maximum ReAct steps (20) without a final answer")
+	return "", errors.Newf("Claude reached maximum ReAct steps (%d) without a final answer", maxSteps)
 }
 
 func (c *Claude) executeTool(ctx context.Context, toolName string, input json.RawMessage) string {

@@ -21,11 +21,6 @@ func init() {
 	RegisterProvider(ProviderOpenAICompatible, newOpenAI)
 }
 
-const (
-	// DefaultMaxTokensPerChunk is the default maximum tokens per chunk for OpenAI requests.
-	DefaultMaxTokensPerChunk = 4096
-)
-
 // OpenAI implements the ChatClient interface for interacting with OpenAI's API
 // and any OpenAI-compatible API endpoint.
 type OpenAI struct {
@@ -34,6 +29,7 @@ type OpenAI struct {
 	params openai.ChatCompletionNewParams
 	logger *log.Logger
 	config config.Containable
+	cfg    Config
 	tools  map[string]Tool
 }
 
@@ -98,6 +94,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 		config: props.Config,
 		logger: props.Logger,
 		oai:    client,
+		cfg:    cfg,
 		params: params,
 	}, nil
 }
@@ -108,7 +105,7 @@ func (a *OpenAI) Add(prompt string) error {
 		return errors.New("prompt cannot be empty")
 	}
 
-	msgs, err := chunkByTokens(prompt, DefaultMaxTokensPerChunk, a.params.Model)
+	msgs, err := chunkByTokens(prompt, DefaultMaxTokensOpenAI, a.params.Model)
 	if err != nil {
 		return err
 	}
@@ -272,7 +269,11 @@ func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
 	// Clear structured output mode if it was set (e.g. from initialisation)
 	a.params.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{}
 
-	const maxSteps = 20
+	maxSteps := a.cfg.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = DefaultMaxSteps
+	}
+
 	for step := range maxSteps {
 		a.logger.Debug("OpenAI History State", "step", step)
 
@@ -306,7 +307,7 @@ func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
 		return msg.Content, nil
 	}
 
-	return "", errors.New("OpenAI reached maximum ReAct steps (20) without a final answer")
+	return "", errors.Newf("OpenAI reached maximum ReAct steps (%d) without a final answer", maxSteps)
 }
 
 func (a *OpenAI) executeTool(ctx context.Context, toolName, toolArgs string) string {

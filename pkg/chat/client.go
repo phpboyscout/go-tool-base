@@ -91,6 +91,12 @@ type Config struct {
 	SchemaName string
 	// SchemaDescription is a description of the response schema.
 	SchemaDescription string
+	// MaxSteps limits the number of ReAct loop iterations in Chat().
+	// Zero means use the default (DefaultMaxSteps = 20).
+	MaxSteps int
+	// MaxTokens sets the maximum tokens per response.
+	// Zero means use the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192).
+	MaxTokens int
 }
 
 // ProviderFactory creates a ChatClient for a named provider.

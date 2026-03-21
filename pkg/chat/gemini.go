@@ -22,6 +22,7 @@ type Gemini struct {
 	client  *genai.Client
 	model   string
 	config  *genai.GenerateContentConfig
+	cfg     Config
 	history []*genai.Content
 	tools   map[string]Tool
 	props   *props.Props
@@ -67,6 +68,7 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 		client:  client,
 		model:   modelName,
 		config:  baseCfg,
+		cfg:     cfg,
 		history: make([]*genai.Content, 0),
 		tools:   make(map[string]Tool),
 		props:   p,
@@ -144,7 +146,10 @@ func (g *Gemini) Chat(ctx context.Context, prompt string) (string, error) {
 }
 
 func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts []*genai.Part) (string, error) {
-	const maxSteps = 20
+	maxSteps := g.cfg.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = DefaultMaxSteps
+	}
 
 	var textResponse strings.Builder
 
@@ -179,7 +184,7 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 		currentParts = toolResultParts
 	}
 
-	return "", errors.New("Gemini reached maximum ReAct steps (20) without a final answer")
+	return "", errors.Newf("Gemini reached maximum ReAct steps (%d) without a final answer", maxSteps)
 }
 
 func (g *Gemini) handleGeminiError(err error, step int) error {
