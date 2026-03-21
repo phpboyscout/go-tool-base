@@ -102,16 +102,14 @@ func TestCheckForUpdates(t *testing.T) {
 		Debug: true,
 	}
 
-	// Mock form creator to avoid interactive prompt
-	originalFormCreator := defaultFormCreator
-	defer func() { defaultFormCreator = originalFormCreator }()
-
-	defaultFormCreator = func(runUpdate *bool) *huh.Form {
+	// Create state with mock form creator to avoid interactive prompt
+	state := newRootState()
+	state.formCreator = func(runUpdate *bool) *huh.Form {
 		*runUpdate = false // Decline update
 		return nil
 	}
 
-	result := checkForUpdates(context.Background(), cmd, props, flags)
+	result := checkForUpdates(context.Background(), cmd, props, flags, state)
 
 	// Verify we attempted update check but declined
 	assert.False(t, result.HasUpdated)
@@ -120,7 +118,7 @@ func TestCheckForUpdates(t *testing.T) {
 
 	// Test "Already Latest" scenario
 	props.Version = ver.NewInfo("v1.0.0", "", "")
-	result = checkForUpdates(context.Background(), cmd, props, flags)
+	result = checkForUpdates(context.Background(), cmd, props, flags, state)
 	assert.False(t, result.HasUpdated)
 	assert.False(t, result.ShouldExit)
 	assert.NoError(t, result.Error)

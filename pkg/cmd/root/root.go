@@ -26,11 +26,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
+// ErrUpdateComplete is returned by PersistentPreRunE when a self-update
+// has completed successfully. The Execute wrapper handles this by exiting
+// cleanly without logging an error.
+var ErrUpdateComplete = errors.New("update complete — restart required")
+
+// rootState holds per-command mutable state, avoiding package-level variables
+// that would be shared across multiple NewCmdRoot calls in the same process.
+type rootState struct {
 	cfgPaths            []string
-	redirectingToUpdate = false
-	defaultFormCreator  = createUpdatePromptForm
-)
+	redirectingToUpdate bool
+	formCreator         func(*bool) *huh.Form
+}
+
+func newRootState() *rootState {
+	return &rootState{
+		formCreator: createUpdatePromptForm,
+	}
+}
 
 // FlagValues holds the command-line flag values extracted from cobra command.
 type FlagValues struct {
@@ -153,10 +166,10 @@ type UpdateCheckResult struct {
 }
 
 // checkForUpdates handles the version checking and update prompting logic.
-func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, flags *FlagValues) *UpdateCheckResult {
+func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, flags *FlagValues, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
 
-	if shouldSkipUpdateCheck(props, cmd, flags) {
+	if shouldSkipUpdateCheck(props, cmd, flags, state) {
 		return result
 	}
 
@@ -181,7 +194,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 	props.Logger.Debug("Version check results", "version", props.Version.GetVersion(), "latest", isLatestVersion, "message", message)
 
 	if !isLatestVersion {
-		handleOutdatedVersion(ctx, props, message, result)
+		handleOutdatedVersion(ctx, props, message, result, state)
 	} else {
 		props.Logger.Info(message)
 	}
@@ -194,11 +207,11 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 	return result
 }
 
-func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues) bool {
+func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues, state *rootState) bool {
 	// Skip update checks in various conditions
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
 		(props.Version != nil && props.Version.IsDevelopment()) ||
-		redirectingToUpdate ||
+		state.redirectingToUpdate ||
 		flags.CI ||
 		props.Config.GetBool("ci") {
 		return true
@@ -233,12 +246,12 @@ func WithForm(formCreator func(*bool) *huh.Form) OutdatedVersionOption {
 	}
 }
 
-func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, result *UpdateCheckResult, opts ...OutdatedVersionOption) {
+func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, result *UpdateCheckResult, state *rootState, opts ...OutdatedVersionOption) {
 	props.Logger.Warn(message)
 
 	// Apply options
 	cfg := &outdatedVersionConfig{
-		formCreator: defaultFormCreator,
+		formCreator: state.formCreator,
 	}
 	for _, opt := range opts {
 		opt(cfg)
@@ -253,7 +266,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 	}
 
 	if runUpdate {
-		redirectingToUpdate = true
+		state.redirectingToUpdate = true
 
 		if err := update.Update(ctx, props, "", false); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
@@ -290,6 +303,8 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		props.ErrorHandler = errorhandling.New(props.Logger, props.Tool.Help)
 	}
 
+	state := newRootState()
+
 	// mcpLogLevel is used to control the log level of the MCP server dynamically
 	mcpLogLevel := &slog.LevelVar{}
 
@@ -297,10 +312,10 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		Use:               props.Tool.Name,
 		Short:             props.Tool.Summary,
 		Long:              props.Tool.Description,
-		PersistentPreRunE: newRootPreRunE(props, configPaths, mcpLogLevel),
+		PersistentPreRunE: newRootPreRunE(props, configPaths, mcpLogLevel, state),
 	}
 
-	setupRootFlags(rootCmd, props)
+	setupRootFlags(rootCmd, props, state)
 	registerFeatureCommands(rootCmd, props, mcpLogLevel)
 
 	for _, subcommand := range subcommands {
@@ -310,7 +325,7 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 	return rootCmd
 }
 
-func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar) func(*cobra.Command, []string) error {
+func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// Extract and validate flags
 		flags, err := extractFlags(cmd)
@@ -335,7 +350,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		}
 
 		cfg, err := loadAndMergeConfig(ConfigLoadOptions{
-			CfgPaths:    cfgPaths,
+			CfgPaths:    state.cfgPaths,
 			ConfigPaths: configPaths,
 			Props:       props,
 			AllowEmpty:  allowEmpty,
@@ -358,27 +373,26 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 			return nil
 		}
 
-		updateResult := checkForUpdates(cmd.Context(), cmd, props, flags)
+		updateResult := checkForUpdates(cmd.Context(), cmd, props, flags, state)
 		if updateResult.Error != nil {
 			return updateResult.Error
 		}
 
 		if updateResult.ShouldExit {
-			// exit cleanly to prevent cascade to subsequent commands
-			os.Exit(0)
+			return ErrUpdateComplete
 		}
 
 		return nil
 	}
 }
 
-func setupRootFlags(rootCmd *cobra.Command, props *p.Props) {
+func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	defaultConfigPaths := []string{
 		filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), setup.DefaultConfigFilename),
 		fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", props.Tool.Name, setup.DefaultConfigFilename)),
 	}
 
-	rootCmd.PersistentFlags().StringArrayVar(&cfgPaths, "config", defaultConfigPaths, "config files to use")
+	rootCmd.PersistentFlags().StringArrayVar(&state.cfgPaths, "config", defaultConfigPaths, "config files to use")
 	rootCmd.PersistentFlags().Bool("debug", false, "forces debug log output")
 
 	rootCmd.PersistentFlags().Bool("ci", false, "flag to indicate the tools is running in a CI environment")

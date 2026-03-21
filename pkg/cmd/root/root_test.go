@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/charmbracelet/log"
+	"github.com/cockroachdb/errors"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/afero"
@@ -609,12 +610,11 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// t.Parallel() removed due to global variable modification
+			t.Parallel()
 
-			// Save and restore the redirectingToUpdate global
-			oldRedirecting := redirectingToUpdate
-			redirectingToUpdate = tt.redirecting
-			defer func() { redirectingToUpdate = oldRedirecting }()
+			// Create per-test state
+			state := newRootState()
+			state.redirectingToUpdate = tt.redirecting
 
 			// Create mock config
 			mockCfg := configMocks.NewMockContainable(t)
@@ -635,8 +635,6 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 				FS:     afero.NewMemMapFs(),
 			}
 
-			// No explicit feature application needed here as IsEnabled handles defaults
-
 			// Create flags
 			flags := &FlagValues{
 				CI: tt.ciFlag,
@@ -648,7 +646,7 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			}
 
 			// Test shouldSkipUpdateCheck
-			result := shouldSkipUpdateCheck(props, cmd, flags)
+			result := shouldSkipUpdateCheck(props, cmd, flags, state)
 
 			assert.Equal(t, tt.expectedSkip, result)
 		})
@@ -728,10 +726,11 @@ func TestHandleOutdatedVersion_WithMockForm(t *testing.T) {
 				},
 			}
 
+			state := newRootState()
 			result := &UpdateCheckResult{}
 
 			// Test with custom form using WithForm option
-			handleOutdatedVersion(context.Background(), props, tt.message, result, WithForm(mockFormCreator))
+			handleOutdatedVersion(context.Background(), props, tt.message, result, state, WithForm(mockFormCreator))
 
 			// Verify results
 			assert.Equal(t, tt.expectedUpdate, result.HasUpdated)
@@ -766,4 +765,78 @@ func TestWithFormOption(t *testing.T) {
 
 	assert.True(t, called, "custom form creator should have been called")
 	assert.False(t, runUpdate, "value should have been set by custom form creator")
+}
+
+func TestRootState_Isolation(t *testing.T) {
+	t.Parallel()
+
+	// Two independent root commands should have independent state
+	props1 := &p.Props{
+		Logger: log.New(io.Discard),
+		FS:     afero.NewMemMapFs(),
+		Tool: p.Tool{
+			Name:     "tool1",
+			Features: p.SetFeatures(p.Disable(p.UpdateCmd), p.Disable(p.InitCmd), p.Disable(p.McpCmd), p.Disable(p.DocsCmd)),
+		},
+	}
+	props2 := &p.Props{
+		Logger: log.New(io.Discard),
+		FS:     afero.NewMemMapFs(),
+		Tool: p.Tool{
+			Name:     "tool2",
+			Features: p.SetFeatures(p.Disable(p.UpdateCmd), p.Disable(p.InitCmd), p.Disable(p.McpCmd), p.Disable(p.DocsCmd)),
+		},
+	}
+
+	cmd1 := NewCmdRoot(props1)
+	cmd2 := NewCmdRoot(props2)
+
+	// They should be independent commands
+	assert.Equal(t, "tool1", cmd1.Use)
+	assert.Equal(t, "tool2", cmd2.Use)
+}
+
+func TestRootState_DefaultFormCreator(t *testing.T) {
+	t.Parallel()
+
+	state := newRootState()
+	assert.NotNil(t, state.formCreator, "default form creator should not be nil")
+	assert.False(t, state.redirectingToUpdate, "redirectingToUpdate should default to false")
+}
+
+func TestErrUpdateComplete(t *testing.T) {
+	t.Parallel()
+
+	// ErrUpdateComplete should be detectable via errors.Is
+	err := ErrUpdateComplete
+	assert.ErrorIs(t, err, ErrUpdateComplete)
+
+	// Wrapping should still be detectable
+	wrapped := errors.Wrap(err, "wrapped")
+	assert.ErrorIs(t, wrapped, ErrUpdateComplete)
+}
+
+func TestHandleOutdatedVersion_SetsStateFlag(t *testing.T) {
+	t.Parallel()
+
+	state := newRootState()
+
+	// Mock form that declines update
+	mockFormCreator := func(runUpdate *bool) *huh.Form {
+		*runUpdate = false
+		return nil
+	}
+	state.formCreator = mockFormCreator
+
+	props := &p.Props{
+		Logger: log.New(io.Discard),
+		Tool:   p.Tool{Name: "test-tool"},
+	}
+
+	result := &UpdateCheckResult{}
+	handleOutdatedVersion(context.Background(), props, "new version", result, state)
+
+	// User declined, so redirectingToUpdate should remain false
+	assert.False(t, state.redirectingToUpdate)
+	assert.False(t, result.HasUpdated)
 }
