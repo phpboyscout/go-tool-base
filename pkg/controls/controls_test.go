@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -21,14 +22,34 @@ type StateCounters struct {
 	Statused atomic.Int64
 }
 
-func getNewController(ctx context.Context) (*controls.Controller, *StateCounters, *bytes.Buffer) {
+// syncBuffer is a thread-safe bytes.Buffer for use with slog in tests.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
+}
+
+func getNewController(ctx context.Context) (*controls.Controller, *StateCounters, *syncBuffer) {
 	cntrs := &StateCounters{}
 	startFunc := func(_ context.Context) error { cntrs.Started.Add(1); return nil }
 	stopFunc := func(_ context.Context) { cntrs.Stopped.Add(1) }
 	statusFunc := func() { cntrs.Statused.Add(1); time.Sleep(500 * time.Microsecond) }
 
-	var buf bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	buf := &syncBuffer{}
+	logger := slog.New(slog.NewTextHandler(buf, nil))
 
 	c := controls.NewController(ctx, controls.WithLogger(logger))
 	c.Register("test",
@@ -37,7 +58,7 @@ func getNewController(ctx context.Context) (*controls.Controller, *StateCounters
 		controls.WithStatus(statusFunc),
 	)
 
-	return c, cntrs, &buf
+	return c, cntrs, buf
 }
 
 func TestController_Controls(t *testing.T) {
@@ -61,7 +82,9 @@ func TestController_Controls(t *testing.T) {
 
 		assert.True(t, c.IsRunning())
 		c.Messages() <- controls.Status
-		assert.Equal(t, int64(1), cntrs.Statused.Load())
+		assert.Eventually(t, func() bool {
+			return cntrs.Statused.Load() == int64(1)
+		}, 1*time.Second, 10*time.Millisecond)
 		assert.True(t, c.IsRunning())
 	})
 
@@ -72,7 +95,10 @@ func TestController_Controls(t *testing.T) {
 		assert.True(t, c.IsRunning())
 		for i := 1; i <= 3; i++ {
 			c.Messages() <- controls.Status
-			assert.Equal(t, int64(i), cntrs.Statused.Load())
+			expected := int64(i)
+			assert.Eventually(t, func() bool {
+				return cntrs.Statused.Load() == expected
+			}, 1*time.Second, 10*time.Millisecond)
 		}
 		assert.True(t, c.IsRunning())
 	})
@@ -104,10 +130,9 @@ func TestController_StartError(t *testing.T) {
 
 	c.Start()
 
-	// Give the goroutine time to process the error
-	time.Sleep(10 * time.Millisecond)
-
-	assert.Contains(t, output.String(), "test error")
+	assert.Eventually(t, func() bool {
+		return strings.Contains(output.String(), "test error")
+	}, 1*time.Second, 10*time.Millisecond)
 }
 
 func TestController_WaitGroup(t *testing.T) {
@@ -138,10 +163,9 @@ func TestController_Errors(t *testing.T) {
 	c.Start()
 	c.Errors() <- fmt.Errorf("test error") //nolint:goerr113
 
-	// Give the goroutine time to process the error
-	time.Sleep(10 * time.Millisecond)
-
-	assert.Contains(t, output.String(), "test error")
+	assert.Eventually(t, func() bool {
+		return strings.Contains(output.String(), "test error")
+	}, 1*time.Second, 10*time.Millisecond)
 }
 
 func TestController_ContextCancel(t *testing.T) {
@@ -186,4 +210,42 @@ func TestController_Health(t *testing.T) {
 		Status:  2,
 		Message: "testMessage",
 	}
+}
+
+func TestStop_ConcurrentCalls(t *testing.T) {
+	c, cntrs, _ := getNewController(context.Background())
+	c.Start()
+	assert.True(t, c.IsRunning())
+
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Stop()
+		}()
+	}
+	wg.Wait()
+
+	assert.Eventually(t, func() bool {
+		return c.IsStopped()
+	}, 2*time.Second, 10*time.Millisecond)
+
+	// Stop function of the service should have been called exactly once
+	assert.Equal(t, int64(1), cntrs.Stopped.Load(), "stop should execute exactly once")
+}
+
+func TestStop_AlreadyStopped(t *testing.T) {
+	c, _, _ := getNewController(context.Background())
+	c.Start()
+	assert.True(t, c.IsRunning())
+
+	c.Stop()
+	assert.Eventually(t, func() bool {
+		return c.IsStopped()
+	}, 2*time.Second, 10*time.Millisecond)
+
+	// Calling Stop again should be a no-op (not panic or block)
+	c.Stop()
+	assert.True(t, c.IsStopped())
 }

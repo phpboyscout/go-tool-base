@@ -128,6 +128,23 @@ func (c *Controller) Register(id string, opts ...ServiceOption) {
 	c.services.add(s)
 }
 
+// compareAndSetState atomically checks if the current state matches expected,
+// and if so, sets it to next. Returns true if the transition occurred.
+func (c *Controller) compareAndSetState(expected, next State) bool {
+	c.stateMutex.Lock()
+	defer c.stateMutex.Unlock()
+
+	if c.state != expected {
+		return false
+	}
+
+	c.state = next
+
+	return true
+}
+
+// Start launches all registered services. Duplicate calls while already
+// running are no-ops.
 func (c *Controller) Start() {
 	go c.controls()
 
@@ -141,9 +158,12 @@ func (c *Controller) Wait() {
 	c.wg.Wait()
 }
 
-// Stop configured server.
+// Stop initiates a graceful shutdown. Duplicate calls while already
+// stopping or stopped are safely ignored.
 func (c *Controller) Stop() {
-	c.SetState(Stopping)
+	if !c.compareAndSetState(Running, Stopping) {
+		return
+	}
 
 	c.messages <- Stop
 }
@@ -206,24 +226,27 @@ func (c *Controller) processControlMessages() {
 }
 
 func (c *Controller) handleStopMessage() {
-	if c.IsRunning() {
-		c.logger.Warn("Stopping Services")
-		c.SetState(Stopping)
+	// If still Running, transition to Stopping first (handles direct channel sends).
+	// If Stop() already transitioned us, this CAS is a harmless no-op.
+	c.compareAndSetState(Running, Stopping)
+
+	if c.GetState() != Stopping {
+		return
 	}
 
-	if c.IsStopping() {
-		// Cancel the controller context so all StartFuncs blocking on
-		// ctx.Done() are unblocked before the shutdown timeout fires.
-		c.cancel(ErrShutdown)
+	c.logger.Warn("Stopping Services")
 
-		ctx, cancel := context.WithTimeout(c.ctx, c.shutdownTimeout)
-		defer cancel()
+	// Cancel the controller context so all StartFuncs blocking on
+	// ctx.Done() are unblocked before the shutdown timeout fires.
+	c.cancel(ErrShutdown)
 
-		stopping := 0 - c.services.stop(ctx)
-		c.wg.Add(stopping)
-		c.SetState(Stopped)
-		c.logger.Info("Stopped")
-	}
+	ctx, cancel := context.WithTimeout(c.ctx, c.shutdownTimeout)
+	defer cancel()
+
+	stopping := 0 - c.services.stop(ctx)
+	c.wg.Add(stopping)
+	c.SetState(Stopped)
+	c.logger.Info("Stopped")
 }
 
 type ControllerOpt func(Controllable)
