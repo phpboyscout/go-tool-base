@@ -2,7 +2,7 @@
 title: "Assets Resource Leak Fix Specification"
 description: "Fix deferred Close inside a for loop in openMergedCSV that causes file handle accumulation until function return."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - props
