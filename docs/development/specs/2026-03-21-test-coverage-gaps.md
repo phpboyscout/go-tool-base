@@ -2,7 +2,7 @@
 title: "Test Coverage Gaps Specification"
 description: "Prioritised test plan to achieve 90%+ coverage across pkg/ packages, focusing on pkg/version, pkg/vcs, pkg/chat providers, and pkg/controls servers."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - testing
@@ -24,7 +24,7 @@ Date
 :   21 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 
