@@ -1,9 +1,18 @@
 # Go Tool Base (GTB)
 
-A comprehensive Go framework for building mission-critical CLI tools. GTB provides a standardized foundation with dependency injection, service lifecycle management, AI-powered automation, and deep GitHub and GitLab integration.
+**The Intelligent Application Lifecycle Framework for Go.**
+
+Modern CLI tools, DevOps workflows, and developer utilities demand far more than basic flag parsing. GTB works as a "batteries-included" micro-framework (like Rails or Laravel), but meticulously tailored for Go command-line applications and beyond.
+
+## ✅ What GTB IS / IS NOT
+
+- **IS a full-lifecycle framework** — provides configuration, versioning, auto-updates, embedded TUI docs, error handling, and structured logging cleanly out-of-the-box.
+- **IS a dependency injection container** — services are explicitly passed via the decoupled `Props` container to every command constructor.
+- **IS an AI-ready foundation** — built-in agentic loop orchestration and MCP exposition.
+- **NOT a web framework (like Gin/Fiber)** or a microservice generator (like Sponge). GTB primarily bootstraps CLI utilities and background daemons, though you can easily build a `serve` command that boots an HTTP router via GTB's DI container!
 
 > [!IMPORTANT]
-> **Full Documentation**: For detailed guides, component deep-dives, and API references, please visit our documentation site:
+> **Full Documentation**: For detailed guides, component deep-dives, framework comparisons, and API references, please visit our documentation site:
 > **[https://gtb.phpboyscout.uk](https://gtb.phpboyscout.uk)**
 
 ## 📦 CLI Installation
@@ -12,28 +21,30 @@ To install the `gtb` automation CLI, use the recommended installation script for
 
 **macOS/Linux (bash/zsh):**
 ```bash
-curl -sSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3.raw" "https://github.com/phpboyscout/gtb/raw/main/install.sh" | bash
+curl -sSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3.raw" "https://github.com/phpboyscout/go-tool-base/raw/main/install.sh" | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
 $env:GITHUB_TOKEN = "your_token_here"
-irm "https://github.com/phpboyscout/gtb/raw/main/install.ps1" -Headers @{Authorization = "Bearer $env:GITHUB_TOKEN"} | iex
+irm "https://github.com/phpboyscout/go-tool-base/raw/main/install.ps1" -Headers @{Authorization = "Bearer $env:GITHUB_TOKEN"} | iex
 ```
 
 > [!NOTE]
-> For developers building from source, you can still use `go install github.com/phpboyscout/gtb@latest`. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
+> For developers building from source, you can still use `go install github.com/phpboyscout/go-tool-base@latest`. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
 
 ## 🚀 Key Features
 
-- **Scaffold**: Generate production-ready CLI tools in seconds using the built-in generator.
-- **AI-Powered**: Integrated support for Claude, Gemini, and OpenAI to power autonomous repair and documentation Q&A.
-- **Robust Configuration**: Flexible loading from files, environment variables, and embedded assets with hot-reloading support.
-- **🔄 Lifecycle Management**: Unified control for starting, stopping, and coordinating concurrent background services.
-- **🏢 Enterprise VCS**: Deep integration with GitHub Enterprise and GitLab (including nested group paths) for repository operations, PR management, and release assets.
-- **🩹 Error Handling**: Structured error management with stack traces, severity levels, and integrated help context.
-- **🛡️ Multi-Factor Auth**: Built-in support for GitHub and GitLab authentication and SSH key management.
-- **📦 Auto Updates**: Seamless version checking and self-update capabilities directly from GitHub and GitLab releases.
+## 🚀 Key Advantages & Features
+
+- **🤖 AI Agentic Workflows**: Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops and built-in Q&A against your embedded docs.
+- **🔌 Model Context Protocol (MCP)**: Expose your CLI commands automatically as MCP tools for use by IDEs and external AI agents.
+- **📦 Auto Updates & Lifecycle**: Seamless, zero-config version checking and self-update capabilities directly from GitHub/GitLab releases via the built-in `update` command.
+- **📕 TUI Documentation**: A built-in, interactive terminal browser for your markdown documentation. Forget generic man pages.
+- **🧱 Scaffold**: Generate production-ready, interface-driven CLI tool skeletons in seconds.
+- **⚙️ Robust Configuration**: Overridable configurations seamlessly merging from files, environment variables, and embedded assets.
+- **🏢 Enterprise VCS**: Deep integration with GitHub Enterprise and GitLab (including nested group paths) for auth, PR management, and assets.
+- **🩹 Error Handling**: Structured, testable error management with logging, stack traces, and integrated help context routing to user-facing output.
 
 ## 🏗️ Core Architecture
 

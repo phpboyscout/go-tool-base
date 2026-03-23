@@ -10,6 +10,11 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 Practical, step-by-step instructions for common tasks and workflows in GTB. These guides focus on the "How" – providing actionable steps to build and extend your CLI tools.
 
+## Getting Oriented
+
+### [Migrating from Other Ecosystems](../coming-from-other-ecosystems.md)
+A conceptual translation guide if you're coming to Go from Laravel, Rails, or Django.
+
 ## Development Workflows
 
 ### [Scaffolding a New CLI](new-cli.md)

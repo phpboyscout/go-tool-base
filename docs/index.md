@@ -10,26 +10,35 @@ hide:
 
 # Go Tool Base (GTB)
 
-A comprehensive Go library providing base components for building command-line tools with common functionality like initialization, configuration management, version control, and auto-updates.
+**The Intelligent Application Lifecycle Framework for Go.**
+
+Modern CLI tools and DevOps workflows demand more than basic flag parsing. GTB works as a "batteries-included" micro-framework, providing a standardized foundation for building mission-critical tools with built-in agentic workflows, embedded documentation, and zero-config service management.
 
 <video controls autoplay loop muted playsinline width="100%">
   <source src="tapes/basic-demo.mp4" type="video/mp4">
 </video>
 
+## Why GTB?
+
+Before diving into code, we highly recommend reading our positioning guides to understand if GTB is the right fit for your next project:
+
+- **[What is GTB?](why-gtb.md)** — Core philosophy, "IS / IS NOT" framing, and the 8 key advantages.
+- **[Framework Comparison](comparison.md)** — Direct comparisons with Cobra, Viper, urfave/cli, and web frameworks.
+- **[Coming from other Ecosystems?](coming-from-other-ecosystems.md)** — A translation guide for developers migrating from PHP (Laravel), Ruby (Rails), or Python (Django).
+
 ## Overview
 
-GTB is designed to accelerate the development of CLI tools by providing a standardized foundation with essential features that most command-line applications need. It includes robust configuration management, automatic version checking and updates, error handling, and a structured approach to building extensible CLI applications.
+GTB accelerates development by providing a standardized Dependency Injection (`Props`) container pre-wired with essential features. It includes multi-source configuration, automatic version checking, structured logging, and an AI service layer—allowing you to focus entirely on your unique business logic.
 
 ## Key Features
 
-- **🚀 Quick Setup**: Get a CLI tool running in minutes with built-in commands
-- **🤖 AI Autonomous Repair**: Convert scripts to Go and fix errors automatically using built-in agents
-- **⚙️ Configuration Management**: Flexible config loading from files and embedded resources
-- **🔄 Auto Updates**: Built-in version checking and self-update functionality
-- **📝 Structured Logging**: Integrated logging with configurable levels and formats
-- **💡 Integrated Documentation**: Embed your docs directly in the CLI with an interactive TUI browser and AI Q&A
-- **🧪 Testable**: Comprehensive interfaces and mocking support for unit testing
-- **🔧 Extensible**: Easy to add custom commands and functionality
+- **🤖 AI Agentic Workflows**: Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops against your code.
+- **🔌 Model Context Protocol (MCP)**: Expose your CLI commands automatically as MCP tools for external AI agents.
+- **📕 Integrated TUI Docs**: An interactive documentation browser with AI Q&A (`docs ask`) embedded directly in your tool.
+- **📦 Auto Updates & Lifecycle**: Zero-config version syncing and self-update capabilities via GitHub/GitLab releases.
+- **🚀 Scaffold & Generate**: Get a CLI tool running in seconds with the skeleton generator.
+- **⚙️ Configuration Management**: Seamless config merging from embedded assets, YAML, and Env vars.
+- **📝 Structured Logging & Errors**: Charm-powered logging with stack-traced, context-aware error handling.
 
 ## Built-in Commands
 
