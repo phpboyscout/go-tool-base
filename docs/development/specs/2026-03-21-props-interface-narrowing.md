@@ -24,7 +24,7 @@ Date
 :   21 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 
@@ -57,13 +57,13 @@ The solution is to add narrow interfaces that `*Props` satisfies, allowing consu
 ### New Getter Methods on `Props`
 
 ```go
-func (p *Props) GetLogger() *slog.Logger        { return p.Logger }
-func (p *Props) GetConfig() config.Containable   { return p.Config }
-func (p *Props) GetAssets() Assetter             { return p.Assets }
-func (p *Props) GetFS() afero.Fs                 { return p.FS }
-func (p *Props) GetVersion() version.Version     { return p.Version }
-func (p *Props) GetErrorHandler() errorhandling.Handler { return p.ErrorHandler }
-func (p *Props) GetTool() Tool                   { return p.Tool }
+func (p *Props) GetLogger() *log.Logger                  { return p.Logger }
+func (p *Props) GetConfig() config.Containable           { return p.Config }
+func (p *Props) GetAssets() Assets                       { return p.Assets }
+func (p *Props) GetFS() afero.Fs                         { return p.FS }
+func (p *Props) GetVersion() version.Version             { return p.Version }
+func (p *Props) GetErrorHandler() errorhandling.ErrorHandler { return p.ErrorHandler }
+func (p *Props) GetTool() Tool                           { return p.Tool }
 ```
 
 ### New Narrow Interfaces
@@ -71,7 +71,7 @@ func (p *Props) GetTool() Tool                   { return p.Tool }
 ```go
 // LoggerProvider provides access to the application logger.
 type LoggerProvider interface {
-    GetLogger() *slog.Logger
+    GetLogger() *log.Logger
 }
 
 // ConfigProvider provides access to the application configuration.
@@ -86,7 +86,7 @@ type FileSystemProvider interface {
 
 // AssetProvider provides access to embedded assets.
 type AssetProvider interface {
-    GetAssets() Assetter
+    GetAssets() Assets
 }
 
 // VersionProvider provides access to version information.
@@ -96,7 +96,7 @@ type VersionProvider interface {
 
 // ErrorHandlerProvider provides access to the error handler.
 type ErrorHandlerProvider interface {
-    GetErrorHandler() errorhandling.Handler
+    GetErrorHandler() errorhandling.ErrorHandler
 }
 
 // ToolMetadataProvider provides access to tool configuration and metadata.
