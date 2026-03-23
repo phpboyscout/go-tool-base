@@ -28,7 +28,7 @@ jobs:
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          repositories: "gtb,homebrew"
+          repositories: "go-tool-base,homebrew"
       - name: Checkout
         uses: actions/checkout@v6
         with:
