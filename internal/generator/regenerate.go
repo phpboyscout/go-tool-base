@@ -83,12 +83,17 @@ func (g *Generator) runPostRegenerationLint(ctx context.Context, writtenHashes m
 }
 
 func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
-	// Create a sub-generator or update config for this specific command
-	origConfig := *g.config
+	// Build an immutable CommandContext for this command — no shared-state mutation.
+	cmdCtx := buildCommandContext(g.config.Path, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
 
-	defer func() { *g.config = origConfig }()
+	// Swap g.config to the context-derived config for the duration of this
+	// call. Downstream methods (getCommandPath, prepareGenerationData, etc.)
+	// all read g.config, so this is the minimal-change bridge until they are
+	// individually refactored to accept CommandContext directly.
+	savedConfig := g.config
+	g.config = cmdCtx.ToConfig()
 
-	g.setupCommandConfig(cmd, parentPath)
+	defer func() { g.config = savedConfig }()
 
 	cmdDir, err := g.getCommandPath()
 	if err != nil {
@@ -111,37 +116,16 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 		return err
 	}
 
-	// Recurse for subcommands
-	newParentPath := make([]string, len(parentPath)+1)
-	copy(newParentPath, parentPath)
-
-	newParentPath[len(parentPath)] = cmd.Name
+	// Recurse for subcommands — each gets its own CommandContext via the
+	// recursive call, so sibling state can never leak.
+	childPath := append(append([]string{}, parentPath...), cmd.Name)
 	for _, subCmd := range cmd.Commands {
-		if err := g.regenerateCommandRecursive(ctx, subCmd, newParentPath); err != nil {
+		if err := g.regenerateCommandRecursive(ctx, subCmd, childPath); err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (g *Generator) setupCommandConfig(cmd ManifestCommand, parentPath []string) {
-	g.config.Name = cmd.Name
-	g.config.Short = string(cmd.Description)
-	g.config.Long = string(cmd.LongDescription)
-	g.config.WithAssets = cmd.WithAssets
-	g.config.WithInitializer = cmd.WithInitializer
-	g.config.PersistentPreRun = cmd.PersistentPreRun
-	g.config.PreRun = cmd.PreRun
-	g.config.Aliases = cmd.Aliases
-	g.config.Args = cmd.Args
-	g.config.Protected = cmd.Protected
-	g.config.Hidden = cmd.Hidden
-
-	g.config.Parent = "root"
-	if len(parentPath) > 0 {
-		g.config.Parent = strings.Join(parentPath, "/")
-	}
 }
 
 func (g *Generator) prepareRegenerationData(cmd ManifestCommand, cmdDir string) templates.CommandData {

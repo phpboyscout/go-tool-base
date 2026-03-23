@@ -2,7 +2,7 @@
 title: "Generator Pipeline Refactor Specification"
 description: "Refactor the internal generator package to replace four diverged command-specific codepaths with a shared CommandPipeline, a value-typed CommandContext, and a decomposed file layout that eliminates the mutable-config foot-gun and reduces the package from ~4 300 lines to focused, independently testable units."
 date: 2026-03-20
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -24,7 +24,7 @@ Date
 :   20 March 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
