@@ -27,7 +27,7 @@ CONTEXT:
 - You are writing a file for package '%s'.
 - You must export a function with signature: func %s(ctx context.Context, props *props.Props, opts *%s, args []string) error
 - 'props' provides the application context:
-  - props.Logger (*log.Logger): Structured logger.
+  - props.Logger (logger.Logger): Structured logger.
   - props.FS (afero.Fs): File system interface.
   - props.Config: Application configuration.
 - 'opts' contains flags defined for the command.
@@ -57,8 +57,8 @@ REQUIREMENTS:
 - You MUST reference functions and structs from the package under test (e.g., '%s.%s').
 - If mocking is required for props.Config, use the shared mocks in 'github.com/phpboyscout/gtb/mocks/pkg/config'.
 - For the Logger ('props.Logger'), DO NOT use a mock. Instead, use an actual implementation:
-- Import "github.com/charmbracelet/log" and "io".
-- Initialize it with: logger := log.New(io.Discard).
+- Import "github.com/phpboyscout/gtb/pkg/logger".
+- Initialize it with: l := logger.NewNoop().
 - For the FS ('props.FS'), DO NOT use a mock. Instead, use an actual implementation:
 - Import "github.com/spf13/afero".
 - Initialize it with: fs := afero.NewMemMapFs().

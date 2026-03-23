@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
@@ -18,7 +18,7 @@ import (
 func TestRegenerateManifestRecursive(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
-	logger := log.New(&logBuf)
+	l := logger.NewCharm(&logBuf)
 	workDir := "/work"
 
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
@@ -80,7 +80,7 @@ func NewCmdChild(p *props.Props) *cobra.Command {
 	conf := config.NewFilesContainer(nil, fs)
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 		Tool:   props.Tool{Name: "test-tool"},
 	}
@@ -122,7 +122,7 @@ func NewCmdChild(p *props.Props) *cobra.Command {
 func TestScanCommands_OrphansAndDuplicates(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
-	logger := log.New(&logBuf)
+	l := logger.NewCharm(&logBuf)
 	workDir := "/work"
 
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
@@ -170,7 +170,7 @@ func NewCmdDup2(p *props.Props) *cobra.Command {
 	conf := config.NewFilesContainer(nil, fs)
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 		Tool:   props.Tool{Name: "test-tool"},
 	}
@@ -248,7 +248,7 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 func TestScanCommands_RecursiveDuplicates(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder
-	logger := log.New(&logBuf)
+	l := logger.NewCharm(&logBuf)
 	workDir := "/work"
 
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
@@ -306,7 +306,7 @@ func NewCmdChild2(p *props.Props) *cobra.Command {
 	conf := config.NewFilesContainer(nil, fs)
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 		Tool:   props.Tool{Name: "test-tool"},
 	}

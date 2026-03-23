@@ -2,11 +2,10 @@ package generate
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
 	"github.com/spf13/afero"
@@ -20,7 +19,7 @@ func TestCommandRun(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  log.New(io.Discard),
+		Logger:  logger.NewNoop(),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -142,7 +141,7 @@ func TestCommandRun_PathTargeting(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  log.New(io.Discard),
+		Logger:  logger.NewNoop(),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -218,7 +217,7 @@ func TestCommandRun_SubcommandNoAssets(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  log.New(io.Discard),
+		Logger:  logger.NewNoop(),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -274,7 +273,7 @@ func TestCommandRun_NoManifest(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  log.New(io.Discard),
+		Logger:  logger.NewNoop(),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 

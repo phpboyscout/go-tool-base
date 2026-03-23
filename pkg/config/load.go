@@ -5,10 +5,11 @@ import (
 	"io"
 	"io/fs"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/subosito/gotenv"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 )
 
 // LoadEnv loads environment variables from a .env file if it exists.
-func LoadEnv(fs afero.Fs, logger *log.Logger) {
+func LoadEnv(fs afero.Fs, logger logger.Logger) {
 	dotEnv := ".env"
 
 	exists, err := afero.Exists(fs, dotEnv)
@@ -38,7 +39,7 @@ func LoadEnv(fs afero.Fs, logger *log.Logger) {
 	}
 }
 
-func Load(paths []string, fs afero.Fs, logger *log.Logger, allowEmptyConfig bool) (Containable, error) {
+func Load(paths []string, fs afero.Fs, logger logger.Logger, allowEmptyConfig bool) (Containable, error) {
 	logger.Debug("Loading configuration")
 
 	loadable := []string{}
@@ -56,7 +57,7 @@ func Load(paths []string, fs afero.Fs, logger *log.Logger, allowEmptyConfig bool
 	return NewFilesContainer(logger, fs, loadable...), nil
 }
 
-func LoadEmbed(paths []string, assets fs.FS, logger *log.Logger) (Containable, error) {
+func LoadEmbed(paths []string, assets fs.FS, logger logger.Logger) (Containable, error) {
 	logger.Debug("Loading embedded configuration")
 
 	configs := []io.Reader{}

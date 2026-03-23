@@ -4,13 +4,12 @@ import (
 	"io/fs"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/gtb/pkg/props"
-
 	docslib "github.com/phpboyscout/gtb/pkg/docs"
+	"github.com/phpboyscout/gtb/pkg/logger"
+	"github.com/phpboyscout/gtb/pkg/props"
 )
 
 func NewCmdDocs(p *props.Props) *cobra.Command {
@@ -37,7 +36,7 @@ func NewCmdDocs(p *props.Props) *cobra.Command {
 				return errors.Wrap(err, "failed to load documentation assets")
 			}
 
-			askFunc := func(question string, logFn func(string, log.Level)) (string, error) {
+			askFunc := func(question string, logFn func(string, logger.Level)) (string, error) {
 				return docslib.AskAI(cmd.Context(), p, subFS, question, logFn, provider)
 			}
 

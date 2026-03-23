@@ -1,11 +1,10 @@
 package generator
 
 import (
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
 	"github.com/spf13/afero"
@@ -16,10 +15,10 @@ import (
 
 func TestVerifyProjectVersion(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  logger,
+		Logger:  l,
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -85,8 +84,8 @@ func TestManifest_MarshalYAML(t *testing.T) {
 
 func TestRemoveFromManifest_Missing(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	p := &props.Props{FS: fs, Logger: logger, Version: version.NewInfo("v1.0.0", "", "")}
+	l := logger.NewNoop()
+	p := &props.Props{FS: fs, Logger: l, Version: version.NewInfo("v1.0.0", "", "")}
 
 	manifestPath := "/work/.gtb/manifest.yaml"
 	_ = fs.MkdirAll("/work/.gtb", 0755)

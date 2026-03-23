@@ -23,13 +23,13 @@ These utilities provide consistent behavior for common system operations, ensuri
 `GracefulGetPath` attempts to find the absolute path of an executable on the system's `PATH`. If the executable is not found, it logs helpful installation instructions rather than failing immediately.
 
 ```go
-func GracefulGetPath(name string, logger *log.Logger, instructions ...string) (string, error)
+func GracefulGetPath(name string, l logger.Logger, instructions ...string) (string, error)
 ```
 
 **Usage:**
 
 ```go
-path, err := utils.GracefulGetPath("kubectl", logger)
+path, err := utils.GracefulGetPath("kubectl", l)
 if err != nil {
     // Handle error (instructions have already been logged as warnings)
 }
@@ -41,7 +41,7 @@ if err != nil {
 
 ```go
 // Deprecated: Use GracefulGetPath instead.
-func GetPath(name string, logger *log.Logger, instructions ...string) string
+func GetPath(name string, l logger.Logger, instructions ...string) string
 ```
 
 ### System Checks

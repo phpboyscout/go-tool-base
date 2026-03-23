@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/errorhandling"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	p "github.com/phpboyscout/gtb/pkg/props"
 	ver "github.com/phpboyscout/gtb/pkg/version"
 
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +37,7 @@ func TestNewCmdRoot(t *testing.T) {
 		Tool: p.Tool{
 			Name: "test-tool",
 		},
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		FS:     afero.NewMemMapFs(),
 	}
 	// Needs a valid config load capability or skip it.
@@ -72,8 +71,8 @@ func TestCheckForUpdates(t *testing.T) {
 	memFS := afero.NewMemMapFs()
 	afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0644)
 
-	logger := log.New(io.Discard)
-	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, logger, false)
+	l := logger.NewNoop()
+	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, l, false)
 	require.NoError(t, err)
 
 	t.Setenv("GITHUB_TOKEN", "dummy")
@@ -88,11 +87,11 @@ func TestCheckForUpdates(t *testing.T) {
 				Repo:  "repo",
 			},
 		},
-		Logger: logger,
+		Logger: l,
 		FS:     memFS,
 		Config: cfgContainer,
 		Version: ver.NewInfo("v0.0.1", "", ""), // Outdated
-		ErrorHandler: errorhandling.New(logger, nil),
+		ErrorHandler: errorhandling.New(l, nil),
 	}
 
 	props.Assets = p.NewAssets()

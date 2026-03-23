@@ -2,13 +2,11 @@ package root
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"strings"
 	"testing"
 	"testing/fstest"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 
 	"github.com/charmbracelet/huh"
@@ -19,6 +17,7 @@ import (
 
 	configMocks "github.com/phpboyscout/gtb/mocks/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	p "github.com/phpboyscout/gtb/pkg/props"
 )
 
@@ -130,11 +129,11 @@ func TestExtractFlags(t *testing.T) {
 func TestLoadAndMergeConfig(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 
 	createTestProps := func() *p.Props {
 		return &p.Props{
-			Logger: logger,
+			Logger: l,
 			FS:     afero.NewMemMapFs(),
 		}
 	}
@@ -268,7 +267,7 @@ database:
 func TestLoadAndMergeConfigWithOverrides(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 
 	tests := []struct {
 		name               string
@@ -400,7 +399,7 @@ plugins:
 			require.NoError(t, err)
 
 			// Load main config
-			mainCfg, err := config.Load([]string{"main-config.yaml"}, fs, logger, false)
+			mainCfg, err := config.Load([]string{"main-config.yaml"}, fs, l, false)
 			require.NoError(t, err, "failed to load main config")
 
 			// Setup mock embedded filesystem using fstest.MapFS
@@ -409,7 +408,7 @@ plugins:
 			}
 
 			// Load embedded config using our mock
-			embeddedCfg, err := config.LoadEmbed([]string{tt.embedConfigPath}, mockAssets, logger)
+			embeddedCfg, err := config.LoadEmbed([]string{tt.embedConfigPath}, mockAssets, l)
 			require.NoError(t, err, "failed to load embedded config")
 
 			// Perform the merge exactly as loadAndMergeConfig does
@@ -458,42 +457,42 @@ func TestConfigureLogging(t *testing.T) {
 		debugFlag     bool
 		logLevel      string
 		logFormat     string
-		expectedLevel log.Level
+		expectedLevel logger.Level
 	}{
 		{
 			name:          "debug flag overrides config",
 			debugFlag:     true,
 			logLevel:      "info",
 			logFormat:     "text",
-			expectedLevel: log.DebugLevel,
+			expectedLevel: logger.DebugLevel,
 		},
 		{
 			name:          "config log level applied when debug false",
 			debugFlag:     false,
 			logLevel:      "warn",
 			logFormat:     "text",
-			expectedLevel: log.WarnLevel,
+			expectedLevel: logger.WarnLevel,
 		},
 		{
 			name:          "json formatter does not change level",
 			debugFlag:     false,
 			logLevel:      "info",
 			logFormat:     "json",
-			expectedLevel: log.InfoLevel,
+			expectedLevel: logger.InfoLevel,
 		},
 		{
 			name:          "logfmt formatter does not change level",
 			debugFlag:     false,
 			logLevel:      "error",
 			logFormat:     "logfmt",
-			expectedLevel: log.ErrorLevel,
+			expectedLevel: logger.ErrorLevel,
 		},
 		{
 			name:          "invalid log level falls back to default",
 			debugFlag:     false,
 			logLevel:      "invalid",
 			logFormat:     "text",
-			expectedLevel: log.InfoLevel, // Default level
+			expectedLevel: logger.InfoLevel, // Default level
 		},
 	}
 
@@ -503,7 +502,7 @@ func TestConfigureLogging(t *testing.T) {
 
 			// Create props with logger
 			props := &p.Props{
-				Logger: log.New(io.Discard),
+				Logger: logger.NewCharm(nil),
 			}
 
 			// Create flags
@@ -536,22 +535,18 @@ func TestConfigureLogging(t *testing.T) {
 			// Verify MCP log level matches (mapping charm level to slog level)
 			var expectedSlogLevel slog.Level
 			switch tt.expectedLevel {
-			case log.DebugLevel:
+			case logger.DebugLevel:
 				expectedSlogLevel = slog.LevelDebug
-			case log.InfoLevel:
+			case logger.InfoLevel:
 				expectedSlogLevel = slog.LevelInfo
-			case log.WarnLevel:
+			case logger.WarnLevel:
 				expectedSlogLevel = slog.LevelWarn
-			case log.ErrorLevel:
+			case logger.ErrorLevel:
 				expectedSlogLevel = slog.LevelError
 			default:
 				expectedSlogLevel = slog.LevelInfo
 			}
 			assert.Equal(t, expectedSlogLevel, mcpLogLevel.Level())
-
-			// Note: We can't easily test formatter changes since charmbracelet/log
-			// doesn't expose the formatter for inspection, but we can verify that
-			// the function runs without error
 		})
 	}
 }
@@ -720,7 +715,7 @@ func TestHandleOutdatedVersion_WithMockForm(t *testing.T) {
 
 			// Create test props
 			props := &p.Props{
-				Logger: log.New(io.Discard),
+				Logger: logger.NewNoop(),
 				Tool: p.Tool{
 					Name: "test-tool",
 				},
@@ -772,7 +767,7 @@ func TestRootState_Isolation(t *testing.T) {
 
 	// Two independent root commands should have independent state
 	props1 := &p.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		FS:     afero.NewMemMapFs(),
 		Tool: p.Tool{
 			Name:     "tool1",
@@ -780,7 +775,7 @@ func TestRootState_Isolation(t *testing.T) {
 		},
 	}
 	props2 := &p.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		FS:     afero.NewMemMapFs(),
 		Tool: p.Tool{
 			Name:     "tool2",
@@ -829,7 +824,7 @@ func TestHandleOutdatedVersion_SetsStateFlag(t *testing.T) {
 	state.formCreator = mockFormCreator
 
 	props := &p.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool:   p.Tool{Name: "test-tool"},
 	}
 

@@ -26,10 +26,12 @@ import (
 	ver "github.com/phpboyscout/gtb/pkg/version"
 
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
+
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 const (
@@ -61,7 +63,7 @@ type SelfUpdater struct {
 	Tool           props.Tool
 	force          bool
 	version        string
-	logger         *log.Logger
+	logger         logger.Logger
 	releaseClient  release.Provider
 	CurrentVersion string
 	NextRelease    release.Release
@@ -277,7 +279,7 @@ func (s *SelfUpdater) resolveTargetPath() (string, error) {
 func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) bool {
 	isLatestVersion, message, err := s.IsLatestVersion(ctx)
 	if err != nil {
-		s.logger.Warn(errors.Wrap(err, "failed to check for latest version"))
+		s.logger.Warn("failed to check for latest version", "error", err)
 
 		return true
 	}

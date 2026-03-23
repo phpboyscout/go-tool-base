@@ -5,8 +5,8 @@
 package props
 
 import (
-	"github.com/charmbracelet/log"
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -131,19 +131,19 @@ func (_c *MockCoreProvider_GetFS_Call) RunAndReturn(run func() afero.Fs) *MockCo
 }
 
 // GetLogger provides a mock function for the type MockCoreProvider
-func (_mock *MockCoreProvider) GetLogger() *log.Logger {
+func (_mock *MockCoreProvider) GetLogger() logger.Logger {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLogger")
 	}
 
-	var r0 *log.Logger
-	if returnFunc, ok := ret.Get(0).(func() *log.Logger); ok {
+	var r0 logger.Logger
+	if returnFunc, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*log.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 	return r0
@@ -166,12 +166,12 @@ func (_c *MockCoreProvider_GetLogger_Call) Run(run func()) *MockCoreProvider_Get
 	return _c
 }
 
-func (_c *MockCoreProvider_GetLogger_Call) Return(logger *log.Logger) *MockCoreProvider_GetLogger_Call {
-	_c.Call.Return(logger)
+func (_c *MockCoreProvider_GetLogger_Call) Return(logger1 logger.Logger) *MockCoreProvider_GetLogger_Call {
+	_c.Call.Return(logger1)
 	return _c
 }
 
-func (_c *MockCoreProvider_GetLogger_Call) RunAndReturn(run func() *log.Logger) *MockCoreProvider_GetLogger_Call {
+func (_c *MockCoreProvider_GetLogger_Call) RunAndReturn(run func() logger.Logger) *MockCoreProvider_GetLogger_Call {
 	_c.Call.Return(run)
 	return _c
 }

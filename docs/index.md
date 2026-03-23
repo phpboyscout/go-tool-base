@@ -38,7 +38,7 @@ GTB accelerates development by providing a standardized Dependency Injection (`P
 - **📦 Auto Updates & Lifecycle**: Zero-config version syncing and self-update capabilities via GitHub/GitLab releases.
 - **🚀 Scaffold & Generate**: Get a CLI tool running in seconds with the skeleton generator.
 - **⚙️ Configuration Management**: Seamless config merging from embedded assets, YAML, and Env vars.
-- **📝 Structured Logging & Errors**: Charm-powered logging with stack-traced, context-aware error handling.
+- **📝 Structured Logging & Errors**: Unified logger abstraction (with charmbracelet as the default backend) with stack-traced, context-aware error handling.
 
 ## Built-in Commands
 
@@ -58,12 +58,11 @@ package main
 import (
     "embed"
     "os"
-    "time"
 
     "github.com/phpboyscout/gtb/pkg/cmd/root"
+    "github.com/phpboyscout/gtb/pkg/logger"
     "github.com/phpboyscout/gtb/pkg/props"
     "github.com/phpboyscout/gtb/pkg/version"
-    "github.com/charmbracelet/log"
     "github.com/spf13/afero"
 )
 
@@ -71,11 +70,10 @@ import (
 var assets embed.FS
 
 func main() {
-    logger := log.NewWithOptions(os.Stderr, log.Options{
-        ReportTimestamp: true,
-        TimeFormat:     time.Kitchen,
-        Level:          log.InfoLevel,
-    })
+    l := logger.NewCharm(os.Stderr,
+        logger.WithTimestamp(),
+        logger.WithLevel(logger.InfoLevel),
+    )
 
     props := &props.Props{
         Tool: props.Tool{
@@ -87,7 +85,7 @@ func main() {
                 Repo: "mytool",
             },
         },
-        Logger:  logger,
+        Logger:  l,
         Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
         FS:      afero.NewOsFs(),
         Version: version.NewInfo("1.0.0", "", ""),

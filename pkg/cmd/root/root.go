@@ -21,9 +21,10 @@ import (
 	"github.com/phpboyscout/gtb/pkg/setup"
 
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 // ErrUpdateComplete is returned by PersistentPreRunE when a self-update
@@ -126,9 +127,9 @@ func mergeEmbeddedConfigs(opts ConfigLoadOptions) (config.Containable, error) {
 func configureLogging(props *p.Props, flags *FlagValues, cfg config.Containable, mcpLogLevel *slog.LevelVar) {
 	// Apply debug flag first
 	if flags.Debug {
-		props.Logger.SetLevel(log.DebugLevel)
+		props.Logger.SetLevel(logger.DebugLevel)
 		mcpLogLevel.Set(slog.LevelDebug)
-	} else if level, err := log.ParseLevel(cfg.GetString("log.level")); err == nil {
+	} else if level, err := logger.ParseLevel(cfg.GetString("log.level")); err == nil {
 		// Apply config-based log level if debug flag is not set
 		props.Logger.SetLevel(level)
 		mcpLogLevel.Set(mapLogLevel(level))
@@ -137,21 +138,21 @@ func configureLogging(props *p.Props, flags *FlagValues, cfg config.Containable,
 	// Apply log format from config
 	switch cfg.GetString("log.format") {
 	case "json":
-		props.Logger.SetFormatter(log.JSONFormatter)
+		props.Logger.SetFormatter(logger.JSONFormatter)
 	case "logfmt":
-		props.Logger.SetFormatter(log.LogfmtFormatter)
+		props.Logger.SetFormatter(logger.LogfmtFormatter)
 	}
 }
 
-func mapLogLevel(level log.Level) slog.Level {
+func mapLogLevel(level logger.Level) slog.Level {
 	switch level {
-	case log.DebugLevel:
+	case logger.DebugLevel:
 		return slog.LevelDebug
-	case log.InfoLevel:
+	case logger.InfoLevel:
 		return slog.LevelInfo
-	case log.WarnLevel:
+	case logger.WarnLevel:
 		return slog.LevelWarn
-	case log.FatalLevel, log.ErrorLevel:
+	case logger.FatalLevel, logger.ErrorLevel:
 		return slog.LevelError
 	default:
 		return slog.LevelInfo
@@ -177,7 +178,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 
 	selfUpdater, err := setup.NewUpdater(props, "", false)
 	if err != nil {
-		props.Logger.Error(errors.Wrap(err, "failed to create updater"))
+		props.Logger.Error("failed to create updater", "error", err)
 
 		return result
 	}
@@ -186,7 +187,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 
 	isLatestVersion, message, err := selfUpdater.IsLatestVersion(ctx)
 	if err != nil {
-		props.Logger.Error(errors.Wrap(err, "failed to check for latest version"))
+		props.Logger.Error("failed to check for latest version", "error", err)
 
 		return result
 	}
@@ -201,7 +202,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 
 	// Set last checked time
 	if err = setup.SetTimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey); err != nil {
-		props.Logger.Warn(errors.Wrap(err, "unable to set last checked time"))
+		props.Logger.Warn("unable to set last checked time", "error", err)
 	}
 
 	return result
@@ -336,7 +337,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Skip config loading for init command but still configure logging
 		if cmd.Use == "init" {
 			if flags.Debug {
-				props.Logger.SetLevel(log.DebugLevel)
+				props.Logger.SetLevel(logger.DebugLevel)
 				mcpLogLevel.Set(slog.LevelDebug)
 			}
 
@@ -425,7 +426,7 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 }
 
 // validateConfig warns about common misconfigurations.
-func validateConfig(cfg config.Containable, logger *log.Logger) {
+func validateConfig(cfg config.Containable, l logger.Logger) {
 	emptySetKeys := []string{
 		"github.token",
 		"anthropic.api.key",
@@ -435,7 +436,7 @@ func validateConfig(cfg config.Containable, logger *log.Logger) {
 
 	for _, key := range emptySetKeys {
 		if cfg.IsSet(key) && cfg.GetString(key) == "" {
-			logger.Warn(key + " is set but empty — operations using this key will fail")
+			l.Warn(key + " is set but empty — operations using this key will fail")
 		}
 	}
 }

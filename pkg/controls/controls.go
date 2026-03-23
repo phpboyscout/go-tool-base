@@ -2,10 +2,11 @@ package controls
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 const (
@@ -68,7 +69,7 @@ type StateAccessor interface {
 	GetState() State
 	SetState(state State)
 	GetContext() context.Context
-	GetLogger() *slog.Logger
+	GetLogger() logger.Logger
 }
 
 // Configurable provides controller configuration setters.
@@ -79,7 +80,7 @@ type Configurable interface {
 	SetHealthChannel(health chan HealthMessage)
 	SetWaitGroup(wg *sync.WaitGroup)
 	SetShutdownTimeout(d time.Duration)
-	SetLogger(logger *slog.Logger)
+	SetLogger(l logger.Logger)
 }
 
 // ChannelProvider provides access to controller channels.

@@ -2,12 +2,11 @@ package chat
 
 import (
 	"context"
-	"io"
 	"os/exec"
 	"testing"
 
-	"github.com/charmbracelet/log"
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,8 +20,8 @@ func TestNew(t *testing.T) {
 
 	ctx := context.Background()
 	p := &props.Props{
-		Logger: log.New(io.Discard),
-		Config: config.NewReaderContainer(log.New(io.Discard), "yaml"),
+		Logger: logger.NewNoop(),
+		Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
 	}
 
 	t.Run("default provider is OpenAI", func(t *testing.T) {

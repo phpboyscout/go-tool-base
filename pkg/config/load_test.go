@@ -2,11 +2,10 @@ package config_test
 
 import (
 	"embed"
-	"io"
 	"testing"
 	"testing/fstest"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,7 +36,7 @@ import (
 func TestLoad(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 	mockConfigYaml := `test:
   key: "value"
   nested:
@@ -157,7 +156,7 @@ func TestLoad(t *testing.T) {
 func TestLoad_FileSystemErrors(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 
 	t.Run("file system stat error handling", func(t *testing.T) {
 		t.Parallel()
@@ -176,7 +175,7 @@ func TestLoad_FileSystemErrors(t *testing.T) {
 func TestLoadEmbed(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 
 	t.Run("with empty embedded filesystem", func(t *testing.T) {
 		t.Parallel()
@@ -358,7 +357,7 @@ invalid: yaml: content:
 func TestLoad_Integration(t *testing.T) {
 	t.Parallel()
 
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 
 	t.Run("loaded container has expected functionality", func(t *testing.T) {
 		t.Parallel()

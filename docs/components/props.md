@@ -30,7 +30,7 @@ func NewCommand(props *props.Props) *cobra.Command {
 
 // Context approach - Runtime type assertions required
 func NewCommand(ctx context.Context) *cobra.Command {
-    logger := ctx.Value("logger").(*log.Logger) // ❌ Runtime panic risk
+    l := ctx.Value("logger").(logger.Logger) // ❌ Runtime panic risk
     config := ctx.Value("config").(SomeInterface) // ❌ No compile-time guarantee
     return cmd
 }
@@ -56,7 +56,7 @@ Props makes dependencies explicit and discoverable:
 ```go
 type Props struct {
     Tool         Tool                       // Tool metadata and settings
-    Logger       *log.Logger                // Configured logger instance
+    Logger       logger.Logger              // Configured logger instance
     Config       config.Containable         // Configuration container
     Assets       Assets                     // Embedded assets wrapper interface
     FS           afero.Fs                   // Filesystem abstraction
@@ -243,24 +243,23 @@ Version: version.NewInfo("1.0.0", "abc123def456", "2024-01-15T10:30:00Z")
 
 ### Logger Configuration
 
-Structured logging with configurable output:
+Structured logging with configurable output via the unified `logger` package:
 
 ```go
-logger := log.NewWithOptions(os.Stderr, log.Options{
-    ReportCaller:    false,
-    ReportTimestamp: true,
-    TimeFormat:      time.Kitchen,
-    Level:           log.InfoLevel,
-    Formatter:       log.TextFormatter,
-})
+l := logger.NewCharm(os.Stderr,
+    logger.WithCaller(),
+    logger.WithTimestamp(),
+    logger.WithLevel(logger.InfoLevel),
+)
 ```
 
 **Log Levels:**
 
-- `log.DebugLevel` - Detailed debugging information
-- `log.InfoLevel` - General information
-- `log.WarnLevel` - Warning messages
-- `log.ErrorLevel` - Error messages
+- `logger.DebugLevel` - Detailed debugging information
+- `logger.InfoLevel` - General information
+- `logger.WarnLevel` - Warning messages
+- `logger.ErrorLevel` - Error messages
+- `logger.FatalLevel` - Fatal messages
 
 ### Filesystem Abstraction
 
@@ -304,10 +303,10 @@ func NewCmdSub(p *props.Props) *cobra.Command {
 
 ```go
 func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
-    logger := log.NewWithOptions(os.Stderr, log.Options{
-        ReportTimestamp: true,
-        Level:           log.InfoLevel,
-    })
+    l := logger.NewCharm(os.Stderr,
+        logger.WithTimestamp(),
+        logger.WithLevel(logger.InfoLevel),
+    )
 
     p := &props.Props{
         Tool: props.Tool{
@@ -320,13 +319,13 @@ func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
                 Repo:  "mytool",
             },
         },
-        Logger:  logger,
+        Logger:  l,
         Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
         FS:      afero.NewOsFs(),
         Version: v,
     }
 
-    p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
     rootCmd := root.NewCmdRoot(p)
     return rootCmd, p
@@ -411,7 +410,7 @@ props.FS = cowFs
 
 ```go
 func createTestProps() *props.Props {
-    logger := log.New(io.Discard)
+    l := logger.NewNoop()
     memFs := afero.NewMemMapFs()
 
     return &props.Props{
@@ -419,7 +418,7 @@ func createTestProps() *props.Props {
             Name:    "test-tool",
             Summary: "Test tool",
         },
-        Logger:  logger,
+        Logger:  l,
         FS:      memFs,
         Version: version.NewInfo("0.0.0-test", "", ""),
     }
@@ -472,7 +471,7 @@ Since `Tool.Help` is an interface (not serializable), assign it programmatically
 ```go
 p := &props.Props{Tool: props.Tool{...}}
 p.Tool.Help = errorhandling.SlackHelp{Team: "Platform", Channel: "#help"}
-p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 ```
 
 The Props component provides a robust foundation for building maintainable and testable CLI applications with GTB.

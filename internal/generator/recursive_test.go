@@ -2,11 +2,10 @@ package generator
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -16,10 +15,10 @@ import (
 
 func TestRecursiveManifestUpdate(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	manifestPath := ".gtb/manifest.yaml"
@@ -100,7 +99,7 @@ func TestUpdateCommandRecursive_Deep(t *testing.T) {
 
 func TestSetProtectionRecursive(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	p := &props.Props{FS: fs, Logger: log.New(io.Discard)}
+	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	require.NoError(t, fs.MkdirAll(".gtb", 0755))
 
 	m := Manifest{
@@ -128,8 +127,8 @@ func TestSetProtectionRecursive(t *testing.T) {
 
 func TestRemoveCommandRecursive(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	p := &props.Props{FS: fs, Logger: logger}
+	l := logger.NewNoop()
+	p := &props.Props{FS: fs, Logger: l}
 	require.NoError(t, fs.MkdirAll(".gtb", 0755))
 
 	m := Manifest{
@@ -159,13 +158,13 @@ func TestRemoveCommandRecursive(t *testing.T) {
 
 func TestRemoveCommandWithFilesystem(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	workDir := "/work"
 	require.NoError(t, fs.MkdirAll(workDir, 0755))
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Tool:   props.Tool{Name: "test-tool"},
 	}
 
@@ -220,13 +219,13 @@ func NewCmdParent(props *props.Props) *cobra.Command {
 
 func TestRegisterSubcommandWithFilesystem(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	workDir := "/work"
 	require.NoError(t, fs.MkdirAll(workDir, 0755))
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Tool:   props.Tool{Name: "test-tool"},
 	}
 

@@ -2,7 +2,7 @@
 title: "Unified Logger Abstraction Specification"
 description: "Replace dual charmbracelet/log and slog usage with a single Logger interface backed by pluggable implementations, enabling consistent logging across all packages and future telemetry integration."
 date: 2026-03-23
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - logging
@@ -24,7 +24,7 @@ Date
 :   23 March 2026
 
 Status
-:   IN PROGRESS
+:   IMPLEMENTED
 
 ---
 

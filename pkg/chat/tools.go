@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 // executeTool looks up a tool by name from the provided registry, executes it,
@@ -13,38 +13,38 @@ import (
 // marshalled. Errors at any stage are returned as formatted error strings suitable
 // for feeding back into the AI conversation (matching existing provider behaviour
 // where tool errors become conversation content rather than aborting the ReAct loop).
-func executeTool(ctx context.Context, logger *log.Logger, tools map[string]Tool, name string, input json.RawMessage) string {
-	logger.Info("Tool Call", "tool", name)
-	logger.Debug("Tool Parameters", "tool", name, "args", input)
+func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, name string, input json.RawMessage) string {
+	l.Info("Tool Call", "tool", name)
+	l.Debug("Tool Parameters", "tool", name, "args", input)
 
 	tool, ok := tools[name]
 	if !ok {
-		logger.Warn("Tool not found", "tool", name)
+		l.Warn("Tool not found", "tool", name)
 
 		return fmt.Sprintf("Error: Tool %s not found", name)
 	}
 
 	out, err := tool.Handler(ctx, input)
 	if err != nil {
-		logger.Warn("Tool execution failed", "tool", name, "error", err)
+		l.Warn("Tool execution failed", "tool", name, "error", err)
 
 		return fmt.Sprintf("Error: %v", err)
 	}
 
 	if s, ok := out.(string); ok {
-		logger.Info("Tool executed successfully", "tool", name)
+		l.Info("Tool executed successfully", "tool", name)
 
 		return s
 	}
 
 	b, err := json.Marshal(out)
 	if err != nil {
-		logger.Warn("Failed to marshal tool result", "tool", name, "error", err)
+		l.Warn("Failed to marshal tool result", "tool", name, "error", err)
 
 		return fmt.Sprintf("Error: failed to marshal tool result: %v", err)
 	}
 
-	logger.Info("Tool executed successfully", "tool", name)
+	l.Info("Tool executed successfully", "tool", name)
 
 	return string(b)
 }

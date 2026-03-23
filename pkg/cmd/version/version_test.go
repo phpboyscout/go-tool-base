@@ -3,7 +3,6 @@ package version
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,8 +12,8 @@ import (
 	p "github.com/phpboyscout/gtb/pkg/props"
 	ver "github.com/phpboyscout/gtb/pkg/version"
 
-	"github.com/charmbracelet/log"
 	"github.com/google/go-github/v80/github"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,8 +51,8 @@ func TestNewCmdVersion(t *testing.T) {
 	memFS := afero.NewMemMapFs()
 	afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0644)
 
-	logger := log.New(io.Discard)
-	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, logger, false)
+	l := logger.NewNoop()
+	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, l, false)
 	require.NoError(t, err)
 
 	t.Setenv("GITHUB_TOKEN", "dummy")
@@ -68,11 +67,11 @@ func TestNewCmdVersion(t *testing.T) {
 				Repo:  "repo",
 			},
 		},
-		Logger: logger,
+		Logger: l,
 		FS:     memFS,
 		Config: cfgContainer,
 		Version: ver.NewInfo("v1.0.0", "", ""), // Latest
-		ErrorHandler: errorhandling.New(logger, nil),
+		ErrorHandler: errorhandling.New(l, nil),
 	}
 
 	cmd := NewCmdVersion(props)

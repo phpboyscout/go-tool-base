@@ -4,12 +4,12 @@ import (
 	"embed"
 	"os"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"github.com/phpboyscout/gtb/pkg/cmd/root"
 	"github.com/phpboyscout/gtb/pkg/errorhandling"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	ver "github.com/phpboyscout/gtb/pkg/version"
 
@@ -22,11 +22,7 @@ import (
 var assets embed.FS
 
 func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
-	logger := log.NewWithOptions(os.Stderr, log.Options{
-		ReportCaller:    false,
-		ReportTimestamp: true,
-		Level:           log.InfoLevel,
-	})
+	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
 	p := &props.Props{
 		Tool: props.Tool{
@@ -43,13 +39,13 @@ func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
 				props.Enable(props.AiCmd),
 			),
 		},
-		Logger:  logger,
+		Logger:  l,
 		FS:      afero.NewOsFs(),
 		Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
 		Version: v,
 	}
 
-	p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
 	// Create root command using the library functionality
 	rootCmd := root.NewCmdRoot(p)

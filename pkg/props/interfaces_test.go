@@ -3,10 +3,10 @@ package props_test
 import (
 	"testing"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
 )
@@ -25,9 +25,9 @@ var (
 )
 
 func TestGetLogger_ReturnsField(t *testing.T) {
-	logger := log.Default()
-	p := &props.Props{Logger: logger}
-	assert.Same(t, logger, p.GetLogger())
+	l := logger.NewNoop()
+	p := &props.Props{Logger: l}
+	assert.Same(t, l, p.GetLogger())
 }
 
 func TestGetConfig_ReturnsField(t *testing.T) {

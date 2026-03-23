@@ -1,11 +1,11 @@
 package props
 
 import (
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/errorhandling"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/version"
 )
 
@@ -14,7 +14,7 @@ import (
 // (LoggerProvider, ConfigProvider, etc.) would suffice.
 type Props struct {
 	Tool         Tool
-	Logger       *log.Logger
+	Logger       logger.Logger
 	Config       config.Containable
 	Assets       Assets
 	FS           afero.Fs
@@ -23,7 +23,7 @@ type Props struct {
 }
 
 // GetLogger returns the application logger.
-func (p *Props) GetLogger() *log.Logger { return p.Logger }
+func (p *Props) GetLogger() logger.Logger { return p.Logger }
 
 // GetConfig returns the application configuration.
 func (p *Props) GetConfig() config.Containable { return p.Config }

@@ -1,15 +1,14 @@
 package initialise
 
 import (
-	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/phpboyscout/gtb/pkg/errorhandling"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	p "github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/setup"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,9 +23,9 @@ func TestNewCmdInit(t *testing.T) {
 		Tool: p.Tool{
 			Name: "test-tool",
 		},
-		Logger:       log.New(io.Discard),
+		Logger:       logger.NewNoop(),
 		FS:           fs,
-		ErrorHandler: errorhandling.New(log.New(io.Discard), nil),
+		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
 	}
 
 	props.Assets = p.NewAssets()

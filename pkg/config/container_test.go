@@ -1,14 +1,13 @@
 package config_test
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,7 @@ func (o TestObserver) Run(c config.Containable, errs chan error) {
 // TestContainer_AddObserver provides a convoluted test for triggering multiple observers of filesystem changes.
 func TestContainer_AddObserver(t *testing.T) {
 	t.Parallel()
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 
 	t.Run("with single config file", func(t *testing.T) {
 		t.Parallel()
@@ -79,7 +78,7 @@ func TestContainer_AddObserver(t *testing.T) {
 
 func TestContainer_Get(t *testing.T) {
 	t.Parallel()
-	l := log.New(io.Discard)
+	l := logger.NewNoop()
 	c := config.NewReaderContainer(l, "yaml", strings.NewReader(firstMockFilesYaml))
 
 	t.Run("test Get", func(t *testing.T) {
@@ -125,7 +124,7 @@ func TestContainer_Get(t *testing.T) {
 // func TestContainer_Dump(t *testing.T) {
 // 	t.Parallel()
 
-// 	l := log.New(io.Discard)
+// 	l := logger.NewNoop()
 // 	c := NewReaderContainer(l, "yaml", strings.NewReader(firstMockFilesYaml))
 // 	c.Dump()
 // }
@@ -133,7 +132,7 @@ func TestContainer_Get(t *testing.T) {
 func TestContainer_Sub(t *testing.T) {
 	t.Parallel()
 
-	l := log.New(io.Discard)
+	l := logger.NewNoop()
 	c := config.NewReaderContainer(l, "yaml", strings.NewReader(secondMockFilesYaml))
 	s := c.Sub("yaml.more")
 
@@ -144,7 +143,7 @@ func TestContainer_Sub(t *testing.T) {
 func TestContainer_GetViper(t *testing.T) {
 	t.Parallel()
 
-	l := log.New(io.Discard)
+	l := logger.NewNoop()
 	c := config.NewReaderContainer(l, "yaml", strings.NewReader(firstMockFilesYaml))
 	v := c.GetViper()
 

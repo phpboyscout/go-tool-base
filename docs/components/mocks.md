@@ -396,7 +396,7 @@ func TestMyCommand(t *testing.T) {
             Name: "test-tool",
         },
         Config: mockConfig,
-        Logger: log.New(io.Discard), // Silent logger for tests
+        Logger: logger.NewNoop(), // Silent logger for tests
     }
 
     // Test your command

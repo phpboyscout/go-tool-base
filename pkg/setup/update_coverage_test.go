@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	nurl "net/url"
@@ -18,7 +17,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/google/go-github/v80/github"
 	mockRelease "github.com/phpboyscout/gtb/mocks/pkg/vcs/release"
 	"github.com/phpboyscout/gtb/pkg/props"
@@ -150,7 +149,7 @@ func TestUpdate_Success(t *testing.T) {
 			},
 		},
 		Config: nil,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -186,7 +185,7 @@ func TestUpdate_Success(t *testing.T) {
 
 	// Enable Logger output
 	var logBuf bytes.Buffer
-	props.Logger = log.NewWithOptions(&logBuf, log.Options{Level: log.DebugLevel})
+	props.Logger = logger.NewCharm(&logBuf, logger.WithLevel(logger.DebugLevel))
 	updater.logger = props.Logger
 
 	// Run Update

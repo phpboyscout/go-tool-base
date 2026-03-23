@@ -2,11 +2,10 @@ package generator
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/mocks/pkg/chat"
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/props"
@@ -18,14 +17,14 @@ import (
 
 func TestGenerateDocs(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 
 	// Create a dummy config
 	conf := config.NewFilesContainer(nil, fs)
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 	}
 

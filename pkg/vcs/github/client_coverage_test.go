@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/google/go-github/v80/github"
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/spf13/afero"
@@ -34,7 +34,7 @@ func setupMockGitHubServer(t *testing.T, handler http.HandlerFunc) (*httptest.Se
 	cfg := fmt.Sprintf(apiConfigGithub, server.URL, server.URL)
 
 	// Configure container with mock server URL
-	containable := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(cfg))
+	containable := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(cfg))
 
 	client, err := NewGitHubClient(containable)
 	require.NoError(t, err)

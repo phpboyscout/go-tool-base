@@ -39,7 +39,7 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	f.ImportAlias("github.com/phpboyscout/gtb/pkg/cmd/root", "gtbRoot")
 
-	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("github.com/phpboyscout/gtb/pkg/errorhandling", "New").Call(jen.Id("logger"), jen.Id("p").Dot("Tool").Dot("Help"))
+	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("github.com/phpboyscout/gtb/pkg/errorhandling", "New").Call(jen.Id("l"), jen.Id("p").Dot("Tool").Dot("Help"))
 
 	subCmdArgs := make([]jen.Code, 0, 1+len(data.Subcommands))
 	subCmdArgs = append(subCmdArgs, jen.Id("p"))
@@ -61,18 +61,17 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 		jen.Op("*").Qual("github.com/spf13/cobra", "Command"),
 		jen.Op("*").Qual("github.com/phpboyscout/gtb/pkg/props", "Props"),
 	).Block(
-		jen.Id("logger").Op(":=").Qual("github.com/charmbracelet/log", "NewWithOptions").Call(
+		jen.Id("l").Op(":=").Qual("github.com/phpboyscout/gtb/pkg/logger", "NewCharm").Call(
 			jen.Qual("os", "Stderr"),
-			jen.Qual("github.com/charmbracelet/log", "Options").Values(jen.Dict{
-				jen.Id("ReportCaller"):    jen.False(),
-				jen.Id("ReportTimestamp"): jen.True(),
-				jen.Id("Level"):           jen.Qual("github.com/charmbracelet/log", "InfoLevel"),
-			}),
+			jen.Qual("github.com/phpboyscout/gtb/pkg/logger", "WithTimestamp").Call(jen.True()),
+			jen.Qual("github.com/phpboyscout/gtb/pkg/logger", "WithLevel").Call(
+				jen.Qual("github.com/phpboyscout/gtb/pkg/logger", "InfoLevel"),
+			),
 		),
 		jen.Line(),
 		jen.Id("p").Op(":=").Op("&").Qual("github.com/phpboyscout/gtb/pkg/props", "Props").Values(jen.Dict{
 			jen.Id("Tool"):    jen.Qual("github.com/phpboyscout/gtb/pkg/props", "Tool").Values(toolDict),
-			jen.Id("Logger"):  jen.Id("logger"),
+			jen.Id("Logger"):  jen.Id("l"),
 			jen.Id("Assets"):  jen.Qual("github.com/phpboyscout/gtb/pkg/props", "NewAssets").Call(jen.Qual("github.com/phpboyscout/gtb/pkg/props", "AssetMap").Values(jen.Dict{jen.Lit("root"): jen.Op("&").Id("assets")})),
 			jen.Id("FS"):      jen.Qual("github.com/spf13/afero", "NewOsFs").Call(),
 			jen.Id("Version"): jen.Id("v"),

@@ -2,13 +2,11 @@ package generator
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
-
 	"github.com/phpboyscout/gtb/pkg/chat"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -45,8 +43,8 @@ func (m *MockChatClient) Chat(ctx context.Context, prompt string) (string, error
 
 func TestGenerateDocs_Command(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	cfgContainer := config.NewFilesContainer(log.New(io.Discard), fs)
+	l := logger.NewNoop()
+	cfgContainer := config.NewFilesContainer(l, fs)
 	cfgContainer.GetViper().Set("ai.provider", "mock")
 	cfgContainer.GetViper().Set("ai.model", "test-model")
 
@@ -76,7 +74,7 @@ This is a generated doc.
 	g := &Generator{
 		props: &props.Props{
 			FS:     fs,
-			Logger: logger,
+			Logger: l,
 			Config: cfgContainer,
 		},
 		config: &Config{
@@ -110,8 +108,8 @@ This is a generated doc.
 
 func TestGenerateDocs_Package(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	cfgContainer := config.NewFilesContainer(log.New(io.Discard), fs)
+	l := logger.NewNoop()
+	cfgContainer := config.NewFilesContainer(l, fs)
 
 	// Setup mock FS
 	root := "/work"
@@ -131,7 +129,7 @@ title: mypkg
 	g := &Generator{
 		props: &props.Props{
 			FS:     fs,
-			Logger: logger,
+			Logger: l,
 			Config: cfgContainer,
 		},
 		config: &Config{
@@ -238,10 +236,10 @@ func TestSanitizeAIOutput(t *testing.T) {
 
 func TestGetModuleNameSafe(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 
 	g := &Generator{
-		props:  &props.Props{FS: fs, Logger: logger},
+		props:  &props.Props{FS: fs, Logger: l},
 		config: &Config{Path: "/work"},
 	}
 
@@ -258,7 +256,7 @@ func TestGetModuleNameSafe(t *testing.T) {
 
 func TestResolveAIConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cfgContainer := config.NewFilesContainer(log.New(io.Discard), fs)
+	cfgContainer := config.NewFilesContainer(logger.NewNoop(), fs)
 
 	g := &Generator{
 		props: &props.Props{Config: cfgContainer},
@@ -428,7 +426,7 @@ commands:
 	_ = afero.WriteFile(fs, manifestPath, []byte(manifestData), 0644)
 
 	g := &Generator{
-		props:  &props.Props{FS: fs, Logger: log.New(io.Discard)},
+		props:  &props.Props{FS: fs, Logger: logger.NewNoop()},
 		config: &Config{Path: root},
 	}
 
@@ -451,7 +449,7 @@ func TestGeneratePackagesIndex(t *testing.T) {
 	_ = afero.WriteFile(fs, filepath.Join(pkgDocsDir, "index.md"), []byte("---\ntitle: mypkg\ndescription: My package\n---\n"), 0644)
 
 	g := &Generator{
-		props:  &props.Props{FS: fs, Logger: log.New(io.Discard)},
+		props:  &props.Props{FS: fs, Logger: logger.NewNoop()},
 		config: &Config{Path: root},
 	}
 
@@ -480,7 +478,7 @@ func TestGenerateCommandsIndex(t *testing.T) {
 	_ = afero.WriteFile(fs, manifestPath, []byte(manifestData), 0644)
 
 	g := &Generator{
-		props:  &props.Props{FS: fs, Logger: log.New(io.Discard)},
+		props:  &props.Props{FS: fs, Logger: logger.NewNoop()},
 		config: &Config{Path: root},
 	}
 

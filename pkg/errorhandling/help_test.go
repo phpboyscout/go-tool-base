@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -95,12 +95,9 @@ func TestTeamsHelp_SupportMessage(t *testing.T) {
 
 func TestErrorHandler_HelpMessage_InOutput(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.NewWithOptions(&buf, log.Options{
-		Level:     log.InfoLevel,
-		Formatter: log.TextFormatter,
-	})
+	l := logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel))
 
-	h := New(logger, SlackHelp{Team: "Platform", Channel: "#alerts"})
+	h := New(l, SlackHelp{Team: "Platform", Channel: "#alerts"})
 	h.Error(errors.New("something went wrong"))
 
 	assert.Contains(t, buf.String(), "For assistance, contact Platform via Slack channel #alerts")
@@ -108,12 +105,9 @@ func TestErrorHandler_HelpMessage_InOutput(t *testing.T) {
 
 func TestErrorHandler_NilHelp_NoHelpInOutput(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.NewWithOptions(&buf, log.Options{
-		Level:     log.InfoLevel,
-		Formatter: log.TextFormatter,
-	})
+	l := logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel))
 
-	h := New(logger, nil)
+	h := New(l, nil)
 	h.Error(errors.New("something went wrong"))
 
 	assert.NotContains(t, buf.String(), "For assistance")

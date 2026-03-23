@@ -2,10 +2,9 @@ package generator
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -15,10 +14,10 @@ import (
 
 func TestGenerateSkeleton(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	g := New(p, &Config{})
@@ -93,10 +92,10 @@ func TestGenerateSkeleton(t *testing.T) {
 
 func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	g := New(p, &Config{})

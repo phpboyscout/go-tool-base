@@ -2,11 +2,10 @@ package generator
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
@@ -18,12 +17,12 @@ import (
 func TestAddCommand_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	// Config container requires a logger
-	logger := log.New(io.Discard)
-	conf := config.NewFilesContainer(log.New(io.Discard), fs)
+	l := logger.NewNoop()
+	conf := config.NewFilesContainer(logger.NewNoop(), fs)
 
 	p := &props.Props{
 		FS:      fs,
-		Logger:  logger,
+		Logger:  l,
 		Config:  conf,
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
@@ -65,12 +64,12 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 
 func TestRegenerateProject_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	conf := config.NewFilesContainer(log.New(io.Discard), fs)
+	l := logger.NewNoop()
+	conf := config.NewFilesContainer(logger.NewNoop(), fs)
 
 	p := &props.Props{
 		FS:      fs,
-		Logger:  logger,
+		Logger:  l,
 		Config:  conf,
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
@@ -100,12 +99,12 @@ func TestRegenerateProject_Lifecycle(t *testing.T) {
 
 func TestRegenerateManifest_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	conf := config.NewFilesContainer(log.New(io.Discard), fs)
+	l := logger.NewNoop()
+	conf := config.NewFilesContainer(logger.NewNoop(), fs)
 
 	p := &props.Props{
 		FS:      fs,
-		Logger:  logger,
+		Logger:  l,
 		Config:  conf,
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}

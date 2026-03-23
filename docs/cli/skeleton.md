@@ -64,10 +64,10 @@ import (
 
     gtbRoot "github.com/phpboyscout/gtb/pkg/cmd/root"
     "github.com/phpboyscout/gtb/pkg/errorhandling"
+    "github.com/phpboyscout/gtb/pkg/logger"
     "github.com/phpboyscout/gtb/pkg/props"
     "github.com/phpboyscout/gtb/pkg/version"
 
-    log "github.com/charmbracelet/log"
     "github.com/spf13/afero"
     "github.com/spf13/cobra"
 )
@@ -78,16 +78,15 @@ var assets embed.FS
 // NewCmdRoot constructs the root command and props for this tool.
 // It returns both so that main.go can pass them to pkgRoot.Execute().
 func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
-    logger := log.NewWithOptions(os.Stderr, log.Options{
-        ReportCaller:    false,
-        ReportTimestamp: true,
-        Level:           log.InfoLevel,
-    })
+    l := logger.NewCharm(os.Stderr,
+        logger.WithTimestamp(),
+        logger.WithLevel(logger.InfoLevel),
+    )
 
     p := &props.Props{
         Assets: props.NewAssets(props.AssetMap{"root": &assets}),
         FS:     afero.NewOsFs(),
-        Logger: logger,
+        Logger: l,
         Tool: props.Tool{
             Name:    "my-tool",
             Summary: "A summary of my tool",
@@ -104,7 +103,7 @@ func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
     // p.Tool.Help = errorhandling.SlackHelp{Team: "My Team", Channel: "#support"}
     // p.Tool.Help = errorhandling.TeamsHelp{Team: "My Team", Channel: "Support"}
 
-    p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
     rootCmd := gtbRoot.NewCmdRoot(p)
 

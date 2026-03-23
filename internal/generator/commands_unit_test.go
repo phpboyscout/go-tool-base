@@ -2,10 +2,9 @@ package generator
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/internal/generator/templates"
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/props"
@@ -140,13 +139,13 @@ func TestConvertManifestFlagsToTemplate(t *testing.T) {
 
 func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	slogger := log.New(io.Discard)
-	conf := config.NewFilesContainer(slogger, fs)
+	l := logger.NewNoop()
+	sl := logger.NewNoop()
+	conf := config.NewFilesContainer(sl, fs)
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 	}
 
@@ -174,9 +173,9 @@ func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 
 func TestCheckProtection(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	slogger := log.New(io.Discard)
-	conf := config.NewFilesContainer(slogger, fs)
+	l := logger.NewNoop()
+	sl := logger.NewNoop()
+	conf := config.NewFilesContainer(sl, fs)
 
 	// Create a manifest with one protected command and one unprotected command
 	manifestPath := "/work/.gtb/manifest.yaml"
@@ -202,7 +201,7 @@ func TestCheckProtection(t *testing.T) {
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 	}
 
@@ -273,16 +272,16 @@ func TestCheckProtection(t *testing.T) {
 
 func TestPrepareAndVerify(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
-	slogger := log.New(io.Discard)
-	conf := config.NewFilesContainer(slogger, fs)
+	l := logger.NewNoop()
+	sl := logger.NewNoop()
+	conf := config.NewFilesContainer(sl, fs)
 
 	// Setup: root command exists
 	_ = fs.MkdirAll("/work/pkg/cmd", 0755)
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Config: conf,
 	}
 

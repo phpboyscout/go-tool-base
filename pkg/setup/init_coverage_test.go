@@ -1,15 +1,13 @@
 package setup
 
 import (
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
+	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/phpboyscout/gtb/pkg/props"
 )
 
 func TestInitialise_Basic(t *testing.T) {
@@ -19,7 +17,7 @@ func TestInitialise_Basic(t *testing.T) {
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 

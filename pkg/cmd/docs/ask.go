@@ -7,12 +7,11 @@ import (
 
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	docslib "github.com/phpboyscout/gtb/pkg/docs"
-
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 )
 
@@ -49,7 +48,20 @@ func runAsk(ctx context.Context, p *props.Props, question string, noStyle bool, 
 	// 2. Ask (stdout logger?)
 	// Not passing a logger function means it won't stream logs, which is consistent with previous CLI behavior (only "Thinking..." printed).
 	// If we want logs, we can pass fmt.Println or similar, but let's keep it simple.
-	answer, err := docslib.AskAI(ctx, p, subFS, question, func(s string, level log.Level) { p.Logger.Log(level, s) }, provider)
+	answer, err := docslib.AskAI(ctx, p, subFS, question, func(s string, level logger.Level) {
+		switch level {
+		case logger.DebugLevel:
+			p.Logger.Debug(s)
+		case logger.InfoLevel:
+			p.Logger.Info(s)
+		case logger.WarnLevel:
+			p.Logger.Warn(s)
+		case logger.ErrorLevel:
+			p.Logger.Error(s)
+		case logger.FatalLevel:
+			p.Logger.Fatal(s)
+		}
+	}, provider)
 	if err != nil {
 		return errors.Newf("failed to ask AI: %w", err)
 	}

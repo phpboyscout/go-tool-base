@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 type Containable interface {
@@ -46,7 +47,7 @@ type Containable interface {
 type Container struct {
 	ID        string
 	viper     *viper.Viper
-	logger    *log.Logger
+	logger    logger.Logger
 	observers []Observable
 }
 

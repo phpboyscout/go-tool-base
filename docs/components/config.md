@@ -56,13 +56,13 @@ The `Container` struct is the primary implementation of the `Containable` interf
 type Container struct {
     ID        string
     viper     *viper.Viper
-    logger    *log.Logger
+    logger    logger.Logger
     observers []Observable
 }
 
 // Core factory functions:
-func NewFilesContainer(l *log.Logger, fs afero.Fs, configFiles ...string) *Container
-func NewReaderContainer(l *log.Logger, format string, configReaders ...io.Reader) *Container
+func NewFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) *Container
+func NewReaderContainer(l logger.Logger, format string, configReaders ...io.Reader) *Container
 ```
 
 ---
@@ -85,7 +85,7 @@ GTB provides several factory functions for creating configuration containers. Th
 **Best for:** Production applications where some config files may not exist.
 
 ```go
-container := config.NewFilesContainer(logger, fs, 
+container := config.NewFilesContainer(l, fs,
     "config.yaml",      // Primary config (may not exist)
     "config.local.yaml", // Local overrides (may not exist)
 )
@@ -103,7 +103,7 @@ container := config.NewFilesContainer(logger, fs,
 **Best for:** Scenarios where configuration is mandatory.
 
 ```go
-container, err := config.LoadFilesContainer(logger, fs,
+container, err := config.LoadFilesContainer(l, fs,
     "config.yaml",       // MUST exist
     "config.local.yaml", // Optional override
 )
@@ -130,12 +130,12 @@ app:
   name: test-app
   debug: true
 `
-container := config.NewReaderContainer(logger, "yaml", 
+container := config.NewReaderContainer(l, "yaml",
     strings.NewReader(configYAML),
 )
 
 // From embedded bytes
-container := config.NewReaderContainer(logger, "yaml",
+container := config.NewReaderContainer(l, "yaml",
     bytes.NewReader(defaultConfigBytes),
     bytes.NewReader(envSpecificBytes),
 )
@@ -158,7 +158,7 @@ v := viper.New()
 v.SetConfigFile("legacy-config.yaml")
 v.ReadInConfig()
 
-container := config.NewContainerFromViper(logger, v)
+container := config.NewContainerFromViper(l, v)
 ```
 
 **Behavior:**
@@ -199,14 +199,13 @@ Load configuration from YAML files using the simplified `Load` function or creat
 fs := afero.NewOsFs()
 paths := []string{"config.yaml", "config.yml", "/etc/myapp/config.yaml"}
 
-container, err := config.Load(paths, fs, logger, false)
+container, err := config.Load(paths, fs, l, false)
 if err != nil {
     log.Fatal(err)
 }
 
 // Or create a Container directly
-slogger := slog.New(props.Logger)
-container := config.NewFilesContainer(slogger, fs, "config.yaml", "local.yaml")
+container := config.NewFilesContainer(l, fs, "config.yaml", "local.yaml")
 ```
 
 **Example config.yaml:**
@@ -284,7 +283,7 @@ The Container automatically handles environment variables using viper's built-in
 // For config key "database.host", environment variable "DATABASE_HOST" is checked
 // Key separator "." is replaced with "_" in environment variable names
 
-container := config.NewFilesContainer(logger, fs, "config.yaml")
+container := config.NewFilesContainer(l, fs, "config.yaml")
 
 // This will check DATABASE_HOST environment variable
 host := container.GetString("database.host")
@@ -303,14 +302,14 @@ Combine multiple configuration files with automatic merging:
 
 ```go
 // Multiple files are merged in order, with later files taking precedence
-container := config.NewFilesContainer(logger, fs,
+container := config.NewFilesContainer(l, fs,
     "defaults.yaml",    // Base configuration
     "config.yaml",      // Environment-specific
     "local.yaml")       // Local overrides
 
 // The Load function also supports merging from multiple discovered files
 paths := []string{"config.yaml", "config.local.yaml", "/etc/myapp/config.yaml"}
-container, err := config.Load(paths, fs, logger, false)
+container, err := config.Load(paths, fs, l, false)
 ```
 
 ## Usage Examples
@@ -450,7 +449,7 @@ container.AddObserver(watcher)
 
 // Or use a function directly
 container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
-    logger.Info("Configuration reloaded", "timestamp", time.Now())
+    l.Info("Configuration reloaded", "timestamp", time.Now())
 })
 ```
 
@@ -460,7 +459,7 @@ When using multiple configuration files, the Container automatically watches for
 
 ```go
 // This enables file watching automatically
-container := config.NewFilesContainer(logger, fs, "config.yaml", "local.yaml")
+container := config.NewFilesContainer(l, fs, "config.yaml", "local.yaml")
 
 // File watching triggers observers when config files change
 container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
@@ -479,7 +478,7 @@ One of the primary benefits of the config package is enhanced testability. Unlik
 ```go
 func TestMyFunction(t *testing.T) {
     // Create in-memory configuration for testing
-    logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+    l := logger.NewNoop()
 
     // Using a YAML string for test config
     testConfigYAML := `
@@ -494,7 +493,7 @@ database:
 `
 
     reader := strings.NewReader(testConfigYAML)
-    container := config.NewReaderContainer(logger, "yaml", reader)
+    container := config.NewReaderContainer(l, "yaml", reader)
 
     // Test your function with the test configuration
     result := MyFunctionThatNeedsConfig(container)
@@ -629,7 +628,7 @@ func TestLogLevelObserver(t *testing.T) {
 
 ```go
 func TestObserverRegistration(t *testing.T) {
-    logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+    l := logger.NewNoop()
 
     // Create container with test config
     reader := strings.NewReader(`
@@ -638,7 +637,7 @@ log:
 database:
   host: "localhost"
 `)
-    container := config.NewReaderContainer(logger, "yaml", reader)
+    container := config.NewReaderContainer(l, "yaml", reader)
 
     // Track observer execution
     observerCalled := false
@@ -696,14 +695,14 @@ database:
 
 ```go
 func TestObserverErrorHandling(t *testing.T) {
-    logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+    l := logger.NewNoop()
 
     // Create container with invalid config
     reader := strings.NewReader(`
 log:
   level: "invalid_level"  # This should trigger an error
 `)
-    container := config.NewReaderContainer(logger, "yaml", reader)
+    container := config.NewReaderContainer(l, "yaml", reader)
 
     // Add observer that validates configuration
     container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
@@ -806,7 +805,7 @@ container.Dump(os.Stdout)
 
 // Get configuration as JSON string for structured logging
 configJSON := container.ToJSON()
-logger.Info("Current configuration", "config", configJSON)
+l.Info("Current configuration", "config", configJSON)
 ```
 
 #### Verifying Sources
@@ -891,9 +890,9 @@ type Containable interface {
 
 ```go
 // Recommended: Use multiple configuration files with precedence
-func setupConfiguration(logger *slog.Logger, fs afero.Fs) (*config.Container, error) {
+func setupConfiguration(l logger.Logger, fs afero.Fs) (*config.Container, error) {
     // Load in order of precedence (later files override earlier ones)
-    container := config.NewFilesContainer(logger, fs,
+    container := config.NewFilesContainer(l, fs,
         "defaults.yaml",      // Base defaults
         "config.yaml",        // Environment configuration
         "local.yaml",         // Local overrides
@@ -913,7 +912,7 @@ func setupConfiguration(logger *slog.Logger, fs afero.Fs) (*config.Container, er
 
 ```go
 // Use observers for configuration-dependent services
-func setupConfigWatching(container *config.Container, logger *slog.Logger) {
+func setupConfigWatching(container *config.Container, l logger.Logger) {
     container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
         // Reconfigure logging level
         if cfg.Has("log.level") {
@@ -957,13 +956,13 @@ func getDatabaseConfig(cfg config.Containable) DatabaseConfig {
 
 ```go
 // Add debugging support for configuration issues
-func debugConfiguration(cfg *config.Container, logger *slog.Logger) {
+func debugConfiguration(cfg *config.Container, l logger.Logger) {
     if cfg.GetBool("debug.config") {
-        logger.Info("Current configuration:", "config", cfg.ToJSON())
+        l.Info("Current configuration:", "config", cfg.ToJSON())
 
         // Log observer count
         observers := cfg.GetObservers()
-        logger.Info("Configuration observers registered", "count", len(observers))
+        l.Info("Configuration observers registered", "count", len(observers))
     }
 }
 ```
@@ -975,16 +974,16 @@ The configuration component integrates seamlessly with other GTB components:
 ```go
 // In your Props setup
 func setupProps() (*props.Props, error) {
-    logger := slog.New(props.Logger)
+    l := logger.NewCharm(os.Stderr)
     fs := afero.NewOsFs()
 
     // Load configuration
-    cfg := config.NewFilesContainer(logger, fs, "config.yaml")
+    cfg := config.NewFilesContainer(l, fs, "config.yaml")
 
     // Create Props with configuration
     p := &props.Props{
         Config: cfg,
-        Logger: logger,
+        Logger: l,
         FS:     fs,
     }
 

@@ -1,13 +1,12 @@
 package generator
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -17,10 +16,10 @@ import (
 func TestGenerateAssetFiles_SkipExistingConfig(t *testing.T) {
 	// Setup
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	cfg := &Config{
@@ -52,10 +51,10 @@ func TestGenerateAssetFiles_SkipExistingConfig(t *testing.T) {
 func TestGenerateAssetFiles_CreateNewConfig(t *testing.T) {
 	// Setup
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	cfg := &Config{
@@ -87,10 +86,10 @@ func TestCheckBreakingChanges(t *testing.T) {
 	// Capture logs? It's harder with charmbracelet/log as it writes to os.Stderr by default.
 	// We can use a buffer.
 	var buf strings.Builder
-	logger := log.New(&buf)
+	l := logger.NewCharm(&buf)
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	g := New(p, &Config{})

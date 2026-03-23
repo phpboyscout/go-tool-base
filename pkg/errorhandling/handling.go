@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 const (
@@ -37,16 +38,16 @@ type ErrorHandler interface {
 }
 
 type StandardErrorHandler struct {
-	Logger *log.Logger
+	Logger logger.Logger
 	Help   HelpConfig
 	Exit   ExitFunc
 	Writer io.Writer
 	Usage  func() error
 }
 
-func New(logger *log.Logger, help HelpConfig, opts ...Option) ErrorHandler {
+func New(l logger.Logger, help HelpConfig, opts ...Option) ErrorHandler {
 	h := &StandardErrorHandler{
-		Logger: logger,
+		Logger: l,
 		Help:   help,
 		Exit:   os.Exit,
 		Writer: os.Stderr,
@@ -105,7 +106,7 @@ func (h *StandardErrorHandler) handleSpecialErrors(err error, cmd ...*cobra.Comm
 	if errors.HasAssertionFailure(err) {
 		h.Logger.Error("Internal error (assertion failure)", "error", err)
 
-		if h.Logger.GetLevel() == log.DebugLevel {
+		if h.Logger.GetLevel() == logger.DebugLevel {
 			h.Logger.Debug("Assertion detail", KeyStacktrace, fmt.Sprintf("%+v", err))
 		}
 
@@ -117,7 +118,7 @@ func (h *StandardErrorHandler) handleSpecialErrors(err error, cmd ...*cobra.Comm
 
 func (h *StandardErrorHandler) buildLogKVPairs(err error) []any {
 	kvPairs := []any{}
-	isDebug := h.Logger.GetLevel() == log.DebugLevel
+	isDebug := h.Logger.GetLevel() == logger.DebugLevel
 
 	if isDebug {
 		kvPairs = append(kvPairs, KeyStacktrace, extractStackTrace(err))
@@ -150,14 +151,16 @@ func (h *StandardErrorHandler) logError(err error, prefix, level string) {
 
 	kvPairs := h.buildLogKVPairs(err)
 
+	kvPairs = append([]any{"error", err}, kvPairs...)
+
 	switch level {
 	case LevelFatal:
-		l.Error(err, kvPairs...)
+		l.Error(err.Error(), kvPairs...)
 		h.Exit(1)
 	case LevelError:
-		l.Error(err, kvPairs...)
+		l.Error(err.Error(), kvPairs...)
 	case LevelWarn:
-		l.Warn(err, kvPairs...)
+		l.Warn(err.Error(), kvPairs...)
 	}
 }
 

@@ -316,19 +316,19 @@ package newpackage
 import "context"
 
 type service struct {
-    logger *log.Logger
+    l logger.Logger
     config Configurable
 }
 
-func NewService(logger *log.Logger, config Configurable) NewService {
+func NewService(l logger.Logger, config Configurable) NewService {
     return &service{
-        logger: logger,
+        l: l,
         config: config,
     }
 }
 
 func (s *service) DoSomething(ctx context.Context, input string) error {
-    s.logger.Debug("doing something", "input", input)
+    s.l.Debug("doing something", "input", input)
     // Implementation
     return nil
 }
@@ -346,16 +346,16 @@ import (
 
     "github.com/phpboyscout/gtb/newpackage"
     "github.com/phpboyscout/gtb/mocks/pkg/config"
-    "github.com/charmbracelet/log"
+    "github.com/phpboyscout/gtb/pkg/logger"
     "github.com/stretchr/testify/assert"
 )
 
 func TestService_DoSomething(t *testing.T) {
     t.Parallel()
 
-    logger := log.New(io.Discard)
+    l := logger.NewNoop()
     mockConfig := configMocks.NewMockConfigurable(t)
-    service := newpackage.NewService(logger, mockConfig)
+    service := newpackage.NewService(l, mockConfig)
 
     err := service.DoSomething(context.Background(), "test")
     assert.NoError(t, err)
@@ -379,10 +379,10 @@ type NewService interface {
 Enable debug logging during development:
 
 ```go
-logger := log.NewWithOptions(os.Stderr, log.Options{
-    Level: log.DebugLevel,
-    ReportCaller: true,
-})
+l := logger.NewCharm(os.Stderr,
+    logger.WithLevel(logger.DebugLevel),
+    logger.WithCaller(),
+)
 ```
 
 ### 2. Test Debugging

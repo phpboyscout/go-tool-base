@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 // ErrShutdown is the cause attached to the controller context when a graceful
@@ -22,7 +23,7 @@ const DefaultShutdownTimeout = 5 * time.Second
 type Controller struct {
 	ctx             context.Context
 	cancel          context.CancelCauseFunc
-	logger          *slog.Logger
+	logger          logger.Logger
 	messages        chan Message
 	health          chan HealthMessage
 	errs            chan error
@@ -96,11 +97,11 @@ func (c *Controller) GetState() State {
 	return c.state
 }
 
-func (c *Controller) SetLogger(logger *slog.Logger) {
-	c.logger = logger
+func (c *Controller) SetLogger(l logger.Logger) {
+	c.logger = l
 }
 
-func (c *Controller) GetLogger() *slog.Logger {
+func (c *Controller) GetLogger() logger.Logger {
 	return c.logger
 }
 
@@ -276,9 +277,9 @@ func WithShutdownTimeout(d time.Duration) ControllerOpt {
 }
 
 // WithLogger sets the controller logger.
-func WithLogger(logger *slog.Logger) ControllerOpt {
+func WithLogger(l logger.Logger) ControllerOpt {
 	return func(c Configurable) {
-		c.SetLogger(logger)
+		c.SetLogger(l)
 	}
 }
 
@@ -288,7 +289,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 	c := &Controller{
 		ctx:             ctx,
 		cancel:          cancel,
-		logger:          slog.New(slog.NewTextHandler(os.Stdout, nil)),
+		logger:          logger.NewCharm(os.Stdout),
 		messages:        make(chan Message),
 		health:          make(chan HealthMessage),
 		errs:            make(chan error),

@@ -1,10 +1,9 @@
 package generator
 
 import (
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,7 +45,7 @@ func TestResolveProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("AI_PROVIDER", "") // Ensure no env var interference
-			c := config.NewFilesContainer(log.New(io.Discard), afero.NewMemMapFs())
+			c := config.NewFilesContainer(logger.NewNoop(), afero.NewMemMapFs())
 			if tt.propProvider != "" {
 				c.GetViper().Set("ai.provider", tt.propProvider)
 			}
@@ -66,7 +65,7 @@ func TestResolveProvider(t *testing.T) {
 }
 
 func TestResolveToken(t *testing.T) {
-	c := config.NewFilesContainer(log.New(io.Discard), afero.NewMemMapFs())
+	c := config.NewFilesContainer(logger.NewNoop(), afero.NewMemMapFs())
 	c.GetViper().Set("openai.api.key", "sk-openai")
 	c.GetViper().Set("anthropic.api.key", "sk-anthropic")
 	c.GetViper().Set("gemini.api.key", "sk-gemini")
@@ -138,12 +137,12 @@ func TestGetImportPath(t *testing.T) {
 			}
 
 			// Mock Logger
-			logger := log.New(io.Discard)
+			l := logger.NewNoop()
 
 			g := &Generator{
 				props: &props.Props{
 					FS:     fs,
-					Logger: logger,
+					Logger: l,
 				},
 				config: &Config{
 					Path: tt.configPath,

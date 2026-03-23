@@ -3,16 +3,14 @@ package docs
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 
-	"github.com/phpboyscout/gtb/pkg/props"
-
 	"github.com/phpboyscout/gtb/pkg/chat"
+	"github.com/phpboyscout/gtb/pkg/logger"
+	"github.com/phpboyscout/gtb/pkg/props"
 )
 
 type AskResponse struct {
@@ -50,29 +48,17 @@ func GetAllMarkdownContent(fsys fs.FS) (string, error) {
 	return sb.String(), err
 }
 
-type logAdapter struct {
-	fn func(string)
-}
-
-func (l *logAdapter) Write(p []byte) (n int, err error) {
-	if l.fn != nil {
-		l.fn(string(p))
-	}
-
-	return len(p), nil
-}
-
 // AskAI encapsulates the logic to query the AI about the documentation.
 // logFn is optional, if provided it receives log output.
-func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, logFn func(string, log.Level), providerOverride ...string) (string, error) {
-	logFn("Collating documentation...", log.InfoLevel)
+func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, logFn func(string, logger.Level), providerOverride ...string) (string, error) {
+	logFn("Collating documentation...", logger.InfoLevel)
 
 	content, err := GetAllMarkdownContent(fsys)
 	if err != nil {
 		return "", errors.Newf("failed to load content: %w", err)
 	}
 
-	logFn("Preparing prompt...", log.DebugLevel)
+	logFn("Preparing prompt...", logger.DebugLevel)
 
 	sysPrompt := fmt.Sprintf("You are a helpful assistant for 'GTB' (also known as 'als'). "+
 		"Your goal is to provide high-quality, professional, and well-structured answers to the user's questions based on the provided documentation. "+
@@ -95,28 +81,14 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 		SchemaDescription: "An answer to the user's question about the documentation",
 	}
 
-	// Setup Logger
-	pClone := *p
+	logFn("Starting Chat...", logger.DebugLevel)
 
-	if logFn != nil {
-		uiLogger := log.NewWithOptions(io.Discard, log.Options{
-			ReportTimestamp: false,
-			ReportCaller:    false,
-			Level:           log.InfoLevel,
-		})
-		writer := &logAdapter{fn: func(s string) { logFn(s, log.InfoLevel) }}
-		uiLogger.SetOutput(writer)
-		pClone.Logger = uiLogger
-	}
-
-	logFn("Starting Chat...", log.DebugLevel)
-
-	client, err := chat.New(ctx, &pClone, cfg)
+	client, err := chat.New(ctx, p, cfg)
 	if err != nil {
 		return "", err
 	}
 
-	logFn(fmt.Sprintf("Asking AI: %s", question), log.DebugLevel)
+	logFn(fmt.Sprintf("Asking AI: %s", question), logger.DebugLevel)
 
 	var resp AskResponse
 	if err := client.Ask(ctx, question, &resp); err != nil {

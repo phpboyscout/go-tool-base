@@ -2,13 +2,12 @@ package github
 
 import (
 	"context"
-	"io"
 	"os"
 
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/google/go-github/v80/github"
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +35,7 @@ const (
 func TestNewGitHubClientInstantiation(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(integrationConfigGithub))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
 	client, err := NewGitHubClient(cfg.Sub("github"))
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
@@ -89,7 +88,7 @@ func TestGithubFindPullRequestByBranch(t *testing.T) {
 		t.Skip("Skipping integration test as INT_TEST not set")
 	}
 
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(integrationConfigGithub))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
 	client, err := NewGitHubClient(cfg.Sub("github"))
 	require.NoError(t, err)
 
@@ -104,7 +103,7 @@ func TestAddLabelsToPullRequest(t *testing.T) {
 		t.Skip("Skipping integration test as INT_TEST not set")
 	}
 
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(integrationConfigGithub))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
 	client, err := NewGitHubClient(cfg.Sub("github"))
 	require.NoError(t, err)
 

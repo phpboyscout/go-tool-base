@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 const (
@@ -31,23 +31,23 @@ var (
 	}
 )
 
-func GracefulGetPath(name string, logger *log.Logger, instructions ...string) (string, error) {
+func GracefulGetPath(name string, l logger.Logger, instructions ...string) (string, error) {
 	p, err := exec.LookPath(name)
 	if err != nil {
 		if i, ok := Instructions[name]; ok {
-			logger.Warn(i)
+			l.Warn(i)
 		}
 
 		for _, i := range instructions {
-			logger.Warn(i)
+			l.Warn(i)
 		}
 
-		logger.Errorf("the '%s' command is not available, please make sure it is installed and configured in your PATH", name)
+		l.Errorf("the '%s' command is not available, please make sure it is installed and configured in your PATH", name)
 
 		return "", err
 	}
 
-	logger.Debugf("using '%s' command at '%s'", name, p)
+	l.Debugf("using '%s' command at '%s'", name, p)
 
 	return p, nil
 }

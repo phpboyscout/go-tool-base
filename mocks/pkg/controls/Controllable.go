@@ -6,12 +6,12 @@ package controls
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/phpboyscout/gtb/pkg/controls"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -135,19 +135,19 @@ func (_c *MockControllable_GetContext_Call) RunAndReturn(run func() context.Cont
 }
 
 // GetLogger provides a mock function for the type MockControllable
-func (_mock *MockControllable) GetLogger() *slog.Logger {
+func (_mock *MockControllable) GetLogger() logger.Logger {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLogger")
 	}
 
-	var r0 *slog.Logger
-	if returnFunc, ok := ret.Get(0).(func() *slog.Logger); ok {
+	var r0 logger.Logger
+	if returnFunc, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*slog.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 	return r0
@@ -170,12 +170,12 @@ func (_c *MockControllable_GetLogger_Call) Run(run func()) *MockControllable_Get
 	return _c
 }
 
-func (_c *MockControllable_GetLogger_Call) Return(logger *slog.Logger) *MockControllable_GetLogger_Call {
-	_c.Call.Return(logger)
+func (_c *MockControllable_GetLogger_Call) Return(logger1 logger.Logger) *MockControllable_GetLogger_Call {
+	_c.Call.Return(logger1)
 	return _c
 }
 
-func (_c *MockControllable_GetLogger_Call) RunAndReturn(run func() *slog.Logger) *MockControllable_GetLogger_Call {
+func (_c *MockControllable_GetLogger_Call) RunAndReturn(run func() logger.Logger) *MockControllable_GetLogger_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -583,8 +583,8 @@ func (_c *MockControllable_SetHealthChannel_Call) RunAndReturn(run func(health c
 }
 
 // SetLogger provides a mock function for the type MockControllable
-func (_mock *MockControllable) SetLogger(logger *slog.Logger) {
-	_mock.Called(logger)
+func (_mock *MockControllable) SetLogger(l logger.Logger) {
+	_mock.Called(l)
 	return
 }
 
@@ -594,16 +594,16 @@ type MockControllable_SetLogger_Call struct {
 }
 
 // SetLogger is a helper method to define mock.On call
-//   - logger *slog.Logger
-func (_e *MockControllable_Expecter) SetLogger(logger interface{}) *MockControllable_SetLogger_Call {
-	return &MockControllable_SetLogger_Call{Call: _e.mock.On("SetLogger", logger)}
+//   - l logger.Logger
+func (_e *MockControllable_Expecter) SetLogger(l interface{}) *MockControllable_SetLogger_Call {
+	return &MockControllable_SetLogger_Call{Call: _e.mock.On("SetLogger", l)}
 }
 
-func (_c *MockControllable_SetLogger_Call) Run(run func(logger *slog.Logger)) *MockControllable_SetLogger_Call {
+func (_c *MockControllable_SetLogger_Call) Run(run func(l logger.Logger)) *MockControllable_SetLogger_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *slog.Logger
+		var arg0 logger.Logger
 		if args[0] != nil {
-			arg0 = args[0].(*slog.Logger)
+			arg0 = args[0].(logger.Logger)
 		}
 		run(
 			arg0,
@@ -617,7 +617,7 @@ func (_c *MockControllable_SetLogger_Call) Return() *MockControllable_SetLogger_
 	return _c
 }
 
-func (_c *MockControllable_SetLogger_Call) RunAndReturn(run func(logger *slog.Logger)) *MockControllable_SetLogger_Call {
+func (_c *MockControllable_SetLogger_Call) RunAndReturn(run func(l logger.Logger)) *MockControllable_SetLogger_Call {
 	_c.Run(run)
 	return _c
 }

@@ -18,7 +18,7 @@ The `Props` struct is the "Context Object" of GTB. It acts as a dependency injec
 Defined in `pkg/props`, the `Props` object typically contains:
 
 - **`Tool`**: Metadata about your CLI (Name, Summary, GitHub Org/Repo).
-- **`Logger`**: A structured logger (`charmbracelet/log`) for consistent output.
+- **`Logger`**: A unified logger abstraction (`logger.Logger`) with charmbracelet as the default backend for consistent output.
 - **`Config`**: The loaded configuration container.
 - **`FS`**: An abstraction of the file system (`spf13/afero`), allowing for easy mocking.
 - **`Assets`**: A manager for embedded filesystem resources.

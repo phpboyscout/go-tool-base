@@ -140,7 +140,7 @@ type StateAccessor interface {
     GetState() State
     SetState(state State)
     GetContext() context.Context
-    GetLogger() *slog.Logger
+    GetLogger() logger.Logger
 }
 ```
 
@@ -651,8 +651,8 @@ The `pkg/controls/http` package provides a standard HTTP/TLS server that follows
 #### Functions
 
 - **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error)`**: Returns a pre-configured `*http.Server` with production-ready timeouts (Read: 5s, Write: 10s, Idle: 120s) and secure TLS settings.
-- **`Start(cfg config.Containable, logger *log.Logger, srv *http.Server) controls.StartFunc`**: Returns a start function that handles both HTTP and HTTPS based on configuration.
-- **`Stop(logger *log.Logger, srv *http.Server) controls.StopFunc`**: Returns a stop function that performs a graceful shutdown.
+- **`Start(cfg config.Containable, l logger.Logger, srv *http.Server) controls.StartFunc`**: Returns a start function that handles both HTTP and HTTPS based on configuration.
+- **`Stop(l logger.Logger, srv *http.Server) controls.StopFunc`**: Returns a stop function that performs a graceful shutdown.
 
 #### Configuration
 
@@ -691,8 +691,8 @@ The `pkg/controls/grpc` package provides a standard gRPC server with reflection 
 #### Functions
 
 - **`NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered.
-- **`Start(cfg config.Containable, logger *log.Logger, srv *grpc.Server) controls.StartFunc`**: Returns a start function that listens on the configured port.
-- **`Stop(logger *log.Logger, srv *grpc.Server) controls.StopFunc`**: Returns a stop function that performs a `GracefulStop`.
+- **`Start(cfg config.Containable, l logger.Logger, srv *grpc.Server) controls.StartFunc`**: Returns a start function that listens on the configured port.
+- **`Stop(l logger.Logger, srv *grpc.Server) controls.StopFunc`**: Returns a stop function that performs a `GracefulStop`.
 
 #### Configuration
 
@@ -869,7 +869,7 @@ func main() {
     defer cancel()
 
     controller := controls.NewController(ctx,
-        controls.WithLogger(slog.New(props.Logger)),
+        controls.WithLogger(props.Logger),
     )
 
     // Services can access shared Props

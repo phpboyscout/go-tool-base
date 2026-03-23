@@ -1,16 +1,16 @@
 package ai
 
 import (
-	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 
 	mockConfig "github.com/phpboyscout/gtb/mocks/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/chat"
@@ -29,9 +29,9 @@ func newTestProps(t *testing.T) *p.Props {
 		Tool: p.Tool{
 			Name: "test-tool",
 		},
-		Logger:       log.New(io.Discard),
+		Logger:       logger.NewNoop(),
 		FS:           fs,
-		ErrorHandler: errorhandling.New(log.New(io.Discard), nil),
+		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
 	}
 }
 

@@ -6,17 +6,16 @@ import (
 	"crypto/x509"
 	"embed"
 	"encoding/pem"
-	"io"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -69,7 +68,7 @@ func genTestSSHKey() []byte {
 }
 
 func newTestRepo() (*Repo, error) {
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(testConfig))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfig))
 
 	localfs := afero.NewMemMapFs()
 	afero.WriteFile(localfs, "id_rsa", genTestSSHKey(), 0600)
@@ -77,7 +76,7 @@ func newTestRepo() (*Repo, error) {
 	var assets embed.FS
 
 	props := &props.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Config: cfg,
 		FS:     localfs,
 		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
@@ -238,14 +237,14 @@ func TestOpenRemoteHTTP(t *testing.T) {
 		t.Skip("Skipping integration test as INT_TEST not set")
 	}
 
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
 
 	localfs := afero.NewMemMapFs()
 
 	var assets embed.FS
 
 	props := &props.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Config: cfg,
 		FS:     localfs,
 		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
@@ -268,14 +267,14 @@ func TestCheckoutRemoteBranch(t *testing.T) {
 		t.Skip("Skipping integration test as INT_TEST not set")
 	}
 
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
 
 	localfs := afero.NewMemMapFs()
 
 	var assets embed.FS
 
 	props := &props.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Config: cfg,
 		FS:     localfs,
 		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
@@ -313,9 +312,9 @@ func TestClone(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Create test props
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
 	propsConfig := &props.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Config: cfg,
 		FS:     afero.NewMemMapFs(),
 	}
@@ -400,9 +399,9 @@ func TestFileOperations(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	// Clone a repo that we know has content (using Hello-World for stability)
-	cfg := config.NewReaderContainer(log.New(io.Discard), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
 	propsConfig := &props.Props{
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Config: cfg,
 		FS:     afero.NewMemMapFs(),
 	}

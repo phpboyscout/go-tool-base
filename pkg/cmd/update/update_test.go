@@ -1,13 +1,12 @@
 package update
 
 import (
-	"io"
 	"testing"
 
 	"github.com/phpboyscout/gtb/pkg/errorhandling"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	p "github.com/phpboyscout/gtb/pkg/props"
 
-	"github.com/charmbracelet/log"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,8 +15,8 @@ func TestNewCmdUpdate(t *testing.T) {
 		Tool: p.Tool{
 			Name: "test-tool",
 		},
-		Logger:       log.New(io.Discard),
-		ErrorHandler: errorhandling.New(log.New(io.Discard), nil),
+		Logger:       logger.NewNoop(),
+		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
 	}
 
 	cmd := NewCmdUpdate(props)

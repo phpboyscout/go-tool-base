@@ -11,7 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 // Styles.
@@ -196,7 +197,7 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 }
 
 type Option func(*Model)
-type AskFunc func(question string, log func(string, log.Level)) (string, error)
+type AskFunc func(question string, log func(string, logger.Level)) (string, error)
 
 func WithTitle(title string) Option {
 	return func(m *Model) {
@@ -293,10 +294,7 @@ func (m *Model) performSearch(query string) tea.Cmd {
 
 			content, err := fs.ReadFile(m.fs, path)
 			if err != nil {
-				// Log the error for debugging purposes, but continue search
-				log.Debug("Failed to search file", "path", path, "error", err)
-
-				return nil
+				return nil //nolint:nilerr // intentionally skip unreadable files during search
 			}
 
 			text := string(content)
@@ -481,7 +479,7 @@ func (m *Model) handleAskInputKey(msg tea.KeyMsg) tea.Cmd {
 
 			// Ask Cmd
 			askCmd := func() tea.Msg {
-				ans, err := m.askFunc(question, func(s string, level log.Level) {
+				ans, err := m.askFunc(question, func(s string, level logger.Level) {
 					logCh <- s
 				})
 

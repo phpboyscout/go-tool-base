@@ -2,11 +2,10 @@ package setup
 
 import (
 	"bytes"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -19,9 +18,9 @@ func TestInitializeConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	targetFile := filepath.Join(tmpDir, "config.yaml")
 
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
-		Logger: logger,
+		Logger: l,
 		FS:     afero.NewMemMapFs(),
 	}
 
@@ -95,10 +94,10 @@ func TestWarnIfAPIKeysInGitRepo_Warns(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(configDir, "config.yaml"), []byte("api_key: sk-abc123"), 0644))
 
 	var buf bytes.Buffer
-	logger := log.New(&buf)
+	l := logger.NewCharm(&buf)
 
 	p := &props.Props{
-		Logger: logger,
+		Logger: l,
 		FS:     fs,
 	}
 
@@ -117,10 +116,10 @@ func TestWarnIfAPIKeysInGitRepo_NoGitRepo(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(configDir, "config.yaml"), []byte("api_key: sk-abc123"), 0644))
 
 	var buf bytes.Buffer
-	logger := log.New(&buf)
+	l := logger.NewCharm(&buf)
 
 	p := &props.Props{
-		Logger: logger,
+		Logger: l,
 		FS:     fs,
 	}
 

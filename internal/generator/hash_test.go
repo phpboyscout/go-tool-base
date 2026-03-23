@@ -2,11 +2,10 @@ package generator
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/internal/generator/templates"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
@@ -20,10 +19,10 @@ func TestHashUpdateOnRegeneration(t *testing.T) {
 	// 1. Setup MemFS
 	fs := afero.NewMemMapFs()
 	// Use a buffer for logs or discard
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  logger,
+		Logger:  l,
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -126,10 +125,10 @@ func TestVerifyHash(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 	}
 
 	cmdName := "test-cmd"

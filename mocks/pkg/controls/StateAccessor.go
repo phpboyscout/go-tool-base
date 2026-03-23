@@ -6,9 +6,9 @@ package controls
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/phpboyscout/gtb/pkg/controls"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -86,19 +86,19 @@ func (_c *MockStateAccessor_GetContext_Call) RunAndReturn(run func() context.Con
 }
 
 // GetLogger provides a mock function for the type MockStateAccessor
-func (_mock *MockStateAccessor) GetLogger() *slog.Logger {
+func (_mock *MockStateAccessor) GetLogger() logger.Logger {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLogger")
 	}
 
-	var r0 *slog.Logger
-	if returnFunc, ok := ret.Get(0).(func() *slog.Logger); ok {
+	var r0 logger.Logger
+	if returnFunc, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*slog.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 	return r0
@@ -121,12 +121,12 @@ func (_c *MockStateAccessor_GetLogger_Call) Run(run func()) *MockStateAccessor_G
 	return _c
 }
 
-func (_c *MockStateAccessor_GetLogger_Call) Return(logger *slog.Logger) *MockStateAccessor_GetLogger_Call {
-	_c.Call.Return(logger)
+func (_c *MockStateAccessor_GetLogger_Call) Return(logger1 logger.Logger) *MockStateAccessor_GetLogger_Call {
+	_c.Call.Return(logger1)
 	return _c
 }
 
-func (_c *MockStateAccessor_GetLogger_Call) RunAndReturn(run func() *slog.Logger) *MockStateAccessor_GetLogger_Call {
+func (_c *MockStateAccessor_GetLogger_Call) RunAndReturn(run func() logger.Logger) *MockStateAccessor_GetLogger_Call {
 	_c.Call.Return(run)
 	return _c
 }

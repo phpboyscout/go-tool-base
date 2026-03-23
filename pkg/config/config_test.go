@@ -1,11 +1,10 @@
 package config_test
 
 import (
-	"io"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +27,7 @@ var secondMockFilesYaml = `yaml:
 
 func TestNewFilesContainer(t *testing.T) {
 	t.Parallel()
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 
 	t.Run("with single config file", func(t *testing.T) {
 		t.Parallel()
@@ -61,7 +60,7 @@ func TestNewFilesContainer(t *testing.T) {
 
 func TestNewReaderContainer(t *testing.T) {
 	t.Parallel()
-	logger := log.New(io.Discard)
+	logger := logger.NewNoop()
 
 	t.Run("with single config reader", func(t *testing.T) {
 		t.Parallel()

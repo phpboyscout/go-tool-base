@@ -122,7 +122,7 @@ When debug logging is enabled, the errorhandling package automatically includes 
 
 ```go
 // Enable debug logging to see stack traces
-props.Logger.SetLevel(log.DebugLevel)
+props.Logger.SetLevel(logger.DebugLevel)
 
 // This error will include a clean stack trace in debug mode
 props.ErrorHandler.Error(errors.New("something went wrong"))
@@ -337,9 +337,11 @@ func TestLoadConfig_InvalidFile(t *testing.T) {
 ```go
 func TestCommandErrorHandling(t *testing.T) {
     var logBuffer bytes.Buffer
-    logger := log.NewWithOptions(&logBuffer, log.Options{Level: log.ErrorLevel})
+    l := logger.NewCharm(&logBuffer,
+        logger.WithLevel(logger.ErrorLevel),
+    )
 
-    h := errorhandling.New(logger, nil)
+    h := errorhandling.New(l, nil)
 
     testErr := errors.New("test error with stack trace")
     h.Error(testErr)
@@ -353,9 +355,11 @@ func TestCommandErrorHandling(t *testing.T) {
 ```go
 func TestSlackHelp_AppearsInOutput(t *testing.T) {
     var buf bytes.Buffer
-    logger := log.NewWithOptions(&buf, log.Options{Level: log.InfoLevel, Formatter: log.TextFormatter})
+    l := logger.NewCharm(&buf,
+        logger.WithLevel(logger.InfoLevel),
+    )
 
-    h := errorhandling.New(logger, errorhandling.SlackHelp{Team: "Platform", Channel: "#alerts"})
+    h := errorhandling.New(l, errorhandling.SlackHelp{Team: "Platform", Channel: "#alerts"})
     h.Error(errors.New("something went wrong"))
 
     assert.Contains(t, buf.String(), "For assistance, contact Platform via Slack channel #alerts")

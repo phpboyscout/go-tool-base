@@ -2,10 +2,9 @@ package generator
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
 	"github.com/spf13/afero"
@@ -15,10 +14,10 @@ import (
 
 func TestVerifyProject(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:      fs,
-		Logger:  logger,
+		Logger:  l,
 		Version: version.NewInfo("v2.0.0", "", ""),
 	}
 
@@ -82,7 +81,7 @@ func TestGetImportPath_Generator(t *testing.T) {
 
 func TestSetProtection(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	p := &props.Props{FS: fs, Logger: log.New(io.Discard)}
+	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
 	root := "/work"
 
 	manifestPath := root + "/.gtb/manifest.yaml"

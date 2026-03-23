@@ -5,13 +5,14 @@ import (
 	"io"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
-func initContainer(l *log.Logger, fs afero.Fs) *Container {
+func initContainer(l logger.Logger, fs afero.Fs) *Container {
 	c := Container{
 		ID:        "",
 		viper:     viper.New(),
@@ -29,7 +30,7 @@ func initContainer(l *log.Logger, fs afero.Fs) *Container {
 }
 
 // NewContainerFromViper creates a new Container from an existing Viper instance.
-func NewContainerFromViper(l *log.Logger, v *viper.Viper) *Container {
+func NewContainerFromViper(l logger.Logger, v *viper.Viper) *Container {
 	return &Container{
 		ID:        "viper",
 		viper:     v,
@@ -40,7 +41,7 @@ func NewContainerFromViper(l *log.Logger, v *viper.Viper) *Container {
 
 // LoadFilesContainer loads configuration from files and returns a Containable.
 // It returns an error if the first file specified does not exist.
-func LoadFilesContainer(l *log.Logger, fs afero.Fs, configFiles ...string) (Containable, error) {
+func LoadFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) (Containable, error) {
 	if len(configFiles) == 0 {
 		return nil, errors.New("no config files specified")
 	}
@@ -79,7 +80,7 @@ func LoadFilesContainer(l *log.Logger, fs afero.Fs, configFiles ...string) (Cont
 }
 
 // NewFilesContainer Initialise configuration container to read files from the FS.
-func NewFilesContainer(l *log.Logger, fs afero.Fs, configFiles ...string) *Container {
+func NewFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) *Container {
 	c := initContainer(l, fs)
 
 	if len(configFiles) > 0 {
@@ -103,7 +104,7 @@ func NewFilesContainer(l *log.Logger, fs afero.Fs, configFiles ...string) *Conta
 }
 
 // NewReaderContainer Initialise configuration container to read config from ioReader.
-func NewReaderContainer(l *log.Logger, format string, configReaders ...io.Reader) *Container {
+func NewReaderContainer(l logger.Logger, format string, configReaders ...io.Reader) *Container {
 	c := initContainer(l, afero.NewOsFs())
 
 	c.viper.SetConfigType(format)

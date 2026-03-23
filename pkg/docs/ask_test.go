@@ -1,12 +1,11 @@
 package docs
 
 import (
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
 	"github.com/phpboyscout/gtb/pkg/chat"
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +19,7 @@ func TestResolveProvider(t *testing.T) {
 
 	t.Run("config override", func(t *testing.T) {
 		p := &props.Props{
-			Config: config.NewReaderContainer(log.New(io.Discard), "yaml"),
+			Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
 		}
 		t.Setenv("AI_PROVIDER", "claude")
 
@@ -30,7 +29,7 @@ func TestResolveProvider(t *testing.T) {
 
 	t.Run("default is openai", func(t *testing.T) {
 		p := &props.Props{
-			Config: config.NewReaderContainer(log.New(io.Discard), "yaml"),
+			Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
 		}
 		t.Setenv("AI_PROVIDER", "")
 

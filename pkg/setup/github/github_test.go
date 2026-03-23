@@ -1,12 +1,11 @@
 package github
 
 import (
-	"io"
 	"path/filepath"
 	"testing"
 
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +28,7 @@ func TestDiscoverSSHKeys_Coverage(t *testing.T) {
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
@@ -51,7 +50,7 @@ func TestGenerateAndDiscoverKey(t *testing.T) {
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 	cfg := viper.New()
@@ -102,10 +101,10 @@ func TestGenerateKey_Upload(t *testing.T) {
 	homeDir := "/home/testuser"
 	t.Setenv("HOME", homeDir)
 
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
+		Logger: l,
 		Tool:   props.Tool{Name: "testtool"},
 	}
 	cfg := viper.New()
@@ -150,7 +149,7 @@ func TestGitHubInitialiser(t *testing.T) {
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
@@ -174,7 +173,7 @@ func TestIsGitHubConfigured(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 

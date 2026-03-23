@@ -104,12 +104,11 @@ package main
 import (
     "embed"
     "os"
-    "time"
 
     "github.com/phpboyscout/gtb/pkg/cmd/root"
+    "github.com/phpboyscout/gtb/pkg/logger"
     "github.com/phpboyscout/gtb/pkg/props"
     "github.com/phpboyscout/gtb/pkg/version"
-    "github.com/charmbracelet/log"
     "github.com/spf13/afero"
 )
 
@@ -117,11 +116,10 @@ import (
 var assets embed.FS
 
 func main() {
-    logger := log.NewWithOptions(os.Stderr, log.Options{
-        ReportTimestamp: true,
-        TimeFormat:      time.Kitchen,
-        Level:          log.InfoLevel,
-    })
+    l := logger.NewCharm(os.Stderr,
+        logger.WithTimestamp(),
+        logger.WithLevel(logger.InfoLevel),
+    )
 
     props := &props.Props{
         Tool: props.Tool{
@@ -133,7 +131,7 @@ func main() {
                 Repo: "example-tool",
             },
         },
-        Logger:  logger,
+        Logger:  l,
         Assets:  props.NewAssets(&assets),
         FS:      afero.NewOsFs(),
         Version: version.NewInfo("0.1.0", "", ""),

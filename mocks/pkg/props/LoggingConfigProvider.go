@@ -5,8 +5,8 @@
 package props
 
 import (
-	"github.com/charmbracelet/log"
 	"github.com/phpboyscout/gtb/pkg/config"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -84,19 +84,19 @@ func (_c *MockLoggingConfigProvider_GetConfig_Call) RunAndReturn(run func() conf
 }
 
 // GetLogger provides a mock function for the type MockLoggingConfigProvider
-func (_mock *MockLoggingConfigProvider) GetLogger() *log.Logger {
+func (_mock *MockLoggingConfigProvider) GetLogger() logger.Logger {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLogger")
 	}
 
-	var r0 *log.Logger
-	if returnFunc, ok := ret.Get(0).(func() *log.Logger); ok {
+	var r0 logger.Logger
+	if returnFunc, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*log.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 	return r0
@@ -119,12 +119,12 @@ func (_c *MockLoggingConfigProvider_GetLogger_Call) Run(run func()) *MockLogging
 	return _c
 }
 
-func (_c *MockLoggingConfigProvider_GetLogger_Call) Return(logger *log.Logger) *MockLoggingConfigProvider_GetLogger_Call {
-	_c.Call.Return(logger)
+func (_c *MockLoggingConfigProvider_GetLogger_Call) Return(logger1 logger.Logger) *MockLoggingConfigProvider_GetLogger_Call {
+	_c.Call.Return(logger1)
 	return _c
 }
 
-func (_c *MockLoggingConfigProvider_GetLogger_Call) RunAndReturn(run func() *log.Logger) *MockLoggingConfigProvider_GetLogger_Call {
+func (_c *MockLoggingConfigProvider_GetLogger_Call) RunAndReturn(run func() logger.Logger) *MockLoggingConfigProvider_GetLogger_Call {
 	_c.Call.Return(run)
 	return _c
 }

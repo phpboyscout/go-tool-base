@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/phpboyscout/gtb/pkg/controls"
+	"github.com/phpboyscout/gtb/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -49,9 +49,9 @@ func getNewController(ctx context.Context) (*controls.Controller, *StateCounters
 	statusFunc := func() { cntrs.Statused.Add(1); time.Sleep(500 * time.Microsecond) }
 
 	buf := &syncBuffer{}
-	logger := slog.New(slog.NewTextHandler(buf, nil))
+	l := logger.NewCharm(buf)
 
-	c := controls.NewController(ctx, controls.WithLogger(logger))
+	c := controls.NewController(ctx, controls.WithLogger(l))
 	c.Register("test",
 		controls.WithStart(startFunc),
 		controls.WithStop(stopFunc),

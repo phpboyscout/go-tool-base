@@ -3,15 +3,14 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 
-func testLogger() *log.Logger {
-	return log.New(io.Discard)
+func testLogger() logger.Logger {
+	return logger.NewNoop()
 }
 
 func TestExecuteTool_Found(t *testing.T) {

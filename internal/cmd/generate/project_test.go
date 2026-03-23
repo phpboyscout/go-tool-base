@@ -2,10 +2,9 @@ package generate
 
 import (
 	"context"
-	"io"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/props"
 	"github.com/phpboyscout/gtb/pkg/version"
 	"github.com/spf13/afero"
@@ -17,7 +16,7 @@ func TestSkeletonRun(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool: props.Tool{
 			ReleaseSource: props.ReleaseSource{
 				Type:  "github",
@@ -105,7 +104,7 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	memFs := afero.NewMemMapFs()
 	p := &props.Props{
 		FS:     memFs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 		Tool: props.Tool{
 			ReleaseSource: props.ReleaseSource{
 				Type:  "gitlab",

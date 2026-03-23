@@ -39,7 +39,7 @@ This grid compares GTB against the most common tools developers consider when st
 
 **The Difference:** If you use Cobra and Viper directly, you are essentially buying the raw materials to build a house. You still have to figure out how to wire Viper's configuration into Cobra's commands securely, how to structure your files, how to implement auto-updates across multiple OS architectures, and how to distribute documentation. 
 
-**GTB is the fully built house.** It provides a heavily structured, opinionated implementation of the Cobra command router seamlessly integrated with Viper. It gives you the destination—the unified `Props` container, the filesystem abstractions (`afero`), standard structured logging (`charmbracelet/log`), and the AI service layer—pre-wired and ready for production logic.
+**GTB is the fully built house.** It provides a heavily structured, opinionated implementation of the Cobra command router seamlessly integrated with Viper. It gives you the destination—the unified `Props` container, the filesystem abstractions (`afero`), the unified logger abstraction (with charmbracelet as the default backend), and the AI service layer—pre-wired and ready for production logic.
 
 ### GTB vs. urfave/cli
 

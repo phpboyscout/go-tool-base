@@ -4,19 +4,17 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/charmbracelet/log"
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 func TestCheckDebug(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.NewWithOptions(&buf, log.Options{
-		Level:     log.DebugLevel,
-		Formatter: log.TextFormatter,
-	})
+	l := logger.NewCharm(&buf, logger.WithLevel(logger.DebugLevel))
 
-	h := New(logger, nil)
+	h := New(l, nil)
 
 	err := errors.New("debug error")
 	h.Check(err, "", LevelError)
@@ -27,12 +25,9 @@ func TestCheckDebug(t *testing.T) {
 
 func TestCheckStacktrace(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.NewWithOptions(&buf, log.Options{
-		Level:     log.InfoLevel,
-		Formatter: log.TextFormatter,
-	})
+	l := logger.NewCharm(&buf)
 
-	h := New(logger, nil)
+	h := New(l, nil)
 
 	err := errors.New("stacktrace error")
 	h.Check(err, "", LevelError)

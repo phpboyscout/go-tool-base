@@ -6,20 +6,18 @@ import (
 	"os"
 	"testing"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/phpboyscout/gtb/pkg/logger"
 )
 
 func TestErrorHandler_Check(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.NewWithOptions(&buf, log.Options{
-		Level:     log.InfoLevel,
-		Formatter: log.TextFormatter,
-	})
+	l := logger.NewCharm(&buf)
 
 	h := &StandardErrorHandler{
-		Logger: logger,
+		Logger: l,
 		Exit:   os.Exit,
 		Writer: &buf,
 	}
@@ -71,10 +69,7 @@ func TestErrorHandler_Check(t *testing.T) {
 
 func TestErrorHandler_Fatal(t *testing.T) {
 	var buf bytes.Buffer
-	logger := log.NewWithOptions(&buf, log.Options{
-		Level:     log.InfoLevel,
-		Formatter: log.TextFormatter,
-	})
+	l := logger.NewCharm(&buf)
 
 	exitCalled := false
 	exitCode := 0
@@ -84,7 +79,7 @@ func TestErrorHandler_Fatal(t *testing.T) {
 	}
 
 	h := &StandardErrorHandler{
-		Logger: logger,
+		Logger: l,
 		Exit:   mockExit,
 		Writer: &buf,
 	}
@@ -96,4 +91,3 @@ func TestErrorHandler_Fatal(t *testing.T) {
 	assert.Equal(t, 1, exitCode)
 	assert.Contains(t, buf.String(), "fatal error")
 }
-

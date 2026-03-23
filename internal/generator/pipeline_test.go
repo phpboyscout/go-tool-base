@@ -2,12 +2,11 @@ package generator
 
 import (
 	"context"
-	"io"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/log"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,12 +23,12 @@ func setupTestProject(t *testing.T, path string) *props.Props {
 	t.Helper()
 
 	fs := afero.NewMemMapFs()
-	logger := log.New(io.Discard)
+	l := logger.NewNoop()
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: logger,
-		Config: config.NewFilesContainer(logger, fs),
+		Logger: l,
+		Config: config.NewFilesContainer(l, fs),
 	}
 
 	g := New(p, &Config{})
@@ -87,7 +86,7 @@ func TestPipeline_reRegisterChildren_noopWhenNoManifest(t *testing.T) {
 
 	p := &props.Props{
 		FS:     fs,
-		Logger: log.New(io.Discard),
+		Logger: logger.NewNoop(),
 	}
 
 	g := New(p, &Config{Path: "/work", Name: "start"})

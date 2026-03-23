@@ -14,7 +14,7 @@ GTB implements a centralized error handling strategy to ensure consistent termin
 
 The design of the `ErrorHandler` was driven by two primary requirements:
 
-1. **Observability**: We needed a way to display detailed debugging information, specifically full stack traces, whenever an error occurs in a development or troubleshooting context. This led to the adoption of `github.com/cockroachdb/errors` for error creation/wrapping — providing stack traces, user-facing hints, and structured details — alongside `charmbracelet/log` for rich, structured terminal output.
+1. **Observability**: We needed a way to display detailed debugging information, specifically full stack traces, whenever an error occurs in a development or troubleshooting context. This led to the adoption of `github.com/cockroachdb/errors` for error creation/wrapping — providing stack traces, user-facing hints, and structured details — alongside the unified `logger` package (with charmbracelet as the default backend) for rich, structured terminal output.
 2. **Consistent Output**: We route all errors — runtime errors, flag parse errors, and pre-run failures — through a single `Execute()` wrapper that calls `ErrorHandler.Check`. This suppresses Cobra's own error printing and ensures all output is produced by GTB's structured logger.
 
 ## The ErrorHandler Interface

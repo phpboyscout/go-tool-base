@@ -633,7 +633,7 @@ func TestGitHubOperations(t *testing.T) {
     // Test the operation
     props := &props.Props{
         Config: createTestConfig(),
-        Logger: log.New(io.Discard),
+        Logger: logger.NewNoop(),
     }
 
     releases, err := mockClient.ListReleases(context.Background(), "owner", "repo")
@@ -683,9 +683,9 @@ func TestRealGitOperations(t *testing.T) {
     tempDir := t.TempDir()
 
     // Set up props with temporary filesystem
-    logger := log.New(io.Discard)
+    l := logger.NewNoop()
     props := &props.Props{
-        Logger: logger,
+        Logger: l,
         FS:     afero.NewOsFs(),
         Config: createTestConfig(),
     }

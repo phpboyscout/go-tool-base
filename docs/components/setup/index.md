@@ -32,9 +32,8 @@ package main
 
 import (
     "os"
-    "time"
 
-    "github.com/charmbracelet/log"
+    "github.com/phpboyscout/gtb/pkg/logger"
     "github.com/phpboyscout/gtb/pkg/setup"
     "github.com/phpboyscout/gtb/pkg/props"
 )
@@ -45,11 +44,10 @@ func main() {
         Tool: props.Tool{
             Name: "mytool",
         },
-        Logger: log.NewWithOptions(os.Stdout, log.Options{
-            ReportTimestamp: true,
-            TimeFormat:      time.Kitchen,
-            Level:           log.InfoLevel,
-        }),
+        Logger: logger.NewCharm(os.Stdout,
+            logger.WithTimestamp(),
+            logger.WithLevel(logger.InfoLevel),
+        ),
     }
 
     // Get default configuration directory
@@ -112,7 +110,7 @@ type SelfUpdater struct {
     Tool           props.Tool
     force          bool
     version        string
-    logger         *log.Logger
+    logger         logger.Logger
     releaseClient  release.Provider
     CurrentVersion string
     NextRelease    release.Release

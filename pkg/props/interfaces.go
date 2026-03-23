@@ -1,17 +1,17 @@
 package props
 
 import (
-	"github.com/charmbracelet/log"
 	"github.com/spf13/afero"
 
 	"github.com/phpboyscout/gtb/pkg/config"
 	"github.com/phpboyscout/gtb/pkg/errorhandling"
+	"github.com/phpboyscout/gtb/pkg/logger"
 	"github.com/phpboyscout/gtb/pkg/version"
 )
 
 // LoggerProvider provides access to the application logger.
 type LoggerProvider interface {
-	GetLogger() *log.Logger
+	GetLogger() logger.Logger
 }
 
 // ConfigProvider provides access to the application configuration.
