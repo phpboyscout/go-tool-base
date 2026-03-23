@@ -12,6 +12,7 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
+  "github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var (
@@ -97,7 +98,7 @@ func Stop(logger *slog.Logger, srv *http.Server) controls.StopFunc {
 func Status() {}
 
 // Register creates a new HTTP server and registers it with the controller under the given id.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger *slog.Logger, handler http.Handler) error {
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler) error {
 	srv, err := NewServer(ctx, cfg, handler)
 	if err != nil {
 		return err

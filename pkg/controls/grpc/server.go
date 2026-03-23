@@ -12,6 +12,7 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
+  "github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // NewServer returns a new preconfigured grpc.Server.
@@ -56,7 +57,7 @@ func Stop(logger *slog.Logger, srv *grpc.Server) controls.StopFunc {
 func Status() {}
 
 // Register creates a new gRPC server and registers it with the controller under the given id.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger *slog.Logger, opt ...grpc.ServerOption) error {
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opt ...grpc.ServerOption) error {
 	srv, err := NewServer(cfg, opt...)
 	if err != nil {
 		return err
