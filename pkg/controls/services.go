@@ -78,9 +78,79 @@ func (q *Services) status() HealthReport {
 	return report
 }
 
+func (q *Services) liveness() HealthReport {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	report := HealthReport{
+		OverallHealthy: true,
+		Services:       make([]ServiceStatus, 0, len(q.services)),
+	}
+
+	for _, s := range q.services {
+		status := ServiceStatus{
+			Name:   s.Name,
+			Status: "OK",
+		}
+
+		var err error
+		if s.Liveness != nil {
+			err = s.Liveness()
+		} else if s.Status != nil {
+			err = s.Status()
+		}
+
+		if err != nil {
+			status.Status = "ERROR"
+			status.Error = err.Error()
+			report.OverallHealthy = false
+		}
+
+		report.Services = append(report.Services, status)
+	}
+
+	return report
+}
+
+func (q *Services) readiness() HealthReport {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	report := HealthReport{
+		OverallHealthy: true,
+		Services:       make([]ServiceStatus, 0, len(q.services)),
+	}
+
+	for _, s := range q.services {
+		status := ServiceStatus{
+			Name:   s.Name,
+			Status: "OK",
+		}
+
+		var err error
+		if s.Readiness != nil {
+			err = s.Readiness()
+		} else if s.Status != nil {
+			err = s.Status()
+		}
+
+		if err != nil {
+			status.Status = "ERROR"
+			status.Error = err.Error()
+			report.OverallHealthy = false
+		}
+
+		report.Services = append(report.Services, status)
+	}
+
+	return report
+}
+
 type Service struct {
-	Name   string
-	Start  StartFunc
-	Stop   StopFunc
-	Status StatusFunc
+	Name      string
+	Start     StartFunc
+	Stop      StopFunc
+	Status    StatusFunc
+	Liveness  ProbeFunc
+	Readiness ProbeFunc
 }

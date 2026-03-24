@@ -28,7 +28,38 @@ func HealthHandler(controller controls.Controllable) http.HandlerFunc {
 		report := controller.Status()
 
 		w.Header().Set("Content-Type", "application/json")
+		if !report.OverallHealthy {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
 
+		_ = json.NewEncoder(w).Encode(report)
+	}
+}
+
+// LivenessHandler returns an http.HandlerFunc that responds with the controller's liveness report.
+func LivenessHandler(controller controls.Controllable) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		report := controller.Liveness()
+
+		w.Header().Set("Content-Type", "application/json")
+		if !report.OverallHealthy {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+
+		_ = json.NewEncoder(w).Encode(report)
+	}
+}
+
+// ReadinessHandler returns an http.HandlerFunc that responds with the controller's readiness report.
+func ReadinessHandler(controller controls.Controllable) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		report := controller.Readiness()
+
+		w.Header().Set("Content-Type", "application/json")
 		if !report.OverallHealthy {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
@@ -135,6 +166,8 @@ func Status(srv *http.Server) controls.StatusFunc {
 func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler) (*http.Server, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", HealthHandler(controller))
+	mux.HandleFunc("/livez", LivenessHandler(controller))
+	mux.HandleFunc("/readyz", ReadinessHandler(controller))
 	mux.Handle("/", handler)
 
 	srv, err := NewServer(ctx, cfg, mux)

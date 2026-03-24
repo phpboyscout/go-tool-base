@@ -26,6 +26,7 @@ type Message string
 type StartFunc func(context.Context) error
 type StopFunc func(context.Context)
 type StatusFunc func() error
+type ProbeFunc func() error
 type ValidErrorFunc func(error) bool
 type ServiceOption func(*Service)
 
@@ -44,6 +45,18 @@ func WithStop(fn StopFunc) ServiceOption {
 func WithStatus(fn StatusFunc) ServiceOption {
 	return func(s *Service) {
 		s.Status = fn
+	}
+}
+
+func WithLiveness(fn ProbeFunc) ServiceOption {
+	return func(s *Service) {
+		s.Liveness = fn
+	}
+}
+
+func WithReadiness(fn ProbeFunc) ServiceOption {
+	return func(s *Service) {
+		s.Readiness = fn
 	}
 }
 
@@ -70,6 +83,8 @@ type Runner interface {
 	Start()
 	Stop()
 	Status() HealthReport
+	Liveness() HealthReport
+	Readiness() HealthReport
 	IsRunning() bool
 	IsStopped() bool
 	IsStopping() bool

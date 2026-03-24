@@ -33,6 +33,35 @@ func RegisterHealthService(srv *grpc.Server, controller controls.Controllable) {
 	healthSrv := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSrv)
 
+	update := func() {
+		// Update default status
+		report := controller.Status()
+		status := grpc_health_v1.HealthCheckResponse_SERVING
+		if !report.OverallHealthy {
+			status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
+		}
+		healthSrv.SetServingStatus("", status)
+
+		// Update liveness status
+		liveReport := controller.Liveness()
+		liveStatus := grpc_health_v1.HealthCheckResponse_SERVING
+		if !liveReport.OverallHealthy {
+			liveStatus = grpc_health_v1.HealthCheckResponse_NOT_SERVING
+		}
+		healthSrv.SetServingStatus("liveness", liveStatus)
+
+		// Update readiness status
+		readyReport := controller.Readiness()
+		readyStatus := grpc_health_v1.HealthCheckResponse_SERVING
+		if !readyReport.OverallHealthy {
+			readyStatus = grpc_health_v1.HealthCheckResponse_NOT_SERVING
+		}
+		healthSrv.SetServingStatus("readiness", readyStatus)
+	}
+
+	// Update immediately
+	update()
+
 	// Update health status based on controller status
 	go func() {
 		for {
@@ -40,14 +69,7 @@ func RegisterHealthService(srv *grpc.Server, controller controls.Controllable) {
 			case <-controller.GetContext().Done():
 				return
 			case <-time.After(healthUpdateInterval):
-				report := controller.Status()
-
-				status := grpc_health_v1.HealthCheckResponse_SERVING
-				if !report.OverallHealthy {
-					status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
-				}
-
-				healthSrv.SetServingStatus("", status)
+				update()
 			}
 		}
 	}()

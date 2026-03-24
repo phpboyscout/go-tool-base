@@ -306,3 +306,41 @@ func TestController_Status(t *testing.T) {
 	assert.True(t, unhealthy)
 }
 
+func TestController_Probes(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := controls.NewController(ctx, controls.WithoutSignals())
+
+	c.Register("service-1",
+		controls.WithStart(func(_ context.Context) error { return nil }),
+		controls.WithStop(func(_ context.Context) {}),
+		controls.WithLiveness(func() error { return nil }),
+		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
+	)
+
+	c.Register("service-2",
+		controls.WithStart(func(_ context.Context) error { return nil }),
+		controls.WithStop(func(_ context.Context) {}),
+		// No probes provided, should fall back to Status which defaults to nil (OK)
+	)
+
+	// Liveness should be healthy (service-1 is OK, service-2 uses default OK)
+	liveReport := c.Liveness()
+	assert.True(t, liveReport.OverallHealthy)
+
+	// Readiness should be unhealthy (service-1 reports error)
+	readyReport := c.Readiness()
+	assert.False(t, readyReport.OverallHealthy)
+
+	var foundS1 bool
+	for _, s := range readyReport.Services {
+		if s.Name == "service-1" {
+			assert.Equal(t, "ERROR", s.Status)
+			assert.Equal(t, "not ready", s.Error)
+			foundS1 = true
+		}
+	}
+	assert.True(t, foundS1)
+}
+

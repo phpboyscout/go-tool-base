@@ -250,6 +250,10 @@ type ServiceOption func(*Service)
 func WithStart(fn StartFunc) ServiceOption
 func WithStop(fn StopFunc) ServiceOption
 func WithStatus(fn StatusFunc) ServiceOption
+
+func WithLiveness(fn ProbeFunc) ServiceOption
+
+func WithReadiness(fn ProbeFunc) ServiceOption
 ```
 
 ### Controller States
@@ -661,15 +665,21 @@ GTB provides pre-configured server controls for HTTP and gRPC that integrate sea
 
 ### HTTP Server Control
 
-The `pkg/controls/http` package provides a standard HTTP/TLS server that follows best practices for timeouts and security. It automatically registers a `/healthz` endpoint that reports the aggregate status of all services in the controller.
+The `pkg/controls/http` package provides a standard HTTP/TLS server that follows best practices for timeouts and security. It automatically registers the following observability endpoints:
+
+- `/healthz`: Aggregate status of all services.
+- `/livez`: Aggregate liveness status.
+- `/readyz`: Aggregate readiness status.
 
 #### Functions
 
 - **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error)`**: Returns a pre-configured `*http.Server` with production-ready timeouts (Read: 5s, Write: 10s, Idle: 120s) and secure TLS settings.
 - **`HealthHandler(controller controls.Controllable) http.HandlerFunc`**: Returns an HTTP handler that responds with the controller's aggregate health report.
+- **`LivenessHandler(controller controls.Controllable) http.HandlerFunc`**: Returns an HTTP handler that responds with the controller's aggregate liveness report.
+- **`ReadinessHandler(controller controls.Controllable) http.HandlerFunc`**: Returns an HTTP handler that responds with the controller's aggregate readiness report.
 - **`Start(cfg config.Containable, l logger.Logger, srv *http.Server) controls.StartFunc`**: Returns a non-blocking start function that binds to the port and starts the server in a goroutine.
 - **`Stop(l logger.Logger, srv *http.Server) controls.StopFunc`**: Returns a stop function that performs a graceful shutdown.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler) error`**: Creates a new server, wraps the handler with the `/healthz` endpoint, and registers it with the controller.
+- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler) (*http.Server, error)`**: Creates a new server, wraps the handler with observability endpoints, and registers it with the controller.
 
 #### Configuration
 
@@ -704,7 +714,11 @@ if err != nil {
 
 ### gRPC Server Control
 
-The `pkg/controls/grpc` package provides a standard gRPC server with reflection and the standard gRPC Health Checking Protocol enabled by default.
+The `pkg/controls/grpc` package provides a standard gRPC server with reflection and the standard gRPC Health Checking Protocol enabled by default. It supports the following named services for health probes:
+
+- `""` (empty string): Aggregate status.
+- `"liveness"`: Aggregate liveness status.
+- `"readiness"`: Aggregate readiness status.
 
 #### Functions
 

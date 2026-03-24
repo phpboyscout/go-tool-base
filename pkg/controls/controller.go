@@ -260,6 +260,16 @@ func (c *Controller) Status() HealthReport {
 	return c.services.status()
 }
 
+// Liveness returns an aggregate liveness report for all registered services.
+func (c *Controller) Liveness() HealthReport {
+	return c.services.liveness()
+}
+
+// Readiness returns an aggregate readiness report for all registered services.
+func (c *Controller) Readiness() HealthReport {
+	return c.services.readiness()
+}
+
 // Compile-time interface satisfaction checks.
 var (
 	_ Runner          = (*Controller)(nil)

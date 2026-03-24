@@ -187,3 +187,56 @@ func TestHealthz(t *testing.T) {
 	controller.Stop()
 	controller.Wait()
 }
+
+func TestProbes(t *testing.T) {
+	t.Parallel()
+
+	// Get a free port
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(port)
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
+	cfg.EXPECT().GetString("server.tls.cert").Return("")
+	cfg.EXPECT().GetString("server.tls.key").Return("")
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	
+	controller.Register("test-service",
+		controls.WithStart(func(_ context.Context) error { return nil }),
+		controls.WithStop(func(_ context.Context) {}),
+		controls.WithLiveness(func() error { return nil }),
+		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
+	)
+
+	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	require.NoError(t, err)
+
+	controller.Start()
+
+	// Check /livez - should be 200
+	require.Eventually(t, func() bool {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/livez", port))
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusOK
+	}, 2*time.Second, 50*time.Millisecond)
+
+	// Check /readyz - should be 503
+	require.Eventually(t, func() bool {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/readyz", port))
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.StatusCode == http.StatusServiceUnavailable
+	}, 2*time.Second, 50*time.Millisecond)
+
+	controller.Stop()
+	controller.Wait()
+}

@@ -143,6 +143,65 @@ func TestGRPCHealth(t *testing.T) {
 	controller.Wait()
 }
 
+func TestGRPCProbes(t *testing.T) {
+	t.Parallel()
+
+	// Get a free port
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	
+	controller.Register("test-service",
+		controls.WithStart(func(_ context.Context) error { return nil }),
+		controls.WithStop(func(_ context.Context) {}),
+		controls.WithLiveness(func() error { return nil }),
+		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
+	)
+
+	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger())
+	require.NoError(t, err)
+
+	controller.Start()
+
+	// Connect to gRPC health service
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, fmt.Sprintf("localhost:%d", port), 
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	client := grpc_health_v1.NewHealthClient(conn)
+
+	// Check liveness - should be SERVING
+	require.Eventually(t, func() bool {
+		resp, err := client.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{Service: "liveness"})
+		if err != nil {
+			return false
+		}
+		return resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
+	}, 2*time.Second, 100*time.Millisecond)
+
+	// Check readiness - should be NOT_SERVING
+	require.Eventually(t, func() bool {
+		resp, err := client.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{Service: "readiness"})
+		if err != nil {
+			return false
+		}
+		return resp.Status == grpc_health_v1.HealthCheckResponse_NOT_SERVING
+	}, 2*time.Second, 100*time.Millisecond)
+
+	controller.Stop()
+	controller.Wait()
+}
+
 func TestGRPCPortConfig_Specific(t *testing.T) {
 	t.Parallel()
 	cfg := mockConfig.NewMockContainable(t)
