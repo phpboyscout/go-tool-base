@@ -344,3 +344,134 @@ func TestController_Probes(t *testing.T) {
 	assert.True(t, foundS1)
 }
 
+func TestController_Supervisor_NoPolicy(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := controls.NewController(ctx, controls.WithoutSignals())
+
+	starts := atomic.Int32{}
+	c.Register("failing-service",
+		controls.WithStart(func(_ context.Context) error {
+			starts.Add(1)
+			return fmt.Errorf("immediate failure")
+		}),
+		controls.WithStop(func(_ context.Context) {}),
+	)
+
+	c.Start()
+	
+	// Wait a moment to see if it restarts
+	time.Sleep(50 * time.Millisecond)
+	c.Stop()
+	c.Wait()
+
+	assert.Equal(t, int32(1), starts.Load(), "Service should only start once without a policy")
+}
+
+func TestController_Supervisor_WithPolicy(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := controls.NewController(ctx, controls.WithoutSignals())
+
+	starts := atomic.Int32{}
+	c.Register("restarting-service",
+		controls.WithStart(func(_ context.Context) error {
+			starts.Add(1)
+			return fmt.Errorf("transient failure")
+		}),
+		controls.WithStop(func(_ context.Context) {}),
+		controls.WithRestartPolicy(controls.RestartPolicy{
+			MaxRestarts:    3,
+			InitialBackoff: 10 * time.Millisecond,
+			MaxBackoff:     50 * time.Millisecond,
+		}),
+	)
+
+	c.Start()
+	
+	// Wait long enough for the backoffs to trigger 3 restarts
+	// (10ms + 20ms + 40ms) = 70ms. 150ms is plenty.
+	time.Sleep(150 * time.Millisecond)
+	c.Stop()
+	c.Wait()
+
+	// 1 initial start + 3 restarts
+	assert.Equal(t, int32(4), starts.Load(), "Service should restart up to MaxRestarts times")
+}
+
+func TestController_Supervisor_HealthTriggered(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := controls.NewController(ctx, controls.WithoutSignals())
+
+	starts := atomic.Int32{}
+	statusCalls := atomic.Int32{}
+
+	c.Register("health-monitored-service",
+		controls.WithStart(func(_ context.Context) error {
+			starts.Add(1)
+			return nil // starts successfully
+		}),
+		controls.WithStop(func(_ context.Context) {}),
+		controls.WithStatus(func() error {
+			calls := statusCalls.Add(1)
+			if calls > 1 {
+				return fmt.Errorf("unhealthy")
+			}
+			return nil
+		}),
+		controls.WithRestartPolicy(controls.RestartPolicy{
+			HealthFailureThreshold: 2,
+			HealthCheckInterval:    10 * time.Millisecond,
+			InitialBackoff:         5 * time.Millisecond,
+		}),
+	)
+
+	c.Start()
+
+	// Wait for 1 successful status check (10ms) + 2 failed status checks (20ms) + backoff (5ms) + restart
+	time.Sleep(150 * time.Millisecond)
+	
+	c.Stop()
+	c.Wait()
+
+	assert.GreaterOrEqual(t, starts.Load(), int32(2), "Service should be restarted due to health failures")
+}
+
+func TestController_ServiceInfo(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	c := controls.NewController(ctx, controls.WithoutSignals())
+
+	c.Register("test-service",
+		controls.WithStart(func(_ context.Context) error {
+			return fmt.Errorf("initial failure")
+		}),
+		controls.WithStop(func(_ context.Context) {}),
+		controls.WithRestartPolicy(controls.RestartPolicy{
+			MaxRestarts:    1,
+			InitialBackoff: 5 * time.Millisecond,
+		}),
+	)
+
+	c.Start()
+	time.Sleep(50 * time.Millisecond) // Wait for initial start, failure, backoff, restart, failure
+	c.Stop()
+	c.Wait()
+
+	info, ok := c.GetServiceInfo("test-service")
+	assert.True(t, ok)
+	assert.Equal(t, "test-service", info.Name)
+	assert.Equal(t, 1, info.RestartCount)
+	assert.NotZero(t, info.LastStarted)
+	assert.NotZero(t, info.LastStopped)
+	assert.ErrorContains(t, info.Error, "max restarts exceeded")
+
+	_, ok = c.GetServiceInfo("non-existent")
+	assert.False(t, ok)
+}
+

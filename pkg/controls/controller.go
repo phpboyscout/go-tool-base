@@ -270,6 +270,15 @@ func (c *Controller) Readiness() HealthReport {
 	return c.services.readiness()
 }
 
+// GetServiceInfo returns the runtime information and statistics for a specific service.
+func (c *Controller) GetServiceInfo(name string) (ServiceInfo, bool) {
+	if v, ok := c.services.info.Load(name); ok {
+		return v.(ServiceInfo), true
+	}
+
+	return ServiceInfo{}, false
+}
+
 // Compile-time interface satisfaction checks.
 var (
 	_ Runner          = (*Controller)(nil)

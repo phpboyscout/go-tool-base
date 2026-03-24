@@ -252,8 +252,34 @@ func WithStop(fn StopFunc) ServiceOption
 func WithStatus(fn StatusFunc) ServiceOption
 
 func WithLiveness(fn ProbeFunc) ServiceOption
-
 func WithReadiness(fn ProbeFunc) ServiceOption
+
+func WithRestartPolicy(policy RestartPolicy) ServiceOption
+```
+
+### Self-Healing and Automatic Restarts
+
+The `controls` package includes an opt-in supervisor loop that can automatically restart failing services. By default, services are not restarted. To enable self-healing for a specific service, provide a `RestartPolicy` during registration:
+
+```go
+type RestartPolicy struct {
+    MaxRestarts            int           // Maximum number of consecutive restarts (0 = infinite)
+    InitialBackoff         time.Duration // Backoff before the first restart (default: 1s)
+    MaxBackoff             time.Duration // Maximum backoff duration (default: 30s)
+    HealthFailureThreshold int           // Number of consecutive health check failures before triggering a restart
+    HealthCheckInterval    time.Duration // Interval between health checks (default: 10s)
+}
+```
+
+When a policy is provided, the controller will automatically restart the service if its `StartFunc` returns an error, or if its `StatusFunc` reports errors exceeding the `HealthFailureThreshold`. The backoff between restarts grows exponentially up to `MaxBackoff`.
+
+You can retrieve the runtime statistics for any service, including its current restart count, using the `GetServiceInfo` method on the `Controller`:
+
+```go
+info, ok := controller.GetServiceInfo("my-service")
+if ok {
+    fmt.Printf("Restarts: %d, Last Error: %v\n", info.RestartCount, info.Error)
+}
 ```
 
 ### Controller States

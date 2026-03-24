@@ -28,6 +28,7 @@ func HealthHandler(controller controls.Controllable) http.HandlerFunc {
 		report := controller.Status()
 
 		w.Header().Set("Content-Type", "application/json")
+
 		if !report.OverallHealthy {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
@@ -44,6 +45,7 @@ func LivenessHandler(controller controls.Controllable) http.HandlerFunc {
 		report := controller.Liveness()
 
 		w.Header().Set("Content-Type", "application/json")
+
 		if !report.OverallHealthy {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {
@@ -60,6 +62,7 @@ func ReadinessHandler(controller controls.Controllable) http.HandlerFunc {
 		report := controller.Readiness()
 
 		w.Header().Set("Content-Type", "application/json")
+
 		if !report.OverallHealthy {
 			w.WriteHeader(http.StatusServiceUnavailable)
 		} else {

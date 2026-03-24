@@ -60,6 +60,29 @@ func WithReadiness(fn ProbeFunc) ServiceOption {
 	}
 }
 
+// RestartPolicy defines how a service should be restarted on failure.
+type RestartPolicy struct {
+	MaxRestarts            int
+	InitialBackoff         time.Duration
+	MaxBackoff             time.Duration
+	HealthFailureThreshold int
+	HealthCheckInterval    time.Duration
+}
+
+func WithRestartPolicy(policy RestartPolicy) ServiceOption {
+	return func(s *Service) {
+		s.RestartPolicy = &policy
+	}
+}
+
+type ServiceInfo struct {
+	Name         string
+	RestartCount int
+	LastStarted  time.Time
+	LastStopped  time.Time
+	Error        error
+}
+
 type ServiceStatus struct {
 	Name   string `json:"name"`
 	Status string `json:"status"` // "OK", "ERROR"
@@ -85,6 +108,7 @@ type Runner interface {
 	Status() HealthReport
 	Liveness() HealthReport
 	Readiness() HealthReport
+	GetServiceInfo(name string) (ServiceInfo, bool)
 	IsRunning() bool
 	IsStopped() bool
 	IsStopping() bool

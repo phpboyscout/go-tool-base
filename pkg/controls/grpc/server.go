@@ -36,26 +36,32 @@ func RegisterHealthService(srv *grpc.Server, controller controls.Controllable) {
 	update := func() {
 		// Update default status
 		report := controller.Status()
+
 		status := grpc_health_v1.HealthCheckResponse_SERVING
 		if !report.OverallHealthy {
 			status = grpc_health_v1.HealthCheckResponse_NOT_SERVING
 		}
+
 		healthSrv.SetServingStatus("", status)
 
 		// Update liveness status
 		liveReport := controller.Liveness()
+
 		liveStatus := grpc_health_v1.HealthCheckResponse_SERVING
 		if !liveReport.OverallHealthy {
 			liveStatus = grpc_health_v1.HealthCheckResponse_NOT_SERVING
 		}
+
 		healthSrv.SetServingStatus("liveness", liveStatus)
 
 		// Update readiness status
 		readyReport := controller.Readiness()
+
 		readyStatus := grpc_health_v1.HealthCheckResponse_SERVING
 		if !readyReport.OverallHealthy {
 			readyStatus = grpc_health_v1.HealthCheckResponse_NOT_SERVING
 		}
+
 		healthSrv.SetServingStatus("readiness", readyStatus)
 	}
 
