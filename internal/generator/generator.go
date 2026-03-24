@@ -25,6 +25,7 @@ type Config struct {
 	AIProvider       string
 	Aliases          []string
 	Args             string
+	DryRun           bool
 	Flags            []string
 	Force            bool
 	Hidden           bool

@@ -13,7 +13,12 @@ import (
 
 func (g *Generator) loadManifest() (*Manifest, error) {
 	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+
+	g.props.Logger.Debugf("Loading manifest from %s", manifestPath)
+
 	if exists, _ := afero.Exists(g.props.FS, manifestPath); !exists {
+		g.props.Logger.Debug("Manifest not found")
+
 		return nil, errors.New("manifest.yaml not found")
 	}
 
@@ -26,6 +31,8 @@ func (g *Generator) loadManifest() (*Manifest, error) {
 	if err := yaml.Unmarshal(data, &m); err != nil {
 		return nil, errors.Newf("failed to unmarshal manifest: %w", err)
 	}
+
+	g.props.Logger.Debugf("Manifest loaded: %s (%d commands)", m.Properties.Name, len(m.Commands))
 
 	return &m, nil
 }

@@ -49,6 +49,7 @@ func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
 
 	cfg := &generator.Config{
 		Path:       o.Path,
+		DryRun:     dryRun,
 		Force:      o.Force,
 		Overwrite:  o.Overwrite,
 		UpdateDocs: o.UpdateDocs,

@@ -529,6 +529,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		WithAssets:       o.WithAssets,
 		Parent:           o.Parent,
 		Args:             o.Args,
+		DryRun:           dryRun,
 		Flags:            o.Flags,
 		ScriptPath:       o.ScriptPath,
 		Prompt:           o.Prompt,

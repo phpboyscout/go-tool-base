@@ -58,12 +58,17 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 	var result PipelineResult
 
 	// ── Step 1: asset files (fatal — missing assets break the build) ─────────
-	if !p.opts.SkipAssets && p.g.config.WithAssets {
+	switch {
+	case !p.opts.SkipAssets && p.g.config.WithAssets:
 		p.g.props.Logger.Info("Generating asset files...")
 
 		if err := p.g.generateAssetFiles(cmdDir); err != nil {
 			return result, err
 		}
+	case p.opts.SkipAssets:
+		p.g.props.Logger.Debug("Skipping asset file generation (SkipAssets=true)")
+	case !p.g.config.WithAssets:
+		p.g.props.Logger.Debug("Skipping asset file generation (WithAssets=false)")
 	}
 
 	// ── Steps 2+3: parent registration + child re-registration (advisory) ────
@@ -84,7 +89,11 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 	if !p.opts.SkipDocumentation {
 		p.g.props.Logger.Info("Generating documentation...")
 		p.g.handleDocumentationGeneration(ctx, data, cmdDir)
+	} else {
+		p.g.props.Logger.Debug("Skipping documentation generation (SkipDocumentation=true)")
 	}
+
+	p.g.props.Logger.Debugf("Pipeline complete: %d warnings", len(result.Warnings))
 
 	return result, nil
 }
@@ -93,6 +102,10 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 // as a single extracted method to keep Run within the cyclomatic complexity
 // limit.
 func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDir string, result *PipelineResult) {
+	if p.opts.SkipRegistration {
+		p.g.props.Logger.Debug("Skipping parent registration (SkipRegistration=true)")
+	}
+
 	if !p.opts.SkipRegistration {
 		p.g.props.Logger.Infof("Registering subcommand %q...", data.Name)
 
@@ -137,7 +150,7 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 	for _, child := range cmd.Commands {
 		// Use buildCommandContext so the child generator carries full project
 		// settings (Path, Force, UpdateDocs) rather than a bare minimal Config.
-		childCtx := buildCommandContext(g.config.Path, g.config.Force, g.config.UpdateDocs, child, childParentPath)
+		childCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, child, childParentPath)
 		childGen := New(g.props, childCtx.ToConfig())
 
 		if err := childGen.registerSubcommand(); err != nil {

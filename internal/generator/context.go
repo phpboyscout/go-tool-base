@@ -26,13 +26,14 @@ type CommandContext struct {
 
 	// Project-level settings (carried from the originating generator)
 	ProjectPath string
+	DryRun      bool
 	Force       bool
 	UpdateDocs  bool
 }
 
 // buildCommandContext constructs a CommandContext from a ManifestCommand and
 // the parent path accumulated during recursive regeneration.
-func buildCommandContext(projectPath string, force, updateDocs bool, cmd ManifestCommand, parentPath []string) CommandContext {
+func buildCommandContext(projectPath string, dryRun, force, updateDocs bool, cmd ManifestCommand, parentPath []string) CommandContext {
 	return CommandContext{
 		Name:             cmd.Name,
 		ParentPath:       parentPath,
@@ -47,6 +48,7 @@ func buildCommandContext(projectPath string, force, updateDocs bool, cmd Manifes
 		Protected:        cmd.Protected,
 		Hidden:           cmd.Hidden,
 		ProjectPath:      projectPath,
+		DryRun:           dryRun,
 		Force:            force,
 		UpdateDocs:       updateDocs,
 	}
@@ -74,6 +76,7 @@ func (c CommandContext) ToConfig() *Config {
 		PreRun:           c.PreRun,
 		Protected:        c.Protected,
 		Hidden:           c.Hidden,
+		DryRun:           c.DryRun,
 		Force:            c.Force,
 		UpdateDocs:       c.UpdateDocs,
 	}

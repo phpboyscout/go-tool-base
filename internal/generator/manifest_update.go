@@ -33,6 +33,8 @@ type ManifestCommandUpdate struct {
 func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes map[string]string) error {
 	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
 
+	g.props.Logger.Debugf("Updating manifest at %s for command %q", manifestPath, g.config.Name)
+
 	data, err := afero.ReadFile(g.props.FS, manifestPath)
 	if err != nil {
 		return errors.Newf("failed to read manifest: %w", err)
@@ -52,6 +54,8 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 	if g.props.Version != nil {
 		m.Version.GoToolBase = g.props.Version.GetVersion()
 	}
+
+	g.props.Logger.Debugf("Manifest update: parent=%v, flags=%d, hashes=%d", pathParts, len(mFlags), len(hashes))
 
 	if len(pathParts) == 0 {
 		g.updateRootCommand(&m, mFlags, hashes)
@@ -83,6 +87,8 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 	if err := afero.WriteFile(g.props.FS, manifestPath, updated, os.FileMode(permission)); err != nil {
 		return errors.Newf("failed to write manifest: %w", err)
 	}
+
+	g.props.Logger.Debugf("Manifest updated successfully at %s", manifestPath)
 
 	return nil
 }
@@ -212,6 +218,8 @@ func (g *Generator) updateParentCmdHash() error {
 	}
 
 	parentCmdFile := filepath.Join(g.config.Path, "pkg", "cmd", filepath.Join(parentParts...), "cmd.go")
+
+	g.props.Logger.Debugf("Updating parent cmd hash for %s", parentCmdFile)
 
 	content, err := afero.ReadFile(g.props.FS, parentCmdFile)
 	if err != nil {

@@ -32,6 +32,7 @@ go run main.go regenerate project
 
 - `--path`, `-p`: Path to the project root (default: current directory).
 - `--force`: **Danger Zone!** Overwrites existing `main.go` implementation files. Use this only if you want to reset a command's logic to the default starter code.
+- `--dry-run`: Preview all changes without writing to disk (see below).
 
 ### What it does
 
@@ -41,6 +42,24 @@ go run main.go regenerate project
 - **Manages Lifecycle Files**: Creates or removes `init.go` based on the `withInitializer` value in the manifest for each command. If `withInitializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
 - **Runs Linting**: Automatically executes `golangci-lint run --fix` to ensure the generated code is squeaky clean.
 - **Conflict Detection**: Checks if `cmd.go` files have been manually modified and prompts for confirmation before overwriting (unless `--force` is used).
+
+### Dry-Run Mode
+
+Use `--dry-run` to preview what `regenerate project` would do without modifying any files:
+
+```bash
+go run main.go regenerate project --dry-run
+```
+
+This produces a summary of:
+
+- **Files to create**: New files that would be generated.
+- **Files to modify**: Existing files that would change, shown as unified diffs.
+
+Under the hood, the dry-run materialises all generated files into a temporary directory, runs the same post-processing steps as a real regeneration (`go mod tidy`, `golangci-lint run --fix`), and diffs the result against your current project. This ensures the preview is accurate — including formatting and import tidying.
+
+!!! tip
+    Dry-run is particularly useful after editing `manifest.yaml` to verify that a `regenerate project` will produce the changes you expect before committing to them.
 
 ---
 

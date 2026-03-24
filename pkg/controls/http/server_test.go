@@ -3,8 +3,6 @@ package http
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"testing"
@@ -15,10 +13,11 @@ import (
 
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func testLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func testLogger() logger.Logger {
+	return logger.NewNoop()
 }
 
 func TestNewServer(t *testing.T) {

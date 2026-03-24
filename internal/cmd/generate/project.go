@@ -276,6 +276,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	}
 
 	gen := generator.New(p, &generator.Config{
+		DryRun:    dryRun,
 		Path:      o.Path,
 		Overwrite: o.Overwrite,
 	})

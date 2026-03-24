@@ -16,11 +16,64 @@ import (
 )
 
 func (g *Generator) RegenerateProject(ctx context.Context) error {
+	if g.config.DryRun {
+		result, err := g.RegenerateProjectDryRun(ctx)
+		if err != nil {
+			return err
+		}
+
+		result.Print(os.Stdout)
+
+		return nil
+	}
+
+	return g.regenerateProject(ctx)
+}
+
+// RegenerateProjectDryRun previews what RegenerateProject would do without writing to disk.
+func (g *Generator) RegenerateProjectDryRun(ctx context.Context) (*DryRunResult, error) {
+	if err := g.verifyProject(); err != nil {
+		return nil, err
+	}
+
+	g.props.Logger.Info("Dry run: previewing project regeneration...")
+
+	return g.withDryRunOverlay(ctx, g.config.Path, func() error {
+		return g.regenerateProjectFiles(ctx)
+	}, &dryRunPostProcess{
+		commands: [][]string{
+			{"go", "mod", "tidy"},
+			{"golangci-lint", "run", "--fix"},
+		},
+	})
+}
+
+func (g *Generator) regenerateProject(ctx context.Context) error {
 	if err := g.verifyProject(); err != nil {
 		return err
 	}
 
+	if err := g.regenerateProjectFiles(ctx); err != nil {
+		return err
+	}
+
+	// Post-processing: run linter and refresh hashes on real filesystem only.
+	writtenSkeletonHashes, err := g.collectSkeletonHashes()
+	if err == nil {
+		g.runPostRegenerationLint(ctx, writtenSkeletonHashes)
+	}
+
+	g.props.Logger.Info("Project regeneration complete.")
+
+	return nil
+}
+
+// regenerateProjectFiles performs the core regeneration: root command, recursive
+// commands, and skeleton files. It does not run post-processing shell commands.
+func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+
+	g.props.Logger.Debugf("Reading manifest from %s", manifestPath)
 
 	data, err := afero.ReadFile(g.props.FS, manifestPath)
 	if err != nil {
@@ -33,27 +86,35 @@ func (g *Generator) RegenerateProject(ctx context.Context) error {
 	}
 
 	g.props.Logger.Info("Regenerating project from manifest...")
+	g.props.Logger.Debugf("Manifest: %s, %d top-level commands", m.Properties.Name, len(m.Commands))
 
 	if err := g.regenerateRootCommand(m); err != nil {
 		return err
 	}
 
 	for _, cmd := range m.Commands {
+		g.props.Logger.Debugf("Processing top-level command: %s", cmd.Name)
+
 		if err := g.regenerateCommandRecursive(ctx, cmd, []string{}); err != nil {
 			return err
 		}
 	}
 
-	writtenSkeletonHashes, err := g.regenerateSkeletonFiles(m)
+	g.props.Logger.Debug("Regenerating skeleton files...")
+
+	_, err = g.regenerateSkeletonFiles(m)
+
+	return err
+}
+
+// collectSkeletonHashes loads the current project file hashes from the manifest.
+func (g *Generator) collectSkeletonHashes() (map[string]string, error) {
+	m, err := g.loadManifest()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	g.runPostRegenerationLint(ctx, writtenSkeletonHashes)
-
-	g.props.Logger.Info("Project regeneration complete.")
-
-	return nil
+	return m.Hashes, nil
 }
 
 // runPostRegenerationLint runs golangci-lint --fix and refreshes skeleton file
@@ -83,8 +144,10 @@ func (g *Generator) runPostRegenerationLint(ctx context.Context, writtenHashes m
 }
 
 func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
+	g.props.Logger.Debugf("Building command context for %q (parent=%v)", cmd.Name, parentPath)
+
 	// Build an immutable CommandContext for this command — no shared-state mutation.
-	cmdCtx := buildCommandContext(g.config.Path, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
+	cmdCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
 
 	// Swap g.config to the context-derived config for the duration of this
 	// call. Downstream methods (getCommandPath, prepareGenerationData, etc.)
@@ -119,6 +182,11 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 	// Recurse for subcommands — each gets its own CommandContext via the
 	// recursive call, so sibling state can never leak.
 	childPath := append(append([]string{}, parentPath...), cmd.Name)
+
+	if len(cmd.Commands) > 0 {
+		g.props.Logger.Debugf("Recursing into %d subcommands of %q", len(cmd.Commands), cmd.Name)
+	}
+
 	for _, subCmd := range cmd.Commands {
 		if err := g.regenerateCommandRecursive(ctx, subCmd, childPath); err != nil {
 			return err
@@ -169,6 +237,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 
 func (g *Generator) regenerateRootCommand(m Manifest) error {
 	g.props.Logger.Info("Regenerating root command...")
+	g.props.Logger.Debugf("Building skeleton subcommands for %d top-level commands", len(m.Commands))
 
 	subcommands, err := g.buildSkeletonSubcommands(m.Commands)
 	if err != nil {
@@ -180,6 +249,9 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 	f := templates.SkeletonRoot(data)
 
 	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
+
+	g.props.Logger.Debugf("Writing root command to %s", rootCmdPath)
+
 	if err := g.props.FS.MkdirAll(filepath.Dir(rootCmdPath), DefaultDirMode); err != nil {
 		return errors.Newf("failed to create root command directory: %w", err)
 	}
@@ -231,6 +303,7 @@ func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]temp
 // manifest so subsequent runs can detect further modifications.
 func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, error) {
 	g.props.Logger.Info("Regenerating project skeleton files...")
+	g.props.Logger.Debugf("Existing hashes: %d entries", len(m.Hashes))
 
 	_, org, repoName := m.GetReleaseSource()
 
@@ -297,6 +370,8 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		finalHashes[k] = v
 	}
 
+	g.props.Logger.Debugf("Skeleton regeneration complete: %d files written, %d total hashes", len(writtenHashes), len(finalHashes))
+
 	return writtenHashes, g.persistProjectHashes(finalHashes)
 }
 
@@ -304,6 +379,8 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 // Hashes field, and writes it back to disk.
 func (g *Generator) persistProjectHashes(hashes map[string]string) error {
 	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+
+	g.props.Logger.Debugf("Persisting %d project hashes to manifest", len(hashes))
 
 	raw, err := afero.ReadFile(g.props.FS, manifestPath)
 	if err != nil {

@@ -102,8 +102,61 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 }
 
 func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig) error {
+	if g.config.DryRun {
+		result, err := g.GenerateSkeletonDryRun(ctx, config)
+		if err != nil {
+			return err
+		}
+
+		result.Print(os.Stdout)
+
+		return nil
+	}
+
+	return g.generateSkeleton(ctx, config)
+}
+
+// GenerateSkeletonDryRun previews what GenerateSkeleton would do without writing to disk.
+func (g *Generator) GenerateSkeletonDryRun(ctx context.Context, config SkeletonConfig) (*DryRunResult, error) {
+	g.props.Logger.Infof("Dry run: previewing skeleton for %s in %s...", config.Name, config.Path)
+
+	return g.withDryRunOverlay(ctx, config.Path, func() error {
+		return g.generateSkeletonFiles(config)
+	}, &dryRunPostProcess{
+		commands: [][]string{
+			{"go", "mod", "tidy"},
+			{"golangci-lint", "run", "--fix"},
+		},
+	})
+}
+
+func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig) error {
 	g.props.Logger.Infof("Generating skeleton for %s in %s...", config.Name, config.Path)
 
+	if err := g.generateSkeletonFiles(config); err != nil {
+		return err
+	}
+
+	if _, ok := g.props.FS.(*afero.OsFs); ok {
+		g.runSkeletonPostProcessing(ctx, config.Path)
+
+		// Post-processing tools (go mod tidy, golangci-lint) may have modified
+		// tracked files. Refresh their hashes so the next run does not flag
+		// post-processing changes as user customisations.
+		storedHashes := g.loadProjectFileHashes(config.Path)
+		if err := g.refreshProjectFileHashes(config.Path, storedHashes); err != nil {
+			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
+		}
+	}
+
+	g.props.Logger.Infof("Successfully generated skeleton in %s", config.Path)
+
+	return nil
+}
+
+// generateSkeletonFiles performs the core skeleton file generation: Go files,
+// template files, and manifest. It does not run post-processing shell commands.
+func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 	org, repoName, err := splitRepoPath(config.Repo)
 	if err != nil {
 		return err
@@ -171,24 +224,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 
 	// Merge: keep stored hashes for any files the user chose to skip so that
 	// subsequent runs can still detect further modifications to those files.
-	if err := g.writeSkeletonManifest(config, mergeHashes(storedHashes, writtenHashes)); err != nil {
-		return err
-	}
-
-	if _, ok := g.props.FS.(*afero.OsFs); ok {
-		g.runSkeletonPostProcessing(ctx, config.Path)
-
-		// Post-processing tools (go mod tidy, golangci-lint) may have modified
-		// tracked files. Refresh their hashes so the next run does not flag
-		// post-processing changes as user customisations.
-		if err := g.refreshProjectFileHashes(config.Path, writtenHashes); err != nil {
-			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
-		}
-	}
-
-	g.props.Logger.Infof("Successfully generated skeleton in %s", config.Path)
-
-	return nil
+	return g.writeSkeletonManifest(config, mergeHashes(storedHashes, writtenHashes))
 }
 
 // refreshProjectFileHashes re-reads the files in writtenKeys and updates
@@ -203,6 +239,8 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 	if len(writtenKeys) == 0 {
 		return nil
 	}
+
+	g.props.Logger.Debugf("Refreshing hashes for %d project files after post-processing", len(writtenKeys))
 
 	manifestPath := filepath.Join(projectPath, ".gtb", "manifest.yaml")
 
@@ -313,6 +351,9 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 
 	for path, f := range goFiles {
 		fullPath := filepath.Join(destPath, path)
+
+		g.props.Logger.Debugf("Generating Go file: %s", path)
+
 		if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 			return errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
 		}
@@ -331,6 +372,8 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 		if err := out.Close(); err != nil {
 			return errors.Newf("failed to close file %s: %w", fullPath, err)
 		}
+
+		g.props.Logger.Debugf("Wrote Go file: %s", fullPath)
 	}
 
 	return nil
@@ -436,6 +479,8 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 // stored hash first so customised files are not silently overwritten.
 // It returns the SHA256 hash of the content that was written.
 func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr string, data any, storedHashes map[string]string) (string, error) {
+	g.props.Logger.Debugf("Rendering skeleton template: %s", relPath)
+
 	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
 	}
@@ -454,6 +499,8 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 
 	// If the file already exists, verify the user has not customised it.
 	if exists, _ := afero.Exists(g.props.FS, fullPath); exists {
+		g.props.Logger.Debugf("Checking for conflicts on existing file: %s", relPath)
+
 		if err := g.checkSkeletonConflict(fullPath, relPath, newContent, storedHashes); err != nil {
 			return "", err
 		}
@@ -463,7 +510,11 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 		return "", errors.Newf("failed to write file %s: %w", fullPath, err)
 	}
 
-	return calculateHash(newContent), nil
+	hash := calculateHash(newContent)
+
+	g.props.Logger.Debugf("Wrote skeleton file: %s (%d bytes, hash=%s)", relPath, len(newContent), hash)
+
+	return hash, nil
 }
 
 // checkSkeletonConflict compares the on-disk file against its stored hash. If
@@ -494,6 +545,8 @@ func (g *Generator) checkSkeletonConflict(fullPath, relPath string, newContent [
 }
 
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {
+	g.props.Logger.Debugf("Writing skeleton manifest (%d file hashes)", len(fileHashes))
+
 	org, repoName, err := splitRepoPath(config.Repo)
 	if err != nil {
 		return err

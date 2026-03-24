@@ -66,6 +66,21 @@ REQUIREMENTS:
 `
 
 func (g *Generator) Generate(ctx context.Context) error {
+	if g.config.DryRun {
+		result, err := g.GenerateDryRun(ctx)
+		if err != nil {
+			return err
+		}
+
+		result.Print(os.Stdout)
+
+		return nil
+	}
+
+	return g.generate(ctx)
+}
+
+func (g *Generator) generate(ctx context.Context) error {
 	if err := g.verifyProject(); err != nil {
 		return err
 	}
@@ -101,6 +116,37 @@ func (g *Generator) Generate(ctx context.Context) error {
 	}
 
 	return g.finalizeProject(ctx, data, cmdDir)
+}
+
+// GenerateDryRun previews what Generate would do without writing to disk.
+func (g *Generator) GenerateDryRun(ctx context.Context) (*DryRunResult, error) {
+	if err := g.verifyProject(); err != nil {
+		return nil, err
+	}
+
+	cmdDir, err := g.prepareAndVerify()
+	if err != nil {
+		if errors.Is(err, ErrCommandProtected) {
+			return &DryRunResult{}, nil
+		}
+
+		return nil, err
+	}
+
+	g.props.Logger.Infof("Dry run: previewing command %s in %s...", g.config.Name, cmdDir)
+
+	return g.withDryRunOverlay(ctx, g.config.Path, func() error {
+		flags := g.resolveGenerationFlags()
+		data := g.prepareGenerationData(flags)
+
+		// Skip AI generation in dry-run — only preview boilerplate
+		return g.performGeneration(ctx, cmdDir, &data)
+	}, &dryRunPostProcess{
+		commands: [][]string{
+			{"go", "mod", "tidy"},
+			{"golangci-lint", "run", "--fix"},
+		},
+	})
 }
 
 func (g *Generator) prepareAndVerify() (string, error) {
@@ -175,10 +221,16 @@ func (g *Generator) checkProtection() error {
 func (g *Generator) resolveGenerationFlags() []CommandFlag {
 	flags := g.parseFlags()
 	if len(flags) == 0 {
+		g.props.Logger.Debug("No flags from CLI, checking manifest for existing flags...")
+
 		manifestFlags, err := g.loadFlagsFromManifest()
 		if err == nil && len(manifestFlags) > 0 {
+			g.props.Logger.Debugf("Loaded %d flags from manifest", len(manifestFlags))
+
 			return manifestFlags
 		}
+	} else {
+		g.props.Logger.Debugf("Resolved %d flags from CLI input", len(flags))
 	}
 
 	return flags
@@ -214,6 +266,8 @@ func (g *Generator) processAIGeneration(ctx context.Context, data *templates.Com
 }
 
 func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.CommandData {
+	g.props.Logger.Debugf("Preparing generation data for %q (%d flags)", g.config.Name, len(flags))
+
 	hasSubcommands := false
 
 	persistentFlags, normalFlags := g.categorizeFlags(flags)
@@ -350,11 +404,16 @@ func (g *Generator) convertManifestFlagsToTemplate(mFlags []ManifestFlag) []temp
 }
 
 func (g *Generator) performGeneration(ctx context.Context, cmdDir string, data *templates.CommandData) error {
+	g.props.Logger.Debugf("Creating command directory: %s", cmdDir)
+
 	if err := g.props.FS.MkdirAll(cmdDir, os.ModePerm); err != nil {
 		return errors.Newf("failed to create directory %s: %w", cmdDir, err)
 	}
 
 	data.OmitRun = g.shouldOmitRun(*data, cmdDir)
+
+	g.props.Logger.Debugf("Command %q: OmitRun=%v, WithAssets=%v, WithInitializer=%v, HasSubcommands=%v",
+		data.Name, data.OmitRun, data.WithAssets, data.WithInitializer, data.HasSubcommands)
 
 	g.props.Logger.Info("Generating command boilerplate...")
 
@@ -362,7 +421,13 @@ func (g *Generator) performGeneration(ctx context.Context, cmdDir string, data *
 }
 
 func (g *Generator) postGenerate(ctx context.Context, data templates.CommandData, cmdDir string) error {
-	_, err := newCommandPipeline(g, PipelineOptions{}).Run(ctx, data, cmdDir)
+	opts := PipelineOptions{
+		SkipDocumentation: g.config.DryRun,
+	}
+
+	g.props.Logger.Debugf("Running post-generation pipeline for %q (SkipDocumentation=%v)", data.Name, opts.SkipDocumentation)
+
+	_, err := newCommandPipeline(g, opts).Run(ctx, data, cmdDir)
 
 	return err
 }

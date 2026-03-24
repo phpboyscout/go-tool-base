@@ -2,8 +2,6 @@ package grpc
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -12,10 +10,11 @@ import (
 
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func testLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(io.Discard, nil))
+func testLogger() logger.Logger {
+	return logger.NewNoop()
 }
 
 func TestNewServer(t *testing.T) {

@@ -2,7 +2,7 @@
 title: "Generate Dry-Run Specification"
 description: "Add a --dry-run flag to generate commands that previews file tree and content diffs without writing to disk."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -24,7 +24,7 @@ Date
 :   21 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

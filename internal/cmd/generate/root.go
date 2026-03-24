@@ -9,6 +9,7 @@ import (
 var (
 	aiProvider string
 	aiModel    string
+	dryRun     bool
 )
 
 func NewCmdGenerate(p *props.Props) *cobra.Command {
@@ -23,6 +24,7 @@ func NewCmdGenerate(p *props.Props) *cobra.Command {
 
 	cmd.PersistentFlags().StringVar(&aiProvider, "provider", "", "AI provider to use (openai/gemini/claude)")
 	cmd.PersistentFlags().StringVar(&aiModel, "model", "", "AI model to use (defaults: gemini-3-flash-preview, claude-sonnet-4-5)")
+	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without writing files")
 
 	cmd.AddCommand(NewCmdSkeleton(p))
 	cmd.AddCommand(NewCmdCommand(p))

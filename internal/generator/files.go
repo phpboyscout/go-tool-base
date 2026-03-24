@@ -90,6 +90,9 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 
 func (g *Generator) generateRegistrationFile(cmdDir string, data templates.CommandData) (string, error) {
 	cmdPath := filepath.Join(cmdDir, "cmd.go")
+
+	g.props.Logger.Debugf("Rendering registration template for %s", cmdPath)
+
 	regFile := templates.CommandRegistration(data)
 
 	var buf bytes.Buffer
@@ -102,10 +105,14 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 
 	// Check if file exists to perform hash verification
 	if exists, _ := afero.Exists(g.props.FS, cmdPath); exists {
+		g.props.Logger.Debugf("Verifying hash for existing file %s", cmdPath)
+
 		if err := g.verifyHash(cmdPath); err != nil {
 			return "", err
 		}
 	}
+
+	g.props.Logger.Debugf("Writing registration file: %s (%d bytes, hash=%s)", cmdPath, len(content), newHash)
 
 	out, err := g.props.FS.Create(cmdPath)
 	if err != nil {
@@ -169,6 +176,9 @@ func (g *Generator) handleInitializerFile(cmdDir string, data *templates.Command
 
 func (g *Generator) generateExecutionFile(ctx context.Context, cmdDir string, data templates.CommandData) error {
 	mainPath := filepath.Join(cmdDir, "main.go")
+
+	g.props.Logger.Debugf("Rendering execution template for %s", mainPath)
+
 	mainContent := templates.CommandExecution(data)
 
 	out, err := g.props.FS.Create(mainPath)
@@ -184,8 +194,12 @@ func (g *Generator) generateExecutionFile(ctx context.Context, cmdDir string, da
 		return errors.Newf("failed to write execution file: %w", err)
 	}
 
+	g.props.Logger.Debugf("Wrote execution file: %s (%d bytes)", mainPath, len(mainContent))
+
 	// Run go fmt on main.go if using OS filesystem
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
+		g.props.Logger.Debugf("Running go fmt on %s", mainPath)
+
 		cmd := exec.CommandContext(ctx, "go", "fmt", mainPath)
 		_ = cmd.Run()
 	}
@@ -195,6 +209,9 @@ func (g *Generator) generateExecutionFile(ctx context.Context, cmdDir string, da
 
 func (g *Generator) generateInitializerFile(cmdDir string, data templates.CommandData) (string, error) {
 	cmdPath := filepath.Join(cmdDir, "init.go")
+
+	g.props.Logger.Debugf("Rendering initializer template for %s", cmdPath)
+
 	initFile := templates.CommandInitializer(data)
 
 	var buf bytes.Buffer
@@ -206,6 +223,8 @@ func (g *Generator) generateInitializerFile(cmdDir string, data templates.Comman
 
 	// Check if file exists to perform hash verification
 	if exists, _ := afero.Exists(g.props.FS, cmdPath); exists {
+		g.props.Logger.Debugf("Verifying hash for existing file %s", cmdPath)
+
 		if err := g.verifyHash(cmdPath); err != nil {
 			return "", err
 		}
@@ -222,18 +241,28 @@ func (g *Generator) generateInitializerFile(cmdDir string, data templates.Comman
 		return "", errors.Newf("failed to write initializer file: %w", err)
 	}
 
-	return calculateHash(content), nil
+	hash := calculateHash(content)
+
+	g.props.Logger.Debugf("Wrote initializer file: %s (%d bytes, hash=%s)", cmdPath, len(content), hash)
+
+	return hash, nil
 }
 
 func (g *Generator) generateTestFile(ctx context.Context, cmdDir string, data templates.CommandData) (string, error) {
 	if data.TestCode == "" {
+		g.props.Logger.Debug("No test code provided, skipping test file generation")
+
 		return "", nil
 	}
 
 	testPath := filepath.Join(cmdDir, "main_test.go")
 
+	g.props.Logger.Debugf("Generating test file: %s", testPath)
+
 	// Check if file exists to perform hash verification
 	if exists, _ := afero.Exists(g.props.FS, testPath); exists {
+		g.props.Logger.Debugf("Verifying hash for existing file %s", testPath)
+
 		if err := g.verifyHash(testPath); err != nil {
 			return "", err
 		}
@@ -252,8 +281,12 @@ func (g *Generator) generateTestFile(ctx context.Context, cmdDir string, data te
 		return "", errors.Newf("failed to write test file: %w", err)
 	}
 
+	g.props.Logger.Debugf("Wrote test file: %s (%d bytes)", testPath, len(data.TestCode))
+
 	// Run go fmt on main_test.go if using OS filesystem
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
+		g.props.Logger.Debugf("Running go fmt on %s", testPath)
+
 		cmd := exec.CommandContext(ctx, "go", "fmt", testPath)
 		_ = cmd.Run()
 	}

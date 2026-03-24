@@ -181,6 +181,17 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | `--slack-team` | | Slack team name (e.g. `My Team`) | — |
 | `--teams-channel` | | Microsoft Teams channel | — |
 | `--teams-team` | | Microsoft Teams team name | — |
+| `--dry-run` | | Preview changes without writing files | `false` |
+
+### Dry-Run Mode
+
+Use `--dry-run` to preview what `generate skeleton` would produce without writing anything to disk:
+
+```bash
+gtb generate cli --name "my-tool" --repo "org/my-tool" --dry-run
+```
+
+This materialises all generated files into a temporary directory, runs `go mod tidy` and `golangci-lint run --fix`, then shows a summary of files that would be created or modified along with unified diffs.
 
 !!! tip
     The `--host` flag is only needed when using a self-hosted GitHub Enterprise or GitLab instance. For public `github.com` or `gitlab.com`, the correct host is set automatically from `--git-backend`.

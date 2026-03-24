@@ -141,6 +141,12 @@ IMPORTANT: Return ONLY the raw Markdown content. Do not wrap the output in ` + "
 
 // GenerateDocs generates documentation for the command or package.
 func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage bool) error {
+	if g.config.DryRun {
+		g.props.Logger.Info("Dry run: skipping docs generation (requires AI)")
+
+		return nil
+	}
+
 	// 1. Resolve Target
 	name, relPath, absPath, err := g.resolveDocsTarget(target, isPackage)
 	if err != nil {

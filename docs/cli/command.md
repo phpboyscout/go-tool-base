@@ -148,7 +148,25 @@ go run main.go generate command protect path/to/command
 go run main.go generate command unprotect path/to/command
 ```
 
-### 6. Command Safety & Manual Edits 🛡️
+### 6. Dry-Run Mode 🔍
+
+Want to preview what `generate command` will do before it writes anything? Use the `--dry-run` flag:
+
+```bash
+go run main.go generate command -n my-command --dry-run
+```
+
+This shows you:
+
+- **Files to create**: New files that would be generated, with their paths listed.
+- **Files to modify**: Existing files that would change, with a unified diff showing exactly what would be different.
+
+Dry-run mode runs the full generation pipeline—including `go mod tidy` and `golangci-lint run --fix`—in a temporary directory to ensure the preview is accurate. The only step skipped is AI-powered documentation generation, since that requires an API call.
+
+!!! tip "Use with regenerate too"
+    The `--dry-run` flag is also available on `regenerate project` and `generate skeleton`. See the [Regeneration](regenerate.md) and [Skeleton](skeleton.md) docs for details.
+
+### 7. Command Safety & Manual Edits 🛡️
 
 The generator is designed to manage the lifecycle of your `cmd.go` files (boilerplate) while you own the `main.go` files (logic).
 
@@ -214,7 +232,7 @@ If you have two commands with the same name in different branches, use path-base
 - `--parent /cat`: Targets the 'cat' command directly under root.
 - `--parent dog/cat`: Targets the 'cat' command that is a child of 'dog'.
 
-### 7. Positional Arguments 🎯
+### 8. Positional Arguments 🎯
 
 Cobra provides excellent support for validating positional arguments, and we've exposed that directly in the generator.
 

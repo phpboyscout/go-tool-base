@@ -54,6 +54,7 @@ func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
 		Name:       o.Name,
 		Path:       o.Path,
 		Parent:     o.Parent,
+		DryRun:     dryRun,
 		AIProvider: aiProvider,
 		AIModel:    aiModel,
 	}
