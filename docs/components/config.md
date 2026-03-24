@@ -1073,7 +1073,7 @@ Always provide sensible defaults:
 ```go
 func getConfigWithDefaults(cfg config.Containable) Config {
     return Config{
-        Port:           cfg.GetInt("server.port"),           // 0 if not set
+        Port:           cfg.GetInt("app.port"),              // 0 if not set
         Timeout:        cfg.GetDuration("server.timeout"),   // 0 if not set
         MaxConnections: max(cfg.GetInt("server.max_connections"), 100), // Default to 100
     }
@@ -1086,12 +1086,12 @@ Use specific getter methods for type safety:
 
 ```go
 // Good: Type-safe access
-port := cfg.GetInt("server.port")
+port := cfg.GetInt("app.port")
 timeout := cfg.GetDuration("server.timeout")
 enabled := cfg.GetBool("feature.enabled")
 
 // Avoid: Generic access requiring type assertions
-port := cfg.Get("server.port").(int) // Panic if wrong type
+port := cfg.Get("app.port").(int) // Panic if wrong type
 ```
 
 ### 4. Error Handling

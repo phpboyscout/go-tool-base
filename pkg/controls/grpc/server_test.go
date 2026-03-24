@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
@@ -31,6 +32,7 @@ func TestStart_ListenAndServe(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 
 	srv, err := NewServer(cfg)
@@ -70,6 +72,7 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
@@ -78,7 +81,37 @@ func TestRegister(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStatus(t *testing.T) {
-	// Status is a no-op, just ensure it doesn't panic
-	Status()
+func TestStatus_ValidServer(t *testing.T) {
+	t.Parallel()
+	srv := &grpc.Server{}
+	err := Status(srv)()
+	assert.NoError(t, err)
+}
+
+func TestStatus_NilServer(t *testing.T) {
+	t.Parallel()
+	err := Status(nil)()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "grpc server is nil")
+}
+
+func TestGRPCPortConfig_Specific(t *testing.T) {
+	t.Parallel()
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.grpc.port").Return(9090)
+	
+	srv, _ := NewServer(cfg)
+	startFn := Start(cfg, testLogger(), srv)
+	assert.NotNil(t, startFn)
+}
+
+func TestGRPCPortConfig_Fallback(t *testing.T) {
+	t.Parallel()
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
+	cfg.EXPECT().GetInt("server.port").Return(8080)
+	
+	srv, _ := NewServer(cfg)
+	startFn := Start(cfg, testLogger(), srv)
+	assert.NotNil(t, startFn)
 }

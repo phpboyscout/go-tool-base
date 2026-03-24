@@ -51,7 +51,7 @@ func main() {
     }
 
     // Get default configuration directory
-    configDir := setup.GetDefaultConfigDir("mytool")
+    configDir := setup.GetDefaultConfigDir(props.FS, "mytool")
 
     // Initialize configuration (interactive setup)
     configFile, err := setup.Initialise(props, setup.InitOptions{Dir: configDir})
@@ -189,7 +189,7 @@ version := FormatVersionString("v1.2.3", false) // "1.2.3"
 
 #### Directory Utilities
 ```go
-func GetDefaultConfigDir(name string) string
+func GetDefaultConfigDir(fs afero.Fs, name string) string
 ```
 
 Creates and returns the standard configuration directory:
@@ -228,7 +228,7 @@ func NewCmdInit(props *props.Props) *cobra.Command {
             clean, _ := cmd.Flags().GetBool("clean")
 
             if dir == "" {
-                dir = setup.GetDefaultConfigDir(props.Tool.Name)
+                dir = setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
             }
 
             configFile, err := setup.Initialise(props, setup.InitOptions{

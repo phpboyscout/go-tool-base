@@ -54,7 +54,7 @@ func (q *Services) status() {
 	defer q.mu.Unlock()
 
 	for _, s := range q.services {
-		s.Status()
+		_ = s.Status()
 	}
 }
 

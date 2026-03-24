@@ -39,6 +39,11 @@ type FeatureRegistry struct {
 	checks       map[props.FeatureCmd][]CheckProvider
 }
 
+// globalRegistry is the package-level command registry. It is NOT safe for
+// concurrent use. All Register* calls MUST happen during init() — before
+// main() starts and before any goroutines are spawned. Reading from the
+// registry (via Get*) is safe after init() completes because the
+// Go memory model guarantees that init() happens-before main().
 var globalRegistry = &FeatureRegistry{
 	initialisers: make(map[props.FeatureCmd][]InitialiserProvider),
 	subcommands:  make(map[props.FeatureCmd][]SubcommandProvider),

@@ -3,9 +3,10 @@ package doctor
 import (
 	"context"
 	"fmt"
+	goversion "go/version"
+	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
@@ -13,10 +14,12 @@ import (
 )
 
 func checkGoVersion(_ context.Context, _ *p.Props) CheckResult {
-	version := runtime.Version()
+	return compareGoVersion(runtime.Version())
+}
 
+func compareGoVersion(version string) CheckResult {
 	// Go 1.22+ is recommended for the latest language features.
-	if strings.Compare(version, "go1.22") >= 0 {
+	if goversion.Compare(version, "go1.22") >= 0 {
 		return CheckResult{Name: "Go version", Status: CheckPass, Message: version}
 	}
 
@@ -86,5 +89,25 @@ func checkPermissions(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: "Permissions", Status: CheckWarn, Message: "unable to determine config directory"}
 	}
 
-	return CheckResult{Name: "Permissions", Status: CheckPass, Message: fmt.Sprintf("config dir: %s", configDir)}
+	info, err := props.FS.Stat(configDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return CheckResult{Name: "Permissions", Status: CheckWarn, Message: fmt.Sprintf("config list: %s (does not exist)", configDir)}
+		}
+
+		return CheckResult{Name: "Permissions", Status: CheckFail, Message: fmt.Sprintf("unable to stat config directory: %v", err)}
+	}
+
+	if !info.IsDir() {
+		return CheckResult{Name: "Permissions", Status: CheckFail, Message: fmt.Sprintf("config path %q is not a directory", configDir)}
+	}
+
+	mode := info.Mode().Perm()
+	// Check owner has read+write+execute on the directory
+	//nolint:mnd // 0700 is the constant for owner read/write/execute
+	if mode&0700 != 0700 {
+		return CheckResult{Name: "Permissions", Status: CheckFail, Message: fmt.Sprintf("config directory %q has insufficient permissions: %s (need rwx for owner)", configDir, mode)}
+	}
+
+	return CheckResult{Name: "Permissions", Status: CheckPass, Message: fmt.Sprintf("config dir: %s (%s)", configDir, mode)}
 }

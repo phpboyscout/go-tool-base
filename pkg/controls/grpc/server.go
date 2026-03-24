@@ -24,7 +24,12 @@ func NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, 
 
 // Start returns a curried function suitable for use with the controls package.
 func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) controls.StartFunc {
-	port := fmt.Sprintf(":%d", cfg.GetInt("server.port"))
+	portStr := cfg.GetInt("server.grpc.port")
+	if portStr == 0 {
+		portStr = cfg.GetInt("server.port")
+	}
+
+	port := fmt.Sprintf(":%d", portStr)
 
 	return func(ctx context.Context) error {
 		var lc net.ListenConfig
@@ -53,7 +58,15 @@ func Stop(logger logger.Logger, srv *grpc.Server) controls.StopFunc {
 }
 
 // Status returns a curried function suitable for use with the controls package.
-func Status() {}
+func Status(srv *grpc.Server) controls.StatusFunc {
+	return func() error {
+		if srv == nil {
+			return errors.New("grpc server is nil")
+		}
+
+		return nil
+	}
+}
 
 // Register creates a new gRPC server and registers it with the controller under the given id.
 func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opt ...grpc.ServerOption) error {
@@ -65,7 +78,7 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 	controller.Register(id,
 		controls.WithStart(Start(cfg, logger, srv)),
 		controls.WithStop(Stop(logger, srv)),
-		controls.WithStatus(Status),
+		controls.WithStatus(Status(srv)),
 	)
 
 	return nil

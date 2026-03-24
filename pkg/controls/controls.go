@@ -25,7 +25,7 @@ type State string
 type Message string
 type StartFunc func(context.Context) error
 type StopFunc func(context.Context)
-type StatusFunc func()
+type StatusFunc func() error
 type ValidErrorFunc func(error) bool
 type ServiceOption func(*Service)
 

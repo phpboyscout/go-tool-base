@@ -24,6 +24,7 @@ func TestNewServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 
 	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
@@ -118,6 +119,7 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
 	cfg.EXPECT().GetString("server.tls.cert").Return("")
@@ -129,7 +131,16 @@ func TestRegister(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestStatus(t *testing.T) {
-	// Status is a no-op, just ensure it doesn't panic
-	Status()
+func TestStatus_ValidServer(t *testing.T) {
+	t.Parallel()
+	srv := &http.Server{}
+	err := Status(srv)()
+	assert.NoError(t, err)
+}
+
+func TestStatus_NilServer(t *testing.T) {
+	t.Parallel()
+	err := Status(nil)()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "http server is nil")
 }

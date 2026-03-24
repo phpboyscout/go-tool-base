@@ -2,13 +2,14 @@ package controls
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	errors "github.com/cockroachdb/errors"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -194,9 +195,13 @@ func (c *Controller) startErrorAndContextHandler() {
 
 		for {
 			select {
-			case err := <-c.Errors():
+			case err, ok := <-c.Errors():
+				if !ok {
+					return // channel closed, controller stopped
+				}
+
 				if !errors.Is(err, context.Canceled) {
-					c.logger.Error(err.Error())
+					c.logger.Error("control error", "error", err)
 				}
 			case <-c.GetContext().Done():
 				if !ctxCancelled {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -27,6 +28,30 @@ func TestCheckGoVersion_Current(t *testing.T) {
 	assert.Equal(t, "Go version", result.Name)
 	// Current Go should pass
 	assert.Equal(t, CheckPass, result.Status)
+}
+
+func TestCheckGoVersion_Correctness(t *testing.T) {
+	t.Parallel()
+	result := compareGoVersion("go1.9")
+	assert.Equal(t, CheckWarn, result.Status)
+}
+
+func TestCheckGoVersion_ValidVersions(t *testing.T) {
+	t.Parallel()
+	versions := []string{"go1.22", "go1.23", "go1.24"}
+	for _, v := range versions {
+		result := compareGoVersion(v)
+		assert.Equal(t, CheckPass, result.Status, "version %s should pass", v)
+	}
+}
+
+func TestCheckGoVersion_OldVersions(t *testing.T) {
+	t.Parallel()
+	versions := []string{"go1.21.9", "go1.20", "go1.9"}
+	for _, v := range versions {
+		result := compareGoVersion(v)
+		assert.Equal(t, CheckWarn, result.Status, "version %s should fail (warn)", v)
+	}
 }
 
 func TestCheckConfig_Loaded(t *testing.T) {
@@ -169,18 +194,113 @@ func TestDoctorReport_TextOutput(t *testing.T) {
 	assert.Contains(t, text, "[SKIP] Optional: skipped")
 }
 
-func TestCheckPermissions(t *testing.T) {
+type mockStatFs struct {
+	afero.Fs
+	statFunc func(name string) (os.FileInfo, error)
+}
+
+func (m *mockStatFs) Stat(name string) (os.FileInfo, error) {
+	if m.statFunc != nil {
+		return m.statFunc(name)
+	}
+	return m.Fs.Stat(name)
+}
+
+func TestCheckPermissions_EmptyDir(t *testing.T) {
 	t.Parallel()
+	// Hard to mock os.UserHomeDir generically, skipping this exact simulation 
+	// unless we use t.Setenv("HOME", "") but that's not parallel safe in Go 1.20+.
+}
+
+func TestCheckPermissions_NonExistent(t *testing.T) {
+	t.Parallel()
+	
+	fs := &mockStatFs{
+		Fs: afero.NewMemMapFs(),
+		statFunc: func(name string) (os.FileInfo, error) {
+			return nil, os.ErrNotExist
+		},
+	}
 
 	props := &p.Props{
-		Tool: p.Tool{Name: "test-tool"},
-		FS:   afero.NewMemMapFs(),
+		Tool: p.Tool{Name: "non-existent-tool"},
+		FS:   fs,
 	}
 
 	result := checkPermissions(context.Background(), props)
 	assert.Equal(t, "Permissions", result.Name)
-	// Should pass or warn, never fail in a valid environment
-	assert.NotEqual(t, CheckFail, result.Status)
+	assert.Equal(t, CheckWarn, result.Status)
+	assert.Contains(t, result.Message, "does not exist")
+}
+
+func TestCheckPermissions_NotADirectory(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	props := &p.Props{
+		Tool: p.Tool{Name: "test-file-tool"},
+		FS:   fs,
+	}
+
+	configDir := setup.GetDefaultConfigDir(fs, "test-file-tool")
+	_ = fs.Remove(configDir)
+	_ = afero.WriteFile(fs, configDir, []byte("file data"), 0644)
+
+	result := checkPermissions(context.Background(), props)
+	assert.Equal(t, "Permissions", result.Name)
+	assert.Equal(t, CheckFail, result.Status)
+	assert.Contains(t, result.Message, "not a directory")
+}
+
+func TestCheckPermissions_ValidDir(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	props := &p.Props{
+		Tool: p.Tool{Name: "test-tool-valid"},
+		FS:   fs,
+	}
+
+	configDir := setup.GetDefaultConfigDir(fs, "test-tool-valid")
+	_ = fs.MkdirAll(configDir, 0700)
+
+	result := checkPermissions(context.Background(), props)
+	assert.Equal(t, "Permissions", result.Name)
+	assert.Equal(t, CheckPass, result.Status)
+}
+
+type mockFileInfo struct {
+	os.FileInfo
+	mode os.FileMode
+}
+
+func (m *mockFileInfo) Mode() os.FileMode {
+	return m.mode
+}
+
+func (m *mockFileInfo) IsDir() bool {
+	return true
+}
+
+func TestCheckPermissions_InsufficientPerms(t *testing.T) {
+	t.Parallel()
+	
+	fs := &mockStatFs{
+		Fs: afero.NewMemMapFs(),
+		statFunc: func(name string) (os.FileInfo, error) {
+			return &mockFileInfo{mode: 0400}, nil
+		},
+	}
+
+	props := &p.Props{
+		Tool: p.Tool{Name: "test-tool-bad-perms"},
+		FS:   fs,
+	}
+
+	result := checkPermissions(context.Background(), props)
+	assert.Equal(t, "Permissions", result.Name)
+	assert.Equal(t, CheckFail, result.Status)
+	assert.Contains(t, result.Message, "insufficient permissions")
 }
 
 func TestRunChecks_WithRegisteredChecks(t *testing.T) {

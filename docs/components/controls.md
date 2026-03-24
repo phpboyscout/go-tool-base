@@ -229,7 +229,7 @@ type Service struct {
 // Function types for service lifecycle
 type StartFunc func(context.Context) error
 type StopFunc func(context.Context)
-type StatusFunc func()
+type StatusFunc func() error
 type ValidErrorFunc func(error) bool
 
 // ServiceOption is a functional option for configuring a Service.
@@ -321,7 +321,7 @@ func registerHTTPServer(controller *controls.Controller, props *props.Props) {
         }
     }
 
-    statusFunc := func() {
+    statusFunc := func() error {
         // Report service status to health channel
         controller.Health() <- controls.HealthMessage{
             Host:    "localhost",
@@ -329,6 +329,7 @@ func registerHTTPServer(controller *controls.Controller, props *props.Props) {
             Status:  200,
             Message: "HTTP server healthy",
         }
+        return nil
     }
 
     // Register the service using functional options
@@ -376,13 +377,14 @@ func registerBackgroundWorker(controller *controls.Controller, props *props.Prop
         workerCancel()
     }
 
-    statusFunc := func() {
+    statusFunc := func() error {
         controller.Health() <- controls.HealthMessage{
             Host:    "localhost",
             Port:    0,
             Status:  200,
             Message: "Background worker healthy",
         }
+        return nil
     }
 
     controller.Register("background-worker",
@@ -599,11 +601,12 @@ func TestHTTPServerLifecycle(t *testing.T) {
         stopped = true
     }
 
-    statusFunc := func() {
+    statusFunc := func() error {
         controller.Health() <- controls.HealthMessage{
             Status:  200,
             Message: "test server healthy",
         }
+        return nil
     }
 
     // Register and test
@@ -660,7 +663,8 @@ Expected configuration keys:
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `server.port` | `int` | The port to listen on. |
+| `server.http.port` | `int` | The port to listen on (falls back to `server.port`). |
+| `server.port` | `int` | Fallback port to listen on if HTTP specific not set. |
 | `server.tls.enabled` | `bool` | Whether to enable TLS. |
 | `server.tls.cert` | `string` | Path to the TLS certificate file. |
 | `server.tls.key` | `string` | Path to the TLS key file. |
@@ -700,7 +704,8 @@ Expected configuration keys:
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `server.port` | `int` | The port to listen on. |
+| `server.grpc.port` | `int` | The port to listen on (falls back to `server.port`). |
+| `server.port` | `int` | Fallback port to listen on if gRPC specific not set. |
 
 #### Usage Example
 
@@ -761,13 +766,13 @@ func createDatabaseService(controller *controls.Controller) (controls.StartFunc,
         }
     }
 
-    status := func() {
+    status := func() error {
         if db == nil {
             controller.Health() <- controls.HealthMessage{
                 Status:  503,
                 Message: "Database not initialized",
             }
-            return
+            return fmt.Errorf("database not initialized")
         }
 
         ctx, cancel := context.WithTimeout(controller.GetContext(), 2*time.Second)
@@ -779,11 +784,13 @@ func createDatabaseService(controller *controls.Controller) (controls.StartFunc,
                 Status:  503,
                 Message: fmt.Sprintf("Database unhealthy: %v", err),
             }
+            return err
         } else {
             controller.Health() <- controls.HealthMessage{
                 Status:  200,
                 Message: "Database healthy",
             }
+            return nil
         }
     }
 

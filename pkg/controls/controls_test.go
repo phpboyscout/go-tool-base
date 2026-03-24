@@ -46,7 +46,7 @@ func getNewController(ctx context.Context) (*controls.Controller, *StateCounters
 	cntrs := &StateCounters{}
 	startFunc := func(_ context.Context) error { cntrs.Started.Add(1); return nil }
 	stopFunc := func(_ context.Context) { cntrs.Stopped.Add(1) }
-	statusFunc := func() { cntrs.Statused.Add(1); time.Sleep(500 * time.Microsecond) }
+	statusFunc := func() error { cntrs.Statused.Add(1); time.Sleep(500 * time.Microsecond); return nil }
 
 	buf := &syncBuffer{}
 	l := logger.NewCharm(buf)
@@ -125,7 +125,7 @@ func TestController_StartError(t *testing.T) {
 			return fmt.Errorf("test error")
 		}),
 		controls.WithStop(func(_ context.Context) {}),
-		controls.WithStatus(func() {}),
+		controls.WithStatus(func() error { return nil }),
 	)
 
 	c.Start()

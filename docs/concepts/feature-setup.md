@@ -22,6 +22,9 @@ The `FeatureRegistry` (found in `pkg/setup/registry.go`) acts as a central clear
 
 Features register themselves using the `Register` function, typically called from a feature's package `init()` function or a high-level command constructor.
 
+> [!WARNING]
+> **Thread Safety**: The `FeatureRegistry` (and the `Register` functions) are NOT safe for concurrent use. All `Register*` calls MUST happen during `init()` — before `main()` starts and before any goroutines are spawned. Reading from the registry later is safe because the Go memory model guarantees that `init()` happens-before `main()`.
+
 ```go
 func init() {
     setup.Register(
