@@ -22,7 +22,9 @@ const healthUpdateInterval = 10 * time.Second
 // NewServer returns a new preconfigured grpc.Server.
 func NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, error) {
 	srv := grpc.NewServer(opt...)
-	reflection.Register(srv)
+	if cfg.GetBool("server.grpc.reflection") {
+		reflection.Register(srv)
+	}
 
 	return srv, nil
 }

@@ -26,6 +26,7 @@ func TestNewServer(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
 	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
@@ -35,7 +36,23 @@ func TestNewServer(t *testing.T) {
 	assert.Equal(t, readTimeout, srv.ReadTimeout)
 	assert.Equal(t, writeTimeout, srv.WriteTimeout)
 	assert.Equal(t, idleTimeout, srv.IdleTimeout)
+	assert.Equal(t, 1<<20, srv.MaxHeaderBytes, "should default to 1MB")
 	assert.NotNil(t, srv.TLSConfig)
+}
+
+func TestNewServer_MaxHeaderBytes_Configured(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
+	cfg.EXPECT().GetInt("server.port").Return(0)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(2048)
+
+	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	require.NoError(t, err)
+	require.NotNil(t, srv)
+
+	assert.Equal(t, 2048, srv.MaxHeaderBytes)
 }
 
 func TestStart_HTTP(t *testing.T) {
@@ -121,6 +138,7 @@ func TestRegister(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
 	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
 	cfg.EXPECT().GetString("server.tls.cert").Return("")
 	cfg.EXPECT().GetString("server.tls.key").Return("")
@@ -156,6 +174,7 @@ func TestHealthz(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
 	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
 	cfg.EXPECT().GetString("server.tls.cert").Return("")
 	cfg.EXPECT().GetString("server.tls.key").Return("")
@@ -199,6 +218,7 @@ func TestProbes(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
 	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
 	cfg.EXPECT().GetString("server.tls.cert").Return("")
 	cfg.EXPECT().GetString("server.tls.key").Return("")

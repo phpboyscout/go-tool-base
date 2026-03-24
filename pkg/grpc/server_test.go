@@ -22,20 +22,48 @@ func testLogger() logger.Logger {
 	return logger.NewNoop()
 }
 
-func TestNewServer(t *testing.T) {
+func TestNewServer_ReflectionDisabled(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false)
 
 	srv, err := NewServer(cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
+
+	services := srv.GetServiceInfo()
+	assert.NotContains(t, services, "grpc.reflection.v1alpha.ServerReflection")
+	assert.NotContains(t, services, "grpc.reflection.v1.ServerReflection")
+}
+
+func TestNewServer_ReflectionEnabled(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(true)
+
+	srv, err := NewServer(cfg)
+	require.NoError(t, err)
+	assert.NotNil(t, srv)
+
+	services := srv.GetServiceInfo()
+	// reflection service should be registered
+	hasReflection := false
+	for name := range services {
+		if name == "grpc.reflection.v1alpha.ServerReflection" || name == "grpc.reflection.v1.ServerReflection" {
+			hasReflection = true
+			break
+		}
+	}
+	assert.True(t, hasReflection, "reflection service should be registered")
 }
 
 func TestStart_ListenAndServe(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 
@@ -62,6 +90,7 @@ func TestStop_GracefulStop(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 
 	srv, err := NewServer(cfg)
 	require.NoError(t, err)
@@ -76,6 +105,7 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 
@@ -109,6 +139,7 @@ func TestGRPCHealth(t *testing.T) {
 	_ = listener.Close()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
@@ -153,6 +184,7 @@ func TestGRPCProbes(t *testing.T) {
 	_ = listener.Close()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
@@ -205,6 +237,7 @@ func TestGRPCProbes(t *testing.T) {
 func TestGRPCPortConfig_Specific(t *testing.T) {
 	t.Parallel()
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(9090)
 	
 	srv, _ := NewServer(cfg)
@@ -215,6 +248,7 @@ func TestGRPCPortConfig_Specific(t *testing.T) {
 func TestGRPCPortConfig_Fallback(t *testing.T) {
 	t.Parallel()
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(8080)
 	

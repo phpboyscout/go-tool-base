@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	readTimeout  = 5 * time.Second
-	writeTimeout = 10 * time.Second
-	idleTimeout  = 120 * time.Second
+	readTimeout           = 5 * time.Second
+	writeTimeout          = 10 * time.Second
+	idleTimeout           = 120 * time.Second
+	defaultMaxHeaderBytes = 1 << 20 // 1MB default
 )
 
 // HealthHandler returns an http.HandlerFunc that responds with the controller's health report.
@@ -79,16 +80,22 @@ func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler
 		port = cfg.GetInt("server.port")
 	}
 
+	maxHeaderBytes := cfg.GetInt("server.http.max_header_bytes")
+	if maxHeaderBytes == 0 {
+		maxHeaderBytes = defaultMaxHeaderBytes
+	}
+
 	srv := &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx
 		},
-		Handler:      handler,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		IdleTimeout:  idleTimeout,
-		TLSConfig:    defaultTLSConfig(),
+		Handler:        handler,
+		ReadTimeout:    readTimeout,
+		WriteTimeout:   writeTimeout,
+		IdleTimeout:    idleTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
+		TLSConfig:      defaultTLSConfig(),
 	}
 
 	return srv, nil

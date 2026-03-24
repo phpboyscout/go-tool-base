@@ -2,7 +2,7 @@
 title: "Security & Server Hardening Specification"
 description: "Security improvements to GTB server infrastructure including gating gRPC reflection behind a config flag, adding HTTP request size limits, documenting the secrets/config deployment model, and documenting the ophis MCP library rationale."
 date: 2026-03-24
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - security
@@ -24,7 +24,7 @@ Date
 :   24 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

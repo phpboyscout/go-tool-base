@@ -56,6 +56,14 @@ This generates an `mcp-tools.json` file in your current directory, showing the J
 
 ## Implementation
 
-The MCP command is powered by the `ophis` library and is automatically wired into the `root` command registration.
+The MCP command is powered by the **[ophis](https://github.com/njayp/ophis)** library and is automatically wired into the `root` command registration.
+
+### Why Ophis?
+
+GTB uses `ophis` rather than the official `modelcontextprotocol/go-sdk` for several key reasons:
+
+1.  **Seamless Cobra Integration**: Ophis is specifically designed to read Cobra command trees directly. It automatically maps commands to MCP tool definitions and flags to tool parameters, eliminating the need for manual schema duplication.
+2.  **Small Footprint**: It acts as a thin translation layer, providing exactly what is needed for CLI-to-MCP bridging without the overhead of a full protocol framework.
+3.  **Transitve Compatibility**: The official MCP Go SDK is a transitive dependency of Ophis. If direct protocol access is ever needed or if Ophis is abandoned, migrating to the official SDK is straightforward as the protocol layer is already present in the dependency tree.
 
 For detailed integration instructions, see the [MCP Server CLI guide](../../cli/mcp.md).

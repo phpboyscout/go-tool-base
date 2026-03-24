@@ -1,44 +1,68 @@
 ---
-title: Security & Secret Management
-description: Security standards for the GTB library and generator.
-tags: [security, secrets, library, standards]
+title: "Secrets & Configuration Model"
+description: "Architecture and deployment guide for managing secrets and environment-specific configuration in GTB."
+date: 2026-03-24
+tags: [development, security, configuration, viper, secrets]
+authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
-# Security & Secret Management
+# Secrets & Configuration Model
 
-As a framework that handles AI keys and VCS authentication, security is baked into the design of GTB.
+GTB uses a layered configuration model powered by **Viper**. This approach allows tools to remain environment-agnostic while supporting secure secrets management in both development and production.
 
-## Secret Handling in Code
+## Configuration Priority
 
-- **No Hardcoding**: Secrets must never be hardcoded into the library or generator templates.
-- **Viper Integration**: Use the `pkg/config` container to handle secrets securely from environment variables or encrypted configuration backends.
-- **Redaction**: Ensure that diagnostic logs redact sensitive keys by default.
+Viper resolves configuration keys using the following priority order (highest to lowest):
 
-## AI Provider Security
+1. **Explicit CLI Flags**: e.g., `--server.port 9090`
+2. **Environment Variables**: e.g., `SERVER_PORT=9090`
+3. **Config Files**: e.g., `config.yaml`
+4. **Internal Defaults**: hardcoded fallback values
 
-- **Credential Isolation**: Each AI provider implementation in `pkg/chat` must isolate credentials to prevent accidental cross-provider leakage.
-- **Key Rotation**: Provide clear error messages that guide users to rotate their keys if an "Unauthorized" error is returned from a provider.
+## Environment Variable Mapping
 
-## Runtime Protections
+GTB automatically binds environment variables to configuration keys. Dot-separated paths are converted to upper-case, underscore-separated environment variables:
 
-### Path Validation with Symlink Resolution
+| Config Key | Environment Variable |
+| :--- | :--- |
+| `server.http.port` | `SERVER_HTTP_PORT` |
+| `github.token` | `GITHUB_TOKEN` |
+| `log.level` | `LOG_LEVEL` |
 
-Agent tools that perform file operations use `isPathAllowed` to validate that requested paths remain within the allowed base directory. This function resolves symlinks via `filepath.EvalSymlinks` before performing the prefix check, preventing symlink bypass attacks where a symlink inside the allowed directory points to a location outside it.
+## Deployment Models
 
-### Filesystem Abstraction
+### Development Environment
 
-Agent file operations (`ReadFile`, `WriteFile`, `ListDirectory`) use `afero.Fs` instead of direct `os` package calls. This ensures consistency with the rest of the codebase and enables testing with in-memory filesystems.
+In local development, secrets (like API keys or database passwords) are typically stored in local configuration files (`config.yaml` or `.env` files).
 
-### Init-Time Security
+- **Key Practice**: Ensure local config files containing secrets are added to your `.gitignore`.
+- **Threat Model**: Local file secrets are equivalent to environment variables in your shell profile—they are secure provided the local machine is not compromised.
 
-The `init` command includes two security features:
-- **`.gitignore` generation**: Automatically creates a `.gitignore` in the config directory to prevent accidental commit of secret files.
-- **API key detection**: Scans config files for common key patterns and warns if the directory is inside a git repository.
+### Production (Containers/Kubernetes)
 
-## Secure Templates
+In production, secrets should **never** be committed to version control, baked into container images, or passed as build arguments. They are runtime dependencies provided by the deployment platform.
 
-The generator templates in `internal/generator/templates` must generate code that follows secure defaults (e.g., standard permission masks for files, sanitized input handling).
+#### 1. Kubernetes Secrets
+Mount secrets as volumes containing configuration files:
 
-## Reporting Vulnerabilities
+```yaml
+volumeMounts:
+- name: config-volume
+  mountPath: /etc/mytool
+volumes:
+- name: config-volume
+  secret:
+    secretName: mytool-config
+```
 
-If you discover a security vulnerability in GTB, please report it via the internal security channel as defined in the project's root README.
+#### 2. Secret Managers (Vault, AWS Secrets Manager)
+Use CSI drivers or external secrets operators to inject secrets as files or environment variables directly into the application's environment.
+
+#### 3. Environment Variable Injection
+Inject secrets directly as environment variables. This is the simplest method for cloud platforms like Heroku, AWS Lambda, or simple Docker Compose setups.
+
+## Core Principles
+
+1. **Secrets are Runtime Dependencies**: They belong to the environment, not the application code.
+2. **Standard Config Paths**: GTB provides the abstraction (Viper) and conventional paths. The deployment platform provides the storage mechanism.
+3. **Secure Defaults**: GTB defaults to secure settings (e.g., gRPC reflection disabled) and requires explicit opt-in for development conveniences.
