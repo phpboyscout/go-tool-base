@@ -25,6 +25,7 @@ func TestClaudeProvider_New(t *testing.T) {
 	}
 
 	t.Run("missing_api_key", func(t *testing.T) {
+		t.Setenv(chat.EnvClaudeKey, "")
 		cfg := chat.Config{
 			Provider: chat.ProviderClaude,
 			Token:    "",

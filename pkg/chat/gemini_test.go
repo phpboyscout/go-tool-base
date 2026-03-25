@@ -27,6 +27,7 @@ func TestGeminiProvider_New(t *testing.T) {
 	}
 
 	t.Run("missing_api_key", func(t *testing.T) {
+		t.Setenv(chat.EnvGeminiKey, "")
 		cfg := chat.Config{
 			Provider: chat.ProviderGemini,
 			Token:    "",
