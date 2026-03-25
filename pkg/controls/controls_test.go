@@ -14,6 +14,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type StateCounters struct {
@@ -432,13 +433,12 @@ func TestController_Supervisor_HealthTriggered(t *testing.T) {
 
 	c.Start()
 
-	// Wait for 1 successful status check (10ms) + 2 failed status checks (20ms) + backoff (5ms) + restart
-	time.Sleep(150 * time.Millisecond)
-	
+	require.Eventually(t, func() bool {
+		return starts.Load() >= 2
+	}, 2*time.Second, 10*time.Millisecond, "service should restart due to health failures")
+
 	c.Stop()
 	c.Wait()
-
-	assert.GreaterOrEqual(t, starts.Load(), int32(2), "Service should be restarted due to health failures")
 }
 
 func TestController_ServiceInfo(t *testing.T) {
