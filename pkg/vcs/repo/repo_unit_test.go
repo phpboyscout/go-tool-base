@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	git "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -176,7 +177,7 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 
 func TestRepo_Unit_Options(t *testing.T) {
 	t.Parallel()
-	
+
 	t.Run("WithConfig", func(t *testing.T) {
 		r := &Repo{}
 		cfg := &gitconfig.Config{}
@@ -187,18 +188,290 @@ func TestRepo_Unit_Options(t *testing.T) {
 
 	t.Run("CloneOptions", func(t *testing.T) {
 		opts := &git.CloneOptions{}
-		
+
 		WithShallowClone(1)(opts)
 		assert.Equal(t, 1, opts.Depth)
-		
+
 		WithSingleBranch("develop")(opts)
 		assert.True(t, opts.SingleBranch)
 		assert.Equal(t, "refs/heads/develop", opts.ReferenceName.String())
-		
+
+		WithSingleBranch("")(opts) // empty branch — sets SingleBranch but no reference
+		assert.True(t, opts.SingleBranch)
+
 		WithNoTags()(opts)
 		assert.Equal(t, git.NoTags, opts.Tags)
-		
+
 		WithRecurseSubmodules()(opts)
 		assert.Equal(t, git.DefaultSubmoduleRecursionDepth, opts.RecurseSubmodules)
+	})
+}
+
+func TestRepo_Unit_Getters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SetRepo/GetRepo", func(t *testing.T) {
+		t.Parallel()
+		r := &Repo{}
+		assert.Nil(t, r.GetRepo())
+
+		tmpDir := t.TempDir()
+		repo, err := git.PlainInit(tmpDir, false)
+		require.NoError(t, err)
+		r.SetRepo(repo)
+		assert.Equal(t, repo, r.GetRepo())
+	})
+
+	t.Run("SetTree/GetTree", func(t *testing.T) {
+		t.Parallel()
+		r := &Repo{}
+		assert.Nil(t, r.GetTree())
+
+		tmpDir := t.TempDir()
+		repo, err := git.PlainInit(tmpDir, false)
+		require.NoError(t, err)
+		tree, err := repo.Worktree()
+		require.NoError(t, err)
+		r.SetTree(tree)
+		assert.Equal(t, tree, r.GetTree())
+	})
+
+	t.Run("SourceIs/SetSource", func(t *testing.T) {
+		t.Parallel()
+		r := &Repo{}
+		assert.False(t, r.SourceIs(SourceLocal))
+		r.SetSource(SourceLocal)
+		assert.True(t, r.SourceIs(SourceLocal))
+		assert.False(t, r.SourceIs(SourceMemory))
+	})
+}
+
+func TestRepo_Unit_Open(t *testing.T) {
+	t.Run("Open_LocalRepo", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		r := &Repo{}
+		repo, tree, err := r.Open(LocalRepo, tmpDir, "main")
+		require.NoError(t, err)
+		assert.NotNil(t, repo)
+		assert.NotNil(t, tree)
+		assert.True(t, r.SourceIs(SourceLocal))
+	})
+
+	t.Run("Open_UnknownType", func(t *testing.T) {
+		r := &Repo{}
+		_, _, err := r.Open("bad-type", "", "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown repo type")
+	})
+}
+
+func TestRepo_Unit_CreateBranch_Existing(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
+
+	r, err := NewRepo(p)
+	require.NoError(t, err)
+	_, wt, err := r.OpenLocal(tmpDir, "main")
+	require.NoError(t, err)
+
+	// Make an initial commit so HEAD exists
+	_ = os.WriteFile(filepath.Join(tmpDir, "init.txt"), []byte("x"), 0o644)
+	_, _ = wt.Add("init.txt")
+	_, _ = r.Commit("init", &git.CommitOptions{
+		Author: &object.Signature{Name: "T", Email: "t@t.com", When: time.Now()},
+	})
+
+	// Create "feat" for the first time
+	require.NoError(t, r.CreateBranch("feat"))
+
+	// Go back to main so we can re-create feat
+	require.NoError(t, r.Checkout(plumbing.NewBranchReferenceName("main")))
+
+	// Creating an already-existing branch with SourceMemory skips the pull
+	r.SetSource(SourceMemory)
+	err = r.CreateBranch("feat")
+	assert.NoError(t, err)
+}
+
+func TestRepo_Unit_Clone_LocalToLocal(t *testing.T) {
+	srcDir := t.TempDir()
+	dstDir := filepath.Join(t.TempDir(), "clone")
+
+	// Seed the source repo with a commit
+	srcRepo, err := git.PlainInit(srcDir, false)
+	require.NoError(t, err)
+	wt, err := srcRepo.Worktree()
+	require.NoError(t, err)
+	_ = os.WriteFile(filepath.Join(srcDir, "readme.txt"), []byte("hello"), 0o644)
+	_, _ = wt.Add("readme.txt")
+	_, err = wt.Commit("init", &git.CommitOptions{
+		Author: &object.Signature{Name: "T", Email: "t@t.com", When: time.Now()},
+	})
+	require.NoError(t, err)
+
+	r := &Repo{}
+	repo, tree, err := r.Clone(srcDir, dstDir)
+	require.NoError(t, err)
+	assert.NotNil(t, repo)
+	assert.NotNil(t, tree)
+
+	_, statErr := os.Stat(filepath.Join(dstDir, "readme.txt"))
+	assert.NoError(t, statErr)
+}
+
+func TestRepo_Unit_GetSSHKey_Errors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("not_exist", func(t *testing.T) {
+		t.Parallel()
+		fs := afero.NewMemMapFs()
+		_, err := GetSSHKey("/nonexistent/key", fs)
+		assert.Error(t, err)
+	})
+
+	t.Run("is_directory", func(t *testing.T) {
+		t.Parallel()
+		fs := afero.NewMemMapFs()
+		require.NoError(t, fs.Mkdir("/keydir", 0o755))
+		_, err := GetSSHKey("/keydir", fs)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "GITHUB_KEY")
+	})
+
+	t.Run("invalid_key_bytes", func(t *testing.T) {
+		t.Parallel()
+		fs := afero.NewMemMapFs()
+		require.NoError(t, afero.WriteFile(fs, "/bad.key", []byte("not-a-pem-key"), 0o600))
+		// ParsePrivateKey fails but does not report "passphrase protected",
+		// so NewPublicKeys is called with the invalid bytes and fails.
+		_, err := GetSSHKey("/bad.key", fs)
+		assert.Error(t, err)
+	})
+}
+
+func TestRepo_Unit_Commit_NilOpts(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
+	r, err := NewRepo(p)
+	require.NoError(t, err)
+
+	_, wt, err := r.OpenLocal(tmpDir, "main")
+	require.NoError(t, err)
+
+	_ = os.WriteFile(filepath.Join(tmpDir, "x.txt"), []byte("x"), 0o644)
+	_, _ = wt.Add("x.txt")
+
+	// Passing nil opts covers the `opts = &git.CommitOptions{}` branch.
+	_, _ = r.Commit("nil opts commit", nil)
+}
+
+func TestRepo_Unit_AddToFS_AlreadyExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
+	r, err := NewRepo(p)
+	require.NoError(t, err)
+
+	_, wt, err := r.OpenLocal(tmpDir, "main")
+	require.NoError(t, err)
+
+	relPath := "readme.txt"
+	_ = os.WriteFile(filepath.Join(tmpDir, relPath), []byte("original"), 0o644)
+	_, _ = wt.Add(relPath)
+	_, _ = r.Commit("init", &git.CommitOptions{
+		Author: &object.Signature{Name: "T", Email: "t@t.com", When: time.Now()},
+	})
+
+	gitFile, err := r.GetFile(relPath)
+	require.NoError(t, err)
+
+	memFS := afero.NewMemMapFs()
+	// Pre-populate the target path so AddToFS returns early.
+	require.NoError(t, afero.WriteFile(memFS, "/out.txt", []byte("existing"), 0o644))
+
+	err = r.AddToFS(memFS, gitFile, "/out.txt")
+	assert.NoError(t, err)
+
+	// File must be unchanged — AddToFS skips overwriting.
+	content, _ := afero.ReadFile(memFS, "/out.txt")
+	assert.Equal(t, "existing", string(content))
+}
+
+func TestRepo_Unit_GetFile_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
+	r, err := NewRepo(p)
+	require.NoError(t, err)
+
+	_, wt, err := r.OpenLocal(tmpDir, "main")
+	require.NoError(t, err)
+
+	_ = os.WriteFile(filepath.Join(tmpDir, "x.txt"), []byte("x"), 0o644)
+	_, _ = wt.Add("x.txt")
+	_, _ = r.Commit("init", &git.CommitOptions{
+		Author: &object.Signature{Name: "T", Email: "t@t.com", When: time.Now()},
+	})
+
+	_, err = r.GetFile("does-not-exist.txt")
+	assert.Error(t, err)
+}
+
+func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
+	t.Parallel()
+	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop()}
+	errOpt := func(r *Repo) error {
+		return errors.New("opt failed")
+	}
+	_, err := NewRepo(p, errOpt)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "opt failed")
+}
+
+func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
+	// Config has no github.ssh and no auth token → configureTokenAuth fails.
+	t.Setenv("GITHUB_TOKEN", "")
+	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`github: {}`))
+	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
+	_, err := NewRepo(p)
+	assert.Error(t, err)
+}
+
+func TestRepo_Unit_configureSSHAuth_Paths(t *testing.T) {
+	t.Run("path_key_not_found", func(t *testing.T) {
+		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+github:
+  ssh:
+    key:
+      path: /nonexistent/id_rsa
+`))
+		fs := afero.NewOsFs()
+		p := &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfg}
+		_, err := NewRepo(p)
+		assert.Error(t, err)
+	})
+
+	t.Run("env_empty_falls_back_to_agent", func(t *testing.T) {
+		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+github:
+  ssh:
+    key:
+      env: GTB_TEST_SSH_KEY_EMPTY_XYZ
+`))
+		t.Setenv("GTB_TEST_SSH_KEY_EMPTY_XYZ", "")
+		p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
+		// Falls back to ssh-agent; will fail if no agent running, but path is covered.
+		_, _ = NewRepo(p)
+	})
+
+	t.Run("env_key_not_found", func(t *testing.T) {
+		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+github:
+  ssh:
+    key:
+      env: GTB_TEST_SSH_KEY_XYZ
+`))
+		t.Setenv("GTB_TEST_SSH_KEY_XYZ", "/nonexistent/key")
+		p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: cfg}
+		_, err := NewRepo(p)
+		assert.Error(t, err)
 	})
 }
