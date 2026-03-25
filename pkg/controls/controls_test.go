@@ -475,3 +475,47 @@ func TestController_ServiceInfo(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestControllerErrorHandler_ExitsOnClose(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	// Use a buffered channel so we can enqueue errors before the goroutine starts.
+	errs := make(chan error, 4)
+
+	c := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
+	c.SetErrorsChannel(errs)
+
+	c.Start()
+
+	// Enqueue a non-fatal error, then close the channel.
+	// When the error handler goroutine reads the buffered error it will log it,
+	// then the next read returns ok=false and the goroutine exits cleanly.
+	errs <- fmt.Errorf("test error")
+	close(errs)
+
+	// The controller should stop and Wait should not deadlock.
+	c.Stop()
+	c.Wait()
+}
+
+func TestControllerErrorHandler_ExitsOnCancel(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	c := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
+	c.Start()
+
+	// Cancelling the parent context triggers the ctx.Done() branch in the error
+	// handler goroutine, which then calls c.Stop() internally.
+	cancel()
+
+	// The controller should reach Stopped state without blocking.
+	require.Eventually(t, func() bool {
+		return c.GetState() == controls.Stopped
+	}, 2*time.Second, 10*time.Millisecond, "controller should reach Stopped state after context cancel")
+
+	c.Wait()
+}
