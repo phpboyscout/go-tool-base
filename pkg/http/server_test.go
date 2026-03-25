@@ -40,6 +40,51 @@ func TestNewServer(t *testing.T) {
 	assert.NotNil(t, srv.TLSConfig)
 }
 
+func TestNewServer_BaseContext(t *testing.T) {
+	t.Parallel()
+
+	type ctxKey struct{}
+	ctx := context.WithValue(context.Background(), ctxKey{}, "sentinel")
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
+	cfg.EXPECT().GetInt("server.port").Return(0)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
+
+	srv, err := NewServer(ctx, cfg, http.DefaultServeMux)
+	require.NoError(t, err)
+	require.NotNil(t, srv.BaseContext)
+
+	// BaseContext must propagate the parent context to each request.
+	baseCtx := srv.BaseContext(nil)
+	assert.Equal(t, "sentinel", baseCtx.Value(ctxKey{}))
+}
+
+func TestHTTPPortConfig_Specific(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(19876)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
+
+	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	require.NoError(t, err)
+	assert.Equal(t, ":19876", srv.Addr)
+}
+
+func TestHTTPPortConfig_Fallback(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
+	cfg.EXPECT().GetInt("server.port").Return(19877)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
+
+	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	require.NoError(t, err)
+	assert.Equal(t, ":19877", srv.Addr)
+}
+
 func TestNewServer_MaxHeaderBytes_Configured(t *testing.T) {
 	t.Parallel()
 
