@@ -4,8 +4,6 @@ description: Common issues and solutions for GTB development and usage.
 date: 2026-02-16
 tags: [troubleshooting, support, faq]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
-hide:
-  - navigation
 ---
 
 # Troubleshooting
