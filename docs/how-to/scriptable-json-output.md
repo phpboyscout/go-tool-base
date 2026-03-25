@@ -1,191 +1,273 @@
 ---
 title: Add Scriptable JSON Output to a Command
-description: How to use pkg/output to make a command produce both human-readable and machine-readable JSON output.
+description: How to use pkg/output to give any command --output json support with the standard Response envelope, and how to render markdown for terminal output.
 date: 2026-03-25
-tags: [how-to, output, json, scripting, automation]
+tags: [how-to, output, json, markdown, scripting, automation, glamour]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Add Scriptable JSON Output to a Command
 
-GTB's `pkg/output` package makes it straightforward to give any command a `--output` flag that switches between human-readable text and machine-parseable JSON. This is essential for commands that need to integrate with CI/CD pipelines or shell scripts.
+`pkg/output` provides two things commands typically need: structured JSON output for CI/CD pipelines and scripts, and styled markdown rendering for terminal display. Both are controlled by the `--output` flag already defined on the root command.
 
 ---
 
-## How It Works
+## The Standard JSON Envelope
 
-`output.Writer` wraps a single `Write(data any, textFunc func(io.Writer)) error` call. You pass the structured data *and* a text-rendering closure together — the writer decides which to use based on the configured format.
+All built-in GTB commands wrap their JSON output in a standard `Response` envelope:
 
+```json
+{
+  "status": "success",
+  "command": "mycommand",
+  "data": { ... }
+}
 ```
-FormatText  →  textFunc(w) is called
-FormatJSON  →  data is JSON-marshalled and written
-```
+
+Using this envelope means your command's JSON output follows the same schema as `version`, `doctor`, `update`, and `init` — consumers know where to look for the payload and can check `status` without parsing `data`.
 
 ---
 
-## Step 1: Define a Result Struct
+## Step 1: Define Your Data Struct
 
-The struct is your JSON contract. Tag every exported field:
+Tag every exported field for JSON serialisation:
 
 ```go
-type ServiceStatus struct {
-    Name    string `json:"name"`
-    Version string `json:"version"`
-    Healthy bool   `json:"healthy"`
-    Uptime  string `json:"uptime"`
+type DeployResult struct {
+    Environment string `json:"environment"`
+    Version     string `json:"version"`
+    Replicas    int    `json:"replicas"`
 }
 ```
 
 ---
 
-## Step 2: Add an `--output` Flag to the Command
+## Step 2: Use Writer with the Response Envelope
+
+The `--output` flag is already registered on the root command — read it and pass it to `output.NewWriter`:
 
 ```go
 import (
-    "os"
     "fmt"
+    "io"
+    "os"
 
-    "github.com/spf13/cobra"
     "github.com/phpboyscout/go-tool-base/pkg/output"
     "github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-func NewCmdStatus(p *props.Props) *cobra.Command {
-    var outputFormat string
-
-    cmd := &cobra.Command{
-        Use:   "status",
-        Short: "Show service status",
+func NewCmdDeploy(p *props.Props) *cobra.Command {
+    return &cobra.Command{
+        Use:   "deploy",
+        Short: "Deploy to an environment",
         RunE: func(cmd *cobra.Command, args []string) error {
-            return runStatus(cmd, p, output.Format(outputFormat))
+            format, _ := cmd.Flags().GetString("output")
+            w := output.NewWriter(os.Stdout, output.Format(format))
+
+            result := runDeploy(args[0])
+
+            return w.Write(output.Response{
+                Status:  output.StatusSuccess,
+                Command: "deploy",
+                Data:    result,
+            }, func(out io.Writer) {
+                fmt.Fprintf(out, "Deployed %s to %s (%d replicas)\n",
+                    result.Version, result.Environment, result.Replicas)
+            })
         },
     }
+}
+```
 
-    cmd.Flags().StringVarP(&outputFormat, "output", "o", string(output.FormatText),
-        `Output format: "text" or "json"`)
+**Text output** (`mytool deploy production`):
 
-    return cmd
+```
+Deployed v1.2.3 to production (3 replicas)
+```
+
+**JSON output** (`mytool deploy production --output json`):
+
+```json
+{
+  "status": "success",
+  "command": "deploy",
+  "data": {
+    "environment": "production",
+    "version": "v1.2.3",
+    "replicas": 3
+  }
 }
 ```
 
 ---
 
-## Step 3: Use the Writer in the Run Function
+## Step 3: Add JSON Output to Existing Commands (Emit Pattern)
+
+If your command already has text output via the logger or `fmt.Print` and you want to add a JSON path without changing the text path, use `output.Emit`. It writes the envelope only when `--output json` is set, and is a no-op in text mode.
 
 ```go
-func runStatus(cmd *cobra.Command, p *props.Props, format output.Format) error {
-    // Gather your data
-    status := ServiceStatus{
-        Name:    p.Tool.Name,
-        Version: p.Version.String(),
-        Healthy: true,
-        Uptime:  "4h32m",
+func runMigrate(cmd *cobra.Command, p *props.Props, env string) error {
+    p.Logger.Info("Running migrations", "environment", env)
+
+    count, err := runMigrations(env)
+    if err != nil {
+        return err
     }
 
-    // Create a writer targeting the command's stdout
-    w := output.NewWriter(cmd.OutOrStdout(), format)
+    p.Logger.Infof("Applied %d migrations", count)
 
-    return w.Write(status, func(out io.Writer) {
-        // Text rendering — only called when format == "text"
-        fmt.Fprintf(out, "Service:  %s\n", status.Name)
-        fmt.Fprintf(out, "Version:  %s\n", status.Version)
-        fmt.Fprintf(out, "Healthy:  %v\n", status.Healthy)
-        fmt.Fprintf(out, "Uptime:   %s\n", status.Uptime)
+    return output.Emit(cmd, output.Response{
+        Status:  output.StatusSuccess,
+        Command: "migrate",
+        Data:    map[string]any{"environment": env, "applied": count},
     })
 }
 ```
 
 ---
 
-## Step 4: Test Both Formats
+## Step 4: Handle Errors in JSON Mode
 
-```bash
-# Human-readable (default)
-mytool status
-# Service:  mytool
-# Version:  v1.2.3
-# Healthy:  true
-# Uptime:   4h32m
+Use `output.EmitError` to produce an error envelope in JSON mode. In text mode it is a no-op, so you can return the error as normal for text users.
 
-# Machine-readable
-mytool status --output json
-# {
-#   "name": "mytool",
-#   "version": "v1.2.3",
-#   "healthy": true,
-#   "uptime": "4h32m"
-# }
+```go
+result, err := deploy()
+if err != nil {
+    _ = output.EmitError(cmd, "deploy", err)
+    return err
+}
+```
+
+JSON error output:
+
+```json
+{
+  "status": "error",
+  "command": "deploy",
+  "error": "connection refused: could not reach production cluster"
+}
 ```
 
 ---
 
-## Conditional Logic Based on Format
+## Step 5: Suppress Text-Only Work in JSON Mode
 
-Sometimes your text output requires extra work (e.g. table formatting) that you want to skip in JSON mode. Use `IsJSON()` to short-circuit:
+Use `output.IsJSONOutput` to skip expensive or interactive text-only operations (spinners, colour tables, progress bars) when the caller wants JSON:
 
 ```go
-w := output.NewWriter(cmd.OutOrStdout(), format)
+if !output.IsJSONOutput(cmd) {
+    spinner := startSpinner("Deploying…")
+    defer spinner.Stop()
+}
+```
 
-if !w.IsJSON() {
-    // fetch extra data for display only
-    details, err := fetchDetails()
-    if err != nil {
+---
+
+## Rendering Markdown in Terminal Output
+
+Many commands receive markdown content — AI responses, release notes, changelogs — and need to display it styled in the terminal. Use `output.RenderMarkdown`:
+
+```go
+notes, _ := fetchReleaseNotes(version)
+fmt.Print(output.RenderMarkdown(notes))
+```
+
+`RenderMarkdown` detects the terminal width automatically, applies glamour's auto-style (light/dark theme aware), and falls back to the plain string if glamour fails.
+
+### Combining Markdown and JSON Output
+
+Use `Writer.Render` when a command produces markdown for terminals and structured data for JSON consumers. `Writer.Render` is a no-op in JSON mode, so both calls are unconditionally safe:
+
+```go
+func runChangelog(cmd *cobra.Command, p *props.Props) error {
+    format, _ := cmd.Flags().GetString("output")
+    w := output.NewWriter(os.Stdout, output.Format(format))
+
+    notes, meta := fetchChangelog()
+
+    // Writes glamour-styled output in text mode; no-op in JSON mode
+    if err := w.Render(notes); err != nil {
         return err
     }
-    status.ExtraInfo = details.Summary
-}
 
-return w.Write(status, func(out io.Writer) {
-    renderTable(out, status)
-})
+    // Writes envelope in JSON mode; no-op in text mode
+    return output.Emit(cmd, output.Response{
+        Status:  output.StatusSuccess,
+        Command: "changelog",
+        Data:    meta,
+    })
+}
 ```
 
 ---
 
-## Outputting a List
-
-`Write` accepts any JSON-serialisable value, including slices:
+## Testing Both Formats
 
 ```go
-type ServiceList struct {
-    Services []ServiceStatus `json:"services"`
-    Total    int             `json:"total"`
-}
-
-result := ServiceList{Services: services, Total: len(services)}
-
-return w.Write(result, func(out io.Writer) {
-    for _, svc := range result.Services {
-        fmt.Fprintf(out, "%-20s %s\n", svc.Name, svc.Version)
-    }
-})
-```
-
----
-
-## Testing
-
-In tests, use `bytes.Buffer` as the writer and pass `output.FormatJSON` to assert the structured output:
-
-```go
-func TestRunStatus(t *testing.T) {
+func TestDeploy_JSONOutput(t *testing.T) {
     var buf bytes.Buffer
-    cmd := &cobra.Command{}
-    cmd.SetOut(&buf)
 
-    err := runStatus(cmd, testProps, output.FormatJSON)
+    cmd := &cobra.Command{Use: "deploy"}
+    cmd.Flags().String("output", "text", "output format")
+    _ = cmd.Flags().Set("output", "json")
+    cmd.SetOut(&buf)
+    cmd.SetContext(context.Background())
+
+    err := runDeploy(cmd, testProps, "staging")
     require.NoError(t, err)
 
-    var result ServiceStatus
-    require.NoError(t, json.Unmarshal(buf.Bytes(), &result))
-    assert.Equal(t, "mytool", result.Name)
-    assert.True(t, result.Healthy)
+    var resp output.Response
+    require.NoError(t, json.Unmarshal(buf.Bytes(), &resp))
+    assert.Equal(t, output.StatusSuccess, resp.Status)
+    assert.Equal(t, "deploy", resp.Command)
+
+    // Access nested data
+    data, _ := json.Marshal(resp.Data)
+    var result DeployResult
+    require.NoError(t, json.Unmarshal(data, &result))
+    assert.Equal(t, "staging", result.Environment)
+}
+
+func TestDeploy_TextOutput(t *testing.T) {
+    var buf bytes.Buffer
+
+    cmd := &cobra.Command{Use: "deploy"}
+    cmd.Flags().String("output", "text", "output format")
+    cmd.SetOut(&buf)
+    cmd.SetContext(context.Background())
+
+    err := runDeploy(cmd, testProps, "staging")
+    require.NoError(t, err)
+
+    // Text mode: no JSON envelope in output
+    assert.Contains(t, buf.String(), "staging")
+    assert.NotContains(t, buf.String(), `"status"`)
 }
 ```
+
+Pipe the JSON output through `jq` to confirm it parses cleanly:
+
+```bash
+mytool deploy staging --output json | jq '.data.environment'
+# "staging"
+```
+
+---
+
+## Choosing the Right Pattern
+
+| Situation | Pattern |
+|-----------|---------|
+| New command, has both text and data output | `Writer.Write(Response{...}, textFunc)` |
+| Existing command with logger/fmt text output | `output.Emit(cmd, Response{...})` |
+| Command displays markdown (AI output, release notes) | `output.RenderMarkdown(content)` or `w.Render(markdown)` |
+| Need to branch on format in logic (suppress spinners) | `output.IsJSONOutput(cmd)` |
+| Error branch in JSON-capable command | `output.EmitError(cmd, name, err)` |
 
 ---
 
 ## Related Documentation
 
-- **[Output component](../components/output.md)** — `Writer`, `Format`, `IsJSON` API reference
+- **[Output component](../components/output.md)** — full API reference for `Writer`, `Response`, `Emit`, `RenderMarkdown`
 - **[Adding Custom Commands](custom-commands.md)** — command wiring patterns
+- **[Switch to Structured JSON Logging for Containers](structured-json-logging.md)** — complement to JSON output for daemon/container deployments
