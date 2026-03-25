@@ -1,14 +1,51 @@
 package docs
 
 import (
+	"context"
 	"testing"
+	"testing/fstest"
 
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestAskAI_UnsupportedProvider(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		"guide.md": {Data: []byte("# Guide\nThis is the guide.")},
+	}
+
+	l := logger.NewNoop()
+	p := &props.Props{Logger: l}
+
+	logFn := func(msg string, level logger.Level) {}
+
+	// "nonexistent-provider-xyz" is not registered → chat.New returns error
+	_, err := AskAI(context.Background(), p, fsys, "what is this?", logFn, "nonexistent-provider-xyz")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported provider")
+}
+
+func TestAskAI_FSError(t *testing.T) {
+	t.Parallel()
+
+	// Use an empty FS but with a question — GetAllMarkdownContent succeeds on empty FS,
+	// then chat.New fails with unsupported provider.
+	fsys := fstest.MapFS{}
+	l := logger.NewNoop()
+	p := &props.Props{Logger: l}
+	logCalls := 0
+	logFn := func(msg string, level logger.Level) { logCalls++ }
+
+	_, err := AskAI(context.Background(), p, fsys, "question", logFn, "bad-provider")
+	require.Error(t, err)
+	assert.Greater(t, logCalls, 0, "logFn should have been called")
+}
 
 func TestResolveProvider(t *testing.T) {
 	t.Run("explicit override", func(t *testing.T) {
