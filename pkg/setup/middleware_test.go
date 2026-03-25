@@ -195,3 +195,101 @@ func TestChain_NilRunE(t *testing.T) {
 	wrapped := Chain(testFeature, nil)
 	assert.Nil(t, wrapped)
 }
+
+func TestAddCommandWithMiddleware_WiresRunE(t *testing.T) {
+	t.Parallel()
+
+	resetRegistry(t)
+
+	var order []string
+
+	RegisterGlobalMiddleware(testMiddleware("global", &order))
+
+	parent := &cobra.Command{Use: "parent"}
+	child := &cobra.Command{
+		Use: "child",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			order = append(order, "handler")
+			return nil
+		},
+	}
+
+	AddCommandWithMiddleware(parent, child, testFeature)
+
+	err := child.RunE(child, nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"global:before", "handler", "global:after"}, order)
+	assert.Equal(t, []*cobra.Command{child}, parent.Commands())
+}
+
+func TestAddCommandWithMiddleware_NilRunE(t *testing.T) {
+	t.Parallel()
+
+	resetRegistry(t)
+
+	parent := &cobra.Command{Use: "parent"}
+	child := &cobra.Command{Use: "child"} // no RunE
+
+	AddCommandWithMiddleware(parent, child, testFeature)
+
+	assert.Nil(t, child.RunE, "command without RunE should not be wrapped")
+	assert.Equal(t, []*cobra.Command{child}, parent.Commands())
+}
+
+func TestAddCommandWithMiddleware_WiresSubcommands(t *testing.T) {
+	t.Parallel()
+
+	resetRegistry(t)
+
+	var order []string
+
+	RegisterGlobalMiddleware(testMiddleware("global", &order))
+
+	parent := &cobra.Command{Use: "parent"}
+	sub := &cobra.Command{
+		Use: "sub",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			order = append(order, "sub-handler")
+			return nil
+		},
+	}
+	child := &cobra.Command{Use: "child"}
+	child.AddCommand(sub)
+
+	AddCommandWithMiddleware(parent, child, testFeature)
+
+	err := sub.RunE(sub, nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"global:before", "sub-handler", "global:after"}, order)
+}
+
+func TestApplyMiddlewareRecursively_Deep(t *testing.T) {
+	t.Parallel()
+
+	resetRegistry(t)
+
+	var order []string
+
+	RegisterGlobalMiddleware(testMiddleware("global", &order))
+
+	level1 := &cobra.Command{Use: "l1"}
+	level2 := &cobra.Command{Use: "l2"}
+	level3 := &cobra.Command{
+		Use: "l3",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			order = append(order, "deep-handler")
+			return nil
+		},
+	}
+	level2.AddCommand(level3)
+	level1.AddCommand(level2)
+
+	ApplyMiddlewareRecursively(level1, testFeature)
+
+	err := level3.RunE(level3, nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"global:before", "deep-handler", "global:after"}, order)
+}
