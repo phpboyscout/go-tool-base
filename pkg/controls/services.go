@@ -201,6 +201,19 @@ func (q *Services) stop(ctx context.Context) int {
 	return len(q.services)
 }
 
+// callProbe calls fn and returns any error it produces. If fn panics, the panic
+// value is converted to an error so that a misbehaving StatusFunc or ProbeFunc
+// cannot crash the server.
+func callProbe(fn func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Newf("probe panicked: %v", r)
+		}
+	}()
+
+	return fn()
+}
+
 func (q *Services) status() HealthReport {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -217,7 +230,7 @@ func (q *Services) status() HealthReport {
 		}
 
 		if s.Status != nil {
-			if err := s.Status(); err != nil {
+			if err := callProbe(s.Status); err != nil {
 				status.Status = "ERROR"
 				status.Error = err.Error()
 				report.OverallHealthy = false
@@ -247,9 +260,9 @@ func (q *Services) liveness() HealthReport {
 
 		var err error
 		if s.Liveness != nil {
-			err = s.Liveness()
+			err = callProbe(s.Liveness)
 		} else if s.Status != nil {
-			err = s.Status()
+			err = callProbe(s.Status)
 		}
 
 		if err != nil {
@@ -281,9 +294,9 @@ func (q *Services) readiness() HealthReport {
 
 		var err error
 		if s.Readiness != nil {
-			err = s.Readiness()
+			err = callProbe(s.Readiness)
 		} else if s.Status != nil {
-			err = s.Status()
+			err = callProbe(s.Status)
 		}
 
 		if err != nil {
