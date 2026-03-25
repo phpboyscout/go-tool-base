@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,6 +99,65 @@ func TestNewServer_MaxHeaderBytes_Configured(t *testing.T) {
 	require.NotNil(t, srv)
 
 	assert.Equal(t, 2048, srv.MaxHeaderBytes)
+}
+
+func TestHTTPServer_MaxHeaderBytes_Zero(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
+	cfg.EXPECT().GetInt("server.port").Return(0)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
+
+	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	require.NoError(t, err)
+	assert.Equal(t, 1<<20, srv.MaxHeaderBytes, "zero config value should default to 1MB")
+}
+
+func TestHTTPServer_RejectsOversizedHeaders(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	// Use a small MaxHeaderBytes limit so the test does not need to send 1 MB of data.
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(port)
+	cfg.EXPECT().GetInt("server.port").Return(0).Maybe()
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(100)
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
+	cfg.EXPECT().GetString("server.tls.cert").Return("")
+	cfg.EXPECT().GetString("server.tls.key").Return("")
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	require.NoError(t, err)
+
+	controller.Start()
+	t.Cleanup(func() {
+		controller.Stop()
+		controller.Wait()
+	})
+
+	require.Eventually(t, func() bool {
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/healthz", port), nil)
+		// Go enforces MaxHeaderBytes + 4096 before returning 431, so we need
+		// a header value larger than 4196 bytes to trigger the limit of 100.
+		req.Header.Set("X-Large-Header", strings.Repeat("a", 5000))
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			// Connection was reset by server — also indicates oversized headers were rejected.
+			return true
+		}
+
+		defer resp.Body.Close()
+
+		return resp.StatusCode == http.StatusRequestHeaderFieldsTooLarge
+	}, 2*time.Second, 50*time.Millisecond, "oversized headers should be rejected with 431")
 }
 
 func TestStart_HTTP(t *testing.T) {

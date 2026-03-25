@@ -22,6 +22,23 @@ func testLogger() logger.Logger {
 	return logger.NewNoop()
 }
 
+func TestGRPCServer_ReflectionDefaultOff(t *testing.T) {
+	t.Parallel()
+
+	// GetBool returns false for a missing / zero-value key, which is the default.
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false)
+
+	srv, err := NewServer(cfg)
+	require.NoError(t, err)
+
+	services := srv.GetServiceInfo()
+	assert.NotContains(t, services, "grpc.reflection.v1alpha.ServerReflection",
+		"reflection must be off by default")
+	assert.NotContains(t, services, "grpc.reflection.v1.ServerReflection",
+		"reflection must be off by default")
+}
+
 func TestNewServer_ReflectionDisabled(t *testing.T) {
 	t.Parallel()
 
