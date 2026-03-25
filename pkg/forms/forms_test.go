@@ -170,6 +170,21 @@ func TestWizard_MixedGroupAndStep(t *testing.T) {
 	assert.True(t, stepRan)
 }
 
+func TestNewNavigable_ReturnsForm(t *testing.T) {
+	t.Parallel()
+	// Just verify the factory builds without panic.
+	// Run is not called — no TTY required.
+	f := forms.NewNavigable()
+	assert.NotNil(t, f)
+}
+
+func TestWizard_Group_ChainReturnsSelf(t *testing.T) {
+	t.Parallel()
+	w := forms.NewWizard()
+	result := w.Group()
+	assert.Same(t, w, result)
+}
+
 func TestWizard_ConditionalSteps(t *testing.T) {
 	var order []int
 

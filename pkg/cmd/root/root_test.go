@@ -17,6 +17,7 @@ import (
 
 	configMocks "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
@@ -861,6 +862,227 @@ func TestHandleOutdatedVersion_SetsStateFlag(t *testing.T) {
 	// User declined, so redirectingToUpdate should remain false
 	assert.False(t, state.redirectingToUpdate)
 	assert.False(t, result.HasUpdated)
+}
+
+func TestMapLogLevel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		level    logger.Level
+		expected slog.Level
+	}{
+		{"debug", logger.DebugLevel, slog.LevelDebug},
+		{"info", logger.InfoLevel, slog.LevelInfo},
+		{"warn", logger.WarnLevel, slog.LevelWarn},
+		{"error", logger.ErrorLevel, slog.LevelError},
+		{"fatal", logger.FatalLevel, slog.LevelError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.expected, mapLogLevel(tt.level))
+		})
+	}
+}
+
+func TestValidateConfig_WarnsOnEmptySetKeys(t *testing.T) {
+	t.Parallel()
+
+	var buf strings.Builder
+	l := logger.NewCharm(&buf)
+	cfg := config.NewReaderContainer(l, "yaml", strings.NewReader("github:\n  token: \"\"\n"))
+	validateConfig(cfg, l)
+	// The github.token key is set but empty — expect a warning
+	assert.Contains(t, buf.String(), "github.token is set but empty")
+}
+
+func TestValidateConfig_NoWarningForMissingKeys(t *testing.T) {
+	t.Parallel()
+
+	var buf strings.Builder
+	l := logger.NewCharm(&buf)
+	cfg := config.NewReaderContainer(l, "yaml", strings.NewReader("other: value\n"))
+	validateConfig(cfg, l)
+	assert.NotContains(t, buf.String(), "is set but empty")
+}
+
+func TestMergeEmbeddedConfigs_NilAssets(t *testing.T) {
+	t.Parallel()
+
+	l := logger.NewNoop()
+	props := &p.Props{
+		Logger: l,
+		FS:     afero.NewMemMapFs(),
+		Assets: nil,
+	}
+	result, err := mergeEmbeddedConfigs(ConfigLoadOptions{
+		ConfigPaths: []string{"config.yaml"},
+		Props:       props,
+	})
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestMergeEmbeddedConfigs_EmptyPaths(t *testing.T) {
+	t.Parallel()
+
+	l := logger.NewNoop()
+	props := &p.Props{
+		Logger: l,
+		FS:     afero.NewMemMapFs(),
+		Assets: p.NewAssets(),
+	}
+	result, err := mergeEmbeddedConfigs(ConfigLoadOptions{
+		ConfigPaths: []string{},
+		Props:       props,
+	})
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestMergeEmbeddedConfigs_WithAssets(t *testing.T) {
+	t.Parallel()
+
+	assets := p.NewAssets(p.AssetMap{
+		"test": fstest.MapFS{
+			"config.yaml": &fstest.MapFile{Data: []byte("key: value\n")},
+		},
+	})
+	props := &p.Props{
+		Logger: logger.NewNoop(),
+		Assets: assets,
+	}
+	result, err := mergeEmbeddedConfigs(ConfigLoadOptions{
+		ConfigPaths: []string{"config.yaml"},
+		Props:       props,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, "value", result.GetString("key"))
+}
+
+func TestMapLogLevel_Default(t *testing.T) {
+	t.Parallel()
+	// A level value that matches no case should return slog.LevelInfo
+	unknown := logger.Level(9999)
+	assert.Equal(t, slog.LevelInfo, mapLogLevel(unknown))
+}
+
+func TestLoadAndMergeConfig_WithEmbeddedConfig(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	l := logger.NewNoop()
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "main.yaml", []byte("main:\n  key: override\n"), 0o644))
+
+	assets := p.NewAssets(p.AssetMap{
+		"embedded": fstest.MapFS{
+			"defaults.yaml": &fstest.MapFile{Data: []byte("main:\n  key: default\n  extra: value\n")},
+		},
+	})
+
+	props := &p.Props{
+		Logger: l,
+		FS:     fs,
+		Assets: assets,
+	}
+
+	cfg, err := loadAndMergeConfig(ConfigLoadOptions{
+		CfgPaths:    []string{"main.yaml"},
+		ConfigPaths: []string{"defaults.yaml"},
+		Props:       props,
+		AllowEmpty:  false,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	// main.yaml overrides the embedded default
+	assert.Equal(t, "override", cfg.GetString("main.key"))
+	// embedded-only key preserved
+	assert.Equal(t, "value", cfg.GetString("main.extra"))
+}
+
+func TestExecute_Success(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	var buf strings.Builder
+	l := logger.NewCharm(&buf)
+	exitCalled := false
+	eh := errorhandling.New(l, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+
+	props := &p.Props{
+		Logger:       l,
+		ErrorHandler: eh,
+	}
+
+	cmd := &cobra.Command{
+		Use: "root",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	}
+
+	Execute(cmd, props)
+	assert.False(t, exitCalled)
+}
+
+func TestExecute_ErrUpdateComplete(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	var buf strings.Builder
+	l := logger.NewCharm(&buf)
+	exitCalled := false
+	eh := errorhandling.New(l, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+
+	props := &p.Props{
+		Logger:       l,
+		ErrorHandler: eh,
+	}
+
+	cmd := &cobra.Command{
+		Use: "root",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return ErrUpdateComplete
+		},
+	}
+
+	Execute(cmd, props)
+	assert.False(t, exitCalled)
+	assert.Contains(t, buf.String(), "update complete")
+}
+
+func TestExecute_FatalError(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	var buf strings.Builder
+	l := logger.NewCharm(&buf)
+	exitCalled := false
+	eh := errorhandling.New(l, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+
+	props := &p.Props{
+		Logger:       l,
+		ErrorHandler: eh,
+	}
+
+	cmd := &cobra.Command{
+		Use: "root",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return errors.New("fatal test error")
+		},
+	}
+
+	Execute(cmd, props)
+	assert.True(t, exitCalled)
+	assert.Contains(t, buf.String(), "fatal test error")
 }
 
 func TestMiddleware_IntegrationWithCobra(t *testing.T) {
