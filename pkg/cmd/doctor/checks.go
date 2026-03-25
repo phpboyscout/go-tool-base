@@ -13,6 +13,9 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
+// ownerRWX is the Unix file mode mask for owner read/write/execute permissions.
+const ownerRWX os.FileMode = 0o700
+
 func checkGoVersion(_ context.Context, _ *p.Props) CheckResult {
 	return compareGoVersion(runtime.Version())
 }
@@ -104,8 +107,7 @@ func checkPermissions(_ context.Context, props *p.Props) CheckResult {
 
 	mode := info.Mode().Perm()
 	// Check owner has read+write+execute on the directory
-	//nolint:mnd // 0700 is the constant for owner read/write/execute
-	if mode&0700 != 0700 {
+	if mode&ownerRWX != ownerRWX {
 		return CheckResult{Name: "Permissions", Status: CheckFail, Message: fmt.Sprintf("config directory %q has insufficient permissions: %s (need rwx for owner)", configDir, mode)}
 	}
 
