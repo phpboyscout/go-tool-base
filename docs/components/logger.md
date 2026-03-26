@@ -138,13 +138,12 @@ l := logger.NewCharm(os.Stderr,
 | `WithCaller(bool)` | Show/hide caller file:line |
 | `WithPrefix(string)` | Prepend a prefix to all messages |
 
-The charmbracelet logger exposes an escape hatch for charm-specific features
-(e.g., custom styles) not in the `Logger` interface:
+The underlying `charmbracelet/log.Logger` can be accessed via the `Handler()`
+method if you need charm-specific features (e.g., custom styles). Since the
+charm implementation is unexported, use the slog handler bridge:
 
 ```go
-if cl, ok := l.(*logger.CharmLogger); ok {
-    cl.Inner().SetStyles(myStyles)
-}
+slogLogger := slog.New(l.Handler())
 ```
 
 ### slog (observability integration)

@@ -19,6 +19,7 @@ GTB provides a set of essential built-in commands that are automatically include
 | **[Version](version.md)** | Version display and update checking. |
 | **[Update](update.md)** | Automated binary updates and migration. |
 | **[Docs](docs.md)** | Interactive TUI documentation browser. |
+| **[Doctor](doctor.md)** | Environment and configuration health checks. |
 | **[MCP](mcp.md)** | AI agent integration (Model Context Protocol). |
 
 ---
@@ -83,6 +84,7 @@ props := &props.Props{
 - `props.InitCmd`: Disables the `init` command.
 - `props.McpCmd`: Disables the `mcp` command.
 - `props.DocsCmd`: Disables the `docs` command.
+- `props.DoctorCmd`: Disables the `doctor` command.
 
 Note: The `version` command cannot be disabled as it's essential for troubleshooting.
 

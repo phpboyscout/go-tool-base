@@ -72,7 +72,7 @@ func NewMyCommand(props *props.Props) *cobra.Command {
     }
 }
 
-func runMyCommand(ctx context.Context, props *props.Props) error {
+func runMyCommand(ctx context.Context, props *props.Props, args []string) error {
     if len(args) == 0 {
         return ErrInsufficientArgs
     }

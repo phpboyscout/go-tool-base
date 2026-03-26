@@ -56,7 +56,7 @@ cfg := chat.Config{
 ```go
 client, err := chat.New(ctx, props, cfg)
 if err != nil {
-    return errors.Errorf("failed to initialize chat client: %w", err)
+    return errors.Newf("failed to initialize chat client: %w", err)
 }
 ```
 
@@ -140,12 +140,12 @@ type FileContents struct {
 func readFileHandler(ctx context.Context, args json.RawMessage) (any, error) {
     var params ReadFileParams
     if err := json.Unmarshal(args, &params); err != nil {
-        return nil, errors.Errorf("failed to parse arguments: %w", err)
+        return nil, errors.Newf("failed to parse arguments: %w", err)
     }
 
     content, err := os.ReadFile(params.Path)
     if err != nil {
-        return nil, errors.Errorf("failed to read file: %w", err)
+        return nil, errors.Newf("failed to read file: %w", err)
     }
 
     return FileContents{
@@ -320,7 +320,7 @@ func robustChat(ctx context.Context, p *props.Props, prompt string) (string, err
             Model:    "gpt-4o",
         })
         if fbErr != nil {
-            return "", errors.Errorf("both providers failed: primary=%v, fallback=%w", err, fbErr)
+            return "", errors.Newf("both providers failed: primary=%v, fallback=%w", err, fbErr)
         }
 
         return fallback.Chat(ctx, prompt)

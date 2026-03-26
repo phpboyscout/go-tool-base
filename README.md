@@ -36,8 +36,6 @@ irm "https://github.com/phpboyscout/go-tool-base/raw/main/install.ps1" -Headers 
 > [!NOTE]
 > For developers building from source, you can still use `go install github.com/phpboyscout/go-tool-base@latest`. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
 
-## 🚀 Key Features
-
 ## 🚀 Key Advantages & Features
 
 - **🤖 AI Agentic Workflows**: Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops and built-in Q&A against your embedded docs.
@@ -59,7 +57,7 @@ The framework is built around a centralized **Props** container that provides ty
 | **[pkg/config](docs/components/config.md)** | Viper-powered configuration with observer patterns and testing mocks. |
 | **[pkg/chat](docs/components/chat.md)** | Unified multi-provider AI client (Claude, OpenAI, Gemini, Claude Local). |
 | **[pkg/controls](docs/components/controls.md)** | Service lifecycle management and message-based coordination. |
-| **[pkg/setup](docs/components/setup.md)** | Bootstrap logic: auth, key management, and pluggable self-updating. |
+| **[pkg/setup](docs/components/setup/)** | Bootstrap logic: auth, key management, and pluggable self-updating. |
 | **[pkg/vcs](docs/components/version-control.md)** | Pluggable GitHub/GitLab API and Git operations abstraction. |
 | **[pkg/errorhandling](docs/components/error-handling.md)** | Structured errors with stack traces and log integration. |
 
@@ -72,6 +70,7 @@ Every tool built on GTB inherits these essential capabilities:
 - **`update`**: Downloads and installs the latest release binary from GitHub or GitLab.
 - **`mcp`**: Exposes CLI commands as Model Context Protocol (MCP) tools for use in IDEs.
 - **`docs`**: Interactive terminal browser for documentation with built-in AI Q&A.
+- **`doctor`**: Runs diagnostic checks to validate configuration, connectivity, and runtime environment.
 
 Commands can be selectively enabled or disabled at bootstrap time via feature flags — see [Feature Flags](#-feature-flags) below.
 
@@ -127,7 +126,7 @@ func main() {
 var assets embed.FS
 
 func NewCmdRoot(v pkgversion.Info) (*cobra.Command, *props.Props) {
-    logger := log.NewWithOptions(os.Stderr, log.Options{ReportTimestamp: true})
+    l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
     p := &props.Props{
         Tool: props.Tool{
@@ -140,12 +139,12 @@ func NewCmdRoot(v pkgversion.Info) (*cobra.Command, *props.Props) {
                 Repo:  "mytool",
             },
         },
-        Logger:  logger,
+        Logger:  l,
         FS:      afero.NewOsFs(),
         Version: v,
         Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
     }
-    p.ErrorHandler = errorhandling.New(logger, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
     return gtbRoot.NewCmdRoot(p), p
 }
@@ -170,13 +169,18 @@ Commands can be selectively disabled or opt-in features enabled via the `Tool` c
 | `init` | **enabled** | Environment bootstrap command |
 | `mcp` | **enabled** | Model Context Protocol server |
 | `docs` | **enabled** | Documentation browser |
+| `doctor` | **enabled** | Diagnostic health checks |
 | `ai` | disabled | AI-powered features (opt-in) |
 
 ```go
-props.Tool{
-    // ...
-    Disable: []props.FeatureCmd{props.UpdateCmd},     // disable self-update
-    Enable:  []props.FeatureCmd{props.AiCmd},         // opt-in to AI features
+p := &props.Props{
+    Tool: props.Tool{
+        // ...
+        Features: props.SetFeatures(
+            props.Disable(props.UpdateCmd), // disable self-update
+            props.Enable(props.AiCmd),      // opt-in to AI features
+        ),
+    },
 }
 ```
 
