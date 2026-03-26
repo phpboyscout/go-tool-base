@@ -185,8 +185,7 @@ func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command) bool {
 	return timeSinceChecked < 24*time.Hour
 }
 
-// IsLatestVersion Check if the current running binary is the latest version.
-// IsLatestVersion Check if the current running binary is the latest version.
+// IsLatestVersion checks if the current running binary is the latest version.
 func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error) {
 	if s.isDevelopmentVersion() {
 		return true, "you are using a development version and must use the'update' command with the --force flag to update", nil
@@ -207,10 +206,7 @@ func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error)
 	}
 }
 
-// SelfUpdate Install the latest version of the binary to the given targetPath
-// If targetPath is empty, the current running executable path will be treated as targetPath.
-// SelfUpdate Install the latest version of the binary to the given targetPath
-// If targetPath is empty, the current running executable path will be treated as targetPath.
+// Update installs the latest version of the binary to the resolved target path.
 func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 	targetPath, err := s.resolveTargetPath()
 	if err != nil {
@@ -313,8 +309,7 @@ func (s *SelfUpdater) findReleaseAsset(rel release.Release) (release.ReleaseAsse
 	return nil, errors.Newf("unable to find asset for %s %s", targetOS, targetArch)
 }
 
-// DownloadFileFromGitLab Download raw bytes from gitlab url, using authenticated client.
-// DownloadFileFromGitLab Download raw bytes from gitlab url, using authenticated client.
+// DownloadAsset downloads the raw bytes of a release asset.
 func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset release.ReleaseAsset) (bytes.Buffer, error) {
 	var file bytes.Buffer
 
