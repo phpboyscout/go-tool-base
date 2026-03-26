@@ -14,7 +14,7 @@ hide:
 
 Modern CLI tools and DevOps workflows demand more than basic flag parsing. GTB works as a "batteries-included" micro-framework, providing a standardized foundation for building mission-critical tools with built-in agentic workflows, embedded documentation, and zero-config service management.
 
-<video controls autoplay loop muted playsinline width="100%">
+<video controls autoplay loop muted playsinline class="demo-video">
   <source src="tapes/basic-demo.mp4" type="video/mp4">
 </video>
 
@@ -60,6 +60,7 @@ import (
     "os"
 
     "github.com/phpboyscout/go-tool-base/pkg/cmd/root"
+    "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
     "github.com/phpboyscout/go-tool-base/pkg/logger"
     "github.com/phpboyscout/go-tool-base/pkg/props"
     "github.com/phpboyscout/go-tool-base/pkg/version"
@@ -70,19 +71,17 @@ import (
 var assets embed.FS
 
 func main() {
-    l := logger.NewCharm(os.Stderr,
-        logger.WithTimestamp(),
-        logger.WithLevel(logger.InfoLevel),
-    )
+    l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
-    props := &props.Props{
+    p := &props.Props{
         Tool: props.Tool{
             Name:        "mytool",
             Summary:     "My awesome CLI tool",
             Description: "A tool that does amazing things",
-            GitHub: props.GitHub{
-                Org:  "myorg",
-                Repo: "mytool",
+            ReleaseSource: props.ReleaseSource{
+                Type:  "github",
+                Owner: "myorg",
+                Repo:  "mytool",
             },
         },
         Logger:  l,
@@ -90,11 +89,10 @@ func main() {
         FS:      afero.NewOsFs(),
         Version: version.NewInfo("1.0.0", "", ""),
     }
+    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
-    rootCmd := root.NewCmdRoot(props)
-    if err := rootCmd.Execute(); err != nil {
-        os.Exit(1)
-    }
+    rootCmd := root.NewCmdRoot(p)
+    root.Execute(rootCmd, p)
 }
 ```
 
