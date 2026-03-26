@@ -95,6 +95,29 @@ The `pkg/http` package provides a factory for creating hardened `http.Client` in
 - `WithMaxRedirects(n int)`
 - `WithTLSConfig(cfg *tls.Config)`
 - `WithTransport(rt http.RoundTripper)`
+- `WithRetry(cfg RetryConfig)` — enables automatic retry with exponential backoff
+
+### Retry with Exponential Backoff
+
+The client supports opt-in retry for transient failures via `WithRetry`. Retry is implemented as a `http.RoundTripper` decorator, so it composes cleanly with custom transports set via `WithTransport`.
+
+**`RetryConfig` fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `MaxRetries` | 3 | Maximum number of retry attempts (0 = no retries) |
+| `InitialBackoff` | 500ms | Base delay before the first retry |
+| `MaxBackoff` | 30s | Cap on computed delay |
+| `RetryableStatusCodes` | 429, 502, 503, 504 | HTTP status codes that trigger a retry |
+| `ShouldRetry` | nil | Optional custom predicate replacing default logic |
+
+**Backoff strategy**: Full jitter — `uniform random in [0, min(cap, base × 2^attempt)]`. This reduces thundering-herd effects compared to fixed or equal-jitter backoff.
+
+**Retry-After support**: When a 429 or 503 response includes a `Retry-After` header (seconds or HTTP-date), that value is used as the delay instead of the computed backoff.
+
+**Body rewind**: Request bodies are rewound via `GetBody` between attempts. Response bodies from failed attempts are drained and closed to allow connection reuse.
+
+**Context cancellation**: If the request context is cancelled during a backoff wait, the retry loop exits immediately with the context error.
 
 ### Usage Example
 
@@ -102,8 +125,36 @@ The `pkg/http` package provides a factory for creating hardened `http.Client` in
 // Simple secure client
 client := http.NewClient()
 
-// Custom secure client for an SDK
-githubClient := github.NewClient(http.NewClient(http.WithTimeout(10 * time.Second)))
+// Client with automatic retry for transient failures
+client := http.NewClient(
+    http.WithTimeout(60*time.Second),
+    http.WithRetry(http.DefaultRetryConfig()),
+)
+
+// Custom retry configuration
+client := http.NewClient(
+    http.WithRetry(http.RetryConfig{
+        MaxRetries:           5,
+        InitialBackoff:       200 * time.Millisecond,
+        MaxBackoff:           10 * time.Second,
+        RetryableStatusCodes: []int{429, 502, 503, 504},
+    }),
+)
+
+// Custom retry predicate
+client := http.NewClient(
+    http.WithRetry(http.RetryConfig{
+        MaxRetries:     3,
+        InitialBackoff: 500 * time.Millisecond,
+        MaxBackoff:     30 * time.Second,
+        ShouldRetry: func(attempt int, resp *http.Response, err error) bool {
+            if err != nil {
+                return true // retry all errors
+            }
+            return resp != nil && resp.StatusCode >= 500
+        },
+    }),
+)
 
 // Power user: custom client with secure transport
 customClient := &http.Client{

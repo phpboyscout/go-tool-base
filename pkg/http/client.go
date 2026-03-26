@@ -14,6 +14,7 @@ type clientConfig struct {
 	maxRedirects int
 	tlsConfig    *tls.Config
 	transport    http.RoundTripper
+	retry        *RetryConfig
 }
 
 const (
@@ -109,6 +110,10 @@ func NewClient(opts ...ClientOption) *http.Client {
 		transport = cfg.transport
 	} else {
 		transport = NewTransport(cfg.tlsConfig)
+	}
+
+	if cfg.retry != nil {
+		transport = &retryTransport{next: transport, cfg: *cfg.retry}
 	}
 
 	return &http.Client{

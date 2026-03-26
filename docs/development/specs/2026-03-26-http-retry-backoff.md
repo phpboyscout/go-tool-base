@@ -2,7 +2,7 @@
 title: "HTTP Retry with Exponential Backoff Specification"
 description: "Add a retry mechanism with exponential backoff and jitter to pkg/http for transient failure recovery, configurable via ClientOption."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - http
@@ -24,7 +24,7 @@ Date
 :   26 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 
