@@ -2,7 +2,7 @@
 title: "Output Table Formatter Specification"
 description: "Add structured table output to pkg/output with configurable columns, sorting, and multiple output format selection (table, JSON, YAML, CSV) for kubectl-style CLI output."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - output
@@ -25,7 +25,7 @@ Date
 :   26 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

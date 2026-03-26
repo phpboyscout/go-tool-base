@@ -24,6 +24,14 @@ const (
 	FormatText Format = "text"
 	// FormatJSON produces machine-readable JSON output.
 	FormatJSON Format = "json"
+	// FormatYAML produces machine-readable YAML output.
+	FormatYAML Format = "yaml"
+	// FormatCSV produces comma-separated values output.
+	FormatCSV Format = "csv"
+	// FormatMarkdown produces a pipe-delimited markdown table with header separators.
+	FormatMarkdown Format = "markdown"
+	// FormatTSV produces tab-separated values output for shell pipelines.
+	FormatTSV Format = "tsv"
 )
 
 // Status constants for the Response envelope.
