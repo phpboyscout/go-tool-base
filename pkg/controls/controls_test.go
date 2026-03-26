@@ -391,10 +391,14 @@ func TestController_Supervisor_WithPolicy(t *testing.T) {
 	)
 
 	c.Start()
-	
-	// Wait long enough for the backoffs to trigger 3 restarts
-	// (10ms + 20ms + 40ms) = 70ms. 150ms is plenty.
-	time.Sleep(150 * time.Millisecond)
+
+	// Wait for the restart policy to exhaust all retries.
+	// Under the race detector, backoff sleeps take longer than wall-clock
+	// time, so use Eventually rather than a fixed sleep.
+	assert.Eventually(t, func() bool {
+		return starts.Load() >= 4
+	}, 5*time.Second, 10*time.Millisecond, "Service should restart up to MaxRestarts times")
+
 	c.Stop()
 	c.Wait()
 
@@ -435,7 +439,7 @@ func TestController_Supervisor_HealthTriggered(t *testing.T) {
 
 	require.Eventually(t, func() bool {
 		return starts.Load() >= 2
-	}, 2*time.Second, 10*time.Millisecond, "service should restart due to health failures")
+	}, 5*time.Second, 10*time.Millisecond, "service should restart due to health failures")
 
 	c.Stop()
 	c.Wait()

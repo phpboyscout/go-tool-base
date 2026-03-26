@@ -150,10 +150,12 @@ func (c *Controller) compareAndSetState(expected, next State) bool {
 func (c *Controller) Start() {
 	go c.controls()
 
-	adding := len(c.services.services)
-	c.wg.Add(adding)
+	// +1 for the controller lifecycle itself — this is only decremented
+	// when handleStopMessage completes, ensuring Wait() blocks until the
+	// full shutdown sequence (stop all services, set state) has finished.
+	c.wg.Add(1 + len(c.services.services))
 
-	// Set state before blocking on service startup so the signal handler
+	// Set state before launching services so the signal handler
 	// (running concurrently via controls()) can transition to Stopping if
 	// an interrupt arrives while services are still initialising.
 	c.SetState(Running)
@@ -263,10 +265,10 @@ func (c *Controller) handleStopMessage() {
 	ctx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
 	defer cancel()
 
-	defer c.logger.Debug("All services stopped")
-	stopping := 0 - c.services.stop(ctx)
-	c.wg.Add(stopping)
+	c.services.stop(ctx)
 	c.SetState(Stopped)
+	c.logger.Info("Stopped")
+	c.wg.Done()
 }
 
 // Status returns an aggregate health report for all registered services.
