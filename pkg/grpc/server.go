@@ -120,10 +120,26 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 }
 
 // Stop returns a curried function suitable for use with the controls package.
+// GracefulStop is attempted first to allow in-flight RPCs to finish. If the
+// shutdown context expires (or if Serve has not been called yet, which would
+// cause GracefulStop to block indefinitely), the server is force-stopped.
 func Stop(logger logger.Logger, srv *grpc.Server) controls.StopFunc {
-	return func(_ context.Context) {
+	return func(ctx context.Context) {
 		logger.Info("Stopping gRPC server")
-		srv.GracefulStop()
+
+		done := make(chan struct{})
+		go func() {
+			srv.GracefulStop()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// Graceful shutdown completed within the timeout.
+		case <-ctx.Done():
+			logger.Warn("gRPC graceful stop timed out, forcing stop")
+			srv.Stop()
+		}
 	}
 }
 
