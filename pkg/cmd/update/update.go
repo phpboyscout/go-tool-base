@@ -14,6 +14,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/output"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	ver "github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func init() {
@@ -100,7 +101,10 @@ func Update(ctx context.Context, props *p.Props, version string, force bool) (*U
 		target, _ = updater.GetLatestVersionString(ctx)
 	}
 
-	props.Logger.Info("Updating", "from", props.Version.GetVersion(), "to", target)
+	currentVersion := ver.FormatVersionString(props.Version.GetVersion(), true)
+	if target != "" && target != currentVersion {
+		props.Logger.Info("Updating", "from", currentVersion, "to", target)
+	}
 
 	binPath, err := updater.Update(ctx)
 	if err != nil {
