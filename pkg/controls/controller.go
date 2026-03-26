@@ -33,6 +33,7 @@ type Controller struct {
 	state           State
 	stateMutex      sync.Mutex
 	services        Services
+	healthChecks    map[string]*healthCheckEntry
 }
 
 func (c *Controller) GetContext() context.Context {
@@ -130,6 +131,39 @@ func (c *Controller) Register(id string, opts ...ServiceOption) {
 	c.logger.Debug("Registered service", "service_name", id)
 }
 
+// RegisterHealthCheck adds a standalone health check to the controller.
+// Must be called before Start(). The check name must be unique across
+// both services and health checks.
+func (c *Controller) RegisterHealthCheck(check HealthCheck) error {
+	if c.GetState() != Unknown {
+		return errors.New("cannot register health check after start")
+	}
+
+	if _, exists := c.healthChecks[check.Name]; exists {
+		return errors.Newf("duplicate health check name: %q", check.Name)
+	}
+
+	c.healthChecks[check.Name] = &healthCheckEntry{check: check}
+	c.logger.Debug("Registered health check", "name", check.Name)
+
+	return nil
+}
+
+// GetCheckResult returns the latest result for a named health check.
+func (c *Controller) GetCheckResult(name string) (CheckResult, bool) {
+	entry, ok := c.healthChecks[name]
+	if !ok {
+		return CheckResult{}, false
+	}
+
+	r := entry.lastResult.Load()
+	if r == nil {
+		return CheckResult{}, false
+	}
+
+	return *r, true
+}
+
 // compareAndSetState atomically checks if the current state matches expected,
 // and if so, sets it to next. Returns true if the transition occurred.
 func (c *Controller) compareAndSetState(expected, next State) bool {
@@ -162,6 +196,7 @@ func (c *Controller) Start() {
 	c.logger.Debug("Controller set to running state")
 
 	c.services.start(c.ctx, c.wg, c.errs)
+	c.startAsyncHealthChecks()
 	c.logger.Debug("All services should now be running")
 }
 
@@ -271,19 +306,108 @@ func (c *Controller) handleStopMessage() {
 	c.wg.Done()
 }
 
-// Status returns an aggregate health report for all registered services.
+// startAsyncHealthChecks launches background goroutines for health checks
+// that have a non-zero Interval.
+func (c *Controller) startAsyncHealthChecks() {
+	for _, entry := range c.healthChecks {
+		if entry.check.Interval > 0 {
+			c.startAsyncCheck(entry)
+		}
+	}
+}
+
+func (c *Controller) startAsyncCheck(entry *healthCheckEntry) {
+	ctx, cancel := context.WithCancel(c.ctx)
+	entry.cancel = cancel
+
+	c.wg.Add(1)
+
+	go func() {
+		defer c.wg.Done()
+
+		// Run immediately on start
+		entry.runCheck(ctx)
+
+		ticker := time.NewTicker(entry.check.Interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				entry.runCheck(ctx)
+			}
+		}
+	}()
+}
+
+// healthCheckStatuses collects ServiceStatus entries from health checks
+// matching the given filter function.
+func (c *Controller) healthCheckStatuses(filter func(CheckType) bool) ([]ServiceStatus, bool) {
+	var statuses []ServiceStatus
+
+	allHealthy := true
+
+	for _, entry := range c.healthChecks {
+		if !filter(entry.check.Type) {
+			continue
+		}
+
+		r := entry.result(c.ctx)
+		s, healthy := toServiceStatus(entry.check.Name, r)
+		statuses = append(statuses, s)
+
+		if !healthy {
+			allHealthy = false
+		}
+	}
+
+	return statuses, allHealthy
+}
+
+// Status returns an aggregate health report for all registered services and health checks.
 func (c *Controller) Status() HealthReport {
-	return c.services.status()
+	report := c.services.status()
+	// Status includes all check types.
+	checks, healthy := c.healthCheckStatuses(func(_ CheckType) bool { return true })
+	report.Services = append(report.Services, checks...)
+
+	if !healthy {
+		report.OverallHealthy = false
+	}
+
+	return report
 }
 
-// Liveness returns an aggregate liveness report for all registered services.
+// Liveness returns an aggregate liveness report for all registered services and health checks.
 func (c *Controller) Liveness() HealthReport {
-	return c.services.liveness()
+	report := c.services.liveness()
+	checks, healthy := c.healthCheckStatuses(func(ct CheckType) bool {
+		return ct == CheckTypeLiveness || ct == CheckTypeBoth
+	})
+	report.Services = append(report.Services, checks...)
+
+	if !healthy {
+		report.OverallHealthy = false
+	}
+
+	return report
 }
 
-// Readiness returns an aggregate readiness report for all registered services.
+// Readiness returns an aggregate readiness report for all registered services and health checks.
 func (c *Controller) Readiness() HealthReport {
-	return c.services.readiness()
+	report := c.services.readiness()
+	checks, healthy := c.healthCheckStatuses(func(ct CheckType) bool {
+		return ct == CheckTypeReadiness || ct == CheckTypeBoth
+	})
+	report.Services = append(report.Services, checks...)
+
+	if !healthy {
+		report.OverallHealthy = false
+	}
+
+	return report
 }
 
 // GetServiceInfo returns the runtime information and statistics for a specific service.
@@ -301,7 +425,8 @@ var (
 	_ StateAccessor   = (*Controller)(nil)
 	_ Configurable    = (*Controller)(nil)
 	_ ChannelProvider = (*Controller)(nil)
-	_ Controllable    = (*Controller)(nil)
+	_ Controllable         = (*Controller)(nil)
+	_ HealthCheckReporter = (*Controller)(nil)
 )
 
 // ControllerOpt is a functional option for configuring a Controller.
@@ -342,6 +467,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 		shutdownTimeout: DefaultShutdownTimeout,
 		state:           Unknown,
 		services:        Services{},
+		healthChecks:    make(map[string]*healthCheckEntry),
 	}
 
 	c.SetSignalsChannel(make(chan os.Signal, 1))

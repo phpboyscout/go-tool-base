@@ -243,7 +243,7 @@ type Service struct {
 
 type ServiceStatus struct {
     Name   string `json:"name"`
-    Status string `json:"status"` // "OK", "ERROR"
+    Status string `json:"status"` // "OK", "DEGRADED", "ERROR"
     Error  string `json:"error,omitempty"`
 }
 
@@ -357,6 +357,72 @@ The HTTP and gRPC server implementations expose these probes at:
 
 - **`/healthz`** — liveness check (returns 200 OK / 503 Service Unavailable)
 - **`/readyz`** — readiness check (returns 200 OK / 503 Service Unavailable)
+
+### Standalone Health Checks
+
+In addition to service-bound probes, the controls package supports standalone health checks for external dependencies (databases, caches, third-party APIs) that are not tied to a service lifecycle.
+
+Health checks use a three-state result model:
+
+| Status | `ServiceStatus.Status` | `OverallHealthy` | Meaning |
+|--------|----------------------|-------------------|---------|
+| `CheckHealthy` | `"OK"` | `true` | Check passed |
+| `CheckDegraded` | `"DEGRADED"` | `true` | Needs attention but still serving |
+| `CheckUnhealthy` | `"ERROR"` | `false` | Check failed |
+
+#### Registering a Sync Check
+
+Sync checks run inline on every health request:
+
+```go
+controller.RegisterHealthCheck(controls.HealthCheck{
+    Name: "database",
+    Check: func(ctx context.Context) controls.CheckResult {
+        if err := db.PingContext(ctx); err != nil {
+            return controls.CheckResult{Status: controls.CheckUnhealthy, Message: err.Error()}
+        }
+        return controls.CheckResult{Status: controls.CheckHealthy}
+    },
+    Timeout: 2 * time.Second,
+    Type:    controls.CheckTypeReadiness,
+})
+```
+
+#### Registering an Async Check
+
+Async checks run on a background interval and cache their result:
+
+```go
+controller.RegisterHealthCheck(controls.HealthCheck{
+    Name: "redis",
+    Check: func(ctx context.Context) controls.CheckResult {
+        if err := redisClient.Ping(ctx).Err(); err != nil {
+            return controls.CheckResult{Status: controls.CheckUnhealthy, Message: err.Error()}
+        }
+        return controls.CheckResult{Status: controls.CheckHealthy}
+    },
+    Timeout:  2 * time.Second,
+    Interval: 10 * time.Second, // Run every 10s, cache result between requests
+    Type:     controls.CheckTypeBoth,
+})
+```
+
+#### Check Types
+
+| `CheckType` | Appears in |
+|------------|------------|
+| `CheckTypeReadiness` (default) | `/readyz` and `/healthz` |
+| `CheckTypeLiveness` | `/livez` and `/healthz` |
+| `CheckTypeBoth` | All endpoints |
+
+#### Querying Check Results
+
+```go
+result, ok := controller.GetCheckResult("database")
+if ok {
+    fmt.Printf("Status: %d, Message: %s\n", result.Status, result.Message)
+}
+```
 
 ### Controller States
 

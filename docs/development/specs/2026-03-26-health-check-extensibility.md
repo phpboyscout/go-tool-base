@@ -2,7 +2,7 @@
 title: "Health Check Extensibility Specification"
 description: "Add a registration API for custom health checks that feed into the existing HTTP health endpoints, supporting timeouts, async execution, and degraded states."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - controls
@@ -24,7 +24,7 @@ Date
 :   26 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

@@ -2,7 +2,7 @@
 title: "Transport Middleware and Logging Specification"
 description: "Middleware chaining for HTTP handlers and gRPC interceptors, with a built-in request logging middleware using the GTB logger interface."
 date: 2026-03-26
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - http
@@ -25,7 +25,7 @@ Date
 :   26 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

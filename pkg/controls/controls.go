@@ -9,6 +9,60 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
+// CheckStatus represents the health state of a check.
+type CheckStatus int
+
+const (
+	// CheckHealthy indicates the check passed.
+	CheckHealthy CheckStatus = iota
+	// CheckDegraded indicates the check passed but with warnings.
+	// Maps to OverallHealthy: true with Status: "DEGRADED".
+	CheckDegraded
+	// CheckUnhealthy indicates the check failed.
+	// Maps to OverallHealthy: false with Status: "ERROR".
+	CheckUnhealthy
+)
+
+// CheckResult represents the outcome of a health check.
+type CheckResult struct {
+	// Status is the health status.
+	Status CheckStatus
+	// Message provides human-readable detail about the check result.
+	Message string
+	// Timestamp is when this result was produced.
+	Timestamp time.Time
+}
+
+// CheckType determines which health endpoint(s) a check contributes to.
+type CheckType int
+
+const (
+	// CheckTypeReadiness contributes to the readiness endpoint.
+	CheckTypeReadiness CheckType = iota
+	// CheckTypeLiveness contributes to the liveness endpoint.
+	CheckTypeLiveness
+	// CheckTypeBoth contributes to both liveness and readiness endpoints.
+	CheckTypeBoth
+)
+
+// HealthCheck defines a named health check function.
+type HealthCheck struct {
+	// Name is the unique identifier for this check.
+	Name string
+	// Check is the function that performs the health check.
+	// It receives a context with the check's timeout applied.
+	Check func(ctx context.Context) CheckResult
+	// Timeout is the maximum duration for a single check execution.
+	// Default: 5s.
+	Timeout time.Duration
+	// Interval is the polling interval for async checks.
+	// Zero means synchronous (run on every health request).
+	Interval time.Duration
+	// Type determines which health endpoints this check feeds into.
+	// Default: CheckTypeReadiness.
+	Type CheckType
+}
+
 const (
 	Stop   Message = "stop"
 	Status Message = "status"
@@ -120,6 +174,13 @@ type HealthReporter interface {
 	Liveness() HealthReport
 	Readiness() HealthReport
 	GetServiceInfo(name string) (ServiceInfo, bool)
+}
+
+// HealthCheckReporter extends HealthReporter with check-specific queries.
+type HealthCheckReporter interface {
+	HealthReporter
+	// GetCheckResult returns the latest result for a named health check.
+	GetCheckResult(name string) (CheckResult, bool)
 }
 
 // StateAccessor provides read access to controller state and context.
