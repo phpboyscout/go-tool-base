@@ -12,13 +12,17 @@ GTB uses a three-tier stability classification to set clear expectations for
 consumers and contributors. Each public type, interface, and function belongs
 to one of the tiers below.
 
+> [!IMPORTANT]
+> **Current Stability Status:** While GTB has reached v1.x, the API is currently undergoing rapid acceleration and improvements. As a result, **the API is knowingly unstable** and breaking changes may occur in minor releases. We promise full API stability starting from version **1.10.0**.
+
 ---
 
 ## Stability Tiers
 
 ### Stable
 
-APIs in this tier will not have breaking changes within a major version.
+APIs in this tier are intended for long-term use. **Note:** Until version `1.10.0`, even Stable APIs may experience breaking changes in minor releases as we refine the core architecture.
+
 Deprecations require at least one minor-version notice before removal in
 the next major version.
 
@@ -77,8 +81,8 @@ depend on them in production code without pinning to a specific version.
 
 | Version range | Policy |
 |---------------|--------|
-| Pre-v1.0 (`v0.x`) | Minor versions **may** contain breaking changes to Beta and Experimental APIs. Patch versions are bug fixes only. Stable-tier APIs are best-effort stable. |
-| Post-v1.0 (`v1.x+`) | Standard Go semver. Breaking changes require a major version bump. Stable-tier APIs are guaranteed stable within a major version. |
+| `v1.0.0` to `v1.9.x` | **Knowingly Unstable:** Due to rapid development, breaking changes may occur in minor versions. Stability tiers are best-effort but not guaranteed. |
+| `v1.10.0+` | **Guaranteed Stability:** Standard Go semver. Breaking changes will require a major version bump (v2.0.0+). |
 
 The `internal/` directory is always unstable regardless of version — it is not
 part of the public API surface.
