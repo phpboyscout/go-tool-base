@@ -127,6 +127,7 @@ func (c *Controller) Register(id string, opts ...ServiceOption) {
 	}
 
 	c.services.add(s)
+	c.logger.Debug("Registered service", "service_name", id)
 }
 
 // compareAndSetState atomically checks if the current state matches expected,
@@ -151,8 +152,15 @@ func (c *Controller) Start() {
 
 	adding := len(c.services.services)
 	c.wg.Add(adding)
-	c.services.start(c.ctx, c.errs)
+
+	// Set state before blocking on service startup so the signal handler
+	// (running concurrently via controls()) can transition to Stopping if
+	// an interrupt arrives while services are still initialising.
 	c.SetState(Running)
+	c.logger.Debug("Controller set to running state")
+
+	c.services.start(c.ctx, c.errs)
+	c.logger.Debug("All services should now be running")
 }
 
 func (c *Controller) Wait() {
@@ -163,6 +171,7 @@ func (c *Controller) Wait() {
 // stopping or stopped are safely ignored.
 func (c *Controller) Stop() {
 	if !c.compareAndSetState(Running, Stopping) {
+		c.logger.Warn("Stop called, but not in expected state, unable to continue", "current_state", c.GetState())
 		return
 	}
 
@@ -223,8 +232,10 @@ func (c *Controller) processControlMessages() {
 		msg := <-c.Messages()
 		switch msg {
 		case Stop:
+			c.logger.Debug("received Stop message")
 			c.handleStopMessage()
 		case Status:
+			c.logger.Debug("received Status message")
 			_ = c.services.status()
 		}
 	}
@@ -311,7 +322,7 @@ func WithShutdownTimeout(d time.Duration) ControllerOpt {
 // WithLogger sets the controller logger.
 func WithLogger(l logger.Logger) ControllerOpt {
 	return func(c Configurable) {
-		c.SetLogger(l)
+		c.SetLogger(l.WithPrefix("[Controller] "))
 	}
 }
 

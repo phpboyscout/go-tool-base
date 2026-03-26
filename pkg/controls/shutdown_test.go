@@ -3,7 +3,6 @@
 package controls_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -52,7 +51,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 	httpPort := freePortShutdown(t)
 	grpcPort := freePortShutdown(t)
 
-	var logBuf bytes.Buffer
+	var logBuf syncBuffer
 	l := logger.NewCharm(&logBuf, logger.WithLevel(logger.DebugLevel))
 
 	ctx := context.Background()
@@ -190,7 +189,7 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 	httpPort := freePortShutdown(t)
 	grpcPort := freePortShutdown(t)
 
-	var logBuf bytes.Buffer
+	var logBuf syncBuffer
 	l := logger.NewCharm(&logBuf, logger.WithLevel(logger.DebugLevel))
 
 	ctx := context.Background()
@@ -310,4 +309,100 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 	assert.Equal(t, controls.Stopped, controller.GetState())
 	assert.NotContains(t, logs, "server shutdown failed",
 		"HTTP server should drain connections without error")
+}
+
+// TestGracefulShutdown_EarlySignalDuringStartup verifies that a SIGINT
+// arriving while services are still starting (before all StartFuncs have
+// returned) still triggers a clean shutdown. This reproduces the bug where
+// the controller state had not yet transitioned to Running when the signal
+// handler called Stop(), causing compareAndSetState(Running, Stopping) to
+// fail silently and the stop message to never be sent.
+func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
+	httpPort := freePortShutdown(t)
+	grpcPort := freePortShutdown(t)
+
+	var logBuf syncBuffer
+	l := logger.NewCharm(&logBuf, logger.WithLevel(logger.DebugLevel))
+
+	ctx := context.Background()
+	controller := controls.NewController(ctx,
+		controls.WithLogger(l),
+		controls.WithShutdownTimeout(3*time.Second),
+	)
+
+	// --- Register gRPC server ---
+	grpcCfg := mockConfig.NewMockContainable(t)
+	grpcCfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
+	grpcCfg.EXPECT().GetInt("server.grpc.port").Return(grpcPort)
+
+	_, err := gtbgrpc.Register(ctx, "grpc", controller, grpcCfg, l)
+	require.NoError(t, err)
+
+	// --- Register HTTP server with a slow-starting handler ---
+	// The handler includes a startup delay to widen the race window.
+	startupDelay := make(chan struct{})
+	gatewayMux := http.NewServeMux()
+	gatewayMux.HandleFunc("/api/ready", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	httpCfg := mockConfig.NewMockContainable(t)
+	httpCfg.EXPECT().GetInt("server.http.port").Return(httpPort)
+	httpCfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
+	httpCfg.EXPECT().GetBool("server.tls.enabled").Return(false)
+	httpCfg.EXPECT().GetString("server.tls.cert").Return("")
+	httpCfg.EXPECT().GetString("server.tls.key").Return("")
+
+	_, err = gtbhttp.Register(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	require.NoError(t, err)
+
+	// Register a slow-starting service that delays startup completion.
+	// This ensures SIGINT arrives while services.start() is still blocking.
+	controller.Register("slow-init",
+		controls.WithStart(func(ctx context.Context) error {
+			close(startupDelay) // signal that we're inside Start
+			// Simulate slow initialisation (e.g. DB migrations)
+			time.Sleep(500 * time.Millisecond)
+			return nil
+		}),
+		controls.WithStop(func(_ context.Context) {}),
+	)
+
+	// --- Start the controller (non-blocking from caller's perspective) ---
+	go controller.Start()
+
+	// Wait until the slow service has entered its Start func
+	select {
+	case <-startupDelay:
+		// Good — services are still starting
+	case <-time.After(5 * time.Second):
+		t.Fatal("slow-init service did not start in time")
+	}
+
+	// --- Fire SIGINT while services.start() is still blocking ---
+	t.Log("Sending SIGINT during startup...")
+	controller.Signals() <- syscall.SIGINT
+
+	// --- The controller must still shut down cleanly ---
+	shutdownDone := make(chan struct{})
+	go func() {
+		controller.Wait()
+		close(shutdownDone)
+	}()
+
+	select {
+	case <-shutdownDone:
+		t.Log("Controller shut down successfully despite early signal")
+	case <-time.After(10 * time.Second):
+		t.Fatalf("SHUTDOWN HUNG: controller did not stop within 10 seconds — state was %q", controller.GetState())
+	}
+
+	logs := logBuf.String()
+	t.Logf("Shutdown logs:\n%s", logs)
+
+	assert.Equal(t, controls.Stopped, controller.GetState())
+	assert.Contains(t, logs, "Stopping Services",
+		"shutdown sequence should have executed")
+	assert.NotContains(t, logs, "server shutdown failed",
+		"HTTP server should shut down without errors")
 }
