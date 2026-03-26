@@ -245,7 +245,11 @@ func (c *Controller) handleStopMessage() {
 	// ctx.Done() are unblocked before the shutdown timeout fires.
 	c.cancel(ErrShutdown)
 
-	ctx, cancel := context.WithTimeout(c.ctx, c.shutdownTimeout)
+	// Derive the shutdown timeout from a fresh background context.
+	// c.ctx is already cancelled above, so using it as a parent would
+	// produce a context that is dead on arrival — causing http.Server.Shutdown
+	// to fail immediately instead of draining in-flight connections.
+	ctx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
 	defer cancel()
 
 	stopping := 0 - c.services.stop(ctx)
