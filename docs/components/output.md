@@ -87,6 +87,10 @@ type Format string
 const (
     FormatText Format = "text"  // Human-readable terminal output (default)
     FormatJSON Format = "json"  // Machine-readable JSON
+    FormatYAML Format = "yaml"  // Machine-readable YAML
+    FormatCSV      Format = "csv"      // Comma-separated values
+    FormatMarkdown Format = "markdown" // Pipe-delimited markdown table
+    FormatTSV      Format = "tsv"      // Tab-separated values
 )
 ```
 
@@ -217,6 +221,116 @@ func RenderMarkdown(content string) string
 ```go
 releaseNotes := "## v1.2.0\n\n- Added feature X\n- Fixed bug Y"
 fmt.Print(output.RenderMarkdown(releaseNotes))
+```
+
+---
+
+### TableWriter
+
+Renders structured data as an aligned text table, JSON, YAML, or CSV. Columns are derived from `table` struct tags or defined explicitly via `WithColumns`.
+
+```go
+func NewTableWriter(w io.Writer, format Format, opts ...TableOption) *TableWriter
+func (t *TableWriter) WriteRows(rows any) error
+```
+
+**Struct tag convention:**
+
+```go
+type ServiceStatus struct {
+    Name   string `json:"name"   table:"NAME,sortable"`
+    Status string `json:"status" table:"STATUS"`
+    Port   int    `json:"port"   table:"PORT,sortable"`
+}
+```
+
+Tag format: `table:"HEADER"` or `table:"HEADER,sortable"`. Use `table:"-"` to exclude a field.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `WithColumns(cols ...Column)` | Explicit column definitions (overrides struct tags) |
+| `WithSortBy(field string)` | Sort rows by column header (must be `sortable`) |
+| `WithSortDescending()` | Reverse sort order |
+| `WithNoHeader()` | Suppress header row in text output |
+| `WithNoTruncation()` | Disable terminal-width truncation |
+| `WithMaxWidth(width int)` | Override automatic terminal width detection |
+
+**Column struct:**
+
+```go
+type Column struct {
+    Header    string         // Display name in header row
+    Field     string         // Struct field name or map key
+    Width     int            // Fixed width (0 = auto-size)
+    Sortable  bool           // Allow sorting by this column
+    Formatter func(any) string // Custom cell formatter
+}
+```
+
+**Format constants:**
+
+| Format | Output |
+|--------|--------|
+| `FormatText` (default) | Aligned, padded text table |
+| `FormatJSON` | Indented JSON array |
+| `FormatYAML` | YAML list |
+| `FormatCSV` | CSV with header row |
+| `FormatMarkdown` | Pipe-delimited markdown table with separator row |
+| `FormatTSV` | Tab-separated values for shell pipelines (`awk`, `cut`, `sort`) |
+
+**Example:**
+
+```go
+services := []ServiceStatus{
+    {Name: "api", Status: "running", Port: 8080},
+    {Name: "worker", Status: "stopped", Port: 0},
+}
+
+format := output.Format(cmd.Flag("output").Value.String())
+tw := output.NewTableWriter(cmd.OutOrStdout(), format,
+    output.WithSortBy("NAME"),
+)
+
+if err := tw.WriteRows(services); err != nil {
+    return err
+}
+
+// Text output:
+// NAME     STATUS    PORT
+// api      running   8080
+// worker   stopped   0
+
+// JSON output: [{"name":"api","status":"running","port":8080}, ...]
+// YAML output:
+// - name: api
+//   status: running
+//   port: 8080
+// ...
+// CSV output: NAME,STATUS,PORT\napi,running,8080\n...
+// Markdown output:
+// | NAME   | STATUS  | PORT |
+// | ------ | ------- | ---- |
+// | api    | running | 8080 |
+// | worker | stopped | 0    |
+```
+
+**Map slices** are supported with explicit columns:
+
+```go
+rows := []map[string]any{
+    {"name": "alpha", "count": 10},
+    {"name": "beta", "count": 20},
+}
+
+tw := output.NewTableWriter(os.Stdout, output.FormatText,
+    output.WithColumns(
+        output.Column{Header: "NAME", Field: "name"},
+        output.Column{Header: "COUNT", Field: "count", Sortable: true},
+    ),
+)
+tw.WriteRows(rows)
 ```
 
 ---
