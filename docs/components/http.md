@@ -23,7 +23,35 @@ The HTTP server implementation integrates seamlessly with the `controls` lifecyc
 ### Functions
 
 - **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error)`**: Returns a pre-configured `*http.Server`.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`.
+- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...RegisterOption) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
+
+### Middleware Chaining
+
+The package provides an alice-style middleware chaining API. Middleware uses the standard `func(http.Handler) http.Handler` signature.
+
+- **`NewChain(middlewares ...Middleware) Chain`**: Creates a middleware chain. The first middleware is the outermost wrapper.
+- **`(c Chain) Append(middlewares ...Middleware) Chain`**: Returns a new chain with additional middleware appended (immutable).
+- **`(c Chain) Extend(other Chain) Chain`**: Composes two chains.
+- **`(c Chain) Then(handler http.Handler) http.Handler`**: Applies the chain to a handler.
+- **`(c Chain) ThenFunc(fn http.HandlerFunc) http.Handler`**: Convenience for `Then(http.HandlerFunc(fn))`.
+- **`WithMiddleware(chain Chain) RegisterOption`**: Applies a middleware chain when using `Register`. Health endpoints are unaffected.
+
+### Built-in Logging Middleware
+
+`LoggingMiddleware` logs each completed HTTP request with structured fields (method, path, status, latency, bytes, client IP, user agent).
+
+- **`LoggingMiddleware(logger logger.Logger, opts ...LoggingOption) Middleware`**
+
+**Format options** (`WithFormat`):
+
+| Format | Description |
+|--------|-------------|
+| `FormatStructured` (default) | Structured key-value fields via `logger.Logger` |
+| `FormatCommon` | NCSA Common Log Format |
+| `FormatCombined` | NCSA Combined Log Format (CLF + Referer + User-Agent) |
+| `FormatJSON` | Single JSON object per request |
+
+**Other options**: `WithLogLevel`, `WithoutLatency`, `WithoutUserAgent`, `WithPathFilter`, `WithHeaderFields`.
 
 ### Usage Example
 
@@ -31,8 +59,18 @@ The HTTP server implementation integrates seamlessly with the `controls` lifecyc
 mux := http.NewServeMux()
 mux.HandleFunc("/api/data", myDataHandler)
 
-// Automatically registers observability endpoints and your mux
-srv, err := http.Register(ctx, "http-api", controller, props.Config, props.Logger, mux)
+// Build a middleware chain
+chain := gtbhttp.NewChain(
+    gtbhttp.LoggingMiddleware(props.Logger,
+        gtbhttp.WithFormat(gtbhttp.FormatCombined),
+        gtbhttp.WithPathFilter("/healthz", "/livez", "/readyz"),
+    ),
+)
+
+// Register with middleware — health endpoints stay outside the chain
+srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Config, props.Logger, mux,
+    gtbhttp.WithMiddleware(chain),
+)
 ```
 
 ## Client Factory

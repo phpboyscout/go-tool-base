@@ -157,8 +157,34 @@ func Status(srv *http.Server) controls.StatusFunc {
 	}
 }
 
+// RegisterOption configures optional behaviour for HTTP server registration.
+type RegisterOption func(*registerConfig)
+
+type registerConfig struct {
+	chain *Chain
+}
+
+// WithMiddleware sets the middleware chain applied to the handler before
+// it is passed to the HTTP server. Health endpoints (/healthz, /livez,
+// /readyz) are mounted outside the chain and are never affected by middleware.
+func WithMiddleware(chain Chain) RegisterOption {
+	return func(c *registerConfig) {
+		c.chain = &chain
+	}
+}
+
 // Register creates a new HTTP server and registers it with the controller under the given id.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler) (*http.Server, error) {
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...RegisterOption) (*http.Server, error) {
+	var rc registerConfig
+	for _, o := range opts {
+		o(&rc)
+	}
+
+	// Apply middleware chain to the handler, not the health endpoints.
+	if rc.chain != nil {
+		handler = rc.chain.Then(handler)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", HealthHandler(controller))
 	mux.HandleFunc("/livez", LivenessHandler(controller))

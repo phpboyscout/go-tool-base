@@ -365,3 +365,107 @@ func TestProbes(t *testing.T) {
 	controller.Stop()
 	controller.Wait()
 }
+
+func TestRegister_WithMiddleware(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(port)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
+	cfg.EXPECT().GetString("server.tls.cert").Return("")
+	cfg.EXPECT().GetString("server.tls.key").Return("")
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	var middlewareCalled bool
+	chain := NewChain(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			middlewareCalled = true
+			w.Header().Set("X-Middleware", "applied")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/test", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), mux,
+		WithMiddleware(chain),
+	)
+	require.NoError(t, err)
+
+	controller.Start()
+	t.Cleanup(func() {
+		controller.Stop()
+		controller.Wait()
+	})
+
+	// Verify middleware applies to application routes
+	require.Eventually(t, func() bool {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d/test", port))
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+		return resp.Header.Get("X-Middleware") == "applied" && resp.StatusCode == http.StatusOK
+	}, 2*time.Second, 50*time.Millisecond)
+
+	assert.True(t, middlewareCalled)
+}
+
+func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(port)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
+	cfg.EXPECT().GetString("server.tls.cert").Return("")
+	cfg.EXPECT().GetString("server.tls.key").Return("")
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	// Middleware that blocks all requests
+	chain := NewChain(func(_ http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		})
+	})
+
+	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux(),
+		WithMiddleware(chain),
+	)
+	require.NoError(t, err)
+
+	controller.Start()
+	t.Cleanup(func() {
+		controller.Stop()
+		controller.Wait()
+	})
+
+	// Health endpoints should NOT be affected by middleware
+	for _, path := range []string{"/healthz", "/livez", "/readyz"} {
+		require.Eventually(t, func() bool {
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%d%s", port, path))
+			if err != nil {
+				return false
+			}
+			defer resp.Body.Close()
+			// Should be 200 (healthy), NOT 403 (blocked by middleware)
+			return resp.StatusCode == http.StatusOK
+		}, 2*time.Second, 50*time.Millisecond, "health endpoint %s should not be affected by middleware", path)
+	}
+}

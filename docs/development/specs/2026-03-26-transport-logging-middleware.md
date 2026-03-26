@@ -2,7 +2,7 @@
 title: "Transport Middleware and Logging Specification"
 description: "Middleware chaining for HTTP handlers and gRPC interceptors, with a built-in request logging middleware using the GTB logger interface."
 date: 2026-03-26
-status: DRAFT
+status: IN PROGRESS
 tags:
   - specification
   - http
@@ -197,37 +197,75 @@ func LoggingInterceptor(logger logger.Logger, opts ...LoggingOption) Interceptor
 Options are defined in each transport package but follow the same naming and semantics.
 
 ```go
+// LogFormat controls the output format of the logging middleware.
+type LogFormat int
+
+const (
+    // FormatStructured emits structured key-value fields via logger.Logger.
+    // This is the default format and integrates with whatever formatter the
+    // logger is configured with (text, JSON, logfmt, etc.).
+    FormatStructured LogFormat = iota
+
+    // FormatCommon emits NCSA Common Log Format (CLF):
+    //   127.0.0.1 - - [10/Oct/2000:13:55:36 -0700] "GET /page HTTP/1.1" 200 2326
+    // Widely supported by log aggregators (ELK, Splunk, Datadog).
+    FormatCommon
+
+    // FormatCombined emits NCSA Combined Log Format (CLF + Referer + User-Agent):
+    //   127.0.0.1 - - [10/Oct/2000:13:55:36 -0700] "GET /page HTTP/1.1" 200 2326 "http://ref.example.com" "curl/8.0"
+    // The de-facto standard for web server access logs.
+    FormatCombined
+
+    // FormatJSON emits a single JSON object per request with all captured fields.
+    // Useful when the underlying logger is not JSON-formatted but JSON logs are
+    // required for the observability pipeline.
+    //   {"method":"GET","path":"/page","status":200,"bytes":2326,"latency":"12.3ms",...}
+    FormatJSON
+)
+
 // LoggingOption configures transport logging behaviour.
 type LoggingOption func(*loggingConfig)
+
+// WithFormat sets the log output format. Defaults to FormatStructured.
+// FormatCommon, FormatCombined, and FormatJSON are HTTP-only formats;
+// they are silently ignored by the gRPC logging interceptor which always
+// uses FormatStructured.
+func WithFormat(format LogFormat) LoggingOption
 
 // WithLogLevel sets the log level for successful requests.
 // Defaults to logger.InfoLevel. Errors always log at logger.ErrorLevel.
 func WithLogLevel(level logger.Level) LoggingOption
 
 // WithoutLatency disables the "latency" field.
+// In FormatCommon/FormatCombined mode this is a no-op (those formats have
+// no latency field by specification). In FormatJSON it omits the "latency" key.
 func WithoutLatency() LoggingOption
 
 // WithoutUserAgent disables the "user_agent" field (HTTP only).
+// In FormatCombined mode the User-Agent position is replaced with "-".
 func WithoutUserAgent() LoggingOption
 
 // WithPathFilter excludes requests matching the given paths from logging.
 // Useful for suppressing noisy health-check endpoints.
+// Applies to all formats.
 //
 //   WithPathFilter("/healthz", "/livez", "/readyz")
 func WithPathFilter(paths ...string) LoggingOption
 
 // WithHeaderFields logs the specified request header values as fields.
 // Header names are normalised to lowercase. Values are truncated to 256 bytes.
+// In FormatCommon/FormatCombined mode, extra headers are appended after the
+// standard fields. In FormatJSON they appear as additional JSON keys.
 //
 //   WithHeaderFields("x-request-id", "x-forwarded-for")
 func WithHeaderFields(headers ...string) LoggingOption
 ```
 
-### Log Fields
+### Log Fields and Formats
 
-Each request log contains structured fields. All fields are optional and controllable via options.
+#### HTTP — Structured (default)
 
-#### HTTP
+Each request produces a single structured log call via `logger.Logger` with key-value fields:
 
 | Field | Type | Example | Description |
 |-------|------|---------|-------------|
@@ -239,6 +277,40 @@ Each request log contains structured fields. All fields are optional and control
 | `client_ip` | string | `10.0.0.1` | Client IP from `RemoteAddr` or `X-Forwarded-For` |
 | `user_agent` | string | `curl/8.0` | `User-Agent` header value |
 | `request_id` | string | `abc-123` | From header if `WithHeaderFields` configured |
+
+#### HTTP — Common Log Format (`FormatCommon`)
+
+Follows the [NCSA Common Log Format](https://en.wikipedia.org/wiki/Common_Log_Format):
+
+```
+<client_ip> - - [<timestamp>] "<method> <path> <proto>" <status> <bytes>
+```
+
+Example: `10.0.0.1 - - [26/Mar/2026:14:22:01 +0000] "GET /api/data HTTP/1.1" 200 1024`
+
+The ident and auth fields are always `-` (not applicable in this context). Timestamp uses CLF format (`02/Jan/2006:15:04:05 -0700`). Output is written via `logger.Info(line)` as a single string argument.
+
+#### HTTP — Combined Log Format (`FormatCombined`)
+
+Extends Common with Referer and User-Agent:
+
+```
+<client_ip> - - [<timestamp>] "<method> <path> <proto>" <status> <bytes> "<referer>" "<user_agent>"
+```
+
+Example: `10.0.0.1 - - [26/Mar/2026:14:22:01 +0000] "GET /api/data HTTP/1.1" 200 1024 "https://example.com" "curl/8.0"`
+
+If `WithoutUserAgent()` is set, the User-Agent position is replaced with `"-"`.
+
+#### HTTP — JSON (`FormatJSON`)
+
+Emits a single JSON object per request containing all captured fields. Written via `logger.Info(jsonString)`. Useful when the logger itself is not JSON-formatted but a JSON access log is required for the observability pipeline.
+
+```json
+{"timestamp":"2026-03-26T14:22:01.123Z","method":"GET","path":"/api/data","status":200,"bytes":1024,"latency":"12.3ms","client_ip":"10.0.0.1","user_agent":"curl/8.0"}
+```
+
+Fields respect the same options as structured mode (`WithoutLatency`, `WithoutUserAgent`, `WithHeaderFields`).
 
 #### gRPC
 
@@ -276,6 +348,26 @@ srv, _ := gtbhttp.NewServer(ctx, cfg, chain.Then(mux))
 // Option B: apply via Register
 _, _ = gtbhttp.Register(ctx, "http", controller, cfg, l, mux,
     gtbhttp.WithMiddleware(chain),
+)
+```
+
+#### HTTP — log format selection
+
+```go
+// Combined Log Format — classic Apache-style access logs
+chain := gtbhttp.NewChain(
+    gtbhttp.LoggingMiddleware(l,
+        gtbhttp.WithFormat(gtbhttp.FormatCombined),
+        gtbhttp.WithPathFilter("/healthz", "/livez", "/readyz"),
+    ),
+)
+
+// JSON access logs for structured observability pipelines
+chain := gtbhttp.NewChain(
+    gtbhttp.LoggingMiddleware(l,
+        gtbhttp.WithFormat(gtbhttp.FormatJSON),
+        gtbhttp.WithHeaderFields("x-request-id"),
+    ),
 )
 ```
 
@@ -354,6 +446,7 @@ func (c InterceptorChain) ServerOptions() []grpc.ServerOption {
 
 ```go
 type loggingConfig struct {
+    format       LogFormat
     level        logger.Level
     logLatency   bool
     logUserAgent bool
@@ -362,7 +455,13 @@ type loggingConfig struct {
 }
 ```
 
-The middleware wraps `http.ResponseWriter` with a thin interceptor that captures `statusCode` and `bytesWritten` via `WriteHeader` and `Write` overrides. After the inner handler returns, a single structured log call is emitted.
+Defaults: `format: FormatStructured`, `level: InfoLevel`, `logLatency: true`, `logUserAgent: true`.
+
+The middleware wraps `http.ResponseWriter` with a thin interceptor that captures `statusCode` and `bytesWritten` via `WriteHeader` and `Write` overrides. After the inner handler returns, the configured format's emitter is called:
+
+- **FormatStructured**: `logger.With(keyvals...).Info("request completed")`
+- **FormatCommon / FormatCombined**: `logger.Info(formattedLine)` — single pre-formatted string
+- **FormatJSON**: `logger.Info(jsonString)` — single JSON-encoded string
 
 ### Response Writer Wrapper (HTTP)
 

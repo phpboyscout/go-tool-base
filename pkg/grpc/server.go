@@ -154,9 +154,43 @@ func Status(srv *grpc.Server) controls.StatusFunc {
 	}
 }
 
+// RegisterOption configures optional behaviour for gRPC server registration.
+type RegisterOption func(*registerConfig)
+
+type registerConfig struct {
+	chain *InterceptorChain
+}
+
+// WithInterceptors prepends the given interceptor chain before any
+// grpc.ServerOption interceptors passed via the variadic opts.
+func WithInterceptors(chain InterceptorChain) RegisterOption {
+	return func(c *registerConfig) {
+		c.chain = &chain
+	}
+}
+
 // Register creates a new gRPC server and registers it with the controller under the given id.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opt ...grpc.ServerOption) (*grpc.Server, error) {
-	srv, err := NewServer(cfg, opt...)
+// The opts variadic accepts both grpc.ServerOption and RegisterOption values.
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error) {
+	var rc registerConfig
+
+	var serverOpts []grpc.ServerOption
+
+	for _, o := range opts {
+		switch v := o.(type) {
+		case RegisterOption:
+			v(&rc)
+		case grpc.ServerOption:
+			serverOpts = append(serverOpts, v)
+		}
+	}
+
+	// Prepend interceptor chain options before explicit server options.
+	if rc.chain != nil {
+		serverOpts = append(rc.chain.ServerOptions(), serverOpts...)
+	}
+
+	srv, err := NewServer(cfg, serverOpts...)
 	if err != nil {
 		return nil, err
 	}

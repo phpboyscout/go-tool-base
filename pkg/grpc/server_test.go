@@ -268,8 +268,58 @@ func TestGRPCPortConfig_Fallback(t *testing.T) {
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(8080)
-	
+
 	srv, _ := NewServer(cfg)
 	startFn := Start(cfg, testLogger(), srv)
 	assert.NotNil(t, startFn)
+}
+
+func TestRegister_WithInterceptors(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
+	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	chain := NewInterceptorChain(Interceptor{
+		Unary: func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+			return handler(ctx, req)
+		},
+	})
+
+	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger(),
+		WithInterceptors(chain),
+	)
+	require.NoError(t, err)
+}
+
+func TestRegister_MixedOptions(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
+	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	chain := NewInterceptorChain(LoggingInterceptor(testLogger()))
+
+	// Mix RegisterOption and grpc.ServerOption
+	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger(),
+		WithInterceptors(chain),
+		grpc.MaxRecvMsgSize(4*1024*1024),
+	)
+	require.NoError(t, err)
 }
