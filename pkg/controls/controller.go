@@ -29,7 +29,6 @@ type Controller struct {
 	errs            chan error
 	signals         chan os.Signal
 	wg              *sync.WaitGroup
-	startWg         sync.WaitGroup // barrier: all services have attempted Start
 	shutdownTimeout time.Duration
 	state           State
 	stateMutex      sync.Mutex
@@ -151,14 +150,10 @@ func (c *Controller) compareAndSetState(expected, next State) bool {
 func (c *Controller) Start() {
 	go c.controls()
 
-	// wg tracks the controller lifecycle: +1 here, Done in handleStopMessage.
-	// Wait() blocks until the full shutdown sequence completes.
-	c.wg.Add(1)
-
-	// startWg tracks service startup: each supervise goroutine signals it
-	// once its StartFunc has been attempted (success or failure). This lets
-	// handleStopMessage wait for all services to initialise before stopping.
-	c.startWg.Add(len(c.services.services))
+	// +1 for the controller lifecycle itself — this is only decremented
+	// when handleStopMessage completes, ensuring Wait() blocks until the
+	// full shutdown sequence (stop all services, set state) has finished.
+	c.wg.Add(1 + len(c.services.services))
 
 	// Set state before launching services so the signal handler
 	// (running concurrently via controls()) can transition to Stopping if
@@ -166,7 +161,7 @@ func (c *Controller) Start() {
 	c.SetState(Running)
 	c.logger.Debug("Controller set to running state")
 
-	c.services.start(c.ctx, &c.startWg, c.errs)
+	c.services.start(c.ctx, c.wg, c.errs)
 	c.logger.Debug("All services should now be running")
 }
 
@@ -258,12 +253,6 @@ func (c *Controller) handleStopMessage() {
 	}
 
 	c.logger.Warn("Stopping Services")
-
-	// Wait for all services to have attempted their StartFunc before we
-	// try to stop them. Without this barrier, Stop could be called on a
-	// service whose Start goroutine hasn't run yet, leading to undefined
-	// behaviour (e.g. http.Server.Shutdown before Serve).
-	c.startWg.Wait()
 
 	// Cancel the controller context so all StartFuncs blocking on
 	// ctx.Done() are unblocked before the shutdown timeout fires.
