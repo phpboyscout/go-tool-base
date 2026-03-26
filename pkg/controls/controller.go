@@ -263,10 +263,10 @@ func (c *Controller) handleStopMessage() {
 	ctx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
 	defer cancel()
 
+	defer c.logger.Debug("All services stopped")
 	stopping := 0 - c.services.stop(ctx)
-	c.SetState(Stopped)
-	c.logger.Info("Stopped")
 	c.wg.Add(stopping)
+	c.SetState(Stopped)
 }
 
 // Status returns an aggregate health report for all registered services.
