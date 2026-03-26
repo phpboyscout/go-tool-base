@@ -12,8 +12,8 @@ GTB uses a three-tier stability classification to set clear expectations for
 consumers and contributors. Each public type, interface, and function belongs
 to one of the tiers below.
 
-> [!IMPORTANT]
-> **Current Stability Status:** While GTB has reached v1.x, the API is currently undergoing rapid acceleration and improvements. As a result, **the API is knowingly unstable** and breaking changes may occur in minor releases. We promise full API stability starting from version **1.10.0**.
+!!! warning "Important"
+    **Current Stability Status:** While GTB has reached v1.x, the API is currently undergoing rapid acceleration and improvements. As a result, **the API is knowingly unstable** and breaking changes may occur in minor releases. We promise full API stability starting from version **1.10.0**.
 
 ---
 
