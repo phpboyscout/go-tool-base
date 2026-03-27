@@ -77,6 +77,12 @@ func WithRecurseSubmodules() CloneOption {
 }
 
 var (
+	// ErrNoRepository is returned by WithRepo when no *git.Repository has been set.
+	ErrNoRepository = errors.New("repository not initialised; call Open, Clone, or SetRepo first")
+
+	// ErrNoWorktree is returned by WithTree when no *git.Worktree has been set.
+	ErrNoWorktree = errors.New("worktree not initialised; call Open, Clone, or SetTree first")
+
 	gitProgressOutput io.Writer
 )
 
@@ -90,12 +96,10 @@ type RepoLike interface {
 	SourceIs(int) bool
 	SetSource(int)
 	SetRepo(*git.Repository)
-	GetRepo() *git.Repository
 	SetKey(*ssh.PublicKeys)
 	SetBasicAuth(string, string)
 	GetAuth() transport.AuthMethod
 	SetTree(*git.Worktree)
-	GetTree() *git.Worktree
 	Checkout(plumbing.ReferenceName) error
 	CheckoutCommit(plumbing.Hash) error
 	CreateBranch(string) error
@@ -113,6 +117,14 @@ type RepoLike interface {
 	DirectoryExists(string) (bool, error)
 	GetFile(string) (*object.File, error)
 	AddToFS(fs afero.Fs, gitFile *object.File, fullPath string) error
+
+	// WithRepo calls fn with the underlying *git.Repository.
+	// Returns ErrNoRepository if the repository has not been initialised.
+	WithRepo(func(*git.Repository) error) error
+
+	// WithTree calls fn with the underlying *git.Worktree.
+	// Returns ErrNoWorktree if the worktree has not been initialised.
+	WithTree(func(*git.Worktree) error) error
 }
 
 type Repo struct {
@@ -135,10 +147,6 @@ func (r *Repo) SetRepo(repo *git.Repository) {
 	r.repo = repo
 }
 
-func (r *Repo) GetRepo() *git.Repository {
-	return r.repo
-}
-
 func (r *Repo) SetKey(key *ssh.PublicKeys) {
 	r.auth = key
 }
@@ -158,8 +166,30 @@ func (r *Repo) SetTree(tree *git.Worktree) {
 	r.tree = tree
 }
 
-func (r *Repo) GetTree() *git.Worktree {
-	return r.tree
+// WithRepo calls fn with the underlying *git.Repository.
+// Repo is not safe for concurrent use; callers are responsible for external
+// synchronisation if sharing a *Repo across goroutines.
+//
+// Returns ErrNoRepository if the repository has not been initialised.
+func (r *Repo) WithRepo(fn func(*git.Repository) error) error {
+	if r.repo == nil {
+		return ErrNoRepository
+	}
+
+	return fn(r.repo)
+}
+
+// WithTree calls fn with the underlying *git.Worktree.
+// Repo is not safe for concurrent use; callers are responsible for external
+// synchronisation if sharing a *Repo across goroutines.
+//
+// Returns ErrNoWorktree if the worktree has not been initialised.
+func (r *Repo) WithTree(fn func(*git.Worktree) error) error {
+	if r.tree == nil {
+		return ErrNoWorktree
+	}
+
+	return fn(r.tree)
 }
 
 func (r *Repo) Checkout(branch plumbing.ReferenceName) error {

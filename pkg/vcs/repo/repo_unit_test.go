@@ -210,22 +210,28 @@ func TestRepo_Unit_Options(t *testing.T) {
 func TestRepo_Unit_Getters(t *testing.T) {
 	t.Parallel()
 
-	t.Run("SetRepo/GetRepo", func(t *testing.T) {
+	t.Run("SetRepo/WithRepo", func(t *testing.T) {
 		t.Parallel()
 		r := &Repo{}
-		assert.Nil(t, r.GetRepo())
+		assert.ErrorIs(t, r.WithRepo(func(_ *git.Repository) error { return nil }), ErrNoRepository)
 
 		tmpDir := t.TempDir()
 		repo, err := git.PlainInit(tmpDir, false)
 		require.NoError(t, err)
 		r.SetRepo(repo)
-		assert.Equal(t, repo, r.GetRepo())
+
+		err = r.WithRepo(func(gr *git.Repository) error {
+			assert.Equal(t, repo, gr)
+
+			return nil
+		})
+		assert.NoError(t, err)
 	})
 
-	t.Run("SetTree/GetTree", func(t *testing.T) {
+	t.Run("SetTree/WithTree", func(t *testing.T) {
 		t.Parallel()
 		r := &Repo{}
-		assert.Nil(t, r.GetTree())
+		assert.ErrorIs(t, r.WithTree(func(_ *git.Worktree) error { return nil }), ErrNoWorktree)
 
 		tmpDir := t.TempDir()
 		repo, err := git.PlainInit(tmpDir, false)
@@ -233,7 +239,13 @@ func TestRepo_Unit_Getters(t *testing.T) {
 		tree, err := repo.Worktree()
 		require.NoError(t, err)
 		r.SetTree(tree)
-		assert.Equal(t, tree, r.GetTree())
+
+		err = r.WithTree(func(wt *git.Worktree) error {
+			assert.Equal(t, tree, wt)
+
+			return nil
+		})
+		assert.NoError(t, err)
 	})
 
 	t.Run("SourceIs/SetSource", func(t *testing.T) {
@@ -244,6 +256,43 @@ func TestRepo_Unit_Getters(t *testing.T) {
 		assert.True(t, r.SourceIs(SourceLocal))
 		assert.False(t, r.SourceIs(SourceMemory))
 	})
+}
+
+func TestRepo_Unit_WithRepo_PropagatesError(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	repo, err := git.PlainInit(tmpDir, false)
+	require.NoError(t, err)
+
+	r := &Repo{}
+	r.SetRepo(repo)
+
+	sentinel := errors.New("callback error")
+	err = r.WithRepo(func(_ *git.Repository) error {
+		return sentinel
+	})
+	assert.ErrorIs(t, err, sentinel)
+}
+
+func TestRepo_Unit_WithTree_PropagatesError(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	repo, err := git.PlainInit(tmpDir, false)
+	require.NoError(t, err)
+
+	tree, err := repo.Worktree()
+	require.NoError(t, err)
+
+	r := &Repo{}
+	r.SetTree(tree)
+
+	sentinel := errors.New("callback error")
+	err = r.WithTree(func(_ *git.Worktree) error {
+		return sentinel
+	})
+	assert.ErrorIs(t, err, sentinel)
 }
 
 func TestRepo_Unit_Open(t *testing.T) {

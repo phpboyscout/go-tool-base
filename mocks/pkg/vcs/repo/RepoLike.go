@@ -645,98 +645,6 @@ func (_c *MockRepoLike_GetFile_Call) RunAndReturn(run func(s string) (*object.Fi
 	return _c
 }
 
-// GetRepo provides a mock function for the type MockRepoLike
-func (_mock *MockRepoLike) GetRepo() *git.Repository {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetRepo")
-	}
-
-	var r0 *git.Repository
-	if returnFunc, ok := ret.Get(0).(func() *git.Repository); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*git.Repository)
-		}
-	}
-	return r0
-}
-
-// MockRepoLike_GetRepo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRepo'
-type MockRepoLike_GetRepo_Call struct {
-	*mock.Call
-}
-
-// GetRepo is a helper method to define mock.On call
-func (_e *MockRepoLike_Expecter) GetRepo() *MockRepoLike_GetRepo_Call {
-	return &MockRepoLike_GetRepo_Call{Call: _e.mock.On("GetRepo")}
-}
-
-func (_c *MockRepoLike_GetRepo_Call) Run(run func()) *MockRepoLike_GetRepo_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockRepoLike_GetRepo_Call) Return(repository *git.Repository) *MockRepoLike_GetRepo_Call {
-	_c.Call.Return(repository)
-	return _c
-}
-
-func (_c *MockRepoLike_GetRepo_Call) RunAndReturn(run func() *git.Repository) *MockRepoLike_GetRepo_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetTree provides a mock function for the type MockRepoLike
-func (_mock *MockRepoLike) GetTree() *git.Worktree {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetTree")
-	}
-
-	var r0 *git.Worktree
-	if returnFunc, ok := ret.Get(0).(func() *git.Worktree); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*git.Worktree)
-		}
-	}
-	return r0
-}
-
-// MockRepoLike_GetTree_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTree'
-type MockRepoLike_GetTree_Call struct {
-	*mock.Call
-}
-
-// GetTree is a helper method to define mock.On call
-func (_e *MockRepoLike_Expecter) GetTree() *MockRepoLike_GetTree_Call {
-	return &MockRepoLike_GetTree_Call{Call: _e.mock.On("GetTree")}
-}
-
-func (_c *MockRepoLike_GetTree_Call) Run(run func()) *MockRepoLike_GetTree_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockRepoLike_GetTree_Call) Return(worktree *git.Worktree) *MockRepoLike_GetTree_Call {
-	_c.Call.Return(worktree)
-	return _c
-}
-
-func (_c *MockRepoLike_GetTree_Call) RunAndReturn(run func() *git.Worktree) *MockRepoLike_GetTree_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Open provides a mock function for the type MockRepoLike
 func (_mock *MockRepoLike) Open(v repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption) (*git.Repository, *git.Worktree, error) {
 	var tmpRet mock.Arguments
@@ -1356,6 +1264,108 @@ func (_c *MockRepoLike_WalkTree_Call) Return(err error) *MockRepoLike_WalkTree_C
 }
 
 func (_c *MockRepoLike_WalkTree_Call) RunAndReturn(run func(fn func(*object.File) error) error) *MockRepoLike_WalkTree_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WithRepo provides a mock function for the type MockRepoLike
+func (_mock *MockRepoLike) WithRepo(fn func(*git.Repository) error) error {
+	ret := _mock.Called(fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WithRepo")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(func(*git.Repository) error) error); ok {
+		r0 = returnFunc(fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepoLike_WithRepo_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithRepo'
+type MockRepoLike_WithRepo_Call struct {
+	*mock.Call
+}
+
+// WithRepo is a helper method to define mock.On call
+//   - fn func(*git.Repository) error
+func (_e *MockRepoLike_Expecter) WithRepo(fn interface{}) *MockRepoLike_WithRepo_Call {
+	return &MockRepoLike_WithRepo_Call{Call: _e.mock.On("WithRepo", fn)}
+}
+
+func (_c *MockRepoLike_WithRepo_Call) Run(run func(fn func(*git.Repository) error)) *MockRepoLike_WithRepo_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func(*git.Repository) error
+		if args[0] != nil {
+			arg0 = args[0].(func(*git.Repository) error)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepoLike_WithRepo_Call) Return(err error) *MockRepoLike_WithRepo_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepoLike_WithRepo_Call) RunAndReturn(run func(fn func(*git.Repository) error) error) *MockRepoLike_WithRepo_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WithTree provides a mock function for the type MockRepoLike
+func (_mock *MockRepoLike) WithTree(fn func(*git.Worktree) error) error {
+	ret := _mock.Called(fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WithTree")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(func(*git.Worktree) error) error); ok {
+		r0 = returnFunc(fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepoLike_WithTree_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithTree'
+type MockRepoLike_WithTree_Call struct {
+	*mock.Call
+}
+
+// WithTree is a helper method to define mock.On call
+//   - fn func(*git.Worktree) error
+func (_e *MockRepoLike_Expecter) WithTree(fn interface{}) *MockRepoLike_WithTree_Call {
+	return &MockRepoLike_WithTree_Call{Call: _e.mock.On("WithTree", fn)}
+}
+
+func (_c *MockRepoLike_WithTree_Call) Run(run func(fn func(*git.Worktree) error)) *MockRepoLike_WithTree_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func(*git.Worktree) error
+		if args[0] != nil {
+			arg0 = args[0].(func(*git.Worktree) error)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepoLike_WithTree_Call) Return(err error) *MockRepoLike_WithTree_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepoLike_WithTree_Call) RunAndReturn(run func(fn func(*git.Worktree) error) error) *MockRepoLike_WithTree_Call {
 	_c.Call.Return(run)
 	return _c
 }

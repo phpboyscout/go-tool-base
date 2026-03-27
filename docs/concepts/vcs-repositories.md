@@ -68,12 +68,10 @@ type RepoLike interface {
     SourceIs(int) bool
     SetSource(int)
     SetRepo(*git.Repository)
-    GetRepo() *git.Repository
     SetKey(*ssh.PublicKeys)
     SetBasicAuth(string, string)
     GetAuth() transport.AuthMethod
     SetTree(*git.Worktree)
-    GetTree() *git.Worktree
     Checkout(plumbing.ReferenceName) error
     CheckoutCommit(plumbing.Hash) error
     CreateBranch(string) error
@@ -82,6 +80,8 @@ type RepoLike interface {
     Open(RepoType, string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
     WalkTree(func(*object.File) error) error
     AddToFS(fs afero.Fs, gitFile *object.File, fullPath string) error
+    WithRepo(func(*git.Repository) error) error
+    WithTree(func(*git.Worktree) error) error
 }
 ```
 
@@ -135,6 +135,10 @@ err := r.WalkTree(func(f *object.File) error {
 ```
 
 The target `afero.Fs` is typically `props.FS` — an `afero.MemMapFs` in tests, the real OS filesystem in production.
+
+### Thread Safety
+
+`go-git` is not thread-safe. For single-goroutine use, `*Repo` is sufficient. For concurrent access, wrap with `ThreadSafeRepo` which serialises all operations via `sync.Mutex`. Use `WithRepo` / `WithTree` (callback-style) to access the underlying `*git.Repository` or `*git.Worktree` safely. See the [Repo component reference](../components/vcs/repo.md#thread-safety) for details.
 
 ---
 

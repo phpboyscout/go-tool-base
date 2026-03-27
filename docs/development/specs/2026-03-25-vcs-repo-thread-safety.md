@@ -2,7 +2,7 @@
 title: "VCS Repo Thread-Safety Wrapper"
 description: "Remove GetRepo/GetTree from RepoLike, replace with WithRepo/WithTree on the interface, and introduce ThreadSafeRepo — an opt-in mutex-backed implementation that makes all RepoLike calls safe for concurrent goroutines."
 date: 2026-03-25
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - vcs
@@ -26,7 +26,7 @@ Date
 :   25 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

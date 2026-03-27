@@ -111,11 +111,16 @@ func TestSetKey(t *testing.T) {
 	assert.Equal(t, key, repo.auth)
 }
 
-func TestSetTreeAndGetTree(t *testing.T) {
+func TestSetTreeAndWithTree(t *testing.T) {
 	repo := &Repo{}
 	tree := &git.Worktree{}
 	repo.SetTree(tree)
-	assert.Equal(t, tree, repo.GetTree())
+	err := repo.WithTree(func(wt *git.Worktree) error {
+		assert.Equal(t, tree, wt)
+
+		return nil
+	})
+	assert.NoError(t, err)
 }
 
 func TestCreateBranch(t *testing.T) {
