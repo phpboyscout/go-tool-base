@@ -104,7 +104,11 @@ func NewTableWriter(w io.Writer, format Format, opts ...TableOption) *TableWrite
 	return &TableWriter{w: w, fmt: format, cfg: cfg}
 }
 
-const columnPadding = 3
+const (
+	columnPadding        = 3
+	ellipsisMinWidth     = 3
+	defaultTerminalWidth = 80
+)
 
 // WriteRows renders the provided slice as a table.
 // The input must be a slice of structs (for tag-based columns) or []map[string]any.
@@ -123,9 +127,11 @@ func (t *TableWriter) WriteRows(rows any) error {
 		return t.renderTSV(rows)
 	case FormatMarkdown:
 		return t.renderMarkdown(rows)
-	default:
+	case FormatText:
 		return t.renderText(rows)
 	}
+
+	return t.renderText(rows)
 }
 
 func (t *TableWriter) resolveColumns(rows any) ([]Column, error) {
@@ -282,8 +288,8 @@ func (t *TableWriter) writeMarkdownRow(cells []string, widths []int) {
 
 		display := cell
 		if len(display) > w {
-			if w > 3 {
-				display = display[:w-3] + "..."
+			if w > ellipsisMinWidth {
+				display = display[:w-ellipsisMinWidth] + "..."
 			} else {
 				display = display[:w]
 			}
@@ -292,7 +298,7 @@ func (t *TableWriter) writeMarkdownRow(cells []string, widths []int) {
 		fmt.Fprintf(&sb, " %-*s |", w, display)
 	}
 
-	fmt.Fprintln(t.w, sb.String())
+	_, _ = fmt.Fprintln(t.w, sb.String())
 }
 
 func (t *TableWriter) writeMarkdownSeparator(widths []int) {
@@ -306,7 +312,7 @@ func (t *TableWriter) writeMarkdownSeparator(widths []int) {
 		sb.WriteString(" |")
 	}
 
-	fmt.Fprintln(t.w, sb.String())
+	_, _ = fmt.Fprintln(t.w, sb.String())
 }
 
 func (t *TableWriter) writeRow(cells []string, widths []int) {
@@ -324,8 +330,8 @@ func (t *TableWriter) writeRow(cells []string, widths []int) {
 
 		display := cell
 		if len(display) > w {
-			if w > 3 {
-				display = display[:w-3] + "..."
+			if w > ellipsisMinWidth {
+				display = display[:w-ellipsisMinWidth] + "..."
 			} else {
 				display = display[:w]
 			}
@@ -338,7 +344,7 @@ func (t *TableWriter) writeRow(cells []string, widths []int) {
 		}
 	}
 
-	fmt.Fprintln(t.w, strings.TrimRight(sb.String(), " "))
+	_, _ = fmt.Fprintln(t.w, strings.TrimRight(sb.String(), " "))
 }
 
 func (t *TableWriter) terminalWidth() int {
@@ -350,7 +356,7 @@ func (t *TableWriter) terminalWidth() int {
 		return w
 	}
 
-	return 80
+	return defaultTerminalWidth
 }
 
 func (t *TableWriter) sortRows(cols []Column, rows [][]string) error {
@@ -373,6 +379,7 @@ func (t *TableWriter) sortRows(cols []Column, rows [][]string) error {
 	}
 
 	desc := t.cfg.sortDescending
+
 	sort.SliceStable(rows, func(i, j int) bool {
 		a, b := rows[i][colIdx], rows[j][colIdx]
 
@@ -482,6 +489,12 @@ func extractField(v reflect.Value, field string) any {
 		if f.IsValid() {
 			return f.Interface()
 		}
+	case reflect.Invalid, reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128,
+		reflect.Array, reflect.Chan, reflect.Func, reflect.Interface, reflect.Pointer,
+		reflect.Slice, reflect.String, reflect.UnsafePointer:
+		// Not a struct or map — cannot extract a named field.
 	}
 
 	return ""

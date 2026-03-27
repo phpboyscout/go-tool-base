@@ -49,6 +49,7 @@ type Container struct {
 	viper     *viper.Viper
 	logger    logger.Logger
 	observers []Observable
+	schema    *Schema
 }
 
 // Get interface value from config.
@@ -136,10 +137,25 @@ func (c *Container) handleReadFileError(err error) {
 	}
 }
 
+// SetSchema attaches a validation schema to the container.
+// When set, hot-reload will validate config changes before notifying observers.
+func (c *Container) SetSchema(schema *Schema) {
+	c.schema = schema
+}
+
 // watchConfig monitor the changes in the config file.
 func (c *Container) watchConfig() {
 	c.viper.OnConfigChange(func(e fsnotify.Event) {
 		c.logger.Info(fmt.Sprintf("Config updated %v", e))
+
+		if c.schema != nil {
+			result := c.Validate(c.schema)
+			if !result.Valid() {
+				c.logger.Error("config reload rejected: validation failed", "errors", result.Error())
+
+				return
+			}
+		}
 
 		errs := make(chan error)
 

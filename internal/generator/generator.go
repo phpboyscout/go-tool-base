@@ -42,6 +42,7 @@ type Config struct {
 	Short                         string
 	UpdateDocs                    bool
 	WithAssets                    bool
+	WithConfigValidation          bool
 	WithInitializer               bool
 	WrapSubcommandsWithMiddleware *bool
 }

@@ -77,6 +77,7 @@ GTB provides several factory functions for creating configuration containers. Th
 | :--- | :--- | :--- | :--- |
 | `NewFilesContainer` | Application startup with optional files | Logs warnings, continues | ✓ Enabled |
 | `LoadFilesContainer` | Strict loading where config is required | Returns error | ✗ Disabled |
+| `LoadFilesContainerWithSchema` | Strict loading with schema validation | Returns error | ✗ Disabled |
 | `NewReaderContainer` | Testing or embedded config streams | Logs warnings, continues | ✗ Disabled |
 | `NewContainerFromViper` | Wrapping existing Viper instances | N/A | Depends on Viper |
 
@@ -380,31 +381,88 @@ func NewDatabaseCommand(props *props.Props) *cobra.Command {
 
 ## Advanced Features
 
-### Configuration Validation
+### Schema Validation
+
+The `Container` supports **decentralised, per-package** schema validation using struct tags. Each package defines a struct describing the config keys it consumes and validates its own slice of the config — there is no centralised schema for the entire config tree.
+
+This design aligns with GTB's config architecture where defaults live in embedded assets and each feature package owns its config independently.
+
+!!! note "Defaults vs Validation"
+    Default values belong in your package's embedded `assets/init/config.yaml`, not in struct tags. The `default` tag is retained for documentation and error hints only — the validation layer does not inject defaults.
+
+**Struct tag reference:**
+
+| Tag | Purpose | Example |
+|-----|---------|---------|
+| `config:"key"` | Maps field to config key | `config:"github.token"` |
+| `validate:"required"` | Field must be present and non-zero | `validate:"required"` |
+| `enum:"a,b,c"` | Restricts to allowed values | `enum:"debug,info,warn,error"` |
+| `default:"value"` | Documentation only (used in hints) | `default:"info"` |
+
+**Per-package validation (recommended pattern):**
+
+Each package defines a config struct and a validation function for the keys it owns:
 
 ```go
-func validateConfig(cfg config.Containable) error {
-    required := []string{
-        "app.name",
-        "database.host",
-        "database.port",
+// pkg/myfeature/config.go
+type Config struct {
+    APIKey   string `config:"myfeature.api_key" validate:"required"`
+    Endpoint string `config:"myfeature.endpoint" validate:"required"`
+    LogLevel string `config:"myfeature.log_level" enum:"debug,info,warn,error" default:"info"`
+}
+
+func ValidateConfig(cfg *config.Container) error {
+    schema, err := config.NewSchema(config.WithStructSchema(Config{}))
+    if err != nil {
+        return err
     }
 
-    for _, key := range required {
-        if cfg.GetString(key) == "" {
-            return fmt.Errorf("required configuration key '%s' is missing", key)
-        }
-    }
-
-    // Validate ranges
-    port := cfg.GetInt("database.port")
-    if port < 1 || port > 65535 {
-        return fmt.Errorf("database.port must be between 1 and 65535, got %d", port)
+    result := cfg.Validate(schema)
+    if !result.Valid() {
+        return errors.New(result.Error())
     }
 
     return nil
 }
 ```
+
+**Load-time validation (for CLI tools):**
+
+```go
+schema, err := config.NewSchema(config.WithStructSchema(AppConfig{}))
+if err != nil {
+    return err
+}
+
+cfg, err := config.LoadFilesContainerWithSchema(logger, fs, schema, "config.yaml")
+if err != nil {
+    // "config validation failed:
+    //   myfeature.api_key: required field is missing (hint: ... set the MYFEATURE_API_KEY environment variable)"
+    return err
+}
+```
+
+**Validation on an existing container:**
+
+```go
+container := config.NewFilesContainer(l, fs, "config.yaml")
+result := container.Validate(schema)
+if !result.Valid() {
+    fmt.Println(result.Error())
+}
+// Warnings (unknown keys) are available via result.Warnings
+```
+
+**Schema options:**
+
+| Option | Description |
+|--------|-------------|
+| `WithStructSchema(v any)` | Derive schema from struct tags |
+| `WithStrictMode()` | Treat unknown keys as errors (default: warnings) |
+
+**Hot-reload integration:** Attach a schema to a container via `container.SetSchema(schema)`. When config files change, validation runs before notifying observers. Invalid reloads are rejected and logged.
+
+For a complete walkthrough of defining config defaults AND validation for a new component, see the [Validate Component Config](../how-to/validate-component-config.md) how-to guide.
 
 ## Observer Pattern for Configuration Changes
 
@@ -828,21 +886,14 @@ For general runtime issues, see the [Troubleshooting Guide](../troubleshooting.m
 
 ### Configuration Validation
 
+For schema-based validation, see the [Schema Validation](#schema-validation) section above. For simple ad-hoc checks:
+
 ```go
 func validateConfig(cfg config.Containable) error {
-    required := []string{
-        "app.name",
-        "database.host",
-        "database.port",
+    if !cfg.Has("app.name") {
+        return fmt.Errorf("required configuration key 'app.name' is missing")
     }
 
-    for _, key := range required {
-        if !cfg.Has(key) {
-            return fmt.Errorf("required configuration key '%s' is missing", key)
-        }
-    }
-
-    // Validate ranges
     port := cfg.GetInt("database.port")
     if port < 1 || port > 65535 {
         return fmt.Errorf("database.port must be between 1 and 65535, got %d", port)

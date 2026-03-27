@@ -54,6 +54,7 @@ func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, strin
 	cmd := &ManifestCommand{}
 	g.detectAssets(path, f, cmd)
 	g.detectInitializer(path, cmd)
+	g.detectConfigValidation(path, cmd)
 
 	// Find NewCmd... function
 	pkgName := filepath.Base(filepath.Dir(path))
@@ -367,6 +368,16 @@ func (g *Generator) detectInitializer(path string, cmd *ManifestCommand) {
 	initPath := filepath.Join(filepath.Dir(path), "init.go")
 	if exists, _ := afero.Exists(g.props.FS, initPath); exists {
 		cmd.WithInitializer = true
+	}
+}
+
+// detectConfigValidation sets cmd.WithConfigValidation if a config.go file
+// exists in the same directory as path, indicating the command was generated
+// with the Config Validation option.
+func (g *Generator) detectConfigValidation(path string, cmd *ManifestCommand) {
+	configPath := filepath.Join(filepath.Dir(path), "config.go")
+	if exists, _ := afero.Exists(g.props.FS, configPath); exists {
+		cmd.WithConfigValidation = true
 	}
 }
 

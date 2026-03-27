@@ -24,6 +24,7 @@ type ManifestCommandUpdate struct {
 	Flags                         []ManifestFlag
 	WithAssets                    bool
 	WithInitializer               bool
+	WithConfigValidation          bool
 	WrapSubcommandsWithMiddleware *bool
 	PersistentPreRun              bool
 	PreRun                        bool
@@ -69,6 +70,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 		Hashes:                        hashes,
 		WithAssets:                    g.config.WithAssets,
 		WithInitializer:               g.config.WithInitializer,
+		WithConfigValidation:          g.config.WithConfigValidation,
 		WrapSubcommandsWithMiddleware: g.config.WrapSubcommandsWithMiddleware,
 		PersistentPreRun:              g.config.PersistentPreRun,
 		PreRun:                        g.config.PreRun,
@@ -108,6 +110,8 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 			m.Commands[i].WithAssets = g.config.WithAssets
 
 			m.Commands[i].WithInitializer = g.config.WithInitializer
+			m.Commands[i].WithConfigValidation = g.config.WithConfigValidation
+
 			if g.config.WrapSubcommandsWithMiddleware != nil {
 				m.Commands[i].WrapSubcommandsWithMiddleware = *g.config.WrapSubcommandsWithMiddleware
 			}
@@ -129,17 +133,18 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 
 	if !found {
 		m.Commands = append(m.Commands, ManifestCommand{
-			Name:            g.config.Name,
-			Description:     MultilineString(g.config.Short),
-			LongDescription: MultilineString(g.config.Long),
-			Aliases:         g.config.Aliases,
-			Args:            g.config.Args,
-			Hidden:          g.config.Hidden,
-			Flags:           mFlags,
-			Hashes:          hashes,
-			Protected:       g.config.Protected,
-			WithAssets:      g.config.WithAssets,
-			WithInitializer: g.config.WithInitializer,
+			Name:                 g.config.Name,
+			Description:          MultilineString(g.config.Short),
+			LongDescription:      MultilineString(g.config.Long),
+			Aliases:              g.config.Aliases,
+			Args:                 g.config.Args,
+			Hidden:               g.config.Hidden,
+			Flags:                mFlags,
+			Hashes:               hashes,
+			Protected:            g.config.Protected,
+			WithAssets:           g.config.WithAssets,
+			WithInitializer:      g.config.WithInitializer,
+			WithConfigValidation: g.config.WithConfigValidation,
 			WrapSubcommandsWithMiddleware: func() bool {
 				if g.config.WrapSubcommandsWithMiddleware != nil {
 					return *g.config.WrapSubcommandsWithMiddleware
@@ -204,6 +209,7 @@ func updateExistingCommand(cmd *ManifestCommand, u ManifestCommandUpdate) {
 	cmd.Hashes = u.Hashes
 	cmd.WithAssets = u.WithAssets
 	cmd.WithInitializer = u.WithInitializer
+	cmd.WithConfigValidation = u.WithConfigValidation
 
 	if u.WrapSubcommandsWithMiddleware != nil {
 		cmd.WrapSubcommandsWithMiddleware = *u.WrapSubcommandsWithMiddleware
@@ -221,14 +227,15 @@ func updateExistingCommand(cmd *ManifestCommand, u ManifestCommandUpdate) {
 
 func createNewManifestCommand(u ManifestCommandUpdate) ManifestCommand {
 	return ManifestCommand{
-		Name:            u.Name,
-		Description:     MultilineString(u.Description),
-		LongDescription: MultilineString(u.LongDescription),
-		Aliases:         u.Aliases,
-		Args:            u.Args,
-		Hashes:          u.Hashes,
-		WithAssets:      u.WithAssets,
-		WithInitializer: u.WithInitializer,
+		Name:                 u.Name,
+		Description:          MultilineString(u.Description),
+		LongDescription:      MultilineString(u.LongDescription),
+		Aliases:              u.Aliases,
+		Args:                 u.Args,
+		Hashes:               u.Hashes,
+		WithAssets:           u.WithAssets,
+		WithInitializer:      u.WithInitializer,
+		WithConfigValidation: u.WithConfigValidation,
 		WrapSubcommandsWithMiddleware: func() bool {
 			if u.WrapSubcommandsWithMiddleware != nil {
 				return *u.WrapSubcommandsWithMiddleware

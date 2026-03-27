@@ -25,9 +25,10 @@ The `.agent/` directory contains the primary execution mechanisms for this proje
 
 1. Check `docs/development/specs/` for an existing spec matching the feature.
 2. Only proceed if the spec status is `APPROVED` or `IN PROGRESS`.
-3. For **non-trivial features** (new packages, public API changes, generator modifications, architectural changes) with no existing spec: run `/gtb-spec` to draft one, save it to `docs/development/specs/YYYY-MM-DD-<feature-name>.md` with status `DRAFT`, then pause for human review.
-4. For **quick fixes and minor changes** (bug fixes, small refactors that don't alter the public API): proceed directly.
-5. Update spec status to `IN PROGRESS` when starting, `IMPLEMENTED` when done.
+3. **Review open questions**: Before writing any code, review the spec for open questions, unresolved design decisions, gaps, or ambiguities. Present them to the user for resolution. Do not begin implementation until each open question is answered or explicitly deferred.
+4. For **non-trivial features** (new packages, public API changes, generator modifications, architectural changes) with no existing spec: run `/gtb-spec` to draft one, save it to `docs/development/specs/YYYY-MM-DD-<feature-name>.md` with status `DRAFT`, then pause for human review.
+5. For **quick fixes and minor changes** (bug fixes, small refactors that don't alter the public API): proceed directly.
+6. Update spec status to `IN PROGRESS` when starting, `IMPLEMENTED` when done.
 
 ### Implementation (TDD)
 

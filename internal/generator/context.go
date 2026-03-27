@@ -19,6 +19,7 @@ type CommandContext struct {
 	Args                          string
 	WithAssets                    bool
 	WithInitializer               bool
+	WithConfigValidation          bool
 	WrapSubcommandsWithMiddleware bool
 	PersistentPreRun              bool
 	PreRun                        bool
@@ -44,6 +45,7 @@ func buildCommandContext(projectPath string, dryRun, force, updateDocs bool, cmd
 		Args:                          cmd.Args,
 		WithAssets:                    cmd.WithAssets,
 		WithInitializer:               cmd.WithInitializer,
+		WithConfigValidation:          cmd.WithConfigValidation,
 		WrapSubcommandsWithMiddleware: cmd.WrapSubcommandsWithMiddleware,
 		PersistentPreRun:              cmd.PersistentPreRun,
 		PreRun:                        cmd.PreRun,
@@ -74,6 +76,7 @@ func (c CommandContext) ToConfig() *Config {
 		Args:                          c.Args,
 		WithAssets:                    c.WithAssets,
 		WithInitializer:               c.WithInitializer,
+		WithConfigValidation:          c.WithConfigValidation,
 		WrapSubcommandsWithMiddleware: &c.WrapSubcommandsWithMiddleware,
 		PersistentPreRun:              c.PersistentPreRun,
 		PreRun:                        c.PreRun,

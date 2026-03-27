@@ -23,28 +23,29 @@ const (
 )
 
 type CommandOptions struct {
-	Name             string
-	Short            string
-	Long             string
-	Path             string
-	WithAssets       bool
-	Parent           string
-	Args             string
-	Flags            []string
-	AliasesInput     string // For form input
-	Aliases          []string
-	ScriptPath       string
-	Prompt           string
-	Agentless        bool
-	PersistentPreRun bool
-	PreRun           bool
-	Force            bool
-	WithInitializer  bool
-	WrapSubcommands  *bool
-	Protected        *bool
-	Options          []string // For MultiSelect
-	AddFlags         bool     // Whether to show the flag entry stage
-	AddPrompt        bool     // Whether to show the AI prompt stage
+	Name                 string
+	Short                string
+	Long                 string
+	Path                 string
+	WithAssets           bool
+	Parent               string
+	Args                 string
+	Flags                []string
+	AliasesInput         string // For form input
+	Aliases              []string
+	ScriptPath           string
+	Prompt               string
+	Agentless            bool
+	PersistentPreRun     bool
+	PreRun               bool
+	Force                bool
+	WithInitializer      bool
+	WithConfigValidation bool
+	WrapSubcommands      *bool
+	Protected            *bool
+	Options              []string // For MultiSelect
+	AddFlags             bool     // Whether to show the flag entry stage
+	AddPrompt            bool     // Whether to show the AI prompt stage
 }
 
 // FlagFormInput holds data for a single flag collected via the interactive form.
@@ -152,6 +153,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.PreRun, "pre-run", false, "Generate a PreRun hook")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files")
 	cmd.Flags().BoolVar(&opts.WithInitializer, "with-initializer", false, "Generate an Initializer for this command")
+	cmd.Flags().BoolVar(&opts.WithConfigValidation, "with-config-validation", false, "Generate a config validation stub for this command")
 	cmd.Flags().BoolVar(&wrapSubcommandsFlag, "wrap-subcommands", true, "Automatically wrap subcommands with middleware")
 	cmd.Flags().BoolVar(&protectedFlag, "protected", false, "Mark the command as protected (tri-state: --protected for true, --protected=false for false, omitted for nil)")
 
@@ -295,6 +297,7 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 				huh.NewOption("PersistentPreRun Hook", "persistent-pre-run"),
 				huh.NewOption("PreRun Hook", "pre-run"),
 				huh.NewOption("Config Initialiser", "initializer"),
+				huh.NewOption("Config Validation", "config-validation"),
 			).
 			Value(&o.Options),
 		huh.NewConfirm().
@@ -510,6 +513,10 @@ func (o *CommandOptions) syncFlagsToOptions() error {
 		o.Options = append(o.Options, "initializer")
 	}
 
+	if o.WithConfigValidation {
+		o.Options = append(o.Options, "config-validation")
+	}
+
 	return nil
 }
 
@@ -524,6 +531,8 @@ func (o *CommandOptions) syncOptionsToFlags() {
 			o.PreRun = true
 		case "initializer":
 			o.WithInitializer = true
+		case "config-validation":
+			o.WithConfigValidation = true
 		}
 	}
 }
@@ -549,6 +558,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		PreRun:                        o.PreRun,
 		Force:                         o.Force,
 		WithInitializer:               o.WithInitializer,
+		WithConfigValidation:          o.WithConfigValidation,
 		WrapSubcommandsWithMiddleware: o.WrapSubcommands,
 		Protected:                     o.Protected,
 	}

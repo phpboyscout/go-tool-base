@@ -70,6 +70,7 @@ type ManifestCommand struct {
 	Hashes                        map[string]string `yaml:"hashes,omitempty"`
 	WithAssets                    bool              `yaml:"with_assets,omitempty"`
 	WithInitializer               bool              `yaml:"with_initializer,omitempty"`
+	WithConfigValidation          bool              `yaml:"with_config_validation,omitempty"`
 	WrapSubcommandsWithMiddleware bool              `yaml:"wrap_subcommands_with_middleware,omitempty"`
 	Protected                     *bool             `yaml:"protected,omitempty"`
 

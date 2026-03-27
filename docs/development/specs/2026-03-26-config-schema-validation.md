@@ -1,8 +1,8 @@
 ---
 title: "Config Schema Validation Specification"
-description: "Add a validation layer to pkg/config that checks configuration values at load time against a schema, catching typos, missing required fields, and type mismatches before they cause runtime errors."
+description: "Add a decentralised validation layer to pkg/config that checks configuration values against a schema, catching typos, missing required fields, and enum violations before they cause runtime errors."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -24,29 +24,31 @@ Date
 :   26 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 
 ## Overview
 
-`pkg/config` supports hierarchical merging from multiple sources (files, embedded assets, environment variables, CLI flags) but performs no structural validation. A typo in a config key (e.g., `github.tokne` instead of `github.token`) silently produces an empty value, discovered only at runtime when an API call fails. Missing required fields, type mismatches (string where int is expected), and unrecognised keys go undetected.
+`pkg/config` supports hierarchical merging from multiple sources (files, embedded assets, environment variables, CLI flags) but performs no structural validation. A typo in a config key (e.g., `github.tokne` instead of `github.token`) silently produces an empty value, discovered only at runtime when an API call fails. Missing required fields and unrecognised keys go undetected.
 
-This specification adds a schema validation layer that runs at config load time and on hot-reload, producing actionable error messages with hints. Two schema definition strategies are supported: Go struct tags (for tools that define their config shape in code) and JSON Schema documents (for tools that ship a schema file alongside their config).
+This specification adds a **decentralised** schema validation layer designed to work with GTB's existing config architecture. Validation is performed per-package at the point of consumption, not as a global schema applied to the entire config tree. This aligns with the existing patterns where each feature package owns its config defaults (via embedded assets) and its initialiser logic.
 
 ---
 
 ## Design Decisions
 
-**Dual schema sources (struct tags + JSON Schema)**: Go struct tags are the simplest path for tools that already define config structs. JSON Schema documents support external tooling (IDE completion, CI validation) and tools that don't define Go structs. Both compile to the same internal representation.
+**Decentralised, per-package validation**: GTB's config system is intentionally modular — each feature package registers its own embedded defaults via `Props.Assets` and manages its config slice via initialisers. A centralised schema would fight this architecture. Instead, each package defines a struct describing the config keys it consumes and validates its own slice.
 
-**Validation at the `Containable` boundary**: Validation runs inside `Load`, `LoadFilesContainer`, and `LoadEmbed` after merging completes, rather than inside individual `Get*` calls. This catches all issues upfront rather than lazily. The `Container.Validate()` method is also exposed for on-demand re-validation.
+**No default injection**: Default values are the responsibility of embedded assets (`assets/init/config.yaml`) and the merge hierarchy (embedded → user file → env → flags). The `default` struct tag is retained for documentation and error hint purposes but the validation layer does not mutate config values. Adding a second source of defaults would create divergence between the struct tag and the embedded YAML.
 
-**Integration with `Observable` for hot-reload**: When `watchConfig` detects a change, validation runs before notifying observers. If validation fails, observers receive the error via the existing `chan error` and the previous valid config remains in effect.
+**No JSON Schema input**: JSON Schema as an input mechanism was considered and rejected. The decentralised nature of GTB's config means there is no single document that describes the full config shape — it depends on which feature packages are active. JSON Schema has future value as a *generated output* (struct tags → JSON Schema for IDE completion or CI validation) but not as a validation input.
 
-**Functional options pattern**: Schema configuration uses the same `Option` pattern as `pkg/http/client.go`, keeping the API extensible without breaking changes.
+**Validation on the concrete `Container` type, not the `Containable` interface**: Adding `Validate` to the interface would be a breaking change (all implementations and mocks would need updating). Since validation is an opt-in feature used by package authors, placing it on `*Container` is sufficient. Test code uses `Containable` for mocking; validation runs against the real container.
 
-**Warnings vs errors**: Unknown keys produce warnings (logged, not fatal) to support forward-compatible config files. Missing required fields and type mismatches produce errors that prevent startup.
+**Struct tags as the schema source**: Go struct tags (`config`, `validate`, `enum`) are the natural fit for per-package validation. The package author defines a struct matching the config keys they consume, and the schema is derived automatically.
+
+**Warnings vs errors**: Unknown keys produce warnings (logged, not fatal) to support forward-compatible config files where multiple packages contribute keys. Missing required fields and enum violations produce errors. Strict mode upgrades unknown-key warnings to errors for packages that need tighter control.
 
 ---
 
@@ -58,18 +60,19 @@ This specification adds a schema validation layer that runs at config load time 
 // Schema defines the expected structure and constraints for configuration values.
 type Schema struct {
     fields   map[string]FieldSchema
-    required []string
+    strict   bool
 }
 
 // FieldSchema describes a single configuration field.
 type FieldSchema struct {
-    // Type is the expected Go type: "string", "int", "float64", "bool", "duration", "time".
+    // Type is the expected Go type: "string", "int", "float64", "bool", "duration".
     Type        string
     // Required indicates the field must be present and non-zero.
     Required    bool
-    // Description is used in validation error messages and JSON Schema export.
+    // Description is used in validation error messages.
     Description string
-    // Default is the default value if the field is absent and not required.
+    // Default is the default value for documentation and hints only.
+    // The validation layer does not inject defaults — use embedded assets for that.
     Default     any
     // Enum restricts the field to a set of allowed values.
     Enum        []any
@@ -106,9 +109,6 @@ type SchemaOption func(*schemaConfig)
 // WithStrictMode treats unknown keys as errors instead of warnings.
 func WithStrictMode() SchemaOption
 
-// WithJSONSchema loads a schema from a JSON Schema document (Draft 2020-12).
-func WithJSONSchema(reader io.Reader) SchemaOption
-
 // WithStructSchema derives a schema from a tagged Go struct.
 // Supported tags: `config:"key" validate:"required" enum:"a,b,c" default:"value"`.
 func WithStructSchema(v any) SchemaOption
@@ -117,17 +117,17 @@ func WithStructSchema(v any) SchemaOption
 func NewSchema(opts ...SchemaOption) (*Schema, error)
 ```
 
-### Validation on Containable
+### Validation on Container
 
 ```go
-// Extended Containable interface (new method):
-type Containable interface {
-    // ... existing methods ...
+// On *Container (not on Containable interface):
 
-    // Validate checks the current configuration against the provided schema.
-    // Returns a ValidationResult; callers should check result.Valid().
-    Validate(schema *Schema) *ValidationResult
-}
+// Validate checks the current configuration against the provided schema.
+// Returns a ValidationResult; callers should check result.Valid().
+func (c *Container) Validate(schema *Schema) *ValidationResult
+
+// SetSchema attaches a validation schema to the container for hot-reload gating.
+func (c *Container) SetSchema(schema *Schema)
 ```
 
 ### Integration with Load Functions
@@ -138,18 +138,36 @@ type Containable interface {
 func LoadFilesContainerWithSchema(l logger.Logger, fs afero.Fs, schema *Schema, configFiles ...string) (Containable, error)
 ```
 
-### Usage Example
+### Usage Example — Per-Package Validation
 
 ```go
-type AppConfig struct {
-    Github struct {
-        Token string `config:"github.token" validate:"required"`
-    }
-    Log struct {
-        Level  string `config:"log.level" enum:"debug,info,warn,error" default:"info"`
-        Format string `config:"log.format" enum:"json,logfmt,text" default:"text"`
-    }
+// pkg/myfeature/config.go — each package validates its own config slice
+
+type MyFeatureConfig struct {
+    APIKey   string `config:"myfeature.api_key" validate:"required"`
+    Endpoint string `config:"myfeature.endpoint" validate:"required"`
+    LogLevel string `config:"myfeature.log_level" enum:"debug,info,warn,error" default:"info"`
 }
+
+func ValidateConfig(cfg *config.Container) error {
+    schema, err := config.NewSchema(config.WithStructSchema(MyFeatureConfig{}))
+    if err != nil {
+        return err
+    }
+
+    result := cfg.Validate(schema)
+    if !result.Valid() {
+        return errors.New(result.Error())
+    }
+
+    return nil
+}
+```
+
+### Usage Example — Load-Time Validation
+
+```go
+// For CLI tools that load config and want upfront validation:
 
 schema, err := config.NewSchema(config.WithStructSchema(AppConfig{}))
 if err != nil {
@@ -159,10 +177,27 @@ if err != nil {
 cfg, err := config.LoadFilesContainerWithSchema(logger, fs, schema, "config.yaml")
 if err != nil {
     // err contains actionable messages:
-    // "config validation failed:\n  github.token: required field is missing (hint: set GITHUB_TOKEN or add github.token to your config file)\n"
+    // "config validation failed:
+    //   myfeature.api_key: required field is missing (hint: ... set the MYFEATURE_API_KEY environment variable)"
     return err
 }
 ```
+
+---
+
+## Design Rationale: Why Not Centralised Schema Validation?
+
+GTB's config architecture is intentionally decentralised:
+
+1. **Defaults live in embedded assets**, not in a schema. Each feature package ships its own `assets/init/config.yaml` which is merged by `Props.Assets` during startup. A centralised schema adding default injection would create two sources of truth.
+
+2. **Initialisers handle setup**, including `IsConfigured()` checks. A centralised "required" check would duplicate this logic and couldn't account for feature flags — `github.token` is only required if the GitHub feature is enabled.
+
+3. **The config shape is dynamic**. It depends on which feature packages are registered via `init()`. No single schema document can describe all valid configurations without knowing the feature set at compile time.
+
+4. **JSON Schema as input doesn't fit**. A single JSON Schema document assumes a fixed config shape. With multiple packages each contributing their own keys, a centralised schema becomes either incomplete or overly permissive. JSON Schema has value as a *generated output* for IDE/CI tooling — this is documented as a future consideration.
+
+The per-package `Validate()` pattern gives each package control over its own config contract without coupling to other packages' config keys.
 
 ---
 
@@ -170,7 +205,7 @@ if err != nil {
 
 ### Schema Compilation
 
-Both `WithStructSchema` and `WithJSONSchema` compile to the internal `Schema` struct. Struct tag parsing uses `reflect` to walk the struct and extract `config`, `validate`, `enum`, and `default` tags. JSON Schema parsing uses a lightweight subset parser supporting `type`, `required`, `enum`, `default`, `description`, and `properties`.
+`WithStructSchema` compiles to the internal `Schema` struct. Struct tag parsing uses `reflect` to walk the struct and extract `config`, `validate`, `enum`, and `default` tags. Nested structs without a `config` tag are recursed into with the lowercased field name as the key prefix.
 
 ### Validation Engine
 
@@ -183,24 +218,20 @@ func (c *Container) Validate(schema *Schema) *ValidationResult {
         validateField(key, field, value, result)
     }
 
-    if schema.strict {
-        detectUnknownKeys(c.viper.AllKeys(), schema.fields, result)
-    }
+    detectUnknownKeys(c.viper.AllKeys(), schema.fields, result, schema.strict)
 
     return result
 }
-
-func validateField(key string, field FieldSchema, value any, result *ValidationResult) {
-    // Check required
-    // Check type matches expected
-    // Check enum membership
-    // Recurse into Children for nested fields
-}
 ```
+
+Checks performed:
+- **Required**: field must be present and non-zero
+- **Enum**: value must be in the allowed set
+- **Unknown keys**: keys present in config but absent from schema produce warnings (or errors in strict mode)
 
 ### Hot-Reload Integration
 
-The existing `watchConfig` method in `Container` is extended: if a `Schema` has been set on the container, validation runs on the updated config before observers are notified. If validation fails, the error is sent to the observer error channel and the reload is rejected.
+The existing `watchConfig` method in `Container` is extended: if a `Schema` has been set on the container via `SetSchema`, validation runs on the updated config before observers are notified. If validation fails, the error is logged and the reload is rejected — observers are not called.
 
 ```go
 func (c *Container) watchConfig() {
@@ -218,30 +249,16 @@ func (c *Container) watchConfig() {
 }
 ```
 
-### Error Formatting with Hints
-
-Validation errors integrate with `pkg/errorhandling` via `errors.WithHint`:
-
-```go
-errors.WithHint(
-    errors.Newf("config validation: %s is required but missing", key),
-    fmt.Sprintf("Add %s to your config file or set the %s environment variable", key, envKey),
-)
-```
-
 ---
 
 ## Project Structure
 
 ```
 pkg/config/
-├── config.go          ← UNCHANGED
-├── container.go       ← MODIFIED: add schema field, Validate method, watchConfig gate
-├── load.go            ← MODIFIED: add LoadFilesContainerWithSchema
+├── config.go          ← MODIFIED: add LoadFilesContainerWithSchema
+├── container.go       ← MODIFIED: add schema field, Validate method, SetSchema, watchConfig gate
 ├── observer.go        ← UNCHANGED
-├── schema.go          ← NEW: Schema, FieldSchema, SchemaOption, NewSchema
-├── schema_struct.go   ← NEW: WithStructSchema implementation (reflect-based)
-├── schema_json.go     ← NEW: WithJSONSchema implementation (JSON Schema parser)
+├── schema.go          ← NEW: Schema, FieldSchema, SchemaOption, NewSchema, struct tag parsing
 ├── validate.go        ← NEW: validation engine, ValidationResult, ValidationError
 ├── validate_test.go   ← NEW: validation tests
 ├── schema_test.go     ← NEW: schema construction tests
@@ -253,22 +270,24 @@ pkg/config/
 
 | Test | Scenario |
 |------|----------|
-| `TestValidate_RequiredFieldPresent` | Required field exists and is non-zero &#8594; no error |
-| `TestValidate_RequiredFieldMissing` | Required field absent &#8594; error with hint |
-| `TestValidate_RequiredFieldEmpty` | Required string field is empty string &#8594; error |
-| `TestValidate_TypeMismatch` | Config has string where int expected &#8594; error |
-| `TestValidate_EnumValid` | Value is in allowed set &#8594; no error |
-| `TestValidate_EnumInvalid` | Value not in allowed set &#8594; error listing allowed values |
-| `TestValidate_UnknownKey_Warning` | Key not in schema (non-strict) &#8594; warning only |
-| `TestValidate_UnknownKey_Strict` | Key not in schema (strict mode) &#8594; error |
+| `TestValidate_RequiredFieldPresent` | Required field exists and is non-zero → no error |
+| `TestValidate_RequiredFieldMissing` | Required field absent → error with hint |
+| `TestValidate_RequiredFieldEmpty` | Required string field is empty string → error |
+| `TestValidate_EnumValid` | Value is in allowed set → no error |
+| `TestValidate_EnumInvalid` | Value not in allowed set → error listing allowed values |
+| `TestValidate_UnknownKey_Warning` | Key not in schema (non-strict) → warning only |
+| `TestValidate_UnknownKey_Strict` | Key not in schema (strict mode) → error |
 | `TestValidate_NestedFields` | Nested config objects validated recursively |
-| `TestValidate_DefaultApplied` | Missing optional field with default &#8594; default is set |
 | `TestWithStructSchema_Tags` | Struct tags correctly parsed into Schema |
-| `TestWithJSONSchema_Document` | JSON Schema document correctly parsed into Schema |
-| `TestHotReload_ValidConfig` | Config change passes validation &#8594; observers notified |
-| `TestHotReload_InvalidConfig` | Config change fails validation &#8594; observers not notified, error logged |
-| `TestLoadFilesContainerWithSchema` | End-to-end load + validate |
+| `TestWithStructSchema_NestedStruct` | Nested structs with prefix derivation |
+| `TestWithStructSchema_SkipDash` | Fields tagged `config:"-"` excluded |
+| `TestNewSchema_StrictMode` | Strict flag propagates |
+| `TestNewSchema_NoFields` | Empty schema produces error |
+| `TestLoadFilesContainerWithSchema_Valid` | End-to-end load + validate |
+| `TestLoadFilesContainerWithSchema_Invalid` | Missing required field → error |
+| `TestLoadFilesContainerWithSchema_FileNotFound` | Missing file → nil, nil |
 | `TestValidationResult_Error` | Multi-error formatting matches expected output |
+| `TestValidationResult_ValidEmpty` | Empty result → valid |
 
 ### Coverage
 
@@ -286,14 +305,14 @@ pkg/config/
 ## Documentation
 
 - Godoc for all new public types and functions.
-- Update `docs/components/config.md` with schema validation usage, struct tag reference, and JSON Schema example.
-- Add a "Common Misconfigurations" section showing how validation catches real-world issues.
+- Update `docs/components/config.md` with schema validation usage and struct tag reference.
+- Add `docs/how-to/validate-component-config.md` showing per-package config definition AND validation pattern.
 
 ---
 
 ## Backwards Compatibility
 
-- **No breaking changes**. The `Containable` interface gains one new method (`Validate`), which is additive. Existing code that does not use schemas is unaffected.
+- **No breaking changes**. The `Containable` interface is unchanged. `Validate` and `SetSchema` are methods on `*Container` only.
 - `LoadFilesContainer` and `Load` remain unchanged. Schema validation is opt-in via `LoadFilesContainerWithSchema` or explicit `Validate()` calls.
 - Hot-reload validation only activates when a schema is attached to the container.
 
@@ -301,10 +320,10 @@ pkg/config/
 
 ## Future Considerations
 
-- **Schema generation CLI**: A `gtb config schema` command that generates a JSON Schema from struct tags for distribution alongside the tool.
-- **IDE integration**: Published JSON Schema files can power autocompletion in VS Code, JetBrains, and other editors.
+- **JSON Schema generation**: A `gtb config schema` command that generates a JSON Schema from struct tags for distribution alongside the tool. This enables IDE autocompletion and CI validation against the generated schema.
 - **Deprecation warnings**: Mark config keys as deprecated with a migration hint, easing version upgrades.
 - **Cross-field validation**: Rules like "if provider is gitlab, then gitlab.token is required" using conditional schema logic.
+- **Composable schemas**: Merge multiple per-package schemas into a combined schema for tools that want whole-config validation at startup.
 
 ---
 
@@ -318,7 +337,7 @@ pkg/config/
 
 ### Phase 2 — Validation Engine
 1. Implement `ValidationResult`, `ValidationError`
-2. Implement `Container.Validate()` with required, type, and enum checks
+2. Implement `Container.Validate()` with required and enum checks
 3. Implement unknown-key detection (strict and non-strict modes)
 4. Add unit tests for all validation paths
 
@@ -326,11 +345,6 @@ pkg/config/
 1. Add `LoadFilesContainerWithSchema`
 2. Integrate validation into hot-reload (`watchConfig`)
 3. Add integration tests for load + validate flow
-
-### Phase 4 — JSON Schema Support
-1. Implement `WithJSONSchema` parser
-2. Add tests for JSON Schema document loading
-3. Verify round-trip: struct tags &#8594; JSON Schema &#8594; validate
 
 ---
 
@@ -344,6 +358,6 @@ golangci-lint run --fix
 
 # Verify new types exist
 grep -n 'type Schema struct' pkg/config/schema.go
-grep -n 'func.*Validate' pkg/config/container.go
-grep -n 'LoadFilesContainerWithSchema' pkg/config/load.go
+grep -n 'func.*Validate' pkg/config/validate.go
+grep -n 'LoadFilesContainerWithSchema' pkg/config/config.go
 ```

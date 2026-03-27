@@ -59,6 +59,9 @@ Replace the charmbracelet terminal logger with a `slog` JSON backend for daemon 
 ### [React to Configuration Changes at Runtime](config-hot-reload.md)
 Use `config.Observable` and `AddObserver` to reconfigure long-running services without restarting.
 
+### [Define and Validate Config for a Component](validate-component-config.md)
+Define config defaults via embedded assets and validate them at runtime using per-package schema validation.
+
 ## Error Handling
 
 ### [Write User-Facing Errors with Hints](user-facing-errors.md)

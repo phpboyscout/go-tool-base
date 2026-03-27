@@ -1,8 +1,9 @@
 package http
 
 import (
+	"crypto/rand"
 	"io"
-	"math/rand/v2"
+	"math/big"
 	"net"
 	"net/http"
 	"slices"
@@ -11,6 +12,13 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+)
+
+const (
+	defaultMaxRetries     = 3
+	defaultInitialBackoff = 500 * time.Millisecond
+	defaultMaxBackoff     = 30 * time.Second
+	maxBackoffShift       = 62
 )
 
 // RetryConfig configures the retry behaviour of the HTTP client.
@@ -33,9 +41,9 @@ type RetryConfig struct {
 // DefaultRetryConfig returns a RetryConfig suitable for most use cases.
 func DefaultRetryConfig() RetryConfig {
 	return RetryConfig{
-		MaxRetries:           3,
-		InitialBackoff:       500 * time.Millisecond,
-		MaxBackoff:           30 * time.Second,
+		MaxRetries:           defaultMaxRetries,
+		InitialBackoff:       defaultInitialBackoff,
+		MaxBackoff:           defaultMaxBackoff,
 		RetryableStatusCodes: []int{http.StatusTooManyRequests, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout},
 	}
 }
@@ -141,6 +149,7 @@ func isTransientNetworkError(err error) bool {
 
 	// Check for common transient error strings as a fallback
 	msg := err.Error()
+
 	return strings.Contains(msg, "connection reset") ||
 		strings.Contains(msg, "connection refused") ||
 		strings.Contains(msg, "EOF")
@@ -159,22 +168,26 @@ func (t *retryTransport) computeDelay(attempt int, resp *http.Response) time.Dur
 
 	backoff := t.cfg.InitialBackoff
 	if backoff == 0 {
-		backoff = 500 * time.Millisecond
+		backoff = defaultInitialBackoff
 	}
 
 	maxBackoff := t.cfg.MaxBackoff
 	if maxBackoff == 0 {
-		maxBackoff = 30 * time.Second
+		maxBackoff = defaultMaxBackoff
 	}
 
 	// Exponential backoff: base * 2^(attempt-1)
-	backoff *= 1 << uint(attempt-1)
+	shift := min(uint(max(attempt, 1))-1, maxBackoffShift)
+	backoff *= 1 << shift
+
 	if backoff > maxBackoff {
 		backoff = maxBackoff
 	}
 
 	// Full jitter: uniform random in [0, backoff]
-	return time.Duration(rand.Int64N(int64(backoff) + 1))
+	n, _ := rand.Int(rand.Reader, big.NewInt(int64(backoff)+1))
+
+	return time.Duration(n.Int64())
 }
 
 // parseRetryAfter parses the Retry-After header value, supporting both

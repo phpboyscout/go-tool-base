@@ -74,6 +74,10 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 		return err
 	}
 
+	if err := g.handleConfigValidationFile(ctx, cmdDir, data); err != nil {
+		return err
+	}
+
 	if data.TestCode != "" {
 		g.props.Logger.Infof("Writing test file: %s", filepath.Join(cmdDir, "main_test.go"))
 
@@ -169,6 +173,49 @@ func (g *Generator) handleInitializerFile(cmdDir string, data *templates.Command
 		}
 
 		delete(data.Hashes, "init.go")
+	}
+
+	return nil
+}
+
+func (g *Generator) handleConfigValidationFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
+	configFile := filepath.Join(cmdDir, "config.go")
+
+	if !data.WithConfigValidation {
+		if exists, _ := afero.Exists(g.props.FS, configFile); exists {
+			g.props.Logger.Warnf("Config validation file %s exists but with_config_validation is disabled — consider removing it or re-enabling the flag", configFile)
+		}
+
+		return nil
+	}
+
+	exists, _ := afero.Exists(g.props.FS, configFile)
+	if exists {
+		g.props.Logger.Debugf("Config validation file %s already exists, preserving user customisations", configFile)
+
+		return nil
+	}
+
+	g.props.Logger.Infof("Writing config validation file: %s", configFile)
+
+	content := templates.CommandConfigValidation(*data)
+
+	out, err := g.props.FS.Create(configFile)
+	if err != nil {
+		return errors.Newf("failed to create config validation file: %w", err)
+	}
+
+	defer func() {
+		_ = out.Close()
+	}()
+
+	if _, err := out.WriteString(content); err != nil {
+		return errors.Newf("failed to write config validation file: %w", err)
+	}
+
+	if _, ok := g.props.FS.(*afero.OsFs); ok {
+		cmd := exec.CommandContext(ctx, "go", "fmt", configFile)
+		_ = cmd.Run()
 	}
 
 	return nil
