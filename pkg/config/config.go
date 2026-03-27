@@ -39,6 +39,33 @@ func NewContainerFromViper(l logger.Logger, v *viper.Viper) *Container {
 	}
 }
 
+// LoadFilesContainerWithSchema loads config files and validates against the schema.
+// Returns an error wrapping all validation errors if the config is invalid.
+func LoadFilesContainerWithSchema(l logger.Logger, fs afero.Fs, schema *Schema, configFiles ...string) (Containable, error) {
+	c, err := LoadFilesContainer(l, fs, configFiles...)
+	if err != nil {
+		return nil, err
+	}
+
+	if c == nil {
+		return nil, nil
+	}
+
+	container, ok := c.(*Container)
+	if !ok {
+		return c, nil
+	}
+
+	container.SetSchema(schema)
+
+	result := container.Validate(schema)
+	if !result.Valid() {
+		return nil, errors.New(result.Error())
+	}
+
+	return container, nil
+}
+
 // LoadFilesContainer loads configuration from files and returns a Containable.
 // It returns an error if the first file specified does not exist.
 func LoadFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) (Containable, error) {
