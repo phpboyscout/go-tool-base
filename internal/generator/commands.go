@@ -313,6 +313,7 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 		AncestralPersistentFlags: ancestralPersistentFlags,
 		HasSubcommands:           hasSubcommands,
 		WithInitializer:          g.config.WithInitializer,
+		WithConfigValidation:     g.config.WithConfigValidation,
 	}
 
 	if cmd, err := g.findManifestCommand(); err == nil {

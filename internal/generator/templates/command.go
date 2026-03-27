@@ -46,6 +46,7 @@ type CommandData struct {
 	HasSubcommands           bool
 	OmitRun                  bool
 	WithInitializer          bool
+	WithConfigValidation     bool
 	Hashes                   map[string]string
 }
 
@@ -648,12 +649,47 @@ func getIntSliceDefault(def string) jen.Code {
 	return jen.Index().Int().Values(vals...)
 }
 
+// CommandConfigValidation generates the content for a config.go file containing
+// a Config struct stub and a ValidateConfig function for per-package schema validation.
+func CommandConfigValidation(data CommandData) string {
+	var sb strings.Builder
+	sb.WriteString("package " + data.Package + "\n\n")
+	sb.WriteString("import (\n")
+	sb.WriteString("\t\"github.com/cockroachdb/errors\"\n")
+	sb.WriteString("\t\"github.com/phpboyscout/go-tool-base/pkg/config\"\n")
+	sb.WriteString(")\n\n")
+
+	fmt.Fprintf(&sb, "// %sConfig describes the configuration keys consumed by %s.\n", data.PascalName, data.Name)
+	fmt.Fprintf(&sb, "type %sConfig struct {\n", data.PascalName)
+	fmt.Fprintf(&sb, "\t// TODO: Add config fields with struct tags.\n")
+	fmt.Fprintf(&sb, "\t// Example:\n")
+	fmt.Fprintf(&sb, "\t// APIKey   string `config:\"%s.api_key\" validate:\"required\"`\n", data.Name)
+	fmt.Fprintf(&sb, "\t// LogLevel string `config:\"%s.log_level\" enum:\"debug,info,warn,error\" default:\"info\"`\n", data.Name)
+	sb.WriteString("}\n\n")
+
+	fmt.Fprintf(&sb, "// Validate%sConfig checks that all required %s config keys are present\n", data.PascalName, data.Name)
+	fmt.Fprintf(&sb, "// and that constrained values are within their allowed sets.\n")
+	fmt.Fprintf(&sb, "func Validate%sConfig(cfg *config.Container) error {\n", data.PascalName)
+	fmt.Fprintf(&sb, "\tschema, err := config.NewSchema(config.WithStructSchema(%sConfig{}))\n", data.PascalName)
+	sb.WriteString("\tif err != nil {\n")
+	sb.WriteString("\t\treturn err\n")
+	sb.WriteString("\t}\n\n")
+	sb.WriteString("\tresult := cfg.Validate(schema)\n")
+	sb.WriteString("\tif !result.Valid() {\n")
+	sb.WriteString("\t\treturn errors.New(result.Error())\n")
+	sb.WriteString("\t}\n\n")
+	sb.WriteString("\treturn nil\n")
+	sb.WriteString("}\n")
+
+	return sb.String()
+}
+
 func CommandExecution(data CommandData) string {
 	if data.FullFileContent != "" {
 		return data.FullFileContent
 	}
 
-	cleanImports := getCleanImports(data.Imports, data.WithInitializer)
+	cleanImports := getCleanImports(data.Imports, data.WithInitializer, data.WithConfigValidation)
 
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
@@ -709,7 +745,7 @@ func CommandExecution(data CommandData) string {
 	return sb.String()
 }
 
-func getCleanImports(rawImports []string, withInitializer bool) []string {
+func getCleanImports(rawImports []string, withInitializer, withConfigValidation bool) []string {
 	uniqueImports := make(map[string]bool)
 
 	var cleanImports []string
@@ -723,6 +759,10 @@ func getCleanImports(rawImports []string, withInitializer bool) []string {
 
 	if withInitializer {
 		baseImports = append(baseImports, "github.com/spf13/viper")
+	}
+
+	if withConfigValidation {
+		baseImports = append(baseImports, "github.com/phpboyscout/go-tool-base/pkg/config")
 	}
 
 	for _, imp := range baseImports {
