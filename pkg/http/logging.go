@@ -9,8 +9,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
+
+const (
+	structuredKeyvalCapacity = 16
+)
+
+var errNotHijacker = errors.New("http: response writer does not implement http.Hijacker")
 
 // LogFormat controls the output format of the logging middleware.
 type LogFormat int
@@ -111,6 +119,7 @@ func LoggingMiddleware(l logger.Logger, opts ...LoggingOption) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if _, filtered := cfg.pathFilter[r.URL.Path]; filtered {
 				next.ServeHTTP(w, r)
+
 				return
 			}
 
@@ -145,7 +154,7 @@ func LoggingMiddleware(l logger.Logger, opts ...LoggingOption) Middleware {
 				emitCombined(l, level, cfg, data)
 			case FormatJSON:
 				emitJSON(l, level, cfg, data)
-			default:
+			case FormatStructured:
 				emitStructured(l, level, cfg, data)
 			}
 		})
@@ -167,7 +176,7 @@ type requestData struct {
 }
 
 func emitStructured(l logger.Logger, level logger.Level, cfg loggingConfig, d requestData) {
-	keyvals := make([]any, 0, 16)
+	keyvals := make([]any, 0, structuredKeyvalCapacity)
 	keyvals = append(keyvals, "method", d.method, "path", d.path, "status", d.status, "bytes", d.bytes)
 
 	if cfg.logLatency {
@@ -247,7 +256,13 @@ func emitJSON(l logger.Logger, level logger.Level, cfg loggingConfig, d requestD
 		m[k] = v
 	}
 
-	b, _ := json.Marshal(m)
+	b, err := json.Marshal(m)
+	if err != nil {
+		l.Error("failed to marshal request log", "error", err)
+
+		return
+	}
+
 	logAtLevel(l, level, string(b))
 }
 
@@ -255,14 +270,14 @@ func logAtLevel(l logger.Logger, level logger.Level, msg string) {
 	switch level {
 	case logger.DebugLevel:
 		l.Debug(msg)
+	case logger.InfoLevel:
+		l.Info(msg)
 	case logger.WarnLevel:
 		l.Warn(msg)
 	case logger.ErrorLevel:
 		l.Error(msg)
 	case logger.FatalLevel:
 		l.Fatal(msg)
-	default:
-		l.Info(msg)
 	}
 }
 
@@ -351,5 +366,5 @@ func (rl *responseLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 		return hj.Hijack()
 	}
 
-	return nil, nil, fmt.Errorf("http: response writer does not implement http.Hijacker")
+	return nil, nil, errNotHijacker
 }

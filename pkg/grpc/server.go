@@ -128,6 +128,7 @@ func Stop(logger logger.Logger, srv *grpc.Server) controls.StopFunc {
 		logger.Info("Stopping gRPC server")
 
 		done := make(chan struct{})
+
 		go func() {
 			srv.GracefulStop()
 			close(done)

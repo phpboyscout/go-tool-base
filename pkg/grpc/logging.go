@@ -11,6 +11,8 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
+const rpcKeyvalCapacity = 10
+
 // GRPCLoggingOption configures gRPC transport logging behaviour.
 type GRPCLoggingOption func(*grpcLoggingConfig)
 
@@ -101,6 +103,7 @@ func streamLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.Strea
 
 func emitRPCLog(l logger.Logger, cfg grpcLoggingConfig, method, rpcType string, start time.Time, err error) {
 	code := codes.OK
+
 	if err != nil {
 		if s, ok := status.FromError(err); ok {
 			code = s.Code()
@@ -114,7 +117,7 @@ func emitRPCLog(l logger.Logger, cfg grpcLoggingConfig, method, rpcType string, 
 		level = logger.ErrorLevel
 	}
 
-	keyvals := make([]any, 0, 10)
+	keyvals := make([]any, 0, rpcKeyvalCapacity)
 	keyvals = append(keyvals, "method", method, "code", code.String(), "type", rpcType)
 
 	if cfg.logLatency {
@@ -128,13 +131,13 @@ func grpcLogAtLevel(l logger.Logger, level logger.Level, msg string) {
 	switch level {
 	case logger.DebugLevel:
 		l.Debug(msg)
+	case logger.InfoLevel:
+		l.Info(msg)
 	case logger.WarnLevel:
 		l.Warn(msg)
 	case logger.ErrorLevel:
 		l.Error(msg)
 	case logger.FatalLevel:
 		l.Fatal(msg)
-	default:
-		l.Info(msg)
 	}
 }

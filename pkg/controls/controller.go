@@ -421,11 +421,11 @@ func (c *Controller) GetServiceInfo(name string) (ServiceInfo, bool) {
 
 // Compile-time interface satisfaction checks.
 var (
-	_ Runner          = (*Controller)(nil)
-	_ StateAccessor   = (*Controller)(nil)
-	_ Configurable    = (*Controller)(nil)
-	_ ChannelProvider = (*Controller)(nil)
-	_ Controllable         = (*Controller)(nil)
+	_ Runner              = (*Controller)(nil)
+	_ StateAccessor       = (*Controller)(nil)
+	_ Configurable        = (*Controller)(nil)
+	_ ChannelProvider     = (*Controller)(nil)
+	_ Controllable        = (*Controller)(nil)
 	_ HealthCheckReporter = (*Controller)(nil)
 )
 
