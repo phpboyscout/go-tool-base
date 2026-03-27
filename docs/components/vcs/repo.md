@@ -224,12 +224,10 @@ type RepoLike interface {
     SourceIs(int) bool
     SetSource(int)
     SetRepo(*git.Repository)
-    GetRepo() *git.Repository
     SetKey(*ssh.PublicKeys)
     SetBasicAuth(string, string)
     GetAuth() transport.AuthMethod
     SetTree(*git.Worktree)
-    GetTree() *git.Worktree
     Checkout(plumbing.ReferenceName) error
     CheckoutCommit(plumbing.Hash) error
     CreateBranch(string) error
@@ -244,8 +242,50 @@ type RepoLike interface {
     DirectoryExists(string) (bool, error)
     GetFile(string) (*object.File, error)
     AddToFS(fs afero.Fs, gitFile *object.File, fullPath string) error
+    WithRepo(func(*git.Repository) error) error
+    WithTree(func(*git.Worktree) error) error
 }
 ```
+
+---
+
+## Thread Safety
+
+`go-git` is not thread-safe — its internal caches mutate during reads. Two types are available depending on your concurrency needs:
+
+### `Repo` (default, no locking)
+
+Use `*Repo` when the repository is accessed from a single goroutine. `WithRepo` and `WithTree` simply call the callback with the underlying pointer:
+
+```go
+err := r.WithRepo(func(gr *git.Repository) error {
+    head, err := gr.Head()
+    // ...
+    return err
+})
+```
+
+Returns `ErrNoRepository` / `ErrNoWorktree` if the repository or worktree has not been initialised.
+
+### `ThreadSafeRepo` (opt-in mutex wrapper)
+
+Use `*ThreadSafeRepo` when sharing a repository across goroutines. Every method acquires an exclusive mutex for its full duration.
+
+```go
+ts, err := repo.NewThreadSafeRepo(props)
+
+// Safe to call from multiple goroutines:
+err = ts.WithRepo(func(gr *git.Repository) error {
+    // mutex is held for the duration of this callback
+    return nil
+})
+```
+
+**Caveats:**
+
+- Do not retain the pointer received in `WithRepo`/`WithTree` after the callback returns.
+- Do not call any `ThreadSafeRepo` method from inside a callback — `sync.Mutex` is not re-entrant and this will deadlock.
+- `Open*` / `Clone` return raw pointers for setup-time convenience. Do not share these across goroutines; use `WithRepo` / `WithTree` for subsequent concurrent access.
 
 ---
 
