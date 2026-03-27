@@ -2,7 +2,7 @@
 title: "Structured Changelog Diffing Specification"
 description: "Parse conventional commit-based release notes into categorised change summaries with prominent breaking change highlighting."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - update
@@ -293,35 +293,153 @@ Use `testdata/` files containing real semantic-release output to ensure the pars
 
 ---
 
+## Bundled Changelog in Release Archives
+
+### Motivation
+
+The existing `GetReleaseNotes` / `GetStructuredReleaseNotes` methods make individual API calls per release to retrieve notes. This has two drawbacks:
+
+1. **Multiple API calls**: Fetching notes across many releases requires one API call per release, increasing latency and risk of rate limiting.
+2. **Network dependency**: The release archive is already downloaded (for the binary) during both online and offline update flows. Including a pre-built changelog in the archive provides structured changelog data at zero extra network cost.
+
+### Approach: GitHub Action + GoReleaser `extra_files`
+
+A dedicated GitHub Action step generates `CHANGELOG.md` before GoReleaser runs. This keeps changelog generation out of the GoReleaser config entirely — GoReleaser only needs to include the pre-existing file in the archive.
+
+The [`git-cliff-action`](https://github.com/orhun/git-cliff-action) is the recommended generator because it natively understands conventional commits and its output format is configurable to match semantic-release's markdown structure (so the existing `Parse` function consumes it directly).
+
+**GitHub Actions workflow** (added before the existing GoReleaser step):
+
+```yaml
+- name: Generate changelog
+  uses: orhun/git-cliff-action@v4
+  with:
+    config: cliff.toml
+    args: --output CHANGELOG.md
+
+- name: Release
+  uses: goreleaser/goreleaser-action@v6
+  with:
+    args: release --clean
+```
+
+**GoReleaser config** (archive section only — no `before` hook changes):
+
+```yaml
+archives:
+  - formats: ["tar.gz"]
+    files:
+      - CHANGELOG.md
+```
+
+**git-cliff configuration** (`cliff.toml`): The configuration maps conventional commit types to section headers matching the format `Parse` expects:
+
+```toml
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+* {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}
+{%- endfor %}
+{% endfor %}
+"""
+
+[git]
+conventional_commits = true
+
+[git.commit_parsers]
+# Map conventional commit types to section headers matching Parse expectations
+{ message = "^feat", group = "Features" },
+{ message = "^fix", group = "Bug Fixes" },
+{ message = "^perf", group = "Performance Improvements" },
+{ message = "^refactor", group = "Other" },
+{ message = "^docs", group = "Other" },
+{ message = "^chore", group = "Other" },
+{ message = "^style", group = "Other" },
+{ message = "^test", group = "Other" },
+{ message = "^ci", skip = true },
+```
+
+This approach has several advantages over a GoReleaser `before` hook:
+- **Separation of concerns**: Changelog generation is a CI step, not a build step.
+- **No binary dependencies in GoReleaser**: `git-cliff` runs in its own action container.
+- **Cacheable**: The action can be cached independently of the build.
+- **Debuggable**: A failing changelog step doesn't block the build — it fails visibly as a separate step.
+
+### Extraction During Update
+
+When `SelfUpdater` extracts a downloaded release archive, it already walks the tar entries to locate the binary. The extraction logic is extended to also look for `CHANGELOG.md` and, if found, pass its contents to `changelog.Parse`.
+
+### New Method: `ParseFromArchive`
+
+```go
+// ParseFromArchive extracts and parses a CHANGELOG.md file from a release
+// archive reader. Returns nil (not an error) if no changelog is found in the
+// archive, allowing callers to fall back to API-based retrieval.
+func ParseFromArchive(r io.Reader) (*Changelog, error)
+```
+
+This function scans tar entries for a file named `CHANGELOG.md`, reads its contents, and delegates to `Parse`. If no changelog entry is found, it returns `(nil, nil)` so the caller can fall back gracefully.
+
+### Fallback Strategy
+
+The `SelfUpdater` uses a two-tier resolution order:
+
+1. **Archive-bundled**: Extract `CHANGELOG.md` from the already-downloaded release archive. Zero extra I/O.
+2. **API-based**: If the archive contains no `CHANGELOG.md` (e.g., older releases built before this feature), fall back to the existing per-release API calls via `GetReleaseNotes`.
+
+This ensures backwards compatibility with releases that predate the bundled changelog, while new releases benefit from the single-file approach.
+
+### Performance Considerations
+
+The GitHub Action step runs once per release in CI, not on every build. For repositories with long histories, `git-cliff` adds a few seconds to the release pipeline — negligible compared to the build, notarisation, and upload steps.
+
+If changelog generation becomes a bottleneck as commit count grows, `git-cliff` supports tag ranges (`--latest` or `--range vX.Y.Z..`) to limit scope. A future optimisation can generate only the last N releases rather than the full history.
+
+---
+
 ## Future Considerations
 
 - **Interactive changelog viewer**: Use `pkg/docs/` or Bubble Tea to provide an interactive changelog browser with category filtering.
 - **Changelog caching**: Cache parsed changelogs locally to avoid re-fetching and re-parsing on subsequent update checks.
 - **Migration guide extraction**: For breaking changes, parse linked issues or PR bodies to extract migration instructions.
+- **Incremental changelog generation**: Append only the new release to an existing `CHANGELOG.md` to avoid regenerating the full history on every release.
 
 ---
 
 ## Implementation Phases
 
-### Phase 1 -- Types and Parser
+### Phase 1 -- Types and Parser (DONE)
 1. Create `pkg/changelog/` package
 2. Define `Category`, `Entry`, `Release`, `Changelog` types
 3. Implement `Parse` with regex-based line parser
 4. Implement `HasBreakingChanges`, `BreakingChanges`, `EntriesByCategory`
 
-### Phase 2 -- Formatter
+### Phase 2 -- Formatter (DONE)
 1. Implement `FormatSummary`
 2. Add test fixtures from real semantic-release output
 
-### Phase 3 -- Integration
+### Phase 3 -- API Integration (DONE)
 1. Add `GetStructuredReleaseNotes` to `SelfUpdater`
 2. Wire into the update command's release notes display
 
-### Phase 4 -- Tests
+### Phase 4 -- Tests (DONE)
 1. Unit tests for parser with all edge cases
 2. Unit tests for formatter
 3. Integration test for `GetStructuredReleaseNotes`
 4. Run with race detector
+
+### Phase 5 -- Bundled Changelog
+1. Implement `ParseFromArchive` in `pkg/changelog/`
+2. Add `cliff.toml` configuration for `git-cliff`
+3. Add changelog generation step to GitHub Actions release workflow
+4. Add `CHANGELOG.md` to archive `files` in `.goreleaser.yaml`
+5. Extend `SelfUpdater` archive extraction to detect and parse `CHANGELOG.md`
+6. Implement fallback: archive-bundled → API-based
+7. Unit tests for `ParseFromArchive` (valid archive, missing file, malformed content)
+8. Update component documentation
 
 ---
 
@@ -339,4 +457,16 @@ ls pkg/changelog/
 
 # Verify integration method
 grep -n 'GetStructuredReleaseNotes' pkg/setup/update.go
+
+# Verify archive parsing
+grep -n 'ParseFromArchive' pkg/changelog/parse.go
+
+# Verify goreleaser config includes CHANGELOG.md
+grep -n 'CHANGELOG.md' .goreleaser.yaml
+
+# Verify git-cliff config exists
+cat cliff.toml
+
+# Verify GitHub Actions workflow includes changelog step
+grep -n 'git-cliff' .github/workflows/release.yml
 ```

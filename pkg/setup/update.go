@@ -18,6 +18,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"github.com/phpboyscout/go-tool-base/pkg/changelog"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs"
 	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
@@ -477,6 +478,39 @@ func (s *SelfUpdater) GetReleaseNotes(ctx context.Context, from string, to strin
 	slices.Reverse(releaseNotes)
 
 	return fmt.Sprintf("# Release Notes from %s to %s\n\n%s", from, to, strings.Join(releaseNotes, "\n\n")), nil
+}
+
+// GetStructuredReleaseNotes retrieves release notes between two versions and
+// returns them as a parsed Changelog. If an archive buffer is provided, it
+// attempts to extract a bundled CHANGELOG.md first, falling back to per-release
+// API calls when the archive contains no changelog.
+func (s *SelfUpdater) GetStructuredReleaseNotes(ctx context.Context, from, to string, archive ...bytes.Buffer) (*changelog.Changelog, error) {
+	// Try archive-bundled changelog first.
+	if len(archive) > 0 {
+		cl, err := changelog.ParseFromArchive(bytes.NewReader(archive[0].Bytes()))
+		if err != nil {
+			s.logger.Debug("failed to parse changelog from archive, falling back to API", "error", err)
+		}
+
+		if cl != nil {
+			cl.FromVersion = from
+			cl.ToVersion = to
+
+			return cl, nil
+		}
+	}
+
+	// Fall back to per-release API calls.
+	raw, err := s.GetReleaseNotes(ctx, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	cl := changelog.Parse(raw)
+	cl.FromVersion = from
+	cl.ToVersion = to
+
+	return cl, nil
 }
 
 func (s *SelfUpdater) filterReleaseNotes(releases []release.Release, from, to string) []string {
