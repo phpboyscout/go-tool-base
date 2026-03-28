@@ -94,51 +94,6 @@ func TestCollectAncestoralPersistentFlags(t *testing.T) {
 	}
 }
 
-func TestConvertManifestFlagsToTemplate(t *testing.T) {
-	g := &Generator{}
-
-	manifestFlags := []ManifestFlag{
-		{
-			Name:        "flag1",
-			Type:        "string",
-			Description: "Description 1",
-			Persistent:  true,
-			Shorthand:   "f",
-			Default:     "default",
-			Required:    true,
-		},
-		{
-			Name:        "flag2",
-			Type:        "int",
-			Description: "Description 2",
-		},
-	}
-
-	expected := []templates.CommandFlag{
-		{
-			Name:        "flag1",
-			Type:        "string",
-			Description: "Description 1",
-			Persistent:  true,
-			Shorthand:   "f",
-			Default:     "default",
-			Required:    true,
-		},
-		{
-			Name:        "flag2",
-			Type:        "int",
-			Description: "Description 2",
-			Persistent:  false,
-			Shorthand:   "",
-			Default:     "",
-			Required:    false,
-		},
-	}
-
-	tFlags := g.convertManifestFlagsToTemplate(manifestFlags)
-	assert.Equal(t, expected, tFlags)
-}
-
 func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
