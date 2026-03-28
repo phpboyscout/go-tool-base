@@ -184,6 +184,17 @@ pkg/chat/
 | `TestChat_ParallelToolsDisabled` | Default config → sequential execution (existing behaviour) |
 | `TestChat_ParallelToolsEnabled` | ParallelTools=true → parallel execution path taken |
 
+### Integration Tests
+
+- **Parallel execution timing**: Register multiple tools with known sleep durations, execute in parallel, and assert total wall-clock time is less than the sum of individual durations (proving true parallelism).
+- **Semaphore enforcement**: Set `MaxParallelTools=2`, register 5 tools that record their start/end timestamps via a shared atomic counter, and verify no more than 2 were executing concurrently at any point.
+- **Context cancellation propagation**: Cancel the parent context while parallel tools are in-flight, and verify all tools receive the cancellation and the function returns promptly.
+- Gate with `testutil.SkipIfNotIntegration(t, "chat")` in a dedicated `parallel_integration_test.go` file.
+
+### E2E BDD Tests (Godog) — **Not applicable**
+
+Parallel tool execution is an internal optimisation within the ReAct loop with no CLI surface or user-observable workflow. Concurrency semantics and ordering guarantees are best verified through the unit tests and integration tests above. See the [suitability assessment](2026-03-28-godog-bdd-strategy.md#suitability-assessment) for guidance on when Godog adds value.
+
 ### Coverage
 - Target: 100% for `executeToolsParallel` function.
 - Target: 90%+ for `pkg/chat/` overall.

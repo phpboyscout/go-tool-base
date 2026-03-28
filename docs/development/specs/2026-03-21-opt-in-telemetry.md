@@ -476,6 +476,55 @@ func TestEvent_NoPII(t *testing.T) {
 }
 ```
 
+### Integration Tests
+
+- **Collector → backend round-trip**: Create a `Collector` with a real `FileBackend`, track events, flush, then read the output file and verify JSON structure and content.
+- **HTTP backend delivery**: Start an `httptest.Server`, configure `HTTPBackend` with its URL, flush events, and assert the server received the expected payload.
+- **Config toggle round-trip**: Enable telemetry via `viper.Set`, create a `Collector` from config, track an event, disable via config, verify flush is a no-op.
+- Gate with `testutil.SkipIfNotIntegration(t, "telemetry")` in a dedicated `telemetry_integration_test.go` file.
+
+### E2E BDD Tests (Godog) — **Moderate fit**
+
+The `telemetry enable/disable/status` subcommands are user-facing CLI operations with clear Given/When/Then semantics. Feature file: `features/cli/telemetry.feature`.
+
+```gherkin
+@cli @integration
+Feature: CLI Telemetry Command
+  Users can opt in or out of anonymous usage telemetry
+  and check their current telemetry status.
+
+  Background:
+    Given the gtb binary is built
+
+  Scenario: Telemetry is disabled by default
+    When I run gtb with "telemetry status"
+    Then the exit code is 0
+    And stdout contains "disabled"
+
+  Scenario: Enable telemetry
+    When I run gtb with "telemetry enable"
+    Then the exit code is 0
+    When I run gtb with "telemetry status"
+    Then the exit code is 0
+    And stdout contains "enabled"
+
+  Scenario: Disable telemetry after enabling
+    When I run gtb with "telemetry enable"
+    Then the exit code is 0
+    When I run gtb with "telemetry disable"
+    Then the exit code is 0
+    When I run gtb with "telemetry status"
+    Then the exit code is 0
+    And stdout contains "disabled"
+
+  Scenario: Telemetry help text
+    When I run gtb with "telemetry --help"
+    Then the exit code is 0
+    And stdout contains "telemetry"
+```
+
+The data collection and backend pipeline are **not** testable via Godog — verify these through unit tests and the integration tests above.
+
 ### Coverage
 - Target: 95%+ for `pkg/telemetry/` (privacy-sensitive code requires thorough testing).
 - Target: 90%+ for `pkg/cmd/telemetry/`.

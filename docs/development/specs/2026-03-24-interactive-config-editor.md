@@ -180,6 +180,8 @@ pkg/cmd/config/
 
 ## Testing Strategy
 
+### Unit Tests
+
 - **Unit tests** for every subcommand handler using testify assertions.
 - **`MaskSensitive` / `IsSensitiveKey`** tested with table-driven tests covering edge cases (empty string, exactly 4 chars, various key patterns).
 - **`config set`** tests use afero in-memory filesystem to verify config file writes without touching disk.
@@ -189,6 +191,81 @@ pkg/cmd/config/
 - **`config edit`** tests use `teatest` for bubbletea/huh model testing where feasible; integration-level tests verify that form submission writes correct values.
 - **Mocks** generated via mockery/v3 for `config.Containable` and any other interfaces.
 - **Coverage target:** 90%+ for all files in `pkg/cmd/config/`.
+
+### Integration Tests
+
+- **Config file round-trip**: Write values via `config set`, read back via `config get`, verify consistency across the Viper config layer and on-disk YAML.
+- **Schema validation end-to-end**: Load a multi-file config with embedded defaults, run `config validate`, assert correct diagnostics for missing required keys and type mismatches.
+- Gate with `testutil.SkipIfNotIntegration(t, "config")` in a dedicated `config_integration_test.go` file.
+
+### E2E BDD Tests (Godog) — **Strong fit**
+
+The `config` subcommand introduces five user-facing CLI operations that are natural Given/When/Then scenarios. Feature file: `features/cli/config.feature`.
+
+```gherkin
+@cli @smoke
+Feature: CLI Config Command
+  Background:
+    Given the gtb binary is built
+    And a temporary init directory
+
+  Scenario: Get a config value
+    Given the init directory contains a config file:
+      """
+      log:
+        level: debug
+      """
+    When I run gtb with "config get log.level --config {init_dir}/config.yaml"
+    Then the exit code is 0
+    And stdout contains "debug"
+
+  Scenario: Set a config value
+    Given the init directory contains a config file:
+      """
+      log:
+        level: info
+      """
+    When I run gtb with "config set log.level debug --config {init_dir}/config.yaml"
+    Then the exit code is 0
+    And the config file in the init directory contains "level: debug"
+
+  Scenario: List config values with sensitive masking
+    Given the init directory contains a config file:
+      """
+      github:
+        auth:
+          value: secret-token-123
+      log:
+        level: info
+      """
+    When I run gtb with "config list --config {init_dir}/config.yaml"
+    Then the exit code is 0
+    And stdout contains "log.level"
+    And stdout does not contain "secret-token-123"
+
+  Scenario: Validate config reports missing keys
+    Given the init directory contains a config file:
+      """
+      custom:
+        key: value
+      """
+    When I run gtb with "config validate --config {init_dir}/config.yaml"
+    Then the exit code is not 0
+
+  Scenario: JSON output for get command
+    Given the init directory contains a config file:
+      """
+      log:
+        level: warn
+      """
+    When I run gtb with "config get log.level --config {init_dir}/config.yaml --output json"
+    Then the exit code is 0
+    And stdout is valid JSON
+```
+
+The `config edit` subcommand (interactive TUI) is **not** testable via Godog — test outcomes only (verify that form submission writes correct values) using `teatest` in unit tests.
+
+**Note:** The `config get` command also unblocks config precedence E2E testing (deferred from the Godog BDD strategy Phase 3). Once implemented, add scenarios verifying file → env → flag precedence.
 
 ---
 

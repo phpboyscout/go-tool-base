@@ -295,6 +295,17 @@ func newMockSSEServer(t *testing.T, events []string) *httptest.Server {
 }
 ```
 
+### Integration Tests
+
+- **Live SSE round-trip**: Start an `httptest.Server` that emits a multi-event SSE stream, configure a provider client with its URL, call `StreamChat`, and assert the callback receives all deltas in order and the final assembled text is correct.
+- **Stream cancellation under load**: Start a long-running mock SSE stream, cancel the context mid-stream, and verify the client returns promptly with the partial result and a context error.
+- **Tool call during stream**: Mock SSE server emits a tool-call event mid-stream, verify the tool is executed and the stream resumes with the tool result.
+- Gate with `testutil.SkipIfNotIntegration(t, "chat")` in a dedicated `streaming_integration_test.go` file.
+
+### E2E BDD Tests (Godog) — **Not applicable**
+
+Streaming is a pure library feature with no CLI surface. SSE protocol handling and callback orchestration are best verified through the unit tests and integration tests above. See the [suitability assessment](2026-03-28-godog-bdd-strategy.md#suitability-assessment) for guidance on when Godog adds value.
+
 ### Coverage
 - Target: 90%+ for `pkg/chat/` including streaming paths.
 

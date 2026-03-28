@@ -279,6 +279,8 @@ pkg/cmd/root/
 
 ## Testing Strategy
 
+### Unit Tests
+
 | Test | Scenario |
 |------|----------|
 | `TestDiscover_EmptyDir` | No plugins directory → empty list, no error |
@@ -307,6 +309,49 @@ func createTestPlugin(t *testing.T, fs afero.Fs, dir, name, content string) {
     afero.WriteFile(fs, scriptPath, []byte(content), 0755)
 }
 ```
+
+### Integration Tests
+
+- **Plugin discovery on real filesystem**: Create actual plugin directories with executable scripts in a temp dir, verify discovery, execution, and env var propagation.
+- **Plugin subprocess lifecycle**: Verify context cancellation kills plugin processes, non-zero exits propagate error codes, and stdout/stderr are captured.
+- Gate with `testutil.SkipIfNotIntegration(t, "plugins")` in a dedicated `plugins_integration_test.go` file.
+
+### E2E BDD Tests (Godog) — **Strong fit**
+
+Plugin discovery and execution are user-facing CLI workflows. Feature file: `features/cli/plugins.feature`.
+
+```gherkin
+@cli @integration
+Feature: CLI Plugin System
+  Plugins are discovered from the plugins directory and
+  registered as CLI subcommands.
+
+  Background:
+    Given the gtb binary is built
+
+  Scenario: Plugin appears in help output
+    Given a plugin "hello" with a manifest and script that prints "Hello from plugin"
+    When I run gtb with "--help"
+    Then the exit code is 0
+    And stdout contains "hello"
+
+  Scenario: Plugin executes successfully
+    Given a plugin "hello" with a manifest and script that prints "Hello from plugin"
+    When I run gtb with "hello"
+    Then the exit code is 0
+    And stdout contains "Hello from plugin"
+
+  Scenario: Plugin with non-zero exit propagates error
+    Given a plugin "fail" with a script that exits with code 42
+    When I run gtb with "fail"
+    Then the exit code is not 0
+
+  Scenario: Missing plugins directory is not an error
+    When I run gtb with "--help"
+    Then the exit code is 0
+```
+
+Plugin step definitions will need a Given step that creates a temp plugins directory with executable scripts and configures the binary to look there (via `--config` or env var).
 
 ### Coverage
 - Target: 90%+ for `pkg/plugins/`.

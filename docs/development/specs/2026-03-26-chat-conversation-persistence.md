@@ -337,6 +337,18 @@ pkg/chat/
 
 All filesystem tests use `afero.NewMemMapFs()` for isolation.
 
+### Integration Tests
+
+- **File store round-trip on real filesystem**: Use a temp directory (not afero MemMapFs), save a snapshot via `FileStore`, load it back, and verify byte-level equality. Confirms OS-level file permissions, encoding, and path handling.
+- **Encrypted round-trip**: Save an encrypted snapshot to a real file, read the raw bytes and verify they are not plaintext, then load via `FileStore` with the correct key and verify content matches.
+- **Multi-provider save/restore**: Create snapshots from Claude, OpenAI, and Gemini clients, save all to a single `FileStore`, list and verify summaries, then restore each and confirm provider metadata matches.
+- **Corrupted file handling**: Write garbage bytes to a snapshot file path, attempt to load, and verify a descriptive error is returned without panic.
+- Gate with `testutil.SkipIfNotIntegration(t, "chat")` in a dedicated `persistence_integration_test.go` file.
+
+### E2E BDD Tests (Godog) — **Not applicable**
+
+Conversation persistence is a library-level feature with no CLI surface. Serialisation, encryption, and store operations are best verified through the unit tests and integration tests above. See the [suitability assessment](2026-03-28-godog-bdd-strategy.md#suitability-assessment) for guidance on when Godog adds value.
+
 ### Coverage
 
 - Target: 90%+ for `pkg/chat/` including persistence paths.
