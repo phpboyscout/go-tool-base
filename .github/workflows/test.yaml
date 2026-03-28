@@ -20,8 +20,8 @@ jobs:
         with:
           args: --timeout=30m
 
-  unit-tests:
-    name: unit tests
+  tests:
+    name: tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -32,8 +32,8 @@ jobs:
         run: go mod download
       - name: go vet
         run: go vet ./...
-      - name: go test
-        run: go test -v -coverprofile /tmp/cover.out ./...
+      - name: Unit tests with race detection and coverage
+        run: go test -race -v -coverprofile /tmp/cover.out ./...
       - name: Check coverage threshold
         run: |
           THRESHOLD=65
@@ -51,19 +51,8 @@ jobs:
           name: coverage-report
           path: /tmp/cover.out
           if-no-files-found: error
-
-  race-detection:
-    name: race detection
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version: stable
-      - name: go mod download
-        run: go mod download
-      - name: go test -race
-        run: go test -race ./...
+      - name: Integration tests
+        run: INT_TEST=1 go test -race -v ./...
 
   e2e-tests:
     name: e2e bdd tests
