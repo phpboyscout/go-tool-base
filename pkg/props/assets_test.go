@@ -23,8 +23,8 @@ func (f *spyFile) Close() error {
 	return f.File.Close()
 }
 
-func (f *spyFile) Read(p []byte) (int, error)          { return f.File.Read(p) }
-func (f *spyFile) Stat() (fs.FileInfo, error)           { return f.File.Stat() }
+func (f *spyFile) Read(p []byte) (int, error) { return f.File.Read(p) }
+func (f *spyFile) Stat() (fs.FileInfo, error) { return f.File.Stat() }
 
 // spyFS wraps an fs.FS and returns spyFiles that track Close calls.
 type spyFS struct {
@@ -61,13 +61,15 @@ func TestAssets_Shadowing(t *testing.T) {
 	// Static assets should use Reverse Search (Shadowing - Last In wins)
 	f, err := assets.Open("logo.png")
 	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
 	data, _ := io.ReadAll(f)
 	assert.Equal(t, "sub-logo", string(data))
 
 	// Should still find root assets if not shadowed
-	f, err = assets.Open("readme.md")
+	f2, err := assets.Open("readme.md")
 	require.NoError(t, err)
-	data, _ = io.ReadAll(f)
+	defer func() { _ = f2.Close() }()
+	data, _ = io.ReadAll(f2)
 	assert.Equal(t, "root-readme", string(data))
 }
 
@@ -92,26 +94,30 @@ func TestAssets_Merging(t *testing.T) {
 
 	// Merged YAML
 	f, _ := assets.Open("config.yaml")
+	defer func() { _ = f.Close() }()
 	data, _ := io.ReadAll(f)
 	assert.Contains(t, string(data), "name: sub")
 	assert.Contains(t, string(data), "port: 8080")
 
 	// Merged TOML
-	f, _ = assets.Open("config.toml")
-	data, _ = io.ReadAll(f)
+	f2, _ := assets.Open("config.toml")
+	defer func() { _ = f2.Close() }()
+	data, _ = io.ReadAll(f2)
 	assert.Contains(t, string(data), "name = 'sub'")
 	assert.Contains(t, string(data), "port = 8080")
 
 	// Merged ENV
-	f, _ = assets.Open("test.env")
-	data, _ = io.ReadAll(f)
+	f3, _ := assets.Open("test.env")
+	defer func() { _ = f3.Close() }()
+	data, _ = io.ReadAll(f3)
 	assert.Contains(t, string(data), "KEY1=OVERRIDDEN")
 	assert.Contains(t, string(data), "KEY2=VALUE2")
 	assert.Contains(t, string(data), "KEY3=VALUE3")
 
 	// Merged CSV (Append)
-	f, _ = assets.Open("data.csv")
-	data, _ = io.ReadAll(f)
+	f4, _ := assets.Open("data.csv")
+	defer func() { _ = f4.Close() }()
+	data, _ = io.ReadAll(f4)
 	assert.Contains(t, string(data), "1,root")
 	assert.Contains(t, string(data), "2,sub")
 }
@@ -149,13 +155,15 @@ func TestAssets_Mount(t *testing.T) {
 
 	f, err := assets.Open("plugins/myplugin/info.txt")
 	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
 	data, _ := io.ReadAll(f)
 	assert.Equal(t, "sub-info", string(data))
 
 	// Verify root still works
-	f, err = assets.Open("root.txt")
+	f2, err := assets.Open("root.txt")
 	require.NoError(t, err)
-	data, _ = io.ReadAll(f)
+	defer func() { _ = f2.Close() }()
+	data, _ = io.ReadAll(f2)
 	assert.Equal(t, "root", string(data))
 }
 
@@ -168,6 +176,7 @@ func TestAssets_AferoSupport(t *testing.T) {
 
 	f, err := assets.Open("afero.txt")
 	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
 	data, _ := io.ReadAll(f)
 	assert.Equal(t, "hello from afero", string(data))
 }
@@ -186,11 +195,17 @@ func TestAssets_For(t *testing.T) {
 	subset := assets.For("a", "c")
 	require.Len(t, subset.Slice(), 2)
 
-	_, err := subset.Open("f1.txt")
-	assert.NoError(t, err)
+	f1, err := subset.Open("f1.txt")
+	require.NoError(t, err)
+	if f1 != nil {
+		defer func() { _ = f1.Close() }()
+	}
 
-	_, err = subset.Open("f3.txt")
-	assert.NoError(t, err)
+	f3, err := subset.Open("f3.txt")
+	require.NoError(t, err)
+	if f3 != nil {
+		defer func() { _ = f3.Close() }()
+	}
 
 	_, err = subset.Open("f2.txt")
 	assert.Error(t, err)
@@ -222,6 +237,7 @@ func TestOpenMergedCSV_SingleFS(t *testing.T) {
 
 	f, err := assets.Open("data.csv")
 	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
 
 	data, _ := io.ReadAll(f)
 	assert.Contains(t, string(data), "1,alice")
@@ -247,6 +263,7 @@ func TestOpenMergedCSV_MultipleFS(t *testing.T) {
 
 	f, err := assets.Open("data.csv")
 	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
 
 	data, _ := io.ReadAll(f)
 	assert.Contains(t, string(data), "1,alice")
@@ -326,10 +343,16 @@ func TestAssets_Merge(t *testing.T) {
 	result := a1.Merge(a2)
 	require.NotNil(t, result)
 	assert.Len(t, result.Names(), 2)
-	_, err := result.Open("f1.txt")
-	assert.NoError(t, err)
-	_, err = result.Open("f2.txt")
-	assert.NoError(t, err)
+	rf1, err := result.Open("f1.txt")
+	require.NoError(t, err)
+	if rf1 != nil {
+		defer func() { _ = rf1.Close() }()
+	}
+	rf2, err := result.Open("f2.txt")
+	require.NoError(t, err)
+	if rf2 != nil {
+		defer func() { _ = rf2.Close() }()
+	}
 }
 
 func TestMergedFileInfo_Accessors(t *testing.T) {

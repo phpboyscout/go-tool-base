@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
@@ -13,7 +14,7 @@ import (
 func TestGetOpenAICredentials(t *testing.T) {
 	t.Run("token provided directly", func(t *testing.T) {
 		token, err := getOpenAICredentials("direct-token", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "direct-token", token)
 	})
 
@@ -22,7 +23,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("config-token")
 
 		token, err := getOpenAICredentials("", cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "config-token", token)
 	})
 
@@ -33,7 +34,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("")
 
 		token, err := getOpenAICredentials("", cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "env-token", token)
 	})
 
@@ -44,7 +45,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("")
 
 		_, err := getOpenAICredentials("", cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "OpenAI token is required")
 	})
 

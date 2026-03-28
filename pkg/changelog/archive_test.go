@@ -89,7 +89,7 @@ func TestParseFromArchive_NoChangelog(t *testing.T) {
 	})
 
 	cl, err := ParseFromArchive(archive)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, cl)
 }
 
@@ -147,7 +147,7 @@ func TestParseFromArchive_InvalidGzip(t *testing.T) {
 	t.Parallel()
 
 	cl, err := ParseFromArchive(strings.NewReader("not-gzip-data"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cl)
 	assert.Contains(t, err.Error(), "gzip")
 }

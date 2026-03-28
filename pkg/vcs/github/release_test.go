@@ -41,9 +41,9 @@ func TestGithubRelease_NilFields(t *testing.T) {
 	t.Parallel()
 
 	rel := &githubRelease{release: &github.RepositoryRelease{}}
-	assert.Equal(t, "", rel.GetName())
-	assert.Equal(t, "", rel.GetTagName())
-	assert.Equal(t, "", rel.GetBody())
+	assert.Empty(t, rel.GetName())
+	assert.Empty(t, rel.GetTagName())
+	assert.Empty(t, rel.GetBody())
 	assert.False(t, rel.GetDraft())
 	assert.Empty(t, rel.GetAssets())
 }
@@ -101,8 +101,8 @@ func TestGithubAsset_NilFields(t *testing.T) {
 
 	asset := &githubAsset{asset: &github.ReleaseAsset{}}
 	assert.Equal(t, int64(0), asset.GetID())
-	assert.Equal(t, "", asset.GetName())
-	assert.Equal(t, "", asset.GetBrowserDownloadURL())
+	assert.Empty(t, asset.GetName())
+	assert.Empty(t, asset.GetBrowserDownloadURL())
 }
 
 // --- GitHubReleaseProvider tests ---
@@ -142,7 +142,7 @@ func TestReleaseProvider_GetLatestRelease_Error(t *testing.T) {
 
 	provider := NewReleaseProvider(client)
 	rel, err := provider.GetLatestRelease(context.Background(), "owner", "repo")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, rel)
 }
 
@@ -171,7 +171,7 @@ func TestReleaseProvider_GetReleaseByTag_Error(t *testing.T) {
 
 	provider := NewReleaseProvider(client)
 	rel, err := provider.GetReleaseByTag(context.Background(), "owner", "repo", "v99.0.0")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, rel)
 }
 
@@ -203,7 +203,7 @@ func TestReleaseProvider_ListReleases_Error(t *testing.T) {
 
 	provider := NewReleaseProvider(client)
 	releases, err := provider.ListReleases(context.Background(), "owner", "repo", 10)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, releases)
 }
 

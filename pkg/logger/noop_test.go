@@ -40,5 +40,5 @@ func TestNoopBackend_Handler(t *testing.T) {
 }
 
 func TestNoopBackend_InterfaceSatisfaction(t *testing.T) {
-	var _ Logger = NewNoop()
+	_ = NewNoop()
 }

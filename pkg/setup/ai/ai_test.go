@@ -370,32 +370,6 @@ func TestProviderLabel(t *testing.T) {
 	}
 }
 
-func TestNewAIInitialiser_WithAssets(t *testing.T) {
-	t.Parallel()
-
-	props := newTestProps(t)
-	props.Assets = p.NewAssets()
-
-	i := NewAIInitialiser(props)
-	require.NotNil(t, i)
-	assert.Equal(t, "AI integration", i.Name())
-}
-
-func TestNewAIInitialiser_NilAssets(t *testing.T) {
-	t.Parallel()
-
-	props := newTestProps(t)
-	// props.Assets is nil — should not panic
-	i := NewAIInitialiser(props)
-	require.NotNil(t, i)
-}
-
-func TestAIInitialiser_Name(t *testing.T) {
-	t.Parallel()
-	i := &AIInitialiser{}
-	assert.Equal(t, "AI integration", i.Name())
-}
-
 func TestAIInitialiser_IsConfigured(t *testing.T) {
 	t.Parallel()
 

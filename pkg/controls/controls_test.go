@@ -361,7 +361,7 @@ func TestController_Supervisor_NoPolicy(t *testing.T) {
 	)
 
 	c.Start()
-	
+
 	// Wait a moment to see if it restarts
 	time.Sleep(50 * time.Millisecond)
 	c.Stop()
@@ -473,7 +473,7 @@ func TestController_ServiceInfo(t *testing.T) {
 	assert.Equal(t, 1, info.RestartCount)
 	assert.NotZero(t, info.LastStarted)
 	assert.NotZero(t, info.LastStopped)
-	assert.ErrorContains(t, info.Error, "max restarts exceeded")
+	require.ErrorContains(t, info.Error, "max restarts exceeded")
 
 	_, ok = c.GetServiceInfo("non-existent")
 	assert.False(t, ok)

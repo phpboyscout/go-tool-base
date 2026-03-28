@@ -10,11 +10,12 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 var fixedTime = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -50,7 +51,7 @@ func TestNewThreadSafeRepo_OptError(t *testing.T) {
 
 	ts, err := NewThreadSafeRepo(p, errOpt)
 	assert.Nil(t, ts)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opt failed")
 }
 
@@ -109,7 +110,7 @@ func TestThreadSafeRepo_SetRepo_SetTree(t *testing.T) {
 
 		return nil
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = ts.WithTree(func(wt *git.Worktree) error {
 		assert.Equal(t, tree, wt)
@@ -148,7 +149,7 @@ func TestThreadSafeRepo_WithRepo_CallsFn(t *testing.T) {
 
 		return nil
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, called)
 }
 
@@ -202,7 +203,7 @@ func TestThreadSafeRepo_WithTree_CallsFn(t *testing.T) {
 
 		return nil
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, called)
 }
 

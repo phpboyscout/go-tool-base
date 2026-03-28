@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -48,7 +49,7 @@ func TestRegisterMiddleware_Single(t *testing.T) {
 
 	err := wrapped(&cobra.Command{}, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"feature:before", "handler", "feature:after"}, order)
 }
 
@@ -68,7 +69,7 @@ func TestRegisterMiddleware_Multiple(t *testing.T) {
 
 	err := wrapped(&cobra.Command{}, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{
 		"f1:before",
 		"f2:before",
@@ -94,7 +95,7 @@ func TestRegisterGlobalMiddleware(t *testing.T) {
 
 	err := wrapped(&cobra.Command{}, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"global:before", "handler", "global:after"}, order)
 }
 
@@ -126,7 +127,7 @@ func TestChain_GlobalBeforeFeature(t *testing.T) {
 
 	err := wrapped(&cobra.Command{}, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{
 		"global:before",
 		"feature:before",
@@ -150,7 +151,7 @@ func TestChain_EmptyRegistry(t *testing.T) {
 
 	err := wrapped(&cobra.Command{}, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"handler"}, order)
 }
 
@@ -173,7 +174,7 @@ func TestChain_ExecutionOrder(t *testing.T) {
 
 	err := wrapped(&cobra.Command{}, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{
 		"g1:before",
 		"g2:before",
@@ -218,7 +219,7 @@ func TestAddCommandWithMiddleware_WiresRunE(t *testing.T) {
 
 	err := child.RunE(child, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"global:before", "handler", "global:after"}, order)
 	assert.Equal(t, []*cobra.Command{child}, parent.Commands())
 }
@@ -261,7 +262,7 @@ func TestAddCommandWithMiddleware_WiresSubcommands(t *testing.T) {
 
 	err := sub.RunE(sub, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"global:before", "sub-handler", "global:after"}, order)
 }
 
@@ -290,6 +291,6 @@ func TestApplyMiddlewareRecursively_Deep(t *testing.T) {
 
 	err := level3.RunE(level3, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []string{"global:before", "deep-handler", "global:after"}, order)
 }

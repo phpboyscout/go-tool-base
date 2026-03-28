@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/invopop/jsonschema"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
-	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOpenAIProvider_New(t *testing.T) {
@@ -31,7 +32,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 			Token:    "",
 		}
 		_, err := chat.New(context.Background(), p, cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "OpenAI token is required")
 	})
 
@@ -42,7 +43,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 			Model:    "",
 		}
 		_, err := chat.New(context.Background(), p, cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Model is required for ProviderOpenAICompatible")
 	})
 
@@ -55,7 +56,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 		}
 		cfg := chat.Config{Provider: chat.ProviderOpenAI}
 		client, err := chat.New(context.Background(), pWithKey, cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
 
@@ -63,7 +64,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 		t.Setenv(chat.EnvOpenAIKey, "env-key")
 		cfg := chat.Config{Provider: chat.ProviderOpenAI}
 		client, err := chat.New(context.Background(), p, cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
 }
@@ -110,19 +111,19 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		var target response
 		err := client.Ask(context.Background(), "test", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "success", target.Result)
 	})
 
 	t.Run("empty_question", func(t *testing.T) {
 		var target map[string]interface{}
 		err := client.Ask(context.Background(), "", &target)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "question cannot be empty")
 	})
 }
@@ -147,7 +148,7 @@ func TestOpenAIProvider_Add(t *testing.T) {
 
 	t.Run("empty_prompt", func(t *testing.T) {
 		err := client.Add(context.Background(), "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 	})
 
@@ -249,7 +250,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 					},
 				}
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		type weatherArgs struct {
@@ -268,7 +269,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "Weather in Berlin?")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "The weather in Berlin is cloudy.", resp)
 	})
 }

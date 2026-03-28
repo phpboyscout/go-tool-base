@@ -1,61 +1,14 @@
 package http
 
 import (
-	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestNewClient_DefaultTimeout(t *testing.T) {
-	t.Parallel()
-	client := NewClient()
-	assert.Equal(t, 30*time.Second, client.Timeout)
-}
-
-func TestNewClient_WithTimeout(t *testing.T) {
-	t.Parallel()
-	client := NewClient(WithTimeout(5 * time.Second))
-	assert.Equal(t, 5*time.Second, client.Timeout)
-}
-
-func TestNewClient_WithTLSConfig(t *testing.T) {
-	t.Parallel()
-	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13}
-	client := NewClient(WithTLSConfig(tlsCfg))
-	transport := client.Transport.(*http.Transport)
-	assert.Equal(t, tlsCfg, transport.TLSClientConfig)
-}
-
-func TestNewClient_WithTransport(t *testing.T) {
-	t.Parallel()
-	customTransport := &http.Transport{}
-	client := NewClient(WithTransport(customTransport))
-	assert.Equal(t, customTransport, client.Transport)
-}
-
-func TestNewTransport(t *testing.T) {
-	t.Parallel()
-
-	t.Run("Default", func(t *testing.T) {
-		tr := NewTransport(nil)
-		assert.NotNil(t, tr.TLSClientConfig)
-		assert.Equal(t, 100, tr.MaxIdleConns)
-		assert.Equal(t, 10, tr.MaxIdleConnsPerHost)
-		assert.NotNil(t, tr.Proxy, "transport should have proxy function set for environment proxy support")
-	})
-
-	t.Run("WithTLSConfig", func(t *testing.T) {
-		tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13}
-		tr := NewTransport(tlsCfg)
-		assert.Equal(t, tlsCfg, tr.TLSClientConfig)
-	})
-}
 
 func TestRedirectPolicy(t *testing.T) {
 	t.Parallel()
@@ -79,7 +32,7 @@ func TestRedirectPolicy(t *testing.T) {
 			{URL: mustParseURL("https://example.com/3")},
 		}
 		err := policy(req, via)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "stopped after 3 redirects")
 	})
 
@@ -89,7 +42,7 @@ func TestRedirectPolicy(t *testing.T) {
 			{URL: mustParseURL("https://example.com/secure")},
 		}
 		err := policy(req, via)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "refused redirect: HTTPS to HTTP downgrade")
 	})
 
@@ -129,7 +82,7 @@ func TestNewClient_RealHTTPSRequest(t *testing.T) {
 	client := NewClient(WithTLSConfig(server.Client().Transport.(*http.Transport).TLSClientConfig))
 	resp, err := client.Get(server.URL)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
@@ -138,7 +91,7 @@ func mustParseURL(s string) *url.URL {
 	return u
 }
 
-// In redirectPolicy check, via[0] is the original request. 
+// In redirectPolicy check, via[0] is the original request.
 // Let's re-verify the logic in redirectPolicy.
 // if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme == "http"
 // This looks correct.

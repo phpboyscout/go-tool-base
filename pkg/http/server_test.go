@@ -154,7 +154,7 @@ func TestHTTPServer_RejectsOversizedHeaders(t *testing.T) {
 			return true
 		}
 
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		return resp.StatusCode == http.StatusRequestHeaderFieldsTooLarge
 	}, 2*time.Second, 50*time.Millisecond, "oversized headers should be rejected with 431")
@@ -264,7 +264,7 @@ func TestStatus_ValidServer(t *testing.T) {
 func TestStatus_NilServer(t *testing.T) {
 	t.Parallel()
 	err := Status(nil)()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "http server is nil")
 }
 
@@ -285,7 +285,7 @@ func TestHealthz(t *testing.T) {
 	cfg.EXPECT().GetString("server.tls.key").Return("")
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	
+
 	// Register a service that reports unhealthy
 	controller.Register("unhealthy-service",
 		controls.WithStart(func(_ context.Context) error { return nil }),
@@ -304,7 +304,7 @@ func TestHealthz(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.StatusCode == http.StatusServiceUnavailable
 	}, 2*time.Second, 50*time.Millisecond)
 
@@ -329,7 +329,7 @@ func TestProbes(t *testing.T) {
 	cfg.EXPECT().GetString("server.tls.key").Return("")
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	
+
 	controller.Register("test-service",
 		controls.WithStart(func(_ context.Context) error { return nil }),
 		controls.WithStop(func(_ context.Context) {}),
@@ -348,7 +348,7 @@ func TestProbes(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.StatusCode == http.StatusOK
 	}, 2*time.Second, 50*time.Millisecond)
 
@@ -358,7 +358,7 @@ func TestProbes(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.StatusCode == http.StatusServiceUnavailable
 	}, 2*time.Second, 50*time.Millisecond)
 
@@ -414,7 +414,7 @@ func TestRegister_WithMiddleware(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.Header.Get("X-Middleware") == "applied" && resp.StatusCode == http.StatusOK
 	}, 2*time.Second, 50*time.Millisecond)
 
@@ -463,7 +463,7 @@ func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			// Should be 200 (healthy), NOT 403 (blocked by middleware)
 			return resp.StatusCode == http.StatusOK
 		}, 2*time.Second, 50*time.Millisecond, "health endpoint %s should not be affected by middleware", path)

@@ -58,7 +58,7 @@ func TestRegisterHealthCheck_DuplicateName(t *testing.T) {
 	require.NoError(t, c.RegisterHealthCheck(check))
 
 	err := c.RegisterHealthCheck(check)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate")
 }
 
@@ -75,7 +75,7 @@ func TestRegisterHealthCheck_AfterStart(t *testing.T) {
 		},
 	})
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "after start")
 }
 

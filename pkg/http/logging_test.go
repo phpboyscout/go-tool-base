@@ -43,7 +43,7 @@ func TestLoggingMiddleware_DefaultStructuredFields(t *testing.T) {
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "hello")
+		_, _ = fmt.Fprint(w, "hello")
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/data", nil)
@@ -235,7 +235,7 @@ func TestLoggingMiddleware_DefaultStatusCode(t *testing.T) {
 
 	// Handler that writes body without explicit WriteHeader — defaults to 200
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, "ok")
+		_, _ = fmt.Fprint(w, "ok")
 	}))
 
 	rec := httptest.NewRecorder()
@@ -255,7 +255,7 @@ func TestLoggingMiddleware_FormatCommon(t *testing.T) {
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "hello")
+		_, _ = fmt.Fprint(w, "hello")
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/page", nil)
@@ -329,7 +329,7 @@ func TestLoggingMiddleware_FormatJSON(t *testing.T) {
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		fmt.Fprint(w, "created")
+		_, _ = fmt.Fprint(w, "created")
 	}))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/items", nil)
@@ -347,8 +347,8 @@ func TestLoggingMiddleware_FormatJSON(t *testing.T) {
 
 	assert.Equal(t, "POST", parsed["method"])
 	assert.Equal(t, "/api/items", parsed["path"])
-	assert.Equal(t, float64(http.StatusCreated), parsed["status"])
-	assert.Equal(t, float64(7), parsed["bytes"])
+	assert.InDelta(t, float64(http.StatusCreated), parsed["status"], 0)
+	assert.InDelta(t, float64(7), parsed["bytes"], 0)
 	assert.Equal(t, "10.0.0.1", parsed["client_ip"])
 	assert.Equal(t, "json-test/1.0", parsed["user_agent"])
 	assert.Contains(t, parsed, "latency")

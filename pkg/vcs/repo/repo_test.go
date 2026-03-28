@@ -14,17 +14,19 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 var (
+	// testRepo defaults to a developer-local path; overridden by GITHUB_WORKSPACE in CI.
+	// Integration tests that use it skip when INT_TEST is not set.
 	testRepo   = "/home/mcockayne/workspace/phpboyscout/gtb"
-	testBranch = "main"
 	testConfig = `github:
   url:
     api: https://api.github.com
@@ -71,8 +73,8 @@ func newTestRepo() (*Repo, error) {
 	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfig))
 
 	localfs := afero.NewMemMapFs()
-	afero.WriteFile(localfs, "id_rsa", genTestSSHKey(), 0600)
-	os.Setenv("GITHUB_KEY", "id_rsa")
+	_ = afero.WriteFile(localfs, "id_rsa", genTestSSHKey(), 0600)
+	_ = os.Setenv("GITHUB_KEY", "id_rsa")
 	var assets embed.FS
 
 	props := &props.Props{
@@ -129,7 +131,7 @@ func TestCreateBranch(t *testing.T) {
 	}
 
 	repo, err := newTestRepo()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	gitRepo, tree, err := repo.OpenInMemory(testRepo, "")
 	if assert.NoError(t, err, "failed to open repo: %s", testRepo) {
@@ -146,7 +148,7 @@ func TestCreateBranch(t *testing.T) {
 		assert.NoError(t, err)
 
 		found := false
-		branches.ForEach(func(branch *plumbing.Reference) error {
+		_ = branches.ForEach(func(branch *plumbing.Reference) error {
 			if branch.Name().Short() == "new-branch" {
 				found = true
 			}
@@ -215,15 +217,12 @@ func TestInMemoryRepo(t *testing.T) {
 	}
 
 	repo, err := newTestRepo()
-	if !assert.NoError(t, err, "unable to open test repo") {
-		return
-	}
+	require.NoError(t, err, "unable to open test repo")
 
 	gitRepo, tree, err := repo.OpenInMemory(testRepo, "")
-	if assert.NoError(t, err, "failed to open repo: %s", testRepo) {
-		assert.NotNil(t, gitRepo)
-		assert.NotNil(t, tree)
-	}
+	require.NoError(t, err, "failed to open repo: %s", testRepo)
+	assert.NotNil(t, gitRepo)
+	assert.NotNil(t, tree)
 }
 
 // func TestCheckoutLocalBranch(t *testing.T) {
@@ -289,18 +288,15 @@ func TestCheckoutRemoteBranch(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
 	repo, err := NewRepo(props)
-	if !assert.NoError(t, err, "unable to open test repo") {
-		return
-	}
+	require.NoError(t, err, "unable to open test repo")
 
 	// Clear auth for public repo
 	repo.auth = nil
 	_, _, err = repo.OpenInMemory("https://github.com/octocat/Hello-World.git", "")
-	if assert.NoError(t, err, "failed to open repo") {
-		// Hello-World has a 'master' branch
-		err = repo.Checkout(plumbing.NewRemoteReferenceName("origin", "master"))
-		assert.NoError(t, err)
-	}
+	require.NoError(t, err, "failed to open repo")
+	// Hello-World has a 'master' branch
+	err = repo.Checkout(plumbing.NewRemoteReferenceName("origin", "master"))
+	assert.NoError(t, err)
 }
 
 // TestClone tests the Clone functionality with various options
@@ -314,7 +310,7 @@ func TestClone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create test props
 	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
@@ -338,7 +334,7 @@ func TestClone(t *testing.T) {
 	t.Run("basic_clone", func(t *testing.T) {
 		cloneDir := tmpDir + "/basic"
 		_, _, err := repo.Clone("https://github.com/octocat/Hello-World.git", cloneDir)
-		assert.NoError(t, err, "failed to clone repository")
+		require.NoError(t, err, "failed to clone repository")
 
 		// Verify repository was cloned correctly
 		assert.DirExists(t, cloneDir+"/.git", "git directory should exist")
@@ -349,7 +345,7 @@ func TestClone(t *testing.T) {
 	t.Run("clone_with_single_branch", func(t *testing.T) {
 		cloneDir := tmpDir + "/single-branch"
 		_, _, err := repo.Clone("https://github.com/octocat/Hello-World.git", cloneDir, WithSingleBranch("master"))
-		assert.NoError(t, err, "failed to clone repository with single branch")
+		require.NoError(t, err, "failed to clone repository with single branch")
 
 		// Verify repository was cloned correctly
 		assert.DirExists(t, cloneDir+"/.git", "git directory should exist")
@@ -360,7 +356,7 @@ func TestClone(t *testing.T) {
 	t.Run("clone_with_no_tags", func(t *testing.T) {
 		cloneDir := tmpDir + "/no-tags"
 		_, _, err := repo.Clone("https://github.com/octocat/Hello-World.git", cloneDir, WithNoTags())
-		assert.NoError(t, err, "failed to clone repository without tags")
+		require.NoError(t, err, "failed to clone repository without tags")
 
 		// Verify repository was cloned correctly
 		assert.DirExists(t, cloneDir+"/.git", "git directory should exist")
@@ -371,7 +367,7 @@ func TestClone(t *testing.T) {
 	t.Run("clone_with_shallow", func(t *testing.T) {
 		cloneDir := tmpDir + "/shallow"
 		_, _, err := repo.Clone("https://github.com/octocat/Hello-World.git", cloneDir, WithShallowClone(1))
-		assert.NoError(t, err, "failed to clone repository with shallow option")
+		require.NoError(t, err, "failed to clone repository with shallow option")
 
 		// Verify repository was cloned correctly
 		assert.DirExists(t, cloneDir+"/.git", "git directory should exist")
@@ -383,7 +379,7 @@ func TestClone(t *testing.T) {
 		cloneDir := tmpDir + "/combined"
 		_, _, err := repo.Clone("https://github.com/octocat/Hello-World.git", cloneDir,
 			WithSingleBranch("master"), WithNoTags(), WithShallowClone(5))
-		assert.NoError(t, err, "failed to clone repository with combined options")
+		require.NoError(t, err, "failed to clone repository with combined options")
 
 		// Verify repository was cloned correctly
 		assert.DirExists(t, cloneDir+"/.git", "git directory should exist")
@@ -401,7 +397,7 @@ func TestFileOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Clone a repo that we know has content (using Hello-World for stability)
 	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
@@ -424,23 +420,23 @@ func TestFileOperations(t *testing.T) {
 
 	t.Run("FileExists", func(t *testing.T) {
 		exists, err := repo.FileExists("README")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "README should exist")
 
 		exists, err = repo.FileExists("nonexistent-file")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, exists, "nonexistent-file should not exist")
 	})
 
 	t.Run("DirectoryExists", func(t *testing.T) {
 		// Hello-World is flat, let's try a repo with dirs or just check root
 		exists, err := repo.DirectoryExists("")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "root directory should exist")
 
 		// We can try to check a non-existent dir
 		exists, err = repo.DirectoryExists("nonexistent-dir")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, exists, "nonexistent-dir should not exist")
 	})
 
@@ -452,7 +448,7 @@ func TestFileOperations(t *testing.T) {
 			}
 			return nil
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, foundReadme, "WalkTree should find README")
 	})
 
@@ -462,7 +458,7 @@ func TestFileOperations(t *testing.T) {
 		require.NoError(t, err)
 
 		err = repo.AddToFS(fs, file, "/README")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		exists, _ := afero.Exists(fs, "/README")
 		assert.True(t, exists, "README should be added to FS")

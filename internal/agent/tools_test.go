@@ -60,7 +60,7 @@ func TestIsPathAllowed_SymlinkBypass(t *testing.T) {
 	afs := afero.NewOsFs()
 
 	_, err := isPathAllowed(afs, baseDir, filepath.Join(symlink, "secret.txt"))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPathInvalid)
 }
 
@@ -141,7 +141,8 @@ func TestReadFileTool_UsesAfero(t *testing.T) {
 
 	tool := ReadFileTool(afs, basePath)
 
-	args, _ := json.Marshal(map[string]string{"path": "/project/test.txt"})
+	args, err := json.Marshal(map[string]string{"path": "/project/test.txt"})
+	require.NoError(t, err)
 	result, err := tool.Handler(context.Background(), args)
 
 	require.NoError(t, err)
@@ -156,10 +157,11 @@ func TestReadFileTool_RejectsOutsidePath(t *testing.T) {
 
 	tool := ReadFileTool(afs, "/project")
 
-	args, _ := json.Marshal(map[string]string{"path": "/etc/secret"})
-	_, err := tool.Handler(context.Background(), args)
+	args, err := json.Marshal(map[string]string{"path": "/etc/secret"})
+	require.NoError(t, err)
+	_, err = tool.Handler(context.Background(), args)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPathInvalid)
 }
 
@@ -173,10 +175,11 @@ func TestWriteFileTool_UsesAfero(t *testing.T) {
 
 	tool := WriteFileTool(afs, basePath)
 
-	args, _ := json.Marshal(map[string]string{
+	args, err := json.Marshal(map[string]string{
 		"path":    "/project/output.txt",
 		"content": "written content",
 	})
+	require.NoError(t, err)
 	result, err := tool.Handler(context.Background(), args)
 
 	require.NoError(t, err)
@@ -200,13 +203,14 @@ func TestWriteFileTool_RejectsOutsidePath(t *testing.T) {
 
 	tool := WriteFileTool(afs, "/project")
 
-	args, _ := json.Marshal(map[string]string{
+	args, err := json.Marshal(map[string]string{
 		"path":    "/etc/evil",
 		"content": "bad",
 	})
-	_, err := tool.Handler(context.Background(), args)
+	require.NoError(t, err)
+	_, err = tool.Handler(context.Background(), args)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPathInvalid)
 }
 
@@ -222,7 +226,8 @@ func TestListDirTool_UsesAfero(t *testing.T) {
 
 	tool := ListDirTool(afs, basePath)
 
-	args, _ := json.Marshal(map[string]string{"path": "/project"})
+	args, err := json.Marshal(map[string]string{"path": "/project"})
+	require.NoError(t, err)
 	result, err := tool.Handler(context.Background(), args)
 
 	require.NoError(t, err)
@@ -242,9 +247,10 @@ func TestListDirTool_RejectsOutsidePath(t *testing.T) {
 
 	tool := ListDirTool(afs, "/project")
 
-	args, _ := json.Marshal(map[string]string{"path": "/etc"})
-	_, err := tool.Handler(context.Background(), args)
+	args, err := json.Marshal(map[string]string{"path": "/etc"})
+	require.NoError(t, err)
+	_, err = tool.Handler(context.Background(), args)
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPathInvalid)
 }

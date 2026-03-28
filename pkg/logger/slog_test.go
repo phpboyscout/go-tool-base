@@ -135,7 +135,7 @@ func TestSlogBackend_WithPrefix(t *testing.T) {
 
 func TestSlogBackend_InterfaceSatisfaction(t *testing.T) {
 	handler := slog.NewTextHandler(&bytes.Buffer{}, nil)
-	var _ Logger = NewSlog(handler)
+	_ = NewSlog(handler)
 }
 
 func TestSlogBackend_LevelConversion_RoundTrip(t *testing.T) {

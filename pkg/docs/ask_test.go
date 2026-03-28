@@ -5,12 +5,13 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAskAI_UnsupportedProvider(t *testing.T) {
@@ -44,7 +45,7 @@ func TestAskAI_FSError(t *testing.T) {
 
 	_, err := AskAI(context.Background(), p, fsys, "question", logFn, "bad-provider")
 	require.Error(t, err)
-	assert.Greater(t, logCalls, 0, "logFn should have been called")
+	assert.Positive(t, logCalls, "logFn should have been called")
 }
 
 func TestResolveProvider(t *testing.T) {

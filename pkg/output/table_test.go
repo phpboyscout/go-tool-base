@@ -194,9 +194,9 @@ func TestTableWriter_MarkdownFormat_ColumnAlignment(t *testing.T) {
 	require.Len(t, lines, 4)
 
 	// All rows should have the same length (padded consistently)
-	assert.Equal(t, len(lines[0]), len(lines[1]), "header and separator should be same width")
-	assert.Equal(t, len(lines[0]), len(lines[2]), "header and data rows should be same width")
-	assert.Equal(t, len(lines[0]), len(lines[3]), "all rows should be same width")
+	assert.Len(t, lines[1], len(lines[0]), "header and separator should be same width")
+	assert.Len(t, lines[2], len(lines[0]), "header and data rows should be same width")
+	assert.Len(t, lines[3], len(lines[0]), "all rows should be same width")
 }
 
 func TestTableWriter_SortBy(t *testing.T) {

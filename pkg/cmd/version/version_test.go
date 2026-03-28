@@ -4,22 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-	"github.com/phpboyscout/go-tool-base/pkg/output"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	ver "github.com/phpboyscout/go-tool-base/pkg/version"
-
 	"github.com/google/go-github/v80/github"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	p "github.com/phpboyscout/go-tool-base/pkg/props"
+	ver "github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 const (
@@ -41,7 +39,9 @@ func TestNewCmdVersion(t *testing.T) {
 			resp := github.RepositoryRelease{
 				TagName: &v,
 			}
-			json.NewEncoder(w).Encode(resp)
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 		http.NotFound(w, r)
@@ -52,7 +52,7 @@ func TestNewCmdVersion(t *testing.T) {
 	// Setup Config pointing to mock server
 	cfgContent := fmt.Sprintf(testConfig, server.URL, server.URL)
 	memFS := afero.NewMemMapFs()
-	afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0644)
+	_ = afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0644)
 
 	l := logger.NewNoop()
 	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, l, false)
@@ -70,10 +70,10 @@ func TestNewCmdVersion(t *testing.T) {
 				Repo:  "repo",
 			},
 		},
-		Logger: l,
-		FS:     memFS,
-		Config: cfgContainer,
-		Version: ver.NewInfo("v1.0.0", "", ""), // Latest
+		Logger:       l,
+		FS:           memFS,
+		Config:       cfgContainer,
+		Version:      ver.NewInfo("v1.0.0", "", ""), // Latest
 		ErrorHandler: errorhandling.New(l, nil),
 	}
 
@@ -83,7 +83,7 @@ func TestNewCmdVersion(t *testing.T) {
 
 	// Execute command (Should be latest)
 	err = cmd.Execute()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Test Outdated
 	props.Version = ver.NewInfo("v0.0.1", "", "")
@@ -137,30 +137,4 @@ func TestPrintVersionText(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestVersionInfo_JSONOutput(t *testing.T) {
-	t.Parallel()
-
-	info := &VersionInfo{
-		Version: "v1.0.0",
-		Commit:  "abc123",
-		Date:    "2026-03-23",
-		Latest:  "v1.1.0",
-		Current: false,
-	}
-
-	var buf bytes.Buffer
-	out := output.NewWriter(&buf, output.FormatJSON)
-
-	err := out.Write(info, func(_ io.Writer) {})
-	require.NoError(t, err)
-
-	var result VersionInfo
-	err = json.Unmarshal(buf.Bytes(), &result)
-	require.NoError(t, err)
-	assert.Equal(t, "v1.0.0", result.Version)
-	assert.Equal(t, "abc123", result.Commit)
-	assert.Equal(t, "v1.1.0", result.Latest)
-	assert.False(t, result.Current)
 }

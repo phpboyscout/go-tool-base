@@ -14,21 +14,21 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
 	"github.com/google/go-github/v80/github"
-	mockRelease "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
+	mockRelease "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // Helper to create a tar.gz buffer
@@ -112,14 +112,14 @@ func TestUpdate_Success(t *testing.T) {
 	expectedName := fmt.Sprintf("%s_%s_%s.tar.gz", toolName, currentOS, currentArch)
 
 	mux.HandleFunc("/repos/org/repo/releases/latest", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, `{"tag_name": "v1.1.0", "assets": [{"id": 123, "name": "%s", "browser_download_url": "http://download"}]}`, expectedName)
+		_, _ = fmt.Fprintf(w, `{"tag_name": "v1.1.0", "assets": [{"id": 123, "name": "%s", "browser_download_url": "http://download"}]}`, expectedName)
 	})
 
 	// Download Asset
 	mux.HandleFunc("/repos/org/repo/releases/assets/123", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/octet-stream")
 		content := createTarGz(t, toolName, "new-binary")
-		w.Write(content)
+		_, _ = w.Write(content)
 	})
 
 	// Mock VCS Client
@@ -127,6 +127,7 @@ func TestUpdate_Success(t *testing.T) {
 	// We mocked the HTTP layer inside github client before, but now we mock ReleaseProvider directly.
 	// DownloadReleaseAsset is expected to return a ReadCloser for the asset, like from httptest
 	resp, _ := http.Get(server.URL + "/repos/org/repo/releases/assets/123")
+	defer func() { _ = resp.Body.Close() }()
 	mockReleaseStub := mockRelease.NewMockRelease(t)
 	mockReleaseStub.EXPECT().GetName().Return(expectedName)
 	mockReleaseStub.EXPECT().GetTagName().Return("v1.1.0")
@@ -149,8 +150,8 @@ func TestUpdate_Success(t *testing.T) {
 				Repo:  "repo",
 			},
 		},
-		Config: nil,
-		Logger: logger.NewNoop(),
+		Config:  nil,
+		Logger:  logger.NewNoop(),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -194,7 +195,7 @@ func TestUpdate_Success(t *testing.T) {
 	if err != nil {
 		t.Logf("Update failed. Log output:\n%s", logBuf.String())
 	}
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, currentBin, updatedPath)
 
 	// Verify file updated in MemFS
@@ -206,7 +207,7 @@ func TestUpdate_Success(t *testing.T) {
 	// CheckedKey
 	keyPath := filepath.Join(configDir, "last_checked")
 	exists, err := afero.Exists(memFS, keyPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, exists)
 
 	// Verify GetTimeSinceLast reads from memFS

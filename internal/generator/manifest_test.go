@@ -4,13 +4,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func TestVerifyProjectVersion(t *testing.T) {
@@ -43,7 +44,7 @@ func TestVerifyProjectVersion(t *testing.T) {
 		require.NoError(t, afero.WriteFile(fs, manifestPath, []byte(manifestContent), 0644))
 
 		err := g.verifyProject()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "lower than the version specified in the manifest")
 	})
 
@@ -100,6 +101,6 @@ func TestRemoveFromManifest_Missing(t *testing.T) {
 	g := New(p, &Config{Path: "/work", Name: "missing"})
 
 	err := g.removeFromManifest()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in manifest")
 }

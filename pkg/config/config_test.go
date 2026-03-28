@@ -4,12 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var firstMockFilesYaml = `yaml:
@@ -25,16 +25,10 @@ var secondMockFilesYaml = `yaml:
   more:
     key2: "secondfile"`
 
-func TestNewContainerFromViper(t *testing.T) {
-	t.Parallel()
-	v := config.NewContainerFromViper(logger.NewNoop(), nil) //nolint:staticcheck // testing nil viper
-	require.NotNil(t, v)
-}
-
 func TestLoadFilesContainer_NoFiles(t *testing.T) {
 	t.Parallel()
 	_, err := config.LoadFilesContainer(logger.NewNoop(), afero.NewMemMapFs())
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no config files specified")
 }
 

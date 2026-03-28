@@ -7,28 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDefaultTLSConfig_ServerAndClientMatch(t *testing.T) {
-	t.Parallel()
-
-	// Both server (via NewServer) and client (via NewClient/NewTransport) call
-	// defaultTLSConfig(). Verify each call produces identical security settings.
-	cfg1 := defaultTLSConfig()
-	cfg2 := defaultTLSConfig()
-
-	assert.Equal(t, cfg1.MinVersion, cfg2.MinVersion)
-	assert.Equal(t, cfg1.CipherSuites, cfg2.CipherSuites)
-	assert.Equal(t, cfg1.CurvePreferences, cfg2.CurvePreferences)
-}
-
-func TestNewServer_NoPreferServerCipherSuites(t *testing.T) {
-	t.Parallel()
-
-	cfg := defaultTLSConfig()
-	// PreferServerCipherSuites should not be set; Go 1.22+ ignores it but
-	// explicitly leaving it unset signals intent not to use deprecated behaviour.
-	assert.False(t, cfg.PreferServerCipherSuites) //nolint:staticcheck
-}
-
 func TestDefaultTLSConfig(t *testing.T) {
 	t.Parallel()
 

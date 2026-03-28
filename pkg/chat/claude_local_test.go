@@ -6,11 +6,12 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestClaudeLocal_New(t *testing.T) {
@@ -27,7 +28,7 @@ func TestClaudeLocal_New(t *testing.T) {
 		}
 		cfg := chat.Config{Provider: chat.ProviderClaudeLocal}
 		client, err := chat.New(context.Background(), p, cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "claude binary not found in PATH")
 	})
@@ -38,7 +39,7 @@ func TestClaudeLocal_New(t *testing.T) {
 		}
 		cfg := chat.Config{Provider: chat.ProviderClaudeLocal}
 		client, err := chat.New(context.Background(), p, cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
 }
@@ -51,7 +52,7 @@ func TestClaudeLocal_Add(t *testing.T) {
 
 	t.Run("empty_prompt", func(t *testing.T) {
 		err := client.Add(context.Background(), "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 	})
 
@@ -88,7 +89,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 		}
 
 		resp, err := client.Chat(context.Background(), "Hello")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Local response", resp)
 	})
 
@@ -98,7 +99,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 		}
 
 		resp, err := client.Chat(context.Background(), "Hello")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "claude returned an error: something went wrong")
 		assert.Empty(t, resp)
 	})
@@ -109,7 +110,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 		}
 
 		resp, err := client.Chat(context.Background(), "Hello")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "claude subprocess failed")
 		assert.Empty(t, resp)
 	})
@@ -120,15 +121,15 @@ func TestClaudeLocal_Chat(t *testing.T) {
 		}
 
 		resp, err := client.Chat(context.Background(), "Hello")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse claude output")
 		assert.Empty(t, resp)
 	})
 
 	t.Run("add_pending", func(t *testing.T) {
 		err := client.Add(context.Background(), "Buffered message")
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		chat.ExportExecCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			// Find the prompt argument (-p)
 			for i, arg := range args {
@@ -139,15 +140,15 @@ func TestClaudeLocal_Chat(t *testing.T) {
 			}
 			return exec.Command("echo", `{"type": "message", "result": "Buffered response", "is_error": false}`)
 		}
-		
+
 		resp, err := client.Chat(context.Background(), "Actual chat")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Buffered response", resp)
 	})
 
 	t.Run("chat_empty_prompt", func(t *testing.T) {
 		resp, err := client.Chat(context.Background(), "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 		assert.Empty(t, resp)
 	})
@@ -183,7 +184,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 		}
 		var target response
 		err := client.Ask(context.Background(), "What is the answer?", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "42", target.Answer)
 	})
 
@@ -193,13 +194,13 @@ func TestClaudeLocal_Ask(t *testing.T) {
 			ResponseSchema: map[string]interface{}{"type": "object"},
 		}
 		clientSchema, _ := chat.New(context.Background(), p, cfgSchema)
-		
+
 		chat.ExportExecCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			argsStr := fmt.Sprintf("%v", args)
 			assert.Contains(t, argsStr, "--json-schema")
 			return exec.Command("echo", `{"type": "message", "result": "{}", "is_error": false}`)
 		}
-		
+
 		var target map[string]interface{}
 		err := clientSchema.Ask(context.Background(), "test", &target)
 		assert.NoError(t, err)
@@ -208,14 +209,14 @@ func TestClaudeLocal_Ask(t *testing.T) {
 	t.Run("ask_empty_question", func(t *testing.T) {
 		var target map[string]interface{}
 		err := client.Ask(context.Background(), "", &target)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "question cannot be empty")
 	})
 
 	t.Run("add_pending", func(t *testing.T) {
 		err := client.Add(context.Background(), "Buffered message")
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		chat.ExportExecCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			// Find the prompt argument (-p)
 			for i, arg := range args {
@@ -226,7 +227,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 			}
 			return exec.Command("echo", `{"type": "message", "result": "{}", "is_error": false}`)
 		}
-		
+
 		var target map[string]interface{}
 		err = client.Ask(context.Background(), "Actual question", &target)
 		assert.NoError(t, err)
@@ -239,7 +240,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 			Model:        "claude-custom",
 		}
 		clientFull, _ := chat.New(context.Background(), p, cfgFull)
-		
+
 		callCount := 0
 		chat.ExportExecCommand = func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			argsStr := fmt.Sprintf("%v", args)
@@ -247,22 +248,22 @@ func TestClaudeLocal_Ask(t *testing.T) {
 			assert.Contains(t, argsStr, "Be helpful")
 			assert.Contains(t, argsStr, "--model")
 			assert.Contains(t, argsStr, "claude-custom")
-			
+
 			if callCount == 1 {
 				assert.Contains(t, argsStr, "--resume")
 				assert.Contains(t, argsStr, "session_123")
 			} else {
 				assert.NotContains(t, argsStr, "--resume")
 			}
-			
+
 			callCount++
 			return exec.Command("echo", `{"type": "message", "result": "{}", "session_id": "session_123", "is_error": false}`)
 		}
-		
+
 		// First call sets sessionID
 		var target map[string]interface{}
 		err := clientFull.Ask(context.Background(), "test 1", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		// Second call uses sessionID
 		err = clientFull.Ask(context.Background(), "test 2", &target)
 		assert.NoError(t, err)

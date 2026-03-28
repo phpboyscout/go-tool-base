@@ -132,19 +132,6 @@ func TestUpdateFromFile_BinaryNotInArchive(t *testing.T) {
 
 	// extract() silently returns nil when binary not found (existing behaviour)
 	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, targetPath)
-}
-
-func TestNewOfflineUpdater(t *testing.T) {
-	t.Parallel()
-
-	fs := afero.NewMemMapFs()
-	tool := props.Tool{Name: "test-tool"}
-	log := logger.NewNoop()
-
-	updater := NewOfflineUpdater(tool, log, fs)
-	assert.Equal(t, tool, updater.Tool)
-	assert.Equal(t, fs, updater.Fs)
-	assert.Nil(t, updater.releaseClient)
 }

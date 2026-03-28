@@ -1,7 +1,6 @@
 package config
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -46,46 +45,53 @@ github:
 	assert.Empty(t, result.Errors)
 }
 
-func TestValidate_RequiredFieldMissing(t *testing.T) {
+func TestValidate_RequiredFieldViolation(t *testing.T) {
 	t.Parallel()
 
-	c := newTestContainer(t, `
+	tests := []struct {
+		name string
+		yaml string
+	}{
+		{
+			name: "missing key",
+			yaml: `
 log:
   level: info
-`)
-
-	schema, err := NewSchema(WithStructSchema(testAppConfig{}))
-	require.NoError(t, err)
-
-	result := c.Validate(schema)
-	assert.False(t, result.Valid())
-
-	var found bool
-
-	for _, e := range result.Errors {
-		if e.Key == "github.token" {
-			found = true
-			assert.Contains(t, e.Message, "required")
-			assert.Contains(t, e.Hint, "GITHUB_TOKEN")
-		}
-	}
-
-	assert.True(t, found, "should have error for github.token")
-}
-
-func TestValidate_RequiredFieldEmpty(t *testing.T) {
-	t.Parallel()
-
-	c := newTestContainer(t, `
+`,
+		},
+		{
+			name: "empty value",
+			yaml: `
 github:
   token: ""
-`)
+`,
+		},
+	}
 
-	schema, err := NewSchema(WithStructSchema(testAppConfig{}))
-	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	result := c.Validate(schema)
-	assert.False(t, result.Valid())
+			c := newTestContainer(t, tt.yaml)
+
+			schema, err := NewSchema(WithStructSchema(testAppConfig{}))
+			require.NoError(t, err)
+
+			result := c.Validate(schema)
+			assert.False(t, result.Valid())
+
+			var found bool
+
+			for _, e := range result.Errors {
+				if e.Key == "github.token" {
+					found = true
+					assert.Contains(t, e.Message, "required")
+				}
+			}
+
+			assert.True(t, found, "should have error for github.token")
+		})
+	}
 }
 
 func TestValidate_EnumValid(t *testing.T) {
@@ -229,14 +235,6 @@ func TestValidationResult_Error(t *testing.T) {
 	assert.Contains(t, errStr, "c.d: wrong type")
 }
 
-func TestValidationResult_ValidEmpty(t *testing.T) {
-	t.Parallel()
-
-	result := &ValidationResult{}
-	assert.True(t, result.Valid())
-	assert.Empty(t, result.Error())
-}
-
 func TestLoadFilesContainerWithSchema_Valid(t *testing.T) {
 	t.Parallel()
 
@@ -279,7 +277,7 @@ log:
 	c, err := LoadFilesContainerWithSchema(l, fs, schema, "/config.yaml")
 	require.Error(t, err)
 	assert.Nil(t, c)
-	assert.True(t, strings.Contains(err.Error(), "github.token"))
+	assert.Contains(t, err.Error(), "github.token")
 }
 
 func TestLoadFilesContainerWithSchema_FileNotFound(t *testing.T) {

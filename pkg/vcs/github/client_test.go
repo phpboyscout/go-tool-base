@@ -3,15 +3,15 @@ package github
 import (
 	"context"
 	"os"
-
 	"strings"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/google/go-github/v80/github"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var integrationConfigGithub = `github:
@@ -37,7 +37,7 @@ func TestNewGitHubClientInstantiation(t *testing.T) {
 
 	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
 	client, err := NewGitHubClient(cfg.Sub("github"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, client)
 }
 

@@ -8,13 +8,14 @@ import (
 	"testing"
 
 	"github.com/invopop/jsonschema"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
+
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGeminiProvider_New(t *testing.T) {
@@ -33,7 +34,7 @@ func TestGeminiProvider_New(t *testing.T) {
 			Token:    "",
 		}
 		_, err := chat.New(context.Background(), p, cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Gemini API key is required")
 	})
 
@@ -56,17 +57,17 @@ func TestGeminiProvider_New(t *testing.T) {
 	t.Run("client_creation_error", func(t *testing.T) {
 		oldNewClient := chat.ExportGenaiNewClient
 		defer func() { chat.ExportGenaiNewClient = oldNewClient }()
-		
+
 		chat.ExportGenaiNewClient = func(ctx context.Context, config *genai.ClientConfig) (*genai.Client, error) {
 			return nil, fmt.Errorf("simulated error")
 		}
-		
+
 		cfg := chat.Config{
 			Provider: chat.ProviderGemini,
 			Token:    "test-key",
 		}
 		_, err := chat.New(context.Background(), p, cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create gemini client")
 	})
 }
@@ -110,7 +111,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		type response struct {
@@ -118,7 +119,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 		}
 		var target response
 		err := client.Ask(context.Background(), "test", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "42", target.Answer)
 	})
 
@@ -151,24 +152,24 @@ func TestGeminiProvider_Ask(t *testing.T) {
 					},
 				},
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		var target response
 		err = clientOptions.Ask(context.Background(), "test", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "ok", target.Result)
 	})
 
 	t.Run("empty_question", func(t *testing.T) {
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(`{"error": {"code": 400, "message": "Invalid request", "status": "INVALID_ARGUMENT"}}`))
+			_, _ = w.Write([]byte(`{"error": {"code": 400, "message": "Invalid request", "status": "INVALID_ARGUMENT"}}`))
 		}
 
 		var target map[string]interface{}
 		err := client.Ask(context.Background(), "test", &target)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gemini send message failed")
 	})
 }
@@ -239,7 +240,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 					},
 				}
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		type weatherArgs struct {
@@ -258,25 +259,25 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "Weather in Paris?")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Checking weather...The weather in Paris is rainy.", resp)
 	})
 
 	t.Run("api_error_stream", func(t *testing.T) {
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": {"code": 500, "message": "Internal error"}}`))
+			_, _ = w.Write([]byte(`{"error": {"code": 500, "message": "Internal error"}}`))
 		}
 
 		resp, err := client.Chat(context.Background(), "test")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gemini send message failed")
 		assert.Empty(t, resp)
 	})
 
 	t.Run("empty_prompt", func(t *testing.T) {
 		resp, err := client.Chat(context.Background(), "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 		assert.Empty(t, resp)
 	})

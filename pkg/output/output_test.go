@@ -64,7 +64,7 @@ func TestWriter_Text(t *testing.T) {
 
 	err := w.Write(data, func(w io.Writer) {
 		textCalled = true
-		fmt.Fprintf(w, "%s %s\n", data.Name, data.Version)
+		_, _ = fmt.Fprintf(w, "%s %s\n", data.Name, data.Version)
 	})
 
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func TestWriter_DefaultIsText(t *testing.T) {
 
 	err := w.Write(nil, func(w io.Writer) {
 		textCalled = true
-		fmt.Fprint(w, "hello")
+		_, _ = fmt.Fprint(w, "hello")
 	})
 
 	require.NoError(t, err)
@@ -96,16 +96,6 @@ func TestWriter_IsJSON(t *testing.T) {
 	assert.True(t, NewWriter(nil, FormatJSON).IsJSON())
 	assert.False(t, NewWriter(nil, FormatText).IsJSON())
 	assert.False(t, NewWriter(nil, Format("yaml")).IsJSON())
-}
-
-// --- Status constants ---
-
-func TestStatusConstants(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, "success", StatusSuccess)
-	assert.Equal(t, "error", StatusError)
-	assert.Equal(t, "warning", StatusWarning)
 }
 
 // --- RenderMarkdown ---

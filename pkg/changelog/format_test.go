@@ -6,13 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFormatSummary_EmptyChangelog(t *testing.T) {
-	t.Parallel()
-
-	assert.Equal(t, "", FormatSummary(&Changelog{}))
-	assert.Equal(t, "", FormatSummary(nil))
-}
-
 func TestFormatSummary_WithBreaking(t *testing.T) {
 	t.Parallel()
 

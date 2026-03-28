@@ -2,7 +2,7 @@ version: "2"
 run:
   modules-download-mode: mod
   issues-exit-code: 1
-  tests: false
+  tests: true
 linters:
   enable:
     - asasalint
@@ -67,6 +67,23 @@ linters:
       - comments
       - common-false-positives
       - legacy
+    rules:
+      - path: _test\.go
+        linters:
+          - wsl_v5
+          - nlreturn
+          - whitespace
+          - godot
+          - err113
+          - noctx
+          - prealloc
+          - unparam
+          - mnd
+          - dupl
+      - path: _test\.go
+        text: "G102|G112|G306"
+        linters:
+          - gosec
     paths:
       - third_party$
       - builtin$

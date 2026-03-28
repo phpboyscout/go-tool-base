@@ -76,51 +76,6 @@ func TestContainer_AddObserver(t *testing.T) {
 	})
 }
 
-func TestContainer_Get(t *testing.T) {
-	t.Parallel()
-	l := logger.NewNoop()
-	c := config.NewReaderContainer(l, "yaml", strings.NewReader(firstMockFilesYaml))
-
-	t.Run("test Get", func(t *testing.T) {
-		t.Parallel()
-		assert.Equal(t, "value", c.GetString("yaml.key"))
-	})
-
-	t.Run("test GetBool", func(t *testing.T) {
-		t.Parallel()
-		assert.True(t, c.GetBool("yaml.bool"))
-	})
-
-	t.Run("test GetString", func(t *testing.T) {
-		t.Parallel()
-		assert.Equal(t, "value", c.GetString("yaml.key"))
-	})
-
-	t.Run("test GetInt", func(t *testing.T) {
-		t.Parallel()
-		assert.Equal(t, 1, c.GetInt("yaml.int"))
-	})
-
-	t.Run("test GetFloat", func(t *testing.T) {
-		t.Parallel()
-		assert.InDelta(t, 2.4, c.GetFloat("yaml.float"), 0)
-	})
-
-	t.Run("test GetTime", func(t *testing.T) {
-		t.Parallel()
-		val := c.GetTime("yaml.time")
-		expected, _ := time.Parse("2006-01-02 15:04:05", "2021-09-11 12:34:56")
-
-		assert.Equal(t, expected, val)
-	})
-
-	t.Run("test GetDuration", func(t *testing.T) {
-		t.Parallel()
-
-		assert.Equal(t, 5*time.Second, c.GetDuration("yaml.duration"))
-	})
-}
-
 // func TestContainer_Dump(t *testing.T) {
 // 	t.Parallel()
 

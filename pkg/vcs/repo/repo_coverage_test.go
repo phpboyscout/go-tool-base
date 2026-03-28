@@ -140,13 +140,13 @@ func TestGetSSHKey_EdgeCases(t *testing.T) {
 
 	// Case 1: File not found
 	_, err := GetSSHKey("/missing", fs)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Case 2: Is Directory
 	err = fs.MkdirAll("/dir", 0755)
 	require.NoError(t, err)
 	_, err = GetSSHKey("/dir", fs)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Could not open SSH key")
 
 	// Case 3: Valid Key (No Passphrase)

@@ -64,7 +64,7 @@ func TestRetryTransport_NoRetryOnSuccess(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, int64(1), calls.Load())
@@ -91,7 +91,7 @@ func TestRetryTransport_RetriesOn503(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
@@ -128,7 +128,7 @@ func TestRetryTransport_RetriesOn429WithRetryAfter(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	elapsed := time.Since(start)
 
@@ -161,7 +161,7 @@ func TestRetryTransport_ExhaustsMaxRetries(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	assert.Equal(t, int64(3), calls.Load(), "should be 1 initial + 2 retries")
@@ -198,10 +198,10 @@ func TestRetryTransport_ContextCancelled(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	if resp != nil {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.Canceled))
 }
 
@@ -235,7 +235,7 @@ func TestRetryTransport_NetworkError(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, int64(2), calls.Load())
@@ -278,7 +278,7 @@ func TestRetryTransport_BodyRewind(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Len(t, bodies, 2)
@@ -322,7 +322,7 @@ func TestRetryTransport_NoRetryOn4xx(t *testing.T) {
 
 			resp, err := rt.RoundTrip(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, code, resp.StatusCode)
 			assert.Equal(t, int64(1), calls.Load(), "should not retry %d", code)
@@ -360,7 +360,7 @@ func TestRetryTransport_CustomShouldRetry(t *testing.T) {
 
 	resp, err := rt.RoundTrip(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, int64(2), calls.Load())
@@ -425,7 +425,7 @@ func TestWithRetry_Integration(t *testing.T) {
 
 	resp, err := client.Get(srv.URL)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

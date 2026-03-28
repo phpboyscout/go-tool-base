@@ -6,12 +6,12 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // load_test.go provides comprehensive unit tests for the Load and LoadEmbed functions
@@ -133,16 +133,16 @@ func TestLoad(t *testing.T) {
 
 			// Check error expectations
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.expectedError != nil {
-					assert.ErrorIs(t, err, tt.expectedError)
+					require.ErrorIs(t, err, tt.expectedError)
 				}
 				assert.Nil(t, container)
 				return
 			}
 
 			// Check success expectations
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.NotNil(t, container)
 
 			// If we have expected values, test them
@@ -168,7 +168,7 @@ func TestLoad_FileSystemErrors(t *testing.T) {
 		// This should not error even if fs.Stat fails, because we handle the error
 		container, err := config.Load([]string{"nonexistent.yaml"}, fs, logger, true)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 	})
 }
@@ -187,7 +187,7 @@ func TestLoadEmbed(t *testing.T) {
 		container, err := config.LoadEmbed([]string{"nonexistent.yaml"}, emptyFS, logger)
 
 		// LoadEmbed should now return an error when files cannot be read
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, container)
 		assert.Contains(t, err.Error(), "failed to open embedded config file nonexistent.yaml")
 	})
@@ -199,7 +199,7 @@ func TestLoadEmbed(t *testing.T) {
 
 		container, err := config.LoadEmbed([]string{}, emptyFS, logger)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 	})
 
@@ -217,7 +217,7 @@ server:
 
 		container, err := config.LoadEmbed([]string{"config.yaml"}, mockFS, logger)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 
 		// Verify the content was loaded correctly
@@ -245,7 +245,7 @@ database:
 
 		container, err := config.LoadEmbed([]string{"app.yaml", "db.yaml"}, mockFS, logger)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 
 		// Verify both configs were loaded
@@ -271,7 +271,7 @@ logging:
 		container, err := config.LoadEmbed([]string{"logging.yaml", "nonexistent.yaml"}, mockFS, logger)
 
 		// Should return an error when any file fails to read
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, container)
 		assert.Contains(t, err.Error(), "failed to open embedded config file nonexistent.yaml")
 	})
@@ -284,7 +284,7 @@ logging:
 		container, err := config.LoadEmbed([]string{"config1.yaml", "config2.yaml"}, mockFS, logger)
 
 		// Should return an error when files fail to read
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, container)
 		assert.Contains(t, err.Error(), "failed to open embedded config file config1.yaml")
 	})
@@ -312,12 +312,12 @@ application:
 
 		container, err := config.LoadEmbed([]string{"complex.yaml"}, mockFS, logger)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 
 		// Verify complex structure was parsed correctly
 		assert.Equal(t, "complex-app", container.GetString("application.name"))
-		assert.Equal(t, true, container.GetBool("application.settings.debug"))
+		assert.True(t, container.GetBool("application.settings.debug"))
 		assert.Equal(t, 3, container.GetInt("application.settings.retry.max_attempts"))
 		assert.Equal(t, "exponential", container.GetString("application.settings.retry.backoff"))
 	})
@@ -331,7 +331,7 @@ application:
 
 		container, err := config.LoadEmbed([]string{"empty.yaml"}, mockFS, logger)
 
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 	})
 
@@ -350,7 +350,7 @@ invalid: yaml: content:
 		container, err := config.LoadEmbed([]string{"invalid.yaml"}, mockFS, logger)
 
 		// LoadEmbed itself should not fail - NewReaderContainer handles yaml parsing
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, container)
 	})
 }
@@ -382,7 +382,7 @@ server:
 		// Test various getter methods
 		assert.Equal(t, "localhost", container.GetString("database.host"))
 		assert.Equal(t, 5432, container.GetInt("database.port"))
-		assert.Equal(t, true, container.GetBool("database.enabled"))
+		assert.True(t, container.GetBool("database.enabled"))
 		assert.Equal(t, 100, container.GetInt("server.max_connections"))
 
 		// Test Has method

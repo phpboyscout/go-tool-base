@@ -84,7 +84,7 @@ func TestNewReleaseProvider_NilConfig(t *testing.T) {
 	t.Parallel()
 
 	provider, err := NewReleaseProvider(nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, provider)
 	assert.Contains(t, err.Error(), "gitlab configuration is missing")
 }
@@ -152,7 +152,7 @@ func TestDownloadReleaseAsset_EmptyURL(t *testing.T) {
 	}
 
 	body, _, err := provider.DownloadReleaseAsset(context.Background(), "owner", "repo", asset)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, body)
 	assert.Contains(t, err.Error(), "asset URL is empty")
 }
@@ -171,7 +171,7 @@ func TestDownloadReleaseAsset_ServerError(t *testing.T) {
 	}
 
 	body, _, err := provider.DownloadReleaseAsset(context.Background(), "owner", "repo", asset)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, body)
 	assert.Contains(t, err.Error(), "status 500")
 }
@@ -212,7 +212,7 @@ func TestGetLatestRelease_Empty(t *testing.T) {
 
 	provider := newTestProvider(t, server)
 	rel, err := provider.GetLatestRelease(context.Background(), "owner", "repo")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, rel)
 	assert.Contains(t, err.Error(), "no releases found")
 }
@@ -229,7 +229,7 @@ func TestGetLatestRelease_ServerError(t *testing.T) {
 
 	provider := newTestProvider(t, server)
 	rel, err := provider.GetLatestRelease(context.Background(), "owner", "repo")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, rel)
 }
 
@@ -260,7 +260,7 @@ func TestGetReleaseByTag_NotFound(t *testing.T) {
 
 	provider := newTestProvider(t, server)
 	rel, err := provider.GetReleaseByTag(context.Background(), "owner", "repo", "v99.0.0")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, rel)
 }
 
@@ -293,7 +293,7 @@ func TestListReleases_ServerError(t *testing.T) {
 
 	provider := newTestProvider(t, server)
 	releases, err := provider.ListReleases(context.Background(), "owner", "repo", 10)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, releases)
 }
 

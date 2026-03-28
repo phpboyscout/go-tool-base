@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	"github.com/dave/dst"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestExtractAliases(t *testing.T) {

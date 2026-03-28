@@ -3,7 +3,6 @@ package logger
 import (
 	"bytes"
 	"log/slog"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -209,7 +208,7 @@ func TestCharmBackend_LevelConversion_RoundTrip(t *testing.T) {
 }
 
 func TestCharmBackend_InterfaceSatisfaction(t *testing.T) {
-	var _ Logger = NewCharm(&bytes.Buffer{})
+	_ = NewCharm(&bytes.Buffer{})
 }
 
 func TestCharmBackend_Inner(t *testing.T) {
@@ -230,6 +229,6 @@ func TestCharmBackend_AllLevels(t *testing.T) {
 
 	output := buf.String()
 	for _, msg := range []string{"debug msg", "info msg", "warn msg", "error msg"} {
-		assert.True(t, strings.Contains(output, msg), "missing: %s", msg)
+		assert.Contains(t, output, msg, "missing: %s", msg)
 	}
 }

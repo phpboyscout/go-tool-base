@@ -5,14 +5,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/internal/generator"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func TestCommandRun(t *testing.T) {
@@ -95,14 +95,13 @@ version:
 
 	for _, f := range expectedFiles {
 		exists, err := afero.Exists(fs, f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "file %s should exist", f)
 	}
 
 	// Verify go file content
 	content, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/test-cmd/cmd.go"))
-	assert.NoError(t, err)
-	assert.Contains(t, string(content), "func NewCmdTestCmd")
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "func NewCmdTestCmd")
 	assert.Contains(t, string(content), "*cobra.Command")
 	assert.Contains(t, string(content), "props.Assets.Register(\"test-cmd\", &assets)")
@@ -120,18 +119,18 @@ version:
 
 	// Verify parent was updated correctly
 	parentUpdated, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/root/cmd.go"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(parentUpdated), "setup.AddCommandWithMiddleware(cmd, test_cmd.NewCmdTestCmd(props), props.TestCmdCmd)")
 
 	// Verify docs
 	docContent, err := afero.ReadFile(fs, filepath.Join(projectRoot, "docs/commands/test-cmd/index.md"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(docContent), "# test-cmd")
 	assert.Contains(t, string(docContent), "A test command")
 
 	// Verify manifest was updated
 	manifestUpdated, err := afero.ReadFile(fs, filepath.Join(projectRoot, ".gtb/manifest.yaml"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(manifestUpdated), "- name: test-cmd")
 	assert.Contains(t, string(manifestUpdated), "description: A test command")
 	assert.NotContains(t, string(manifestUpdated), "parent: root")
@@ -147,12 +146,12 @@ func TestCommandRun_PathTargeting(t *testing.T) {
 
 	// Mock project structure
 	projectRoot := "./test-project"
-	fs.MkdirAll(projectRoot, 0755)
-	afero.WriteFile(fs, filepath.Join(projectRoot, "go.mod"), []byte("module test-project\n"), 0644)
+	require.NoError(t, fs.MkdirAll(projectRoot, 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectRoot, "go.mod"), []byte("module test-project\n"), 0644))
 
 	// Mock manifest with duplicate 'cat'
 	manifestDir := filepath.Join(projectRoot, ".gtb")
-	fs.MkdirAll(manifestDir, 0755)
+	require.NoError(t, fs.MkdirAll(manifestDir, 0755))
 	manifestContent := `properties:
   name: test
 version:
@@ -166,14 +165,14 @@ commands:
 - name: cat
   description: Root's cat
 `
-	afero.WriteFile(fs, filepath.Join(manifestDir, "manifest.yaml"), []byte(manifestContent), 0644)
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(manifestDir, "manifest.yaml"), []byte(manifestContent), 0644))
 
 	// Mock parent files
-	fs.MkdirAll(filepath.Join(projectRoot, "pkg/cmd/cat"), 0755)
-	afero.WriteFile(fs, filepath.Join(projectRoot, "pkg/cmd/cat/cmd.go"), []byte("package cat\nimport \"github.com/spf13/cobra\"\nimport \"github.com/phpboyscout/go-tool-base/pkg/props\"\nfunc NewCmdCat(props *props.Props) *cobra.Command {\n\tcmd := &cobra.Command{Use: \"cat\"}\n\treturn cmd\n}\n"), 0644)
+	require.NoError(t, fs.MkdirAll(filepath.Join(projectRoot, "pkg/cmd/cat"), 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectRoot, "pkg/cmd/cat/cmd.go"), []byte("package cat\nimport \"github.com/spf13/cobra\"\nimport \"github.com/phpboyscout/go-tool-base/pkg/props\"\nfunc NewCmdCat(props *props.Props) *cobra.Command {\n\tcmd := &cobra.Command{Use: \"cat\"}\n\treturn cmd\n}\n"), 0644))
 
-	fs.MkdirAll(filepath.Join(projectRoot, "pkg/cmd/dog/cat"), 0755)
-	afero.WriteFile(fs, filepath.Join(projectRoot, "pkg/cmd/dog/cat/cmd.go"), []byte("package cat\nimport \"github.com/spf13/cobra\"\nimport \"github.com/phpboyscout/go-tool-base/pkg/props\"\nfunc NewCmdCat(props *props.Props) *cobra.Command {\n\tcmd := &cobra.Command{Use: \"cat\"}\n\treturn cmd\n}\n"), 0644)
+	require.NoError(t, fs.MkdirAll(filepath.Join(projectRoot, "pkg/cmd/dog/cat"), 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectRoot, "pkg/cmd/dog/cat/cmd.go"), []byte("package cat\nimport \"github.com/spf13/cobra\"\nimport \"github.com/phpboyscout/go-tool-base/pkg/props\"\nfunc NewCmdCat(props *props.Props) *cobra.Command {\n\tcmd := &cobra.Command{Use: \"cat\"}\n\treturn cmd\n}\n"), 0644))
 
 	// Target the ROOT cat
 	opts := CommandOptions{
@@ -189,7 +188,7 @@ commands:
 	// Verify mouse was generated in pkg/cmd/cat/mouse (not pkg/cmd/dog/cat/mouse)
 	mousePath := filepath.Clean(filepath.Join(projectRoot, "pkg/cmd/cat/mouse/cmd.go"))
 	exists, err := afero.Exists(fs, mousePath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, exists, "mouse should be under root cat")
 
 	dogCatMousePath := filepath.Clean(filepath.Join(projectRoot, "pkg/cmd/dog/cat/mouse/cmd.go"))
@@ -209,7 +208,7 @@ commands:
 
 	fleaPath := filepath.Clean(filepath.Join(projectRoot, "pkg/cmd/dog/cat/flea/cmd.go"))
 	exists, err = afero.Exists(fs, fleaPath)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, exists, "flea should be under dog's cat")
 }
 
@@ -223,11 +222,11 @@ func TestCommandRun_SubcommandNoAssets(t *testing.T) {
 
 	// Mock project structure
 	projectRoot := "./test-project"
-	fs.MkdirAll(projectRoot, 0755)
-	afero.WriteFile(fs, filepath.Join(projectRoot, "go.mod"), []byte("module test-project\n"), 0644)
+	require.NoError(t, fs.MkdirAll(projectRoot, 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(projectRoot, "go.mod"), []byte("module test-project\n"), 0644))
 
 	parentDir := filepath.Join(projectRoot, "pkg/cmd/root")
-	fs.MkdirAll(parentDir, 0755)
+	require.NoError(t, fs.MkdirAll(parentDir, 0755))
 	parentContent := `package root
 import (
 	"github.com/spf13/cobra"
@@ -237,11 +236,11 @@ func NewCmdRoot(props *props.Props) *cobra.Command {
 	return &cobra.Command{Use: "root"}
 }
 `
-	afero.WriteFile(fs, filepath.Join(parentDir, "cmd.go"), []byte(parentContent), 0644)
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(parentDir, "cmd.go"), []byte(parentContent), 0644))
 
 	manifestDir := filepath.Join(projectRoot, ".gtb")
-	fs.MkdirAll(manifestDir, 0755)
-	afero.WriteFile(fs, filepath.Join(manifestDir, "manifest.yaml"), []byte("properties:\n  name: test\nversion:\n  gtb: v1.0.0\n"), 0644)
+	require.NoError(t, fs.MkdirAll(manifestDir, 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(manifestDir, "manifest.yaml"), []byte("properties:\n  name: test\nversion:\n  gtb: v1.0.0\n"), 0644))
 
 	opts := CommandOptions{
 		Name:       "no-assets-cmd",
@@ -256,7 +255,7 @@ func NewCmdRoot(props *props.Props) *cobra.Command {
 
 	// Verify go file content
 	content, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/no-assets-cmd/cmd.go"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, string(content), "embed")
 	assert.NotContains(t, string(content), "allAssets")
 	assert.Contains(t, string(content), "return cmd")
@@ -264,7 +263,7 @@ func NewCmdRoot(props *props.Props) *cobra.Command {
 
 	// Verify parent was updated correctly (no asset collection)
 	parentUpdated, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/root/cmd.go"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(parentUpdated), "setup.AddCommandWithMiddleware(cmd, no_assets_cmd.NewCmdNoAssetsCmd(props), props.NoAssetsCmdCmd)")
 	assert.NotContains(t, string(parentUpdated), "append(allAssets")
 }

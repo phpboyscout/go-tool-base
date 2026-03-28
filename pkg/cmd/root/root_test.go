@@ -117,12 +117,12 @@ func TestExtractFlags(t *testing.T) {
 			flags, err := extractFlags(cmd)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, flags)
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			require.NotNil(t, flags)
 			assert.Equal(t, tt.expectedCI, flags.CI)
 			assert.Equal(t, tt.expectedDebug, flags.Debug)
@@ -245,12 +245,12 @@ database:
 			cfg, err := loadAndMergeConfig(opts)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Nil(t, cfg)
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			require.NotNil(t, cfg)
 
 			// Test expected values
@@ -553,6 +553,8 @@ func TestConfigureLogging(t *testing.T) {
 				expectedSlogLevel = slog.LevelWarn
 			case logger.ErrorLevel:
 				expectedSlogLevel = slog.LevelError
+			case logger.FatalLevel:
+				expectedSlogLevel = slog.LevelError
 			default:
 				expectedSlogLevel = slog.LevelInfo
 			}
@@ -830,7 +832,7 @@ func TestErrUpdateComplete(t *testing.T) {
 
 	// ErrUpdateComplete should be detectable via errors.Is
 	err := ErrUpdateComplete
-	assert.ErrorIs(t, err, ErrUpdateComplete)
+	require.ErrorIs(t, err, ErrUpdateComplete)
 
 	// Wrapping should still be detectable
 	wrapped := errors.Wrap(err, "wrapped")
@@ -921,7 +923,7 @@ func TestMergeEmbeddedConfigs_NilAssets(t *testing.T) {
 		ConfigPaths: []string{"config.yaml"},
 		Props:       props,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, result)
 }
 
@@ -938,7 +940,7 @@ func TestMergeEmbeddedConfigs_EmptyPaths(t *testing.T) {
 		ConfigPaths: []string{},
 		Props:       props,
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, result)
 }
 
@@ -1104,7 +1106,7 @@ func TestMiddleware_IntegrationWithCobra(t *testing.T) {
 	cmd.RunE = setup.Chain(p.UpdateCmd, cmd.RunE)
 	err := cmd.RunE(cmd, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, executed)
 }
 
@@ -1148,7 +1150,7 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 	// 3. Execute the subcommand directly via RunE
 	err := subcmd.RunE(subcmd, nil)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, subcommandExecuted, "subcommand should have executed")
 	assert.True(t, middlewareExecuted, "middleware should have executed for subcommand passed to constructor")
 
@@ -1167,7 +1169,7 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 	setup.AddCommandWithMiddleware(rootCmd, manualSubcmd, "")
 
 	err = manualSubcmd.RunE(manualSubcmd, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, subcommandExecuted)
 	assert.True(t, middlewareExecuted, "middleware should have executed for manually registered subcommand")
 }

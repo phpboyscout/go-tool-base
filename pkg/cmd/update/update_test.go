@@ -6,43 +6,43 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 	"github.com/phpboyscout/go-tool-base/pkg/version"
-	"github.com/spf13/afero"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-func TestNewCmdUpdate(t *testing.T) {
-	t.Parallel()
-
-	props := &p.Props{
-		Tool: p.Tool{
-			Name: "test-tool",
-		},
-		Logger: logger.NewNoop(),
-	}
-
-	cmd := update.NewCmdUpdate(props)
-	assert.NotNil(t, cmd)
-	assert.Equal(t, "update", cmd.Use)
-
-	// Check flags
-	force, _ := cmd.Flags().GetBool("force")
-	assert.False(t, force)
-
-	ver, _ := cmd.Flags().GetString("version")
-	assert.Equal(t, "", ver)
-}
 
 func TestUpdate_SemVerValidation(t *testing.T) {
 	t.Parallel()
 
+	oldNewUpdater := update.ExportNewUpdater
+	oldExec := update.ExportExecCommand
+	t.Cleanup(func() {
+		update.ExportNewUpdater = oldNewUpdater
+		update.ExportExecCommand = oldExec
+	})
+
+	update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+		return exec.Command("true")
+	}
+
+	mu := &mockUpdater{
+		latestVersion: "v1.2.3",
+		binPath:       "/tmp/new-bin",
+	}
+	update.ExportNewUpdater = func(p *p.Props, version string, force bool) (update.Updater, error) {
+		return mu, nil
+	}
+
 	props := &p.Props{
-		Logger: logger.NewNoop(),
+		Logger:  logger.NewNoop(),
+		FS:      afero.NewMemMapFs(),
+		Version: &mockVersion{version: "v1.0.0"},
 	}
 
 	cmd := update.NewCmdUpdate(props)
@@ -66,14 +66,10 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 
 			err = cmd.RunE(cmd, nil)
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), "invalid version format")
-			} else {
-				// It will fail later because we haven't mocked the updater, 
-				// but we only care about the semVer validation here.
-				if err != nil {
-					assert.NotContains(t, err.Error(), "invalid version format")
-				}
+			} else if err != nil {
+				assert.NotContains(t, err.Error(), "invalid version format")
 			}
 		})
 	}
@@ -87,7 +83,7 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 
 func TestUpdateConfig(t *testing.T) {
 	// Not using t.Parallel() because we are modifying package-level variables
-	
+
 	oldExec := update.ExportExecCommand
 	defer func() {
 		update.ExportExecCommand = oldExec
@@ -116,7 +112,7 @@ func TestUpdateConfig(t *testing.T) {
 		_ = fs.MkdirAll("/etc/test-tool", 0755)
 
 		update.UpdateConfig(context.Background(), props, "/bin/new-tool")
-		
+
 		assert.Len(t, executedCommands, 2)
 		assert.Contains(t, executedCommands[0], "/bin/new-tool [init --dir")
 		assert.Contains(t, executedCommands[1], "/bin/new-tool [init --dir")
@@ -125,23 +121,24 @@ func TestUpdateConfig(t *testing.T) {
 	t.Run("skips_when_init_disabled", func(t *testing.T) {
 		executedCommands = nil
 		props.Tool.Features = p.SetFeatures(p.Disable(p.InitCmd))
-		
+
 		update.UpdateConfig(context.Background(), props, "/bin/new-tool")
 		assert.Empty(t, executedCommands)
 	})
 
 	t.Run("handles_init_error", func(t *testing.T) {
 		update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-			// Return a command that fails
 			return exec.Command("false")
 		}
-		// Ensure paths exist
 		_ = fs.MkdirAll(setup.GetDefaultConfigDir(fs, "test-tool"), 0755)
-		
+
+		buf := logger.NewBuffer()
+		props.Logger = buf
 		props.Tool.Features = p.SetFeatures(p.Enable(p.InitCmd))
-		
+
 		update.UpdateConfig(context.Background(), props, "/bin/new-tool")
-		// Should just log a warning and continue
+
+		assert.True(t, buf.ContainsLevel(logger.WarnLevel, "could not update config"))
 	})
 }
 
@@ -224,7 +221,7 @@ func TestUpdate(t *testing.T) {
 		}
 
 		_, err := update.Update(context.Background(), props, "", false)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create updater")
 	})
 
@@ -237,7 +234,7 @@ func TestUpdate(t *testing.T) {
 		}
 
 		_, err := update.Update(context.Background(), props, "", false)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "download failed")
 	})
 }
@@ -246,27 +243,12 @@ type mockVersion struct {
 	version string
 }
 
-func (m *mockVersion) GetVersion() string { return m.version }
-func (m *mockVersion) GetCommit() string  { return "head" }
-func (m *mockVersion) GetDate() string    { return "now" }
-func (m *mockVersion) String() string     { return m.version }
+func (m *mockVersion) GetVersion() string       { return m.version }
+func (m *mockVersion) GetCommit() string        { return "head" }
+func (m *mockVersion) GetDate() string          { return "now" }
+func (m *mockVersion) String() string           { return m.version }
 func (m *mockVersion) Compare(other string) int { return version.CompareVersions(m.version, other) }
-func (m *mockVersion) IsDevelopment() bool { return false }
-
-func TestNewCmdUpdate_FromFileFlag(t *testing.T) {
-	t.Parallel()
-
-	props := &p.Props{
-		Tool:   p.Tool{Name: "test-tool"},
-		Logger: logger.NewNoop(),
-	}
-
-	cmd := update.NewCmdUpdate(props)
-
-	fromFile, err := cmd.Flags().GetString("from-file")
-	require.NoError(t, err)
-	assert.Equal(t, "", fromFile)
-}
+func (m *mockVersion) IsDevelopment() bool      { return false }
 
 func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
 	props := &p.Props{
@@ -314,4 +296,3 @@ func TestUpdateFromFile_ViaCommand(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 }
-

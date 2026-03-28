@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func TestVerifyProject(t *testing.T) {
@@ -26,7 +27,7 @@ func TestVerifyProject(t *testing.T) {
 
 	t.Run("No manifest", func(t *testing.T) {
 		err := g.verifyProject()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Please run 'generate skeleton' first")
 	})
 
@@ -40,7 +41,7 @@ func TestVerifyProject(t *testing.T) {
 	t.Run("Manifest version is newer", func(t *testing.T) {
 		_ = afero.WriteFile(fs, root+"/.gtb/manifest.yaml", []byte("version:\n  gtb: v2.1.0\n"), 0644)
 		err := g.verifyProject()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "is lower than the version specified in the manifest")
 	})
 

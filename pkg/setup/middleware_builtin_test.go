@@ -30,7 +30,7 @@ func TestWithTiming(t *testing.T) {
 		})
 
 		err := handler(&cobra.Command{Use: "test-cmd"}, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		out := buf.String()
 		assert.Contains(t, out, "command completed")
@@ -47,7 +47,7 @@ func TestWithTiming(t *testing.T) {
 		})
 
 		err := handler(&cobra.Command{Use: "test-cmd"}, nil)
-		assert.ErrorIs(t, err, expectedErr)
+		require.ErrorIs(t, err, expectedErr)
 
 		out := buf.String()
 		assert.Contains(t, out, "command completed")
@@ -70,7 +70,7 @@ func TestWithRecovery(t *testing.T) {
 		})
 
 		err := handler(&cobra.Command{}, nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, buf.String())
 	})
 
@@ -94,9 +94,11 @@ func TestWithRecovery(t *testing.T) {
 
 func TestWithAuthCheck(t *testing.T) {
 	// Not parallel because it modifies global viper state
-	viper.Reset()
 
 	t.Run("AllKeysPresent", func(t *testing.T) {
+		viper.Reset()
+		t.Cleanup(viper.Reset)
+
 		viper.Set("test.key1", "value1")
 		viper.Set("test.key2", "value2")
 
@@ -111,6 +113,8 @@ func TestWithAuthCheck(t *testing.T) {
 
 	t.Run("MissingKey", func(t *testing.T) {
 		viper.Reset()
+		t.Cleanup(viper.Reset)
+
 		viper.Set("test.key1", "value1")
 
 		mw := WithAuthCheck("test.key1", "test.missing")
@@ -125,6 +129,8 @@ func TestWithAuthCheck(t *testing.T) {
 
 	t.Run("EmptyKey", func(t *testing.T) {
 		viper.Reset()
+		t.Cleanup(viper.Reset)
+
 		viper.Set("test.key1", "")
 
 		mw := WithAuthCheck("test.key1")
@@ -139,6 +145,7 @@ func TestWithAuthCheck(t *testing.T) {
 
 	t.Run("NoKeys", func(t *testing.T) {
 		viper.Reset()
+		t.Cleanup(viper.Reset)
 
 		mw := WithAuthCheck()
 		handler := mw(func(cmd *cobra.Command, args []string) error {

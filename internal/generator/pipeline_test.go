@@ -3,18 +3,17 @@ package generator
 import (
 	"context"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"gopkg.in/yaml.v3"
 )
 
 // setupTestProject creates a minimal in-memory project via GenerateSkeleton
@@ -226,14 +225,14 @@ func TestGenerateAndRegenerate(t *testing.T) {
 	// Confirm stop is registered in start after initial generation
 	content, err := afero.ReadFile(p.FS, startCmdPath)
 	require.NoError(t, err)
-	require.True(t, strings.Contains(string(content), "stop"), "stop must be registered in start/cmd.go after generation")
+	require.Contains(t, string(content), "stop", "stop must be registered in start/cmd.go after generation")
 
 	// Re-generate start — stop registration must survive the overwrite
 	generateCmd(t, p, path, "start", "root")
 
 	content, err = afero.ReadFile(p.FS, startCmdPath)
 	require.NoError(t, err)
-	assert.True(t, strings.Contains(string(content), "stop"), "stop registration must survive re-generating the start command")
+	assert.Contains(t, string(content), "stop", "stop registration must survive re-generating the start command")
 
 	// Full RegenerateProject — stop registration must survive
 	g := New(p, &Config{Path: path, Name: "test-project"})
@@ -242,7 +241,7 @@ func TestGenerateAndRegenerate(t *testing.T) {
 
 	content, err = afero.ReadFile(p.FS, startCmdPath)
 	require.NoError(t, err)
-	assert.True(t, strings.Contains(string(content), "stop"), "stop registration must survive RegenerateProject")
+	assert.Contains(t, string(content), "stop", "stop registration must survive RegenerateProject")
 
 	// Verify manifest hash for start/cmd.go is consistent with the file on disk
 	m, err := g.loadManifest()

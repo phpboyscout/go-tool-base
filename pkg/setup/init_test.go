@@ -5,11 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestInitializeConfig(t *testing.T) {
@@ -33,7 +34,7 @@ func TestInitializeConfig(t *testing.T) {
 
 	// Test case 2: Existing config merge
 	t.Run("Merge existing config", func(t *testing.T) {
-		p.FS.MkdirAll(tmpDir, 0755)
+		require.NoError(t, p.FS.MkdirAll(tmpDir, 0755))
 
 		err := afero.WriteFile(p.FS, targetFile, []byte("existing: value\n"), 0644)
 		require.NoError(t, err)

@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func TestSkeletonRun(t *testing.T) {
@@ -63,29 +64,29 @@ func TestSkeletonRun(t *testing.T) {
 
 	for _, f := range expectedFiles {
 		exists, err := afero.Exists(fs, f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "file %s should exist", f)
 	}
 
 	// Verify go.mod content
 	content, err := afero.ReadFile(fs, "test-project/go.mod")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "module github.com/phpboyscout/test-tool")
 
 	// Verify .golangci.yaml content
 	content, err = afero.ReadFile(fs, "test-project/.golangci.yaml")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "local-prefixes")
 	assert.Contains(t, string(content), "github.com/phpboyscout/test-tool")
 
 	// Verify config.yaml content
 	content, err = afero.ReadFile(fs, "test-project/pkg/cmd/root/assets/init/config.yaml")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotContains(t, string(content), "splunk")
 
 	// Verify manifest content
 	content, err = afero.ReadFile(fs, "test-project/.gtb/manifest.yaml")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "name: test-tool")
 	assert.Contains(t, string(content), "host: github.com")
 	assert.Contains(t, string(content), "owner: phpboyscout")
@@ -94,7 +95,7 @@ func TestSkeletonRun(t *testing.T) {
 
 	// Verify .goreleaser.yaml uses github provider
 	content, err = afero.ReadFile(fs, "test-project/.goreleaser.yaml")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "force_token: github")
 	assert.Contains(t, string(content), "github_urls:")
 	assert.NotContains(t, string(content), "gitlab_urls:")
@@ -139,7 +140,7 @@ func TestSkeletonRunGitLab(t *testing.T) {
 
 	for _, f := range gitlabFiles {
 		exists, err := afero.Exists(memFs, f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists, "file %s should exist", f)
 	}
 
@@ -152,19 +153,19 @@ func TestSkeletonRunGitLab(t *testing.T) {
 
 	for _, f := range githubFiles {
 		exists, err := afero.Exists(memFs, f)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, exists, "file %s should not exist for gitlab provider", f)
 	}
 
 	// .goreleaser.yaml should use gitlab provider
 	content, err := afero.ReadFile(memFs, "gitlab-project/.goreleaser.yaml")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "force_token: gitlab")
 	assert.Contains(t, string(content), "gitlab_urls:")
 	assert.NotContains(t, string(content), "github_urls:")
 
 	// CODEOWNERS should have the correct org
 	content, err = afero.ReadFile(memFs, "gitlab-project/.gitlab/CODEOWNERS")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Contains(t, string(content), "@mygroup/ace")
 }

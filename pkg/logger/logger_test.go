@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +34,7 @@ func TestParseLevel(t *testing.T) {
 func TestParseLevel_Invalid(t *testing.T) {
 	_, err := ParseLevel("invalid")
 	require.Error(t, err)
-	assert.True(t, errors.Is(err, ErrInvalidLevel))
+	assert.ErrorIs(t, err, ErrInvalidLevel)
 }
 
 func TestLevel_String(t *testing.T) {

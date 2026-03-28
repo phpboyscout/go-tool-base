@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/invopop/jsonschema"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
-	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestClaudeProvider_New(t *testing.T) {
@@ -31,7 +32,7 @@ func TestClaudeProvider_New(t *testing.T) {
 			Token:    "",
 		}
 		client, err := chat.New(context.Background(), p, cfg)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "Anthropic API key is required")
 	})
@@ -42,7 +43,7 @@ func TestClaudeProvider_New(t *testing.T) {
 			Token:    "test-key",
 		}
 		client, err := chat.New(context.Background(), p, cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
 
@@ -55,7 +56,7 @@ func TestClaudeProvider_New(t *testing.T) {
 		}
 		cfg := chat.Config{Provider: chat.ProviderClaude}
 		client, err := chat.New(context.Background(), pWithKey, cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
 
@@ -63,7 +64,7 @@ func TestClaudeProvider_New(t *testing.T) {
 		t.Setenv(chat.EnvClaudeKey, "env-key")
 		cfg := chat.Config{Provider: chat.ProviderClaude}
 		client, err := chat.New(context.Background(), p, cfg)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
 }
@@ -116,12 +117,12 @@ func TestClaudeProvider_Ask(t *testing.T) {
 				},
 				"stop_reason": "tool_use",
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		var target response
 		err := client.Ask(context.Background(), "What is the answer?", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "The answer is 42", target.Answer)
 	})
 
@@ -150,12 +151,12 @@ func TestClaudeProvider_Ask(t *testing.T) {
 				},
 				"stop_reason": "end_turn",
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		var target map[string]interface{}
 		err = clientWithSchema.Ask(context.Background(), "test", &target)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Claude did not provide a tool use response")
 	})
 
@@ -191,12 +192,12 @@ func TestClaudeProvider_Ask(t *testing.T) {
 				},
 				"stop_reason": "tool_use",
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		var target response
 		err = clientWithSchema.Ask(context.Background(), "test", &target)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Structured 42", target.Answer)
 	})
 
@@ -204,7 +205,7 @@ func TestClaudeProvider_Ask(t *testing.T) {
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			// Return tool_use but with malformed input (missing closing brace)
-			w.Write([]byte(`{
+			_, _ = w.Write([]byte(`{
 				"id": "msg_123",
 				"type": "message",
 				"role": "assistant",
@@ -222,14 +223,14 @@ func TestClaudeProvider_Ask(t *testing.T) {
 
 		var target map[string]interface{}
 		err := client.Ask(context.Background(), "test", &target)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to call Anthropic API")
 	})
 
 	t.Run("ask_empty_question", func(t *testing.T) {
 		var target map[string]interface{}
 		err := client.Ask(context.Background(), "", &target)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "question cannot be empty")
 	})
 }
@@ -273,11 +274,11 @@ func TestClaudeProvider_Chat(t *testing.T) {
 				},
 				"stop_reason": "end_turn",
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		resp, err := client.Chat(context.Background(), "Hi")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "Hello! How can I help you?", resp)
 	})
 
@@ -322,7 +323,7 @@ func TestClaudeProvider_Chat(t *testing.T) {
 					"stop_reason": "end_turn",
 				}
 			}
-			json.NewEncoder(w).Encode(resp)
+			_ = json.NewEncoder(w).Encode(resp)
 		}
 
 		type weatherArgs struct {
@@ -341,13 +342,13 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "What is the weather?")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "The weather in London is sunny.", resp)
 	})
 
 	t.Run("chat_empty_prompt", func(t *testing.T) {
 		resp, err := client.Chat(context.Background(), "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 		assert.Empty(t, resp)
 	})

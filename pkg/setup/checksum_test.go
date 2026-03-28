@@ -13,27 +13,28 @@ import (
 func TestVerifyChecksum_ValidHash(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	data := []byte("hello world")
-	hash := fmt.Sprintf("%x", sha256.Sum256(data))
+	tests := []struct {
+		name   string
+		format string
+	}{
+		{name: "lowercase", format: "%x"},
+		{name: "uppercase", format: "%X"},
+	}
 
-	require.NoError(t, afero.WriteFile(fs, "/sidecar.sha256", []byte(hash+"  somefile.tar.gz\n"), 0o644))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	err := VerifyChecksum(fs, "/sidecar.sha256", data)
-	assert.NoError(t, err)
-}
+			fs := afero.NewMemMapFs()
+			data := []byte("hello world")
+			hash := fmt.Sprintf(tt.format, sha256.Sum256(data))
 
-func TestVerifyChecksum_ValidHash_UpperCase(t *testing.T) {
-	t.Parallel()
+			require.NoError(t, afero.WriteFile(fs, "/sidecar.sha256", []byte(hash+"  somefile.tar.gz\n"), 0o644))
 
-	fs := afero.NewMemMapFs()
-	data := []byte("hello world")
-	hash := fmt.Sprintf("%X", sha256.Sum256(data))
-
-	require.NoError(t, afero.WriteFile(fs, "/sidecar.sha256", []byte(hash+"  somefile.tar.gz\n"), 0o644))
-
-	err := VerifyChecksum(fs, "/sidecar.sha256", data)
-	assert.NoError(t, err)
+			err := VerifyChecksum(fs, "/sidecar.sha256", data)
+			assert.NoError(t, err)
+		})
+	}
 }
 
 func TestVerifyChecksum_InvalidHash(t *testing.T) {

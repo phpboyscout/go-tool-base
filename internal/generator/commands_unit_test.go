@@ -4,13 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestCollectAncestoralPersistentFlags(t *testing.T) {
@@ -259,7 +261,7 @@ func TestCheckProtection(t *testing.T) {
 
 			err := g.checkProtection()
 			if tt.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if tt.errContains != "" {
 					assert.Contains(t, err.Error(), tt.errContains)
 				}
@@ -294,7 +296,7 @@ func TestPrepareAndVerify(t *testing.T) {
 			},
 		}
 		_, err := g.prepareAndVerify()
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot create a command named 'root'")
 	})
 
@@ -307,7 +309,7 @@ func TestPrepareAndVerify(t *testing.T) {
 			},
 		}
 		dir, err := g.prepareAndVerify()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, "/work/pkg/cmd/new-cmd", dir)
 	})
 

@@ -142,7 +142,7 @@ func TestStatus_ValidServer(t *testing.T) {
 func TestStatus_NilServer(t *testing.T) {
 	t.Parallel()
 	err := Status(nil)()
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "grpc server is nil")
 }
 
@@ -160,21 +160,17 @@ func TestGRPCHealth(t *testing.T) {
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	
+
 	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger())
 	require.NoError(t, err)
 
 	controller.Start()
 
 	// Connect to gRPC health service
-	// Use DialContext as Dial is deprecated
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, fmt.Sprintf("localhost:%d", port), 
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock())
+	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := grpc_health_v1.NewHealthClient(conn)
 
@@ -184,7 +180,7 @@ func TestGRPCHealth(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		return resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
+		return resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING
 	}, 2*time.Second, 100*time.Millisecond)
 
 	controller.Stop()
@@ -205,7 +201,7 @@ func TestGRPCProbes(t *testing.T) {
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	
+
 	controller.Register("test-service",
 		controls.WithStart(func(_ context.Context) error { return nil }),
 		controls.WithStop(func(_ context.Context) {}),
@@ -219,13 +215,10 @@ func TestGRPCProbes(t *testing.T) {
 	controller.Start()
 
 	// Connect to gRPC health service
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, fmt.Sprintf("localhost:%d", port), 
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock())
+	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client := grpc_health_v1.NewHealthClient(conn)
 
@@ -235,7 +228,7 @@ func TestGRPCProbes(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		return resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
+		return resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING
 	}, 2*time.Second, 100*time.Millisecond)
 
 	// Check readiness - should be NOT_SERVING
@@ -244,7 +237,7 @@ func TestGRPCProbes(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		return resp.Status == grpc_health_v1.HealthCheckResponse_NOT_SERVING
+		return resp.GetStatus() == grpc_health_v1.HealthCheckResponse_NOT_SERVING
 	}, 2*time.Second, 100*time.Millisecond)
 
 	controller.Stop()
@@ -256,7 +249,7 @@ func TestGRPCPortConfig_Specific(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(9090)
-	
+
 	srv, _ := NewServer(cfg)
 	startFn := Start(cfg, testLogger(), srv)
 	assert.NotNil(t, startFn)

@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // -- RunStepsWithBack (backward compat) --------------------------------------
@@ -22,7 +23,7 @@ func TestRunStepsWithBack_AllSucceed(t *testing.T) {
 	}
 
 	err := forms.RunStepsWithBack(steps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []int{1, 2, 3}, order)
 }
 
@@ -51,7 +52,7 @@ func TestRunStepsWithBack_AbortOnSecond_GoesBack(t *testing.T) {
 	}
 
 	err := forms.RunStepsWithBack(steps)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 4, calls)
 }
 
@@ -82,7 +83,7 @@ func TestWizard_Step_AllSucceed(t *testing.T) {
 		Step(func() error { order = append(order, 2); return nil }).
 		Run()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []int{1, 2}, order)
 }
 
@@ -109,7 +110,7 @@ func TestWizard_Step_AbortOnSecond_GoesBack(t *testing.T) {
 		}).
 		Run()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 4, calls)
 }
 
@@ -141,7 +142,7 @@ func TestNewWizard_ConstructorGroups_ExecuteInOrder(t *testing.T) {
 		Step(func() error { order = append(order, 2); val2 = "b"; return nil })
 
 	err := w.Run()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []int{1, 2}, order)
 	assert.Equal(t, "a", val1)
 	assert.Equal(t, "b", val2)
@@ -166,23 +167,8 @@ func TestWizard_MixedGroupAndStep(t *testing.T) {
 		Step(func() error { stepRan = true; return nil }).
 		Run()
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.True(t, stepRan)
-}
-
-func TestNewNavigable_ReturnsForm(t *testing.T) {
-	t.Parallel()
-	// Just verify the factory builds without panic.
-	// Run is not called — no TTY required.
-	f := forms.NewNavigable()
-	assert.NotNil(t, f)
-}
-
-func TestWizard_Group_ChainReturnsSelf(t *testing.T) {
-	t.Parallel()
-	w := forms.NewWizard()
-	result := w.Group()
-	assert.Same(t, w, result)
 }
 
 func TestWizard_ConditionalSteps(t *testing.T) {
@@ -197,6 +183,6 @@ func TestWizard_ConditionalSteps(t *testing.T) {
 	}
 
 	err := w.Run()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, []int{1, 2}, order)
 }

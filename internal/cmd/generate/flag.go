@@ -240,13 +240,15 @@ func findCommand(commands []generator.ManifestCommand, path []string, currentPat
 		return nil, nil, ErrEmptyCommandPath
 	}
 
+	head, tail := path[0], path[1:]
+
 	for _, cmd := range commands {
-		if cmd.Name == path[0] {
-			if len(path) == 1 {
+		if cmd.Name == head {
+			if len(tail) == 0 {
 				return &cmd, currentPath, nil
 			}
 
-			return findCommand(cmd.Commands, path[1:], append(currentPath, cmd.Name))
+			return findCommand(cmd.Commands, tail, append(currentPath, cmd.Name))
 		}
 	}
 
@@ -258,15 +260,17 @@ func updateCommandMetadataRecursive(commands *[]generator.ManifestCommand, path 
 		return false
 	}
 
+	head, tail := path[0], path[1:]
+
 	for i := range *commands {
-		if (*commands)[i].Name == path[0] {
-			if len(path) == 1 {
+		if (*commands)[i].Name == head {
+			if len(tail) == 0 {
 				(*commands)[i] = updatedCmd
 
 				return true
 			}
 
-			return updateCommandMetadataRecursive(&(*commands)[i].Commands, path[1:], updatedCmd)
+			return updateCommandMetadataRecursive(&(*commands)[i].Commands, tail, updatedCmd)
 		}
 	}
 

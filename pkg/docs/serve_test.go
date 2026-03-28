@@ -2,6 +2,7 @@ package docs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,7 +50,7 @@ func TestServe_StartsAndShutsDownCleanly(t *testing.T) {
 	select {
 	case err := <-doneCh:
 		// http.ErrServerClosed is the expected clean-shutdown signal
-		assert.True(t, err == nil || err == http.ErrServerClosed,
+		assert.True(t, err == nil || errors.Is(err, http.ErrServerClosed),
 			"unexpected error: %v", err)
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not shut down within timeout")
@@ -99,7 +100,7 @@ func TestServeWithRealRequest(t *testing.T) {
 
 	resp, err := http.Get(fmt.Sprintf("%s/page.html", server.URL))
 	require.NoError(t, err)
-	t.Cleanup(func() { resp.Body.Close() })
+	t.Cleanup(func() { _ = resp.Body.Close() })
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	body, _ := io.ReadAll(resp.Body)

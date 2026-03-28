@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestGenerateSkeleton(t *testing.T) {
@@ -51,7 +52,7 @@ func TestGenerateSkeleton(t *testing.T) {
 
 	for _, f := range expectedFiles {
 		exists, err := afero.Exists(fs, f)
-		assert.NoError(t, err, "Error checking if %s exists", f)
+		require.NoError(t, err, "Error checking if %s exists", f)
 		assert.True(t, exists, "File %s should exist", f)
 	}
 
@@ -131,10 +132,10 @@ func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
 
 func TestSplitRepoPath(t *testing.T) {
 	tests := []struct {
-		input       string
-		wantOrg     string
-		wantRepo    string
-		wantErr     bool
+		input    string
+		wantOrg  string
+		wantRepo string
+		wantErr  bool
 	}{
 		{"org/repo", "org", "repo", false},
 		{"group/subgroup/repo", "group/subgroup", "repo", false},

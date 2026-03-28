@@ -12,12 +12,13 @@ import (
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestRepo_Unit_OpenLocal(t *testing.T) {
@@ -33,14 +34,14 @@ func TestRepo_Unit_OpenLocal(t *testing.T) {
 
 	t.Run("init_new_repo", func(t *testing.T) {
 		repo, tree, err := r.OpenLocal(tmpDir, "main")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, repo)
 		assert.NotNil(t, tree)
 	})
 
 	t.Run("open_existing_repo", func(t *testing.T) {
 		repo, tree, err := r.OpenLocal(tmpDir, "main")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, repo)
 		assert.NotNil(t, tree)
 	})
@@ -75,17 +76,17 @@ func TestRepo_Unit_GitOperations(t *testing.T) {
 
 	t.Run("FileExists", func(t *testing.T) {
 		exists, err := r.FileExists(relPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 
 		exists, err = r.FileExists("missing.txt")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.False(t, exists)
 	})
 
 	t.Run("DirectoryExists", func(t *testing.T) {
 		exists, err := r.DirectoryExists("")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 
 		// Create a file in a subdirectory
@@ -99,13 +100,13 @@ func TestRepo_Unit_GitOperations(t *testing.T) {
 		})
 
 		exists, err = r.DirectoryExists(subDir)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.True(t, exists)
 	})
 
 	t.Run("GetFile", func(t *testing.T) {
 		file, err := r.GetFile(relPath)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, file)
 		assert.Equal(t, relPath, file.Name)
 	})
@@ -114,10 +115,10 @@ func TestRepo_Unit_GitOperations(t *testing.T) {
 		memFS := afero.NewMemMapFs()
 		file, _ := r.GetFile(relPath)
 		targetPath := "/copied.txt"
-		
+
 		err := r.AddToFS(memFS, file, targetPath)
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		content, _ := afero.ReadFile(memFS, targetPath)
 		assert.Equal(t, "hello", string(content))
 	})
@@ -128,20 +129,20 @@ func TestRepo_Unit_GitOperations(t *testing.T) {
 			files = append(files, f.Name)
 			return nil
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Contains(t, files, relPath)
 	})
 
 	t.Run("CheckoutAndCreateBranch", func(t *testing.T) {
 		err := r.CreateBranch("feature")
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		head, _ := r.repo.Head()
 		assert.Equal(t, "refs/heads/feature", head.Name().String())
 
 		err = r.Checkout(plumbing.NewBranchReferenceName("main"))
-		assert.NoError(t, err)
-		
+		require.NoError(t, err)
+
 		head, _ = r.repo.Head()
 		assert.Equal(t, "refs/heads/main", head.Name().String())
 	})
@@ -149,7 +150,7 @@ func TestRepo_Unit_GitOperations(t *testing.T) {
 
 func TestRepo_Unit_AuthConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	
+
 	t.Run("token_auth", func(t *testing.T) {
 		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`github: {auth: {env: "G"}}`))
 		t.Setenv("G", "test-token")
@@ -159,7 +160,7 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 			Config: cfg,
 		}
 		r, err := NewRepo(p)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.NotNil(t, r.GetAuth())
 	})
 
@@ -182,7 +183,7 @@ func TestRepo_Unit_Options(t *testing.T) {
 		r := &Repo{}
 		cfg := &gitconfig.Config{}
 		err := WithConfig(cfg)(r)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, cfg, r.config)
 	})
 
@@ -213,7 +214,7 @@ func TestRepo_Unit_Getters(t *testing.T) {
 	t.Run("SetRepo/WithRepo", func(t *testing.T) {
 		t.Parallel()
 		r := &Repo{}
-		assert.ErrorIs(t, r.WithRepo(func(_ *git.Repository) error { return nil }), ErrNoRepository)
+		require.ErrorIs(t, r.WithRepo(func(_ *git.Repository) error { return nil }), ErrNoRepository)
 
 		tmpDir := t.TempDir()
 		repo, err := git.PlainInit(tmpDir, false)
@@ -231,7 +232,7 @@ func TestRepo_Unit_Getters(t *testing.T) {
 	t.Run("SetTree/WithTree", func(t *testing.T) {
 		t.Parallel()
 		r := &Repo{}
-		assert.ErrorIs(t, r.WithTree(func(_ *git.Worktree) error { return nil }), ErrNoWorktree)
+		require.ErrorIs(t, r.WithTree(func(_ *git.Worktree) error { return nil }), ErrNoWorktree)
 
 		tmpDir := t.TempDir()
 		repo, err := git.PlainInit(tmpDir, false)
@@ -309,7 +310,7 @@ func TestRepo_Unit_Open(t *testing.T) {
 	t.Run("Open_UnknownType", func(t *testing.T) {
 		r := &Repo{}
 		_, _, err := r.Open("bad-type", "", "")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown repo type")
 	})
 }
@@ -383,7 +384,7 @@ func TestRepo_Unit_GetSSHKey_Errors(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, fs.Mkdir("/keydir", 0o755))
 		_, err := GetSSHKey("/keydir", fs)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "GITHUB_KEY")
 	})
 
@@ -438,7 +439,7 @@ func TestRepo_Unit_AddToFS_AlreadyExists(t *testing.T) {
 	require.NoError(t, afero.WriteFile(memFS, "/out.txt", []byte("existing"), 0o644))
 
 	err = r.AddToFS(memFS, gitFile, "/out.txt")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// File must be unchanged — AddToFS skips overwriting.
 	content, _ := afero.ReadFile(memFS, "/out.txt")
@@ -471,7 +472,7 @@ func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
 		return errors.New("opt failed")
 	}
 	_, err := NewRepo(p, errOpt)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opt failed")
 }
 

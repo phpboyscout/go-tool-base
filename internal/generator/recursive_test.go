@@ -5,12 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestRecursiveManifestUpdate(t *testing.T) {
@@ -121,7 +122,7 @@ func TestSetProtectionRecursive(t *testing.T) {
 
 	// Verify
 	data, _ = afero.ReadFile(fs, ".gtb/manifest.yaml")
-	yaml.Unmarshal(data, &m)
+	require.NoError(t, yaml.Unmarshal(data, &m))
 	assert.True(t, *m.Commands[0].Commands[0].Protected)
 }
 
@@ -151,7 +152,7 @@ func TestRemoveCommandRecursive(t *testing.T) {
 
 	// Verify
 	data, _ = afero.ReadFile(fs, ".gtb/manifest.yaml")
-	yaml.Unmarshal(data, &m)
+	require.NoError(t, yaml.Unmarshal(data, &m))
 	require.Len(t, m.Commands[0].Commands, 1)
 	assert.Equal(t, "d", m.Commands[0].Commands[0].Name)
 }

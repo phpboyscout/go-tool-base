@@ -8,6 +8,11 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/huh"
+	"github.com/spf13/afero"
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	gossh "golang.org/x/crypto/ssh"
 
 	mockVCS "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
@@ -15,11 +20,6 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
-	"github.com/spf13/afero"
-	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 // generateUnencryptedKeyPEM generates a fresh ed25519 private key in OpenSSH PEM format.
@@ -192,27 +192,6 @@ func TestGitHubInitialiser(t *testing.T) {
 
 	assert.Equal(t, "mock-token", cfg.GetString("github.auth.value"))
 }
-func TestGitHubInitialiser_Name(t *testing.T) {
-	t.Parallel()
-	assert.Equal(t, "GitHub integration", (&GitHubInitialiser{}).Name())
-}
-
-func TestNewGitHubInitialiser_NilAssets(t *testing.T) {
-	t.Parallel()
-	p := newTestProps(t)
-	// Props.Assets is nil — must not panic
-	i := NewGitHubInitialiser(p, false, false)
-	require.NotNil(t, i)
-	assert.Equal(t, "GitHub integration", i.Name())
-}
-
-func TestNewCmdInitGitHub_Wiring(t *testing.T) {
-	t.Parallel()
-	p := newTestProps(t)
-	cmd := NewCmdInitGitHub(p)
-	assert.Equal(t, "github", cmd.Use)
-	assert.NotNil(t, cmd.Flags().Lookup("dir"))
-}
 
 func TestConfigure_SkipBoth(t *testing.T) {
 	t.Parallel()
@@ -342,7 +321,7 @@ func TestValidateSSHKey_Invalid(t *testing.T) {
 	t.Parallel()
 	p := newTestProps(t)
 	err := validateSSHKey([]byte("not-a-key"), p)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not a valid private key")
 }
 

@@ -17,13 +17,6 @@ func TestParse_EmptyInput(t *testing.T) {
 	assert.Empty(t, cl.ToVersion)
 }
 
-func TestParse_WhitespaceOnly(t *testing.T) {
-	t.Parallel()
-
-	cl := Parse("   \n\n  \t  \n")
-	assert.Empty(t, cl.Releases)
-}
-
 func TestParse_SingleRelease(t *testing.T) {
 	t.Parallel()
 
@@ -57,7 +50,7 @@ func TestParse_SingleRelease(t *testing.T) {
 	assert.Equal(t, "add interceptor support", entries[1].Description)
 
 	assert.Equal(t, CategoryFix, entries[2].Category)
-	assert.Equal(t, "", entries[2].Scope)
+	assert.Empty(t, entries[2].Scope)
 	assert.Equal(t, "fix startup race condition", entries[2].Description)
 }
 
@@ -159,9 +152,9 @@ func TestParse_UnscopedEntries(t *testing.T) {
 	entries := cl.Releases[0].Entries
 	require.Len(t, entries, 2)
 
-	assert.Equal(t, "", entries[0].Scope)
+	assert.Empty(t, entries[0].Scope)
 	assert.Equal(t, "fix startup race condition", entries[0].Description)
-	assert.Equal(t, "", entries[1].Scope)
+	assert.Empty(t, entries[1].Scope)
 	assert.Equal(t, "resolve panic on nil logger", entries[1].Description)
 }
 

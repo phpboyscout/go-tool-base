@@ -30,7 +30,7 @@ func TestCheckGoVersion_Current(t *testing.T) {
 	assert.Equal(t, CheckPass, result.Status)
 }
 
-func TestCheckGoVersion_Correctness(t *testing.T) {
+func TestCompareGoVersion_OldVersionWarns(t *testing.T) {
 	t.Parallel()
 	result := compareGoVersion("go1.9")
 	assert.Equal(t, CheckWarn, result.Status)
@@ -139,6 +139,16 @@ func TestRunChecks(t *testing.T) {
 	assert.Equal(t, "test-tool", report.Tool)
 	assert.Equal(t, "v1.0.0", report.Version)
 	assert.NotEmpty(t, report.Checks)
+
+	checkNames := make(map[string]bool)
+	for _, c := range report.Checks {
+		checkNames[c.Name] = true
+	}
+	assert.True(t, checkNames["Go version"], "expected 'Go version' check in report")
+	assert.True(t, checkNames["Configuration"], "expected 'Configuration' check in report")
+	assert.True(t, checkNames["Git"], "expected 'Git' check in report")
+	assert.True(t, checkNames["API keys"], "expected 'API keys' check in report")
+	assert.True(t, checkNames["Permissions"], "expected 'Permissions' check in report")
 }
 
 func TestDoctorReport_JSONOutput(t *testing.T) {
@@ -228,7 +238,7 @@ func TestCheckPermissions_EmptyDir(t *testing.T) {
 
 func TestCheckPermissions_NonExistent(t *testing.T) {
 	t.Parallel()
-	
+
 	fs := &mockStatFs{
 		Fs: afero.NewMemMapFs(),
 		statFunc: func(name string) (os.FileInfo, error) {
@@ -298,7 +308,7 @@ func (m *mockFileInfo) IsDir() bool {
 
 func TestCheckPermissions_InsufficientPerms(t *testing.T) {
 	t.Parallel()
-	
+
 	fs := &mockStatFs{
 		Fs: afero.NewMemMapFs(),
 		statFunc: func(name string) (os.FileInfo, error) {

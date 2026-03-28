@@ -85,7 +85,7 @@ func TestBufferBackend_With(t *testing.T) {
 	child.Info("hello")
 
 	entries := buf.Entries()
-	require.Equal(t, 1, len(entries))
+	require.Len(t, entries, 1)
 	assert.Contains(t, entries[0].Keyvals, "component")
 	assert.Contains(t, entries[0].Keyvals, "test")
 }
@@ -124,7 +124,7 @@ func TestBufferBackend_Entries(t *testing.T) {
 	buf.Info("msg", "key", "value")
 
 	entries := buf.Entries()
-	require.Equal(t, 1, len(entries))
+	require.Len(t, entries, 1)
 	assert.Equal(t, InfoLevel, entries[0].Level)
 	assert.Equal(t, "msg", entries[0].Message)
 	assert.Equal(t, []any{"key", "value"}, entries[0].Keyvals)

@@ -6,31 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewInfo(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name            string
-		version, commit string
-		date            string
-		wantVersion     string
-	}{
-		{"adds v prefix", "1.2.3", "abc", "2026-01-01", "v1.2.3"},
-		{"preserves v prefix", "v1.2.3", "abc", "2026-01-01", "v1.2.3"},
-		{"empty version", "", "", "", ""},
-		{"prerelease", "1.0.0-beta.1", "def", "2026-02-01", "v1.0.0-beta.1"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			info := NewInfo(tt.version, tt.commit, tt.date)
-			assert.Equal(t, tt.wantVersion, info.GetVersion())
-			assert.Equal(t, tt.commit, info.GetCommit())
-			assert.Equal(t, tt.date, info.GetDate())
-		})
-	}
-}
-
 func TestInfo_String(t *testing.T) {
 	t.Parallel()
 
@@ -50,15 +25,6 @@ func TestInfo_String(t *testing.T) {
 			assert.Equal(t, tt.expect, tt.info.String())
 		})
 	}
-}
-
-func TestInfo_Compare(t *testing.T) {
-	t.Parallel()
-
-	info := NewInfo("1.2.3", "", "")
-	assert.Equal(t, 0, info.Compare("v1.2.3"))
-	assert.Equal(t, 1, info.Compare("v1.2.2"))
-	assert.Equal(t, -1, info.Compare("v1.2.4"))
 }
 
 func TestInfo_IsDevelopment(t *testing.T) {

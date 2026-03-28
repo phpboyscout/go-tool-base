@@ -5,91 +5,91 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func TestSlackHelp_SupportMessage(t *testing.T) {
-	tests := []struct {
-		name    string
-		help    SlackHelp
-		want    string
-		isEmpty bool
+func TestHelp_SupportMessage(t *testing.T) {
+	t.Parallel()
+
+	providers := []struct {
+		provider string
+		help     HelpConfig
+		channel  string
+		want     string
 	}{
 		{
-			name:    "both fields set",
-			help:    SlackHelp{Team: "Engineering", Channel: "#support"},
-			want:    "For assistance, contact Engineering via Slack channel #support",
-			isEmpty: false,
+			provider: "Slack",
+			help:     SlackHelp{Team: "Engineering", Channel: "#support"},
+			channel:  "#support",
+			want:     "For assistance, contact Engineering via Slack channel #support",
 		},
 		{
-			name:    "missing team",
-			help:    SlackHelp{Channel: "#support"},
-			isEmpty: true,
-		},
-		{
-			name:    "missing channel",
-			help:    SlackHelp{Team: "Engineering"},
-			isEmpty: true,
-		},
-		{
-			name:    "both empty",
-			help:    SlackHelp{},
-			isEmpty: true,
+			provider: "Teams",
+			help:     TeamsHelp{Team: "Engineering", Channel: "Support"},
+			channel:  "Support",
+			want:     "For assistance, contact Engineering via Microsoft Teams channel Support",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			msg := tt.help.SupportMessage()
-			if tt.isEmpty {
-				assert.Empty(t, msg)
-			} else {
-				assert.Equal(t, tt.want, msg)
+	for _, p := range providers {
+		t.Run(p.provider, func(t *testing.T) {
+			t.Parallel()
+
+			tests := []struct {
+				name    string
+				help    HelpConfig
+				want    string
+				isEmpty bool
+			}{
+				{
+					name:    "both fields set",
+					help:    p.help,
+					want:    p.want,
+					isEmpty: false,
+				},
+				{
+					name:    "missing team",
+					help:    newHelp(p.provider, "", p.channel),
+					isEmpty: true,
+				},
+				{
+					name:    "missing channel",
+					help:    newHelp(p.provider, "Engineering", ""),
+					isEmpty: true,
+				},
+				{
+					name:    "both empty",
+					help:    newHelp(p.provider, "", ""),
+					isEmpty: true,
+				},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					t.Parallel()
+
+					msg := tt.help.SupportMessage()
+					if tt.isEmpty {
+						assert.Empty(t, msg)
+					} else {
+						assert.Equal(t, tt.want, msg)
+					}
+				})
 			}
 		})
 	}
 }
 
-func TestTeamsHelp_SupportMessage(t *testing.T) {
-	tests := []struct {
-		name    string
-		help    TeamsHelp
-		want    string
-		isEmpty bool
-	}{
-		{
-			name:    "both fields set",
-			help:    TeamsHelp{Team: "Engineering", Channel: "Support"},
-			want:    "For assistance, contact Engineering via Microsoft Teams channel Support",
-			isEmpty: false,
-		},
-		{
-			name:    "missing team",
-			help:    TeamsHelp{Channel: "Support"},
-			isEmpty: true,
-		},
-		{
-			name:    "missing channel",
-			help:    TeamsHelp{Team: "Engineering"},
-			isEmpty: true,
-		},
-		{
-			name:    "both empty",
-			help:    TeamsHelp{},
-			isEmpty: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			msg := tt.help.SupportMessage()
-			if tt.isEmpty {
-				assert.Empty(t, msg)
-			} else {
-				assert.Equal(t, tt.want, msg)
-			}
-		})
+func newHelp(provider, team, channel string) HelpConfig {
+	switch provider {
+	case "Slack":
+		return SlackHelp{Team: team, Channel: channel}
+	case "Teams":
+		return TeamsHelp{Team: team, Channel: channel}
+	default:
+		return nil
 	}
 }
 

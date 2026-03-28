@@ -10,12 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/google/go-github/v80/github"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var apiConfigGithub = `
@@ -55,7 +56,9 @@ func TestCreatePullRequest(t *testing.T) {
 			Number: new(123),
 			Title:  body.Title,
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -85,7 +88,9 @@ func TestGetPullRequestByBranch(t *testing.T) {
 					},
 				},
 			}
-			_ = json.NewEncoder(w).Encode(resp)
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}
 
 		server, client := setupMockGitHubServer(t, handler)
@@ -98,14 +103,16 @@ func TestGetPullRequestByBranch(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		handler := func(w http.ResponseWriter, r *http.Request) {
-			_ = json.NewEncoder(w).Encode([]*github.PullRequest{})
+			if err := json.NewEncoder(w).Encode([]*github.PullRequest{}); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 		}
 
 		server, client := setupMockGitHubServer(t, handler)
 		defer server.Close()
 
 		_, err := client.GetPullRequestByBranch(context.Background(), "owner", "repo", "missing-branch", "open")
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no pull request found")
 	})
 }
@@ -123,7 +130,9 @@ func TestUpdatePullRequest(t *testing.T) {
 			Number: new(123),
 			Title:  body.Title,
 		}
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -145,7 +154,9 @@ func TestAddLabelsToPullRequest_Unit(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&labels)
 		assert.Contains(t, labels, "bug")
 
-		_ = json.NewEncoder(w).Encode([]*github.Label{{Name: new("bug")}})
+		if err := json.NewEncoder(w).Encode([]*github.Label{{Name: new("bug")}}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -170,9 +181,11 @@ func TestCreateRepo(t *testing.T) {
 		assert.Equal(t, "new-repo", *body.Name)
 		assert.Equal(t, "internal", *body.Visibility)
 
-		_ = json.NewEncoder(w).Encode(&github.Repository{
+		if err := json.NewEncoder(w).Encode(&github.Repository{
 			Name: new("new-repo"),
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -194,9 +207,11 @@ func TestUploadKey(t *testing.T) {
 		assert.Equal(t, "my-key", *body.Title)
 		assert.Equal(t, "ssh-rsa AAA...", *body.Key)
 
-		_ = json.NewEncoder(w).Encode(&github.Key{
+		if err := json.NewEncoder(w).Encode(&github.Key{
 			ID: new(int64(1)),
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -211,10 +226,12 @@ func TestListReleases(t *testing.T) {
 		assert.Equal(t, "/api/v3/repos/owner/repo/releases", r.URL.Path)
 		assert.Equal(t, "GET", r.Method)
 
-		_ = json.NewEncoder(w).Encode([]*github.RepositoryRelease{
+		if err := json.NewEncoder(w).Encode([]*github.RepositoryRelease{
 			{TagName: new("v1.0.0")},
 			{TagName: new("v1.1.0")},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -233,9 +250,11 @@ func TestGetReleaseAssets(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v3/repos/owner/repo/releases/tags/v1.0.0", r.URL.Path)
-		_ = json.NewEncoder(w).Encode(&github.RepositoryRelease{
+		if err := json.NewEncoder(w).Encode(&github.RepositoryRelease{
 			Assets: []*github.ReleaseAsset{{ID: &id, Name: &name}},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -250,14 +269,16 @@ func TestGetReleaseAssets(t *testing.T) {
 func TestGetReleaseAssets_Error(t *testing.T) {
 	handler := func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
 	defer server.Close()
 
 	assets, err := client.GetReleaseAssets(context.Background(), "owner", "repo", "v99.0.0")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, assets)
 }
 
@@ -266,9 +287,11 @@ func TestGetReleaseAssetID(t *testing.T) {
 	name := "binary.tar.gz"
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(&github.RepositoryRelease{
+		if err := json.NewEncoder(w).Encode(&github.RepositoryRelease{
 			Assets: []*github.ReleaseAsset{{ID: &id, Name: &name}},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -284,16 +307,18 @@ func TestGetReleaseAssetID_NotFound(t *testing.T) {
 	name := "other.tar.gz"
 
 	handler := func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(&github.RepositoryRelease{
+		if err := json.NewEncoder(w).Encode(&github.RepositoryRelease{
 			Assets: []*github.ReleaseAsset{{ID: &id, Name: &name}},
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
 	defer server.Close()
 
 	_, err := client.GetReleaseAssetID(context.Background(), "owner", "repo", "v1.0.0", "missing.tar.gz")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing.tar.gz")
 }
 
@@ -302,10 +327,12 @@ func TestGetFileContents(t *testing.T) {
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v3/repos/owner/repo/contents/README.md", r.URL.Path)
-		_ = json.NewEncoder(w).Encode(&github.RepositoryContent{
+		if err := json.NewEncoder(w).Encode(&github.RepositoryContent{
 			Content:  &import64,
 			Encoding: github.Ptr("base64"),
-		})
+		}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -319,7 +346,9 @@ func TestGetFileContents(t *testing.T) {
 func TestGetFileContents_Error(t *testing.T) {
 	handler := func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 
 	server, client := setupMockGitHubServer(t, handler)
@@ -350,7 +379,7 @@ auth: {}
 `))
 
 	_, err := GetGitHubToken(cfg)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GITHUB_TOKEN")
 }
 
@@ -358,7 +387,7 @@ func TestNewGitHubClient_NilConfig(t *testing.T) {
 	t.Parallel()
 
 	client, err := NewGitHubClient(nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, client)
 	assert.Contains(t, err.Error(), "github configuration is missing")
 }
@@ -372,7 +401,7 @@ func TestDownloadAsset(t *testing.T) {
 			assert.Equal(t, path, r.URL.Path)
 			assert.Equal(t, "application/octet-stream", r.Header.Get("Accept"))
 
-			w.Write([]byte("asset-content"))
+			_, _ = w.Write([]byte("asset-content"))
 		}
 
 		server, client := setupMockGitHubServer(t, handler)
@@ -380,7 +409,7 @@ func TestDownloadAsset(t *testing.T) {
 
 		rc, err := client.DownloadAsset(context.Background(), "owner", "repo", assetID)
 		require.NoError(t, err)
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 
 		content, err := io.ReadAll(rc)
 		require.NoError(t, err)
@@ -389,7 +418,7 @@ func TestDownloadAsset(t *testing.T) {
 
 	t.Run("DownloadToFS", func(t *testing.T) {
 		handler := func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("file-content"))
+			_, _ = w.Write([]byte("file-content"))
 		}
 
 		server, client := setupMockGitHubServer(t, handler)

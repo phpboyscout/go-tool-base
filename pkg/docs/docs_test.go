@@ -81,9 +81,9 @@ func TestParseMkDocsNav_NestedSections(t *testing.T) {
     - Advanced:
       - Plugins: guide/advanced/plugins.md
 `)},
-		"index.md":                   {Data: []byte("# Welcome")},
-		"guide/start.md":             {Data: []byte("# Getting Started")},
-		"guide/advanced/plugins.md":  {Data: []byte("# Plugins")},
+		"index.md":                  {Data: []byte("# Welcome")},
+		"guide/start.md":            {Data: []byte("# Getting Started")},
+		"guide/advanced/plugins.md": {Data: []byte("# Plugins")},
 	}
 
 	nodes, err := parseMkDocsNav(fsys)
@@ -104,13 +104,13 @@ func TestGenerateNavFromFS(t *testing.T) {
 	t.Parallel()
 
 	fsys := fstest.MapFS{
-		"index.md":           {Data: []byte("# Home")},
-		"about.md":           {Data: []byte("# About")},
-		"guide/install.md":   {Data: []byte("# Installation")},
+		"index.md":            {Data: []byte("# Home")},
+		"about.md":            {Data: []byte("# About")},
+		"guide/install.md":    {Data: []byte("# Installation")},
 		"guide/quickstart.md": {Data: []byte("# Quick Start")},
-		".hidden.md":         {Data: []byte("# Hidden")},
-		"_private.md":        {Data: []byte("# Private")},
-		"readme.txt":         {Data: []byte("not markdown")},
+		".hidden.md":          {Data: []byte("# Hidden")},
+		"_private.md":         {Data: []byte("# Private")},
+		"readme.txt":          {Data: []byte("not markdown")},
 	}
 
 	nodes, err := generateNavFromFS(fsys, ".")
@@ -165,13 +165,13 @@ func TestExtractTitle(t *testing.T) {
 		fsys := fstest.MapFS{
 			"page.md": {Data: []byte("No heading here.\n\nJust content.")},
 		}
-		assert.Equal(t, "", extractTitle(fsys, "page.md"))
+		assert.Empty(t, extractTitle(fsys, "page.md"))
 	})
 
 	t.Run("file does not exist", func(t *testing.T) {
 		t.Parallel()
 		fsys := fstest.MapFS{}
-		assert.Equal(t, "", extractTitle(fsys, "missing.md"))
+		assert.Empty(t, extractTitle(fsys, "missing.md"))
 	})
 
 	t.Run("h1 not on first line", func(t *testing.T) {
