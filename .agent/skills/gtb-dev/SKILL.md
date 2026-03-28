@@ -64,7 +64,7 @@ When modifying CLI commands or library APIs that affect scaffolded output, ensur
 
 Follow a **Test-Driven Development** approach for all spec-driven work:
 
-1. **Write failing tests first** — derive test cases from the spec's public API contracts, data model, error cases, and edge cases.
+1. **Write failing tests first** — derive test cases from the spec's public API contracts, data model, error cases, and edge cases. For features with user-facing CLI workflows or multi-step lifecycle coordination, also write Gherkin feature files in `features/` (see **E2E BDD Tests** below).
 2. **Implement the minimum code** to make the tests pass. Follow the spec's interface definitions and type contracts exactly.
 3. **Refactor** — improve internal structure while keeping all tests green.
 4. **Verify** — run `go test -race ./...` and `golangci-lint run --fix` before moving to the next phase.
@@ -107,6 +107,42 @@ INT_TEST_VCS=1 go test ./pkg/vcs/... -v  # targeted group
 ```
 
 See the **[Integration Testing](file://docs/development/integration-testing.md)** guide for the full test inventory and environment variable reference.
+
+### E2E BDD Tests (Godog)
+
+For features that involve **multi-step user workflows**, **CLI command pipelines**, or **cross-component lifecycle coordination**, write Gherkin feature files alongside unit and integration tests. BDD scenarios are not optional for these areas — they express user-facing behaviour in a format that is readable, reviewable, and executable.
+
+**When to write BDD scenarios:**
+
+- CLI commands with user-visible output, flags, or error messages
+- Multi-step workflows (init → configure → run)
+- Service lifecycle coordination (start → health check → shutdown)
+- Any feature where the spec describes user workflows in Given/When/Then terms
+
+**When NOT to write BDD scenarios:**
+
+- Pure library code tested adequately by table-driven unit tests
+- Internal implementation details (AST manipulation, config merging internals)
+- TUI/interactive flows that require simulated keyboard input
+
+**Writing BDD tests:**
+
+1. Add Gherkin feature files to `features/<area>/` (e.g. `features/cli/`, `features/controls/`).
+2. Add step definitions to `test/e2e/steps/` — reuse existing steps where possible.
+3. Tag scenarios appropriately: `@cli @smoke`, `@controls @integration`, `@controls @integration @slow`.
+4. CLI scenarios use the dedicated E2E test binary (`cmd/e2e/`) which has all feature flags enabled.
+5. Document new feature files in `docs/development/integration-testing.md`.
+
+**Running BDD tests:**
+
+```bash
+just test-e2e                      # INT_TEST_E2E=1 — runs all
+just test-e2e-smoke                # INT_TEST_E2E_SMOKE=1 — fast smoke only
+INT_TEST_E2E_CLI=1 go test ./test/e2e/... -v  # CLI scenarios only
+INT_TEST_E2E_CONTROLS=1 go test ./test/e2e/... -v  # controls scenarios only
+```
+
+See the **[Godog BDD Strategy](file://docs/development/specs/2026-03-28-godog-bdd-strategy.md)** spec for the full strategy, suitability assessment, and directory structure.
 
 If the change affects generator output, also run:
 

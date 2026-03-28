@@ -13,6 +13,7 @@ description: Workflow for drafting a new GTB feature specification
    - Follow the spec frontmatter format exactly (title, description, date, status: DRAFT, tags, author).
    - Include all required sections: Problem Statement, Goals & Non-Goals, Public API, Data Models, Error Cases, Testing Strategy, Implementation Phases, and Open Questions.
    - Cross-reference any existing types, interfaces, or patterns from the codebase that the spec builds on.
+   - In the **Testing Strategy** section, explicitly evaluate whether the feature warrants E2E BDD scenarios (Godog). Features involving CLI commands, multi-step user workflows, or service lifecycle coordination should include Gherkin feature files in `features/`. Reference the suitability assessment in `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for guidance on when BDD adds value versus when standard Go tests suffice.
 4. **Save and pause for review**:
    - Save the spec file with `status: DRAFT`.
    - Do not begin implementation. Inform the user that the spec is ready for review and must be marked `APPROVED` before work starts.

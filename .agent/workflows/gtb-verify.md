@@ -27,3 +27,8 @@ description: Library verification suite for GTB
    go vet ./...
    ```
    Integration tests use `testutil.SkipIfNotIntegration(t, "tag")` and will be skipped in normal test runs. They must still compile cleanly.
+9. If the change affects CLI commands, service lifecycle, or user-facing workflows, run the E2E BDD test suite:
+   ```bash
+   just test-e2e
+   ```
+   If only CLI scenarios are relevant, use `just test-e2e-smoke` for a faster feedback loop. New CLI commands or flag changes should have corresponding Gherkin feature files in `features/cli/`.

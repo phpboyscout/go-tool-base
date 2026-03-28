@@ -33,6 +33,7 @@ The `.agent/` directory contains the primary execution mechanisms for this proje
 ### Implementation (TDD)
 
 - Write failing tests first, derived from the spec's public API, error cases, and edge cases.
+- For features with **CLI commands, multi-step user workflows, or service lifecycle coordination**, also write Gherkin feature files in `features/` as E2E BDD scenarios. These are not optional for user-facing behaviour — they complement unit tests by expressing workflows in Given/When/Then format.
 - Implement the minimum code to pass. Refactor. Re-run tests.
 - Use `github.com/cockroachdb/errors` for all error creation and wrapping — `go-errors/errors` has been removed.
 - New `pkg/` features must have **≥90% test coverage**.
@@ -180,8 +181,10 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
   - See `docs/development/integration-testing.md` for the full test inventory and writing guidelines.
 - **E2E BDD tests** use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) for behaviour-driven scenarios:
   - Feature files in `features/`, step definitions in `test/e2e/steps/`.
+  - CLI scenarios use a dedicated test binary (`cmd/e2e/`) with all feature flags enabled.
   - Gated by `INT_TEST_E2E=1`; subsystem filters: `INT_TEST_E2E_SMOKE=1`, `INT_TEST_E2E_CONTROLS=1`, `INT_TEST_E2E_CLI=1`.
   - Run via `just test-e2e` (all) or `just test-e2e-smoke` (fast).
+  - **New CLI commands or service lifecycle changes must include Gherkin scenarios.** Evaluate BDD fit using the suitability assessment in the strategy spec.
   - See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full strategy.
 
 ## Linting

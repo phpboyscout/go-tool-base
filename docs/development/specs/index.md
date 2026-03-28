@@ -273,7 +273,7 @@ A well-formed specification should cover these sections (adapt as needed):
 4. **Project Structure** -- new files, directory layout, package organisation.
 5. **Generator Impact** -- changes to templates, manifest schema, or scaffolded output (if applicable).
 6. **Error Handling** -- error types, wrapping strategy, user-facing messages.
-7. **Testing Strategy** -- unit tests, integration tests, fixtures, edge cases.
+7. **Testing Strategy** -- unit tests, integration tests, E2E BDD scenarios (evaluate Godog fit per the [suitability assessment](2026-03-28-godog-bdd-strategy.md#suitability-assessment)), fixtures, edge cases.
 8. **Migration & Compatibility** -- backwards compatibility, deprecation path, versioning impact.
 9. **Future Considerations** -- out-of-scope items noted for later.
 10. **Implementation Phases** -- prioritised breakdown of work.
