@@ -1,7 +1,6 @@
 package setup
 
 import (
-	"bytes"
 	"fmt"
 	"testing"
 	"time"
@@ -17,13 +16,12 @@ import (
 func TestWithTiming(t *testing.T) {
 	t.Parallel()
 
-	var buf bytes.Buffer
-	log := logger.NewCharm(&buf, logger.WithLevel(logger.DebugLevel))
+	log := logger.NewBuffer()
 
 	mw := WithTiming(log)
 
 	t.Run("Success", func(t *testing.T) {
-		buf.Reset()
+		log.Reset()
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			time.Sleep(10 * time.Millisecond)
 			return nil
@@ -32,15 +30,19 @@ func TestWithTiming(t *testing.T) {
 		err := handler(&cobra.Command{Use: "test-cmd"}, nil)
 		require.NoError(t, err)
 
-		out := buf.String()
-		assert.Contains(t, out, "command completed")
-		assert.Contains(t, out, "command=test-cmd")
-		assert.Contains(t, out, "duration=")
-		assert.NotContains(t, out, "error=")
+		entries := log.Entries()
+		require.Len(t, entries, 1)
+		assert.Equal(t, logger.DebugLevel, entries[0].Level)
+		assert.Equal(t, "command completed", entries[0].Message)
+		assert.Contains(t, entries[0].Keyvals, "command")
+		assert.Contains(t, entries[0].Keyvals, "test-cmd")
+		assert.Contains(t, entries[0].Keyvals, "duration")
+		// error key should not be present on success
+		assert.NotContains(t, entries[0].Keyvals, "error")
 	})
 
 	t.Run("Error", func(t *testing.T) {
-		buf.Reset()
+		log.Reset()
 		expectedErr := fmt.Errorf("handler failed")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return expectedErr
@@ -49,33 +51,34 @@ func TestWithTiming(t *testing.T) {
 		err := handler(&cobra.Command{Use: "test-cmd"}, nil)
 		require.ErrorIs(t, err, expectedErr)
 
-		out := buf.String()
-		assert.Contains(t, out, "command completed")
-		assert.Contains(t, out, "error=\"handler failed\"")
+		entries := log.Entries()
+		require.Len(t, entries, 1)
+		assert.Equal(t, "command completed", entries[0].Message)
+		assert.Contains(t, entries[0].Keyvals, "error")
+		assert.Contains(t, entries[0].Keyvals, "handler failed")
 	})
 }
 
 func TestWithRecovery(t *testing.T) {
 	t.Parallel()
 
-	var buf bytes.Buffer
-	log := logger.NewCharm(&buf, logger.WithLevel(logger.DebugLevel))
+	log := logger.NewBuffer()
 
 	mw := WithRecovery(log)
 
 	t.Run("NoPanic", func(t *testing.T) {
-		buf.Reset()
+		log.Reset()
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
 
 		err := handler(&cobra.Command{}, nil)
 		require.NoError(t, err)
-		assert.Empty(t, buf.String())
+		assert.Equal(t, 0, log.Len())
 	})
 
 	t.Run("Panic", func(t *testing.T) {
-		buf.Reset()
+		log.Reset()
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			panic("something went terribly wrong")
 		})
@@ -84,11 +87,15 @@ func TestWithRecovery(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "panic in command \"test-cmd\": something went terribly wrong")
 
-		out := buf.String()
-		assert.Contains(t, out, "panic recovered in command")
-		assert.Contains(t, out, "command=test-cmd")
-		assert.Contains(t, out, "panic=\"something went terribly wrong\"")
-		assert.Contains(t, out, "stack=")
+		entries := log.Entries()
+		require.Len(t, entries, 1)
+		assert.Equal(t, logger.ErrorLevel, entries[0].Level)
+		assert.Equal(t, "panic recovered in command", entries[0].Message)
+		assert.Contains(t, entries[0].Keyvals, "command")
+		assert.Contains(t, entries[0].Keyvals, "test-cmd")
+		assert.Contains(t, entries[0].Keyvals, "panic")
+		assert.Contains(t, entries[0].Keyvals, "something went terribly wrong")
+		assert.Contains(t, entries[0].Keyvals, "stack")
 	})
 }
 

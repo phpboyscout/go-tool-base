@@ -94,8 +94,7 @@ func TestWarnIfAPIKeysInGitRepo_Warns(t *testing.T) {
 	// Write config with an API key pattern
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(configDir, "config.yaml"), []byte("api_key: sk-abc123"), 0644))
 
-	var buf bytes.Buffer
-	l := logger.NewCharm(&buf)
+	l := logger.NewBuffer()
 
 	p := &props.Props{
 		Logger: l,
@@ -103,7 +102,11 @@ func TestWarnIfAPIKeysInGitRepo_Warns(t *testing.T) {
 	}
 
 	warnIfAPIKeysInGitRepo(p, configDir)
-	assert.Contains(t, buf.String(), "API keys")
+
+	entries := l.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, logger.WarnLevel, entries[0].Level)
+	assert.Contains(t, entries[0].Message, "API keys")
 }
 
 func TestWarnIfAPIKeysInGitRepo_NoGitRepo(t *testing.T) {

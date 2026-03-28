@@ -15,81 +15,87 @@ import (
 )
 
 func TestErrorHandler_Check(t *testing.T) {
-	newHandler := func(buf *bytes.Buffer) *StandardErrorHandler {
-		l := logger.NewCharm(buf)
-		return &StandardErrorHandler{
-			Logger: l,
-			Exit:   os.Exit,
-			Writer: buf,
-		}
-	}
-
 	t.Run("Error_logs_message_with_prefix", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := newHandler(&buf)
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Error(errors.New("simple error"), "Prefix: ")
-		assert.Contains(t, buf.String(), "simple error")
-		assert.Contains(t, buf.String(), "Prefix:")
+		entries := log.Entries()
+		require.NotEmpty(t, entries)
+		assert.Contains(t, entries[0].Message, "simple error")
+		assert.Contains(t, entries[0].Message, "Prefix:")
 	})
 
 	t.Run("Warn_logs_warning", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := newHandler(&buf)
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Warn(errors.New("simple warning"), "Prefix: ")
-		assert.Contains(t, buf.String(), "simple warning")
+		entries := log.Entries()
+		require.NotEmpty(t, entries)
+		assert.Contains(t, entries[0].Message, "simple warning")
 	})
 
 	t.Run("ErrNotImplemented_downgrades_to_warn", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := newHandler(&buf)
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Check(ErrNotImplemented, "", LevelError)
-		assert.Contains(t, buf.String(), "WARN")
-		assert.Contains(t, buf.String(), "Command not yet implemented")
+		entries := log.Entries()
+		require.NotEmpty(t, entries)
+		assert.Equal(t, logger.WarnLevel, entries[0].Level)
+		assert.Contains(t, entries[0].Message, "Command not yet implemented")
 	})
 
 	t.Run("ErrRunSubCommand_with_cmd_override", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := newHandler(&buf)
+		var writerBuf bytes.Buffer
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &writerBuf}
 		cmd := &cobra.Command{
 			Use: "testcmd",
 			Run: func(cmd *cobra.Command, args []string) {},
 		}
 		h.Check(ErrRunSubCommand, "", LevelError, cmd)
-		assert.Contains(t, buf.String(), "WARN")
-		assert.Contains(t, buf.String(), "Subcommand required")
-		assert.Contains(t, buf.String(), "Usage:")
+		entries := log.Entries()
+		require.NotEmpty(t, entries)
+		assert.Equal(t, logger.WarnLevel, entries[0].Level)
+		assert.Contains(t, entries[0].Message, "Subcommand required")
+		assert.Contains(t, writerBuf.String(), "Usage:")
 	})
 
 	t.Run("ErrRunSubCommand_with_usage_property", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := newHandler(&buf)
+		var writerBuf bytes.Buffer
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &writerBuf}
 		cmd := &cobra.Command{
 			Use: "testcmd",
 			Run: func(cmd *cobra.Command, args []string) {},
 		}
-		cmd.SetOut(&buf)
-		cmd.SetErr(&buf)
+		cmd.SetOut(&writerBuf)
+		cmd.SetErr(&writerBuf)
 		h.SetUsage(cmd.Usage)
 		h.Check(ErrRunSubCommand, "", LevelError)
-		assert.Contains(t, buf.String(), "WARN")
-		assert.Contains(t, buf.String(), "Subcommand required")
-		assert.Contains(t, buf.String(), "Usage:")
+		entries := log.Entries()
+		require.NotEmpty(t, entries)
+		assert.Equal(t, logger.WarnLevel, entries[0].Level)
+		assert.Contains(t, entries[0].Message, "Subcommand required")
+		assert.Contains(t, writerBuf.String(), "Usage:")
 	})
 
 	t.Run("ErrRunSubCommand_via_Error_wrapper", func(t *testing.T) {
-		var buf bytes.Buffer
-		h := newHandler(&buf)
+		var writerBuf bytes.Buffer
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &writerBuf}
 		cmd := &cobra.Command{
 			Use: "testcmd",
 			Run: func(cmd *cobra.Command, args []string) {},
 		}
-		cmd.SetOut(&buf)
-		cmd.SetErr(&buf)
+		cmd.SetOut(&writerBuf)
+		cmd.SetErr(&writerBuf)
 		h.SetUsage(cmd.Usage)
 		h.Error(ErrRunSubCommand)
-		assert.Contains(t, buf.String(), "WARN")
-		assert.Contains(t, buf.String(), "Subcommand required")
-		assert.Contains(t, buf.String(), "Usage:")
+		entries := log.Entries()
+		require.NotEmpty(t, entries)
+		assert.Equal(t, logger.WarnLevel, entries[0].Level)
+		assert.Contains(t, entries[0].Message, "Subcommand required")
+		assert.Contains(t, writerBuf.String(), "Usage:")
 	})
 }
 
