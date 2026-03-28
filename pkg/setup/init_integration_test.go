@@ -1,5 +1,3 @@
-//go:build integration
-
 package setup_test
 
 import (
@@ -10,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
@@ -27,6 +26,7 @@ func newInitProps(fs afero.Fs) *props.Props {
 
 func TestInitialise_CreatesDirectoryAndConfigFile(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -52,6 +52,7 @@ func TestInitialise_CreatesDirectoryAndConfigFile(t *testing.T) {
 
 func TestInitialise_WritesGitignore(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -73,6 +74,7 @@ func TestInitialise_WritesGitignore(t *testing.T) {
 
 func TestInitialise_GitignoreNotOverwritten(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -92,6 +94,7 @@ func TestInitialise_GitignoreNotOverwritten(t *testing.T) {
 
 func TestInitialise_DefaultConfigContainsExpectedKeys(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -113,6 +116,7 @@ func TestInitialise_DefaultConfigContainsExpectedKeys(t *testing.T) {
 
 func TestInitialise_CleanReplacesExistingConfig(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -138,6 +142,7 @@ func TestInitialise_CleanReplacesExistingConfig(t *testing.T) {
 
 func TestInitialise_MergePreservesExistingValues(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -186,6 +191,7 @@ func (ti *testInitialiser) Configure(_ *props.Props, c config.Containable) error
 
 func TestInitialise_InitialisersCalled(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -224,6 +230,7 @@ func TestInitialise_InitialisersCalled(t *testing.T) {
 
 func TestInitialise_AlreadyConfiguredInitialiserSkipped(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	p := newInitProps(fs)
@@ -244,6 +251,7 @@ func TestInitialise_AlreadyConfiguredInitialiserSkipped(t *testing.T) {
 
 func TestInitialise_InitialiserFailureContinues(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	log := logger.NewBuffer()
@@ -286,6 +294,7 @@ func TestInitialise_InitialiserFailureContinues(t *testing.T) {
 
 func TestInitialise_APIKeyWarningInGitRepo(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "setup")
 
 	fs := afero.NewMemMapFs()
 	log := logger.NewBuffer()

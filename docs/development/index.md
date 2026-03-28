@@ -241,9 +241,32 @@ func TestLoadEmbed(t *testing.T) {
 
 ### Integration Testing
 
-- Test command execution end-to-end
-- Verify configuration loading and merging
-- Test error handling paths
+Integration tests exercise real external services and multi-component interactions. They are gated by environment variables and live in dedicated `*_integration_test.go` files.
+
+```bash
+# Run all integration tests
+just test-integration        # sets INT_TEST=1 automatically
+
+# Run only a specific group
+INT_TEST_VCS=1 go test ./pkg/vcs/... -v
+INT_TEST_CONTROLS=1 go test ./pkg/controls/... -v
+```
+
+Every integration test must call the shared gating helper as its first action:
+
+```go
+func TestSomethingIntegration(t *testing.T) {
+    testutil.SkipIfNotIntegration(t, "mytag")
+    // ... test code
+}
+```
+
+The helper lives in `internal/testutil/` and supports:
+
+- **`INT_TEST=1`** — enables all integration tests globally.
+- **`INT_TEST_<TAG>=1`** — enables only tests matching that tag (e.g. `INT_TEST_VCS=1`).
+
+See the **[Integration Testing](./integration-testing.md)** guide for full details, including the test inventory and writing guidelines.
 
 ## Architecture Principles
 

@@ -1,5 +1,3 @@
-//go:build integration
-
 package errorhandling_test
 
 import (
@@ -11,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -33,6 +32,7 @@ func simulateDeepError() error {
 
 func TestHintsSurviveMultipleWraps(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	err := simulateDeepError()
 	log := logger.NewBuffer()
@@ -56,6 +56,7 @@ func TestHintsSurviveMultipleWraps(t *testing.T) {
 
 func TestDebugModeAddsStacktrace(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	err := cberrors.New("something broke")
 
@@ -81,6 +82,7 @@ func TestDebugModeAddsStacktrace(t *testing.T) {
 
 func TestHelpConfigAppearsInOutput(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	err := cberrors.New("unexpected failure")
 	log := logger.NewBuffer()
@@ -110,6 +112,7 @@ func TestHelpConfigAppearsInOutput(t *testing.T) {
 
 func TestFatalCallsExitWithHints(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	baseErr := cberrors.New("disk full")
 	hinted := errorhandling.WithUserHint(baseErr, "free up space or expand volume")
@@ -133,6 +136,7 @@ func TestFatalCallsExitWithHints(t *testing.T) {
 
 func TestSpecialError_WrappedUnimplemented(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	// Wrap an unimplemented error with additional context — it should still
 	// be detected as a special error and downgraded to warn.
@@ -151,6 +155,7 @@ func TestSpecialError_WrappedUnimplemented(t *testing.T) {
 
 func TestSpecialError_ErrRunSubCommandWritesUsage(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	var writerBuf bytes.Buffer
 	log := logger.NewBuffer()
@@ -172,6 +177,7 @@ func TestSpecialError_ErrRunSubCommandWritesUsage(t *testing.T) {
 
 func TestNilErrorIsNoOp(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	log := logger.NewBuffer()
 	h := errorhandling.New(log, nil)
@@ -185,6 +191,7 @@ func TestNilErrorIsNoOp(t *testing.T) {
 
 func TestAssertionFailureFallsThrough(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	err := errorhandling.NewAssertionFailure("invariant broken: %s", "x < 0")
 	log := logger.NewBuffer()
@@ -214,6 +221,7 @@ func TestAssertionFailureFallsThrough(t *testing.T) {
 
 func TestPrefixPropagation(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	err := cberrors.New("timeout")
 	log := logger.NewBuffer()
@@ -230,6 +238,7 @@ func TestPrefixPropagation(t *testing.T) {
 
 func TestWarnLevel(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	err := cberrors.New("deprecated feature used")
 	log := logger.NewBuffer()
@@ -245,6 +254,7 @@ func TestWarnLevel(t *testing.T) {
 
 func TestCrossPackageErrorChain(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	// Simulate error originating in config, wrapped by setup, handled by CLI
 	configErr := cberrors.New("YAML parse error at line 5")

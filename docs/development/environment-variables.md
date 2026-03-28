@@ -65,9 +65,11 @@ AUTH_SKIP_LOGIN=true
 
 ## Testing Environment Variables
 
-These variables are used by integration tests. Integration tests are gated by the `//go:build integration` build tag, not by environment variables. See the [Integration Testing](integration-testing.md) guide for full details.
+These variables control integration test execution. See the [Integration Testing](integration-testing.md) guide for full details.
 
 | Variable | Description |
 | :--- | :--- |
+| `INT_TEST` | Set to any non-empty value to enable **all** integration tests. |
+| `INT_TEST_<TAG>` | Enable a specific group of integration tests (e.g. `INT_TEST_VCS=1`, `INT_TEST_CONFIG=1`). |
 | `GITHUB_TOKEN` | GitHub personal access token (`repo` scope) for VCS integration tests. |
 | `GITHUB_KEY` | Path to an SSH private key for git-over-SSH tests (optional). |

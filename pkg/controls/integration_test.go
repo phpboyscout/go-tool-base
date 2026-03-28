@@ -1,5 +1,3 @@
-//go:build integration
-
 package controls_test
 
 import (
@@ -16,6 +14,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbgrpc "github.com/phpboyscout/go-tool-base/pkg/grpc"
@@ -42,6 +41,8 @@ func freePort(t *testing.T) int {
 // and a gRPC server bound to different free ports, exercises the health
 // endpoints on both, and verifies the controller shuts down cleanly.
 func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	httpPort := freePort(t)
 	grpcPort := freePort(t)
 

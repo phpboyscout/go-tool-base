@@ -39,7 +39,7 @@ test-race:
 
 # Run integration tests
 test-integration:
-    go test -tags=integration ./... -v
+    INT_TEST=1 go test ./... -v
 
 # Generate HTML coverage report and open it
 coverage:
@@ -49,7 +49,7 @@ coverage:
 
 # Generate coverage report including integration tests
 coverage-full:
-    go test -tags=integration ./... -coverprofile=coverage.out
+    INT_TEST=1 go test ./... -coverprofile=coverage.out
     go tool cover -html=coverage.out -o coverage.html
     open coverage.html
 

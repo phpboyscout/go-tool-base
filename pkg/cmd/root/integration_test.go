@@ -1,5 +1,3 @@
-//go:build integration
-
 package root_test
 
 import (
@@ -9,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
@@ -41,6 +40,7 @@ func newTestProps(features ...p.FeatureState) *p.Props {
 
 func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 
@@ -60,6 +60,7 @@ func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 
 func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 
@@ -81,6 +82,7 @@ func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 
 func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 
@@ -101,6 +103,7 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 
 func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 
@@ -115,6 +118,7 @@ func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 
 func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 
@@ -138,6 +142,7 @@ func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 
 func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 

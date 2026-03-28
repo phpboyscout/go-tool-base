@@ -1,5 +1,3 @@
-//go:build integration
-
 package controls_test
 
 import (
@@ -17,6 +15,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbgrpc "github.com/phpboyscout/go-tool-base/pkg/grpc"
@@ -48,6 +47,8 @@ func freePortShutdown(t *testing.T) int {
 //  4. gRPC server completes in-flight RPCs and stops
 //  5. Controller reaches Stopped state without hanging or error
 func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	httpPort := freePortShutdown(t)
 	grpcPort := freePortShutdown(t)
 
@@ -186,6 +187,8 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 // a valid (non-cancelled) context to drain those connections within the
 // shutdown timeout window.
 func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	httpPort := freePortShutdown(t)
 	grpcPort := freePortShutdown(t)
 
@@ -318,6 +321,8 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 // handler called Stop(), causing compareAndSetState(Running, Stopping) to
 // fail silently and the stop message to never be sent.
 func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	httpPort := freePortShutdown(t)
 	grpcPort := freePortShutdown(t)
 

@@ -86,6 +86,28 @@ Run the `/gtb-verify` workflow. At minimum this covers:
 - Test coverage for new `pkg/` features must be at least **90%**.
 - No `//nolint` decorators added except in the most exceptional, documented cases.
 
+### Integration Tests
+
+When a feature interacts with external services (network, GitHub API, real git operations) or requires multi-component lifecycle coordination, add integration tests alongside unit tests.
+
+**Gating mechanism:** All integration tests use environment-variable-based gating via `testutil.SkipIfNotIntegration()` from `internal/testutil/`. This approach was chosen over `//go:build` tags for compile-time safety, IDE discoverability, and granular control.
+
+**Writing integration tests:**
+
+1. Create a dedicated `*_integration_test.go` file in the package.
+2. Call `testutil.SkipIfNotIntegration(t, "tag")` as the first line of each test function, choosing a tag that matches the package's test group (e.g. `"vcs"`, `"controls"`, `"config"`).
+3. Use `t.Cleanup()` for teardown.
+4. Document the test and its dependencies in `docs/development/integration-testing.md`.
+
+**Running integration tests:**
+
+```bash
+just test-integration              # INT_TEST=1 — runs all
+INT_TEST_VCS=1 go test ./pkg/vcs/... -v  # targeted group
+```
+
+See the **[Integration Testing](file://docs/development/integration-testing.md)** guide for the full test inventory and environment variable reference.
+
 If the change affects generator output, also run:
 
 ```bash

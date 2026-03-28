@@ -1,5 +1,3 @@
-//go:build integration
-
 package repo
 
 import (
@@ -19,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
@@ -89,6 +88,7 @@ func newTestRepo() (*Repo, error) {
 }
 
 func TestCreateBranch(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	repo, err := newTestRepo()
 	require.NoError(t, err)
 
@@ -118,6 +118,7 @@ func TestCreateBranch(t *testing.T) {
 }
 
 func TestPush(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	repo := &Repo{}
 	gitRepo, tree, err := repo.OpenInMemory(testRepo, "")
 	if assert.NoError(t, err, "failed to open repo: %s", testRepo) {
@@ -131,6 +132,7 @@ func TestPush(t *testing.T) {
 }
 
 func TestInMemoryRepo(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	repo, err := newTestRepo()
 	require.NoError(t, err, "unable to open test repo")
 
@@ -141,6 +143,7 @@ func TestInMemoryRepo(t *testing.T) {
 }
 
 func TestOpenRemoteHTTP(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
 
 	localfs := afero.NewMemMapFs()
@@ -167,6 +170,7 @@ func TestOpenRemoteHTTP(t *testing.T) {
 }
 
 func TestCheckoutRemoteBranch(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
 
 	localfs := afero.NewMemMapFs()
@@ -197,6 +201,7 @@ func TestCheckoutRemoteBranch(t *testing.T) {
 
 // TestClone tests the Clone functionality with various options
 func TestClone(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	// Create temporary directory for clone
 	tmpDir, err := os.MkdirTemp("", "repo-clone-test-*")
 	if err != nil {
@@ -280,6 +285,7 @@ func TestClone(t *testing.T) {
 }
 
 func TestFileOperations(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
 	// Setup a test repo with some content
 	tmpDir, err := os.MkdirTemp("", "repo-file-ops-*")
 	if err != nil {

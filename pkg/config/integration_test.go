@@ -1,5 +1,3 @@
-//go:build integration
-
 package config_test
 
 import (
@@ -8,6 +6,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +17,7 @@ import (
 
 func TestLoadFilesContainer_MergesMultipleSources(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	primary := filepath.Join(dir, "primary.yaml")
@@ -55,6 +55,7 @@ database:
 
 func TestLoadFilesContainer_MissingSecondarySkipped(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	primary := filepath.Join(dir, "config.yaml")
@@ -77,6 +78,7 @@ app:
 
 func TestLoadFilesContainer_MissingPrimaryReturnsNil(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "missing.yaml")
@@ -88,6 +90,7 @@ func TestLoadFilesContainer_MissingPrimaryReturnsNil(t *testing.T) {
 
 func TestLoadFilesContainer_InvalidYAML(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	primary := filepath.Join(dir, "bad.yaml")
@@ -103,6 +106,7 @@ not: valid: yaml: [broken
 
 func TestLoadFilesContainer_InvalidSecondaryLogWarning(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	primary := filepath.Join(dir, "good.yaml")
@@ -125,6 +129,8 @@ func TestLoadFilesContainer_InvalidSecondaryLogWarning(t *testing.T) {
 
 func TestLoadFilesContainer_EnvVarOverridesFileValue(t *testing.T) {
 	// Cannot use t.Parallel — t.Setenv modifies process environment.
+	testutil.SkipIfNotIntegration(t, "config")
+
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "config.yaml")
 
@@ -149,6 +155,7 @@ server:
 
 func TestLoadFilesContainer_DeepNestingMerge(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	base := filepath.Join(dir, "base.yaml")
@@ -190,6 +197,7 @@ server:
 
 func TestLoadEmbed_MergesWithFileConfig(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	// Simulate embedded defaults
 	embeddedFS := fstest.MapFS{
@@ -233,6 +241,8 @@ logging:
 
 func TestLoadEnv_DotEnvFileLoaded(t *testing.T) {
 	// Cannot use t.Parallel — LoadEnv modifies process environment via gotenv.
+	testutil.SkipIfNotIntegration(t, "config")
+
 	dir := t.TempDir()
 	dotenv := filepath.Join(dir, ".env")
 
@@ -249,6 +259,7 @@ func TestLoadEnv_DotEnvFileLoaded(t *testing.T) {
 
 func TestLoad_AllowEmptyConfig(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "missing.yaml")
@@ -272,6 +283,7 @@ func TestLoad_AllowEmptyConfig(t *testing.T) {
 
 func TestLoadFilesContainer_ThreeWayMerge(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	dir := t.TempDir()
 	defaults := filepath.Join(dir, "defaults.yaml")
@@ -324,6 +336,7 @@ database:
 
 func TestLoadFilesContainerWithSchema_ValidationFailure(t *testing.T) {
 	t.Parallel()
+	testutil.SkipIfNotIntegration(t, "config")
 
 	type ServerConfig struct {
 		Port int    `config:"server.port" validate:"required"`

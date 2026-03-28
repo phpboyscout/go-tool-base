@@ -6,7 +6,7 @@ tags: [testing, integration, ci, environment]
 
 # Integration Testing
 
-GTB includes integration tests that exercise real external services — GitHub APIs, git operations over the network, and multi-service lifecycle coordination. These tests are **excluded from the default test suite** and must be explicitly enabled.
+GTB includes integration tests that exercise real external services — GitHub APIs, git operations over the network, and multi-service lifecycle coordination. These tests are **excluded from the default test suite** and must be explicitly enabled via environment variables.
 
 ## Quick Start
 
@@ -17,38 +17,74 @@ cp .env.example .env
 # 2. Fill in your credentials
 #    At minimum: GITHUB_TOKEN with `repo` scope
 
-# 3. Run integration tests
+# 3. Run all integration tests
 just test-integration
 
-# 4. Generate coverage including integration tests
+# 4. Run only VCS integration tests
+INT_TEST_VCS=1 go test ./pkg/vcs/... -v
+
+# 5. Generate coverage including integration tests
 just coverage-full
 ```
 
-## Environment Variables
+## Gating Mechanism
+
+Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` from `internal/testutil/`. This approach was chosen over `//go:build` tags for:
+
+- **Compile-time safety** — integration tests are always compiled, so breakages are caught by `go build` and `go vet` even when not running them.
+- **Discoverability** — tests appear in IDE test explorers and `go test -list` output.
+- **Granular control** — targeted `INT_TEST_*` variables allow running specific test groups without all-or-nothing gating.
+
+### Environment Variables
+
+| Variable | Effect |
+| :--- | :--- |
+| `INT_TEST=1` | Enables **all** integration tests |
+| `INT_TEST_VCS=1` | Enables only tests tagged `"vcs"` |
+| `INT_TEST_CONFIG=1` | Enables only tests tagged `"config"` |
+| `INT_TEST_CONTROLS=1` | Enables only tests tagged `"controls"` |
+| `INT_TEST_GENERATOR=1` | Enables only tests tagged `"generator"` |
+| `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
+| `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
+| `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
+
+When neither `INT_TEST` nor the relevant `INT_TEST_<TAG>` is set, the test is skipped with a message explaining how to enable it:
+
+```
+skipping integration test; set INT_TEST=1 to run all or INT_TEST_VCS=1 for this group
+```
+
+### Usage in Test Files
+
+```go
+package mypackage_test
+
+import (
+    "testing"
+
+    "github.com/phpboyscout/go-tool-base/internal/testutil"
+)
+
+func TestSomethingIntegration(t *testing.T) {
+    testutil.SkipIfNotIntegration(t, "mytag")
+
+    // ... test code that talks to external services
+}
+```
+
+Integration tests **must** live in dedicated `*_integration_test.go` files to keep them clearly separated from unit tests.
+
+## Credential Variables
 
 | Variable | Required | Description |
 | :--- | :--- | :--- |
-| `GITHUB_TOKEN` | Yes | GitHub personal access token with `repo` scope. Used by VCS tests to interact with the GitHub API (PR management, label operations). |
+| `GITHUB_TOKEN` | Yes (VCS tests) | GitHub personal access token with `repo` scope. Used by VCS tests to interact with the GitHub API (PR management, label operations). |
 | `GITHUB_KEY` | No | Path to an SSH private key for git-over-SSH tests (clone, push). If unset, SSH-based tests are skipped. |
 
 The `.env` file is loaded automatically by `just` via `dotenv-load`. You can also export these variables directly in your shell.
 
 !!! warning "Never commit `.env`"
     The `.env` file is git-ignored. Use `.env.example` as the template — it contains no secrets.
-
-## Gating Mechanism
-
-All integration tests use the `//go:build integration` build tag:
-
-```go
-//go:build integration
-
-package controls_test
-```
-
-Files with this tag are excluded from `go test ./...` unless `-tags=integration` is passed. The `just test-integration` recipe includes this flag automatically.
-
-Integration tests **must** live in dedicated `*_integration_test.go` files — do not mix integration and unit tests in the same file using runtime skip checks.
 
 ## Test Inventory
 
@@ -108,8 +144,8 @@ These tests require **no external credentials** — only local network access.
 
 | Recipe | Command | Description |
 | :--- | :--- | :--- |
-| `just test-integration` | `go test -tags=integration ./... -v` | Run all integration tests |
-| `just coverage-full` | `go test -tags=integration ./... -coverprofile=...` | Generate HTML coverage report including integration tests |
+| `just test-integration` | `INT_TEST=1 go test ./... -v` | Run all integration tests |
+| `just coverage-full` | `INT_TEST=1 go test ./... -coverprofile=...` | Generate HTML coverage report including integration tests |
 | `just test` | `go test ./... -v -cover` | Unit tests only (default) |
 | `just ci` | `tidy, generate, test, test-race, lint` | CI suite — unit tests only |
 
@@ -120,8 +156,9 @@ In GitHub Actions, integration tests run as a separate job with secrets injected
 ```yaml
 - name: Integration Tests
   env:
+    INT_TEST: "1"
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: go test -tags=integration ./... -v
+  run: go test ./... -v
 ```
 
 The `GITHUB_TOKEN` provided by GitHub Actions has `repo` scope by default for the current repository.
@@ -130,8 +167,8 @@ The `GITHUB_TOKEN` provided by GitHub Actions has `repo` scope by default for th
 
 When adding integration tests:
 
-1. **Always use build tags** — place integration tests in dedicated `*_integration_test.go` files with `//go:build integration`.
-2. **Never use runtime env var gating** — the build tag is the sole gating mechanism.
+1. **Use the shared helper** — call `testutil.SkipIfNotIntegration(t, "tag")` at the top of every integration test function, choosing an appropriate tag for the test group.
+2. **Place in dedicated files** — integration tests must live in `*_integration_test.go` files, separate from unit tests.
 3. **Document dependencies** in this guide's test inventory.
 4. **Use `t.Cleanup`** for teardown (remove branches, labels, temp files).
 5. **Don't hardcode credentials** — always read from environment variables.

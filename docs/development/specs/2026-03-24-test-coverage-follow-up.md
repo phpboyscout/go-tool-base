@@ -188,6 +188,6 @@ go test -coverprofile=coverage.out ./pkg/docs/... && go tool cover -func=coverag
 ## Future Considerations
 
 - **Coverage CI gate**: Enforce per-package coverage thresholds in CI, failing the build if any package drops below its target.
-- **Integration test tag**: `//go:build integration` for tests that exercise real git remotes or provider APIs.
+- **Integration test gating**: Standardised on `testutil.SkipIfNotIntegration(t, "tag")` with `INT_TEST`/`INT_TEST_<TAG>` environment variables. See the [Integration Testing](../integration-testing.md) guide.
 - **Fuzz testing**: `pkg/vcs/github` response parsing and `pkg/docs` YAML parsing are strong candidates.
 - **`internal/agent` and `internal/generator`**: Deferred from this spec — require a dedicated exploratory pass to set realistic targets.

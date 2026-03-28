@@ -1,5 +1,3 @@
-//go:build integration
-
 package controls_test
 
 import (
@@ -19,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbgrpc "github.com/phpboyscout/go-tool-base/pkg/grpc"
@@ -65,6 +64,8 @@ func newGRPCCfg(t *testing.T, port int) *mockConfig.MockContainable {
 }
 
 func TestHTTP_AllHealthEndpoints(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()
@@ -105,6 +106,8 @@ func TestHTTP_AllHealthEndpoints(t *testing.T) {
 }
 
 func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()
@@ -169,6 +172,8 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 }
 
 func TestHTTP_CustomHealthCheck_AffectsEndpoints(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()
@@ -227,6 +232,8 @@ func TestHTTP_CustomHealthCheck_AffectsEndpoints(t *testing.T) {
 }
 
 func TestGRPC_HealthProbes(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()
@@ -269,6 +276,8 @@ func TestGRPC_HealthProbes(t *testing.T) {
 }
 
 func TestGRPC_WithInterceptors(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()
@@ -312,6 +321,8 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 }
 
 func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()
@@ -348,6 +359,8 @@ func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
 }
 
 func TestHTTP_AppHandlerServesRequests(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "controls")
+
 	port := freePort(t)
 	ctx := context.Background()
 	noop := logger.NewNoop()

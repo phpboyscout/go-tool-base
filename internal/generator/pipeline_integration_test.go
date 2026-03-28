@@ -1,5 +1,3 @@
-//go:build integration
-
 package generator
 
 import (
@@ -13,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
@@ -119,6 +118,7 @@ func findCommand(commands []ManifestCommand, name string) *ManifestCommand {
 // subcommands → removal → verify cleanup.
 func TestFullLifecycle_SkeletonToCommandsToRemoval(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -197,6 +197,7 @@ func TestFullLifecycle_SkeletonToCommandsToRemoval(t *testing.T) {
 // regeneration preserves all registrations.
 func TestDeepHierarchy_ThreeLevels(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -244,6 +245,7 @@ func TestDeepHierarchy_ThreeLevels(t *testing.T) {
 // hash matches the actual file content on disk.
 func TestManifestConsistency_HashesMatchFiles(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -290,6 +292,7 @@ func TestManifestConsistency_HashesMatchFiles(t *testing.T) {
 // it allows regeneration to proceed.
 func TestProtection_SkipsRegeneration(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -361,6 +364,7 @@ func TestProtection_SkipsRegeneration(t *testing.T) {
 // options (aliases, hidden, flags, assets) survive a full project regeneration.
 func TestRegenerateProject_PreservesCommandOptions(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -404,6 +408,7 @@ func TestRegenerateProject_PreservesCommandOptions(t *testing.T) {
 // GenerateSkeletonDryRun do not create any files.
 func TestDryRun_DoesNotMutateFilesystem(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -450,6 +455,7 @@ func TestDryRun_DoesNotMutateFilesystem(t *testing.T) {
 // commands exist on disk but are missing from the manifest.
 func TestRegenerateManifest_RecoversMissingEntries(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
 
 	p, path := newIntegrationProject(t)
 
@@ -491,6 +497,8 @@ func TestRegenerateManifest_RecoversMissingEntries(t *testing.T) {
 // TestSkeletonFeatures_DisabledFeaturesOmitFiles verifies that skeleton
 // generation with disabled features does not produce certain command structures.
 func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "generator")
+
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 

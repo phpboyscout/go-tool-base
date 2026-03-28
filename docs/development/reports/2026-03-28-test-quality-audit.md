@@ -221,7 +221,7 @@ This would reduce the 188 issues to approximately **35 actionable items** (errch
 
 ### Current Integration Test State
 
-Only `pkg/controls/` has integration tests (2 files, 4 test functions, `//go:build integration`). All other packages rely entirely on unit tests with mocks.
+At the time of this audit, only `pkg/controls/` had integration tests (2 files, 4 test functions). Since then, integration tests have been added across 8 packages and the gating mechanism has been standardised to environment variables via `testutil.SkipIfNotIntegration()`. See the [Integration Testing](../integration-testing.md) guide for current state.
 
 ### Godog Suitability Assessment
 
@@ -280,7 +280,7 @@ Only `pkg/controls/` has integration tests (2 files, 4 test functions, `//go:bui
 |------|---------------|----------------|
 | Shared helpers | Each package defines its own (`freePort`, `syncBuffer`) | Create `pkg/testing/` with reusable utilities |
 | Test fixtures | Only `pkg/changelog/testdata/` exists | Add `testdata/` for config, VCS, setup packages |
-| Integration harness | Ad-hoc per-package | Standardise with build tags + justfile targets |
+| Integration harness | Ad-hoc per-package | Standardised with `testutil.SkipIfNotIntegration()` + `INT_TEST`/`INT_TEST_<TAG>` env vars |
 | CI integration secrets | None | Add read-only GitHub token for VCS integration tests |
 
 ---

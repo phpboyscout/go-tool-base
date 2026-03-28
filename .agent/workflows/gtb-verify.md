@@ -22,3 +22,8 @@ description: Library verification suite for GTB
    ```
 6. Verify that no `//nolint` decorators were added unnecessarily.
 7. Ensure test coverage for new library features in `pkg/` is at least 90%.
+8. If integration tests exist for the affected packages, verify they compile correctly:
+   ```bash
+   go vet ./...
+   ```
+   Integration tests use `testutil.SkipIfNotIntegration(t, "tag")` and will be skipped in normal test runs. They must still compile cleanly.
