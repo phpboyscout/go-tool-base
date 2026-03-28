@@ -462,6 +462,7 @@ For specialized information on library-level development and architectural stand
 - **[AI Integration Layer](./ai-integration.md)**: Deep dive into the `chat` package and provider abstraction.
 - **[Error Handling](./error-handling.md)**: Patterns for library errors and wrapping.
 - **[Environment Variables & .env](./environment-variables.md)**: Local configuration and secret management.
+- **[Integration Testing](./integration-testing.md)**: Running and writing tests that depend on external services.
 - **[Dependency Management](./dependency-management.md)**: Versioning policy and internal modules.
 - **[Verification Checklists](./verification-checklists.md)**: Library and generator verification protocols.
 - **[Glossary](glossary.md)**: Common terms used in the project.

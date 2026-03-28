@@ -62,3 +62,13 @@ AUTH_SKIP_LOGIN=true
 | `ANTHROPIC_API_KEY` | API key for the Claude (Anthropic) provider. |
 | `GEMINI_API_KEY` | API key for the Gemini (Google) provider. |
 | `AWS_PROFILE` | The AWS profile to use for cloud interactions. |
+
+## Testing Environment Variables
+
+These variables control integration test behaviour. See the [Integration Testing](integration-testing.md) guide for full details.
+
+| Variable | Description |
+| :--- | :--- |
+| `INT_TEST` | Set to any non-empty value to enable integration tests. |
+| `GITHUB_TOKEN` | GitHub personal access token (`repo` scope) for VCS integration tests. |
+| `GITHUB_KEY` | Path to an SSH private key for git-over-SSH tests (optional). |
