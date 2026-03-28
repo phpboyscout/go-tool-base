@@ -42,7 +42,9 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the exit code is (\d+)$`, theExitCodeIs)
 	ctx.Step(`^the exit code is not (\d+)$`, theExitCodeIsNot)
 	ctx.Step(`^stdout contains "([^"]*)"$`, stdoutContains)
+	ctx.Step(`^stdout does not contain "([^"]*)"$`, stdoutDoesNotContain)
 	ctx.Step(`^stderr contains "([^"]*)"$`, stderrContains)
+	ctx.Step(`^stderr does not contain "([^"]*)"$`, stderrDoesNotContain)
 	ctx.Step(`^stdout is valid JSON$`, stdoutIsValidJSON)
 	ctx.Step(`^the JSON field "([^"]*)" equals "([^"]*)"$`, theJSONFieldEquals)
 	ctx.Step(`^the JSON field "([^"]*)" is not empty$`, theJSONFieldIsNotEmpty)
@@ -119,11 +121,30 @@ func stdoutContains(ctx context.Context, substr string) error {
 	return nil
 }
 
+func stdoutDoesNotContain(ctx context.Context, substr string) error {
+	w := getCLIWorld(ctx)
+	if strings.Contains(w.stdout, substr) {
+		return fmt.Errorf("stdout should not contain %q\nstdout:\n%s", substr, w.stdout)
+	}
+
+	return nil
+}
+
 func stderrContains(ctx context.Context, substr string) error {
 	w := getCLIWorld(ctx)
 	if !strings.Contains(w.stderr, substr) {
 		return fmt.Errorf("stderr does not contain %q\nstderr:\n%s", substr, w.stderr)
 	}
+
+	return nil
+}
+
+func stderrDoesNotContain(ctx context.Context, substr string) error {
+	w := getCLIWorld(ctx)
+	if strings.Contains(w.stderr, substr) {
+		return fmt.Errorf("stderr should not contain %q\nstderr:\n%s", substr, w.stderr)
+	}
+
 	return nil
 }
 

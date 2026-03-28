@@ -156,6 +156,7 @@ E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to ex
 | `features/cli/help.feature` | Root help lists commands, unknown command error | Binary compilation |
 | `features/cli/version.feature` | Text output, JSON output, help flag | Binary compilation |
 | `features/cli/doctor.feature` | Text diagnostic output, JSON structured report | Binary compilation |
+| `features/cli/update.feature` | Help/usage, semver validation, error paths | Binary compilation |
 
 These tests require **no external credentials**. Run via `just test-e2e` or filter with `INT_TEST_E2E_CONTROLS=1` or `INT_TEST_E2E_CLI=1`.
 

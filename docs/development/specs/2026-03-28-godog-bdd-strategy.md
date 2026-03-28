@@ -2,7 +2,7 @@
 title: "Godog BDD Strategy — Evaluation & Phased Rollout"
 description: "Strategic introduction of Godog (Cucumber BDD) for controls lifecycle and CLI E2E testing, with phased rollout and integration into existing test infrastructure."
 date: 2026-03-28
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - testing
@@ -25,7 +25,7 @@ Date
 :   28 March 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
@@ -337,13 +337,19 @@ Feature: CLI Basic Commands
     And the output contains "update"
 ```
 
-### Phase 3: CLI E2E Workflows (Future)
+### Phase 3: CLI E2E Workflows
 
-**Goal:** Test complex multi-step CLI workflows.
+**Goal:** Test complex multi-step CLI workflows and evaluate remaining candidates.
 
-1. `features/cli/update.feature` — `gtb update --from-file` end-to-end
-2. Config precedence E2E (file → env → flag)
-3. Evaluate `pkg/setup/github` wizard flow for Godog fit
+**Implemented:**
+
+1. `features/cli/update.feature` — Flag validation (semver format), help/usage, error paths
+
+**Evaluated and deferred:**
+
+2. `gtb update --from-file` end-to-end — Deferred until `feat/offline-update-support` merges; the `--from-file` flag does not exist on `develop` yet. Once merged, add scenarios for: offline archive with checksum sidecar, missing sidecar warning, invalid archive error.
+3. Config precedence E2E (file → env → flag) — **Not viable via CLI**. No `config get` command exists to query resolved values. The suitability assessment already rates `pkg/config/` as "No" Godog fit. Existing integration tests in `pkg/config/integration_test.go` provide comprehensive coverage of merge precedence.
+4. `pkg/setup/github` wizard flow — **Not viable for gtb**. The `init` command is disabled in the gtb binary (`props.SetFeatures(props.Disable(props.InitCmd))`). Tools built on GTB that enable `InitCmd` could add Godog scenarios for `--skip-login --skip-key` non-interactive paths in their own test suites.
 
 ---
 
