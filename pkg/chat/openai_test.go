@@ -166,7 +166,11 @@ func TestOpenAIProvider_Add(t *testing.T) {
 	})
 
 	t.Run("chunking", func(t *testing.T) {
-		// Test with a very long prompt that should be chunked
+		// Test with a very long prompt that should be chunked.
+		// The ChatClient interface does not expose internal message
+		// state, so this test can only verify that Add succeeds
+		// without error. Detailed chunking logic is covered by the
+		// internal TestChunkByTokens tests in openai_internal_test.go.
 		longPrompt := ""
 		for i := 0; i < 5000; i++ {
 			longPrompt += "token "

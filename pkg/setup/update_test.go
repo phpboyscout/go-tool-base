@@ -3,7 +3,6 @@ package setup
 import (
 	"fmt"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,8 +32,7 @@ func TestGetReleaseNotes(t *testing.T) {
 		from          string
 		to            string
 		releases      []release.Release
-		expectedNotes string
-		expectError   bool
+		expectedNotes []string
 	}{
 		{
 			name: "successful range with multiple releases",
@@ -47,8 +45,10 @@ func TestGetReleaseNotes(t *testing.T) {
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
 				createTestRelease(t, "v0.9.0", "Old release notes", false),
 			},
-			expectedNotes: "# Release Notes from v1.0.0 to v1.2.0\n\n## v1.0.0\nRelease 1.0.0 notes\n\n## v1.1.0\nRelease 1.1.0 notes\n\n## v1.2.0\nRelease 1.2.0 notes",
-			expectError:   false,
+			expectedNotes: []string{
+				"# v1.2.0\nRelease 1.2.0 notes",
+				"# v1.1.0\nRelease 1.1.0 notes",
+			},
 		},
 		{
 			name: "skip draft releases",
@@ -60,8 +60,10 @@ func TestGetReleaseNotes(t *testing.T) {
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
 			},
-			expectedNotes: "# Release Notes from v1.0.0 to v1.2.0\n\n## v1.0.0\nRelease 1.0.0 notes\n\n## v1.1.0\nRelease 1.1.0 notes\n\n## v1.2.0\nRelease 1.2.0 notes",
-			expectError:   false,
+			expectedNotes: []string{
+				"# v1.2.0\nRelease 1.2.0 notes",
+				"# v1.1.0\nRelease 1.1.0 notes",
+			},
 		},
 		{
 			name: "no releases in range",
@@ -72,20 +74,20 @@ func TestGetReleaseNotes(t *testing.T) {
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
 			},
-			expectedNotes: "No release notes found between v2.0.0 and v2.1.0",
-			expectError:   false,
+			expectedNotes: nil,
 		},
 		{
-			name: "single release in range",
-			from: "v1.1.0",
+			name: "single release at to version",
+			from: "v1.0.0",
 			to:   "v1.1.0",
 			releases: []release.Release{
 				createTestRelease(t, "v1.2.0", "Release 1.2.0 notes", false),
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
 			},
-			expectedNotes: "# Release Notes from v1.1.0 to v1.1.0\n\n## v1.1.0\nRelease 1.1.0 notes",
-			expectError:   false,
+			expectedNotes: []string{
+				"# v1.1.0\nRelease 1.1.0 notes",
+			},
 		},
 		{
 			name: "all releases are drafts",
@@ -96,8 +98,7 @@ func TestGetReleaseNotes(t *testing.T) {
 				createTestRelease(t, "v1.1.0", "Draft 1.1.0 notes", true),
 				createTestRelease(t, "v1.0.0", "Draft 1.0.0 notes", true),
 			},
-			expectedNotes: "No release notes found between v1.0.0 and v1.2.0",
-			expectError:   false,
+			expectedNotes: nil,
 		},
 		{
 			name: "stop at 'to' version even with more releases",
@@ -110,8 +111,9 @@ func TestGetReleaseNotes(t *testing.T) {
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
 				createTestRelease(t, "v0.9.0", "Old release notes", false),
 			},
-			expectedNotes: "# Release Notes from v1.0.0 to v1.1.0\n\n## v1.0.0\nRelease 1.0.0 notes\n\n## v1.1.0\nRelease 1.1.0 notes",
-			expectError:   false,
+			expectedNotes: []string{
+				"# v1.1.0\nRelease 1.1.0 notes",
+			},
 		},
 	}
 
@@ -119,95 +121,12 @@ func TestGetReleaseNotes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Note: This test is demonstrating the expected behavior
-			// In a real implementation, we would need to refactor SelfUpdater to be more testable
-			// by injecting dependencies or using interfaces
+			updater := &SelfUpdater{}
+			result := updater.filterReleaseNotes(tt.releases, tt.from, tt.to)
 
-			// For now, we'll test the logic by simulating what GetReleaseNotes should do
-			result := simulateGetReleaseNotes(tt.from, tt.to, tt.releases)
-
-			if tt.expectError {
-				// In a real test, we would check for errors
-				assert.Empty(t, result)
-			} else {
-				assert.Equal(t, tt.expectedNotes, result)
-			}
+			assert.Equal(t, tt.expectedNotes, result)
 		})
 	}
-}
-
-// isReleaseInRange checks whether a release version falls within the [from, to] range
-// and whether processing should continue. Returns (include, stop).
-func isReleaseInRange(releaseVersion, fromVersion, toVersion string, reachedTo bool) (include bool, stop bool) {
-	if !reachedTo && version.CompareVersions(releaseVersion, toVersion) > 0 {
-		return false, false
-	}
-
-	fromCompare := version.CompareVersions(fromVersion, releaseVersion)
-	toCompare := version.CompareVersions(releaseVersion, toVersion)
-	include = fromCompare <= 0 && toCompare <= 0
-	stop = version.CompareVersions(releaseVersion, fromVersion) < 0
-
-	return include, stop
-}
-
-// simulateGetReleaseNotes simulates the logic of GetReleaseNotes for testing
-// This function implements the same logic as the actual GetReleaseNotes method
-func simulateGetReleaseNotes(from, to string, releases []release.Release) string {
-	fromVersion := version.FormatVersionString(from, true)
-	toVersion := version.FormatVersionString(to, true)
-
-	releaseNotes := collectReleaseNotes(releases, fromVersion, toVersion)
-
-	if len(releaseNotes) == 0 {
-		return "No release notes found between " + from + " and " + to
-	}
-
-	// Reverse to get chronological order (oldest first)
-	for i, j := 0, len(releaseNotes)-1; i < j; i, j = i+1, j-1 {
-		releaseNotes[i], releaseNotes[j] = releaseNotes[j], releaseNotes[i]
-	}
-
-	var result strings.Builder
-	result.WriteString("# Release Notes from " + from + " to " + to + "\n\n")
-
-	for i, note := range releaseNotes {
-		if i > 0 {
-			result.WriteString("\n\n")
-		}
-
-		result.WriteString(note)
-	}
-
-	return result.String()
-}
-
-// collectReleaseNotes filters releases within the version range and returns formatted notes.
-func collectReleaseNotes(releases []release.Release, fromVersion, toVersion string) []string {
-	var notes []string
-	reachedToVersion := false
-
-	for _, rel := range releases {
-		if rel.GetDraft() {
-			continue
-		}
-
-		releaseVersion := version.FormatVersionString(rel.GetTagName(), true)
-		if version.CompareVersions(releaseVersion, toVersion) == 0 {
-			reachedToVersion = true
-		}
-
-		include, stop := isReleaseInRange(releaseVersion, fromVersion, toVersion, reachedToVersion)
-		if include {
-			notes = append(notes, "## "+rel.GetTagName()+"\n"+rel.GetBody())
-		}
-
-		if stop {
-			break
-		}
-	}
-
-	return notes
 }
 
 func TestFormatVersionString(t *testing.T) {

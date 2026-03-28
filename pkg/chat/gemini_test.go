@@ -56,7 +56,7 @@ func TestGeminiProvider_New(t *testing.T) {
 
 	t.Run("client_creation_error", func(t *testing.T) {
 		oldNewClient := chat.ExportGenaiNewClient
-		defer func() { chat.ExportGenaiNewClient = oldNewClient }()
+		t.Cleanup(func() { chat.ExportGenaiNewClient = oldNewClient })
 
 		chat.ExportGenaiNewClient = func(ctx context.Context, config *genai.ClientConfig) (*genai.Client, error) {
 			return nil, fmt.Errorf("simulated error")
