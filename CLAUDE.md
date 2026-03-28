@@ -58,6 +58,8 @@ just              # Default: tidy, generate, build binary to bin/gtb
 just test         # Unit tests with coverage
 just test-race    # Race condition detection
 just test-integration  # Integration tests (requires INT_TEST=1)
+just test-e2e     # E2E BDD tests via Godog (requires INT_TEST_E2E=1)
+just test-e2e-smoke   # E2E smoke tests only (fast, no external deps)
 just lint         # Run golangci-lint
 just lint-fix     # Auto-fix linting issues
 just mocks        # Regenerate mocks via mockery
@@ -176,6 +178,11 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
   - `INT_TEST=1` enables all; `INT_TEST_<TAG>=1` enables a specific group (e.g. `INT_TEST_VCS=1`).
   - Integration tests live in dedicated `*_integration_test.go` files.
   - See `docs/development/integration-testing.md` for the full test inventory and writing guidelines.
+- **E2E BDD tests** use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) for behaviour-driven scenarios:
+  - Feature files in `features/`, step definitions in `test/e2e/steps/`.
+  - Gated by `INT_TEST_E2E=1`; subsystem filters: `INT_TEST_E2E_SMOKE=1`, `INT_TEST_E2E_CONTROLS=1`, `INT_TEST_E2E_CLI=1`.
+  - Run via `just test-e2e` (all) or `just test-e2e-smoke` (fast).
+  - See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full strategy.
 
 ## Linting
 

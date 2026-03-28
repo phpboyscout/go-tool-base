@@ -2,7 +2,7 @@
 title: "Godog BDD Strategy — Evaluation & Phased Rollout"
 description: "Strategic introduction of Godog (Cucumber BDD) for controls lifecycle and CLI E2E testing, with phased rollout and integration into existing test infrastructure."
 date: 2026-03-28
-status: APPROVED
+status: IN PROGRESS
 tags:
   - specification
   - testing

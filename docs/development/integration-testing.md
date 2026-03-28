@@ -47,6 +47,10 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
 | `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
+| `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
+| `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
+| `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
+| `INT_TEST_E2E_CLI=1` | Enables only `@cli`-tagged E2E scenarios |
 
 When neither `INT_TEST` nor the relevant `INT_TEST_<TAG>` is set, the test is skipped with a message explaining how to enable it:
 
@@ -140,6 +144,19 @@ These tests require **no external credentials** — only local network access.
 | :--- | :--- | :--- |
 | `pipeline_integration_test.go` | Full lifecycle, deep hierarchy, manifest consistency, protection, command options, dry-run, manifest recovery, feature flags | Filesystem (in-memory) |
 
+### `test/e2e/` — E2E BDD Tests (Godog)
+
+E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to express multi-step behavioural scenarios in Gherkin feature files. Feature files live in `features/`, step definitions in `test/e2e/steps/`.
+
+| Feature File | Scenarios | Dependencies |
+| :--- | :--- | :--- |
+| `features/controls/lifecycle.feature` | State machine transitions, status messages, context cancellation, concurrent stop idempotency, start errors | None (in-process) |
+| `features/controls/graceful_shutdown.feature` | SIGINT with HTTP+gRPC, in-flight request draining, early signal during startup | Local network (localhost) |
+
+These tests require **no external credentials**. Run via `just test-e2e` or filter with `INT_TEST_E2E_CONTROLS=1`.
+
+See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full BDD strategy and phased rollout plan.
+
 ## Just Recipes
 
 | Recipe | Command | Description |
@@ -147,6 +164,8 @@ These tests require **no external credentials** — only local network access.
 | `just test-integration` | `INT_TEST=1 go test ./... -v` | Run all integration tests |
 | `just coverage-full` | `INT_TEST=1 go test ./... -coverprofile=...` | Generate HTML coverage report including integration tests |
 | `just test` | `go test ./... -v -cover` | Unit tests only (default) |
+| `just test-e2e` | `INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 5m` | E2E BDD tests via Godog |
+| `just test-e2e-smoke` | `INT_TEST_E2E=1 INT_TEST_E2E_SMOKE=1 go test ./test/e2e/... -v -timeout 2m` | E2E smoke tests only (fast) |
 | `just ci` | `tidy, generate, test, test-race, lint` | CI suite — unit tests only |
 
 ## CI Configuration
