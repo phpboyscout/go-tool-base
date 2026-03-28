@@ -392,6 +392,113 @@ func TestNewGitHubClient_NilConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "github configuration is missing")
 }
 
+func TestListReleases_404(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	releases, err := client.ListReleases(context.Background(), "owner", "nonexistent")
+	require.Error(t, err)
+	assert.Nil(t, releases)
+}
+
+func TestListReleases_MalformedJSON(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"not_an_array": true`))
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	releases, err := client.ListReleases(context.Background(), "owner", "repo")
+	require.Error(t, err)
+	assert.Nil(t, releases)
+}
+
+func TestListReleases_EmptyList(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		if err := json.NewEncoder(w).Encode([]*github.RepositoryRelease{}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	releases, err := client.ListReleases(context.Background(), "owner", "repo")
+	require.NoError(t, err)
+	assert.Empty(t, releases)
+}
+
+func TestGetReleaseAssets_MalformedJSON(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{invalid json`))
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	assets, err := client.GetReleaseAssets(context.Background(), "owner", "repo", "v1.0.0")
+	require.Error(t, err)
+	assert.Nil(t, assets)
+}
+
+func TestGetReleaseAssetID_404Release(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	_, err := client.GetReleaseAssetID(context.Background(), "owner", "repo", "v99.0.0", "binary.tar.gz")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get release assets")
+}
+
+func TestDownloadAsset_404(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	rc, err := client.DownloadAsset(context.Background(), "owner", "repo", 99999)
+	require.Error(t, err)
+	assert.Nil(t, rc)
+	assert.Contains(t, err.Error(), "failed to download asset")
+}
+
+func TestDownloadAssetTo_404(t *testing.T) {
+	handler := func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		if err := json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	server, client := setupMockGitHubServer(t, handler)
+	defer server.Close()
+
+	fs := afero.NewMemMapFs()
+	err := client.DownloadAssetTo(context.Background(), fs, "owner", "repo", 99999, "/tmp/asset")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to download asset")
+}
+
 func TestDownloadAsset(t *testing.T) {
 	assetID := int64(12345)
 

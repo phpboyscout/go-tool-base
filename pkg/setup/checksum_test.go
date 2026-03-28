@@ -107,3 +107,90 @@ func TestVerifyChecksum_SidecarNotFound(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read checksum sidecar")
 }
+
+func TestVerifyChecksum_WhitespaceVariants(t *testing.T) {
+	t.Parallel()
+
+	data := []byte("hello world")
+	hash := fmt.Sprintf("%x", sha256.Sum256(data))
+
+	tests := []struct {
+		name    string
+		content string
+		wantErr bool
+	}{
+		{
+			name:    "multiple spaces between hash and filename",
+			content: hash + "    somefile.tar.gz\n",
+			wantErr: false,
+		},
+		{
+			name:    "tab separator between hash and filename",
+			content: hash + "\tsomefile.tar.gz\n",
+			wantErr: false,
+		},
+		{
+			name:    "mixed spaces and tabs between hash and filename",
+			content: hash + " \t  somefile.tar.gz\n",
+			wantErr: false,
+		},
+		{
+			name:    "trailing whitespace after hash line",
+			content: hash + "  somefile.tar.gz\n   \n",
+			wantErr: false,
+		},
+		{
+			name:    "leading whitespace before hash",
+			content: "   " + hash + "  somefile.tar.gz\n",
+			wantErr: false,
+		},
+		{
+			name:    "leading newlines and spaces before hash",
+			content: "\n  \n  " + hash + "  somefile.tar.gz\n",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			require.NoError(t, afero.WriteFile(fs, "/sidecar.sha256", []byte(tt.content), 0o644))
+
+			err := VerifyChecksum(fs, "/sidecar.sha256", data)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestVerifyChecksum_MultipleChecksumLines(t *testing.T) {
+	t.Parallel()
+
+	targetData := []byte("target file content")
+	targetHash := fmt.Sprintf("%x", sha256.Sum256(targetData))
+
+	otherData := []byte("other file content")
+	otherHash := fmt.Sprintf("%x", sha256.Sum256(otherData))
+
+	// strings.Fields on the full content flattens all lines, so fields[0]
+	// is always the hash from the first line. Verify the first hash wins.
+	sidecar := otherHash + "  other.tar.gz\n" + targetHash + "  target.tar.gz\n"
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/sidecar.sha256", []byte(sidecar), 0o644))
+
+	// Should match against the first hash (otherHash), so verifying
+	// targetData should fail because its hash differs from otherHash.
+	err := VerifyChecksum(fs, "/sidecar.sha256", targetData)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "checksum mismatch")
+
+	// Verifying otherData should succeed because its hash matches fields[0].
+	err = VerifyChecksum(fs, "/sidecar.sha256", otherData)
+	assert.NoError(t, err)
+}

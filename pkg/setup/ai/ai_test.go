@@ -497,6 +497,89 @@ func TestNewCmdInitAI_Wiring(t *testing.T) {
 	assert.NotNil(t, cmd.Flags().Lookup("dir"))
 }
 
+func TestRunAIForms_ProviderFormCancellation(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockConfig(t, map[string]any{})
+
+	// Inject a providerFormCreator that returns a real huh.Form.
+	// In a test environment (no TTY) huh.Form.Run() will return an error,
+	// simulating user cancellation.
+	cancelOpt := func(c *formConfig) {
+		c.providerFormCreator = func(_ *AIConfig) *huh.Form {
+			return huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().Title("dummy"),
+				),
+			)
+		}
+		// keyFormCreator returns nil — we never reach stage 2.
+		c.keyFormCreator = func(_ *AIConfig) *huh.Form {
+			return nil
+		}
+	}
+
+	aiCfg, err := runAIForms(cfg, cancelOpt)
+	require.Error(t, err)
+	assert.Nil(t, aiCfg)
+	assert.Contains(t, err.Error(), "AI configuration form cancelled")
+}
+
+func TestRunAIForms_KeyFormCancellation(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockConfig(t, map[string]any{})
+
+	// Provider form succeeds (returns nil to skip), but key form fails.
+	cancelOpt := func(c *formConfig) {
+		c.providerFormCreator = func(ac *AIConfig) *huh.Form {
+			ac.Provider = string(chat.ProviderClaude)
+			return nil // skip provider selection
+		}
+		c.keyFormCreator = func(_ *AIConfig) *huh.Form {
+			return huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().Title("dummy-key"),
+				),
+			)
+		}
+	}
+
+	aiCfg, err := runAIForms(cfg, cancelOpt)
+	require.Error(t, err)
+	assert.Nil(t, aiCfg)
+	assert.Contains(t, err.Error(), "AI configuration form cancelled")
+}
+
+func TestAIInitialiser_Configure_FormCancellation(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
+	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
+
+	i := &AIInitialiser{
+		formOpts: []FormOption{
+			func(c *formConfig) {
+				c.providerFormCreator = func(_ *AIConfig) *huh.Form {
+					return huh.NewForm(
+						huh.NewGroup(
+							huh.NewInput().Title("cancelled"),
+						),
+					)
+				}
+				c.keyFormCreator = func(_ *AIConfig) *huh.Form {
+					return nil
+				}
+			},
+		},
+	}
+
+	err := i.Configure(newTestProps(t), cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AI configuration form cancelled")
+}
+
 // newMockConfig creates a config.Containable mock with the given values.
 func newMockConfig(t *testing.T, values map[string]any) config.Containable {
 	t.Helper()

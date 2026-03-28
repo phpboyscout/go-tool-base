@@ -2,10 +2,20 @@ package grpc
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
+
+	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/controls"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func TestNewInterceptorChain_Empty(t *testing.T) {
@@ -126,8 +136,47 @@ func TestInterceptorChain_MultipleInterceptors_Ordering(t *testing.T) {
 		Interceptor{Unary: mkUnary("third")},
 	)
 
-	// Verify ordering is preserved in the slice
+	// Verify ordering is preserved in the internal slice
 	assert.Len(t, chain.unary, 3)
-	// The actual execution order is determined by grpc.ChainUnaryInterceptor,
-	// which processes them left-to-right. We verify slice order here.
+
+	// Verify actual execution order via a real gRPC health-check RPC.
+	// The health service is registered automatically by Register(), giving
+	// us a unary endpoint to call without defining a custom proto service.
+	listener, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
+	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	_, err = Register(context.Background(), "chain-order-test", controller, cfg, logger.NewNoop(),
+		WithInterceptors(chain),
+	)
+	require.NoError(t, err)
+
+	controller.Start()
+	t.Cleanup(func() {
+		controller.Stop()
+		controller.Wait()
+	})
+
+	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	defer func() { _ = conn.Close() }()
+
+	client := grpc_health_v1.NewHealthClient(conn)
+
+	// Issue a unary health-check RPC; this passes through our interceptor chain.
+	require.Eventually(t, func() bool {
+		resp, err := client.Check(context.Background(), &grpc_health_v1.HealthCheckRequest{})
+		return err == nil && resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING
+	}, 2*time.Second, 50*time.Millisecond)
+
+	assert.Equal(t, []string{"first", "second", "third"}, order,
+		"interceptors must execute in the order they were added to the chain")
 }
