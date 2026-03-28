@@ -209,6 +209,29 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 	client, err := chat.New(context.Background(), p, cfg)
 	require.NoError(t, err)
 
+	t.Run("success_text_no_tools", func(t *testing.T) {
+		server.Handler = func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{
+				"id": "chatcmpl-text",
+				"choices": []map[string]interface{}{
+					{
+						"message": map[string]interface{}{
+							"role":    "assistant",
+							"content": "Hello! How can I help you today?",
+						},
+						"finish_reason": "stop",
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+
+		resp, err := client.Chat(context.Background(), "Hi there")
+		require.NoError(t, err)
+		assert.Equal(t, "Hello! How can I help you today?", resp)
+	})
+
 	t.Run("react_loop", func(t *testing.T) {
 		step := 0
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
@@ -275,5 +298,77 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 		resp, err := client.Chat(context.Background(), "Weather in Berlin?")
 		require.NoError(t, err)
 		assert.Equal(t, "The weather in Berlin is cloudy.", resp)
+	})
+
+	t.Run("max_steps_exceeded", func(t *testing.T) {
+		maxStepsServer := NewMockServer()
+		defer maxStepsServer.Close()
+
+		maxStepsCfgMock := mockConfig.NewMockContainable(t)
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
+
+		maxStepsProps := &props.Props{
+			Logger: logger.NewNoop(),
+			Config: maxStepsCfgMock,
+		}
+
+		maxStepsCfg := chat.Config{
+			Provider: chat.ProviderOpenAI,
+			Token:    "test-key",
+			BaseURL:  maxStepsServer.URL + "/",
+			MaxSteps: 2,
+		}
+
+		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
+		require.NoError(t, err)
+
+		// Always respond with a tool call, never a final text answer.
+		maxStepsServer.Handler = func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{
+				"id": "chatcmpl-loop",
+				"choices": []map[string]interface{}{
+					{
+						"message": map[string]interface{}{
+							"role":    "assistant",
+							"content": "",
+							"tool_calls": []map[string]interface{}{
+								{
+									"id":   "call_loop",
+									"type": "function",
+									"function": map[string]interface{}{
+										"name":      "get_weather",
+										"arguments": `{"location": "Berlin"}`,
+									},
+								},
+							},
+						},
+						"finish_reason": "tool_calls",
+					},
+				},
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+
+		type weatherArgs struct {
+			Location string `json:"location"`
+		}
+		err = maxStepsClient.SetTools([]chat.Tool{
+			{
+				Name:        "get_weather",
+				Description: "Get weather",
+				Parameters:  chat.GenerateSchema[weatherArgs]().(*jsonschema.Schema),
+				Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+					return "cloudy", nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		resp, err := maxStepsClient.Chat(context.Background(), "Weather in Berlin?")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum ReAct steps")
+		assert.Contains(t, err.Error(), "2")
+		assert.Empty(t, resp)
 	})
 }

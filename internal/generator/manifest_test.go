@@ -83,6 +83,51 @@ func TestManifest_MarshalYAML(t *testing.T) {
 	})
 }
 
+func TestRemoveFromManifest_Success(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	l := logger.NewNoop()
+	p := &props.Props{FS: fs, Logger: l, Version: version.NewInfo("v2.0.0", "", "")}
+
+	manifestPath := "/work/.gtb/manifest.yaml"
+	_ = fs.MkdirAll("/work/.gtb", 0755)
+
+	m := Manifest{
+		Version: ManifestVersion{GoToolBase: "v1.0.0"},
+		Commands: []ManifestCommand{
+			{Name: "keep-first", Description: "first command"},
+			{Name: "to-remove", Description: "will be removed"},
+			{Name: "keep-second", Description: "second command"},
+		},
+	}
+	data, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	require.NoError(t, afero.WriteFile(fs, manifestPath, data, 0644))
+
+	g := New(p, &Config{Path: "/work", Name: "to-remove"})
+
+	err = g.removeFromManifest()
+	require.NoError(t, err)
+
+	// Read the updated manifest back from disk
+	updatedData, err := afero.ReadFile(fs, manifestPath)
+	require.NoError(t, err)
+
+	var updated Manifest
+	require.NoError(t, yaml.Unmarshal(updatedData, &updated))
+
+	// Verify the removed command is gone
+	var names []string
+	for _, cmd := range updated.Commands {
+		names = append(names, cmd.Name)
+	}
+	assert.Equal(t, []string{"keep-first", "keep-second"}, names)
+
+	// Verify the version was updated to the current CLI version
+	assert.Equal(t, "v2.0.0", updated.Version.GoToolBase)
+}
+
 func TestRemoveFromManifest_Missing(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()

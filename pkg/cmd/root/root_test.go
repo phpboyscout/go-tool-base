@@ -702,6 +702,14 @@ func TestHandleOutdatedVersion_WithMockForm(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
+	// NOTE: The "user accepts update" path is not unit-testable here.
+	// When the user accepts, handleOutdatedVersion calls update.Update()
+	// directly (a package-level function, not behind a mockable interface).
+	// update.Update creates a real setup.Updater that requires VCS clients,
+	// network access, and binary replacement. Injecting a mock would require
+	// refactoring handleOutdatedVersion to accept an updater interface, which
+	// is out of scope for this test file. The accept path is exercised via
+	// integration tests and the update command's own test suite instead.
 	tests := []struct {
 		name              string
 		message           string

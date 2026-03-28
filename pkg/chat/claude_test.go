@@ -352,4 +352,195 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		assert.Contains(t, err.Error(), "prompt cannot be empty")
 		assert.Empty(t, resp)
 	})
+
+	t.Run("max_steps_exceeded", func(t *testing.T) {
+		maxStepsServer := NewMockServer()
+		defer maxStepsServer.Close()
+
+		maxStepsCfgMock := mockConfig.NewMockContainable(t)
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+
+		maxStepsProps := &props.Props{
+			Logger: logger.NewNoop(),
+			Config: maxStepsCfgMock,
+		}
+
+		maxStepsCfg := chat.Config{
+			Provider: chat.ProviderClaude,
+			Token:    "test-key",
+			BaseURL:  maxStepsServer.URL + "/",
+			MaxSteps: 2,
+		}
+
+		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
+		require.NoError(t, err)
+
+		// Always respond with a tool call, never a final text answer.
+		maxStepsServer.Handler = func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{
+				"id":    "msg_loop",
+				"type":  "message",
+				"role":  "assistant",
+				"model": "claude-3-5-sonnet",
+				"content": []map[string]interface{}{
+					{
+						"type": "tool_use",
+						"id":   "toolu_loop",
+						"name": "get_weather",
+						"input": map[string]interface{}{
+							"location": "London",
+						},
+					},
+				},
+				"stop_reason": "tool_use",
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+
+		type weatherArgs struct {
+			Location string `json:"location"`
+		}
+		err = maxStepsClient.SetTools([]chat.Tool{
+			{
+				Name:        "get_weather",
+				Description: "Get weather for a location",
+				Parameters:  chat.GenerateSchema[weatherArgs]().(*jsonschema.Schema),
+				Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+					return "sunny", nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		resp, err := maxStepsClient.Chat(context.Background(), "What is the weather?")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum ReAct steps")
+		assert.Contains(t, err.Error(), "2")
+		assert.Empty(t, resp)
+	})
+
+	t.Run("multiple_tool_calls_single_turn", func(t *testing.T) {
+		multiServer := NewMockServer()
+		defer multiServer.Close()
+
+		multiCfgMock := mockConfig.NewMockContainable(t)
+		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+
+		multiProps := &props.Props{
+			Logger: logger.NewNoop(),
+			Config: multiCfgMock,
+		}
+
+		multiCfg := chat.Config{
+			Provider: chat.ProviderClaude,
+			Token:    "test-key",
+			BaseURL:  multiServer.URL + "/",
+		}
+
+		freshClient, err := chat.New(context.Background(), multiProps, multiCfg)
+		require.NoError(t, err)
+
+		step := 0
+		var capturedRequests []map[string]interface{}
+
+		multiServer.Handler = func(w http.ResponseWriter, r *http.Request) {
+			var reqBody map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&reqBody)
+			capturedRequests = append(capturedRequests, reqBody)
+
+			w.Header().Set("Content-Type", "application/json")
+			var resp map[string]interface{}
+			if step == 0 {
+				resp = map[string]interface{}{
+					"id":    "msg_multi",
+					"type":  "message",
+					"role":  "assistant",
+					"model": "claude-3-5-sonnet",
+					"content": []map[string]interface{}{
+						{
+							"type": "tool_use",
+							"id":   "toolu_a",
+							"name": "get_weather",
+							"input": map[string]interface{}{
+								"location": "London",
+							},
+						},
+						{
+							"type": "tool_use",
+							"id":   "toolu_b",
+							"name": "get_time",
+							"input": map[string]interface{}{
+								"timezone": "UTC",
+							},
+						},
+					},
+					"stop_reason": "tool_use",
+				}
+				step++
+			} else {
+				resp = map[string]interface{}{
+					"id":    "msg_final",
+					"type":  "message",
+					"role":  "assistant",
+					"model": "claude-3-5-sonnet",
+					"content": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": "London is sunny and UTC time is 12:00.",
+						},
+					},
+					"stop_reason": "end_turn",
+				}
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		}
+
+		type weatherArgs struct {
+			Location string `json:"location"`
+		}
+		type timeArgs struct {
+			Timezone string `json:"timezone"`
+		}
+
+		weatherCalled := false
+		timeCalled := false
+
+		err = freshClient.SetTools([]chat.Tool{
+			{
+				Name:        "get_weather",
+				Description: "Get weather for a location",
+				Parameters:  chat.GenerateSchema[weatherArgs]().(*jsonschema.Schema),
+				Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+					weatherCalled = true
+					return "sunny", nil
+				},
+			},
+			{
+				Name:        "get_time",
+				Description: "Get time for a timezone",
+				Parameters:  chat.GenerateSchema[timeArgs]().(*jsonschema.Schema),
+				Handler: func(ctx context.Context, args json.RawMessage) (interface{}, error) {
+					timeCalled = true
+					return "12:00", nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		resp, err := freshClient.Chat(context.Background(), "What is the weather and time?")
+		require.NoError(t, err)
+		assert.Equal(t, "London is sunny and UTC time is 12:00.", resp)
+		assert.True(t, weatherCalled, "get_weather tool should have been called")
+		assert.True(t, timeCalled, "get_time tool should have been called")
+
+		// The second request should contain both tool results.
+		require.Len(t, capturedRequests, 2, "expected two API requests (tool call + final)")
+		secondReqMessages, ok := capturedRequests[1]["messages"].([]interface{})
+		require.True(t, ok)
+		lastMsg := secondReqMessages[len(secondReqMessages)-1].(map[string]interface{})
+		assert.Equal(t, "user", lastMsg["role"])
+		toolResultContent := lastMsg["content"].([]interface{})
+		assert.Len(t, toolResultContent, 2, "expected two tool results in the follow-up request")
+	})
 }
