@@ -1,11 +1,11 @@
 package errorhandling
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -94,21 +94,23 @@ func newHelp(provider, team, channel string) HelpConfig {
 }
 
 func TestErrorHandler_HelpMessage_InOutput(t *testing.T) {
-	var buf bytes.Buffer
-	l := logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel))
+	log := logger.NewBuffer()
 
-	h := New(l, SlackHelp{Team: "Platform", Channel: "#alerts"})
+	h := New(log, SlackHelp{Team: "Platform", Channel: "#alerts"})
 	h.Error(errors.New("something went wrong"))
 
-	assert.Contains(t, buf.String(), "For assistance, contact Platform via Slack channel #alerts")
+	entries := log.Entries()
+	require.NotEmpty(t, entries)
+	assert.Contains(t, entries[0].Keyvals, "For assistance, contact Platform via Slack channel #alerts")
 }
 
 func TestErrorHandler_NilHelp_NoHelpInOutput(t *testing.T) {
-	var buf bytes.Buffer
-	l := logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel))
+	log := logger.NewBuffer()
 
-	h := New(l, nil)
+	h := New(log, nil)
 	h.Error(errors.New("something went wrong"))
 
-	assert.NotContains(t, buf.String(), "For assistance")
+	entries := log.Entries()
+	require.NotEmpty(t, entries)
+	assert.NotContains(t, entries[0].Keyvals, KeyHelp)
 }

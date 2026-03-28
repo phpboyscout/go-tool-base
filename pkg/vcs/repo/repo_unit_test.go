@@ -1,6 +1,10 @@
 package repo
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +16,7 @@ import (
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -257,6 +262,14 @@ func TestRepo_Unit_Getters(t *testing.T) {
 		assert.True(t, r.SourceIs(SourceLocal))
 		assert.False(t, r.SourceIs(SourceMemory))
 	})
+
+	t.Run("SetKey", func(t *testing.T) {
+		t.Parallel()
+		r := &Repo{}
+		key := &ssh.PublicKeys{}
+		r.SetKey(key)
+		assert.Equal(t, key, r.auth)
+	})
 }
 
 func TestRepo_Unit_WithRepo_PropagatesError(t *testing.T) {
@@ -369,7 +382,7 @@ func TestRepo_Unit_Clone_LocalToLocal(t *testing.T) {
 	assert.NoError(t, statErr)
 }
 
-func TestRepo_Unit_GetSSHKey_Errors(t *testing.T) {
+func TestRepo_Unit_GetSSHKey(t *testing.T) {
 	t.Parallel()
 
 	t.Run("not_exist", func(t *testing.T) {
@@ -385,18 +398,124 @@ func TestRepo_Unit_GetSSHKey_Errors(t *testing.T) {
 		require.NoError(t, fs.Mkdir("/keydir", 0o755))
 		_, err := GetSSHKey("/keydir", fs)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "GITHUB_KEY")
+		assert.Contains(t, err.Error(), "Could not open SSH key")
 	})
 
 	t.Run("invalid_key_bytes", func(t *testing.T) {
 		t.Parallel()
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "/bad.key", []byte("not-a-pem-key"), 0o600))
-		// ParsePrivateKey fails but does not report "passphrase protected",
-		// so NewPublicKeys is called with the invalid bytes and fails.
 		_, err := GetSSHKey("/bad.key", fs)
 		assert.Error(t, err)
 	})
+
+	t.Run("valid_rsa_key", func(t *testing.T) {
+		t.Parallel()
+		fs := afero.NewMemMapFs()
+
+		privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+
+		pemData := pem.EncodeToMemory(&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(privKey),
+		})
+		require.NoError(t, afero.WriteFile(fs, "/id_rsa", pemData, 0o600))
+
+		pubKeys, err := GetSSHKey("/id_rsa", fs)
+		require.NoError(t, err)
+		assert.NotNil(t, pubKeys)
+		assert.Equal(t, "git", pubKeys.User)
+	})
+}
+
+func TestRepo_Unit_Commit_VerifiesHEAD(t *testing.T) {
+	tmpDir := t.TempDir()
+	_, err := git.PlainInit(tmpDir, false)
+	require.NoError(t, err)
+
+	r := &Repo{}
+	_, _, err = r.OpenLocal(tmpDir, "master")
+	require.NoError(t, err)
+
+	testFile := filepath.Join(tmpDir, "test.txt")
+	require.NoError(t, os.WriteFile(testFile, []byte("content"), 0o644))
+
+	wt, err := r.repo.Worktree()
+	require.NoError(t, err)
+	_, err = wt.Add("test.txt")
+	require.NoError(t, err)
+
+	hash, err := r.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
+	})
+	require.NoError(t, err)
+	assert.False(t, hash.IsZero())
+
+	head, err := r.repo.Head()
+	require.NoError(t, err)
+	assert.Equal(t, hash, head.Hash())
+}
+
+func TestRepo_Unit_CreateRemote(t *testing.T) {
+	tmpDir := t.TempDir()
+	_, err := git.PlainInit(tmpDir, false)
+	require.NoError(t, err)
+
+	r := &Repo{}
+	_, _, err = r.OpenLocal(tmpDir, "master")
+	require.NoError(t, err)
+
+	remoteName := "origin"
+	remoteURL := "https://example.com/repo.git"
+
+	remote, err := r.CreateRemote(remoteName, []string{remoteURL})
+	require.NoError(t, err)
+	assert.NotNil(t, remote)
+	assert.Equal(t, remoteName, remote.Config().Name)
+	assert.Equal(t, remoteURL, remote.Config().URLs[0])
+
+	rem, err := r.Remote(remoteName)
+	require.NoError(t, err)
+	assert.Equal(t, remoteName, rem.Config().Name)
+}
+
+func TestRepo_Unit_CheckoutCommit(t *testing.T) {
+	tmpDir := t.TempDir()
+	_, err := git.PlainInit(tmpDir, false)
+	require.NoError(t, err)
+
+	r := &Repo{}
+	_, _, err = r.OpenLocal(tmpDir, "master")
+	require.NoError(t, err)
+
+	wt, err := r.repo.Worktree()
+	require.NoError(t, err)
+
+	// Commit 1
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "test1.txt"), []byte("1"), 0o644))
+	_, _ = wt.Add("test1.txt")
+	hash1, err := r.Commit("commit 1", &git.CommitOptions{
+		Author: &object.Signature{Name: "T", Email: "e", When: time.Now()},
+	})
+	require.NoError(t, err)
+
+	// Commit 2
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "test2.txt"), []byte("2"), 0o644))
+	_, _ = wt.Add("test2.txt")
+	hash2, err := r.Commit("commit 2", &git.CommitOptions{
+		Author: &object.Signature{Name: "T", Email: "e", When: time.Now()},
+	})
+	require.NoError(t, err)
+
+	head, _ := r.repo.Head()
+	assert.Equal(t, hash2, head.Hash())
+
+	// Checkout commit 1
+	require.NoError(t, r.CheckoutCommit(hash1))
+
+	head, _ = r.repo.Head()
+	assert.Equal(t, hash1, head.Hash())
 }
 
 func TestRepo_Unit_Commit_NilOpts(t *testing.T) {

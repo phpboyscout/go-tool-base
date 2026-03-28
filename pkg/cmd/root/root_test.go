@@ -900,22 +900,19 @@ func TestMapLogLevel(t *testing.T) {
 func TestValidateConfig_WarnsOnEmptySetKeys(t *testing.T) {
 	t.Parallel()
 
-	var buf strings.Builder
-	l := logger.NewCharm(&buf)
-	cfg := config.NewReaderContainer(l, "yaml", strings.NewReader("github:\n  token: \"\"\n"))
-	validateConfig(cfg, l)
-	// The github.token key is set but empty — expect a warning
-	assert.Contains(t, buf.String(), "github.token is set but empty")
+	log := logger.NewBuffer()
+	cfg := config.NewReaderContainer(log, "yaml", strings.NewReader("github:\n  token: \"\"\n"))
+	validateConfig(cfg, log)
+	assert.True(t, log.Contains("github.token is set but empty"))
 }
 
 func TestValidateConfig_NoWarningForMissingKeys(t *testing.T) {
 	t.Parallel()
 
-	var buf strings.Builder
-	l := logger.NewCharm(&buf)
-	cfg := config.NewReaderContainer(l, "yaml", strings.NewReader("other: value\n"))
-	validateConfig(cfg, l)
-	assert.NotContains(t, buf.String(), "is set but empty")
+	log := logger.NewBuffer()
+	cfg := config.NewReaderContainer(log, "yaml", strings.NewReader("other: value\n"))
+	validateConfig(cfg, log)
+	assert.False(t, log.Contains("is set but empty"))
 }
 
 func TestMergeEmbeddedConfigs_NilAssets(t *testing.T) {
@@ -1046,13 +1043,12 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	var buf strings.Builder
-	l := logger.NewCharm(&buf)
+	log := logger.NewBuffer()
 	exitCalled := false
-	eh := errorhandling.New(l, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(log, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
 
 	props := &p.Props{
-		Logger:       l,
+		Logger:       log,
 		ErrorHandler: eh,
 	}
 
@@ -1065,7 +1061,7 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 
 	Execute(cmd, props)
 	assert.False(t, exitCalled)
-	assert.Contains(t, buf.String(), "update complete")
+	assert.True(t, log.Contains("update complete"))
 }
 
 func TestExecute_FatalError(t *testing.T) {
@@ -1073,13 +1069,12 @@ func TestExecute_FatalError(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	var buf strings.Builder
-	l := logger.NewCharm(&buf)
+	log := logger.NewBuffer()
 	exitCalled := false
-	eh := errorhandling.New(l, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(log, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
 
 	props := &p.Props{
-		Logger:       l,
+		Logger:       log,
 		ErrorHandler: eh,
 	}
 
@@ -1092,7 +1087,7 @@ func TestExecute_FatalError(t *testing.T) {
 
 	Execute(cmd, props)
 	assert.True(t, exitCalled)
-	assert.Contains(t, buf.String(), "fatal test error")
+	assert.True(t, log.Contains("fatal test error"))
 }
 
 func TestMiddleware_IntegrationWithCobra(t *testing.T) {

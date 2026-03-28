@@ -111,27 +111,29 @@ func TestNewErrNotImplemented(t *testing.T) {
 
 func TestHandleSpecialErrors_UnimplementedWithIssueLink(t *testing.T) {
 	t.Parallel()
-	var buf bytes.Buffer
-	l := logger.NewCharm(&buf)
-	h := &StandardErrorHandler{Logger: l, Exit: os.Exit, Writer: &buf}
+	log := logger.NewBuffer()
+	h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
 
 	err := NewErrNotImplemented("https://example.com/issue/99")
 	handled := h.handleSpecialErrors(err)
 	assert.True(t, handled)
-	assert.Contains(t, buf.String(), "not yet implemented")
-	assert.Contains(t, buf.String(), "https://example.com/issue/99")
+	entries := log.Entries()
+	require.Len(t, entries, 2)
+	assert.Contains(t, entries[0].Message, "not yet implemented")
+	assert.Contains(t, entries[1].Keyvals, "https://example.com/issue/99")
 }
 
 func TestHandleSpecialErrors_AssertionFailure(t *testing.T) {
 	t.Parallel()
-	var buf bytes.Buffer
-	l := logger.NewCharm(&buf, logger.WithLevel(logger.DebugLevel))
-	h := &StandardErrorHandler{Logger: l, Exit: os.Exit, Writer: &buf}
+	log := logger.NewBuffer()
+	h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
 
 	err := NewAssertionFailure("invariant violated: %s", "x must be positive")
 	handled := h.handleSpecialErrors(err)
 	assert.False(t, handled) // assertion failures fall through to logError
-	assert.Contains(t, buf.String(), "Internal error")
+	entries := log.Entries()
+	require.NotEmpty(t, entries)
+	assert.Contains(t, entries[0].Message, "Internal error")
 }
 
 func TestHandleSpecialErrors_ErrRunSubCommand_NilCmd(t *testing.T) {
@@ -176,8 +178,7 @@ func TestNewAssertionFailure(t *testing.T) {
 }
 
 func TestErrorHandler_Fatal(t *testing.T) {
-	var buf bytes.Buffer
-	l := logger.NewCharm(&buf)
+	log := logger.NewBuffer()
 
 	exitCalled := false
 	exitCode := 0
@@ -187,9 +188,9 @@ func TestErrorHandler_Fatal(t *testing.T) {
 	}
 
 	h := &StandardErrorHandler{
-		Logger: l,
+		Logger: log,
 		Exit:   mockExit,
-		Writer: &buf,
+		Writer: &bytes.Buffer{},
 	}
 
 	err := errors.New("fatal error")
@@ -197,5 +198,7 @@ func TestErrorHandler_Fatal(t *testing.T) {
 
 	assert.True(t, exitCalled)
 	assert.Equal(t, 1, exitCode)
-	assert.Contains(t, buf.String(), "fatal error")
+	entries := log.Entries()
+	require.NotEmpty(t, entries)
+	assert.Contains(t, entries[0].Message, "fatal error")
 }
