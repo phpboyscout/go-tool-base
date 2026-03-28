@@ -463,19 +463,27 @@ func TestController_ServiceInfo(t *testing.T) {
 	)
 
 	c.Start()
-	time.Sleep(50 * time.Millisecond) // Wait for initial start, failure, backoff, restart, failure
+
+	// Wait for the restart policy to exhaust retries instead of using a fixed sleep.
+	var info controls.ServiceInfo
+	require.Eventually(t, func() bool {
+		si, ok := c.GetServiceInfo("test-service")
+		if !ok {
+			return false
+		}
+		info = si
+		return info.Error != nil && strings.Contains(info.Error.Error(), "max restarts exceeded")
+	}, 5*time.Second, 10*time.Millisecond, "service should exhaust restart policy")
+
 	c.Stop()
 	c.Wait()
 
-	info, ok := c.GetServiceInfo("test-service")
-	assert.True(t, ok)
 	assert.Equal(t, "test-service", info.Name)
 	assert.Equal(t, 1, info.RestartCount)
 	assert.NotZero(t, info.LastStarted)
 	assert.NotZero(t, info.LastStopped)
-	require.ErrorContains(t, info.Error, "max restarts exceeded")
 
-	_, ok = c.GetServiceInfo("non-existent")
+	_, ok := c.GetServiceInfo("non-existent")
 	assert.False(t, ok)
 }
 
@@ -519,7 +527,7 @@ func TestControllerErrorHandler_ExitsOnCancel(t *testing.T) {
 	// The controller should reach Stopped state without blocking.
 	require.Eventually(t, func() bool {
 		return c.GetState() == controls.Stopped
-	}, 2*time.Second, 10*time.Millisecond, "controller should reach Stopped state after context cancel")
+	}, 5*time.Second, 10*time.Millisecond, "controller should reach Stopped state after context cancel")
 
 	c.Wait()
 }

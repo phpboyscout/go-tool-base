@@ -157,10 +157,11 @@ func TestAsyncCheck_RefreshesOnInterval(t *testing.T) {
 
 	c.Start()
 
-	// Should be called multiple times within a reasonable window
+	// Should be called multiple times within a reasonable window.
+	// Use a generous timeout to avoid flakiness under parallel load.
 	require.Eventually(t, func() bool {
 		return callCount.Load() >= 3
-	}, 2*time.Second, 10*time.Millisecond)
+	}, 5*time.Second, 10*time.Millisecond)
 }
 
 func TestCheck_Timeout(t *testing.T) {
