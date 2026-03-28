@@ -146,11 +146,13 @@ func TestUpdateConfig(t *testing.T) {
 }
 
 type mockUpdater struct {
-	latestVersion string
-	binPath       string
-	releaseNotes  string
-	updateErr     error
-	notesErr      error
+	latestVersion   string
+	binPath         string
+	releaseNotes    string
+	updateErr       error
+	notesErr        error
+	fromFileErr     error
+	fromFileBinPath string
 }
 
 func (m *mockUpdater) GetLatestVersionString(ctx context.Context) (string, error) {
@@ -159,6 +161,14 @@ func (m *mockUpdater) GetLatestVersionString(ctx context.Context) (string, error
 
 func (m *mockUpdater) Update(ctx context.Context) (string, error) {
 	return m.binPath, m.updateErr
+}
+
+func (m *mockUpdater) UpdateFromFile(filePath string) (string, error) {
+	if m.fromFileErr != nil {
+		return "", m.fromFileErr
+	}
+
+	return m.fromFileBinPath, nil
 }
 
 func (m *mockUpdater) GetReleaseNotes(ctx context.Context, from, to string) (string, error) {
@@ -242,4 +252,66 @@ func (m *mockVersion) GetDate() string    { return "now" }
 func (m *mockVersion) String() string     { return m.version }
 func (m *mockVersion) Compare(other string) int { return version.CompareVersions(m.version, other) }
 func (m *mockVersion) IsDevelopment() bool { return false }
+
+func TestNewCmdUpdate_FromFileFlag(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		Tool:   p.Tool{Name: "test-tool"},
+		Logger: logger.NewNoop(),
+	}
+
+	cmd := update.NewCmdUpdate(props)
+
+	fromFile, err := cmd.Flags().GetString("from-file")
+	require.NoError(t, err)
+	assert.Equal(t, "", fromFile)
+}
+
+func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
+	props := &p.Props{
+		Tool:   p.Tool{Name: "test-tool"},
+		Logger: logger.NewNoop(),
+	}
+
+	cmd := update.NewCmdUpdate(props)
+	require.NoError(t, cmd.Flags().Set("from-file", "/tmp/release.tar.gz"))
+	require.NoError(t, cmd.Flags().Set("version", "v1.0.0"))
+
+	err := cmd.ValidateFlagGroups()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "from-file")
+}
+
+func TestUpdateFromFile_ViaCommand(t *testing.T) {
+	oldOfflineUpdater := update.ExportNewOfflineUpdater
+	oldExec := update.ExportExecCommand
+	defer func() {
+		update.ExportNewOfflineUpdater = oldOfflineUpdater
+		update.ExportExecCommand = oldExec
+	}()
+
+	update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+		return exec.Command("true")
+	}
+
+	mu := &mockUpdater{
+		fromFileBinPath: "/usr/local/bin/test-tool",
+	}
+	update.ExportNewOfflineUpdater = func(props *p.Props) update.Updater {
+		return mu
+	}
+
+	props := &p.Props{
+		FS:     afero.NewMemMapFs(),
+		Tool:   p.Tool{Name: "test-tool"},
+		Logger: logger.NewNoop(),
+	}
+
+	cmd := update.NewCmdUpdate(props)
+	cmd.SetArgs([]string{"--from-file", "/tmp/release.tar.gz"})
+
+	err := cmd.Execute()
+	assert.NoError(t, err)
+}
 

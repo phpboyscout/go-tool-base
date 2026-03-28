@@ -152,6 +152,36 @@ Downloads and installs the target version:
 5. Atomically replaces current binary via temporary file
 6. Updates last-checked timestamps
 
+#### Offline Update (Air-Gapped Environments)
+
+For environments without network access, `UpdateFromFile` installs a binary from a local `.tar.gz` release archive:
+
+```go
+updater := setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
+targetPath, err := updater.UpdateFromFile("/path/to/tool_Linux_x86_64.tar.gz")
+```
+
+If a `.sha256` sidecar file exists alongside the tarball (e.g., `tool_Linux_x86_64.tar.gz.sha256`), the checksum is verified automatically before extraction. If no sidecar is present, a warning is logged and installation proceeds.
+
+**CLI usage:**
+```bash
+# Standard offline update
+mytool update --from-file /path/to/mytool_Linux_x86_64.tar.gz
+
+# With sidecar checksum (auto-detected)
+mytool update --from-file /path/to/mytool_Linux_x86_64.tar.gz
+# expects: mytool_Linux_x86_64.tar.gz.sha256 alongside the tarball
+```
+
+The `--from-file` flag is mutually exclusive with `--version`. No VCS client or network access is required.
+
+**Checksum verification:**
+```go
+err := setup.VerifyChecksum(fs, "/path/to/file.tar.gz.sha256", fileData)
+```
+
+`VerifyChecksum` accepts the standard `sha256sum` sidecar format (`<hex-hash>  <filename>`) and GoReleaser checksums.txt entries.
+
 #### Release Information
 ```go
 func (s *SelfUpdater) GetReleaseNotes(from string, to string) (string, error)

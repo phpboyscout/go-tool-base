@@ -2,7 +2,7 @@
 title: "Offline Update Support Specification"
 description: "Add an offline update mode to pkg/setup that accepts a local tarball path instead of downloading from a VCS release, enabling air-gapped and high-security environments."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - setup

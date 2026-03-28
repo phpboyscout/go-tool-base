@@ -58,6 +58,14 @@ The update system is designed to be fully testable despite its heavy reliance on
 - **`vcs.GitHubClient`**: Injected to mock API responses.
 - **`afero.Fs`**: Used for all filesystem operations, allowing the entire download/extract/swap flow to be verified in-memory.
 
+## Offline Update Path
+
+For air-gapped or restricted environments, the update system supports installing from a local `.tar.gz` archive via `UpdateFromFile`. This path skips both the Discovery and Download stages entirely — the binary is extracted directly from a pre-downloaded archive using the same atomic installation flow.
+
+When a `.sha256` sidecar file exists alongside the archive, `VerifyChecksum` validates the file integrity before extraction. This matches the GoReleaser checksum output format.
+
+See [Configure Self-Updating: Air-Gapped Environments](../how-to/configure-self-updating.md#air-gapped--offline-environments) for the full workflow.
+
 ## Best Practices
 
 - **Explicit Update Command**: Always provide an `update` command (via `setup.Register`) for users who want to force a sync manually.

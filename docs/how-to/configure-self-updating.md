@@ -184,6 +184,36 @@ update:
 
 ---
 
+## Air-Gapped / Offline Environments
+
+For environments without network access, the update command supports installing from a local release archive. This workflow has three steps:
+
+### 1. Download on a connected machine
+
+Download the release archive and checksum from the GitHub/GitLab releases page:
+
+```bash
+# On a machine with internet access
+curl -LO https://github.com/my-org/mytool/releases/download/v1.3.0/mytool_Linux_x86_64.tar.gz
+curl -LO https://github.com/my-org/mytool/releases/download/v1.3.0/mytool_Linux_x86_64.tar.gz.sha256
+```
+
+### 2. Transfer to the target machine
+
+Copy both files to the air-gapped machine via USB, SCP, or your internal artifact pipeline.
+
+### 3. Install from file
+
+```bash
+mytool update --from-file /path/to/mytool_Linux_x86_64.tar.gz
+```
+
+The checksum sidecar is automatically detected and verified. No API token or network access is required.
+
+The `--from-file` flag is mutually exclusive with `--version`. The `--force` flag has no effect on offline updates since no version comparison is performed.
+
+---
+
 ## Related Documentation
 
 - **[Auto-Update Lifecycle](../concepts/auto-update.md)** — how the update loop works

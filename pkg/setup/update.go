@@ -102,6 +102,16 @@ func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
 	return fs.Chtimes(lastSinceFile, time.Now(), time.Now())
 }
 
+// NewOfflineUpdater creates a SelfUpdater configured for file-based updates
+// that do not require a VCS client or network access.
+func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs) *SelfUpdater {
+	return &SelfUpdater{
+		logger: log,
+		Tool:   tool,
+		Fs:     fs,
+	}
+}
+
 func NewUpdater(props *props.Props, version string, force bool) (*SelfUpdater, error) {
 	if props.Config == nil {
 		return nil, errors.New("configuration is not loaded")
@@ -240,6 +250,42 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 	defer func() {
 		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
 		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, CheckedKey)
+	}()
+
+	return targetPath, s.extract(file, targetPath)
+}
+
+// UpdateFromFile installs a binary from a local .tar.gz file.
+// If a .sha256 sidecar file exists at filePath+".sha256", the checksum
+// is verified before extraction. Returns the installation target path.
+func (s *SelfUpdater) UpdateFromFile(filePath string) (string, error) {
+	targetPath, err := s.resolveTargetPath()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := afero.ReadFile(s.Fs, filePath)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to read update file")
+	}
+
+	sidecarPath := filePath + ".sha256"
+	if exists, _ := afero.Exists(s.Fs, sidecarPath); exists {
+		if err := VerifyChecksum(s.Fs, sidecarPath, data); err != nil {
+			return "", err
+		}
+
+		s.logger.Info("checksum verified", "file", filePath)
+	} else {
+		s.logger.Warn("no checksum sidecar found, skipping verification", "expected", sidecarPath)
+	}
+
+	var file bytes.Buffer
+
+	file.Write(data)
+
+	defer func() {
+		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
 	}()
 
 	return targetPath, s.extract(file, targetPath)

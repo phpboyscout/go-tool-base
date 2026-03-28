@@ -32,12 +32,16 @@ var (
 	ExportNewUpdater  = func(props *p.Props, version string, force bool) (Updater, error) {
 		return setup.NewUpdater(props, version, force)
 	}
+	ExportNewOfflineUpdater = func(props *p.Props) Updater {
+		return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
+	}
 )
 
 // Updater defines the interface for self-updating functionality.
 type Updater interface {
 	GetLatestVersionString(ctx context.Context) (string, error)
 	Update(ctx context.Context) (string, error)
+	UpdateFromFile(filePath string) (string, error)
 	GetReleaseNotes(ctx context.Context, from, to string) (string, error)
 	GetCurrentVersion() string
 }
@@ -48,6 +52,15 @@ func NewCmdUpdate(props *p.Props) *cobra.Command {
 		Short: "update to the latest available version",
 		Long:  `update to the latest available version`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			fromFile, err := cmd.Flags().GetString("from-file")
+			if err != nil {
+				return errors.Wrap(err, "failed to get from-file flag")
+			}
+
+			if fromFile != "" {
+				return updateFromFile(cmd, props, fromFile)
+			}
+
 			force, err := cmd.Flags().GetBool("force")
 			if err != nil {
 				return errors.Wrap(err, "failed to get force flag")
@@ -77,6 +90,8 @@ func NewCmdUpdate(props *p.Props) *cobra.Command {
 
 	updateCmd.Flags().BoolP("force", "f", false, "force update to the latest version")
 	updateCmd.Flags().StringP("version", "v", "", "specific version to update to. if not specified will target latest version")
+	updateCmd.Flags().String("from-file", "", "path to a local .tar.gz release archive for offline installation")
+	updateCmd.MarkFlagsMutuallyExclusive("from-file", "version")
 
 	return updateCmd
 }
@@ -133,6 +148,27 @@ func Update(ctx context.Context, props *p.Props, version string, force bool) (*U
 		NewVersion:      target,
 		Updated:         true,
 	}, nil
+}
+
+func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string) error {
+	updater := ExportNewOfflineUpdater(props)
+
+	targetPath, err := updater.UpdateFromFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	UpdateConfig(cmd.Context(), props, targetPath)
+
+	props.Logger.Infof("successfully installed from %s to %s", filePath, targetPath)
+
+	return output.Emit(cmd, output.Response{
+		Status:  output.StatusSuccess,
+		Command: "update",
+		Data: &UpdateResult{
+			Updated: true,
+		},
+	})
 }
 
 func UpdateConfig(ctx context.Context, props *p.Props, binPath string) {
