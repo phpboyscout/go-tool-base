@@ -37,7 +37,7 @@ test-race:
 
 # Run integration tests
 test-integration:
-    INT_TEST=true go test -tags=integration ./... -v
+    go test -tags=integration ./... -v
 
 # Generate HTML coverage report and open it
 coverage:
