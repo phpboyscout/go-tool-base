@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/cucumber/godog"
@@ -17,6 +19,8 @@ type cliWorldKey struct{}
 
 type cliWorld struct {
 	binaryPath string
+	configDir  string
+	initDir    string
 	stdout     string
 	stderr     string
 	exitCode   int
@@ -28,12 +32,38 @@ func getCLIWorld(ctx context.Context) *cliWorld {
 
 func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
-		w := &cliWorld{}
+		tmpDir, err := os.MkdirTemp("", "gtb-e2e-config-*")
+		if err != nil {
+			return ctx, fmt.Errorf("failed to create temp config dir: %w", err)
+		}
+
+		cfgPath := filepath.Join(tmpDir, "config.yaml")
+		if err := os.WriteFile(cfgPath, []byte("log:\n  level: info\n"), 0o644); err != nil {
+			return ctx, fmt.Errorf("failed to write temp config: %w", err)
+		}
+
+		w := &cliWorld{configDir: tmpDir}
+
 		return context.WithValue(ctx, cliWorldKey{}, w), nil
+	})
+
+	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
+		w := getCLIWorld(ctx)
+		if w.configDir != "" {
+			_ = os.RemoveAll(w.configDir)
+		}
+
+		if w.initDir != "" {
+			_ = os.RemoveAll(w.initDir)
+		}
+
+		return ctx, nil
 	})
 
 	// --- Given ---
 	ctx.Step(`^the gtb binary is built$`, theGTBBinaryIsBuilt)
+	ctx.Step(`^a temporary init directory$`, aTemporaryInitDirectory)
+	ctx.Step(`^the init directory contains a config file:$`, theInitDirContainsConfigFile)
 
 	// --- When ---
 	ctx.Step(`^I run gtb with "([^"]*)"$`, iRunGTBWith)
@@ -49,6 +79,9 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the JSON field "([^"]*)" equals "([^"]*)"$`, theJSONFieldEquals)
 	ctx.Step(`^the JSON field "([^"]*)" is not empty$`, theJSONFieldIsNotEmpty)
 	ctx.Step(`^the JSON field "([^"]*)" is an array with at least (\d+) items$`, theJSONFieldIsArrayWithAtLeast)
+	ctx.Step(`^the file "([^"]*)" exists in the init directory$`, theFileExistsInInitDir)
+	ctx.Step(`^the config file in the init directory contains "([^"]*)"$`, theInitConfigContains)
+	ctx.Step(`^the config file in the init directory does not contain "([^"]*)"$`, theInitConfigDoesNotContain)
 }
 
 // --- Given implementations ---
@@ -68,9 +101,16 @@ func theGTBBinaryIsBuilt(ctx context.Context) (context.Context, error) {
 func iRunGTBWith(ctx context.Context, args string) context.Context {
 	w := getCLIWorld(ctx)
 
+	// Substitute {init_dir} placeholder with the actual temp init directory
+	if w.initDir != "" {
+		args = strings.ReplaceAll(args, "{init_dir}", w.initDir)
+	}
+
 	parts := strings.Fields(args)
-	// Always pass --ci to skip update checks and interactive prompts in E2E tests
+	// Always pass --ci to skip update checks and interactive prompts
 	parts = append(parts, "--ci")
+	// Point to the per-scenario temp config so the binary doesn't require a real install
+	parts = append(parts, "--config", filepath.Join(w.configDir, "config.yaml"))
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 
 	var stdout, stderr strings.Builder
@@ -243,5 +283,73 @@ func keys(m map[string]any) []string {
 	for k := range m {
 		result = append(result, k)
 	}
+
 	return result
+}
+
+// --- Init step implementations ---
+
+func aTemporaryInitDirectory(ctx context.Context) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	tmpDir, err := os.MkdirTemp("", "gtb-e2e-init-*")
+	if err != nil {
+		return ctx, fmt.Errorf("failed to create temp init dir: %w", err)
+	}
+
+	w.initDir = tmpDir
+
+	return ctx, nil
+}
+
+func theInitDirContainsConfigFile(ctx context.Context, content *godog.DocString) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	cfgPath := filepath.Join(w.initDir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte(content.Content), 0o644); err != nil {
+		return ctx, fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return ctx, nil
+}
+
+func theFileExistsInInitDir(ctx context.Context, filename string) error {
+	w := getCLIWorld(ctx)
+
+	path := filepath.Join(w.initDir, filename)
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("file %q does not exist in init directory: %w", filename, err)
+	}
+
+	return nil
+}
+
+func theInitConfigContains(ctx context.Context, substr string) error {
+	w := getCLIWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.initDir, "config.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if !strings.Contains(string(content), substr) {
+		return fmt.Errorf("config file does not contain %q\nconfig:\n%s", substr, content)
+	}
+
+	return nil
+}
+
+func theInitConfigDoesNotContain(ctx context.Context, substr string) error {
+	w := getCLIWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.initDir, "config.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if strings.Contains(string(content), substr) {
+		return fmt.Errorf("config file should not contain %q\nconfig:\n%s", substr, content)
+	}
+
+	return nil
 }

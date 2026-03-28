@@ -78,6 +78,10 @@ CLI commands like `gtb init`, `gtb update`, and `gtb doctor` represent user-faci
 
 ```
 go-tool-base/
+  cmd/
+    e2e/
+      main.go                       # Test-only binary with all features enabled
+      assets/init/config.yaml       # Minimal embedded config for E2E binary
   features/                          # Gherkin feature files (project root)
     controls/
       lifecycle.feature
@@ -86,16 +90,17 @@ go-tool-base/
     cli/
       version.feature
       doctor.feature
+      help.feature
       update.feature
+      init.feature
   test/
     e2e/
-      e2e_test.go                   # TestMain (binary build) + TestFeatures entry point
       steps/
+        steps_test.go               # TestFeatures entry point + tag filtering
         controls_steps_test.go      # Step defs for controls features
-        cli_steps_test.go           # Step defs for CLI features
-        common_steps_test.go        # Shared steps (exit code, output, JSON assertions)
+        cli_steps_test.go           # Step defs for CLI features (incl. shared output assertions)
       support/
-        binary.go                   # Binary compilation helper
+        binary.go                   # Binary compilation helper (builds cmd/e2e)
         controller.go               # Controller test harness
 ```
 
@@ -344,12 +349,13 @@ Feature: CLI Basic Commands
 **Implemented:**
 
 1. `features/cli/update.feature` — Flag validation (semver format), help/usage, error paths
+2. `features/cli/init.feature` — Non-interactive init (`--skip-login --skip-key --skip-ai`), config merge with existing values, clean reset, JSON output, help/usage
+3. `cmd/e2e/main.go` — Dedicated E2E test binary with all feature flags enabled (including `InitCmd`), embedded minimal config, not shipped in releases. Decouples E2E testing from gtb's feature flag choices.
 
 **Evaluated and deferred:**
 
-2. `gtb update --from-file` end-to-end — Deferred until `feat/offline-update-support` merges; the `--from-file` flag does not exist on `develop` yet. Once merged, add scenarios for: offline archive with checksum sidecar, missing sidecar warning, invalid archive error.
-3. Config precedence E2E (file → env → flag) — **Not viable via CLI**. No `config get` command exists to query resolved values. The suitability assessment already rates `pkg/config/` as "No" Godog fit. Existing integration tests in `pkg/config/integration_test.go` provide comprehensive coverage of merge precedence.
-4. `pkg/setup/github` wizard flow — **Not viable for gtb**. The `init` command is disabled in the gtb binary (`props.SetFeatures(props.Disable(props.InitCmd))`). Tools built on GTB that enable `InitCmd` could add Godog scenarios for `--skip-login --skip-key` non-interactive paths in their own test suites.
+4. `gtb update --from-file` end-to-end — Deferred until `feat/offline-update-support` merges; the `--from-file` flag does not exist on `develop` yet. Once merged, add scenarios for: offline archive with checksum sidecar, missing sidecar warning, invalid archive error.
+5. Config precedence E2E (file → env → flag) — **Not viable via CLI**. No `config get` command exists to query resolved values. The suitability assessment already rates `pkg/config/` as "No" Godog fit. Existing integration tests in `pkg/config/integration_test.go` provide comprehensive coverage of merge precedence.
 
 ---
 
@@ -384,11 +390,13 @@ Phase 3: `test-e2e` runs in separate CI job with longer timeout.
 | File | Action |
 |------|--------|
 | `go.mod` | Add `github.com/cucumber/godog` dependency |
-| `features/controls/*.feature` | Create — Gherkin scenarios |
-| `features/cli/*.feature` | Create — Gherkin scenarios |
-| `test/e2e/e2e_test.go` | Create — TestMain + TestFeatures entry point |
-| `test/e2e/steps/*_test.go` | Create — Step definitions |
-| `test/e2e/support/binary.go` | Create — Binary compilation helper |
+| `cmd/e2e/main.go` | Create — Test-only binary with all features enabled |
+| `cmd/e2e/assets/init/config.yaml` | Create — Minimal embedded config for E2E binary |
+| `features/controls/*.feature` | Create — Gherkin scenarios (lifecycle, graceful shutdown, health monitoring) |
+| `features/cli/*.feature` | Create — Gherkin scenarios (help, version, doctor, update, init) |
+| `test/e2e/steps/steps_test.go` | Create — TestFeatures entry point + tag filtering |
+| `test/e2e/steps/*_test.go` | Create — Step definitions (controls, CLI) |
+| `test/e2e/support/binary.go` | Create — Binary compilation helper (builds `cmd/e2e`) |
 | `test/e2e/support/controller.go` | Create — Controller test harness |
 | `justfile` | Modify — Add `test-e2e`, `test-e2e-smoke` recipes |
 | `CLAUDE.md` | Modify — Document E2E test commands |

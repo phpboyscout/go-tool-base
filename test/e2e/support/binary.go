@@ -27,8 +27,8 @@ func BinaryPath() (string, error) {
 			return
 		}
 
-		binaryPath = filepath.Join(tmpDir, "gtb")
-		cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, "./cmd/gtb")
+		binaryPath = filepath.Join(tmpDir, "gtb-e2e")
+		cmd := exec.CommandContext(context.Background(), "go", "build", "-o", binaryPath, "./cmd/e2e")
 		cmd.Dir = projectRoot()
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
