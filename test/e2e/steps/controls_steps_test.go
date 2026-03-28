@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -49,6 +50,12 @@ func initControlsSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a gRPC server registered on a free port$`, aGRPCServerRegistered)
 	ctx.Step(`^the HTTP server has a slow handler "([^"]*)" that takes (\d+) seconds$`, theHTTPServerHasSlowHandler)
 	ctx.Step(`^a service "([^"]*)" that takes (\d+)ms to start$`, aServiceThatTakesToStart)
+	ctx.Step(`^a health check "([^"]*)" of type "([^"]*)" that returns healthy$`, aHealthCheckReturnsHealthy)
+	ctx.Step(`^a health check "([^"]*)" of type "([^"]*)" that returns unhealthy with "([^"]*)"$`, aHealthCheckReturnsUnhealthy)
+	ctx.Step(`^a health check "([^"]*)" of type "([^"]*)" that returns degraded with "([^"]*)"$`, aHealthCheckReturnsDegraded)
+	ctx.Step(`^an async health check "([^"]*)" with interval (\d+)ms that returns healthy$`, anAsyncHealthCheckReturnsHealthy)
+	ctx.Step(`^a service "([^"]*)" that starts successfully and becomes unhealthy after (\d+) status checks?$`, aServiceStartsAndBecomesUnhealthy)
+	ctx.Step(`^the service "([^"]*)" has a restart policy with threshold (\d+) and interval (\d+)ms$`, theServiceHasRestartPolicy)
 
 	// --- When steps ---
 	ctx.Step(`^the controller starts$`, theControllerStarts)
@@ -65,6 +72,7 @@ func initControlsSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a client sends a GET request to the slow handler$`, aClientSendsSlowRequest)
 	ctx.Step(`^the request is in-flight$`, theRequestIsInFlight)
 	ctx.Step(`^the "([^"]*)" service has begun starting$`, theServiceHasBegunStarting)
+	ctx.Step(`^I wait (\d+)ms for the async check to run$`, iWaitForAsyncCheck)
 
 	// --- Then steps ---
 	ctx.Step(`^the controller state is "([^"]*)"$`, theControllerStateIs)
@@ -76,6 +84,16 @@ func initControlsSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the logs contain "([^"]*)"$`, theLogsContain)
 	ctx.Step(`^the logs do not contain "([^"]*)"$`, theLogsDoNotContain)
 	ctx.Step(`^the in-flight request completed successfully$`, theInflightRequestCompleted)
+	ctx.Step(`^the readiness report is overall healthy$`, theReadinessReportIsHealthy)
+	ctx.Step(`^the readiness report is not overall healthy$`, theReadinessReportIsNotHealthy)
+	ctx.Step(`^the readiness report includes "([^"]*)" with status "([^"]*)"$`, theReadinessReportIncludes)
+	ctx.Step(`^the readiness report does not include "([^"]*)"$`, theReadinessReportDoesNotInclude)
+	ctx.Step(`^the liveness report includes "([^"]*)" with status "([^"]*)"$`, theLivenessReportIncludes)
+	ctx.Step(`^the liveness report does not include "([^"]*)"$`, theLivenessReportDoesNotInclude)
+	ctx.Step(`^registering a health check "([^"]*)" fails with "([^"]*)"$`, registeringHealthCheckFails)
+	ctx.Step(`^querying readiness (\d+) times returns cached results$`, queryingReadinessReturnsCached)
+	ctx.Step(`^the async check "([^"]*)" ran at most (\d+) times$`, theAsyncCheckRanAtMost)
+	ctx.Step(`^the service "([^"]*)" restarts at least (\d+) times within (\d+) seconds$`, theServiceRestartsAtLeast)
 }
 
 // --- Given implementations ---
@@ -516,6 +534,275 @@ func theInflightRequestCompleted(ctx context.Context) error {
 	case <-time.After(5 * time.Second):
 		return fmt.Errorf("in-flight request did not complete within 5 seconds")
 	}
+}
+
+// --- Health monitoring Given implementations ---
+
+func parseCheckType(typeName string) controls.CheckType {
+	switch typeName {
+	case "liveness":
+		return controls.CheckTypeLiveness
+	case "readiness":
+		return controls.CheckTypeReadiness
+	case "both":
+		return controls.CheckTypeBoth
+	default:
+		return controls.CheckTypeReadiness
+	}
+}
+
+func aHealthCheckReturnsHealthy(ctx context.Context, name, typeName string) (context.Context, error) {
+	w := getWorld(ctx)
+	w.EnsureController(controls.WithoutSignals())
+	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
+		Name: name,
+		Type: parseCheckType(typeName),
+		Check: func(_ context.Context) controls.CheckResult {
+			return controls.CheckResult{Status: controls.CheckHealthy}
+		},
+	})
+	return ctx, err
+}
+
+func aHealthCheckReturnsUnhealthy(ctx context.Context, name, typeName, msg string) (context.Context, error) {
+	w := getWorld(ctx)
+	w.EnsureController(controls.WithoutSignals())
+	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
+		Name: name,
+		Type: parseCheckType(typeName),
+		Check: func(_ context.Context) controls.CheckResult {
+			return controls.CheckResult{Status: controls.CheckUnhealthy, Message: msg}
+		},
+	})
+	return ctx, err
+}
+
+func aHealthCheckReturnsDegraded(ctx context.Context, name, typeName, msg string) (context.Context, error) {
+	w := getWorld(ctx)
+	w.EnsureController(controls.WithoutSignals())
+	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
+		Name: name,
+		Type: parseCheckType(typeName),
+		Check: func(_ context.Context) controls.CheckResult {
+			return controls.CheckResult{Status: controls.CheckDegraded, Message: msg}
+		},
+	})
+	return ctx, err
+}
+
+func anAsyncHealthCheckReturnsHealthy(ctx context.Context, name string, intervalMs int) (context.Context, error) {
+	w := getWorld(ctx)
+	w.EnsureController(controls.WithoutSignals())
+	cnt := &atomic.Int64{}
+	w.CheckCounts[name] = cnt
+	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
+		Name:     name,
+		Type:     controls.CheckTypeReadiness,
+		Interval: time.Duration(intervalMs) * time.Millisecond,
+		Check: func(_ context.Context) controls.CheckResult {
+			cnt.Add(1)
+			return controls.CheckResult{Status: controls.CheckHealthy}
+		},
+	})
+	return ctx, err
+}
+
+func aServiceStartsAndBecomesUnhealthy(ctx context.Context, name string, afterChecks int) context.Context {
+	w := getWorld(ctx)
+	cntrs := &support.StateCounters{}
+	w.Counters[name] = cntrs
+	statusCalls := &atomic.Int64{}
+	w.CheckCounts[name] = statusCalls
+
+	w.Controller.Register(name,
+		controls.WithStart(func(_ context.Context) error {
+			cntrs.Started.Add(1)
+			return nil
+		}),
+		controls.WithStop(func(_ context.Context) { cntrs.Stopped.Add(1) }),
+		controls.WithStatus(func() error {
+			calls := statusCalls.Add(1)
+			if calls > int64(afterChecks) {
+				return fmt.Errorf("unhealthy")
+			}
+			return nil
+		}),
+	)
+	return ctx
+}
+
+func theServiceHasRestartPolicy(ctx context.Context, name string, threshold, intervalMs int) context.Context {
+	w := getWorld(ctx)
+	// We need to re-register the service with the restart policy.
+	// Since controls doesn't support modifying after registration,
+	// we unregister isn't possible. Instead we register with policy from the start.
+	// The feature file calls this step AFTER the service step, so we need to
+	// re-register. Let's adjust: use a combined approach where we register
+	// with policy in the "starts and becomes unhealthy" step if threshold is set.
+
+	// Actually, we need to re-register. Let's get the counters and re-register.
+	cntrs := w.Counters[name]
+	statusCalls := w.CheckCounts[name]
+
+	// Re-register with restart policy. This replaces the previous registration.
+	w.Controller.Register(name,
+		controls.WithStart(func(_ context.Context) error {
+			cntrs.Started.Add(1)
+			return nil
+		}),
+		controls.WithStop(func(_ context.Context) { cntrs.Stopped.Add(1) }),
+		controls.WithStatus(func() error {
+			calls := statusCalls.Add(1)
+			if calls > 1 {
+				return fmt.Errorf("unhealthy")
+			}
+			return nil
+		}),
+		controls.WithRestartPolicy(controls.RestartPolicy{
+			HealthFailureThreshold: threshold,
+			HealthCheckInterval:    time.Duration(intervalMs) * time.Millisecond,
+			InitialBackoff:         5 * time.Millisecond,
+		}),
+	)
+	return ctx
+}
+
+// --- Health monitoring When implementations ---
+
+func iWaitForAsyncCheck(ctx context.Context, millis int) context.Context {
+	time.Sleep(time.Duration(millis) * time.Millisecond)
+	return ctx
+}
+
+// --- Health monitoring Then implementations ---
+
+func theReadinessReportIsHealthy(ctx context.Context) error {
+	w := getWorld(ctx)
+	report := w.Controller.Readiness()
+	if !report.OverallHealthy {
+		return fmt.Errorf("readiness report is not healthy: %+v", report)
+	}
+	return nil
+}
+
+func theReadinessReportIsNotHealthy(ctx context.Context) error {
+	w := getWorld(ctx)
+	report := w.Controller.Readiness()
+	if report.OverallHealthy {
+		return fmt.Errorf("readiness report is healthy, expected unhealthy: %+v", report)
+	}
+	return nil
+}
+
+func theReadinessReportIncludes(ctx context.Context, name, status string) error {
+	w := getWorld(ctx)
+	report := w.Controller.Readiness()
+	return assertReportIncludes(report, name, status)
+}
+
+func theReadinessReportDoesNotInclude(ctx context.Context, name string) error {
+	w := getWorld(ctx)
+	report := w.Controller.Readiness()
+	return assertReportDoesNotInclude(report, name)
+}
+
+func theLivenessReportIncludes(ctx context.Context, name, status string) error {
+	w := getWorld(ctx)
+	report := w.Controller.Liveness()
+	return assertReportIncludes(report, name, status)
+}
+
+func theLivenessReportDoesNotInclude(ctx context.Context, name string) error {
+	w := getWorld(ctx)
+	report := w.Controller.Liveness()
+	return assertReportDoesNotInclude(report, name)
+}
+
+func registeringHealthCheckFails(ctx context.Context, name, errContains string) error {
+	w := getWorld(ctx)
+	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
+		Name: name,
+		Type: controls.CheckTypeReadiness,
+		Check: func(_ context.Context) controls.CheckResult {
+			return controls.CheckResult{Status: controls.CheckHealthy}
+		},
+	})
+	if err == nil {
+		return fmt.Errorf("expected registration to fail with %q, but it succeeded", errContains)
+	}
+	if !strings.Contains(err.Error(), errContains) {
+		return fmt.Errorf("expected error containing %q, got: %s", errContains, err.Error())
+	}
+	return nil
+}
+
+func queryingReadinessReturnsCached(ctx context.Context, count int) error {
+	w := getWorld(ctx)
+	for i := 0; i < count; i++ {
+		report := w.Controller.Readiness()
+		if !report.OverallHealthy {
+			return fmt.Errorf("readiness query %d returned unhealthy", i+1)
+		}
+	}
+	return nil
+}
+
+func theAsyncCheckRanAtMost(ctx context.Context, name string, maxCount int64) error {
+	w := getWorld(ctx)
+	cnt, ok := w.CheckCounts[name]
+	if !ok {
+		return fmt.Errorf("no check counter for %q", name)
+	}
+	actual := cnt.Load()
+	if actual > maxCount {
+		return fmt.Errorf("async check %q ran %d times, expected at most %d", name, actual, maxCount)
+	}
+	return nil
+}
+
+func theServiceRestartsAtLeast(ctx context.Context, name string, minCount int64, seconds int) error {
+	w := getWorld(ctx)
+	cntrs, ok := w.Counters[name]
+	if !ok {
+		return fmt.Errorf("service %q not registered", name)
+	}
+
+	deadline := time.After(time.Duration(seconds) * time.Second)
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-deadline:
+			actual := cntrs.Started.Load()
+			return fmt.Errorf("service %q started %d times, expected at least %d", name, actual, minCount)
+		case <-ticker.C:
+			if cntrs.Started.Load() >= minCount {
+				return nil
+			}
+		}
+	}
+}
+
+func assertReportIncludes(report controls.HealthReport, name, status string) error {
+	for _, s := range report.Services {
+		if s.Name == name {
+			if s.Status != status {
+				return fmt.Errorf("check %q has status %q, expected %q", name, s.Status, status)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("check %q not found in report (services: %+v)", name, report.Services)
+}
+
+func assertReportDoesNotInclude(report controls.HealthReport, name string) error {
+	for _, s := range report.Services {
+		if s.Name == name {
+			return fmt.Errorf("check %q unexpectedly found in report with status %q", name, s.Status)
+		}
+	}
+	return nil
 }
 
 // --- Mock config helpers ---

@@ -7,10 +7,12 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/phpboyscout/go-tool-base/internal/testutil"
+	"github.com/phpboyscout/go-tool-base/test/e2e/support"
 )
 
 func TestFeatures(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "e2e")
+	t.Cleanup(support.CleanupBinary)
 
 	opts := &godog.Options{
 		Format: "pretty",
@@ -32,6 +34,7 @@ func TestFeatures(t *testing.T) {
 
 func initializeScenario(ctx *godog.ScenarioContext) {
 	initControlsSteps(ctx)
+	initCLISteps(ctx)
 }
 
 func buildTagExpression() string {

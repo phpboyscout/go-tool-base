@@ -10,9 +10,21 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
+
+const (
+	pollInterval    = 10 * time.Millisecond
+	cleanupTimeout  = 5 * time.Second
+	listenAddress   = "127.0.0.1:0"
+	defaultOptsCap  = 1
+	serviceOptsCap  = 3
+)
+
+var errWaitTimeout = errors.New("timed out waiting for state")
 
 // StateCounters tracks service lifecycle invocations atomically.
 type StateCounters struct {
@@ -52,6 +64,9 @@ type ControllerWorld struct {
 	HTTPPort   int
 	GRPCPort   int
 
+	// Health check tracking
+	CheckCounts map[string]*atomic.Int64
+
 	// Channels for coordination
 	RequestStarted  chan struct{}
 	RequestFinished chan struct{}
@@ -67,11 +82,12 @@ func NewControllerWorld() *ControllerWorld {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ControllerWorld{
-		Ctx:      ctx,
-		Cancel:   cancel,
-		Counters: make(map[string]*StateCounters),
-		LogBuf:   buf,
-		Logger:   l,
+		Ctx:         ctx,
+		Cancel:      cancel,
+		Counters:    make(map[string]*StateCounters),
+		CheckCounts: make(map[string]*atomic.Int64),
+		LogBuf:      buf,
+		Logger:      l,
 	}
 }
 
@@ -81,7 +97,8 @@ func (w *ControllerWorld) EnsureController(opts ...controls.ControllerOpt) {
 		return
 	}
 
-	defaults := []controls.ControllerOpt{controls.WithLogger(w.Logger)}
+	defaults := make([]controls.ControllerOpt, defaultOptsCap, defaultOptsCap+len(opts))
+	defaults[0] = controls.WithLogger(w.Logger)
 	opts = append(defaults, opts...)
 	w.Controller = controls.NewController(w.Ctx, opts...)
 }
@@ -91,11 +108,18 @@ func (w *ControllerWorld) RegisterService(name string, extraOpts ...controls.Ser
 	cntrs := &StateCounters{}
 	w.Counters[name] = cntrs
 
-	opts := []controls.ServiceOption{
-		controls.WithStart(func(_ context.Context) error { cntrs.Started.Add(1); return nil }),
-		controls.WithStop(func(_ context.Context) { cntrs.Stopped.Add(1) }),
-		controls.WithStatus(func() error { cntrs.Statused.Add(1); return nil }),
-	}
+	opts := make([]controls.ServiceOption, serviceOptsCap, serviceOptsCap+len(extraOpts))
+	opts[0] = controls.WithStart(func(_ context.Context) error {
+		cntrs.Started.Add(1)
+
+		return nil
+	})
+	opts[1] = controls.WithStop(func(_ context.Context) { cntrs.Stopped.Add(1) })
+	opts[2] = controls.WithStatus(func() error {
+		cntrs.Statused.Add(1)
+
+		return nil
+	})
 	opts = append(opts, extraOpts...)
 	w.Controller.Register(name, opts...)
 
@@ -104,7 +128,9 @@ func (w *ControllerWorld) RegisterService(name string, extraOpts ...controls.Ser
 
 // FreePort obtains a free TCP port.
 func FreePort() (int, error) {
-	l, err := net.Listen("tcp", ":0")
+	var lc net.ListenConfig
+
+	l, err := lc.Listen(context.Background(), "tcp", listenAddress)
 	if err != nil {
 		return 0, fmt.Errorf("failed to obtain free port: %w", err)
 	}
@@ -118,13 +144,14 @@ func FreePort() (int, error) {
 // WaitForState polls until the controller reaches the desired state or timeout.
 func (w *ControllerWorld) WaitForState(state controls.State, timeout time.Duration) error {
 	deadline := time.After(timeout)
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(pollInterval)
+
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-deadline:
-			return fmt.Errorf("timed out waiting for state %q (current: %q)", state, w.Controller.GetState())
+			return errors.Wrapf(errWaitTimeout, "wanted %q, current %q", state, w.Controller.GetState())
 		case <-ticker.C:
 			if w.Controller.GetState() == state {
 				return nil
@@ -137,7 +164,7 @@ func (w *ControllerWorld) WaitForState(state controls.State, timeout time.Durati
 func (w *ControllerWorld) Cleanup() {
 	if w.Controller != nil && !w.Controller.IsStopped() {
 		w.Controller.Stop()
-		_ = w.WaitForState(controls.Stopped, 5*time.Second)
+		_ = w.WaitForState(controls.Stopped, cleanupTimeout)
 	}
 
 	w.Cancel()
