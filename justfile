@@ -90,7 +90,7 @@ docs-serve:
     mkdocs serve
 
 # Run the full local CI suite (mirrors GitHub Actions)
-ci: tidy generate test test-race lint
+ci: tidy generate test test-race lint test-e2e
     @echo "CI suite passed"
 
 # Cleanup build artifacts

@@ -7,7 +7,7 @@ permissions:
   checks: write
 
 jobs:
-  golangci-lint:
+  lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +19,8 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           args: --timeout=30m
-  unittests:
+
+  unit-tests:
     name: unit tests
     runs-on: ubuntu-latest
     steps:
@@ -29,6 +30,8 @@ jobs:
           go-version: stable
       - name: go mod download
         run: go mod download
+      - name: go vet
+        run: go vet ./...
       - name: go test
         run: go test -v -coverprofile /tmp/cover.out ./...
       - name: Check coverage threshold
@@ -38,12 +41,41 @@ jobs:
           echo "Current coverage: ${COVERAGE}%"
           echo "Threshold: ${THRESHOLD}%"
           if [ "$(echo "$COVERAGE < $THRESHOLD" | bc -l)" = "1" ]; then
-            echo "::warning::Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
+            echo "::error::Coverage ${COVERAGE}% is below threshold ${THRESHOLD}%"
             exit 1
           fi
-      - name: Upload test log
+      - name: Upload coverage report
         uses: actions/upload-artifact@v7
+        if: always()
         with:
-          name: unittest-results
+          name: coverage-report
           path: /tmp/cover.out
           if-no-files-found: error
+
+  race-detection:
+    name: race detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: go mod download
+        run: go mod download
+      - name: go test -race
+        run: go test -race ./...
+
+  e2e-tests:
+    name: e2e bdd tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: go mod download
+        run: go mod download
+      - name: Build E2E test binary
+        run: go build -o /tmp/gtb-e2e ./cmd/e2e
+      - name: Run E2E tests
+        run: INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 5m
