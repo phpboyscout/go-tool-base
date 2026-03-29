@@ -3,6 +3,23 @@ package release
 import (
 	"context"
 	"io"
+
+	"github.com/cockroachdb/errors"
+)
+
+var (
+	// ErrProviderNotFound is returned by Lookup when no factory has been
+	// registered for the requested source type.
+	ErrProviderNotFound = errors.New("no release provider registered for source type")
+
+	// ErrNotSupported is returned by provider methods that are not applicable
+	// for the underlying platform (e.g. ListReleases on Bitbucket).
+	ErrNotSupported = errors.New("operation not supported by this release provider")
+
+	// ErrVersionUnknown is returned by the direct provider when neither
+	// version_url nor pinned_version is configured and a version check is
+	// requested.
+	ErrVersionUnknown = errors.New("cannot determine latest version: configure version_url or pinned_version in Params")
 )
 
 // Release defines the common abstraction for a software release.

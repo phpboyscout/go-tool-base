@@ -18,7 +18,7 @@ The setup package implements three core functionalities:
 : Automated creation and configuration of default settings, GitHub authentication, and SSH key management for new tool installations.
 
 **Self-Update System**
-: Complete binary update mechanism that downloads, validates, and installs new versions from pluggable release providers (GitHub/GitLab) with proper configuration migration.
+: Complete binary update mechanism that downloads, validates, and installs new versions from pluggable release providers (GitHub, GitLab, Bitbucket, Gitea, Codeberg, Direct HTTP, or custom) with proper configuration migration.
 
 **Version Management**
 : Semantic version comparison utilities and development version detection for proper update handling.
@@ -313,12 +313,63 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
 }
 ```
 
+## Release Provider Registry
+
+`NewUpdater` resolves the `release.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry (`pkg/vcs/release`). All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go` — no manual wiring is needed.
+
+### Supported source types
+
+| `Type` value | Provider | Auth env var |
+|---|---|---|
+| `"github"` | GitHub / GitHub Enterprise | `GITHUB_TOKEN` |
+| `"gitlab"` | GitLab / self-managed | `GITLAB_TOKEN` |
+| `"bitbucket"` | Bitbucket Cloud Downloads | `BITBUCKET_USERNAME` + `BITBUCKET_APP_PASSWORD` |
+| `"gitea"` | Gitea / Forgejo | `GITEA_TOKEN` |
+| `"codeberg"` | Codeberg (Forgejo) | `CODEBERG_TOKEN` |
+| `"direct"` | Arbitrary HTTP / S3 / CDN | `DIRECT_TOKEN` |
+
+### Provider-specific parameters
+
+The `props.ReleaseSource.Params` field (`map[string]string`) passes provider-specific configuration:
+
+```go
+ReleaseSource: props.ReleaseSource{
+    Type: "direct",
+    Repo: "mytool",
+    Params: map[string]string{
+        "url_template": "https://dl.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}",
+        "version_url":  "https://dl.example.com/latest.json",
+    },
+},
+```
+
+See the [Release Provider component](../vcs/release.md) for a full `Params` reference for each built-in provider.
+
+### Custom providers
+
+Register a custom `release.Provider` factory before calling `NewUpdater`:
+
+```go
+import "github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+
+func main() {
+    release.Register("s3", func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
+        return myS3Provider(src, cfg)
+    })
+    // ...
+}
+```
+
+See [How to add a custom release source](../../how-to/custom-release-source.md) for a step-by-step guide.
+
+---
+
 ## Security Considerations
 
 ### VCS Authentication
-- Supports environment variable and direct token configuration for GitHub and GitLab
+- Supports environment variable and direct token configuration for all release providers
 - Tokens are stored in user's config directory with restricted permissions
-- Enterprise URL support for private installations (GitHub Enterprise, GitLab Self-Managed)
+- Enterprise URL support for private installations (GitHub Enterprise, GitLab Self-Managed, self-hosted Gitea)
 
 ### SSH Key Handling
 - Keys are read but never logged or transmitted

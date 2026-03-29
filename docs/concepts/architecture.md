@@ -90,3 +90,4 @@ Dependencies are injected from the entry point (`main.go`) through the `Props` s
 *   **Explicit over Implicit**: We prefer passing `Props` over using `context.Context` for dependencies (see [Props documentation](../components/props.md) for the rationale).
 *   **Interface Segregation**: Core services (Config, Assets, VCS) are defined by interfaces to enable clean mocking in unit tests.
 *   **Consistent Error Handling**: All user-facing errors funnel through the `ErrorHandler` to maintain a unified look and feel.
+*   **Registry over hard-coding**: The release provider system uses a string-keyed factory registry (`pkg/vcs/release`) so that consuming code (and downstream tools) never need to import platform packages directly. Built-in providers register themselves via `init()` blank imports in `pkg/setup/providers.go`; custom providers call `release.Register` in `main()` before any update operation runs.

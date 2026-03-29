@@ -1,18 +1,18 @@
 ---
 title: Configure Self-Updating
-description: How to wire up the auto-update command with GitHub or GitLab as the release source.
-date: 2026-03-25
-tags: [how-to, update, release, github, gitlab, self-update]
+description: How to wire up the auto-update command with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct HTTP server as the release source.
+date: 2026-03-29
+tags: [how-to, update, release, github, gitlab, bitbucket, gitea, codeberg, direct, self-update]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Configure Self-Updating
 
-GTB's `UpdateCmd` feature lets your tool check for newer releases and replace its own binary. This guide covers how to wire it up with either GitHub or GitLab as the release backend.
+GTB's `UpdateCmd` feature lets your tool check for newer releases and replace its own binary. This guide covers how to wire it up with a release backend. Six built-in source types are available out of the box: `github`, `gitlab`, `bitbucket`, `gitea`, `codeberg`, and `direct`. For anything else, see [Add a Custom Release Source](custom-release-source.md).
 
 The update system has two parts:
 1. **`props.Tool.ReleaseSource`** — tells the framework *where* to find releases at compile time
-2. **Config (`github` or `gitlab` subtree)** — provides the API token and endpoint at runtime
+2. **Config (provider-specific subtree)** — provides the API token and endpoint at runtime
 
 ---
 
@@ -29,9 +29,9 @@ tool := props.Tool{
     Name:    "mytool",
     Summary: "My developer tool",
     ReleaseSource: props.ReleaseSource{
-        Type:  "github",       // or "gitlab"
-        Owner: "my-org",       // GitHub org / GitLab group
-        Repo:  "mytool",       // repository name
+        Type:  "github",   // see supported types below
+        Owner: "my-org",
+        Repo:  "mytool",
     },
 }
 ```
@@ -47,6 +47,17 @@ ReleaseSource: props.ReleaseSource{
 },
 ```
 
+### Supported source types
+
+| `Type` | Platform | Notes |
+|---|---|---|
+| `"github"` | GitHub / GitHub Enterprise | Set `Host` for GHE instances |
+| `"gitlab"` | GitLab / self-managed | Set `Host` for self-managed GitLab |
+| `"bitbucket"` | Bitbucket Cloud Downloads | Version inferred from asset filenames |
+| `"gitea"` | Gitea / Forgejo | `Host` is required |
+| `"codeberg"` | Codeberg (Forgejo) | `Host` defaults to `https://codeberg.org` |
+| `"direct"` | Arbitrary HTTP / S3 / CDN | URL template required in `Params` |
+
 For a self-managed GitLab instance, also set `Host`:
 
 ```go
@@ -57,6 +68,32 @@ ReleaseSource: props.ReleaseSource{
     Repo:  "mytool",
 },
 ```
+
+For a Gitea instance:
+
+```go
+ReleaseSource: props.ReleaseSource{
+    Type:  "gitea",
+    Host:  "https://git.example.com",
+    Owner: "my-org",
+    Repo:  "mytool",
+},
+```
+
+For a direct download server:
+
+```go
+ReleaseSource: props.ReleaseSource{
+    Type: "direct",
+    Repo: "mytool",
+    Params: map[string]string{
+        "url_template": "https://dl.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}",
+        "version_url":  "https://dl.example.com/latest.json",
+    },
+},
+```
+
+See the [Release Provider component](../components/vcs/release.md) for a full `Params` reference for each provider.
 
 ---
 
@@ -217,6 +254,8 @@ The `--from-file` flag is mutually exclusive with `--version`. The `--force` fla
 ## Related Documentation
 
 - **[Auto-Update Lifecycle](../concepts/auto-update.md)** — how the update loop works
+- **[Release Provider component](../components/vcs/release.md)** — all built-in providers, registry API, and `Params` reference
+- **[Add a Custom Release Source](custom-release-source.md)** — register your own provider for any backend
 - **[GitHub component](../components/vcs/github.md)** — `NewGitHubClient` and token resolution
 - **[GitLab component](../components/vcs/gitlab.md)** — `NewReleaseProvider` for GitLab
 - **[Configuring Built-in Features](builtin-features.md)** — enabling and disabling UpdateCmd

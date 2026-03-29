@@ -21,8 +21,6 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/changelog"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs"
-	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
-	gitlabvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/gitlab"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	ver "github.com/phpboyscout/go-tool-base/pkg/version"
 
@@ -112,38 +110,37 @@ func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs) *SelfUpd
 	}
 }
 
-func NewUpdater(props *props.Props, version string, force bool) (*SelfUpdater, error) {
-	if props.Config == nil {
+func NewUpdater(p *props.Props, version string, force bool) (*SelfUpdater, error) {
+	if p.Config == nil {
 		return nil, errors.New("configuration is not loaded")
 	}
 
-	var (
-		releaseClient release.Provider
-		err           error
-	)
-
-	vcsProvider, _, _ := props.Tool.GetReleaseSource()
-	if props.Config.IsSet("vcs.provider") {
-		vcsProvider = strings.ToLower(props.Config.GetString("vcs.provider"))
+	vcsProvider, _, _ := p.Tool.GetReleaseSource()
+	if p.Config.IsSet("vcs.provider") {
+		vcsProvider = strings.ToLower(p.Config.GetString("vcs.provider"))
 	}
 
-	if props.Tool.ReleaseSource.Private {
-		if err = requireReleaseToken(vcsProvider, props); err != nil {
+	if p.Tool.ReleaseSource.Private {
+		if err := requireReleaseToken(vcsProvider, p); err != nil {
 			return nil, err
 		}
 	}
 
-	if vcsProvider == "gitlab" {
-		releaseClient, err = gitlabvcs.NewReleaseProvider(props.Config.Sub("gitlab"))
-	} else {
-		var ghClient githubvcs.GitHubClient
-
-		ghClient, err = githubvcs.NewGitHubClient(props.Config.Sub("github"))
-		if err == nil {
-			releaseClient = githubvcs.NewReleaseProvider(ghClient)
-		}
+	factory, err := release.Lookup(vcsProvider)
+	if err != nil {
+		return nil, err
 	}
 
+	sourceCfg := release.ReleaseSourceConfig{
+		Type:    p.Tool.ReleaseSource.Type,
+		Host:    p.Tool.ReleaseSource.Host,
+		Owner:   p.Tool.ReleaseSource.Owner,
+		Repo:    p.Tool.ReleaseSource.Repo,
+		Private: p.Tool.ReleaseSource.Private,
+		Params:  p.Tool.ReleaseSource.Params,
+	}
+
+	releaseClient, err := factory(sourceCfg, p.Config)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -151,11 +148,11 @@ func NewUpdater(props *props.Props, version string, force bool) (*SelfUpdater, e
 	return &SelfUpdater{
 		force:          force,
 		version:        version,
-		logger:         props.Logger,
-		Tool:           props.Tool,
+		logger:         p.Logger,
+		Tool:           p.Tool,
 		releaseClient:  releaseClient,
-		CurrentVersion: ver.FormatVersionString(props.Version.GetVersion(), true),
-		Fs:             props.FS,
+		CurrentVersion: ver.FormatVersionString(p.Version.GetVersion(), true),
+		Fs:             p.FS,
 	}, nil
 }
 
@@ -171,6 +168,16 @@ func requireReleaseToken(vcsProvider string, p *props.Props) error {
 	switch vcsProvider {
 	case "gitlab":
 		fallbackEnv = "GITLAB_TOKEN"
+	case "bitbucket":
+		// Bitbucket uses username + app_password; credential presence is checked
+		// inside the Bitbucket provider factory, which has access to both vars.
+		return nil
+	case "gitea":
+		fallbackEnv = "GITEA_TOKEN"
+	case "codeberg":
+		fallbackEnv = "CODEBERG_TOKEN"
+	case "direct":
+		fallbackEnv = "DIRECT_TOKEN"
 	default:
 		fallbackEnv = "GITHUB_TOKEN"
 	}

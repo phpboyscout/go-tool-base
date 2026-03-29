@@ -47,6 +47,8 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
 | `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
+| `INT_TEST_BITBUCKET=1` | Enables only tests tagged `"bitbucket"` |
+| `INT_TEST_GITEA=1` | Enables only tests tagged `"gitea"` |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
@@ -84,6 +86,14 @@ Integration tests **must** live in dedicated `*_integration_test.go` files to ke
 | :--- | :--- | :--- |
 | `GITHUB_TOKEN` | Yes (VCS tests) | GitHub personal access token with `repo` scope. Used by VCS tests to interact with the GitHub API (PR management, label operations). |
 | `GITHUB_KEY` | No | Path to an SSH private key for git-over-SSH tests (clone, push). If unset, SSH-based tests are skipped. |
+| `BITBUCKET_USERNAME` | Yes (Bitbucket tests) | Bitbucket username for Downloads API integration tests. |
+| `BITBUCKET_APP_PASSWORD` | Yes (Bitbucket tests) | Bitbucket app password with read access to the test repository's Downloads. |
+| `BITBUCKET_TEST_WORKSPACE` | Yes (Bitbucket tests) | Workspace slug for the test repository. |
+| `BITBUCKET_TEST_REPO` | Yes (Bitbucket tests) | Repository slug for the test repository. |
+| `GITEA_TOKEN` | Yes (Gitea tests) | Personal access token for the Gitea/Forgejo instance under test. |
+| `GITEA_HOST` | Yes (Gitea tests) | Base URL of the Gitea/Forgejo instance (e.g. `https://git.example.com`). |
+| `GITEA_TEST_OWNER` | Yes (Gitea tests) | Org or username that owns the test repository. |
+| `GITEA_TEST_REPO` | Yes (Gitea tests) | Repository slug for the test repository. |
 
 The `.env` file is loaded automatically by `just` via `dotenv-load`. You can also export these variables directly in your shell.
 
@@ -137,6 +147,22 @@ These tests require **no external credentials** — only local network access.
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `client_integration_test.go` | PR lookup by branch, label management | Network access to GitHub API, `GITHUB_TOKEN` |
+
+### `pkg/vcs/bitbucket/` — Bitbucket Downloads
+
+| File | Tests | Dependencies |
+| :--- | :--- | :--- |
+| `release_integration_test.go` | Latest release detection, asset listing via real Downloads API | Network access to Bitbucket, `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`, `BITBUCKET_TEST_WORKSPACE`, `BITBUCKET_TEST_REPO` |
+
+Gate with `testutil.SkipIfNotIntegration(t, "bitbucket")` and enable with `INT_TEST_BITBUCKET=1`.
+
+### `pkg/vcs/gitea/` — Gitea / Forgejo
+
+| File | Tests | Dependencies |
+| :--- | :--- | :--- |
+| `release_integration_test.go` | Latest/tagged/listed releases, asset download via real Gitea REST API | Network access to a Gitea/Forgejo instance, `GITEA_TOKEN`, `GITEA_HOST`, `GITEA_TEST_OWNER`, `GITEA_TEST_REPO` |
+
+Gate with `testutil.SkipIfNotIntegration(t, "gitea")` and enable with `INT_TEST_GITEA=1`.
 
 ### `internal/generator/` — Code Generation Pipeline
 

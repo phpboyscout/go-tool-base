@@ -78,7 +78,10 @@ Expose Go functions as tools the AI can call, with the built-in ReAct loop manag
 ## Version Control & Releases
 
 ### [Configure Self-Updating](configure-self-updating.md)
-Wire up `UpdateCmd` with GitHub or GitLab as the release source for automatic binary updates.
+Wire up `UpdateCmd` with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct HTTP server as the release source for automatic binary updates.
+
+### [Add a Custom Release Source](custom-release-source.md)
+Implement and register a custom `release.Provider` so your tool can self-update from any backend — S3, Artifactory, Nexus, or a proprietary store.
 
 ### [Automate GitHub Workflows](automate-github-workflows.md)
 Create pull requests, download release assets, and read file contents using `GHClient`.

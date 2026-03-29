@@ -86,11 +86,14 @@ func Disable(cmd FeatureCmd) FeatureState {
 }
 
 type ReleaseSource struct {
-	Type    string `json:"type" yaml:"type"`
-	Host    string `json:"host" yaml:"host"`
-	Owner   string `json:"owner" yaml:"owner"`
-	Repo    string `json:"repo" yaml:"repo"`
+	Type    string `json:"type"    yaml:"type"`
+	Host    string `json:"host"    yaml:"host"`
+	Owner   string `json:"owner"   yaml:"owner"`
+	Repo    string `json:"repo"    yaml:"repo"`
 	Private bool   `json:"private" yaml:"private"`
+	// Params holds provider-specific configuration key/value pairs.
+	// Keys use snake_case. Valid keys are documented per provider.
+	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 type Tool struct {

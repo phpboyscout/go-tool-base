@@ -1,8 +1,8 @@
 ---
 title: VCS
 description: Version control subpackages — git operations, GitHub API, GitLab API, and release management.
-date: 2026-03-25
-tags: [components, vcs, git, github, gitlab, release]
+date: 2026-03-29
+tags: [components, vcs, git, github, gitlab, bitbucket, gitea, codeberg, direct, release]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
@@ -14,12 +14,26 @@ The `pkg/vcs/` directory is split into focused subpackages. Each has a distinct 
 
 | Package | Import path | Purpose |
 |---------|-------------|---------|
-| **[Release](release.md)** | `pkg/vcs/release` | Backend-agnostic `Provider`, `Release`, and `ReleaseAsset` interfaces |
+| **[Release](release.md)** | `pkg/vcs/release` | Backend-agnostic `Provider`/`Release`/`ReleaseAsset` interfaces, sentinel errors, and the provider registry |
 | **[Repo](repo.md)** | `pkg/vcs/repo` | Git repository operations (local and in-memory) via `go-git` |
 | **[GitHub](github.md)** | `pkg/vcs/github` | GitHub Enterprise API client and GitHub release provider |
-| **[GitLab](gitlab.md)** | `pkg/vcs/gitlab` | GitLab release provider |
+| **[GitLab](gitlab.md)** | `pkg/vcs/gitlab` | GitLab (and self-managed) release provider |
+| `pkg/vcs/bitbucket` | Bitbucket Cloud Downloads-based release provider (filename-pattern version detection) |
+| `pkg/vcs/gitea` | Gitea and Forgejo REST API release provider (also used for Codeberg) |
+| `pkg/vcs/direct` | Direct HTTP release provider for arbitrary download servers |
 
-The root `pkg/vcs` package contains only `auth.go` — the shared `ResolveToken` helper used by both the GitHub and GitLab subpackages.
+The root `pkg/vcs` package contains only `auth.go` — the shared `ResolveToken` helper used by the GitHub and GitLab subpackages.
+
+## Provider Registry
+
+All built-in release providers register themselves at package `init` time. Consuming code looks up a provider by source type string rather than importing platform packages directly:
+
+```go
+factory, err := release.Lookup("gitea")
+provider, err := factory(src, cfg)
+```
+
+Blank imports in `pkg/setup/providers.go` wire all built-in providers automatically — no manual registration is required when using `setup.NewUpdater`. See [Release Provider](release.md) for the full registry API and how to register a custom provider.
 
 ## Authentication
 
@@ -44,10 +58,13 @@ token := vcs.ResolveToken(props.Config.Sub("github"), "GITHUB_TOKEN")
 : `RepoLike` (repo operations) and `GitHubClient` (API operations) are separate interfaces. Most features only need one of them.
 
 **Backend agnosticism for releases**
-: Both GitHub and GitLab providers implement `release.Provider`. Consuming code (e.g. the auto-update command) depends only on that interface.
+: All release providers implement `release.Provider`. Consuming code (e.g. the auto-update command) depends only on that interface and never imports a platform-specific package directly.
+
+**Extensibility**
+: Custom providers can be registered at startup via `release.Register`. The registry is backed by a `sync.RWMutex` and safe for concurrent use. See the [how-to guide](../../how-to/custom-release-source.md) for a full walkthrough.
 
 **Testability**
-: All public interfaces have generated mocks in `mocks/pkg/vcs/`. In-memory git storage (`SourceMemory`) enables offline integration-style tests.
+: All public interfaces have generated mocks in `mocks/pkg/vcs/`. In-memory git storage (`SourceMemory`) enables offline integration-style tests. HTTP-based providers use `httptest.NewServer` for network-free unit tests.
 
 **`afero` integration**
 : `Repo.AddToFS` bridges `go-git` object storage into any `afero.Fs`, so file operations are consistent between production (OS filesystem) and tests (memory-mapped filesystem).
@@ -57,3 +74,4 @@ token := vcs.ResolveToken(props.Config.Sub("github"), "GITHUB_TOKEN")
 - **[VCS Concepts](../../concepts/vcs-repositories.md)** — architectural rationale and usage patterns
 - **[Auto-Update Lifecycle](../../concepts/auto-update.md)** — how `release.Provider` is used for version checks
 - **[Interface Design](../../concepts/interface-design.md)** — `RepoLike` and `GitHubClient` in the interface hierarchy
+- **[Custom Release Source](../../how-to/custom-release-source.md)** — register your own provider implementation
