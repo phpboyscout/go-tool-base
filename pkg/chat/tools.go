@@ -54,6 +54,23 @@ func executeToolsParallel(ctx context.Context, l logger.Logger, tools map[string
 	return results
 }
 
+// dispatchToolExecution runs tool calls sequentially or in parallel depending on
+// parallelTools and the number of calls. It is the shared dispatch entry point
+// for all provider ReAct loops.
+func dispatchToolExecution(ctx context.Context, l logger.Logger, tools map[string]Tool, calls []ToolCall, parallelTools bool, maxParallelTools int) []ToolResult {
+	if parallelTools && len(calls) > 1 {
+		return executeToolsParallel(ctx, l, tools, calls, maxParallelTools)
+	}
+
+	results := make([]ToolResult, len(calls))
+
+	for i, tc := range calls {
+		results[i] = ToolResult{Name: tc.Name, Result: executeTool(ctx, l, tools, tc.Name, tc.Input)}
+	}
+
+	return results
+}
+
 // executeTool looks up a tool by name from the provided registry, executes it,
 // and returns the result as a string. If the result is not a string, it is JSON
 // marshalled. Errors at any stage are returned as formatted error strings suitable

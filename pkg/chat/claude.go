@@ -244,22 +244,16 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 }
 
 func (c *Claude) processToolUses(ctx context.Context, toolUses []anthropic.ContentBlockUnion) []anthropic.ContentBlockParamUnion {
-	results := make([]anthropic.ContentBlockParamUnion, 0, len(toolUses))
+	calls := make([]ToolCall, len(toolUses))
+	for i, tu := range toolUses {
+		calls[i] = ToolCall{Name: tu.Name, Input: tu.Input}
+	}
 
-	if c.cfg.ParallelTools && len(toolUses) > 1 {
-		calls := make([]ToolCall, len(toolUses))
-		for i, tu := range toolUses {
-			calls[i] = ToolCall{Name: tu.Name, Input: tu.Input}
-		}
+	toolResults := dispatchToolExecution(ctx, c.props.Logger, c.tools, calls, c.cfg.ParallelTools, c.cfg.MaxParallelTools)
+	results := make([]anthropic.ContentBlockParamUnion, len(toolUses))
 
-		for i, r := range executeToolsParallel(ctx, c.props.Logger, c.tools, calls, c.cfg.MaxParallelTools) {
-			results = append(results, anthropic.NewToolResultBlock(toolUses[i].ID, r.Result, false))
-		}
-	} else {
-		for _, tu := range toolUses {
-			result := executeTool(ctx, c.props.Logger, c.tools, tu.Name, tu.Input)
-			results = append(results, anthropic.NewToolResultBlock(tu.ID, result, false))
-		}
+	for i, r := range toolResults {
+		results[i] = anthropic.NewToolResultBlock(toolUses[i].ID, r.Result, false)
 	}
 
 	return results
@@ -292,6 +286,217 @@ func (c *Claude) logContent(content []anthropic.ContentBlockUnion) {
 			c.props.Logger.Debug("Claude Reasoning", "text", b.Text)
 		}
 	}
+}
+
+// StreamChat implements StreamingChatClient.
+func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
+	if prompt == "" {
+		return "", errors.New("prompt cannot be empty")
+	}
+
+	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)))
+
+	maxSteps := c.cfg.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = DefaultMaxSteps
+	}
+
+	maxTokens := c.cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = DefaultMaxTokensClaude
+	}
+
+	var fullText strings.Builder
+
+	for step := range maxSteps {
+		c.props.Logger.Debug("Claude streaming step", "step", step)
+
+		params := anthropic.MessageNewParams{
+			Model:     anthropic.Model(c.cfg.Model),
+			MaxTokens: int64(maxTokens),
+			Messages:  c.messages,
+			Tools:     c.toolParams,
+		}
+
+		stepResult, err := c.streamClaudeStep(ctx, params, callback, &fullText)
+		if err != nil {
+			return fullText.String(), err
+		}
+
+		if len(stepResult.tools) > 0 {
+			c.messages = append(c.messages, c.buildClaudeStreamAssistantMsg(stepResult.stepText, stepResult.tools))
+
+			toolResults, execErr := c.execClaudeStreamTools(ctx, stepResult.tools, callback)
+			if execErr != nil {
+				return fullText.String(), execErr
+			}
+
+			c.messages = append(c.messages, anthropic.NewUserMessage(toolResults...))
+
+			continue
+		}
+
+		c.messages = append(c.messages, anthropic.NewAssistantMessage(anthropic.NewTextBlock(stepResult.stepText)))
+		_ = callback(StreamEvent{Type: EventComplete})
+
+		return fullText.String(), nil
+	}
+
+	return "", errors.Newf("Claude reached maximum ReAct steps (%d) without a final answer", maxSteps)
+}
+
+type claudeStreamResult struct {
+	stepText string
+	tools    []*claudePendingTool
+}
+
+type claudePendingTool struct {
+	id     string
+	name   string
+	argBuf strings.Builder
+}
+
+func (c *Claude) streamClaudeStep(
+	ctx context.Context,
+	params anthropic.MessageNewParams,
+	callback StreamCallback,
+	fullText *strings.Builder,
+) (*claudeStreamResult, error) {
+	stream := c.client.Messages.NewStreaming(ctx, params)
+
+	var stepText strings.Builder
+
+	tools := make(map[int64]*claudePendingTool)
+
+	var toolOrder []int64
+
+	for stream.Next() {
+		event := stream.Current()
+
+		if err := c.processClaudeStreamEvent(event, tools, &toolOrder, &stepText, fullText, callback); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := stream.Err(); err != nil {
+		return nil, errors.Wrap(err, "claude stream error")
+	}
+
+	orderedTools := make([]*claudePendingTool, len(toolOrder))
+
+	for i, idx := range toolOrder {
+		orderedTools[i] = tools[idx]
+	}
+
+	return &claudeStreamResult{stepText: stepText.String(), tools: orderedTools}, nil
+}
+
+func (c *Claude) processClaudeStreamEvent(
+	event anthropic.MessageStreamEventUnion,
+	tools map[int64]*claudePendingTool,
+	toolOrder *[]int64,
+	stepText, fullText *strings.Builder,
+	callback StreamCallback,
+) error {
+	switch event.Type {
+	case "content_block_start":
+		return c.handleClaudeBlockStart(event, tools, toolOrder, callback)
+	case "content_block_delta":
+		return c.handleClaudeBlockDelta(event, tools, stepText, fullText, callback)
+	}
+
+	return nil
+}
+
+func (c *Claude) handleClaudeBlockStart(
+	event anthropic.MessageStreamEventUnion,
+	tools map[int64]*claudePendingTool,
+	toolOrder *[]int64,
+	callback StreamCallback,
+) error {
+	cb := event.ContentBlock
+	if cb.Type != "tool_use" {
+		return nil
+	}
+
+	tools[event.Index] = &claudePendingTool{id: cb.ID, name: cb.Name}
+	*toolOrder = append(*toolOrder, event.Index)
+
+	return callback(StreamEvent{
+		Type:     EventToolCallStart,
+		ToolCall: &StreamToolCall{ID: cb.ID, Name: cb.Name},
+	})
+}
+
+func (c *Claude) handleClaudeBlockDelta(
+	event anthropic.MessageStreamEventUnion,
+	tools map[int64]*claudePendingTool,
+	stepText, fullText *strings.Builder,
+	callback StreamCallback,
+) error {
+	switch event.Delta.Type {
+	case "text_delta":
+		text := event.Delta.Text
+		stepText.WriteString(text)
+		fullText.WriteString(text)
+
+		return callback(StreamEvent{Type: EventTextDelta, Delta: text})
+	case "input_json_delta":
+		if t, ok := tools[event.Index]; ok {
+			t.argBuf.WriteString(event.Delta.PartialJSON)
+		}
+	}
+
+	return nil
+}
+
+func (c *Claude) buildClaudeStreamAssistantMsg(stepText string, tools []*claudePendingTool) anthropic.MessageParam {
+	blocks := make([]anthropic.ContentBlockParamUnion, 0, len(tools)+1)
+
+	if stepText != "" {
+		blocks = append(blocks, anthropic.NewTextBlock(stepText))
+	}
+
+	for _, t := range tools {
+		blocks = append(blocks, anthropic.NewToolUseBlock(t.id, json.RawMessage(t.argBuf.String()), t.name))
+	}
+
+	return anthropic.NewAssistantMessage(blocks...)
+}
+
+func (c *Claude) execClaudeStreamTools(
+	ctx context.Context,
+	tools []*claudePendingTool,
+	callback StreamCallback,
+) ([]anthropic.ContentBlockParamUnion, error) {
+	toolCalls := make([]ToolCall, len(tools))
+	argStrings := make([]string, len(tools))
+
+	for i, t := range tools {
+		argStrings[i] = t.argBuf.String()
+		toolCalls[i] = ToolCall{Name: t.name, Input: json.RawMessage(argStrings[i])}
+	}
+
+	results := dispatchToolExecution(ctx, c.props.Logger, c.tools, toolCalls, c.cfg.ParallelTools, c.cfg.MaxParallelTools)
+	resultBlocks := make([]anthropic.ContentBlockParamUnion, len(tools))
+
+	for i, r := range results {
+		if err := callback(StreamEvent{
+			Type: EventToolCallEnd,
+			ToolCall: &StreamToolCall{
+				ID:        tools[i].id,
+				Name:      tools[i].name,
+				Arguments: argStrings[i],
+				Result:    r.Result,
+			},
+		}); err != nil {
+			return nil, err
+		}
+
+		resultBlocks[i] = anthropic.NewToolResultBlock(tools[i].id, r.Result, false)
+	}
+
+	return resultBlocks, nil
 }
 
 func (c *Claude) applyResponseSchema(params *anthropic.MessageNewParams, toolName string) {

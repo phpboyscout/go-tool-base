@@ -318,6 +318,143 @@ func (g *Gemini) executeFuncCallsSequential(ctx context.Context, mCalls []gemini
 	return parts
 }
 
+// StreamChat implements StreamingChatClient.
+func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
+	if prompt == "" {
+		return "", errors.New("prompt cannot be empty")
+	}
+
+	chatCfg := g.cloneConfig()
+	chatCfg.ResponseMIMEType = ""
+	chatCfg.ResponseSchema = nil
+
+	chat, err := g.client.Chats.Create(ctx, g.model, chatCfg, g.history)
+	if err != nil {
+		return "", errors.Newf("failed to create gemini chat session: %w", err)
+	}
+
+	maxSteps := g.cfg.MaxSteps
+	if maxSteps <= 0 {
+		maxSteps = DefaultMaxSteps
+	}
+
+	var fullText strings.Builder
+
+	currentParts := []*genai.Part{genai.NewPartFromText(prompt)}
+
+	for step := range maxSteps {
+		g.props.Logger.Debug("Gemini streaming step", "step", step)
+
+		funcCalls, stepErr := g.streamGeminiStep(ctx, chat, currentParts, callback, &fullText)
+		if stepErr != nil {
+			return fullText.String(), stepErr
+		}
+
+		if len(funcCalls) == 0 {
+			_ = callback(StreamEvent{Type: EventComplete})
+
+			return fullText.String(), nil
+		}
+
+		currentParts, err = g.execGeminiStreamTools(ctx, funcCalls, callback)
+		if err != nil {
+			return fullText.String(), err
+		}
+	}
+
+	return "", errors.Newf("Gemini reached maximum ReAct steps (%d) without a final answer", maxSteps)
+}
+
+func (g *Gemini) streamGeminiStep(
+	ctx context.Context,
+	chat *genai.Chat,
+	parts []*genai.Part,
+	callback StreamCallback,
+	fullText *strings.Builder,
+) ([]*genai.FunctionCall, error) {
+	var funcCalls []*genai.FunctionCall
+
+	for chunk, err := range chat.SendStream(ctx, parts...) {
+		if err != nil {
+			return nil, g.handleGeminiError(err, 0)
+		}
+
+		if text := chunk.Text(); text != "" {
+			fullText.WriteString(text)
+
+			if cbErr := callback(StreamEvent{Type: EventTextDelta, Delta: text}); cbErr != nil {
+				return nil, cbErr
+			}
+		}
+
+		funcCalls = append(funcCalls, chunk.FunctionCalls()...)
+	}
+
+	return funcCalls, nil
+}
+
+func (g *Gemini) execGeminiStreamTools(
+	ctx context.Context,
+	funcCalls []*genai.FunctionCall,
+	callback StreamCallback,
+) ([]*genai.Part, error) {
+	mCalls := g.marshalFuncCalls(funcCalls)
+
+	argStrings := make([]string, len(mCalls))
+	for i, mc := range mCalls {
+		if !mc.hasErr {
+			argStrings[i] = string(mc.input)
+		}
+	}
+
+	for i, fc := range funcCalls {
+		if err := callback(StreamEvent{
+			Type:     EventToolCallStart,
+			ToolCall: &StreamToolCall{Name: fc.Name, Arguments: argStrings[i]},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	results := g.runGeminiStreamTools(ctx, mCalls)
+
+	parts := make([]*genai.Part, len(mCalls))
+
+	for i, fc := range funcCalls {
+		parts[i] = genai.NewPartFromFunctionResponse(fc.Name, map[string]any{"result": results[i]})
+
+		if err := callback(StreamEvent{
+			Type:     EventToolCallEnd,
+			ToolCall: &StreamToolCall{Name: fc.Name, Arguments: argStrings[i], Result: results[i]},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	return parts, nil
+}
+
+func (g *Gemini) runGeminiStreamTools(ctx context.Context, mCalls []geminiMarshaledCall) []string {
+	validCalls := make([]ToolCall, 0, len(mCalls))
+	validIndices := make([]int, 0, len(mCalls))
+	results := make([]string, len(mCalls))
+
+	for i, mc := range mCalls {
+		if mc.hasErr {
+			results[i] = "failed to marshal arguments"
+		} else {
+			validCalls = append(validCalls, ToolCall{Name: mc.name, Input: mc.input})
+			validIndices = append(validIndices, i)
+		}
+	}
+
+	for j, r := range dispatchToolExecution(ctx, g.props.Logger, g.tools, validCalls, g.cfg.ParallelTools, g.cfg.MaxParallelTools) {
+		results[validIndices[j]] = r.Result
+	}
+
+	return results
+}
+
 func (g *Gemini) cloneConfig() *genai.GenerateContentConfig {
 	if g.config == nil {
 		return &genai.GenerateContentConfig{}

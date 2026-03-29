@@ -2,7 +2,7 @@
 title: "Streaming Chat Responses Specification"
 description: "Add streaming support to the ChatClient interface for all three providers, enabling real-time partial response delivery."
 date: 2026-03-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -24,7 +24,7 @@ Date
 :   21 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 
@@ -45,6 +45,14 @@ All three provider SDKs (Anthropic, OpenAI, Google Gemini) support server-sent e
 **Event types**: Stream events include text deltas, tool calls, and completion signals. This maps directly to all three providers' SSE event formats.
 
 **No streaming for Ask()**: `Ask()` returns structured data that must be complete before unmarshalling. Streaming only applies to `Chat()` and a new `StreamChat()` method.
+
+**Tool call events — `EventToolCallStart` and `EventToolCallEnd` only**: `EventToolCallDelta` (partial argument streaming) is omitted from this iteration. Callback consumers receive `EventToolCallStart` when a tool call begins execution and `EventToolCallEnd` when it completes, providing enough signal for TUI progress indicators without the complexity of streaming partial JSON arguments. These events are for real-time in-stream notification to callback consumers, not for the telemetry framework (which operates at coarser command-level granularity).
+
+**Gemini streaming via `Chat.SendStream`**: The existing non-streaming `Chat()` implementation uses `g.client.Chats.Create` → `chat.Send`. The streaming path uses the same `Chat` object's `SendStream` method, which is the direct streaming parallel. `SendStream` automatically manages conversation history (appends input and assembled response to `curatedHistory`), so no manual history tracking is needed for Gemini in `StreamChat`.
+
+**History management**: After a successful `StreamChat`, conversation history must be updated so that multi-turn conversations and `Save()`/`Restore()` (see chat-conversation-persistence spec) work correctly. For Gemini this is handled automatically by `Chat.SendStream`. For Claude and OpenAI the assembled response is appended to their respective message history the same way `Chat()` does.
+
+**Parallel tools in `StreamChat`**: `Config.ParallelTools` and `Config.MaxParallelTools` are respected. When the stream ends with multiple tool calls, they are executed using the same `executeToolsParallel` branch logic as `Chat()` before the next stream iteration begins.
 
 ---
 
@@ -202,31 +210,34 @@ func (a *OpenAI) StreamChat(ctx context.Context, prompt string, callback StreamC
 
 ### Gemini Streaming
 
+Uses `Chat.SendStream` (the streaming parallel to `Chat.Send` used by the non-streaming path). History is managed automatically by the SDK — `SendStream` appends input and the assembled response to `curatedHistory` internally, so no manual history tracking is needed.
+
 ```go
 func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
-    g.history = append(g.history, &genai.Content{
-        Role:  "user",
-        Parts: []*genai.Part{genai.NewPartFromText(prompt)},
-    })
+    chatCfg := g.cloneConfig()
+    chatCfg.ResponseMIMEType = ""
+    chatCfg.ResponseSchema = nil
 
-    var fullText strings.Builder
-    for result, err := range g.client.Models.GenerateContentStream(ctx, g.model, g.history, g.genCfg) {
-        if err != nil {
-            return fullText.String(), errors.Wrap(err, "gemini stream error")
-        }
-        for _, candidate := range result.Candidates {
-            for _, part := range candidate.Content.Parts {
-                if part.Text != "" {
-                    fullText.WriteString(part.Text)
-                    if err := callback(StreamEvent{Type: EventTextDelta, Delta: part.Text}); err != nil {
-                        return fullText.String(), err
-                    }
-                }
-            }
-        }
+    chat, err := g.client.Chats.Create(ctx, g.model, chatCfg, g.history)
+    if err != nil {
+        return "", errors.Newf("failed to create gemini chat session: %w", err)
     }
 
-    callback(StreamEvent{Type: EventComplete})
+    var fullText strings.Builder
+    for chunk, err := range chat.SendStream(ctx, genai.NewPartFromText(prompt)) {
+        if err != nil {
+            return fullText.String(), g.handleGeminiError(err, 0)
+        }
+        if text := chunk.Text(); text != "" {
+            fullText.WriteString(text)
+            if cbErr := callback(StreamEvent{Type: EventTextDelta, Delta: text}); cbErr != nil {
+                return fullText.String(), cbErr
+            }
+        }
+        // Tool calls are handled after the stream completes (see ReAct loop).
+    }
+
+    _ = callback(StreamEvent{Type: EventComplete})
     return fullText.String(), nil
 }
 ```
