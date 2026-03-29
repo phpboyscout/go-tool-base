@@ -227,6 +227,24 @@ func splitAndDecodeTokens(enc tokenizer.Codec, tokens []uint, maxTokens int) ([]
 	return chunks, nil
 }
 
+func (a *OpenAI) appendToolResults(ctx context.Context, toolCalls []openai.ChatCompletionMessageToolCallUnion) {
+	if a.cfg.ParallelTools && len(toolCalls) > 1 {
+		calls := make([]ToolCall, len(toolCalls))
+		for i, tc := range toolCalls {
+			calls[i] = ToolCall{Name: tc.Function.Name, Input: json.RawMessage(tc.Function.Arguments)}
+		}
+
+		for i, r := range executeToolsParallel(ctx, a.logger, a.tools, calls, a.cfg.MaxParallelTools) {
+			a.params.Messages = append(a.params.Messages, openai.ToolMessage(r.Result, toolCalls[i].ID))
+		}
+	} else {
+		for _, tc := range toolCalls {
+			result := executeTool(ctx, a.logger, a.tools, tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+			a.params.Messages = append(a.params.Messages, openai.ToolMessage(result, tc.ID))
+		}
+	}
+}
+
 // SetTools configures the tools available to the AI.
 func (a *OpenAI) SetTools(tools []Tool) error {
 	oaiTools := make([]openai.ChatCompletionToolUnionParam, 0, len(tools))
@@ -300,11 +318,7 @@ func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
 
 		if len(msg.ToolCalls) > 0 {
 			a.logger.Info("OpenAI Tool Call count", "count", len(msg.ToolCalls))
-
-			for _, toolCall := range msg.ToolCalls {
-				result := executeTool(ctx, a.logger, a.tools, toolCall.Function.Name, json.RawMessage(toolCall.Function.Arguments))
-				a.params.Messages = append(a.params.Messages, openai.ToolMessage(result, toolCall.ID))
-			}
+			a.appendToolResults(ctx, msg.ToolCalls)
 
 			continue
 		}

@@ -39,6 +39,8 @@ The `Config` struct accepts the following fields:
 | `SchemaDescription` | `string` | Description for the response schema tool. |
 | `MaxSteps` | `int` | Maximum ReAct loop iterations in `Chat()`. Zero uses the default (20). |
 | `MaxTokens` | `int` | Maximum tokens per response. Zero uses the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192). |
+| `ParallelTools` | `bool` | Enables concurrent execution of multiple tool calls within a single ReAct step. Disabled by default. |
+| `MaxParallelTools` | `int` | Maximum number of tool calls executing concurrently. Zero uses the default (5). Only effective when `ParallelTools` is true. |
 
 ```go
 import "github.com/phpboyscout/go-tool-base/pkg/chat"
@@ -180,6 +182,32 @@ When a model issues a tool call, the `Chat` method:
 
 This loop continues for up to `Config.MaxSteps` iterations (default 20) before returning an error.
 
+#### Parallel Tool Execution
+
+When a provider returns multiple tool calls in a single response step, they can be executed concurrently rather than sequentially. This reduces latency for I/O-bound tools (HTTP requests, file reads, subprocess invocations).
+
+Enable via `Config.ParallelTools`:
+
+```go
+cfg := chat.Config{
+    Provider:         chat.ProviderClaude,
+    Model:            "claude-sonnet-4-6",
+    ParallelTools:    true,
+    MaxParallelTools: 3, // optional; defaults to 5
+}
+```
+
+**Behaviour:**
+
+- Disabled by default — sequential execution is preserved unless opted in.
+- Only activates when the provider returns more than one tool call in a single step. Single tool calls always use the sequential path regardless of this setting.
+- Results are returned in the same order as the input tool calls, regardless of completion order.
+- Context cancellation propagates to all in-flight tool goroutines.
+- Tool errors (handler errors, tool not found) are returned as error strings in the conversation, consistent with the sequential path — they do not abort the ReAct loop.
+- Bounded by `MaxParallelTools` (default 5) to prevent goroutine storms when the AI returns many calls at once.
+
+**Thread safety:** tool handlers receive independent `json.RawMessage` inputs and return independent results. Parallel execution is safe as long as individual handlers do not share mutable state without synchronization.
+
 ### Multi-Turn Conversations
 
 The chat client maintains conversation history. You can build multi-turn conversations:
@@ -223,7 +251,7 @@ The default provider when `Config.Provider` is empty (and `AI_PROVIDER` env var 
 | :--- | :--- | :--- | :--- | :--- |
 | **OpenAI** | ✓ | ✓ | ✓ JSON Schema | |
 | **Claude** | ✓ | ✓ | ✓ Tool-based | |
-| **Gemini** | ✓ | ✗ Sequential | ✓ JSON Schema | |
+| **Gemini** | ✓ | ✓ | ✓ JSON Schema | |
 | **Claude Local** | ✗ | ✗ | ✓ `--json-schema` | MCP tool support planned |
 | **OpenAI-Compatible** | ✓ | ✓ | ✓ JSON Schema | Backend-dependent |
 

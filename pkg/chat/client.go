@@ -111,6 +111,12 @@ type Config struct {
 	// MaxTokens sets the maximum tokens per response.
 	// Zero means use the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192).
 	MaxTokens int
+	// ParallelTools enables concurrent execution of multiple tool calls
+	// within a single ReAct step. Disabled by default.
+	ParallelTools bool
+	// MaxParallelTools limits the number of tools executing concurrently.
+	// Zero means use the default (5). Only effective when ParallelTools is true.
+	MaxParallelTools int
 }
 
 // ProviderFactory creates a ChatClient for a named provider.

@@ -222,22 +222,7 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 
 		g.props.Logger.Info("Gemini tool calls", "count", len(funcCalls))
 
-		var toolResultParts []*genai.Part
-
-		for _, fc := range funcCalls {
-			argsB, err := json.Marshal(fc.Args)
-			if err != nil {
-				g.props.Logger.Error("Failed to marshal tool arguments", "tool", fc.Name, "error", err)
-				toolResultParts = append(toolResultParts, genai.NewPartFromFunctionResponse(fc.Name, map[string]any{"error": "failed to marshal arguments"}))
-
-				continue
-			}
-
-			result := executeTool(ctx, g.props.Logger, g.tools, fc.Name, argsB)
-			toolResultParts = append(toolResultParts, genai.NewPartFromFunctionResponse(fc.Name, map[string]any{"result": result}))
-		}
-
-		currentParts = toolResultParts
+		currentParts = g.executeFuncCalls(ctx, funcCalls)
 	}
 
 	return "", errors.Newf("Gemini reached maximum ReAct steps (%d) without a final answer", maxSteps)
@@ -250,6 +235,87 @@ func (g *Gemini) handleGeminiError(err error, step int) error {
 	}
 
 	return errors.Newf("gemini send message failed (step %d): %v", step, err)
+}
+
+// geminiMarshaledCall holds a pre-marshaled function call argument payload.
+type geminiMarshaledCall struct {
+	name   string
+	input  json.RawMessage
+	hasErr bool
+}
+
+func (g *Gemini) marshalFuncCalls(funcCalls []*genai.FunctionCall) []geminiMarshaledCall {
+	out := make([]geminiMarshaledCall, len(funcCalls))
+
+	for i, fc := range funcCalls {
+		argsB, err := json.Marshal(fc.Args)
+		if err != nil {
+			g.props.Logger.Error("Failed to marshal tool arguments", "tool", fc.Name, "error", err)
+			out[i] = geminiMarshaledCall{name: fc.Name, hasErr: true}
+		} else {
+			out[i] = geminiMarshaledCall{name: fc.Name, input: argsB}
+		}
+	}
+
+	return out
+}
+
+func (g *Gemini) executeFuncCalls(ctx context.Context, funcCalls []*genai.FunctionCall) []*genai.Part {
+	mCalls := g.marshalFuncCalls(funcCalls)
+
+	if g.cfg.ParallelTools && len(funcCalls) > 1 {
+		return g.executeFuncCallsParallel(ctx, mCalls)
+	}
+
+	return g.executeFuncCallsSequential(ctx, mCalls)
+}
+
+func (g *Gemini) executeFuncCallsParallel(ctx context.Context, mCalls []geminiMarshaledCall) []*genai.Part {
+	calls := make([]ToolCall, 0, len(mCalls))
+	indices := make([]int, 0, len(mCalls))
+
+	// allParts preserves insertion order; error entries are pre-filled.
+	allParts := make([]*genai.Part, len(mCalls))
+
+	for i, mc := range mCalls {
+		if mc.hasErr {
+			allParts[i] = genai.NewPartFromFunctionResponse(mc.name, map[string]any{"error": "failed to marshal arguments"})
+		} else {
+			calls = append(calls, ToolCall{Name: mc.name, Input: mc.input})
+			indices = append(indices, i)
+		}
+	}
+
+	for j, r := range executeToolsParallel(ctx, g.props.Logger, g.tools, calls, g.cfg.MaxParallelTools) {
+		allParts[indices[j]] = genai.NewPartFromFunctionResponse(r.Name, map[string]any{"result": r.Result})
+	}
+
+	parts := make([]*genai.Part, 0, len(allParts))
+
+	for _, p := range allParts {
+		if p != nil {
+			parts = append(parts, p)
+		}
+	}
+
+	return parts
+}
+
+func (g *Gemini) executeFuncCallsSequential(ctx context.Context, mCalls []geminiMarshaledCall) []*genai.Part {
+	parts := make([]*genai.Part, 0, len(mCalls))
+
+	for _, mc := range mCalls {
+		if mc.hasErr {
+			parts = append(parts, genai.NewPartFromFunctionResponse(mc.name, map[string]any{"error": "failed to marshal arguments"}))
+
+			continue
+		}
+
+		result := executeTool(ctx, g.props.Logger, g.tools, mc.name, mc.input)
+		parts = append(parts, genai.NewPartFromFunctionResponse(mc.name, map[string]any{"result": result}))
+	}
+
+	return parts
 }
 
 func (g *Gemini) cloneConfig() *genai.GenerateContentConfig {

@@ -218,25 +218,21 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 
 		c.logContent(resp.Content)
 
-		var toolResults []anthropic.ContentBlockParamUnion
-
-		hasToolUse := false
-
 		var fullText strings.Builder
+
+		var toolUses []anthropic.ContentBlockUnion
 
 		for _, content := range resp.Content {
 			switch content.Type {
 			case "tool_use":
-				hasToolUse = true
-				result := executeTool(ctx, c.props.Logger, c.tools, content.Name, content.Input)
-				toolResults = append(toolResults, anthropic.NewToolResultBlock(content.ID, result, false))
+				toolUses = append(toolUses, content)
 			case "text":
 				fullText.WriteString(content.Text)
 			}
 		}
 
-		if hasToolUse {
-			c.messages = append(c.messages, anthropic.NewUserMessage(toolResults...))
+		if len(toolUses) > 0 {
+			c.messages = append(c.messages, anthropic.NewUserMessage(c.processToolUses(ctx, toolUses)...))
 
 			continue
 		}
@@ -245,6 +241,28 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 	}
 
 	return "", errors.Newf("Claude reached maximum ReAct steps (%d) without a final answer", maxSteps)
+}
+
+func (c *Claude) processToolUses(ctx context.Context, toolUses []anthropic.ContentBlockUnion) []anthropic.ContentBlockParamUnion {
+	results := make([]anthropic.ContentBlockParamUnion, 0, len(toolUses))
+
+	if c.cfg.ParallelTools && len(toolUses) > 1 {
+		calls := make([]ToolCall, len(toolUses))
+		for i, tu := range toolUses {
+			calls[i] = ToolCall{Name: tu.Name, Input: tu.Input}
+		}
+
+		for i, r := range executeToolsParallel(ctx, c.props.Logger, c.tools, calls, c.cfg.MaxParallelTools) {
+			results = append(results, anthropic.NewToolResultBlock(toolUses[i].ID, r.Result, false))
+		}
+	} else {
+		for _, tu := range toolUses {
+			result := executeTool(ctx, c.props.Logger, c.tools, tu.Name, tu.Input)
+			results = append(results, anthropic.NewToolResultBlock(tu.ID, result, false))
+		}
+	}
+
+	return results
 }
 
 func resContentToBlocks(content []anthropic.ContentBlockUnion) []anthropic.ContentBlockParamUnion {

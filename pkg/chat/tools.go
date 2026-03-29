@@ -4,9 +4,55 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
+
+// ToolCall represents a single tool invocation request.
+type ToolCall struct {
+	Name  string
+	Input json.RawMessage
+}
+
+// ToolResult holds the result of a single tool execution.
+type ToolResult struct {
+	Name   string
+	Result string
+}
+
+const defaultMaxParallelTools = 5
+
+// executeToolsParallel executes multiple tool calls concurrently, bounded by
+// maxConcurrency. Results are returned in the same order as the input calls.
+// If maxConcurrency is zero or negative, it defaults to 5.
+func executeToolsParallel(ctx context.Context, l logger.Logger, tools map[string]Tool, calls []ToolCall, maxConcurrency int) []ToolResult {
+	if maxConcurrency <= 0 {
+		maxConcurrency = defaultMaxParallelTools
+	}
+
+	results := make([]ToolResult, len(calls))
+	sem := make(chan struct{}, maxConcurrency)
+
+	var wg sync.WaitGroup
+
+	for i, call := range calls {
+		wg.Add(1)
+
+		sem <- struct{}{}
+
+		go func(idx int, c ToolCall) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			results[idx] = ToolResult{Name: c.Name, Result: executeTool(ctx, l, tools, c.Name, c.Input)}
+		}(i, call)
+	}
+
+	wg.Wait()
+
+	return results
+}
 
 // executeTool looks up a tool by name from the provided registry, executes it,
 // and returns the result as a string. If the result is not a string, it is JSON

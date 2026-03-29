@@ -2,7 +2,7 @@
 title: "Parallel Tool Execution in ReAct Loop"
 description: "Add optional parallel execution of independent tool calls within the ReAct loop to reduce latency for I/O-bound tools."
 date: 2026-03-22
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - chat
