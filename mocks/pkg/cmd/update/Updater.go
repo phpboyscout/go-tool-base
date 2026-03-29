@@ -272,3 +272,63 @@ func (_c *MockUpdater_Update_Call) RunAndReturn(run func(ctx context.Context) (s
 	_c.Call.Return(run)
 	return _c
 }
+
+// UpdateFromFile provides a mock function for the type MockUpdater
+func (_mock *MockUpdater) UpdateFromFile(filePath string) (string, error) {
+	ret := _mock.Called(filePath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateFromFile")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(string) (string, error)); ok {
+		return returnFunc(filePath)
+	}
+	if returnFunc, ok := ret.Get(0).(func(string) string); ok {
+		r0 = returnFunc(filePath)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
+		r1 = returnFunc(filePath)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUpdater_UpdateFromFile_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateFromFile'
+type MockUpdater_UpdateFromFile_Call struct {
+	*mock.Call
+}
+
+// UpdateFromFile is a helper method to define mock.On call
+//   - filePath string
+func (_e *MockUpdater_Expecter) UpdateFromFile(filePath interface{}) *MockUpdater_UpdateFromFile_Call {
+	return &MockUpdater_UpdateFromFile_Call{Call: _e.mock.On("UpdateFromFile", filePath)}
+}
+
+func (_c *MockUpdater_UpdateFromFile_Call) Run(run func(filePath string)) *MockUpdater_UpdateFromFile_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUpdater_UpdateFromFile_Call) Return(s string, err error) *MockUpdater_UpdateFromFile_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockUpdater_UpdateFromFile_Call) RunAndReturn(run func(filePath string) (string, error)) *MockUpdater_UpdateFromFile_Call {
+	_c.Call.Return(run)
+	return _c
+}

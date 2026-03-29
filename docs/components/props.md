@@ -82,7 +82,9 @@ const (
     InitCmd   = FeatureCmd("init")   // Configuration initialisation
     McpCmd    = FeatureCmd("mcp")    // Model Context Protocol server
     DocsCmd   = FeatureCmd("docs")   // Interactive documentation browser
-    AiCmd     = FeatureCmd("ai")     // AI-powered features
+    AiCmd     = FeatureCmd("ai")     // AI-powered features (opt-in)
+    DoctorCmd = FeatureCmd("doctor") // Environment health checks
+    ConfigCmd = FeatureCmd("config") // Programmatic config access (opt-in)
 )
 ```
 
@@ -95,6 +97,11 @@ const (
 - `init`
 - `mcp`
 - `docs`
+- `doctor`
+
+The following features are **opt-in** (disabled by default):
+- `ai` — AI provider configuration during `init`
+- `config` — programmatic config access (`config get/set/list/validate`)
 
 #### The `SetFeatures` Constructor
 

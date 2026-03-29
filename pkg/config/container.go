@@ -41,6 +41,9 @@ type Containable interface {
 	AddObserverFunc(f func(Containable, chan error))
 	ToJSON() string
 	Dump(w io.Writer)
+	// Validate checks the container's current values against the provided schema.
+	// Returns a ValidationResult; callers should check result.Valid().
+	Validate(schema *Schema) *ValidationResult
 }
 
 // Container container for configuration.

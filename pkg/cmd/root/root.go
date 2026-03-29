@@ -11,6 +11,7 @@ import (
 
 	"github.com/njayp/ophis"
 
+	cmdconfig "github.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/docs"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/doctor"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/initialise"
@@ -438,6 +439,10 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 
 	if props.Tool.IsEnabled(p.DoctorCmd) {
 		setup.AddCommandWithMiddleware(rootCmd, doctor.NewCmdDoctor(props), p.DoctorCmd)
+	}
+
+	if props.Tool.IsEnabled(p.ConfigCmd) {
+		setup.AddCommandWithMiddleware(rootCmd, cmdconfig.NewCmdConfig(props), p.ConfigCmd)
 	}
 }
 

@@ -158,8 +158,12 @@ func getFeatureCmd(feature string) jen.Code {
 		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "McpCmd")
 	case "docs":
 		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "DocsCmd")
+	case "doctor":
+		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "DoctorCmd")
 	case "ai":
 		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "AiCmd")
+	case "config":
+		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "ConfigCmd")
 	}
 
 	return nil

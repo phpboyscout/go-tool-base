@@ -2,7 +2,7 @@
 title: "Programmatic Config Access"
 description: "Add a config subcommand providing programmatic config management with get, set, list, and validate operations — primarily for CI automation and scripted setup"
 date: 2026-03-24
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - config

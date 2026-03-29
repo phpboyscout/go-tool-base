@@ -16,6 +16,7 @@ GTB provides a set of essential built-in commands that are automatically include
 | :--- | :--- |
 | **[Root](root.md)** | Application entry point and service orchestration. |
 | **[Init](init.md)** | Tool configuration and environment setup. |
+| **[Config](config.md)** | Programmatic config access for CI and scripted setup. (opt-in) |
 | **[Version](version.md)** | Version display and update checking. |
 | **[Update](update.md)** | Automated binary updates and migration. |
 | **[Docs](docs.md)** | Interactive TUI documentation browser. |
@@ -85,22 +86,29 @@ props := &props.Props{
 - `props.McpCmd`: Disables the `mcp` command.
 - `props.DocsCmd`: Disables the `docs` command.
 - `props.DoctorCmd`: Disables the `doctor` command.
+- `props.ConfigCmd`: Disables the `config` command (note: already disabled by default).
 
 Note: The `version` command cannot be disabled as it's essential for troubleshooting.
 
 ### Enabling Optional Commands
 
-Some features are opt-in, such as the AI provider configuration:
+Some commands are opt-in and disabled by default. Enable them via `props.SetFeatures`:
 
 ```go
 props := &props.Props{
     Tool: props.Tool{
         Features: props.SetFeatures(
-            props.Enable(props.AiCmd), // Enable AI provider configuration in 'init'
+            props.Enable(props.AiCmd),    // Enable AI provider configuration in 'init'
+            props.Enable(props.ConfigCmd), // Enable programmatic config access
         ),
     },
 }
 ```
+
+**Available opt-in commands:**
+
+- `props.AiCmd`: Enables AI provider configuration during `init`.
+- `props.ConfigCmd`: Enables the `config get/set/list/validate` command group.
 
 ---
 

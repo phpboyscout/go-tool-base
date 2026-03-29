@@ -810,6 +810,59 @@ func (_c *MockContainable_ToJSON_Call) RunAndReturn(run func() string) *MockCont
 	return _c
 }
 
+// Validate provides a mock function for the type MockContainable
+func (_mock *MockContainable) Validate(schema *config.Schema) *config.ValidationResult {
+	ret := _mock.Called(schema)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Validate")
+	}
+
+	var r0 *config.ValidationResult
+	if returnFunc, ok := ret.Get(0).(func(*config.Schema) *config.ValidationResult); ok {
+		r0 = returnFunc(schema)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*config.ValidationResult)
+		}
+	}
+	return r0
+}
+
+// MockContainable_Validate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Validate'
+type MockContainable_Validate_Call struct {
+	*mock.Call
+}
+
+// Validate is a helper method to define mock.On call
+//   - schema *config.Schema
+func (_e *MockContainable_Expecter) Validate(schema interface{}) *MockContainable_Validate_Call {
+	return &MockContainable_Validate_Call{Call: _e.mock.On("Validate", schema)}
+}
+
+func (_c *MockContainable_Validate_Call) Run(run func(schema *config.Schema)) *MockContainable_Validate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *config.Schema
+		if args[0] != nil {
+			arg0 = args[0].(*config.Schema)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_Validate_Call) Return(validationResult *config.ValidationResult) *MockContainable_Validate_Call {
+	_c.Call.Return(validationResult)
+	return _c
+}
+
+func (_c *MockContainable_Validate_Call) RunAndReturn(run func(schema *config.Schema) *config.ValidationResult) *MockContainable_Validate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WriteConfigAs provides a mock function for the type MockContainable
 func (_mock *MockContainable) WriteConfigAs(dest string) error {
 	ret := _mock.Called(dest)

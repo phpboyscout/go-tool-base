@@ -628,7 +628,7 @@ func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, ar
 }
 
 func calculateDisabledFeatures(features []ManifestFeature) []string {
-	allFeatures := []string{"init", "update", "mcp", "docs"}
+	allFeatures := []string{"init", "update", "mcp", "docs", "doctor"}
 	disabled := []string{}
 
 	featureMap := make(map[string]bool)
@@ -651,7 +651,7 @@ func calculateDisabledFeatures(features []ManifestFeature) []string {
 // calculateEnabledFeatures extracts opt-in features from the feature list.
 // These features are off by default and must be explicitly enabled.
 func calculateEnabledFeatures(features []ManifestFeature) []string {
-	optInFeatures := []string{"ai"}
+	optInFeatures := []string{"ai", "config"}
 	enabled := []string{}
 
 	featureMap := make(map[string]bool)

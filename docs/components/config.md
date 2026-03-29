@@ -45,6 +45,7 @@ type Containable interface {
     AddObserverFunc(f func(Containable, chan error))
     ToJSON() string
     Dump(w io.Writer)
+    Validate(schema *Schema) *ValidationResult
 }
 ```
 
@@ -926,6 +927,7 @@ type Containable interface {
     AddObserverFunc(f func(Containable, chan error))
     ToJSON() string
     Dump(w io.Writer)
+    Validate(schema *Schema) *ValidationResult
 }
 ```
 

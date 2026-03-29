@@ -45,6 +45,7 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 				props.Enable(props.UpdateCmd),
 				props.Enable(props.DoctorCmd),
 				props.Enable(props.McpCmd),
+				props.Enable(props.ConfigCmd),
 				props.Disable(props.DocsCmd), // no embedded assets in test binary
 			),
 		},
