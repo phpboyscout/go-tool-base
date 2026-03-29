@@ -29,10 +29,13 @@ import (
 func httpGet(t *testing.T, url string) (int, string) {
 	t.Helper()
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	require.NoError(t, err)
 
-	defer resp.Body.Close()
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -89,7 +92,7 @@ func TestHTTP_AllHealthEndpoints(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond)
@@ -127,7 +130,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/test", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "ok")
+		_, _ = fmt.Fprint(w, "ok")
 	})
 
 	_, err := gtbhttp.Register(ctx, "http", controller, newHTTPCfg(t, port), noop, mux,
@@ -148,7 +151,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond)
@@ -156,7 +159,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 	// App route should pass through middleware
 	resp, err := http.Get(base + "/api/test")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Equal(t, "applied", resp.Header.Get("X-Middleware"))
@@ -211,7 +214,7 @@ func TestHTTP_CustomHealthCheck_AffectsEndpoints(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return true
 	}, 5*time.Second, 50*time.Millisecond)
@@ -317,7 +320,7 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 		return err == nil && resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING
 	}, 5*time.Second, 100*time.Millisecond)
 
-	assert.Greater(t, interceptorCalls.Load(), int64(0), "interceptor should be called for gRPC health check RPC")
+	assert.Positive(t, interceptorCalls.Load(), "interceptor should be called for gRPC health check RPC")
 }
 
 func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
@@ -344,7 +347,7 @@ func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond)
@@ -371,7 +374,7 @@ func TestHTTP_AppHandlerServesRequests(t *testing.T) {
 	mux.HandleFunc("/api/hello", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"message":"hello world"}`)
+		_, _ = fmt.Fprint(w, `{"message":"hello world"}`)
 	})
 	mux.HandleFunc("/api/error", func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -393,7 +396,7 @@ func TestHTTP_AppHandlerServesRequests(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond)

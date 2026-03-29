@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	pollInterval    = 10 * time.Millisecond
-	cleanupTimeout  = 5 * time.Second
-	listenAddress   = "127.0.0.1:0"
-	defaultOptsCap  = 1
-	serviceOptsCap  = 3
+	pollInterval   = 10 * time.Millisecond
+	cleanupTimeout = 5 * time.Second
+	listenAddress  = "127.0.0.1:0"
+	defaultOptsCap = 1
+	serviceOptsCap = 3
 )
 
 var errWaitTimeout = errors.New("timed out waiting for state")

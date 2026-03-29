@@ -6,11 +6,11 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -248,7 +248,7 @@ func TestLoadEnv_DotEnvFileLoaded(t *testing.T) {
 
 	// Use a unique env var name to avoid collisions with real environment.
 	require.NoError(t, os.WriteFile(dotenv, []byte("GTB_INT_TEST_DOTENV_VAR=from_dotenv\n"), 0o644))
-	t.Cleanup(func() { os.Unsetenv("GTB_INT_TEST_DOTENV_VAR") })
+	t.Cleanup(func() { _ = os.Unsetenv("GTB_INT_TEST_DOTENV_VAR") })
 
 	// Use an OsFs rooted at the temp dir to find .env
 	fs := afero.NewBasePathFs(afero.NewOsFs(), dir)
@@ -277,7 +277,7 @@ func TestLoad_AllowEmptyConfig(t *testing.T) {
 		require.NoError(t, err)
 		// Returns an empty container (not nil) — no values set
 		require.NotNil(t, cfg)
-		assert.Equal(t, "", cfg.GetString("any.key"))
+		assert.Empty(t, cfg.GetString("any.key"))
 	})
 }
 
@@ -324,13 +324,13 @@ database:
 	require.NotNil(t, cfg)
 
 	// Last writer wins at each level
-	assert.Equal(t, 3000, cfg.GetInt("server.port"))          // project overrides defaults
-	assert.Equal(t, "0.0.0.0", cfg.GetString("server.host"))  // only in defaults
-	assert.Equal(t, "debug", cfg.GetString("logging.level"))   // local overrides project
-	assert.Equal(t, "json", cfg.GetString("logging.format"))   // only in defaults
-	assert.Equal(t, "127.0.0.1", cfg.GetString("database.host")) // local overrides defaults
-	assert.Equal(t, 5432, cfg.GetInt("database.port"))         // only in defaults
-	assert.Equal(t, "myapp", cfg.GetString("database.name"))   // only in project
+	assert.Equal(t, 3000, cfg.GetInt("server.port"))              // project overrides defaults
+	assert.Equal(t, "0.0.0.0", cfg.GetString("server.host"))      // only in defaults
+	assert.Equal(t, "debug", cfg.GetString("logging.level"))      // local overrides project
+	assert.Equal(t, "json", cfg.GetString("logging.format"))      // only in defaults
+	assert.Equal(t, "127.0.0.1", cfg.GetString("database.host"))  // local overrides defaults
+	assert.Equal(t, 5432, cfg.GetInt("database.port"))            // only in defaults
+	assert.Equal(t, "myapp", cfg.GetString("database.name"))      // only in project
 	assert.Equal(t, "secret", cfg.GetString("database.password")) // only in local
 }
 

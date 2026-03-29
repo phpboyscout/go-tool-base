@@ -33,6 +33,7 @@ func SkipIfNotIntegration(t *testing.T, tags ...string) {
 	}
 
 	msg := "skipping integration test; set INT_TEST=1 to run all"
+
 	if len(tags) > 0 {
 		tagNames := make([]string, len(tags))
 		for i, tag := range tags {

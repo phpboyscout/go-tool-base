@@ -83,21 +83,18 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 			return false
 		}
 
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond, "HTTP /healthz should return 200")
 
 	// Verify gRPC health Check returns SERVING.
-	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	conn, err := grpc.DialContext(dialCtx, fmt.Sprintf("localhost:%d", grpcPort),
+	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", grpcPort),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock())
+	)
 	require.NoError(t, err)
 
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	healthClient := grpc_health_v1.NewHealthClient(conn)
 
@@ -107,7 +104,7 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 			return false
 		}
 
-		return resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
+		return resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING
 	}, 5*time.Second, 100*time.Millisecond, "gRPC health Check should return SERVING")
 
 	assert.Equal(t, controls.Running, controller.GetState())

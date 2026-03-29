@@ -15,8 +15,8 @@ func TestFeatures(t *testing.T) {
 	t.Cleanup(support.CleanupBinary)
 
 	opts := &godog.Options{
-		Format: "pretty",
-		Paths:  []string{"../../../features"},
+		Format:   "pretty",
+		Paths:    []string{"../../../features"},
 		TestingT: t,
 	}
 

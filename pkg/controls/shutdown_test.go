@@ -83,7 +83,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 			http.Error(w, dialErr.Error(), http.StatusBadGateway)
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		healthClient := grpc_health_v1.NewHealthClient(conn)
 		resp, checkErr := healthClient.Check(r.Context(), &grpc_health_v1.HealthCheckRequest{})
@@ -93,7 +93,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_, _ = fmt.Fprintf(w, "gRPC health: %s", resp.Status)
+		_, _ = fmt.Fprintf(w, "gRPC health: %s", resp.GetStatus())
 	})
 
 	httpCfg := mockConfig.NewMockContainable(t)
@@ -115,7 +115,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 		if httpErr != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond, "HTTP server should be ready")
 
@@ -127,20 +127,20 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 		if dialErr != nil {
 			return false
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		healthClient := grpc_health_v1.NewHealthClient(conn)
 		resp, checkErr := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
 		if checkErr != nil {
 			return false
 		}
-		return resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
+		return resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING
 	}, 5*time.Second, 100*time.Millisecond, "gRPC server should be ready")
 
 	// Verify the gateway route works (HTTP → gRPC)
 	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/api/health", httpPort))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Verify we're in Running state
@@ -242,7 +242,7 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 		if httpErr != nil {
 			return false
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 50*time.Millisecond, "HTTP server should be ready")
 
@@ -255,7 +255,7 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 			clientResult <- reqErr
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			clientResult <- fmt.Errorf("unexpected status: %d", resp.StatusCode)
 			return
@@ -276,26 +276,10 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 	controller.Signals() <- syscall.SIGINT
 
 	// --- The controller should wait for the request to drain ---
-	shutdownDone := make(chan struct{})
-	go func() {
-		controller.Wait()
-		close(shutdownDone)
-	}()
-
-	select {
-	case <-shutdownDone:
-		t.Log("Controller shut down")
-	case <-time.After(10 * time.Second):
-		t.Fatal("SHUTDOWN HUNG: controller did not stop within 10 seconds")
-	}
+	awaitControllerShutdown(t, controller, 10*time.Second)
 
 	// --- Verify the in-flight request completed successfully ---
-	select {
-	case err := <-clientResult:
-		assert.NoError(t, err, "in-flight HTTP request should complete successfully during graceful shutdown")
-	case <-time.After(5 * time.Second):
-		t.Fatal("client request did not complete")
-	}
+	awaitInflightResult(t, clientResult, 5*time.Second)
 
 	// Verify the request handler actually finished
 	select {
@@ -410,4 +394,38 @@ func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
 		"shutdown sequence should have executed")
 	assert.NotContains(t, logs, "server shutdown failed",
 		"HTTP server should shut down without errors")
+}
+
+// awaitControllerShutdown waits for the controller to reach the stopped state
+// within the given timeout, failing the test if it does not.
+func awaitControllerShutdown(t *testing.T, controller *controls.Controller, timeout time.Duration) {
+	t.Helper()
+
+	done := make(chan struct{})
+
+	go func() {
+		controller.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Log("Controller shut down")
+	case <-time.After(timeout):
+		t.Fatal("SHUTDOWN HUNG: controller did not stop within timeout")
+	}
+}
+
+// awaitInflightResult waits for a result on the channel within the given
+// timeout, failing the test if the channel does not receive in time or if
+// the received error is non-nil.
+func awaitInflightResult(t *testing.T, result <-chan error, timeout time.Duration) {
+	t.Helper()
+
+	select {
+	case err := <-result:
+		require.NoError(t, err, "in-flight HTTP request should complete successfully during graceful shutdown")
+	case <-time.After(timeout):
+		t.Fatal("client request did not complete in time")
+	}
 }

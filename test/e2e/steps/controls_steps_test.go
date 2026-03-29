@@ -314,7 +314,7 @@ func theHTTPServerIsHealthy(ctx context.Context) (context.Context, error) {
 			if err != nil {
 				continue
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return ctx, nil
 			}
@@ -343,11 +343,11 @@ func theGRPCServerIsHealthy(ctx context.Context) (context.Context, error) {
 
 			healthClient := grpc_health_v1.NewHealthClient(conn)
 			resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
-			conn.Close()
+			_ = conn.Close()
 			if err != nil {
 				continue
 			}
-			if resp.Status == grpc_health_v1.HealthCheckResponse_SERVING {
+			if resp.GetStatus() == grpc_health_v1.HealthCheckResponse_SERVING {
 				return ctx, nil
 			}
 		}
@@ -363,7 +363,7 @@ func aClientSendsSlowRequest(ctx context.Context) context.Context {
 			w.ClientResult <- err
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			w.ClientResult <- fmt.Errorf("unexpected status: %d", resp.StatusCode)
 			return

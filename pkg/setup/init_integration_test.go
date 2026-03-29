@@ -137,7 +137,7 @@ func TestInitialise_CleanReplacesExistingConfig(t *testing.T) {
 
 	// Clean replaces — custom key should be gone, defaults restored
 	assert.Equal(t, "info", cfg.GetString("log.level"), "should reset to default")
-	assert.Equal(t, "", cfg.GetString("custom.key"), "custom key should be removed")
+	assert.Empty(t, cfg.GetString("custom.key"), "custom key should be removed")
 }
 
 func TestInitialise_MergePreservesExistingValues(t *testing.T) {
@@ -178,8 +178,8 @@ type testInitialiser struct {
 	configFn     func(config.Containable)
 }
 
-func (ti *testInitialiser) Name() string                                   { return ti.name }
-func (ti *testInitialiser) IsConfigured(_ config.Containable) bool         { return ti.configured }
+func (ti *testInitialiser) Name() string                           { return ti.name }
+func (ti *testInitialiser) IsConfigured(_ config.Containable) bool { return ti.configured }
 func (ti *testInitialiser) Configure(_ *props.Props, c config.Containable) error {
 	ti.called = true
 	if ti.configFn != nil {
