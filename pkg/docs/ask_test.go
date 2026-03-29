@@ -27,7 +27,7 @@ func TestAskAI_UnsupportedProvider(t *testing.T) {
 	logFn := func(msg string, level logger.Level) {}
 
 	// "nonexistent-provider-xyz" is not registered → chat.New returns error
-	_, err := AskAI(context.Background(), p, fsys, "what is this?", logFn, "nonexistent-provider-xyz")
+	_, err := AskAI(context.Background(), p, fsys, "what is this?", logFn, nil, "nonexistent-provider-xyz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported provider")
 }
@@ -43,7 +43,7 @@ func TestAskAI_FSError(t *testing.T) {
 	logCalls := 0
 	logFn := func(msg string, level logger.Level) { logCalls++ }
 
-	_, err := AskAI(context.Background(), p, fsys, "question", logFn, "bad-provider")
+	_, err := AskAI(context.Background(), p, fsys, "question", logFn, nil, "bad-provider")
 	require.Error(t, err)
 	assert.Positive(t, logCalls, "logFn should have been called")
 }

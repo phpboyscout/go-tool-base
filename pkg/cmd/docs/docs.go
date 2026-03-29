@@ -37,8 +37,8 @@ func NewCmdDocs(p *props.Props) *cobra.Command {
 				return errors.Wrap(err, "failed to load documentation assets")
 			}
 
-			askFunc := func(question string, logFn func(string, logger.Level)) (string, error) {
-				return docslib.AskAI(cmd.Context(), p, subFS, question, logFn, provider)
+			askFunc := func(question string, logFn func(string, logger.Level), deltaFn func(string)) (string, error) {
+				return docslib.AskAI(cmd.Context(), p, subFS, question, logFn, deltaFn, provider)
 			}
 
 			m := docslib.NewModel(subFS, docslib.WithTitle("Documentation"), docslib.WithAskFunc(askFunc))

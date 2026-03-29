@@ -34,44 +34,61 @@ func NewCmdDocsAsk(p *props.Props) *cobra.Command {
 	return cmd
 }
 
+// logToProps forwards a docs log message to the props logger at the appropriate level.
+func logToProps(p *props.Props, s string, level logger.Level) {
+	switch level {
+	case logger.DebugLevel:
+		p.Logger.Debug(s)
+	case logger.InfoLevel:
+		p.Logger.Info(s)
+	case logger.WarnLevel:
+		p.Logger.Warn(s)
+	case logger.ErrorLevel:
+		p.Logger.Error(s)
+	case logger.FatalLevel:
+		p.Logger.Fatal(s)
+	}
+}
+
 func runAsk(ctx context.Context, p *props.Props, question string, noStyle bool, provider string) error {
-	// 1. Load Docs Content
 	subFS, err := fs.Sub(p.Assets, "assets/docs")
 	if err != nil {
 		return errors.Newf("failed to access embedded assets: %w", err)
 	}
 
-	// 2. Ask (stdout logger?)
-	// Not passing a logger function means it won't stream logs, which is consistent with previous CLI behavior (only "Thinking..." printed).
-	// If we want logs, we can pass fmt.Println or similar, but let's keep it simple.
-	answer, err := docslib.AskAI(ctx, p, subFS, question, func(s string, level logger.Level) {
-		switch level {
-		case logger.DebugLevel:
-			p.Logger.Debug(s)
-		case logger.InfoLevel:
-			p.Logger.Info(s)
-		case logger.WarnLevel:
-			p.Logger.Warn(s)
-		case logger.ErrorLevel:
-			p.Logger.Error(s)
-		case logger.FatalLevel:
-			p.Logger.Fatal(s)
+	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render("Answer:"))
+
+	// In no-style mode stream deltas directly so the answer appears progressively.
+	// In styled mode suppress deltas and render the complete response at the end.
+	var didStream bool
+
+	var deltaFn func(string)
+	if noStyle {
+		deltaFn = func(delta string) {
+			didStream = true
+
+			fmt.Print(delta)
 		}
-	}, provider)
+	}
+
+	answer, err := docslib.AskAI(ctx, p, subFS, question, func(s string, level logger.Level) {
+		logToProps(p, s, level)
+	}, deltaFn, provider)
 	if err != nil {
 		return errors.Newf("failed to ask AI: %w", err)
 	}
 
-	// 3. Print
-	fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("205")).Bold(true).Render("Answer:"))
-
-	if !noStyle {
-		fmt.Print(output.RenderMarkdown(answer))
+	if noStyle {
+		if didStream {
+			fmt.Println() // newline after streamed output
+		} else {
+			fmt.Println(answer)
+		}
 
 		return nil
 	}
 
-	fmt.Println(answer)
+	fmt.Print(output.RenderMarkdown(answer))
 
 	return nil
 }

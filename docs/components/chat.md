@@ -231,6 +231,77 @@ func interactiveSession(ctx context.Context, client chat.ChatClient) error {
 }
 ```
 
+### Streaming Chat
+
+Providers that support streaming implement the `StreamingChatClient` interface in addition to `ChatClient`. Streaming delivers partial response text as it is generated rather than waiting for the full response, which reduces perceived latency for long replies.
+
+Discover streaming support via a type assertion:
+
+```go
+client, err := chat.New(ctx, p, chat.Config{
+    Provider: chat.ProviderClaude,
+    Model:    "claude-sonnet-4-6",
+})
+if err != nil {
+    return err
+}
+
+if streamer, ok := client.(chat.StreamingChatClient); ok {
+    result, err := streamer.StreamChat(ctx, "Write a haiku about Go.", func(e chat.StreamEvent) error {
+        switch e.Type {
+        case chat.EventTextDelta:
+            fmt.Print(e.Delta) // progressive output
+        case chat.EventComplete:
+            fmt.Println() // newline after stream ends
+        case chat.EventToolCallStart:
+            fmt.Printf("[calling tool: %s]\n", e.ToolCall.Name)
+        case chat.EventToolCallEnd:
+            fmt.Printf("[tool result: %s]\n", e.ToolCall.Result)
+        case chat.EventError:
+            return e.Error
+        }
+        return nil
+    })
+    if err != nil {
+        return err
+    }
+    _ = result // full assembled text, equal to concatenation of all EventTextDelta fragments
+}
+```
+
+**Callback contract:**
+
+- The callback is invoked synchronously for each event; it blocks the stream while executing.
+- Return a non-nil error from the callback to cancel the stream — that error is returned by `StreamChat`.
+- `StreamChat` returns the complete assembled response (concatenation of all `EventTextDelta` fragments) regardless of whether it exited early due to a callback error.
+
+**Tool calls during streaming:**
+
+Tool calls are handled transparently inside the `StreamChat` ReAct loop. The callback receives `EventToolCallStart` when execution begins and `EventToolCallEnd` (with the result populated) when it completes. `Config.ParallelTools` and `Config.MaxParallelTools` are respected.
+
+**`ProviderClaudeLocal` does not implement `StreamingChatClient`.** Use the type assertion pattern to handle this gracefully.
+
+### Streaming as the preferred path
+
+When building components that benefit from progressive output (TUI widgets, CLI answer commands, doc generators), prefer `StreamChat` over `Chat` and fall back gracefully:
+
+```go
+func queryAI(ctx context.Context, client chat.ChatClient, prompt string, deltaFn func(string)) (string, error) {
+    if streamer, ok := client.(chat.StreamingChatClient); ok {
+        return streamer.StreamChat(ctx, prompt, func(e chat.StreamEvent) error {
+            if e.Type == chat.EventTextDelta && deltaFn != nil {
+                deltaFn(e.Delta)
+            }
+            return nil
+        })
+    }
+
+    return client.Chat(ctx, prompt)
+}
+```
+
+This pattern is used by `pkg/docs` (`AskAI`) and `internal/generator` (`writeAIDocs`) so that all three streaming providers benefit automatically without callers needing to know which provider is active.
+
 ## Provider Reference
 
 ### Provider Constants
@@ -247,13 +318,13 @@ The default provider when `Config.Provider` is empty (and `AI_PROVIDER` env var 
 
 ### Capability Comparison
 
-| Provider | Tool Calling | Parallel Tools | Structured Output | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| **OpenAI** | ✓ | ✓ | ✓ JSON Schema | |
-| **Claude** | ✓ | ✓ | ✓ Tool-based | |
-| **Gemini** | ✓ | ✓ | ✓ JSON Schema | |
-| **Claude Local** | ✗ | ✗ | ✓ `--json-schema` | MCP tool support planned |
-| **OpenAI-Compatible** | ✓ | ✓ | ✓ JSON Schema | Backend-dependent |
+| Provider | Tool Calling | Parallel Tools | Structured Output | Streaming | Notes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **OpenAI** | ✓ | ✓ | ✓ JSON Schema | ✓ | |
+| **Claude** | ✓ | ✓ | ✓ Tool-based | ✓ | |
+| **Gemini** | ✓ | ✓ | ✓ JSON Schema | ✓ | |
+| **Claude Local** | ✗ | ✗ | ✓ `--json-schema` | ✗ | MCP tool support planned |
+| **OpenAI-Compatible** | ✓ | ✓ | ✓ JSON Schema | ✓ | Backend-dependent |
 
 ### ProviderClaudeLocal
 

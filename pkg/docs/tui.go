@@ -120,6 +120,8 @@ type Model struct {
 	askInput     textinput.Model
 	showAskInput bool
 	asking       bool
+	streaming    bool // true while streamed deltas are arriving
+	streamBuf    strings.Builder
 	askLogs      []string
 	askFunc      AskFunc
 
@@ -197,7 +199,10 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 }
 
 type Option func(*Model)
-type AskFunc func(question string, log func(string, logger.Level)) (string, error)
+
+// AskFunc is the callback signature for AI Q&A. logFn receives status messages;
+// deltaFn receives streamed text fragments as they arrive (may be nil).
+type AskFunc func(question string, logFn func(string, logger.Level), deltaFn func(string)) (string, error)
 
 func WithTitle(title string) Option {
 	return func(m *Model) {
@@ -246,6 +251,11 @@ type AskLogMsg struct {
 	Ch  <-chan string
 }
 
+type AskDeltaMsg struct {
+	Delta string
+	Ch    <-chan string
+}
+
 type LogFinishedMsg struct{}
 
 func waitForAskLog(ch <-chan string) tea.Cmd {
@@ -256,6 +266,17 @@ func waitForAskLog(ch <-chan string) tea.Cmd {
 		}
 
 		return AskLogMsg{Log: msg, Ch: ch}
+	}
+}
+
+func waitForAskDelta(ch <-chan string) tea.Cmd {
+	return func() tea.Msg {
+		delta, ok := <-ch
+		if !ok {
+			return nil
+		}
+
+		return AskDeltaMsg{Delta: delta, Ch: ch}
 	}
 }
 
@@ -356,6 +377,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
+	case AskDeltaMsg:
+		m.handleAskDelta(msg)
+
+		return m, waitForAskDelta(msg.Ch)
+
 	case AskLogMsg:
 		m.askLogs = append(m.askLogs, msg.Log)
 
@@ -370,8 +396,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) handleAskDelta(msg AskDeltaMsg) {
+	m.streaming = true
+	m.streamBuf.WriteString(msg.Delta)
+	// Show raw text while streaming — styled final render happens in handleAskResult.
+	m.content = m.streamBuf.String()
+	m.viewport.SetContent(m.content)
+	m.viewport.GotoBottom()
+	m.focus = focusContent
+}
+
 func (m *Model) handleAskResult(msg AskResultMsg) {
 	m.asking = false
+	m.streaming = false
+	m.streamBuf.Reset()
 
 	if msg.Err != nil {
 		m.content = fmt.Sprintf("\nError: %v\n", msg.Err)
@@ -470,25 +508,29 @@ func (m *Model) handleAskInputKey(msg tea.KeyMsg) tea.Cmd {
 	case "enter":
 		if m.askFunc != nil && m.askInput.Value() != "" {
 			m.asking = true
+			m.streaming = false
+			m.streamBuf.Reset()
 			m.showAskInput = false
-			// Trigger ask
 			question := m.askInput.Value()
 			m.askLogs = []string{}
 
 			logCh := make(chan string, logBufferSize)
+			deltaCh := make(chan string, logBufferSize)
 
-			// Ask Cmd
 			askCmd := func() tea.Msg {
-				ans, err := m.askFunc(question, func(s string, level logger.Level) {
-					logCh <- s
-				})
+				ans, err := m.askFunc(
+					question,
+					func(s string, level logger.Level) { logCh <- s },
+					func(delta string) { deltaCh <- delta },
+				)
 
 				close(logCh)
+				close(deltaCh)
 
 				return AskResultMsg{Response: ans, Err: err}
 			}
 
-			return tea.Batch(askCmd, waitForAskLog(logCh))
+			return tea.Batch(askCmd, waitForAskLog(logCh), waitForAskDelta(deltaCh))
 		}
 
 		m.showAskInput = false
@@ -914,7 +956,7 @@ func (m *Model) renderContent(height int) string {
 		)
 	}
 
-	if m.showAskInput || m.asking {
+	if m.showAskInput || (m.asking && !m.streaming) {
 		return m.renderAskInput(height)
 	}
 

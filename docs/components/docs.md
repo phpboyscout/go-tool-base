@@ -27,8 +27,9 @@ The generation engine is invoked via `generate docs`. It uses an agentic AI loop
 The run-time interface resides in the generated binary and provides:
 
 - **TUI Browser**: A Bubbles-based terminal UI for navigating embedded markdown. Features include split-pane view, asynchronous background search, and sidebar resizing.
-- **Chat Integration**: High-level unmarshaling of natural language queries into RAG (Retrieval-Augmented Generation) context using the embedded assets.
-- **AI Response Engine**: Specialized prompt engineering ensures high-quality, structured Markdown responses with clear hierarchies, headings, and lists.
+- **Chat Integration**: RAG (Retrieval-Augmented Generation) over the embedded assets — all documentation is injected into the system prompt for accurate, context-aware answers.
+- **Streaming Responses**: When the selected provider supports streaming (Claude, OpenAI, Gemini), the AI answer appears in the TUI viewport as it is generated rather than after a full round-trip. `ProviderClaudeLocal` falls back to a non-streaming response.
+- **AI Response Engine**: Specialized prompt engineering ensures high-quality Markdown responses with clear headings, lists, and consistent terminology.
 
 ## Integration Details
 

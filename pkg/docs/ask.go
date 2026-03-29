@@ -48,9 +48,10 @@ func GetAllMarkdownContent(fsys fs.FS) (string, error) {
 	return sb.String(), err
 }
 
-// AskAI encapsulates the logic to query the AI about the documentation.
-// logFn is optional, if provided it receives log output.
-func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, logFn func(string, logger.Level), providerOverride ...string) (string, error) {
+// AskAI queries the AI about the embedded documentation. If the provider supports
+// streaming, deltas are delivered via deltaFn as they arrive. logFn receives status
+// messages. Either callback may be nil.
+func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, logFn func(string, logger.Level), deltaFn func(string), providerOverride ...string) (string, error) {
 	logFn("Collating documentation...", logger.InfoLevel)
 
 	content, err := GetAllMarkdownContent(fsys)
@@ -70,15 +71,11 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 		"5. Answer accurately based ONLY on the documentation below. If the answer is not in the documentation, state that clearly.\n\n"+
 		"--- Documentation ---\n%s", content)
 
-	// Resolve Provider
 	provider := ResolveProvider(p, providerOverride...)
 
 	cfg := chat.Config{
-		Provider:          provider,
-		SystemPrompt:      sysPrompt,
-		ResponseSchema:    chat.GenerateSchema[AskResponse](),
-		SchemaName:        "documentation_answer",
-		SchemaDescription: "An answer to the user's question about the documentation",
+		Provider:     provider,
+		SystemPrompt: sysPrompt,
 	}
 
 	logFn("Starting Chat...", logger.DebugLevel)
@@ -90,12 +87,17 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 
 	logFn(fmt.Sprintf("Asking AI: %s", question), logger.DebugLevel)
 
-	var resp AskResponse
-	if err := client.Ask(ctx, question, &resp); err != nil {
-		return "", err
+	if streamer, ok := client.(chat.StreamingChatClient); ok {
+		return streamer.StreamChat(ctx, question, func(e chat.StreamEvent) error {
+			if e.Type == chat.EventTextDelta && deltaFn != nil {
+				deltaFn(e.Delta)
+			}
+
+			return nil
+		})
 	}
 
-	return resp.Answer, nil
+	return client.Chat(ctx, question)
 }
 
 // ResolveProvider determines the AI provider to use based on override, config, and defaults.

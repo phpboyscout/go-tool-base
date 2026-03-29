@@ -202,7 +202,23 @@ func (g *Generator) writeAIDocs(ctx context.Context, client chat.ChatClient, con
 
 	g.props.Logger.Info("Requesting documentation from AI...")
 
-	docsContent, err := client.Chat(ctx, userPrompt)
+	var (
+		docsContent string
+		err         error
+	)
+
+	if streamer, ok := client.(chat.StreamingChatClient); ok {
+		docsContent, err = streamer.StreamChat(ctx, userPrompt, func(e chat.StreamEvent) error {
+			if e.Type == chat.EventTextDelta {
+				g.props.Logger.Debug("AI delta", "len", len(e.Delta))
+			}
+
+			return nil
+		})
+	} else {
+		docsContent, err = client.Chat(ctx, userPrompt)
+	}
+
 	if err != nil {
 		return errors.Newf("AI request failed: %w", err)
 	}
