@@ -539,6 +539,7 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 	case props.Tool.Telemetry.OTelEndpoint != "":
 		opts := []telemetry.OTelOption{
 			telemetry.WithOTelLogger(props.Logger),
+			telemetry.WithOTelService(props.Tool.Name, props.Version.GetVersion()),
 		}
 
 		if props.Tool.Telemetry.OTelInsecure {

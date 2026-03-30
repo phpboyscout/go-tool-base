@@ -41,6 +41,8 @@ const (
 type TelemetryCollector interface {
 	// Track records a telemetry event. No-op when the collector is disabled.
 	Track(eventType EventType, name string, extra map[string]string)
+	// TrackCommand records a command invocation with duration and exit code.
+	TrackCommand(name string, durationMs int64, exitCode int, extra map[string]string)
 	// Flush sends all buffered events to the backend and clears the buffer.
 	// Checks for and sends spill files before flushing the current buffer.
 	Flush(ctx context.Context) error

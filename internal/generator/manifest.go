@@ -168,11 +168,18 @@ type ManifestFeature struct {
 	Enabled bool   `yaml:"enabled"`
 }
 
+// ManifestTelemetry holds telemetry configuration for generated tools.
+type ManifestTelemetry struct {
+	Endpoint     string `yaml:"endpoint,omitempty"`
+	OTelEndpoint string `yaml:"otel_endpoint,omitempty"`
+}
+
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`
 	Description MultilineString   `yaml:"description"`
 	Features    []ManifestFeature `yaml:"features"`
 	Help        ManifestHelp      `yaml:"help,omitempty"`
+	Telemetry   ManifestTelemetry `yaml:"telemetry,omitempty"`
 }
 
 type ManifestHelp struct {

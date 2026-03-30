@@ -31,19 +31,21 @@ var skeletonGitHubAssets embed.FS
 var skeletonGitLabAssets embed.FS
 
 type SkeletonConfig struct {
-	Name         string
-	Repo         string
-	Host         string
-	Description  string
-	Path         string
-	GoVersion    string // overrides autodetected version when set
-	Features     []ManifestFeature
-	Private      bool   // true if the repository requires authentication to access
-	HelpType     string // "slack", "teams", or ""
-	SlackChannel string
-	SlackTeam    string
-	TeamsChannel string
-	TeamsTeam    string
+	Name                  string
+	Repo                  string
+	Host                  string
+	Description           string
+	Path                  string
+	GoVersion             string // overrides autodetected version when set
+	Features              []ManifestFeature
+	Private               bool   // true if the repository requires authentication to access
+	HelpType              string // "slack", "teams", or ""
+	SlackChannel          string
+	SlackTeam             string
+	TeamsChannel          string
+	TeamsTeam             string
+	TelemetryEndpoint     string // populated from manifest telemetry.endpoint
+	TelemetryOTelEndpoint string // populated from manifest telemetry.otel_endpoint
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -171,43 +173,47 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 	}
 
 	data := struct {
-		Name              string
-		Repo              string
-		Host              string
-		ModulePath        string
-		Description       string
-		Org               string
-		RepoName          string
-		ReleaseProvider   string
-		GoToolBaseVersion string
-		GoVersion         string
-		DisabledFeatures  []string
-		EnabledFeatures   []string
-		Private           bool
-		HelpType          string
-		SlackChannel      string
-		SlackTeam         string
-		TeamsChannel      string
-		TeamsTeam         string
+		Name                  string
+		Repo                  string
+		Host                  string
+		ModulePath            string
+		Description           string
+		Org                   string
+		RepoName              string
+		ReleaseProvider       string
+		GoToolBaseVersion     string
+		GoVersion             string
+		DisabledFeatures      []string
+		EnabledFeatures       []string
+		Private               bool
+		HelpType              string
+		SlackChannel          string
+		SlackTeam             string
+		TeamsChannel          string
+		TeamsTeam             string
+		TelemetryEndpoint     string
+		TelemetryOTelEndpoint string
 	}{
-		Name:              config.Name,
-		Repo:              config.Repo,
-		Host:              config.Host,
-		ModulePath:        fmt.Sprintf("%s/%s", config.Host, config.Repo),
-		Description:       config.Description,
-		Org:               org,
-		RepoName:          repoName,
-		ReleaseProvider:   releaseProviderForHost(config.Host),
-		GoToolBaseVersion: g.currentVersion(),
-		GoVersion:         resolveGoVersion(config.GoVersion),
-		DisabledFeatures:  calculateDisabledFeatures(config.Features),
-		EnabledFeatures:   calculateEnabledFeatures(config.Features),
-		Private:           config.Private,
-		HelpType:          config.HelpType,
-		SlackChannel:      config.SlackChannel,
-		SlackTeam:         config.SlackTeam,
-		TeamsChannel:      config.TeamsChannel,
-		TeamsTeam:         config.TeamsTeam,
+		Name:                  config.Name,
+		Repo:                  config.Repo,
+		Host:                  config.Host,
+		ModulePath:            fmt.Sprintf("%s/%s", config.Host, config.Repo),
+		Description:           config.Description,
+		Org:                   org,
+		RepoName:              repoName,
+		ReleaseProvider:       releaseProviderForHost(config.Host),
+		GoToolBaseVersion:     g.currentVersion(),
+		GoVersion:             resolveGoVersion(config.GoVersion),
+		DisabledFeatures:      calculateDisabledFeatures(config.Features),
+		EnabledFeatures:       calculateEnabledFeatures(config.Features),
+		Private:               config.Private,
+		HelpType:              config.HelpType,
+		SlackChannel:          config.SlackChannel,
+		SlackTeam:             config.SlackTeam,
+		TeamsChannel:          config.TeamsChannel,
+		TeamsTeam:             config.TeamsTeam,
+		TelemetryEndpoint:     config.TelemetryEndpoint,
+		TelemetryOTelEndpoint: config.TelemetryOTelEndpoint,
 	}
 
 	// Load existing project-level hashes so we can detect customised files.
@@ -309,43 +315,47 @@ func (g *Generator) loadProjectFileHashes(projectPath string) map[string]string 
 }
 
 func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
-	Name              string
-	Repo              string
-	Host              string
-	ModulePath        string
-	Description       string
-	Org               string
-	RepoName          string
-	ReleaseProvider   string
-	GoToolBaseVersion string
-	GoVersion         string
-	DisabledFeatures  []string
-	EnabledFeatures   []string
-	Private           bool
-	HelpType          string
-	SlackChannel      string
-	SlackTeam         string
-	TeamsChannel      string
-	TeamsTeam         string
+	Name                  string
+	Repo                  string
+	Host                  string
+	ModulePath            string
+	Description           string
+	Org                   string
+	RepoName              string
+	ReleaseProvider       string
+	GoToolBaseVersion     string
+	GoVersion             string
+	DisabledFeatures      []string
+	EnabledFeatures       []string
+	Private               bool
+	HelpType              string
+	SlackChannel          string
+	SlackTeam             string
+	TeamsChannel          string
+	TeamsTeam             string
+	TelemetryEndpoint     string
+	TelemetryOTelEndpoint string
 }) error {
 	goFiles := map[string]*jen.File{
 		filepath.Join("cmd", data.Name, "main.go"): templates.SkeletonMain(data.ModulePath),
 		"internal/version/version.go":              templates.SkeletonInternalVersion(data.ModulePath),
 		"pkg/cmd/root/cmd.go": templates.SkeletonRoot(templates.SkeletonRootData{
-			Name:             data.Name,
-			Description:      data.Description,
-			ReleaseProvider:  data.ReleaseProvider,
-			Host:             data.Host,
-			Org:              data.Org,
-			RepoName:         data.RepoName,
-			Private:          data.Private,
-			DisabledFeatures: data.DisabledFeatures,
-			EnabledFeatures:  data.EnabledFeatures,
-			HelpType:         data.HelpType,
-			SlackChannel:     data.SlackChannel,
-			SlackTeam:        data.SlackTeam,
-			TeamsChannel:     data.TeamsChannel,
-			TeamsTeam:        data.TeamsTeam,
+			Name:                  data.Name,
+			Description:           data.Description,
+			ReleaseProvider:       data.ReleaseProvider,
+			Host:                  data.Host,
+			Org:                   data.Org,
+			RepoName:              data.RepoName,
+			Private:               data.Private,
+			DisabledFeatures:      data.DisabledFeatures,
+			EnabledFeatures:       data.EnabledFeatures,
+			HelpType:              data.HelpType,
+			SlackChannel:          data.SlackChannel,
+			SlackTeam:             data.SlackTeam,
+			TeamsChannel:          data.TeamsChannel,
+			TeamsTeam:             data.TeamsTeam,
+			TelemetryEndpoint:     data.TelemetryEndpoint,
+			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
 		}),
 	}
 
@@ -651,7 +661,7 @@ func calculateDisabledFeatures(features []ManifestFeature) []string {
 // calculateEnabledFeatures extracts opt-in features from the feature list.
 // These features are off by default and must be explicitly enabled.
 func calculateEnabledFeatures(features []ManifestFeature) []string {
-	optInFeatures := []string{"ai", "config"}
+	optInFeatures := []string{"ai", "config", "telemetry"}
 	enabled := []string{}
 
 	featureMap := make(map[string]bool)

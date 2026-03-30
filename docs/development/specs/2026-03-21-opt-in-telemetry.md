@@ -1298,9 +1298,9 @@ p := &props.Props{
             props.Enable(props.TelemetryCmd), // collect anonymous framework usage
         ),
         Telemetry: props.TelemetryConfig{
-            OTelEndpoint: os.Getenv("GTB_OTEL_ENDPOINT"), // Grafana Cloud OTLP gateway
+            OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
             OTelHeaders: map[string]string{
-                "Authorization": "Basic " + os.Getenv("GTB_OTEL_AUTH"),
+                "Authorization": "Basic " + otelAuth, // injected via ldflags
             },
         },
     },
@@ -1308,14 +1308,19 @@ p := &props.Props{
 }
 ```
 
-**Grafana Cloud configuration**: The GTB binary uses Grafana Cloud's OTLP gateway for telemetry collection. The endpoint and auth credentials are injected via environment variables at build/release time rather than hardcoded, to avoid leaking credentials in the source. The Grafana Cloud free tier provides 50 GB/month log ingestion with 14-day retention — more than sufficient for CLI telemetry.
+**Compile-time credential injection**: The GTB binary uses Grafana Cloud's OTLP gateway for telemetry collection. The endpoint is hardcoded (it's not a secret), while the auth token is injected as a package-level variable via `-ldflags -X` at compile time by goreleaser — it never appears in source or environment variables at runtime. This keeps the binary self-contained.
 
-| Variable | Value |
-|----------|-------|
-| `GTB_OTEL_ENDPOINT` | `otlp-gateway-prod-<region>.grafana.net/otlp` (region TBD based on Grafana Cloud instance) |
-| `GTB_OTEL_AUTH` | Base64-encoded `<instanceID>:<apiKey>` from Grafana Cloud service account |
+```go
+// internal/cmd/root/root.go — injected via ldflags
+var otelAuth string // Base64-encoded "<instanceID>:<apiKey>"
+```
 
-These values are set in the CI/release pipeline and embedded at build time via ldflags or environment. They are **not** committed to source control.
+Goreleaser ldflags (both build targets):
+```
+-X github.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+```
+
+The `GTB_OTEL_AUTH` CI secret must be configured in the GitHub repository settings. The value is `base64("<instanceID>:<serviceAccountToken>")`. The Grafana Cloud free tier provides 50 GB/month log ingestion with 14-day retention — more than sufficient for CLI telemetry.
 
 ---
 

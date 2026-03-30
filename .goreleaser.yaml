@@ -22,6 +22,7 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X github.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X github.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
+      - -X github.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
   - id: gtb
     main: ./cmd/gtb
     env:
@@ -38,6 +39,7 @@ builds:
     ldflags:
       - -s -w
       - -X github.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X github.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X github.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
+      - -X github.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
 
 notarize:
   macos:

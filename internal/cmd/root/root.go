@@ -2,6 +2,7 @@ package root
 
 import (
 	"embed"
+	"encoding/base64"
 	"os"
 
 	"github.com/spf13/afero"
@@ -16,10 +17,28 @@ import (
 	"github.com/phpboyscout/go-tool-base/internal/cmd/generate"
 	"github.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"github.com/phpboyscout/go-tool-base/internal/cmd/remove"
+
+	// Register telemetry initialiser with the setup system.
+	_ "github.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
 )
 
 //go:embed all:assets
 var assets embed.FS
+
+const otelInstanceID = "1576673"
+
+// otelAuth is injected at compile time via ldflags as a pre-encoded
+// base64("<instanceID>:<token>") string. For local development, the
+// OTEL_API_KEY env var can supply the raw token — init() encodes it.
+//
+//nolint:gochecknoglobals // compile-time injection requires package-level var
+var otelAuth string
+
+func init() {
+	if raw := os.Getenv("OTEL_API_KEY"); raw != "" {
+		otelAuth = base64.StdEncoding.EncodeToString([]byte(otelInstanceID + ":" + raw))
+	}
+}
 
 func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
 	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
@@ -37,7 +56,14 @@ func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
 			Features: props.SetFeatures(
 				props.Disable(props.InitCmd),
 				props.Enable(props.AiCmd),
+				props.Enable(props.TelemetryCmd),
 			),
+			Telemetry: props.TelemetryConfig{
+				OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
+				OTelHeaders: map[string]string{
+					"Authorization": "Basic " + otelAuth,
+				},
+			},
 		},
 		Logger:  l,
 		FS:      afero.NewOsFs(),

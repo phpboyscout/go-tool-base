@@ -13,21 +13,23 @@ type SkeletonSubcommand struct {
 }
 
 type SkeletonRootData struct {
-	Name             string
-	Description      string
-	ReleaseProvider  string
-	Host             string
-	Org              string
-	RepoName         string
-	Private          bool
-	DisabledFeatures []string
-	EnabledFeatures  []string
-	HelpType         string // "slack", "teams", or ""
-	SlackChannel     string
-	SlackTeam        string
-	TeamsChannel     string
-	TeamsTeam        string
-	Subcommands      []SkeletonSubcommand
+	Name                  string
+	Description           string
+	ReleaseProvider       string
+	Host                  string
+	Org                   string
+	RepoName              string
+	Private               bool
+	DisabledFeatures      []string
+	EnabledFeatures       []string
+	HelpType              string // "slack", "teams", or ""
+	SlackChannel          string
+	SlackTeam             string
+	TeamsChannel          string
+	TeamsTeam             string
+	TelemetryEndpoint     string
+	TelemetryOTelEndpoint string
+	Subcommands           []SkeletonSubcommand
 }
 
 func SkeletonRoot(data SkeletonRootData) *jen.File {
@@ -36,6 +38,24 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	f.Comment("//go:embed assets/*")
 	f.Var().Id("assets").Qual("embed", "FS")
+
+	// When telemetry is configured, emit the otelAuth var and init() override.
+	if data.TelemetryEndpoint != "" || data.TelemetryOTelEndpoint != "" {
+		f.Comment("otelAuth is injected at compile time via ldflags.")
+		f.Comment("Falls back to OTEL_API_KEY env var for local development.")
+		f.Comment("")
+		f.Comment("nolint:gochecknoglobals // compile-time injection requires package-level var")
+		f.Var().Id("otelAuth").String()
+
+		f.Func().Id("init").Params().Block(
+			jen.If(
+				jen.Id("v").Op(":=").Qual("os", "Getenv").Call(jen.Lit("OTEL_API_KEY")),
+				jen.Id("v").Op("!=").Lit(""),
+			).Block(
+				jen.Id("otelAuth").Op("=").Id("v"),
+			),
+		)
+	}
 
 	f.ImportAlias("github.com/phpboyscout/go-tool-base/pkg/cmd/root", "gtbRoot")
 
@@ -112,6 +132,24 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		toolDict[jen.Id("Features")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "SetFeatures").Call(buildFeatures(data)...)
 	}
 
+	telemetryDict := jen.Dict{}
+	hasTelemetry := false
+
+	if data.TelemetryOTelEndpoint != "" {
+		telemetryDict[jen.Id("OTelEndpoint")] = jen.Lit(data.TelemetryOTelEndpoint)
+		telemetryDict[jen.Id("OTelHeaders")] = jen.Map(jen.String()).String().Values(jen.Dict{
+			jen.Lit("Authorization"): jen.Lit("Basic ").Op("+").Id("otelAuth"),
+		})
+		hasTelemetry = true
+	} else if data.TelemetryEndpoint != "" {
+		telemetryDict[jen.Id("Endpoint")] = jen.Lit(data.TelemetryEndpoint)
+		hasTelemetry = true
+	}
+
+	if hasTelemetry {
+		toolDict[jen.Id("Telemetry")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict)
+	}
+
 	return toolDict
 }
 
@@ -164,6 +202,8 @@ func getFeatureCmd(feature string) jen.Code {
 		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "AiCmd")
 	case "config":
 		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "ConfigCmd")
+	case "telemetry":
+		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "TelemetryCmd")
 	}
 
 	return nil

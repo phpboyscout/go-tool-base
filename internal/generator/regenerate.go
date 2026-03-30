@@ -228,21 +228,23 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 	releaseProvider, org, repoName := m.GetReleaseSource()
 
 	return templates.SkeletonRootData{
-		Name:             m.Properties.Name,
-		Description:      string(m.Properties.Description),
-		ReleaseProvider:  releaseProvider,
-		Host:             m.ReleaseSource.Host,
-		Org:              org,
-		RepoName:         repoName,
-		Private:          m.ReleaseSource.Private,
-		DisabledFeatures: calculateDisabledFeatures(m.Properties.Features),
-		EnabledFeatures:  calculateEnabledFeatures(m.Properties.Features),
-		HelpType:         m.Properties.Help.Type,
-		SlackChannel:     m.Properties.Help.SlackChannel,
-		SlackTeam:        m.Properties.Help.SlackTeam,
-		TeamsChannel:     m.Properties.Help.TeamsChannel,
-		TeamsTeam:        m.Properties.Help.TeamsTeam,
-		Subcommands:      subcommands,
+		Name:                  m.Properties.Name,
+		Description:           string(m.Properties.Description),
+		ReleaseProvider:       releaseProvider,
+		Host:                  m.ReleaseSource.Host,
+		Org:                   org,
+		RepoName:              repoName,
+		Private:               m.ReleaseSource.Private,
+		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
+		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
+		HelpType:              m.Properties.Help.Type,
+		SlackChannel:          m.Properties.Help.SlackChannel,
+		SlackTeam:             m.Properties.Help.SlackTeam,
+		TeamsChannel:          m.Properties.Help.TeamsChannel,
+		TeamsTeam:             m.Properties.Help.TeamsTeam,
+		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
+		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
+		Subcommands:           subcommands,
 	}
 }
 
@@ -321,43 +323,47 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 	// Reconstruct template data from the manifest. GoVersion is not persisted
 	// so we fall back to the current runtime version.
 	data := struct {
-		Name              string
-		Repo              string
-		Host              string
-		ModulePath        string
-		Description       string
-		Org               string
-		RepoName          string
-		ReleaseProvider   string
-		GoToolBaseVersion string
-		GoVersion         string
-		DisabledFeatures  []string
-		EnabledFeatures   []string
-		Private           bool
-		HelpType          string
-		SlackChannel      string
-		SlackTeam         string
-		TeamsChannel      string
-		TeamsTeam         string
+		Name                  string
+		Repo                  string
+		Host                  string
+		ModulePath            string
+		Description           string
+		Org                   string
+		RepoName              string
+		ReleaseProvider       string
+		GoToolBaseVersion     string
+		GoVersion             string
+		DisabledFeatures      []string
+		EnabledFeatures       []string
+		Private               bool
+		HelpType              string
+		SlackChannel          string
+		SlackTeam             string
+		TeamsChannel          string
+		TeamsTeam             string
+		TelemetryEndpoint     string
+		TelemetryOTelEndpoint string
 	}{
-		Name:              m.Properties.Name,
-		Repo:              org + "/" + repoName,
-		Host:              m.ReleaseSource.Host,
-		ModulePath:        m.ReleaseSource.Host + "/" + org + "/" + repoName,
-		Description:       string(m.Properties.Description),
-		Org:               org,
-		RepoName:          repoName,
-		ReleaseProvider:   m.ReleaseSource.Type,
-		GoToolBaseVersion: g.currentVersion(),
-		GoVersion:         resolveGoVersion(""),
-		DisabledFeatures:  calculateDisabledFeatures(m.Properties.Features),
-		EnabledFeatures:   calculateEnabledFeatures(m.Properties.Features),
-		Private:           m.ReleaseSource.Private,
-		HelpType:          m.Properties.Help.Type,
-		SlackChannel:      m.Properties.Help.SlackChannel,
-		SlackTeam:         m.Properties.Help.SlackTeam,
-		TeamsChannel:      m.Properties.Help.TeamsChannel,
-		TeamsTeam:         m.Properties.Help.TeamsTeam,
+		Name:                  m.Properties.Name,
+		Repo:                  org + "/" + repoName,
+		Host:                  m.ReleaseSource.Host,
+		ModulePath:            m.ReleaseSource.Host + "/" + org + "/" + repoName,
+		Description:           string(m.Properties.Description),
+		Org:                   org,
+		RepoName:              repoName,
+		ReleaseProvider:       m.ReleaseSource.Type,
+		GoToolBaseVersion:     g.currentVersion(),
+		GoVersion:             resolveGoVersion(""),
+		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
+		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
+		Private:               m.ReleaseSource.Private,
+		HelpType:              m.Properties.Help.Type,
+		SlackChannel:          m.Properties.Help.SlackChannel,
+		SlackTeam:             m.Properties.Help.SlackTeam,
+		TeamsChannel:          m.Properties.Help.TeamsChannel,
+		TeamsTeam:             m.Properties.Help.TeamsTeam,
+		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
+		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 	}
 
 	storedHashes := m.Hashes

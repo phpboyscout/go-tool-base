@@ -64,6 +64,7 @@ jobs:
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          GTB_OTEL_AUTH: ${{ secrets.GTB_OTEL_AUTH }}
         with:
           distribution: goreleaser
           version: "~> v2"

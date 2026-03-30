@@ -9,8 +9,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/setup"
 	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
@@ -143,13 +145,17 @@ func newResetCmd(p *props.Props) *cobra.Command {
 }
 
 // setTelemetryEnabled writes the telemetry.enabled config value and persists to disk.
+// If no config file exists (e.g. tools that disable InitCmd), the default config
+// directory and file are created automatically.
 func setTelemetryEnabled(p *props.Props, enabled bool) error {
 	p.Config.Set("telemetry.enabled", enabled)
 
 	v := p.Config.GetViper()
+
 	if err := v.WriteConfig(); err != nil {
-		if err2 := v.SafeWriteConfig(); err2 != nil {
-			return errors.Wrap(err2, "failed to write config")
+		// No config file loaded — create the default one
+		if err := ensureConfigFile(p, v); err != nil {
+			return err
 		}
 	}
 
@@ -161,6 +167,21 @@ func setTelemetryEnabled(p *props.Props, enabled bool) error {
 	}
 
 	return nil
+}
+
+// ensureConfigFile creates the default config directory and writes the config
+// file if one doesn't exist. This handles tools that disable InitCmd and
+// therefore have no init flow to create the config file.
+func ensureConfigFile(p *props.Props, v *viper.Viper) error {
+	configDir := setup.GetDefaultConfigDir(p.FS, p.Tool.Name)
+	if configDir == "" {
+		return errors.New("unable to determine config directory")
+	}
+
+	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
+	v.SetConfigFile(configFile)
+
+	return errors.Wrap(v.WriteConfig(), "failed to write config")
 }
 
 // buildDeletionRequestor constructs the appropriate DeletionRequestor.

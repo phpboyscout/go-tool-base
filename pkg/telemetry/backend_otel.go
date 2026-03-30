@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -9,6 +10,8 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -17,9 +20,11 @@ import (
 type OTelOption func(*otelConfig)
 
 type otelConfig struct {
-	headers  map[string]string
-	insecure bool
-	log      logger.Logger
+	headers     map[string]string
+	insecure    bool
+	log         logger.Logger
+	serviceName string
+	serviceVer  string
 }
 
 // WithOTelHeaders sets HTTP headers sent with every OTLP request (e.g. auth tokens).
@@ -37,13 +42,24 @@ func WithOTelLogger(l logger.Logger) OTelOption {
 	return func(c *otelConfig) { c.log = l }
 }
 
+// WithOTelService sets the service.name and service.version resource attributes.
+// These appear as labels in Grafana/Loki and identify the tool in the telemetry data.
+func WithOTelService(name, version string) OTelOption {
+	return func(c *otelConfig) {
+		c.serviceName = name
+		c.serviceVer = version
+	}
+}
+
 type otelBackend struct {
 	provider *sdklog.LoggerProvider
 }
 
 // NewOTelBackend creates a Backend that exports events as OTel log records via OTLP/HTTP.
-// endpoint is the base URL of the OTLP HTTP endpoint
-// (e.g. "https://collector.example.com:4318").
+// endpoint is the full URL of the OTLP HTTP endpoint
+// (e.g. "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp").
+// The URL is parsed into host and path components — the SDK appends /v1/logs
+// to the path automatically.
 // A custom OTel error handler is registered to route SDK errors to the provided logger.
 func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (Backend, error) {
 	cfg := &otelConfig{}
@@ -57,16 +73,9 @@ func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (B
 		}))
 	}
 
-	exporterOpts := []otlploghttp.Option{
-		otlploghttp.WithEndpoint(endpoint),
-	}
-
-	if cfg.insecure {
-		exporterOpts = append(exporterOpts, otlploghttp.WithInsecure())
-	}
-
-	if len(cfg.headers) > 0 {
-		exporterOpts = append(exporterOpts, otlploghttp.WithHeaders(cfg.headers))
+	exporterOpts, err := buildOTelExporterOpts(endpoint, cfg)
+	if err != nil {
+		return nil, err
 	}
 
 	exporter, err := otlploghttp.New(ctx, exporterOpts...)
@@ -74,11 +83,47 @@ func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (B
 		return nil, errors.Wrap(err, "creating OTLP log exporter")
 	}
 
-	provider := sdklog.NewLoggerProvider(
+	providerOpts := []sdklog.LoggerProviderOption{
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter)),
-	)
+	}
+
+	if cfg.serviceName != "" {
+		res := resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName(cfg.serviceName),
+			semconv.ServiceVersion(cfg.serviceVer),
+		)
+		providerOpts = append(providerOpts, sdklog.WithResource(res))
+	}
+
+	provider := sdklog.NewLoggerProvider(providerOpts...)
 
 	return &otelBackend{provider: provider}, nil
+}
+
+func buildOTelExporterOpts(endpoint string, cfg *otelConfig) ([]otlploghttp.Option, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing OTLP endpoint URL")
+	}
+
+	exporterOpts := []otlploghttp.Option{
+		otlploghttp.WithEndpoint(u.Host),
+	}
+
+	// Append /v1/logs to the base path so the SDK sends to the correct route.
+	urlPath := u.Path + "/v1/logs"
+	exporterOpts = append(exporterOpts, otlploghttp.WithURLPath(urlPath))
+
+	if u.Scheme == "http" || cfg.insecure {
+		exporterOpts = append(exporterOpts, otlploghttp.WithInsecure())
+	}
+
+	if len(cfg.headers) > 0 {
+		exporterOpts = append(exporterOpts, otlploghttp.WithHeaders(cfg.headers))
+	}
+
+	return exporterOpts, nil
 }
 
 func (o *otelBackend) Send(ctx context.Context, events []Event) error {
@@ -90,12 +135,17 @@ func (o *otelBackend) Send(ctx context.Context, events []Event) error {
 		rec.SetSeverity(log.SeverityInfo)
 		rec.SetBody(log.StringValue(e.Name))
 		rec.AddAttributes(
+			log.String("event.name", e.Name),
 			log.String("event.type", string(e.Type)),
 			log.String("tool.name", e.ToolName),
 			log.String("tool.version", e.Version),
 			log.String("host.arch", e.Arch),
 			log.String("os.type", e.OS),
+			log.String("os.version", e.OSVersion),
+			log.String("go.version", e.GoVersion),
 			log.String("machine.id", e.MachineID),
+			log.Int64("command.duration_ms", e.DurationMs),
+			log.Int("command.exit_code", e.ExitCode),
 		)
 
 		for k, v := range e.Metadata {

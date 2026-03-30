@@ -29,15 +29,19 @@ const (
 
 // Event represents a single telemetry event.
 type Event struct {
-	Timestamp time.Time         `json:"timestamp"`
-	Type      EventType         `json:"type"`
-	Name      string            `json:"name"`
-	MachineID string            `json:"machine_id"`
-	ToolName  string            `json:"tool_name"`
-	Version   string            `json:"version"`
-	OS        string            `json:"os"`
-	Arch      string            `json:"arch"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
+	Timestamp  time.Time         `json:"timestamp"`
+	Type       EventType         `json:"type"`
+	Name       string            `json:"name"`
+	MachineID  string            `json:"machine_id"`
+	ToolName   string            `json:"tool_name"`
+	Version    string            `json:"version"`
+	OS         string            `json:"os"`
+	Arch       string            `json:"arch"`
+	GoVersion  string            `json:"go_version"`
+	OSVersion  string            `json:"os_version"`
+	DurationMs int64             `json:"duration_ms,omitempty"`
+	ExitCode   int               `json:"exit_code,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
 // Config holds runtime telemetry configuration read from the user's config file.
@@ -59,6 +63,8 @@ type Collector struct {
 	toolName     string
 	version      string
 	machineID    string
+	goVersion    string
+	osVersion    string
 	metadata     map[string]string
 	buffer       []Event
 	mu           sync.Mutex
@@ -85,6 +91,8 @@ func NewCollector(cfg Config, backend Backend, toolName, version string, metadat
 		toolName:     toolName,
 		version:      version,
 		machineID:    HashedMachineID(),
+		goVersion:    runtime.Version(),
+		osVersion:    osVersion(),
 		metadata:     metadata,
 		log:          log,
 		dataDir:      dataDir,
@@ -116,7 +124,44 @@ func (c *Collector) Track(eventType props.EventType, name string, extra map[stri
 		Version:   c.version,
 		OS:        runtime.GOOS,
 		Arch:      runtime.GOARCH,
+		GoVersion: c.goVersion,
+		OSVersion: c.osVersion,
 		Metadata:  merged,
+	})
+
+	if len(c.buffer) >= c.maxBuffer {
+		c.spillToDisk()
+	}
+}
+
+// TrackCommand records a command invocation event with duration and exit code.
+// This is a convenience wrapper around Track for command lifecycle events.
+func (c *Collector) TrackCommand(name string, durationMs int64, exitCode int, extra map[string]string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.backend == nil {
+		return
+	}
+
+	merged := make(map[string]string, len(c.metadata)+len(extra))
+	maps.Copy(merged, c.metadata)
+	maps.Copy(merged, extra)
+
+	c.buffer = append(c.buffer, Event{
+		Timestamp:  time.Now().UTC(),
+		Type:       EventType(props.EventCommandInvocation),
+		Name:       name,
+		MachineID:  c.machineID,
+		ToolName:   c.toolName,
+		Version:    c.version,
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
+		GoVersion:  c.goVersion,
+		OSVersion:  c.osVersion,
+		DurationMs: durationMs,
+		ExitCode:   exitCode,
+		Metadata:   merged,
 	})
 
 	if len(c.buffer) >= c.maxBuffer {
