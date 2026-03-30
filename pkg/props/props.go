@@ -20,6 +20,7 @@ type Props struct {
 	FS           afero.Fs
 	Version      version.Version
 	ErrorHandler errorhandling.ErrorHandler
+	Collector    TelemetryCollector // always non-nil; noop when telemetry disabled
 }
 
 // GetLogger returns the application logger.

@@ -7,7 +7,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/njayp/ophis"
 
@@ -15,12 +17,14 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/docs"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/doctor"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/initialise"
+	cmdtelemetry "github.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/version"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
 
 	"github.com/charmbracelet/huh"
 	"github.com/cockroachdb/errors"
@@ -28,6 +32,9 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
+
+// Compile-time check: *telemetry.Collector implements props.TelemetryCollector.
+var _ p.TelemetryCollector = (*telemetry.Collector)(nil)
 
 // ErrUpdateComplete is returned by PersistentPreRunE when a self-update
 // has completed successfully. The Execute wrapper handles this by exiting
@@ -318,6 +325,25 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		PersistentPreRunE: newRootPreRunE(props, configPaths, mcpLogLevel, state),
 	}
 
+	// Register telemetry flush on process exit. OnFinalize runs regardless of
+	// whether subcommands define PostRunE — unlike PersistentPostRunE.
+	cobra.OnFinalize(func() {
+		if props.Collector == nil {
+			return
+		}
+
+		// Re-check enabled state — if user ran `telemetry disable` mid-session,
+		// respect the withdrawal of consent and do not flush.
+		if props.Config != nil && !props.Config.GetBool("telemetry.enabled") {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
+		defer cancel()
+
+		_ = props.Collector.Flush(ctx)
+	})
+
 	setupRootFlags(rootCmd, props, state)
 	registerFeatureCommands(rootCmd, props, mcpLogLevel)
 
@@ -370,6 +396,9 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 
 		// Configure logging based on flags and config
 		configureLogging(props, flags, cfg, mcpLogLevel)
+
+		// Build and wire telemetry collector
+		props.Collector = buildTelemetryCollector(cmd.Context(), props)
 
 		// Check for updates
 		if props.Tool.IsDisabled(p.UpdateCmd) {
@@ -443,6 +472,95 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 
 	if props.Tool.IsEnabled(p.ConfigCmd) {
 		setup.AddCommandWithMiddleware(rootCmd, cmdconfig.NewCmdConfig(props), p.ConfigCmd)
+	}
+
+	if props.Tool.IsEnabled(p.TelemetryCmd) {
+		setup.AddCommandWithMiddleware(rootCmd, cmdtelemetry.NewCmdTelemetry(props), p.TelemetryCmd)
+	}
+}
+
+const telemetryFlushTimeout = 2 * time.Second
+
+// buildTelemetryCollector creates the appropriate telemetry collector based on
+// feature flags, user config, environment variables, and tool-author settings.
+func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Collector {
+	dataDir := telemetry.ResolveDataDir(props)
+
+	if props.Tool.IsDisabled(p.TelemetryCmd) {
+		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
+			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce)
+	}
+
+	cfg := telemetry.Config{
+		Enabled:   props.Config.GetBool("telemetry.enabled"),
+		LocalOnly: props.Config.GetBool("telemetry.local_only"),
+	}
+
+	// Env var override (non-interactive bypass — tool-name-agnostic)
+	if val, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
+		cfg.Enabled, _ = strconv.ParseBool(val)
+	}
+
+	if val, ok := os.LookupEnv("TELEMETRY_LOCAL"); ok {
+		cfg.LocalOnly, _ = strconv.ParseBool(val)
+	}
+
+	if !cfg.Enabled {
+		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
+			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce)
+	}
+
+	deliveryMode := props.Tool.Telemetry.DeliveryMode
+	if deliveryMode == "" {
+		deliveryMode = p.DeliveryAtLeastOnce
+	}
+
+	backend := selectTelemetryBackend(ctx, props, cfg, dataDir)
+
+	return telemetry.NewCollector(cfg, backend, props.Tool.Name, props.Version.GetVersion(),
+		props.Tool.Telemetry.Metadata, props.Logger, dataDir, deliveryMode)
+}
+
+func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.Config, dataDir string) telemetry.Backend {
+	switch {
+	case props.Tool.Telemetry.Backend != nil:
+		raw := props.Tool.Telemetry.Backend(props)
+
+		b, ok := raw.(telemetry.Backend)
+		if !ok {
+			props.Logger.Warn("TelemetryConfig.Backend did not return a telemetry.Backend; falling back to noop")
+
+			return telemetry.NewNoopBackend()
+		}
+
+		return b
+	case cfg.LocalOnly:
+		return telemetry.NewFileBackend(filepath.Join(dataDir, "telemetry.log"))
+	case props.Tool.Telemetry.OTelEndpoint != "":
+		opts := []telemetry.OTelOption{
+			telemetry.WithOTelLogger(props.Logger),
+		}
+
+		if props.Tool.Telemetry.OTelInsecure {
+			opts = append(opts, telemetry.WithOTelInsecure())
+		}
+
+		if len(props.Tool.Telemetry.OTelHeaders) > 0 {
+			opts = append(opts, telemetry.WithOTelHeaders(props.Tool.Telemetry.OTelHeaders))
+		}
+
+		b, err := telemetry.NewOTelBackend(ctx, props.Tool.Telemetry.OTelEndpoint, opts...)
+		if err != nil {
+			props.Logger.Warn("failed to initialise OTel backend, falling back to noop", "error", err)
+
+			return telemetry.NewNoopBackend()
+		}
+
+		return b
+	case props.Tool.Telemetry.Endpoint != "":
+		return telemetry.NewHTTPBackend(props.Tool.Telemetry.Endpoint, props.Logger)
+	default:
+		return telemetry.NewNoopBackend()
 	}
 }
 

@@ -105,6 +105,10 @@ type Tool struct {
 
 	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
+
+	// Telemetry holds tool-author telemetry configuration.
+	// Zero-value is safe — tools that don't set it are unaffected.
+	Telemetry TelemetryConfig `json:"telemetry" yaml:"telemetry"`
 }
 
 // isDefaultEnabled returns true if the feature is enabled by default.
@@ -112,7 +116,7 @@ func isDefaultEnabled(cmd FeatureCmd) bool {
 	switch cmd {
 	case UpdateCmd, InitCmd, McpCmd, DocsCmd, DoctorCmd:
 		return true
-	case AiCmd, ConfigCmd:
+	case AiCmd, ConfigCmd, TelemetryCmd:
 		return false
 	default:
 		return false
