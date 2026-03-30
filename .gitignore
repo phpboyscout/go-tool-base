@@ -39,3 +39,4 @@ tmp*
  .cache*
 dist*
 .claude*
+CHANGELOG.md
