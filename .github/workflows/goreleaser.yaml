@@ -52,6 +52,10 @@ jobs:
           config: cliff.toml
           args: --output CHANGELOG.md
 
+      - name: Stage changelog to clean working tree
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: git add CHANGELOG.md
+
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: echo "flags=--snapshot" >> $GITHUB_ENV
 
