@@ -321,6 +321,64 @@ func TestGenerateCommand(t *testing.T) {
 }
 ```
 
+---
+
+## Ignore File (`.gtb/ignore`)
+
+The generator supports a `.gtb/ignore` file in the project's `.gtb/` directory (alongside `manifest.yaml`). Files matching ignore patterns are skipped during generation and regeneration — the generator will not write them or prompt to overwrite. However, their current on-disk content is still hashed and recorded in the manifest for tracking.
+
+### Format
+
+The ignore file uses gitignore-like syntax:
+
+```
+# Comments start with #
+# Blank lines are ignored
+
+# Ignore specific files
+justfile
+Dockerfile
+
+# Ignore by extension (matches any directory)
+*.yml
+
+# Ignore entire directories
+.github/**
+
+# Re-include a specific file (negation)
+!.github/workflows/release.yml
+
+# Path-anchored patterns
+.github/workflows/test.yml
+```
+
+### Pattern Types
+
+| Pattern | Matches | Example |
+|---------|---------|---------|
+| `justfile` | Exact filename (any directory) | `justfile`, `sub/justfile` |
+| `*.yml` | Extension glob (any directory) | `foo.yml`, `.github/workflows/test.yml` |
+| `.github/**` | Everything under directory | `.github/CODEOWNERS`, `.github/workflows/release.yml` |
+| `.github/workflows/release.yml` | Exact path (anchored) | Only `.github/workflows/release.yml` |
+| `!pattern` | Negation — re-includes a previously excluded file | `!.github/CODEOWNERS` |
+
+### Behaviour
+
+- Patterns are evaluated top-to-bottom; later patterns override earlier ones
+- Negation (`!`) re-includes a file excluded by an earlier pattern
+- Missing `.gtb/ignore` file is valid — no files are ignored (fully backwards compatible)
+- The Force flag does **not** override ignore rules — ignored files stay ignored
+- Ignored files that exist on disk have their hash recorded in the manifest
+- Ignored files that don't exist on disk are skipped silently (no hash recorded)
+
+### Use Cases
+
+- **Customised CI workflows**: Ignore `.github/**` after replacing workflows with your own
+- **Custom build files**: Ignore `justfile` or `Makefile` after heavy customisation
+- **Selective protection**: Ignore `.github/**` but keep `!.github/workflows/release.yml` managed by the generator
+
+---
+
 ### Key Test Files
 
 | File | Purpose |

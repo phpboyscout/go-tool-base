@@ -250,7 +250,9 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		return err
 	}
 
-	writtenHashes, err := g.generateSkeletonTemplateFiles(config.Path, data, storedHashes)
+	ignoreRules := LoadIgnoreRules(g.props.FS, config.Path)
+
+	writtenHashes, err := g.generateSkeletonTemplateFiles(config.Path, data, storedHashes, ignoreRules)
 	if err != nil {
 		return err
 	}
@@ -416,7 +418,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 	return nil
 }
 
-func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, storedHashes map[string]string) (map[string]string, error) {
+func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, storedHashes map[string]string, rules *IgnoreRules) (map[string]string, error) {
 	collectedHashes := make(map[string]string)
 
 	tmplFiles := map[string]string{
@@ -425,6 +427,12 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 	}
 
 	for relPath, tmplStr := range tmplFiles {
+		if rules.IsIgnored(relPath) {
+			g.hashIgnoredFile(destPath, relPath, collectedHashes)
+
+			continue
+		}
+
 		fullPath := filepath.Join(destPath, relPath)
 
 		hash, err := g.renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr, data, storedHashes)
@@ -444,7 +452,7 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 	releaseProvider := extractReleaseProvider(data)
 
 	// Walk the common skeleton assets.
-	if err := g.walkSkeletonAssets(skeletonAssets, "assets/skeleton", destPath, data, storedHashes, collectedHashes); err != nil {
+	if err := g.walkSkeletonAssets(skeletonAssets, "assets/skeleton", destPath, data, storedHashes, collectedHashes, rules); err != nil {
 		return nil, err
 	}
 
@@ -454,7 +462,7 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 		providerFS, providerRoot = skeletonGitLabAssets, "assets/skeleton-gitlab"
 	}
 
-	if err := g.walkSkeletonAssets(providerFS, providerRoot, destPath, data, storedHashes, collectedHashes); err != nil {
+	if err := g.walkSkeletonAssets(providerFS, providerRoot, destPath, data, storedHashes, collectedHashes, rules); err != nil {
 		return nil, err
 	}
 
@@ -464,7 +472,7 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 // walkSkeletonAssets walks an embedded filesystem rooted at assetRoot,
 // rendering each file as a template and collecting its hash. Skipped files
 // (e.g. user declined overwrite) are logged as warnings and the walk continues.
-func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, data any, storedHashes, collectedHashes map[string]string) error {
+func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, data any, storedHashes, collectedHashes map[string]string, rules *IgnoreRules) error {
 	return fs.WalkDir(fsys, assetRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -473,6 +481,14 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 		relPath, err := filepath.Rel(assetRoot, path)
 		if err != nil {
 			return errors.Newf("failed to get relative path: %w", err)
+		}
+
+		// Check ignore rules — skip generation but hash on-disk content
+		if rules.IsIgnored(relPath) {
+			g.props.Logger.Debugf("Ignored by .gtb/ignore: %s", relPath)
+			g.hashIgnoredFile(destPath, relPath, collectedHashes)
+
+			return nil
 		}
 
 		content, err := fs.ReadFile(fsys, path)
@@ -491,6 +507,19 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 
 		return nil
 	})
+}
+
+// hashIgnoredFile reads the current on-disk content of an ignored file and
+// records its hash. If the file doesn't exist on disk, it's skipped silently.
+func (g *Generator) hashIgnoredFile(destPath, relPath string, collectedHashes map[string]string) {
+	fullPath := filepath.Join(destPath, relPath)
+
+	content, err := afero.ReadFile(g.props.FS, fullPath)
+	if err != nil {
+		return // file doesn't exist on disk — skip silently
+	}
+
+	collectedHashes[relPath] = calculateHash(content)
 }
 
 // renderAndHashSkeletonTemplate renders a template to disk, checking the

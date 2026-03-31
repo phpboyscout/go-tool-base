@@ -371,7 +371,9 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		storedHashes = make(map[string]string)
 	}
 
-	writtenHashes, err := g.generateSkeletonTemplateFiles(g.config.Path, data, storedHashes)
+	ignoreRules := LoadIgnoreRules(g.props.FS, g.config.Path)
+
+	writtenHashes, err := g.generateSkeletonTemplateFiles(g.config.Path, data, storedHashes, ignoreRules)
 	if err != nil {
 		return nil, err
 	}
