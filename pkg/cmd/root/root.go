@@ -442,6 +442,7 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 	setup.RegisterGlobalMiddleware(
 		setup.WithRecovery(props.Logger),
 		setup.WithTiming(props.Logger),
+		setup.WithTelemetry(props),
 	)
 
 	// Seal the middleware registry to prevent modifications after initialization

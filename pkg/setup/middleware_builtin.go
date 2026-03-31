@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // WithTiming returns middleware that logs command execution duration.
@@ -58,6 +59,33 @@ func WithRecovery(l logger.Logger) Middleware {
 			}()
 
 			return next(cmd, args)
+		}
+	}
+}
+
+// WithTelemetry returns middleware that automatically tracks command invocations
+// via the telemetry collector on Props. Records command name, duration, and exit
+// code for every command execution. No-op when the collector is nil or telemetry
+// is disabled (the collector is a noop in that case).
+func WithTelemetry(p *props.Props) Middleware {
+	return func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+		return func(cmd *cobra.Command, args []string) error {
+			start := time.Now()
+
+			err := next(cmd, args)
+
+			durationMs := time.Since(start).Milliseconds()
+			exitCode := 0
+
+			if err != nil {
+				exitCode = 1
+			}
+
+			if p.Collector != nil {
+				p.Collector.TrackCommand(cmd.Name(), durationMs, exitCode, nil)
+			}
+
+			return err
 		}
 	}
 }
