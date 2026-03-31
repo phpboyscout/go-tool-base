@@ -898,7 +898,8 @@ func TestMapLogLevel(t *testing.T) {
 }
 
 func TestValidateConfig_WarnsOnEmptySetKeys(t *testing.T) {
-	t.Parallel()
+	// Not parallel — t.Setenv modifies process environment
+	t.Setenv("GITHUB_TOKEN", "")
 
 	log := logger.NewBuffer()
 	cfg := config.NewReaderContainer(log, "yaml", strings.NewReader("github:\n  token: \"\"\n"))

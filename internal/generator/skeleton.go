@@ -413,24 +413,26 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 	// Extract the provider so we can filter CI files appropriately.
 	releaseProvider := ""
 	if m, ok := data.(struct {
-		Name              string
-		Repo              string
-		Host              string
-		ModulePath        string
-		Description       string
-		Org               string
-		RepoName          string
-		ReleaseProvider   string
-		GoToolBaseVersion string
-		GoVersion         string
-		DisabledFeatures  []string
-		EnabledFeatures   []string
-		Private           bool
-		HelpType          string
-		SlackChannel      string
-		SlackTeam         string
-		TeamsChannel      string
-		TeamsTeam         string
+		Name                  string
+		Repo                  string
+		Host                  string
+		ModulePath            string
+		Description           string
+		Org                   string
+		RepoName              string
+		ReleaseProvider       string
+		GoToolBaseVersion     string
+		GoVersion             string
+		DisabledFeatures      []string
+		EnabledFeatures       []string
+		Private               bool
+		HelpType              string
+		SlackChannel          string
+		SlackTeam             string
+		TeamsChannel          string
+		TeamsTeam             string
+		TelemetryEndpoint     string
+		TelemetryOTelEndpoint string
 	}); ok {
 		releaseProvider = m.ReleaseProvider
 	}

@@ -46,7 +46,8 @@ github:
 }
 
 func TestValidate_RequiredFieldViolation(t *testing.T) {
-	t.Parallel()
+	// Not parallel — t.Setenv modifies process environment
+	t.Setenv("GITHUB_TOKEN", "")
 
 	tests := []struct {
 		name string
@@ -70,8 +71,6 @@ github:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			c := newTestContainer(t, tt.yaml)
 
 			schema, err := NewSchema(WithStructSchema(testAppConfig{}))
@@ -236,7 +235,8 @@ func TestValidationResult_Error(t *testing.T) {
 }
 
 func TestLoadFilesContainerWithSchema_Valid(t *testing.T) {
-	t.Parallel()
+	// Not parallel — t.Setenv modifies process environment
+	t.Setenv("GITHUB_TOKEN", "")
 
 	l := logger.NewNoop()
 	fs := afero.NewMemMapFs()
@@ -260,7 +260,8 @@ log:
 }
 
 func TestLoadFilesContainerWithSchema_Invalid(t *testing.T) {
-	t.Parallel()
+	// Not parallel — t.Setenv modifies process environment
+	t.Setenv("GITHUB_TOKEN", "")
 
 	l := logger.NewNoop()
 	fs := afero.NewMemMapFs()
