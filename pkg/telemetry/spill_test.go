@@ -16,7 +16,7 @@ func TestCollector_SpillOnCap(t *testing.T) {
 
 	dir := t.TempDir()
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
 	c.maxBuffer = 3
 
 	c.Track(props.EventCommandInvocation, "a", nil)
@@ -55,7 +55,7 @@ func TestCollector_FlushReadsSpillFiles(t *testing.T) {
 
 	dir := t.TempDir()
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
 	c.maxBuffer = 2
 
 	// Create a spill by filling the buffer
@@ -98,7 +98,7 @@ func TestCollector_SpillPrune(t *testing.T) {
 	}
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
 	c.maxBuffer = 1
 
 	// This will trigger spill which calls pruneSpillFiles
@@ -131,7 +131,7 @@ func TestCollector_DeliveryAtLeastOnce(t *testing.T) {
 	}
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
 
 	if err := c.Flush(context.Background()); err != nil {
 		t.Fatalf("flush error: %v", err)
@@ -161,7 +161,7 @@ func TestCollector_DeliveryAtMostOnce(t *testing.T) {
 	}
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtMostOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtMostOnce, false)
 
 	if err := c.Flush(context.Background()); err != nil {
 		t.Fatalf("flush error: %v", err)

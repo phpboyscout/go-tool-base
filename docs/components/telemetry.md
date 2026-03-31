@@ -91,9 +91,35 @@ Every telemetry event contains:
 
 Tool authors can add custom metadata via `TelemetryConfig.Metadata` (included in every event) or the `extra` parameter on `Track`/`TrackCommand` (per-event).
 
+### Extended Collection (Enterprise)
+
+For closed enterprise environments where users are contractually bound by security policies, tool authors can enable **extended collection** to include additional diagnostic data:
+
+| Field | Example | When |
+|-------|---------|------|
+| `command.args` | `--name myapp --verbose` | `ExtendedCollection: true` |
+| `command.error` | `missing template file` | `ExtendedCollection: true` |
+
+Extended collection is **disabled by default** and must be explicitly opted into by the tool author:
+
+```go
+Telemetry: props.TelemetryConfig{
+    ExtendedCollection: true, // enterprise only
+    Endpoint: "https://internal-analytics.corp.example.com/events",
+},
+```
+
+When disabled, `TrackCommandExtended` silently drops args and error messages — callers do not need to check the flag. Duration and exit code are always recorded regardless of this setting.
+
+!!! warning "Privacy consideration"
+    Only enable `ExtendedCollection` in tools deployed within controlled enterprise environments where data handling is governed by employment contracts and security policies. Never enable it for public-facing or open-source tools.
+
 ### What Is NOT Collected
 
-- Command arguments or flags
+By default, the following are never collected:
+
+- Command arguments or flags (unless `ExtendedCollection` is enabled)
+- Error messages (unless `ExtendedCollection` is enabled)
 - File paths or file contents
 - Environment variables
 - IP addresses
@@ -238,14 +264,15 @@ When the collector is constructed in `PersistentPreRunE`, backends are selected 
 
 ```go
 type TelemetryConfig struct {
-    Endpoint          string               // HTTP JSON endpoint
-    OTelEndpoint      string               // OTLP/HTTP endpoint (takes precedence)
-    OTelHeaders       map[string]string    // OTLP auth headers
-    OTelInsecure      bool                 // Disable TLS for OTLP
-    Backend           func(*Props) any     // Custom backend factory
-    DeletionRequestor func(*Props) any     // Custom GDPR deletion requestor
-    DeliveryMode      DeliveryMode         // at_least_once (default) or at_most_once
-    Metadata          map[string]string    // Extra key/value pairs in every event
+    Endpoint           string               // HTTP JSON endpoint
+    OTelEndpoint       string               // OTLP/HTTP endpoint (takes precedence)
+    OTelHeaders        map[string]string    // OTLP auth headers
+    OTelInsecure       bool                 // Disable TLS for OTLP
+    Backend            func(*Props) any     // Custom backend factory
+    DeletionRequestor  func(*Props) any     // Custom GDPR deletion requestor
+    ExtendedCollection bool                 // Include args + errors (enterprise only)
+    DeliveryMode       DeliveryMode         // at_least_once (default) or at_most_once
+    Metadata           map[string]string    // Extra key/value pairs in every event
 }
 ```
 

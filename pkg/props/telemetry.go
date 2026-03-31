@@ -43,6 +43,11 @@ type TelemetryCollector interface {
 	Track(eventType EventType, name string, extra map[string]string)
 	// TrackCommand records a command invocation with duration and exit code.
 	TrackCommand(name string, durationMs int64, exitCode int, extra map[string]string)
+	// TrackCommandExtended records a command invocation with full context including
+	// arguments and error message. When ExtendedCollection is disabled on the
+	// collector, args and errMsg are silently dropped — callers do not need to
+	// check the flag themselves.
+	TrackCommandExtended(name string, args []string, durationMs int64, exitCode int, errMsg string, extra map[string]string)
 	// Flush sends all buffered events to the backend and clears the buffer.
 	// Checks for and sends spill files before flushing the current buffer.
 	Flush(ctx context.Context) error
@@ -84,6 +89,15 @@ type TelemetryConfig struct {
 	// data.deletion_request event through the existing backend.
 	// Not serialisable — set programmatically in tool setup.
 	DeletionRequestor func(*Props) any `json:"-" yaml:"-"`
+
+	// ExtendedCollection enables collection of command arguments and error messages
+	// in telemetry events. Default: false. When false, args and errors are never
+	// recorded regardless of what callers pass to TrackCommandExtended.
+	//
+	// Enable this only in closed enterprise environments where users are
+	// contractually bound by security policies. In public-facing tools, leave
+	// this disabled to preserve user privacy.
+	ExtendedCollection bool `json:"extended_collection,omitempty" yaml:"extended_collection,omitempty"`
 
 	// DeliveryMode controls the delivery guarantee. Default: DeliveryAtLeastOnce.
 	DeliveryMode DeliveryMode `json:"delivery_mode,omitempty" yaml:"delivery_mode,omitempty"`

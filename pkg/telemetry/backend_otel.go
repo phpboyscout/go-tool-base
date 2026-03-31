@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -147,6 +148,15 @@ func (o *otelBackend) Send(ctx context.Context, events []Event) error {
 			log.Int64("command.duration_ms", e.DurationMs),
 			log.Int("command.exit_code", e.ExitCode),
 		)
+
+		// Extended collection fields — only present when the tool author enables them
+		if len(e.Args) > 0 {
+			rec.AddAttributes(log.String("command.args", strings.Join(e.Args, " ")))
+		}
+
+		if e.Error != "" {
+			rec.AddAttributes(log.String("command.error", e.Error))
+		}
 
 		for k, v := range e.Metadata {
 			rec.AddAttributes(log.String(k, v))

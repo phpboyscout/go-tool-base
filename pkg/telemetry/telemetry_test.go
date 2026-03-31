@@ -18,7 +18,7 @@ func TestCollector_Disabled(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: false}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: false}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -36,7 +36,7 @@ func TestCollector_Track(t *testing.T) {
 
 	spy := &spyBackend{}
 	meta := map[string]string{"env": "test"}
-	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", meta, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", meta, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "generate", map[string]string{"flag": "verbose"})
 
@@ -83,7 +83,7 @@ func TestCollector_FlushEmpty(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	if err := c.Flush(context.Background()); err != nil {
 		t.Fatalf("flush error: %v", err)
@@ -98,7 +98,7 @@ func TestCollector_FlushError(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{sendErr: errBackend}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -112,7 +112,7 @@ func TestCollector_ConcurrentTrack(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	var wg sync.WaitGroup
 
@@ -140,7 +140,7 @@ func TestCollector_NoPII(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -168,7 +168,7 @@ func TestCollector_Drop(t *testing.T) {
 
 	dir := t.TempDir()
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
 
 	// Track some events and spill
 	c.maxBuffer = 2
@@ -208,7 +208,7 @@ func TestCollector_MetadataExtraOverridesBase(t *testing.T) {
 
 	spy := &spyBackend{}
 	base := map[string]string{"key": "base"}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", base, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", base, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", map[string]string{"key": "override"})
 
@@ -218,6 +218,69 @@ func TestCollector_MetadataExtraOverridesBase(t *testing.T) {
 
 	if spy.lastEvents[0].Metadata["key"] != "override" {
 		t.Errorf("extra should override base metadata, got %q", spy.lastEvents[0].Metadata["key"])
+	}
+}
+
+func TestTrackCommandExtended_Enabled(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, true)
+
+	c.TrackCommandExtended("generate", []string{"--name", "myapp"}, 500, 1, "missing template", nil)
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("flush error: %v", err)
+	}
+
+	e := spy.lastEvents[0]
+
+	if len(e.Args) != 2 || e.Args[0] != "--name" {
+		t.Errorf("args = %v, want [--name myapp]", e.Args)
+	}
+
+	if e.Error != "missing template" {
+		t.Errorf("error = %q, want %q", e.Error, "missing template")
+	}
+
+	if e.DurationMs != 500 {
+		t.Errorf("duration = %d, want 500", e.DurationMs)
+	}
+
+	if e.ExitCode != 1 {
+		t.Errorf("exit_code = %d, want 1", e.ExitCode)
+	}
+}
+
+func TestTrackCommandExtended_Disabled(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+
+	c.TrackCommandExtended("generate", []string{"--name", "myapp"}, 500, 1, "missing template", nil)
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("flush error: %v", err)
+	}
+
+	e := spy.lastEvents[0]
+
+	if len(e.Args) != 0 {
+		t.Errorf("args should be empty when extended collection disabled, got %v", e.Args)
+	}
+
+	if e.Error != "" {
+		t.Errorf("error should be empty when extended collection disabled, got %q", e.Error)
+	}
+
+	// Duration and exit code should still be present
+	if e.DurationMs != 500 {
+		t.Errorf("duration = %d, want 500", e.DurationMs)
+	}
+
+	if e.ExitCode != 1 {
+		t.Errorf("exit_code = %d, want 1", e.ExitCode)
 	}
 }
 

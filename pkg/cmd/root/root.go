@@ -488,7 +488,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	if props.Tool.IsDisabled(p.TelemetryCmd) {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce)
+			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
 	cfg := telemetry.Config{
@@ -507,7 +507,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	if !cfg.Enabled {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce)
+			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
 	deliveryMode := props.Tool.Telemetry.DeliveryMode
@@ -518,7 +518,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 	backend := selectTelemetryBackend(ctx, props, cfg, dataDir)
 
 	return telemetry.NewCollector(cfg, backend, props.Tool.Name, props.Version.GetVersion(),
-		props.Tool.Telemetry.Metadata, props.Logger, dataDir, deliveryMode)
+		props.Tool.Telemetry.Metadata, props.Logger, dataDir, deliveryMode, props.Tool.Telemetry.ExtendedCollection)
 }
 
 func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.Config, dataDir string) telemetry.Backend {
