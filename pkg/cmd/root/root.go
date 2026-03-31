@@ -326,8 +326,10 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		PersistentPreRunE: newRootPreRunE(props, configPaths, mcpLogLevel, state),
 	}
 
-	// Register telemetry flush on process exit. OnFinalize runs regardless of
+	// Register telemetry shutdown on process exit. OnFinalize runs regardless of
 	// whether subcommands define PostRunE — unlike PersistentPostRunE.
+	// Close() flushes pending events and shuts down the backend gracefully
+	// (important for OTLP batch processors).
 	cobra.OnFinalize(func() {
 		if props.Collector == nil {
 			return
@@ -342,7 +344,7 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		ctx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
 		defer cancel()
 
-		_ = props.Collector.Flush(ctx)
+		_ = props.Collector.Close(ctx)
 	})
 
 	setupRootFlags(rootCmd, props, state)
@@ -579,14 +581,15 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 		LocalOnly: props.Config.GetBool("telemetry.local_only"),
 	}
 
-	// Tool author has force-enabled telemetry — always on regardless of config
-	if props.Tool.Telemetry.ForceEnabled {
-		cfg.Enabled = true
-	}
-
 	// Env var override (non-interactive bypass — tool-name-agnostic)
 	if val, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
 		cfg.Enabled, _ = strconv.ParseBool(val)
+	}
+
+	// Tool author has force-enabled telemetry — always on, cannot be overridden
+	// by config or environment variable. Applied last to ensure it takes precedence.
+	if props.Tool.Telemetry.ForceEnabled {
+		cfg.Enabled = true
 	}
 
 	if val, ok := os.LookupEnv("TELEMETRY_LOCAL"); ok {

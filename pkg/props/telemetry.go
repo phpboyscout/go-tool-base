@@ -51,6 +51,10 @@ type TelemetryCollector interface {
 	// Flush sends all buffered events to the backend and clears the buffer.
 	// Checks for and sends spill files before flushing the current buffer.
 	Flush(ctx context.Context) error
+	// Close flushes pending events and shuts down the backend gracefully.
+	// Must be called on process exit to ensure backends like OTLP flush
+	// their internal batch queues.
+	Close(ctx context.Context) error
 	// Drop clears all buffered events and deletes any spill files without sending.
 	Drop() error
 }

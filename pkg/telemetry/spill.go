@@ -32,21 +32,74 @@ func (c *Collector) spillToDisk() {
 		return
 	}
 
-	if len(data) > maxSpillFileSize {
-		data = data[:maxSpillFileSize]
-	}
+	// If the serialised buffer exceeds the file size cap, split into chunks
+	// rather than truncating (which would produce invalid JSON).
+	chunks := splitSpillData(c.buffer, data)
 
 	c.pruneSpillFiles()
 
-	filename := filepath.Join(c.dataDir, fmt.Sprintf("telemetry-spill-%d.json", time.Now().UnixNano()))
+	for i, chunk := range chunks {
+		filename := filepath.Join(c.dataDir, fmt.Sprintf("telemetry-spill-%d-%d.json", time.Now().UnixNano(), i))
 
-	if err := os.WriteFile(filename, data, filePermissions); err != nil {
-		c.log.Debug("failed to write spill file", "error", err)
+		if err := os.WriteFile(filename, chunk, filePermissions); err != nil {
+			c.log.Debug("failed to write spill file", "error", err)
 
-		return
+			return
+		}
 	}
 
 	c.buffer = c.buffer[:0]
+}
+
+// splitSpillData splits the buffer into chunks that each fit within maxSpillFileSize.
+// If the entire buffer fits, returns a single chunk. If individual events are
+// larger than the cap, they are included as single-element chunks (best effort).
+func splitSpillData(events []Event, fullData []byte) [][]byte {
+	if len(fullData) <= maxSpillFileSize {
+		return [][]byte{fullData}
+	}
+
+	var chunks [][]byte
+
+	var batch []Event
+
+	for _, e := range events {
+		batch = append(batch, e)
+
+		data, err := json.Marshal(batch)
+		if err == nil && len(data) <= maxSpillFileSize {
+			continue
+		}
+
+		chunks, batch = flushBatch(chunks, batch, e)
+	}
+
+	if len(batch) > 0 {
+		if data, err := json.Marshal(batch); err == nil {
+			chunks = append(chunks, data)
+		}
+	}
+
+	return chunks
+}
+
+// flushBatch appends the current batch (minus the last event) to chunks and
+// returns the updated chunks and a new batch starting with the overflow event.
+func flushBatch(chunks [][]byte, batch []Event, overflow Event) ([][]byte, []Event) {
+	if len(batch) > 1 {
+		if prev, err := json.Marshal(batch[:len(batch)-1]); err == nil {
+			chunks = append(chunks, prev)
+		}
+
+		return chunks, []Event{overflow}
+	}
+
+	// Single event exceeds cap — include it anyway (best effort)
+	if single, err := json.Marshal(batch); err == nil {
+		chunks = append(chunks, single)
+	}
+
+	return chunks, nil
 }
 
 // flushSpillFiles reads and sends all spill files, cleaning up after successful delivery.

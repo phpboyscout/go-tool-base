@@ -245,6 +245,17 @@ func (c *Collector) Flush(ctx context.Context) error {
 	return nil
 }
 
+// Close flushes pending events and shuts down the backend gracefully.
+// Must be called on process exit to ensure backends like OTLP flush
+// their internal batch queues.
+func (c *Collector) Close(ctx context.Context) error {
+	if err := c.Flush(ctx); err != nil {
+		c.log.Debug("flush during close failed", "error", err)
+	}
+
+	return c.backend.Close()
+}
+
 // Drop clears all buffered events and deletes any spill files without sending.
 // Called when the user disables telemetry to ensure immediate consent withdrawal.
 func (c *Collector) Drop() error {
