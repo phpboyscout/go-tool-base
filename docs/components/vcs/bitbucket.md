@@ -12,6 +12,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 Provides a `release.Provider` implementation for Bitbucket Cloud using the Downloads API. Bitbucket has no native "Releases" concept — version information is inferred from asset filenames using a configurable regular expression.
 
+**Source type:** `"bitbucket"`
+
 ---
 
 ## How It Works
@@ -21,7 +23,18 @@ Unlike GitHub and GitLab which have dedicated release APIs with tags and metadat
 1. Lists all files in the repository's Downloads via `GET /2.0/repositories/{workspace}/{repo}/downloads`
 2. Applies a filename pattern (regex) to extract version numbers from asset names
 3. Groups assets by version and synthesises release objects
-4. Sorts by version (semver) to determine the latest release
+4. Sorts by creation date (newest first) to determine the latest release
+
+If no version can be extracted from the filename, the file's RFC 3339 creation timestamp is used as the version identifier.
+
+## Supported Operations
+
+| Method | Supported | Notes |
+|--------|-----------|-------|
+| `GetLatestRelease` | Yes | Fetches downloads, groups by version, returns newest |
+| `GetReleaseByTag` | No | Returns `release.ErrNotSupported` — Bitbucket has no versioned releases |
+| `ListReleases` | No | Returns `release.ErrNotSupported` |
+| `DownloadReleaseAsset` | Yes | Streams asset from download URL with optional Basic Auth |
 
 ## Configuration
 
@@ -33,16 +46,32 @@ props.ReleaseSource{
 }
 ```
 
+### Private Repositories
+
+For private repositories, credentials are required:
+
+```go
+props.ReleaseSource{
+    Type:    "bitbucket",
+    Owner:   "myworkspace",
+    Repo:    "my-tool",
+    Private: true,
+}
+```
+
 ### Authentication
 
-Bitbucket authentication uses HTTP Basic Auth with a username and app password. Configure via environment variables:
+Bitbucket uses HTTP Basic Auth with a username and app password. Resolution order:
+
+1. Config keys: `bitbucket.username` and `bitbucket.app_password`
+2. Environment variables: `BITBUCKET_USERNAME` and `BITBUCKET_APP_PASSWORD`
 
 | Variable | Description |
 |----------|-------------|
 | `BITBUCKET_USERNAME` | Bitbucket username |
 | `BITBUCKET_APP_PASSWORD` | App password with read access to the repository's Downloads |
 
-Alternatively, configure in the config file under the `bitbucket` subtree.
+When `Private: true` is set, missing credentials return an error instead of proceeding anonymously.
 
 ### Filename Pattern
 
@@ -53,7 +82,7 @@ tool_v1.2.3_Linux_x86_64.tar.gz
 tool_Darwin_arm64.tar.gz
 ```
 
-Pattern: `^.+?(?:_(v?\d+\.\d+\.\d+[^_]*))?_([A-Za-z]+)_([A-Za-z0-9_]+)\.tar\.gz$`
+Default regex: `^.+?(?:_(v?\d+\.\d+\.\d+[^_]*))?_([A-Za-z]+)_([A-Za-z0-9_]+)\.tar\.gz$`
 
 Override with the `filename_pattern` parameter in `ReleaseSource.Params`:
 
@@ -68,11 +97,19 @@ props.ReleaseSource{
 }
 ```
 
+The first capture group in the pattern is used as the version string.
+
+## Version Fallback
+
+When asset filenames don't contain a version (no capture group match), the provider falls back to using the file's creation timestamp in RFC 3339 format (e.g. `2026-03-31T12:00:00Z`). This allows self-update to work even without versioned filenames, using the newest uploaded file.
+
 ## Limitations
 
+- `GetReleaseByTag` and `ListReleases` are not supported — returns `release.ErrNotSupported`
 - No release metadata (titles, descriptions, changelogs) — only filenames and download URLs
-- Pagination is handled automatically but large repositories with many downloads may be slow
 - Version detection depends entirely on filename conventions
+- Pagination is handled automatically but large repositories with many downloads may be slow
+- Invalid regex patterns in `filename_pattern` return an error at provider creation time
 
 ## Related Documentation
 

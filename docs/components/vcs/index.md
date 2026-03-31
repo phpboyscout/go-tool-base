@@ -20,7 +20,7 @@ The `pkg/vcs/` directory is split into focused subpackages. Each has a distinct 
 | **[GitLab](gitlab.md)** | `pkg/vcs/gitlab` | GitLab (and self-managed) release provider |
 | **[Bitbucket](bitbucket.md)** | `pkg/vcs/bitbucket` | Bitbucket Cloud Downloads-based release provider (filename-pattern version detection) |
 | **[Gitea / Codeberg](gitea.md)** | `pkg/vcs/gitea` | Gitea, Forgejo, and Codeberg REST API release provider |
-| `pkg/vcs/direct` | Direct HTTP release provider for arbitrary download servers |
+| **[Direct HTTP](direct.md)** | `pkg/vcs/direct` | Direct HTTP release provider for arbitrary download servers |
 
 The root `pkg/vcs` package contains only `auth.go` — the shared `ResolveToken` helper used by the GitHub and GitLab subpackages.
 
