@@ -61,9 +61,13 @@ type Props struct {
     Assets       Assets                     // Embedded assets wrapper interface
     FS           afero.Fs                   // Filesystem abstraction
     Version      version.Version            // Version information (pkg/version.Version interface)
-    ErrorHandler errorhandling.ErrorHandler // Error Handler interface
+    ErrorHandler errorhandling.ErrorHandler  // Error Handler interface
+    Collector    TelemetryCollector          // Telemetry event collector (always non-nil)
 }
 ```
+
+!!! note "Collector is always non-nil"
+    When telemetry is disabled, `Collector` is a noop implementation. Commands can safely call `p.Collector.Track(...)` without checking whether telemetry is enabled.
 
 !!! note "ErrorHandler is an Interface"
     The `ErrorHandler` field is an interface type, not a pointer. This enables easy mocking and custom implementations for testing.
@@ -82,9 +86,10 @@ const (
     InitCmd   = FeatureCmd("init")   // Configuration initialisation
     McpCmd    = FeatureCmd("mcp")    // Model Context Protocol server
     DocsCmd   = FeatureCmd("docs")   // Interactive documentation browser
-    AiCmd     = FeatureCmd("ai")     // AI-powered features (opt-in)
-    DoctorCmd = FeatureCmd("doctor") // Environment health checks
-    ConfigCmd = FeatureCmd("config") // Programmatic config access (opt-in)
+    AiCmd        = FeatureCmd("ai")        // AI-powered features (opt-in)
+    DoctorCmd    = FeatureCmd("doctor")    // Environment health checks
+    ConfigCmd    = FeatureCmd("config")    // Programmatic config access (opt-in)
+    TelemetryCmd = FeatureCmd("telemetry") // Anonymous usage telemetry (opt-in)
 )
 ```
 
@@ -102,6 +107,7 @@ const (
 The following features are **opt-in** (disabled by default):
 - `ai` — AI provider configuration during `init`
 - `config` — programmatic config access (`config get/set/list/validate`)
+- `telemetry` — anonymous usage telemetry collection and CLI management commands
 
 #### The `SetFeatures` Constructor
 

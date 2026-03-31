@@ -2,7 +2,7 @@
 title: "Opt-in Telemetry Specification"
 description: "Opt-in usage analytics framework with pluggable backends, privacy controls, and CLI management commands."
 date: 2026-03-21
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - telemetry
