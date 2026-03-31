@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"text/template"
@@ -71,6 +72,32 @@ func releaseProviderForHost(host string) string {
 	}
 
 	return "github"
+}
+
+// releaseProviderAccessor is a narrow interface for extracting the release
+// provider from template data structs without brittle full-struct type assertions.
+type releaseProviderAccessor interface {
+	GetReleaseProvider() string
+}
+
+// extractReleaseProvider extracts the ReleaseProvider field from the data
+// struct using reflection. This avoids the fragile anonymous struct type
+// assertion that breaks silently when new fields are added.
+func extractReleaseProvider(data any) string {
+	if rp, ok := data.(releaseProviderAccessor); ok {
+		return rp.GetReleaseProvider()
+	}
+
+	// Fallback: use reflect to check for a ReleaseProvider field.
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Struct {
+		f := v.FieldByName("ReleaseProvider")
+		if f.IsValid() && f.Kind() == reflect.String {
+			return f.String()
+		}
+	}
+
+	return ""
 }
 
 func (g *Generator) currentVersion() string {
@@ -411,31 +438,10 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 	}
 
 	// Extract the provider so we can filter CI files appropriately.
-	releaseProvider := ""
-	if m, ok := data.(struct {
-		Name                  string
-		Repo                  string
-		Host                  string
-		ModulePath            string
-		Description           string
-		Org                   string
-		RepoName              string
-		ReleaseProvider       string
-		GoToolBaseVersion     string
-		GoVersion             string
-		DisabledFeatures      []string
-		EnabledFeatures       []string
-		Private               bool
-		HelpType              string
-		SlackChannel          string
-		SlackTeam             string
-		TeamsChannel          string
-		TeamsTeam             string
-		TelemetryEndpoint     string
-		TelemetryOTelEndpoint string
-	}); ok {
-		releaseProvider = m.ReleaseProvider
-	}
+	// Uses a narrow interface to avoid brittle type assertions on anonymous
+	// structs — adding fields to the data struct no longer silently breaks
+	// provider detection.
+	releaseProvider := extractReleaseProvider(data)
 
 	// Walk the common skeleton assets.
 	if err := g.walkSkeletonAssets(skeletonAssets, "assets/skeleton", destPath, data, storedHashes, collectedHashes); err != nil {

@@ -167,5 +167,5 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	// CODEOWNERS should have the correct org
 	content, err = afero.ReadFile(memFs, "gitlab-project/.gitlab/CODEOWNERS")
 	require.NoError(t, err)
-	assert.Contains(t, string(content), "@mygroup/ace")
+	assert.Contains(t, string(content), "@mygroup")
 }
