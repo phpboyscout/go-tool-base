@@ -1,6 +1,18 @@
-with-expecter: true
-filename: "mock_{{ "{{" }}.InterfaceName{{ "}}" }}.go"
-dir: "mocks/{{ "{{" }}.PackageName{{ "}}" }}"
-outpkg: "{{ "{{" }}.PackageName{{ "}}" }}mocks"
-mockname: "{{ "{{" }}.InterfaceName{{ "}}" }}"
 all: true
+dir: mocks/{{ "{{" }} .InterfaceDirRelative {{ "}}" }}
+filename: "{{ "{{" }}.InterfaceName{{ "}}" }}.go"
+force-file-write: true
+formatter: goimports
+include-auto-generated: false
+inpackage: false
+log-level: info
+structname: "{{ "{{" }}.Mock{{ "}}" }}{{ "{{" }}.InterfaceName{{ "}}" }}"
+pkgname: "{{ "{{" }}.SrcPackageName{{ "}}" }}"
+recursive: true
+require-template-schema-exists: true
+template: testify
+template-schema: "{{ "{{" }}.Template{{ "}}" }}.schema.json"
+packages:
+  {{ .ModulePath }}/pkg:
+    config:
+      all: true
