@@ -29,6 +29,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -397,6 +398,9 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Configure logging based on flags and config
 		configureLogging(props, flags, cfg, mcpLogLevel)
 
+		// Prompt for telemetry consent if the feature is enabled but not yet configured
+		promptTelemetryConsent(props, flags)
+
 		// Build and wire telemetry collector
 		props.Collector = buildTelemetryCollector(cmd.Context(), props)
 
@@ -481,6 +485,85 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 
 const telemetryFlushTimeout = 2 * time.Second
 
+// promptTelemetryConsent shows a one-time opt-in prompt when TelemetryCmd is
+// enabled but the user hasn't made a choice yet. Skips prompting in CI mode,
+// when the TELEMETRY_ENABLED env var is set, or when telemetry.enabled is
+// already present in config.
+func promptTelemetryConsent(props *p.Props, flags *FlagValues) {
+	if props.Tool.IsDisabled(p.TelemetryCmd) {
+		return
+	}
+
+	// Tool author has force-enabled telemetry — no prompt, always on
+	if props.Tool.Telemetry.ForceEnabled {
+		return
+	}
+
+	// Already configured — no prompt needed
+	if _, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
+		return
+	}
+
+	if props.Config.IsSet("telemetry.enabled") {
+		return
+	}
+
+	// Non-interactive — skip silently
+	if flags.CI || props.Config.GetBool("ci") {
+		return
+	}
+
+	var optIn bool
+
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().
+			Title("Anonymous usage telemetry").
+			Description(
+				"Help improve " + props.Tool.Name + " by sending anonymous usage statistics.\n" +
+					"No personally identifiable information is collected.\n" +
+					"You can change this at any time with `" + props.Tool.Name + " telemetry enable/disable`.",
+			).
+			Value(&optIn),
+	))
+
+	if err := form.Run(); err != nil {
+		props.Logger.Debug("telemetry consent prompt skipped", "error", err)
+
+		return
+	}
+
+	props.Config.Set("telemetry.enabled", optIn)
+
+	// Persist the choice so we don't prompt again
+	v := props.Config.GetViper()
+	if err := v.WriteConfig(); err != nil {
+		// No config file yet — create a minimal one
+		if cfgErr := ensureMinimalConfig(props, v, optIn); cfgErr != nil {
+			props.Logger.Debug("failed to persist telemetry consent", "error", cfgErr)
+		}
+	}
+}
+
+// ensureMinimalConfig creates a minimal config file with just the telemetry
+// consent value. Used when no config file exists (tools without InitCmd).
+func ensureMinimalConfig(props *p.Props, v *viper.Viper, enabled bool) error {
+	configDir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	if configDir == "" {
+		return errors.New("unable to determine config directory")
+	}
+
+	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
+
+	fresh := viper.New()
+	fresh.SetConfigFile(configFile)
+	fresh.SetConfigType("yaml")
+	fresh.Set("telemetry.enabled", enabled)
+
+	v.SetConfigFile(configFile)
+
+	return fresh.WriteConfigAs(configFile)
+}
+
 // buildTelemetryCollector creates the appropriate telemetry collector based on
 // feature flags, user config, environment variables, and tool-author settings.
 func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Collector {
@@ -494,6 +577,11 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 	cfg := telemetry.Config{
 		Enabled:   props.Config.GetBool("telemetry.enabled"),
 		LocalOnly: props.Config.GetBool("telemetry.local_only"),
+	}
+
+	// Tool author has force-enabled telemetry — always on regardless of config
+	if props.Tool.Telemetry.ForceEnabled {
+		cfg.Enabled = true
 	}
 
 	// Env var override (non-interactive bypass — tool-name-agnostic)

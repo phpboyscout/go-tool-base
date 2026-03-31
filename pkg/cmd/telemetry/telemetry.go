@@ -50,6 +50,12 @@ func newDisableCmd(p *props.Props) *cobra.Command {
 		Use:   "disable",
 		Short: "Disable usage telemetry",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if p.Tool.Telemetry.ForceEnabled {
+				p.Logger.Print("Telemetry is enforced by your organisation and cannot be disabled.")
+
+				return nil
+			}
+
 			if err := setTelemetryEnabled(p, false); err != nil {
 				return err
 			}
@@ -132,12 +138,16 @@ func newResetCmd(p *props.Props) *cobra.Command {
 				p.Logger.Print("Deletion request sent for machine ID: " + machineID)
 			}
 
-			// 3. Disable telemetry
-			if err := setTelemetryEnabled(p, false); err != nil {
-				return err
-			}
+			// 3. Disable telemetry (unless force-enabled by the tool author)
+			if p.Tool.Telemetry.ForceEnabled {
+				p.Logger.Print("Local telemetry data cleared. Telemetry remains enabled per organisation policy.")
+			} else {
+				if err := setTelemetryEnabled(p, false); err != nil {
+					return err
+				}
 
-			p.Logger.Print("Local telemetry data cleared. Telemetry disabled.")
+				p.Logger.Print("Local telemetry data cleared. Telemetry disabled.")
+			}
 
 			return nil
 		},
@@ -169,9 +179,11 @@ func setTelemetryEnabled(p *props.Props, enabled bool) error {
 	return nil
 }
 
-// ensureConfigFile creates the default config directory and writes the config
-// file if one doesn't exist. This handles tools that disable InitCmd and
-// therefore have no init flow to create the config file.
+// ensureConfigFile creates the default config directory and a minimal config
+// file containing only the telemetry setting. This handles tools that disable
+// InitCmd and therefore have no init flow to create the config file.
+// It does NOT dump the full Viper state (which would include embedded defaults
+// like GitHub auth definitions that don't belong in a user config file).
 func ensureConfigFile(p *props.Props, v *viper.Viper) error {
 	configDir := setup.GetDefaultConfigDir(p.FS, p.Tool.Name)
 	if configDir == "" {
@@ -179,9 +191,22 @@ func ensureConfigFile(p *props.Props, v *viper.Viper) error {
 	}
 
 	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
+
+	// Create a fresh Viper with only the telemetry keys to avoid writing
+	// embedded defaults (GitHub auth, log config, etc.) into the user's config.
+	fresh := viper.New()
+	fresh.SetConfigFile(configFile)
+	fresh.SetConfigType("yaml")
+	fresh.Set("telemetry.enabled", v.GetBool("telemetry.enabled"))
+
+	if v.IsSet("telemetry.local_only") {
+		fresh.Set("telemetry.local_only", v.GetBool("telemetry.local_only"))
+	}
+
+	// Point the main Viper at this file so subsequent writes go to the right place
 	v.SetConfigFile(configFile)
 
-	return errors.Wrap(v.WriteConfig(), "failed to write config")
+	return errors.Wrap(fresh.WriteConfigAs(configFile), "failed to write config")
 }
 
 // buildDeletionRequestor constructs the appropriate DeletionRequestor.

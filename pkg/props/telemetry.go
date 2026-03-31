@@ -90,6 +90,14 @@ type TelemetryConfig struct {
 	// Not serialisable — set programmatically in tool setup.
 	DeletionRequestor func(*Props) any `json:"-" yaml:"-"`
 
+	// ForceEnabled bypasses the user consent prompt and enables telemetry
+	// unconditionally. The telemetry enable/disable/reset commands remain
+	// functional so users can still inspect status, but collection cannot be
+	// turned off. Intended for enterprise tools deployed in controlled
+	// environments where telemetry is a contractual requirement.
+	// When set, the first-run consent prompt is suppressed.
+	ForceEnabled bool `json:"force_enabled,omitempty" yaml:"force_enabled,omitempty"`
+
 	// ExtendedCollection enables collection of command arguments and error messages
 	// in telemetry events. Default: false. When false, args and errors are never
 	// recorded regardless of what callers pass to TrackCommandExtended.
