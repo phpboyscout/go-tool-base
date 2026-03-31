@@ -607,13 +607,16 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 		deliveryMode = p.DeliveryAtLeastOnce
 	}
 
-	backend := selectTelemetryBackend(ctx, props, cfg, dataDir)
+	backend, backendInfo := selectTelemetryBackend(ctx, props, cfg, dataDir)
 
-	return telemetry.NewCollector(cfg, backend, props.Tool.Name, props.Version.GetVersion(),
+	collector := telemetry.NewCollector(cfg, backend, props.Tool.Name, props.Version.GetVersion(),
 		props.Tool.Telemetry.Metadata, props.Logger, dataDir, deliveryMode, props.Tool.Telemetry.ExtendedCollection)
+	collector.SetBackendInfo(backendInfo)
+
+	return collector
 }
 
-func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.Config, dataDir string) telemetry.Backend {
+func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.Config, dataDir string) (telemetry.Backend, string) {
 	switch {
 	case props.Tool.Telemetry.Backend != nil:
 		raw := props.Tool.Telemetry.Backend(props)
@@ -622,12 +625,12 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 		if !ok {
 			props.Logger.Warn("TelemetryConfig.Backend did not return a telemetry.Backend; falling back to noop")
 
-			return telemetry.NewNoopBackend()
+			return telemetry.NewNoopBackend(), "noop (invalid custom backend)"
 		}
 
-		return b
+		return b, "custom"
 	case cfg.LocalOnly:
-		return telemetry.NewFileBackend(filepath.Join(dataDir, "telemetry.log"))
+		return telemetry.NewFileBackend(filepath.Join(dataDir, "telemetry.log")), "file (" + filepath.Join(dataDir, "telemetry.log") + ")"
 	case props.Tool.Telemetry.OTelEndpoint != "":
 		opts := []telemetry.OTelOption{
 			telemetry.WithOTelLogger(props.Logger),
@@ -646,14 +649,14 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 		if err != nil {
 			props.Logger.Warn("failed to initialise OTel backend, falling back to noop", "error", err)
 
-			return telemetry.NewNoopBackend()
+			return telemetry.NewNoopBackend(), "noop (OTel init failed)"
 		}
 
-		return b
+		return b, "otlp (" + props.Tool.Telemetry.OTelEndpoint + ")"
 	case props.Tool.Telemetry.Endpoint != "":
-		return telemetry.NewHTTPBackend(props.Tool.Telemetry.Endpoint, props.Logger)
+		return telemetry.NewHTTPBackend(props.Tool.Telemetry.Endpoint, props.Logger), "http (" + props.Tool.Telemetry.Endpoint + ")"
 	default:
-		return telemetry.NewNoopBackend()
+		return telemetry.NewNoopBackend(), "noop (no endpoint configured)"
 	}
 }
 

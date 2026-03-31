@@ -68,6 +68,7 @@ type Collector struct {
 	goVersion          string
 	osVersion          string
 	extendedCollection bool
+	backendInfo        string
 	metadata           map[string]string
 	buffer             []Event
 	mu                 sync.Mutex
@@ -81,7 +82,7 @@ type Collector struct {
 // collector so callers never need to nil-check.
 func NewCollector(cfg Config, backend Backend, toolName, version string, metadata map[string]string, log logger.Logger, dataDir string, deliveryMode props.DeliveryMode, extendedCollection bool) *Collector {
 	if !cfg.Enabled {
-		return &Collector{backend: NewNoopBackend(), log: log, maxBuffer: defaultMaxBuffer}
+		return &Collector{backend: NewNoopBackend(), log: log, maxBuffer: defaultMaxBuffer, backendInfo: "noop (disabled)"}
 	}
 
 	if deliveryMode == "" {
@@ -254,6 +255,17 @@ func (c *Collector) Close(ctx context.Context) error {
 	}
 
 	return c.backend.Close()
+}
+
+// BackendInfo returns a human-readable description of the active backend.
+func (c *Collector) BackendInfo() string {
+	return c.backendInfo
+}
+
+// SetBackendInfo sets the human-readable backend description.
+// Called by the root command after backend selection.
+func (c *Collector) SetBackendInfo(info string) {
+	c.backendInfo = info
 }
 
 // Drop clears all buffered events and deletes any spill files without sending.

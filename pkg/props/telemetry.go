@@ -51,6 +51,9 @@ type TelemetryCollector interface {
 	// Flush sends all buffered events to the backend and clears the buffer.
 	// Checks for and sends spill files before flushing the current buffer.
 	Flush(ctx context.Context) error
+	// BackendInfo returns a human-readable description of the active backend
+	// (e.g. "otlp (otlp-gateway-prod-gb-south-1.grafana.net)", "noop", "file").
+	BackendInfo() string
 	// Close flushes pending events and shuts down the backend gracefully.
 	// Must be called on process exit to ensure backends like OTLP flush
 	// their internal batch queues.

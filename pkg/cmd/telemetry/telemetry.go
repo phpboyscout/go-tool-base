@@ -92,6 +92,10 @@ func newStatusCmd(p *props.Props) *cobra.Command {
 
 			p.Logger.Print("Machine ID: " + telemetry.HashedMachineID())
 
+			if p.Collector != nil {
+				p.Logger.Print("Backend: " + p.Collector.BackendInfo())
+			}
+
 			return nil
 		},
 	}
