@@ -47,12 +47,14 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
 | `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
+| `INT_TEST_CHAT=1` | Enables only tests tagged `"chat"` |
 | `INT_TEST_BITBUCKET=1` | Enables only tests tagged `"bitbucket"` |
 | `INT_TEST_GITEA=1` | Enables only tests tagged `"gitea"` |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
 | `INT_TEST_E2E_CLI=1` | Enables only `@cli`-tagged E2E scenarios |
+| `INT_TEST_E2E_CHAT=1` | Enables only `@chat`-tagged E2E scenarios |
 
 When neither `INT_TEST` nor the relevant `INT_TEST_<TAG>` is set, the test is skipped with a message explaining how to enable it:
 
@@ -150,6 +152,9 @@ These tests require **no external credentials** — only local network access.
 
 ### `pkg/vcs/bitbucket/` — Bitbucket Downloads
 
+!!! warning "Not yet implemented"
+    Integration tests for the Bitbucket release provider are planned but not yet implemented. The env vars and gating are documented below for when they are added.
+
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `release_integration_test.go` | Latest release detection, asset listing via real Downloads API | Network access to Bitbucket, `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`, `BITBUCKET_TEST_WORKSPACE`, `BITBUCKET_TEST_REPO` |
@@ -158,11 +163,23 @@ Gate with `testutil.SkipIfNotIntegration(t, "bitbucket")` and enable with `INT_T
 
 ### `pkg/vcs/gitea/` — Gitea / Forgejo
 
+!!! warning "Not yet implemented"
+    Integration tests for the Gitea release provider are planned but not yet implemented. The env vars and gating are documented below for when they are added.
+
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `release_integration_test.go` | Latest/tagged/listed releases, asset download via real Gitea REST API | Network access to a Gitea/Forgejo instance, `GITEA_TOKEN`, `GITEA_HOST`, `GITEA_TEST_OWNER`, `GITEA_TEST_REPO` |
 
 Gate with `testutil.SkipIfNotIntegration(t, "gitea")` and enable with `INT_TEST_GITEA=1`.
+
+### `pkg/chat/` — AI Chat Providers
+
+| File | Tests | Dependencies |
+| :--- | :--- | :--- |
+| `parallel_integration_test.go` | Parallel tool execution across providers, concurrency limits | AI provider API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) |
+| `streaming_integration_test.go` | Streaming chat responses, event callback sequencing | AI provider API keys |
+
+Gate with `testutil.SkipIfNotIntegration(t, "chat")` and enable with `INT_TEST_CHAT=1`.
 
 ### `internal/generator/` — Code Generation Pipeline
 
@@ -185,6 +202,8 @@ E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to ex
 | `features/cli/update.feature` | Help/usage, semver validation, error paths | Binary compilation |
 | `features/cli/init.feature` | Non-interactive init, config merge, clean reset, JSON output | Binary compilation, filesystem |
 | `features/cli/config.feature` | Get/set/list/validate, sensitive masking, JSON output | Binary compilation, filesystem |
+| `features/cli/telemetry.feature` | Enable/disable/status/reset, consent withdrawal, machine ID | Binary compilation, filesystem |
+| `features/chat/persistence.feature` | Save/load/list/delete snapshots, encryption, provider mismatch, tool exclusion | None (in-process) |
 
 These tests require **no external credentials**. Run via `just test-e2e` or filter with `INT_TEST_E2E_CONTROLS=1` or `INT_TEST_E2E_CLI=1`.
 

@@ -75,6 +75,9 @@ Use `chat.Ask` with a typed struct to receive deterministic, schema-validated re
 ### [Add Tool Calling to an AI Command](ai-tool-calling.md)
 Expose Go functions as tools the AI can call, with the built-in ReAct loop managing the back-and-forth.
 
+### [Persist Chat Conversations](persist-chat-conversations.md)
+Save and restore AI chat conversations across CLI invocations using snapshots and the FileStore.
+
 ## Version Control & Releases
 
 ### [Configure Self-Updating](configure-self-updating.md)
@@ -82,6 +85,19 @@ Wire up `UpdateCmd` with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct
 
 ### [Add a Custom Release Source](custom-release-source.md)
 Implement and register a custom `release.Provider` so your tool can self-update from any backend — S3, Artifactory, Nexus, or a proprietary store.
+
+## Telemetry
+
+### [Create a Custom Telemetry Backend](custom-telemetry-backend.md)
+Implement the `telemetry.Backend` interface to send usage analytics to any platform.
+
+### [Create a Custom Deletion Requestor](custom-deletion-requestor.md)
+Implement the `telemetry.DeletionRequestor` interface for GDPR-compliant data deletion from custom backends.
+
+## Code Generation
+
+### [Configure Generator Ignore Rules](configure-generator-ignore.md)
+Use `.gtb/ignore` to prevent the generator from overwriting customised files during regeneration.
 
 ### [Automate GitHub Workflows](automate-github-workflows.md)
 Create pull requests, download release assets, and read file contents using `GHClient`.
