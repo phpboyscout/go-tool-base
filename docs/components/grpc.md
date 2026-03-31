@@ -39,6 +39,59 @@ The package provides an interceptor chaining API for composing gRPC unary and st
 
 **Options**: `WithGRPCLogLevel`, `WithoutGRPCLatency`, `WithGRPCPathFilter`.
 
+## TLS
+
+The gRPC server supports TLS using the same hardened configuration as the HTTP server (TLS 1.2 minimum, curated AEAD cipher suites, X25519 curve preference).
+
+### Configuration
+
+TLS configuration cascades — transport-specific keys override the shared defaults:
+
+| Key | Shared Default | gRPC Override |
+|-----|---------------|---------------|
+| Enabled | `server.tls.enabled` | `server.grpc.tls.enabled` |
+| Certificate | `server.tls.cert` | `server.grpc.tls.cert` |
+| Private key | `server.tls.key` | `server.grpc.tls.key` |
+
+To use the same certificate for both HTTP and gRPC, configure the shared keys only:
+
+```yaml
+server:
+  tls:
+    enabled: true
+    cert: /etc/certs/server.crt
+    key: /etc/certs/server.key
+```
+
+To use different certificates per transport:
+
+```yaml
+server:
+  tls:
+    enabled: true
+    cert: /etc/certs/http.crt
+    key: /etc/certs/http.key
+  grpc:
+    tls:
+      cert: /etc/certs/grpc.crt
+      key: /etc/certs/grpc.key
+```
+
+### Direct Credential Construction
+
+For cases where you need to pass TLS credentials directly to `grpc.NewServer` (e.g. when not using the `Register` helper):
+
+```go
+creds, err := gtbgrpc.TLSServerCredentials("/path/to/cert.pem", "/path/to/key.pem")
+if err != nil {
+    return err
+}
+
+srv := grpc.NewServer(grpc.Creds(creds))
+```
+
+This uses the same hardened TLS config (`DefaultTLSConfig()`) as the automatic setup.
+
 ## Usage Example
 
 ```go

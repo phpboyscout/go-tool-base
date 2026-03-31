@@ -20,6 +20,30 @@ The HTTP server implementation integrates seamlessly with the `controls` lifecyc
 - **Production Timeouts**: Pre-configured Read (5s), Write (10s), and Idle (120s) timeouts.
 - **Secure TLS**: Enforces TLS 1.2 minimum with curated AEAD-based cipher suites and X25519 preference.
 
+### TLS Configuration
+
+TLS configuration cascades — transport-specific keys override the shared defaults:
+
+| Key | Shared Default | HTTP Override |
+|-----|---------------|--------------|
+| Enabled | `server.tls.enabled` | `server.http.tls.enabled` |
+| Certificate | `server.tls.cert` | `server.http.tls.cert` |
+| Private key | `server.tls.key` | `server.http.tls.key` |
+
+To use the same certificate for both HTTP and gRPC, configure the shared keys only:
+
+```yaml
+server:
+  tls:
+    enabled: true
+    cert: /etc/certs/server.crt
+    key: /etc/certs/server.key
+```
+
+When TLS is enabled, the server uses `ServeTLS` with the hardened `DefaultTLSConfig()` (TLS 1.2+, curated AEAD ciphers, X25519). When disabled, it uses plain `Serve`.
+
+The `DefaultTLSConfig()` and `ResolveTLSConfig()` functions are exported for use by other packages (e.g. `pkg/grpc`).
+
 ### Functions
 
 - **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error)`**: Returns a pre-configured `*http.Server`.
