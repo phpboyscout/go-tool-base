@@ -21,6 +21,15 @@ func testLogger() logger.Logger {
 	return logger.NewNoop()
 }
 
+func mockTLSDisabled(cfg *mockConfig.MockContainable) {
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
+	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
+}
+
 func TestNewServer(t *testing.T) {
 	t.Parallel()
 
@@ -127,9 +136,7 @@ func TestHTTPServer_RejectsOversizedHeaders(t *testing.T) {
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
 	cfg.EXPECT().GetInt("server.port").Return(0).Maybe()
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(100)
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -170,9 +177,7 @@ func TestStart_HTTP(t *testing.T) {
 	_ = listener.Close()
 
 	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -244,9 +249,7 @@ func TestRegister(t *testing.T) {
 	cfg.EXPECT().GetInt("server.http.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -280,9 +283,7 @@ func TestHealthz(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -324,9 +325,7 @@ func TestProbes(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -377,9 +376,7 @@ func TestRegister_WithMiddleware(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -432,9 +429,7 @@ func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.port").Return(port)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
+	mockTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 

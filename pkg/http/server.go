@@ -95,7 +95,7 @@ func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler
 		WriteTimeout:   writeTimeout,
 		IdleTimeout:    idleTimeout,
 		MaxHeaderBytes: maxHeaderBytes,
-		TLSConfig:      defaultTLSConfig(),
+		TLSConfig:      DefaultTLSConfig(),
 	}
 
 	return srv, nil
@@ -103,9 +103,7 @@ func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler
 
 // Start returns a curried function suitable for use with the controls package.
 func Start(cfg config.Containable, logger logger.Logger, srv *http.Server) controls.StartFunc {
-	tlsEnabled := cfg.GetBool("server.tls.enabled")
-	cert := cfg.GetString("server.tls.cert")
-	key := cfg.GetString("server.tls.key")
+	tlsEnabled, cert, key := ResolveTLSConfig(cfg, "server.http.tls")
 
 	return func(ctx context.Context) error {
 		var lc net.ListenConfig

@@ -2,18 +2,21 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/controls"
+	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -91,6 +94,7 @@ func RegisterHealthService(srv *grpc.Server, controller healthSource) {
 }
 
 // Start returns a curried function suitable for use with the controls package.
+// TLS configuration cascades: server.grpc.tls.* overrides server.tls.* shared defaults.
 func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) controls.StartFunc {
 	portStr := cfg.GetInt("server.grpc.port")
 	if portStr == 0 {
@@ -98,6 +102,7 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 	}
 
 	port := fmt.Sprintf(":%d", portStr)
+	tlsEnabled, cert, key := gtbhttp.ResolveTLSConfig(cfg, "server.grpc.tls")
 
 	return func(ctx context.Context) error {
 		var lc net.ListenConfig
@@ -107,7 +112,18 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 			return errors.Wrap(err, "failed to listen")
 		}
 
-		logger.Info("starting gRPC server", "addr", port)
+		if tlsEnabled {
+			tlsLis, tlsErr := wrapTLS(lis, cert, key)
+			if tlsErr != nil {
+				return tlsErr
+			}
+
+			lis = tlsLis
+
+			logger.Info("starting gRPC server", "tls", true, "addr", port)
+		} else {
+			logger.Info("starting gRPC server", "tls", false, "addr", port)
+		}
 
 		go func() {
 			if err := srv.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
@@ -117,6 +133,35 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 
 		return nil
 	}
+}
+
+// wrapTLS wraps a net.Listener with TLS using the shared hardened config
+// and the provided certificate and key files.
+func wrapTLS(lis net.Listener, certFile, keyFile string) (net.Listener, error) {
+	certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "loading gRPC TLS certificate")
+	}
+
+	tlsCfg := gtbhttp.DefaultTLSConfig()
+	tlsCfg.Certificates = []tls.Certificate{certificate}
+
+	return tls.NewListener(lis, tlsCfg), nil
+}
+
+// TLSServerCredentials returns gRPC server credentials using the shared
+// hardened TLS config. Use this when you need to pass credentials directly
+// to grpc.NewServer via grpc.Creds() instead of using the Start function.
+func TLSServerCredentials(certFile, keyFile string) (credentials.TransportCredentials, error) {
+	certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "loading gRPC TLS certificate")
+	}
+
+	tlsCfg := gtbhttp.DefaultTLSConfig()
+	tlsCfg.Certificates = []tls.Certificate{certificate}
+
+	return credentials.NewTLS(tlsCfg), nil
 }
 
 // Stop returns a curried function suitable for use with the controls package.

@@ -18,6 +18,15 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
+func mockGRPCTLSDisabled(cfg *mockConfig.MockContainable) {
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
+	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
+	cfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
+}
+
 func testLogger() logger.Logger {
 	return logger.NewNoop()
 }
@@ -83,6 +92,7 @@ func TestStart_ListenAndServe(t *testing.T) {
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
+	mockGRPCTLSDisabled(cfg)
 
 	srv, err := NewServer(cfg)
 	require.NoError(t, err)
@@ -125,6 +135,7 @@ func TestRegister(t *testing.T) {
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
+	mockGRPCTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -158,6 +169,7 @@ func TestGRPCHealth(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+	mockGRPCTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -199,6 +211,7 @@ func TestGRPCProbes(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+	mockGRPCTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -249,6 +262,7 @@ func TestGRPCPortConfig_Specific(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(9090)
+	mockGRPCTLSDisabled(cfg)
 
 	srv, _ := NewServer(cfg)
 	startFn := Start(cfg, testLogger(), srv)
@@ -261,6 +275,7 @@ func TestGRPCPortConfig_Fallback(t *testing.T) {
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(8080)
+	mockGRPCTLSDisabled(cfg)
 
 	srv, _ := NewServer(cfg)
 	startFn := Start(cfg, testLogger(), srv)
@@ -278,6 +293,7 @@ func TestRegister_WithInterceptors(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+	mockGRPCTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
@@ -304,6 +320,7 @@ func TestRegister_MixedOptions(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+	mockGRPCTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 

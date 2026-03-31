@@ -150,6 +150,7 @@ func TestInterceptorChain_MultipleInterceptors_Ordering(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+	mockGRPCTLSDisabled(cfg)
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 

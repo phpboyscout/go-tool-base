@@ -10,7 +10,7 @@ import (
 func TestDefaultTLSConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := defaultTLSConfig()
+	cfg := DefaultTLSConfig()
 
 	assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
 	assert.NotEmpty(t, cfg.CipherSuites)

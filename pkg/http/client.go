@@ -33,7 +33,7 @@ func defaultClientConfig() *clientConfig {
 	return &clientConfig{
 		timeout:      defaultTimeout,
 		maxRedirects: defaultMaxRedirects,
-		tlsConfig:    defaultTLSConfig(),
+		tlsConfig:    DefaultTLSConfig(),
 	}
 }
 
@@ -74,10 +74,10 @@ func WithTransport(rt http.RoundTripper) ClientOption {
 
 // NewTransport returns a preconfigured *http.Transport with security-focused
 // defaults: curated TLS configuration, connection limits, and timeouts.
-// If tlsCfg is nil, defaultTLSConfig() is used.
+// If tlsCfg is nil, DefaultTLSConfig() is used.
 func NewTransport(tlsCfg *tls.Config) *http.Transport {
 	if tlsCfg == nil {
-		tlsCfg = defaultTLSConfig()
+		tlsCfg = DefaultTLSConfig()
 	}
 
 	return &http.Transport{
