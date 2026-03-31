@@ -246,6 +246,103 @@ Telemetry: props.TelemetryConfig{
 
 The factory returns `any` to avoid an import cycle. The returned value must implement `telemetry.Backend` — a failed type assertion falls back to noop with a warning.
 
+### Datadog
+
+The `pkg/telemetry/datadog` package provides a backend that sends events to Datadog's HTTP Logs Intake API. Events are mapped to Datadog's native log format with `ddsource`, `ddtags`, `service`, and `hostname` fields — they appear immediately in Log Explorer without custom parsing.
+
+```go
+import "github.com/phpboyscout/go-tool-base/pkg/telemetry/datadog"
+
+Telemetry: props.TelemetryConfig{
+    Backend: func(p *props.Props) any {
+        return datadog.NewBackend(
+            os.Getenv("DD_API_KEY"),
+            p.Logger,
+            datadog.WithRegion(datadog.RegionEU1),
+        )
+    },
+},
+```
+
+**Regions:** `RegionUS1` (default), `RegionUS3`, `RegionUS5`, `RegionEU1`, `RegionAP1`, `RegionAP2`, `RegionGOV`.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `WithRegion(region)` | Datadog region (resolves to the correct intake endpoint) |
+| `WithSource(source)` | Override the `ddsource` tag (default: `"gtb"`) |
+
+**Event mapping:**
+
+| Event field | Datadog field |
+|-------------|---------------|
+| `Type: Name` | `message` |
+| `ToolName` | `service` |
+| `MachineID` | `hostname` |
+| `Type, Version, OS, Arch` | `ddtags` (comma-separated) |
+| `Metadata` | `metadata` (nested object) |
+
+### PostHog
+
+The `pkg/telemetry/posthog` package provides a backend that sends events to PostHog's Capture API using batch mode. Events map directly to PostHog's event model — they appear in the Events tab with all properties queryable.
+
+```go
+import "github.com/phpboyscout/go-tool-base/pkg/telemetry/posthog"
+
+Telemetry: props.TelemetryConfig{
+    Backend: func(p *props.Props) any {
+        return posthog.NewBackend(
+            os.Getenv("POSTHOG_PROJECT_KEY"),
+            p.Logger,
+            posthog.WithInstance(posthog.InstanceEU),
+        )
+    },
+},
+```
+
+**Self-hosted PostHog:**
+
+```go
+posthog.NewBackend(
+    os.Getenv("POSTHOG_PROJECT_KEY"),
+    p.Logger,
+    posthog.WithEndpoint("https://posthog.internal.example.com/capture/"),
+)
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `WithInstance(instance)` | PostHog cloud instance: `InstanceUS` (default), `InstanceEU` |
+| `WithEndpoint(url)` | Custom endpoint for self-hosted (overrides `WithInstance`) |
+
+**Event mapping:**
+
+| Event field | PostHog field |
+|-------------|---------------|
+| `Type` | `event` |
+| `MachineID` | `distinct_id` |
+| `Name` | `properties.event_name` |
+| `ToolName` | `properties.tool_name` |
+| `Version` | `properties.tool_version` |
+| `OS` | `properties.$os` |
+| `Arch` | `properties.arch` |
+| `Metadata` | `properties.*` (merged) |
+
+### Choosing a Backend
+
+| Backend | Best for | Auth | Protocol |
+|---------|----------|------|----------|
+| **OTLP** | Grafana Cloud, any OTel collector, enterprise observability | Basic auth via headers | OTLP/HTTP (protobuf) |
+| **Datadog** | Teams already using Datadog for infrastructure monitoring | `DD-API-KEY` header | HTTP JSON |
+| **PostHog** | Product analytics, feature adoption tracking, funnels | Project key in payload | HTTP JSON |
+| **HTTP** | Simple custom endpoints, webhooks | None (bring your own) | HTTP JSON |
+| **Custom** | Any other platform | Defined by implementation | Any |
+
+The OTLP backend is the default recommendation for new deployments — it works with any OTel-compatible collector and avoids vendor lock-in. The Datadog and PostHog backends are provided for teams that want native integration with those platforms without writing a custom backend.
+
 ---
 
 ## Backend Selection Precedence
@@ -489,5 +586,7 @@ If `OTelEndpoint` uses the `http://` scheme (no TLS), event data is transmitted 
 
 - [Telemetry Command](commands/telemetry.md) — CLI commands for managing telemetry
 - [Props](props.md) — dependency injection container (`Collector` field)
+- [Create a Custom Telemetry Backend](../how-to/custom-telemetry-backend.md) — implement your own backend
+- [Create a Custom Deletion Requestor](../how-to/custom-deletion-requestor.md) — GDPR deletion for custom backends
 - [Telemetry Specification](../development/specs/2026-03-21-opt-in-telemetry.md) — full design spec
 - [Vendor Backends Specification](../development/specs/2026-03-30-telemetry-vendor-backends.md) — Datadog and PostHog backends

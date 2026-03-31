@@ -2,7 +2,7 @@
 title: "Telemetry Vendor Backends: Datadog & PostHog"
 description: "Dedicated telemetry backend implementations for Datadog and PostHog, extending the opt-in telemetry framework."
 date: 2026-03-30
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - telemetry
