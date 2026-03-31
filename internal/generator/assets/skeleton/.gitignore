@@ -25,3 +25,7 @@ go.work
 
 # Temporary files
 tmp/
+
+bin/*
+config/local.yaml
+
