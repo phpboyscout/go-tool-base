@@ -28,4 +28,4 @@ tmp/
 
 bin/*
 config/local.yaml
-
+site/*
