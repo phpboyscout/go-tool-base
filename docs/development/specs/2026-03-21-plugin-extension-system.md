@@ -2,7 +2,7 @@
 title: "Plugin Extension System Specification"
 description: "Script-based command plugin system allowing users to extend CLI tools with custom commands discovered from a plugins directory."
 date: 2026-03-21
-status: DRAFT
+status: REJECTED
 tags:
   - specification
   - plugins
@@ -28,7 +28,19 @@ Status
 
 ---
 
-## Overview
+## Rejection Rationale
+
+This spec was rejected on 31 March 2026. The plugin system solves a problem that doesn't naturally exist in GTB's library-first architecture:
+
+- **GTB tools are compiled Go binaries** where the tool author controls command registration. Unlike `kubectl` (a universal binary that can't be recompiled by end users), GTB tools are purpose-built by tool authors who have full source access.
+- **The `gtb generate command` workflow** already converts scripts into native Cobra commands with full type safety, middleware integration, and telemetry support — without the complexity of subprocess management, manifest parsing, or security surface area.
+- **Adding commands is already trivial** via the generator. A script-based plugin system would be a parallel mechanism that adds complexity without clear value over the existing approach.
+
+The feature may be reconsidered if a concrete consumer with a real need emerges that cannot be served by the generator's script-to-command conversion.
+
+---
+
+## Overview (Original)
 
 Users cannot extend GTB-based tools with custom commands without forking the project. A plugin system allows users to drop scripts or binaries into a well-known directory and have them automatically discovered and registered as subcommands. This follows the pattern established by tools like `git` (any `git-foo` on PATH becomes `git foo`), `kubectl` plugins, and Homebrew taps.
 
