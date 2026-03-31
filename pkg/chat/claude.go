@@ -538,3 +538,33 @@ func (c *Claude) applyResponseSchema(params *anthropic.MessageNewParams, toolNam
 		c.props.Logger.Debug("Claude Tool Schema", "schema", string(schemaBytes))
 	}
 }
+
+// Save captures the current Claude conversation state as a snapshot.
+func (c *Claude) Save() (*Snapshot, error) {
+	messages, err := json.Marshal(c.messages)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshalling Claude messages")
+	}
+
+	return NewSnapshot(ProviderClaude, c.cfg.Model, c.cfg.SystemPrompt, messages, c.tools, nil), nil
+}
+
+// Restore replaces the current conversation state with a previously saved snapshot.
+func (c *Claude) Restore(snapshot *Snapshot) error {
+	if snapshot.Provider != ProviderClaude {
+		return errors.Newf("provider mismatch: snapshot is %s, client is claude", snapshot.Provider)
+	}
+
+	var messages []anthropic.MessageParam
+	if err := json.Unmarshal(snapshot.Messages, &messages); err != nil {
+		return errors.Wrap(err, "unmarshalling Claude messages")
+	}
+
+	c.messages = messages
+	c.cfg.SystemPrompt = snapshot.SystemPrompt
+
+	return nil
+}
+
+// Compile-time check: Claude implements PersistentChatClient.
+var _ PersistentChatClient = (*Claude)(nil)

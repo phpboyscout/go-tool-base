@@ -518,3 +518,33 @@ func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
 
 	return "", errors.Newf("OpenAI reached maximum ReAct steps (%d) without a final answer", maxSteps)
 }
+
+// Save captures the current OpenAI conversation state as a snapshot.
+func (a *OpenAI) Save() (*Snapshot, error) {
+	messages, err := json.Marshal(a.params.Messages)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshalling OpenAI messages")
+	}
+
+	return NewSnapshot(ProviderOpenAI, a.cfg.Model, a.cfg.SystemPrompt, messages, a.tools, nil), nil
+}
+
+// Restore replaces the current conversation state with a previously saved snapshot.
+func (a *OpenAI) Restore(snapshot *Snapshot) error {
+	if snapshot.Provider != ProviderOpenAI && snapshot.Provider != ProviderOpenAICompatible {
+		return errors.Newf("provider mismatch: snapshot is %s, client is openai", snapshot.Provider)
+	}
+
+	var messages []openai.ChatCompletionMessageParamUnion
+	if err := json.Unmarshal(snapshot.Messages, &messages); err != nil {
+		return errors.Wrap(err, "unmarshalling OpenAI messages")
+	}
+
+	a.params.Messages = messages
+	a.cfg.SystemPrompt = snapshot.SystemPrompt
+
+	return nil
+}
+
+// Compile-time check: OpenAI implements PersistentChatClient.
+var _ PersistentChatClient = (*OpenAI)(nil)

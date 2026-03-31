@@ -429,6 +429,81 @@ func robustChat(ctx context.Context, p *props.Props, prompt string) (string, err
 }
 ```
 
+## Conversation Persistence
+
+Conversation state can be saved and restored across CLI invocations using the `PersistentChatClient` interface. Discover it via type assertion (same pattern as `StreamingChatClient`):
+
+```go
+if pc, ok := client.(chat.PersistentChatClient); ok {
+    snapshot, err := pc.Save()
+    // ... store snapshot for later
+}
+```
+
+### Supported Providers
+
+| Provider | Persistence | Notes |
+|----------|------------|-------|
+| Claude | Yes | Messages include system prompt as first user message |
+| OpenAI | Yes | System prompt preserved as first SystemMessage |
+| OpenAI-Compatible | Yes | Same as OpenAI |
+| Gemini | Yes | System prompt restored to both config and history |
+| ClaudeLocal | No | External subprocess — no internal state to persist |
+
+### Saving and Restoring
+
+```go
+// Save current conversation
+snapshot, err := pc.Save()
+
+// Store to filesystem (with optional encryption)
+store, _ := chat.NewFileStore(afero.NewOsFs(), "~/.mytool/conversations",
+    chat.WithEncryption(encryptionKey), // optional, 32-byte AES-256 key
+)
+store.Save(ctx, snapshot)
+
+// Later — restore from storage
+snapshot, _ := store.Load(ctx, snapshotID)
+err := pc.Restore(snapshot)
+
+// Re-register tools (handlers are not serialised)
+pc.SetTools(myTools)
+
+// Continue the conversation
+response, _ := pc.Chat(ctx, "Where were we?")
+```
+
+### Snapshot Contents
+
+| Field | Included | Notes |
+|-------|----------|-------|
+| Messages | Yes | Provider-specific format (opaque JSON) |
+| System prompt | Yes | Restored to provider-specific location |
+| Tool metadata | Yes | Name, description, parameters only |
+| Tool handlers | No | Must re-register via `SetTools` after restore |
+| API tokens | No | Security — never persisted |
+| Model name | Yes | For reference; client uses its configured model |
+
+### FileStore
+
+The built-in `FileStore` persists snapshots as JSON files with optional AES-256-GCM encryption:
+
+```go
+// Unencrypted
+store, err := chat.NewFileStore(fs, "/path/to/conversations")
+
+// Encrypted (key must be exactly 32 bytes)
+store, err := chat.NewFileStore(fs, "/path/to/conversations",
+    chat.WithEncryption(key),
+)
+```
+
+Files are written with 0600 permissions. The directory is created with 0700 if it doesn't exist.
+
+**Operations:** `Save`, `Load`, `List` (returns summaries without loading full messages), `Delete`.
+
+---
+
 ## Thread Safety
 
 `ChatClient` implementations are **not safe for concurrent use** by multiple goroutines. This is consistent with Go conventions (`http.Request`, `json.Decoder`, etc.). Each goroutine should create its own client instance via `chat.New()`.

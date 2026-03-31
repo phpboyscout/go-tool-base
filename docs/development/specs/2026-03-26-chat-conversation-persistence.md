@@ -2,7 +2,7 @@
 title: "Chat Conversation Persistence Specification"
 description: "Add serialization and deserialization of ChatClient conversation state to enable persistence and resumption across sessions."
 date: 2026-03-26
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - chat

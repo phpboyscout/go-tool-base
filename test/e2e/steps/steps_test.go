@@ -35,6 +35,7 @@ func TestFeatures(t *testing.T) {
 func initializeScenario(ctx *godog.ScenarioContext) {
 	initControlsSteps(ctx)
 	initCLISteps(ctx)
+	initChatSteps(ctx)
 }
 
 func buildTagExpression() string {
@@ -49,6 +50,10 @@ func buildTagExpression() string {
 
 	if os.Getenv("INT_TEST_E2E_CLI") != "" {
 		return "@cli"
+	}
+
+	if os.Getenv("INT_TEST_E2E_CHAT") != "" {
+		return "@chat"
 	}
 
 	// Default: run everything

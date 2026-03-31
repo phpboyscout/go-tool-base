@@ -464,3 +464,40 @@ func (g *Gemini) cloneConfig() *genai.GenerateContentConfig {
 
 	return &cp
 }
+
+// Save captures the current Gemini conversation state as a snapshot.
+func (g *Gemini) Save() (*Snapshot, error) {
+	messages, err := json.Marshal(g.history)
+	if err != nil {
+		return nil, errors.Wrap(err, "marshalling Gemini history")
+	}
+
+	return NewSnapshot(ProviderGemini, g.model, g.cfg.SystemPrompt, messages, g.tools, nil), nil
+}
+
+// Restore replaces the current conversation state with a previously saved snapshot.
+func (g *Gemini) Restore(snapshot *Snapshot) error {
+	if snapshot.Provider != ProviderGemini {
+		return errors.Newf("provider mismatch: snapshot is %s, client is gemini", snapshot.Provider)
+	}
+
+	var history []*genai.Content
+	if err := json.Unmarshal(snapshot.Messages, &history); err != nil {
+		return errors.Wrap(err, "unmarshalling Gemini history")
+	}
+
+	g.history = history
+	g.cfg.SystemPrompt = snapshot.SystemPrompt
+
+	// Gemini stores system prompt separately in config, not in history
+	if g.config != nil && snapshot.SystemPrompt != "" {
+		g.config.SystemInstruction = &genai.Content{
+			Parts: []*genai.Part{{Text: snapshot.SystemPrompt}},
+		}
+	}
+
+	return nil
+}
+
+// Compile-time check: Gemini implements PersistentChatClient.
+var _ PersistentChatClient = (*Gemini)(nil)
