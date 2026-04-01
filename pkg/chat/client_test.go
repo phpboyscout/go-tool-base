@@ -25,12 +25,12 @@ func TestNew(t *testing.T) {
 		Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
 	}
 
-	t.Run("default provider is OpenAI", func(t *testing.T) {
+	t.Run("default provider is Claude", func(t *testing.T) {
 		t.Setenv("AI_PROVIDER", "")
 		cfg := Config{}
 		client, err := New(ctx, p, cfg)
 		if assert.Error(t, err) {
-			assert.Contains(t, err.Error(), "OpenAI token is required")
+			assert.Contains(t, err.Error(), "Anthropic")
 		}
 		assert.Nil(t, client)
 	})

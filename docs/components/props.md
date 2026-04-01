@@ -89,7 +89,8 @@ const (
     AiCmd        = FeatureCmd("ai")        // AI-powered features (opt-in)
     DoctorCmd    = FeatureCmd("doctor")    // Environment health checks
     ConfigCmd    = FeatureCmd("config")    // Programmatic config access (opt-in)
-    TelemetryCmd = FeatureCmd("telemetry") // Anonymous usage telemetry (opt-in)
+    TelemetryCmd  = FeatureCmd("telemetry")  // Anonymous usage telemetry (opt-in)
+    ChangelogCmd  = FeatureCmd("changelog")  // Embedded changelog display
 )
 ```
 
@@ -103,6 +104,7 @@ const (
 - `mcp`
 - `docs`
 - `doctor`
+- `changelog`
 
 The following features are **opt-in** (disabled by default):
 - `ai` — AI provider configuration during `init`

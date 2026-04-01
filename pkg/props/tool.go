@@ -10,13 +10,14 @@ import (
 type FeatureCmd string
 
 const (
-	UpdateCmd = FeatureCmd("update")
-	InitCmd   = FeatureCmd("init")
-	McpCmd    = FeatureCmd("mcp")
-	DocsCmd   = FeatureCmd("docs")
-	AiCmd     = FeatureCmd("ai")
-	DoctorCmd = FeatureCmd("doctor")
-	ConfigCmd = FeatureCmd("config")
+	UpdateCmd    = FeatureCmd("update")
+	InitCmd      = FeatureCmd("init")
+	McpCmd       = FeatureCmd("mcp")
+	DocsCmd      = FeatureCmd("docs")
+	AiCmd        = FeatureCmd("ai")
+	DoctorCmd    = FeatureCmd("doctor")
+	ConfigCmd    = FeatureCmd("config")
+	ChangelogCmd = FeatureCmd("changelog")
 )
 
 // DefaultFeatures is the list of features enabled by default.
@@ -26,6 +27,7 @@ var DefaultFeatures = []FeatureState{
 	Enable(McpCmd),
 	Enable(DocsCmd),
 	Enable(DoctorCmd),
+	Enable(ChangelogCmd),
 }
 
 // Feature represents the state of a feature (Enabled/Disabled).
@@ -122,7 +124,7 @@ type Tool struct {
 // isDefaultEnabled returns true if the feature is enabled by default.
 func isDefaultEnabled(cmd FeatureCmd) bool {
 	switch cmd {
-	case UpdateCmd, InitCmd, McpCmd, DocsCmd, DoctorCmd:
+	case UpdateCmd, InitCmd, McpCmd, DocsCmd, DoctorCmd, ChangelogCmd:
 		return true
 	case AiCmd, ConfigCmd, TelemetryCmd:
 		return false

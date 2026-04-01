@@ -12,7 +12,7 @@ import (
 func ExampleNewClient() {
 	// Create a hardened HTTP client with security defaults.
 	client := gtbhttp.NewClient(
-		gtbhttp.WithTimeout(10 * time.Second),
+		gtbhttp.WithTimeout(10*time.Second),
 		gtbhttp.WithMaxRedirects(5),
 	)
 
@@ -22,7 +22,7 @@ func ExampleNewClient() {
 func ExampleNewClient_withRetry() {
 	// Create a client with automatic retry for transient failures.
 	client := gtbhttp.NewClient(
-		gtbhttp.WithTimeout(30 * time.Second),
+		gtbhttp.WithTimeout(30*time.Second),
 		gtbhttp.WithRetry(gtbhttp.RetryConfig{
 			MaxRetries:     3,
 			InitialBackoff: 500 * time.Millisecond,

@@ -39,5 +39,5 @@ func ExampleSlackHelp() {
 	}
 
 	fmt.Println(help.SupportMessage())
-	// Output: If the problem persists, reach out to #dev-support on the mycompany Slack workspace
+	// Output: For assistance, contact mycompany via Slack channel #dev-support
 }

@@ -67,7 +67,7 @@ func ExampleWithLiveness() {
 				return err
 			}
 
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			return nil
 		}),

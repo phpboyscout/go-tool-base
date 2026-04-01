@@ -60,12 +60,7 @@ func ExampleContainer_Validate() {
 
 	schema, _ := config.NewSchema(config.WithStructSchema(AppConfig{}))
 
-	container, ok := cfg.(*config.Container)
-	if !ok {
-		return
-	}
-
-	result := container.Validate(schema)
+	result := cfg.Validate(schema)
 	if !result.Valid() {
 		fmt.Println(result.Error())
 	}

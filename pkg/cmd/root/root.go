@@ -13,6 +13,7 @@ import (
 
 	"github.com/njayp/ophis"
 
+	cmdchangelog "github.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
 	cmdconfig "github.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/docs"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/doctor"
@@ -495,6 +496,10 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 
 	if props.Tool.IsEnabled(p.TelemetryCmd) {
 		setup.AddCommandWithMiddleware(rootCmd, cmdtelemetry.NewCmdTelemetry(props), p.TelemetryCmd)
+	}
+
+	if props.Tool.IsEnabled(p.ChangelogCmd) {
+		setup.AddCommandWithMiddleware(rootCmd, cmdchangelog.NewCmdChangelog(props), p.ChangelogCmd)
 	}
 }
 

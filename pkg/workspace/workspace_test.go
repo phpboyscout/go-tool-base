@@ -8,33 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func setupFS(t *testing.T, files ...string) afero.Fs {
-	t.Helper()
-
-	fs := afero.NewMemMapFs()
-
-	for _, f := range files {
-		require.NoError(t, fs.MkdirAll(f, 0o755))
-	}
-
-	return fs
-}
-
-func setupFSWithFiles(t *testing.T, files ...string) afero.Fs {
-	t.Helper()
-
-	fs := afero.NewMemMapFs()
-
-	for _, f := range files {
-		dir := f[:len(f)-len(f[len(f)-len(f)+len(f):])]
-		_ = dir
-
-		require.NoError(t, afero.WriteFile(fs, f, []byte(""), 0o644))
-	}
-
-	return fs
-}
-
 func TestDetect_GTBProject(t *testing.T) {
 	t.Parallel()
 

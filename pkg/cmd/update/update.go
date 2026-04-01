@@ -132,24 +132,38 @@ func Update(ctx context.Context, props *p.Props, version string, force bool) (*U
 	UpdateConfig(ctx, props, binPath)
 
 	if version == "" {
-		// we are in a standard upgrade
-		latestVersion, latestErr := updater.GetLatestVersionString(ctx)
-		if latestErr == nil {
-			releaseNotes, relErr := updater.GetReleaseNotes(ctx, previousVersion, latestVersion)
-			if relErr == nil {
-				styledNotes := output.RenderMarkdown(releaseNotes)
-				props.Logger.Print(styledNotes)
-			}
-		}
+		showUpdateChangelog(ctx, props, updater, previousVersion)
 	}
 
 	props.Logger.Info("Update complete")
+
+	if props.Tool.IsEnabled(p.ChangelogCmd) {
+		props.Logger.Infof("Run '%s changelog --latest' to see the full changelog.", props.Tool.Name)
+	}
 
 	return &UpdateResult{
 		PreviousVersion: previousVersion,
 		NewVersion:      target,
 		Updated:         true,
 	}, nil
+}
+
+// showUpdateChangelog displays release notes after an update using the
+// release source API.
+func showUpdateChangelog(ctx context.Context, props *p.Props, updater Updater, previousVersion string) {
+	// Try release source API
+	latestVersion, latestErr := updater.GetLatestVersionString(ctx)
+	if latestErr != nil {
+		return
+	}
+
+	releaseNotes, relErr := updater.GetReleaseNotes(ctx, previousVersion, latestVersion)
+	if relErr != nil {
+		return
+	}
+
+	styledNotes := output.RenderMarkdown(releaseNotes)
+	props.Logger.Print(styledNotes)
 }
 
 func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string) error {

@@ -36,6 +36,13 @@ jobs:
       - name: Install documentation tools
         run: pip install zensical
 
+      - name: Generate changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --output CHANGELOG.md
+
       - if: ${{ "{{" }} !startsWith(github.ref, 'refs/tags/v') {{ "}}" }}
         run: echo "flags=--snapshot" >> $GITHUB_ENV
 

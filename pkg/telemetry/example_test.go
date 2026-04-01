@@ -23,14 +23,6 @@ func ExampleNewCollector() {
 	_ = c.Flush(context.Background())
 }
 
-func ExampleNewFileStore() {
-	// Store snapshots as local JSON files with optional AES-256-GCM encryption.
-	// store, err := chat.NewFileStore(afero.NewOsFs(), "~/.mytool/conversations")
-	//
-	// With encryption (key must be 32 bytes):
-	// store, err := chat.NewFileStore(fs, dir, chat.WithEncryption(key))
-}
-
 func ExampleNewNoopBackend() {
 	// The noop backend silently discards all events.
 	// Used when telemetry is disabled.

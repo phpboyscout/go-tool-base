@@ -48,8 +48,10 @@ func TestClientChain_Then(t *testing.T) {
 	transport := chain.Then(http.DefaultTransport)
 
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
-	_, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, []string{"mw1-before", "mw2-before", "mw2-after", "mw1-after"}, order)
 }
@@ -82,7 +84,7 @@ func TestWithRequestLogging(t *testing.T) {
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.True(t, buf.Contains("HTTP request completed"))
 }
@@ -105,7 +107,7 @@ func TestWithBearerToken(t *testing.T) {
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, "Bearer my-secret-token", receivedAuth)
 }
@@ -128,7 +130,7 @@ func TestWithBasicAuth(t *testing.T) {
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, "Basic dXNlcjpwYXNz", receivedAuth)
 }
@@ -155,7 +157,7 @@ func TestWithRateLimit(t *testing.T) {
 		resp, err := client.Do(req)
 		require.NoError(t, err)
 
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 
 	elapsed := time.Since(start)
@@ -181,14 +183,18 @@ func TestWithRateLimit_ContextCancellation(t *testing.T) {
 	resp1, err := client.Do(req1)
 	require.NoError(t, err)
 
-	resp1.Body.Close()
+	func() { _ = resp1.Body.Close() }()
 
 	// Second request should be rate-limited; cancel before it completes
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
 	req2, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, nil)
-	_, err = client.Do(req2)
+	resp2, err := client.Do(req2)
+
+	if resp2 != nil {
+		defer func() { _ = resp2.Body.Close() }()
+	}
 
 	assert.Error(t, err, "should fail due to context cancellation during rate limit wait")
 }
@@ -218,7 +224,7 @@ func TestWithClientMiddleware_Integration(t *testing.T) {
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, "Bearer integration-test", receivedAuth)
 }

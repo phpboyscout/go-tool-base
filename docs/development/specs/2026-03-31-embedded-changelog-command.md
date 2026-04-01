@@ -2,7 +2,7 @@
 title: "Embedded Changelog Command"
 description: "A changelog command that displays version history from an embedded CHANGELOG.md generated at build time."
 date: 2026-03-31
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - changelog
@@ -103,9 +103,9 @@ internal/cmd/root/
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. Should the changelog be embedded as a Go string or read from the asset system (`props.Assets`)?
-2. Should the `--since` flag accept "last updated" as a value (using the stored version from before the update)?
-3. Should the generator scaffold the git-cliff config (`cliff.toml`) for new projects?
-4. How should tools without a CHANGELOG.md handle the command? (Skip registration? Show "no changelog available"?)
+1. **Asset system** — read from `props.Assets` via `fs.ReadFile`. Consumers include CHANGELOG.md in their asset embed. Fault-tolerant if missing.
+2. **`--since "last updated"`** — deferred. Simple `--since v1.1.0` is sufficient for now.
+3. **Generator scaffolding** — deferred. Tool authors add git-cliff config themselves.
+4. **Missing changelog** — command is always registered (for discoverability). Shows "no changelog available" with a hint if the file is missing from assets.
