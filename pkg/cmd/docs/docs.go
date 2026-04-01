@@ -13,6 +13,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
+// NewCmdDocs creates the docs command with the interactive documentation browser.
 func NewCmdDocs(p *props.Props) *cobra.Command {
 	var provider string
 

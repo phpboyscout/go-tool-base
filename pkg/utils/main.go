@@ -31,6 +31,7 @@ var (
 	}
 )
 
+// GracefulGetPath finds an executable on PATH, returning a helpful error with install instructions if not found.
 func GracefulGetPath(name string, l logger.Logger, instructions ...string) (string, error) {
 	p, err := exec.LookPath(name)
 	if err != nil {
@@ -52,6 +53,7 @@ func GracefulGetPath(name string, l logger.Logger, instructions ...string) (stri
 	return p, nil
 }
 
+// IsInteractive returns true if stdin is a terminal (not piped or redirected).
 func IsInteractive() bool {
 	info, err := os.Stdin.Stat()
 	if err != nil {

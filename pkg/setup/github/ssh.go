@@ -45,20 +45,24 @@ type configureSSHKeyConfig struct {
 	generateKeyOpts         []GenerateKeyOption
 }
 
+// ConfigureSSHKeyOption is a functional option for ConfigureSSHKey.
 type ConfigureSSHKeyOption func(*configureSSHKeyConfig)
 
+// WithSSHKeySelectForm overrides the SSH key selection form (for testing).
 func WithSSHKeySelectForm(creator func(*string, []huh.Option[string]) *huh.Form) ConfigureSSHKeyOption {
 	return func(c *configureSSHKeyConfig) {
 		c.sshKeySelectFormCreator = creator
 	}
 }
 
+// WithSSHKeyPathForm overrides the SSH key path input form (for testing).
 func WithSSHKeyPathForm(creator func(*string) *huh.Form) ConfigureSSHKeyOption {
 	return func(c *configureSSHKeyConfig) {
 		c.sshKeyPathFormCreator = creator
 	}
 }
 
+// WithGenerateKeyOptions passes options through to the key generation step.
 func WithGenerateKeyOptions(opts ...GenerateKeyOption) ConfigureSSHKeyOption {
 	return func(c *configureSSHKeyConfig) {
 		c.generateKeyOpts = opts
@@ -87,6 +91,7 @@ func defaultSSHKeyPathFormCreator(targetKey *string) *huh.Form {
 	)
 }
 
+// ConfigureSSHKey runs the interactive SSH key configuration flow.
 func ConfigureSSHKey(props *props.Props, cfg config.Containable, opts ...ConfigureSSHKeyOption) (string, string, error) {
 	props.Logger.Info("Configuring SSH key for use with Github")
 
@@ -247,14 +252,17 @@ type generateKeyConfig struct {
 	uploadConfirmFormCreator func(*bool) *huh.Form
 }
 
+// GenerateKeyOption is a functional option for SSH key generation.
 type GenerateKeyOption func(*generateKeyConfig)
 
+// WithPassphraseForm overrides the passphrase input form (for testing).
 func WithPassphraseForm(creator func(*string) *huh.Form) GenerateKeyOption {
 	return func(c *generateKeyConfig) {
 		c.passphraseFormCreator = creator
 	}
 }
 
+// WithUploadConfirmForm overrides the upload confirmation form (for testing).
 func WithUploadConfirmForm(creator func(*bool) *huh.Form) GenerateKeyOption {
 	return func(c *generateKeyConfig) {
 		c.uploadConfirmFormCreator = creator

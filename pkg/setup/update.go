@@ -58,6 +58,7 @@ var (
 	execLookPath = exec.LookPath
 )
 
+// SelfUpdater manages checking for and applying tool updates.
 type SelfUpdater struct {
 	Tool           props.Tool
 	force          bool
@@ -69,6 +70,7 @@ type SelfUpdater struct {
 	Fs             afero.Fs
 }
 
+// GetTimeSinceLast returns the duration since the last update check or update.
 func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Duration {
 	defaultConfigDir := GetDefaultConfigDir(fs, name)
 	lastSinceFile := filepath.Join(defaultConfigDir, fmt.Sprintf("last_%s", status))
@@ -82,6 +84,7 @@ func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Durati
 	return defaultCheckInterval
 }
 
+// SetTimeSinceLast records the current time as the last check or update timestamp.
 func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
 	defaultConfigDir := GetDefaultConfigDir(fs, name)
 	lastSinceFile := filepath.Join(defaultConfigDir, fmt.Sprintf("last_%s", status))
@@ -110,6 +113,7 @@ func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs) *SelfUpd
 	}
 }
 
+// NewUpdater creates a SelfUpdater configured with the tools release source.
 func NewUpdater(p *props.Props, version string, force bool) (*SelfUpdater, error) {
 	if p.Config == nil {
 		return nil, errors.New("configuration is not loaded")
@@ -192,6 +196,7 @@ func requireReleaseToken(vcsProvider string, p *props.Props) error {
 	return nil
 }
 
+// SkipUpdateCheck returns true if the update check should be skipped for this invocation.
 func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command) bool {
 	skippableCommands := []string{"update", "auth", "init", "version"}
 	if slices.Contains(skippableCommands, cmd.Use) {

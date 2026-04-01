@@ -18,6 +18,7 @@ type initConfig struct {
 	// legacy opts could go here if needed
 }
 
+// NewCmdInit creates the init command for first-run configuration.
 func NewCmdInit(props *p.Props, opts ...InitOption) *cobra.Command {
 	cfg := &initConfig{}
 	for _, opt := range opts {

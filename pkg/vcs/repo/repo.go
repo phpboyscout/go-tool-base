@@ -35,6 +35,7 @@ const (
 	filePermStandard = 0o644
 )
 
+// RepoType identifies the repository backend (local filesystem or in-memory).
 type RepoType = string
 
 var (
@@ -92,6 +93,7 @@ func init() {
 	}
 }
 
+// RepoLike defines the interface for git repository operations.
 type RepoLike interface {
 	SourceIs(int) bool
 	SetSource(int)
@@ -127,6 +129,7 @@ type RepoLike interface {
 	WithTree(func(*git.Worktree) error) error
 }
 
+// Repo implements RepoLike using go-git for local and in-memory repositories.
 type Repo struct {
 	source int
 	config *config.Config
@@ -280,6 +283,7 @@ func (r *Repo) Remote(name string) (*git.Remote, error) {
 	return r.repo.Remote(name)
 }
 
+// GetSSHKey loads an SSH public key from the filesystem for git authentication.
 func GetSSHKey(filePath string, localfs afero.Fs) (*ssh.PublicKeys, error) {
 	fileHandle, err := localfs.Stat(filePath)
 	if os.IsNotExist(err) {
@@ -644,8 +648,10 @@ func configureTokenAuth(repo *Repo, props *props.Props) error {
 	return nil
 }
 
+// RepoOpt is a functional option for configuring a Repo.
 type RepoOpt func(*Repo) error
 
+// WithConfig sets the go-git config for the repository.
 func WithConfig(cfg *config.Config) RepoOpt {
 	return func(r *Repo) error {
 		r.config = cfg
@@ -654,6 +660,7 @@ func WithConfig(cfg *config.Config) RepoOpt {
 	}
 }
 
+// NewRepo creates a Repo with the given options.
 func NewRepo(props *props.Props, ops ...RepoOpt) (*Repo, error) {
 	repo := &Repo{}
 

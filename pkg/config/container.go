@@ -15,6 +15,8 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
+// Containable is the primary configuration interface. It provides typed
+// accessors, observation for hot-reload, and schema validation.
 type Containable interface {
 	Get(key string) any
 	GetBool(key string) bool

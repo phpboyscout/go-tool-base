@@ -54,6 +54,7 @@ type InitOptions struct {
 	Initialisers []Initialiser
 }
 
+// GetDefaultConfigDir returns the default config directory for the named tool (~/.toolname/).
 func GetDefaultConfigDir(fs afero.Fs, name string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {

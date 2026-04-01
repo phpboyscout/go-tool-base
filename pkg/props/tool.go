@@ -6,6 +6,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
 
+// FeatureCmd identifies a built-in feature that can be enabled or disabled.
 type FeatureCmd string
 
 const (

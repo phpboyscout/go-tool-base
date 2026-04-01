@@ -39,6 +39,8 @@ func LoadEnv(fs afero.Fs, logger logger.Logger) {
 	}
 }
 
+// Load reads configuration from the first available file in paths.
+// Returns ErrNoFilesFound if no files exist and allowEmptyConfig is false.
 func Load(paths []string, fs afero.Fs, logger logger.Logger, allowEmptyConfig bool) (Containable, error) {
 	logger.Debug("Loading configuration")
 
@@ -57,6 +59,7 @@ func Load(paths []string, fs afero.Fs, logger logger.Logger, allowEmptyConfig bo
 	return NewFilesContainer(logger, fs, loadable...), nil
 }
 
+// LoadEmbed reads configuration from embedded filesystem assets and merges them.
 func LoadEmbed(paths []string, assets fs.FS, logger logger.Logger) (Containable, error) {
 	logger.Debug("Loading embedded configuration")
 

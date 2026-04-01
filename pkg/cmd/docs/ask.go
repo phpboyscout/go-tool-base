@@ -15,6 +15,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
+// NewCmdDocsAsk creates the docs ask subcommand for AI-powered documentation Q&A.
 func NewCmdDocsAsk(p *props.Props) *cobra.Command {
 	var noStyle bool
 

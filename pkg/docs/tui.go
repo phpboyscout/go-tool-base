@@ -66,6 +66,7 @@ const (
 	focusContent
 )
 
+// ListItem represents a navigation entry in the documentation sidebar.
 type ListItem struct {
 	Title    string
 	Path     string
@@ -73,6 +74,7 @@ type ListItem struct {
 	Children []NavNode
 }
 
+// SearchResult holds a single search match with context excerpt.
 type SearchResult struct {
 	Title   string
 	Path    string
@@ -95,6 +97,8 @@ const (
 	verticalBorderWidth = 2
 )
 
+// Model is the Bubble Tea model for the interactive documentation browser.
+// It manages navigation, content rendering, search, and AI Q&A.
 type Model struct {
 	fs fs.FS
 
@@ -151,6 +155,7 @@ type Model struct {
 	mkdocsLoaded bool
 }
 
+// NewModel creates a documentation browser Model backed by the given filesystem.
 func NewModel(fsys fs.FS, opts ...Option) *Model {
 	r, _ := glamour.NewTermRenderer(
 		glamour.WithAutoStyle(),
@@ -198,18 +203,21 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 	return m
 }
 
+// Option is a functional option for configuring the documentation Model.
 type Option func(*Model)
 
 // AskFunc is the callback signature for AI Q&A. logFn receives status messages;
 // deltaFn receives streamed text fragments as they arrive (may be nil).
 type AskFunc func(question string, logFn func(string, logger.Level), deltaFn func(string)) (string, error)
 
+// WithTitle sets the title displayed at the top of the documentation browser.
 func WithTitle(title string) Option {
 	return func(m *Model) {
 		m.title = title
 	}
 }
 
+// WithAskFunc configures the AI Q&A callback for the documentation browser.
 func WithAskFunc(fn AskFunc) Option {
 	return func(m *Model) {
 		m.askFunc = fn
@@ -236,26 +244,31 @@ func (m *Model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+// SearchResultMessage is a Bubble Tea message carrying search results.
 type SearchResultMessage struct {
 	Results []SearchResult
 	Query   string
 }
 
+// AskResultMsg is a Bubble Tea message carrying the AI Q&A response.
 type AskResultMsg struct {
 	Response string
 	Err      error
 }
 
+// AskLogMsg is a Bubble Tea message carrying a log line from the AI provider.
 type AskLogMsg struct {
 	Log string
 	Ch  <-chan string
 }
 
+// AskDeltaMsg is a Bubble Tea message carrying a streamed text fragment from the AI.
 type AskDeltaMsg struct {
 	Delta string
 	Ch    <-chan string
 }
 
+// LogFinishedMsg is a Bubble Tea message signalling that AI log streaming is complete.
 type LogFinishedMsg struct{}
 
 func waitForAskLog(ch <-chan string) tea.Cmd {

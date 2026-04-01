@@ -17,6 +17,7 @@ const (
 	defaultPort = 8080
 )
 
+// NewCmdDocsServe creates the docs serve subcommand for local documentation hosting.
 func NewCmdDocsServe(p *props.Props, efs fs.FS) *cobra.Command {
 	var (
 		port int

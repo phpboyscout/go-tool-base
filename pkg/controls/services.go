@@ -15,6 +15,7 @@ const (
 	backoffMultiplier     = 2.0
 )
 
+// Services manages the collection of registered services and their lifecycle.
 type Services struct {
 	mu       sync.Mutex
 	services []Service
@@ -306,6 +307,8 @@ func (q *Services) readiness() HealthReport {
 	return report
 }
 
+// Service represents a managed background service with start/stop lifecycle,
+// health probes, and optional restart policy.
 type Service struct {
 	Name          string
 	Start         StartFunc

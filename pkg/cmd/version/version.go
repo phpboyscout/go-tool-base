@@ -29,6 +29,7 @@ type VersionInfo struct {
 	Current bool   `json:"current"`
 }
 
+// NewCmdVersion creates the version command that displays build information.
 func NewCmdVersion(props *p.Props) *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",

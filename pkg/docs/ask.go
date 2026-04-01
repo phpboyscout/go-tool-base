@@ -14,6 +14,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
+// AskResponse is the structured response from an AI Q&A query.
 type AskResponse struct {
 	Answer string `json:"answer" jsonschema:"description=The comprehensive answer to the user's question based on the documentation provided."`
 }

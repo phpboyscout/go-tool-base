@@ -26,6 +26,7 @@ var (
 	ErrRepoExists         = errors.New("repository already exists")
 )
 
+// GitHubClient defines the interface for GitHub API operations.
 type GitHubClient interface {
 	GetClient() *github.Client
 	CreatePullRequest(ctx context.Context, owner string, repo string, pull *github.NewPullRequest) (*github.PullRequest, error)
@@ -42,6 +43,7 @@ type GitHubClient interface {
 	GetFileContents(ctx context.Context, owner, repo, path, ref string) (string, error)
 }
 
+// GHClient implements GitHubClient using the GitHub REST and GraphQL APIs.
 type GHClient struct {
 	Client *github.Client
 	cfg    config.Containable
@@ -214,6 +216,7 @@ func (c *GHClient) DownloadAssetTo(ctx context.Context, fs afero.Fs, owner, repo
 	return nil
 }
 
+// NewGitHubClient creates a GHClient configured from the github config subtree.
 func NewGitHubClient(cfg config.Containable) (*GHClient, error) {
 	if cfg == nil {
 		return nil, errors.New("github configuration is missing")

@@ -312,12 +312,14 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 	}
 }
 
+// NewCmdRoot creates the root command with Props wiring and optional subcommands.
 func NewCmdRoot(props *p.Props, subcommands ...*cobra.Command) *cobra.Command {
 	return NewCmdRootWithConfig(props, []string{}, subcommands...)
 }
 
 // NewCmdRootWithConfig creates the root command for the CLI application.
 // It accepts additional configuration file paths to be considered during initialization.
+// NewCmdRoot creates the root command with Props wiring and optional subcommands.
 func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*cobra.Command) *cobra.Command {
 	// Set the helper and logger for the error handling package
 	if props.ErrorHandler == nil {

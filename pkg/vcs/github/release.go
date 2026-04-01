@@ -91,6 +91,7 @@ type GitHubReleaseProvider struct {
 	client *github.Client
 }
 
+// NewReleaseProvider creates a release.Provider backed by the GitHub Releases API.
 func NewReleaseProvider(client GitHubClient) release.Provider {
 	return &GitHubReleaseProvider{
 		client: client.GetClient(),

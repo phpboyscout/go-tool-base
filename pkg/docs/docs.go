@@ -13,6 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// NavNode represents a node in the documentation navigation tree.
 type NavNode struct {
 	Title    string
 	Path     string
@@ -21,6 +22,7 @@ type NavNode struct {
 
 // --- MkDocs Parsing Logic ---
 
+// MkDocsConfig is the parsed structure of mkdocs.yml for navigation extraction.
 type MkDocsConfig struct {
 	Nav []any `yaml:"nav"`
 }

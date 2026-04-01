@@ -46,6 +46,7 @@ type Updater interface {
 	GetCurrentVersion() string
 }
 
+// NewCmdUpdate creates the update command for self-updating the tool binary.
 func NewCmdUpdate(props *p.Props) *cobra.Command {
 	var updateCmd = &cobra.Command{
 		Use:   "update",
@@ -103,6 +104,7 @@ type UpdateResult struct {
 	Updated         bool   `json:"updated"`
 }
 
+// Update downloads and installs the specified version (or latest) of the tool.
 func Update(ctx context.Context, props *p.Props, version string, force bool) (*UpdateResult, error) {
 	updater, err := ExportNewUpdater(props, version, force)
 	if err != nil {
@@ -171,6 +173,7 @@ func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string) error {
 	})
 }
 
+// UpdateConfig re-runs the init flow after a successful update to ensure config compatibility.
 func UpdateConfig(ctx context.Context, props *p.Props, binPath string) {
 	if props.Tool.IsDisabled(p.InitCmd) {
 		props.Logger.Debug("Skipping config update as init command is disabled")

@@ -17,6 +17,7 @@ func init() {
 	}
 }
 
+// GHLogin authenticates with GitHub using the gh CLI device flow.
 func GHLogin(hostname string) (string, error) {
 	host, err := oauth.NewGitHubHost(fmt.Sprintf("https://%s", hostname))
 	if err != nil {
