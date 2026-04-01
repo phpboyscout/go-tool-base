@@ -38,7 +38,7 @@ type Gemini struct {
 func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 	token := getGeminiToken(p, cfg)
 	if token == "" {
-		return nil, errors.New("Gemini API key is required")
+		return nil, errors.New("Gemini API key is required but not provided")
 	}
 
 	clientConfig := buildGeminiClientConfig(token, cfg)

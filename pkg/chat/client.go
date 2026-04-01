@@ -141,10 +141,15 @@ func RegisterProvider(name Provider, factory ProviderFactory) {
 // New creates a ChatClient for the configured provider.
 func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 	if cfg.Provider == "" {
-		if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
+		if cfgProvider := p.Config.GetString(ConfigKeyAIProvider); cfgProvider != "" {
+			cfg.Provider = Provider(cfgProvider)
+			p.Logger.Debugf("Provider not specified in config, using %s=%s", ConfigKeyAIProvider, cfg.Provider)
+		} else if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
 			cfg.Provider = Provider(envProvider)
+			p.Logger.Debugf("Provider not specified in config, using environment variable %s=%s", EnvAIProvider, cfg.Provider)
 		} else {
-			cfg.Provider = ProviderOpenAI
+			cfg.Provider = ProviderClaude // default provider
+			p.Logger.Debugf("No provider specified, defaulting to %s", cfg.Provider)
 		}
 	}
 

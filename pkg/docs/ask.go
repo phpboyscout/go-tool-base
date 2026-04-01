@@ -10,6 +10,7 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/output"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -97,7 +98,9 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 		})
 	}
 
-	return client.Chat(ctx, question)
+	return output.SpinWithResult(ctx, "Waiting for AI response", func(ctx context.Context) (string, error) {
+		return client.Chat(ctx, question)
+	})
 }
 
 // ResolveProvider determines the AI provider to use based on override, config, and defaults.

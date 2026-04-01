@@ -2,7 +2,7 @@
 title: "Progress & Spinner Output Helpers"
 description: "Reusable progress bars, spinners, and status indicators for long-running CLI operations."
 date: 2026-03-31
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - output
@@ -43,13 +43,14 @@ This spec adds thin, opinionated wrappers in `pkg/output` that provide consisten
 A blocking spinner for indeterminate operations (API calls, git operations, AI processing).
 
 ```go
-// Spinner shows a spinner with a message while a function executes.
+// Spin shows a spinner with a message while a function executes.
 // Returns the function's result. Falls back to a plain log message
 // in non-interactive environments (CI=true or no TTY).
-func Spin(msg string, fn func() error) error
+// The context is passed to the function and used for cancellation.
+func Spin(ctx context.Context, msg string, fn func(ctx context.Context) error) error
 
 // SpinWithResult is like Spin but returns a value alongside the error.
-func SpinWithResult[T any](msg string, fn func() (T, error)) (T, error)
+func SpinWithResult[T any](ctx context.Context, msg string, fn func(ctx context.Context) (T, error)) (T, error)
 ```
 
 **Behaviour:**
@@ -157,7 +158,7 @@ All helpers live in `pkg/output/` alongside the existing `Response` type. No new
 ### Spinner
 
 ```go
-err := output.Spin("Checking for updates", func() error {
+err := output.Spin(ctx, "Checking for updates", func(ctx context.Context) error {
     return updater.Check(ctx)
 })
 ```
@@ -195,9 +196,9 @@ status.Success("Connected")
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. Should `Spin` accept a context for cancellation, or is the function's own context sufficient?
-2. Should the progress bar support custom formatting (e.g. bytes downloaded instead of count)?
-3. Should there be a `MultiProgress` for tracking parallel operations?
-4. Should the spinner style be configurable, or should GTB enforce a consistent look?
+1. **Context on Spin**: Yes — `Spin` accepts `context.Context` and passes it to the wrapped function. Cancellation stops the spinner.
+2. **Custom progress formatting (bytes)**: Deferred — count-based covers the common case. Bytes formatting can be added later via a formatter option.
+3. **MultiProgress for parallel operations**: Deferred — single progress covers 90% of use cases.
+4. **Spinner style**: GTB enforces a consistent default style. A `WithStyle` option allows tool authors to override if needed.

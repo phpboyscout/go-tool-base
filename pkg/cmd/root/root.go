@@ -22,6 +22,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/version"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"github.com/phpboyscout/go-tool-base/pkg/output"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
@@ -193,11 +194,20 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 		return result
 	}
 
-	props.Logger.Info("Checking for latest version")
+	var (
+		isLatestVersion bool
+		message         string
+	)
 
-	isLatestVersion, message, err := selfUpdater.IsLatestVersion(ctx)
-	if err != nil {
-		props.Logger.Error("failed to check for latest version", "error", err)
+	spinErr := output.Spin(ctx, "Checking for latest version", func(ctx context.Context) error {
+		var versionErr error
+
+		isLatestVersion, message, versionErr = selfUpdater.IsLatestVersion(ctx)
+
+		return versionErr
+	})
+	if spinErr != nil {
+		props.Logger.Error("failed to check for latest version", "error", spinErr)
 
 		return result
 	}
