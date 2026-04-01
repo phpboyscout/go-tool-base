@@ -2,7 +2,7 @@
 title: "Go-Native Changelog Generator Tool"
 description: "A pure-Go changelog generator that replaces git-cliff, using go-git to read commit history and produce CHANGELOG.md compatible with pkg/changelog."
 date: 2026-04-01
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - changelog
@@ -23,7 +23,7 @@ Date
 :   1 April 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 

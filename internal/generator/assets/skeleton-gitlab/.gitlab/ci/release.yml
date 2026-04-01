@@ -9,8 +9,6 @@ goreleaser:
   script:
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then
-        # Generate changelog before release
-        command -v git-cliff >/dev/null 2>&1 && git-cliff --config cliff.toml --output CHANGELOG.md || true
         goreleaser release --clean
       else
         goreleaser release --clean --snapshot

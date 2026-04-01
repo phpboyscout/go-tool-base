@@ -52,9 +52,9 @@ If CHANGELOG.md is not present in the assets, the command shows a helpful error 
 
 ## Generating the Changelog
 
-GTB uses [git-cliff](https://git-cliff.org/) to generate CHANGELOG.md at release time. The goreleaser workflow generates it before building, so it's available for embedding.
+GTB uses a pure-Go changelog generator (`go tool changelog generate`) to produce CHANGELOG.md from conventional commits. The goreleaser workflow runs it before building, so it's available for embedding.
 
-For generated tools, ensure your CI pipeline generates CHANGELOG.md before `go build` so the embed picks it up.
+For generated tools, the CI pipeline runs `go tool changelog generate --output CHANGELOG.md` before `go build` so the embed picks it up. The tool is declared as a Go `tool` directive in `go.mod`.
 
 ## Integration with Update
 

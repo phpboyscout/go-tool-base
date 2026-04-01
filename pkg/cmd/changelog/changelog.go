@@ -3,7 +3,7 @@
 package changelog
 
 import (
-	"io/fs"
+	"io"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -14,7 +14,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-const changelogFileName = "CHANGELOG.md"
+const changelogAssetPath = "assets/CHANGELOG.md"
 
 // NewCmdChangelog creates the changelog command that displays version history
 // from the embedded assets. The CHANGELOG.md must be included in the tool's
@@ -61,9 +61,16 @@ func loadChangelog(p *props.Props) (string, error) {
 		return "", errors.New("no changelog available — assets not configured")
 	}
 
-	data, err := fs.ReadFile(p.Assets, changelogFileName)
+	f, err := p.Assets.Open(changelogAssetPath)
 	if err != nil {
 		return "", errors.New("no changelog available — CHANGELOG.md not found in embedded assets")
+	}
+
+	defer func() { _ = f.Close() }()
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return "", errors.Wrap(err, "reading CHANGELOG.md from assets")
 	}
 
 	content := strings.TrimSpace(string(data))
@@ -132,7 +139,11 @@ func renderOutput(cmd *cobra.Command, p *props.Props, releases []changelog.Relea
 		sb.WriteString("## " + r.Version + "\n\n")
 
 		for _, e := range r.Entries {
-			sb.WriteString("- " + e.Raw + "\n")
+			if e.Scope != "" {
+				sb.WriteString("- **" + e.Scope + ":** " + e.Description + "\n")
+			} else {
+				sb.WriteString("- " + e.Description + "\n")
+			}
 		}
 
 		sb.WriteString("\n")

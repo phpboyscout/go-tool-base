@@ -22,13 +22,13 @@ Date
 :   31 March 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 ---
 
 ## Overview
 
-GTB already has a changelog parser (`pkg/changelog`) and git-cliff generates `CHANGELOG.md` at release time. However, this changelog is only included in release archives — users have no way to view it from the running binary.
+GTB already has a changelog parser (`pkg/changelog`) and a pure-Go changelog generator (`cmd/changelog`) that produces `CHANGELOG.md` from conventional commits. However, this changelog was only included in release archives — users had no way to view it from the running binary.
 
 This spec adds a `changelog` command that displays version history from an embedded `CHANGELOG.md`. The changelog is baked into the binary at build time via `go:embed`, so it always reflects the version the user is running. This naturally complements the update flow — after running `update`, users can run `changelog` to see what changed.
 
@@ -38,7 +38,7 @@ This spec adds a `changelog` command that displays version history from an embed
 
 ### Embedding
 
-The `CHANGELOG.md` is embedded into the binary's root command assets at build time. goreleaser already generates it via git-cliff before building — the binary just needs to include it.
+The `CHANGELOG.md` is embedded into the binary's root command assets at build time. The `go:generate` directive runs `go tool changelog generate` to produce it — the binary just needs to include it.
 
 ```go
 //go:embed CHANGELOG.md
@@ -107,5 +107,5 @@ internal/cmd/root/
 
 1. **Asset system** — read from `props.Assets` via `fs.ReadFile`. Consumers include CHANGELOG.md in their asset embed. Fault-tolerant if missing.
 2. **`--since "last updated"`** — deferred. Simple `--since v1.1.0` is sufficient for now.
-3. **Generator scaffolding** — deferred. Tool authors add git-cliff config themselves.
+3. **Generator scaffolding** — handled. The skeleton generator emits the `go tool changelog generate` directive and includes the tool in the generated `go.mod`.
 4. **Missing changelog** — command is always registered (for discoverability). Shows "no changelog available" with a hint if the file is missing from assets.

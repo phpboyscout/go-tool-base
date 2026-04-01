@@ -302,25 +302,16 @@ The existing `GetReleaseNotes` / `GetStructuredReleaseNotes` methods make indivi
 1. **Multiple API calls**: Fetching notes across many releases requires one API call per release, increasing latency and risk of rate limiting.
 2. **Network dependency**: The release archive is already downloaded (for the binary) during both online and offline update flows. Including a pre-built changelog in the archive provides structured changelog data at zero extra network cost.
 
-### Approach: GitHub Action + GoReleaser `extra_files`
+### Approach: Go Tool Directive + GoReleaser `extra_files`
 
-A dedicated GitHub Action step generates `CHANGELOG.md` before GoReleaser runs. This keeps changelog generation out of the GoReleaser config entirely — GoReleaser only needs to include the pre-existing file in the archive.
+> **Note:** This spec originally recommended `git-cliff`. The [Changelog Generator Tool](2026-04-01-changelog-generator-tool.md) spec superseded the external dependency with a pure-Go replacement (`cmd/changelog`). The `CHANGELOG.md` is now produced by `go generate` via the `go tool changelog generate` directive — no CI-specific step is needed.
 
-The [`git-cliff-action`](https://github.com/orhun/git-cliff-action) is the recommended generator because it natively understands conventional commits and its output format is configurable to match semantic-release's markdown structure (so the existing `Parse` function consumes it directly).
+The `go:generate` directive runs the changelog tool before the build, and GoReleaser only needs to include the pre-existing file in the archive.
 
-**GitHub Actions workflow** (added before the existing GoReleaser step):
+**go:generate directive** (in `pkg/cmd/root/generate.go`):
 
-```yaml
-- name: Generate changelog
-  uses: orhun/git-cliff-action@v4
-  with:
-    config: cliff.toml
-    args: --output CHANGELOG.md
-
-- name: Release
-  uses: goreleaser/goreleaser-action@v6
-  with:
-    args: release --clean
+```go
+//go:generate go tool changelog generate --output assets/CHANGELOG.md
 ```
 
 **GoReleaser config** (archive section only — no `before` hook changes):
@@ -332,41 +323,20 @@ archives:
       - CHANGELOG.md
 ```
 
-**git-cliff configuration** (`cliff.toml`): The configuration maps conventional commit types to section headers matching the format `Parse` expects:
+The Go changelog generator (`cmd/changelog`) maps conventional commit types to section headers matching the format `Parse` expects:
 
-```toml
-[changelog]
-header = ""
-body = """
-{% for group, commits in commits | group_by(attribute="group") %}
-### {{ group | upper_first }}
-{% for commit in commits %}
-* {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}
-{%- endfor %}
-{% endfor %}
-"""
+| Commit Type | Section Header |
+|-------------|---------------|
+| `feat` | Features |
+| `fix` | Bug Fixes |
+| `perf` | Performance Improvements |
+| `refactor`, `docs`, `chore`, `style` | Other |
+| `test`, `ci` | Skipped |
 
-[git]
-conventional_commits = true
-
-[git.commit_parsers]
-# Map conventional commit types to section headers matching Parse expectations
-{ message = "^feat", group = "Features" },
-{ message = "^fix", group = "Bug Fixes" },
-{ message = "^perf", group = "Performance Improvements" },
-{ message = "^refactor", group = "Other" },
-{ message = "^docs", group = "Other" },
-{ message = "^chore", group = "Other" },
-{ message = "^style", group = "Other" },
-{ message = "^test", group = "Other" },
-{ message = "^ci", skip = true },
-```
-
-This approach has several advantages over a GoReleaser `before` hook:
-- **Separation of concerns**: Changelog generation is a CI step, not a build step.
-- **No binary dependencies in GoReleaser**: `git-cliff` runs in its own action container.
-- **Cacheable**: The action can be cached independently of the build.
-- **Debuggable**: A failing changelog step doesn't block the build — it fails visibly as a separate step.
+This approach has several advantages:
+- **Zero external dependencies**: Pure Go, no git-cliff or Rust toolchain needed.
+- **Integrated with `go generate`**: Runs as part of the normal build pipeline.
+- **Self-contained**: Declared as a Go `tool` directive — no separate CI step required.
 
 ### Extraction During Update
 
@@ -394,9 +364,9 @@ This ensures backwards compatibility with releases that predate the bundled chan
 
 ### Performance Considerations
 
-The GitHub Action step runs once per release in CI, not on every build. For repositories with long histories, `git-cliff` adds a few seconds to the release pipeline — negligible compared to the build, notarisation, and upload steps.
+The changelog generator runs as part of `go generate`, not on every build invocation. Benchmarked at ~40µs per commit, a 100,000-commit repo would complete in ~4s — acceptable for a build-time tool.
 
-If changelog generation becomes a bottleneck as commit count grows, `git-cliff` supports tag ranges (`--latest` or `--range vX.Y.Z..`) to limit scope. A future optimisation can generate only the last N releases rather than the full history.
+If changelog generation becomes a bottleneck as commit count grows, the `--since` and `--releases` flags can limit scope to only the most recent releases rather than the full history.
 
 ---
 
@@ -431,15 +401,16 @@ If changelog generation becomes a bottleneck as commit count grows, `git-cliff` 
 3. Integration test for `GetStructuredReleaseNotes`
 4. Run with race detector
 
-### Phase 5 -- Bundled Changelog
+### Phase 5 -- Bundled Changelog (DONE)
 1. Implement `ParseFromArchive` in `pkg/changelog/`
-2. Add `cliff.toml` configuration for `git-cliff`
-3. Add changelog generation step to GitHub Actions release workflow
-4. Add `CHANGELOG.md` to archive `files` in `.goreleaser.yaml`
-5. Extend `SelfUpdater` archive extraction to detect and parse `CHANGELOG.md`
-6. Implement fallback: archive-bundled → API-based
-7. Unit tests for `ParseFromArchive` (valid archive, missing file, malformed content)
-8. Update component documentation
+2. Add `go tool changelog generate` directive to `go:generate`
+3. Add `CHANGELOG.md` to archive `files` in `.goreleaser.yaml`
+4. Extend `SelfUpdater` archive extraction to detect and parse `CHANGELOG.md`
+5. Implement fallback: archive-bundled → API-based
+6. Unit tests for `ParseFromArchive` (valid archive, missing file, malformed content)
+7. Update component documentation
+
+> **Note:** Phase 5 originally specified git-cliff. The [Changelog Generator Tool](2026-04-01-changelog-generator-tool.md) spec replaced it with a pure-Go tool (`cmd/changelog`) using go-git and leodido/go-conventionalcommits.
 
 ---
 
@@ -464,9 +435,9 @@ grep -n 'ParseFromArchive' pkg/changelog/parse.go
 # Verify goreleaser config includes CHANGELOG.md
 grep -n 'CHANGELOG.md' .goreleaser.yaml
 
-# Verify git-cliff config exists
-cat cliff.toml
+# Verify changelog tool directive
+grep -n 'changelog' go.mod
 
-# Verify GitHub Actions workflow includes changelog step
-grep -n 'git-cliff' .github/workflows/release.yml
+# Verify go:generate uses the changelog tool
+grep -rn 'go tool changelog' internal/cmd/root/generate.go
 ```

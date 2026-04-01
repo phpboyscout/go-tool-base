@@ -98,4 +98,4 @@ mytool docs ask --provider claude "Explain the configuration system"
 
 ## Implementation
 
-The docs command is implemented in `cmd/docs/docs.go` and utilizes the `pkg/docs` library for TUI rendering and search.
+The runtime docs command is implemented in `pkg/cmd/docs/docs.go` and utilizes the `pkg/docs` library for TUI rendering and search. The build-time documentation asset generator lives in `cmd/docs/main.go` and is invoked via `go:generate`.

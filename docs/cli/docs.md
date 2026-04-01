@@ -21,7 +21,7 @@ Whether you're documenting a complex command hierarchy or a critical library pac
 Documentation builds are handled by a portable Go generator. When called from a nested package (like `internal/cmd/root`), use the following pattern:
 
 ```go
-//go:generate go run github.com/phpboyscout/go-tool-base/cmd/docs --project-root ../../.. --target-dir pkg/cmd/root/assets
+//go:generate go tool docs --project-root ../../.. --target-dir pkg/cmd/root/assets
 ```
 
 This tool:
@@ -30,6 +30,7 @@ This tool:
 - **Configurable**:
     - `--project-root`: Point to your project sources (e.g., where `zensical.toml` or `mkdocs.yml` lives).
     - `--target-dir`: Specify where `assets/docs` and `assets/site` should be generated.
+    - `--config-file`: Path to the site config file relative to the project root (default: `mkdocs.yml`).
 
 ### 2. Command Documentation 🕹️
 

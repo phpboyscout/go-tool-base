@@ -26,6 +26,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/hcl v1.0.0
 	github.com/invopop/jsonschema v0.13.0
+	github.com/leodido/go-conventionalcommits v0.12.0
 	github.com/njayp/ophis v1.1.1
 	github.com/openai/openai-go/v3 v3.21.0
 	github.com/pelletier/go-toml/v2 v2.2.4
@@ -146,6 +147,7 @@ require (
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
@@ -185,4 +187,8 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-tool github.com/vektra/mockery/v3
+tool (
+	github.com/phpboyscout/go-tool-base/cmd/changelog
+	github.com/phpboyscout/go-tool-base/cmd/docs
+	github.com/vektra/mockery/v3
+)

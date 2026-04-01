@@ -205,6 +205,31 @@ func TestParse_VersionHeader(t *testing.T) {
 	}
 }
 
+func TestParse_UnreleasedHeader(t *testing.T) {
+	t.Parallel()
+
+	input := `# Unreleased
+
+### Features
+
+* **chat:** add streaming
+
+# v1.0.0
+
+### Bug Fixes
+
+* **http:** fix timeout
+`
+
+	cl := Parse(input)
+	require.Len(t, cl.Releases, 2)
+	// Releases are oldest-first after Parse().
+	assert.Equal(t, "v1.0.0", cl.Releases[0].Version)
+	assert.Equal(t, "Unreleased", cl.Releases[1].Version)
+	assert.Len(t, cl.Releases[1].Entries, 1)
+	assert.Equal(t, CategoryFeature, cl.Releases[1].Entries[0].Category)
+}
+
 func TestParse_PerformanceCategory(t *testing.T) {
 	t.Parallel()
 

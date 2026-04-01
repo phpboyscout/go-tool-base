@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	releaseHeaderRe = regexp.MustCompile(`^#\s+(v?\d+\.\d+\.\d+.*)`)
+	releaseHeaderRe = regexp.MustCompile(`^#\s+((?:v?\d+\.\d+\.\d+|Unreleased).*)`)
 	sectionHeaderRe = regexp.MustCompile(`^###?\s+(.+)`)
 	entryScopedRe   = regexp.MustCompile(`^\*\s+\*\*([^*:]+):\*\*\s*(.+)`)
 	entryUnscopedRe = regexp.MustCompile(`^\*\s+(.+)`)
