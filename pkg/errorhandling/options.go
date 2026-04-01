@@ -4,6 +4,7 @@ import (
 	"io"
 )
 
+// Option is a functional option for configuring a StandardErrorHandler.
 type Option func(*StandardErrorHandler)
 
 // WithExitFunc allows injection of a custom exit handler (e.g. for testing).

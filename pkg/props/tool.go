@@ -85,6 +85,10 @@ func Disable(cmd FeatureCmd) FeatureState {
 	}
 }
 
+// ReleaseSource identifies the platform and repository where the tool's
+// releases are published. Used by the self-update system to check for and
+// download new versions. Supported types: "github", "gitlab", "bitbucket",
+// "gitea", "codeberg", "direct".
 type ReleaseSource struct {
 	Type    string `json:"type"    yaml:"type"`
 	Host    string `json:"host"    yaml:"host"`
@@ -96,6 +100,9 @@ type ReleaseSource struct {
 	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
+// Tool holds metadata about the CLI tool: its identity, feature flags,
+// release source for self-updates, help channel configuration, and
+// telemetry settings. It is embedded in Props and passed to all commands.
 type Tool struct {
 	Name        string                   `json:"name" yaml:"name"`
 	Summary     string                   `json:"summary" yaml:"summary"`

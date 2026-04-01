@@ -18,8 +18,12 @@ import (
 // upstream cancellation via context.Cause(ctx) == controls.ErrShutdown.
 var ErrShutdown = errors.New("controller shutdown")
 
+// DefaultShutdownTimeout is the time allowed for graceful shutdown before
+// services are force-stopped.
 const DefaultShutdownTimeout = 5 * time.Second
 
+// Controller orchestrates the lifecycle of registered services: startup
+// ordering, health monitoring, graceful shutdown, and signal handling.
 type Controller struct {
 	ctx             context.Context
 	cancel          context.CancelCauseFunc
@@ -453,6 +457,9 @@ func WithLogger(l logger.Logger) ControllerOpt {
 	}
 }
 
+// NewController creates a Controller with the given context and options.
+// By default, it registers SIGINT and SIGTERM handlers for graceful shutdown.
+// Use WithoutSignals to disable signal handling (useful in tests).
 func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 	ctx, cancel := context.WithCancelCause(ctx)
 

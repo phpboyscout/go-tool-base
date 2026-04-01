@@ -27,8 +27,13 @@ var (
 	ErrRunSubCommand  = errors.New("subcommand required")
 )
 
+// ExitFunc is the function called to terminate the process. Defaults to os.Exit.
+// Override via WithExitFunc for testing.
 type ExitFunc func(code int)
 
+// ErrorHandler defines the interface for structured error reporting. It
+// formats errors with hints, stack traces, and help channel information,
+// then routes them to the appropriate output (logger, writer, or exit).
 type ErrorHandler interface {
 	Check(err error, prefix string, level string, cmd ...*cobra.Command)
 	Fatal(err error, prefixes ...string)
@@ -37,6 +42,9 @@ type ErrorHandler interface {
 	SetUsage(usage func() error)
 }
 
+// StandardErrorHandler is the default ErrorHandler implementation.
+// It extracts hints, details, and stack traces from cockroachdb/errors
+// and formats them for terminal or structured output.
 type StandardErrorHandler struct {
 	Logger logger.Logger
 	Help   HelpConfig
@@ -45,6 +53,8 @@ type StandardErrorHandler struct {
 	Usage  func() error
 }
 
+// New creates an ErrorHandler with the given logger and help config.
+// Options can override the exit function, output writer, or other defaults.
 func New(l logger.Logger, help HelpConfig, opts ...Option) ErrorHandler {
 	h := &StandardErrorHandler{
 		Logger: l,

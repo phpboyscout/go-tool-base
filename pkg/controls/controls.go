@@ -75,39 +75,63 @@ const (
 	Stopped  State = "stopped"
 )
 
+// State represents the lifecycle state of the controller (Created, Starting, Running, Stopped).
 type State string
+
+// Message represents a control message sent to the controller (e.g. "stop").
 type Message string
+
+// StartFunc is the callback invoked to start a service. It receives a context
+// that is cancelled when the controller shuts down.
 type StartFunc func(context.Context) error
+
+// StopFunc is the callback invoked to stop a service gracefully. The context
+// carries the shutdown timeout.
 type StopFunc func(context.Context)
+
+// StatusFunc is the callback invoked to check a service's health.
+// Returns nil if healthy, an error otherwise.
 type StatusFunc func() error
+
+// ProbeFunc is a health check function for liveness or readiness probes.
 type ProbeFunc func() error
+
+// ValidErrorFunc determines whether an error from a service is expected
+// (e.g. http.ErrServerClosed) and should not trigger a restart.
 type ValidErrorFunc func(error) bool
+
+// ServiceOption is a functional option for configuring a Service.
 type ServiceOption func(*Service)
 
+// WithStart sets the service's start function.
 func WithStart(fn StartFunc) ServiceOption {
 	return func(s *Service) {
 		s.Start = fn
 	}
 }
 
+// WithStop sets the service's graceful shutdown function.
 func WithStop(fn StopFunc) ServiceOption {
 	return func(s *Service) {
 		s.Stop = fn
 	}
 }
 
+// WithStatus sets the service's health check function.
 func WithStatus(fn StatusFunc) ServiceOption {
 	return func(s *Service) {
 		s.Status = fn
 	}
 }
 
+// WithLiveness sets a liveness probe for the service.
 func WithLiveness(fn ProbeFunc) ServiceOption {
 	return func(s *Service) {
 		s.Liveness = fn
 	}
 }
 
+// WithReadiness sets a readiness probe for the service.
 func WithReadiness(fn ProbeFunc) ServiceOption {
 	return func(s *Service) {
 		s.Readiness = fn
@@ -123,12 +147,14 @@ type RestartPolicy struct {
 	HealthCheckInterval    time.Duration
 }
 
+// WithRestartPolicy configures automatic restart behaviour for a service.
 func WithRestartPolicy(policy RestartPolicy) ServiceOption {
 	return func(s *Service) {
 		s.RestartPolicy = &policy
 	}
 }
 
+// ServiceInfo holds runtime metadata about a registered service.
 type ServiceInfo struct {
 	Name         string
 	RestartCount int
@@ -137,17 +163,20 @@ type ServiceInfo struct {
 	Error        error
 }
 
+// ServiceStatus is the health status of a single service, used in HealthReport.
 type ServiceStatus struct {
 	Name   string `json:"name"`
 	Status string `json:"status"` // "OK", "ERROR"
 	Error  string `json:"error,omitempty"`
 }
 
+// HealthReport is the aggregate health status across all registered services.
 type HealthReport struct {
 	OverallHealthy bool            `json:"overall_healthy"`
 	Services       []ServiceStatus `json:"services"`
 }
 
+// HealthMessage is the JSON response body for HTTP health endpoints.
 type HealthMessage struct {
 	Host    string `json:"host"`
 	Port    int    `json:"port"`
