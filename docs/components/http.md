@@ -120,6 +120,7 @@ The `pkg/http` package provides a factory for creating hardened `http.Client` in
 - `WithTLSConfig(cfg *tls.Config)`
 - `WithTransport(rt http.RoundTripper)`
 - `WithRetry(cfg RetryConfig)` — enables automatic retry with exponential backoff
+- `WithClientMiddleware(chain ClientChain)` — applies a middleware chain to the transport
 
 ### Retry with Exponential Backoff
 
@@ -136,6 +137,47 @@ The client supports opt-in retry for transient failures via `WithRetry`. Retry i
 | `ShouldRetry` | nil | Optional custom predicate replacing default logic |
 
 **Backoff strategy**: Full jitter — `uniform random in [0, min(cap, base × 2^attempt)]`. This reduces thundering-herd effects compared to fixed or equal-jitter backoff.
+
+### Client Middleware Chain
+
+The client supports composable `RoundTripper` middleware, mirroring the server-side chain pattern. Middleware wraps the transport — the first in the chain executes first on the request and last on the response.
+
+```go
+// ClientMiddleware wraps an http.RoundTripper with additional behaviour.
+type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
+```
+
+**Chain API:**
+
+- **`NewClientChain(middlewares ...ClientMiddleware) ClientChain`** — creates a chain
+- **`(c ClientChain) Append(middlewares ...ClientMiddleware) ClientChain`** — returns a new chain with additional middleware (immutable)
+- **`(c ClientChain) Then(rt http.RoundTripper) http.RoundTripper`** — applies the chain to a transport
+
+**Built-in middleware:**
+
+| Middleware | Description |
+|-----------|-------------|
+| `WithRequestLogging(log)` | Logs method, URL, status code, and duration at debug level. Headers and body are NOT logged (security). |
+| `WithBearerToken(token)` | Injects `Authorization: Bearer {token}` on every request |
+| `WithBasicAuth(user, pass)` | Injects `Authorization: Basic {base64}` on every request |
+| `WithRateLimit(rps)` | Token bucket rate limiting. Blocks until a token is available or the request context is cancelled. |
+
+**Usage example:**
+
+```go
+chain := gtbhttp.NewClientChain(
+    gtbhttp.WithRequestLogging(props.Logger),
+    gtbhttp.WithBearerToken(os.Getenv("API_TOKEN")),
+    gtbhttp.WithRateLimit(10), // 10 requests per second
+)
+
+client := gtbhttp.NewClient(
+    gtbhttp.WithTimeout(30 * time.Second),
+    gtbhttp.WithClientMiddleware(chain),
+)
+```
+
+The middleware chain is applied after retry wrapping, so retry operates on the raw transport (not on logged/authed requests). Custom middleware can be written by implementing the `ClientMiddleware` function signature.
 
 **Retry-After support**: When a 429 or 503 response includes a `Retry-After` header (seconds or HTTP-date), that value is used as the delay instead of the computed backoff.
 

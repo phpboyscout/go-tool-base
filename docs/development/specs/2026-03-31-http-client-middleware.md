@@ -2,7 +2,7 @@
 title: "HTTP Client Middleware Chain"
 description: "RoundTripper middleware chain for the HTTP client, enabling composable request logging, auth injection, and rate limiting."
 date: 2026-03-31
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - http
@@ -114,6 +114,6 @@ client := gtbhttp.NewClient(
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. Should retry (`WithRetry`) be refactored as a `ClientMiddleware` for consistency, or remain a separate `ClientOption`?
+1. **Retry refactoring**: Leave `WithRetry` as a separate `ClientOption`. The retry implementation wraps the transport with backoff logic that requires request body re-reading and idempotency handling — more complex than a simple middleware. Can be migrated later if the middleware pattern proves successful.

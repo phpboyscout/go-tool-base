@@ -15,6 +15,7 @@ type clientConfig struct {
 	tlsConfig    *tls.Config
 	transport    http.RoundTripper
 	retry        *RetryConfig
+	clientChain  *ClientChain
 }
 
 const (
@@ -114,6 +115,10 @@ func NewClient(opts ...ClientOption) *http.Client {
 
 	if cfg.retry != nil {
 		transport = &retryTransport{next: transport, cfg: *cfg.retry}
+	}
+
+	if cfg.clientChain != nil {
+		transport = cfg.clientChain.Then(transport)
 	}
 
 	return &http.Client{
