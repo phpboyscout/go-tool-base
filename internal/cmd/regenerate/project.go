@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
 	"github.com/phpboyscout/go-tool-base/internal/generator"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -47,6 +48,8 @@ Does not overwrite implementation files (main.go) unless --force is provided.`,
 }
 
 func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
+	o.Path = icmd.ResolveProjectPath(p, o.Path)
+
 	if o.Overwrite == "" {
 		o.Overwrite = "ask"
 	}

@@ -2,7 +2,7 @@
 title: "Workspace / Project Detection"
 description: "Utility for detecting project boundaries by walking up from CWD to find marker files."
 date: 2026-03-31
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - workspace
@@ -91,7 +91,7 @@ fmt.Println("Detected via:", ws.Marker)
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. Should `Detect` accept a max depth to prevent scanning the entire filesystem on deeply nested paths?
-2. Should markers support glob patterns (e.g. `*.sln` for .NET projects) or just exact filenames?
+1. **Max depth**: Yes — `Detect` accepts a max depth with a default of 100. This prevents runaway scanning on deeply nested paths or symlink loops.
+2. **Glob patterns**: No — markers are exact filenames/directory names only. Tool authors needing globs can implement their own marker check.

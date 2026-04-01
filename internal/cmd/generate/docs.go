@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
 	"github.com/phpboyscout/go-tool-base/internal/generator"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -50,6 +51,8 @@ Examples:
 }
 
 func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
+	o.Path = icmd.ResolveProjectPath(p, o.Path)
+
 	cfg := &generator.Config{
 		Name:       o.Name,
 		Path:       o.Path,

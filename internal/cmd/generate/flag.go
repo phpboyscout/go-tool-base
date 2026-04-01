@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
 	"github.com/phpboyscout/go-tool-base/internal/generator"
 	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
@@ -110,6 +111,8 @@ func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 }
 
 func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {
+	o.Path = icmd.ResolveProjectPath(p, o.Path)
+
 	m, err := o.loadManifest(p)
 	if err != nil {
 		return err

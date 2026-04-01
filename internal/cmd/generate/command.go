@@ -9,6 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
 	"github.com/phpboyscout/go-tool-base/internal/generator"
 	"github.com/phpboyscout/go-tool-base/pkg/forms"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
@@ -538,6 +539,8 @@ func (o *CommandOptions) syncOptionsToFlags() {
 }
 
 func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
+	o.Path = icmd.ResolveProjectPath(p, o.Path)
+
 	cfg := &generator.Config{
 		Name:                          o.Name,
 		Short:                         o.Short,
