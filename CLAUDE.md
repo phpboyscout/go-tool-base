@@ -130,6 +130,17 @@ props.SetFeatures(
 ```
 Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`.
 
+### API Stability (v1.10.0+)
+
+GTB now honours full API stability as promised in `docs/about/api-stability.md`. This means:
+
+- **No breaking changes** to Stable or Beta tier `pkg/` APIs without a major version bump (v2.0.0+).
+- Before modifying any public type, interface, function signature, or exported constant in `pkg/`, check its stability tier. If Stable or Beta, the change **must** be backward-compatible.
+- If a breaking change is genuinely unavoidable, it must include: (1) a clear justification in the commit body, (2) a `BREAKING CHANGE:` footer to trigger a major bump, and (3) a migration guide entry in `docs/migration/`.
+- Deprecations must be annotated with `// Deprecated:` and survive at least one minor release before removal.
+- Use `apidiff` to verify no unintended breaking changes before merging: `apidiff -m github.com/phpboyscout/go-tool-base <previous-tag> .`
+- `internal/` packages remain unstable and are not subject to this policy.
+
 The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
 
 ### Configuration

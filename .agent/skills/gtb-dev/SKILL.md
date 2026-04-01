@@ -54,7 +54,9 @@ Every non-trivial task MUST follow this lifecycle in order:
 
 ### 1. Library-First Design
 
-Any new feature must be implemented in `pkg/` as a reusable component before being exposed via the CLI. Maintain strict backward compatibility and clean public APIs. Define interfaces at the point of use.
+Any new feature must be implemented in `pkg/` as a reusable component before being exposed via the CLI. Define interfaces at the point of use.
+
+**API Stability (v1.10.0+):** GTB now honours guaranteed API stability. All Stable and Beta tier APIs in `pkg/` must remain backward-compatible — no breaking changes without a major version bump. Before modifying any public type, interface, or function signature, check its tier in `docs/about/api-stability.md`. If a breaking change is genuinely unavoidable, it must include a `BREAKING CHANGE:` commit footer, a clear justification, and a migration guide entry. Use `apidiff` to verify no unintended breakage before merging.
 
 ### 2. Internal Generator Maintenance
 

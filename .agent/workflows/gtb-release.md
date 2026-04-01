@@ -16,6 +16,7 @@ description: Release preparation workflow for GTB
    - `ci:`, `chore:`, `style:`, `docs:`, `test:` commits → no release triggered
    - Confirm the expected bump is appropriate for the changes included.
    - Flag any commits that use a non-application type (e.g. `ci:`, `chore:`) for changes that actually affect library or CLI behaviour — these must be retyped before release.
+   - **API Stability (v1.10.0+):** If a `BREAKING CHANGE:` footer is present, verify the justification is sound and a migration guide exists in `docs/migration/`. Breaking changes to Stable/Beta `pkg/` APIs trigger a major bump — confirm this is intentional and unavoidable. Run `apidiff` against the previous release tag to detect unintended breakage.
 4. **Validate goreleaser config**:
    - Run `goreleaser check` to validate `.goreleaser.yaml`.
    - Run `just snapshot` to build a local snapshot and verify binaries compile cleanly:

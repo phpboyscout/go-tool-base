@@ -14,7 +14,7 @@ description: Guide for contributing to the GTB library
    - **Write failing tests first** — derive test cases from the spec's public API contracts, data model, error cases, and edge cases.
    - **Implement the minimum code** to make the tests pass. Follow the spec's interface definitions exactly.
    - **Refactor** — improve internal structure while keeping all tests green.
-   - Maintain strict backward compatibility for public APIs.
+   - **API Stability (v1.10.0+):** All Stable and Beta tier APIs in `pkg/` must remain backward-compatible. Check tiers in `docs/about/api-stability.md`. Breaking changes require a `BREAKING CHANGE:` footer, a justification, and a migration guide. Run `apidiff` before merging.
    - Use `github.com/cockroachdb/errors` for all error creation and wrapping.
 3. **Integration Tests** (when applicable):
    - If the feature interacts with external services or requires multi-component coordination, add integration tests in a dedicated `*_integration_test.go` file.
