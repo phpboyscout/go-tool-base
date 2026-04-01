@@ -4,6 +4,7 @@ force_token: {{ .ReleaseProvider }}
 before:
   hooks:
     - go mod tidy
+    - go generate ./...
 
 builds:
   - main: cmd/{{ .Name }}/main.go

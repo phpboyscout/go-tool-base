@@ -5,6 +5,7 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
+    - go tool changelog generate --output CHANGELOG.md
 
 builds:
   - id: gtb-darwin
