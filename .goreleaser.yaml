@@ -5,7 +5,6 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
-    - go tool changelog generate --output CHANGELOG.md
 
 builds:
   - id: gtb-darwin
@@ -65,8 +64,6 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    files:
-      - CHANGELOG.md
 release:
   use_existing_draft: true
   replace_existing_artifacts: true
