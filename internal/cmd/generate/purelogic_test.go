@@ -272,9 +272,10 @@ func TestDefaultHost_GitLab(t *testing.T) {
 
 func TestResolveFeatures_AllSelected(t *testing.T) {
 	t.Parallel()
-	selected := []string{"init", "update", "mcp", "docs"}
+	selected := []string{"init", "update", "mcp", "docs", "doctor", "changelog"}
 	features := resolveFeatures(selected)
-	assert.Len(t, features, 4)
+	assert.Len(t, features, 6)
+
 	for _, f := range features {
 		assert.True(t, f.Enabled, "all selected should be enabled: %s", f.Name)
 	}
@@ -283,7 +284,8 @@ func TestResolveFeatures_AllSelected(t *testing.T) {
 func TestResolveFeatures_NoneSelected(t *testing.T) {
 	t.Parallel()
 	features := resolveFeatures(nil)
-	assert.Len(t, features, 4)
+	assert.Len(t, features, 6)
+
 	for _, f := range features {
 		assert.False(t, f.Enabled, "all unselected should be disabled: %s", f.Name)
 	}
@@ -291,15 +293,19 @@ func TestResolveFeatures_NoneSelected(t *testing.T) {
 
 func TestResolveFeatures_Partial(t *testing.T) {
 	t.Parallel()
-	features := resolveFeatures([]string{"init", "docs"})
+	features := resolveFeatures([]string{"init", "docs", "changelog"})
 	enabled := map[string]bool{}
+
 	for _, f := range features {
 		enabled[f.Name] = f.Enabled
 	}
+
 	assert.True(t, enabled["init"])
 	assert.True(t, enabled["docs"])
+	assert.True(t, enabled["changelog"])
 	assert.False(t, enabled["update"])
 	assert.False(t, enabled["mcp"])
+	assert.False(t, enabled["doctor"])
 }
 
 // -- SkeletonOptions.ValidateOrPrompt (non-interactive path) ------------------

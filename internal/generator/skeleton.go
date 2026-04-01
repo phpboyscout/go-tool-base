@@ -687,7 +687,7 @@ func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, ar
 }
 
 func calculateDisabledFeatures(features []ManifestFeature) []string {
-	allFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog"}
+	allFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "ai", "config", "telemetry"}
 	disabled := []string{}
 
 	featureMap := make(map[string]bool)
