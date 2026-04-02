@@ -111,3 +111,8 @@ Ship default configs, templates, and data files with your tool using Go's `embed
 
 ### [Add a gRPC Management Service](add-grpc-service.md)
 Register a gRPC server with the controller, wire the standard health protocol, and configure the port.
+
+## Security
+
+### [Add HTTP Security Headers](security-headers.md)
+Implement HSTS, CSP, and other security headers for your tool using the `pkg/http` middleware chain.
