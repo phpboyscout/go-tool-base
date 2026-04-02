@@ -77,6 +77,22 @@ mocks:
 vuln:
     govulncheck ./...
 
+# Run Trivy filesystem scan
+trivy:
+    trivy fs --severity HIGH,CRITICAL .
+
+# Run gitleaks secret scan
+gitleaks:
+    gitleaks detect --source . -v
+
+# Run OSV dependency scanner
+osv-scan:
+    osv-scanner --lockfile=go.sum
+
+# Run all security scans
+security: vuln trivy gitleaks osv-scan
+    @echo "All security scans passed"
+
 # Find unreachable exported symbols
 deadcode:
     deadcode ./...
