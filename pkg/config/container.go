@@ -136,9 +136,11 @@ func (c *Container) handleReadFileError(err error) {
 	// just use the default value(s) if the config file was not found.
 	var pathError *os.PathError
 	if errors.As(err, &pathError) {
-		c.logger.Warn("could not load config file. Using default values", "stacktrace", fmt.Sprintf("%+v", err))
+		c.logger.Warn("could not load config file. Using default values")
+		c.logger.Debug("config file error detail", "stacktrace", fmt.Sprintf("%+v", err))
 	} else if err != nil { // Handle other errors that occurred while reading the config file
-		c.logger.Warn(fmt.Sprintf("Could not read the config file (%s)", err), "stacktrace", fmt.Sprintf("%+v", err))
+		c.logger.Warn(fmt.Sprintf("Could not read the config file (%s)", err))
+		c.logger.Debug("config read error detail", "stacktrace", fmt.Sprintf("%+v", err))
 	}
 }
 
@@ -200,7 +202,8 @@ func (c *Container) ToJSON() string {
 
 	bs, err := json.Marshal(s)
 	if err != nil {
-		c.logger.Error("unable to marshal config to JSON", "stacktrace", fmt.Sprintf("%+v", err))
+		c.logger.Error("unable to marshal config to JSON")
+		c.logger.Debug("config marshal error detail", "stacktrace", fmt.Sprintf("%+v", err))
 	}
 
 	return string(bs)
