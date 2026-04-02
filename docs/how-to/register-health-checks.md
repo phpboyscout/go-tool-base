@@ -169,3 +169,32 @@ func setupHealthChecks(controller *controls.Controller, db *sql.DB, redis *redis
     return nil
 }
 ```
+
+## Security Considerations
+
+Health check responses are returned directly in HTTP endpoint bodies (`/healthz`, `/livez`, `/readyz`). The `Message` field from `CheckResult` is included in the JSON response and is visible to any client that can reach the endpoint.
+
+**Do not include sensitive information in health check messages.** Specifically, avoid returning:
+
+- Database connection strings or DSNs
+- Internal hostnames or IP addresses
+- Credentials, tokens, or API keys embedded in error messages
+- Full stack traces (these belong in logs, not health responses)
+
+```go
+// Avoid — raw error may contain connection details
+return controls.CheckResult{
+    Status:  controls.CheckUnhealthy,
+    Message: fmt.Sprintf("failed: %v", err),
+}
+
+// Prefer — descriptive summary without sensitive detail
+return controls.CheckResult{
+    Status:  controls.CheckUnhealthy,
+    Message: "database connection failed: timeout after 2s",
+}
+```
+
+If your health endpoints are exposed beyond localhost, consider placing them behind authentication or network-level access controls. GTB mounts health endpoints outside the middleware chain (see [Add HTTP Security Headers](security-headers.md)), so any middleware-based access control does not apply to them by default.
+
+For the full rationale behind this design, see [Security Decisions: M-1](../development/security-decisions.md#m-1-health-endpoint-error-messages).
