@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -31,7 +32,7 @@ func Serve(ctx context.Context, fsys fs.FS, port int) error {
 	actualPort := listener.Addr().(*net.TCPAddr).Port
 	url := fmt.Sprintf("http://localhost:%d", actualPort)
 
-	fmt.Printf("Documentation server starting at %s\n", url)
+	slog.Info("Documentation server starting", "url", url)
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(fsys)))
