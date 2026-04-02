@@ -64,6 +64,9 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
+sboms:
+  - artifacts: archive
+
 release:
   use_existing_draft: true
   replace_existing_artifacts: true
