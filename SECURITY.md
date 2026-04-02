@@ -13,7 +13,7 @@ Only the latest minor release of go-tool-base receives security updates.
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, report them via email to **security@phpboyscout.com**. Include as much of the following as possible:
+Instead, report them via email to **security@phpboyscout.uk**. Include as much of the following as possible:
 
 - A description of the vulnerability
 - Steps to reproduce or a proof-of-concept
