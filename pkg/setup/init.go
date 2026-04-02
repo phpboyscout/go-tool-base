@@ -105,7 +105,17 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 
 	warnIfAPIKeysInGitRepo(props, opts.Dir)
 
-	return targetFile, cfg.WriteConfigAs(targetFile)
+	if err := cfg.WriteConfigAs(targetFile); err != nil {
+		return targetFile, err
+	}
+
+	// Restrict config file permissions — the file may contain credentials.
+	const configFilePerm = 0o600
+	if chmodErr := props.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
+		props.Logger.Warnf("failed to set config file permissions: %s", chmodErr)
+	}
+
+	return targetFile, nil
 }
 
 func mergeExtraConfig(props *props.Props, cfg *viper.Viper) error {

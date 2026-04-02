@@ -186,5 +186,12 @@ func RunInitCmd(p *props.Props, dir string) error {
 		return errors.Wrap(err, "failed to create config directory")
 	}
 
-	return c.WriteConfigAs(targetFile)
+	if err := c.WriteConfigAs(targetFile); err != nil {
+		return err
+	}
+
+	// Restrict config file permissions — the file may contain auth tokens.
+	const configFilePerm = 0o600
+
+	return p.FS.Chmod(targetFile, configFilePerm)
 }

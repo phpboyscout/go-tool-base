@@ -362,7 +362,14 @@ func writeAIConfig(p *props.Props, dir string, aiCfg *AIConfig) error {
 		return errors.Newf("failed to create config directory: %w", err)
 	}
 
-	return cfg.WriteConfigAs(targetFile)
+	if err := cfg.WriteConfigAs(targetFile); err != nil {
+		return err
+	}
+
+	// Restrict config file permissions — the file may contain API keys.
+	const configFilePerm = 0o600
+
+	return p.FS.Chmod(targetFile, configFilePerm)
 }
 
 // validProviders is the set of permitted AI provider identifiers.
