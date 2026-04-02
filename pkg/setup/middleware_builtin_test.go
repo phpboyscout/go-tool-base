@@ -88,14 +88,23 @@ func TestWithRecovery(t *testing.T) {
 		assert.Contains(t, err.Error(), "panic in command \"test-cmd\": something went terribly wrong")
 
 		entries := log.Entries()
-		require.Len(t, entries, 1)
+		require.Len(t, entries, 2)
+
+		// First entry: error-level summary (no stack trace)
 		assert.Equal(t, logger.ErrorLevel, entries[0].Level)
 		assert.Equal(t, "panic recovered in command", entries[0].Message)
 		assert.Contains(t, entries[0].Keyvals, "command")
 		assert.Contains(t, entries[0].Keyvals, "test-cmd")
 		assert.Contains(t, entries[0].Keyvals, "panic")
 		assert.Contains(t, entries[0].Keyvals, "something went terribly wrong")
-		assert.Contains(t, entries[0].Keyvals, "stack")
+		assert.NotContains(t, entries[0].Keyvals, "stack")
+
+		// Second entry: debug-level stack trace
+		assert.Equal(t, logger.DebugLevel, entries[1].Level)
+		assert.Equal(t, "panic stack trace", entries[1].Message)
+		assert.Contains(t, entries[1].Keyvals, "command")
+		assert.Contains(t, entries[1].Keyvals, "test-cmd")
+		assert.Contains(t, entries[1].Keyvals, "stack")
 	})
 }
 

@@ -49,9 +49,13 @@ func WithRecovery(l logger.Logger) Middleware {
 			defer func() {
 				if r := recover(); r != nil {
 					stack := debug.Stack()
+
 					l.Error("panic recovered in command",
 						"command", cmd.Name(),
 						"panic", r,
+					)
+					l.Debug("panic stack trace",
+						"command", cmd.Name(),
 						"stack", string(stack),
 					)
 					retErr = errors.Newf("panic in command %q: %v", cmd.Name(), r)
