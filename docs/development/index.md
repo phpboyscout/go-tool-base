@@ -490,6 +490,7 @@ For specialized information on library-level development and architectural stand
 - **[Verification Checklists](./verification-checklists.md)**: Library and generator verification protocols.
 - **[Glossary](glossary.md)**: Common terms used in the project.
 - **[Security](security.md)**: Policies on secret management and vulnerability reporting.
+- **[Security Decisions](security-decisions.md)**: Accepted risks and rationale from security audits.
 - **[AI Collaboration](ai-collaboration.md)**: How to leverage project skills and workflows.
 
 This development guide should help you contribute effectively to GTB!

@@ -1,0 +1,127 @@
+---
+title: Security Decisions & Accepted Risks
+description: Living record of security decisions, accepted risks, and mitigations from audits of the GTB project.
+date: 2026-04-02
+tags: [development, security, audit, decisions, risk]
+authors: [Matt Cockayne <matt@phpboyscout.com>]
+---
+
+# Security Decisions & Accepted Risks
+
+This document records security-related decisions and accepted risks identified during audits of the GTB project. It serves as a reference for contributors and tool authors who need to understand why certain behaviours exist and what responsibilities fall to the consuming developer.
+
+Each entry includes the finding identifier, a description of the behaviour, the rationale for accepting it, and any guidance for tool authors.
+
+---
+
+## Audit: 2026-04-02
+
+### Accepted Risks
+
+#### M-1: Health Endpoint Error Messages
+
+**Severity:** Medium | **Status:** Accepted
+
+Health endpoint responses (`/healthz`, `/livez`, `/readyz`) include error detail messages returned by `StatusFunc` and `ProbeFunc` callbacks. This is intentional — health responses must convey enough information for operators to diagnose issues without requiring log access.
+
+**Tool author responsibility:** Sanitize error messages before returning them from health check callbacks. Do not pass raw database connection strings, internal hostnames, credentials, or stack traces through `CheckResult.Message`. Return a descriptive but non-sensitive summary instead.
+
+```go
+// Bad — leaks connection string
+return controls.CheckResult{
+    Status:  controls.CheckUnhealthy,
+    Message: fmt.Sprintf("connection failed: %v", err), // err may contain "postgres://user:pass@internal-host:5432/db"
+}
+
+// Good — descriptive without sensitive detail
+return controls.CheckResult{
+    Status:  controls.CheckUnhealthy,
+    Message: "database connection failed: timeout after 2s",
+}
+```
+
+See also: [Register Custom Health Checks](../how-to/register-health-checks.md#security-considerations).
+
+---
+
+#### M-4: Credentials Not Cleared from Memory
+
+**Severity:** Medium | **Status:** Accepted
+
+Go's garbage-collected runtime makes reliable memory zeroing of `string` values impractical. Strings are immutable and may be copied by the runtime, interned, or retained in dead stack frames until the garbage collector reclaims them. There is no portable way to guarantee that sensitive values (SSH passphrases, VCS tokens) are scrubbed from process memory.
+
+**Mitigating factors:**
+
+- **CLI tools** (the primary GTB use case) have short process lifetimes. Credentials exist in memory only for the duration of the command.
+- **Long-lived services** should be aware that credentials remain in process memory for the lifetime of the struct that holds them. If this is a concern, isolate credential-holding components and consider process-level isolation (e.g., separate sidecar for secret retrieval).
+
+**Guidance for tool authors:** For services handling multiple users or operating in high-security environments, avoid storing credentials in long-lived structs. Prefer short-lived credential retrieval (e.g., fetch a token, use it, let the variable go out of scope) over caching credentials for the process lifetime.
+
+---
+
+#### M-6: `update --from-file` Accepts Arbitrary Paths
+
+**Severity:** Medium | **Status:** Accepted (by design)
+
+The `update --from-file <path>` command accepts any filesystem path the user provides. This is intentional for a CLI tool where the invoking user explicitly supplies the path and the operating system's file permission model applies.
+
+**Rationale:** Adding path restrictions (e.g., limiting to a specific directory) would reduce the utility of the feature without improving security. The user already has shell access and could copy the file to an allowed directory. OS-level permissions are the correct enforcement mechanism.
+
+---
+
+#### L-1: Debug-Mode Stack Traces
+
+**Severity:** Low | **Status:** Accepted (by design)
+
+When the log level is set to `DEBUG`, error responses include full stack traces via `cockroachdb/errors`. This is intentional for development troubleshooting — stack traces are essential for diagnosing error origins.
+
+**Guidance for tool authors:** Ensure production deployments do not run with the log level set to `DEBUG`. Use `INFO` or `WARN` as the default, and document that `DEBUG` is for development use only.
+
+---
+
+#### L-2: Provider Environment Variable Logged at Debug Level
+
+**Severity:** Low | **Status:** Accepted
+
+The resolved AI provider name (e.g., `"anthropic"`, `"openai"`) is logged at `DEBUG` level during chat client initialisation. This aids troubleshooting when users have multiple providers configured.
+
+**Clarification:** The API key is never logged. Only the provider name (a non-sensitive configuration value) appears in log output.
+
+---
+
+#### L-4: SSH Key Discovery Scans ~/.ssh
+
+**Severity:** Low | **Status:** Accepted (by design)
+
+The TUI key selection during `init` reads filenames from `~/.ssh` to present an interactive list of available keys. This is a directory listing only — file contents are never read unless the user explicitly selects a key.
+
+**Rationale:** SSH key discovery is a standard requirement for the initialisation workflow. Keys from unrelated systems (personal keys, keys for other services) may appear in the list but are never accessed unless explicitly selected. The alternative — requiring users to type the full path manually — would degrade the setup experience without improving security.
+
+---
+
+#### L-5: Machine ID in Telemetry
+
+**Severity:** Low | **Status:** Accepted (by design)
+
+The machine ID transmitted in telemetry events is a SHA-256 hash of multiple system signals (OS machine ID, MAC address, hostname, username), truncated to 16 hex characters. Raw identifiable values are never transmitted.
+
+**Privacy properties:**
+
+- The hash is one-way — the original values cannot be recovered.
+- Truncation to 16 hex characters further reduces collision resistance but also limits re-identification potential.
+- The machine ID is used solely for deduplication and aggregate counting, not user identification.
+
+See also: [Telemetry design](specs/2026-03-21-opt-in-telemetry.md) for the full privacy model.
+
+---
+
+## Adding New Entries
+
+When a new security audit or review produces findings, add them to this document under a dated audit heading. Each entry should include:
+
+1. **Finding identifier** (e.g., M-1, L-3) matching the audit report.
+2. **Severity** (Critical, High, Medium, Low, Informational).
+3. **Status** (Accepted, Mitigated, Remediated, Deferred).
+4. **Description** of the behaviour.
+5. **Rationale** for the decision.
+6. **Guidance** for tool authors where applicable.
