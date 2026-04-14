@@ -178,6 +178,7 @@ type ManifestProperties struct {
 	Name        string            `yaml:"name"`
 	Description MultilineString   `yaml:"description"`
 	Features    []ManifestFeature `yaml:"features"`
+	EnvPrefix   string            `yaml:"env_prefix,omitempty"`
 	Help        ManifestHelp      `yaml:"help,omitempty"`
 	Telemetry   ManifestTelemetry `yaml:"telemetry,omitempty"`
 }

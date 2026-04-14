@@ -48,6 +48,7 @@ type SkeletonConfig struct {
 	TeamsTeam             string
 	TelemetryEndpoint     string // populated from manifest telemetry.endpoint
 	TelemetryOTelEndpoint string // populated from manifest telemetry.otel_endpoint
+	EnvPrefix             string // environment variable prefix for config overrides
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -235,6 +236,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TeamsTeam             string
 		TelemetryEndpoint     string
 		TelemetryOTelEndpoint string
+		EnvPrefix             string
 	}{
 		Name:                  config.Name,
 		Repo:                  config.Repo,
@@ -256,6 +258,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TeamsTeam:             config.TeamsTeam,
 		TelemetryEndpoint:     config.TelemetryEndpoint,
 		TelemetryOTelEndpoint: config.TelemetryOTelEndpoint,
+		EnvPrefix:             config.EnvPrefix,
 	}
 
 	// Load existing project-level hashes so we can detect customised files.
@@ -379,6 +382,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 	TeamsTeam             string
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
+	EnvPrefix             string
 }) error {
 	goFiles := map[string]*jen.File{
 		filepath.Join("cmd", data.Name, "main.go"): templates.SkeletonMain(data.ModulePath),
@@ -401,6 +405,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 			TeamsTeam:             data.TeamsTeam,
 			TelemetryEndpoint:     data.TelemetryEndpoint,
 			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
+			EnvPrefix:             data.EnvPrefix,
 		}),
 	}
 
@@ -620,6 +625,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 			Name:        config.Name,
 			Description: MultilineString(config.Description),
 			Features:    config.Features,
+			EnvPrefix:   config.EnvPrefix,
 			Help: ManifestHelp{
 				Type:         config.HelpType,
 				SlackChannel: config.SlackChannel,

@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -31,6 +32,7 @@ type SkeletonOptions struct {
 	SlackTeam    string
 	TeamsChannel string
 	TeamsTeam    string
+	EnvPrefix    string
 }
 
 func NewCmdSkeleton(p *props.Props) *cobra.Command {
@@ -67,6 +69,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.SlackTeam, "slack-team", "", "Slack team name (e.g. My Team)")
 	cmd.Flags().StringVar(&opts.TeamsChannel, "teams-channel", "", "Microsoft Teams channel for help")
 	cmd.Flags().StringVar(&opts.TeamsTeam, "teams-team", "", "Microsoft Teams team name")
+	cmd.Flags().StringVar(&opts.EnvPrefix, "env-prefix", "", "Environment variable prefix for config overrides (e.g. MY_APP)")
 
 	return cmd
 }
@@ -147,6 +150,7 @@ func (o *SkeletonOptions) runWizard() error {
 		Description("Configure your new CLI tool. The next steps will collect repository and help channel details.\n")
 
 	return forms.NewWizard(stage1).
+		Step(o.runEnvPrefixStep).
 		// Stage 2: git config — built dynamically so the description reflects the chosen backend
 		Step(func() error {
 			if o.Host == "" {
@@ -271,6 +275,37 @@ func resolveFeatures(selected []string) []generator.ManifestFeature {
 	return features
 }
 
+// runEnvPrefixStep presents the env prefix wizard step, defaulting to the
+// upper-cased tool name with hyphens replaced by underscores.
+func (o *SkeletonOptions) runEnvPrefixStep() error {
+	if o.EnvPrefix == "" {
+		o.EnvPrefix = strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_"))
+	}
+
+	envPrefixGroup := huh.NewGroup(
+		huh.NewInput().
+			Title("Environment Variable Prefix").
+			Description("Prefix for config env var overrides (e.g. MY_APP → MY_APP_LOG_LEVEL). Leave empty to disable.").
+			Placeholder(o.EnvPrefix).
+			Value(&o.EnvPrefix).
+			Validate(func(s string) error {
+				if s == "" {
+					return nil // opt-out
+				}
+
+				if !regexp.MustCompile(`^[A-Z0-9_]+$`).MatchString(s) {
+					return ErrEnvPrefixInvalid
+				}
+
+				return nil
+			}),
+	).
+		Title("Environment Variable Prefix").
+		Description("Scopes config env var lookups so only variables starting with this prefix are considered.\n")
+
+	return forms.NewNavigable(envPrefixGroup).Run()
+}
+
 func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	if o.Overwrite == "" {
 		o.Overwrite = "ask"
@@ -312,5 +347,6 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		SlackTeam:    o.SlackTeam,
 		TeamsChannel: o.TeamsChannel,
 		TeamsTeam:    o.TeamsTeam,
+		EnvPrefix:    o.EnvPrefix,
 	})
 }

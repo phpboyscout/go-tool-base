@@ -244,6 +244,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		TeamsTeam:             m.Properties.Help.TeamsTeam,
 		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
+		EnvPrefix:             m.Properties.EnvPrefix,
 		Subcommands:           subcommands,
 	}
 }
@@ -343,6 +344,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		TeamsTeam             string
 		TelemetryEndpoint     string
 		TelemetryOTelEndpoint string
+		EnvPrefix             string
 	}{
 		Name:                  m.Properties.Name,
 		Repo:                  org + "/" + repoName,
@@ -364,6 +366,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		TeamsTeam:             m.Properties.Help.TeamsTeam,
 		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
+		EnvPrefix:             m.Properties.EnvPrefix,
 	}
 
 	storedHashes := m.Hashes

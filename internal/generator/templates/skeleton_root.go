@@ -29,6 +29,7 @@ type SkeletonRootData struct {
 	TeamsTeam             string
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
+	EnvPrefix             string
 	Subcommands           []SkeletonSubcommand
 }
 
@@ -113,6 +114,10 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		jen.Id("Summary"):       jen.Lit(data.Name + " utility"),
 		jen.Id("Description"):   jen.Lit(data.Description),
 		jen.Id("ReleaseSource"): jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "ReleaseSource").Values(buildReleaseSourceDict(data)),
+	}
+
+	if data.EnvPrefix != "" {
+		toolDict[jen.Id("EnvPrefix")] = jen.Lit(data.EnvPrefix)
 	}
 
 	switch data.HelpType {
