@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/afero"
+
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -16,7 +18,7 @@ log:
 server:
   port: 8080
 `
-	cfg := config.NewReaderContainer(l, "yaml", strings.NewReader(yaml))
+	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(yaml)))
 
 	fmt.Println("Level:", cfg.GetString("log.level"))
 	fmt.Println("Port:", cfg.GetInt("server.port"))
@@ -56,7 +58,7 @@ func ExampleContainer_Validate() {
 	}
 
 	l := logger.NewNoop()
-	cfg := config.NewReaderContainer(l, "yaml", strings.NewReader("log:\n  level: verbose\n"))
+	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("log:\n  level: verbose\n")))
 
 	schema, _ := config.NewSchema(config.WithStructSchema(AppConfig{}))
 

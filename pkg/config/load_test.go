@@ -129,7 +129,7 @@ func TestLoad(t *testing.T) {
 			}
 
 			// Call Load function
-			container, err := config.Load(tt.paths, fs, logger, tt.allowEmptyConfig)
+			container, err := config.Load(tt.paths, fs, tt.allowEmptyConfig, config.WithLogger(logger))
 
 			// Check error expectations
 			if tt.expectError {
@@ -166,7 +166,7 @@ func TestLoad_FileSystemErrors(t *testing.T) {
 		fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 
 		// This should not error even if fs.Stat fails, because we handle the error
-		container, err := config.Load([]string{"nonexistent.yaml"}, fs, logger, true)
+		container, err := config.Load([]string{"nonexistent.yaml"}, fs, true, config.WithLogger(logger))
 
 		require.NoError(t, err)
 		assert.NotNil(t, container)
@@ -184,7 +184,7 @@ func TestLoadEmbed(t *testing.T) {
 		// Create a simple test with an empty embedded filesystem
 		var emptyFS embed.FS
 
-		container, err := config.LoadEmbed([]string{"nonexistent.yaml"}, emptyFS, logger)
+		container, err := config.LoadEmbed([]string{"nonexistent.yaml"}, emptyFS, config.WithLogger(logger))
 
 		// LoadEmbed should now return an error when files cannot be read
 		require.Error(t, err)
@@ -197,7 +197,7 @@ func TestLoadEmbed(t *testing.T) {
 
 		var emptyFS embed.FS
 
-		container, err := config.LoadEmbed([]string{}, emptyFS, logger)
+		container, err := config.LoadEmbed([]string{}, emptyFS, config.WithLogger(logger))
 
 		require.NoError(t, err)
 		assert.NotNil(t, container)
@@ -215,7 +215,7 @@ server:
 			"config.yaml": &fstest.MapFile{Data: []byte(yamlContent)},
 		}
 
-		container, err := config.LoadEmbed([]string{"config.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"config.yaml"}, mockFS, config.WithLogger(logger))
 
 		require.NoError(t, err)
 		assert.NotNil(t, container)
@@ -243,7 +243,7 @@ database:
 			"db.yaml":  &fstest.MapFile{Data: []byte(config2)},
 		}
 
-		container, err := config.LoadEmbed([]string{"app.yaml", "db.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"app.yaml", "db.yaml"}, mockFS, config.WithLogger(logger))
 
 		require.NoError(t, err)
 		assert.NotNil(t, container)
@@ -268,7 +268,7 @@ logging:
 		}
 
 		// nonexistent.yaml is missing from MapFS, so ReadFile will fail
-		container, err := config.LoadEmbed([]string{"logging.yaml", "nonexistent.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"logging.yaml", "nonexistent.yaml"}, mockFS, config.WithLogger(logger))
 
 		// Should return an error when any file fails to read
 		require.Error(t, err)
@@ -281,7 +281,7 @@ logging:
 
 		mockFS := fstest.MapFS{} // Empty MapFS
 
-		container, err := config.LoadEmbed([]string{"config1.yaml", "config2.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"config1.yaml", "config2.yaml"}, mockFS, config.WithLogger(logger))
 
 		// Should return an error when files fail to read
 		require.Error(t, err)
@@ -310,7 +310,7 @@ application:
 			"complex.yaml": &fstest.MapFile{Data: []byte(complexYaml)},
 		}
 
-		container, err := config.LoadEmbed([]string{"complex.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"complex.yaml"}, mockFS, config.WithLogger(logger))
 
 		require.NoError(t, err)
 		assert.NotNil(t, container)
@@ -329,7 +329,7 @@ application:
 			"empty.yaml": &fstest.MapFile{Data: []byte("")},
 		}
 
-		container, err := config.LoadEmbed([]string{"empty.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"empty.yaml"}, mockFS, config.WithLogger(logger))
 
 		require.NoError(t, err)
 		assert.NotNil(t, container)
@@ -347,7 +347,7 @@ invalid: yaml: content:
 			"invalid.yaml": &fstest.MapFile{Data: []byte(invalidYaml)},
 		}
 
-		container, err := config.LoadEmbed([]string{"invalid.yaml"}, mockFS, logger)
+		container, err := config.LoadEmbed([]string{"invalid.yaml"}, mockFS, config.WithLogger(logger))
 
 		// LoadEmbed itself should not fail - NewReaderContainer handles yaml parsing
 		require.NoError(t, err)
@@ -375,7 +375,7 @@ server:
 		err := afero.WriteFile(fs, "config.yaml", []byte(configContent), 0o644)
 		require.NoError(t, err)
 
-		container, err := config.Load([]string{"config.yaml"}, fs, logger, false)
+		container, err := config.Load([]string{"config.yaml"}, fs, false, config.WithLogger(logger))
 		require.NoError(t, err)
 		require.NotNil(t, container)
 

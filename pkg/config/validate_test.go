@@ -19,7 +19,7 @@ func newTestContainer(t *testing.T, yaml string) *Container {
 	err := afero.WriteFile(fs, "/config.yaml", []byte(yaml), 0o644)
 	require.NoError(t, err)
 
-	c, err := LoadFilesContainer(l, fs, "/config.yaml")
+	c, err := LoadFilesContainer(fs, WithLogger(l), WithConfigFiles("/config.yaml"))
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -252,7 +252,7 @@ log:
 	schema, err := NewSchema(WithStructSchema(testAppConfig{}))
 	require.NoError(t, err)
 
-	c, err := LoadFilesContainerWithSchema(l, fs, schema, "/config.yaml")
+	c, err := LoadFilesContainerWithSchema(fs, schema, WithLogger(l), WithConfigFiles("/config.yaml"))
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -275,7 +275,7 @@ log:
 	schema, err := NewSchema(WithStructSchema(testAppConfig{}))
 	require.NoError(t, err)
 
-	c, err := LoadFilesContainerWithSchema(l, fs, schema, "/config.yaml")
+	c, err := LoadFilesContainerWithSchema(fs, schema, WithLogger(l), WithConfigFiles("/config.yaml"))
 	require.Error(t, err)
 	assert.Nil(t, c)
 	assert.Contains(t, err.Error(), "github.token")
@@ -290,7 +290,7 @@ func TestLoadFilesContainerWithSchema_FileNotFound(t *testing.T) {
 	schema, err := NewSchema(WithStructSchema(testAppConfig{}))
 	require.NoError(t, err)
 
-	c, err := LoadFilesContainerWithSchema(l, fs, schema, "/nonexistent.yaml")
+	c, err := LoadFilesContainerWithSchema(fs, schema, WithLogger(l), WithConfigFiles("/nonexistent.yaml"))
 	require.NoError(t, err)
 	assert.Nil(t, c)
 }

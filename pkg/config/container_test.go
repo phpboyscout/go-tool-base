@@ -41,7 +41,7 @@ func TestContainer_AddObserver(t *testing.T) {
 
 		// Must use OsFs because Viper's WatchConfig relies on fsnotify which requires real filesystem events.
 		// MemMapFs does not support this.
-		c := config.NewFilesContainer(logger, afero.NewOsFs(), filename)
+		c := config.NewFilesContainer(afero.NewOsFs(), config.WithLogger(logger), config.WithConfigFiles(filename))
 		origValue := c.GetString("yaml.key")
 		observed := 0
 
@@ -88,7 +88,7 @@ func TestContainer_Sub(t *testing.T) {
 	t.Parallel()
 
 	l := logger.NewNoop()
-	c := config.NewReaderContainer(l, "yaml", strings.NewReader(secondMockFilesYaml))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(secondMockFilesYaml)))
 	s := c.Sub("yaml.more")
 
 	assert.Equal(t, "secondfile", s.GetString("key2"))
@@ -99,7 +99,7 @@ func TestContainer_GetViper(t *testing.T) {
 	t.Parallel()
 
 	l := logger.NewNoop()
-	c := config.NewReaderContainer(l, "yaml", strings.NewReader(firstMockFilesYaml))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(firstMockFilesYaml)))
 	v := c.GetViper()
 
 	assert.Equal(t, "value", v.GetString("yaml.key"))

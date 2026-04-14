@@ -27,14 +27,14 @@ var secondMockFilesYaml = `yaml:
 
 func TestLoadFilesContainer_NoFiles(t *testing.T) {
 	t.Parallel()
-	_, err := config.LoadFilesContainer(logger.NewNoop(), afero.NewMemMapFs())
+	_, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no config files specified")
 }
 
 func TestLoadFilesContainer_NonExistentFile(t *testing.T) {
 	t.Parallel()
-	c, err := config.LoadFilesContainer(logger.NewNoop(), afero.NewMemMapFs(), "/does/not/exist.yaml")
+	c, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles("/does/not/exist.yaml"))
 	require.NoError(t, err)
 	assert.Nil(t, c)
 }
@@ -43,7 +43,7 @@ func TestLoadFilesContainer_ExistingFile(t *testing.T) {
 	t.Parallel()
 	fs := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(fs, "cfg.yaml", []byte("key: hello"), 0o644))
-	c, err := config.LoadFilesContainer(logger.NewNoop(), fs, "cfg.yaml")
+	c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.NewNoop()), config.WithConfigFiles("cfg.yaml"))
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	assert.Equal(t, "hello", c.GetString("key"))
@@ -51,7 +51,7 @@ func TestLoadFilesContainer_ExistingFile(t *testing.T) {
 
 func TestContainer_IsSet_Set(t *testing.T) {
 	t.Parallel()
-	c := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader("foo: bar"))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
 	assert.True(t, c.IsSet("foo"))
 	assert.False(t, c.IsSet("nonexistent"))
 	c.Set("newkey", "newval")
@@ -62,7 +62,7 @@ func TestContainer_IsSet_Set(t *testing.T) {
 func TestContainer_WriteConfigAs(t *testing.T) {
 	t.Parallel()
 	fs := afero.NewMemMapFs()
-	c := config.NewFilesContainer(logger.NewNoop(), fs)
+	c := config.NewFilesContainer(fs, config.WithLogger(logger.NewNoop()))
 	c.Set("written", "yes")
 	tmpName := "/tmp/test-write-cfg.yaml"
 	require.NoError(t, c.WriteConfigAs(tmpName))
@@ -73,14 +73,14 @@ func TestContainer_WriteConfigAs(t *testing.T) {
 
 func TestContainer_Sub_Nil(t *testing.T) {
 	t.Parallel()
-	c := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader("foo: bar"))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
 	sub := c.Sub("nonexistent")
 	assert.Nil(t, sub)
 }
 
 func TestContainer_ToJSON_Dump(t *testing.T) {
 	t.Parallel()
-	c := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader("name: myapp\nversion: 1"))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("name: myapp\nversion: 1")))
 	j := c.ToJSON()
 	assert.Contains(t, j, "myapp")
 	var buf strings.Builder
@@ -98,7 +98,7 @@ func TestNewFilesContainer(t *testing.T) {
 		err := afero.WriteFile(fs, "first.yml", []byte(firstMockFilesYaml), 0o644)
 		require.NoError(t, err)
 
-		c := config.NewFilesContainer(logger, fs, "first.yml")
+		c := config.NewFilesContainer(fs, config.WithLogger(logger), config.WithConfigFiles("first.yml"))
 		value := c.GetString("yaml.key")
 		assert.Equal(t, "value", value)
 	})
@@ -112,7 +112,7 @@ func TestNewFilesContainer(t *testing.T) {
 		err = afero.WriteFile(fs, "second.yml", []byte(secondMockFilesYaml), 0o644)
 		require.NoError(t, err)
 
-		c := config.NewFilesContainer(logger, fs, "first.yml", "second.yml")
+		c := config.NewFilesContainer(fs, config.WithLogger(logger), config.WithConfigFiles("first.yml", "second.yml"))
 		value := c.GetString("yaml.key")
 		assert.Equal(t, "value2", value)
 
@@ -128,7 +128,7 @@ func TestNewReaderContainer(t *testing.T) {
 	t.Run("with single config reader", func(t *testing.T) {
 		t.Parallel()
 		r := strings.NewReader(firstMockFilesYaml)
-		c := config.NewReaderContainer(logger, "yaml", r)
+		c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger), config.WithConfigFormat("yaml"), config.WithConfigReaders(r))
 
 		value := c.GetString("yaml.key")
 		assert.Equal(t, "value", value)
@@ -137,10 +137,13 @@ func TestNewReaderContainer(t *testing.T) {
 	t.Run("with multiple config readers", func(t *testing.T) {
 		t.Parallel()
 		c := config.NewReaderContainer(
-			logger,
-			"yaml",
-			strings.NewReader(firstMockFilesYaml),
-			strings.NewReader(secondMockFilesYaml),
+			afero.NewMemMapFs(),
+			config.WithLogger(logger),
+			config.WithConfigFormat("yaml"),
+			config.WithConfigReaders(
+				strings.NewReader(firstMockFilesYaml),
+				strings.NewReader(secondMockFilesYaml),
+			),
 		)
 
 		value := c.GetString("yaml.key")
