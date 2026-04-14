@@ -344,11 +344,6 @@ func TestGenerateFromRepo(t *testing.T) {
 func TestParseCommitMessage(t *testing.T) {
 	t.Parallel()
 
-	parser := ccparser.NewMachine(
-		ccparser.WithTypes(conventionalcommits.TypesConventional),
-		ccparser.WithBestEffort(),
-	)
-
 	tests := []struct {
 		name       string
 		message    string
@@ -439,7 +434,14 @@ func TestParseCommitMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			entry, ok := parseCommitMessage(parser, tt.message, tt.includeAll)
+			// Create a fresh parser per subtest — leodido/go-conventionalcommits
+			// Machine is not goroutine-safe.
+			subParser := ccparser.NewMachine(
+				ccparser.WithTypes(conventionalcommits.TypesConventional),
+				ccparser.WithBestEffort(),
+			)
+
+			entry, ok := parseCommitMessage(subParser, tt.message, tt.includeAll)
 			assert.Equal(t, tt.wantOk, ok)
 
 			if ok {
