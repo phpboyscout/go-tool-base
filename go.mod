@@ -19,7 +19,7 @@ require (
 	github.com/cli/oauth v1.2.2
 	github.com/cockroachdb/errors v1.12.0
 	github.com/cucumber/godog v0.15.1
-	github.com/dave/dst v0.27.3
+	github.com/dave/dst v0.27.4
 	github.com/dave/jennifer v1.7.1
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-billy/v5 v5.8.0
