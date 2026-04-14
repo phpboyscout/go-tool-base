@@ -45,10 +45,17 @@ func TestClaudeLocal_New(t *testing.T) {
 }
 
 func TestClaudeLocal_Add(t *testing.T) {
-	t.Parallel()
+	oldLookPath := chat.ExportExecLookPath
+	defer func() { chat.ExportExecLookPath = oldLookPath }()
+
+	chat.ExportExecLookPath = func(file string) (string, error) {
+		return "/usr/local/bin/claude", nil
+	}
+
 	p := &props.Props{Logger: logger.NewNoop()}
 	cfg := chat.Config{Provider: chat.ProviderClaudeLocal}
-	client, _ := chat.New(context.Background(), p, cfg)
+	client, err := chat.New(context.Background(), p, cfg)
+	require.NoError(t, err)
 
 	t.Run("empty_prompt", func(t *testing.T) {
 		err := client.Add(context.Background(), "")
