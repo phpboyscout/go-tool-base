@@ -2,7 +2,7 @@
 title: "Config Environment Variable Prefix"
 description: "Add configurable environment variable prefix to pkg/config to prevent config pollution in shared environments."
 date: 2026-04-02
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - config
