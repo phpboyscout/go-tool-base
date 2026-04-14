@@ -64,3 +64,35 @@ func TestLevel_RoundTrip(t *testing.T) {
 		assert.Equal(t, level, parsed)
 	}
 }
+
+// FuzzParseLevel verifies ParseLevel is panic-free for arbitrary input and
+// that successful parses round-trip through Level.String().
+//
+// Run with: go test -fuzz=FuzzParseLevel ./pkg/logger/
+func FuzzParseLevel(f *testing.F) {
+	// Seed corpus: valid levels (any case), invalid strings, edge cases.
+	seeds := []string{
+		"debug", "info", "warn", "error", "fatal",
+		"DEBUG", "Info", "WARN", "Error", "FATAL",
+		"", " ", "  debug  ", "invalid", "DeBuG",
+		"\x00", "null", "trace", "off", "0", "-1",
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+
+	f.Fuzz(func(t *testing.T, s string) {
+		lvl, err := ParseLevel(s)
+		if err != nil {
+			// Invalid input must always report ErrInvalidLevel.
+			require.ErrorIs(t, err, ErrInvalidLevel)
+
+			return
+		}
+
+		// Successful parses must round-trip through String().
+		roundTripped, err := ParseLevel(lvl.String())
+		require.NoError(t, err)
+		require.Equal(t, lvl, roundTripped)
+	})
+}

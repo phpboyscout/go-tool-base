@@ -25,17 +25,17 @@ jobs:
       # Needed for the Branch-Protection check.
       actions: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
       - name: Run OpenSSF Scorecard
-        uses: ossf/scorecard-action@v2.4.1
+        uses: ossf/scorecard-action@f49aabe0b5af0936a0987cfb85d86b75731b0186 # v2.4.1
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
           publish_results: true
       - name: Upload Scorecard SARIF results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@5c8a8a642e79153f5d047b10ec1cba1d1cc65699 # v3
         with:
           sarif_file: scorecard-results.sarif
           category: "scorecard"

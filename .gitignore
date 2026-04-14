@@ -40,3 +40,6 @@ tmp*
 dist*
 .claude*
 CHANGELOG.md
+
+# Locally-saved CI logs
+*.log
