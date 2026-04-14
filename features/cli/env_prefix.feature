@@ -5,7 +5,6 @@ Feature: Environment variable prefix
 
   Background:
     Given the gtb binary is built
-    And an empty config directory
 
   Scenario: Prefixed environment variable overrides config
     When I set environment variable "GTB_LOG_LEVEL" to "debug"

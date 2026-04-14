@@ -8,42 +8,42 @@ Feature: CLI Telemetry Command
   Scenario: Telemetry is disabled by default
     When I run gtb with "telemetry status"
     Then the exit code is 0
-    And stdout contains "disabled"
+    And stderr contains "disabled"
 
   Scenario: Enable telemetry
     When I run gtb with "telemetry enable"
     Then the exit code is 0
-    And stdout contains "Telemetry enabled"
+    And stderr contains "Telemetry enabled"
     When I run gtb with "telemetry status"
     Then the exit code is 0
-    And stdout contains "enabled"
+    And stderr contains "enabled"
 
   Scenario: Disable telemetry after enabling
     When I run gtb with "telemetry enable"
     And I run gtb with "telemetry disable"
     Then the exit code is 0
-    And stdout contains "Telemetry disabled"
+    And stderr contains "Telemetry disabled"
     When I run gtb with "telemetry status"
     Then the exit code is 0
-    And stdout contains "disabled"
+    And stderr contains "disabled"
 
   Scenario: Disable telemetry discards pending events
     When I run gtb with "telemetry enable"
     And I run gtb with "telemetry disable"
-    Then stdout contains "All pending events have been discarded"
+    Then stderr contains "All pending events have been discarded"
 
   Scenario: Status shows machine ID
     When I run gtb with "telemetry status"
     Then the exit code is 0
-    And stdout contains "Machine ID:"
+    And stderr contains "Machine ID:"
 
   Scenario: Reset clears local data and disables telemetry
     When I run gtb with "telemetry enable"
     And I run gtb with "telemetry reset"
     Then the exit code is 0
-    And stdout contains "Local telemetry data cleared"
+    And stderr contains "Local telemetry data cleared"
     When I run gtb with "telemetry status"
-    Then stdout contains "disabled"
+    Then stderr contains "disabled"
 
   Scenario: Help flag shows usage
     When I run gtb with "telemetry --help"
