@@ -119,6 +119,11 @@ type Tool struct {
 	// Telemetry holds tool-author telemetry configuration.
 	// Zero-value is safe — tools that don't set it are unaffected.
 	Telemetry TelemetryConfig `json:"telemetry" yaml:"telemetry"`
+
+	// EnvPrefix is the environment variable prefix used by the config package.
+	// When set, only env vars starting with this prefix (e.g., "GTB_") are
+	// considered for config overrides. Empty means no prefix (all env vars match).
+	EnvPrefix string `json:"env_prefix,omitempty" yaml:"env_prefix,omitempty"`
 }
 
 // isDefaultEnabled returns true if the feature is enabled by default.
