@@ -58,6 +58,7 @@ func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
 				props.Enable(props.AiCmd),
 				props.Enable(props.TelemetryCmd),
 			),
+			EnvPrefix: "GTB",
 			Telemetry: props.TelemetryConfig{
 				OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
 				OTelHeaders: map[string]string{
