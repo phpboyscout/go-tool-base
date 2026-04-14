@@ -1,0 +1,12 @@
+# OSV-Scanner ignore list.
+# Documented at https://google.github.io/osv-scanner/configuration/
+
+[[IgnoredVulns]]
+id = "GO-2026-4514"
+# github.com/buger/jsonparser denial-of-service via malformed JSON.
+# Transitive dependency pulled in by github.com/invopop/jsonschema and
+# github.com/wk8/go-ordered-map/v2. No upstream fix is available
+# (Fixed in: N/A on pkg.go.dev). govulncheck confirms our code does
+# not call the vulnerable symbols. Recorded as an accepted residual
+# risk in docs/development/security-decisions.md.
+reason = "No upstream fix; transitive dep; our code does not call vulnerable symbols."
