@@ -185,6 +185,49 @@ func TestLoggingMiddleware_WithHeaderFields(t *testing.T) {
 	assert.Equal(t, "custom-val", kv["x-custom"])
 }
 
+func TestLoggingMiddleware_WithHeaderFields_RedactsSensitive(t *testing.T) {
+	t.Parallel()
+
+	// Even if a caller passes known-sensitive header names, the values
+	// must never appear verbatim in the log output.
+	cases := []string{
+		"Authorization",
+		"Cookie",
+		"Set-Cookie",
+		"X-Api-Key",
+		"X-Auth-Token",
+		"X-Csrf-Token",
+		"X-Session-Token",
+		"Proxy-Authorization",
+	}
+
+	for _, header := range cases {
+		header := header
+		t.Run(header, func(t *testing.T) {
+			t.Parallel()
+
+			buf := logger.NewBuffer()
+			mw := LoggingMiddleware(buf, WithHeaderFields(header))
+
+			handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			secret := "sensitive-secret-value-xyz"
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Header.Set(header, secret)
+
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+
+			kv := keyvalMap(buf.Entries()[0].Keyvals)
+			logged := kv[strings.ToLower(header)]
+			assert.Equal(t, "[REDACTED]", logged, "sensitive header must be redacted")
+			assert.NotContains(t, logged, secret, "raw secret must not appear in log")
+		})
+	}
+}
+
 func TestLoggingMiddleware_ClientIP_XForwardedFor(t *testing.T) {
 	t.Parallel()
 

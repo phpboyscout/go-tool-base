@@ -102,6 +102,11 @@ func WithPathFilter(paths ...string) LoggingOption {
 
 // WithHeaderFields logs the specified request header values as fields.
 // Header names are normalised to lowercase. Values are truncated to 256 bytes.
+//
+// Known-sensitive headers (Authorization, Cookie, Set-Cookie, X-Api-Key,
+// X-Auth-Token, X-Csrf-Token, X-Session-Token, Proxy-Authorization) are
+// always redacted regardless of whether they appear in the fields list.
+// This is defence-in-depth against accidental credential leakage.
 func WithHeaderFields(headers ...string) LoggingOption {
 	return func(c *loggingConfig) {
 		c.headerFields = append(c.headerFields, headers...)
@@ -199,7 +204,22 @@ func emitStructured(l logger.Logger, level logger.Level, cfg loggingConfig, d re
 const (
 	headerMaxLen = 256
 	clfTimeFmt   = "02/Jan/2006:15:04:05 -0700"
+	redactedMark = "[REDACTED]"
 )
+
+// sensitiveHeaders is a case-insensitive set of header names whose values
+// are always redacted before logging, regardless of WithHeaderFields.
+// Defence-in-depth against accidental credential leakage.
+var sensitiveHeaders = map[string]struct{}{
+	"authorization":       {},
+	"proxy-authorization": {},
+	"cookie":              {},
+	"set-cookie":          {},
+	"x-api-key":           {},
+	"x-auth-token":        {},
+	"x-csrf-token":        {},
+	"x-session-token":     {},
+}
 
 func emitCommon(l logger.Logger, level logger.Level, d requestData) {
 	line := fmt.Sprintf(`%s - - [%s] "%s %s %s" %d %d`,
@@ -294,11 +314,17 @@ func extractHeaders(r *http.Request, fields []string) map[string]string {
 			continue
 		}
 
-		if len(v) > headerMaxLen {
+		key := strings.ToLower(h)
+
+		// Always redact values for known-sensitive header names, even if
+		// the caller explicitly requested them via WithHeaderFields.
+		if _, sensitive := sensitiveHeaders[key]; sensitive {
+			v = redactedMark
+		} else if len(v) > headerMaxLen {
 			v = v[:headerMaxLen]
 		}
 
-		m[strings.ToLower(h)] = v
+		m[key] = v
 	}
 
 	return m
