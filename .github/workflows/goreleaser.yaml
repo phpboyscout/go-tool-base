@@ -50,7 +50,7 @@ jobs:
         with:
           python-version: 3.x
       - name: Install documentation tools
-        run: pip install zensical
+        run: pip install zensical==0.0.33
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: echo "flags=--snapshot" >> $GITHUB_ENV
 
