@@ -13,7 +13,7 @@ consumers and contributors. Each public type, interface, and function belongs
 to one of the tiers below.
 
 !!! success "Stable API"
-    **As of v1.10.0, GTB honours full API stability.** Breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+). The rapid-development period (v1.0–v1.9) is over.
+    **As of v1.11.0, GTB honours full API stability.** Breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+). The v1.10.x to v1.11.0 transition includes a breaking change to `pkg/config` constructor signatures (options pattern migration). The guarantee takes full effect from v1.11.0 onwards.
 
 ---
 
@@ -82,7 +82,8 @@ depend on them in production code without pinning to a specific version.
 | Version range | Policy |
 |---------------|--------|
 | `v1.0.0` to `v1.9.x` | **Historical — Unstable:** Breaking changes occurred in minor versions during the rapid development phase. |
-| `v1.10.0+` | **Guaranteed Stability:** Standard Go semver. Breaking changes require a major version bump (v2.0.0+). |
+| `v1.10.0` to `v1.10.x` | **Transitional:** The `pkg/config` constructor signatures were migrated to an options pattern, which is a breaking change included in v1.11.0. |
+| `v1.11.0+` | **Guaranteed Stability:** Standard Go semver. Breaking changes require a major version bump (v2.0.0+). |
 
 The `internal/` directory is always unstable regardless of version — it is not
 part of the public API surface.

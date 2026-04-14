@@ -130,7 +130,7 @@ props.SetFeatures(
 ```
 Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`.
 
-### API Stability (v1.10.0+)
+### API Stability (v1.11.0+)
 
 GTB now honours full API stability as promised in `docs/about/api-stability.md`. This means:
 
