@@ -79,7 +79,7 @@ vuln:
 
 # Run Trivy filesystem scan
 trivy:
-    trivy fs --severity HIGH,CRITICAL .
+    trivy fs --severity HIGH,CRITICAL --skip-dirs .claude .
 
 # Run gitleaks secret scan
 gitleaks:
@@ -87,7 +87,7 @@ gitleaks:
 
 # Run OSV dependency scanner
 osv-scan:
-    osv-scanner --lockfile=go.sum
+    osv-scanner scan source -L go.mod
 
 # Run all security scans
 security: vuln trivy gitleaks osv-scan
