@@ -2,7 +2,7 @@
 title: "Config Environment Variable Prefix"
 description: "Add configurable environment variable prefix to pkg/config to prevent config pollution in shared environments."
 date: 2026-04-02
-status: DRAFT
+status: IN PROGRESS
 tags:
   - specification
   - config
@@ -75,36 +75,38 @@ func WithEnvPrefix(prefix string) ContainerOption {
 }
 ```
 
-### Modified Constructor Signatures
+### Options-Pattern Constructors (Breaking Change)
 
-The following public functions gain a variadic `...ContainerOption` parameter:
+The existing constructors have been replaced with a clean options-pattern API. The `logger.Logger` parameter has been removed from constructor signatures — logging is now provided via the `WithLogger` option. All constructors accept `(fs afero.Fs, opts ...ContainerOption)`:
 
 ```go
-// NewFilesContainer — existing signature + options
-func NewFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) *Container
-// becomes:
-func NewFilesContainer(l logger.Logger, fs afero.Fs, opts []ContainerOption, configFiles ...string) *Container
+// NewFilesContainer creates a container from config files with options.
+func NewFilesContainer(fs afero.Fs, opts ...ContainerOption) *Container
 
-// LoadFilesContainer — existing signature + options
-func LoadFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) (Containable, error)
-// becomes:
-func LoadFilesContainer(l logger.Logger, fs afero.Fs, opts []ContainerOption, configFiles ...string) (Containable, error)
+// LoadFilesContainer loads a container from config files with options.
+func LoadFilesContainer(fs afero.Fs, opts ...ContainerOption) (Containable, error)
 
-// LoadFilesContainerWithSchema — existing signature + options
-func LoadFilesContainerWithSchema(l logger.Logger, fs afero.Fs, schema *Schema, opts []ContainerOption, configFiles ...string) (Containable, error)
+// LoadFilesContainerWithSchema loads a container with schema validation and options.
+func LoadFilesContainerWithSchema(fs afero.Fs, schema *Schema, opts ...ContainerOption) (Containable, error)
 
-// NewReaderContainer — existing signature + options
-func NewReaderContainer(l logger.Logger, format string, configReaders ...io.Reader) *Container
-// becomes:
-func NewReaderContainer(l logger.Logger, format string, opts []ContainerOption, configReaders ...io.Reader) *Container
+// NewReaderContainer creates a container from readers with options.
+func NewReaderContainer(opts ...ContainerOption) *Container
 ```
 
-**API stability note**: These are **breaking changes** to four public functions in `pkg/config/`. The `configFiles` and `configReaders` variadic parameters make it impossible to add `...ContainerOption` without changing the signature. The `opts []ContainerOption` slice parameter is inserted before the variadic to maintain clarity.
+Available options:
 
-Since `pkg/config` is a Stable-tier API under the v1.10.0+ stability guarantee, this change requires:
+```go
+WithLogger(l logger.Logger)         // Provide a logger (optional, defaults to noop)
+WithEnvPrefix(prefix string)        // Set env var prefix for automatic env binding
+WithConfigFiles(files ...string)    // Specify config file paths
+WithConfigFormat(format string)     // Specify config format (for reader-based containers)
+WithConfigReaders(readers ...io.Reader) // Provide config readers
+WithSchema(schema *Schema)          // Provide a validation schema
+```
 
-1. A `BREAKING CHANGE:` footer in the commit to trigger a major version bump consideration.
-2. Alternatively, a **non-breaking approach** using a separate constructor set (see Open Questions).
+The `Props.Tool.EnvPrefix` field threads the prefix through `pkg/cmd/root`, which passes `config.WithEnvPrefix(props.Tool.EnvPrefix)` to the config constructors when the prefix is non-empty.
+
+This is a **breaking change** to the `pkg/config` constructor signatures. The API stability guarantee is being moved from v1.10.0 to v1.11.0 to accommodate this migration. See [Migration & Compatibility](#migration--compatibility) for details.
 
 ### New Field in `props.Tool`
 
@@ -129,13 +131,18 @@ The `loadAndMergeConfig` function and related callers will pass `[]config.Contai
 
 ### `pkg/config/config.go`
 
-The `initContainer` function is the single point where `AutomaticEnv` and `SetEnvKeyReplacer` are called. The change is minimal:
+The `initContainer` function (unexported) is the single point where `AutomaticEnv` and `SetEnvKeyReplacer` are called. It accepts `(fs afero.Fs, opts ...ContainerOption)` and resolves all options internally:
 
 ```go
-func initContainer(l logger.Logger, fs afero.Fs, opts ...ContainerOption) *Container {
+func initContainer(fs afero.Fs, opts ...ContainerOption) *Container {
     o := &containerOptions{}
     for _, opt := range opts {
         opt(o)
+    }
+
+    l := o.logger
+    if l == nil {
+        l = logger.NewNoop()
     }
 
     c := Container{
@@ -162,13 +169,27 @@ func initContainer(l logger.Logger, fs afero.Fs, opts ...ContainerOption) *Conta
 
 Note: `SetEnvPrefix` must be called **before** `AutomaticEnv()` for Viper to apply the prefix during automatic env resolution.
 
+The public constructors delegate to `initContainer` with the clean options-pattern signature:
+
+```go
+func NewFilesContainer(fs afero.Fs, opts ...ContainerOption) *Container {
+    c := initContainer(fs, opts...)
+    // ... configure file paths from WithConfigFiles option ...
+}
+
+func NewReaderContainer(opts ...ContainerOption) *Container {
+    c := initContainer(afero.NewMemMapFs(), opts...)
+    // ... configure readers from WithConfigReaders option ...
+}
+```
+
 ### `pkg/cmd/root/root.go`
 
-The `loadAndMergeConfig` function builds the options slice from `Props.Tool.EnvPrefix` and passes it through to `config.Load`, `config.NewReaderContainer`, and `config.LoadEmbed`.
+The `loadAndMergeConfig` function builds the options slice from `Props.Tool.EnvPrefix` and passes `config.WithEnvPrefix(props.Tool.EnvPrefix)` along with `config.WithLogger(...)` and `config.WithConfigFiles(...)` to the config constructors. When `Props.Tool.EnvPrefix` is empty, the `WithEnvPrefix` option is omitted (no-op).
 
 ### `pkg/config/load.go`
 
-The `Load` and `LoadEmbed` functions propagate the options to the underlying container constructors. Their signatures gain an `opts []ContainerOption` parameter.
+The `Load` and `LoadEmbed` functions use the same options-pattern signatures, propagating options to the underlying container constructors.
 
 ---
 
@@ -177,12 +198,11 @@ The `Load` and `LoadEmbed` functions propagate the options to the underlying con
 | File | Action | Description |
 |------|--------|-------------|
 | `pkg/config/options.go` | **New** | `ContainerOption` type, `containerOptions` struct, `WithEnvPrefix` |
-| `pkg/config/config.go` | Modify | `initContainer` accepts `...ContainerOption`; all constructors updated |
-| `pkg/config/load.go` | Modify | `Load`, `LoadEmbed` accept and propagate options |
-| `pkg/config/container.go` | No change | No changes needed |
+| `pkg/config/config.go` | Modify | `initContainer` accepts `(fs afero.Fs, opts ...ContainerOption)`; refactor all constructors to options-pattern signatures |
+| `pkg/config/load.go` | Modify | Update `Load`, `LoadEmbed` to use options-pattern constructors |
 | `pkg/config/options_test.go` | **New** | Unit tests for option application |
-| `pkg/config/config_test.go` | Modify | Update constructor calls with `nil` options |
-| `pkg/config/load_test.go` | Modify | Update constructor calls with `nil` options |
+| `pkg/config/config_test.go` | Modify | Add tests for options-pattern constructors with env prefix |
+| `pkg/config/load_test.go` | Modify | Add tests for options-pattern load variants |
 | `pkg/props/props.go` | Modify | Add `EnvPrefix` field to `Tool` |
 | `pkg/cmd/root/root.go` | Modify | Wire `Props.Tool.EnvPrefix` into config options |
 | `pkg/cmd/root/root_test.go` | Modify | Update tests, add env prefix coverage |
@@ -215,17 +235,25 @@ if data.EnvPrefix != "" {
 
 ### Generation Wizard
 
-The interactive wizard gains a step (after tool name input) where the user can confirm or override the default env prefix. The default is the tool name upper-cased (e.g., tool `my-app` defaults to `MY_APP`). Hyphens are replaced with underscores to produce valid env var prefixes.
+Environment variable prefix is an **opt-out feature** — enabled by default on `generate` and `regenerate`. The wizard flow is:
+
+1. After tool name input, the wizard shows the env prefix step.
+2. Default: **enabled**, with the prefix auto-derived from the tool name upper-cased (e.g., tool `my-app` defaults to `MY_APP`). Hyphens are replaced with underscores.
+3. The user can override the derived prefix with a custom value (validated against `[A-Z0-9_]+`).
+4. The user can explicitly **disable** the prefix by toggling the feature off, in which case `EnvPrefix` is left empty (unprefixed behaviour, matching pre-feature behaviour).
+5. If enabled, the prefix is **required** — the form rejects empty input.
+
+This ensures new tools get prefix protection by default while allowing opt-out for tools that intentionally need unprefixed env var resolution.
 
 ### Regeneration
 
-The `regenerate` command must detect the existing `EnvPrefix` from the manifest or AST and preserve it, avoiding overwrite on regeneration.
+The `regenerate` command must detect the existing `EnvPrefix` from the manifest or AST and preserve it, avoiding overwrite on regeneration. If the existing project has no prefix (pre-feature), regeneration should prompt the user to adopt one (opt-out).
 
 ---
 
 ## Error Handling
 
-No new error types are introduced. Invalid prefix values (e.g., containing spaces or lowercase) are not validated by the config package itself — Viper accepts any string prefix. The generator wizard validates that the prefix contains only `[A-Z0-9_]` characters and provides a warning if the user enters an unusual value.
+No new error types are introduced. The config package is intentionally permissive — Viper accepts any string prefix, and the config layer does not validate format. Prefix validation is the responsibility of the caller. The generator wizard enforces that the prefix matches `[A-Z0-9_]+` and rejects invalid input with a descriptive form validation error.
 
 ---
 
@@ -239,8 +267,8 @@ No new error types are introduced. Invalid prefix values (e.g., containing space
 | `TestInitContainer_WithPrefix` | `pkg/config/config_test.go` | Set prefix, set env var with prefix, confirm config resolves |
 | `TestInitContainer_WithoutPrefix` | `pkg/config/config_test.go` | No prefix set, confirm all env vars still resolve (backward compat) |
 | `TestInitContainer_PrefixWithDotKey` | `pkg/config/config_test.go` | Verify `GTB_AI_PROVIDER` resolves `ai.provider` with prefix `GTB` |
-| `TestNewFilesContainer_WithPrefix` | `pkg/config/config_test.go` | End-to-end: file + env override with prefix |
-| `TestNewReaderContainer_WithPrefix` | `pkg/config/config_test.go` | End-to-end: reader + env override with prefix |
+| `TestNewFilesContainer_WithPrefix` | `pkg/config/config_test.go` | End-to-end: constructor with file + env override with prefix |
+| `TestNewReaderContainer_WithPrefix` | `pkg/config/config_test.go` | End-to-end: constructor with reader + env override with prefix |
 | `TestLoadFilesContainer_WithPrefix` | `pkg/config/config_test.go` | End-to-end: load + env override with prefix |
 | `TestEnvWithoutPrefix_DoesNotResolve` | `pkg/config/config_test.go` | With prefix `GTB`, bare `AI_PROVIDER` does not override `ai.provider` |
 
@@ -256,30 +284,49 @@ No new error types are introduced. Invalid prefix values (e.g., containing space
 | Test | Description |
 |------|-------------|
 | `TestSkeletonRoot_EnvPrefix` | Verify generated code includes `EnvPrefix` in `Tool` struct |
-| `TestSkeletonRoot_EnvPrefix_Empty` | Verify `EnvPrefix` is omitted when empty |
+| `TestSkeletonRoot_EnvPrefix_Disabled` | Verify `EnvPrefix` is omitted when feature is opted out |
+| `TestSkeletonRoot_EnvPrefix_Derived` | Verify prefix auto-derived from tool name (`my-app` → `MY_APP`) |
+| `TestWizard_EnvPrefix_Validation` | Verify wizard rejects invalid prefix (spaces, lowercase, empty when enabled) |
 
 ---
 
 ## Migration & Compatibility
 
-### Breaking Change Assessment
+### Strategy: Clean Options-Pattern Migration (Breaking Change)
 
-The constructor signature changes are breaking for any downstream consumer calling `NewFilesContainer`, `LoadFilesContainer`, `LoadFilesContainerWithSchema`, or `NewReaderContainer`. All callers must add a `nil` (or populated) options slice parameter.
+Rather than a three-tier deprecation approach, the implementation takes a clean break: constructor signatures are updated to the options pattern directly. The API stability guarantee is moved from v1.10.0 to v1.11.0 to permit this breaking change in the v1.10.x to v1.11.0 transition.
 
-**Mitigation options** (to be resolved before implementation):
-
-1. **Accept the break**: Bump to v2.0.0. This is heavy-handed for a single parameter addition.
-2. **New constructors**: Keep existing signatures unchanged; add `NewFilesContainerWithOptions`, `LoadFilesContainerWithOptions`, etc. This avoids any breaking change but adds API surface.
-3. **Options on the container after creation**: Add a `Container.SetEnvPrefix(prefix string)` method that must be called before first use. This avoids signature changes entirely but has a temporal coupling issue — if called after `AutomaticEnv`, Viper may not apply the prefix correctly.
-4. **Wrapper approach**: Add the options parameter only to `initContainer` (unexported) and thread the prefix through `Props.Tool.EnvPrefix` at the `pkg/cmd/root` layer. The public constructors remain unchanged; only consumers using `pkg/cmd/root` (which is the expected integration point) get the prefix automatically. Direct constructor callers who need a prefix use `GetViper().SetEnvPrefix()` after construction. This is the least disruptive approach.
-
-**Recommended approach**: Option 4 (wrapper approach). The prefix is applied at the `pkg/cmd/root` level via `Props.Tool.EnvPrefix`. The `initContainer` function (unexported) accepts options internally. Public constructor signatures remain unchanged. Consumers who create containers directly and need a prefix can call `container.GetViper().SetEnvPrefix("PREFIX")` — this works because `AutomaticEnv` in Viper respects prefix changes made after the call. This preserves full backward compatibility with zero breaking changes.
-
-If the recommended approach is adopted, the `ContainerOption` type and `WithEnvPrefix` function are still added to the public API (as new additions, not modifications), providing a clean path for a future minor release that adds options to the constructors.
+This means:
+- **Breaking change** in this release — existing code using the old constructor signatures must be updated.
+- **Cleaner API** — no deprecated constructors, no `*WithOptions` variants, no `SetEnvPrefix` method. One idiomatic API surface.
+- **v1.11.0** marks the start of the guaranteed API stability period. From v1.11.0 onwards, breaking changes require a major version bump (v2.0.0+).
 
 ### Migration Guide
 
-For the recommended (non-breaking) approach, no migration is required. Existing code continues to work unchanged. Tools that want env prefix support add `EnvPrefix` to their `props.Tool` struct — a purely additive change.
+**Required migration (v1.10.x to v1.11.0):**
+
+```go
+// Before:
+c := config.NewFilesContainer(logger, fs, "config.yaml")
+
+// After:
+c := config.NewFilesContainer(fs,
+    config.WithLogger(logger),
+    config.WithConfigFiles("config.yaml"),
+    config.WithEnvPrefix("MYAPP"),
+)
+
+// Before:
+c := config.NewReaderContainer(logger, "yaml", reader1, reader2)
+
+// After:
+c := config.NewReaderContainer(
+    config.WithLogger(logger),
+    config.WithConfigFormat("yaml"),
+    config.WithConfigReaders(reader1, reader2),
+    config.WithEnvPrefix("MYAPP"),
+)
+```
 
 ---
 
@@ -287,8 +334,7 @@ For the recommended (non-breaking) approach, no migration is required. Existing 
 
 1. **Per-container prefix**: A future enhancement could allow different prefixes for different config containers (e.g., shared library config vs. application config). The `ContainerOption` pattern is designed to accommodate this.
 2. **Env var allowlist**: Beyond prefixing, a future spec could add an explicit allowlist of env var names that are permitted to override config, for maximum security in sensitive environments.
-3. **Constructor signature migration**: In a future major version (v2.0.0), the constructors could be updated to accept `...ContainerOption` natively, retiring the current variadic-file-path signatures in favor of an options-based API.
-4. **Config doctor check**: The `doctor` command could verify that env vars matching config keys (with and without prefix) are intentional, warning about potential pollution.
+3. **Config doctor check**: The `doctor` command could verify that env vars matching config keys (with and without prefix) are intentional, warning about potential pollution.
 
 ---
 
@@ -297,9 +343,10 @@ For the recommended (non-breaking) approach, no migration is required. Existing 
 ### Phase 1: Core Prefix Support (pkg/config)
 
 - Add `ContainerOption` type and `WithEnvPrefix` in `pkg/config/options.go`.
-- Modify `initContainer` to accept and apply options.
+- Modify `initContainer` (unexported) to accept and apply `...ContainerOption`.
+- Refactor all four public constructors to the options-pattern signature `(fs afero.Fs, opts ...ContainerOption)`.
 - Add `EnvPrefix` field to `props.Tool`.
-- Wire prefix in `pkg/cmd/root` from `Props.Tool.EnvPrefix`.
+- Wire prefix in `pkg/cmd/root` from `Props.Tool.EnvPrefix` via `WithEnvPrefix` option.
 - Unit tests for prefix resolution, backward compatibility, and dot-key interaction.
 
 ### Phase 2: GTB CLI Integration
@@ -311,14 +358,17 @@ For the recommended (non-breaking) approach, no migration is required. Existing 
 ### Phase 3: Generator Support
 
 - Add `EnvPrefix` to `SkeletonRootData` and `buildToolDict`.
-- Add wizard step for env prefix configuration.
-- Update regeneration to preserve existing prefix.
+- Add wizard step for env prefix configuration (opt-out, enabled by default, auto-derived from tool name).
+- Add `[A-Z0-9_]+` validation to the wizard form input.
+- Update regeneration to detect and preserve existing prefix; prompt adoption for pre-feature projects.
 - Generator unit tests.
 
 ---
 
-## Open Questions
+## Resolved Decisions
 
-1. **Breaking vs. non-breaking**: Should we go with the recommended non-breaking wrapper approach (option 4), or accept a breaking change to the constructor signatures? The wrapper approach is less pure but avoids a major version bump.
-2. **Prefix validation**: Should the config package validate that the prefix contains only valid env var characters (`[A-Z0-9_]`), or leave that to the caller / generator wizard?
-3. **Default prefix for new tools**: Should the generator default to an upper-cased tool name as the prefix, or should no prefix be the default (matching current behavior) with prefix as an opt-in wizard question?
+1. **Clean options-pattern migration (breaking change):** Replace constructor signatures with a clean `(fs afero.Fs, opts ...ContainerOption)` pattern instead of the three-tier deprecation approach. This produces a simpler, more idiomatic API at the cost of a breaking change. The API stability guarantee is moved from v1.10.0 to v1.11.0 to accommodate this migration. No deprecated constructors, no `*WithOptions` variants, no `SetEnvPrefix` method.
+
+2. **Prefix validation at the caller (Option C):** The config package is permissive — it accepts any string prefix. Validation (`[A-Z0-9_]+`) is enforced by the generator wizard at input time. This keeps the config package simple and avoids coupling it to format rules.
+
+3. **Opt-out feature, enabled by default:** The env prefix feature is enabled by default on `generate` and `regenerate`. The prefix is auto-derived from the tool name (upper-cased, hyphens to underscores). Users can override the value or explicitly disable the feature. When enabled, a non-empty prefix is required.
