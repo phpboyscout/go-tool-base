@@ -90,20 +90,38 @@ func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
 	}, nil
 }
 
+// configOpts builds the common ContainerOption slice from Props.
+func configOpts(props *p.Props) []config.ContainerOption {
+	opts := []config.ContainerOption{config.WithLogger(props.Logger)}
+	if props.Tool.EnvPrefix != "" {
+		opts = append(opts, config.WithEnvPrefix(props.Tool.EnvPrefix))
+	}
+
+	return opts
+}
+
 // loadAndMergeConfig loads the main configuration and merges it with embedded config if present.
 func loadAndMergeConfig(opts ConfigLoadOptions) (config.Containable, error) {
+	cfgOpts := configOpts(opts.Props)
+
 	// Load main configuration
-	cfg, err := config.Load(opts.CfgPaths, opts.Props.FS, opts.Props.Logger, opts.AllowEmpty)
+	cfg, err := config.Load(opts.CfgPaths, opts.Props.FS, opts.AllowEmpty, cfgOpts...)
 	if err != nil {
 		if errors.Is(err, config.ErrNoFilesFound) && opts.AllowEmpty {
 			opts.Props.Logger.Debug("No config file found, loading default configuration")
-			cfg = config.NewReaderContainer(opts.Props.Logger, "yaml", bytes.NewReader(setup.DefaultConfig))
+			cfg = config.NewReaderContainer(opts.Props.FS, append(cfgOpts,
+				config.WithConfigFormat("yaml"),
+				config.WithConfigReaders(bytes.NewReader(setup.DefaultConfig)),
+			)...)
 		} else {
 			return nil, errors.Wrap(err, "failed to load config")
 		}
 	} else if cfg.GetViper().ConfigFileUsed() == "" && len(setup.DefaultConfig) > 0 {
 		opts.Props.Logger.Debug("No config file found (empty allowed), loading default configuration")
-		cfg = config.NewReaderContainer(opts.Props.Logger, "yaml", bytes.NewReader(setup.DefaultConfig))
+		cfg = config.NewReaderContainer(opts.Props.FS, append(cfgOpts,
+			config.WithConfigFormat("yaml"),
+			config.WithConfigReaders(bytes.NewReader(setup.DefaultConfig)),
+		)...)
 	}
 
 	// If embedded config paths are provided, load and merge them
@@ -132,7 +150,7 @@ func mergeEmbeddedConfigs(opts ConfigLoadOptions) (config.Containable, error) {
 		return nil, nil
 	}
 
-	return config.LoadEmbed(opts.ConfigPaths, opts.Props.Assets, opts.Props.Logger)
+	return config.LoadEmbed(opts.ConfigPaths, opts.Props.Assets, configOpts(opts.Props)...)
 }
 
 // configureLogging sets up logging based on debug flag and config values.
