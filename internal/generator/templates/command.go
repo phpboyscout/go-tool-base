@@ -120,18 +120,48 @@ func getConstantValue(flag CommandFlag) jen.Code {
 }
 
 func getIntConstantValue(flag CommandFlag) jen.Code {
-	i, _ := strconv.ParseInt(flag.Default, 10, 64)
-	// Explicitly type the constant to match the flag type
+	// Explicitly type the constant to match the flag type.
 	goType := flag.Type
 	if goType == "" {
 		goType = "int"
+	}
+
+	// Parse with the bit size appropriate for the target type so values
+	// outside the target range produce an error rather than silent wrap.
+	bitSize := intBitSize(goType)
+
+	i, err := strconv.ParseInt(flag.Default, 10, bitSize)
+	if err != nil {
+		// Fall back to 0 on parse/overflow error; the generator's upstream
+		// validation is expected to have caught this already.
+		i = 0
 	}
 
 	if flag.Type == "int64" || flag.Type == "uint64" {
 		return jen.Lit(i)
 	}
 
-	return jen.Id(goType).Call(jen.Lit(int(i)))
+	// jen.Lit accepts int64 directly; no narrowing required.
+	return jen.Id(goType).Call(jen.Lit(i))
+}
+
+const (
+	intBits32 = 32
+	intBits64 = 64
+)
+
+// intBitSize returns the bit size to pass to strconv.ParseInt for the given
+// Go integer type. Unsized types (int, uint) are parsed at 64 bits because
+// the generated code runs on the target platform, not the build host.
+func intBitSize(goType string) int {
+	switch goType {
+	case "int32", "uint32":
+		return intBits32
+	case "int64", "uint64", "int", "uint":
+		return intBits64
+	default:
+		return intBits64
+	}
 }
 
 func getDurationConstantValue(flag CommandFlag) jen.Code {
