@@ -6,15 +6,24 @@ on:
   schedule:
     - cron: "0 6 * * 1" # Weekly on Monday at 06:00 UTC
 
-permissions:
-  contents: read
-  security-events: write
-  id-token: write
+# Top-level permissions must be read-only; the Scorecard action rejects
+# workflows that grant write permissions globally. Write permissions are
+# scoped to this single job below.
+permissions: read-all
 
 jobs:
   scorecard:
     name: scorecard
     runs-on: ubuntu-latest
+    permissions:
+      # Needed to upload the SARIF results to the GitHub Security tab.
+      security-events: write
+      # Needed for Sigstore keyless signing via OIDC.
+      id-token: write
+      # Needed to read repository metadata and access default branch settings.
+      contents: read
+      # Needed for the Branch-Protection check.
+      actions: read
     steps:
       - uses: actions/checkout@v6
         with:
