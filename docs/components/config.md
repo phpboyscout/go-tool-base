@@ -61,9 +61,22 @@ type Container struct {
     observers []Observable
 }
 
-// Core factory functions:
-func NewFilesContainer(l logger.Logger, fs afero.Fs, configFiles ...string) *Container
-func NewReaderContainer(l logger.Logger, format string, configReaders ...io.Reader) *Container
+// Core factory functions (options pattern):
+func NewFilesContainer(fs afero.Fs, opts ...ContainerOption) *Container
+func NewReaderContainer(fs afero.Fs, opts ...ContainerOption) *Container
+```
+
+### Container Options
+
+All factory functions accept functional options to configure container behavior. The only required argument is `fs afero.Fs`:
+
+```go
+config.WithLogger(l logger.Logger)             // Logger (default: noop)
+config.WithEnvPrefix(prefix string)            // Env var prefix (default: none)
+config.WithConfigFiles(files ...string)        // Config file paths
+config.WithConfigFormat(format string)         // "yaml", "json", "toml"
+config.WithConfigReaders(readers ...io.Reader) // io.Reader config sources
+config.WithSchema(schema *Schema)              // Validation schema
 ```
 
 ---
@@ -76,20 +89,20 @@ GTB provides several factory functions for creating configuration containers. Th
 
 | Factory Function | Use Case | Error Handling | File Watching |
 | :--- | :--- | :--- | :--- |
-| `NewFilesContainer` | Application startup with optional files | Logs warnings, continues | ✓ Enabled |
-| `LoadFilesContainer` | Strict loading where config is required | Returns error | ✗ Disabled |
-| `LoadFilesContainerWithSchema` | Strict loading with schema validation | Returns error | ✗ Disabled |
-| `NewReaderContainer` | Testing or embedded config streams | Logs warnings, continues | ✗ Disabled |
-| `NewContainerFromViper` | Wrapping existing Viper instances | N/A | Depends on Viper |
+| `NewFilesContainer(fs, opts...)` | Application startup with optional files | Logs warnings, continues | ✓ Enabled |
+| `LoadFilesContainer(fs, opts...)` | Strict loading where config is required | Returns error | ✗ Disabled |
+| `LoadFilesContainerWithSchema(fs, schema, opts...)` | Strict loading with schema validation | Returns error | ✗ Disabled |
+| `NewReaderContainer(fs, opts...)` | Testing or embedded config streams | Logs warnings, continues | ✗ Disabled |
+| `NewContainerFromViper(l, v)` | Wrapping existing Viper instances | N/A | Depends on Viper |
 
 ### NewFilesContainer
 
 **Best for:** Production applications where some config files may not exist.
 
 ```go
-container := config.NewFilesContainer(l, fs,
-    "config.yaml",      // Primary config (may not exist)
-    "config.local.yaml", // Local overrides (may not exist)
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml", "config.local.yaml"),
 )
 ```
 
@@ -105,9 +118,9 @@ container := config.NewFilesContainer(l, fs,
 **Best for:** Scenarios where configuration is mandatory.
 
 ```go
-container, err := config.LoadFilesContainer(l, fs,
-    "config.yaml",       // MUST exist
-    "config.local.yaml", // Optional override
+container, err := config.LoadFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml", "config.local.yaml"),
 )
 if err != nil {
     return fmt.Errorf("configuration required: %w", err)
@@ -132,14 +145,20 @@ app:
   name: test-app
   debug: true
 `
-container := config.NewReaderContainer(l, "yaml",
-    strings.NewReader(configYAML),
+container := config.NewReaderContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFormat("yaml"),
+    config.WithConfigReaders(strings.NewReader(configYAML)),
 )
 
 // From embedded bytes
-container := config.NewReaderContainer(l, "yaml",
-    bytes.NewReader(defaultConfigBytes),
-    bytes.NewReader(envSpecificBytes),
+container := config.NewReaderContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFormat("yaml"),
+    config.WithConfigReaders(
+        bytes.NewReader(defaultConfigBytes),
+        bytes.NewReader(envSpecificBytes),
+    ),
 )
 ```
 
@@ -201,13 +220,18 @@ Load configuration from YAML files using the simplified `Load` function or creat
 fs := afero.NewOsFs()
 paths := []string{"config.yaml", "config.yml", "/etc/myapp/config.yaml"}
 
-container, err := config.Load(paths, fs, l, false)
+container, err := config.Load(paths, fs, false,
+    config.WithLogger(l),
+)
 if err != nil {
     log.Fatal(err)
 }
 
 // Or create a Container directly
-container := config.NewFilesContainer(l, fs, "config.yaml", "local.yaml")
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml", "local.yaml"),
+)
 ```
 
 **Example config.yaml:**
@@ -285,11 +309,32 @@ The Container automatically handles environment variables using viper's built-in
 // For config key "database.host", environment variable "DATABASE_HOST" is checked
 // Key separator "." is replaced with "_" in environment variable names
 
-container := config.NewFilesContainer(l, fs, "config.yaml")
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml"),
+)
 
 // This will check DATABASE_HOST environment variable
 host := container.GetString("database.host")
 ```
+
+### Environment Variable Prefix
+
+By default, config keys map directly to environment variable names (e.g., `ai.provider` resolves from `AI_PROVIDER`). When `WithEnvPrefix` is set, all environment variable lookups are prefixed to prevent config pollution in shared environments:
+
+```go
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithEnvPrefix("GTB"),
+    config.WithConfigFiles("config.yaml"),
+)
+
+// With prefix "GTB", config key "ai.provider" resolves from GTB_AI_PROVIDER
+// instead of AI_PROVIDER
+provider := container.GetString("ai.provider")
+```
+
+The prefix is typically set via `Props.Tool.EnvPrefix` at the root command level, which propagates it to all configuration containers created during command execution. This is especially useful when multiple CLI tools share the same host environment and would otherwise collide on generic variable names like `LOG_LEVEL` or `AI_PROVIDER`.
 
 ### 4. Local Dotenv Support
 
@@ -304,14 +349,20 @@ Combine multiple configuration files with automatic merging:
 
 ```go
 // Multiple files are merged in order, with later files taking precedence
-container := config.NewFilesContainer(l, fs,
-    "defaults.yaml",    // Base configuration
-    "config.yaml",      // Environment-specific
-    "local.yaml")       // Local overrides
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles(
+        "defaults.yaml",    // Base configuration
+        "config.yaml",      // Environment-specific
+        "local.yaml",       // Local overrides
+    ),
+)
 
 // The Load function also supports merging from multiple discovered files
 paths := []string{"config.yaml", "config.local.yaml", "/etc/myapp/config.yaml"}
-container, err := config.Load(paths, fs, l, false)
+container, err := config.Load(paths, fs, false,
+    config.WithLogger(l),
+)
 ```
 
 ## Usage Examples
@@ -435,7 +486,10 @@ if err != nil {
     return err
 }
 
-cfg, err := config.LoadFilesContainerWithSchema(logger, fs, schema, "config.yaml")
+cfg, err := config.LoadFilesContainerWithSchema(fs, schema,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml"),
+)
 if err != nil {
     // "config validation failed:
     //   myfeature.api_key: required field is missing (hint: ... set the MYFEATURE_API_KEY environment variable)"
@@ -446,7 +500,10 @@ if err != nil {
 **Validation on an existing container:**
 
 ```go
-container := config.NewFilesContainer(l, fs, "config.yaml")
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml"),
+)
 result := container.Validate(schema)
 if !result.Valid() {
     fmt.Println(result.Error())
@@ -518,7 +575,10 @@ When using multiple configuration files, the Container automatically watches for
 
 ```go
 // This enables file watching automatically
-container := config.NewFilesContainer(l, fs, "config.yaml", "local.yaml")
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml", "local.yaml"),
+)
 
 // File watching triggers observers when config files change
 container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
@@ -537,7 +597,7 @@ One of the primary benefits of the config package is enhanced testability. Unlik
 ```go
 func TestMyFunction(t *testing.T) {
     // Create in-memory configuration for testing
-    l := logger.NewNoop()
+    fs := afero.NewMemMapFs()
 
     // Using a YAML string for test config
     testConfigYAML := `
@@ -551,8 +611,10 @@ database:
   name: "testdb"
 `
 
-    reader := strings.NewReader(testConfigYAML)
-    container := config.NewReaderContainer(l, "yaml", reader)
+    container := config.NewReaderContainer(fs,
+        config.WithConfigFormat("yaml"),
+        config.WithConfigReaders(strings.NewReader(testConfigYAML)),
+    )
 
     // Test your function with the test configuration
     result := MyFunctionThatNeedsConfig(container)
@@ -687,16 +749,18 @@ func TestLogLevelObserver(t *testing.T) {
 
 ```go
 func TestObserverRegistration(t *testing.T) {
-    l := logger.NewNoop()
+    fs := afero.NewMemMapFs()
 
     // Create container with test config
-    reader := strings.NewReader(`
+    container := config.NewReaderContainer(fs,
+        config.WithConfigFormat("yaml"),
+        config.WithConfigReaders(strings.NewReader(`
 log:
   level: "info"
 database:
   host: "localhost"
-`)
-    container := config.NewReaderContainer(l, "yaml", reader)
+`)),
+    )
 
     // Track observer execution
     observerCalled := false
@@ -754,14 +818,16 @@ database:
 
 ```go
 func TestObserverErrorHandling(t *testing.T) {
-    l := logger.NewNoop()
+    fs := afero.NewMemMapFs()
 
     // Create container with invalid config
-    reader := strings.NewReader(`
+    container := config.NewReaderContainer(fs,
+        config.WithConfigFormat("yaml"),
+        config.WithConfigReaders(strings.NewReader(`
 log:
   level: "invalid_level"  # This should trigger an error
-`)
-    container := config.NewReaderContainer(l, "yaml", reader)
+`)),
+    )
 
     // Add observer that validates configuration
     container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
@@ -945,10 +1011,13 @@ type Containable interface {
 // Recommended: Use multiple configuration files with precedence
 func setupConfiguration(l logger.Logger, fs afero.Fs) (*config.Container, error) {
     // Load in order of precedence (later files override earlier ones)
-    container := config.NewFilesContainer(l, fs,
-        "defaults.yaml",      // Base defaults
-        "config.yaml",        // Environment configuration
-        "local.yaml",         // Local overrides
+    container := config.NewFilesContainer(fs,
+        config.WithLogger(l),
+        config.WithConfigFiles(
+            "defaults.yaml",      // Base defaults
+            "config.yaml",        // Environment configuration
+            "local.yaml",         // Local overrides
+        ),
     )
 
     return container, validateConfig(container)
@@ -1031,7 +1100,11 @@ func setupProps() (*props.Props, error) {
     fs := afero.NewOsFs()
 
     // Load configuration
-    cfg := config.NewFilesContainer(l, fs, "config.yaml")
+    cfg := config.NewFilesContainer(fs,
+        config.WithLogger(l),
+        config.WithEnvPrefix("MYAPP"),
+        config.WithConfigFiles("config.yaml"),
+    )
 
     // Create Props with configuration
     p := &props.Props{
