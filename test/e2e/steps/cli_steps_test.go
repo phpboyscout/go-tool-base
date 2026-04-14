@@ -24,6 +24,7 @@ type cliWorld struct {
 	stdout     string
 	stderr     string
 	exitCode   int
+	envVars    map[string]string
 }
 
 func getCLIWorld(ctx context.Context) *cliWorld {
@@ -64,8 +65,10 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the gtb binary is built$`, theGTBBinaryIsBuilt)
 	ctx.Step(`^a temporary init directory$`, aTemporaryInitDirectory)
 	ctx.Step(`^the init directory contains a config file:$`, theInitDirContainsConfigFile)
+	ctx.Step(`^an empty config directory$`, anEmptyConfigDirectory)
 
 	// --- When ---
+	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
 	ctx.Step(`^I run gtb with "([^"]*)"$`, iRunGTBWith)
 
 	// --- Then ---
@@ -96,6 +99,30 @@ func theGTBBinaryIsBuilt(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 
+func anEmptyConfigDirectory(ctx context.Context) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	// Remove the default config file so the directory is truly empty
+	cfgPath := filepath.Join(w.configDir, "config.yaml")
+	if err := os.Remove(cfgPath); err != nil && !os.IsNotExist(err) {
+		return ctx, fmt.Errorf("failed to remove default config: %w", err)
+	}
+
+	return ctx, nil
+}
+
+func iSetEnvironmentVariable(ctx context.Context, key, value string) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	if w.envVars == nil {
+		w.envVars = make(map[string]string)
+	}
+
+	w.envVars[key] = value
+
+	return ctx, nil
+}
+
 // --- When implementations ---
 
 func iRunGTBWith(ctx context.Context, args string) context.Context {
@@ -112,6 +139,13 @@ func iRunGTBWith(ctx context.Context, args string) context.Context {
 	// Point to the per-scenario temp config so the binary doesn't require a real install
 	parts = append(parts, "--config", filepath.Join(w.configDir, "config.yaml"))
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
+
+	if len(w.envVars) > 0 {
+		cmd.Env = os.Environ()
+		for k, v := range w.envVars {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
 
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
