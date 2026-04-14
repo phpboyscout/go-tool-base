@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/charmbracelet/keygen"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"

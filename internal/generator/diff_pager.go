@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/pmezard/go-difflib/difflib"
 )
 
@@ -38,16 +38,19 @@ func (m diffPagerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		verticalMargins := headerHeight + footerHeight
 
 		if !m.ready {
-			m.viewport = viewport.New(msg.Width, msg.Height-verticalMargins)
+			m.viewport = viewport.New(
+				viewport.WithWidth(msg.Width),
+				viewport.WithHeight(msg.Height-verticalMargins),
+			)
 			m.viewport.YPosition = headerHeight
 			m.viewport.SetContent(m.content)
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - verticalMargins
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - verticalMargins)
 		}
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "y", "Y":
 			m.result = diffResultOverwrite
@@ -81,16 +84,22 @@ var (
 	diffContextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 )
 
-func (m diffPagerModel) View() string {
+func (m diffPagerModel) View() tea.View {
 	if !m.ready {
-		return "Initializing..."
+		v := tea.NewView("Initializing...")
+		v.AltScreen = true
+
+		return v
 	}
 
 	scrollPct := int(m.viewport.ScrollPercent() * diffScrollPctMultiplier)
 	header := diffHeaderStyle.Render("Diff: " + m.path)
 	footer := diffFooterStyle.Render(fmt.Sprintf("↑/↓ scroll  pgup/pgdn page  y overwrite  n keep  (%d%%)", scrollPct))
 
-	return header + "\n" + m.viewport.View() + "\n" + footer
+	v := tea.NewView(header + "\n" + m.viewport.View() + "\n" + footer)
+	v.AltScreen = true
+
+	return v
 }
 
 func coloriseDiff(diff string) string {
@@ -131,7 +140,7 @@ func runDiffPager(path string, existing, newContent []byte) bool {
 
 	m := diffPagerModel{path: path, content: coloriseDiff(diff)}
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 
 	final, err := p.Run()
 	if err != nil {

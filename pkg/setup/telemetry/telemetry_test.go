@@ -3,7 +3,7 @@ package telemetry
 import (
 	"testing"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	testifymock "github.com/stretchr/testify/mock"
 
 	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"

@@ -5,7 +5,7 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/forms"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

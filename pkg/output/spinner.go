@@ -6,9 +6,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/cockroachdb/errors"
 )
 
@@ -99,8 +99,8 @@ func (m spinnerModel[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.done = true
 
 		return m, tea.Quit
-	case tea.KeyMsg:
-		if msg.Type == tea.KeyCtrlC {
+	case tea.KeyPressMsg:
+		if msg.String() == "ctrl+c" {
 			m.done = true
 
 			return m, tea.Quit
@@ -114,12 +114,12 @@ func (m spinnerModel[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m spinnerModel[T]) View() string {
+func (m spinnerModel[T]) View() tea.View {
 	if m.done {
-		return ""
+		return tea.NewView("")
 	}
 
-	return fmt.Sprintf("%s %s\n", m.spinner.View(), m.msg)
+	return tea.NewView(fmt.Sprintf("%s %s\n", m.spinner.View(), m.msg))
 }
 
 // spinTUI runs the Bubble Tea spinner program.

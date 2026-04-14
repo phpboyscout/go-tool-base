@@ -24,7 +24,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	ver "github.com/phpboyscout/go-tool-base/pkg/version"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 
 	"github.com/spf13/afero"

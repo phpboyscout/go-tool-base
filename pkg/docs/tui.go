@@ -6,11 +6,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -95,6 +95,8 @@ const (
 	sidebarResizeDelta  = 0.05
 	searchResultHeight  = 4
 	verticalBorderWidth = 2
+	searchInputWidth    = 40
+	askInputWidth       = 60
 )
 
 // Model is the Bubble Tea model for the interactive documentation browser.
@@ -165,12 +167,12 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 	ti := textinput.New()
 	ti.Placeholder = "Search documentation..."
 	ti.CharLimit = 156
-	ti.Width = 40
+	ti.SetWidth(searchInputWidth)
 
 	ai := textinput.New()
 	ai.Placeholder = "Ask a question about the docs..."
 	ai.CharLimit = 256
-	ai.Width = 60
+	ai.SetWidth(askInputWidth)
 
 	m := &Model{
 		fs:             fsys,
@@ -182,7 +184,7 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 		searchInput:    ti,
 		askInput:       ai,
 		title:          "Documentation",
-		searchViewport: viewport.New(0, 0),
+		searchViewport: viewport.New(),
 	}
 
 	for _, opt := range opts {
@@ -376,7 +378,7 @@ func (m *Model) searchMatch(text, query string, re *regexp.Regexp) (int, int) {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m, m.handleKeyMsg(msg)
 
 	case tea.WindowSizeMsg:
@@ -457,9 +459,9 @@ func (m *Model) handleSearchResultMsg(msg SearchResultMessage) {
 	m.searchViewport.GotoTop()
 }
 
-func (m *Model) handleKeyMsg(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) tea.Cmd {
 	// Global keys (Ctrl+C)
-	if msg.Type == tea.KeyCtrlC {
+	if msg.String() == "ctrl+c" {
 		return tea.Quit
 	}
 
@@ -483,7 +485,7 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) tea.Cmd {
 	return m.handleNormalKey(msg)
 }
 
-func (m *Model) handleSearchInputKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleSearchInputKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "ctrl+r":
 		m.useRegex = !m.useRegex
@@ -516,7 +518,7 @@ func (m *Model) handleSearchInputKey(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) handleAskInputKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleAskInputKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "enter":
 		if m.askFunc != nil && m.askInput.Value() != "" {
@@ -565,7 +567,7 @@ func (m *Model) handleAskInputKey(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) handleSearchResultsKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleSearchResultsKey(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "esc", "q":
 		m.showSearchResults = false
@@ -609,18 +611,18 @@ func (m *Model) scrollSearchResults(delta int) {
 
 	if delta > 0 {
 		// Scrolling down
-		if m.searchCursor*searchResultHeight > m.searchViewport.YOffset+m.searchViewport.Height-searchResultHeight {
-			m.searchViewport.SetYOffset(m.searchViewport.YOffset + searchResultHeight)
+		if m.searchCursor*searchResultHeight > m.searchViewport.YOffset()+m.searchViewport.Height()-searchResultHeight {
+			m.searchViewport.SetYOffset(m.searchViewport.YOffset() + searchResultHeight)
 		}
 	} else {
 		// Scrolling up
-		if m.searchCursor*searchResultHeight < m.searchViewport.YOffset {
-			m.searchViewport.SetYOffset(m.searchViewport.YOffset - searchResultHeight)
+		if m.searchCursor*searchResultHeight < m.searchViewport.YOffset() {
+			m.searchViewport.SetYOffset(m.searchViewport.YOffset() - searchResultHeight)
 		}
 	}
 }
 
-func (m *Model) handleGlobalKey(msg tea.KeyMsg) (tea.Cmd, bool) {
+func (m *Model) handleGlobalKey(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	switch msg.String() {
 	case "q": // Quit if not typing
 		return tea.Quit, true
@@ -693,7 +695,7 @@ func (m *Model) toggleSidebar() {
 	m.updateViewportSize()
 }
 
-func (m *Model) handleContentCmd(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleContentCmd(msg tea.KeyPressMsg) tea.Cmd {
 	var cmd tea.Cmd
 
 	m.viewport, cmd = m.viewport.Update(msg)
@@ -701,7 +703,7 @@ func (m *Model) handleContentCmd(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-func (m *Model) handleSidebarNav(msg tea.KeyMsg) {
+func (m *Model) handleSidebarNav(msg tea.KeyPressMsg) {
 	switch msg.String() {
 	case "up", "k":
 		if m.cursor > 0 {
@@ -837,12 +839,12 @@ func (m *Model) updateViewportSize() {
 		viewportHeight -= footerHeight
 	}
 
-	m.viewport.Width = contentWidth
-	m.viewport.Height = viewportHeight
+	m.viewport.SetWidth(contentWidth)
+	m.viewport.SetHeight(viewportHeight)
 
 	// Update search viewport
-	m.searchViewport.Width = contentWidth
-	m.searchViewport.Height = m.viewport.Height
+	m.searchViewport.SetWidth(contentWidth)
+	m.searchViewport.SetHeight(m.viewport.Height())
 }
 
 func (m *Model) sidebarWidth() int {
@@ -853,12 +855,18 @@ func (m *Model) sidebarWidth() int {
 	return int(float64(m.width) * m.sidebarRatio)
 }
 
-func (m *Model) View() string {
+func (m *Model) View() tea.View {
+	var content string
 	if !m.ready {
-		return "Initializing..."
+		content = "Initializing..."
+	} else {
+		content = m.renderSplitView()
 	}
 
-	return m.renderSplitView()
+	v := tea.NewView(content)
+	v.AltScreen = true
+
+	return v
 }
 
 func (m *Model) renderSplitView() string {
@@ -1017,7 +1025,7 @@ func (m *Model) renderMainContent(height int) string {
 
 	if m.showInfo && m.frontmatter != "" {
 		// Just styled text
-		content := fmt.Sprintf("\n%s\n\n%s", strings.Repeat("─", m.viewport.Width), m.frontmatter)
+		content := fmt.Sprintf("\n%s\n\n%s", strings.Repeat("─", m.viewport.Width()), m.frontmatter)
 		footer = lipgloss.NewStyle().Faint(true).Render(content)
 	}
 
@@ -1043,7 +1051,7 @@ func (m *Model) renderSearchResults(height int) string {
 	return style.Render(m.searchViewport.View())
 }
 
-func (m *Model) handleNormalKey(msg tea.KeyMsg) tea.Cmd {
+func (m *Model) handleNormalKey(msg tea.KeyPressMsg) tea.Cmd {
 	if m.focus == focusSidebar {
 		m.handleSidebarNav(msg)
 
