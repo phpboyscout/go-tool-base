@@ -2,14 +2,19 @@ name: tests
 on:
   pull_request:
 
-permissions:
-  contents: read
-  checks: write
+# Top-level permissions kept read-only. Write permissions are scoped to
+# the individual jobs that require them.
+permissions: read-all
 
 jobs:
   lint:
     name: lint
     runs-on: ubuntu-latest
+    permissions:
+      # Needed by golangci-lint-action to publish check annotations on PRs.
+      checks: write
+      # Needed for actions/checkout.
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -23,6 +28,8 @@ jobs:
   tests:
     name: tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -57,6 +64,8 @@ jobs:
   e2e-tests:
     name: e2e bdd tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6

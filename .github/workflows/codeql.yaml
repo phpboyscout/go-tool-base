@@ -7,14 +7,19 @@ on:
   schedule:
     - cron: "0 6 * * 1" # Weekly on Monday at 06:00 UTC
 
-permissions:
-  contents: read
-  security-events: write
+# Top-level permissions kept read-only. Write permissions are scoped to
+# the individual job that requires them.
+permissions: read-all
 
 jobs:
   analyze:
     name: analyze
     runs-on: ubuntu-latest
+    permissions:
+      # Needed to upload CodeQL results to the Security tab.
+      security-events: write
+      # Needed for actions/checkout.
+      contents: read
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6

@@ -12,15 +12,22 @@ on:
       - "reopened"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
-  issues: write
-  id-token: write
+# Top-level permissions kept read-only. Write permissions are scoped to
+# the goreleaser job.
+permissions: read-all
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+    permissions:
+      # Needed to publish releases and update the release draft.
+      contents: write
+      # Needed to publish packages.
+      packages: write
+      # Needed to post PR comments on release failures.
+      issues: write
+      # Needed for Sigstore/SLSA provenance via OIDC.
+      id-token: write
     steps:
       - name: Generate GitHub App token
         id: app-token

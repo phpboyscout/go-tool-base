@@ -7,15 +7,22 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  contents: write
-  packages: write
-  issues: write
-  id-token: write
+# Top-level permissions kept read-only. Write permissions are scoped to
+# the semantic-release job.
+permissions: read-all
 
 jobs:
   semantic-release:
     runs-on: ubuntu-latest
+    permissions:
+      # Needed to push tags, release notes, and changelog commits.
+      contents: write
+      # Needed to publish npm packages.
+      packages: write
+      # Needed to comment on released issues/PRs.
+      issues: write
+      # Needed for OIDC token exchange during npm publish.
+      id-token: write
     steps:
       - name: Generate GitHub App token
         id: app-token
