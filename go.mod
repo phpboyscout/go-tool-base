@@ -2,6 +2,8 @@ module github.com/phpboyscout/go-tool-base
 
 go 1.26.1
 
+toolchain go1.26.2
+
 require (
 	dario.cat/mergo v1.0.0
 	github.com/anthropics/anthropic-sdk-go v1.22.1
@@ -20,8 +22,8 @@ require (
 	github.com/dave/dst v0.27.3
 	github.com/dave/jennifer v1.7.1
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-git/go-billy/v5 v5.7.0
-	github.com/go-git/go-git/v5 v5.16.5
+	github.com/go-git/go-billy/v5 v5.8.0
+	github.com/go-git/go-git/v5 v5.17.1
 	github.com/google/go-github/v80 v80.0.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/hcl v1.0.0
@@ -75,7 +77,7 @@ require (
 	github.com/clipperhouse/displaywidth v0.9.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.5.0 // indirect
-	github.com/cloudflare/circl v1.6.1 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect
@@ -135,7 +137,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/modelcontextprotocol/go-sdk v1.2.0 // indirect
+	github.com/modelcontextprotocol/go-sdk v1.4.1 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/reflow v0.3.0 // indirect
@@ -146,6 +148,8 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
+	github.com/segmentio/asm v1.1.3 // indirect
+	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
