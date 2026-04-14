@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -87,14 +88,10 @@ func (b *bufferLogger) record(level Level, msg string, keyvals ...any) {
 		fullMsg = b.prefix + ": " + msg
 	}
 
-	merged := make([]any, 0, len(b.fields)+len(keyvals))
-	merged = append(merged, b.fields...)
-	merged = append(merged, keyvals...)
-
 	b.store.append(Entry{
 		Level:   level,
 		Message: fullMsg,
-		Keyvals: merged,
+		Keyvals: slices.Concat(b.fields, keyvals),
 	})
 }
 
