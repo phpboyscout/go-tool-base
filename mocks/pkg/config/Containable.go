@@ -713,6 +713,46 @@ func (_c *MockContainable_Set_Call) RunAndReturn(run func(key string, value any)
 	return _c
 }
 
+// SetEnvPrefix provides a mock function for the type MockContainable
+func (_mock *MockContainable) SetEnvPrefix(prefix string) {
+	_mock.Called(prefix)
+	return
+}
+
+// MockContainable_SetEnvPrefix_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetEnvPrefix'
+type MockContainable_SetEnvPrefix_Call struct {
+	*mock.Call
+}
+
+// SetEnvPrefix is a helper method to define mock.On call
+//   - prefix string
+func (_e *MockContainable_Expecter) SetEnvPrefix(prefix interface{}) *MockContainable_SetEnvPrefix_Call {
+	return &MockContainable_SetEnvPrefix_Call{Call: _e.mock.On("SetEnvPrefix", prefix)}
+}
+
+func (_c *MockContainable_SetEnvPrefix_Call) Run(run func(prefix string)) *MockContainable_SetEnvPrefix_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_SetEnvPrefix_Call) Return() *MockContainable_SetEnvPrefix_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockContainable_SetEnvPrefix_Call) RunAndReturn(run func(prefix string)) *MockContainable_SetEnvPrefix_Call {
+	_c.Run(run)
+	return _c
+}
+
 // Sub provides a mock function for the type MockContainable
 func (_mock *MockContainable) Sub(key string) config.Containable {
 	ret := _mock.Called(key)
