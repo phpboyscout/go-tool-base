@@ -41,8 +41,9 @@ func LoadEnv(fs afero.Fs, logger logger.Logger) {
 
 // Load reads configuration from the first available file in paths.
 // Returns ErrNoFilesFound if no files exist and allowEmptyConfig is false.
-func Load(paths []string, fs afero.Fs, logger logger.Logger, allowEmptyConfig bool) (Containable, error) {
-	logger.Debug("Loading configuration")
+func Load(paths []string, fs afero.Fs, allowEmptyConfig bool, opts ...ContainerOption) (Containable, error) {
+	o := applyOptions(opts)
+	o.logger.Debug("Loading configuration")
 
 	loadable := []string{}
 
@@ -56,12 +57,13 @@ func Load(paths []string, fs afero.Fs, logger logger.Logger, allowEmptyConfig bo
 		return nil, errors.WithStack(ErrNoFilesFound)
 	}
 
-	return NewFilesContainer(logger, fs, loadable...), nil
+	return NewFilesContainer(fs, append(opts, WithConfigFiles(loadable...))...), nil
 }
 
 // LoadEmbed reads configuration from embedded filesystem assets and merges them.
-func LoadEmbed(paths []string, assets fs.FS, logger logger.Logger) (Containable, error) {
-	logger.Debug("Loading embedded configuration")
+func LoadEmbed(paths []string, assets fs.FS, opts ...ContainerOption) (Containable, error) {
+	o := applyOptions(opts)
+	o.logger.Debug("Loading embedded configuration")
 
 	configs := []io.Reader{}
 
@@ -81,5 +83,5 @@ func LoadEmbed(paths []string, assets fs.FS, logger logger.Logger) (Containable,
 		configs = append(configs, bytes.NewReader(config))
 	}
 
-	return NewReaderContainer(logger, "yaml", configs...), nil
+	return NewReaderContainer(afero.NewOsFs(), append(opts, WithConfigFormat("yaml"), WithConfigReaders(configs...))...), nil
 }
