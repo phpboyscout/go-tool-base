@@ -157,7 +157,7 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	t.Run("token_auth", func(t *testing.T) {
-		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`github: {auth: {env: "G"}}`))
+		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {auth: {env: "G"}}`)))
 		t.Setenv("G", "test-token")
 		p := &props.Props{
 			FS:     fs,
@@ -170,7 +170,7 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 	})
 
 	t.Run("ssh_auth_agent", func(t *testing.T) {
-		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`github: {ssh: {key: {type: "agent"}}}`))
+		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {ssh: {key: {type: "agent"}}}`)))
 		p := &props.Props{
 			FS:     fs,
 			Logger: logger.NewNoop(),
@@ -598,7 +598,7 @@ func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
 func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
 	// Config has no github.ssh and no auth token → configureTokenAuth fails.
 	t.Setenv("GITHUB_TOKEN", "")
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`github: {}`))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {}`)))
 	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
 	_, err := NewRepo(p)
 	assert.Error(t, err)
@@ -606,12 +606,12 @@ func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
 
 func TestRepo_Unit_configureSSHAuth_Paths(t *testing.T) {
 	t.Run("path_key_not_found", func(t *testing.T) {
-		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
 github:
   ssh:
     key:
       path: /nonexistent/id_rsa
-`))
+`)))
 		fs := afero.NewOsFs()
 		p := &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfg}
 		_, err := NewRepo(p)
@@ -619,12 +619,12 @@ github:
 	})
 
 	t.Run("env_empty_falls_back_to_agent", func(t *testing.T) {
-		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
 github:
   ssh:
     key:
       env: GTB_TEST_SSH_KEY_EMPTY_XYZ
-`))
+`)))
 		t.Setenv("GTB_TEST_SSH_KEY_EMPTY_XYZ", "")
 		p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
 		// Falls back to ssh-agent; will fail if no agent running, but path is covered.
@@ -632,12 +632,12 @@ github:
 	})
 
 	t.Run("env_key_not_found", func(t *testing.T) {
-		cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
 github:
   ssh:
     key:
       env: GTB_TEST_SSH_KEY_XYZ
-`))
+`)))
 		t.Setenv("GTB_TEST_SSH_KEY_XYZ", "/nonexistent/key")
 		p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: cfg}
 		_, err := NewRepo(p)

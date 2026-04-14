@@ -253,7 +253,7 @@ func (a *AIInitialiser) Configure(p *props.Props, cfg config.Containable) error 
 func RunAIInit(p *props.Props, dir string, opts ...FormOption) error {
 	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
 
-	existingCfg, _ := config.LoadFilesContainer(nil, p.FS, targetFile)
+	existingCfg, _ := config.LoadFilesContainer(p.FS, config.WithConfigFiles(targetFile))
 	if existingCfg == nil {
 		existingCfg = config.NewContainerFromViper(nil, viper.New())
 	}

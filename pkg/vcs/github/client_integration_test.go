@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/google/go-github/v80/github"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/internal/testutil"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func ensureIntegrationPrerequisites(t *testing.T, client GitHubClient, owner, repo, branchBase, branchHead string) *github.PullRequest {
@@ -62,7 +62,7 @@ func TestGithubFindPullRequestByBranch(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "vcs")
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(integrationConfigGithub)))
 	client, err := NewGitHubClient(cfg.Sub("github"))
 	require.NoError(t, err)
 
@@ -75,7 +75,7 @@ func TestAddLabelsToPullRequest(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "vcs")
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(integrationConfigGithub)))
 	client, err := NewGitHubClient(cfg.Sub("github"))
 	require.NoError(t, err)
 

@@ -78,7 +78,7 @@ func NewCmdChild(p *props.Props) *cobra.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	conf := config.NewFilesContainer(nil, fs)
+	conf := config.NewFilesContainer(fs)
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
@@ -168,7 +168,7 @@ func NewCmdDup2(p *props.Props) *cobra.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	conf := config.NewFilesContainer(nil, fs)
+	conf := config.NewFilesContainer(fs)
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
@@ -304,7 +304,7 @@ func NewCmdChild2(p *props.Props) *cobra.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	conf := config.NewFilesContainer(nil, fs)
+	conf := config.NewFilesContainer(fs)
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,

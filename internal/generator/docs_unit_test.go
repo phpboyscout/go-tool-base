@@ -44,7 +44,7 @@ func (m *MockChatClient) Chat(ctx context.Context, prompt string) (string, error
 func TestGenerateDocs_Command(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(l, fs)
+	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(l))
 	cfgContainer.GetViper().Set("ai.provider", "mock")
 	cfgContainer.GetViper().Set("ai.model", "test-model")
 
@@ -109,7 +109,7 @@ This is a generated doc.
 func TestGenerateDocs_Package(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(l, fs)
+	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(l))
 
 	// Setup mock FS
 	root := "/work"
@@ -256,7 +256,7 @@ func TestGetModuleNameSafe(t *testing.T) {
 
 func TestResolveAIConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	cfgContainer := config.NewFilesContainer(logger.NewNoop(), fs)
+	cfgContainer := config.NewFilesContainer(fs)
 
 	g := &Generator{
 		props: &props.Props{Config: cfgContainer},

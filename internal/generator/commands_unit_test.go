@@ -98,7 +98,7 @@ func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	sl := logger.NewNoop()
-	conf := config.NewFilesContainer(sl, fs)
+	conf := config.NewFilesContainer(fs, config.WithLogger(sl))
 
 	p := &props.Props{
 		FS:     fs,
@@ -132,7 +132,7 @@ func TestCheckProtection(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	sl := logger.NewNoop()
-	conf := config.NewFilesContainer(sl, fs)
+	conf := config.NewFilesContainer(fs, config.WithLogger(sl))
 
 	// Create a manifest with one protected command and one unprotected command
 	manifestPath := "/work/.gtb/manifest.yaml"
@@ -231,7 +231,7 @@ func TestPrepareAndVerify(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
 	sl := logger.NewNoop()
-	conf := config.NewFilesContainer(sl, fs)
+	conf := config.NewFilesContainer(fs, config.WithLogger(sl))
 
 	// Setup: root command exists
 	_ = fs.MkdirAll("/work/pkg/cmd", 0755)

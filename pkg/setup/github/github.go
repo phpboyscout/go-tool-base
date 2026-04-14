@@ -165,7 +165,7 @@ func NewCmdInitGitHub(p *props.Props) *cobra.Command {
 func RunInitCmd(p *props.Props, dir string) error {
 	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
 
-	c, err := config.LoadFilesContainer(nil, p.FS, targetFile)
+	c, err := config.LoadFilesContainer(p.FS, config.WithConfigFiles(targetFile))
 	if err != nil {
 		// If it doesn't exist, start with defaults
 		v := viper.New()

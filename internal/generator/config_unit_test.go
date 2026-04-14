@@ -45,7 +45,7 @@ func TestResolveProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("AI_PROVIDER", "") // Ensure no env var interference
-			c := config.NewFilesContainer(logger.NewNoop(), afero.NewMemMapFs())
+			c := config.NewFilesContainer(afero.NewMemMapFs())
 			if tt.propProvider != "" {
 				c.GetViper().Set("ai.provider", tt.propProvider)
 			}
@@ -65,7 +65,7 @@ func TestResolveProvider(t *testing.T) {
 }
 
 func TestResolveToken(t *testing.T) {
-	c := config.NewFilesContainer(logger.NewNoop(), afero.NewMemMapFs())
+	c := config.NewFilesContainer(afero.NewMemMapFs())
 	c.GetViper().Set("openai.api.key", "sk-openai")
 	c.GetViper().Set("anthropic.api.key", "sk-anthropic")
 	c.GetViper().Set("gemini.api.key", "sk-gemini")

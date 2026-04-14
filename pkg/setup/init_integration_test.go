@@ -104,7 +104,7 @@ func TestInitialise_DefaultConfigContainsExpectedKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load the written config with the config package to verify it's valid YAML
-	cfg, err := config.LoadFilesContainer(logger.NewNoop(), fs, path)
+	cfg, err := config.LoadFilesContainer(fs, config.WithConfigFiles(path))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -131,7 +131,7 @@ func TestInitialise_CleanReplacesExistingConfig(t *testing.T) {
 	_, err := setup.Initialise(p, setup.InitOptions{Dir: dir, Clean: true})
 	require.NoError(t, err)
 
-	cfg, err := config.LoadFilesContainer(logger.NewNoop(), fs, cfgPath)
+	cfg, err := config.LoadFilesContainer(fs, config.WithConfigFiles(cfgPath))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -157,7 +157,7 @@ func TestInitialise_MergePreservesExistingValues(t *testing.T) {
 	_, err := setup.Initialise(p, setup.InitOptions{Dir: dir, Clean: false})
 	require.NoError(t, err)
 
-	cfg, err := config.LoadFilesContainer(logger.NewNoop(), fs, cfgPath)
+	cfg, err := config.LoadFilesContainer(fs, config.WithConfigFiles(cfgPath))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -220,7 +220,7 @@ func TestInitialise_InitialisersCalled(t *testing.T) {
 	assert.True(t, init2.called, "second initialiser should be called")
 
 	// Values set by initialisers should be in the written config
-	cfg, err := config.LoadFilesContainer(logger.NewNoop(), fs, path)
+	cfg, err := config.LoadFilesContainer(fs, config.WithConfigFiles(path))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -287,7 +287,7 @@ func TestInitialise_InitialiserFailureContinues(t *testing.T) {
 	assert.True(t, log.Contains("configuration skipped"))
 
 	// Passing initialiser's values written
-	cfg, err := config.LoadFilesContainer(logger.NewNoop(), fs, path)
+	cfg, err := config.LoadFilesContainer(fs, config.WithConfigFiles(path))
 	require.NoError(t, err)
 	assert.Equal(t, "yes", cfg.GetString("works.key"))
 }

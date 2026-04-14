@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var integrationConfigGithub = `github:
@@ -32,7 +32,7 @@ const (
 func TestNewGitHubClientInstantiation(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(integrationConfigGithub))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(integrationConfigGithub)))
 	client, err := NewGitHubClient(cfg.Sub("github"))
 	require.NoError(t, err)
 	assert.NotNil(t, client)

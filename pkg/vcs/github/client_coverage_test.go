@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var apiConfigGithub = `
@@ -35,7 +34,7 @@ func setupMockGitHubServer(t *testing.T, handler http.HandlerFunc) (*httptest.Se
 	cfg := fmt.Sprintf(apiConfigGithub, server.URL, server.URL)
 
 	// Configure container with mock server URL
-	containable := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(cfg))
+	containable := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(cfg)))
 
 	client, err := NewGitHubClient(containable)
 	require.NoError(t, err)
@@ -361,10 +360,10 @@ func TestGetFileContents_Error(t *testing.T) {
 func TestGetGitHubToken_Present(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token-abc")
 
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
 auth:
   env: GITHUB_TOKEN
-`))
+`)))
 
 	token, err := GetGitHubToken(cfg)
 	require.NoError(t, err)
@@ -374,9 +373,9 @@ auth:
 func TestGetGitHubToken_Missing(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(`
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
 auth: {}
-`))
+`)))
 
 	_, err := GetGitHubToken(cfg)
 	require.Error(t, err)

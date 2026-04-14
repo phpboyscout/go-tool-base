@@ -69,7 +69,7 @@ func genTestSSHKey() []byte {
 }
 
 func newTestRepo() (*Repo, error) {
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfig))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfig)))
 
 	localfs := afero.NewMemMapFs()
 	_ = afero.WriteFile(localfs, "id_rsa", genTestSSHKey(), 0600)
@@ -144,7 +144,7 @@ func TestInMemoryRepo(t *testing.T) {
 
 func TestOpenRemoteHTTP(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "vcs")
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
 
 	localfs := afero.NewMemMapFs()
 
@@ -171,7 +171,7 @@ func TestOpenRemoteHTTP(t *testing.T) {
 
 func TestCheckoutRemoteBranch(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "vcs")
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
 
 	localfs := afero.NewMemMapFs()
 
@@ -210,7 +210,7 @@ func TestClone(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create test props
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
 	propsConfig := &props.Props{
 		Logger: logger.NewNoop(),
 		Config: cfg,
@@ -294,7 +294,7 @@ func TestFileOperations(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Clone a repo that we know has content (using Hello-World for stability)
-	cfg := config.NewReaderContainer(logger.NewNoop(), "yaml", strings.NewReader(testConfigNoSSH))
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
 	propsConfig := &props.Props{
 		Logger: logger.NewNoop(),
 		Config: cfg,

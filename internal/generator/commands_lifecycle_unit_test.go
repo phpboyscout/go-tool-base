@@ -19,7 +19,7 @@ func TestAddCommand_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	// Config container requires a logger
 	l := logger.NewNoop()
-	conf := config.NewFilesContainer(logger.NewNoop(), fs)
+	conf := config.NewFilesContainer(fs)
 
 	p := &props.Props{
 		FS:      fs,
@@ -66,7 +66,7 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 func TestRegenerateProject_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	conf := config.NewFilesContainer(logger.NewNoop(), fs)
+	conf := config.NewFilesContainer(fs)
 
 	p := &props.Props{
 		FS:      fs,
@@ -101,7 +101,7 @@ func TestRegenerateProject_Lifecycle(t *testing.T) {
 func TestRegenerateManifest_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	conf := config.NewFilesContainer(logger.NewNoop(), fs)
+	conf := config.NewFilesContainer(fs)
 
 	p := &props.Props{
 		FS:      fs,

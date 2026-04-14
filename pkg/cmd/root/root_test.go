@@ -407,7 +407,7 @@ plugins:
 			require.NoError(t, err)
 
 			// Load main config
-			mainCfg, err := config.Load([]string{"main-config.yaml"}, fs, l, false)
+			mainCfg, err := config.Load([]string{"main-config.yaml"}, fs, false, config.WithLogger(l))
 			require.NoError(t, err, "failed to load main config")
 
 			// Setup mock embedded filesystem using fstest.MapFS
@@ -416,7 +416,7 @@ plugins:
 			}
 
 			// Load embedded config using our mock
-			embeddedCfg, err := config.LoadEmbed([]string{tt.embedConfigPath}, mockAssets, l)
+			embeddedCfg, err := config.LoadEmbed([]string{tt.embedConfigPath}, mockAssets, config.WithLogger(l))
 			require.NoError(t, err, "failed to load embedded config")
 
 			// Perform the merge exactly as loadAndMergeConfig does
@@ -902,7 +902,7 @@ func TestValidateConfig_WarnsOnEmptySetKeys(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	log := logger.NewBuffer()
-	cfg := config.NewReaderContainer(log, "yaml", strings.NewReader("github:\n  token: \"\"\n"))
+	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(log), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("github:\n  token: \"\"\n")))
 	validateConfig(cfg, log)
 	assert.True(t, log.Contains("github.token is set but empty"))
 }
@@ -911,7 +911,7 @@ func TestValidateConfig_NoWarningForMissingKeys(t *testing.T) {
 	t.Parallel()
 
 	log := logger.NewBuffer()
-	cfg := config.NewReaderContainer(log, "yaml", strings.NewReader("other: value\n"))
+	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(log), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("other: value\n")))
 	validateConfig(cfg, log)
 	assert.False(t, log.Contains("is set but empty"))
 }

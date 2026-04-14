@@ -31,7 +31,7 @@ func newIntegrationProject(t *testing.T) (*props.Props, string) {
 	p := &props.Props{
 		FS:      fs,
 		Logger:  l,
-		Config:  config.NewFilesContainer(l, fs),
+		Config:  config.NewFilesContainer(fs, config.WithLogger(l)),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -505,7 +505,7 @@ func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(l, fs),
+		Config: config.NewFilesContainer(fs, config.WithLogger(l)),
 	}
 
 	path := "/feature-test"

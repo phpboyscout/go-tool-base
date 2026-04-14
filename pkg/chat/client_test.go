@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,7 +23,7 @@ func TestNew(t *testing.T) {
 	ctx := context.Background()
 	p := &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
+		Config: config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml")),
 	}
 
 	t.Run("default provider is Claude", func(t *testing.T) {

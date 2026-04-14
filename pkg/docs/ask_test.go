@@ -5,6 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -57,7 +58,7 @@ func TestResolveProvider(t *testing.T) {
 
 	t.Run("config override", func(t *testing.T) {
 		p := &props.Props{
-			Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
+			Config: config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml")),
 		}
 		t.Setenv("AI_PROVIDER", "claude")
 
@@ -67,7 +68,7 @@ func TestResolveProvider(t *testing.T) {
 
 	t.Run("default is openai", func(t *testing.T) {
 		p := &props.Props{
-			Config: config.NewReaderContainer(logger.NewNoop(), "yaml"),
+			Config: config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml")),
 		}
 		t.Setenv("AI_PROVIDER", "")
 
