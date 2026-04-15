@@ -9,7 +9,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"

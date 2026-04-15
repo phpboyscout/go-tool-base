@@ -1,9 +1,9 @@
 package forms
 
 import (
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 )
 
@@ -20,10 +20,18 @@ func navigableKeyMap() *huh.KeyMap {
 // no residual output when it completes or is aborted. Pressing Escape causes
 // Run() to return huh.ErrUserAborted, which a Wizard interprets as
 // "go back one step".
+//
+// In Bubble Tea v2 the alternate screen is no longer a program option; it
+// is a property of the View struct. huh v2 exposes a view hook that lets
+// callers mutate the final View — we use it to flip AltScreen on.
 func NewNavigable(groups ...*huh.Group) *huh.Form {
 	return huh.NewForm(groups...).
 		WithKeyMap(navigableKeyMap()).
-		WithProgramOptions(tea.WithAltScreen())
+		WithViewHook(func(v tea.View) tea.View {
+			v.AltScreen = true
+
+			return v
+		})
 }
 
 // Wizard manages a multi-step interactive form flow with Escape-to-go-back

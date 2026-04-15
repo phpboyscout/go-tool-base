@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 

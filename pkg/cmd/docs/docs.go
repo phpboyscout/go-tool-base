@@ -3,7 +3,7 @@ package docs
 import (
 	"io/fs"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
@@ -44,7 +44,7 @@ func NewCmdDocs(p *props.Props) *cobra.Command {
 
 			m := docslib.NewModel(subFS, docslib.WithTitle("Documentation"), docslib.WithAskFunc(askFunc))
 
-			if _, err = tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
+			if _, err = tea.NewProgram(m).Run(); err != nil {
 				return errors.Wrap(err, "failed to run documentation viewer")
 			}
 

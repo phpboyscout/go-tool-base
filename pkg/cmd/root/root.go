@@ -28,7 +28,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
