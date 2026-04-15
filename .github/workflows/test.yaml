@@ -66,7 +66,19 @@ jobs:
           path: /tmp/cover.out
           if-no-files-found: error
       - name: Integration tests
-        run: INT_TEST=1 go test -race -v ./...
+        # Run every integration tag EXCEPT "vcs" — those tests hit real
+        # GitHub/GitLab APIs and need external credentials. Set their
+        # INT_TEST_VCS gate only in a scheduled job or manual run with the
+        # secrets wired through.
+        env:
+          INT_TEST_CHAT: "1"
+          INT_TEST_CMD: "1"
+          INT_TEST_CONFIG: "1"
+          INT_TEST_CONTROLS: "1"
+          INT_TEST_ERRORHANDLING: "1"
+          INT_TEST_GENERATOR: "1"
+          INT_TEST_SETUP: "1"
+        run: go test -race -v ./...
 
   e2e-tests:
     name: e2e bdd tests
