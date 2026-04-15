@@ -2,7 +2,7 @@
 title: "Test Race Remediation: Restoring t.Parallel() Across the Codebase"
 description: "Make registries, hooks, and package-level globals goroutine-safe so that t.Parallel() can be restored everywhere it was dropped by PR #16."
 date: 2026-04-15
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - testing
@@ -23,7 +23,7 @@ Date
 :   15 April 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 
