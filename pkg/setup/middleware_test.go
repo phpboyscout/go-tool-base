@@ -34,7 +34,6 @@ func testMiddleware(name string, order *[]string) Middleware {
 const testFeature = props.FeatureCmd("test-feature")
 
 func TestRegisterMiddleware_Single(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -54,7 +53,6 @@ func TestRegisterMiddleware_Single(t *testing.T) {
 }
 
 func TestRegisterMiddleware_Multiple(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -80,7 +78,6 @@ func TestRegisterMiddleware_Multiple(t *testing.T) {
 }
 
 func TestRegisterGlobalMiddleware(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -111,7 +108,6 @@ func TestSeal_PanicsOnRegistration(t *testing.T) {
 }
 
 func TestChain_GlobalBeforeFeature(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -138,7 +134,6 @@ func TestChain_GlobalBeforeFeature(t *testing.T) {
 }
 
 func TestChain_EmptyRegistry(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -156,7 +151,6 @@ func TestChain_EmptyRegistry(t *testing.T) {
 }
 
 func TestChain_ExecutionOrder(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -189,7 +183,6 @@ func TestChain_ExecutionOrder(t *testing.T) {
 }
 
 func TestChain_NilRunE(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -198,7 +191,6 @@ func TestChain_NilRunE(t *testing.T) {
 }
 
 func TestAddCommandWithMiddleware_WiresRunE(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -225,7 +217,6 @@ func TestAddCommandWithMiddleware_WiresRunE(t *testing.T) {
 }
 
 func TestAddCommandWithMiddleware_NilRunE(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -239,7 +230,6 @@ func TestAddCommandWithMiddleware_NilRunE(t *testing.T) {
 }
 
 func TestAddCommandWithMiddleware_WiresSubcommands(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
@@ -267,7 +257,6 @@ func TestAddCommandWithMiddleware_WiresSubcommands(t *testing.T) {
 }
 
 func TestApplyMiddlewareRecursively_Deep(t *testing.T) {
-	t.Parallel()
 
 	resetRegistry(t)
 
