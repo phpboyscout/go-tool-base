@@ -333,11 +333,11 @@ No new E2E scenarios. Existing Gherkin scenarios in `features/` continue to run;
 
 **Internal API stability.** All Phase 1 changes are backward-compatible at the API level. The `FeatureRegistry` struct's new mutex is unexported-by-usage (internal to the package's locking). Public functions retain their signatures.
 
-**Phase 2 has downstream implications.** Removing `ExportExecLookPath`, `ExportExecCommand`, and the implicit assumption that `newGitHubClientFunc` is a pattern downstream tools can imitate is a **breaking change for test code in any downstream project that mirrored the pattern**. Specifically:
+**Phase 2 has downstream implications.** Removing `ExportExecLookPath`, `ExportExecCommand`, `ExportGenaiNewClient`, and the implicit assumption that `newGitHubClientFunc`-style package-level hooks are a pattern downstream tools can imitate is a **breaking change for test code in any downstream project that mirrored the pattern**. Specifically:
 
-- Downstream tools that built atop `pkg/chat` and reassigned `chat.ExportExecLookPath` in their own tests will need to migrate to the new test helper.
-- This is captured in the `v1.11.0` release notes as a test-only breaking change. Production code is unaffected.
-- A migration guide entry is added under `docs/migration/` with concrete before/after snippets.
+- Downstream tools that built atop `pkg/chat` and reassigned `chat.ExportExecLookPath`, `chat.ExportExecCommand`, or `chat.ExportGenaiNewClient` in their own tests will need to migrate to the new option-based injection points.
+- This is captured in the next release notes as a test-only breaking change. Production code is unaffected.
+- **A migration guide entry will be added under `docs/migration/`** with concrete before/after snippets for all affected symbols — see [Resolved Decisions #5](#resolved-decisions). Written defensively regardless of whether we know of any downstream users; cost is a single markdown page and saves anyone who does depend on it from an unexplained test failure.
 
 **Phase 3 preserves runtime semantics** — the observable behaviour of root command invocation is unchanged. The only visible effect is that `cobra`'s internal finalizer list is no longer mutated per-construction, which is a net improvement for anyone constructing multiple root commands in-process (tests and embedders).
 
@@ -416,8 +416,8 @@ A complete sweep of the codebase identified **8 package-level function variables
 
 4. **No lint rule forbidding package-level function variables.** A complete sweep of the codebase found 8 such variables, all of them test mocking hooks — zero legitimate non-test uses. Phase 2 has been expanded to remove all 8, leaving the codebase free of the anti-pattern. A blanket lint rule was rejected because (a) the false-positive risk that motivated worrying about it doesn't yet exist in this codebase but is plausible in the future (e.g. registration tables, `http.DefaultTransport`-style singletons), (b) GTB policy forbids `//nolint` decorators, so any future legitimate exception would require a more invasive allowlist mechanism in golangci-lint config, and (c) the spec itself plus the absence of any precedent in the cleaned-up tree is sufficient enforcement at code-review time. See the inventory in [Phase 2 Implementation](#phase-2-mocking-hook-removal).
 
+5. **A migration guide entry will be written for Phase 2 regardless of known downstream usage.** There are no known downstream tools that depend on any of the `Export*` hooks, but rather than rely on that assumption, Phase 2 delivers a `docs/migration/` entry with before/after snippets for every removed symbol (`ExportExecLookPath`, `ExportExecCommand`, `ExportGenaiNewClient`). Cost is minimal (one markdown page), and it saves any undiscovered consumer from a silent test-compilation break at upgrade time.
+
 ## Open Questions
 
-1. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand` / `ExportGenaiNewClient`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
-
-2. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
+1. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
