@@ -230,19 +230,17 @@ Any production paths that call the affected function without passing the option 
 
 ### Phase 3: Replace `cobra.OnFinalize`
 
-**`pkg/cmd/root/root.go`** — remove the `cobra.OnFinalize(...)` block at line 364. Telemetry flush is attached via one of two mechanisms:
+**`pkg/cmd/root/root.go`** — remove the `cobra.OnFinalize(...)` block at line 364.
 
-**Option A: middleware registration.** Introduce a root-scope middleware that wraps the command's `RunE`. The middleware captures the error, calls `props.Collector.Close(...)` when telemetry is enabled, and returns the original error. This fits naturally into `pkg/setup/middleware.go` and its `Chain` semantics.
-
-**Option B: defer in a root RunE wrapper.** If the root command's `RunE` is effectively a dispatch/help handler, wrapping it directly with a `defer` around the telemetry flush is simpler than middleware. The wrapper is applied once, inline, during root construction and does not mutate any package-level state.
-
-The decision between A and B depends on whether the middleware chain currently fires for the root command when a subcommand is dispatched. This is explored in Phase 3 of [Implementation Phases](#implementation-phases) and listed as an [Open Question](#open-questions).
-
-Either way, the replacement must preserve the three properties of the current `OnFinalize` call:
+**`pkg/cmd/root/execute.go`** — add a `defer flushTelemetry(props)` in `Execute()` immediately before `rootCmd.Execute()`. This is the chosen replacement; see [Resolved Decisions #3](#resolved-decisions). The defer fires for every cobra dispatch path (RunE, help, parse error, missing subcommand, `--version`, suggestion path) — matching the coverage `cobra.OnFinalize` provided. The flush helper itself preserves the three properties of the original `OnFinalize` call:
 
 - Fires regardless of whether subcommands define their own `PostRunE`.
 - Checks the dynamic enabled state (`telemetry.enabled` may have been toggled mid-session).
-- Bounded by `telemetryFlushTimeout` via `context.WithTimeout`.
+- Bounded by `telemetryFlushTimeout` via `context.WithTimeout(context.Background(), ...)` so command-context cancellation does not interrupt the flush.
+
+A middleware-based alternative was considered and rejected — `pkg/setup/middleware.Chain` only wraps non-nil `RunE`, so it would not fire on the help, parse-error, or no-subcommand paths that `OnFinalize` covers today. Building a "universal middleware" that wraps `Execute()` would be Option B with extra abstraction.
+
+**Trade-off:** consumers that bypass `pkgRoot.Execute(...)` and call `rootCmd.Execute()` directly lose the telemetry flush. The `2026-03-18-cobra-rune-integration` spec already recommends `pkgRoot.Execute(...)` as the canonical entry point; this consolidates around it. Migration guide should call this out.
 
 ### Documenting the changelog parser accommodation
 
@@ -266,7 +264,8 @@ Either way, the replacement must preserve the three properties of the current `O
 | `internal/exectest/` | **New** | Test-only helper package exposing factories for `exec.LookPath` / `exec.CommandContext` fakes; consumed by `pkg/chat` and `pkg/cmd/update` test files |
 | `pkg/cmd/root/root.go` | Modify | Remove `cobra.OnFinalize`; attach telemetry flush via middleware or inline defer |
 | `pkg/cmd/root/root_test.go` | Modify | Verify telemetry flush on success, failure, and disabled paths; restore `t.Parallel()` |
-| `pkg/setup/middleware.go` | Possibly modify | If Phase 3 Option A is chosen, expose a way to register root-scope middleware idempotently |
+| `pkg/cmd/root/root.go` | Modify | Remove the `cobra.OnFinalize(...)` block in `NewCmdRootWithConfig` |
+| `pkg/cmd/root/execute.go` | Modify | Add `defer flushTelemetry(props)` and the `flushTelemetry` helper |
 | `pkg/changelog/*_test.go` | Modify | Add comment documenting the per-subtest `Machine` construction rationale |
 | `.github/workflows/*.yml` | Modify | Ensure `go test -race ./...` is run and enforced on the restored test set |
 | `docs/development/testing.md` (if present) | Modify | Document the "no package-level mocking hooks" rule and the registry-locking pattern |
@@ -397,14 +396,14 @@ Phases are ordered by risk (lowest first) so that value is delivered incremental
 
 2. **Test fakes for `exec.LookPath` and `exec.CommandContext` live in a new `internal/exectest` package**, shared by both `pkg/chat` (claude_local provider) and `pkg/cmd/update` (which has the same `ExportExecCommand` package-level variable). `internal/` keeps the helpers off-limits to downstream tools, matching the `internal/testutil` precedent and reinforcing test-helper boundaries. No cycle risk: the consumer test files are already in `package chat_test` / `package update_test`, so production packages never import `internal/exectest`. A combined exec-mocking package was preferred over per-consumer (`internal/chattest`, `internal/updatetest`) because the mocked symbols are stdlib `os/exec` functions, not chat-specific or update-specific. Chat-specific helpers (mock providers, fake snapshots) can be added in their own package later if needed; they are out of scope here.
 
+3. **Phase 3 uses Option B — `defer flushTelemetry(props)` inside `pkg/cmd/root/execute.go`** rather than a middleware-based replacement. Middleware (`pkg/setup/middleware.Chain`) only wraps non-nil `RunE` and therefore does NOT fire for the help, `--version`, parse-error, no-subcommand, or unknown-subcommand-suggestion dispatch paths that `cobra.OnFinalize` covers today. A defer in `Execute()` fires for every cobra dispatch path, eliminates the package-level `cobra.OnFinalize` mutation entirely, and aligns the flush with its actual scope (process lifecycle, not per-command). The defer's flush helper creates a fresh `context.Background()` bounded by `telemetryFlushTimeout` — same shape as the existing `OnFinalize` body — which also resolves the previously open context-lifetime question (the command's context may be cancelled by the time flush runs; using a bounded background context is the established behaviour).
+
+   **Trade-off:** consumers that call `rootCmd.Execute()` directly bypass the flush. The `2026-03-18-cobra-rune-integration` spec already recommends `pkgRoot.Execute(...)` as the canonical entry point; this consolidates around it. Migration guide entry required.
+
 ## Open Questions
 
-1. **Phase 3 Option A vs Option B (middleware vs inline defer).** The answer depends on whether `pkg/setup/middleware.go` can cleanly register a root-scope middleware idempotently, and whether that middleware fires for every dispatch path including errors and help. If middleware is a natural fit, Option A; if it requires gymnastics, Option B.
+1. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
 
-2. **Does the telemetry flush middleware need a context that outlives the command's context?** The current `OnFinalize` creates a fresh `context.Background()` with `telemetryFlushTimeout`. If we move the flush into middleware, the command's context may have been cancelled by the time flush runs. The middleware should create its own bounded context exactly as `OnFinalize` does today — confirm this is acceptable behaviourally.
+2. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
 
-3. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
-
-4. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
-
-5. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
+3. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
