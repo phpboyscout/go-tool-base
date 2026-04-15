@@ -62,10 +62,13 @@ The following table summarises the races fixed in PR #16 by removing `t.Parallel
 |---|---------|--------------|----------------|-----------|
 | 1 | `pkg/setup/registry.go` | `globalRegistry` map; `Register*`, `Get*`, `ResetRegistryForTesting` | `pkg/setup/*_test.go`, `pkg/cmd/doctor/*_test.go` | Phase 1 |
 | 2 | `pkg/telemetry/datadog/datadog.go` | `regionEndpoints` map mutated with test-server URLs | `pkg/telemetry/datadog/datadog_test.go` (6 tests) | Phase 1 |
-| 3 | `pkg/setup/github/ssh.go` | `newGitHubClientFunc` package-level function variable | `pkg/setup/github/github_test.go` | Phase 2 |
+| 3 | `pkg/setup/github/ssh.go` | `newGitHubClientFunc` and `ghLoginFunc` package-level function variables | `pkg/setup/github/github_test.go` | Phase 2 |
 | 4 | `pkg/chat/claude_local.go` | `ExportExecLookPath` / `ExportExecCommand` package-level function variables | `pkg/chat/claude_local_test.go`, `pkg/chat/streaming_test.go` | Phase 2 |
-| 5 | `pkg/cmd/root/root.go:364` | `cobra.OnFinalize(...)` mutates `cobra`'s package-level finalizer slice | Every parallel test that constructs a root command | Phase 3 |
-| 6 | `pkg/changelog` (`leodido/go-conventionalcommits`) | Upstream `parser.Machine` has unsynchronised state | Already fixed by constructing a fresh `Machine` per subtest | Documented, no action |
+| 5 | `pkg/chat/gemini.go` | `ExportGenaiNewClient` package-level function variable | gemini provider tests | Phase 2 |
+| 6 | `pkg/setup/update.go` | `osExecutable` and `execLookPath` package-level function variables | `pkg/setup` update tests | Phase 2 |
+| 7 | `pkg/cmd/update/update.go` | `ExportExecCommand` package-level function variable | `pkg/cmd/update/update_test.go` | Phase 2 |
+| 8 | `pkg/cmd/root/root.go:364` | `cobra.OnFinalize(...)` mutates `cobra`'s package-level finalizer slice | Every parallel test that constructs a root command | Phase 3 |
+| 9 | `pkg/changelog` (`leodido/go-conventionalcommits`) | Upstream `parser.Machine` has unsynchronised state | Already fixed by constructing a fresh `Machine` per subtest | Documented, no action |
 
 Registries already using a mutex (for example `pkg/setup/middleware.go`) are **not** in scope. They serve as the reference pattern for Phase 1.
 
@@ -256,11 +259,17 @@ A middleware-based alternative was considered and rejected — `pkg/setup/middle
 | `pkg/setup/registry_test.go` | Modify / New | Add race-focused tests; restore `t.Parallel()` |
 | `pkg/telemetry/datadog/datadog.go` | Modify | Add `WithEndpoint` option; make `regionEndpoints` read-only |
 | `pkg/telemetry/datadog/datadog_test.go` | Modify | Replace all `regionEndpoints[...] =` mutations with `WithEndpoint`; restore `t.Parallel()` |
-| `pkg/setup/github/ssh.go` | Modify | Remove `newGitHubClientFunc` variable; add `WithGitHubClientFactory` option |
-| `pkg/setup/github/github_test.go` | Modify | Inject fake factory via option; restore `t.Parallel()` |
+| `pkg/setup/github/ssh.go` | Modify | Remove `newGitHubClientFunc` and `ghLoginFunc` variables; add `WithGitHubClientFactory` and `WithGHLogin` options |
+| `pkg/setup/github/github_test.go` | Modify | Inject fakes via options; restore `t.Parallel()` |
 | `pkg/chat/claude_local.go` | Modify | Remove `ExportExecLookPath`/`ExportExecCommand` package variables |
 | `pkg/chat/claude_local_test.go` | Modify | Inject fakes via test helper; restore `t.Parallel()` |
 | `pkg/chat/streaming_test.go` | Modify | Same as above |
+| `pkg/chat/gemini.go` | Modify | Remove `ExportGenaiNewClient` variable; add `WithGenaiClientFactory` option |
+| `pkg/chat/gemini_test.go` | Modify | Inject fake via option; restore `t.Parallel()` if applicable |
+| `pkg/cmd/update/update.go` | Modify | Remove `ExportExecCommand` variable; option-inject |
+| `pkg/cmd/update/update_test.go` | Modify | Use `internal/exectest` factories; restore `t.Parallel()` |
+| `pkg/setup/update.go` | Modify | Remove `osExecutable` and `execLookPath` variables; option-inject on `SelfUpdater` |
+| `pkg/setup/update_test.go` | Modify | Inject fakes via options; restore `t.Parallel()` |
 | `internal/exectest/` | **New** | Test-only helper package exposing factories for `exec.LookPath` / `exec.CommandContext` fakes; consumed by `pkg/chat` and `pkg/cmd/update` test files |
 | `pkg/cmd/root/root.go` | Modify | Remove `cobra.OnFinalize`; attach telemetry flush via middleware or inline defer |
 | `pkg/cmd/root/root_test.go` | Modify | Verify telemetry flush on success, failure, and disabled paths; restore `t.Parallel()` |
@@ -312,7 +321,7 @@ Every test file that had `t.Parallel()` removed by PR #16 is re-visited. Each te
 
 ### CI Enforcement
 
-The existing `just test-race` target is extended or re-confirmed to run the full restored test set. A new CI job (or an assertion in the existing job) fails if a parallel test races. Optional: a static check / golangci-lint rule that flags assignments to package-level function variables (`newGitHubClientFunc`, `ExportExecLookPath`) so they cannot be re-introduced — this is a [Future Consideration](#future-considerations).
+The existing `just test-race` target is extended or re-confirmed to run the full restored test set. A new CI job (or an assertion in the existing job) fails if a parallel test races. The decision was made *not* to add a static check that flags package-level function variables — see [Resolved Decisions #4](#resolved-decisions).
 
 ### E2E / Integration
 
@@ -338,11 +347,10 @@ No new E2E scenarios. Existing Gherkin scenarios in `features/` continue to run;
 
 ## Future Considerations
 
-1. **Static check against package-level function variables.** A custom `ruleguard` or `analysistest` linter rule that flags top-level `var name = funcLiteral` patterns in non-test files — to prevent re-introduction of the mocking-hook anti-pattern.
-2. **Broader goroutine-safety audit.** Other packages may harbour similar latent races. A follow-up spec can inventory all package-level mutable state across `pkg/` and categorise each as safe, locked, or needs-locking.
-3. **Drop `ResetRegistryForTesting` helpers entirely.** Long-term, each test could construct a fresh registry rather than mutating a package-level one. This would require threading a `*FeatureRegistry` through `props.Props` or similar and is a larger architectural change deferred beyond this spec.
-4. **Upstream patch to `leodido/go-conventionalcommits`.** Contribute a thread-safe `Machine` or document the concurrency contract upstream so the "fresh per subtest" workaround can eventually be dropped.
-5. **Generalise the `WithEndpoint` pattern.** Other telemetry backends may benefit from a uniform way to override the destination URL for tests and on-prem deployments.
+1. **Broader goroutine-safety audit.** Other packages may harbour similar latent races. A follow-up spec can inventory all package-level mutable state across `pkg/` and categorise each as safe, locked, or needs-locking.
+2. **Drop `ResetRegistryForTesting` helpers entirely.** Long-term, each test could construct a fresh registry rather than mutating a package-level one. This would require threading a `*FeatureRegistry` through `props.Props` or similar and is a larger architectural change deferred beyond this spec.
+3. **Upstream patch to `leodido/go-conventionalcommits`.** Contribute a thread-safe `Machine` or document the concurrency contract upstream so the "fresh per subtest" workaround can eventually be dropped.
+4. **Generalise the `WithEndpoint` pattern.** Other telemetry backends may benefit from a uniform way to override the destination URL for tests and on-prem deployments.
 
 ---
 
@@ -363,10 +371,16 @@ Phases are ordered by risk (lowest first) so that value is delivered incremental
 
 ### Phase 2: Mocking-Hook Removal
 
-- Remove `newGitHubClientFunc` from `pkg/setup/github/ssh.go`; add `WithGitHubClientFactory` option.
-- Remove `ExportExecLookPath` and `ExportExecCommand` from `pkg/chat/claude_local.go`; introduce an injection mechanism (test helper package or provider-scoped option).
-- Rewrite the affected tests to use the new injection points.
-- Restore `t.Parallel()` across `pkg/setup/github` and `pkg/chat` tests.
+A complete sweep of the codebase identified **8 package-level function variables, every one a test mocking hook** — there are no legitimate non-test uses (no `http.DefaultTransport`-style indirection, no plugin/registration patterns). Phase 2 removes all of them so the codebase contains zero of this anti-pattern.
+
+- `pkg/setup/github/ssh.go` — remove `newGitHubClientFunc`; add `WithGitHubClientFactory` option.
+- `pkg/setup/github/ssh.go` — remove `ghLoginFunc`; add `WithGHLogin` option (or wire through the existing `ConfigureSSHKeyOption` chain).
+- `pkg/chat/claude_local.go` — remove `ExportExecLookPath` and `ExportExecCommand`; tests construct `ClaudeLocal` through factories in `internal/exectest` (see [Resolved Decisions #2](#resolved-decisions)).
+- `pkg/chat/gemini.go` — remove `ExportGenaiNewClient`; option-inject the `genai.NewClient` factory on the gemini provider constructor.
+- `pkg/cmd/update/update.go` — remove `ExportExecCommand`; tests use `internal/exectest` factories.
+- `pkg/setup/update.go` — remove `osExecutable` and `execLookPath`; option-inject on the `SelfUpdater` constructor (or equivalent entry point).
+- Rewrite all affected tests to use the new injection points.
+- Restore `t.Parallel()` across `pkg/setup/github`, `pkg/setup`, `pkg/chat`, and `pkg/cmd/update` tests.
 - Update the migration guide entry.
 
 **Risk:** Medium. Touches public API (`pkg/chat` in particular) with a test-only breaking change. Requires care to keep downstream migration painless.
@@ -400,10 +414,10 @@ Phases are ordered by risk (lowest first) so that value is delivered incremental
 
    **Trade-off:** consumers that call `rootCmd.Execute()` directly bypass the flush. The `2026-03-18-cobra-rune-integration` spec already recommends `pkgRoot.Execute(...)` as the canonical entry point; this consolidates around it. Migration guide entry required.
 
+4. **No lint rule forbidding package-level function variables.** A complete sweep of the codebase found 8 such variables, all of them test mocking hooks — zero legitimate non-test uses. Phase 2 has been expanded to remove all 8, leaving the codebase free of the anti-pattern. A blanket lint rule was rejected because (a) the false-positive risk that motivated worrying about it doesn't yet exist in this codebase but is plausible in the future (e.g. registration tables, `http.DefaultTransport`-style singletons), (b) GTB policy forbids `//nolint` decorators, so any future legitimate exception would require a more invasive allowlist mechanism in golangci-lint config, and (c) the spec itself plus the absence of any precedent in the cleaned-up tree is sufficient enforcement at code-review time. See the inventory in [Phase 2 Implementation](#phase-2-mocking-hook-removal).
+
 ## Open Questions
 
-1. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
+1. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand` / `ExportGenaiNewClient`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
 
-2. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
-
-3. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
+2. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
