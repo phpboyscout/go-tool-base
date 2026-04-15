@@ -58,6 +58,9 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 	httpCfg.EXPECT().GetBool("server.tls.enabled").Return(false)
 	httpCfg.EXPECT().GetString("server.tls.cert").Return("")
 	httpCfg.EXPECT().GetString("server.tls.key").Return("")
+	httpCfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
+	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
+	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
 	_, err := gtbhttp.Register(ctx, "http", controller, httpCfg, noop, http.NewServeMux())
 	require.NoError(t, err)
@@ -66,6 +69,12 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 	grpcCfg := mockConfig.NewMockContainable(t)
 	grpcCfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	grpcCfg.EXPECT().GetInt("server.grpc.port").Return(grpcPort)
+	grpcCfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
+	grpcCfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
+	grpcCfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
+	grpcCfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
+	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
+	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
 	_, err = gtbgrpc.Register(ctx, "grpc", controller, grpcCfg, noop)
 	require.NoError(t, err)

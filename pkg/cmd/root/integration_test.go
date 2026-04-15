@@ -39,7 +39,6 @@ func newTestProps(features ...p.FeatureState) *p.Props {
 }
 
 func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
-	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
@@ -59,7 +58,6 @@ func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 }
 
 func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
-	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
@@ -81,7 +79,6 @@ func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 }
 
 func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
-	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
@@ -92,6 +89,7 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 		p.Disable(p.McpCmd),
 		p.Disable(p.DocsCmd),
 		p.Disable(p.DoctorCmd),
+		p.Disable(p.ChangelogCmd),
 	)
 	rootCmd := root.NewCmdRoot(props)
 	names := commandNames(rootCmd)
@@ -102,7 +100,6 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 }
 
 func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
-	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
@@ -117,7 +114,6 @@ func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 }
 
 func TestFeatureFlags_SelectiveToggling(t *testing.T) {
-	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
@@ -141,7 +137,6 @@ func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 }
 
 func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
-	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "cmd")
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)

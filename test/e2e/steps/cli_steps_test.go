@@ -66,6 +66,10 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a temporary init directory$`, aTemporaryInitDirectory)
 	ctx.Step(`^the init directory contains a config file:$`, theInitDirContainsConfigFile)
 	ctx.Step(`^an empty config directory$`, anEmptyConfigDirectory)
+	ctx.Step(`^a temporary directory with a config file:$`, aTemporaryDirectoryWithConfigFile)
+	ctx.Step(`^the config file contains:$`, theConfigFileContains)
+	ctx.Step(`^a config file with no log\.level key$`, aConfigFileWithNoLogLevelKey)
+	ctx.Step(`^a config file exists with:$`, aTemporaryDirectoryWithConfigFile)
 
 	// --- When ---
 	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
@@ -111,6 +115,38 @@ func anEmptyConfigDirectory(ctx context.Context) (context.Context, error) {
 	return ctx, nil
 }
 
+// aTemporaryDirectoryWithConfigFile writes the docstring as the scenario's
+// config.yaml, overwriting the default baseline from the Before hook.
+func aTemporaryDirectoryWithConfigFile(ctx context.Context, content *godog.DocString) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	cfgPath := filepath.Join(w.configDir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte(content.Content), 0o644); err != nil {
+		return ctx, fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return ctx, nil
+}
+
+// theConfigFileContains rewrites the scenario's config.yaml with new content.
+func theConfigFileContains(ctx context.Context, content *godog.DocString) (context.Context, error) {
+	return aTemporaryDirectoryWithConfigFile(ctx, content)
+}
+
+// aConfigFileWithNoLogLevelKey writes a config file that omits the required
+// log.level key, used to exercise validation failure scenarios.
+func aConfigFileWithNoLogLevelKey(ctx context.Context) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	cfgPath := filepath.Join(w.configDir, "config.yaml")
+	// Minimal valid YAML that does not define log.level
+	if err := os.WriteFile(cfgPath, []byte("other:\n  key: value\n"), 0o644); err != nil {
+		return ctx, fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return ctx, nil
+}
+
 func iSetEnvironmentVariable(ctx context.Context, key, value string) (context.Context, error) {
 	w := getCLIWorld(ctx)
 
@@ -140,8 +176,12 @@ func iRunGTBWith(ctx context.Context, args string) context.Context {
 	parts = append(parts, "--config", filepath.Join(w.configDir, "config.yaml"))
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 
+	// Always isolate HOME to the scenario's temp directory so commands like
+	// `telemetry enable/disable` that persist to ~/.<tool>/ don't leak across
+	// scenarios or into the developer's real config.
+	cmd.Env = append(os.Environ(), "HOME="+w.configDir)
+
 	if len(w.envVars) > 0 {
-		cmd.Env = os.Environ()
 		for k, v := range w.envVars {
 			cmd.Env = append(cmd.Env, k+"="+v)
 		}

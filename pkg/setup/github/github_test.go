@@ -473,8 +473,7 @@ func TestConfigureSSHKey_ExistingPath(t *testing.T) {
 // --- uploadSSHKeyToGitHub error paths ---
 
 func TestUploadSSHKeyToGitHub_ClientError(t *testing.T) {
-	t.Parallel()
-
+	// NOT parallel — mutates package-level newGitHubClientFunc.
 	original := newGitHubClientFunc
 	t.Cleanup(func() { newGitHubClientFunc = original })
 	newGitHubClientFunc = func(_ config.Containable) (githubvcs.GitHubClient, error) {
@@ -488,8 +487,7 @@ func TestUploadSSHKeyToGitHub_ClientError(t *testing.T) {
 }
 
 func TestUploadSSHKeyToGitHub_UploadError(t *testing.T) {
-	t.Parallel()
-
+	// NOT parallel — mutates package-level newGitHubClientFunc.
 	mockClient := mockVCS.NewMockGitHubClient(t)
 	mockClient.EXPECT().UploadKey(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 

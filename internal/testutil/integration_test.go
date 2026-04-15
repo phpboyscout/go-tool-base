@@ -45,10 +45,12 @@ func TestSkipIfNotIntegration_NoMatch(t *testing.T) {
 }
 
 func TestSkipIfNotIntegration_Skips(t *testing.T) {
-	// Verify skip message appears when nothing is set.
-	// We can't easily check t.Skipped() on subtests from outside,
-	// so we verify the function runs without panic and the subtest
-	// is reported as skipped in -v output.
+	// Verify skip message appears when nothing is set. Explicitly clear
+	// INT_TEST and INT_TEST_VCS so this still behaves correctly when the
+	// outer CI run has the global gate turned on.
+	t.Setenv("INT_TEST", "")
+	t.Setenv("INT_TEST_VCS", "")
+
 	t.Run("no_env", func(t *testing.T) {
 		SkipIfNotIntegration(t, "vcs")
 		t.Fatal("should not reach here")
@@ -78,6 +80,10 @@ func TestSkipIfNotIntegration_NoTags_WithGlobal(t *testing.T) {
 }
 
 func TestSkipIfNotIntegration_NoTags_WithoutGlobal(t *testing.T) {
+	// Explicitly clear INT_TEST so this verifies the skip path even when
+	// the outer CI run sets INT_TEST=1 globally.
+	t.Setenv("INT_TEST", "")
+
 	t.Run("inner", func(t *testing.T) {
 		SkipIfNotIntegration(t)
 		t.Fatal("should not reach here")
@@ -85,6 +91,9 @@ func TestSkipIfNotIntegration_NoTags_WithoutGlobal(t *testing.T) {
 }
 
 func TestSkipIfNotIntegration_WrongTag(t *testing.T) {
+	// Clear the global gate so we can verify tag-mismatch skipping works.
+	t.Setenv("INT_TEST", "")
+	t.Setenv("INT_TEST_VCS", "")
 	t.Setenv("INT_TEST_CONFIG", "1")
 
 	t.Run("inner", func(t *testing.T) {

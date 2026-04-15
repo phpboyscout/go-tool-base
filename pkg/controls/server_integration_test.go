@@ -52,6 +52,10 @@ func newHTTPCfg(t *testing.T, port int) *mockConfig.MockContainable {
 	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
 	cfg.EXPECT().GetString("server.tls.cert").Return("")
 	cfg.EXPECT().GetString("server.tls.key").Return("")
+	// Transport-specific TLS overrides (ResolveTLSConfig checks IsSet first).
+	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
 	return cfg
 }
@@ -62,6 +66,13 @@ func newGRPCCfg(t *testing.T, port int) *mockConfig.MockContainable {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
+	// Transport-specific TLS overrides.
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
+	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
+	cfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
 	return cfg
 }

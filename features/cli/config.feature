@@ -55,5 +55,5 @@ Feature: CLI Config Command
     When I run gtb with "config get log.level --output json"
     Then the exit code is 0
     And stdout is valid JSON
-    And the JSON field "key" equals "log.level"
-    And the JSON field "value" equals "info"
+    And the JSON field "data.key" equals "log.level"
+    And the JSON field "data.value" equals "info"

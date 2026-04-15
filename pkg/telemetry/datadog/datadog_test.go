@@ -49,7 +49,6 @@ func testEvent() telemetry.Event {
 }
 
 func TestBackend_Send_Headers(t *testing.T) {
-	t.Parallel()
 
 	srv, capture := newTestServer(t)
 	regionEndpoints["test-headers"] = srv.URL
@@ -70,7 +69,6 @@ func TestBackend_Send_Headers(t *testing.T) {
 }
 
 func TestBackend_Send_EventMapping(t *testing.T) {
-	t.Parallel()
 
 	srv, capture := newTestServer(t)
 	regionEndpoints["test-mapping"] = srv.URL
@@ -114,7 +112,6 @@ func TestBackend_Send_EventMapping(t *testing.T) {
 }
 
 func TestBackend_Send_Tags(t *testing.T) {
-	t.Parallel()
 
 	srv, capture := newTestServer(t)
 	regionEndpoints["test-tags"] = srv.URL
@@ -150,7 +147,6 @@ func TestBackend_Send_Tags(t *testing.T) {
 }
 
 func TestBackend_Regions(t *testing.T) {
-	t.Parallel()
 
 	tests := []struct {
 		region   Region
@@ -200,7 +196,6 @@ func TestBackend_WithSource(t *testing.T) {
 }
 
 func TestBackend_Non2xx(t *testing.T) {
-	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
@@ -217,7 +212,6 @@ func TestBackend_Non2xx(t *testing.T) {
 }
 
 func TestBackend_NetworkError(t *testing.T) {
-	t.Parallel()
 
 	regionEndpoints["offline"] = "http://127.0.0.1:1"
 	b := NewBackend("key", logger.NewNoop(), WithRegion("offline"))
