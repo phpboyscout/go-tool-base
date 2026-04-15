@@ -177,7 +177,7 @@ If the middleware system cannot be reused cleanly for this (for example because 
 
 **`pkg/setup/registry.go`** — add `sync.RWMutex` to `FeatureRegistry`. Update every `Register*` function to take the write lock and every `Get*` function to take the read lock and return a defensive copy (to prevent callers iterating on a map that is subsequently mutated — cheap because the maps are small and reads are infrequent at runtime). `Register`, `RegisterChecks`, `RegisterInitialiser`, `RegisterSubcommand`, `RegisterFeatureFlags` all route through the same lock.
 
-The existing `pkg/setup/middleware.go` pattern is the reference: a `sync.RWMutex`, a `sealed bool`, and `Seal()` / `ResetRegistryForTesting()` helpers. The feature registry may adopt the same `Seal()` mechanism if we decide post-init writes should panic; this is an [Open Question](#open-questions).
+The existing `pkg/setup/middleware.go` pattern is the reference: a `sync.RWMutex`, a `sealed bool`, and `Seal()` / `ResetRegistryForTesting()` helpers. `FeatureRegistry` will adopt this pattern in full — see [Resolved Decisions #1](#resolved-decisions). The mutex is required for memory visibility of the `sealed` flag across goroutines, not only for mutual exclusion on the map/slice writes.
 
 **`pkg/telemetry/datadog/datadog.go`** — add `WithEndpoint` option; in `NewBackend`, an explicit endpoint option takes precedence over region resolution:
 
@@ -257,7 +257,7 @@ Either way, the replacement must preserve the three properties of the current `O
 
 | File | Action | Description |
 |------|--------|-------------|
-| `pkg/setup/registry.go` | Modify | Add `sync.RWMutex`; lock writes and reads; optionally add `Seal()` |
+| `pkg/setup/registry.go` | Modify | Add `sync.RWMutex`, `sealed bool`, `Seal()`, and `ResetRegistryForTesting()` — matches `pkg/setup/middleware.go` |
 | `pkg/setup/registry_test.go` | Modify / New | Add race-focused tests; restore `t.Parallel()` |
 | `pkg/telemetry/datadog/datadog.go` | Modify | Add `WithEndpoint` option; make `regionEndpoints` read-only |
 | `pkg/telemetry/datadog/datadog_test.go` | Modify | Replace all `regionEndpoints[...] =` mutations with `WithEndpoint`; restore `t.Parallel()` |
@@ -394,18 +394,20 @@ Phases are ordered by risk (lowest first) so that value is delivered incremental
 
 ---
 
+## Resolved Decisions
+
+1. **`FeatureRegistry` will adopt the same `sync.RWMutex` + `sealed bool` + `Seal()` + `ResetRegistryForTesting()` pattern as `pkg/setup/middleware.go`.** The mutex is needed for memory visibility of the `sealed` flag (Go's memory model does not guarantee cross-goroutine visibility of writes without synchronisation) in addition to mutual exclusion on map/slice mutation — removing the mutex would let a concurrent `Register*` call observe a stale `sealed == false` even after `Seal()` returned, silently violating the barrier. No public `Unseal()`; the test-only `ResetRegistryForTesting()` covers that need under its explicit name. Atomic-bool variants were considered and rejected because the map writes still require a mutex, making a plain-bool-under-mutex design more uniform.
+
 ## Open Questions
 
-1. **Should `FeatureRegistry` adopt a `Seal()` mechanism like `pkg/setup/middleware.go`?** Sealing after command registration would catch any future attempts at late registration at panic time. Downside: `ResetRegistryForTesting` needs to unseal, which is the same pattern already used by middleware — not a blocker, just a consistency question.
+1. **Where do chat test fakes live — `internal/chattest` package or inside `pkg/chat` via `_test.go` helpers?** An internal helper package is cleaner if multiple packages under `pkg/chat/...` need the fakes; a `_test.go` helper is simpler if only one package needs them. Needs a quick audit of test imports.
 
-2. **Where do chat test fakes live — `internal/chattest` package or inside `pkg/chat` via `_test.go` helpers?** An internal helper package is cleaner if multiple packages under `pkg/chat/...` need the fakes; a `_test.go` helper is simpler if only one package needs them. Needs a quick audit of test imports.
+2. **Phase 3 Option A vs Option B (middleware vs inline defer).** The answer depends on whether `pkg/setup/middleware.go` can cleanly register a root-scope middleware idempotently, and whether that middleware fires for every dispatch path including errors and help. If middleware is a natural fit, Option A; if it requires gymnastics, Option B.
 
-3. **Phase 3 Option A vs Option B (middleware vs inline defer).** The answer depends on whether `pkg/setup/middleware.go` can cleanly register a root-scope middleware idempotently, and whether that middleware fires for every dispatch path including errors and help. If middleware is a natural fit, Option A; if it requires gymnastics, Option B.
+3. **Does the telemetry flush middleware need a context that outlives the command's context?** The current `OnFinalize` creates a fresh `context.Background()` with `telemetryFlushTimeout`. If we move the flush into middleware, the command's context may have been cancelled by the time flush runs. The middleware should create its own bounded context exactly as `OnFinalize` does today — confirm this is acceptable behaviourally.
 
-4. **Does the telemetry flush middleware need a context that outlives the command's context?** The current `OnFinalize` creates a fresh `context.Background()` with `telemetryFlushTimeout`. If we move the flush into middleware, the command's context may have been cancelled by the time flush runs. The middleware should create its own bounded context exactly as `OnFinalize` does today — confirm this is acceptable behaviourally.
+4. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
 
-5. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
+5. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
 
-6. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
-
-7. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
+6. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
