@@ -92,6 +92,7 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 		p.Disable(p.McpCmd),
 		p.Disable(p.DocsCmd),
 		p.Disable(p.DoctorCmd),
+		p.Disable(p.ChangelogCmd),
 	)
 	rootCmd := root.NewCmdRoot(props)
 	names := commandNames(rootCmd)
