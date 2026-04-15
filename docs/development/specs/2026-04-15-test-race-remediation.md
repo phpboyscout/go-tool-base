@@ -150,11 +150,11 @@ type Config struct {
     // public surface clean; it is populated via WithExecLookPath in tests.
 }
 
-// WithExecLookPath (test helper, in a _test-tagged file or an
-// `internal/chattest` helper package) injects a fake lookup function.
+// WithExecLookPath (test helper, lives in `internal/exectest`) injects
+// a fake lookup function.
 ```
 
-An alternative is a tiny `internal/chattest` helper package that returns a pre-wired `Config` for tests. Final shape is an open question — see [Open Questions](#open-questions).
+Test fakes for `exec.LookPath` and `exec.CommandContext` live in a new shared `internal/exectest` package — see [Resolved Decisions #2](#resolved-decisions). Both `pkg/chat` and `pkg/cmd/update` consume from it (both currently expose `ExportExec*` package-level variables for the same purpose). No cycle: the test files are in `package chat_test` / `package update_test`, so production code does not import `internal/exectest`.
 
 ### `pkg/cmd/root`
 
@@ -222,14 +222,11 @@ func ConfigureSSHKey(..., opts ...ConfigureSSHKeyOption) (..., error) {
 
 Any production paths that call the affected function without passing the option get the default factory, which wraps `githubvcs.NewGitHubClient`. Tests in `pkg/setup/github/github_test.go` pass `WithGitHubClientFactory(...)` instead of reassigning the package variable.
 
-**`pkg/chat/claude_local.go`** — the preferred resolution is to remove `ExportExecLookPath` and `ExportExecCommand` from the public surface entirely, and to accept them via an unexported field on `ClaudeLocal` populated by provider construction. Tests in `pkg/chat/claude_local_test.go` and `pkg/chat/streaming_test.go` are rewritten to construct `ClaudeLocal` through a test helper that sets the field.
+**`pkg/chat/claude_local.go`** — the preferred resolution is to remove `ExportExecLookPath` and `ExportExecCommand` from the public surface entirely, and to accept them via an unexported field on `ClaudeLocal` populated by provider construction. Tests in `pkg/chat/claude_local_test.go` and `pkg/chat/streaming_test.go` (both in `package chat_test`) are rewritten to construct `ClaudeLocal` through helper factories in `internal/exectest`.
 
-Two sub-options for how tests supply the fakes:
+**`pkg/cmd/update/update.go`** — same treatment for its `ExportExecCommand`. Tests in `pkg/cmd/update/update_test.go` (in `package update_test`) consume the same `internal/exectest` helpers.
 
-1. Add a test-only helper in an `internal/chattest` subpackage that returns a `ClaudeLocal` pre-wired with fakes. This keeps the public `pkg/chat` API free of test-only knobs.
-2. Add option functions on the provider registration (`RegisterProvider(...)`) so that the fake lookup can be plumbed through the provider factory.
-
-Option (1) is simpler and more contained; it is the recommended shape unless the tests prove unwieldy.
+`internal/exectest` exposes pure, test-only factories such as `OkLookPath()`, `MissingLookPath()`, and `MockCommandContext(t, ...)` that return functions matching the `exec.LookPath` / `exec.CommandContext` signatures. It does not depend on `pkg/chat` or `pkg/cmd/update` directly — those packages depend on `internal/exectest` only from their test files via `package *_test`. See [Resolved Decisions #2](#resolved-decisions).
 
 ### Phase 3: Replace `cobra.OnFinalize`
 
@@ -266,7 +263,7 @@ Either way, the replacement must preserve the three properties of the current `O
 | `pkg/chat/claude_local.go` | Modify | Remove `ExportExecLookPath`/`ExportExecCommand` package variables |
 | `pkg/chat/claude_local_test.go` | Modify | Inject fakes via test helper; restore `t.Parallel()` |
 | `pkg/chat/streaming_test.go` | Modify | Same as above |
-| `internal/chattest/` (or equivalent) | **New** (if Option 1 chosen) | Test-only helper package exposing fakes for `pkg/chat` |
+| `internal/exectest/` | **New** | Test-only helper package exposing factories for `exec.LookPath` / `exec.CommandContext` fakes; consumed by `pkg/chat` and `pkg/cmd/update` test files |
 | `pkg/cmd/root/root.go` | Modify | Remove `cobra.OnFinalize`; attach telemetry flush via middleware or inline defer |
 | `pkg/cmd/root/root_test.go` | Modify | Verify telemetry flush on success, failure, and disabled paths; restore `t.Parallel()` |
 | `pkg/setup/middleware.go` | Possibly modify | If Phase 3 Option A is chosen, expose a way to register root-scope middleware idempotently |
@@ -398,16 +395,16 @@ Phases are ordered by risk (lowest first) so that value is delivered incremental
 
 1. **`FeatureRegistry` will adopt the same `sync.RWMutex` + `sealed bool` + `Seal()` + `ResetRegistryForTesting()` pattern as `pkg/setup/middleware.go`.** The mutex is needed for memory visibility of the `sealed` flag (Go's memory model does not guarantee cross-goroutine visibility of writes without synchronisation) in addition to mutual exclusion on map/slice mutation — removing the mutex would let a concurrent `Register*` call observe a stale `sealed == false` even after `Seal()` returned, silently violating the barrier. No public `Unseal()`; the test-only `ResetRegistryForTesting()` covers that need under its explicit name. Atomic-bool variants were considered and rejected because the map writes still require a mutex, making a plain-bool-under-mutex design more uniform.
 
+2. **Test fakes for `exec.LookPath` and `exec.CommandContext` live in a new `internal/exectest` package**, shared by both `pkg/chat` (claude_local provider) and `pkg/cmd/update` (which has the same `ExportExecCommand` package-level variable). `internal/` keeps the helpers off-limits to downstream tools, matching the `internal/testutil` precedent and reinforcing test-helper boundaries. No cycle risk: the consumer test files are already in `package chat_test` / `package update_test`, so production packages never import `internal/exectest`. A combined exec-mocking package was preferred over per-consumer (`internal/chattest`, `internal/updatetest`) because the mocked symbols are stdlib `os/exec` functions, not chat-specific or update-specific. Chat-specific helpers (mock providers, fake snapshots) can be added in their own package later if needed; they are out of scope here.
+
 ## Open Questions
 
-1. **Where do chat test fakes live — `internal/chattest` package or inside `pkg/chat` via `_test.go` helpers?** An internal helper package is cleaner if multiple packages under `pkg/chat/...` need the fakes; a `_test.go` helper is simpler if only one package needs them. Needs a quick audit of test imports.
+1. **Phase 3 Option A vs Option B (middleware vs inline defer).** The answer depends on whether `pkg/setup/middleware.go` can cleanly register a root-scope middleware idempotently, and whether that middleware fires for every dispatch path including errors and help. If middleware is a natural fit, Option A; if it requires gymnastics, Option B.
 
-2. **Phase 3 Option A vs Option B (middleware vs inline defer).** The answer depends on whether `pkg/setup/middleware.go` can cleanly register a root-scope middleware idempotently, and whether that middleware fires for every dispatch path including errors and help. If middleware is a natural fit, Option A; if it requires gymnastics, Option B.
+2. **Does the telemetry flush middleware need a context that outlives the command's context?** The current `OnFinalize` creates a fresh `context.Background()` with `telemetryFlushTimeout`. If we move the flush into middleware, the command's context may have been cancelled by the time flush runs. The middleware should create its own bounded context exactly as `OnFinalize` does today — confirm this is acceptable behaviourally.
 
-3. **Does the telemetry flush middleware need a context that outlives the command's context?** The current `OnFinalize` creates a fresh `context.Background()` with `telemetryFlushTimeout`. If we move the flush into middleware, the command's context may have been cancelled by the time flush runs. The middleware should create its own bounded context exactly as `OnFinalize` does today — confirm this is acceptable behaviourally.
+3. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
 
-4. **Should we add a lint rule that forbids package-level function variables?** See Future Considerations. This is a nice-to-have but has the downside of potentially flagging legitimate uses (for example, `http.DefaultTransport` style indirection). If we adopt it, the rule should be scoped to the `pkg/` tree and allow `// nolint:` for documented exceptions — but noting that GTB policy forbids `//nolint` decorators, this would instead require the linter to support `//lint:ignore` or an explicit allowlist in config.
+4. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
 
-5. **Does any downstream tool actually depend on `ExportExecLookPath` / `ExportExecCommand`?** A quick grep of downstream repos (or a release-note warning) should establish this. If yes, the Phase 2 migration guide needs more detail; if no, the breaking change is pure test-only.
-
-6. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
+5. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
