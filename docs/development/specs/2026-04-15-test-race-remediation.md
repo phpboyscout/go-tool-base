@@ -418,6 +418,8 @@ A complete sweep of the codebase identified **8 package-level function variables
 
 5. **A migration guide entry will be written for Phase 2 regardless of known downstream usage.** There are no known downstream tools that depend on any of the `Export*` hooks, but rather than rely on that assumption, Phase 2 delivers a `docs/migration/` entry with before/after snippets for every removed symbol (`ExportExecLookPath`, `ExportExecCommand`, `ExportGenaiNewClient`). Cost is minimal (one markdown page), and it saves any undiscovered consumer from a silent test-compilation break at upgrade time.
 
+6. **`ResetRegistryForTesting` helpers stay; per-test registry instances are deferred.** Replacing the package-level registries with per-instance `*FeatureRegistry` threaded through `props.Props` would eliminate shared test state entirely, but breaks the `init()`-time registration pattern that every consumer of `setup.RegisterMiddleware` / `RegisterChecks` / `RegisterInitialiser` / etc. currently uses, and grows `props.Props` with a new field. Phase 1 of this spec already achieves race-free tests via mutex locking, so the marginal benefit of going further is small. Worth a separate spec when a concrete driver emerges (e.g. running multiple CLI tools in the same process, property-based tests that need fresh state per case). Tracked in [Future Considerations](#future-considerations).
+
 ## Open Questions
 
-1. **Do we want to deprecate the `ResetRegistryForTesting` helpers in favour of per-test registry instances?** Larger architectural change — likely out of scope here, but worth flagging.
+*All resolved. Spec is ready for approval.*
