@@ -14,11 +14,6 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-var (
-	// allow mocking in tests.
-	ExportGenaiNewClient = genai.NewClient
-)
-
 func init() {
 	RegisterProvider(ProviderGemini, newGemini)
 }
@@ -43,7 +38,12 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 
 	clientConfig := buildGeminiClientConfig(token, cfg)
 
-	client, err := ExportGenaiNewClient(ctx, clientConfig)
+	newClient := genai.NewClient
+	if cfg.GenaiNewClient != nil {
+		newClient = cfg.GenaiNewClient.(func(context.Context, *genai.ClientConfig) (*genai.Client, error))
+	}
+
+	client, err := newClient(ctx, clientConfig)
 	if err != nil {
 		return nil, errors.Newf("failed to create gemini client: %w", err)
 	}

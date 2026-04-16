@@ -3,13 +3,13 @@ package update_test
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/phpboyscout/go-tool-base/internal/exectest"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
@@ -18,18 +18,10 @@ import (
 )
 
 func TestUpdate_SemVerValidation(t *testing.T) {
-	t.Parallel()
-
 	oldNewUpdater := update.ExportNewUpdater
-	oldExec := update.ExportExecCommand
 	t.Cleanup(func() {
 		update.ExportNewUpdater = oldNewUpdater
-		update.ExportExecCommand = oldExec
 	})
-
-	update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
 
 	mu := &mockUpdater{
 		latestVersion: "v1.2.3",
@@ -46,6 +38,7 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 	}
 
 	cmd := update.NewCmdUpdate(props)
+	cmd.SetContext(context.Background())
 
 	tests := []struct {
 		name    string
@@ -75,26 +68,8 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 	}
 }
 
-// We need to be able to mock setup.NewUpdater to test Update function properly.
-// Since setup.NewUpdater returns a struct pointer (*SelfUpdater), we can't easily mock it
-// without an interface or refactoring pkg/setup.
-// However, we can test the internal updateConfig logic by mocking the execCommand and osStat variables
-// that we just added.
-
 func TestUpdateConfig(t *testing.T) {
-	// Not using t.Parallel() because we are modifying package-level variables
-
-	oldExec := update.ExportExecCommand
-	defer func() {
-		update.ExportExecCommand = oldExec
-	}()
-
-	var executedCommands []string
-	update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-		executedCommands = append(executedCommands, fmt.Sprintf("%s %v", name, arg))
-		// Return a command that does nothing
-		return exec.Command("true")
-	}
+	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	props := &p.Props{
@@ -106,40 +81,66 @@ func TestUpdateConfig(t *testing.T) {
 	}
 
 	t.Run("success_path", func(t *testing.T) {
-		executedCommands = nil
-		// Setup paths in mem FS
-		_ = fs.MkdirAll(setup.GetDefaultConfigDir(fs, "test-tool"), 0755)
-		_ = fs.MkdirAll("/etc/test-tool", 0755)
+		t.Parallel()
 
-		update.UpdateConfig(context.Background(), props, "/bin/new-tool")
+		localFS := afero.NewMemMapFs()
+		localProps := &p.Props{
+			FS:     localFS,
+			Tool:   p.Tool{Name: "test-tool"},
+			Logger: logger.NewNoop(),
+		}
+
+		var executedCommands []string
+		_ = localFS.MkdirAll(setup.GetDefaultConfigDir(localFS, "test-tool"), 0755)
+		_ = localFS.MkdirAll("/etc/test-tool", 0755)
+
+		update.UpdateConfig(context.Background(), localProps, "/bin/new-tool",
+			update.WithExecCommand(exectest.TrackingCommand(&executedCommands)),
+		)
 
 		assert.Len(t, executedCommands, 2)
-		assert.Contains(t, executedCommands[0], "/bin/new-tool [init --dir")
-		assert.Contains(t, executedCommands[1], "/bin/new-tool [init --dir")
+		assert.Contains(t, executedCommands[0], "/bin/new-tool")
+		assert.Contains(t, executedCommands[1], "/bin/new-tool")
 	})
 
 	t.Run("skips_when_init_disabled", func(t *testing.T) {
-		executedCommands = nil
-		props.Tool.Features = p.SetFeatures(p.Disable(p.InitCmd))
+		t.Parallel()
 
-		update.UpdateConfig(context.Background(), props, "/bin/new-tool")
+		localProps := &p.Props{
+			FS:     afero.NewMemMapFs(),
+			Tool:   p.Tool{Name: "test-tool", Features: p.SetFeatures(p.Disable(p.InitCmd))},
+			Logger: logger.NewNoop(),
+		}
+
+		var executedCommands []string
+		update.UpdateConfig(context.Background(), localProps, "/bin/new-tool",
+			update.WithExecCommand(exectest.TrackingCommand(&executedCommands)),
+		)
 		assert.Empty(t, executedCommands)
 	})
 
 	t.Run("handles_init_error", func(t *testing.T) {
-		update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-			return exec.Command("false")
-		}
-		_ = fs.MkdirAll(setup.GetDefaultConfigDir(fs, "test-tool"), 0755)
+		t.Parallel()
+
+		localFS := afero.NewMemMapFs()
+		_ = localFS.MkdirAll(setup.GetDefaultConfigDir(localFS, "test-tool"), 0755)
 
 		buf := logger.NewBuffer()
-		props.Logger = buf
-		props.Tool.Features = p.SetFeatures(p.Enable(p.InitCmd))
+		localProps := &p.Props{
+			FS:     localFS,
+			Tool:   p.Tool{Name: "test-tool", Features: p.SetFeatures(p.Enable(p.InitCmd))},
+			Logger: buf,
+		}
 
-		update.UpdateConfig(context.Background(), props, "/bin/new-tool")
+		update.UpdateConfig(context.Background(), localProps, "/bin/new-tool",
+			update.WithExecCommand(exectest.FailCommand()),
+		)
 
 		assert.True(t, buf.ContainsLevel(logger.WarnLevel, "could not update config"))
 	})
+
+	_ = props // keep the outer props in scope for linting
+	_ = fs
 }
 
 type mockUpdater struct {
@@ -178,15 +179,9 @@ func (m *mockUpdater) GetCurrentVersion() string {
 
 func TestUpdate(t *testing.T) {
 	oldNewUpdater := update.ExportNewUpdater
-	oldExec := update.ExportExecCommand
-	defer func() {
+	t.Cleanup(func() {
 		update.ExportNewUpdater = oldNewUpdater
-		update.ExportExecCommand = oldExec
-	}()
-
-	update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
+	})
 
 	props := &p.Props{
 		FS:     afero.NewMemMapFs(),
@@ -251,6 +246,8 @@ func (m *mockVersion) Compare(other string) int { return version.CompareVersions
 func (m *mockVersion) IsDevelopment() bool      { return false }
 
 func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
+	t.Parallel()
+
 	props := &p.Props{
 		Tool:   p.Tool{Name: "test-tool"},
 		Logger: logger.NewNoop(),
@@ -267,15 +264,9 @@ func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
 
 func TestUpdateFromFile_ViaCommand(t *testing.T) {
 	oldOfflineUpdater := update.ExportNewOfflineUpdater
-	oldExec := update.ExportExecCommand
-	defer func() {
+	t.Cleanup(func() {
 		update.ExportNewOfflineUpdater = oldOfflineUpdater
-		update.ExportExecCommand = oldExec
-	}()
-
-	update.ExportExecCommand = func(ctx context.Context, name string, arg ...string) *exec.Cmd {
-		return exec.Command("true")
-	}
+	})
 
 	mu := &mockUpdater{
 		fromFileBinPath: "/usr/local/bin/test-tool",

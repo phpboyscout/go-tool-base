@@ -51,8 +51,9 @@ var regionEndpoints = map[Region]string{
 type Option func(*config)
 
 type config struct {
-	region Region
-	source string
+	region   Region
+	source   string
+	endpoint string
 }
 
 // WithRegion sets the Datadog region. Default: RegionUS1.
@@ -63,6 +64,13 @@ func WithRegion(region Region) Option {
 // WithSource overrides the ddsource tag. Default: "gtb".
 func WithSource(source string) Option {
 	return func(c *config) { c.source = source }
+}
+
+// WithEndpoint overrides the ingest URL. Used by tests pointing at a
+// local httptest server, and by deployments that proxy Datadog traffic.
+// Takes precedence over WithRegion when both are set.
+func WithEndpoint(url string) Option {
+	return func(c *config) { c.endpoint = url }
 }
 
 type backend struct {
@@ -85,9 +93,14 @@ func NewBackend(apiKey string, log logger.Logger, opts ...Option) telemetry.Back
 		o(cfg)
 	}
 
-	endpoint, ok := regionEndpoints[cfg.region]
-	if !ok {
-		endpoint = regionEndpoints[RegionUS1]
+	endpoint := cfg.endpoint
+	if endpoint == "" {
+		var ok bool
+
+		endpoint, ok = regionEndpoints[cfg.region]
+		if !ok {
+			endpoint = regionEndpoints[RegionUS1]
+		}
 	}
 
 	return &backend{

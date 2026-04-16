@@ -20,25 +20,15 @@ func setupOfflineUpdater(t *testing.T, fs afero.Fs, toolName string) *SelfUpdate
 	currentBin := "/usr/local/bin/" + toolName
 	require.NoError(t, fs.MkdirAll(filepath.Dir(currentBin), 0o755))
 
-	origOsExecutable := osExecutable
-	origExecLookPath := execLookPath
-
-	t.Cleanup(func() {
-		osExecutable = origOsExecutable
-		execLookPath = origExecLookPath
-	})
-
-	osExecutable = func() (string, error) {
-		return currentBin, nil
-	}
-	execLookPath = func(file string) (string, error) {
-		return currentBin, nil
-	}
-
-	return NewOfflineUpdater(props.Tool{Name: toolName}, logger.NewNoop(), fs)
+	return NewOfflineUpdater(props.Tool{Name: toolName}, logger.NewNoop(), fs,
+		WithOsExecutable(func() (string, error) { return currentBin, nil }),
+		WithExecLookPath(func(_ string) (string, error) { return currentBin, nil }),
+	)
 }
 
 func TestUpdateFromFile_Success(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
@@ -50,13 +40,14 @@ func TestUpdateFromFile_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/usr/local/bin/"+toolName, targetPath)
 
-	// Verify binary was written
 	content, err := afero.ReadFile(fs, targetPath)
 	require.NoError(t, err)
 	assert.Equal(t, "binary-content", string(content))
 }
 
 func TestUpdateFromFile_WithValidChecksum(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
@@ -73,6 +64,8 @@ func TestUpdateFromFile_WithValidChecksum(t *testing.T) {
 }
 
 func TestUpdateFromFile_ChecksumMismatch(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
@@ -87,6 +80,8 @@ func TestUpdateFromFile_ChecksumMismatch(t *testing.T) {
 }
 
 func TestUpdateFromFile_NoSidecar(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
@@ -94,13 +89,14 @@ func TestUpdateFromFile_NoSidecar(t *testing.T) {
 	tarData := createTarGz(t, toolName, "binary-content")
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 
-	// No .sha256 file — should warn but succeed
 	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
 	require.NoError(t, err)
 	assert.NotEmpty(t, targetPath)
 }
 
 func TestUpdateFromFile_FileNotFound(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
@@ -111,6 +107,8 @@ func TestUpdateFromFile_FileNotFound(t *testing.T) {
 }
 
 func TestUpdateFromFile_InvalidTarball(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
@@ -122,15 +120,15 @@ func TestUpdateFromFile_InvalidTarball(t *testing.T) {
 }
 
 func TestUpdateFromFile_BinaryNotInArchive(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	toolName := "test-tool"
 	updater := setupOfflineUpdater(t, fs, toolName)
 
-	// Archive contains a different binary name
 	tarData := createTarGz(t, "other-tool", "binary-content")
 	require.NoError(t, afero.WriteFile(fs, "/tmp/release.tar.gz", tarData, 0o644))
 
-	// extract() silently returns nil when binary not found (existing behaviour)
 	targetPath, err := updater.UpdateFromFile("/tmp/release.tar.gz")
 	require.NoError(t, err)
 	assert.NotEmpty(t, targetPath)

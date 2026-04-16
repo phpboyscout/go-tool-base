@@ -119,7 +119,6 @@ func TestGenerateAndDiscoverKey(t *testing.T) {
 }
 
 func TestGenerateKey_Upload(t *testing.T) {
-	// Setup
 	fs := afero.NewMemMapFs()
 	homeDir := "/home/testuser"
 	t.Setenv("HOME", homeDir)
@@ -131,36 +130,26 @@ func TestGenerateKey_Upload(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 	cfg := viper.New()
-	cfg.Set("github.token", "dummy-token") // To ensure config is validish
+	cfg.Set("github.token", "dummy-token")
 
-	// Mock newGitHubClientFunc
 	mockClient := mockVCS.NewMockGitHubClient(t)
 	mockClient.EXPECT().UploadKey(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	originalNewClientFunc := newGitHubClientFunc
-	defer func() { newGitHubClientFunc = originalNewClientFunc }()
-	newGitHubClientFunc = func(cfg config.Containable) (githubvcs.GitHubClient, error) {
-		return mockClient, nil
-	}
-
-	// Mock Forms
-	mockPassphraseForm := func(s *string) *huh.Form {
-		*s = ""
-		return nil
-	}
-	mockUploadForm := func(b *bool) *huh.Form {
-		*b = true // YES upload
-		return nil
-	}
-
-	// Run
 	keyPath, err := generateKey(p, config.NewContainerFromViper(nil, cfg),
-		WithPassphraseForm(mockPassphraseForm),
-		WithUploadConfirmForm(mockUploadForm),
+		WithPassphraseForm(func(s *string) *huh.Form {
+			*s = ""
+			return nil
+		}),
+		WithUploadConfirmForm(func(b *bool) *huh.Form {
+			*b = true
+			return nil
+		}),
+		WithGitHubClientFactory(func(_ config.Containable) (githubvcs.GitHubClient, error) {
+			return mockClient, nil
+		}),
 	)
 	require.NoError(t, err)
 
-	// Check files
 	exists, _ := afero.Exists(fs, keyPath)
 	assert.True(t, exists)
 }
@@ -176,17 +165,14 @@ func TestGitHubInitialiser(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	// Mock GH Login
-	originalGHLogin := ghLoginFunc
-	defer func() { ghLoginFunc = originalGHLogin }()
-	ghLoginFunc = func(hostname string) (string, error) {
-		return "mock-token", nil
-	}
-
 	cfg := viper.New()
 	cfg.SetFs(fs)
 
-	init := NewGitHubInitialiser(p, false, true) // SkipKey=true
+	init := NewGitHubInitialiser(p, false, true,
+		WithGHLogin(func(_ string) (string, error) {
+			return "mock-token", nil
+		}),
+	)
 	err := init.Configure(p, config.NewContainerFromViper(nil, cfg))
 	require.NoError(t, err)
 
@@ -473,32 +459,26 @@ func TestConfigureSSHKey_ExistingPath(t *testing.T) {
 // --- uploadSSHKeyToGitHub error paths ---
 
 func TestUploadSSHKeyToGitHub_ClientError(t *testing.T) {
-	// NOT parallel — mutates package-level newGitHubClientFunc.
-	original := newGitHubClientFunc
-	t.Cleanup(func() { newGitHubClientFunc = original })
-	newGitHubClientFunc = func(_ config.Containable) (githubvcs.GitHubClient, error) {
-		return nil, assert.AnError
-	}
+	t.Parallel()
 
 	p := newTestProps(t)
 	cfg := config.NewContainerFromViper(nil, viper.New())
-	err := uploadSSHKeyToGitHub(p, cfg, "keyname", []byte("pubkey"))
+	err := uploadSSHKeyToGitHub(p, cfg, "keyname", []byte("pubkey"), func(_ config.Containable) (githubvcs.GitHubClient, error) {
+		return nil, assert.AnError
+	})
 	assert.Error(t, err)
 }
 
 func TestUploadSSHKeyToGitHub_UploadError(t *testing.T) {
-	// NOT parallel — mutates package-level newGitHubClientFunc.
+	t.Parallel()
+
 	mockClient := mockVCS.NewMockGitHubClient(t)
 	mockClient.EXPECT().UploadKey(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
-	original := newGitHubClientFunc
-	t.Cleanup(func() { newGitHubClientFunc = original })
-	newGitHubClientFunc = func(_ config.Containable) (githubvcs.GitHubClient, error) {
-		return mockClient, nil
-	}
-
 	p := newTestProps(t)
 	cfg := config.NewContainerFromViper(nil, viper.New())
-	err := uploadSSHKeyToGitHub(p, cfg, "keyname", []byte("pubkey"))
+	err := uploadSSHKeyToGitHub(p, cfg, "keyname", []byte("pubkey"), func(_ config.Containable) (githubvcs.GitHubClient, error) {
+		return mockClient, nil
+	})
 	assert.Error(t, err)
 }

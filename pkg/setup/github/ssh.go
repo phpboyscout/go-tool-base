@@ -29,15 +29,11 @@ const (
 	minPassphraseLength = 12
 )
 
-var (
-	GitHubHost = "github.com"
+var GitHubHost = "github.com"
 
-	// Mockable functions.
-	ghLoginFunc         = githubvcs.GHLogin
-	newGitHubClientFunc = func(cfg config.Containable) (githubvcs.GitHubClient, error) {
-		return githubvcs.NewGitHubClient(cfg)
-	}
-)
+func defaultGitHubClientFactory(cfg config.Containable) (githubvcs.GitHubClient, error) {
+	return githubvcs.NewGitHubClient(cfg)
+}
 
 type configureSSHKeyConfig struct {
 	sshKeySelectFormCreator func(*string, []huh.Option[string]) *huh.Form
@@ -250,6 +246,7 @@ func validateSSHKey(contents []byte, props *props.Props) error {
 type generateKeyConfig struct {
 	passphraseFormCreator    func(*string) *huh.Form
 	uploadConfirmFormCreator func(*bool) *huh.Form
+	clientFactory            func(config.Containable) (githubvcs.GitHubClient, error)
 }
 
 // GenerateKeyOption is a functional option for SSH key generation.
@@ -266,6 +263,15 @@ func WithPassphraseForm(creator func(*string) *huh.Form) GenerateKeyOption {
 func WithUploadConfirmForm(creator func(*bool) *huh.Form) GenerateKeyOption {
 	return func(c *generateKeyConfig) {
 		c.uploadConfirmFormCreator = creator
+	}
+}
+
+// WithGitHubClientFactory overrides the GitHub client constructor used when
+// uploading SSH keys. Tests pass a fake; production callers omit to get
+// the default.
+func WithGitHubClientFactory(factory func(config.Containable) (githubvcs.GitHubClient, error)) GenerateKeyOption {
+	return func(c *generateKeyConfig) {
+		c.clientFactory = factory
 	}
 }
 
@@ -304,6 +310,7 @@ func generateKey(props *props.Props, cfg config.Containable, opts ...GenerateKey
 	optsConfig := &generateKeyConfig{
 		passphraseFormCreator:    defaultPassphraseFormCreator,
 		uploadConfirmFormCreator: defaultUploadConfirmFormCreator,
+		clientFactory:            defaultGitHubClientFactory,
 	}
 
 	for _, opt := range opts {
@@ -345,7 +352,7 @@ func generateKey(props *props.Props, cfg config.Containable, opts ...GenerateKey
 	}
 
 	if upload {
-		if err := uploadSSHKeyToGitHub(props, cfg, keyname, publicKeyBytes); err != nil {
+		if err := uploadSSHKeyToGitHub(props, cfg, keyname, publicKeyBytes, optsConfig.clientFactory); err != nil {
 			return keypath, err
 		}
 	} else {
@@ -355,10 +362,10 @@ func generateKey(props *props.Props, cfg config.Containable, opts ...GenerateKey
 	return keypath, err
 }
 
-func uploadSSHKeyToGitHub(props *props.Props, cfg config.Containable, keyname string, publicKey []byte) error {
+func uploadSSHKeyToGitHub(props *props.Props, cfg config.Containable, keyname string, publicKey []byte, clientFactory func(config.Containable) (githubvcs.GitHubClient, error)) error {
 	props.Logger.Info("Uploading SSH public key to Github", "key", string(publicKey))
 
-	c, err := newGitHubClientFunc(cfg)
+	c, err := clientFactory(cfg)
 	if err != nil {
 		return errors.WithStack(err)
 	}

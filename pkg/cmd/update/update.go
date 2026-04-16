@@ -27,15 +27,27 @@ var (
 	// semVerPattern matches semantic version strings in the format v0.0.0 or v0.0.0-suffix.
 	semVerPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+(-\w+)?$`)
 
-	// allow mocking in tests.
-	ExportExecCommand = exec.CommandContext
-	ExportNewUpdater  = func(props *p.Props, version string, force bool) (Updater, error) {
+	// ExportNewUpdater creates an Updater for online updates. Tests may replace this.
+	ExportNewUpdater = func(props *p.Props, version string, force bool) (Updater, error) {
 		return setup.NewUpdater(props, version, force)
 	}
+	// ExportNewOfflineUpdater creates an Updater for offline file-based updates. Tests may replace this.
 	ExportNewOfflineUpdater = func(props *p.Props) Updater {
 		return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
 	}
 )
+
+// UpdateConfigOption configures the UpdateConfig function.
+type UpdateConfigOption func(*updateConfigOptions)
+
+type updateConfigOptions struct {
+	execCommand func(context.Context, string, ...string) *exec.Cmd
+}
+
+// WithExecCommand overrides exec.CommandContext for testing.
+func WithExecCommand(fn func(context.Context, string, ...string) *exec.Cmd) UpdateConfigOption {
+	return func(o *updateConfigOptions) { o.execCommand = fn }
+}
 
 // Updater defines the interface for self-updating functionality.
 type Updater interface {
@@ -105,7 +117,7 @@ type UpdateResult struct {
 }
 
 // Update downloads and installs the specified version (or latest) of the tool.
-func Update(ctx context.Context, props *p.Props, version string, force bool) (*UpdateResult, error) {
+func Update(ctx context.Context, props *p.Props, version string, force bool, opts ...UpdateConfigOption) (*UpdateResult, error) {
 	updater, err := ExportNewUpdater(props, version, force)
 	if err != nil {
 		return nil, err
@@ -128,8 +140,7 @@ func Update(ctx context.Context, props *p.Props, version string, force bool) (*U
 		return nil, err
 	}
 
-	// update the config in the standard locations
-	UpdateConfig(ctx, props, binPath)
+	UpdateConfig(ctx, props, binPath, opts...)
 
 	if version == "" {
 		showUpdateChangelog(ctx, props, updater, previousVersion)
@@ -188,7 +199,15 @@ func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string) error {
 }
 
 // UpdateConfig re-runs the init flow after a successful update to ensure config compatibility.
-func UpdateConfig(ctx context.Context, props *p.Props, binPath string) {
+func UpdateConfig(ctx context.Context, props *p.Props, binPath string, opts ...UpdateConfigOption) {
+	o := &updateConfigOptions{
+		execCommand: exec.CommandContext,
+	}
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	if props.Tool.IsDisabled(p.InitCmd) {
 		props.Logger.Debug("Skipping config update as init command is disabled")
 	} else {
@@ -199,7 +218,7 @@ func UpdateConfig(ctx context.Context, props *p.Props, binPath string) {
 
 		for _, path := range updatePaths {
 			if _, err := props.FS.Stat(path); err == nil {
-				cmd := ExportExecCommand(ctx, binPath, "init", "--dir", path, "--skip-login", "--skip-key")
+				cmd := o.execCommand(ctx, binPath, "init", "--dir", path, "--skip-login", "--skip-key")
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 

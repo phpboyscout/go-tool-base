@@ -11,12 +11,6 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-var (
-	// allow mocking in tests.
-	ExportExecCommand  = exec.CommandContext
-	ExportExecLookPath = exec.LookPath
-)
-
 func init() {
 	RegisterProvider(ProviderClaudeLocal, newClaudeLocal)
 }
@@ -29,12 +23,23 @@ type ClaudeLocal struct {
 	cfg       Config
 	sessionID string   // captured after first Chat/Ask call; used for --resume
 	pending   []string // buffered Add() messages, prepended to next prompt
+	command   func(context.Context, string, ...string) *exec.Cmd
 }
 
 // newClaudeLocal initializes a new ClaudeLocal chat client.
 // No API key is required — authentication is handled by the claude binary itself.
-func newClaudeLocal(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	if _, err := ExportExecLookPath("claude"); err != nil {
+func newClaudeLocal(_ context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+	lookPath := cfg.ExecLookPath
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+
+	command := cfg.ExecCommand
+	if command == nil {
+		command = exec.CommandContext
+	}
+
+	if _, err := lookPath("claude"); err != nil {
 		return nil, errors.New(
 			"claude binary not found in PATH: install Claude Code from https://claude.ai/download " +
 				"and ensure it is authenticated before using ProviderClaudeLocal",
@@ -42,8 +47,9 @@ func newClaudeLocal(ctx context.Context, p *props.Props, cfg Config) (ChatClient
 	}
 
 	return &ClaudeLocal{
-		props: p,
-		cfg:   cfg,
+		props:   p,
+		cfg:     cfg,
+		command: command,
 	}, nil
 }
 
@@ -167,7 +173,7 @@ type claudeResult struct {
 func (c *ClaudeLocal) runClaude(ctx context.Context, args []string) (result string, sessionID string, err error) {
 	c.props.Logger.Debug("ClaudeLocal subprocess", "args", args)
 
-	cmd := ExportExecCommand(ctx, "claude", args...)
+	cmd := c.command(ctx, "claude", args...)
 
 	out, cmdErr := cmd.Output()
 	if cmdErr != nil {

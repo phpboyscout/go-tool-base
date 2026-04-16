@@ -49,11 +49,11 @@ func testEvent() telemetry.Event {
 }
 
 func TestBackend_Send_Headers(t *testing.T) {
+	t.Parallel()
 
 	srv, capture := newTestServer(t)
-	regionEndpoints["test-headers"] = srv.URL
 
-	b := NewBackend("test-api-key", logger.NewNoop(), WithRegion("test-headers"))
+	b := NewBackend("test-api-key", logger.NewNoop(), WithEndpoint(srv.URL))
 
 	if err := b.Send(context.Background(), []telemetry.Event{testEvent()}); err != nil {
 		t.Fatalf("send: %v", err)
@@ -69,11 +69,11 @@ func TestBackend_Send_Headers(t *testing.T) {
 }
 
 func TestBackend_Send_EventMapping(t *testing.T) {
+	t.Parallel()
 
 	srv, capture := newTestServer(t)
-	regionEndpoints["test-mapping"] = srv.URL
 
-	b := NewBackend("key", logger.NewNoop(), WithRegion("test-mapping"))
+	b := NewBackend("key", logger.NewNoop(), WithEndpoint(srv.URL))
 
 	if err := b.Send(context.Background(), []telemetry.Event{testEvent()}); err != nil {
 		t.Fatalf("send: %v", err)
@@ -112,11 +112,11 @@ func TestBackend_Send_EventMapping(t *testing.T) {
 }
 
 func TestBackend_Send_Tags(t *testing.T) {
+	t.Parallel()
 
 	srv, capture := newTestServer(t)
-	regionEndpoints["test-tags"] = srv.URL
 
-	b := NewBackend("key", logger.NewNoop(), WithRegion("test-tags"))
+	b := NewBackend("key", logger.NewNoop(), WithEndpoint(srv.URL))
 
 	if err := b.Send(context.Background(), []telemetry.Event{testEvent()}); err != nil {
 		t.Fatalf("send: %v", err)
@@ -147,6 +147,7 @@ func TestBackend_Send_Tags(t *testing.T) {
 }
 
 func TestBackend_Regions(t *testing.T) {
+	t.Parallel()
 
 	tests := []struct {
 		region   Region
@@ -196,14 +197,14 @@ func TestBackend_WithSource(t *testing.T) {
 }
 
 func TestBackend_Non2xx(t *testing.T) {
+	t.Parallel()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 	defer srv.Close()
 
-	regionEndpoints["test-non2xx"] = srv.URL
-	b := NewBackend("key", logger.NewNoop(), WithRegion("test-non2xx"))
+	b := NewBackend("key", logger.NewNoop(), WithEndpoint(srv.URL))
 
 	err := b.Send(context.Background(), []telemetry.Event{{Name: "test"}})
 	if err != nil {
@@ -212,9 +213,9 @@ func TestBackend_Non2xx(t *testing.T) {
 }
 
 func TestBackend_NetworkError(t *testing.T) {
+	t.Parallel()
 
-	regionEndpoints["offline"] = "http://127.0.0.1:1"
-	b := NewBackend("key", logger.NewNoop(), WithRegion("offline"))
+	b := NewBackend("key", logger.NewNoop(), WithEndpoint("http://127.0.0.1:1"))
 
 	err := b.Send(context.Background(), []telemetry.Event{{Name: "test"}})
 	if err != nil {
