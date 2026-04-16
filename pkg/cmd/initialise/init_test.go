@@ -70,9 +70,6 @@ func TestDiscoverInitialisers_AllDisabled(t *testing.T) {
 }
 
 func TestRegisterSubcommands_AiEnabled(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-
 	props := newTestProps()
 	props.Tool.Features = p.SetFeatures(p.Enable(p.AiCmd))
 
