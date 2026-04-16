@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"maps"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -106,36 +107,48 @@ func RegisterChecks(feature props.FeatureCmd, cps []CheckProvider) {
 	}
 }
 
-// GetInitialisers returns all registered initialiser providers.
+// GetInitialisers returns a snapshot of all registered initialiser providers.
 func GetInitialisers() map[props.FeatureCmd][]InitialiserProvider {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	return globalRegistry.initialisers
+	cp := make(map[props.FeatureCmd][]InitialiserProvider, len(globalRegistry.initialisers))
+	maps.Copy(cp, globalRegistry.initialisers)
+
+	return cp
 }
 
-// GetSubcommands returns all registered subcommand providers.
+// GetSubcommands returns a snapshot of all registered subcommand providers.
 func GetSubcommands() map[props.FeatureCmd][]SubcommandProvider {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	return globalRegistry.subcommands
+	cp := make(map[props.FeatureCmd][]SubcommandProvider, len(globalRegistry.subcommands))
+	maps.Copy(cp, globalRegistry.subcommands)
+
+	return cp
 }
 
-// GetFeatureFlags returns all registered feature flag providers.
+// GetFeatureFlags returns a snapshot of all registered feature flag providers.
 func GetFeatureFlags() map[props.FeatureCmd][]FeatureFlag {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	return globalRegistry.flags
+	cp := make(map[props.FeatureCmd][]FeatureFlag, len(globalRegistry.flags))
+	maps.Copy(cp, globalRegistry.flags)
+
+	return cp
 }
 
-// GetChecks returns all registered check providers.
+// GetChecks returns a snapshot of all registered check providers.
 func GetChecks() map[props.FeatureCmd][]CheckProvider {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	return globalRegistry.checks
+	cp := make(map[props.FeatureCmd][]CheckProvider, len(globalRegistry.checks))
+	maps.Copy(cp, globalRegistry.checks)
+
+	return cp
 }
 
 // resetFeatureRegistry clears the feature registry under registryMu.
