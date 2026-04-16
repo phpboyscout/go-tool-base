@@ -357,27 +357,6 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		PersistentPreRunE: newRootPreRunE(props, configPaths, mcpLogLevel, state),
 	}
 
-	// Register telemetry shutdown on process exit. OnFinalize runs regardless of
-	// whether subcommands define PostRunE — unlike PersistentPostRunE.
-	// Close() flushes pending events and shuts down the backend gracefully
-	// (important for OTLP batch processors).
-	cobra.OnFinalize(func() {
-		if props.Collector == nil {
-			return
-		}
-
-		// Re-check enabled state — if user ran `telemetry disable` mid-session,
-		// respect the withdrawal of consent and do not flush.
-		if props.Config != nil && !props.Config.GetBool("telemetry.enabled") {
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), telemetryFlushTimeout)
-		defer cancel()
-
-		_ = props.Collector.Close(ctx)
-	})
-
 	setupRootFlags(rootCmd, props, state)
 	registerFeatureCommands(rootCmd, props, mcpLogLevel)
 
