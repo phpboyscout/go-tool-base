@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -117,6 +118,18 @@ type Config struct {
 	// MaxParallelTools limits the number of tools executing concurrently.
 	// Zero means use the default (5). Only effective when ParallelTools is true.
 	MaxParallelTools int
+
+	// ExecLookPath overrides exec.LookPath for the ClaudeLocal provider.
+	// Nil means use the real exec.LookPath.
+	ExecLookPath func(string) (string, error) `json:"-"`
+	// ExecCommand overrides exec.CommandContext for the ClaudeLocal provider
+	// and the update command's config re-init.
+	// Nil means use the real exec.CommandContext.
+	ExecCommand func(context.Context, string, ...string) *exec.Cmd `json:"-"`
+	// GenaiNewClient overrides the Gemini client constructor for testing.
+	// Must be func(context.Context, *genai.ClientConfig) (*genai.Client, error).
+	// Nil means use the real genai.NewClient.
+	GenaiNewClient any `json:"-"`
 }
 
 // ProviderFactory creates a ChatClient for a named provider.

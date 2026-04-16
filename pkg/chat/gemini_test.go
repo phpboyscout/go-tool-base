@@ -55,16 +55,14 @@ func TestGeminiProvider_New(t *testing.T) {
 	})
 
 	t.Run("client_creation_error", func(t *testing.T) {
-		oldNewClient := chat.ExportGenaiNewClient
-		t.Cleanup(func() { chat.ExportGenaiNewClient = oldNewClient })
-
-		chat.ExportGenaiNewClient = func(ctx context.Context, config *genai.ClientConfig) (*genai.Client, error) {
-			return nil, fmt.Errorf("simulated error")
-		}
+		t.Parallel()
 
 		cfg := chat.Config{
 			Provider: chat.ProviderGemini,
 			Token:    "test-key",
+			GenaiNewClient: func(ctx context.Context, config *genai.ClientConfig) (*genai.Client, error) {
+				return nil, fmt.Errorf("simulated error")
+			},
 		}
 		_, err := chat.New(context.Background(), p, cfg)
 		require.Error(t, err)

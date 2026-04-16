@@ -57,38 +57,15 @@ func createTarGz(t *testing.T, filename, content string) []byte {
 }
 
 func TestUpdate_Success(t *testing.T) {
-	// Setup Mock FS
+	t.Parallel()
+
 	memFS := afero.NewMemMapFs()
-
-	// Setup Mocks for Executable
-	origOsExecutable := osExecutable
-	origExecLookPath := execLookPath
-
-	defer func() {
-		osExecutable = origOsExecutable
-		execLookPath = origExecLookPath
-	}()
 
 	toolName := "test-tool"
 	currentBin := "/usr/local/bin/" + toolName
 
 	err := memFS.MkdirAll(filepath.Dir(currentBin), 0755)
 	require.NoError(t, err)
-
-	// Create dummy old binary in memFS?
-	// Actually osExecutable returns OS path.
-	// execLookPath returns OS path.
-	// resolveTargetPath calls osExecutable.
-	// We mock osExecutable to return a path.
-	// But extractAndInstallBinary uses s.Fs to write to that path.
-	// Does MEMFS support absolute paths? Yes.
-
-	osExecutable = func() (string, error) {
-		return currentBin, nil
-	}
-	execLookPath = func(file string) (string, error) {
-		return currentBin, nil
-	}
 
 	// Mock GitHub API server
 	mux := http.NewServeMux()
@@ -158,12 +135,14 @@ func TestUpdate_Success(t *testing.T) {
 	updater := &SelfUpdater{
 		Tool:           props.Tool,
 		force:          false,
-		version:        "", // Check latest
+		version:        "",
 		logger:         props.Logger,
 		releaseClient:  mockClient,
 		CurrentVersion: "v1.0.0",
 		NextRelease:    nil,
 		Fs:             memFS,
+		osExecutable:   func() (string, error) { return currentBin, nil },
+		execLookPath:   func(_ string) (string, error) { return currentBin, nil },
 	}
 
 	// Mock config directory for timestamps

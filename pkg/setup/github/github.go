@@ -13,6 +13,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
 var (
@@ -53,18 +54,35 @@ var assets embed.FS
 type GitHubInitialiser struct {
 	SkipLogin bool
 	SkipKey   bool
+	loginFunc func(string) (string, error)
+}
+
+// InitialiserOption configures a GitHubInitialiser.
+type InitialiserOption func(*GitHubInitialiser)
+
+// WithGHLogin overrides the GitHub CLI login function used for authentication.
+// Tests pass a fake; production callers omit to get the default.
+func WithGHLogin(fn func(string) (string, error)) InitialiserOption {
+	return func(i *GitHubInitialiser) { i.loginFunc = fn }
 }
 
 // NewGitHubInitialiser creates a new GitHubInitialiser and mounts its assets.
-func NewGitHubInitialiser(p *props.Props, skipLogin, skipKey bool) *GitHubInitialiser {
+func NewGitHubInitialiser(p *props.Props, skipLogin, skipKey bool, opts ...InitialiserOption) *GitHubInitialiser {
 	if p.Assets != nil {
 		p.Assets.Mount(assets, "pkg/setup/github")
 	}
 
-	return &GitHubInitialiser{
+	i := &GitHubInitialiser{
 		SkipLogin: skipLogin,
 		SkipKey:   skipKey,
+		loginFunc: githubvcs.GHLogin,
 	}
+
+	for _, o := range opts {
+		o(i)
+	}
+
+	return i
 }
 
 func (g *GitHubInitialiser) Name() string {
@@ -105,7 +123,7 @@ func (g *GitHubInitialiser) Configure(props *props.Props, cfg config.Containable
 func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable) error {
 	p.Logger.Info("Logging into Github", "host", GitHubHost)
 
-	ghtoken, err := ghLoginFunc(GitHubHost)
+	ghtoken, err := g.loginFunc(GitHubHost)
 	if err != nil {
 		return err
 	}
@@ -130,7 +148,7 @@ func (g *GitHubInitialiser) configureSSH(p *props.Props, cfg config.Containable)
 // RunGitHubInit forcibly runs both login and SSH configuration regardless of current state.
 // This is used by the explicit `init github` command.
 func RunGitHubInit(p *props.Props, cfg config.Containable) error {
-	g := &GitHubInitialiser{}
+	g := &GitHubInitialiser{loginFunc: githubvcs.GHLogin}
 
 	if err := g.configureAuth(p, cfg); err != nil {
 		return err

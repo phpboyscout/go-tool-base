@@ -53,11 +53,6 @@ const (
 	CheckedKey = timeSinceKey("checked")
 )
 
-var (
-	osExecutable = os.Executable
-	execLookPath = exec.LookPath
-)
-
 // SelfUpdater manages checking for and applying tool updates.
 type SelfUpdater struct {
 	Tool           props.Tool
@@ -68,6 +63,8 @@ type SelfUpdater struct {
 	CurrentVersion string
 	NextRelease    release.Release
 	Fs             afero.Fs
+	osExecutable   func() (string, error)
+	execLookPath   func(string) (string, error)
 }
 
 // GetTimeSinceLast returns the duration since the last update check or update.
@@ -103,14 +100,35 @@ func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
 	return fs.Chtimes(lastSinceFile, time.Now(), time.Now())
 }
 
+// UpdaterOption configures a SelfUpdater.
+type UpdaterOption func(*SelfUpdater)
+
+// WithOsExecutable overrides os.Executable for testing.
+func WithOsExecutable(fn func() (string, error)) UpdaterOption {
+	return func(s *SelfUpdater) { s.osExecutable = fn }
+}
+
+// WithExecLookPath overrides exec.LookPath for testing.
+func WithExecLookPath(fn func(string) (string, error)) UpdaterOption {
+	return func(s *SelfUpdater) { s.execLookPath = fn }
+}
+
 // NewOfflineUpdater creates a SelfUpdater configured for file-based updates
 // that do not require a VCS client or network access.
-func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs) *SelfUpdater {
-	return &SelfUpdater{
-		logger: log,
-		Tool:   tool,
-		Fs:     fs,
+func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...UpdaterOption) *SelfUpdater {
+	s := &SelfUpdater{
+		logger:       log,
+		Tool:         tool,
+		Fs:           fs,
+		osExecutable: os.Executable,
+		execLookPath: exec.LookPath,
 	}
+
+	for _, o := range opts {
+		o(s)
+	}
+
+	return s
 }
 
 // NewUpdater creates a SelfUpdater configured with the tools release source.
@@ -157,6 +175,8 @@ func NewUpdater(p *props.Props, version string, force bool) (*SelfUpdater, error
 		releaseClient:  releaseClient,
 		CurrentVersion: ver.FormatVersionString(p.Version.GetVersion(), true),
 		Fs:             p.FS,
+		osExecutable:   os.Executable,
+		execLookPath:   exec.LookPath,
 	}, nil
 }
 
@@ -304,12 +324,12 @@ func (s *SelfUpdater) UpdateFromFile(filePath string) (string, error) {
 }
 
 func (s *SelfUpdater) resolveTargetPath() (string, error) {
-	targetPath, err := osExecutable()
+	targetPath, err := s.osExecutable()
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
 
-	execPath, err := execLookPath(s.Tool.Name)
+	execPath, err := s.execLookPath(s.Tool.Name)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}

@@ -81,20 +81,15 @@ func TestStreamEventTypes_Values(t *testing.T) {
 // ---- ClaudeLocal does not implement StreamingChatClient --------------------
 
 func TestClaudeLocal_NotStreaming(t *testing.T) {
-	// NOT parallel — mutates chat.ExportExecLookPath global.
-	oldLookPath := chat.ExportExecLookPath
-	defer func() { chat.ExportExecLookPath = oldLookPath }()
-
-	chat.ExportExecLookPath = func(_ string) (string, error) {
-		return "/usr/local/bin/claude", nil
-	}
+	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderClaudeLocal,
-		Model:    "claude-sonnet-4-6",
+		Provider:     chat.ProviderClaudeLocal,
+		Model:        "claude-sonnet-4-6",
+		ExecLookPath: func(_ string) (string, error) { return "/usr/local/bin/claude", nil },
 	})
 	require.NoError(t, err)
 
