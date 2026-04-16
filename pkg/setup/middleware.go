@@ -109,13 +109,14 @@ func ApplyMiddlewareRecursively(cmd *cobra.Command, feature props.FeatureCmd) {
 	}
 }
 
-// ResetRegistryForTesting clears the middleware registry.
+// ResetRegistryForTesting clears both the middleware and feature registries.
 // This should only be used in tests to avoid state leakage between test runs.
 func ResetRegistryForTesting() {
 	mu.Lock()
-	defer mu.Unlock()
-
 	globalMiddleware = nil
 	featureMiddleware = make(map[props.FeatureCmd][]Middleware)
 	sealed = false
+	mu.Unlock()
+
+	resetFeatureRegistry()
 }

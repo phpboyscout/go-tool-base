@@ -328,7 +328,8 @@ func TestCheckPermissions_InsufficientPerms(t *testing.T) {
 }
 
 func TestRunChecks_WithRegisteredChecks(t *testing.T) {
-	// NOT parallel — mutates setup.globalRegistry map via RegisterChecks.
+	t.Parallel()
+
 	customFeature := p.FeatureCmd("custom-test")
 
 	setup.RegisterChecks(customFeature, []setup.CheckProvider{
@@ -378,7 +379,8 @@ func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 }
 
 func TestDiscoverChecks_DisabledFeature(t *testing.T) {
-	// NOT parallel — mutates setup.globalRegistry map via RegisterChecks.
+	t.Parallel()
+
 	disabledFeature := p.FeatureCmd("disabled-test")
 
 	setup.RegisterChecks(disabledFeature, []setup.CheckProvider{
