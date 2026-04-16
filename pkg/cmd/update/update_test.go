@@ -18,8 +18,6 @@ import (
 )
 
 func TestUpdate_SemVerValidation(t *testing.T) {
-	t.Parallel()
-
 	oldNewUpdater := update.ExportNewUpdater
 	t.Cleanup(func() {
 		update.ExportNewUpdater = oldNewUpdater
@@ -180,8 +178,6 @@ func (m *mockUpdater) GetCurrentVersion() string {
 }
 
 func TestUpdate(t *testing.T) {
-	t.Parallel()
-
 	oldNewUpdater := update.ExportNewUpdater
 	t.Cleanup(func() {
 		update.ExportNewUpdater = oldNewUpdater
@@ -267,8 +263,6 @@ func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
 }
 
 func TestUpdateFromFile_ViaCommand(t *testing.T) {
-	t.Parallel()
-
 	oldOfflineUpdater := update.ExportNewOfflineUpdater
 	t.Cleanup(func() {
 		update.ExportNewOfflineUpdater = oldOfflineUpdater
