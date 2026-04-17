@@ -115,6 +115,24 @@ See also: [Telemetry design](specs/2026-03-21-opt-in-telemetry.md) for the full 
 
 ---
 
+## Audit: 2026-04-17
+
+### Remediated Findings
+
+#### H-2 & H-3: User-Supplied Regex Patterns Compiled Without Bounds
+
+**Severity:** High | **Status:** Remediated
+
+Two call sites compiled caller-supplied regex patterns via `regexp.Compile` without length or timeout bounds: `pkg/vcs/bitbucket/release.go` (the `filename_pattern` config key) and `pkg/docs/tui.go` (the docs-browser search query). Go's RE2 engine mitigates classical catastrophic backtracking at match time, but compile time is not guaranteed linear — a sufficiently large or pathological pattern can still stall the compile step long enough to be user-visible.
+
+**Mitigation.** Introduced [`pkg/regexutil`](../components/regexutil.md) with `CompileBounded` and `CompileBoundedTimeout` helpers enforcing a 1 KiB length cap and a 100 ms wall-clock compile timeout. Both affected call sites route through the helper. Tool authors accepting patterns in their own config should use the same helper — see [the component doc](../components/regexutil.md#call-site-discipline) and `CLAUDE.md` § Regex Compilation.
+
+**Tool author responsibility.** Never call `regexp.Compile` directly on a pattern that originates outside the binary. The helper is the designated entry point; bypassing it reintroduces the ReDoS class this remediation closes.
+
+Spec: [2026-04-17-regex-hardening.md](specs/2026-04-17-regex-hardening.md).
+
+---
+
 ## Adding New Entries
 
 When a new security audit or review produces findings, add them to this document under a dated audit heading. Each entry should include:
