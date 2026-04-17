@@ -2,7 +2,7 @@
 title: "Regex Hardening Against ReDoS"
 description: "Harden every code path that compiles user- or config-supplied regex patterns against Regular Expression Denial of Service. Closes H-2 and H-3 from the 2026-04-17 audit by adding a length cap, a bounded-time compile helper, and applying both at call sites in pkg/vcs/bitbucket/release.go and pkg/docs/tui.go."
 date: 2026-04-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security
