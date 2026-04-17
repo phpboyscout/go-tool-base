@@ -63,18 +63,34 @@ This means:
 - Users must know about `auth.env` from documentation to use the secure path.
 - Config file permissions are set to `0600` (good), but plaintext secrets in files remain a risk for backups, dotfile syncing, and shared workstations.
 
+### Threat Model
+
+| Threat | Vector | Impact |
+|--------|--------|--------|
+| Credential leak via config file | Backup software, dotfile sync (e.g. `chezmoi` commit to public repo), shoulder-surfing | Full provider access (AI API quota, GitHub repos, Bitbucket code) |
+| Credential leak via log output | Error messages or debug logs that echo config values | Credentials captured in log aggregators, SIEMs, or support tickets |
+| Shared workstation exposure | Multiple users on same machine, forgotten login session | Credentials used by unintended actor with system access |
+| Compromised local account | Malware reads plaintext config and exfiltrates | Full provider access |
+| Credential drift / stale keys | User rotates key externally but forgets to update config | Scripts break silently; user may paste a new literal to "fix" without removing old |
+| Accidental commit of config to VCS | User commits `~/.tool/config.yaml` to a public repo | Key publicly exposed; provider revocation required within minutes |
+| CI/CD misconfiguration | Tool running in CI writes a literal credential to an artefact | Credentials in build logs, artefact stores, or container images |
+
 ### Goals
 
 - Make the env-var-reference path the **default** during interactive setup.
-- Preserve backward compatibility -- existing `auth.value` configs continue to work without migration.
+- Preserve backward compatibility — existing `auth.value` configs continue to work without migration.
 - Provide an optional keychain backend for users who find env vars inconvenient in local development.
 - Document the expected credential management model for each deployment context.
+- **Guarantee that credentials are never emitted at log levels above DEBUG**, anywhere in the codebase.
+- **Prevent literal storage in CI environments** — the wizard must refuse to write a literal value when `CI=true`, regardless of operator intent.
+- **Provide a migration path** for users with existing literal credentials: a `doctor` check that warns, and a `config migrate-credentials` command that converts to env-var references.
+- **Cover Bitbucket dual-credential pattern** (`username` + `app_password`) with the same three-mode selector.
 
 ### Non-Goals
 
-- Replacing or deprecating `auth.value` -- it remains a valid config option.
+- Replacing or deprecating `auth.value` — it remains a valid config option.
 - Building a generic secrets provider interface or Vault integration.
-- Encrypting the config file at rest.
+- Encrypting the config file at rest. (An `age`/`sops` layer is a separate concern; see Future Considerations.)
 - Changing the `pkg/vcs/auth.go` resolution order.
 - Forcing any particular credential strategy on downstream tool authors.
 
@@ -170,25 +186,92 @@ The `configureAuth` method is updated to present the same three-option storage m
 ### Setup Wizard Flow (AI example)
 
 ```
+Stage 0: CI Detection
+  if CI=true: print "Literal-mode credentials are refused in CI. Configure
+                      <TOOL>_ANTHROPIC_API_KEY via your CI platform's
+                      secret injection and re-run." then exit 1
+  else proceed to Stage 1.
+
 Stage 1: Select AI Provider
   [Claude (Anthropic) / OpenAI / Gemini (Google)]
 
 Stage 2: Credential Storage Method
   > Store as environment variable reference (recommended)
-    Store in OS keychain [only shown if keychain build tag active]
-    Store literal value in config file
+    Store in OS keychain [only shown if keychain build tag active AND
+                           keychain probe succeeds]
+    Store literal value in config file [warn: plaintext on disk]
 
 Stage 3a (env var): Environment Variable Name
   Default: ANTHROPIC_API_KEY
-  "Set this variable in your shell profile or CI/CD secrets"
+  Hint: "If you use multiple tools with conflicting keys, prefix with
+         your tool name, e.g. MYTOOL_ANTHROPIC_API_KEY."
+  Validation: ^[A-Z][A-Z0-9_]{0,63}$
 
 Stage 3b (keychain): API Key
-  [password input]
-  -> stored via go-keyring with service="gtb/<toolname>" account="anthropic.api.key"
+  [password input — terminal raw mode, no echo, cleared after read]
+  -> stored via go-keyring with service=<toolname> account=anthropic.api
+  -> config records: anthropic.api.keychain: "<toolname>/anthropic.api"
+  -> API key variable is explicitly zeroed on function exit
 
 Stage 3c (literal): API Key
   [password input]
-  -> written to config as today
+  -> prompt: "This will write the key in plaintext to <path>. Continue?"
+  -> on confirm, written to config as today
+  -> config file permissions verified at 0600 after write
+```
+
+### Setup Wizard Flow (GitHub — OAuth + env-var interaction)
+
+```
+Stage 1: Credential Storage Method (same three options)
+
+Stage 2a (env var):
+  "We can run `gh auth login` to obtain a token for you. We will NOT
+   write it to config — you will copy it to your shell profile instead."
+  [yes / no / skip]
+
+  If yes:
+    run ghLogin() to get token
+    display token in a protected input ONCE:
+      "Copy this token and set ANTHROPIC_API_KEY in your shell profile.
+       This prompt will not be shown again.
+       Token: ghp_xxxxxxxxxxxxxxxxxxxx"
+    await explicit confirmation ("I have saved the token") before clearing
+    write config: github.auth.env: GITHUB_TOKEN
+    zero the token variable immediately after confirmation
+
+  If no:
+    prompt for env var name only (user has token via other means)
+    write config: github.auth.env: <chosen name>
+
+Stage 2b (keychain):
+  run ghLogin() -> token
+  store under <toolname>/github.auth
+  write config: github.auth.keychain: "<toolname>/github.auth"
+  zero the token variable
+
+Stage 2c (literal):
+  run ghLogin() -> token
+  write config: github.auth.value: <token>
+  zero the token variable in this function; the config file is 0600
+```
+
+### Setup Wizard Flow (Bitbucket — dual credentials)
+
+```
+Stage 2a (env var):
+  Prompt for two env var names (defaults BITBUCKET_USERNAME,
+                                           BITBUCKET_APP_PASSWORD).
+  Write: bitbucket.username.env, bitbucket.app_password.env
+
+Stage 2b (keychain):
+  Collect username and app_password.
+  Serialise as JSON: {"username":"...","app_password":"..."}
+  Store under <toolname>/bitbucket.auth.
+  Write: bitbucket.keychain: "<toolname>/bitbucket.auth"
+
+Stage 2c (literal):
+  Collect both, write bitbucket.username and bitbucket.app_password.
 ```
 
 ### Config Output by Storage Mode
@@ -279,7 +362,7 @@ func Delete(_, _ string) error {
 
 ### Token Resolution Update
 
-In `pkg/vcs/auth.go`, the `tokenFromConfig` function is extended:
+In `pkg/vcs/auth.go`, the `tokenFromConfig` function is extended. Note the careful use of `strings.TrimSpace` and empty-value fall-through — a key that is present but empty must not short-circuit the resolution chain:
 
 ```go
 func tokenFromConfig(cfg config.Containable) string {
@@ -287,30 +370,80 @@ func tokenFromConfig(cfg config.Containable) string {
         return ""
     }
 
-    // Priority 1: environment variable reference
-    if cfg.Has("auth.env") {
-        if token := os.Getenv(cfg.GetString("auth.env")); token != "" {
+    // Priority 1: environment variable reference.
+    // If auth.env is set but the referenced env var is unset or empty,
+    // fall through rather than returning "" immediately.
+    if envName := strings.TrimSpace(cfg.GetString("auth.env")); envName != "" {
+        if token := strings.TrimSpace(os.Getenv(envName)); token != "" {
             return token
         }
     }
 
-    // Priority 2: OS keychain (no-op without build tag)
-    if cfg.Has("auth.keychain") {
-        if token, err := credentials.Retrieve(cfg.GetString("auth.keychain"), ""); err == nil && token != "" {
+    // Priority 2: OS keychain (returns ErrCredentialUnsupported without tag).
+    if kcRef := strings.TrimSpace(cfg.GetString("auth.keychain")); kcRef != "" {
+        service, account := parseKeychainRef(kcRef) // "svc/acct" -> ("svc","acct")
+        if token, err := credentials.Retrieve(service, account); err == nil && token != "" {
             return token
         }
+        // Errors are logged at DEBUG only — never at higher level, per R1/R2.
     }
 
-    // Priority 3: literal value
-    if cfg.Has("auth.value") {
-        return cfg.GetString("auth.value")
+    // Priority 3: literal value.
+    if val := cfg.GetString("auth.value"); val != "" {
+        return val
     }
 
     return ""
 }
 ```
 
-The AI provider credential resolution (`pkg/chat/claude.go`, `pkg/chat/openai.go`, `pkg/chat/gemini.go`) is updated similarly to check `<provider>.api.env` and `<provider>.api.keychain` before falling back to `<provider>.api.key`.
+The AI provider credential resolution (`pkg/chat/claude.go`, `pkg/chat/openai.go`, `pkg/chat/gemini.go`) is updated similarly to check `<provider>.api.env` and `<provider>.api.keychain` before falling back to `<provider>.api.key`. These functions share a new helper in `pkg/chat/credentials.go`:
+
+```go
+// ResolveAPIKey resolves an AI provider API key from config using the same
+// three-mode precedence as VCS tokens. The keyPrefix is the provider-specific
+// config root, e.g. "anthropic.api".
+func ResolveAPIKey(p *props.Props, cfg Config, keyPrefix string, envFallback string) string
+```
+
+### Bitbucket Dual-Credential Resolution
+
+A new helper in `pkg/vcs/bitbucket/credentials.go` handles the dual-credential pattern:
+
+```go
+type BitbucketCredentials struct {
+    Username    string
+    AppPassword string
+}
+
+func ResolveBitbucketCredentials(cfg config.Containable) (BitbucketCredentials, error)
+```
+
+Resolution order per field is the same three-mode pattern (env > keychain > literal). For keychain mode, a single entry `<toolname>/bitbucket.auth` stores a JSON blob `{"username":"...","app_password":"..."}` — unmarshalled on retrieval. A corrupt or incomplete blob returns an error (does not fall through to literal).
+
+### `config migrate-credentials` Command
+
+A new `config migrate-credentials` subcommand guides users from literal mode to env-var mode:
+
+```go
+// cmd/config/migrate.go
+//
+// Usage: <tool> config migrate-credentials [--dry-run] [--target env|keychain]
+//
+// For each literal credential in the config:
+//   1. Display the key path and a masked view of the current value.
+//   2. Prompt for the target env var name (default: provider-standard).
+//   3. Instruct the user to set the env var in their shell profile.
+//   4. Wait for confirmation that the env var is set.
+//   5. Verify the env var is set to the expected value.
+//   6. Rewrite the config: remove auth.value, add auth.env.
+//   7. Restrict the new config file to 0600.
+//
+// --dry-run prints the planned changes without modifying config.
+// --target keychain routes step 2–5 through keychain storage instead.
+```
+
+The command is gated behind the same `setup.Register` registration pattern as other config subcommands. It is emitted by the generator as a default-enabled subcommand for new tools.
 
 ---
 
@@ -381,22 +514,44 @@ All errors use `cockroachdb/errors` with `WithHint` for user-facing guidance.
 | Area | Tests |
 |------|-------|
 | `pkg/credentials/` | `AvailableModes` returns correct set per build tag; `KeychainAvailable` accuracy |
-| `pkg/credentials/` (keychain tag) | `Store`/`Retrieve`/`Delete` round-trip with mock keyring |
-| `pkg/credentials/` (no tag) | Stub functions return descriptive errors |
+| `pkg/credentials/` (keychain tag) | `Store`/`Retrieve`/`Delete` round-trip with mock keyring; `Retrieve` returns `ErrCredentialNotFound` for missing entries; `Retrieve` returns wrapped error for unavailable keychain |
+| `pkg/credentials/` (no tag) | Stub functions return `ErrCredentialUnsupported` |
 | `pkg/vcs/auth.go` | Existing tests pass unchanged; new tests for `auth.keychain` priority |
 | `pkg/vcs/auth.go` | `auth.env` > `auth.keychain` > `auth.value` precedence verified |
+| `pkg/vcs/auth.go` | Empty `auth.env` value falls through (does not short-circuit); empty env var value falls through |
+| `pkg/vcs/auth.go` | Whitespace-only values are treated as empty |
+| `pkg/vcs/auth.go` | **R2**: Errors do not include the credential value in their message |
+| `pkg/vcs/bitbucket/credentials.go` | Dual-credential resolution; env-var mode requires both vars; keychain JSON blob round-trip; corrupt JSON aborts (no fall-through) |
 | `pkg/setup/ai/` | Form injects storage mode; env-var mode writes `<provider>.api.env`; literal mode writes `<provider>.api.key`; keychain mode writes `<provider>.api.keychain` |
+| `pkg/setup/ai/` | **R5**: `CI=true` + literal mode → exit 1 with actionable error |
+| `pkg/setup/ai/` | Literal mode write verifies file mode is `0600` after write |
 | `pkg/setup/github/` | Env-var mode writes `github.auth.env`; literal mode writes `github.auth.value` |
-| `pkg/chat/claude.go` | Resolves from `anthropic.api.env` before `anthropic.api.key` |
-| `pkg/chat/openai.go` | Resolves from `openai.api.env` before `openai.api.key` |
-| `pkg/chat/gemini.go` | Resolves from `gemini.api.env` before `gemini.api.key` |
+| `pkg/setup/github/` | Env-var mode after OAuth: token is zeroed after display; config receives env reference only |
+| `pkg/chat/claude.go` | Resolves from `anthropic.api.env` before `anthropic.api.keychain` before `anthropic.api.key` |
+| `pkg/chat/openai.go` | Same precedence for OpenAI |
+| `pkg/chat/gemini.go` | Same precedence for Gemini |
+| `pkg/cmd/doctor/` | **R6**: `credentials.no-literal` check fires when any literal credential is present |
+| `pkg/cmd/config/migrate.go` | Migration command: dry-run prints plan; env-var confirmation verifies value; keychain target stores correctly |
+
+### Security-Specific Tests
+
+| Test | Purpose |
+|------|---------|
+| `TestCredentialsNotLogged` | Configure each provider with a recognisable token value; run the full `init` → `update` → `doctor` flow with a capturing logger at DEBUG. Assert the token string appears only in DEBUG log entries tagged `sensitive=true`, nowhere else. |
+| `TestSensitiveConfigMasking` | `pkg/cmd/config/sensitive.go` masks all new credential keys (`*.auth.keychain`, `*.api.env`, `bitbucket.username`, etc.). |
+| `TestConfigFilePermissionsEnforced` | After every setup path, config file is `0600` (verified via `Fs.Stat`). |
+| `TestKeychainErrorDoesNotLeakValue` | `Retrieve` errors do not include any portion of a credential. |
+| `TestCIRefusesLiteralMode` | With `CI=true`, setup wizard refuses literal-mode selection with exit 1. |
+| `TestMigrateCommandDryRun` | Dry-run does not mutate config; verify via file-mtime stability. |
+| `TestDoctorCredentialsCheck` | `doctor` finds all literal-credential patterns across AI, GitHub, GitLab, Bitbucket, Gitea config namespaces. |
 
 ### Integration Tests
 
 | Tag | Scope |
 |-----|-------|
-| `INT_TEST_CREDENTIALS` | Keychain round-trip on supported platforms (macOS, Linux with libsecret) |
-| `INT_TEST_SETUP` | Full `init` flow verifying config file output per storage mode |
+| `INT_TEST_CREDENTIALS` | Keychain round-trip on supported platforms (macOS, Linux with libsecret). Skipped when `DBUS_SESSION_BUS_ADDRESS` is unset. |
+| `INT_TEST_SETUP` | Full `init` flow verifying config file output per storage mode, including post-setup `doctor` check pass. |
+| `INT_TEST_E2E_CLI` | End-to-end BDD scenarios covering CI refusal, migration command, and keychain-enabled build. |
 
 ### E2E / BDD
 
@@ -493,45 +648,107 @@ No breaking changes to config structure. New keys (`auth.keychain`, `<provider>.
 
 ## Implementation Phases
 
-### Phase 1: Env-Var Default in Setup Wizard
+### Phase 1: Env-Var Default in Setup Wizard + Security Invariants
 
-**Scope:** Change the interactive setup to default to env-var references. No new dependencies.
+**Scope:** Change the interactive setup to default to env-var references and establish the security requirements. No new dependencies.
 
-1. Add `pkg/credentials/mode.go` with `Mode` type and constants (stub keychain as unavailable).
-2. Modify `pkg/setup/ai/ai.go` to present storage mode selector; default to `ModeEnvVar`.
-3. Modify `pkg/setup/github/github.go` to present storage mode selector; default to `ModeEnvVar`.
-4. Add `anthropic.api.env`, `openai.api.env`, `gemini.api.env` config key support to `pkg/chat/`.
-5. Update tests for all modified packages.
-6. Add trust model documentation to `docs/components/setup/`.
+1. Add `pkg/credentials/mode.go` with `Mode` type, constants, and sentinel errors (`ErrCredentialNotFound`, `ErrCredentialUnsupported`).
+2. Add stub `pkg/credentials/keychain_stub.go` returning `ErrCredentialUnsupported`.
+3. Modify `pkg/setup/ai/ai.go` to present storage mode selector; default to `ModeEnvVar`; CI refuses literal (R5).
+4. Modify `pkg/setup/github/github.go` to present storage mode selector; OAuth+env-var flow per Resolved Decision #4; token zeroed after display.
+5. Modify `pkg/vcs/bitbucket/credentials.go` for dual-credential pattern.
+6. Add `<provider>.api.env` config key support to `pkg/chat/` (new `ResolveAPIKey` helper).
+7. Extend `pkg/cmd/config/sensitive.go` to mask all new credential key patterns.
+8. Add `pkg/cmd/doctor/credentials.go` check `credentials.no-literal` (R6).
+9. Add `TestCredentialsNotLogged` end-to-end test (R1).
+10. Add trust model documentation to `docs/components/setup/`.
 
 ### Phase 2: Keychain Integration
 
-**Scope:** Add optional OS keychain backend behind build tag. New dependency: `go-keyring`.
+**Scope:** Add optional OS keychain backend behind build tag. New dependency: `github.com/zalando/go-keyring`.
 
-1. Add `pkg/credentials/keychain_enabled.go` and `keychain_stub.go`.
-2. Extend `pkg/vcs/auth.go` with `auth.keychain` resolution step.
-3. Extend AI provider credential resolution with keychain fallback.
-4. Update setup wizard to show keychain option when `KeychainAvailable()` is true.
-5. Add integration tests gated by `INT_TEST_CREDENTIALS`.
-6. Update goreleaser to produce a keychain-enabled variant (or document the build tag for downstream tool authors).
+1. Add `pkg/credentials/keychain_enabled.go` (build tag `keychain`).
+2. Extend `pkg/vcs/auth.go` with `auth.keychain` resolution step (Priority 2); empty/whitespace fall-through per spec.
+3. Extend `pkg/chat/credentials.go` with keychain fallback for each AI provider.
+4. Extend `pkg/vcs/bitbucket/credentials.go` with JSON-blob keychain storage.
+5. Update setup wizard to show keychain option when `KeychainAvailable()` **and** a probe (`keyring.Set` + `keyring.Delete` on a canary) succeeds.
+6. Add `INT_TEST_CREDENTIALS` integration tests.
+7. Update goreleaser to produce a keychain-enabled variant (`<tool>-keychain_<os>_<arch>.tar.gz`) alongside the default build. Document the build tag for downstream tool authors.
 
-### Phase 3: Documentation and Tooling
+### Phase 3: Migration Tooling and Documentation
 
-**Scope:** Polish and supporting tooling.
+**Scope:** Help existing users move off literal mode.
 
-1. Add `doctor` check that warns about literal credentials in config.
-2. Add BDD scenarios for the setup credential flow.
-3. Update generator templates for new tool scaffolding.
-4. Add migration guide for users converting from literal to env-var storage.
+1. Add `pkg/cmd/config/migrate.go` implementing `config migrate-credentials` with `--dry-run` and `--target env|keychain`.
+2. Add Gherkin scenarios covering: fresh setup (env-var default), CI refusal, OAuth+env-var flow, Bitbucket dual-credential, keychain round-trip, doctor check, migration command.
+3. Update generator templates so scaffolded tools include the `migrate-credentials` subcommand by default.
+4. Add migration guide entry at `docs/migration/<version>-credential-storage.md` with before/after config examples.
+5. Update `docs/about/security.md` with credential-handling trust model.
 
 ---
 
-## Open Questions
+## Resolved Decisions
 
-1. **Keychain service naming convention**: Should the keychain service name be `gtb/<toolname>/<key>` or `<toolname>/<key>`? The `gtb/` prefix makes it clear these are GTB-managed credentials, but downstream tool authors may prefer their own branding.
+1. **Keychain service naming is `<toolname>/<key-path>`** (no `gtb/` prefix). Rationale: downstream tools built on GTB are the primary users; a `gtb/` prefix would leak the framework name into the user's keychain UI. Individual tool authors can see their tool's credentials clearly labelled. Examples:
+   - `mytool/github.auth` → GitHub token for "mytool"
+   - `mytool/anthropic.api` → Anthropic API key for "mytool"
+   - `mytool/bitbucket.auth` → Bitbucket credentials (stored as a JSON blob `{"username":..., "app_password":...}` to preserve the dual-credential pattern)
 
-2. **Default env var names**: Should the wizard suggest provider-standard env var names (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`) or tool-specific prefixed names (`MYTOOL_ANTHROPIC_API_KEY`)? Provider-standard names are more portable but risk collisions in multi-tool setups.
+2. **Default env var names: provider-standard with `_` sanitisation; tool-specific prefix optional.** The wizard suggests the provider-standard name (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GITHUB_TOKEN`, `BITBUCKET_USERNAME`/`BITBUCKET_APP_PASSWORD`) because these are the conventions the wider ecosystem uses (`anthropic-py`, `openai-python`, `gh`, etc.). This maximises portability. The wizard allows the user to override with a tool-specific name if they anticipate multi-tool collisions on the same workstation.
 
-3. **Keychain build tag vs runtime detection**: The spec uses a build tag to gate keychain support. An alternative is to always compile in keychain support and detect availability at runtime. The build tag approach avoids CGO on Linux but means the default binary lacks keychain support. Which trade-off is preferred?
+3. **Keychain via build tag `keychain`** (not runtime detection). Rationale:
+   - The default build matrix (CGO-disabled, FIPS-enabled, cross-compiled) cannot include libsecret.
+   - Runtime detection requires the binary to link libsecret anyway, defeating the cross-compile goal.
+   - A build tag is a clear opt-in for tool authors: shipping a keychain-enabled binary is an explicit release decision with platform implications.
+   - GoReleaser can produce a second binary variant (`<tool>-keychain`) for users who want it, documented in the release notes.
+   - The default build errors clearly on keychain config (`"keychain support not compiled (build with -tags keychain)"`) rather than silently falling back.
 
-4. **GitHub OAuth flow and env-var mode**: The GitHub initialiser currently runs `gh auth login` and captures the token. If the user selects env-var mode, should the wizard (a) still run the OAuth flow and tell the user to set the resulting token as an env var, or (b) skip the OAuth flow entirely and just prompt for the env var name? Option (a) is more helpful for first-time setup; option (b) is simpler.
+4. **GitHub OAuth flow + env-var mode: run OAuth, show the token to the user once, prompt them to set it as an env var before proceeding.** Option (a) is more helpful for first-time setup — a user who selects env-var mode almost always wants the convenience of OAuth without the storage risk. The wizard displays the token in a secure input form (terminal raw mode, no echo) and instructs the user to copy it into their password manager or shell profile. The token is **not** written to disk in any form. If the user cancels at this step, the wizard offers: retry with literal mode, retry the OAuth flow, or skip configuration.
+
+5. **Literal mode is refused when `CI=true`** regardless of operator intent. A CI build that writes a literal credential to config almost certainly leaks it to build artefacts or logs. The wizard instead prints a clear error and exits non-zero, directing the user to CI-platform secret injection. The `CI` env-var detection already exists in `pkg/setup/` and is reused here.
+
+6. **Keychain backend library: `github.com/zalando/go-keyring`.** Pure Go on macOS and Windows; CGO-via-libsecret on Linux. Chosen over `99designs/keyring` for a tighter feature set matching our needs (simpler API, fewer backends meaning less attack surface, widely adopted in Go tooling).
+
+7. **Bitbucket dual credentials: stored as a JSON blob in keychain mode, or as two env vars in env-var mode.** Bitbucket requires `username` + `app_password`. The wizard handles this by either:
+   - **env-var mode**: prompting for two env var names (defaults `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`), writing `bitbucket.username.env` and `bitbucket.app_password.env`.
+   - **keychain mode**: storing a single JSON entry `{"username":"...","app_password":"..."}` in the keychain under `<toolname>/bitbucket.auth`. The retrieval code unmarshals before use.
+   - **literal mode**: unchanged, writing both values to config.
+
+## Security Requirements
+
+These requirements apply across the implementation and must be verified by tests:
+
+### R1: No credential emission above DEBUG level
+
+Credentials must never appear in log output at INFO, WARN, ERROR, or FATAL levels. This is enforced by:
+- The existing config-masking code (`pkg/cmd/config/sensitive.go`) is extended to cover all new credential config keys.
+- A lint check (or test assertion) verifies that every handler for config-containing errors goes through `errorhandling.SanitiseError()` before logging.
+- The setup wizard never prints a credential value it has collected (except the GitHub OAuth "display once" prompt, which writes to the terminal directly and not through the logger).
+
+### R2: Error messages redact credential values
+
+Errors from `tokenFromConfig`, `Retrieve`, and their callers must not include the credential value in their message. They may include the *name* of the env var or keychain entry (to help diagnose missing configuration) but never the secret itself.
+
+### R3: Keychain `Retrieve` errors distinguish "missing" from "unavailable"
+
+- **Missing entry** (keychain is functional but no entry exists) → return `ErrCredentialNotFound`; fall through to next resolution step.
+- **Unavailable** (D-Bus unreachable, keychain locked, stub build) → return wrapped error with `WithHint`; log at DEBUG; fall through to next resolution step.
+- **Corrupted entry** (JSON unmarshal failure for Bitbucket blob) → return wrapped error; do NOT fall through; abort with clear message so user can correct.
+
+### R4: Config file permissions remain `0600`
+
+Unchanged from audit fix M-3. Every path that writes credentials to config verifies the file mode afterward and fails if it cannot set `0600`.
+
+### R5: `CI=true` rejects literal mode
+
+Covered by Resolved Decision #5. The test suite includes a Gherkin scenario and unit tests.
+
+### R6: `doctor` check for literal credentials
+
+A new `doctor` check named `credentials.no-literal` warns when any of the following config keys contain non-empty values:
+- `<provider>.api.key` (AI providers)
+- `github.auth.value`
+- `bitbucket.app_password`
+- `gitlab.auth.value`, `gitea.auth.value`, etc.
+
+The warning includes the hint: "Run `<tool> config migrate-credentials` to convert to environment variable references."
