@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"runtime"
 	"time"
 
 	"github.com/cockroachdb/errors"
 
+	"github.com/phpboyscout/go-tool-base/pkg/browser"
 	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -82,15 +81,31 @@ func (h *HTTPDeletionRequestor) RequestDeletion(ctx context.Context, machineID s
 
 // EmailDeletionRequestor composes a deletion request email by opening
 // the user's default mail client via a mailto: URL.
+//
+// Callers constructing mailto: URLs from user-influenced data must
+// url.QueryEscape every parameter value. See the implementation of
+// RequestDeletion for the canonical pattern.
 type EmailDeletionRequestor struct {
 	address  string
 	toolName string
+
+	// openURL is the function used to invoke the OS URL opener.
+	// Defaults to browser.OpenURL. Tests (using the internal test
+	// package) override this field to capture the generated mailto:
+	// URL without launching a real mail client.
+	openURL func(ctx context.Context, rawURL string) error
 }
 
 // NewEmailDeletionRequestor creates a requestor that opens a pre-filled
 // mailto: link for the user to send a deletion request.
 func NewEmailDeletionRequestor(address, toolName string) DeletionRequestor {
-	return &EmailDeletionRequestor{address: address, toolName: toolName}
+	return &EmailDeletionRequestor{
+		address:  address,
+		toolName: toolName,
+		openURL: func(ctx context.Context, rawURL string) error {
+			return browser.OpenURL(ctx, rawURL)
+		},
+	}
 }
 
 func (e *EmailDeletionRequestor) RequestDeletion(ctx context.Context, machineID string) error {
@@ -101,23 +116,7 @@ func (e *EmailDeletionRequestor) RequestDeletion(ctx context.Context, machineID 
 		url.QueryEscape(subject),
 		url.QueryEscape(body))
 
-	return openURL(ctx, mailto)
-}
-
-// openURL opens a URL in the default browser/application.
-func openURL(ctx context.Context, rawURL string) error {
-	var cmd *exec.Cmd
-
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.CommandContext(ctx, "open", rawURL)
-	case "windows":
-		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", rawURL)
-	default:
-		cmd = exec.CommandContext(ctx, "xdg-open", rawURL)
-	}
-
-	return cmd.Start()
+	return e.openURL(ctx, mailto)
 }
 
 // --- Event deletion requestor ---

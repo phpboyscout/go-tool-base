@@ -66,3 +66,9 @@ Inject secrets directly as environment variables. This is the simplest method fo
 1. **Secrets are Runtime Dependencies**: They belong to the environment, not the application code.
 2. **Standard Config Paths**: GTB provides the abstraction (Viper) and conventional paths. The deployment platform provides the storage mechanism.
 3. **Secure Defaults**: GTB defaults to secure settings (e.g., gRPC reflection disabled) and requires explicit opt-in for development conveniences.
+
+## Opening External URLs
+
+All URL-opening (browser or mail-client invocation) routes through [`pkg/browser`](../components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention — new call sites must use `pkg/browser.OpenURL`.
+
+Callers that construct `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value to prevent header injection. See the `EmailDeletionRequestor` implementation in `pkg/telemetry/deletion.go` for the canonical pattern, and its test suite for the caller-contract assertion.

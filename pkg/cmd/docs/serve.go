@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/cli/browser"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-
+	"github.com/phpboyscout/go-tool-base/pkg/browser"
 	docslib "github.com/phpboyscout/go-tool-base/pkg/docs"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 const (
@@ -44,7 +43,7 @@ func NewCmdDocsServe(p *props.Props, efs fs.FS) *cobra.Command {
 						return
 					}
 
-					_ = browser.OpenURL(url)
+					_ = browser.OpenURL(cmd.Context(), url)
 				}()
 			}
 

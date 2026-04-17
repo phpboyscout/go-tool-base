@@ -199,6 +199,10 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
   - **New CLI commands or service lifecycle changes must include Gherkin scenarios.** Evaluate BDD fit using the suitability assessment in the strategy spec.
   - See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full strategy.
 
+### URL Opening
+
+All URL-opening in GTB — and in tools built on GTB — must route through `pkg/browser.OpenURL`. Do not call `github.com/cli/browser.OpenURL` or `exec.Command("open"|"xdg-open"|"rundll32")` directly. `pkg/browser` enforces a scheme allowlist (`https`, `http`, `mailto`), a URL-length bound, and control-character rejection before invoking the OS handler. Callers constructing `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value — see `pkg/telemetry.EmailDeletionRequestor` for the canonical pattern and `pkg/components/browser.md` for the threat model.
+
 ## Linting
 
 Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `github.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.
