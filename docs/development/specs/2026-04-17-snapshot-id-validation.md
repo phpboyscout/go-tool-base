@@ -2,7 +2,7 @@
 title: "Snapshot Identifier Validation"
 description: "Reject untrusted identifiers that would escape the snapshot store directory. Closes H-1 from the 2026-04-17 audit by validating Snapshot.ID in pkg/chat/filestore.go against a strict UUID character class and verifying the resolved filesystem path stays within the store directory."
 date: 2026-04-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security
@@ -25,7 +25,7 @@ Date
 :   17 April 2026
 
 Status
-:   APPROVED
+:   IN PROGRESS
 
 ---
 

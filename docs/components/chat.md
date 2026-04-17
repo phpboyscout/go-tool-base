@@ -502,6 +502,39 @@ Files are written with 0600 permissions. The directory is created with 0700 if i
 
 **Operations:** `Save`, `Load`, `List` (returns summaries without loading full messages), `Delete`.
 
+#### Snapshot storage security
+
+`FileStore` refuses to touch any path built from a snapshot identifier that is not a canonical `google/uuid` string. Two layers of defence are applied to every `Save`, `Load`, and `Delete` call:
+
+1. **Shape validation.** The ID must match `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` (lowercase hex, canonical 8-4-4-4-12 hyphenation). This forecloses path-traversal at the shape level — no `..`, no `/`, no `\`, no NUL bytes, no Unicode lookalikes.
+2. **Path containment.** After `filepath.Clean` + `filepath.Abs`, the resolved file path is verified to lie inside the store directory via `filepath.Rel`. This is defence-in-depth against future relaxation of the regex and platform-specific path quirks.
+
+A rejected identifier returns an error wrapping the exported sentinel `chat.ErrInvalidSnapshotID`:
+
+```go
+if err := store.Load(ctx, userSuppliedID); err != nil {
+    if errors.Is(err, chat.ErrInvalidSnapshotID) {
+        // user-supplied ID was not a canonical UUID
+        return fmt.Errorf("bad snapshot id: %w", err)
+    }
+    // otherwise it's an I/O error — unknown snapshot, permission denied, etc.
+    return err
+}
+```
+
+If your application accepts snapshot identifiers from an external source (CLI flag, HTTP handler, queue payload), validate them at the boundary via `chat.ValidateSnapshotID` rather than deferring the check to `Save`/`Load`/`Delete`:
+
+```go
+if err := chat.ValidateSnapshotID(id); err != nil {
+    // reject the request before any filesystem work happens
+    return err
+}
+```
+
+`List` is intentionally robust rather than strict: files in the store directory whose names do not match the canonical UUID shape are logged at DEBUG level (via the optional `chat.WithLogger` option) and skipped, so one corrupt or manually-placed file cannot break snapshot enumeration for the user.
+
+Snapshots constructed via `chat.NewSnapshot` always receive a fresh `uuid.New()` ID, so the validator is transparent for GTB-produced snapshots.
+
 ---
 
 ## Thread Safety
