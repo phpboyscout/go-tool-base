@@ -75,15 +75,94 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 }
 
 func (o *SkeletonOptions) ValidateOrPrompt(p *props.Props) error {
-	if o.Name != "" && o.Repo != "" {
-		return nil
+	if o.Name == "" || o.Repo == "" {
+		if !utils.IsInteractive() {
+			return ErrNonInteractive
+		}
+
+		if err := o.runWizard(); err != nil {
+			return err
+		}
 	}
 
-	if !utils.IsInteractive() {
-		return ErrNonInteractive
+	return o.validateFields()
+}
+
+// validateFields applies the structural validation rules from
+// internal/generator/validate.go to every user-influenced field.
+// Runs after both wizard and flag-driven flows so neither path
+// can smuggle adversarial input into template rendering.
+// See docs/development/specs/2026-04-02-generator-template-escaping.md
+// for the full threat model.
+func (o *SkeletonOptions) validateFields() error {
+	if err := o.validateCoreFields(); err != nil {
+		return err
 	}
 
-	return o.runWizard()
+	return o.validateHelpFields()
+}
+
+// validateCoreFields groups the core identity checks (name, repo,
+// host, description, env prefix, and derived org) so validateFields
+// stays under the cyclomatic-complexity budget.
+func (o *SkeletonOptions) validateCoreFields() error {
+	if err := generator.ValidateName(o.Name); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateDescription(o.Description); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateRepo(o.Repo); err != nil {
+		return err
+	}
+
+	if o.Host != "" {
+		if err := generator.ValidateHost(o.Host); err != nil {
+			return err
+		}
+	}
+
+	// Derive org from repo for validation so a bad org fails early
+	// rather than at CODEOWNERS render time.
+	if org, _, err := splitRepoOrgForValidate(o.Repo); err == nil {
+		if verr := generator.ValidateOrg(org, o.GitBackend); verr != nil {
+			return verr
+		}
+	}
+
+	return generator.ValidateEnvPrefix(o.EnvPrefix)
+}
+
+// validateHelpFields groups the Slack/Teams help-channel checks.
+func (o *SkeletonOptions) validateHelpFields() error {
+	if err := generator.ValidateSlackChannel(o.SlackChannel); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateSlackTeam(o.SlackTeam); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateTeamsChannel(o.TeamsChannel); err != nil {
+		return err
+	}
+
+	return generator.ValidateTeamsTeam(o.TeamsTeam)
+}
+
+// splitRepoOrgForValidate returns the org portion of a repo path
+// without requiring the stricter path-containment rules the
+// generator applies downstream. Used purely to produce an org
+// value for [generator.ValidateOrg].
+func splitRepoOrgForValidate(repo string) (org, rest string, err error) {
+	i := strings.LastIndex(repo, "/")
+	if i <= 0 || i == len(repo)-1 {
+		return "", "", errors.Newf("repo %q has no org/name split", repo)
+	}
+
+	return repo[:i], repo[i+1:], nil
 }
 
 func (o *SkeletonOptions) defaultHost() string {
