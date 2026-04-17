@@ -18,10 +18,21 @@ jobs:
     steps:
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # L-6 from docs/development/reports/security-audit-2026-04-17.md —
+          # docs build is read-only; deploy-pages uses its own id-token
+          # mechanism, not git push, so GITHUB_TOKEN need not persist.
+          persist-credentials: false
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: 3.x
-      - run: pip install zensical==0.0.33
+          # Pinned for hash-pinning stability — see requirements-lock.txt.
+          python-version: "3.14"
+      # L-7 from docs/development/reports/security-audit-2026-04-17.md —
+      # transitive deps pinned by hash via requirements-lock.txt. The
+      # runner is a single-use container so plain pip install is
+      # sufficient; local dev setups should prefer pipx (see
+      # requirements-lock.txt header for the pipx incantation).
+      - run: pip install --require-hashes -r requirements-lock.txt
       - run: zensical build --clean
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

@@ -67,9 +67,19 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: 3.x
+          # Pinned for hash-pinning stability: PyYAML (transitive of
+          # zensical) ships per-python-version binary wheels with
+          # distinct hashes. If this changes, regenerate
+          # requirements-lock.txt using the recipe documented inside it.
+          python-version: "3.14"
       - name: Install documentation tools
-        run: pip install zensical==0.0.33
+        # L-7 from docs/development/reports/security-audit-2026-04-17.md —
+        # transitive deps pinned by hash via requirements-lock.txt so a
+        # compromised indirect dependency cannot enter the release build
+        # silently. The runner is a single-use container so plain pip
+        # install is sufficient; local dev setups should prefer pipx
+        # (see requirements-lock.txt header for the pipx incantation).
+        run: pip install --require-hashes -r requirements-lock.txt
       - if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: echo "flags=--snapshot" >> $GITHUB_ENV
 
