@@ -372,3 +372,59 @@ c := config.NewReaderContainer(
 2. **Prefix validation at the caller (Option C):** The config package is permissive — it accepts any string prefix. Validation (`[A-Z0-9_]+`) is enforced by the generator wizard at input time. This keeps the config package simple and avoids coupling it to format rules.
 
 3. **Opt-out feature, enabled by default:** The env prefix feature is enabled by default on `generate` and `regenerate`. The prefix is auto-derived from the tool name (upper-cased, hyphens to underscores). Users can override the value or explicitly disable the feature. When enabled, a non-empty prefix is required.
+
+---
+
+## Non-Functional Requirements
+
+This spec has `status: IMPLEMENTED`. The requirements below document what was delivered and serve as the template for similar specs. Any gap between this section and the shipped code should be treated as a defect and fixed.
+
+### Testing & Quality Gates
+
+| Requirement | Target | Delivered |
+|-------------|--------|-----------|
+| Line coverage | ≥ 90 % for `pkg/config/options.go` and the modified constructors | Verified in `just test` coverage report |
+| Branch coverage | ≥ 90 % for the prefix resolution path and option application | Verified |
+| Race detector | `go test -race ./pkg/config/... ./pkg/cmd/root/...` passes | Verified in CI |
+| Golangci-lint | No findings, no `//nolint` directives | Verified |
+| Unit tests | Every option applied; prefix + no-prefix; prefix with dot-key; backward compat for unprefixed env resolution when no prefix is set | Present in `pkg/config/options_test.go` and `config_test.go` |
+| BDD / E2E | Gherkin scenarios covering `GTB_`-prefixed var override works; unprefixed var is ignored when prefix is set | Present in `features/cli/env_prefix.feature` |
+| Generator tests | Verify scaffolded tool includes `EnvPrefix` in `Tool` struct; auto-derivation from tool name; wizard input validation | Present in `internal/generator/` tests |
+| Migration verification | `apidiff` run confirms the breaking change is scoped to the v1.10 → v1.11 transition, with v1.11.0 starting the API stability clock | Executed as part of the release |
+
+### Documentation Deliverables
+
+| Artefact | Scope | Delivered |
+|----------|-------|-----------|
+| `docs/components/config.md` | Env prefix behaviour, `WithEnvPrefix` option, interaction with key replacer | Updated |
+| `docs/migration/v1.11.0.md` | Constructor-signature migration guide with before/after examples | Updated |
+| Package doc comments | `WithEnvPrefix` doc; `Tool.EnvPrefix` doc; `loadAndMergeConfig` comment on prefix propagation | Present |
+| BDD feature file | `features/cli/env_prefix.feature` as living documentation | Present |
+| CLAUDE.md | Configuration section mentions env prefix and security rationale | Updated |
+| Generator wizard help text | In-wizard explanation of what the prefix does, with a "why this matters" line that surfaces the security rationale | Present |
+
+### Observability
+
+| Event | Level | Fields |
+|-------|-------|--------|
+| Prefix applied at container init | DEBUG | `env_prefix` |
+| Env-var override resolved | DEBUG | `config_key`, `env_var_name`; **never the value** (applies to any key, not just credentials — defence in depth) |
+| Generator wizard — prefix validation failure | Re-prompt (not logged) | Offending input; field rule |
+
+### Performance Bounds
+
+| Metric | Bound | Notes |
+|--------|-------|-------|
+| Option application | O(#options) per container | Each option is a closure applied once |
+| Env resolution | Unchanged from Viper baseline | Prefix is a string concat before the existing key lookup |
+| Memory | O(1) beyond the prefix string | No caches or extra allocations |
+| Startup latency | ≤ 1 ms added for prefix handling | Verified by `just bench` where applicable |
+
+### Security Invariants
+
+1. Unprefixed env vars **never** override config when a prefix is set. This is the core pollution-prevention guarantee and is covered by unit and BDD tests.
+2. An empty prefix is equivalent to no prefix — preserves backward compatibility for tools that have not adopted the feature.
+3. The generator wizard enforces `^[A-Z][A-Z0-9_]{0,31}$` at input time; the config package does not re-validate but accepts any string to remain decoupled from format rules.
+4. Generated tools default to env-prefix-enabled with a tool-derived prefix; opting out requires an explicit action during `generate`.
+
+---
