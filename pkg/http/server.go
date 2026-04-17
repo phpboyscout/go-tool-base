@@ -20,6 +20,10 @@ const (
 	writeTimeout          = 10 * time.Second
 	idleTimeout           = 120 * time.Second
 	defaultMaxHeaderBytes = 1 << 20 // 1MB default
+	// DefaultMaxRequestBodyBytes caps the size of each request body
+	// accepted by the management HTTP server. Closes M-1 from
+	// docs/development/reports/security-audit-2026-04-17.md.
+	DefaultMaxRequestBodyBytes int64 = 1 << 20 // 1 MiB
 )
 
 // HealthHandler returns an http.HandlerFunc that responds with the controller's health report.
@@ -159,7 +163,8 @@ func Status(srv *http.Server) controls.StatusFunc {
 type RegisterOption func(*registerConfig)
 
 type registerConfig struct {
-	chain *Chain
+	chain               *Chain
+	maxRequestBodyBytes int64
 }
 
 // WithMiddleware sets the middleware chain applied to the handler before
@@ -171,9 +176,39 @@ func WithMiddleware(chain Chain) RegisterOption {
 	}
 }
 
+// WithMaxRequestBodyBytes overrides the DefaultMaxRequestBodyBytes cap
+// applied to every request body. Set to a negative value to disable the
+// cap entirely (not recommended).
+func WithMaxRequestBodyBytes(n int64) RegisterOption {
+	return func(c *registerConfig) {
+		c.maxRequestBodyBytes = n
+	}
+}
+
+// MaxBytesMiddleware wraps a handler so every request body is bounded by
+// http.MaxBytesReader. A request that exceeds the limit is terminated
+// with HTTP 413 (via the default ResponseWriter behaviour) when the
+// handler attempts to read past the boundary.
+//
+// Callers that need per-route limits should wrap the handler directly
+// rather than registering at server level.
+func MaxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if maxBytes > 0 && r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // Register creates a new HTTP server and registers it with the controller under the given id.
 func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...RegisterOption) (*http.Server, error) {
-	var rc registerConfig
+	rc := registerConfig{
+		maxRequestBodyBytes: DefaultMaxRequestBodyBytes,
+	}
 	for _, o := range opts {
 		o(&rc)
 	}
@@ -183,11 +218,13 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 		handler = rc.chain.Then(handler)
 	}
 
+	bodyLimit := MaxBytesMiddleware(rc.maxRequestBodyBytes)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", HealthHandler(controller))
-	mux.HandleFunc("/livez", LivenessHandler(controller))
-	mux.HandleFunc("/readyz", ReadinessHandler(controller))
-	mux.Handle("/", handler)
+	mux.Handle("/healthz", bodyLimit(HealthHandler(controller)))
+	mux.Handle("/livez", bodyLimit(LivenessHandler(controller)))
+	mux.Handle("/readyz", bodyLimit(ReadinessHandler(controller)))
+	mux.Handle("/", bodyLimit(handler))
 
 	srv, err := NewServer(ctx, cfg, mux)
 	if err != nil {
