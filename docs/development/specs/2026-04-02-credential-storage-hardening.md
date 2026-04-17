@@ -2,7 +2,7 @@
 title: "Credential Storage Hardening"
 description: "Harden interactive setup to default to environment variable references for credential storage, with optional OS keychain integration as a pluggable local-development backend."
 date: 2026-04-02
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - security
@@ -22,7 +22,7 @@ Date
 :   02 April 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 

@@ -2,7 +2,7 @@
 title: "Generator Template Escaping for Non-Code Locations"
 description: "Escape user-provided template data in non-code output locations to prevent template injection, while preserving unescaped output in generated Go code."
 date: 2026-04-02
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - generator
@@ -21,7 +21,7 @@ Date
 :   02 April 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 

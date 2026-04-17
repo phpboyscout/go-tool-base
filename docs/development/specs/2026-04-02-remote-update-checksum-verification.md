@@ -2,7 +2,7 @@
 title: "Remote Update Integrity: Checksums + GPG Signatures"
 description: "Verify remote self-update downloads against a signed checksums manifest. Phase 1 adds SHA-256 verification of checksums.txt (same-origin). Phase 2 adds GPG signature verification of the manifest, providing cryptographic provenance that survives a VCS platform compromise. Complements existing Apple notarization (macOS-only Gatekeeper approval) with cross-platform cryptographic integrity."
 date: 2026-04-02
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - setup
@@ -25,7 +25,7 @@ Date
 :   02 April 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 
