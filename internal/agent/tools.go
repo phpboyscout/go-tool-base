@@ -29,6 +29,43 @@ var (
 
 const maxSymlinkDepth = 255
 
+// outputHeadLines and outputTailLines cap the number of subprocess-output
+// lines folded into wrapped errors. Addresses L-1 from
+// docs/development/reports/security-audit-2026-04-17.md — prevents a
+// tool that emits a large stderr from flooding the AI context and
+// reduces (but does not yet eliminate) the chance of a secret embedded
+// deep in output reaching the AI. When the pkg/redact package lands
+// per 2026-04-17-telemetry-redaction.md, truncateOutput should route
+// the result through redact.String as a follow-up.
+const (
+	outputHeadLines = 50
+	outputTailLines = 50
+)
+
+// truncateOutput returns a bounded head+tail representation of b suitable
+// for embedding in error messages. When the line count is within the
+// head+tail budget, the input is returned unchanged.
+func truncateOutput(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	if len(lines) <= outputHeadLines+outputTailLines {
+		return strings.Join(lines, "\n")
+	}
+
+	omitted := len(lines) - outputHeadLines - outputTailLines
+
+	var sb strings.Builder
+
+	sb.WriteString(strings.Join(lines[:outputHeadLines], "\n"))
+	fmt.Fprintf(&sb, "\n… [omitted %d line(s)] …\n", omitted)
+	sb.WriteString(strings.Join(lines[len(lines)-outputTailLines:], "\n"))
+
+	return sb.String()
+}
+
 // symlinksResolver holds state for component-by-component symlink resolution.
 type symlinksResolver struct {
 	lstater     afero.Lstater
@@ -198,7 +235,7 @@ func createSingleDirTool(name, description, successMsg string, command []string,
 
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				return nil, errors.Wrapf(failureErr, "\n%s", string(output))
+				return nil, errors.Wrapf(failureErr, "\n%s", truncateOutput(output))
 			}
 
 			return successMsg, nil
@@ -372,7 +409,7 @@ func GoGetTool(afs afero.Fs, basePath string) chat.Tool {
 
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				return nil, errors.Wrapf(ErrGoGetFailed, "%s\nOutput: %s", err, string(output))
+				return nil, errors.Wrapf(ErrGoGetFailed, "%s\nOutput: %s", err, truncateOutput(output))
 			}
 
 			return fmt.Sprintf("Successfully got %s", params.Package), nil
