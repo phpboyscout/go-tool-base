@@ -1,0 +1,25 @@
+# gitleaks configuration
+#
+# Extends the default ruleset shipped with gitleaks and adds a
+# file-scoped allowlist for intentional test fixtures. The redactor in
+# pkg/redact has a test corpus that *must* contain credential-shaped
+# strings (URLs with userinfo, OpenAI-style sk- prefixes, Authorization
+# header samples) because those are the inputs its golden tests verify
+# get stripped. Scanning these files as leaked secrets is a false
+# positive that blocks every PR touching the package.
+#
+# Uses the top-level [allowlist] (singular) form for compatibility
+# with the gitleaks-action v2.3.9 bundled binary.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "pkg/redact test fixtures and component docs intentionally contain credential-shaped inputs for the redactor to strip; they are not real leaked secrets."
+paths = [
+    '''pkg/redact/redact_test\.go''',
+    '''pkg/redact/redact_fuzz_test\.go''',
+    '''pkg/telemetry/telemetry_test\.go''',
+    '''docs/components/redact\.md''',
+    '''docs/components/telemetry\.md''',
+]

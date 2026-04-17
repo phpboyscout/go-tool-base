@@ -147,6 +147,20 @@ Spec: [2026-04-17-chat-baseurl-validation.md](specs/2026-04-17-chat-baseurl-vali
 
 ---
 
+#### M-5 & M-6: Telemetry and OTel Headers Could Leak Credentials
+
+**Severity:** Medium | **Status:** Remediated
+
+`TrackCommandExtended` shipped `errMsg` and `args` verbatim to the configured telemetry backend when `ExtendedCollection` was enabled. A typical error message such as `failed GET https://api.example.co/?apikey=sk-abc123: 401` embedded an API key in the outgoing event. Separately, `WithOTelHeaders` accepted arbitrary headers — tool authors routinely place bearer tokens in `Authorization` or `X-API-Key` — and the surrounding HTTP middleware could log those values at DEBUG.
+
+**Mitigation.** Introduced [`pkg/redact`](../components/redact.md) with `String`, `Error`, `SensitiveHeaderKeys`, and `IsSensitiveHeaderKey`. `TrackCommandExtended` now applies `redact.String` unconditionally to both `errMsg` and every entry of `args` before the event is appended to the buffer. `WithOTelHeaders` records an advisory `WARN` per caller-supplied header key that matches the sensitive pattern, emitted at backend construction time via the configured logger. The HTTP middleware header-redaction map in `pkg/http/logging.go` is now sourced from `redact.SensitiveHeaderKeys` so all three surfaces share one catalogue.
+
+**Tool author responsibility.** Any tool-owned log line, custom telemetry event, or third-party observability payload containing free-form strings should be routed through `redact.String` / `redact.Error`. The package is the single entry point for untrusted-string redaction across GTB.
+
+Spec: [2026-04-17-telemetry-redaction.md](specs/2026-04-17-telemetry-redaction.md).
+
+---
+
 ## Adding New Entries
 
 When a new security audit or review produces findings, add them to this document under a dated audit heading. Each entry should include:

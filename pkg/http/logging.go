@@ -12,6 +12,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 const (
@@ -207,19 +208,11 @@ const (
 	redactedMark = "[REDACTED]"
 )
 
-// sensitiveHeaders is a case-insensitive set of header names whose values
-// are always redacted before logging, regardless of WithHeaderFields.
-// Defence-in-depth against accidental credential leakage.
-var sensitiveHeaders = map[string]struct{}{
-	"authorization":       {},
-	"proxy-authorization": {},
-	"cookie":              {},
-	"set-cookie":          {},
-	"x-api-key":           {},
-	"x-auth-token":        {},
-	"x-csrf-token":        {},
-	"x-session-token":     {},
-}
+// The list of always-redacted header names lives in [pkg/redact] so
+// that HTTP middleware and telemetry share one catalogue. A change in
+// either place — or a new caller that logs headers — gets the same
+// treatment automatically. See
+// docs/development/specs/2026-04-17-telemetry-redaction.md (M-5/M-6).
 
 func emitCommon(l logger.Logger, level logger.Level, d requestData) {
 	line := fmt.Sprintf(`%s - - [%s] "%s %s %s" %d %d`,
@@ -318,7 +311,7 @@ func extractHeaders(r *http.Request, fields []string) map[string]string {
 
 		// Always redact values for known-sensitive header names, even if
 		// the caller explicitly requested them via WithHeaderFields.
-		if _, sensitive := sensitiveHeaders[key]; sensitive {
+		if redact.IsSensitiveHeaderKey(key) {
 			v = redactedMark
 		} else if len(v) > headerMaxLen {
 			v = v[:headerMaxLen]

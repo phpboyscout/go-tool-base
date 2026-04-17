@@ -11,6 +11,7 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 // EventType identifies the category of telemetry event.
@@ -205,10 +206,18 @@ func (c *Collector) TrackCommandExtended(name string, args []string, durationMs 
 		Metadata:   merged,
 	}
 
-	// Only include args and error when extended collection is explicitly enabled
+	// Only include args and error when extended collection is explicitly enabled.
+	// Both fields are redacted unconditionally before shipping: callers forget,
+	// and the ingest boundary is the last chance to strip credentials. Closes
+	// M-5 from docs/development/reports/security-audit-2026-04-17.md.
 	if c.extendedCollection {
-		event.Args = args
-		event.Error = errMsg
+		redactedArgs := make([]string, len(args))
+		for i, a := range args {
+			redactedArgs[i] = redact.String(a)
+		}
+
+		event.Args = redactedArgs
+		event.Error = redact.String(errMsg)
 	}
 
 	c.buffer = append(c.buffer, event)

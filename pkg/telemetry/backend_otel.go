@@ -15,6 +15,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 // OTelOption configures the OTLP backend.
@@ -26,11 +27,35 @@ type otelConfig struct {
 	log         logger.Logger
 	serviceName string
 	serviceVer  string
+	// pendingWarnings captures diagnostics raised during option
+	// application. They are emitted by NewOTelBackend once the logger
+	// is known — WithOTelLogger may run after WithOTelHeaders, so we
+	// cannot log directly from within the option closure.
+	pendingWarnings []string
 }
 
 // WithOTelHeaders sets HTTP headers sent with every OTLP request (e.g. auth tokens).
+//
+// Advisory: header keys matching the sensitive pattern (anything
+// suggesting a credential — Authorization, X-API-Key, custom names
+// containing "auth"/"token"/"secret"/etc.) produce a WARN at backend
+// initialisation so operators can audit which headers carry secrets
+// and verify their exporter uses TLS. See M-6 in
+// docs/development/reports/security-audit-2026-04-17.md.
 func WithOTelHeaders(headers map[string]string) OTelOption {
-	return func(c *otelConfig) { c.headers = headers }
+	return func(c *otelConfig) {
+		c.headers = headers
+
+		for k := range headers {
+			if redact.IsSensitiveHeaderKey(k) {
+				c.pendingWarnings = append(c.pendingWarnings,
+					"OTel header "+k+" appears to carry credentials; "+
+						"ensure the exporter uses TLS and that any HTTP "+
+						"middleware logging headers redacts this name. "+
+						"See docs/components/telemetry.md.")
+			}
+		}
+	}
 }
 
 // WithOTelInsecure disables TLS — use only for local collectors.
@@ -72,6 +97,10 @@ func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (B
 		otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
 			cfg.log.Debug("OTel SDK error", "error", err)
 		}))
+
+		for _, w := range cfg.pendingWarnings {
+			cfg.log.Warn(w)
+		}
 	}
 
 	exporterOpts, err := buildOTelExporterOpts(endpoint, cfg)

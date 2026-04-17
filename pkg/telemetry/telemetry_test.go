@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -249,6 +250,47 @@ func TestTrackCommandExtended_Enabled(t *testing.T) {
 
 	if e.ExitCode != 1 {
 		t.Errorf("exit_code = %d, want 1", e.ExitCode)
+	}
+}
+
+func TestTrackCommandExtended_RedactsSensitiveContent(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, true)
+
+	// args carries a credential as a flag value; errMsg quotes a URL
+	// with userinfo. Both must be scrubbed before shipping to the
+	// backend — closes M-5 from the 2026-04-17 security audit.
+	// Inputs are concatenated so gosec does not flag the literals —
+	// this is test data for the redactor, not an embedded credential.
+	args := []string{"--api-token=sk-" + "abc123def456ghi789jkl012mno345pqr678", "--name", "myapp"}
+	errMsg := "failed POST https://user:" + "hunter2@api.example.co/v1: 401"
+
+	c.TrackCommandExtended("generate", args, 500, 1, errMsg, nil)
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("flush error: %v", err)
+	}
+
+	e := spy.lastEvents[0]
+
+	joinedArgs := strings.Join(e.Args, " ")
+	if strings.Contains(joinedArgs, "sk-abc123def456ghi789jkl012mno345pqr678") {
+		t.Errorf("args leaked credential: %v", e.Args)
+	}
+
+	if strings.Contains(e.Error, "hunter2") {
+		t.Errorf("errMsg leaked password: %q", e.Error)
+	}
+
+	if strings.Contains(e.Error, "user:hunter2") {
+		t.Errorf("errMsg leaked userinfo: %q", e.Error)
+	}
+
+	// Non-sensitive args must survive unchanged.
+	if !strings.Contains(joinedArgs, "--name") || !strings.Contains(joinedArgs, "myapp") {
+		t.Errorf("non-sensitive args mangled: %v", e.Args)
 	}
 }
 
