@@ -386,6 +386,71 @@ The generator's hash-based conflict detection (see `internal/generator/manifest.
 - **No API changes**: Entirely internal to `internal/generator/`.
 - **No manifest changes**: File hashes will differ only if templates produce different output for the same input, which only happens for inputs containing special characters.
 - **Regeneration safe**: Existing projects with clean inputs will see no hash mismatches after this change.
+- **Validation may reject previously-accepted inputs**: Users whose tool `Name`, `Org`, `Host`, etc. contain now-disallowed characters will see a validation error on regeneration. The error message surfaces the exact rule and the offending input; the migration guide documents the rules and offers workarounds (e.g. punycode for Unicode hosts).
+
+---
+
+## Non-Functional Requirements
+
+### Testing & Quality Gates
+
+| Requirement | Target |
+|-------------|--------|
+| Line coverage | ≥ 90 % for `internal/generator/validate.go` and `template_escape.go` |
+| Branch coverage | ≥ 85 % across the two new files; 100 % for the escape functions themselves |
+| Race detector | All new tests must pass under `go test -race` |
+| Fuzz testing | **Required**. One fuzz test per escape function and per validator; each must run ≥ 60 s in CI and maintain a committed corpus |
+| Property tests | Each escape function satisfies: (a) identity on the safe character class, (b) output parses as the target format, (c) idempotent — `f(f(x)) == f(x)` |
+| Golangci-lint | No new findings; no `//nolint` directives |
+| Regression fixtures | Every existing generator golden test must pass byte-identical; a new golden set covers adversarial inputs |
+| Generator end-to-end | `just build && go run ./cmd/gtb generate <tool> -p tmp` on a CI-generated tool compiles with `go build`, lints with `golangci-lint`, and produces valid YAML/TOML parseable by downstream tools |
+| BDD scenarios | **Required**. At least one Gherkin scenario under `features/generator/validation.feature` covering: (a) tool generation rejects invalid `Name`, (b) valid inputs produce valid output, (c) regeneration preserves validation |
+
+### Documentation Deliverables
+
+The following artefacts must be produced or updated before the implementing PR is merged:
+
+| Artefact | Scope |
+|----------|-------|
+| `docs/how-to/generate-tool.md` | Update. Add a "Field rules and validation" subsection with every validation rule, the rationale, and examples of accepted/rejected values. |
+| `docs/components/generator.md` | Update. Document the `templateFuncMap`, each escape function's contract (inputs, outputs, invariants), and when to use which. |
+| `docs/development/template-security.md` | New. Threat model, rationale for defence-in-depth, guidance for contributors adding new user-input fields to templates. |
+| `docs/migration/<version>-generator-validation.md` | New. Describe validation rules, breaking-case examples, and remediation for users whose existing inputs are no longer accepted. |
+| Template data struct docstrings | Update `internal/generator/skeleton.go`: every field used in templates must have a comment noting its validation rule and which escape functions are required at which template sites. |
+| BDD feature files | New (`features/generator/validation.feature`). Living documentation for the validation rules. |
+| CLAUDE.md | Update. Add a one-line reference under "Architecture / Code Generation" pointing at the validation rules and the template-security doc. |
+
+### Observability
+
+| Event | Level | Fields |
+|-------|-------|--------|
+| Validation failure (interactive wizard) | Prompt re-shown to user; never logged | Field name, rule that failed; never the offending value at any level above DEBUG |
+| Validation failure (non-interactive, e.g. manifest load) | ERROR (fatal) | Field name, rule, position in input; value truncated to first 32 chars and quoted to make the failure actionable without leaking arbitrary content |
+| Template render error (post-validation) | ERROR | Template path, field being rendered; never the value |
+| Escape function invoked on non-UTF-8 input | Not logged | The function returns `\uFFFD` silently; no noise in the log stream |
+
+### Performance Bounds
+
+| Metric | Bound | Notes |
+|--------|-------|-------|
+| Validation | O(n) per field, linear in input length | No regex backtracking; all patterns are anchored and use bounded quantifiers |
+| Escape functions | O(n) per input | No regex inside escape functions; pure byte/rune scan |
+| Fuzz iterations | ≥ 100 000 executions / function in CI over the committed corpus | — |
+| Wall-clock: full skeleton generation | ≤ 500 ms added total for validation + escaping vs pre-change baseline | — |
+| Memory | O(n) per escape (return value); no buffered input beyond the rendered output | — |
+
+### Security Invariants
+
+Summarised from the [Threat Model](#threat-model) and [Resolved Decisions](#resolved-decisions):
+
+1. Every user-provided field has an explicit validation rule. Accepting any new user field requires updating `internal/generator/validate.go` in the same PR.
+2. Escape functions are identity on the safe character class and idempotent on any input.
+3. NFC normalisation happens **before** validation so homoglyphs fail fast.
+4. Code-context template sites never receive escaped input; non-code sites always do (defence-in-depth even when validation covers the character class).
+5. Jennifer-generated Go (`skeleton_root.go`) handles its own literal escaping via `jen.Lit()`. Any new user field routed through jennifer must be validated even if no escape function applies.
+6. Validation errors never echo the offending value at log levels above DEBUG.
+
+---
 
 ## Future Considerations
 

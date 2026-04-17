@@ -309,6 +309,69 @@ This is a **non-breaking change**. No public API is modified; a new package is a
 
 ---
 
+## Non-Functional Requirements
+
+### Testing & Quality Gates
+
+| Requirement | Target |
+|-------------|--------|
+| Line coverage | ≥ 95 % for `pkg/browser/` (small package; high coverage is feasible) |
+| Branch coverage | ≥ 90 % for validation paths |
+| Race detector | `go test -race ./pkg/browser/...` must pass |
+| Fuzz testing | `FuzzOpenURL` runs in CI for ≥ 60 s; corpus committed under `pkg/browser/testdata/fuzz/` |
+| Golangci-lint | No new findings; no `//nolint` directives |
+| BDD scenarios | Not required — this is an internal hardening change with no user-facing workflow |
+| Mock injection | An `openerFunc` function variable (or equivalent DI) must be swappable from tests to avoid opening real browsers in CI |
+| Regression test | The existing `pkg/telemetry/deletion_test.go` must continue to pass unchanged |
+
+Testing details are in the [Testing Strategy](#testing-strategy) section above.
+
+### Documentation Deliverables
+
+The following artefacts must be produced or updated before the implementing PR is merged:
+
+| Artefact | Scope |
+|----------|-------|
+| `docs/components/browser.md` | New. Package reference: purpose, `OpenURL` contract, allowlist rationale, `mailto:` caller contract, list of validation failure modes. |
+| `docs/about/security.md` | Update. Add "Opening external URLs" subsection describing the allowlist, `MaxURLLength`, and control-character rejection. |
+| Package doc comment (`pkg/browser/browser.go`) | New. A top-of-file comment that explains threat model in ~10 lines — so anyone grepping the package understands the guardrails without reading the spec. |
+| Migration guide | **Not required.** No downstream consumers break. |
+| CLAUDE.md | Update. Add a one-line reference under "Linting / Security" noting that URL-opening must go through `pkg/browser`, not `exec.Command` directly. |
+| BDD / Gherkin | **Not required.** |
+
+### Observability
+
+| Event | Level | Fields (never the URL body) |
+|-------|-------|----------------------------|
+| URL accepted and opener invoked | DEBUG | `scheme`, `host` (only), `length` |
+| Hygiene failure (length, control chars, parse) | DEBUG | `reason`, `length` |
+| Scheme rejected | WARN | `scheme` (lowercased), `allowed_schemes` |
+| Opener command failed | ERROR | Wrapped `cli/browser` error at DEBUG; user-facing message omits full URL |
+
+**Redaction invariant**: the full URL is never logged above DEBUG. URLs can contain tokens, session identifiers, or personal data; the scheme and host are sufficient for incident diagnosis.
+
+### Performance Bounds
+
+| Metric | Bound | Notes |
+|--------|-------|-------|
+| Wall-clock validation | ≤ 1 ms per call for inputs ≤ `MaxURLLength` | Linear scan for control characters; `url.Parse` is the dominant cost |
+| Memory | O(1) beyond the input URL | No buffer allocations in the hot path |
+| Input size limit | `MaxURLLength = 8 KiB` | Protects all platforms with a single constant |
+| Goroutine use | None | Synchronous call only |
+
+### Security Invariants
+
+Summarised from the [Threat Model](#threat-model) and [Resolved Decisions](#resolved-decisions):
+
+1. Scheme allowlist is fixed at `{http, https, mailto}`.
+2. Length cap of 8 KiB is enforced before any parse.
+3. Control characters and NUL bytes are rejected.
+4. `mailto:` header injection is the caller's responsibility, documented in the package doc and enforced by the `EmailDeletionRequestor` test.
+5. URLs must never be logged above DEBUG level.
+6. The allowlist is **not** user- or runtime-configurable; expanding it requires a code change, spec update, and security sign-off.
+
+---
+
 ## Resolved Decisions
 
 1. **`AllowedSchemes` is NOT configurable.** Every known legitimate use case is covered by `{http, https, mailto}`. Configurability invites misuse — a future library consumer could disable the check or expand the list without security review. If a new scheme is needed, it must be added to the allowlist in a change that goes through code review and updates this spec.

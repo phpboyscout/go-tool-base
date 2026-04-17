@@ -592,6 +592,79 @@ The optional `ChecksumProvider` interface in `pkg/vcs/release` is additive and d
 
 ---
 
+## Non-Functional Requirements
+
+### Testing & Quality Gates
+
+| Requirement | Target |
+|-------------|--------|
+| Line coverage | ≥ 90 % for `pkg/setup/checksum.go` (new and modified code) |
+| Branch coverage | ≥ 90 % for the manifest parser and verification helpers |
+| Race detector | `go test -race ./pkg/setup/...` and `./pkg/vcs/...` must pass |
+| Fuzz testing | **Required**. `FuzzParseChecksumManifest` runs ≥ 60 s in CI; corpus seeded with real GoReleaser manifests and known-malformed inputs |
+| Constant-time sanity | A dedicated test confirms `crypto/subtle.ConstantTimeCompare` is on the hash-comparison path (e.g. by injecting a known-length-difference mismatch and asserting the error does not surface timing-leaking values) |
+| Size-bound assertions | Tests confirm `ErrChecksumTooLarge` fires at exactly `Max*+1` bytes for both checksums manifest and binary |
+| Integration | `INT_TEST_VCS=1` must cover a GitHub end-to-end update against a real release with `checksums.txt` |
+| Bitbucket coverage | Unit test for `BitbucketReleaseProvider` adds `checksums.txt` to the asset list when present in downloads |
+| Golangci-lint | No new findings; no `//nolint` directives |
+| Regression | Existing `TestUpdateFromFile_*` and `TestUpdate_*` must pass unchanged (fail-open default preserves legacy behaviour) |
+| E2E / BDD | At least one Gherkin scenario in `features/cli/update.feature` covering strict-mode with a missing manifest (fails clearly) and successful verification |
+
+### Documentation Deliverables
+
+| Artefact | Scope |
+|----------|-------|
+| `docs/components/setup.md` | Update. Add "Update integrity verification" section explaining the full flow, per-provider behaviour, and the `require_checksum` / `DefaultRequireChecksum` options. |
+| `docs/how-to/secure-releases.md` | New. Step-by-step guide for tool authors to enable `setup.DefaultRequireChecksum = true` in `main.go`, verify GoReleaser generates `checksums.txt`, and (forward-looking) sign releases with cosign. |
+| `docs/about/security.md` | Update. Add "Update trust model" subsection covering same-origin checksum limitations, the path toward cosign signing (Phase 2), and operator guidance. |
+| `docs/migration/<version>-checksum-verification.md` | New. Explain the new warning log for releases without `checksums.txt`, the config key, and how to opt into strict mode. |
+| `docs/components/vcs/release.md` | Update. Document the optional `ChecksumProvider` interface and how the `Direct` provider activates `checksum_url_template`. |
+| Package doc comment on `pkg/setup/checksum.go` | New top-of-file block explaining the two verification paths (sidecar vs manifest) and the constant-time invariant. |
+| CLAUDE.md | Update. Mention under "Architecture / Version Control" that downstream tools should set `setup.DefaultRequireChecksum = true` for security-critical use cases. |
+| BDD feature files | New scenarios in `features/cli/update.feature`. Living documentation for the update flow. |
+
+### Observability
+
+| Event | Level | Fields |
+|-------|-------|--------|
+| Manifest located | DEBUG | `asset_name`, `size` |
+| Checksum verified | INFO | `asset_name`, `bytes` |
+| Checksum mismatch | ERROR (fatal) | `asset_name`, `expected`, `got` — hashes ARE allowed in output at ERROR because they are not secrets; however they must be truncated to first/last 8 chars in any surface accessible outside trusted telemetry |
+| Missing manifest, fail-open | WARN | `asset_name`, `expected_name`; hint text guides user to enable strict mode |
+| Missing manifest, fail-closed | ERROR (fatal) | `expected_name`; hint text explains how to disable strict mode if needed |
+| Manifest download exceeded size | ERROR (fatal) | `limit_bytes`, `attempted_bytes` |
+| Manifest malformed | ERROR (fatal) | `line_number`, `line_preview` (first 120 chars quoted) |
+| Binary download exceeded size | ERROR (fatal) | `limit_bytes`, `written_bytes` (partial tempfile is deleted) |
+
+**Redaction invariant**: expected/actual hash bytes are safe to log in full within developer-facing contexts (they're SHA-256 of public artefacts). They MUST NOT be logged alongside secrets that are being hashed, because pattern-matching on hashes in log streams could reveal the identity of the hashed content in some threat models. This spec does not hash secrets, so the invariant is satisfied.
+
+### Performance Bounds
+
+| Metric | Bound | Notes |
+|--------|-------|-------|
+| Manifest parse | O(n) in manifest size | Single regex per line, no backtracking; ≤ `MaxChecksumsSize` = 1 MiB enforced |
+| Binary hash (streaming) | O(n) wall-clock; O(1) memory | `io.MultiWriter(destination, sha256.New())` with the default `io.Copy` 32 KiB buffer |
+| Verification overhead on update | ≤ 10 % added wall-clock vs pre-change baseline for a 50 MiB binary | Verification is streaming, so overhead is dominated by SHA-256 throughput (~500 MiB/s modern CPU) |
+| Memory footprint during verification | ≤ 2 MiB beyond the download pipeline | No buffering of full binary in RAM (that was the pre-change behaviour; removed) |
+| Constant-time compare | Constant time on the 32-byte decoded hashes regardless of position of mismatch | via `crypto/subtle` |
+
+### Security Invariants
+
+Summarised from the [Resolved Decisions](#resolved-decisions) and threat model:
+
+1. Hash comparison is constant-time via `crypto/subtle.ConstantTimeCompare` on hex-decoded bytes.
+2. Manifest downloads are bounded at `MaxChecksumsSize` (1 MiB default) via `io.LimitReader`.
+3. Binary downloads are bounded at `MaxBinaryDownloadSize` (512 MiB default).
+4. Manifest format is strictly validated — unknown/malformed lines fail the update rather than silently skip.
+5. Strict mode (`require_checksum: true`) aborts on missing manifest; fail-open remains the library default for backward compatibility but tool authors can opt in to fail-closed at compile time via `setup.DefaultRequireChecksum = true`.
+6. Partial temp files are always cleaned up on failure; the target binary is never overwritten until verification passes.
+7. Manifest is downloaded and verified **before** the binary to fail fast in strict mode.
+8. Phase 2 (cosign signing) uses Sigstore keyless verification — no long-lived keys.
+
+---
+
+---
+
 ## Future Considerations
 
 ### Phase 2: Cryptographic Signature Verification

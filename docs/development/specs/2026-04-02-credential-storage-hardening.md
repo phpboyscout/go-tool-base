@@ -637,6 +637,91 @@ No breaking changes to config structure. New keys (`auth.keychain`, `<provider>.
 
 ---
 
+## Non-Functional Requirements
+
+### Testing & Quality Gates
+
+| Requirement | Target |
+|-------------|--------|
+| Line coverage | ≥ 90 % for `pkg/credentials/` and `pkg/chat/credentials.go` |
+| Branch coverage | ≥ 90 % for resolution precedence logic (`tokenFromConfig`, `ResolveAPIKey`, Bitbucket dual-cred resolver) |
+| Race detector | `go test -race ./pkg/credentials/... ./pkg/setup/... ./pkg/vcs/... ./pkg/chat/...` must pass |
+| Fuzz testing | Required for `parseKeychainRef` (small but easy to fuzz); optional for JSON-blob unmarshal (covered by standard library) |
+| Security-specific tests | R1–R6 tests from [Security Requirements](#security-requirements) are non-optional and gate CI |
+| `TestCredentialsNotLogged` | Must assert no recognisable token bytes appear in any log entry above DEBUG across the full `init` → `update` → `doctor` flow |
+| Integration tests | `INT_TEST_CREDENTIALS=1` covers keychain round-trip on macOS and Linux-with-libsecret; skipped when `DBUS_SESSION_BUS_ADDRESS` is unset |
+| Build matrix | The default build (no tag) AND the `-tags keychain` build must both compile and pass tests |
+| CI refusal test | `TestCIRefusesLiteralMode` runs with `CI=true` in the test environment to confirm literal-mode selection exits non-zero |
+| Golangci-lint | No new findings; no `//nolint` directives |
+| E2E / BDD | Gherkin scenarios covering: fresh setup with env-var default, CI refusal of literal, OAuth+env-var flow, Bitbucket dual-cred, keychain round-trip (gated by build tag), `doctor` fires on literal, `migrate-credentials` dry-run and apply |
+| Migration reversibility | Round-trip test: start from literal config → run `migrate-credentials --target env` → verify config is env-var form → verify tool reads credentials correctly |
+
+### Documentation Deliverables
+
+| Artefact | Scope |
+|----------|-------|
+| `docs/components/credentials.md` | New. Package reference: `Mode` enum, `Store`/`Retrieve`/`Delete`, keychain service naming, build-tag story. |
+| `docs/components/setup.md` | Update. Credential storage modes in the setup wizard; link to `credentials.md`. |
+| `docs/how-to/configure-credentials.md` | New. End-user guide: env-var setup, keychain setup (with build instructions), choosing between modes, multi-tool prefix strategy. |
+| `docs/how-to/migrate-literal-credentials.md` | New. Step-by-step migration using the `config migrate-credentials` command, plus manual migration. |
+| `docs/about/security.md` | Update. Credential handling trust model: local dev, CI/CD, containers; what GTB does and does not protect against. |
+| `docs/migration/<version>-credential-storage.md` | New. Describes the setup-wizard default change, new config keys, CI behaviour change, doctor check. |
+| Package doc comments | New/updated in `pkg/credentials/`, `pkg/vcs/auth.go`, `pkg/chat/credentials.go`, `pkg/vcs/bitbucket/credentials.go`. Each package doc explicitly states: (a) resolution precedence, (b) which fields are credentials and must not be logged, (c) build-tag behaviour where applicable. |
+| CLAUDE.md | Update. Add to "Testing" and "Architecture" sections: "Credentials must never be logged above DEBUG; configure via `auth.env` / `auth.keychain` / `<provider>.api.env`; literal values are a last resort and are refused in CI." |
+| Trust Model section | Already in this spec (lines referencing Local Development / CI/CD / Containerised). Must be mirrored to `docs/about/security.md` so it is discoverable outside the spec. |
+| BDD feature files | New in `features/cli/credentials.feature`. Living documentation for the setup and migration flows. |
+
+### Observability
+
+| Event | Level | Fields |
+|-------|-------|--------|
+| Credential resolved from env var | DEBUG | `source=env`, `key=<env_var_name>`; never the value |
+| Credential resolved from keychain | DEBUG | `source=keychain`, `service`, `account`; never the value |
+| Credential resolved from literal config | DEBUG | `source=literal`, `key`; never the value |
+| Credential not found (all modes) | DEBUG when optional, ERROR when required | `key`, `attempted_sources`; never a partial value |
+| Keychain unavailable (e.g. D-Bus missing) | DEBUG | `error_kind=unavailable` (NOT the OS error detail, which may include paths) |
+| Keychain entry missing | DEBUG | `error_kind=not_found`, `service`, `account` |
+| Keychain entry corrupt (e.g. invalid JSON for Bitbucket blob) | ERROR (fatal) | `service`, `account`; hint text guides re-running setup |
+| Literal mode selected in CI | ERROR (fatal, exit 1) | Hint text directs to CI secret injection |
+| `doctor credentials.no-literal` | WARN | List of offending config keys (not values); hint text names the migration command |
+| Migration command — plan step | INFO | Keys to migrate, target mode; never the value |
+| Migration command — env var verification | DEBUG | `key`, `env_var_name`, `verified=true|false`; never the value |
+
+**Redaction invariants**:
+1. Credential values never appear at or above INFO level. DEBUG entries tagged `sensitive=true` are the only exception and are stripped from any telemetry export.
+2. Error wrappers constructed in this subsystem must not embed the credential value in their message or detail.
+3. The config-masking in `pkg/cmd/config/sensitive.go` is extended to every key pattern introduced by this spec.
+4. Keychain library errors are wrapped before surfacing — we never pass through the raw `keyring` error, which can contain paths and other context.
+
+### Performance Bounds
+
+| Metric | Bound | Notes |
+|--------|-------|-------|
+| `ResolveToken` / `ResolveAPIKey` | ≤ 1 ms for env-var and literal paths | Simple string lookups |
+| Keychain `Retrieve` | ≤ 50 ms typical; ≤ 500 ms worst case (D-Bus round-trip) | No retries on failure — fall through |
+| Memory | O(1) beyond the credential string itself | Retrieved values zeroed on function exit where the language permits |
+| Wizard latency | No new latency on non-interactive paths | Interactive paths gain the storage-mode selector (one extra prompt) |
+| Doctor check | ≤ 10 ms for full credential audit | Scans the loaded config, no filesystem or network I/O |
+
+### Security Invariants
+
+Summarised from the [Security Requirements](#security-requirements) and [Resolved Decisions](#resolved-decisions):
+
+1. **R1**: Credential values are never emitted at or above INFO (enforced by `TestCredentialsNotLogged`).
+2. **R2**: Error messages redact credential values.
+3. **R3**: Keychain errors distinguish missing, unavailable, and corrupt cases.
+4. **R4**: Config files containing any credential are `0600`.
+5. **R5**: Literal mode is refused in CI.
+6. **R6**: A `doctor` check surfaces literal credentials.
+7. Interactive token display in GitHub OAuth+env-var flow is one-shot and requires explicit user acknowledgement before clearing.
+8. Tokens collected during OAuth flow are zeroed in process memory as soon as they have been displayed or written.
+9. Bitbucket dual-credentials are stored as a JSON blob in keychain mode; corrupt blobs abort rather than falling through.
+10. No keychain code is linked in the default build; a clear error guides users who configure keychain without the `keychain` build tag.
+
+---
+
+---
+
 ## Future Considerations
 
 - **Credential rotation reminders**: The keychain backend could track credential age and warn when keys are older than a configurable threshold.
