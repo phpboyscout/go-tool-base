@@ -37,18 +37,29 @@ jobs:
       # Needed for Sigstore/SLSA provenance via OIDC.
       id-token: write
     steps:
-      - name: Generate GitHub App token
-        id: app-token
+      # M-7 from docs/development/reports/security-audit-2026-04-17.md —
+      # two GitHub App tokens, each scoped to a single repository, so a
+      # bug or compromise of goreleaser cannot cross the release repo and
+      # the Homebrew tap boundary.
+      - name: Generate release-repo GitHub App token
+        id: release-token
         uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          repositories: "go-tool-base,homebrew"
+          repositories: "go-tool-base"
+      - name: Generate Homebrew-tap GitHub App token
+        id: homebrew-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          repositories: "homebrew"
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.release-token.outputs.token }}
       - name: Set up Go
         uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
         with:
@@ -68,7 +79,14 @@ jobs:
       - name: Run GoReleaser ${{ env.flags }}
         uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          # GITHUB_TOKEN is scoped to the release repo only. Goreleaser
+          # uses it for release uploads and git operations in the working
+          # tree.
+          GITHUB_TOKEN: ${{ steps.release-token.outputs.token }}
+          # HOMEBREW_TAP_GITHUB_TOKEN is scoped to the homebrew repo only.
+          # Goreleaser's homebrew_casks block picks this up automatically
+          # when present (documented GORELEASER env var).
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.homebrew-token.outputs.token }}
           APPLE_DEV_CERT: ${{ secrets.APPLE_DEV_CERT }}
           APPLE_DEV_CERT_PASSWORD: ${{ secrets.APPLE_DEV_CERT_PASSWORD }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
