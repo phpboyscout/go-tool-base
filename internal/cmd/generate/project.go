@@ -152,17 +152,27 @@ func (o *SkeletonOptions) validateHelpFields() error {
 	return generator.ValidateTeamsTeam(o.TeamsTeam)
 }
 
-// splitRepoOrgForValidate returns the org portion of a repo path
-// without requiring the stricter path-containment rules the
-// generator applies downstream. Used purely to produce an org
-// value for [generator.ValidateOrg].
-func splitRepoOrgForValidate(repo string) (org, rest string, err error) {
-	i := strings.LastIndex(repo, "/")
-	if i <= 0 || i == len(repo)-1 {
-		return "", "", errors.Newf("repo %q has no org/name split", repo)
+// splitRepoOrgForValidate extracts the namespace portion of a
+// fully-qualified repo path (e.g. "github.com/myorg/mytool" →
+// "myorg"; "gitlab.com/group/sub/mytool" → "group/sub"). The first
+// segment is treated as the host and the last as the repo name;
+// everything between is the org/namespace validated by
+// [generator.ValidateOrg].
+//
+// This is distinct from the older splitRepoPath helper in
+// internal/generator/skeleton.go which splits on the LAST `/` and
+// therefore returns the entire `host/group/subgroup` prefix as
+// "org". We avoid that shape because it cannot appear in a real
+// GitHub or GitLab mention.
+func splitRepoOrgForValidate(repo string) (org, name string, err error) {
+	const minRepoSegments = 3
+
+	segments := strings.Split(repo, "/")
+	if len(segments) < minRepoSegments {
+		return "", "", errors.Newf("repo %q must be host/org/name (at least 3 segments)", repo)
 	}
 
-	return repo[:i], repo[i+1:], nil
+	return strings.Join(segments[1:len(segments)-1], "/"), segments[len(segments)-1], nil
 }
 
 func (o *SkeletonOptions) defaultHost() string {

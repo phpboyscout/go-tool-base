@@ -13,6 +13,9 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
+	"github.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	"github.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
+	"github.com/phpboyscout/go-tool-base/internal/cmd/remove"
 	"github.com/phpboyscout/go-tool-base/internal/version"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
@@ -80,6 +83,13 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
 	rootCmd := root.NewCmdRoot(p)
+
+	// Register the internal scaffolding commands so BDD scenarios
+	// can exercise the real generator entry point (e.g. input
+	// validation for `generate project --name`).
+	rootCmd.AddCommand(generate.NewCmdGenerate(p))
+	rootCmd.AddCommand(remove.NewCmdRemove(p))
+	rootCmd.AddCommand(regenerate.NewCmdRegenerate(p))
 
 	return rootCmd, p
 }
