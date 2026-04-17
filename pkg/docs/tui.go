@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/glamour"
 
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
 )
 
 // Styles.
@@ -306,7 +307,10 @@ func (m *Model) performSearch(query string) tea.Cmd {
 		}
 
 		if m.useRegex {
-			re, err := regexp.Compile("(?i)" + query)
+			// User-supplied search query — bound compile time against
+			// ReDoS. Closes H-3 from
+			// docs/development/reports/security-audit-2026-04-17.md.
+			re, err := regexutil.CompileBoundedTimeout("(?i)"+query, regexutil.DefaultCompileTimeout)
 			if err != nil {
 				return SearchResultMessage{Results: results, Query: query}
 			}
@@ -448,7 +452,8 @@ func (m *Model) handleSearchResultMsg(msg SearchResultMessage) {
 	m.lastQuery = msg.Query
 
 	if m.useRegex && msg.Query != "" {
-		m.lastRegex, _ = regexp.Compile("(?i)" + msg.Query)
+		// Bounded compile — see performSearch; same H-3 mitigation.
+		m.lastRegex, _ = regexutil.CompileBoundedTimeout("(?i)"+msg.Query, regexutil.DefaultCompileTimeout)
 	} else {
 		m.lastRegex = nil
 	}

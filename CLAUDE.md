@@ -203,6 +203,10 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
 
 All URL-opening in GTB — and in tools built on GTB — must route through `pkg/browser.OpenURL`. Do not call `github.com/cli/browser.OpenURL` or `exec.Command("open"|"xdg-open"|"rundll32")` directly. `pkg/browser` enforces a scheme allowlist (`https`, `http`, `mailto`), a URL-length bound, and control-character rejection before invoking the OS handler. Callers constructing `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value — see `pkg/telemetry.EmailDeletionRequestor` for the canonical pattern and `pkg/components/browser.md` for the threat model.
 
+### Regex Compilation
+
+Any `regexp.Compile` call whose pattern originates outside the binary (config file, CLI flag, TUI input, HTTP payload, message queue) must route through `pkg/regexutil.CompileBounded` or `CompileBoundedTimeout`. The helper enforces a 1 KiB length cap and a 100 ms compile timeout to mitigate ReDoS. Literal patterns known at build time may continue to use `regexp.MustCompile`. See `docs/components/regexutil.md` for the full threat model and call-site guidance.
+
 ## Linting
 
 Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `github.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.

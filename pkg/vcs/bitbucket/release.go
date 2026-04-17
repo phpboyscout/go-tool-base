@@ -19,6 +19,7 @@ import (
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
+	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -111,9 +112,11 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable)
 		patternStr = p
 	}
 
-	re, err := regexp.Compile(patternStr)
+	// Config-supplied pattern — bound compile time against ReDoS. Closes
+	// H-2 from docs/development/reports/security-audit-2026-04-17.md.
+	re, err := regexutil.CompileBoundedTimeout(patternStr, regexutil.DefaultCompileTimeout)
 	if err != nil {
-		return nil, errors.WithHintf(err, "filename_pattern %q is not a valid regular expression", patternStr)
+		return nil, errors.WithHintf(err, "filename_pattern is not a valid regular expression (length=%d)", len(patternStr))
 	}
 
 	return &BitbucketReleaseProvider{
