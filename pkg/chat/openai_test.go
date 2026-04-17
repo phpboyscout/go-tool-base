@@ -41,10 +41,22 @@ func TestOpenAIProvider_New(t *testing.T) {
 			Provider: chat.ProviderOpenAICompatible,
 			Token:    "test-key",
 			Model:    "",
+			BaseURL:  "https://api.openai.com/v1", // required for ProviderOpenAICompatible — without it we'd hit the BaseURL-required check first
 		}
 		_, err := chat.New(context.Background(), p, cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Model is required for ProviderOpenAICompatible")
+	})
+
+	t.Run("compatible_missing_baseurl", func(t *testing.T) {
+		cfg := chat.Config{
+			Provider: chat.ProviderOpenAICompatible,
+			Token:    "test-key",
+			Model:    "llama-3.1",
+		}
+		_, err := chat.New(context.Background(), p, cfg)
+		require.Error(t, err)
+		require.ErrorIs(t, err, chat.ErrInvalidBaseURL)
 	})
 
 	t.Run("success_from_props", func(t *testing.T) {
@@ -84,9 +96,10 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -201,9 +214,10 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -313,10 +327,11 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 		}
 
 		maxStepsCfg := chat.Config{
-			Provider: chat.ProviderOpenAI,
-			Token:    "test-key",
-			BaseURL:  maxStepsServer.URL + "/",
-			MaxSteps: 2,
+			Provider:             chat.ProviderOpenAI,
+			Token:                "test-key",
+			BaseURL:              maxStepsServer.URL + "/",
+			AllowInsecureBaseURL: true,
+			MaxSteps:             2,
 		}
 
 		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)

@@ -36,10 +36,11 @@ func TestClaudeProvider_Chat_ParallelTools(t *testing.T) {
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider:      chat.ProviderClaude,
-			Token:         "test-key",
-			BaseURL:       server.URL + "/",
-			ParallelTools: true,
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+			ParallelTools:        true,
 		})
 		require.NoError(t, err)
 
@@ -122,10 +123,11 @@ func TestOpenAIProvider_Chat_ParallelTools(t *testing.T) {
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider:      chat.ProviderOpenAI,
-			Token:         "test-key",
-			BaseURL:       server.URL + "/",
-			ParallelTools: true,
+			Provider:             chat.ProviderOpenAI,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+			ParallelTools:        true,
 		})
 		require.NoError(t, err)
 
@@ -216,10 +218,11 @@ func TestGeminiProvider_Chat_ParallelTools(t *testing.T) {
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider:      chat.ProviderGemini,
-			Token:         "test-key",
-			BaseURL:       server.URL,
-			ParallelTools: true,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              server.URL,
+			AllowInsecureBaseURL: true,
+			ParallelTools:        true,
 		})
 		require.NoError(t, err)
 
