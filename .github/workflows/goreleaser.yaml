@@ -16,6 +16,14 @@ on:
 # the goreleaser job.
 permissions: read-all
 
+# H-6 from docs/development/reports/security-audit-2026-04-17.md —
+# simultaneous tag pushes (or a quickly re-pushed tag) must queue rather
+# than race. cancel-in-progress is false because cancelling an in-flight
+# release would leave half-uploaded artefacts.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
@@ -69,7 +77,11 @@ jobs:
           GTB_OTEL_AUTH: ${{ secrets.GTB_OTEL_AUTH }}
         with:
           distribution: goreleaser
-          version: "~> v2"
+          # H-5 from docs/development/reports/security-audit-2026-04-17.md —
+          # exact version pin so a malicious v2.x release cannot run in the
+          # signing workflow. Bump via Renovate PRs with the H-4
+          # minimumReleaseAge soak enforcing a 3-day detection window.
+          version: "2.10.2"
           args: release --clean --verbose ${{ env.flags }}
 
       # Upload PR artifacts if on a PR branch
