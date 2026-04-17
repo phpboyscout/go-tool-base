@@ -111,9 +111,10 @@ func TestClaude_StreamChat_Success(t *testing.T) {
 		p, _ := claudeStreamProps(t)
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider: chat.ProviderClaude,
-			Token:    "test-key",
-			BaseURL:  server.URL + "/",
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
 		})
 		require.NoError(t, err)
 
@@ -164,9 +165,10 @@ func TestClaude_StreamChat_Success(t *testing.T) {
 		p, _ := claudeStreamProps(t)
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider: chat.ProviderClaude,
-			Token:    "test-key",
-			BaseURL:  server.URL + "/",
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
 		})
 		require.NoError(t, err)
 
@@ -204,9 +206,10 @@ func TestClaude_StreamChat_CallbackError(t *testing.T) {
 	p, _ := claudeStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -244,9 +247,10 @@ func TestClaude_StreamChat_EmptyPrompt(t *testing.T) {
 	p, _ := claudeStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -267,9 +271,10 @@ func TestClaude_StreamChat_WithToolCalls(t *testing.T) {
 	p, _ := claudeStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -356,9 +361,10 @@ func TestOpenAI_StreamChat_Success(t *testing.T) {
 		p, _ := openaiStreamProps(t)
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider: chat.ProviderOpenAI,
-			Token:    "test-key",
-			BaseURL:  server.URL + "/",
+			Provider:             chat.ProviderOpenAI,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
 		})
 		require.NoError(t, err)
 
@@ -407,9 +413,10 @@ func TestOpenAI_StreamChat_Success(t *testing.T) {
 		p, _ := openaiStreamProps(t)
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider: chat.ProviderOpenAI,
-			Token:    "test-key",
-			BaseURL:  server.URL + "/",
+			Provider:             chat.ProviderOpenAI,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
 		})
 		require.NoError(t, err)
 
@@ -447,9 +454,10 @@ func TestOpenAI_StreamChat_CallbackError(t *testing.T) {
 	p, _ := openaiStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -487,9 +495,10 @@ func TestOpenAI_StreamChat_EmptyPrompt(t *testing.T) {
 	p, _ := openaiStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -510,9 +519,10 @@ func TestOpenAI_StreamChat_WithToolCalls(t *testing.T) {
 	p, _ := openaiStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -597,9 +607,10 @@ func TestGemini_StreamChat_Success(t *testing.T) {
 		p, _ := geminiStreamProps(t)
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider: chat.ProviderGemini,
-			Token:    "test-key",
-			BaseURL:  server.URL,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              server.URL,
+			AllowInsecureBaseURL: true,
 		})
 		require.NoError(t, err)
 
@@ -645,9 +656,10 @@ func TestGemini_StreamChat_Success(t *testing.T) {
 		p, _ := geminiStreamProps(t)
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider: chat.ProviderGemini,
-			Token:    "test-key",
-			BaseURL:  server.URL,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              server.URL,
+			AllowInsecureBaseURL: true,
 		})
 		require.NoError(t, err)
 
@@ -684,9 +696,10 @@ func TestGemini_StreamChat_CallbackError(t *testing.T) {
 	p, _ := geminiStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -723,9 +736,10 @@ func TestGemini_StreamChat_EmptyPrompt(t *testing.T) {
 	p, _ := geminiStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -746,9 +760,10 @@ func TestGemini_StreamChat_WithToolCalls(t *testing.T) {
 	p, _ := geminiStreamProps(t)
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 

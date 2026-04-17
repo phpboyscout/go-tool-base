@@ -34,9 +34,10 @@ func TestStreamingIntegration_LiveSSERoundTrip(t *testing.T) {
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -102,9 +103,10 @@ func TestStreamingIntegration_ContextCancellation(t *testing.T) {
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -170,9 +172,10 @@ func TestStreamingIntegration_ToolCallDuringStream(t *testing.T) {
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 

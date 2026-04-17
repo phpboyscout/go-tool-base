@@ -56,9 +56,10 @@ func TestNew(t *testing.T) {
 
 	t.Run("ProviderOpenAICompatible requires model", func(t *testing.T) {
 		cfg := Config{
-			Provider: ProviderOpenAICompatible,
-			Token:    "test-token",
-			BaseURL:  "http://localhost:11434/v1",
+			Provider:             ProviderOpenAICompatible,
+			Token:                "test-token",
+			BaseURL:              "http://localhost:11434/v1",
+			AllowInsecureBaseURL: true,
 		}
 		client, err := New(ctx, p, cfg)
 		if assert.Error(t, err) {

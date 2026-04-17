@@ -207,6 +207,10 @@ All URL-opening in GTB — and in tools built on GTB — must route through `pkg
 
 Any `regexp.Compile` call whose pattern originates outside the binary (config file, CLI flag, TUI input, HTTP payload, message queue) must route through `pkg/regexutil.CompileBounded` or `CompileBoundedTimeout`. The helper enforces a 1 KiB length cap and a 100 ms compile timeout to mitigate ReDoS. Literal patterns known at build time may continue to use `regexp.MustCompile`. See `docs/components/regexutil.md` for the full threat model and call-site guidance.
 
+### Chat Provider Endpoints
+
+`chat.Config.BaseURL` values must pass `chat.ValidateBaseURL`. The validator rejects non-HTTPS schemes, URLs containing userinfo (`user:pass@host`), and placeholder hosts (`example.com` and subdomains). Tests targeting an `httptest.Server` set `Config.AllowInsecureBaseURL: true`; that field is `json:"-"` so config files cannot downgrade HTTPS enforcement. Every successful `chat.New` call logs the endpoint hostname at INFO — never the path or query. See `docs/components/chat.md` § Provider endpoint security.
+
 ## Linting
 
 Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `github.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.

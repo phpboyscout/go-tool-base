@@ -133,6 +133,20 @@ Spec: [2026-04-17-regex-hardening.md](specs/2026-04-17-regex-hardening.md).
 
 ---
 
+#### M-3: Chat Provider BaseURL Accepted Without Validation
+
+**Severity:** Medium | **Status:** Remediated
+
+`chat.Config.BaseURL` was accepted by the OpenAI-compatible and Gemini paths without validation. An operator who could influence config — tampered file, hostile environment variable, compromised setup wizard — could redirect API traffic (and its `Authorization` header) to an attacker-controlled HTTPS host. URLs of the form `https://user:pass@host/` were particularly risky: some HTTP libraries propagate the userinfo as Basic auth, others log the full URL.
+
+**Mitigation.** Every `chat.New` call now routes through `chat.ValidateBaseURL`, which rejects non-HTTPS schemes, URLs with userinfo, oversize or control-character-bearing inputs, and placeholder hosts (`example.com` and subdomains). The test-only `Config.AllowInsecureBaseURL` opt-out is tagged `json:"-"` so configuration files cannot downgrade HTTPS enforcement. Every successful provider init logs the endpoint hostname at INFO for operational audit trail.
+
+**Tool author responsibility.** Validate `BaseURL` values at the boundary (your setup wizard, CLI flag parser, or config loader) via `chat.ValidateBaseURL` — not only at `chat.New` time — so misconfiguration is reported with context.
+
+Spec: [2026-04-17-chat-baseurl-validation.md](specs/2026-04-17-chat-baseurl-validation.md).
+
+---
+
 ## Adding New Entries
 
 When a new security audit or review produces findings, add them to this document under a dated audit heading. Each entry should include:

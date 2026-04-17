@@ -502,6 +502,40 @@ Files are written with 0600 permissions. The directory is created with 0700 if i
 
 **Operations:** `Save`, `Load`, `List` (returns summaries without loading full messages), `Delete`.
 
+#### Provider endpoint security
+
+Every call to `chat.New` validates `Config.BaseURL` before any credentials leave the process. A misconfigured endpoint fails fast with a typed error instead of sending an `Authorization` header to an attacker-controlled host.
+
+Rejection rules, cheapest first:
+
+1. **Length** — rejected if `len(BaseURL) > chat.MaxBaseURLLength` (2 KiB).
+2. **Control characters** — any byte in `0x00`–`0x1F` or `0x7F` rejected.
+3. **Parse failure** — `url.Parse` must succeed.
+4. **Userinfo** — URLs of the form `https://user:pass@host/` rejected unconditionally. Put credentials in `Token`, not the URL.
+5. **Scheme** — must be `https`. The test-only `Config.AllowInsecureBaseURL` bool permits `http` for `httptest.Server` targets; the field is tagged `json:"-"` so production config cannot enable it.
+6. **Host** — the URL must include a host.
+7. **Placeholders** — `example.com`, `example.net`, `example.org`, `localhost.localdomain`, and any subdomain of these, are rejected to catch scaffolding values.
+
+`ProviderOpenAICompatible` additionally requires a non-empty `BaseURL`.
+
+On every successful provider construction, the package logs the endpoint hostname at INFO:
+
+```
+chat provider initialised  provider=openai-compatible  endpoint_host=proxy.corp.internal
+```
+
+Hostname only — never the URL path or query, which may carry provider-specific identifiers.
+
+Downstream tool authors accepting `BaseURL` in their own config surface should call `chat.ValidateBaseURL` at the boundary so misconfiguration surfaces early:
+
+```go
+if err := chat.ValidateBaseURL(userInput, false); err != nil {
+    return fmt.Errorf("bad base URL: %w", err)
+}
+```
+
+Rejections wrap `chat.ErrInvalidBaseURL` — discriminate via `errors.Is`.
+
 #### Snapshot storage security
 
 `FileStore` refuses to touch any path built from a snapshot identifier that is not a canonical `google/uuid` string. Two layers of defence are applied to every `Save`, `Load`, and `Delete` call:
