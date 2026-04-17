@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -22,6 +23,9 @@ import (
 const (
 	httpTimeout        = 5 * time.Second
 	httpErrorThreshold = 400
+	// maxResponseBytes caps bytes read from the Datadog response body.
+	// Closes M-4 from docs/development/reports/security-audit-2026-04-17.md.
+	maxResponseBytes int64 = 1 << 20 // 1 MiB
 )
 
 // Region identifies a Datadog data center region.
@@ -165,7 +169,10 @@ func (b *backend) Send(ctx context.Context, events []telemetry.Event) error {
 		return nil // silently drop — telemetry must never block the user
 	}
 
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= httpErrorThreshold {
 		b.log.Debug("datadog endpoint returned non-success status",

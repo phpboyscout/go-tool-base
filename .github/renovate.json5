@@ -40,6 +40,11 @@
       groupSlug: 'go-deps',
       automerge: true,
       automergeType: 'pr',
+      // 3-day soak time before auto-merge. Closes H-4 from
+      // docs/development/reports/security-audit-2026-04-17.md — gives
+      // a detection window for a maliciously-published patch before
+      // it can reach main via auto-merge.
+      minimumReleaseAge: '3 days',
     },
     {
       matchDatasources: [

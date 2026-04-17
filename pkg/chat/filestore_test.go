@@ -12,6 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGenerateEncryptionKey(t *testing.T) {
+	t.Parallel()
+
+	key1, err := GenerateEncryptionKey()
+	require.NoError(t, err)
+	assert.Len(t, key1, 32, "key must be 32 bytes for AES-256")
+
+	key2, err := GenerateEncryptionKey()
+	require.NoError(t, err)
+	assert.Len(t, key2, 32)
+
+	// Two calls must produce different keys — they come from crypto/rand.
+	// A 256-bit collision is astronomically unlikely; a failing test here
+	// indicates a broken random source, not bad luck.
+	assert.NotEqual(t, key1, key2, "two generated keys must differ")
+}
+
 func testSnapshot(t *testing.T) *Snapshot {
 	t.Helper()
 

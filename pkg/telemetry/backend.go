@@ -23,6 +23,13 @@ const (
 	httpTimeout = 5 * time.Second
 	// httpErrorThreshold is the HTTP status code threshold for error logging.
 	httpErrorThreshold = 400
+	// maxTelemetryResponseBytes caps the bytes read from a telemetry
+	// backend response body. Closes M-4 from
+	// docs/development/reports/security-audit-2026-04-17.md — a hostile
+	// or malfunctioning endpoint cannot stream an unbounded response
+	// that would exhaust memory. 1 MiB is more than enough for the
+	// JSON status payloads these backends return.
+	maxTelemetryResponseBytes int64 = 1 << 20 // 1 MiB
 )
 
 // Backend is the interface for telemetry data sinks.
@@ -128,7 +135,10 @@ func (h *httpBackend) Send(ctx context.Context, events []Event) error {
 		return nil // silently drop — telemetry must never block the user
 	}
 
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxTelemetryResponseBytes))
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= httpErrorThreshold {
 		h.log.Debug("telemetry endpoint returned non-success status",

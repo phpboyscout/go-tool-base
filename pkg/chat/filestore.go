@@ -31,9 +31,29 @@ type fileStoreConfig struct {
 }
 
 // WithEncryption enables AES-256-GCM encryption for stored snapshots.
-// The key must be exactly 32 bytes.
+// The key must be exactly 32 bytes and must come from a cryptographically
+// secure source. Use [GenerateEncryptionKey] to generate one.
 func WithEncryption(key []byte) FileStoreOption {
 	return func(c *fileStoreConfig) { c.key = key }
+}
+
+// GenerateEncryptionKey returns a fresh 32-byte AES-256 key from
+// crypto/rand, suitable for use with [WithEncryption]. Each snapshot
+// store should use a distinct key obtained either from this helper or
+// from an operator-controlled source such as a KMS or secret manager.
+//
+// Closes L-2 from
+// docs/development/reports/security-audit-2026-04-17.md — using this
+// helper avoids the footgun of deriving keys from human-readable
+// passphrases, which have insufficient entropy for the AES-GCM
+// threat model.
+func GenerateEncryptionKey() ([]byte, error) {
+	key := make([]byte, aesKeySize)
+	if _, err := rand.Read(key); err != nil {
+		return nil, errors.Wrap(err, "reading random bytes")
+	}
+
+	return key, nil
 }
 
 type fileStore struct {

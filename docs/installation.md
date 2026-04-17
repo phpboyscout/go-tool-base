@@ -40,6 +40,17 @@ curl -sSL "https://github.com/phpboyscout/go-tool-base/raw/main/install.sh" | ba
 irm "https://github.com/phpboyscout/go-tool-base/raw/main/install.ps1" | iex
 ```
 
+### Token Permissions
+
+The install scripts accept an optional `GITHUB_TOKEN` environment variable. For installing releases from this public repository, **no token is required** — anonymous access is sufficient and subject only to GitHub's 60 req/hr rate limit.
+
+If you choose to supply a token (for example to raise that rate limit or when running inside a CI pipeline that always sets `GITHUB_TOKEN`), the minimum permissions are:
+
+- **Fine-grained PAT:** `contents: read` on `phpboyscout/go-tool-base`.
+- **Classic PAT:** the `public_repo` scope is sufficient.
+
+The install scripts will emit a warning if they detect a token with broader scopes (`repo`, `admin:*`, `delete_repo`, `workflow`) because those are unnecessary for installation and increase the blast radius if the token is ever leaked from shell history, environment dumps, or a misconfigured CI log.
+
 ### From Source (go install)
 
 While less recommended because gitignored assets (like the TUI documentation) will be missing, you can still install from source:

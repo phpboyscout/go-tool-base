@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -127,13 +128,13 @@ func (c *Collector) flushSpillFiles(ctx context.Context) error {
 		var events []Event
 		if err := json.Unmarshal(data, &events); err != nil {
 			c.log.Debug("failed to unmarshal spill file", "error", err, "file", f)
-			_ = os.Remove(f)
+			c.removeSpillFile(f)
 
 			continue
 		}
 
 		if c.deliveryMode == props.DeliveryAtMostOnce {
-			_ = os.Remove(f)
+			c.removeSpillFile(f)
 		}
 
 		if err := c.backend.Send(ctx, events); err != nil {
@@ -143,11 +144,25 @@ func (c *Collector) flushSpillFiles(ctx context.Context) error {
 		}
 
 		if c.deliveryMode == props.DeliveryAtLeastOnce {
-			_ = os.Remove(f)
+			c.removeSpillFile(f)
 		}
 	}
 
 	return nil
+}
+
+// removeSpillFile deletes the spill file at path and logs at WARN if
+// the removal fails — so operators can see when files are accumulating
+// due to permissions, read-only filesystems, or races. Logs only the
+// basename, never the full path (which would leak the data directory
+// location). Closes L-3 from
+// docs/development/reports/security-audit-2026-04-17.md.
+func (c *Collector) removeSpillFile(path string) {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		c.log.Warn("failed to remove spill file",
+			"file", filepath.Base(path),
+			"error", err)
+	}
 }
 
 // deleteSpillFiles removes all spill files. Used by Drop() on consent withdrawal.
@@ -158,7 +173,7 @@ func (c *Collector) deleteSpillFiles() error {
 
 	files, _ := filepath.Glob(filepath.Join(c.dataDir, spillPattern))
 	for _, f := range files {
-		_ = os.Remove(f)
+		c.removeSpillFile(f)
 	}
 
 	return nil
@@ -179,6 +194,6 @@ func (c *Collector) pruneSpillFiles() {
 	sort.Strings(files)
 
 	for _, f := range files[:len(files)-maxSpillFiles+1] {
-		_ = os.Remove(f)
+		c.removeSpillFile(f)
 	}
 }

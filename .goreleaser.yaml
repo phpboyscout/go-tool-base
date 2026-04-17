@@ -114,4 +114,8 @@ homebrew_casks:
       owner: phpboyscout
       name: homebrew
       branch: main
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      # HOMEBREW_TAP_GITHUB_TOKEN is scoped to the homebrew repo only so a
+      # bug or compromise of goreleaser cannot cross into the release repo.
+      # Closes M-7 from
+      # docs/development/reports/security-audit-2026-04-17.md.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
