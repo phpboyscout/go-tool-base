@@ -1,0 +1,27 @@
+# gitleaks configuration
+#
+# Extends the default ruleset shipped with gitleaks and adds
+# file-scoped allowlists for intentional test fixtures — we have test
+# inputs and documentation examples that *must* look like credentials,
+# because they are the test-data surface of the credential-redaction
+# helper in pkg/redact.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "pkg/redact test and fuzz fixtures are intentional credential-shaped inputs to the redactor itself; scanning them as leaked secrets is a false positive."
+targetRules = ["generic-api-key"]
+paths = [
+    '''pkg/redact/redact_test\.go''',
+    '''pkg/redact/redact_fuzz_test\.go''',
+    '''pkg/telemetry/telemetry_test\.go''',
+]
+
+[[allowlists]]
+description = "Component documentation for pkg/redact and pkg/telemetry illustrates the patterns the redactor strips; examples are never real credentials."
+targetRules = ["generic-api-key"]
+paths = [
+    '''docs/components/redact\.md''',
+    '''docs/components/telemetry\.md''',
+]
