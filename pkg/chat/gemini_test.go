@@ -85,9 +85,10 @@ func TestGeminiProvider_Ask(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -126,11 +127,12 @@ func TestGeminiProvider_Ask(t *testing.T) {
 			Result string `json:"result"`
 		}
 		cfgOptions := chat.Config{
-			Provider:       chat.ProviderGemini,
-			Token:          "test-key",
-			BaseURL:        server.URL,
-			ResponseSchema: chat.GenerateSchema[response](),
-			MaxTokens:      100,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              server.URL,
+			AllowInsecureBaseURL: true,
+			ResponseSchema:       chat.GenerateSchema[response](),
+			MaxTokens:            100,
 		}
 		clientOptions, err := chat.New(context.Background(), p, cfgOptions)
 		require.NoError(t, err)
@@ -194,9 +196,10 @@ func TestGeminiProvider_Chat(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -300,10 +303,11 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		}
 
 		maxStepsCfg := chat.Config{
-			Provider: chat.ProviderGemini,
-			Token:    "test-key",
-			BaseURL:  maxStepsServer.URL,
-			MaxSteps: 2,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              maxStepsServer.URL,
+			AllowInsecureBaseURL: true,
+			MaxSteps:             2,
 		}
 
 		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
@@ -402,9 +406,10 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)

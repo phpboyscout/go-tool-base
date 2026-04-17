@@ -130,6 +130,12 @@ type Config struct {
 	// Must be func(context.Context, *genai.ClientConfig) (*genai.Client, error).
 	// Nil means use the real genai.NewClient.
 	GenaiNewClient any `json:"-"`
+
+	// AllowInsecureBaseURL permits HTTP (non-HTTPS) BaseURLs. This is
+	// exclusively for tests that point at an httptest.Server. Production
+	// callers must leave this false. The field is tagged json:"-" so
+	// config files cannot enable it.
+	AllowInsecureBaseURL bool `json:"-"`
 }
 
 // ProviderFactory creates a ChatClient for a named provider.
@@ -166,6 +172,17 @@ func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 		}
 	}
 
+	// M-3 from the 2026-04-17 security audit: validate the provider
+	// endpoint before any credentials hit the wire. See pkg/chat/baseurl.go.
+	if err := ValidateBaseURL(cfg.BaseURL, cfg.AllowInsecureBaseURL); err != nil {
+		return nil, err
+	}
+
+	if cfg.Provider == ProviderOpenAICompatible && cfg.BaseURL == "" {
+		return nil, errors.WithHint(ErrInvalidBaseURL,
+			"ProviderOpenAICompatible requires Config.BaseURL to be set")
+	}
+
 	registryMu.RLock()
 
 	factory, ok := providerRegistry[cfg.Provider]
@@ -176,5 +193,22 @@ func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 		return nil, errors.Newf("unsupported provider: %s", cfg.Provider)
 	}
 
-	return factory(ctx, p, cfg)
+	client, err := factory(ctx, p, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Audit-log the endpoint host (never the full URL) so operators can
+	// see which host each tool instance targets. Hostname only — the
+	// path/query may carry provider-specific identifiers.
+	if host := baseURLHost(cfg.BaseURL); host != "" {
+		p.Logger.Info("chat provider initialised",
+			"provider", string(cfg.Provider),
+			"endpoint_host", host)
+	} else {
+		p.Logger.Info("chat provider initialised",
+			"provider", string(cfg.Provider))
+	}
+
+	return client, nil
 }

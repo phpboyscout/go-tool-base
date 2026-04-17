@@ -2,7 +2,7 @@
 title: "Chat Provider BaseURL Validation"
 description: "Reject malformed or credential-bearing BaseURL values in the OpenAI-compatible and Gemini chat providers. Closes M-3 from the 2026-04-17 audit by refusing non-HTTPS schemes, URLs with embedded userinfo, and URLs outside a configurable allowlist for production deployments."
 date: 2026-04-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security
