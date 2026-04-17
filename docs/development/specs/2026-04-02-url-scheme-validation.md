@@ -2,7 +2,7 @@
 title: "URL Scheme Validation Specification"
 description: "Add URL scheme validation before passing URLs to system commands, preventing command injection via dangerous URI schemes."
 date: 2026-04-02
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security
@@ -24,7 +24,7 @@ Date
 :   02 April 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
