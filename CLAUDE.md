@@ -211,6 +211,10 @@ Any `regexp.Compile` call whose pattern originates outside the binary (config fi
 
 `chat.Config.BaseURL` values must pass `chat.ValidateBaseURL`. The validator rejects non-HTTPS schemes, URLs containing userinfo (`user:pass@host`), and placeholder hosts (`example.com` and subdomains). Tests targeting an `httptest.Server` set `Config.AllowInsecureBaseURL: true`; that field is `json:"-"` so config files cannot downgrade HTTPS enforcement. Every successful `chat.New` call logs the endpoint hostname at INFO — never the path or query. See `docs/components/chat.md` § Provider endpoint security.
 
+### Credential Redaction
+
+Use `pkg/redact` for any free-form string written to telemetry, distributed logs, or a third-party observability surface. `redact.String` strips URL userinfo, common credential query parameters, Authorization headers, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack), and very long opaque tokens. `TrackCommandExtended` already applies it automatically to `args` and `errMsg`; HTTP middleware uses `redact.SensitiveHeaderKeys` to redact headers at DEBUG. See `docs/components/redact.md`.
+
 ## Linting
 
 Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `github.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.
