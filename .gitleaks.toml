@@ -1,27 +1,25 @@
 # gitleaks configuration
 #
-# Extends the default ruleset shipped with gitleaks and adds
-# file-scoped allowlists for intentional test fixtures — we have test
-# inputs and documentation examples that *must* look like credentials,
-# because they are the test-data surface of the credential-redaction
-# helper in pkg/redact.
+# Extends the default ruleset shipped with gitleaks and adds a
+# file-scoped allowlist for intentional test fixtures. The redactor in
+# pkg/redact has a test corpus that *must* contain credential-shaped
+# strings (URLs with userinfo, OpenAI-style sk- prefixes, Authorization
+# header samples) because those are the inputs its golden tests verify
+# get stripped. Scanning these files as leaked secrets is a false
+# positive that blocks every PR touching the package.
+#
+# Uses the top-level [allowlist] (singular) form for compatibility
+# with the gitleaks-action v2.3.9 bundled binary.
 
 [extend]
 useDefault = true
 
-[[allowlists]]
-description = "pkg/redact test and fuzz fixtures are intentional credential-shaped inputs to the redactor itself; scanning them as leaked secrets is a false positive."
-targetRules = ["generic-api-key"]
+[allowlist]
+description = "pkg/redact test fixtures and component docs intentionally contain credential-shaped inputs for the redactor to strip; they are not real leaked secrets."
 paths = [
     '''pkg/redact/redact_test\.go''',
     '''pkg/redact/redact_fuzz_test\.go''',
     '''pkg/telemetry/telemetry_test\.go''',
-]
-
-[[allowlists]]
-description = "Component documentation for pkg/redact and pkg/telemetry illustrates the patterns the redactor strips; examples are never real credentials."
-targetRules = ["generic-api-key"]
-paths = [
     '''docs/components/redact\.md''',
     '''docs/components/telemetry\.md''',
 ]
