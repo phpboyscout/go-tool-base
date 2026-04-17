@@ -26,13 +26,31 @@ try {
     $repoName = "gtb"
     $gitApiBaseUrl = "https://api.github.com" # Adjust if different from public GitHub
 
-    # --- 1. GITHUB_TOKEN Check ---
-    if ([string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
-        Write-Error "Error: The GITHUB_TOKEN environment variable is not set."
-        Write-Error "Please set it to a token with access to the repository releases."
-        exit 1
+    # --- 1. GITHUB_TOKEN Check (optional) ---
+    # M-8 from docs/development/reports/security-audit-2026-04-17.md —
+    # GITHUB_TOKEN is OPTIONAL for public repositories. When absent, the
+    # script falls back to anonymous access, subject to GitHub's 60 req/hr
+    # rate limit (unlikely to trip on a single install). When present and
+    # broadly scoped, warn the user.
+    $authHeader = $null
+    if (-not [string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
+        $authHeader = @{ Authorization = "token $($env:GITHUB_TOKEN)" }
+
+        try {
+            $scopeResp = Invoke-WebRequest -Method Head -Uri "$gitApiBaseUrl/user" -Headers $authHeader -UseBasicParsing -ErrorAction Stop
+            $scopes = $scopeResp.Headers["X-OAuth-Scopes"]
+            if ($scopes -and ($scopes -match '(^|,\s*)(repo|admin:|delete_repo|workflow)($|,)')) {
+                Write-Warning "GITHUB_TOKEN appears to have broad scopes ($scopes)."
+                Write-Warning "For installing releases from a public repo, a fine-grained"
+                Write-Warning "token with only 'contents: read' on this repo is sufficient."
+                Write-Warning "Proceeding anyway..."
+            }
+        } catch {
+            # Scope check failure is non-fatal — token may still work.
+        }
+    } else {
+        Write-Host "INFO: No GITHUB_TOKEN set. Proceeding anonymously (subject to rate limits)."
     }
-    Write-Host "GITHUB_TOKEN found."
 
     # --- 2. Prerequisite PowerShell Cmdlet Check ---
     Write-Host "Checking prerequisites..."
@@ -107,8 +125,10 @@ try {
     Write-Host "Fetching latest release information from $gitApiBaseUrl for $repoOwner/$repoName..."
     $latestReleaseApiUrl = "$gitApiBaseUrl/repos/$repoOwner/$repoName/releases/latest"
     $apiHeaders = @{
-        "Authorization" = "token $env:GITHUB_TOKEN"
-        "Accept"        = "application/vnd.github.v3+json"
+        "Accept" = "application/vnd.github.v3+json"
+    }
+    if ($authHeader) {
+        $apiHeaders["Authorization"] = $authHeader["Authorization"]
     }
 
     try {
@@ -177,8 +197,10 @@ try {
     $downloadPath = Join-Path $script:tempDir.FullName $packageName
     Write-Host "Downloading $packageName to $downloadPath..."
     $downloadHeaders = @{
-        "Authorization" = "Bearer $env:GITHUB_TOKEN"
-        "Accept"        = "application/octet-stream"
+        "Accept" = "application/octet-stream"
+    }
+    if ($authHeader) {
+        $downloadHeaders["Authorization"] = "Bearer $($env:GITHUB_TOKEN)"
     }
     try {
         Invoke-WebRequest -Uri $downloadUrl -Headers $downloadHeaders -OutFile $downloadPath -UseBasicParsing
