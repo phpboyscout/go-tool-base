@@ -432,7 +432,7 @@ Issues grouped by the right venue for resolution.
 
 ## Part 4: Links to Existing Artefacts
 
-- Prior audit: `docs/development/security-audit-2026-04-02.md`
+- Prior audit: `docs/development/reports/security-audit-2026-04-02.md`
 - Accepted-risk log: `docs/development/security-decisions.md`
 - Draft specs referenced:
   - `docs/development/specs/2026-04-02-credential-storage-hardening.md`

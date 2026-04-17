@@ -28,7 +28,7 @@ Status
 
 ## Overview
 
-A security audit (H-1 in `docs/development/security-audit-2026-04-02.md`) identified that API keys for AI providers and VCS tokens are stored as plaintext YAML in config files on disk. While GTB already supports an `auth.env` config key that references an environment variable name instead of a literal value, the interactive setup wizard (`pkg/setup/ai/`, `pkg/setup/github/`) defaults to storing the literal credential directly.
+A security audit (H-1 in `docs/development/reports/security-audit-2026-04-02.md`) identified that API keys for AI providers and VCS tokens are stored as plaintext YAML in config files on disk. While GTB already supports an `auth.env` config key that references an environment variable name instead of a literal value, the interactive setup wizard (`pkg/setup/ai/`, `pkg/setup/github/`) defaults to storing the literal credential directly.
 
 This specification proposes three changes:
 
