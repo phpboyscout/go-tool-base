@@ -1,3 +1,21 @@
+---
+title: "Security Audit Report — go-tool-base"
+description: "Primary security audit covering authentication, cryptography, input validation, supply chain, and information disclosure across the go-tool-base codebase. Produced 3 HIGH, 8 MEDIUM, and 6 LOW findings, all triaged with owner responses."
+date: 2026-04-02
+status: PUBLISHED
+tags:
+  - report
+  - security
+  - audit
+audit-commit: 50e9cbc
+audit-branch: develop
+author:
+  - name: Matt Cockayne
+    email: matt@phpboyscout.com
+  - name: Claude
+    role: AI auditing assistant
+---
+
 # Security Audit Report — go-tool-base
 
 **Date:** 2026-04-02  

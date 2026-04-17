@@ -1,3 +1,23 @@
+---
+title: "Security Audit Report — go-tool-base (Secondary)"
+description: "Secondary security audit focused on changes since the 2026-04-02 audit (opt-in telemetry, vendor backends, Gemini provider, MCP wiring, snapshot persistence, race remediation, config env prefix). Produced 6 HIGH, 8 MEDIUM, and 7 LOW findings, all new to this audit; 3 candidate findings excluded as false-positives after manual verification."
+date: 2026-04-17
+status: DRAFT
+tags:
+  - report
+  - security
+  - audit
+  - secondary
+audit-commit: HEAD
+audit-branch: docs/spec-security-review
+prior-audit: docs/development/reports/security-audit-2026-04-02.md
+author:
+  - name: Matt Cockayne
+    email: matt@phpboyscout.com
+  - name: Claude
+    role: AI auditing assistant
+---
+
 # Security Audit Report — go-tool-base (Secondary)
 
 **Date:** 2026-04-17
