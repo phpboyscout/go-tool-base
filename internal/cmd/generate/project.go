@@ -75,15 +75,104 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 }
 
 func (o *SkeletonOptions) ValidateOrPrompt(p *props.Props) error {
-	if o.Name != "" && o.Repo != "" {
-		return nil
+	if o.Name == "" || o.Repo == "" {
+		if !utils.IsInteractive() {
+			return ErrNonInteractive
+		}
+
+		if err := o.runWizard(); err != nil {
+			return err
+		}
 	}
 
-	if !utils.IsInteractive() {
-		return ErrNonInteractive
+	return o.validateFields()
+}
+
+// validateFields applies the structural validation rules from
+// internal/generator/validate.go to every user-influenced field.
+// Runs after both wizard and flag-driven flows so neither path
+// can smuggle adversarial input into template rendering.
+// See docs/development/specs/2026-04-02-generator-template-escaping.md
+// for the full threat model.
+func (o *SkeletonOptions) validateFields() error {
+	if err := o.validateCoreFields(); err != nil {
+		return err
 	}
 
-	return o.runWizard()
+	return o.validateHelpFields()
+}
+
+// validateCoreFields groups the core identity checks (name, repo,
+// host, description, env prefix, and derived org) so validateFields
+// stays under the cyclomatic-complexity budget.
+func (o *SkeletonOptions) validateCoreFields() error {
+	if err := generator.ValidateName(o.Name); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateDescription(o.Description); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateRepo(o.Repo); err != nil {
+		return err
+	}
+
+	if o.Host != "" {
+		if err := generator.ValidateHost(o.Host); err != nil {
+			return err
+		}
+	}
+
+	// Derive org from repo for validation so a bad org fails early
+	// rather than at CODEOWNERS render time.
+	if org, _, err := splitRepoOrgForValidate(o.Repo); err == nil {
+		if verr := generator.ValidateOrg(org, o.GitBackend); verr != nil {
+			return verr
+		}
+	}
+
+	return generator.ValidateEnvPrefix(o.EnvPrefix)
+}
+
+// validateHelpFields groups the Slack/Teams help-channel checks.
+func (o *SkeletonOptions) validateHelpFields() error {
+	if err := generator.ValidateSlackChannel(o.SlackChannel); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateSlackTeam(o.SlackTeam); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateTeamsChannel(o.TeamsChannel); err != nil {
+		return err
+	}
+
+	return generator.ValidateTeamsTeam(o.TeamsTeam)
+}
+
+// splitRepoOrgForValidate extracts the namespace portion of a
+// fully-qualified repo path (e.g. "github.com/myorg/mytool" →
+// "myorg"; "gitlab.com/group/sub/mytool" → "group/sub"). The first
+// segment is treated as the host and the last as the repo name;
+// everything between is the org/namespace validated by
+// [generator.ValidateOrg].
+//
+// This is distinct from the older splitRepoPath helper in
+// internal/generator/skeleton.go which splits on the LAST `/` and
+// therefore returns the entire `host/group/subgroup` prefix as
+// "org". We avoid that shape because it cannot appear in a real
+// GitHub or GitLab mention.
+func splitRepoOrgForValidate(repo string) (org, name string, err error) {
+	const minRepoSegments = 3
+
+	segments := strings.Split(repo, "/")
+	if len(segments) < minRepoSegments {
+		return "", "", errors.Newf("repo %q must be host/org/name (at least 3 segments)", repo)
+	}
+
+	return strings.Join(segments[1:len(segments)-1], "/"), segments[len(segments)-1], nil
 }
 
 func (o *SkeletonOptions) defaultHost() string {

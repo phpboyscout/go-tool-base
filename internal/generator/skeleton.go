@@ -553,7 +553,7 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
 	}
 
-	tmpl, err := template.New(fullPath).Parse(tmplStr)
+	tmpl, err := template.New(fullPath).Funcs(templateFuncMap).Parse(tmplStr)
 	if err != nil {
 		return "", errors.Newf("failed to parse template %s: %w", fullPath, err)
 	}
