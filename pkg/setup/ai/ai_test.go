@@ -36,6 +36,16 @@ func newTestProps(t *testing.T) *p.Props {
 	}
 }
 
+// withNoCI clears the CI env var for the duration of a test so
+// literal-mode wizard flows run deterministically under GitHub
+// Actions (which sets CI=true automatically). Use from the test
+// body — cannot be inlined into newTestProps because t.Setenv is
+// forbidden after t.Parallel, and many callers parallel-ise.
+func withNoCI(t *testing.T) {
+	t.Helper()
+	t.Setenv("CI", "")
+}
+
 func mockFormCreator(provider, apiKey string) func(*AIConfig) []*huh.Form {
 	return func(cfg *AIConfig) []*huh.Form {
 		cfg.Provider = provider
@@ -92,6 +102,8 @@ func TestRunAIForms_CIRefusesLiteral(t *testing.T) {
 }
 
 func TestRunAIInit_Claude(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -113,6 +125,8 @@ func TestRunAIInit_Claude(t *testing.T) {
 }
 
 func TestRunAIInit_OpenAI(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -131,6 +145,8 @@ func TestRunAIInit_OpenAI(t *testing.T) {
 }
 
 func TestRunAIInit_Gemini(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -149,6 +165,8 @@ func TestRunAIInit_Gemini(t *testing.T) {
 }
 
 func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -170,6 +188,8 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 }
 
 func TestRunAIInit_MergesExistingConfig(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
