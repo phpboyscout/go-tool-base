@@ -131,14 +131,21 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 			"Set GITHUB_TOKEN via your CI platform's secret injection and add `github.auth.env: GITHUB_TOKEN` to the tool's config.")
 	}
 
-	// If the user already has env-var-mode configuration in place
-	// (either github.auth.env or GITHUB_TOKEN), don't overwrite it
-	// with a fresh OAuth-issued literal token. Env-var mode is the
-	// recommended default — once a user has adopted it, init runs
-	// should confirm rather than silently revert.
-	if cfg.GetString("github.auth.env") != "" || os.Getenv("GITHUB_TOKEN") != "" {
-		p.Logger.Info("GitHub env-var credential detected; skipping OAuth token capture",
-			"env", cfg.GetString("github.auth.env"))
+	// If the user already has any GitHub credential configured —
+	// env-var reference, literal config value (Viper's AutomaticEnv
+	// also surfaces prefixed env like MYTOOL_GITHUB_AUTH_VALUE here),
+	// or the unprefixed GITHUB_TOKEN ecosystem fallback — don't
+	// overwrite it with a fresh OAuth-issued literal token.
+	//
+	// Inlined rather than using vcs.ResolveToken because that helper
+	// expects callers to pass cfg.Sub("github") and Viper's Sub()
+	// drops AutomaticEnv, hiding prefixed env binding. Top-level
+	// cfg.GetString keeps the prefix-aware resolution intact. A
+	// follow-up PR should refactor ResolveToken to accept a full
+	// path prefix so every caller benefits.
+	if hasExistingGitHubCredential(cfg) {
+		p.Logger.Info("GitHub credential already configured; skipping OAuth token capture",
+			"env_ref", cfg.GetString("github.auth.env"))
 
 		return nil
 	}
@@ -156,6 +163,29 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 	cfg.Set("github.auth.value", ghtoken)
 
 	return nil
+}
+
+// hasExistingGitHubCredential checks every layer of the credential
+// resolution chain for a populated GitHub token. The order mirrors
+// [vcs.tokenFromConfig] but uses top-level config keys so Viper's
+// AutomaticEnv fires at every step:
+//
+//  1. github.auth.env → env var whose name is recorded in config
+//  2. github.auth.value → literal in YAML, or <PREFIX>_GITHUB_AUTH_VALUE
+//     via Viper's prefix-aware env binding
+//  3. GITHUB_TOKEN → unprefixed ecosystem fallback
+func hasExistingGitHubCredential(cfg config.Containable) bool {
+	if name := cfg.GetString("github.auth.env"); name != "" {
+		if os.Getenv(name) != "" {
+			return true
+		}
+	}
+
+	if cfg.GetString("github.auth.value") != "" {
+		return true
+	}
+
+	return os.Getenv("GITHUB_TOKEN") != ""
 }
 
 func (g *GitHubInitialiser) configureSSH(p *props.Props, cfg config.Containable) error {

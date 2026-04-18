@@ -310,8 +310,13 @@ func (p *BitbucketReleaseProvider) matchAssets(downloads []bbDownloadJSON) (stri
 //
 //  1. bitbucket.<field>.env — NAME of an env var holding the value
 //     (preferred; keeps the secret out of the config file)
-//  2. bitbucket.<field>    — literal value in config (legacy)
-//  3. BITBUCKET_<FIELD>    — well-known fallback environment variable
+//  2. bitbucket.<field>    — literal value in config (legacy).
+//     Viper's AutomaticEnv + tool prefix makes this step also
+//     pick up <PREFIX>_BITBUCKET_<FIELD> style env vars — so
+//     `MYTOOL_BITBUCKET_USERNAME=alice` works without any YAML.
+//  3. BITBUCKET_<FIELD>    — well-known unprefixed ecosystem env var;
+//     final fallback when the tool's prefix does not match and the
+//     user still wants the upstream convention.
 //
 // Bitbucket's dual-credential model means each field (username,
 // app_password) is resolved independently. Partial configuration
@@ -337,24 +342,22 @@ func resolveBitbucketField(cfg config.Containable, field, fallbackEnv string) st
 }
 
 // bitbucketFieldFromConfig returns the configured value for a single
-// Bitbucket credential field, checking env-var references before
-// literal values. Empty string when nothing is configured — the
-// caller falls back to the well-known env var.
+// Bitbucket credential field. Uses top-level dot-path access
+// (cfg.GetString("bitbucket.username")) rather than cfg.Sub so that
+// Viper's AutomaticEnv + prefix-aware binding still fires — Sub()
+// returns a new Viper that does not inherit the env-binding
+// configuration. Returns empty string when nothing is configured;
+// the caller falls back to the unprefixed ecosystem env var.
 func bitbucketFieldFromConfig(cfg config.Containable, field string) string {
 	if cfg == nil {
 		return ""
 	}
 
-	sub := cfg.Sub("bitbucket")
-	if sub == nil {
-		return ""
-	}
-
-	if name := strings.TrimSpace(sub.GetString(field + ".env")); name != "" {
+	if name := strings.TrimSpace(cfg.GetString("bitbucket." + field + ".env")); name != "" {
 		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
 			return v
 		}
 	}
 
-	return strings.TrimSpace(sub.GetString(field))
+	return strings.TrimSpace(cfg.GetString("bitbucket." + field))
 }
