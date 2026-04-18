@@ -1,6 +1,6 @@
 # {{ .Name }}
 
-{{ .Description }}
+{{ .Description | escapeMarkdown }}
 
 ## Overview
 

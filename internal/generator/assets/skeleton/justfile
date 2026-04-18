@@ -10,7 +10,7 @@ fix:
 generate:
     go generate ./...
 
-# Build the {{ .Name }} binary
+# Build the {{ .Name | escapeComment }} binary
 [default]
 build: tidy generate
     go build -o bin/{{ .Name }} ./cmd/{{ .Name }}
@@ -65,7 +65,7 @@ vuln:
 deadcode:
     deadcode ./...
 
-# Install the {{ .Name }} binary to $GOPATH/bin
+# Install the {{ .Name | escapeComment }} binary to $GOPATH/bin
 install:
     go install ./cmd/{{ .Name }}
 

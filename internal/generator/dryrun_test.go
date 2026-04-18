@@ -243,7 +243,7 @@ func setupDryRunProject(t *testing.T, fs afero.Fs, root string) {
 	t.Helper()
 
 	require.NoError(t, fs.MkdirAll(root+"/.gtb", DefaultDirMode))
-	require.NoError(t, afero.WriteFile(fs, root+"/.gtb/manifest.yaml", []byte("version:\n  gtb: v1.0.0\ncommands:\n  - name: root\n"), DefaultFileMode))
+	require.NoError(t, afero.WriteFile(fs, root+"/.gtb/manifest.yaml", []byte("properties:\n  name: mytool\nversion:\n  gtb: v1.0.0\ncommands:\n  - name: root\n"), DefaultFileMode))
 	require.NoError(t, afero.WriteFile(fs, root+"/go.mod", []byte("module example.com/testproject\n\ngo 1.22\n"), DefaultFileMode))
 }
 

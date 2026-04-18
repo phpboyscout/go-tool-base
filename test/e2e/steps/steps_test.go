@@ -56,6 +56,10 @@ func buildTagExpression() string {
 		return "@chat"
 	}
 
+	if os.Getenv("INT_TEST_E2E_GENERATOR") != "" {
+		return "@generator"
+	}
+
 	// Default: run everything
 	return ""
 }

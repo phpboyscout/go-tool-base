@@ -77,7 +77,7 @@ func TestRegenerateProject_Lifecycle(t *testing.T) {
 
 	root := "/work"
 	_ = fs.MkdirAll(root+"/.gtb", 0755)
-	_ = afero.WriteFile(fs, root+"/.gtb/manifest.yaml", []byte("version:\n  gtb: v1.0.0\ncommands:\n  - name: existing\n"), 0644)
+	_ = afero.WriteFile(fs, root+"/.gtb/manifest.yaml", []byte("properties:\n  name: mytool\nversion:\n  gtb: v1.0.0\ncommands:\n  - name: existing\n"), 0644)
 	_ = afero.WriteFile(fs, root+"/go.mod", []byte("module test-mod\n"), 0644)
 
 	// Add root cmd.go
