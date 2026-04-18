@@ -32,12 +32,22 @@ const (
 const (
 	// ConfigKeyAIProvider is the config key for the AI provider.
 	ConfigKeyAIProvider = "ai.provider"
-	// ConfigKeyOpenAIKey is the config key for the OpenAI API key.
+	// ConfigKeyOpenAIKey is the config key for a literal OpenAI API key.
 	ConfigKeyOpenAIKey = "openai.api.key"
-	// ConfigKeyClaudeKey is the config key for the Claude/Anthropic API key.
+	// ConfigKeyClaudeKey is the config key for a literal Claude/Anthropic API key.
 	ConfigKeyClaudeKey = "anthropic.api.key"
-	// ConfigKeyGeminiKey is the config key for the Gemini API key.
+	// ConfigKeyGeminiKey is the config key for a literal Gemini API key.
 	ConfigKeyGeminiKey = "gemini.api.key"
+	// ConfigKeyOpenAIEnv is the config key holding the NAME of an
+	// environment variable that contains the OpenAI API key. Preferred
+	// over [ConfigKeyOpenAIKey] so the literal never touches disk.
+	ConfigKeyOpenAIEnv = "openai.api.env"
+	// ConfigKeyClaudeEnv is the env-var-reference key for Claude. See
+	// [ConfigKeyOpenAIEnv] for the convention.
+	ConfigKeyClaudeEnv = "anthropic.api.env"
+	// ConfigKeyGeminiEnv is the env-var-reference key for Gemini. See
+	// [ConfigKeyOpenAIEnv] for the convention.
+	ConfigKeyGeminiEnv = "gemini.api.env"
 )
 
 const (

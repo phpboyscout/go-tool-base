@@ -178,6 +178,24 @@ Spec: [2026-04-02-generator-template-escaping.md](specs/2026-04-02-generator-tem
 
 ---
 
+#### H-1 (2026-04-02 audit): Plaintext Credentials in Config Files
+
+**Severity:** High | **Status:** Remediated — Phase 1 of 3
+
+The interactive setup wizard for both AI providers and the VCS integrations wrote API keys and tokens to `~/.<tool>/config.yaml` as plaintext. Config file permissions are restricted to `0600`, but plaintext secrets on disk remain exposed to backups, dotfile sync, shared workstations, compromised local accounts, and accidental commits to public repositories.
+
+**Mitigation (Phase 1 of 3).** Introduced [`pkg/credentials`](../../pkg/credentials/) with a `Mode` taxonomy (`ModeEnvVar`, `ModeKeychain`, `ModeLiteral`), sentinel errors, and a keychain-capability probe. The AI setup wizard presents a storage-mode selector defaulting to env-var mode; the config now records `{provider}.api.env: <VAR_NAME>` instead of the literal key when env-var mode is chosen. The chat client's credential resolution checks `{provider}.api.env` before the literal key, so env-var mode is honoured at runtime. The GitHub wizard refuses to write a literal token when `CI=true` and short-circuits when a `GITHUB_TOKEN`-style env-var is already configured. The Bitbucket dual-credential resolver (`pkg/vcs/bitbucket`) gained `bitbucket.{username,app_password}.env` env-var reference precedence. A new `doctor` check `credentials.no-literal` warns when literal credentials remain in the loaded config.
+
+**Deferred to Phase 2 & 3.**
+- **Phase 2**: OS keychain integration behind `-tags keychain` (dep on `github.com/zalando/go-keyring`), `auth.keychain` resolution step in `pkg/vcs/auth.go`, full keychain storage for dual-credential Bitbucket entries.
+- **Phase 3**: `config migrate-credentials` command, GitHub OAuth+display-once flow, BDD coverage, migration guide.
+
+**Tool author responsibility.** New user-supplied credentials should route through the same three-mode pattern: prefer env-var references, fall back to literal only outside CI, and register a new `doctor` pattern when introducing a new config key that may hold a secret.
+
+Spec: [2026-04-02-credential-storage-hardening.md](specs/2026-04-02-credential-storage-hardening.md).
+
+---
+
 ## Adding New Entries
 
 When a new security audit or review produces findings, add them to this document under a dated audit heading. Each entry should include:

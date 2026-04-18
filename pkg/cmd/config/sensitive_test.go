@@ -40,11 +40,23 @@ func TestMasker_IsSensitive_KeyPatterns(t *testing.T) {
 		{"github.auth", "somevalue", true},
 		// non-sensitive keys
 		{"log.level", "info", false},
-		{"github.url.api", "https://api.github.com", false},
 		{"tool.name", "myapp", false},
-		// github.auth.value — leaf is "value", NOT matched by key pattern
-		// but may be matched by value pattern if value looks like a token
-		{"github.auth.value", "not-a-token", false},
+		// Credential keys whose mid-path segment identifies the kind
+		// (auth, username, app_password) are masked even when the
+		// leaf is generic — closes a pre-existing gap surfaced by
+		// the credential-storage-hardening spec.
+		{"github.auth.value", "not-a-token", true},
+		{"github.auth.env", "GITHUB_TOKEN", true},
+		{"bitbucket.username", "alice", true},
+		{"bitbucket.app_password", "not-a-token", true},
+		// Provider-specific env-var reference keys like
+		// anthropic.api.env are NOT masked — the value is a
+		// publicly-known env var NAME, not a secret.
+		{"anthropic.api.env", "ANTHROPIC_API_KEY", false},
+		// github.url.api — "api" alone does not match "apikey"
+		// because the pattern check is substring-of-segment, not
+		// prefix, so the URL segments remain unmasked.
+		{"github.url.api", "https://api.github.com", false},
 	}
 
 	for _, tt := range tests {
@@ -78,25 +90,25 @@ func TestMasker_IsSensitive_ValuePatterns(t *testing.T) {
 	}{
 		{
 			name:  "github classic PAT detected by value",
-			key:   "github.auth.value",
+			key:   "log.level",
 			value: "ghp_" + strings.Repeat("A", 36),
 			want:  true,
 		},
 		{
 			name:  "github fine-grained PAT detected by value",
-			key:   "github.auth.value",
+			key:   "log.level",
 			value: "github_pat_" + strings.Repeat("A", 82),
 			want:  true,
 		},
 		{
 			name:  "plain string not detected",
-			key:   "github.auth.value",
+			key:   "log.level",
 			value: "plain-config-value",
 			want:  false,
 		},
 		{
 			name:  "partial github token prefix not matched",
-			key:   "github.auth.value",
+			key:   "log.level",
 			value: "ghp_short",
 			want:  false,
 		},

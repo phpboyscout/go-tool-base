@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -304,23 +305,56 @@ func (p *BitbucketReleaseProvider) matchAssets(downloads []bbDownloadJSON) (stri
 	return version, assets
 }
 
-// resolveCredentials reads Bitbucket credentials from config then env vars.
+// resolveCredentials reads Bitbucket credentials from config then
+// env vars. Credential-storage precedence for each field:
+//
+//  1. bitbucket.<field>.env — NAME of an env var holding the value
+//     (preferred; keeps the secret out of the config file)
+//  2. bitbucket.<field>    — literal value in config (legacy)
+//  3. BITBUCKET_<FIELD>    — well-known fallback environment variable
+//
+// Bitbucket's dual-credential model means each field (username,
+// app_password) is resolved independently. Partial configuration
+// (e.g. username via env-var, app_password literal) is supported and
+// occasionally useful during rotation.
+//
+// See docs/development/specs/2026-04-02-credential-storage-hardening.md.
 func resolveCredentials(cfg config.Containable) (username, appPassword string) {
-	if cfg != nil {
-		sub := cfg.Sub("bitbucket")
-		if sub != nil {
-			username = sub.GetString("username")
-			appPassword = sub.GetString("app_password")
+	username = resolveBitbucketField(cfg, "username", "BITBUCKET_USERNAME")
+	appPassword = resolveBitbucketField(cfg, "app_password", "BITBUCKET_APP_PASSWORD")
+
+	return username, appPassword
+}
+
+// resolveBitbucketField implements the three-step precedence for a
+// single Bitbucket credential field.
+func resolveBitbucketField(cfg config.Containable, field, fallbackEnv string) string {
+	if v := bitbucketFieldFromConfig(cfg, field); v != "" {
+		return v
+	}
+
+	return strings.TrimSpace(os.Getenv(fallbackEnv))
+}
+
+// bitbucketFieldFromConfig returns the configured value for a single
+// Bitbucket credential field, checking env-var references before
+// literal values. Empty string when nothing is configured — the
+// caller falls back to the well-known env var.
+func bitbucketFieldFromConfig(cfg config.Containable, field string) string {
+	if cfg == nil {
+		return ""
+	}
+
+	sub := cfg.Sub("bitbucket")
+	if sub == nil {
+		return ""
+	}
+
+	if name := strings.TrimSpace(sub.GetString(field + ".env")); name != "" {
+		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+			return v
 		}
 	}
 
-	if username == "" {
-		username = os.Getenv("BITBUCKET_USERNAME")
-	}
-
-	if appPassword == "" {
-		appPassword = os.Getenv("BITBUCKET_APP_PASSWORD")
-	}
-
-	return username, appPassword
+	return strings.TrimSpace(sub.GetString(field))
 }

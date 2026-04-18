@@ -3,8 +3,6 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"os"
-
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -154,18 +152,8 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any) error {
 }
 
 func getOpenAICredentials(token string, cfg config.Containable) (string, error) {
-	if token != "" {
-		return token, nil
-	}
-
-	if cfg != nil {
-		if token = cfg.GetString(ConfigKeyOpenAIKey); token != "" {
-			return token, nil
-		}
-	}
-
-	if envToken := os.Getenv(EnvOpenAIKey); envToken != "" {
-		return envToken, nil
+	if resolved := resolveAPIKey(token, cfg, ConfigKeyOpenAIEnv, ConfigKeyOpenAIKey, EnvOpenAIKey); resolved != "" {
+		return resolved, nil
 	}
 
 	return "", errors.New("OpenAI token is required but not provided")

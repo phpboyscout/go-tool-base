@@ -121,6 +121,28 @@ func (g *GitHubInitialiser) Configure(props *props.Props, cfg config.Containable
 }
 
 func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable) error {
+	// CI defence: literal-mode writes in a CI environment almost
+	// certainly leak the token to build artefacts or logs. The
+	// --skip-login default already suppresses this path under CI,
+	// but belt-and-braces the invariant here. See R5 in the spec.
+	if os.Getenv("CI") == "true" {
+		return errors.WithHint(
+			errors.New("GitHub literal-token storage is refused under CI"),
+			"Set GITHUB_TOKEN via your CI platform's secret injection and add `github.auth.env: GITHUB_TOKEN` to the tool's config.")
+	}
+
+	// If the user already has env-var-mode configuration in place
+	// (either github.auth.env or GITHUB_TOKEN), don't overwrite it
+	// with a fresh OAuth-issued literal token. Env-var mode is the
+	// recommended default — once a user has adopted it, init runs
+	// should confirm rather than silently revert.
+	if cfg.GetString("github.auth.env") != "" || os.Getenv("GITHUB_TOKEN") != "" {
+		p.Logger.Info("GitHub env-var credential detected; skipping OAuth token capture",
+			"env", cfg.GetString("github.auth.env"))
+
+		return nil
+	}
+
 	p.Logger.Info("Logging into Github", "host", GitHubHost)
 
 	ghtoken, err := g.loginFunc(GitHubHost)
@@ -128,6 +150,9 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 		return err
 	}
 
+	// Phase 1 minimum: preserve existing literal-write behaviour for
+	// users who do not yet have env-var setup. Phase 2 adds the
+	// "display once, write env-var reference" flow per the spec.
 	cfg.Set("github.auth.value", ghtoken)
 
 	return nil

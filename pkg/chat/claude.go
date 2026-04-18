@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -33,15 +32,7 @@ type Claude struct {
 func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 	p.Logger.Info("Initialising Claude Chat")
 
-	token := cfg.Token
-	if token == "" && p.Config != nil {
-		token = p.Config.GetString(ConfigKeyClaudeKey)
-	}
-
-	if token == "" {
-		token = os.Getenv(EnvClaudeKey)
-	}
-
+	token := resolveAPIKey(cfg.Token, p.Config, ConfigKeyClaudeEnv, ConfigKeyClaudeKey, EnvClaudeKey)
 	if token == "" {
 		return nil, errors.New("Anthropic API key is required but not provided")
 	}

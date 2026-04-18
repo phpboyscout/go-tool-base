@@ -18,6 +18,7 @@ import (
 
 func TestClaudeProvider_New(t *testing.T) {
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
 
 	p := &props.Props{
@@ -49,6 +50,7 @@ func TestClaudeProvider_New(t *testing.T) {
 
 	t.Run("success_from_props", func(t *testing.T) {
 		cfgMock := mockConfig.NewMockContainable(t)
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("")
 		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key")
 		pWithKey := &props.Props{
 			Logger: logger.NewNoop(),
@@ -76,6 +78,7 @@ func TestClaudeProvider_Ask(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -245,6 +248,7 @@ func TestClaudeProvider_Chat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -362,7 +366,8 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		defer maxStepsServer.Close()
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),
@@ -430,7 +435,8 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		defer multiServer.Close()
 
 		multiCfgMock := mockConfig.NewMockContainable(t)
-		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		multiProps := &props.Props{
 			Logger: logger.NewNoop(),
