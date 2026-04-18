@@ -342,22 +342,26 @@ func resolveBitbucketField(cfg config.Containable, field, fallbackEnv string) st
 }
 
 // bitbucketFieldFromConfig returns the configured value for a single
-// Bitbucket credential field. Uses top-level dot-path access
-// (cfg.GetString("bitbucket.username")) rather than cfg.Sub so that
-// Viper's AutomaticEnv + prefix-aware binding still fires — Sub()
-// returns a new Viper that does not inherit the env-binding
-// configuration. Returns empty string when nothing is configured;
-// the caller falls back to the unprefixed ecosystem env var.
+// Bitbucket credential field. cfg.Sub("bitbucket") now preserves
+// the root's env-binding configuration (see pkg/config.Container.Sub),
+// so sub-scoped lookups pick up prefixed env vars like
+// <TOOL>_BITBUCKET_USERNAME without a round-trip through the full
+// dot-path. Returns empty string when nothing is configured.
 func bitbucketFieldFromConfig(cfg config.Containable, field string) string {
 	if cfg == nil {
 		return ""
 	}
 
-	if name := strings.TrimSpace(cfg.GetString("bitbucket." + field + ".env")); name != "" {
+	sub := cfg.Sub("bitbucket")
+	if sub == nil {
+		return ""
+	}
+
+	if name := strings.TrimSpace(sub.GetString(field + ".env")); name != "" {
 		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
 			return v
 		}
 	}
 
-	return strings.TrimSpace(cfg.GetString("bitbucket." + field))
+	return strings.TrimSpace(sub.GetString(field))
 }
