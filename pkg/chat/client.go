@@ -29,36 +29,43 @@ const (
 	ProviderGemini Provider = "gemini"
 )
 
-const (
-	// ConfigKeyAIProvider is the config key for the AI provider.
-	ConfigKeyAIProvider = "ai.provider"
-	// ConfigKeyOpenAIKey is the config key for a literal OpenAI API key.
-	ConfigKeyOpenAIKey = "openai.api.key"
-	// ConfigKeyClaudeKey is the config key for a literal Claude/Anthropic API key.
-	ConfigKeyClaudeKey = "anthropic.api.key"
-	// ConfigKeyGeminiKey is the config key for a literal Gemini API key.
-	ConfigKeyGeminiKey = "gemini.api.key"
-	// ConfigKeyOpenAIEnv is the config key holding the NAME of an
-	// environment variable that contains the OpenAI API key. Preferred
-	// over [ConfigKeyOpenAIKey] so the literal never touches disk.
-	ConfigKeyOpenAIEnv = "openai.api.env"
-	// ConfigKeyClaudeEnv is the env-var-reference key for Claude. See
-	// [ConfigKeyOpenAIEnv] for the convention.
-	ConfigKeyClaudeEnv = "anthropic.api.env"
-	// ConfigKeyGeminiEnv is the env-var-reference key for Gemini. See
-	// [ConfigKeyOpenAIEnv] for the convention.
-	ConfigKeyGeminiEnv = "gemini.api.env"
-)
+// ConfigKeyAIProvider is the config key for the AI provider.
+const ConfigKeyAIProvider = "ai.provider"
 
+// EnvAIProvider is the environment variable for overriding the AI provider.
+const EnvAIProvider = "AI_PROVIDER"
+
+// Per-provider credential config surface.
+//
+// Each provider exposes three related strings:
+//
+//   - ConfigKey<Provider>Key — full config path for the literal
+//     API key (e.g. "openai.api.key").
+//   - ConfigKey<Provider>Env — full config path for an env-var
+//     reference; the value stored here is the NAME of an env var
+//     (e.g. "OPENAI_API_KEY") that holds the actual secret.
+//   - Env<Provider>Key — well-known unprefixed environment variable
+//     used as the ecosystem fallback when no config is present.
+//
+// The per-provider root path (e.g. "openai.api") is defined once as
+// an unexported constant and composed into the public constants so
+// adding `.keychain` or renaming the root stays a single edit.
 const (
-	// EnvAIProvider is the environment variable for overriding the AI provider.
-	EnvAIProvider = "AI_PROVIDER"
-	// EnvOpenAIKey is the environment variable for overriding the OpenAI API key.
-	EnvOpenAIKey = "OPENAI_API_KEY"
-	// EnvClaudeKey is the environment variable for overriding the Claude API key.
-	EnvClaudeKey = "ANTHROPIC_API_KEY"
-	// EnvGeminiKey is the environment variable for overriding the Gemini API key.
-	EnvGeminiKey = "GEMINI_API_KEY"
+	configRootOpenAI = "openai.api"
+	configRootClaude = "anthropic.api"
+	configRootGemini = "gemini.api"
+
+	ConfigKeyOpenAIKey = configRootOpenAI + ".key"
+	ConfigKeyOpenAIEnv = configRootOpenAI + ".env"
+	EnvOpenAIKey       = "OPENAI_API_KEY"
+
+	ConfigKeyClaudeKey = configRootClaude + ".key"
+	ConfigKeyClaudeEnv = configRootClaude + ".env"
+	EnvClaudeKey       = "ANTHROPIC_API_KEY"
+
+	ConfigKeyGeminiKey = configRootGemini + ".key"
+	ConfigKeyGeminiEnv = configRootGemini + ".env"
+	EnvGeminiKey       = "GEMINI_API_KEY"
 )
 
 // Tool represents a function that the AI can call.
