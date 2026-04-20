@@ -371,6 +371,33 @@ See [How to add a custom release source](../../how-to/custom-release-source.md) 
 - Tokens are stored in user's config directory with restricted permissions
 - Enterprise URL support for private installations (GitHub Enterprise, GitLab Self-Managed, self-hosted Gitea)
 
+### Credential Storage Modes
+
+The `gtb init ai` and `gtb init github` wizards now present a credential storage mode selector backed by [`pkg/credentials`](../credentials.md). Users choose how their secret is persisted, with sensible defaults:
+
+| Mode | Config output | When offered |
+|------|---------------|--------------|
+| Env-var reference (default) | `{provider}.api.env: ENV_NAME` / `github.auth.env: ENV_NAME` | Always. Selected by default. |
+| OS keychain | `{provider}.api.keychain: service/account` | Only when the binary is built with `-tags keychain` and the OS keychain probe succeeds. Phase 2. |
+| Literal | `{provider}.api.key: sk-...` / `github.auth.value: ghp_...` | Hidden entirely under `CI=true`; the wizard refuses to persist a plaintext credential into a config file that will almost certainly leak via CI artefacts or logs. |
+
+The AI wizard then prompts for an env var name (defaulting to the provider standard — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.
+
+The GitHub wizard:
+
+1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via Viper's `AutomaticEnv`), or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run no longer overwrites env-var mode with a fresh OAuth token.
+2. **Refuses literal mode under `CI=true`** with a hint directing the user to the CI platform's secret-injection mechanism.
+3. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser — common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted under the same `github.auth.value` key the OAuth flow would have used.
+
+Related surfaces that rely on the same taxonomy:
+
+- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Chat > Credential Resolution](../chat.md#credential-resolution).
+- **`pkg/vcs/bitbucket`** — dual-credential resolver (`username` + `app_password`) reads the `.env` variant of each field before literals.
+- **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
+- **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
+
+See the end-user guide at [How to configure credentials](../../how-to/configure-credentials.md) for practical examples and the [Credential Storage Hardening spec](../../development/specs/2026-04-02-credential-storage-hardening.md) for the full design.
+
 ### SSH Key Handling
 - Keys are read but never logged or transmitted
 - Only key metadata (type, path) stored in configuration

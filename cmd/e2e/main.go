@@ -65,6 +65,11 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 				props.Enable(props.McpCmd),
 				props.Enable(props.ConfigCmd),
 				props.Enable(props.TelemetryCmd),
+				// AiCmd + github are not enabled by default but are
+				// needed for BDD / manual testing of the credential
+				// setup wizards and the chat credential resolver.
+				props.Enable(props.AiCmd),
+				props.Enable(props.FeatureCmd("github")),
 				props.Disable(props.DocsCmd), // no embedded assets in test binary
 			),
 			Telemetry: props.TelemetryConfig{

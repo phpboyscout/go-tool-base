@@ -158,6 +158,11 @@ func TestGitHubInitialiser(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	homeDir := "/home/testuser"
 	t.Setenv("HOME", homeDir)
+	// Ensure env-var-mode detection does not short-circuit the
+	// OAuth path; this test exercises the legacy literal-write
+	// behaviour and must not inherit GITHUB_TOKEN from the runner.
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("CI", "")
 
 	p := &props.Props{
 		FS:     fs,
@@ -177,6 +182,54 @@ func TestGitHubInitialiser(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "mock-token", cfg.GetString("github.auth.value"))
+}
+
+func TestGitHubInitialiser_CIRefusesOAuthLiteral(t *testing.T) {
+	t.Setenv("CI", "true")
+	t.Setenv("GITHUB_TOKEN", "")
+
+	p := &props.Props{
+		FS:     afero.NewMemMapFs(),
+		Logger: logger.NewNoop(),
+		Tool:   props.Tool{Name: "testtool"},
+	}
+
+	cfg := viper.New()
+
+	init := NewGitHubInitialiser(p, false, true,
+		WithGHLogin(func(_ string) (string, error) {
+			t.Fatal("OAuth must not run under CI")
+			return "", nil
+		}),
+	)
+
+	err := init.Configure(p, config.NewContainerFromViper(nil, cfg))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "refused under CI")
+}
+
+func TestGitHubInitialiser_SkipsOAuthWhenEnvVarConfigured(t *testing.T) {
+	t.Setenv("CI", "")
+	t.Setenv("GITHUB_TOKEN", "already-set-via-env")
+
+	p := &props.Props{
+		FS:     afero.NewMemMapFs(),
+		Logger: logger.NewNoop(),
+		Tool:   props.Tool{Name: "testtool"},
+	}
+
+	cfg := viper.New()
+
+	init := NewGitHubInitialiser(p, false, true,
+		WithGHLogin(func(_ string) (string, error) {
+			t.Fatal("OAuth must not run when GITHUB_TOKEN is set")
+			return "", nil
+		}),
+	)
+
+	require.NoError(t, init.Configure(p, config.NewContainerFromViper(nil, cfg)))
+	// No literal token must be written — the env var is the source of truth.
+	assert.Empty(t, cfg.GetString("github.auth.value"))
 }
 
 func TestConfigure_SkipBoth(t *testing.T) {

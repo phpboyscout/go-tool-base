@@ -95,6 +95,60 @@ func TestContainer_Sub(t *testing.T) {
 
 }
 
+// TestContainer_Sub_PreservesEnvBinding covers the regression
+// guarded by the env-aware Sub implementation: calling GetString on
+// a sub-container must still pick up prefixed env vars that Viper's
+// AutomaticEnv wired to the parent. A previous implementation used
+// Viper's native Sub and lost the env binding silently.
+//
+// Sub() retains Viper's "nil on truly-missing" semantic, so the
+// test supplies a minimal YAML stub that gives the prefix structural
+// presence. Env-bound values then surface through the sub's Get
+// methods because they are qualified back onto the root's Viper.
+func TestContainer_Sub_PreservesEnvBinding(t *testing.T) {
+	t.Setenv("GTB_GITHUB_AUTH_VALUE", "env-bound-token")
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		// minimal structure so Viper's Sub returns non-nil
+		config.WithConfigReaders(strings.NewReader("github:\n  placeholder: x\n")),
+		config.WithEnvPrefix("GTB"),
+	)
+
+	sub := c.Sub("github")
+	assert.NotNil(t, sub)
+	assert.Equal(t, "env-bound-token", sub.GetString("auth.value"),
+		"sub-container must route Get through the root's Viper so AutomaticEnv fires")
+	assert.True(t, sub.IsSet("auth.value"),
+		"sub-container IsSet must also see env-bound values")
+}
+
+// TestContainer_Sub_NestedPreservesEnvBinding exercises the
+// prefix-accumulation path: cfg.Sub("a").Sub("b") must qualify
+// lookups with the full "a.b.<key>" path when delegating to the
+// root, not just the last segment.
+func TestContainer_Sub_NestedPreservesEnvBinding(t *testing.T) {
+	t.Setenv("GTB_BITBUCKET_AUTH_TOKEN", "nested-env-token")
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("bitbucket:\n  auth:\n    placeholder: x\n")),
+		config.WithEnvPrefix("GTB"),
+	)
+
+	bitbucket := c.Sub("bitbucket")
+	assert.NotNil(t, bitbucket)
+
+	auth := bitbucket.Sub("auth")
+	assert.NotNil(t, auth)
+	assert.Equal(t, "nested-env-token", auth.GetString("token"),
+		"nested Sub must accumulate the full prefix")
+}
+
 func TestContainer_GetViper(t *testing.T) {
 	t.Parallel()
 

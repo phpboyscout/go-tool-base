@@ -15,6 +15,7 @@ import (
 	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/credentials"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
@@ -35,16 +36,74 @@ func newTestProps(t *testing.T) *p.Props {
 	}
 }
 
+// withNoCI clears the CI env var for the duration of a test so
+// literal-mode wizard flows run deterministically under GitHub
+// Actions (which sets CI=true automatically). Use from the test
+// body — cannot be inlined into newTestProps because t.Setenv is
+// forbidden after t.Parallel, and many callers parallel-ise.
+func withNoCI(t *testing.T) {
+	t.Helper()
+	t.Setenv("CI", "")
+}
+
 func mockFormCreator(provider, apiKey string) func(*AIConfig) []*huh.Form {
 	return func(cfg *AIConfig) []*huh.Form {
 		cfg.Provider = provider
 		cfg.APIKey = apiKey
+		// Older tests rely on literal-mode semantics; make the
+		// choice explicit so adding a new default mode in the future
+		// cannot silently reroute these writes.
+		cfg.StorageMode = credentials.ModeLiteral
 
 		return nil // skip form rendering
 	}
 }
 
+// mockEnvVarFormCreator simulates the user selecting env-var storage
+// mode and entering an env var name — the Phase 1 recommended path.
+func mockEnvVarFormCreator(provider, envVarName string) func(*AIConfig) []*huh.Form {
+	return func(cfg *AIConfig) []*huh.Form {
+		cfg.Provider = provider
+		cfg.StorageMode = credentials.ModeEnvVar
+		cfg.EnvVarName = envVarName
+
+		return nil
+	}
+}
+
+func TestRunAIInit_ClaudeEnvVarMode(t *testing.T) {
+	props := newTestProps(t)
+	props.Assets = p.NewAssets()
+	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+
+	err := RunAIInit(props, dir, WithAIForm(mockEnvVarFormCreator("claude", "CUSTOM_ANTHROPIC_KEY")))
+	require.NoError(t, err)
+
+	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+	content, err := afero.ReadFile(props.FS, configFile)
+	require.NoError(t, err)
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "provider: claude")
+	assert.Contains(t, contentStr, "env: CUSTOM_ANTHROPIC_KEY",
+		"env-var mode must record the env var NAME under {provider}.api.env")
+	assert.NotContains(t, contentStr, "key:",
+		"env-var mode must NOT write the literal {provider}.api.key field")
+}
+
+func TestRunAIForms_CIRefusesLiteral(t *testing.T) {
+	t.Setenv("CI", "true")
+
+	cfg := config.NewFilesContainer(afero.NewMemMapFs())
+
+	_, err := runAIForms(cfg, WithAIForm(mockFormCreator("claude", "sk-should-be-refused")))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "literal credential storage is refused under CI")
+}
+
 func TestRunAIInit_Claude(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -66,6 +125,8 @@ func TestRunAIInit_Claude(t *testing.T) {
 }
 
 func TestRunAIInit_OpenAI(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -84,6 +145,8 @@ func TestRunAIInit_OpenAI(t *testing.T) {
 }
 
 func TestRunAIInit_Gemini(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -102,6 +165,8 @@ func TestRunAIInit_Gemini(t *testing.T) {
 }
 
 func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
@@ -123,6 +188,8 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 }
 
 func TestRunAIInit_MergesExistingConfig(t *testing.T) {
+	withNoCI(t)
+
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)

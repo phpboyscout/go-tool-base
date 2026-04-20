@@ -43,6 +43,7 @@ func claudeStreamProps(t *testing.T) (*props.Props, string) {
 	t.Helper()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	return &props.Props{Logger: logger.NewNoop(), Config: cfg}, "test-key"
@@ -52,6 +53,7 @@ func openaiStreamProps(t *testing.T) (*props.Props, string) {
 	t.Helper()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	return &props.Props{Logger: logger.NewNoop(), Config: cfg}, "test-key"
@@ -61,6 +63,7 @@ func geminiStreamProps(t *testing.T) (*props.Props, string) {
 	t.Helper()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	return &props.Props{Logger: logger.NewNoop(), Config: cfg}, "test-key"

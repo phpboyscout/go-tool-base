@@ -405,6 +405,30 @@ cacheConfig := container.Sub("cache")
 redisConfig := cacheConfig.Sub("redis") // Nested: cache.redis.*
 ```
 
+#### Environment-Aware `Sub()`
+
+Viper's native `Sub()` returns a fresh `*viper.Viper` that does **not** inherit the parent's `AutomaticEnv` + `SetEnvPrefix` configuration. That would quietly strip prefix-aware env binding from every sub-container — so `cfg.Sub("github").GetString("auth.value")` would miss `<TOOL>_GITHUB_AUTH_VALUE` even though the top-level `cfg.GetString("github.auth.value")` resolves it correctly.
+
+The GTB `Container.Sub()` avoids that trap. The returned view:
+
+1. Keeps a **structural view** — Viper's own `Sub` sub-tree — used for `WriteConfigAs`, `Dump`, `ToJSON`, and `Validate` so those operations remain scoped to the sub-path.
+2. Tracks the **root container** and an accumulated dot-prefix, and routes every `Get*`, `Set`, `Has`, and `IsSet` call through the root's Viper with a qualified key path. `AutomaticEnv` + prefix binding continue to fire no matter how many `Sub()` layers a caller walks.
+
+```go
+// With env prefix "MYTOOL" and GTB_GITHUB_AUTH_VALUE=ghp_xxx in env:
+github := cfg.Sub("github")
+github.GetString("auth.value")  // -> "ghp_xxx" (via AutomaticEnv)
+
+// Nested Sub accumulates the full prefix:
+bitbucket := cfg.Sub("bitbucket")
+auth := bitbucket.Sub("auth")
+auth.GetString("token")         // qualifies to "bitbucket.auth.token"
+```
+
+`Sub()` still returns `nil` when the key is absent from the entire config hierarchy (file, defaults, flags) — existing `if sub != nil` guards continue to work. The env-aware delegation only kicks in for sub-containers that were returned non-nil.
+
+**When this matters:** any code that passes `cfg.Sub(...)` into a resolver — `pkg/vcs/auth.ResolveToken`, `pkg/vcs/github.NewGitHubClient`, `pkg/vcs/bitbucket.resolveCredentials`, `pkg/setup/update.requireReleaseToken` — benefits automatically. A prefixed env var set by the user (e.g. `MYTOOL_GITHUB_AUTH_VALUE`, `MYTOOL_GITLAB_AUTH_VALUE`) is honoured without any caller changes.
+
 Configuration works seamlessly with Cobra flags:
 
 ```go

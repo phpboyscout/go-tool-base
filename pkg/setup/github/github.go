@@ -3,9 +3,12 @@ package github
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -13,6 +16,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	"github.com/phpboyscout/go-tool-base/pkg/vcs"
 	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
@@ -121,16 +125,97 @@ func (g *GitHubInitialiser) Configure(props *props.Props, cfg config.Containable
 }
 
 func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable) error {
+	// CI defence: literal-mode writes in a CI environment almost
+	// certainly leak the token to build artefacts or logs. The
+	// --skip-login default already suppresses this path under CI,
+	// but belt-and-braces the invariant here. See R5 in the spec.
+	if os.Getenv("CI") == "true" {
+		return errors.WithHint(
+			errors.New("GitHub literal-token storage is refused under CI"),
+			"Set GITHUB_TOKEN via your CI platform's secret injection and add `github.auth.env: GITHUB_TOKEN` to the tool's config.")
+	}
+
+	// If the user already has any GitHub credential configured —
+	// env-var reference, literal config value (Viper's AutomaticEnv
+	// surfaces prefixed env like <TOOL>_GITHUB_AUTH_VALUE through
+	// pkg/config's env-aware Sub), or the unprefixed GITHUB_TOKEN
+	// ecosystem fallback — don't overwrite with a fresh OAuth token.
+	if token := vcs.ResolveToken(cfg.Sub("github"), "GITHUB_TOKEN"); token != "" {
+		p.Logger.Info("GitHub credential already configured; skipping OAuth token capture",
+			"env_ref", cfg.GetString("github.auth.env"))
+
+		return nil
+	}
+
 	p.Logger.Info("Logging into Github", "host", GitHubHost)
 
 	ghtoken, err := g.loginFunc(GitHubHost)
 	if err != nil {
-		return err
+		// OAuth commonly fails on headless systems where no browser
+		// is available (dev servers, containers, SSH-only hosts).
+		// Rather than aborting, print the PAT creation URL and
+		// let the user paste a token they've provisioned manually.
+		p.Logger.Warn("GitHub OAuth flow unavailable, falling back to manual token entry",
+			"reason", err)
+
+		ghtoken, err = promptManualGitHubToken(GitHubHost)
+		if err != nil {
+			return err
+		}
 	}
 
+	// Phase 1 minimum: preserve existing literal-write behaviour for
+	// users who do not yet have env-var setup. Phase 2 adds the
+	// "display once, write env-var reference" flow per the spec.
 	cfg.Set("github.auth.value", ghtoken)
 
 	return nil
+}
+
+// promptManualGitHubToken is the fallback authentication path used
+// when the OAuth device flow cannot complete — typically on headless
+// servers where no web browser is available to launch.
+//
+// The helper prints a URL the user can visit on any device to create
+// a personal access token with the scopes required by the OAuth flow
+// (repo, read:org, gist), then prompts for the token via a password
+// input that does not echo to the terminal. The resulting token is
+// indistinguishable from one issued by OAuth and is persisted under
+// the same `github.auth.value` config key.
+func promptManualGitHubToken(host string) (string, error) {
+	url := fmt.Sprintf("https://%s/settings/tokens/new?scopes=repo,read:org,gist&description=gtb-cli", host)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Open this URL on any device to create a personal access token:")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  "+url)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Required scopes: repo, read:org, gist")
+	fmt.Fprintln(os.Stderr)
+
+	var token string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("GitHub Personal Access Token").
+				Description("Paste the token you just generated. Input is hidden.").
+				EchoMode(huh.EchoModePassword).
+				Value(&token).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("token is required")
+					}
+
+					return nil
+				}),
+		),
+	).Run()
+	if err != nil {
+		return "", errors.Wrap(err, "manual GitHub token prompt cancelled")
+	}
+
+	return strings.TrimSpace(token), nil
 }
 
 func (g *GitHubInitialiser) configureSSH(p *props.Props, cfg config.Containable) error {
