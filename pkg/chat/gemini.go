@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"encoding/json"
-	"os"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -67,16 +66,7 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 }
 
 func getGeminiToken(p *props.Props, cfg Config) string {
-	token := cfg.Token
-	if token == "" && p.Config != nil {
-		token = p.Config.GetString(ConfigKeyGeminiKey)
-	}
-
-	if token == "" {
-		token = os.Getenv(EnvGeminiKey)
-	}
-
-	return token
+	return resolveAPIKey(cfg.Token, p.Config, ConfigKeyGeminiEnv, ConfigKeyGeminiKey, EnvGeminiKey)
 }
 
 func buildGeminiClientConfig(token string, cfg Config) *genai.ClientConfig {

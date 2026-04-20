@@ -53,6 +53,25 @@ cfg := chat.Config{
 }
 ```
 
+#### Credential Resolution
+
+Every provider resolves its API key through a shared four-step precedence so tool authors never need to re-implement the cascade:
+
+1. **Direct token** — `Config.Token` supplied by the caller (tests, explicit overrides).
+2. **Env-var reference in config** — `{provider}.api.env` names an env var (e.g. `ANTHROPIC_API_KEY`). The resolver reads the name from config and then `os.Getenv(name)` for the value. This keeps the literal secret out of the config file while letting the user control which env var holds it.
+3. **Literal in config** — `{provider}.api.key`. Routed through Viper's `AutomaticEnv`, so a prefixed env var (e.g. `MYTOOL_ANTHROPIC_API_KEY`) is picked up here too.
+4. **Unprefixed ecosystem env** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. Final fallback for compatibility with provider SDKs and common CI conventions.
+
+Three pairs of config-key constants describe the per-provider surface:
+
+| Provider | Literal key | Env-var-reference key | Ecosystem fallback env var |
+|----------|-------------|-----------------------|---------------------------|
+| Claude   | `ConfigKeyClaudeKey` (`anthropic.api.key`) | `ConfigKeyClaudeEnv` (`anthropic.api.env`) | `EnvClaudeKey` (`ANTHROPIC_API_KEY`) |
+| OpenAI   | `ConfigKeyOpenAIKey` (`openai.api.key`) | `ConfigKeyOpenAIEnv` (`openai.api.env`) | `EnvOpenAIKey` (`OPENAI_API_KEY`) |
+| Gemini   | `ConfigKeyGeminiKey` (`gemini.api.key`) | `ConfigKeyGeminiEnv` (`gemini.api.env`) | `EnvGeminiKey` (`GEMINI_API_KEY`) |
+
+The interactive `gtb init ai` wizard defaults to env-var mode — it prompts for an env var name (pre-populated with the provider standard) and writes only `{provider}.api.env`. The literal is never persisted to disk in the recommended path. See [`pkg/credentials`](credentials.md) for the storage-mode taxonomy shared with the setup wizard, doctor, and config masker.
+
 ### Initialization
 
 ```go

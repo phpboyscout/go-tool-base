@@ -18,6 +18,7 @@ import (
 
 func TestOpenAIProvider_New(t *testing.T) {
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
 
 	p := &props.Props{
@@ -61,6 +62,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 
 	t.Run("success_from_props", func(t *testing.T) {
 		cfgMockInternal := mockConfig.NewMockContainable(t)
+		cfgMockInternal.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("")
 		cfgMockInternal.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key")
 		pWithKey := &props.Props{
 			Logger: logger.NewNoop(),
@@ -88,6 +90,7 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -144,6 +147,7 @@ func TestOpenAIProvider_Add(t *testing.T) {
 	t.Parallel()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -206,6 +210,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -319,7 +324,8 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 		defer maxStepsServer.Close()
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),

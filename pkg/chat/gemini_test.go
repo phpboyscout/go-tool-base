@@ -20,6 +20,7 @@ import (
 
 func TestGeminiProvider_New(t *testing.T) {
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
 
 	p := &props.Props{
@@ -77,6 +78,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -188,6 +190,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -295,7 +298,8 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		defer maxStepsServer.Close()
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),
@@ -364,6 +368,7 @@ func TestGeminiProvider_Add(t *testing.T) {
 	t.Parallel()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -398,6 +403,7 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{

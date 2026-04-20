@@ -5,7 +5,25 @@ import (
 	"strings"
 )
 
-var defaultKeyPatterns = []string{"token", "password", "secret", "key", "apikey", "auth"}
+// defaultKeyPatterns are substrings that mark a config key as
+// holding a credential. Matching is performed against every
+// dot-separated segment of the key path (not just the leaf) so
+// entries like "github.auth.value" are caught via the "auth"
+// segment even though the leaf ("value") is generic.
+//
+// "username" is conservatively included because it forms the left
+// half of a Bitbucket dual-credential pair — masking both halves
+// avoids printing an asymmetric view.
+var defaultKeyPatterns = []string{
+	"token",
+	"password",
+	"secret",
+	"key",
+	"apikey",
+	"auth",
+	"username",
+	"app_password",
+}
 
 var defaultValuePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`ghp_[A-Za-z0-9]{36}`),
@@ -54,19 +72,20 @@ func NewMasker(opts ...MaskerOption) *Masker {
 	return m
 }
 
-// IsSensitive returns true if the key's leaf segment matches a sensitive key
-// pattern OR the value matches a sensitive value pattern.
+// IsSensitive returns true if any dot-segment of the key matches a
+// sensitive key pattern OR the value matches a sensitive value
+// pattern. Segment-level matching catches credential keys like
+// "github.auth.value" or "bitbucket.username.env" whose leaf is
+// generic ("value", "env") but whose mid-path identifies the
+// credential.
 func (m *Masker) IsSensitive(key, value string) bool {
-	leaf := key
-	if i := strings.LastIndex(key, "."); i >= 0 {
-		leaf = key[i+1:]
-	}
+	lowerKey := strings.ToLower(key)
 
-	lower := strings.ToLower(leaf)
-
-	for _, pat := range m.keyPatterns {
-		if strings.Contains(lower, pat) {
-			return true
+	for _, segment := range strings.Split(lowerKey, ".") {
+		for _, pat := range m.keyPatterns {
+			if strings.Contains(segment, pat) {
+				return true
+			}
 		}
 	}
 

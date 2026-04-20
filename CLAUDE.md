@@ -217,6 +217,10 @@ Any `regexp.Compile` call whose pattern originates outside the binary (config fi
 
 Use `pkg/redact` for any free-form string written to telemetry, distributed logs, or a third-party observability surface. `redact.String` strips URL userinfo, common credential query parameters, Authorization headers, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack), and very long opaque tokens. `TrackCommandExtended` already applies it automatically to `args` and `errMsg`; HTTP middleware uses `redact.SensitiveHeaderKeys` to redact headers at DEBUG. See `docs/components/redact.md`.
 
+### Credential Storage
+
+User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (Phase 2, behind `-tags keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. See `pkg/credentials` and `docs/development/specs/2026-04-02-credential-storage-hardening.md`.
+
 ## Linting
 
 Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `github.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.
