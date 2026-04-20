@@ -3,9 +3,12 @@ package github
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -148,7 +151,17 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 
 	ghtoken, err := g.loginFunc(GitHubHost)
 	if err != nil {
-		return err
+		// OAuth commonly fails on headless systems where no browser
+		// is available (dev servers, containers, SSH-only hosts).
+		// Rather than aborting, print the PAT creation URL and
+		// let the user paste a token they've provisioned manually.
+		p.Logger.Warn("GitHub OAuth flow unavailable, falling back to manual token entry",
+			"reason", err)
+
+		ghtoken, err = promptManualGitHubToken(GitHubHost)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Phase 1 minimum: preserve existing literal-write behaviour for
@@ -157,6 +170,52 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 	cfg.Set("github.auth.value", ghtoken)
 
 	return nil
+}
+
+// promptManualGitHubToken is the fallback authentication path used
+// when the OAuth device flow cannot complete — typically on headless
+// servers where no web browser is available to launch.
+//
+// The helper prints a URL the user can visit on any device to create
+// a personal access token with the scopes required by the OAuth flow
+// (repo, read:org, gist), then prompts for the token via a password
+// input that does not echo to the terminal. The resulting token is
+// indistinguishable from one issued by OAuth and is persisted under
+// the same `github.auth.value` config key.
+func promptManualGitHubToken(host string) (string, error) {
+	url := fmt.Sprintf("https://%s/settings/tokens/new?scopes=repo,read:org,gist&description=gtb-cli", host)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Open this URL on any device to create a personal access token:")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "  "+url)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Required scopes: repo, read:org, gist")
+	fmt.Fprintln(os.Stderr)
+
+	var token string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("GitHub Personal Access Token").
+				Description("Paste the token you just generated. Input is hidden.").
+				EchoMode(huh.EchoModePassword).
+				Value(&token).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("token is required")
+					}
+
+					return nil
+				}),
+		),
+	).Run()
+	if err != nil {
+		return "", errors.Wrap(err, "manual GitHub token prompt cancelled")
+	}
+
+	return strings.TrimSpace(token), nil
 }
 
 func (g *GitHubInitialiser) configureSSH(p *props.Props, cfg config.Containable) error {
