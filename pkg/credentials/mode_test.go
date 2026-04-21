@@ -74,6 +74,22 @@ func TestModeString_RoundTrip(t *testing.T) {
 	assert.Equal(t, "literal", string(credentials.ModeLiteral))
 }
 
+// In the default build, Probe must short-circuit to false without
+// ever calling the stub Store/Retrieve/Delete — otherwise a wizard
+// running on a keychain-less binary would still offer the option
+// (the Store call would error and Probe would return false anyway,
+// but the fast-path ensures no unnecessary keychain touches).
+func TestProbe_DefaultBuildAlwaysFalse(t *testing.T) {
+	t.Parallel()
+
+	if credentials.KeychainAvailable() {
+		t.Skip("keychain build; covered by keychain-tagged test")
+	}
+
+	assert.False(t, credentials.Probe(),
+		"Probe must return false when the keychain backend is not compiled in")
+}
+
 func TestErrCredentialSentinels_Distinct(t *testing.T) {
 	t.Parallel()
 

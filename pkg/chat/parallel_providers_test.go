@@ -32,6 +32,7 @@ func TestClaudeProvider_Chat_ParallelTools(t *testing.T) {
 
 		cfgMock := mockConfig.NewMockContainable(t)
 		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
@@ -120,6 +121,7 @@ func TestOpenAIProvider_Chat_ParallelTools(t *testing.T) {
 
 		cfgMock := mockConfig.NewMockContainable(t)
 		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
@@ -216,6 +218,7 @@ func TestGeminiProvider_Chat_ParallelTools(t *testing.T) {
 
 		cfgMock := mockConfig.NewMockContainable(t)
 		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}

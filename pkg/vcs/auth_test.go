@@ -4,117 +4,156 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	testifymock "github.com/stretchr/testify/mock"
 
 	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
 )
 
+// ResolveToken precedence:
+//  1. cfg.auth.env → os.Getenv(name)
+//  2. cfg.auth.keychain → "<service>/<account>" → credentials.Retrieve
+//     (always empty in the default build)
+//  3. cfg.auth.value → literal (Viper-backed, so prefixed env surfaces here)
+//  4. fallbackEnv → os.Getenv(fallbackEnv)
+//
+// Every cfg lookup now uses GetString directly (no Has pre-check)
+// because Viper's AutomaticEnv surfaces prefixed env vars without
+// them being present in the YAML — Has would hide them.
+
 func TestResolveToken_FromConfigEnv(t *testing.T) {
-	// Not parallel — modifies environment
 	t.Setenv("MY_CUSTOM_TOKEN", "token-from-env")
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", "auth.env").Return(true)
-	mock.On("GetString", "auth.env").Return("MY_CUSTOM_TOKEN")
-	mock.On("Has", "auth.value").Maybe().Return(false)
+	mock.EXPECT().GetString("auth.env").Return("MY_CUSTOM_TOKEN")
 
-	token := ResolveToken(mock, "")
-
-	assert.Equal(t, "token-from-env", token)
+	assert.Equal(t, "token-from-env", ResolveToken(mock, ""))
 }
 
 func TestResolveToken_FromConfigValue(t *testing.T) {
 	t.Parallel()
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", "auth.env").Return(false)
-	mock.On("Has", "auth.value").Return(true)
-	mock.On("GetString", "auth.value").Return("literal-token")
+	mock.EXPECT().GetString("auth.env").Return("")
+	mock.EXPECT().GetString("auth.keychain").Return("")
+	mock.EXPECT().GetString("auth.value").Return("literal-token")
 
-	token := ResolveToken(mock, "")
-
-	assert.Equal(t, "literal-token", token)
+	assert.Equal(t, "literal-token", ResolveToken(mock, ""))
 }
 
 func TestResolveToken_FromFallbackEnv(t *testing.T) {
-	// Not parallel — modifies environment
 	t.Setenv("GITHUB_TOKEN", "fallback-token")
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", testifymock.Anything).Return(false)
+	mock.EXPECT().GetString("auth.env").Return("")
+	mock.EXPECT().GetString("auth.keychain").Return("")
+	mock.EXPECT().GetString("auth.value").Return("")
 
-	token := ResolveToken(mock, "GITHUB_TOKEN")
-
-	assert.Equal(t, "fallback-token", token)
+	assert.Equal(t, "fallback-token", ResolveToken(mock, "GITHUB_TOKEN"))
 }
 
 func TestResolveToken_PrecedenceConfigEnvOverValue(t *testing.T) {
-	// Not parallel — modifies environment
 	t.Setenv("PRIORITY_TOKEN", "env-wins")
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", "auth.env").Return(true)
-	mock.On("GetString", "auth.env").Return("PRIORITY_TOKEN")
-	mock.On("Has", "auth.value").Maybe().Return(true)
-	mock.On("GetString", "auth.value").Maybe().Return("value-loses")
+	mock.EXPECT().GetString("auth.env").Return("PRIORITY_TOKEN")
 
-	token := ResolveToken(mock, "")
-
-	assert.Equal(t, "env-wins", token, "auth.env should take precedence over auth.value")
+	assert.Equal(t, "env-wins", ResolveToken(mock, ""),
+		"auth.env should short-circuit before auth.value is consulted")
 }
 
 func TestResolveToken_PrecedenceConfigOverFallback(t *testing.T) {
-	// Not parallel — modifies environment
 	t.Setenv("FALLBACK_TOKEN", "fallback-loses")
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", "auth.env").Return(false)
-	mock.On("Has", "auth.value").Return(true)
-	mock.On("GetString", "auth.value").Return("config-wins")
+	mock.EXPECT().GetString("auth.env").Return("")
+	mock.EXPECT().GetString("auth.keychain").Return("")
+	mock.EXPECT().GetString("auth.value").Return("config-wins")
 
-	token := ResolveToken(mock, "FALLBACK_TOKEN")
-
-	assert.Equal(t, "config-wins", token, "config auth.value should take precedence over fallback env")
+	assert.Equal(t, "config-wins", ResolveToken(mock, "FALLBACK_TOKEN"),
+		"config auth.value should take precedence over fallback env")
 }
 
 func TestResolveToken_NilConfig(t *testing.T) {
-	// Not parallel — modifies environment
 	t.Setenv("FALLBACK_TOKEN", "from-fallback")
 
-	token := ResolveToken(nil, "FALLBACK_TOKEN")
-
-	assert.Equal(t, "from-fallback", token)
+	assert.Equal(t, "from-fallback", ResolveToken(nil, "FALLBACK_TOKEN"))
 }
 
 func TestResolveToken_NilConfigNoFallback(t *testing.T) {
 	t.Parallel()
-
-	token := ResolveToken(nil, "")
-
-	assert.Empty(t, token)
+	assert.Empty(t, ResolveToken(nil, ""))
 }
 
-func TestResolveToken_EmptyEnvVar(t *testing.T) {
-	// Not parallel — modifies environment
+func TestResolveToken_EmptyEnvVarFallsThrough(t *testing.T) {
 	t.Setenv("EMPTY_TOKEN", "")
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", "auth.env").Return(true)
-	mock.On("GetString", "auth.env").Return("EMPTY_TOKEN")
-	mock.On("Has", "auth.value").Return(false)
+	mock.EXPECT().GetString("auth.env").Return("EMPTY_TOKEN")
+	mock.EXPECT().GetString("auth.keychain").Return("")
+	mock.EXPECT().GetString("auth.value").Return("literal-fallback")
 
-	token := ResolveToken(mock, "")
-
-	assert.Empty(t, token, "empty env var should not be treated as a valid token")
+	// A referenced env var set to empty must fall through to the
+	// keychain/literal steps — otherwise a stale reference could
+	// permanently mask a usable literal.
+	assert.Equal(t, "literal-fallback", ResolveToken(mock, ""))
 }
 
 func TestResolveToken_NoTokenFound(t *testing.T) {
 	t.Parallel()
 
 	mock := mockcfg.NewMockContainable(t)
-	mock.On("Has", testifymock.Anything).Return(false)
+	mock.EXPECT().GetString("auth.env").Return("")
+	mock.EXPECT().GetString("auth.keychain").Return("")
+	mock.EXPECT().GetString("auth.value").Return("")
 
-	token := ResolveToken(mock, "")
+	assert.Empty(t, ResolveToken(mock, ""))
+}
 
-	assert.Empty(t, token)
+// TestResolveToken_KeychainReferenceUnsupportedBuild verifies that a
+// configured auth.keychain reference is silently skipped in the
+// default (no-keychain-tag) build so the resolver falls through to
+// auth.value instead of surfacing an error. The -tags keychain
+// build covers the success path via its own integration tests.
+func TestResolveToken_KeychainReferenceUnsupportedBuild(t *testing.T) {
+	t.Parallel()
+
+	mock := mockcfg.NewMockContainable(t)
+	mock.EXPECT().GetString("auth.env").Return("")
+	mock.EXPECT().GetString("auth.keychain").Return("mytool/github.auth")
+	mock.EXPECT().GetString("auth.value").Return("literal-wins")
+
+	assert.Equal(t, "literal-wins", ResolveToken(mock, ""),
+		"unavailable keychain should fall through to literal")
+}
+
+func TestParseKeychainRef(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		ref         string
+		wantService string
+		wantAccount string
+		wantOK      bool
+	}{
+		{name: "simple", ref: "mytool/github.auth", wantService: "mytool", wantAccount: "github.auth", wantOK: true},
+		{name: "nested account", ref: "mytool/bitbucket/auth", wantService: "mytool", wantAccount: "bitbucket/auth", wantOK: true},
+		{name: "empty", ref: "", wantOK: false},
+		{name: "no slash", ref: "mytool", wantOK: false},
+		{name: "leading slash", ref: "/mytool/auth", wantOK: false},
+		{name: "trailing slash", ref: "mytool/", wantOK: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			service, account, ok := parseKeychainRef(tc.ref)
+			assert.Equal(t, tc.wantOK, ok)
+
+			if tc.wantOK {
+				assert.Equal(t, tc.wantService, service)
+				assert.Equal(t, tc.wantAccount, account)
+			}
+		})
+	}
 }
