@@ -8,6 +8,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Integrate into develop so the umbrella develop→main PR aggregates
+    # dependency bumps alongside feature work before release.
+    target-branch: "develop"
 
   # GitHub Actions — keeps the SHA pins up to date while preserving the
   # commented-out version tag.
@@ -15,3 +18,4 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    target-branch: "develop"
