@@ -8,9 +8,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Credentials — Storage Mode Taxonomy
 
-`pkg/credentials` is the shared taxonomy for how GTB — and tools built on GTB — persist user-supplied secrets. It defines three storage modes, a keychain-capability probe, and two sentinel errors. Consumers include the interactive setup wizards (`pkg/setup/ai`, `pkg/setup/github`), the runtime credential resolvers (`pkg/chat`, `pkg/vcs`), the doctor subsystem, and the config masker.
+`pkg/credentials` is the shared taxonomy for how GTB — and tools built on GTB — persist user-supplied secrets. It defines three storage modes, a [`Backend`](#backend-interface) interface, a capability check (`KeychainAvailable`), a live-reachability probe (`Probe`), and two sentinel errors. Consumers include the interactive setup wizards (`pkg/setup/ai`, `pkg/setup/github`), the runtime credential resolvers (`pkg/chat`, `pkg/vcs`), the doctor subsystem, and the config masker.
 
-The package deliberately contains no external dependencies in its default build. A Phase-2 follow-up will add `github.com/zalando/go-keyring` behind the `keychain` build tag.
+The OS-keychain implementation lives in a dedicated subpackage (`github.com/phpboyscout/go-tool-base/pkg/credentials/keychain`). Downstream tools opt in by blank-importing that package from their `cmd/*/main`; regulated or air-gapped consumers omit the import, run with the stub backend, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of their linked binary. SBOM tools that inspect the compiled artefact (syft, cyclonedx-gomod on the linked binary) see a clean dependency surface in that case.
 
 ## Storage Modes
 
@@ -19,7 +19,7 @@ Three `Mode` values are supported:
 | Mode | Value | What gets written to config | Where the secret lives |
 |------|-------|-----------------------------|-----------------------|
 | `ModeEnvVar` | `"env"` | The **name** of an env var (`GITHUB_TOKEN`, `ANTHROPIC_API_KEY`, …) | Process environment, shell profile, or CI secret injection |
-| `ModeKeychain` | `"keychain"` | A `<service>/<account>` reference | OS keychain (macOS Keychain, Linux libsecret, Windows Credential Manager) — **only available with `-tags keychain`** |
+| `ModeKeychain` | `"keychain"` | A `<service>/<account>` reference | OS keychain (macOS Keychain, Linux Secret Service, Windows Credential Manager) — **only available when the `pkg/credentials/keychain` subpackage is imported** |
 | `ModeLiteral` | `"literal"` | The secret itself | The config file |
 
 `ModeEnvVar` is the recommended default and the only mode permitted under `CI=true`. `ModeLiteral` is supported for backward compatibility and throwaway environments; the setup wizard refuses it under CI and the doctor `credentials.no-literal` check warns on its presence.
@@ -31,54 +31,86 @@ import "github.com/phpboyscout/go-tool-base/pkg/credentials"
 
 // Which modes can this build offer to the user?
 modes := credentials.AvailableModes()
-// -> default build: [ModeEnvVar, ModeLiteral]
-// -> built with -tags keychain: [ModeEnvVar, ModeKeychain, ModeLiteral]
+// -> without keychain subpackage imported: [ModeEnvVar, ModeLiteral]
+// -> with keychain subpackage imported:   [ModeEnvVar, ModeKeychain, ModeLiteral]
 
-// Is keychain compiled in?
+// Is a keychain-capable backend registered?
 if credentials.KeychainAvailable() {
-    // show keychain option in a setup UI
+    // ModeKeychain is a possible option — but still gate the UI
+    // on Probe() before offering it, because a headless Linux host
+    // without a Secret Service provider or a locked macOS keychain
+    // will reject writes at use time.
 }
 
-// Attempt a keychain operation — always fails with ErrCredentialUnsupported
-// in the default build. Phase 2 wires these to go-keyring behind -tags keychain.
+// Is the keychain reachable right now? Performs a canary
+// Set→Get→Delete round-trip. Short-circuits to false when the stub
+// backend is installed, so callers can use Probe alone as the gate.
+if credentials.Probe() {
+    // offer ModeKeychain in the setup UI
+}
+
+// Backend operations. Fail with ErrCredentialUnsupported under the
+// stub backend; wired to go-keyring when the keychain subpackage is
+// imported.
 err := credentials.Store("mytool", "github.auth", secret)
 token, err := credentials.Retrieve("mytool", "github.auth")
 err = credentials.Delete("mytool", "github.auth")
 ```
 
-The returned slice from `AvailableModes` is always ordered: env-var first, keychain (if available) next, literal last. Callers that present modes to the user can render them in this order without additional sorting.
+The returned slice from `AvailableModes` is always ordered: env-var first, keychain (if available) next, literal last. Callers that present modes to the user can render them in this order without additional sorting. `Probe` is idempotent and safe to call from any goroutine.
+
+### Backend interface
+
+```go
+type Backend interface {
+    Store(service, account, secret string) error
+    Retrieve(service, account string) (string, error) // must return ErrCredentialNotFound on a clean miss
+    Delete(service, account string) error             // idempotent
+    Available() bool
+}
+
+// Swap the active backend — typically during main() init.
+credentials.RegisterBackend(myBackend)
+```
+
+The zero-dep default backend is `stubBackend`; every call returns `ErrCredentialUnsupported`. `credtest.MemoryBackend` (in `pkg/credentials/credtest`) is an in-process implementation useful for unit tests of resolvers and setup flows without touching the host keychain.
 
 ### Sentinel Errors
 
 | Error | Meaning |
 |-------|---------|
-| `ErrCredentialUnsupported` | Keychain operations in builds without the `keychain` tag; resolvers fall through to the next step. |
-| `ErrCredentialNotFound` | Keychain is available but no entry exists for the given `<service>/<account>` pair; lets resolvers distinguish "missing" from "unavailable". |
+| `ErrCredentialUnsupported` | No keychain-capable backend is registered. Resolvers fall through to the next step. |
+| `ErrCredentialNotFound` | Backend is present but no entry exists for the given `<service>/<account>` pair; lets resolvers distinguish "missing" from "unavailable". |
 
 Both wrap cleanly with `errors.Is` / `errors.As` and neither embeds credential material in its message.
 
-## Build Tags
+## Activating the keychain backend
 
-The default GTB build compiles `keychain_stub.go`, which returns `ErrCredentialUnsupported` from every keychain operation and reports `KeychainAvailable() == false`. Tool authors who want OS keychain integration opt in explicitly:
+To activate OS keychain support in a tool built on GTB:
 
-```bash
-# Default build: no keychain dependency, no CGO on Linux
-go build ./cmd/mytool
-
-# Keychain-enabled build: links go-keyring (CGO on Linux via libsecret)
-go build -tags keychain ./cmd/mytool
+```go
+// cmd/mytool/main.go
+import (
+    _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"  // registers Backend at init
+    // …
+)
 ```
 
-The keychain variant adds a Linux runtime dependency on libsecret/D-Bus, so tools that cross-compile widely or ship CGO-disabled binaries should leave the default off and document the keychain build as an optional variant.
+The blank import runs the subpackage's `init()`, which calls `credentials.RegisterBackend` with a `go-keyring`-backed `Backend`. From that point on, `KeychainAvailable()` reports true, `AvailableModes()` includes `ModeKeychain`, and `Probe()` performs its live round-trip.
+
+Tools that want to strip keychain support from a regulated build remove the blank import (or put it in a dedicated file like `cmd/mytool/keychain.go` that's easy to delete per build). With no import, Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the binary — nothing reaches a D-Bus session bus, and the SBOM of the linked artefact is clean. The same mechanism gates keychain in `cmd/gtb` itself: deleting `cmd/gtb/keychain.go` and rebuilding produces a keychain-free `gtb` binary.
+
+Note: the `go-keyring` dep chain is listed in the root module's `go.mod` as `// indirect` because `cmd/gtb` uses it by default. A binary-level SBOM remains the source of truth for what's actually linked into a specific artefact — source-level SBOMs generated from `go.sum` alone will show the full chain and require filtering against build-graph reachability.
 
 ## Consumers
 
 | Subsystem | Relationship to `pkg/credentials` |
 |-----------|-----------------------------------|
-| `pkg/setup/ai` | Storage-mode selector presented in the wizard uses `AvailableModes()`; the chosen mode decides which config key (`<provider>.api.env` vs `<provider>.api.key`) is written. |
+| `pkg/setup/ai` | Storage-mode selector uses `AvailableModes()` gated on `Probe()`; the chosen mode decides whether `<provider>.api.env`, `<provider>.api.keychain`, or `<provider>.api.key` is written. Keychain mode also writes the secret via `credentials.Store` — it never hits the config file. |
 | `pkg/setup/github` | CI refusal for `ModeLiteral`; falls back to manual PAT entry when the OAuth flow cannot launch a browser. |
-| `pkg/chat` | `resolveAPIKey` checks `<provider>.api.env` (ref) before `<provider>.api.key` (literal). Env-aware via Viper's `AutomaticEnv`. |
-| `pkg/vcs/bitbucket` | `resolveCredentials` reads `bitbucket.username.env` / `bitbucket.app_password.env` before literals. |
+| `pkg/chat` | `resolveAPIKey` walks five steps: direct → `<provider>.api.env` (ref) → `<provider>.api.keychain` (lookup) → `<provider>.api.key` (literal) → well-known env fallback. Env-aware via Viper's `AutomaticEnv`. |
+| `pkg/vcs` | `ResolveToken` walks `auth.env` → `auth.keychain` → `auth.value` → fallback env. Used by GitHub, GitLab, Gitea, and the direct provider. |
+| `pkg/vcs/bitbucket` | `resolveCredentials` walks `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt keychain blob aborts resolution rather than silently falling back to a stale literal. |
 | `pkg/cmd/doctor` | `credentials.no-literal` check scans for `ModeLiteral`-style config values and warns. |
 | `pkg/cmd/config` | The masker recognises `auth`/`username`/`password`/`api` mid-path segments so `config get`/`config list` render literal secrets as `****<tail>`. |
 
@@ -90,9 +122,10 @@ The keychain variant adds a Linux runtime dependency on libsecret/D-Bus, so tool
 | CI/CD pipelines | Env-var reference, populated by the CI platform's secret injection |
 | Containerised / Kubernetes | External secret injection (Kubernetes Secrets, CSI) mounted as env vars |
 | Throwaway / air-gapped | Literal value in config, accepting the plaintext-on-disk risk |
+| Regulated / compliance-audited | Env-var reference only; do **not** import `pkg/credentials/keychain` in the tool's `main` |
 
 Full trust-model guidance is in [`docs/development/security-decisions.md`](../development/security-decisions.md#h-1-2026-04-02-audit-plaintext-credentials-in-config-files).
 
 ## Spec and Status
 
-Package added in Phase 1 of [`2026-04-02-credential-storage-hardening.md`](../development/specs/2026-04-02-credential-storage-hardening.md). Phase 2 adds the keychain implementation; Phase 3 adds the `config migrate-credentials` command and the GitHub OAuth+display-once flow.
+Phases 1 and 2 of [`2026-04-02-credential-storage-hardening.md`](../development/specs/2026-04-02-credential-storage-hardening.md) are implemented: env-var reference as the default, keychain mode behind an opt-in subpackage import with `Probe()`-gated wizard UX, and Bitbucket JSON-blob support. Phase 3 (the `config migrate-credentials` command and the GitHub OAuth+display-once flow) is still pending.

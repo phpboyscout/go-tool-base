@@ -30,6 +30,7 @@ func TestStreamingIntegration_LiveSSERoundTrip(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+	cfg.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
@@ -100,6 +101,7 @@ func TestStreamingIntegration_ContextCancellation(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
+	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
@@ -170,6 +172,7 @@ func TestStreamingIntegration_ToolCallDuringStream(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfg.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}

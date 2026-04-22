@@ -166,10 +166,12 @@ func defaultProviderForm(cfg *AIConfig) *huh.Form {
 // defaultStorageModeForm offers the three-mode selector. Literal
 // mode is hidden when the process runs under CI=true — the wizard
 // refuses to write a plaintext credential to a config file that will
-// almost certainly leak via CI artefacts or logs. Keychain is
-// hidden in the default build (filtered via credentials.AvailableModes).
+// almost certainly leak via CI artefacts or logs. Keychain is hidden
+// unless the backend is both compiled in AND passes [credentials.Probe]
+// (canary round-trip) so the user is never offered an option that
+// will fail the moment they pick it.
 func defaultStorageModeForm(cfg *AIConfig) *huh.Form {
-	options := storageModeOptions(isCI())
+	options := storageModeOptions(isCI(), credentials.Probe())
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar
@@ -213,13 +215,17 @@ func defaultEnvVarForm(cfg *AIConfig) *huh.Form {
 }
 
 // storageModeOptions returns the huh.Option list for the storage
-// mode selector, filtered by CI state and keychain build tag.
-func storageModeOptions(ci bool) []huh.Option[credentials.Mode] {
+// mode selector, filtered by CI state, keychain build tag, and a
+// live-backend probe. The keychain option only surfaces when the
+// backend is compiled in AND reachable — a locked keychain or a
+// headless Linux host without D-Bus must not leave the user stuck on
+// a dead option during first-run setup.
+func storageModeOptions(ci, keychainUsable bool) []huh.Option[credentials.Mode] {
 	opts := []huh.Option[credentials.Mode]{
 		huh.NewOption("Environment variable reference (recommended)", credentials.ModeEnvVar),
 	}
 
-	if credentials.KeychainAvailable() {
+	if keychainUsable {
 		opts = append(opts, huh.NewOption("OS keychain", credentials.ModeKeychain))
 	}
 
@@ -368,25 +374,54 @@ func (a *AIInitialiser) Configure(p *props.Props, cfg config.Containable) error 
 	// Write results directly into the shared configuration container
 	cfg.Set(chat.ConfigKeyAIProvider, aiCfg.Provider)
 
-	return writeAICredentialKeys(cfg, aiCfg)
+	return writeAICredentialKeys(cfg, p.Tool.Name, aiCfg)
 }
 
 // writeAICredentialKeys writes the provider's credential keys based
-// on the selected storage mode. Only one of the literal / env-var
-// keys is set — this ensures config.GetString returns the intended
-// value without stale entries from a prior mode.
-func writeAICredentialKeys(cfg config.Containable, aiCfg *AIConfig) error {
-	envKey := providerEnvConfigKey(aiCfg.Provider)
-	litKey := providerConfigKey(aiCfg.Provider)
-
-	if envKey == "" || litKey == "" {
+// on the selected storage mode. Only one of the literal / env-var /
+// keychain keys is set — this ensures config.GetString returns the
+// intended value without stale entries from a prior mode. toolName
+// names the service used by the keychain write; see
+// [providerKeychainAccount] for the account shape.
+func writeAICredentialKeys(cfg config.Containable, toolName string, aiCfg *AIConfig) error {
+	keys, ok := providerConfigKeys(aiCfg.Provider)
+	if !ok {
 		return nil
 	}
 
+	return applyStorageModeWrite(cfg, toolName, keys, aiCfg)
+}
+
+// providerConfigKeyTriple groups the three provider-specific config
+// key paths so storage-mode dispatch can be written as a single
+// switch rather than a switch-per-key. ok=false means the provider
+// is unknown and the caller should no-op.
+type providerConfigKeyTriple struct {
+	env, literal, keychain string
+}
+
+// providerConfigKeys returns the env/literal/keychain config key
+// triple for a provider, with ok=false for unknown providers.
+func providerConfigKeys(provider string) (providerConfigKeyTriple, bool) {
+	envKey := providerEnvConfigKey(provider)
+	litKey := providerConfigKey(provider)
+	kcKey := providerKeychainConfigKey(provider)
+
+	if envKey == "" || litKey == "" || kcKey == "" {
+		return providerConfigKeyTriple{}, false
+	}
+
+	return providerConfigKeyTriple{env: envKey, literal: litKey, keychain: kcKey}, true
+}
+
+// applyStorageModeWrite performs the single Set call corresponding
+// to the selected storage mode. Extracted so the cyclomatic cost of
+// the four-arm switch doesn't hit the outer function's budget.
+func applyStorageModeWrite(cfg config.Containable, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
 	switch aiCfg.StorageMode {
 	case credentials.ModeEnvVar:
 		if aiCfg.EnvVarName != "" {
-			cfg.Set(envKey, aiCfg.EnvVarName)
+			cfg.Set(keys.env, aiCfg.EnvVarName)
 		}
 
 		return nil
@@ -395,20 +430,49 @@ func writeAICredentialKeys(cfg config.Containable, aiCfg *AIConfig) error {
 		// "" preserves prior behaviour for callers (tests) that
 		// bypass the wizard and set APIKey directly.
 		if aiCfg.APIKey != "" {
-			cfg.Set(litKey, aiCfg.APIKey)
+			cfg.Set(keys.literal, aiCfg.APIKey)
 		}
 
 		return nil
 
 	case credentials.ModeKeychain:
-		// Keychain write is Phase 2; in Phase 1 this mode cannot
-		// reach here because the selector filters it out via
-		// [credentials.AvailableModes].
-		return errors.New("keychain storage is not compiled in this build (use -tags keychain)")
+		ref, err := storeAIKeyInKeychain(toolName, aiCfg)
+		if err != nil {
+			return err
+		}
+
+		if ref != "" {
+			cfg.Set(keys.keychain, ref)
+		}
+
+		return nil
 
 	default:
 		return errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
 	}
+}
+
+// storeAIKeyInKeychain writes the API key into the OS keychain under
+// "<toolName>/<account>" and returns the reference string recorded in
+// the config file. A blank APIKey is a no-op so running the wizard
+// with a placeholder form in tests doesn't touch real credentials.
+func storeAIKeyInKeychain(toolName string, aiCfg *AIConfig) (string, error) {
+	if aiCfg.APIKey == "" {
+		return "", nil
+	}
+
+	account := providerKeychainAccount(aiCfg.Provider)
+	if toolName == "" || account == "" {
+		return "", errors.New("cannot write keychain entry without both tool name and provider account")
+	}
+
+	if err := credentials.Store(toolName, account, aiCfg.APIKey); err != nil {
+		return "", errors.WithHint(
+			errors.Wrap(err, "storing AI API key in OS keychain"),
+			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
+	}
+
+	return toolName + "/" + account, nil
 }
 
 // RunAIInit executes the AI configuration form and writes the results to the config file.
@@ -548,6 +612,41 @@ func providerEnvConfigKey(provider string) string {
 	}
 }
 
+// providerKeychainConfigKey returns the viper config key that records
+// the "<service>/<account>" reference for the provider's API key
+// when stored in [credentials.ModeKeychain].
+func providerKeychainConfigKey(provider string) string {
+	switch provider {
+	case string(chat.ProviderClaude):
+		return chat.ConfigKeyClaudeKeychain
+	case string(chat.ProviderOpenAI):
+		return chat.ConfigKeyOpenAIKeychain
+	case string(chat.ProviderGemini):
+		return chat.ConfigKeyGeminiKeychain
+	default:
+		return ""
+	}
+}
+
+// providerKeychainAccount returns the keychain account name under
+// which the provider's API key is stored. The service portion is the
+// tool name so the keychain UI labels entries clearly
+// ("<tool>/anthropic.api", "<tool>/openai.api", …). Changing these
+// values would strand existing keychain entries on user machines;
+// evolve with care.
+func providerKeychainAccount(provider string) string {
+	switch provider {
+	case string(chat.ProviderClaude):
+		return "anthropic.api"
+	case string(chat.ProviderOpenAI):
+		return "openai.api"
+	case string(chat.ProviderGemini):
+		return "gemini.api"
+	default:
+		return ""
+	}
+}
+
 func writeAIConfig(p *props.Props, dir string, aiCfg *AIConfig) error {
 	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
 
@@ -565,7 +664,7 @@ func writeAIConfig(p *props.Props, dir string, aiCfg *AIConfig) error {
 		},
 	}
 
-	if err := setAICredentialOnViper(cfg, aiCfg); err != nil {
+	if err := setAICredentialOnViper(cfg, p.Tool.Name, aiCfg); err != nil {
 		return err
 	}
 
@@ -613,26 +712,43 @@ func loadExistingAIConfig(cfg *viper.Viper, fs afero.Fs, targetFile string) erro
 }
 
 // setAICredentialOnViper writes exactly one of the credential keys
-// (env-var reference, literal, keychain — not yet) based on the
+// (env-var reference, literal, or keychain reference) based on the
 // selected storage mode, so a prior mode cannot mask the new one at
-// resolve time.
-func setAICredentialOnViper(cfg *viper.Viper, aiCfg *AIConfig) error {
-	envKey := providerEnvConfigKey(aiCfg.Provider)
-	litKey := providerConfigKey(aiCfg.Provider)
+// resolve time. toolName is the keychain service used for
+// [credentials.ModeKeychain] writes.
+func setAICredentialOnViper(cfg *viper.Viper, toolName string, aiCfg *AIConfig) error {
+	keys, _ := providerConfigKeys(aiCfg.Provider)
 
 	switch aiCfg.StorageMode {
 	case credentials.ModeEnvVar:
-		if envKey != "" && aiCfg.EnvVarName != "" {
-			cfg.Set(envKey, aiCfg.EnvVarName)
+		if keys.env != "" && aiCfg.EnvVarName != "" {
+			cfg.Set(keys.env, aiCfg.EnvVarName)
 		}
 	case credentials.ModeLiteral, "":
-		if litKey != "" && aiCfg.APIKey != "" {
-			cfg.Set(litKey, aiCfg.APIKey)
+		if keys.literal != "" && aiCfg.APIKey != "" {
+			cfg.Set(keys.literal, aiCfg.APIKey)
 		}
 	case credentials.ModeKeychain:
-		return errors.New("keychain storage is not compiled in this build (use -tags keychain)")
+		return writeKeychainRefToViper(cfg, toolName, keys.keychain, aiCfg)
 	default:
 		return errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
+	}
+
+	return nil
+}
+
+// writeKeychainRefToViper stores the API key in the backend and
+// records the reference on the viper instance. Split out of
+// [setAICredentialOnViper] to keep that function under the
+// cyclomatic-complexity budget.
+func writeKeychainRefToViper(cfg *viper.Viper, toolName, kcKey string, aiCfg *AIConfig) error {
+	ref, err := storeAIKeyInKeychain(toolName, aiCfg)
+	if err != nil {
+		return err
+	}
+
+	if kcKey != "" && ref != "" {
+		cfg.Set(kcKey, ref)
 	}
 
 	return nil

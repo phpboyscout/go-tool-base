@@ -6,6 +6,9 @@ tags: [testing, integration, ci, environment]
 
 # Integration Testing
 
+!!! tip "See also"
+    [Manual credential testing](testing/manual-credentials.md) — hands-on walkthrough of the OS-keychain storage mode against a real workstation, for scenarios that are awkward to mock.
+
 GTB includes integration tests that exercise real external services — GitHub APIs, git operations over the network, and multi-service lifecycle coordination. These tests are **excluded from the default test suite** and must be explicitly enabled via environment variables.
 
 ## Quick Start

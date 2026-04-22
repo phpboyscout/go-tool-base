@@ -750,15 +750,19 @@ Summarised from the [Security Requirements](#security-requirements) and [Resolve
 
 ### Phase 2: Keychain Integration
 
-**Scope:** Add optional OS keychain backend behind build tag. New dependency: `github.com/zalando/go-keyring`.
+**Scope:** Add an optional OS keychain backend as an opt-in blank-import. New dependency (linked only into binaries that opt in): `github.com/zalando/go-keyring` and its transitive set.
 
-1. Add `pkg/credentials/keychain_enabled.go` (build tag `keychain`).
+**Architectural refinement during implementation:** the spec originally proposed a `-tags keychain` build tag. Phase 2 landed a dependency-injection / blank-import pattern instead. The root library declares a `Backend` interface (`pkg/credentials.Backend`) and a default stub implementation; the `pkg/credentials/keychain` subpackage registers a `go-keyring`-backed `Backend` via `credentials.RegisterBackend` in its `init()`. Downstream tools opt in by blank-importing that subpackage from their `cmd/*/main`; regulated or air-gapped downstreams omit the import, and Go's linker dead-code elimination keeps go-keyring, godbus, and wincred out of the linked binary. Binary-level SBOM review is the authoritative check for regulated consumers — source-level SBOM generated from `go.sum` alone does not reflect link-time dead-code elimination.
+
+An earlier iteration placed the keychain subpackage in its own Go module (separate `go.mod`) to further insulate consumer `go.sum` from the dependency chain. That gave marginally cleaner source-level audit output at the cost of real tooling friction (multi-module workspace, `replace` directives, release-time version pinning), and was rolled back in favour of the single-module subpackage.
+
+1. Add `pkg/credentials/keychain/` subpackage (`go-keyring`-backed `Backend` + `init()` registration).
 2. Extend `pkg/vcs/auth.go` with `auth.keychain` resolution step (Priority 2); empty/whitespace fall-through per spec.
 3. Extend `pkg/chat/credentials.go` with keychain fallback for each AI provider.
 4. Extend `pkg/vcs/bitbucket/credentials.go` with JSON-blob keychain storage.
-5. Update setup wizard to show keychain option when `KeychainAvailable()` **and** a probe (`keyring.Set` + `keyring.Delete` on a canary) succeeds.
-6. Add `INT_TEST_CREDENTIALS` integration tests.
-7. Update goreleaser to produce a keychain-enabled variant (`<tool>-keychain_<os>_<arch>.tar.gz`) alongside the default build. Document the build tag for downstream tool authors.
+5. Update setup wizard to show keychain option when `KeychainAvailable()` **and** a probe (`Backend.Store` + `Backend.Retrieve` + `Backend.Delete` canary round-trip) succeeds.
+6. Add `INT_TEST_CREDENTIALS` integration tests for the subpackage.
+7. Document activation via blank import (`import _ ".../pkg/credentials/keychain"`) for downstream tool authors. `cmd/gtb/keychain.go` imports the subpackage for the shipped gtb binary; regulated gtb builds delete that file and rebuild.
 
 ### Phase 3: Migration Tooling and Documentation
 
