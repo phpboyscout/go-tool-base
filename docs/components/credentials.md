@@ -27,7 +27,11 @@ Three `Mode` values are supported:
 ## API
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/credentials"
+import (
+    "context"
+
+    "github.com/phpboyscout/go-tool-base/pkg/credentials"
+)
 
 // Which modes can this build offer to the user?
 modes := credentials.AvailableModes()
@@ -45,16 +49,19 @@ if credentials.KeychainAvailable() {
 // Is the keychain reachable right now? Performs a canary
 // Set→Get→Delete round-trip. Short-circuits to false when the stub
 // backend is installed, so callers can use Probe alone as the gate.
-if credentials.Probe() {
+// Pass a bounded context to guard against remote backends that hang.
+ctx, cancel := context.WithTimeout(parentCtx, 5*time.Second)
+defer cancel()
+if credentials.Probe(ctx) {
     // offer ModeKeychain in the setup UI
 }
 
 // Backend operations. Fail with ErrCredentialUnsupported under the
 // stub backend; wired to go-keyring when the keychain subpackage is
 // imported.
-err := credentials.Store("mytool", "github.auth", secret)
-token, err := credentials.Retrieve("mytool", "github.auth")
-err = credentials.Delete("mytool", "github.auth")
+err := credentials.Store(ctx, "mytool", "github.auth", secret)
+token, err := credentials.Retrieve(ctx, "mytool", "github.auth")
+err = credentials.Delete(ctx, "mytool", "github.auth")
 ```
 
 The returned slice from `AvailableModes` is always ordered: env-var first, keychain (if available) next, literal last. Callers that present modes to the user can render them in this order without additional sorting. `Probe` is idempotent and safe to call from any goroutine.
@@ -63,15 +70,17 @@ The returned slice from `AvailableModes` is always ordered: env-var first, keych
 
 ```go
 type Backend interface {
-    Store(service, account, secret string) error
-    Retrieve(service, account string) (string, error) // must return ErrCredentialNotFound on a clean miss
-    Delete(service, account string) error             // idempotent
+    Store(ctx context.Context, service, account, secret string) error
+    Retrieve(ctx context.Context, service, account string) (string, error) // must return ErrCredentialNotFound on a clean miss
+    Delete(ctx context.Context, service, account string) error             // idempotent
     Available() bool
 }
 
 // Swap the active backend — typically during main() init.
 credentials.RegisterBackend(myBackend)
 ```
+
+Every method takes a `context.Context` so remote-store backends (Hashicorp Vault, AWS SSM, 1Password Connect) honour deadlines and cancellation. OS-keychain backends accept the context for interface uniformity but don't propagate it — platform APIs (Keychain Services, Secret Service, Credential Manager) don't expose cancellation. See [docs/how-to/custom-credential-backend.md](../how-to/custom-credential-backend.md) for a worked example implementing a custom backend.
 
 The zero-dep default backend is `stubBackend`; every call returns `ErrCredentialUnsupported`. `credtest.MemoryBackend` (in `pkg/credentials/credtest`) is an in-process implementation useful for unit tests of resolvers and setup flows without touching the host keychain.
 

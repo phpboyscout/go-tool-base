@@ -15,6 +15,7 @@
 package credtest
 
 import (
+	"context"
 	"sync"
 
 	"github.com/phpboyscout/go-tool-base/pkg/credentials"
@@ -35,8 +36,13 @@ func key(service, account string) string {
 }
 
 // Store writes a secret. Overwrites existing entries for the same
-// service/account pair, matching the real keychain Backend.
-func (m *MemoryBackend) Store(service, account, secret string) error {
+// service/account pair, matching the real keychain Backend. The
+// context is honoured — a cancelled context aborts the write.
+func (m *MemoryBackend) Store(ctx context.Context, service, account, secret string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -53,7 +59,11 @@ func (m *MemoryBackend) Store(service, account, secret string) error {
 // [credentials.ErrCredentialNotFound] when the pair has never been
 // written — matching the real Backend's contract so resolvers behave
 // identically against either implementation.
-func (m *MemoryBackend) Retrieve(service, account string) (string, error) {
+func (m *MemoryBackend) Retrieve(ctx context.Context, service, account string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -67,7 +77,11 @@ func (m *MemoryBackend) Retrieve(service, account string) (string, error) {
 
 // Delete removes a secret. Idempotent: deleting a non-existent
 // entry returns nil, matching the real Backend.
-func (m *MemoryBackend) Delete(service, account string) error {
+func (m *MemoryBackend) Delete(ctx context.Context, service, account string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -118,15 +132,15 @@ type testingT interface {
 // through a test-only export from the main package.
 type stubBackend struct{}
 
-func (stubBackend) Store(_, _, _ string) error {
+func (stubBackend) Store(_ context.Context, _, _, _ string) error {
 	return credentials.ErrCredentialUnsupported
 }
 
-func (stubBackend) Retrieve(_, _ string) (string, error) {
+func (stubBackend) Retrieve(_ context.Context, _, _ string) (string, error) {
 	return "", credentials.ErrCredentialUnsupported
 }
 
-func (stubBackend) Delete(_, _ string) error {
+func (stubBackend) Delete(_ context.Context, _, _ string) error {
 	return credentials.ErrCredentialUnsupported
 }
 

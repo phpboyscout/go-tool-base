@@ -40,7 +40,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 		return nil, errors.New("Model is required for ProviderOpenAICompatible: specify the model name for your backend (e.g. \"llama3.2\" for Ollama)")
 	}
 
-	token, err := getOpenAICredentials(cfg.Token, props.Config)
+	token, err := getOpenAICredentials(ctx, cfg.Token, props.Config)
 	if err != nil {
 		return nil, errors.Newf("failed to get OpenAI credentials: %w", err)
 	}
@@ -151,8 +151,9 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any) error {
 	return nil
 }
 
-func getOpenAICredentials(token string, cfg config.Containable) (string, error) {
+func getOpenAICredentials(ctx context.Context, token string, cfg config.Containable) (string, error) {
 	if resolved := resolveAPIKey(
+		ctx,
 		token,
 		cfg,
 		ConfigKeyOpenAIEnv,

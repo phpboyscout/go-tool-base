@@ -132,7 +132,11 @@ func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...
 }
 
 // NewUpdater creates a SelfUpdater configured with the tools release source.
-func NewUpdater(p *props.Props, version string, force bool) (*SelfUpdater, error) {
+// The context is forwarded to [vcs.ResolveTokenContext] for
+// private-repository token resolution, so remote-store credential
+// backends (Vault, SSM) honour the caller's deadline when fetching
+// the release token.
+func NewUpdater(ctx context.Context, p *props.Props, version string, force bool) (*SelfUpdater, error) {
 	if p.Config == nil {
 		return nil, errors.New("configuration is not loaded")
 	}
@@ -143,7 +147,7 @@ func NewUpdater(p *props.Props, version string, force bool) (*SelfUpdater, error
 	}
 
 	if p.Tool.ReleaseSource.Private {
-		if err := requireReleaseToken(vcsProvider, p); err != nil {
+		if err := requireReleaseToken(ctx, vcsProvider, p); err != nil {
 			return nil, err
 		}
 	}
@@ -183,7 +187,7 @@ func NewUpdater(p *props.Props, version string, force bool) (*SelfUpdater, error
 // requireReleaseToken returns an error if no authentication token is available
 // for the given VCS provider. Used to give a clear error for private repositories
 // before attempting an unauthenticated API call that would fail with a 401.
-func requireReleaseToken(vcsProvider string, p *props.Props) error {
+func requireReleaseToken(ctx context.Context, vcsProvider string, p *props.Props) error {
 	var (
 		cfg         = p.Config.Sub(vcsProvider)
 		fallbackEnv string
@@ -206,7 +210,7 @@ func requireReleaseToken(vcsProvider string, p *props.Props) error {
 		fallbackEnv = "GITHUB_TOKEN"
 	}
 
-	if vcs.ResolveToken(cfg, fallbackEnv) == "" {
+	if vcs.ResolveTokenContext(ctx, cfg, fallbackEnv) == "" {
 		return errors.WithHint(
 			errors.Newf("no %s token available for private repository", strings.ToUpper(vcsProvider)),
 			fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable updates", fallbackEnv, vcsProvider),

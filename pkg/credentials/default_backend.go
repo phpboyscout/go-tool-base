@@ -1,5 +1,7 @@
 package credentials
 
+import "context"
+
 // stubBackend is the always-compiled default backend. It never
 // touches a platform keychain, D-Bus session bus, or any other
 // external service — every operation returns
@@ -14,21 +16,21 @@ type stubBackend struct{}
 // Store always fails. Callers MUST treat [ErrCredentialUnsupported]
 // as a signal to fall through, not to abort — see the resolvers in
 // pkg/chat and pkg/vcs.
-func (stubBackend) Store(_, _, _ string) error {
+func (stubBackend) Store(_ context.Context, _, _, _ string) error {
 	return ErrCredentialUnsupported
 }
 
 // Retrieve always fails. The empty string return is an extra
 // belt-and-braces guard — a caller that ignores the error still
 // sees no credential material from the stub.
-func (stubBackend) Retrieve(_, _ string) (string, error) {
+func (stubBackend) Retrieve(_ context.Context, _, _ string) (string, error) {
 	return "", ErrCredentialUnsupported
 }
 
 // Delete always fails. Idempotence guarantees only apply to real
 // backends; a caller that hits the stub's Delete is misusing the
 // API in a configuration that never could have stored anything.
-func (stubBackend) Delete(_, _ string) error {
+func (stubBackend) Delete(_ context.Context, _, _ string) error {
 	return ErrCredentialUnsupported
 }
 
