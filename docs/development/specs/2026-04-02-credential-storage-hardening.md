@@ -2,7 +2,7 @@
 title: "Credential Storage Hardening"
 description: "Harden interactive setup to default to environment variable references for credential storage, with optional OS keychain integration as a pluggable local-development backend."
 date: 2026-04-02
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - security
@@ -770,11 +770,11 @@ An earlier iteration placed the keychain subpackage in its own Go module (separa
 
 **Scope:** Help existing users move off literal mode.
 
-1. Add `pkg/cmd/config/migrate.go` implementing `config migrate-credentials` with `--dry-run` and `--target env|keychain`.
+1. Add `pkg/cmd/config/migrate.go` implementing `config migrate-credentials` with `--dry-run`, `--target env|keychain`, `--yes` for non-interactive / CI flows, `--env-var <key>=<name>` overrides, `--skip-verify`, and `--keychain-service`. Config cascade via `credentials.migrate.default_target` for tools that want a different default without per-invocation flags. Atomic file rewrite (temp + rename) preserves the existing config on interruption. Registered under `NewCmdConfig` alongside get/set/list/validate.
 2. Add Gherkin scenarios covering: fresh setup (env-var default), CI refusal, OAuth+env-var flow, Bitbucket dual-credential, keychain round-trip, doctor check, migration command.
-3. Update generator templates so scaffolded tools include the `migrate-credentials` subcommand by default.
-4. Add migration guide entry at `docs/migration/<version>-credential-storage.md` with before/after config examples.
-5. Update `docs/about/security.md` with credential-handling trust model.
+3. Update generator templates so scaffolded tools include the `migrate-credentials` subcommand by default. (`config migrate-credentials` is already wired into `NewCmdConfig`, so any tool that enables the `config` feature gets it automatically — no generator-template change needed beyond the existing `config` feature flag.)
+4. Add migration guide entry at `docs/migration/v1.12-credential-storage.md` with before/after config examples.
+5. Add `docs/about/security.md` with the full trust model: deployment contexts, redaction layers, network handling, supply-chain posture, and responsibilities by role.
 
 ---
 
