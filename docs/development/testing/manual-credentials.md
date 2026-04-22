@@ -44,13 +44,14 @@ Exercises the end-to-end flow: storage-mode selector surfaces keychain, wizard c
 
 ```bash
 rm -rf /tmp/e2etest
-./bin/e2e init ai -d /tmp/e2etest
+./bin/e2e init ai --dir /tmp/e2etest
 ```
 
 At each prompt:
 
 1. **Select AI provider** — pick any (Claude, OpenAI, Gemini).
 2. **Credential Storage** — confirm `OS keychain` appears as an option.
+   If it doesn't, your host fails the probe — jump to [Troubleshooting](#troubleshooting) before going further.
 3. Pick `OS keychain`.
 4. **API Key** — paste a recognisable fake, e.g. `sk-ant-test-xyzzy`.
 
@@ -94,44 +95,101 @@ Confirm the secret actually landed in the OS keychain:
 
 Each must print `sk-ant-test-xyzzy`.
 
-## Scenario 2 — Resolver reads from keychain at runtime
+## Scenario 2 — Doctor and config observe the keychain reference
 
-With the config from Scenario 1 still in place:
-
-```bash
-./bin/e2e doctor --dir /tmp/e2etest
-```
-
-Expected: `credentials.no-literal ✓ no literal credentials in config`.
-
-To observe the full resolver cascade, run at DEBUG:
+With the config from Scenario 1 still in place, point the tool at it via the root-level `--config` flag (`doctor` does not have its own `--dir`; it reads whichever config file is loaded):
 
 ```bash
-./bin/e2e --log-level debug ai chat "hi" --dir /tmp/e2etest 2>&1 | head -20
+./bin/e2e --config /tmp/e2etest/config.yaml doctor
 ```
 
-The chat call itself will fail (the fake key isn't a real API key), but the log lines should show the credential being resolved from the keychain, not the config. A line with `source=keychain` and the service/account pair (not the value) is the signal.
+Expected: the `credentials.no-literal` check passes — no literal credentials were written.
+
+Inspect the resolved config:
+
+```bash
+./bin/e2e --config /tmp/e2etest/config.yaml config get anthropic.api.keychain
+# → e2e/anthropic.api
+```
+
+The resolver itself is not directly exercised by any `gtb` subcommand — the e2e binary doesn't expose an `ai chat`-style invocation. To see a real resolution trace, run a tiny ad-hoc program that imports the library:
+
+```bash
+cat > /tmp/resolve_check.go <<'EOF'
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/spf13/afero"
+
+	_ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"github.com/phpboyscout/go-tool-base/pkg/chat"
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"github.com/phpboyscout/go-tool-base/pkg/props"
+)
+
+func main() {
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(),
+		config.WithConfigFiles("/tmp/e2etest/config.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
+	client, err := chat.New(context.Background(), p,
+		chat.Config{Provider: chat.ProviderClaude})
+	fmt.Printf("client=%v err=%v\n", client != nil, err)
+}
+EOF
+go run /tmp/resolve_check.go
+```
+
+`client=true err=<nil>` confirms the resolver walked env → keychain → literal and found the keychain-stored value.
 
 ## Scenario 3 — CI refuses literal mode (R5)
 
 ```bash
-CI=true ./bin/e2e init ai -d /tmp/e2etest-ci
+CI=true ./bin/e2e init ai --dir /tmp/e2etest-ci
 ```
 
-- The storage-mode prompt should **not** list `Literal value in config file (plaintext)`.
+- The storage-mode prompt must **not** list `Literal value in config file (plaintext)`.
 - If you bypass the form (via a test-only injection), the wizard exits non-zero with a hint pointing at CI secret injection.
 
 ## Scenario 4 — Probe gates the option when backend unreachable
 
-Simulate a headless environment:
+If `OS keychain` is missing from the Scenario 1 prompt, you've already landed in this scenario. The probe returned `false` and the wizard hid the option — the designed behaviour on any host without a registered Secret Service provider.
+
+Common triggers for probe failure:
+
+| Host | Why probe fails |
+|------|-----------------|
+| Headless Linux server / SSH dev box | `DBUS_SESSION_BUS_ADDRESS` may be set, but no Secret Service bus name is registered. |
+| CI runner / container | Usually no session bus at all. |
+| Linux desktop with keychain locked | Session bus reachable, Secret Service registered, but writes rejected until unlocked. |
+
+To force the failure mode on a host that would otherwise pass (e.g. for verification before a release on your laptop):
 
 ```bash
-DBUS_SESSION_BUS_ADDRESS=disabled ./bin/e2e init ai -d /tmp/e2etest-headless
+DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/null \
+  ./bin/e2e init ai --dir /tmp/e2etest-headless
 ```
 
-`OS keychain` must not appear in the storage-mode list. The probe performed a canary `Store`/`Retrieve`/`Delete`, got an error, and the wizard hid the option.
+`OS keychain` must not appear in the storage-mode list.
 
-On a real headless host (SSH into a server without a desktop session), the same behaviour applies without `DBUS_SESSION_BUS_ADDRESS` manipulation.
+To distinguish "D-Bus missing" from "Secret Service missing" on your own host:
+
+```bash
+echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+dbus-send --session --print-reply \
+  --dest=org.freedesktop.secrets /org/freedesktop/secrets \
+  org.freedesktop.DBus.Peer.Ping
+```
+
+- Empty `DBUS_SESSION_BUS_ADDRESS` → no session bus.
+- `ServiceUnknown` error → bus is there, no Secret Service registered.
+- No error → bus and Secret Service both live; probe should succeed.
 
 ## Scenario 5 — Bitbucket dual-credential JSON blob
 
@@ -164,11 +222,37 @@ bitbucket:
 EOF
 ```
 
-Any Bitbucket resolver call now loads and unmarshals the blob. Debug it with:
+No e2e subcommand exercises the Bitbucket resolver directly, so drive it with a tiny ad-hoc program that calls `bitbucket.NewReleaseProvider` — construction performs the resolution and surfaces any error:
 
 ```bash
-./bin/e2e --log-level debug --dir /tmp/e2etest-bb doctor 2>&1 | head -20
+cat > /tmp/bb_check.go <<'EOF'
+package main
+
+import (
+	"fmt"
+
+	"github.com/spf13/afero"
+
+	_ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
+	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+)
+
+func main() {
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(),
+		config.WithConfigFiles("/tmp/e2etest-bb/config.yaml"))
+	if err != nil {
+		panic(err)
+	}
+	_, err = bitbucket.NewReleaseProvider(release.ReleaseSourceConfig{Private: true}, cfg)
+	fmt.Printf("err=%v\n", err)
+}
+EOF
+go run /tmp/bb_check.go
 ```
+
+With the valid blob from above, `err=<nil>` (construction succeeded; both fields resolved from the keychain).
 
 ### Corrupt-blob abort (R3)
 
@@ -190,7 +274,7 @@ Replace the entry with malformed JSON:
       -w '{"username":"alice'
     ```
 
-The next Bitbucket resolver call must surface `"not valid JSON"` rather than silently using a literal fallback. This is the R3 guarantee: a broken keychain entry is not masked by stale literals.
+Re-run the ad-hoc program above. It must print an error containing `"not valid JSON"` rather than silently using a literal fallback. This is the R3 guarantee: a broken keychain entry is not masked by stale literals.
 
 ## Scenario 6 — Regulated-build strips keychain entirely
 
@@ -206,7 +290,7 @@ go tool nm bin/e2e-regulated | grep -cE "zalando|godbus"
 Run a wizard against that binary:
 
 ```bash
-./bin/e2e-regulated init ai -d /tmp/e2etest-reg
+./bin/e2e-regulated init ai --dir /tmp/e2etest-reg
 ```
 
 `OS keychain` must not appear. The backend is the stub, `credentials.Store` returns `ErrCredentialUnsupported`, and no session-bus or platform-keychain IPC ever happens.
@@ -249,26 +333,31 @@ rm -rf /tmp/e2etest /tmp/e2etest-ci /tmp/e2etest-headless /tmp/e2etest-bb /tmp/e
 **"OS keychain" option missing when I expect it to appear.**
 Run the probe in isolation to see which stage fails:
 
-```go
+```bash
+cat > /tmp/probe_check.go <<'EOF'
 package main
 
 import (
-    "fmt"
+	"fmt"
 
-    _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
-    "github.com/phpboyscout/go-tool-base/pkg/credentials"
+	_ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"github.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 func main() {
-    fmt.Println("Available:", credentials.KeychainAvailable())
-    fmt.Println("Probe:",    credentials.Probe())
+	fmt.Println("Available:", credentials.KeychainAvailable())
+	fmt.Println("Probe:   ", credentials.Probe())
 }
+EOF
+go run /tmp/probe_check.go
 ```
 
 - `Available=false` → the `pkg/credentials/keychain` subpackage is not linked (missing blank import, or you're on the stub build).
-- `Available=true` / `Probe=false` → backend is compiled in but the live round-trip failed. On Linux this is almost always a missing or locked Secret Service provider; on macOS, a locked login keychain.
+- `Available=true` / `Probe=false` → backend is compiled in but the live round-trip failed. On Linux this is almost always a missing or locked Secret Service provider; on macOS, a locked login keychain; on Windows, a disabled Credential Manager.
 
 **`secret-tool: command not found` on Linux.** Install `libsecret-tools` (Debian/Ubuntu) or `libsecret` (Fedora/Arch). You can also verify entries via GNOME Seahorse (GUI) or `dbus-send` queries.
+
+**I'm on a server and want to verify behaviour that needs a reachable keychain.** Short of installing GNOME Keyring or similar, you can run the Gherkin suite against the mock backend (`just test-e2e`) — it covers the same paths without a real OS keychain. Scenarios that truly require the live round-trip (1, 2, 5) are only meaningful on a desktop or a macOS/Windows workstation.
 
 **Corrupt-JSON test isn't triggering.** Check you're pointing at the right keychain entry — service must be `e2e`, account must be `bitbucket.auth`. The resolver only inspects `bitbucket.keychain` config entries, not `bitbucket.<field>.env` or `bitbucket.username`.
 
