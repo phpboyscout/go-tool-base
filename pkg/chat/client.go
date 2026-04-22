@@ -55,17 +55,20 @@ const (
 	configRootClaude = "anthropic.api"
 	configRootGemini = "gemini.api"
 
-	ConfigKeyOpenAIKey = configRootOpenAI + ".key"
-	ConfigKeyOpenAIEnv = configRootOpenAI + ".env"
-	EnvOpenAIKey       = "OPENAI_API_KEY"
+	ConfigKeyOpenAIKey      = configRootOpenAI + ".key"
+	ConfigKeyOpenAIEnv      = configRootOpenAI + ".env"
+	ConfigKeyOpenAIKeychain = configRootOpenAI + ".keychain"
+	EnvOpenAIKey            = "OPENAI_API_KEY"
 
-	ConfigKeyClaudeKey = configRootClaude + ".key"
-	ConfigKeyClaudeEnv = configRootClaude + ".env"
-	EnvClaudeKey       = "ANTHROPIC_API_KEY"
+	ConfigKeyClaudeKey      = configRootClaude + ".key"
+	ConfigKeyClaudeEnv      = configRootClaude + ".env"
+	ConfigKeyClaudeKeychain = configRootClaude + ".keychain"
+	EnvClaudeKey            = "ANTHROPIC_API_KEY"
 
-	ConfigKeyGeminiKey = configRootGemini + ".key"
-	ConfigKeyGeminiEnv = configRootGemini + ".env"
-	EnvGeminiKey       = "GEMINI_API_KEY"
+	ConfigKeyGeminiKey      = configRootGemini + ".key"
+	ConfigKeyGeminiEnv      = configRootGemini + ".env"
+	ConfigKeyGeminiKeychain = configRootGemini + ".keychain"
+	EnvGeminiKey            = "GEMINI_API_KEY"
 )
 
 // Tool represents a function that the AI can call.

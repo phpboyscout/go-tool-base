@@ -17,8 +17,10 @@ If you want the background on why we built this, see the [Credential Storage Har
 | Mode | Config sees | Secret lives |
 |------|-------------|--------------|
 | **Env-var reference** (default, recommended) | The **name** of an env var | Your shell profile, `direnv` file, or CI secret injection |
-| **OS keychain** (Phase 2, opt-in build) | A `<service>/<account>` reference | OS keychain (macOS / libsecret / Credential Manager) |
+| **OS keychain** (opt-in via blank import) | A `<service>/<account>` reference | OS keychain (macOS Keychain / Linux Secret Service / Windows Credential Manager) |
 | **Literal** (legacy) | The secret itself | The config file — `~/.<toolname>/config.yaml` |
+
+Keychain mode is only offered if the tool's `main` package imports `github.com/phpboyscout/go-tool-base/pkg/credentials/keychain`. Regulated builds omit the import — the tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
 
 ## When to pick which mode
 
@@ -198,3 +200,16 @@ Record the name that's right for each machine when you run `init ai` on that mac
 **Q: Will Phase 2 / Phase 3 break my env-var-reference setup?**
 
 No. The storage modes are additive. Phase 2 adds keychain as a third option, Phase 3 adds a migration command — neither removes or changes the env-var reference path.
+
+**Q: How do I enable OS keychain support in a tool built on GTB?**
+
+Add a blank import of the optional keychain subpackage to your tool's `main`:
+
+```go
+// cmd/mytool/main.go
+import (
+    _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+)
+```
+
+The blank import registers a `go-keyring`-backed backend during package init. From that point on, `credentials.KeychainAvailable()` reports true and the setup wizard offers keychain mode when the OS backend is reachable. To strip keychain support from a regulated build, remove the import (or put it in a `//go:build !nokeychain`-tagged file and build with `-tags nokeychain`).

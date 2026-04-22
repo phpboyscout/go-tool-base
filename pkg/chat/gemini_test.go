@@ -21,6 +21,7 @@ import (
 func TestGeminiProvider_New(t *testing.T) {
 	cfgMock := mockConfig.NewMockContainable(t)
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
 
 	p := &props.Props{
@@ -79,6 +80,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 
 	cfgMock := mockConfig.NewMockContainable(t)
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -191,6 +193,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 
 	cfgMock := mockConfig.NewMockContainable(t)
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -299,6 +302,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
 		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
@@ -369,6 +373,7 @@ func TestGeminiProvider_Add(t *testing.T) {
 
 	cfgMock := mockConfig.NewMockContainable(t)
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -404,6 +409,7 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 
 	cfgMock := mockConfig.NewMockContainable(t)
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{

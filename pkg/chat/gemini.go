@@ -66,7 +66,14 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 }
 
 func getGeminiToken(p *props.Props, cfg Config) string {
-	return resolveAPIKey(cfg.Token, p.Config, ConfigKeyGeminiEnv, ConfigKeyGeminiKey, EnvGeminiKey)
+	return resolveAPIKey(
+		cfg.Token,
+		p.Config,
+		ConfigKeyGeminiEnv,
+		ConfigKeyGeminiKeychain,
+		ConfigKeyGeminiKey,
+		EnvGeminiKey,
+	)
 }
 
 func buildGeminiClientConfig(token string, cfg Config) *genai.ClientConfig {

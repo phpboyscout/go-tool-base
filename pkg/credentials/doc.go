@@ -14,10 +14,14 @@
 //     and the only mode permitted under CI.
 //  2. [ModeKeychain] — the config records a keychain reference
 //     (`<service>/<account>`). The secret lives in the OS keychain
-//     (macOS Keychain, Linux libsecret, Windows Credential Manager).
-//     Available only when the binary is built with `-tags keychain`;
-//     otherwise the reference surfaces
-//     [ErrCredentialUnsupported] at resolution time.
+//     (macOS Keychain, Linux Secret Service via godbus, Windows
+//     Credential Manager). Available only when the process has a
+//     keychain-capable [Backend] registered — typically by blank-
+//     importing the optional
+//     github.com/phpboyscout/go-tool-base/pkg/credentials/keychain
+//     subpackage. Without such a registration, [Store] / [Retrieve] /
+//     [Delete] return [ErrCredentialUnsupported] and resolvers fall
+//     through.
 //  3. [ModeLiteral] — the secret is written as plaintext in the
 //     config file. Supported for backward compatibility and for
 //     air-gapped or throwaway environments. Refused under CI.
@@ -30,14 +34,19 @@
 // those concerns here avoids scattering the same switch statement
 // across eight call sites.
 //
-// # Build tag behaviour
+// # Separation of the keychain backend
 //
-// The default build compiles [keychain_stub.go] — [Store], [Retrieve],
-// and [Delete] all return [ErrCredentialUnsupported], and
-// [KeychainAvailable] reports false. A binary built with
-// `-tags keychain` compiles [keychain_enabled.go] (Phase 2) instead
-// and links against `github.com/zalando/go-keyring`, enabling real
-// OS keychain I/O.
+// The go-keyring-backed implementation lives in a dedicated
+// subpackage (github.com/phpboyscout/go-tool-base/pkg/credentials/
+// keychain) that registers itself via [RegisterBackend] during its
+// init(). Downstream tools that want OS keychain support blank-
+// import that subpackage from their cmd/main; regulated or
+// compliance-constrained downstreams omit the import and run with
+// the stub [Backend], so linker dead-code elimination keeps go-
+// keyring, godbus, and wincred out of their binary even though the
+// packages exist in the module. Binary-level SBOM review (syft,
+// cyclonedx-gomod on the linked artefact) shows the opt-out surface
+// unambiguously.
 //
 // See docs/development/specs/2026-04-02-credential-storage-hardening.md
 // for the full threat model, trust-model guidance, and test matrix.

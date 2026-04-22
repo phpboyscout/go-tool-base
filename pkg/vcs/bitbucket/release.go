@@ -19,6 +19,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/credentials"
 	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
 	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -92,13 +93,16 @@ type BitbucketReleaseProvider struct {
 
 // NewReleaseProvider constructs a BitbucketReleaseProvider.
 //
-// Credentials are resolved in order:
-//  1. cfg keys "username" and "app_password"
-//  2. BITBUCKET_USERNAME / BITBUCKET_APP_PASSWORD environment variables
+// Credentials are resolved by [resolveCredentials]; see its doc for the
+// full precedence chain. A corrupt keychain blob aborts construction
+// rather than silently falling through to the legacy literal step.
 //
 // The filename regex can be overridden via src.Params["filename_pattern"].
 func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*BitbucketReleaseProvider, error) {
-	username, appPassword := resolveCredentials(cfg)
+	username, appPassword, err := resolveCredentials(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	if src.Private && (username == "" || appPassword == "") {
 		return nil, errors.WithHint(
@@ -305,36 +309,60 @@ func (p *BitbucketReleaseProvider) matchAssets(downloads []bbDownloadJSON) (stri
 	return version, assets
 }
 
+// bitbucketKeychainBlob is the JSON shape stored in the OS keychain
+// when credentials are persisted via `bitbucket.keychain`. A single
+// entry carries the dual-credential pair so the user configures one
+// keychain item instead of two.
+type bitbucketKeychainBlob struct {
+	Username    string `json:"username"`
+	AppPassword string `json:"app_password"`
+}
+
 // resolveCredentials reads Bitbucket credentials from config then
 // env vars. Credential-storage precedence for each field:
 //
 //  1. bitbucket.<field>.env — NAME of an env var holding the value
 //     (preferred; keeps the secret out of the config file)
-//  2. bitbucket.<field>    — literal value in config (legacy).
+//  2. bitbucket.keychain    — shared "<service>/<account>" reference
+//     to an OS-keychain entry whose value is a JSON blob carrying
+//     both fields. Only active when pkg/credentials/keychain is
+//     imported (or a custom Backend is registered). A corrupt or
+//     incomplete blob aborts resolution rather than falling through
+//     (per R3 of the hardening spec: a broken keychain item must be
+//     surfaced, not silently masked by a stale literal).
+//  3. bitbucket.<field>     — literal value in config (legacy).
 //     Viper's AutomaticEnv + tool prefix makes this step also
 //     pick up <PREFIX>_BITBUCKET_<FIELD> style env vars — so
 //     `MYTOOL_BITBUCKET_USERNAME=alice` works without any YAML.
-//  3. BITBUCKET_<FIELD>    — well-known unprefixed ecosystem env var;
-//     final fallback when the tool's prefix does not match and the
-//     user still wants the upstream convention.
+//  4. BITBUCKET_<FIELD>     — well-known unprefixed ecosystem env
+//     var; final fallback when the tool's prefix does not match and
+//     the user still wants the upstream convention.
 //
 // Bitbucket's dual-credential model means each field (username,
 // app_password) is resolved independently. Partial configuration
-// (e.g. username via env-var, app_password literal) is supported and
-// occasionally useful during rotation.
+// (e.g. username via env-var, app_password from keychain) is
+// supported and occasionally useful during rotation.
 //
 // See docs/development/specs/2026-04-02-credential-storage-hardening.md.
-func resolveCredentials(cfg config.Containable) (username, appPassword string) {
-	username = resolveBitbucketField(cfg, "username", "BITBUCKET_USERNAME")
-	appPassword = resolveBitbucketField(cfg, "app_password", "BITBUCKET_APP_PASSWORD")
+func resolveCredentials(cfg config.Containable) (username, appPassword string, err error) {
+	blob, err := loadBitbucketKeychain(cfg)
+	if err != nil {
+		return "", "", err
+	}
 
-	return username, appPassword
+	username = resolveBitbucketField(cfg, "username", "BITBUCKET_USERNAME", blob.Username)
+	appPassword = resolveBitbucketField(cfg, "app_password", "BITBUCKET_APP_PASSWORD", blob.AppPassword)
+
+	return username, appPassword, nil
 }
 
-// resolveBitbucketField implements the three-step precedence for a
-// single Bitbucket credential field.
-func resolveBitbucketField(cfg config.Containable, field, fallbackEnv string) string {
-	if v := bitbucketFieldFromConfig(cfg, field); v != "" {
+// resolveBitbucketField implements the four-step precedence for a
+// single Bitbucket credential field. keychainValue is the field as
+// decoded from the shared keychain blob (already loaded once per
+// [resolveCredentials] invocation); pass "" when the blob is absent
+// or the field was empty in it.
+func resolveBitbucketField(cfg config.Containable, field, fallbackEnv, keychainValue string) string {
+	if v := bitbucketFieldFromConfig(cfg, field, keychainValue); v != "" {
 		return v
 	}
 
@@ -342,19 +370,20 @@ func resolveBitbucketField(cfg config.Containable, field, fallbackEnv string) st
 }
 
 // bitbucketFieldFromConfig returns the configured value for a single
-// Bitbucket credential field. cfg.Sub("bitbucket") now preserves
-// the root's env-binding configuration (see pkg/config.Container.Sub),
+// Bitbucket credential field. cfg.Sub("bitbucket") preserves the
+// root's env-binding configuration (see pkg/config.Container.Sub),
 // so sub-scoped lookups pick up prefixed env vars like
 // <TOOL>_BITBUCKET_USERNAME without a round-trip through the full
-// dot-path. Returns empty string when nothing is configured.
-func bitbucketFieldFromConfig(cfg config.Containable, field string) string {
+// dot-path. keychainValue is consulted between the env-ref step and
+// the literal step. Returns empty string when nothing is configured.
+func bitbucketFieldFromConfig(cfg config.Containable, field, keychainValue string) string {
 	if cfg == nil {
-		return ""
+		return strings.TrimSpace(keychainValue)
 	}
 
 	sub := cfg.Sub("bitbucket")
 	if sub == nil {
-		return ""
+		return strings.TrimSpace(keychainValue)
 	}
 
 	if name := strings.TrimSpace(sub.GetString(field + ".env")); name != "" {
@@ -363,5 +392,67 @@ func bitbucketFieldFromConfig(cfg config.Containable, field string) string {
 		}
 	}
 
+	if v := strings.TrimSpace(keychainValue); v != "" {
+		return v
+	}
+
 	return strings.TrimSpace(sub.GetString(field))
+}
+
+// loadBitbucketKeychain retrieves and decodes the shared JSON blob
+// referenced by bitbucket.keychain, returning a zero blob when the
+// key is unset or the keychain backend is compiled out / empty.
+//
+// Only JSON-decode failures and incomplete blobs abort — generic
+// retrieval errors (unavailable backend, missing entry) fall through
+// silently so a configured-but-unreachable keychain cannot mask a
+// valid literal or env-var fallback further down the chain.
+func loadBitbucketKeychain(cfg config.Containable) (bitbucketKeychainBlob, error) {
+	var blob bitbucketKeychainBlob
+
+	if cfg == nil {
+		return blob, nil
+	}
+
+	sub := cfg.Sub("bitbucket")
+	if sub == nil {
+		return blob, nil
+	}
+
+	ref := strings.TrimSpace(sub.GetString("keychain"))
+	if ref == "" {
+		return blob, nil
+	}
+
+	i := strings.Index(ref, "/")
+	if i <= 0 || i == len(ref)-1 {
+		return blob, nil
+	}
+
+	service, account := ref[:i], ref[i+1:]
+
+	// Any retrieval error (stub backend, missing entry, backend
+	// unreachable) falls through to the next resolution step rather
+	// than aborting — only JSON-structure failures below abort, per
+	// R3 in the hardening spec.
+	secret, _ := credentials.Retrieve(service, account)
+	if secret == "" {
+		return blob, nil
+	}
+
+	if err := json.Unmarshal([]byte(secret), &blob); err != nil {
+		return bitbucketKeychainBlob{}, errors.WithHint(
+			errors.New("bitbucket keychain entry is not valid JSON"),
+			"re-run the setup wizard for bitbucket to repair the keychain entry",
+		)
+	}
+
+	if strings.TrimSpace(blob.Username) == "" || strings.TrimSpace(blob.AppPassword) == "" {
+		return bitbucketKeychainBlob{}, errors.WithHint(
+			errors.New("bitbucket keychain entry is missing username or app_password"),
+			"re-run the setup wizard for bitbucket to repair the keychain entry",
+		)
+	}
+
+	return blob, nil
 }

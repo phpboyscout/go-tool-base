@@ -55,8 +55,14 @@ notarize:
         key: "{{.Env.APPLE_NOTARY_KEY}}"
 
 archives:
+  # Single archive covering both darwin and linux/windows builds.
+  # The OS keychain backend now lives in its own module
+  # (pkg/credentials/keychain) that cmd/gtb does not import, so the
+  # shipped binary uses the stub credentials backend and performs no
+  # session-bus / keychain IPC — the regulated-deployment default.
+  # Downstream tools that want keychain support import the subpackage
+  # in their own cmd package.
   - formats: ["tar.gz"]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_

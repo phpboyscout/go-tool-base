@@ -152,7 +152,14 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any) error {
 }
 
 func getOpenAICredentials(token string, cfg config.Containable) (string, error) {
-	if resolved := resolveAPIKey(token, cfg, ConfigKeyOpenAIEnv, ConfigKeyOpenAIKey, EnvOpenAIKey); resolved != "" {
+	if resolved := resolveAPIKey(
+		token,
+		cfg,
+		ConfigKeyOpenAIEnv,
+		ConfigKeyOpenAIKeychain,
+		ConfigKeyOpenAIKey,
+		EnvOpenAIKey,
+	); resolved != "" {
 		return resolved, nil
 	}
 

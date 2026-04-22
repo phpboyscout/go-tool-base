@@ -32,7 +32,14 @@ type Claude struct {
 func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 	p.Logger.Info("Initialising Claude Chat")
 
-	token := resolveAPIKey(cfg.Token, p.Config, ConfigKeyClaudeEnv, ConfigKeyClaudeKey, EnvClaudeKey)
+	token := resolveAPIKey(
+		cfg.Token,
+		p.Config,
+		ConfigKeyClaudeEnv,
+		ConfigKeyClaudeKeychain,
+		ConfigKeyClaudeKey,
+		EnvClaudeKey,
+	)
 	if token == "" {
 		return nil, errors.New("Anthropic API key is required but not provided")
 	}
