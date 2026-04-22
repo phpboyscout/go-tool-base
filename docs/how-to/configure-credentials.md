@@ -213,3 +213,27 @@ import (
 ```
 
 The blank import registers a `go-keyring`-backed backend during package init. From that point on, `credentials.KeychainAvailable()` reports true and the setup wizard offers keychain mode when the OS backend is reachable. To strip keychain support from a regulated build, remove the import (or put it in a `//go:build !nokeychain`-tagged file and build with `-tags nokeychain`).
+
+## Configuring GitHub and Bitbucket credentials
+
+The same three-mode UX appears in `init github` and `init bitbucket`, with storage-specific wrinkles worth knowing about.
+
+### `init github`
+
+The wizard runs OAuth (via the GitHub CLI flow) or falls back to manual PAT entry on headless hosts, then routes the captured token per the selected mode:
+
+- **Env-var mode** displays the token once inside a note field. You copy it into `export GITHUB_TOKEN=<token>` in your shell profile and confirm. Only the env-var reference is persisted. This is the recommended default — your config file stays committable and the token lives where CI platforms already expect it.
+- **Keychain mode** stores the token under `<toolname>/github.auth` in the OS keychain and records `github.auth.keychain: <toolname>/github.auth` in the config. No plaintext on disk.
+- **Literal mode** writes `github.auth.value: ghp_...`. Refused under CI.
+
+Re-running `init` after a successful configuration short-circuits instead of overwriting — your env-var or keychain mode survives a re-run.
+
+### `init bitbucket`
+
+Bitbucket's dual-credential model is handled natively:
+
+- **Env-var mode** asks for two env var names, defaulting to `BITBUCKET_USERNAME` and `BITBUCKET_APP_PASSWORD`. Writes `bitbucket.username.env` and `bitbucket.app_password.env` to the config. You `export` both in your shell profile.
+- **Keychain mode** collects the username and app password in one form (app password is hidden), serialises both into a single JSON blob `{"username": "...", "app_password": "..."}`, and stores it under a single keychain entry. The config records only `bitbucket.keychain: <toolname>/bitbucket.auth`. Corrupt or incomplete blobs abort resolution at use time rather than silently falling back — a repair path through re-running setup is the intended recovery.
+- **Literal mode** writes both `bitbucket.username` and `bitbucket.app_password` to the config as plaintext. Refused under CI.
+
+The `--skip-bitbucket` flag (defaults to `true` under CI) hides the wizard entirely when the tool author doesn't want Bitbucket configuration to run during `init`.

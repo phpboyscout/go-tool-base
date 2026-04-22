@@ -761,8 +761,10 @@ An earlier iteration placed the keychain subpackage in its own Go module (separa
 3. Extend `pkg/chat/credentials.go` with keychain fallback for each AI provider.
 4. Extend `pkg/vcs/bitbucket/credentials.go` with JSON-blob keychain storage.
 5. Update setup wizard to show keychain option when `KeychainAvailable()` **and** a probe (`Backend.Store` + `Backend.Retrieve` + `Backend.Delete` canary round-trip) succeeds.
-6. Add `INT_TEST_CREDENTIALS` integration tests for the subpackage.
-7. Document activation via blank import (`import _ ".../pkg/credentials/keychain"`) for downstream tool authors. `cmd/gtb/keychain.go` imports the subpackage for the shipped gtb binary; regulated gtb builds delete that file and rebuild.
+6. Extend `pkg/setup/github` with the three-mode storage selector and the OAuth + display-once flow: when env-var mode is chosen, the wizard runs OAuth, shows the captured token once inside a note + confirmation form, and writes only `github.auth.env` to config (no token on disk); keychain mode writes the token via `credentials.Store` and records `github.auth.keychain`; literal mode preserves the legacy `github.auth.value` write path.
+7. Add `pkg/setup/bitbucket` with the dual-credential wizard: env-var mode captures two env var names, keychain mode stores a `{username, app_password}` JSON blob under a single `bitbucket.keychain` entry, literal mode writes both values to config. The wizard is discoverable via `init bitbucket` and gated by `--skip-bitbucket` under CI.
+8. Add `INT_TEST_CREDENTIALS` integration tests for the subpackage.
+9. Document activation via blank import (`import _ ".../pkg/credentials/keychain"`) for downstream tool authors. `cmd/gtb/keychain.go` imports the subpackage for the shipped gtb binary; regulated gtb builds delete that file and rebuild.
 
 ### Phase 3: Migration Tooling and Documentation
 

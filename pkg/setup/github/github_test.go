@@ -17,6 +17,7 @@ import (
 
 	mockVCS "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/credentials"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
@@ -177,6 +178,13 @@ func TestGitHubInitialiser(t *testing.T) {
 		WithGHLogin(func(_ string) (string, error) {
 			return "mock-token", nil
 		}),
+		WithGitHubAuthForms(WithAuthForm(
+			func(cfg *GitHubAuthConfig) []*huh.Form {
+				cfg.StorageMode = credentials.ModeLiteral
+				return nil // skip every staged form
+			},
+			func(_ string, _ string) *huh.Form { return nil },
+		)),
 	)
 	err := init.Configure(p, config.NewContainerFromViper(nil, cfg))
 	require.NoError(t, err)
