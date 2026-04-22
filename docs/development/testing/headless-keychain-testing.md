@@ -35,19 +35,35 @@ Use this for a single scripted command — the daemon starts, your command runs,
 
 ```bash
 dbus-run-session -- bash -c '
-  # Unlock (or create) the keyring with a test password, start the
-  # Secret Service component only.
-  printf "test-pass\n" | gnome-keyring-daemon --unlock --start --components=secrets >/dev/null
+  # Bootstrap a login keyring with a throwaway password and start the
+  # Secret Service component. --login creates the keyring (if missing)
+  # AND unlocks it in one step — avoids the gcr-prompter dialog that
+  # --start or a bare --unlock would trigger on a fresh environment.
+  # --daemonize backgrounds the daemon and prints env vars to stdout,
+  # which eval captures into the current shell so subsequent commands
+  # see GNOME_KEYRING_CONTROL / SSH_AUTH_SOCK.
+  eval "$(printf "test-pass\n" | \
+    gnome-keyring-daemon --daemonize --login --components=secrets)"
 
   # Sanity check: write/read a canary entry.
-  printf "canary-value" | secret-tool store --label="canary" service test account canary
+  printf "canary-value" | \
+    secret-tool store --label="canary" service test account canary
   secret-tool lookup service test account canary
   # → canary-value
 
   # Now run the e2e binary against the live keyring.
-  ./bin/e2e init ai --dir /tmp/e2etest
+  go run ./cmd/e2e init ai --dir /tmp/e2etest
 '
 ```
+
+!!! note "Why `--login` and not `--unlock`?"
+    On modern gnome-keyring (42+), `--start` and `--unlock` are mutually
+    exclusive, and `--unlock` alone requires an existing keyring file —
+    a fresh `dbus-run-session` has none. Using `--unlock` in that state
+    triggers the graphical `gcr-prompter` to ask for a creation
+    password, which fails on a headless host with
+    `Gtk-WARNING: cannot open display`. `--login` bypasses the prompter
+    entirely by reading the password directly from stdin.
 
 ### Interactive session
 
@@ -56,10 +72,15 @@ When you want to work through the wizard prompts manually, keep the subshell ali
 ```bash
 dbus-run-session -- bash -l
 # --- inside the subshell ---
-printf "test-pass\n" | gnome-keyring-daemon --unlock --start --components=secrets >/dev/null
+eval "$(printf "test-pass\n" | \
+  gnome-keyring-daemon --daemonize --login --components=secrets)"
 
-# Verify probe passes
-go run ./cmd/e2e ai ...   # or any scenario from manual-credentials.md
+# Verify the Secret Service is live
+printf "" | secret-tool store --label="canary" service test account canary && \
+  secret-tool lookup service test account canary   # → (empty line)
+
+# Now run any scenario from manual-credentials.md
+go run ./cmd/e2e init ai --dir /tmp/e2etest
 
 # When done:
 exit
@@ -89,7 +110,8 @@ docker run --rm -it \
       golang-go gnome-keyring libsecret-tools dbus ca-certificates git >/dev/null
 
     dbus-run-session -- bash -c "
-      printf \"test-pass\n\" | gnome-keyring-daemon --unlock --start --components=secrets >/dev/null
+      eval \"\$(printf \"test-pass\n\" | \
+        gnome-keyring-daemon --daemonize --login --components=secrets)\"
       go run ./cmd/e2e init ai --dir /tmp/e2etest
     "
   '
