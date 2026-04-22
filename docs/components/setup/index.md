@@ -385,9 +385,19 @@ The AI wizard then prompts for an env var name (defaulting to the provider stand
 
 The GitHub wizard:
 
-1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via Viper's `AutomaticEnv`), or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run no longer overwrites env-var mode with a fresh OAuth token.
+1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via Viper's `AutomaticEnv`), keychain reference, or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run does not overwrite an existing mode with a fresh OAuth token.
 2. **Refuses literal mode under `CI=true`** with a hint directing the user to the CI platform's secret-injection mechanism.
-3. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser — common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted under the same `github.auth.value` key the OAuth flow would have used.
+3. **Presents the same three-mode selector as the AI wizard**, gated on CI (hides literal) and on `credentials.Probe` (hides keychain when no backend is reachable).
+4. **Env-var mode → OAuth + display-once.** The wizard prompts for an env var name (default `GITHUB_TOKEN`) then asks whether to run OAuth now. If yes, it captures a token via `gh auth login` (or the manual PAT entry fallback on headless hosts), displays the token once inside a protected note with instructions to `export GITHUB_TOKEN=<token>` in the shell profile, and waits for the user to acknowledge before continuing. Only the env-var reference is written to config — the token itself never hits disk.
+5. **Keychain mode → Store + ref.** Runs OAuth (or manual fallback) to capture a token, writes it via `credentials.Store(ctx, <toolname>, "github.auth", token)`, and records `github.auth.keychain: <toolname>/github.auth` in the config. No plaintext on disk.
+6. **Literal mode → legacy write.** Runs OAuth (or manual fallback) and writes the captured token to `github.auth.value`. Refused under CI.
+7. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser — common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted via the mode chosen in step 3.
+
+The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles Bitbucket's dual-credential model natively:
+
+- **Env-var mode** prompts for two env var names (defaults `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`) and writes both references — `bitbucket.username.env` and `bitbucket.app_password.env`.
+- **Keychain mode** collects the username and app password in one form (app password input uses a hidden echo mode), serialises the pair as `{"username": "...", "app_password": "..."}`, and stores it under a single `bitbucket.keychain` entry via the registered backend.
+- **Literal mode** collects both fields and writes them as plaintext (`bitbucket.username`, `bitbucket.app_password`). Refused under CI.
 
 Related surfaces that rely on the same taxonomy:
 
