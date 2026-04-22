@@ -30,7 +30,7 @@ type Gemini struct {
 
 // newGemini initializes a new Gemini chat client.
 func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	token := getGeminiToken(p, cfg)
+	token := getGeminiToken(ctx, p, cfg)
 	if token == "" {
 		return nil, errors.New("Gemini API key is required but not provided")
 	}
@@ -65,8 +65,9 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	}, nil
 }
 
-func getGeminiToken(p *props.Props, cfg Config) string {
+func getGeminiToken(ctx context.Context, p *props.Props, cfg Config) string {
 	return resolveAPIKey(
+		ctx,
 		cfg.Token,
 		p.Config,
 		ConfigKeyGeminiEnv,

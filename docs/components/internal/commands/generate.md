@@ -52,7 +52,7 @@ Aliases:
 
 Flags:
   -d, --description string   Project description (default "A tool built with gtb")
-  -f, --features strings     Features to enable (init, update, mcp, docs) (default [init,update,mcp,docs])
+  -f, --features strings     Features to enable (init, update, mcp, docs, doctor, changelog, keychain, ai, config, telemetry) (default [init,update,mcp,docs,doctor,changelog,keychain])
       --git-backend string   Git backend (github or gitlab) (default "github")
       --go-version string    Go version for go.mod (defaults to the running toolchain version)
   -h, --help                 help for skeleton
@@ -60,6 +60,30 @@ Flags:
   -n, --name string          Project name (e.g. mytool)
   -p, --path string          Destination path (default ".")
   -r, --repo string          Git repository (e.g. myorg/mytool)
+```
+
+#### Feature flags
+
+The `--features` flag controls which subsystems and side-effect activations appear in the scaffolded project. Defaults are selected in the interactive wizard and reflected in the manifest so `gtb regenerate` preserves the choice.
+
+| Feature | Default | What it scaffolds |
+|---------|---------|-------------------|
+| `init` | on | `init` subcommand |
+| `update` | on | self-update subsystem |
+| `mcp` | on | MCP server subsystem |
+| `docs` | on | built-in docs browser |
+| `doctor` | on | `doctor` subsystem |
+| `changelog` | on | changelog subsystem |
+| `keychain` | on | `cmd/<name>/keychain.go` blank-importing `pkg/credentials/keychain` — activates the OS keychain backend by default. Delete the scaffolded file for a regulated build (no go-keyring / godbus / wincred linked). See [How to configure credentials](../../../how-to/configure-credentials.md) and [How to implement a custom credential backend](../../../how-to/custom-credential-backend.md). |
+| `ai` | off (opt-in) | AI chat subsystem |
+| `config` | off (opt-in) | `config` subsystem with get/set/list |
+| `telemetry` | off (opt-in) | telemetry subsystem |
+
+Example — generate a regulated build with no keychain code linked:
+
+```bash
+gtb generate project -n mytool -r myorg/mytool \
+  --features init,update,mcp,docs,doctor,changelog
 ```
 
 ### Command

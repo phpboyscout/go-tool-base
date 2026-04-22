@@ -16,7 +16,7 @@ import (
 
 func TestGetOpenAICredentials(t *testing.T) {
 	t.Run("token provided directly", func(t *testing.T) {
-		token, err := getOpenAICredentials("direct-token", nil)
+		token, err := getOpenAICredentials(t.Context(), "direct-token", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "direct-token", token)
 	})
@@ -27,7 +27,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("config-token")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "config-token", token)
 	})
@@ -38,7 +38,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg := mockConfig.NewMockContainable(t)
 		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("CUSTOM_OPENAI_KEY")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "referenced-token", token)
 	})
@@ -53,7 +53,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("literal-fallback")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "literal-fallback", token)
 	})
@@ -66,7 +66,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "env-token", token)
 	})
@@ -79,7 +79,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("")
 
-		_, err := getOpenAICredentials("", cfg)
+		_, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "OpenAI token is required")
 	})
@@ -87,7 +87,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 	t.Run("nil config falls through to env", func(t *testing.T) {
 		t.Setenv(EnvOpenAIKey, "")
 
-		_, err := getOpenAICredentials("", nil)
+		_, err := getOpenAICredentials(t.Context(), "", nil)
 		assert.Error(t, err)
 	})
 
@@ -101,7 +101,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("   ")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("   ")
 
-		_, err := getOpenAICredentials("", cfg)
+		_, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.Error(t, err)
 	})
 
@@ -114,7 +114,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("mytool/openai.api")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("literal-wins")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "literal-wins", token)
 	})

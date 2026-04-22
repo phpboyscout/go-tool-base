@@ -35,6 +35,7 @@ package chat
 // docs/development/specs/2026-04-02-credential-storage-hardening.md.
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -54,6 +55,7 @@ import (
 // envFallback is the well-known unprefixed environment variable
 // name for the provider (e.g. EnvClaudeKey).
 func resolveAPIKey(
+	ctx context.Context,
 	direct string,
 	cfg config.Containable,
 	envKey, keychainKey, literalKey, envFallback string,
@@ -63,7 +65,7 @@ func resolveAPIKey(
 	}
 
 	if cfg != nil {
-		if v := resolveFromConfig(cfg, envKey, keychainKey, literalKey); v != "" {
+		if v := resolveFromConfig(ctx, cfg, envKey, keychainKey, literalKey); v != "" {
 			return v
 		}
 	}
@@ -80,7 +82,7 @@ func resolveAPIKey(
 // resolveFromConfig walks the three config-based resolution steps.
 // Extracted from resolveAPIKey to keep the top-level function under
 // the cyclomatic-complexity budget now that keychain adds a step.
-func resolveFromConfig(cfg config.Containable, envKey, keychainKey, literalKey string) string {
+func resolveFromConfig(ctx context.Context, cfg config.Containable, envKey, keychainKey, literalKey string) string {
 	if name := strings.TrimSpace(cfg.GetString(envKey)); name != "" {
 		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
 			return v
@@ -88,7 +90,7 @@ func resolveFromConfig(cfg config.Containable, envKey, keychainKey, literalKey s
 	}
 
 	if ref := strings.TrimSpace(cfg.GetString(keychainKey)); ref != "" {
-		if v := retrieveFromKeychainRef(ref); v != "" {
+		if v := retrieveFromKeychainRef(ctx, ref); v != "" {
 			return v
 		}
 	}
@@ -99,10 +101,12 @@ func resolveFromConfig(cfg config.Containable, envKey, keychainKey, literalKey s
 // retrieveFromKeychainRef fetches a secret named by a
 // "<service>/<account>" reference. Returns "" on any error
 // (unavailable keychain, missing entry, parse failure) so the
-// caller falls through to the next resolution step. In the default
-// build this always returns "" because [credentials.Retrieve]
-// returns ErrCredentialUnsupported.
-func retrieveFromKeychainRef(ref string) string {
+// caller falls through to the next resolution step. Without a
+// registered keychain backend this always returns "" because
+// [credentials.Retrieve] returns ErrCredentialUnsupported. The
+// context is propagated to the backend so remote-store backends
+// (Vault, SSM) honour the calling provider's deadline.
+func retrieveFromKeychainRef(ctx context.Context, ref string) string {
 	i := strings.Index(ref, "/")
 	if i <= 0 || i == len(ref)-1 {
 		return ""
@@ -110,7 +114,7 @@ func retrieveFromKeychainRef(ref string) string {
 
 	service, account := ref[:i], ref[i+1:]
 
-	secret, err := credentials.Retrieve(service, account)
+	secret, err := credentials.Retrieve(ctx, service, account)
 	if err != nil {
 		return ""
 	}

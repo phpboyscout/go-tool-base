@@ -46,6 +46,12 @@ the next major version.
 | `pkg/errorhandling` | `ErrorHandler` interface | v0.1 |
 | `pkg/errorhandling` | `New`, `WithHint`, `WithHintf`, `WrapWithHint` | v0.1 |
 | `pkg/setup` | `Register*` functions | v0.1 |
+| `pkg/credentials` | `Mode` type, `ModeEnvVar`/`ModeKeychain`/`ModeLiteral` constants, `ErrCredentialNotFound`/`ErrCredentialUnsupported` sentinels | v1.11 |
+| `pkg/credentials` | `Backend` interface, `RegisterBackend`, `KeychainAvailable`, `AvailableModes`, `Probe` | v1.12 |
+| `pkg/credentials` | `Store`/`Retrieve`/`Delete` package-level helpers | v1.12 |
+| `pkg/credentials/keychain` | `Backend` struct (go-keyring implementation) | v1.12 |
+| `pkg/credentials/credtest` | `MemoryBackend`, `Install` | v1.12 |
+| `pkg/vcs` | `ResolveToken`, `ResolveTokenContext` | v1.11 (`ResolveToken`), v1.12 (`ResolveTokenContext`) |
 
 ### Beta
 
@@ -63,6 +69,7 @@ minor versions. Changes will be documented in [migration guides](migration/v0.x-
 | `pkg/vcs/github` | `NewClient`, `ReleaseProvider` interface | v0.x |
 | `pkg/vcs/gitlab` | `NewClient`, `ReleaseProvider` interface | v0.x |
 | `pkg/vcs/repo` | `Repo` struct and all public methods | v0.x |
+| `pkg/setup` | `NewUpdater(ctx, props, version, force)` | v1.12 (signature updated from v1.11's context-free form) |
 
 ### Experimental
 
@@ -84,6 +91,7 @@ depend on them in production code without pinning to a specific version.
 | `v1.0.0` to `v1.9.x` | **Historical — Unstable:** Breaking changes occurred in minor versions during the rapid development phase. |
 | `v1.10.0` to `v1.10.x` | **Transitional:** The `pkg/config` constructor signatures were migrated to an options pattern, which is a breaking change included in v1.11.0. |
 | `v1.11.0+` | **Guaranteed Stability:** Standard Go semver. Breaking changes require a major version bump (v2.0.0+). |
+| `v1.12.0` | `pkg/credentials.Backend` gained `context.Context` on every method. `pkg/setup.NewUpdater` signature changed to accept `ctx` as first parameter. Both were introduced in v1.11.0 and refined in v1.12.0 before external uptake; see [migration guide](../migration/v1.x-credentials-context.md). |
 
 The `internal/` directory is always unstable regardless of version — it is not
 part of the public API surface.

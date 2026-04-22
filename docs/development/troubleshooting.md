@@ -119,6 +119,13 @@ The "bait and switch" update pattern can fail in specific environments:
 - **Zombie Services**: If a service hangs during `Stop()`, the `Controller` will wait indefinitely. Use the `Status` command to identify the hanging service and check its internal logs.
 - **Signal Collision**: If your application traps signals manually, it may conflict with the `Controller` signal handler. Use the `WithoutSignals()` option when creating the controller if you need custom handling.
 
+### Credentials & Keychain
+
+- **"OS keychain" option missing from the `init ai` wizard.** Expected when the current host has no reachable [credentials `Backend`](../components/credentials.md). `KeychainAvailable()` returning `true` but `Probe()` returning `false` means the backend is compiled in but unreachable — on Linux the usual cause is a session bus without a registered Secret Service provider (GNOME Keyring / KWallet). See [Testing the keychain on a headless host](testing/headless-keychain-testing.md) for diagnostics and workarounds (`dbus-run-session + gnome-keyring-daemon`, containerised Secret Service, or the in-memory backend swap).
+- **`ErrCredentialUnsupported` from `credentials.Store` / `Retrieve` / `Delete`.** The stub backend is active — your tool's `main` hasn't blank-imported `github.com/phpboyscout/go-tool-base/pkg/credentials/keychain` and hasn't registered a custom `Backend` via `credentials.RegisterBackend`. Add the blank import (pattern: `cmd/<tool>/keychain.go`) and rebuild, or register your own backend — see [the custom-backend how-to](../how-to/custom-credential-backend.md).
+- **Bitbucket resolver aborts with "not valid JSON" / "missing username or app_password".** A configured `bitbucket.keychain` reference points at a corrupt or incomplete entry. Re-run the Bitbucket setup to rewrite the blob, or delete the keychain entry and fall back to `bitbucket.{username,app_password}.env` env-var references.
+- **`doctor credentials.no-literal` warns after migrating to env-var or keychain mode.** The warning fires if a literal `*.api.key` / `auth.value` / `bitbucket.<field>` is still present in config. Remove the stale literal; the `.env` or `.keychain` entry doesn't suppress it automatically.
+
 ## Support & Feedback
 
 ### Error Signposting

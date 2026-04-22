@@ -116,3 +116,11 @@ Register a gRPC server with the controller, wire the standard health protocol, a
 
 ### [Add HTTP Security Headers](security-headers.md)
 Implement HSTS, CSP, and other security headers for your tool using the `pkg/http` middleware chain.
+
+## Credentials
+
+### [Configure Credentials](configure-credentials.md)
+Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords — env-var reference (recommended default), OS keychain (opt-in), or literal config (legacy) — and migrate between them safely.
+
+### [Implement a Custom Credential Backend](custom-credential-backend.md)
+Plug Hashicorp Vault, AWS Secrets Manager, 1Password Connect, or any other secret store into your tool by implementing the `credentials.Backend` interface and registering it at startup.

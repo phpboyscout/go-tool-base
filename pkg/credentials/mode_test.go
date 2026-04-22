@@ -53,13 +53,13 @@ func TestKeychainAvailable_MatchesBuildTag(t *testing.T) {
 
 	// In the stub build, operations must return ErrCredentialUnsupported.
 	if !got {
-		err := credentials.Store("svc", "acct", "secret")
+		err := credentials.Store(t.Context(), "svc", "acct", "secret")
 		require.ErrorIs(t, err, credentials.ErrCredentialUnsupported)
 
-		_, err = credentials.Retrieve("svc", "acct")
+		_, err = credentials.Retrieve(t.Context(), "svc", "acct")
 		require.ErrorIs(t, err, credentials.ErrCredentialUnsupported)
 
-		err = credentials.Delete("svc", "acct")
+		err = credentials.Delete(t.Context(), "svc", "acct")
 		require.ErrorIs(t, err, credentials.ErrCredentialUnsupported)
 	}
 }
@@ -86,7 +86,7 @@ func TestProbe_DefaultBuildAlwaysFalse(t *testing.T) {
 		t.Skip("keychain build; covered by keychain-tagged test")
 	}
 
-	assert.False(t, credentials.Probe(),
+	assert.False(t, credentials.Probe(t.Context()),
 		"Probe must return false when the keychain backend is not compiled in")
 }
 
