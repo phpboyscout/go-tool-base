@@ -53,6 +53,10 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 			Name:        "gtb",
 			Summary:     "GTB E2E test binary",
 			Description: "A test-only binary with all features enabled for E2E/BDD testing.",
+			// Match production gtb's env prefix so the test binary does
+			// not inherit raw credential env vars (ANTHROPIC_API_KEY
+			// etc.) from the developer's shell via viper's AutomaticEnv.
+			EnvPrefix: "GTB",
 			ReleaseSource: props.ReleaseSource{
 				Type:  "github",
 				Owner: "phpboyscout",
