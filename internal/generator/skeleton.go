@@ -409,6 +409,15 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 		}),
 	}
 
+	// Keychain support is default-enabled. Scaffold cmd/<name>/keychain.go
+	// unless the operator explicitly opted out via --features or the
+	// interactive multi-select. Deleting the scaffolded file later is
+	// the escape hatch for regulated builds — linker dead-code elimination
+	// then keeps go-keyring, godbus, and wincred out of the linked artefact.
+	if !slices.Contains(data.DisabledFeatures, "keychain") {
+		goFiles[filepath.Join("cmd", data.Name, "keychain.go")] = templates.SkeletonKeychain()
+	}
+
 	for path, f := range goFiles {
 		fullPath := filepath.Join(destPath, path)
 
@@ -697,7 +706,7 @@ func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, ar
 }
 
 func calculateDisabledFeatures(features []ManifestFeature) []string {
-	allFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "ai", "config", "telemetry"}
+	allFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "ai", "config", "telemetry", "keychain"}
 	disabled := []string{}
 
 	featureMap := make(map[string]bool)

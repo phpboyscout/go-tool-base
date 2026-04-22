@@ -61,7 +61,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "A tool built with gtb", "Project description")
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Destination path")
-	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", []string{"init", "update", "mcp", "docs", "doctor", "changelog"}, "Features to enable (init, update, mcp, docs, doctor, changelog, ai, config, telemetry)")
+	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", []string{"init", "update", "mcp", "docs", "doctor", "changelog", "keychain"}, "Features to enable (init, update, mcp, docs, doctor, changelog, keychain, ai, config, telemetry)")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
@@ -212,6 +212,7 @@ func (o *SkeletonOptions) runWizard() error {
 				huh.NewOption("Documentation", "docs").Selected(true),
 				huh.NewOption("Doctor", "doctor").Selected(true),
 				huh.NewOption("Changelog", "changelog").Selected(true),
+				huh.NewOption("OS Keychain (credentials via go-keyring)", "keychain").Selected(true),
 				huh.NewOption("AI Chat", "ai"),
 				huh.NewOption("Config Management", "config"),
 				huh.NewOption("Telemetry", "telemetry"),
@@ -343,7 +344,7 @@ func (o *SkeletonOptions) runWizard() error {
 // resolveFeatures builds the full feature list from the selected set,
 // marking unselected defaults as explicitly disabled.
 func resolveFeatures(selected []string) []generator.ManifestFeature {
-	defaultFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog"}
+	defaultFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "keychain"}
 
 	selectedMap := make(map[string]bool, len(selected))
 	for _, f := range selected {
