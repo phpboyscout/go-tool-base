@@ -23,6 +23,7 @@ Some features involve external platform state (OS keychains, OAuth flows, rate-l
 ## In this section
 
 - [Manual credential testing](manual-credentials.md) — walk through the OS-keychain storage mode end-to-end using the `cmd/e2e` binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
+- [Testing the keychain on a headless host](headless-keychain-testing.md) — three ways to unblock yourself when the dev server, CI runner, or container has no registered Secret Service: install GNOME Keyring with `dbus-run-session`, run a containerised Secret Service, or swap in the in-memory backend from `credtest`.
 
 ## Related
 

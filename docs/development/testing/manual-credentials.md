@@ -25,7 +25,7 @@ A reachable OS keychain is required for most scenarios. Support matrix:
 |----------|---------|-----------------------|
 | macOS | Keychain | Yes — login keychain, unlocked after login. |
 | Linux (desktop) | Secret Service via godbus (GNOME Keyring, KWallet) | If a desktop session is running. |
-| Linux (headless/SSH/containers) | — | No. Probe detects; wizard hides keychain option. |
+| Linux (headless/SSH/containers) | — | No. Probe detects; wizard hides keychain option. See [headless keychain testing](headless-keychain-testing.md) to unblock. |
 | Windows | Credential Manager | Yes on a logged-in user session. |
 
 Check Linux reachability before starting:
