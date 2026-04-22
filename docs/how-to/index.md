@@ -124,3 +124,6 @@ Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords â
 
 ### [Implement a Custom Credential Backend](custom-credential-backend.md)
 Plug Hashicorp Vault, AWS Secrets Manager, 1Password Connect, or any other secret store into your tool by implementing the `credentials.Backend` interface and registering it at startup.
+
+### [Migrate literal credentials off config](migrate-literal-credentials.md)
+Use `config migrate-credentials` to move plaintext credentials in your tool's YAML out into environment-variable references or the OS keychain. Supports interactive and silent (CI/CD) flows.

@@ -32,6 +32,7 @@ authentication, etc.), use "init <subsystem>" instead.`,
 	cmd.AddCommand(NewCmdList(props, masker))
 	cmd.AddCommand(NewCmdSet(props))
 	cmd.AddCommand(NewCmdValidate(props))
+	cmd.AddCommand(NewCmdMigrate(props))
 
 	return cmd
 }
