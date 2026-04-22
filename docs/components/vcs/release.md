@@ -294,10 +294,10 @@ props.Tool{
 
 ### Via `NewUpdater` (recommended)
 
-`pkg/setup.NewUpdater` handles provider lookup automatically using `props.Tool.ReleaseSource.Type`. Simply set the type and call `NewUpdater` — no provider import needed.
+`pkg/setup.NewUpdater` handles provider lookup automatically using `props.Tool.ReleaseSource.Type`. Simply set the type and call `NewUpdater` — no provider import needed. The context is forwarded through private-repo token resolution, so remote-store credential backends (Vault, AWS SSM) honour the caller's deadline.
 
 ```go
-updater, err := setup.NewUpdater(props, "", false)
+updater, err := setup.NewUpdater(cmd.Context(), props, "", false)
 ```
 
 ### Direct provider construction

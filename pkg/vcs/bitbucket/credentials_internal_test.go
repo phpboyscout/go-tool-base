@@ -34,7 +34,7 @@ func TestResolveCredentials_MalformedKeychainRefFallsThrough(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	user, pass, err := resolveCredentials(cfg)
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "u", user)
 	assert.Equal(t, "p", pass)
@@ -43,7 +43,7 @@ func TestResolveCredentials_MalformedKeychainRefFallsThrough(t *testing.T) {
 func TestResolveCredentials_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	user, pass, err := resolveCredentials(nil)
+	user, pass, err := resolveCredentials(t.Context(), nil)
 	require.NoError(t, err)
 	assert.Empty(t, user)
 	assert.Empty(t, pass)
@@ -55,7 +55,7 @@ func TestResolveCredentials_NilSubReturn(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(nil)
 
-	user, pass, err := resolveCredentials(cfg)
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Empty(t, user)
 	assert.Empty(t, pass)

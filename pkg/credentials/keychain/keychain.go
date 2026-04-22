@@ -16,6 +16,7 @@
 package keychain
 
 import (
+	"context"
 	stderrors "errors"
 
 	"github.com/cockroachdb/errors"
@@ -30,8 +31,13 @@ type Backend struct{}
 
 // Store writes a secret under the given service/account pair.
 // Overwrites any existing entry. Neither argument is logged —
-// callers may pass them to DEBUG log surfaces safely.
-func (Backend) Store(service, account, secret string) error {
+// callers may pass them to DEBUG log surfaces safely. Context is
+// accepted for interface uniformity but ignored: go-keyring's
+// underlying platform APIs (Keychain Services, Secret Service over
+// D-Bus, Windows Credential Manager) do not expose cancellation.
+// Callers needing a deadline on misbehaving local IPC should run
+// this in a goroutine and drop the result when the context fires.
+func (Backend) Store(_ context.Context, service, account, secret string) error {
 	if err := keyring.Set(service, account, secret); err != nil {
 		// Wrap without the secret: go-keyring sometimes quotes
 		// portions of the payload on failure.
@@ -44,8 +50,9 @@ func (Backend) Store(service, account, secret string) error {
 // Retrieve reads a secret. Returns [credentials.ErrCredentialNotFound]
 // when the backend is functional but no entry exists for the pair —
 // resolvers use this specific sentinel to decide whether to fall
-// through. Other failures wrap the underlying error.
-func (Backend) Retrieve(service, account string) (string, error) {
+// through. Other failures wrap the underlying error. Context is
+// accepted for interface uniformity; see Store for the caveat.
+func (Backend) Retrieve(_ context.Context, service, account string) (string, error) {
 	v, err := keyring.Get(service, account)
 	if err == nil {
 		return v, nil
@@ -60,7 +67,7 @@ func (Backend) Retrieve(service, account string) (string, error) {
 
 // Delete removes a secret. Idempotent: returns nil when the entry
 // does not exist. Only real failures surface as errors.
-func (Backend) Delete(service, account string) error {
+func (Backend) Delete(_ context.Context, service, account string) error {
 	err := keyring.Delete(service, account)
 	if err == nil {
 		return nil

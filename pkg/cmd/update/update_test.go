@@ -27,7 +27,7 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 		latestVersion: "v1.2.3",
 		binPath:       "/tmp/new-bin",
 	}
-	update.ExportNewUpdater = func(p *p.Props, version string, force bool) (update.Updater, error) {
+	update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
 		return mu, nil
 	}
 
@@ -198,7 +198,7 @@ func TestUpdate(t *testing.T) {
 			binPath:       "/tmp/new-bin",
 			releaseNotes:  "New features!",
 		}
-		update.ExportNewUpdater = func(p *p.Props, version string, force bool) (update.Updater, error) {
+		update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
 			return mu, nil
 		}
 
@@ -211,7 +211,7 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("updater_creation_failure", func(t *testing.T) {
-		update.ExportNewUpdater = func(p *p.Props, version string, force bool) (update.Updater, error) {
+		update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
 			return nil, fmt.Errorf("failed to create updater")
 		}
 
@@ -224,7 +224,7 @@ func TestUpdate(t *testing.T) {
 		mu := &mockUpdater{
 			updateErr: fmt.Errorf("download failed"),
 		}
-		update.ExportNewUpdater = func(p *p.Props, version string, force bool) (update.Updater, error) {
+		update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
 			return mu, nil
 		}
 

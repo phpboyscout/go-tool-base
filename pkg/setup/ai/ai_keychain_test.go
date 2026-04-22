@@ -60,7 +60,7 @@ func TestRunAIInit_KeychainMode_WritesReferenceAndStoresSecret(t *testing.T) {
 		"API key must never appear in the config file under keychain mode")
 
 	// And the secret itself must be retrievable from the backend.
-	got, err := credentials.Retrieve("test-tool", "openai.api")
+	got, err := credentials.Retrieve(t.Context(), "test-tool", "openai.api")
 	require.NoError(t, err)
 	assert.Equal(t, "sk-keychain-test", got)
 }
@@ -86,7 +86,7 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 	err := i.Configure(newTestProps(t), cfg)
 	require.NoError(t, err)
 
-	got, err := credentials.Retrieve("test-tool", "anthropic.api")
+	got, err := credentials.Retrieve(t.Context(), "test-tool", "anthropic.api")
 	require.NoError(t, err)
 	assert.Equal(t, "sk-ant-configure-keychain", got)
 }
@@ -104,7 +104,7 @@ func TestStoreAIKeyInKeychain_BlankKeyIsNoop(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, ref, "blank API key must not generate a config reference")
 
-	_, retrieveErr := credentials.Retrieve("test-tool", "openai.api")
+	_, retrieveErr := credentials.Retrieve(t.Context(), "test-tool", "openai.api")
 	require.ErrorIs(t, retrieveErr, credentials.ErrCredentialNotFound,
 		"blank key must not have been written")
 }

@@ -25,6 +25,14 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
+// bitbucketKeychainTimeout is the upper bound on a single keychain
+// retrieval during provider construction. The release.Register
+// factory interface does not propagate a caller context, so we
+// apply a local guard here — a misbehaving remote-store backend
+// (Vault, SSM) cannot stall startup indefinitely. OS-keychain
+// backends return well under this bound.
+const bitbucketKeychainTimeout = 5 * time.Second
+
 const (
 	bitbucketAPIBase = "https://api.bitbucket.org/2.0"
 
@@ -99,7 +107,10 @@ type BitbucketReleaseProvider struct {
 //
 // The filename regex can be overridden via src.Params["filename_pattern"].
 func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*BitbucketReleaseProvider, error) {
-	username, appPassword, err := resolveCredentials(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), bitbucketKeychainTimeout)
+	defer cancel()
+
+	username, appPassword, err := resolveCredentials(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -344,8 +355,8 @@ type bitbucketKeychainBlob struct {
 // supported and occasionally useful during rotation.
 //
 // See docs/development/specs/2026-04-02-credential-storage-hardening.md.
-func resolveCredentials(cfg config.Containable) (username, appPassword string, err error) {
-	blob, err := loadBitbucketKeychain(cfg)
+func resolveCredentials(ctx context.Context, cfg config.Containable) (username, appPassword string, err error) {
+	blob, err := loadBitbucketKeychain(ctx, cfg)
 	if err != nil {
 		return "", "", err
 	}
@@ -407,7 +418,7 @@ func bitbucketFieldFromConfig(cfg config.Containable, field, keychainValue strin
 // retrieval errors (unavailable backend, missing entry) fall through
 // silently so a configured-but-unreachable keychain cannot mask a
 // valid literal or env-var fallback further down the chain.
-func loadBitbucketKeychain(cfg config.Containable) (bitbucketKeychainBlob, error) {
+func loadBitbucketKeychain(ctx context.Context, cfg config.Containable) (bitbucketKeychainBlob, error) {
 	var blob bitbucketKeychainBlob
 
 	if cfg == nil {
@@ -435,7 +446,7 @@ func loadBitbucketKeychain(cfg config.Containable) (bitbucketKeychainBlob, error
 	// unreachable) falls through to the next resolution step rather
 	// than aborting — only JSON-structure failures below abort, per
 	// R3 in the hardening spec.
-	secret, _ := credentials.Retrieve(service, account)
+	secret, _ := credentials.Retrieve(ctx, service, account)
 	if secret == "" {
 		return blob, nil
 	}

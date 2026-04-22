@@ -27,17 +27,17 @@ func TestBackend_RoundTrip(t *testing.T) {
 
 	b := kc.Backend{}
 
-	require.NoError(t, b.Store(service, account, secret))
+	require.NoError(t, b.Store(t.Context(), service, account, secret))
 
-	got, err := b.Retrieve(service, account)
+	got, err := b.Retrieve(t.Context(), service, account)
 	require.NoError(t, err)
 	assert.Equal(t, secret, got)
 
-	require.NoError(t, b.Delete(service, account))
+	require.NoError(t, b.Delete(t.Context(), service, account))
 
 	// Deleting twice must be idempotent (no error, ErrNotFound
 	// suppressed by Delete itself).
-	require.NoError(t, b.Delete(service, account))
+	require.NoError(t, b.Delete(t.Context(), service, account))
 }
 
 // TestBackend_RetrieveMissing verifies that a functional keychain
@@ -47,7 +47,7 @@ func TestBackend_RoundTrip(t *testing.T) {
 func TestBackend_RetrieveMissing(t *testing.T) {
 	keyring.MockInit()
 
-	_, err := kc.Backend{}.Retrieve("gtb-test", "never.stored")
+	_, err := kc.Backend{}.Retrieve(t.Context(), "gtb-test", "never.stored")
 	require.ErrorIs(t, err, credentials.ErrCredentialNotFound)
 }
 
@@ -64,10 +64,10 @@ func TestBackend_OverwriteExisting(t *testing.T) {
 
 	b := kc.Backend{}
 
-	require.NoError(t, b.Store(service, account, "first"))
-	require.NoError(t, b.Store(service, account, "second"))
+	require.NoError(t, b.Store(t.Context(), service, account, "first"))
+	require.NoError(t, b.Store(t.Context(), service, account, "second"))
 
-	got, err := b.Retrieve(service, account)
+	got, err := b.Retrieve(t.Context(), service, account)
 	require.NoError(t, err)
 	assert.Equal(t, "second", got)
 }
@@ -96,6 +96,6 @@ func TestBlankImport_RegistersBackend(t *testing.T) {
 func TestProbe_SucceedsOnMockBackend(t *testing.T) {
 	keyring.MockInit()
 
-	assert.True(t, credentials.Probe(),
+	assert.True(t, credentials.Probe(t.Context()),
 		"Probe should succeed when a registered backend is reachable")
 }

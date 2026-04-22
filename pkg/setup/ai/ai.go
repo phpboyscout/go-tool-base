@@ -2,6 +2,7 @@ package ai
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -22,6 +24,13 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 )
+
+// keychainOpTimeout bounds any single credentials-backend operation
+// initiated by the setup wizard (Probe, Store). The wizard is
+// interactive and synchronous; a remote-store backend (Vault, SSM)
+// that hangs would block the user indefinitely without this guard.
+// OS-keychain backends complete well under this bound.
+const keychainOpTimeout = 5 * time.Second
 
 var skipAI bool
 
@@ -171,7 +180,10 @@ func defaultProviderForm(cfg *AIConfig) *huh.Form {
 // (canary round-trip) so the user is never offered an option that
 // will fail the moment they pick it.
 func defaultStorageModeForm(cfg *AIConfig) *huh.Form {
-	options := storageModeOptions(isCI(), credentials.Probe())
+	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	defer cancel()
+
+	options := storageModeOptions(isCI(), credentials.Probe(ctx))
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar
@@ -466,7 +478,10 @@ func storeAIKeyInKeychain(toolName string, aiCfg *AIConfig) (string, error) {
 		return "", errors.New("cannot write keychain entry without both tool name and provider account")
 	}
 
-	if err := credentials.Store(toolName, account, aiCfg.APIKey); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	defer cancel()
+
+	if err := credentials.Store(ctx, toolName, account, aiCfg.APIKey); err != nil {
 		return "", errors.WithHint(
 			errors.Wrap(err, "storing AI API key in OS keychain"),
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")

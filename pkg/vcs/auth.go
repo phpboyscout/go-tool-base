@@ -1,6 +1,7 @@
 package vcs
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -31,8 +32,22 @@ import (
 // The callers-supplied `cfg` is typically `props.Config.Sub("<vcs>")`
 // — GTB's env-aware Sub ensures prefix-aware env binding fires even
 // inside sub-containers (see pkg/config).
+//
+// ResolveToken uses [context.Background] when calling the keychain
+// backend. Callers who have a request context (HTTP handler, cobra
+// command, chat provider) SHOULD use [ResolveTokenContext] instead
+// so a slow remote backend (Vault, SSM) cannot stall the caller
+// beyond its own deadline.
 func ResolveToken(cfg config.Containable, fallbackEnv string) string {
-	if token := tokenFromConfig(cfg); token != "" {
+	return ResolveTokenContext(context.Background(), cfg, fallbackEnv)
+}
+
+// ResolveTokenContext is the context-aware form of [ResolveToken].
+// The context is propagated to the credentials backend so remote
+// stores honour deadlines and cancellation. Recommended for any
+// call path that already has a context in scope.
+func ResolveTokenContext(ctx context.Context, cfg config.Containable, fallbackEnv string) string {
+	if token := tokenFromConfig(ctx, cfg); token != "" {
 		return token
 	}
 
@@ -47,7 +62,7 @@ func ResolveToken(cfg config.Containable, fallbackEnv string) string {
 // chain. Each step short-circuits on a non-empty value; empty or
 // whitespace-only results fall through so a partially-populated entry
 // cannot mask a fully-populated one at a lower priority.
-func tokenFromConfig(cfg config.Containable) string {
+func tokenFromConfig(ctx context.Context, cfg config.Containable) string {
 	if cfg == nil {
 		return ""
 	}
@@ -56,7 +71,7 @@ func tokenFromConfig(cfg config.Containable) string {
 		return v
 	}
 
-	if v := tokenFromKeychain(cfg); v != "" {
+	if v := tokenFromKeychain(ctx, cfg); v != "" {
 		return v
 	}
 
@@ -87,7 +102,7 @@ func tokenFromEnvRef(cfg config.Containable) string {
 // Corrupted-entry errors (JSON unmarshal for Bitbucket blob) are
 // handled by the caller, not here — this function is for single-
 // value secrets only.
-func tokenFromKeychain(cfg config.Containable) string {
+func tokenFromKeychain(ctx context.Context, cfg config.Containable) string {
 	ref := strings.TrimSpace(cfg.GetString("auth.keychain"))
 	if ref == "" {
 		return ""
@@ -98,7 +113,7 @@ func tokenFromKeychain(cfg config.Containable) string {
 		return ""
 	}
 
-	secret, err := credentials.Retrieve(service, account)
+	secret, err := credentials.Retrieve(ctx, service, account)
 	if err != nil {
 		return ""
 	}

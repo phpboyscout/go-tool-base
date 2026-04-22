@@ -28,8 +28,8 @@ var (
 	semVerPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+(-\w+)?$`)
 
 	// ExportNewUpdater creates an Updater for online updates. Tests may replace this.
-	ExportNewUpdater = func(props *p.Props, version string, force bool) (Updater, error) {
-		return setup.NewUpdater(props, version, force)
+	ExportNewUpdater = func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error) {
+		return setup.NewUpdater(ctx, props, version, force)
 	}
 	// ExportNewOfflineUpdater creates an Updater for offline file-based updates. Tests may replace this.
 	ExportNewOfflineUpdater = func(props *p.Props) Updater {
@@ -118,7 +118,7 @@ type UpdateResult struct {
 
 // Update downloads and installs the specified version (or latest) of the tool.
 func Update(ctx context.Context, props *p.Props, version string, force bool, opts ...UpdateConfigOption) (*UpdateResult, error) {
-	updater, err := ExportNewUpdater(props, version, force)
+	updater, err := ExportNewUpdater(ctx, props, version, force)
 	if err != nil {
 		return nil, err
 	}

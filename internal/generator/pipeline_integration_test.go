@@ -544,3 +544,84 @@ func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
 	exists, _ := afero.Exists(fs, rootCmd)
 	assert.True(t, exists, "root cmd.go should always exist")
 }
+
+// TestSkeletonFeatures_KeychainScaffolding pins the default-on
+// behaviour of the keychain feature in scaffolded projects: a default
+// config lays down cmd/<name>/keychain.go (the blank-import side-
+// effect file that registers the go-keyring backend), while a config
+// that explicitly disables the keychain feature omits the file so the
+// generated binary runs with the stub backend and no IPC-to-keychain
+// code linked.
+func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "generator")
+
+	tests := []struct {
+		name         string
+		features     []ManifestFeature
+		wantKeychain bool
+	}{
+		{
+			name:         "enabled by default",
+			features:     nil,
+			wantKeychain: true,
+		},
+		{
+			name: "explicitly enabled",
+			features: []ManifestFeature{
+				{Name: "keychain", Enabled: true},
+			},
+			wantKeychain: true,
+		},
+		{
+			name: "explicitly disabled",
+			features: []ManifestFeature{
+				{Name: "keychain", Enabled: false},
+			},
+			wantKeychain: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			l := logger.NewNoop()
+
+			p := &props.Props{
+				FS:     fs,
+				Logger: l,
+				Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+			}
+
+			path := filepath.Join("/", "kc-test", tc.name)
+
+			g := New(p, &Config{})
+			g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {
+				return []byte("done"), nil
+			}
+
+			cfg := SkeletonConfig{
+				Name:        "kc-tool",
+				Repo:        "test/kc-tool",
+				Host:        "github.com",
+				Description: "Keychain scaffolding test",
+				Path:        path,
+				Features:    tc.features,
+			}
+
+			require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
+
+			keychainFile := filepath.Join(path, "cmd", "kc-tool", "keychain.go")
+			exists, _ := afero.Exists(fs, keychainFile)
+			assert.Equal(t, tc.wantKeychain, exists,
+				"keychain.go presence must follow the feature flag")
+
+			if tc.wantKeychain {
+				content, err := afero.ReadFile(fs, keychainFile)
+				require.NoError(t, err)
+				assert.Contains(t, string(content),
+					`import _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"`,
+					"scaffolded keychain.go must blank-import the subpackage")
+			}
+		})
+	}
+}

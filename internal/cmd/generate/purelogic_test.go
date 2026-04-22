@@ -272,9 +272,9 @@ func TestDefaultHost_GitLab(t *testing.T) {
 
 func TestResolveFeatures_AllSelected(t *testing.T) {
 	t.Parallel()
-	selected := []string{"init", "update", "mcp", "docs", "doctor", "changelog"}
+	selected := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "keychain"}
 	features := resolveFeatures(selected)
-	assert.Len(t, features, 6)
+	assert.Len(t, features, 7)
 
 	for _, f := range features {
 		assert.True(t, f.Enabled, "all selected should be enabled: %s", f.Name)
@@ -284,7 +284,7 @@ func TestResolveFeatures_AllSelected(t *testing.T) {
 func TestResolveFeatures_NoneSelected(t *testing.T) {
 	t.Parallel()
 	features := resolveFeatures(nil)
-	assert.Len(t, features, 6)
+	assert.Len(t, features, 7)
 
 	for _, f := range features {
 		assert.False(t, f.Enabled, "all unselected should be disabled: %s", f.Name)

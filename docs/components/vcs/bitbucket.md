@@ -61,17 +61,21 @@ props.ReleaseSource{
 
 ### Authentication
 
-Bitbucket uses HTTP Basic Auth with a username and app password. Resolution order:
+Bitbucket uses HTTP Basic Auth with a username and app password. Each field is resolved independently in the following order, and partial configurations (e.g. username via env-var, app password from the keychain) are supported for rotation scenarios:
 
-1. Config keys: `bitbucket.username` and `bitbucket.app_password`
-2. Environment variables: `BITBUCKET_USERNAME` and `BITBUCKET_APP_PASSWORD`
+1. `bitbucket.<field>.env` — name of an environment variable holding the value (e.g. `bitbucket.username.env: MYTOOL_BB_USER`). Keeps the credential out of the config file.
+2. `bitbucket.keychain` — shared `"<service>/<account>"` reference to an OS-keychain (or custom [`Backend`](../credentials.md#backend-interface)) entry whose value is a JSON blob `{"username": "...", "app_password": "..."}`. Only active when a keychain-capable backend is registered (see [`pkg/credentials`](../credentials.md)). Corrupt or incomplete blobs abort resolution rather than falling through — a broken keychain entry is surfaced to the user, not silently masked by a stale literal (R3).
+3. `bitbucket.<field>` — literal value stored in config. Viper's `AutomaticEnv` + the tool's env prefix also surfaces `<PREFIX>_BITBUCKET_<FIELD>` through this step.
+4. `BITBUCKET_<FIELD>` — well-known unprefixed ecosystem env vars as a final fallback.
 
 | Variable | Description |
 |----------|-------------|
 | `BITBUCKET_USERNAME` | Bitbucket username |
 | `BITBUCKET_APP_PASSWORD` | App password with read access to the repository's Downloads |
 
-When `Private: true` is set, missing credentials return an error instead of proceeding anonymously.
+When `Private: true` is set, missing credentials return an error instead of proceeding anonymously. `NewReleaseProvider` applies a short internal timeout to the keychain lookup so a misbehaving remote-store backend cannot stall startup.
+
+See [How to configure credentials](../../how-to/configure-credentials.md) for wizard-driven setup and [How to implement a custom credential backend](../../how-to/custom-credential-backend.md) for Vault / AWS SSM / other remote stores.
 
 ### Filename Pattern
 

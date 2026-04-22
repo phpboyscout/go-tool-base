@@ -33,6 +33,7 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	p.Logger.Info("Initialising Claude Chat")
 
 	token := resolveAPIKey(
+		ctx,
 		cfg.Token,
 		p.Config,
 		ConfigKeyClaudeEnv,

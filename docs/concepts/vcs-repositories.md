@@ -205,16 +205,26 @@ provider, err := gitlab.NewReleaseProvider(cfg)
 
 ## Authentication
 
-Token resolution is handled by `pkg/vcs/auth.go`:
+Token resolution is handled by `pkg/vcs/auth.go`. Two entry points:
 
 ```go
+// Context-aware (preferred): honours caller deadlines for remote
+// secret stores (Vault, AWS SSM) via the credentials backend.
+token := vcs.ResolveTokenContext(ctx, cfg, "FALLBACK_ENV_VAR")
+
+// Context-free shim for callers without ctx in scope. Uses
+// context.Background() internally.
 token := vcs.ResolveToken(cfg, "FALLBACK_ENV_VAR")
 ```
 
-`ResolveToken` checks, in order:
+Both forms check, in order:
 
-1. `cfg.GetString("auth.value")` — configured token
-2. The named environment variable — e.g. `GITHUB_TOKEN`
+1. `auth.env` — name of an environment variable holding the token
+2. `auth.keychain` — `"<service>/<account>"` reference resolved via the registered [credentials Backend](../components/credentials.md); silently skipped when no backend is registered
+3. `auth.value` — literal token value stored in config
+4. The named fallback environment variable — e.g. `GITHUB_TOKEN`
+
+Returns empty when nothing is found; callers decide whether absence is an error.
 
 For SSH operations (`OpenLocal`/`OpenInMemory` with SSH URLs), `repo.NewRepo` attempts:
 
@@ -222,7 +232,7 @@ For SSH operations (`OpenLocal`/`OpenInMemory` with SSH URLs), `repo.NewRepo` at
 |----------|--------|--------|
 | 1 | SSH agent | Standard Unix SSH agent socket |
 | 2 | Identity file | `github.ssh.key.path` in config |
-| 3 | PAT / basic auth | Resolved via `ResolveToken` |
+| 3 | PAT / basic auth | Resolved via `ResolveTokenContext` |
 
 ---
 

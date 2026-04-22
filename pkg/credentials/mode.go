@@ -1,6 +1,7 @@
 package credentials
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"os"
@@ -48,23 +49,27 @@ var ErrCredentialNotFound = errors.New("credential not found in keychain")
 
 // Store writes a secret to the registered [Backend]. Returns
 // [ErrCredentialUnsupported] when no real backend is registered.
-func Store(service, account, secret string) error {
-	return currentBackend().Store(service, account, secret)
+// The context is forwarded to the backend so network-backed
+// implementations (Vault, AWS SSM) can honour deadlines and
+// cancellation; OS-keychain backends ignore it.
+func Store(ctx context.Context, service, account, secret string) error {
+	return currentBackend().Store(ctx, service, account, secret)
 }
 
 // Retrieve reads a secret from the registered [Backend]. Returns
 // [ErrCredentialUnsupported] when no real backend is registered,
 // [ErrCredentialNotFound] when the backend is present but the entry
-// is missing, or a wrapped backend error for other failures.
-func Retrieve(service, account string) (string, error) {
-	return currentBackend().Retrieve(service, account)
+// is missing, or a wrapped backend error for other failures. A
+// cancelled context aborts the lookup.
+func Retrieve(ctx context.Context, service, account string) (string, error) {
+	return currentBackend().Retrieve(ctx, service, account)
 }
 
 // Delete removes a secret from the registered [Backend]. Idempotent:
 // returns nil when the entry is missing. Returns
 // [ErrCredentialUnsupported] when no real backend is registered.
-func Delete(service, account string) error {
-	return currentBackend().Delete(service, account)
+func Delete(ctx context.Context, service, account string) error {
+	return currentBackend().Delete(ctx, service, account)
 }
 
 // KeychainAvailable reports whether a keychain-capable [Backend] is
@@ -113,8 +118,8 @@ func probeAccount() string {
 // time of the call — useful for setup wizards that want to hide the
 // ModeKeychain option on hosts where the backend is compiled in but
 // locked, unreachable (headless Linux without a Secret Service
-// provider), or otherwise unusable. It performs a canary
-// Set → Get → Delete round-trip under the reserved
+// provider, Vault unreachable), or otherwise unusable. It performs
+// a canary Set → Get → Delete round-trip under the reserved
 // "gtb-keychain-probe" service with a per-invocation random account
 // and discards the result.
 //
@@ -123,25 +128,29 @@ func probeAccount() string {
 // is registered" AND "the backend accepts round-trip calls right
 // now", which is the precise guard the wizard needs before offering
 // keychain as a storage option.
-func Probe() bool {
+//
+// Callers SHOULD pass a context with a short timeout (a few seconds
+// is reasonable) so a misbehaving remote backend cannot stall the
+// setup wizard indefinitely.
+func Probe(ctx context.Context) bool {
 	if !KeychainAvailable() {
 		return false
 	}
 
 	account := probeAccount()
 
-	if err := Store(probeService, account, "probe"); err != nil {
+	if err := Store(ctx, probeService, account, "probe"); err != nil {
 		return false
 	}
 
 	// Round-trip read to confirm the item landed in a readable place,
 	// not a write-only sink. Any error here marks the backend as
 	// unsuitable — we clean up best-effort and report false.
-	if _, err := Retrieve(probeService, account); err != nil {
-		_ = Delete(probeService, account)
+	if _, err := Retrieve(ctx, probeService, account); err != nil {
+		_ = Delete(ctx, probeService, account)
 
 		return false
 	}
 
-	return Delete(probeService, account) == nil
+	return Delete(ctx, probeService, account) == nil
 }
