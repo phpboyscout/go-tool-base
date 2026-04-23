@@ -9,7 +9,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.5
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.3
-	dario.cat/mergo v1.0.0
+	dario.cat/mergo v1.0.2
 	github.com/anthropics/anthropic-sdk-go v1.22.1
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/charmbracelet/keygen v0.5.4
