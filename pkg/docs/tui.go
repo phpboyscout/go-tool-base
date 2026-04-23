@@ -146,6 +146,11 @@ type Model struct {
 	// Component models
 	viewport viewport.Model
 	renderer *glamour.TermRenderer
+	// rendererWidth is the WithWordWrap value m.renderer was built with.
+	// glamour.NewTermRenderer is not free (~low ms each call, worse in
+	// v1.0 which pulls a larger chroma lexer set) so we rebuild only
+	// when the width actually changes rather than per page load.
+	rendererWidth int
 
 	// App state
 	content     string
@@ -156,6 +161,34 @@ type Model struct {
 	height      int
 
 	mkdocsLoaded bool
+}
+
+// ensureRenderer returns the cached [glamour.TermRenderer] built for
+// the given word-wrap width, constructing a new one only when the
+// width has changed since the last call. Page navigation and resize
+// events both funnel through this so the renderer is not rebuilt per
+// keystroke — a meaningful latency win in glamour v1+ where
+// NewTermRenderer eagerly initialises the chroma lexer set.
+func (m *Model) ensureRenderer(width int) *glamour.TermRenderer {
+	if m.renderer != nil && m.rendererWidth == width {
+		return m.renderer
+	}
+
+	r, err := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		// Keep the previous renderer — it is still correct for its own
+		// width and better than nil. Callers handle nil, but a stale
+		// width produces only mildly-wrong wrapping, not a crash.
+		return m.renderer
+	}
+
+	m.renderer = r
+	m.rendererWidth = width
+
+	return r
 }
 
 // NewModel creates a documentation browser Model backed by the given filesystem.
@@ -178,6 +211,7 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 	m := &Model{
 		fs:             fsys,
 		renderer:       r,
+		rendererWidth:  defaultWordWrap,
 		sidebarOpen:    true,
 		sidebarRatio:   defaultSidebarRatio,
 		focus:          focusSidebar,
@@ -781,13 +815,9 @@ func (m *Model) loadFile(path string) {
 	sidebarWidth := m.sidebarWidth()
 	contentWidth := m.width - sidebarWidth - uiPadding
 
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(contentWidth),
-	)
-	m.renderer = renderer
+	renderer := m.ensureRenderer(contentWidth)
 
-	rendered, err := m.renderer.Render(textContent)
+	rendered, err := renderer.Render(textContent)
 	if err != nil {
 		rendered = textContent
 	}
@@ -828,14 +858,10 @@ func (m *Model) updateViewportSize() {
 		// Note: Footer is now inside the box, so it shares the width
 		content := fmt.Sprintf("Frontmatter:\n\n%s", m.frontmatter)
 
-		// Use a renderer or style to estimate height given width
-		// Simple approach: Render it with current width
-		r, _ := glamour.NewTermRenderer(
-			glamour.WithAutoStyle(),
-			glamour.WithWordWrap(contentWidth),
-		)
-
-		renderedInfo, err := r.Render(content)
+		// Reuse the cached renderer keyed by contentWidth so a resize
+		// doesn't cost a second full TermRenderer build on top of
+		// loadFile's.
+		renderedInfo, err := m.ensureRenderer(contentWidth).Render(content)
 		if err != nil {
 			renderedInfo = content
 		}
