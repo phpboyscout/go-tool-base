@@ -14,6 +14,17 @@ Phase 2 has **operational prerequisites** that are out of scope for code changes
 
 > This is a planning document. Status lives in the [spec](specs/2026-04-02-remote-update-checksum-verification.md); when Phase 2 transitions to IN PROGRESS the ordered steps here become the implementation playbook.
 
+## Decisions so far
+
+Updated as each gate is answered. Empty cells = still open.
+
+| Gate | Decision |
+|------|----------|
+| **1 — Signing key storage** | **AWS KMS**, RSA-4096 asymmetric key, `eu-west-2` (London) region. OIDC federation from GitHub Actions → IAM role with `kms:Sign` only on the release key. Rationale: easiest onboarding for a greenfield cloud account, native GitHub OIDC support, and the spec explicitly accepts RSA-4096 where Ed25519 isn't available (AWS KMS doesn't expose Ed25519 for asymmetric signing). |
+| **2 — WKD domain + release email** | **`openpgpkey.phpboyscout.uk`** subdomain, **`release@phpboyscout.uk`** role address. Static hosting via **Cloudflare Pages in Direct Upload mode** (free plan, auto-provisioned TLS via Cloudflare's CA, custom-domain binding is one DNS record). **No Git integration, no webhook** — the WKD directory is built locally and pushed via the Wrangler CLI authenticated by a Cloudflare API token scoped to `Pages: Edit` only. This intentionally excludes both GitHub and AWS from the deploy path: a compromise of either platform cannot poison the externally-served key. The Cloudflare account is administered with a distinct email + MFA factor from the GitHub and AWS accounts so all three trust anchors are independent. The WKD tree is reproducible from the public key file (which lives in offline storage alongside the rotation-authority backup), so no source-of-truth Git repo is needed. |
+| **3 — Access policy** | CI signs via the OIDC-federated IAM role defined in Gate 1; no human holds the signing secret. Trust policy pins the role to `refs/tags/v*` on `phpboyscout/go-tool-base` so only tagged-release workflows can mint a signature. A protected `release` environment in GitHub Actions gates the sign job on manual approval — solo maintainer approves their own runs for now; promotes cleanly to a required-reviewers gate when the project grows. Role policy also scoped to a single action (`kms:Sign`) on a single key ARN. |
+| **4 — Rotation-authority key** | Generated once on a trusted offline workstation (`gpg --full-generate-key`, Ed25519, no subkey, no expiry, passphrase-protected). Private half stored two ways, both in a single home safe: one encrypted USB (LUKS or VeraCrypt with a strong passphrase) **and** one printed paper backup produced via `paperkey`. The two-copy rule covers the ways a single copy fails (USB bit-rot / paper physical damage) without the complexity of multi-site storage. Public half: embedded in `internal/version/trustkeys/rotation-authority.asc` alongside the primary signing key, and published via the same WKD endpoint. A written runbook at `docs/operations/key-rotation.md` is produced in the Phase 2 implementation PR — the mechanism that *uses* this key is Phase 4 per the spec's Resolved Decision #10, but the key must exist and be embedded *now* to protect binaries released in Phase 2 and later. |
+
 ## Why a prep doc
 
 Three classes of question need answering before any Go code is written:
@@ -75,20 +86,100 @@ Once Gate 1 is chosen, the key is generated **inside** the KMS or hardware token
 
 **Ed25519 preferred; RSA-4096 acceptable** if the KMS doesn't support Ed25519 (some older HSMs still don't). DSA, 1024-bit RSA, and weak curves are refused by `LoadTrustSet` at binary startup.
 
-### AWS KMS
+### AWS KMS — GTB provisioning walkthrough
+
+The commands below are the concrete steps to run once your new AWS account is active. The provisioning needs to happen once; the GitHub Actions workflow then assumes the role on every release.
+
+**Pre-flight hardening (do this on the fresh root account before anything else):**
+
+1. Enable MFA on the root user. Never use root for day-to-day work thereafter.
+2. Create an IAM user with `AdministratorAccess` for day-to-day provisioning; lock the root credentials away. Enable MFA on this user too.
+3. Set an account alias so the sign-in page isn't a 12-digit number (`aws iam create-account-alias --account-alias phpboyscout`).
+4. Enable CloudTrail with a dedicated S3 bucket — every signing event gets logged and is audit-reviewable.
+
+**Create the release-signing key:**
 
 ```bash
-# Generate inside the KMS, export only the public half.
+# From the IAM user (not root). eu-west-2 = London.
 aws kms create-key \
-  --key-spec ECC_NIST_P256 \
+  --region eu-west-2 \
+  --key-spec RSA_4096 \
   --key-usage SIGN_VERIFY \
-  --description "GTB release signing v1"
+  --description "GTB release signing v1" \
+  --tags TagKey=project,TagValue=gtb TagKey=purpose,TagValue=release-signing
 
-aws kms get-public-key --key-id <key-id> \
-  --output text --query PublicKey | base64 -d > signing-key-v1.der
-# Convert DER to ASCII-armored OpenPGP:
-# (tooling: https://github.com/github/SigstorePGP or custom OpenPGP wrapping)
+# Alias it so the key can be renamed/rotated without changing references.
+aws kms create-alias \
+  --region eu-west-2 \
+  --alias-name alias/gtb-release-signing-v1 \
+  --target-key-id <key-id-from-previous-step>
+
+# Export the public half in PEM; wrap into OpenPGP framing later
+# (the OpenPGP conversion tooling lives in the first Phase 2 PR).
+aws kms get-public-key \
+  --region eu-west-2 \
+  --key-id alias/gtb-release-signing-v1 \
+  --output text --query PublicKey | base64 -d > signing-key-v1.pub.der
 ```
+
+**OIDC trust for GitHub Actions** (so the release workflow can assume a role without a stored long-lived secret):
+
+```bash
+# 1. Register GitHub's OIDC provider in your account (once per account).
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+
+# 2. Create an IAM role restricted to the release workflow on the gtb
+#    repo's tags only. Replace <ACCOUNT-ID> with your account number.
+cat > trust-policy.json <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": { "Federated": "arn:aws:iam::<ACCOUNT-ID>:oidc-provider/token.actions.githubusercontent.com" },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
+      "StringLike": { "token.actions.githubusercontent.com:sub": "repo:phpboyscout/go-tool-base:ref:refs/tags/v*" }
+    }
+  }]
+}
+JSON
+
+aws iam create-role \
+  --role-name gtb-release-signer \
+  --assume-role-policy-document file://trust-policy.json
+
+# 3. Attach a policy that allows ONLY Sign on ONLY this key.
+cat > sign-policy.json <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": ["kms:Sign", "kms:GetPublicKey"],
+    "Resource": "arn:aws:kms:eu-west-2:<ACCOUNT-ID>:key/<KEY-ID>"
+  }]
+}
+JSON
+
+aws iam put-role-policy \
+  --role-name gtb-release-signer \
+  --policy-name kms-sign-release-key \
+  --policy-document file://sign-policy.json
+```
+
+The workflow then authenticates with:
+
+```yaml
+- uses: aws-actions/configure-aws-credentials@v4
+  with:
+    role-to-assume: arn:aws:iam::<ACCOUNT-ID>:role/gtb-release-signer
+    aws-region: eu-west-2
+```
+
+No long-lived AWS credentials exist anywhere; the workflow gets a 15-minute token via OIDC only when running on a `v*` tag.
 
 ### GCP Cloud KMS
 
@@ -148,10 +239,64 @@ Generate the URL and file layout with `gpg-wks-client`:
 
 ```bash
 gpg-wks-client --install-key signing-key-v1.asc release@yourdomain
-# produces a directory you rsync/upload to the static host behind openpgpkey.<yourdomain>
+# produces a directory you rsync/upload to the static host
 ```
 
-**Hosting options** — any HTTPS static host with a TLS cert chain trusted by the public CA roots: S3 + CloudFront, Cloudflare Pages, GitHub Pages on a custom domain, Netlify, a tiny nginx on a VPS. The integrity of the file is protected by TLS — there is no cryptographic binding of the file to the URL beyond "I control this domain."
+#### GTB-specific: Cloudflare Pages via Direct Upload
+
+The whole point of an external trust anchor is that it must be administered independently from both the codebase and the signing-key store. To hold that property, the deploy path itself must avoid GitHub and AWS — a webhook-driven Git deploy from `phpboyscout/openpgpkey-phpboyscout-uk` would re-introduce a single GitHub compromise as a sufficient condition to poison the WKD-served key.
+
+Cloudflare Pages supports two mutually-exclusive deploy modes; we use the second:
+
+| Mode | Source of truth | Risk for our use case |
+|------|-----------------|------------------------|
+| Git integration | A connected GitHub / GitLab repo, deployed by Cloudflare on push | A repo compromise (or a Cloudflare → GitHub OAuth compromise) lets the attacker poison the WKD |
+| **Direct Upload** | Anywhere — files are pushed via the Wrangler CLI authenticated by a Cloudflare API token | No upstream Git, no webhook, no GitHub coupling. Only an attacker holding both the Cloudflare API token *and* DNS control can poison the WKD. |
+
+**One-time setup** (on a trusted local machine):
+
+```bash
+# 1. Create a Cloudflare account on a distinct email address from your
+#    GitHub and AWS accounts, with its own MFA factor (different
+#    authenticator app, ideally a hardware key).
+# 2. In the dashboard: My Profile → API Tokens → Create Token.
+#    - Permission: "Account → Cloudflare Pages → Edit" only.
+#    - Account resources: scoped to your single Cloudflare account.
+#    - No Zone permissions, no DNS edit, no other scopes.
+# 3. Create the Pages project (no Git integration):
+#    Workers & Pages → Create → Pages → "Upload assets" → name
+#    `openpgpkey-phpboyscout-uk`. The project starts empty.
+# 4. Bind the custom domain in the project settings:
+#    Custom domains → Set up → openpgpkey.phpboyscout.uk
+#    Cloudflare provisions the TLS cert and gives you a CNAME target.
+# 5. Add the CNAME at your DNS host, pointing
+#    openpgpkey.phpboyscout.uk → <project>.pages.dev.
+
+# Install Wrangler locally (one-time):
+npm install -g wrangler  # or: brew install cloudflare-wrangler
+```
+
+**Per-key-rotation deploy** (rare — once a year or less in steady state):
+
+```bash
+# Generate the WKD directory tree from the public key file you keep
+# alongside the rotation-authority backup in offline storage.
+mkdir -p wkd-staging
+cd wkd-staging
+gpg-wks-client --install-key /path/to/signing-key-v1.asc release@phpboyscout.uk
+
+# The result is a .well-known/openpgpkey/phpboyscout.uk/hu/... tree.
+# Push it directly to Cloudflare Pages — no Git involved.
+export CLOUDFLARE_API_TOKEN=...   # from password manager
+wrangler pages deploy . \
+  --project-name=openpgpkey-phpboyscout-uk \
+  --commit-dirty=true \
+  --branch=main
+```
+
+The API token never lands in CI or in any cloud account other than the Cloudflare one. Rotating it is a 30-second job in the Cloudflare dashboard; the token grants no access to anything except this one Pages project.
+
+**Disaster recovery without a Git repo:** the WKD tree is fully reproducible from the public key file, so backing up the key (already done — paperkey + encrypted USB in the safe per Gate 4) covers re-deploy. There is no need for a second Git source-of-truth, and adding one would re-introduce the GitHub coupling we are deliberately avoiding.
 
 ## GoReleaser integration
 
