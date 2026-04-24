@@ -54,6 +54,31 @@ type ReleaseAsset interface {
 }
 ```
 
+### ChecksumProvider (Optional Interface)
+
+`ChecksumProvider` is an **opt-in** interface — providers implement it when they can retrieve a checksums manifest by a route other than a standard release-asset download. The update flow does a runtime type assertion; providers that don't implement it fall back to locating `checksums.txt` by filename within the release's asset list.
+
+```go
+type ChecksumProvider interface {
+    DownloadChecksumManifest(ctx context.Context, rel Release, maxBytes int64) ([]byte, error)
+}
+```
+
+Implementations must:
+
+- Return `release.ErrNotSupported` when the current configuration disables retrieval (e.g. Direct's `checksum_url_template` unset, Bitbucket's downloads list has no `checksums.txt`). The caller treats this identically to "not implemented" and falls back.
+- Cap the response at `maxBytes` to protect against a hostile server streaming indefinitely.
+- Return a wrapped error for transport failures. The caller respects `update.require_checksum` to decide fail-open vs fail-closed.
+
+**Built-in implementations:**
+
+| Provider | Source | When `ErrNotSupported` is returned |
+|----------|--------|------------------------------------|
+| `direct` | Expands `checksum_url_template` against the release version and HTTP-fetches it. | `checksum_url_template` is empty. |
+| `bitbucket` | Looks up `checksums.txt` by exact filename in the repository's downloads list. | No `checksums.txt` download exists. |
+
+`github`, `gitlab`, `gitea`, and `codeberg` do **not** implement `ChecksumProvider`: they rely on the default asset-list lookup, which works cleanly because those platforms expose the GoReleaser-produced `checksums.txt` as an ordinary release asset.
+
 ---
 
 ## Sentinel Errors
@@ -244,7 +269,7 @@ For tools distributed via arbitrary HTTP servers — S3, GCS, Artifactory, Nexus
 | `version_format` | No | Override format detection: `text`, `json`, `yaml`, or `xml`. |
 | `version_key` | No | Field name to extract from structured responses. Tries `tag_name` then `version` by default. |
 | `pinned_version` | No | Static version string. Disables all network version checks. |
-| `checksum_url_template` | No | Template for the SHA-256 checksum sidecar URL. Same placeholders as `url_template`. |
+| `checksum_url_template` | No | Template for the SHA-256 checksums manifest URL. Same placeholders as `url_template`. Activates checksum verification on `Update()` — the Direct provider implements [`release.ChecksumProvider`](#checksumprovider-optional-interface) and fetches the manifest from the expanded URL. |
 
 **URL template placeholders:**
 

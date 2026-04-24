@@ -182,6 +182,44 @@ err := setup.VerifyChecksum(fs, "/path/to/file.tar.gz.sha256", fileData)
 
 `VerifyChecksum` accepts the standard `sha256sum` sidecar format (`<hex-hash>  <filename>`) and GoReleaser checksums.txt entries.
 
+#### Remote Checksum Verification (Phase 1)
+
+Remote updates via `Update()` automatically verify the downloaded binary against the release's `checksums.txt` manifest before extraction. GoReleaser produces this file by default on every release, so no `.goreleaser.yaml` change is required.
+
+**How it works:**
+
+1. After downloading the target binary, `Update()` looks for a `checksums.txt` asset in the same release.
+2. The manifest is downloaded (capped at `setup.MaxChecksumsSize`, default 1 MiB) and parsed line-by-line.
+3. The binary's SHA-256 is compared against the manifest entry in constant time.
+4. A mismatch aborts the update; a match logs `"checksum verified"` at INFO and proceeds to extraction.
+
+**Fail-open by default, fail-closed by opt-in:**
+
+The library defaults to fail-open — a release without `checksums.txt` logs a warning and proceeds, preserving backward compatibility with legacy releases. Tool authors who want fail-closed verification from day one set:
+
+```go
+func main() {
+    setup.DefaultRequireChecksum = true  // refuse unverified updates
+    // ...
+}
+```
+
+End users can override at runtime via config:
+
+```yaml
+update:
+  require_checksum: true
+  checksum_asset_name: ""    # override default "checksums.txt" if needed
+```
+
+Or via env var (respects the tool's env prefix): `MYTOOL_UPDATE_REQUIRE_CHECKSUM=true`.
+
+**Non-standard asset layouts:**
+
+Providers that don't publish `checksums.txt` as a release asset — notably the Direct HTTP provider and Bitbucket Downloads — opt in to the optional `release.ChecksumProvider` interface, retrieving the manifest via an alternate path (a URL template for Direct, an exact-name lookup in the downloads list for Bitbucket). The `Update()` flow prefers this interface when implemented and falls back to the asset-list scan otherwise.
+
+See [Secure Releases How-To](../../how-to/secure-releases.md) for the full setup and config story.
+
 #### Release Information
 ```go
 func (s *SelfUpdater) GetReleaseNotes(from string, to string) (string, error)

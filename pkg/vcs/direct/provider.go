@@ -161,6 +161,57 @@ func (p *DirectReleaseProvider) DownloadReleaseAsset(ctx context.Context, _, _ s
 	return resp.Body, "", nil
 }
 
+// DownloadChecksumManifest implements [release.ChecksumProvider] by
+// fetching the checksums manifest from the URL produced by expanding
+// `checksum_url_template` against the release version. Returns
+// [release.ErrNotSupported] when `checksum_url_template` is unset, so
+// callers fall back to the default asset-list lookup (which is
+// pointless for Direct but keeps the fallback path consistent across
+// providers).
+//
+// Size-capping is the caller's responsibility — setup.SelfUpdater
+// wraps the response body with [io.LimitReader] bounded by
+// [setup.MaxChecksumsSize].
+func (p *DirectReleaseProvider) DownloadChecksumManifest(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
+	if p.checksumURLTemplate == "" {
+		return nil, release.ErrNotSupported
+	}
+
+	url := p.expandTemplate(p.checksumURLTemplate, rel.GetTagName())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if p.token != "" {
+		req.Header.Set("Authorization", "Bearer "+p.token)
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Newf("checksum manifest download failed: HTTP %d from %s", resp.StatusCode, url)
+	}
+
+	// +1 lets us detect overshoot; the caller size-checks.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, errors.Wrap(err, "reading checksums manifest")
+	}
+
+	if int64(len(body)) > maxBytes {
+		return nil, errors.Newf("checksums manifest from %s exceeded %d bytes", url, maxBytes)
+	}
+
+	return body, nil
+}
+
 // resolveVersion returns the version string from whichever source is configured.
 func (p *DirectReleaseProvider) resolveVersion(ctx context.Context) (string, error) {
 	if p.pinnedVersion != "" {

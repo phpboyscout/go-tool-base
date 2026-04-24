@@ -2,7 +2,7 @@
 title: "Remote Update Integrity: Checksums + GPG Signatures"
 description: "Verify remote self-update downloads against a signed checksums manifest. Phase 1 adds SHA-256 verification of checksums.txt (same-origin). Phase 2 adds GPG signature verification of the manifest, providing cryptographic provenance that survives a VCS platform compromise. Complements existing Apple notarization (macOS-only Gatekeeper approval) with cross-platform cryptographic integrity."
 date: 2026-04-02
-status: APPROVED
+status: IN PROGRESS
 tags:
   - specification
   - setup
@@ -25,7 +25,7 @@ Date
 :   02 April 2026
 
 Status
-:   APPROVED
+:   IN PROGRESS (Phase 1 active; Phase 2 pending KMS + WKD operational setup)
 
 ---
 
@@ -1518,6 +1518,8 @@ Estimated total effort: **1–2 days**.
 ### Phase 2: GPG Signature Verification
 
 Phase 2 is split into three sub-phases that ship in order. Phase 2a and 2b can merge separately; Phase 2c depends on 2a+2b.
+
+**Before writing code, work through the four decision gates in [`docs/development/phase2-signing-prep.md`](../phase2-signing-prep.md)**: KMS selection, WKD domain + release email, access policy (who can sign), and rotation-authority key. The prep doc also contains the `.goreleaser.yaml` `signs:` block shape, the `scripts/sign-release.sh` contract, and the N+1 / N+2 / N+3 rollout sequence that ships the embedded key *before* the first signed release.
 
 **Phase 2a — Signature verification core:**
 

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
@@ -188,6 +189,121 @@ func (p *BitbucketReleaseProvider) ListReleases(_ context.Context, _, _ string, 
 		release.ErrNotSupported,
 		"Bitbucket Downloads has no versioned releases. Use GetLatestRelease instead.",
 	)
+}
+
+// checksumsDefaultName is the manifest filename [DownloadChecksumManifest]
+// looks up in the Bitbucket downloads list. Matches the GoReleaser
+// default so operators who upload `checksums.txt` alongside their
+// binaries get verification with no extra config.
+const checksumsDefaultName = "checksums.txt"
+
+// DownloadChecksumManifest implements [release.ChecksumProvider] by
+// locating an uploaded `checksums.txt` by exact filename in the
+// repository's downloads list. The filename regex used by
+// [matchAssets] is intentionally tight around the binary pattern, so
+// the manifest is not picked up there; this method bypasses the
+// regex for the well-known manifest name.
+//
+// Returns [release.ErrNotSupported] when the downloads list contains
+// no `checksums.txt`, so the caller treats it the same as "provider
+// has no manifest support" and respects require_checksum policy.
+func (p *BitbucketReleaseProvider) DownloadChecksumManifest(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
+	url, err := p.resolveChecksumsURL(ctx, rel)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.fetchChecksumsByURL(ctx, url, maxBytes)
+}
+
+// resolveChecksumsURL locates the `checksums.txt` entry in the
+// repository's downloads list and returns its API URL. Returns
+// [release.ErrNotSupported] when the release has no assets to key
+// off or no checksums.txt was uploaded — the caller treats both
+// identically to "no manifest available".
+func (p *BitbucketReleaseProvider) resolveChecksumsURL(ctx context.Context, rel release.Release) (string, error) {
+	// rel is the synthetic release we built in matchAssets; its
+	// provenance doesn't carry owner/repo through, so we re-read
+	// from the URL of a known asset to derive them. All assets were
+	// produced from the same workspace/repo so any one works.
+	assets := rel.GetAssets()
+	if len(assets) == 0 {
+		return "", release.ErrNotSupported
+	}
+
+	workspace, repo, err := parseDownloadURL(assets[0].GetBrowserDownloadURL())
+	if err != nil {
+		return "", errors.Wrap(err, "resolving workspace/repo for checksums lookup")
+	}
+
+	downloads, err := p.fetchAllDownloads(ctx, workspace, repo)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dl := range downloads {
+		if dl.Name == checksumsDefaultName {
+			return dl.Links.Self.Href, nil
+		}
+	}
+
+	return "", release.ErrNotSupported
+}
+
+// fetchChecksumsByURL performs the authenticated HTTP fetch against
+// the API-provided checksums URL and returns the body, capped at
+// maxBytes bytes.
+func (p *BitbucketReleaseProvider) fetchChecksumsByURL(ctx context.Context, url string, maxBytes int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if p.username != "" {
+		req.SetBasicAuth(p.username, p.appPassword)
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Newf("checksum manifest download failed: HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, errors.Wrap(err, "reading checksums manifest")
+	}
+
+	if int64(len(body)) > maxBytes {
+		return nil, errors.Newf("checksums manifest exceeded %d bytes", maxBytes)
+	}
+
+	return body, nil
+}
+
+// parseDownloadURL extracts the Bitbucket workspace and repo slug
+// from a downloads URL of the form
+// `https://bitbucket.org/{workspace}/{repo}/downloads/{filename}`.
+// Used to recover (workspace, repo) from the assets on a synthetic
+// release built by matchAssets — matchAssets does not propagate
+// those fields onto the release/asset structs.
+func parseDownloadURL(downloadURL string) (workspace, repo string, err error) {
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", "", errors.Wrap(err, "parsing download URL")
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 3 || parts[2] != "downloads" {
+		return "", "", errors.Newf("unexpected Bitbucket downloads URL shape: %s", downloadURL)
+	}
+
+	return parts[0], parts[1], nil
 }
 
 // DownloadReleaseAsset streams the asset at its BrowserDownloadURL.

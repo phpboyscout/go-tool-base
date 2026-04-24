@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -65,7 +66,22 @@ type SelfUpdater struct {
 	Fs             afero.Fs
 	osExecutable   func() (string, error)
 	execLookPath   func(string) (string, error)
+
+	// requireChecksum resolved from config (update.require_checksum →
+	// env-prefixed env var via viper AutomaticEnv → DefaultRequireChecksum).
+	// When true, a missing or invalid checksums manifest aborts the update
+	// rather than proceeding with a warning.
+	requireChecksum bool
+	// checksumAssetName overrides the default "checksums.txt" lookup for
+	// releases that use a different manifest filename. Resolved from
+	// `update.checksum_asset_name`; empty means use the default.
+	checksumAssetName string
 }
+
+// checksumsDefaultAssetName is the filename GoReleaser produces for
+// the manifest by default. Override per-tool via the
+// `update.checksum_asset_name` config key.
+const checksumsDefaultAssetName = "checksums.txt"
 
 // GetTimeSinceLast returns the duration since the last update check or update.
 func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Duration {
@@ -172,16 +188,64 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool)
 	}
 
 	return &SelfUpdater{
-		force:          force,
-		version:        version,
-		logger:         p.Logger,
-		Tool:           p.Tool,
-		releaseClient:  releaseClient,
-		CurrentVersion: ver.FormatVersionString(p.Version.GetVersion(), true),
-		Fs:             p.FS,
-		osExecutable:   os.Executable,
-		execLookPath:   exec.LookPath,
+		force:             force,
+		version:           version,
+		logger:            p.Logger,
+		Tool:              p.Tool,
+		releaseClient:     releaseClient,
+		CurrentVersion:    ver.FormatVersionString(p.Version.GetVersion(), true),
+		Fs:                p.FS,
+		osExecutable:      os.Executable,
+		execLookPath:      exec.LookPath,
+		requireChecksum:   resolveRequireChecksum(p.Config),
+		checksumAssetName: strings.TrimSpace(p.Config.GetString("update.checksum_asset_name")),
 	}, nil
+}
+
+// boolConfig is the narrow subset of [config.Containable] that
+// [resolveRequireChecksum] depends on. Declared here so tests can
+// pass a two-method fake without stubbing the full interface.
+type boolConfig interface {
+	IsSet(key string) bool
+	GetBool(key string) bool
+}
+
+// resolveRequireChecksum applies the precedence specified by the
+// update trust model: explicit config value first (which viper's
+// AutomaticEnv pulls from an env var too, prefixed per the tool),
+// otherwise the compile-time [DefaultRequireChecksum] sentinel. Tool
+// authors flip the default at link time for security-critical tools.
+func resolveRequireChecksum(cfg boolConfig) bool {
+	if cfg == nil {
+		return DefaultRequireChecksum
+	}
+
+	// Interface typed nil (e.g. a nil *viper.Viper wrapped in boolConfig)
+	// must not panic on IsSet. Protect the call with a reflective check.
+	if reflectIsNil(cfg) {
+		return DefaultRequireChecksum
+	}
+
+	if cfg.IsSet("update.require_checksum") {
+		return cfg.GetBool("update.require_checksum")
+	}
+
+	return DefaultRequireChecksum
+}
+
+// reflectIsNil detects the interface-typed-nil case (an interface
+// value whose concrete type is non-nil but whose value is the nil
+// pointer for that type). A plain `cfg == nil` check does not catch
+// this case; call sites that construct the interface from a pointer
+// can pass through a nil pointer wrapped in a non-nil interface.
+func reflectIsNil(i any) bool {
+	if i == nil {
+		return true
+	}
+
+	rv := reflect.ValueOf(i)
+
+	return rv.Kind() == reflect.Pointer && rv.IsNil()
 }
 
 // requireReleaseToken returns an error if no authentication token is available
@@ -283,12 +347,159 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 		return targetPath, errors.WithStack(err)
 	}
 
+	if err := s.verifyAssetChecksum(ctx, latestVersion, asset, file.Bytes()); err != nil {
+		return targetPath, err
+	}
+
 	defer func() {
 		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
 		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, CheckedKey)
 	}()
 
 	return targetPath, s.extract(file, targetPath)
+}
+
+// verifyAssetChecksum locates the release's checksums manifest and
+// verifies the downloaded binary against it. The behaviour when no
+// manifest is present depends on the resolved [SelfUpdater.requireChecksum]:
+// fail-closed tools abort with an actionable error; fail-open tools
+// log a warning and proceed (backward-compatible with pre-Phase-1
+// releases that predate the manifest).
+//
+// Returns nil when the asset matches its manifest entry, or when no
+// manifest was present AND requireChecksum is false. Any verification
+// failure (mismatch, malformed manifest, asset-not-listed) is fatal.
+func (s *SelfUpdater) verifyAssetChecksum(
+	ctx context.Context,
+	rel release.Release,
+	asset release.ReleaseAsset,
+	data []byte,
+) error {
+	manifest, err := s.fetchChecksumsManifest(ctx, rel)
+	if err != nil {
+		if s.requireChecksum {
+			return errors.Wrap(err, "failed to retrieve checksums manifest (require_checksum is enabled)")
+		}
+
+		s.logger.Warn("failed to retrieve checksums manifest; proceeding without verification",
+			"release", rel.GetName(), "error", err)
+
+		return nil
+	}
+
+	if manifest == nil {
+		if s.requireChecksum {
+			return errors.WithHint(
+				errors.Newf("no checksums manifest found in release %q", rel.GetName()),
+				"The release does not include a checksums file and update.require_checksum is enabled. "+
+					"Publish a GoReleaser-style checksums.txt alongside the binaries, or set update.require_checksum=false to accept unverified updates.",
+			)
+		}
+
+		s.logger.Warn("no checksums manifest found; skipping checksum verification",
+			"release", rel.GetName(), "asset", asset.GetName())
+
+		return nil
+	}
+
+	if err := VerifyChecksumFromManifest(manifest, asset.GetName(), data); err != nil {
+		return err
+	}
+
+	s.logger.Info("checksum verified", "asset", asset.GetName())
+
+	return nil
+}
+
+// fetchChecksumsManifest retrieves the manifest for rel, preferring
+// [release.ChecksumProvider] when the provider opts in and falling
+// back to asset-list lookup otherwise. Returns (nil, nil) when no
+// manifest is available by either route — the caller distinguishes
+// "not found" from "download failed".
+func (s *SelfUpdater) fetchChecksumsManifest(ctx context.Context, rel release.Release) ([]byte, error) {
+	if cp, ok := s.releaseClient.(release.ChecksumProvider); ok {
+		manifest, err := cp.DownloadChecksumManifest(ctx, rel, MaxChecksumsSize)
+		if err == nil {
+			return manifest, nil
+		}
+
+		if !errors.Is(err, release.ErrNotSupported) {
+			return nil, err
+		}
+		// ErrNotSupported: provider opted out for this release's
+		// configuration. Fall through to asset-list lookup.
+	}
+
+	manifestAsset, found := s.findChecksumsAsset(rel)
+	if !found {
+		return nil, nil
+	}
+
+	return s.downloadChecksumManifest(ctx, manifestAsset)
+}
+
+// findChecksumsAsset returns the release asset whose name matches the
+// configured checksums filename (`update.checksum_asset_name` or the
+// GoReleaser default `checksums.txt`). The second return value is
+// false when no matching asset is present, signalling to the caller
+// that checksum verification is unavailable for this release.
+func (s *SelfUpdater) findChecksumsAsset(rel release.Release) (release.ReleaseAsset, bool) {
+	name := s.checksumAssetName
+	if name == "" {
+		name = checksumsDefaultAssetName
+	}
+
+	for _, asset := range rel.GetAssets() {
+		if asset.GetName() == name {
+			return asset, true
+		}
+	}
+
+	return nil, false
+}
+
+// downloadChecksumManifest retrieves a checksums manifest asset with
+// the size bound enforced. The manifest is a small text file (~1 KiB
+// for a typical GoReleaser release); an unbounded read would let a
+// hostile server stream indefinitely.
+func (s *SelfUpdater) downloadChecksumManifest(
+	ctx context.Context,
+	asset release.ReleaseAsset,
+) ([]byte, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
+
+	_, owner, repo := s.Tool.GetReleaseSource()
+
+	rc, redirectURL, err := s.releaseClient.DownloadReleaseAsset(timeoutCtx, owner, repo, asset)
+	if err != nil {
+		return nil, errors.Wrap(err, "downloading checksums manifest")
+	}
+
+	if rc != nil {
+		defer func() { _ = rc.Close() }()
+	}
+
+	if redirectURL != "" {
+		return nil, errors.Newf("checksums manifest redirected to %s; unsupported", redirectURL)
+	}
+
+	// +1 so we can distinguish "exactly the limit" (accepted) from
+	// "exceeded the limit" (refused).
+	buf := bytes.Buffer{}
+
+	n, err := io.Copy(&buf, io.LimitReader(rc, MaxChecksumsSize+1))
+	if err != nil {
+		return nil, errors.Wrap(err, "reading checksums manifest")
+	}
+
+	if n > MaxChecksumsSize {
+		return nil, errors.WithHintf(ErrChecksumTooLarge,
+			"checksums manifest %q exceeded MaxChecksumsSize (%d bytes)",
+			asset.GetName(), MaxChecksumsSize)
+	}
+
+	return buf.Bytes(), nil
 }
 
 // UpdateFromFile installs a binary from a local .tar.gz file.
