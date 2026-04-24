@@ -12,6 +12,7 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"github.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"github.com/phpboyscout/go-tool-base/pkg/setup"
 	ver "github.com/phpboyscout/go-tool-base/pkg/version"
 
 	"github.com/phpboyscout/go-tool-base/internal/cmd/generate"
@@ -38,6 +39,19 @@ func init() {
 	if raw := os.Getenv("OTEL_API_KEY"); raw != "" {
 		otelAuth = base64.StdEncoding.EncodeToString([]byte(otelInstanceID + ":" + raw))
 	}
+
+	// Phase 1 of the update-checksum-verification spec: gtb is a
+	// security-tooling CLI that cannot silently accept unverified
+	// binaries. GoReleaser has always produced checksums.txt on every
+	// release, so flipping the library default to fail-closed is
+	// safe — a future release with a broken pipeline will abort the
+	// update with an actionable error rather than quietly installing
+	// an unverified binary.
+	//
+	// End users can still override via the `update.require_checksum`
+	// config key or `GTB_UPDATE_REQUIRE_CHECKSUM=false` env var if
+	// they need to update from a legacy release lacking the manifest.
+	setup.DefaultRequireChecksum = true
 }
 
 func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
