@@ -73,6 +73,16 @@ archives:
 sboms:
   - artifacts: archive
 
+# Pin the checksums manifest filename so pkg/setup's Update() path
+# finds it via the default asset-list lookup. GoReleaser v2's default
+# is "{{ .ProjectName }}_{{ .Version }}_checksums.txt", which the
+# spec's default lookup name ("checksums.txt") does not match.
+# docs/development/specs/2026-04-02-remote-update-checksum-verification.md
+# describes the contract.
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
 release:
   use_existing_draft: true
   replace_existing_artifacts: true
