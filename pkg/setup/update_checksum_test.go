@@ -323,16 +323,21 @@ type fakeBoolConfig struct {
 func (c *fakeBoolConfig) IsSet(key string) bool   { return c.set[key] }
 func (c *fakeBoolConfig) GetBool(key string) bool { return c.vals[key] }
 
+// TestResolveRequireChecksum_Precedence intentionally does NOT call
+// t.Parallel() — every subtest mutates the package-level
+// [DefaultRequireChecksum] sentinel, and parallel mutation of that
+// global races against itself and against any concurrently-running
+// SelfUpdater test that constructs via NewUpdater. Per CLAUDE.md's
+// race-avoidance guidance, tests that touch shared package state
+// must serialise; the test runs in microseconds so there's no
+// throughput cost.
 func TestResolveRequireChecksum_Precedence(t *testing.T) {
-	t.Parallel()
+	// Save-and-restore the compile-time default once so the test
+	// can't leave the package in an unexpected state.
+	old := DefaultRequireChecksum
+	t.Cleanup(func() { DefaultRequireChecksum = old })
 
 	t.Run("nil_config_returns_default", func(t *testing.T) {
-		t.Parallel()
-		// Save-and-restore the compile-time default so parallel tests
-		// don't see each other's mutations.
-		old := DefaultRequireChecksum
-		t.Cleanup(func() { DefaultRequireChecksum = old })
-
 		DefaultRequireChecksum = true
 		assert.True(t, resolveRequireChecksum(nil))
 
@@ -341,14 +346,10 @@ func TestResolveRequireChecksum_Precedence(t *testing.T) {
 	})
 
 	t.Run("interface_typed_nil_pointer_returns_default", func(t *testing.T) {
-		t.Parallel()
 		// An interface containing a typed nil (e.g. `var c *fakeBoolConfig;
 		// resolveRequireChecksum(c)`) must not panic on method calls.
 		// This is the case where a plain `cfg == nil` check fails
 		// because the interface itself is non-nil.
-		old := DefaultRequireChecksum
-		t.Cleanup(func() { DefaultRequireChecksum = old })
-
 		DefaultRequireChecksum = true
 
 		var typedNil *fakeBoolConfig
@@ -358,10 +359,6 @@ func TestResolveRequireChecksum_Precedence(t *testing.T) {
 	})
 
 	t.Run("config_unset_falls_back_to_default", func(t *testing.T) {
-		t.Parallel()
-		old := DefaultRequireChecksum
-		t.Cleanup(func() { DefaultRequireChecksum = old })
-
 		cfg := &fakeBoolConfig{}
 
 		DefaultRequireChecksum = true
@@ -372,10 +369,6 @@ func TestResolveRequireChecksum_Precedence(t *testing.T) {
 	})
 
 	t.Run("config_set_wins_over_default", func(t *testing.T) {
-		t.Parallel()
-		old := DefaultRequireChecksum
-		t.Cleanup(func() { DefaultRequireChecksum = old })
-
 		// Default true, config explicitly false.
 		DefaultRequireChecksum = true
 		cfg := &fakeBoolConfig{
@@ -411,11 +404,8 @@ func TestDownloadChecksumManifest_RefusesRedirect(t *testing.T) {
 }
 
 func TestDownloadChecksumManifest_RejectsOversizedResponse(t *testing.T) {
-	t.Parallel()
-
-	// Temporarily shrink MaxChecksumsSize so we can trigger the
-	// overflow branch with a small payload. Parallel tests touch this
-	// variable; save-and-restore keeps them isolated.
+	// Mutates the package-level [MaxChecksumsSize] tunable, so
+	// cannot run with t.Parallel — see [TestResolveRequireChecksum_Precedence].
 	oldMax := MaxChecksumsSize
 	t.Cleanup(func() { MaxChecksumsSize = oldMax })
 
