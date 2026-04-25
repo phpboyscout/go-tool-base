@@ -6,12 +6,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
@@ -238,6 +240,29 @@ func TestBitbucketProvider_InvalidPattern_Error(t *testing.T) {
 	}
 	_, err := bitbucket.NewReleaseProvider(src, nil)
 	require.Error(t, err)
+	require.ErrorIs(t, err, regexutil.ErrPatternInvalid)
+}
+
+func TestBitbucketProvider_OversizePattern_Error(t *testing.T) {
+	t.Parallel()
+
+	// A pattern larger than MaxPatternLength must be rejected by the
+	// length cap before any compile work happens — closes H-2 from the
+	// 2026-04-17 security audit.
+	oversize := strings.Repeat("a", regexutil.MaxPatternLength+1)
+	src := release.ReleaseSourceConfig{
+		Params: map[string]string{"filename_pattern": oversize},
+	}
+
+	start := time.Now()
+	_, err := bitbucket.NewReleaseProvider(src, nil)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, regexutil.ErrPatternTooLong)
+	require.Less(t, elapsed, 100*time.Millisecond, "oversize pattern must fail fast, no compile attempted")
+	// Error string must not leak the attacker-controlled pattern.
+	require.NotContains(t, err.Error(), oversize)
 }
 
 // newProviderWithBase creates a BitbucketReleaseProvider with the API base

@@ -2,7 +2,7 @@
 title: "Telemetry Redaction for Errors and Headers"
 description: "Prevent credentials and sensitive strings from leaking to telemetry vendors. Closes M-5 and M-6 from the 2026-04-17 audit by adding a shared redactor used automatically for TrackCommandExtended error messages, and by warning when OTel-header values look like credentials."
 date: 2026-04-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security

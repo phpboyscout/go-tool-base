@@ -37,20 +37,28 @@ Blank imports in `pkg/setup/providers.go` wire all built-in providers automatica
 
 ## Authentication
 
-`vcs.ResolveToken(cfg config.Containable, fallbackEnv string) string` resolves a token from a config subtree in this order:
+`vcs.ResolveTokenContext(ctx context.Context, cfg config.Containable, fallbackEnv string) string` resolves a token from a config subtree in this order:
 
 1. `auth.env` — reads the named environment variable
-2. `auth.value` — uses the literal value stored in config
-3. `fallbackEnv` — falls back to a well-known environment variable (e.g. `"GITHUB_TOKEN"`)
+2. `auth.keychain` — `"<service>/<account>"` reference resolved via [`credentials.Retrieve`](../credentials.md#api); silently skipped when no keychain-capable [`Backend`](../credentials.md#backend-interface) is registered
+3. `auth.value` — uses the literal value stored in config
+4. `fallbackEnv` — falls back to a well-known environment variable (e.g. `"GITHUB_TOKEN"`)
 
-Returns an empty string when nothing is found. Callers decide whether that is an error — public repositories can operate without a token; private repositories will receive a 401.
+Returns an empty string when nothing is found. Callers decide whether that is an error — public repositories can operate without a token; private repositories will receive a 401. The context is propagated to the credentials backend so remote secret stores (Vault, AWS SSM, 1Password Connect) honour the caller's deadline and cancellation.
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs"
+import (
+    "context"
 
-// Resolve a GitHub token from props.Config.Sub("github")
-token := vcs.ResolveToken(props.Config.Sub("github"), "GITHUB_TOKEN")
+    "github.com/phpboyscout/go-tool-base/pkg/vcs"
+)
+
+// Resolve a GitHub token from props.Config.Sub("github") with the
+// cobra command's context.
+token := vcs.ResolveTokenContext(cmd.Context(), props.Config.Sub("github"), "GITHUB_TOKEN")
 ```
+
+The context-free form `vcs.ResolveToken(cfg, fallbackEnv)` is preserved as a compatibility shim that internally calls `ResolveTokenContext(context.Background(), …)`. Prefer the context-aware variant anywhere a context is already in scope.
 
 ## Design Goals
 

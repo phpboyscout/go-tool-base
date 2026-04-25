@@ -1,5 +1,5 @@
 version: 2
-project_name: {{ .Name }}
+project_name: {{ .Name | escapeYAML }}
 force_token: {{ .ReleaseProvider }}
 before:
   hooks:

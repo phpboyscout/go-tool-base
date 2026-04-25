@@ -2,7 +2,7 @@
 title: "Credential Storage Hardening"
 description: "Harden interactive setup to default to environment variable references for credential storage, with optional OS keychain integration as a pluggable local-development backend."
 date: 2026-04-02
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security
@@ -750,25 +750,31 @@ Summarised from the [Security Requirements](#security-requirements) and [Resolve
 
 ### Phase 2: Keychain Integration
 
-**Scope:** Add optional OS keychain backend behind build tag. New dependency: `github.com/zalando/go-keyring`.
+**Scope:** Add an optional OS keychain backend as an opt-in blank-import. New dependency (linked only into binaries that opt in): `github.com/zalando/go-keyring` and its transitive set.
 
-1. Add `pkg/credentials/keychain_enabled.go` (build tag `keychain`).
+**Architectural refinement during implementation:** the spec originally proposed a `-tags keychain` build tag. Phase 2 landed a dependency-injection / blank-import pattern instead. The root library declares a `Backend` interface (`pkg/credentials.Backend`) and a default stub implementation; the `pkg/credentials/keychain` subpackage registers a `go-keyring`-backed `Backend` via `credentials.RegisterBackend` in its `init()`. Downstream tools opt in by blank-importing that subpackage from their `cmd/*/main`; regulated or air-gapped downstreams omit the import, and Go's linker dead-code elimination keeps go-keyring, godbus, and wincred out of the linked binary. Binary-level SBOM review is the authoritative check for regulated consumers — source-level SBOM generated from `go.sum` alone does not reflect link-time dead-code elimination.
+
+An earlier iteration placed the keychain subpackage in its own Go module (separate `go.mod`) to further insulate consumer `go.sum` from the dependency chain. That gave marginally cleaner source-level audit output at the cost of real tooling friction (multi-module workspace, `replace` directives, release-time version pinning), and was rolled back in favour of the single-module subpackage.
+
+1. Add `pkg/credentials/keychain/` subpackage (`go-keyring`-backed `Backend` + `init()` registration).
 2. Extend `pkg/vcs/auth.go` with `auth.keychain` resolution step (Priority 2); empty/whitespace fall-through per spec.
 3. Extend `pkg/chat/credentials.go` with keychain fallback for each AI provider.
 4. Extend `pkg/vcs/bitbucket/credentials.go` with JSON-blob keychain storage.
-5. Update setup wizard to show keychain option when `KeychainAvailable()` **and** a probe (`keyring.Set` + `keyring.Delete` on a canary) succeeds.
-6. Add `INT_TEST_CREDENTIALS` integration tests.
-7. Update goreleaser to produce a keychain-enabled variant (`<tool>-keychain_<os>_<arch>.tar.gz`) alongside the default build. Document the build tag for downstream tool authors.
+5. Update setup wizard to show keychain option when `KeychainAvailable()` **and** a probe (`Backend.Store` + `Backend.Retrieve` + `Backend.Delete` canary round-trip) succeeds.
+6. Extend `pkg/setup/github` with the three-mode storage selector and the OAuth + display-once flow: when env-var mode is chosen, the wizard runs OAuth, shows the captured token once inside a note + confirmation form, and writes only `github.auth.env` to config (no token on disk); keychain mode writes the token via `credentials.Store` and records `github.auth.keychain`; literal mode preserves the legacy `github.auth.value` write path.
+7. Add `pkg/setup/bitbucket` with the dual-credential wizard: env-var mode captures two env var names, keychain mode stores a `{username, app_password}` JSON blob under a single `bitbucket.keychain` entry, literal mode writes both values to config. The wizard is discoverable via `init bitbucket` and gated by `--skip-bitbucket` under CI.
+8. Add `INT_TEST_CREDENTIALS` integration tests for the subpackage.
+9. Document activation via blank import (`import _ ".../pkg/credentials/keychain"`) for downstream tool authors. `cmd/gtb/keychain.go` imports the subpackage for the shipped gtb binary; regulated gtb builds delete that file and rebuild.
 
 ### Phase 3: Migration Tooling and Documentation
 
 **Scope:** Help existing users move off literal mode.
 
-1. Add `pkg/cmd/config/migrate.go` implementing `config migrate-credentials` with `--dry-run` and `--target env|keychain`.
+1. Add `pkg/cmd/config/migrate.go` implementing `config migrate-credentials` with `--dry-run`, `--target env|keychain`, `--yes` for non-interactive / CI flows, `--env-var <key>=<name>` overrides, `--skip-verify`, and `--keychain-service`. Config cascade via `credentials.migrate.default_target` for tools that want a different default without per-invocation flags. Atomic file rewrite (temp + rename) preserves the existing config on interruption. Registered under `NewCmdConfig` alongside get/set/list/validate.
 2. Add Gherkin scenarios covering: fresh setup (env-var default), CI refusal, OAuth+env-var flow, Bitbucket dual-credential, keychain round-trip, doctor check, migration command.
-3. Update generator templates so scaffolded tools include the `migrate-credentials` subcommand by default.
-4. Add migration guide entry at `docs/migration/<version>-credential-storage.md` with before/after config examples.
-5. Update `docs/about/security.md` with credential-handling trust model.
+3. Update generator templates so scaffolded tools include the `migrate-credentials` subcommand by default. (`config migrate-credentials` is already wired into `NewCmdConfig`, so any tool that enables the `config` feature gets it automatically — no generator-template change needed beyond the existing `config` feature flag.)
+4. Add migration guide entry at `docs/migration/v1.12-credential-storage.md` with before/after config examples.
+5. Add `docs/about/security.md` with the full trust model: deployment contexts, redaction layers, network handling, supply-chain posture, and responsibilities by role.
 
 ---
 

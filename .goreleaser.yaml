@@ -55,8 +55,14 @@ notarize:
         key: "{{.Env.APPLE_NOTARY_KEY}}"
 
 archives:
+  # Single archive covering both darwin and linux/windows builds.
+  # The OS keychain backend now lives in its own module
+  # (pkg/credentials/keychain) that cmd/gtb does not import, so the
+  # shipped binary uses the stub credentials backend and performs no
+  # session-bus / keychain IPC — the regulated-deployment default.
+  # Downstream tools that want keychain support import the subpackage
+  # in their own cmd package.
   - formats: ["tar.gz"]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -66,6 +72,16 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 sboms:
   - artifacts: archive
+
+# Pin the checksums manifest filename so pkg/setup's Update() path
+# finds it via the default asset-list lookup. GoReleaser v2's default
+# is "{{ .ProjectName }}_{{ .Version }}_checksums.txt", which the
+# spec's default lookup name ("checksums.txt") does not match.
+# docs/development/specs/2026-04-02-remote-update-checksum-verification.md
+# describes the contract.
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
 
 release:
   use_existing_draft: true
@@ -114,4 +130,8 @@ homebrew_casks:
       owner: phpboyscout
       name: homebrew
       branch: main
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      # HOMEBREW_TAP_GITHUB_TOKEN is scoped to the homebrew repo only so a
+      # bug or compromise of goreleaser cannot cross into the release repo.
+      # Closes M-7 from
+      # docs/development/reports/security-audit-2026-04-17.md.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"

@@ -20,6 +20,8 @@ import (
 
 func TestGeminiProvider_New(t *testing.T) {
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
 
 	p := &props.Props{
@@ -77,6 +79,8 @@ func TestGeminiProvider_Ask(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -85,9 +89,10 @@ func TestGeminiProvider_Ask(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -126,11 +131,12 @@ func TestGeminiProvider_Ask(t *testing.T) {
 			Result string `json:"result"`
 		}
 		cfgOptions := chat.Config{
-			Provider:       chat.ProviderGemini,
-			Token:          "test-key",
-			BaseURL:        server.URL,
-			ResponseSchema: chat.GenerateSchema[response](),
-			MaxTokens:      100,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              server.URL,
+			AllowInsecureBaseURL: true,
+			ResponseSchema:       chat.GenerateSchema[response](),
+			MaxTokens:            100,
 		}
 		clientOptions, err := chat.New(context.Background(), p, cfgOptions)
 		require.NoError(t, err)
@@ -186,6 +192,8 @@ func TestGeminiProvider_Chat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -194,9 +202,10 @@ func TestGeminiProvider_Chat(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -292,7 +301,9 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		defer maxStepsServer.Close()
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),
@@ -300,10 +311,11 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		}
 
 		maxStepsCfg := chat.Config{
-			Provider: chat.ProviderGemini,
-			Token:    "test-key",
-			BaseURL:  maxStepsServer.URL,
-			MaxSteps: 2,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              maxStepsServer.URL,
+			AllowInsecureBaseURL: true,
+			MaxSteps:             2,
 		}
 
 		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
@@ -360,6 +372,8 @@ func TestGeminiProvider_Add(t *testing.T) {
 	t.Parallel()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -394,6 +408,8 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -402,9 +418,10 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)

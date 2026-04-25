@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/phpboyscout/go-tool-base/pkg/chat"
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
@@ -83,6 +84,58 @@ func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
 		Name:    "API keys",
 		Status:  CheckPass,
 		Message: fmt.Sprintf("%d provider(s) configured", configured),
+	}
+}
+
+// literalCredentialKeys enumerates the config keys that store secrets
+// as plaintext. Populated entries trigger a WARN in [checkNoLiteralCredentials]
+// directing the user to migrate to env-var mode.
+//
+// The spec calls for a dedicated `config migrate-credentials` command
+// (Phase 3) to automate the migration. For now the hint text points
+// at the spec and the env-var config keys.
+var literalCredentialKeys = []string{
+	chat.ConfigKeyClaudeKey,
+	chat.ConfigKeyOpenAIKey,
+	chat.ConfigKeyGeminiKey,
+	"github.auth.value",
+	"gitlab.auth.value",
+	"gitea.auth.value",
+	"bitbucket.app_password",
+}
+
+// checkNoLiteralCredentials implements the R6 requirement from
+// docs/development/specs/2026-04-02-credential-storage-hardening.md:
+// warn when a credential is stored as plaintext in the config file.
+// Reports key NAMES only — never values, per R1/R2.
+func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
+	if props.Config == nil {
+		return CheckResult{Name: "Credential storage", Status: CheckSkip, Message: "no configuration loaded"}
+	}
+
+	var leaked []string
+
+	for _, key := range literalCredentialKeys {
+		if strings.TrimSpace(props.Config.GetString(key)) != "" {
+			leaked = append(leaked, key)
+		}
+	}
+
+	if len(leaked) == 0 {
+		return CheckResult{
+			Name:    "Credential storage",
+			Status:  CheckPass,
+			Message: "no literal credentials in config",
+		}
+	}
+
+	return CheckResult{
+		Name:    "Credential storage",
+		Status:  CheckWarn,
+		Message: fmt.Sprintf("%d literal credential(s) in config", len(leaked)),
+		Details: fmt.Sprintf(
+			"Key(s): %s. Migrate to env-var references (e.g. anthropic.api.env: ANTHROPIC_API_KEY) — see docs/development/specs/2026-04-02-credential-storage-hardening.md.",
+			strings.Join(leaked, ", ")),
 	}
 }
 

@@ -53,6 +53,25 @@ cfg := chat.Config{
 }
 ```
 
+#### Credential Resolution
+
+Every provider resolves its API key through a shared four-step precedence so tool authors never need to re-implement the cascade:
+
+1. **Direct token** — `Config.Token` supplied by the caller (tests, explicit overrides).
+2. **Env-var reference in config** — `{provider}.api.env` names an env var (e.g. `ANTHROPIC_API_KEY`). The resolver reads the name from config and then `os.Getenv(name)` for the value. This keeps the literal secret out of the config file while letting the user control which env var holds it.
+3. **Literal in config** — `{provider}.api.key`. Routed through Viper's `AutomaticEnv`, so a prefixed env var (e.g. `MYTOOL_ANTHROPIC_API_KEY`) is picked up here too.
+4. **Unprefixed ecosystem env** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. Final fallback for compatibility with provider SDKs and common CI conventions.
+
+Three pairs of config-key constants describe the per-provider surface:
+
+| Provider | Literal key | Env-var-reference key | Ecosystem fallback env var |
+|----------|-------------|-----------------------|---------------------------|
+| Claude   | `ConfigKeyClaudeKey` (`anthropic.api.key`) | `ConfigKeyClaudeEnv` (`anthropic.api.env`) | `EnvClaudeKey` (`ANTHROPIC_API_KEY`) |
+| OpenAI   | `ConfigKeyOpenAIKey` (`openai.api.key`) | `ConfigKeyOpenAIEnv` (`openai.api.env`) | `EnvOpenAIKey` (`OPENAI_API_KEY`) |
+| Gemini   | `ConfigKeyGeminiKey` (`gemini.api.key`) | `ConfigKeyGeminiEnv` (`gemini.api.env`) | `EnvGeminiKey` (`GEMINI_API_KEY`) |
+
+The interactive `gtb init ai` wizard defaults to env-var mode — it prompts for an env var name (pre-populated with the provider standard) and writes only `{provider}.api.env`. The literal is never persisted to disk in the recommended path. See [`pkg/credentials`](credentials.md) for the storage-mode taxonomy shared with the setup wizard, doctor, and config masker.
+
 ### Initialization
 
 ```go
@@ -501,6 +520,73 @@ store, err := chat.NewFileStore(fs, "/path/to/conversations",
 Files are written with 0600 permissions. The directory is created with 0700 if it doesn't exist.
 
 **Operations:** `Save`, `Load`, `List` (returns summaries without loading full messages), `Delete`.
+
+#### Provider endpoint security
+
+Every call to `chat.New` validates `Config.BaseURL` before any credentials leave the process. A misconfigured endpoint fails fast with a typed error instead of sending an `Authorization` header to an attacker-controlled host.
+
+Rejection rules, cheapest first:
+
+1. **Length** — rejected if `len(BaseURL) > chat.MaxBaseURLLength` (2 KiB).
+2. **Control characters** — any byte in `0x00`–`0x1F` or `0x7F` rejected.
+3. **Parse failure** — `url.Parse` must succeed.
+4. **Userinfo** — URLs of the form `https://user:pass@host/` rejected unconditionally. Put credentials in `Token`, not the URL.
+5. **Scheme** — must be `https`. The test-only `Config.AllowInsecureBaseURL` bool permits `http` for `httptest.Server` targets; the field is tagged `json:"-"` so production config cannot enable it.
+6. **Host** — the URL must include a host.
+7. **Placeholders** — `example.com`, `example.net`, `example.org`, `localhost.localdomain`, and any subdomain of these, are rejected to catch scaffolding values.
+
+`ProviderOpenAICompatible` additionally requires a non-empty `BaseURL`.
+
+On every successful provider construction, the package logs the endpoint hostname at INFO:
+
+```
+chat provider initialised  provider=openai-compatible  endpoint_host=proxy.corp.internal
+```
+
+Hostname only — never the URL path or query, which may carry provider-specific identifiers.
+
+Downstream tool authors accepting `BaseURL` in their own config surface should call `chat.ValidateBaseURL` at the boundary so misconfiguration surfaces early:
+
+```go
+if err := chat.ValidateBaseURL(userInput, false); err != nil {
+    return fmt.Errorf("bad base URL: %w", err)
+}
+```
+
+Rejections wrap `chat.ErrInvalidBaseURL` — discriminate via `errors.Is`.
+
+#### Snapshot storage security
+
+`FileStore` refuses to touch any path built from a snapshot identifier that is not a canonical `google/uuid` string. Two layers of defence are applied to every `Save`, `Load`, and `Delete` call:
+
+1. **Shape validation.** The ID must match `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` (lowercase hex, canonical 8-4-4-4-12 hyphenation). This forecloses path-traversal at the shape level — no `..`, no `/`, no `\`, no NUL bytes, no Unicode lookalikes.
+2. **Path containment.** After `filepath.Clean` + `filepath.Abs`, the resolved file path is verified to lie inside the store directory via `filepath.Rel`. This is defence-in-depth against future relaxation of the regex and platform-specific path quirks.
+
+A rejected identifier returns an error wrapping the exported sentinel `chat.ErrInvalidSnapshotID`:
+
+```go
+if err := store.Load(ctx, userSuppliedID); err != nil {
+    if errors.Is(err, chat.ErrInvalidSnapshotID) {
+        // user-supplied ID was not a canonical UUID
+        return fmt.Errorf("bad snapshot id: %w", err)
+    }
+    // otherwise it's an I/O error — unknown snapshot, permission denied, etc.
+    return err
+}
+```
+
+If your application accepts snapshot identifiers from an external source (CLI flag, HTTP handler, queue payload), validate them at the boundary via `chat.ValidateSnapshotID` rather than deferring the check to `Save`/`Load`/`Delete`:
+
+```go
+if err := chat.ValidateSnapshotID(id); err != nil {
+    // reject the request before any filesystem work happens
+    return err
+}
+```
+
+`List` is intentionally robust rather than strict: files in the store directory whose names do not match the canonical UUID shape are logged at DEBUG level (via the optional `chat.WithLogger` option) and skipped, so one corrupt or manually-placed file cannot break snapshot enumeration for the user.
+
+Snapshots constructed via `chat.NewSnapshot` always receive a fresh `uuid.New()` ID, so the validator is transparent for GTB-produced snapshots.
 
 ---
 

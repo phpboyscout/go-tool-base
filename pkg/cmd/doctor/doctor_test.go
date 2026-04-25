@@ -125,6 +125,10 @@ func TestRunChecks(t *testing.T) {
 	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
 	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
 	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
+	mockCfg.EXPECT().GetString("github.auth.value").Return("").Maybe()
+	mockCfg.EXPECT().GetString("gitlab.auth.value").Return("").Maybe()
+	mockCfg.EXPECT().GetString("gitea.auth.value").Return("").Maybe()
+	mockCfg.EXPECT().GetString("bitbucket.app_password").Return("").Maybe()
 
 	props := &p.Props{
 		Tool:    p.Tool{Name: "test-tool"},
@@ -148,6 +152,7 @@ func TestRunChecks(t *testing.T) {
 	assert.True(t, checkNames["Configuration"], "expected 'Configuration' check in report")
 	assert.True(t, checkNames["Git"], "expected 'Git' check in report")
 	assert.True(t, checkNames["API keys"], "expected 'API keys' check in report")
+	assert.True(t, checkNames["Credential storage"], "expected 'Credential storage' check in report")
 	assert.True(t, checkNames["Permissions"], "expected 'Permissions' check in report")
 }
 
@@ -350,6 +355,10 @@ func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
 	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
 	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
+	mockCfg.EXPECT().GetString("github.auth.value").Return("").Maybe()
+	mockCfg.EXPECT().GetString("gitlab.auth.value").Return("").Maybe()
+	mockCfg.EXPECT().GetString("gitea.auth.value").Return("").Maybe()
+	mockCfg.EXPECT().GetString("bitbucket.app_password").Return("").Maybe()
 
 	props := &p.Props{
 		Tool: p.Tool{

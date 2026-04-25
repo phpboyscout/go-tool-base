@@ -2,7 +2,7 @@
 title: "Post-Audit Hardening Bundle"
 description: "Bundled small, focused fixes for 13 findings from the 2026-04-17 audit whose individual scope is trivial — workflow configs, size limits, documentation, helper functions. Covers H-4, H-5, H-6, M-1, M-2, M-4, M-7, M-8, L-1, L-2, L-3, L-6, L-7."
 date: 2026-04-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - security
@@ -38,7 +38,7 @@ Date
 :   17 April 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 

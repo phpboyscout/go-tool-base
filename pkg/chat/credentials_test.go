@@ -11,29 +11,62 @@ import (
 	"github.com/phpboyscout/go-tool-base/pkg/props"
 )
 
+// resolveAPIKey precedence: direct > {provider}.api.env var ref >
+// {provider}.api.key literal > envFallback.
+
 func TestGetOpenAICredentials(t *testing.T) {
 	t.Run("token provided directly", func(t *testing.T) {
-		token, err := getOpenAICredentials("direct-token", nil)
+		token, err := getOpenAICredentials(t.Context(), "direct-token", nil)
 		require.NoError(t, err)
 		assert.Equal(t, "direct-token", token)
 	})
 
-	t.Run("token from config", func(t *testing.T) {
+	t.Run("token from config literal", func(t *testing.T) {
 		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("config-token")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "config-token", token)
 	})
 
-	t.Run("token from environment", func(t *testing.T) {
+	t.Run("token from config env var reference", func(t *testing.T) {
+		t.Setenv("CUSTOM_OPENAI_KEY", "referenced-token")
+
+		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("CUSTOM_OPENAI_KEY")
+
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "referenced-token", token)
+	})
+
+	t.Run("env ref with unset var falls through to literal", func(t *testing.T) {
+		// Stale reference to an env var that isn't set must not
+		// mask the literal fallback — the resolver falls through.
+		t.Setenv("UNSET_OPENAI_KEY", "")
+
+		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("UNSET_OPENAI_KEY")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("literal-fallback")
+
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "literal-fallback", token)
+	})
+
+	t.Run("token from well-known fallback env", func(t *testing.T) {
 		t.Setenv(EnvOpenAIKey, "env-token")
 
 		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("")
 
-		token, err := getOpenAICredentials("", cfg)
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.NoError(t, err)
 		assert.Equal(t, "env-token", token)
 	})
@@ -42,9 +75,11 @@ func TestGetOpenAICredentials(t *testing.T) {
 		t.Setenv(EnvOpenAIKey, "")
 
 		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("")
 		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("")
 
-		_, err := getOpenAICredentials("", cfg)
+		_, err := getOpenAICredentials(t.Context(), "", cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "OpenAI token is required")
 	})
@@ -52,8 +87,36 @@ func TestGetOpenAICredentials(t *testing.T) {
 	t.Run("nil config falls through to env", func(t *testing.T) {
 		t.Setenv(EnvOpenAIKey, "")
 
-		_, err := getOpenAICredentials("", nil)
+		_, err := getOpenAICredentials(t.Context(), "", nil)
 		assert.Error(t, err)
+	})
+
+	t.Run("whitespace-only values fall through", func(t *testing.T) {
+		// A whitespace-only config value must not satisfy the
+		// "populated" check; it falls through to the next step.
+		t.Setenv(EnvOpenAIKey, "   ")
+
+		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("   ")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("   ")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("   ")
+
+		_, err := getOpenAICredentials(t.Context(), "", cfg)
+		require.Error(t, err)
+	})
+
+	t.Run("keychain reference unavailable in default build falls through", func(t *testing.T) {
+		// With no keychain build tag compiled in, a populated
+		// {provider}.api.keychain reference must fall through to
+		// the literal step rather than failing the whole resolve.
+		cfg := mockConfig.NewMockContainable(t)
+		cfg.EXPECT().GetString(ConfigKeyOpenAIEnv).Return("")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKeychain).Return("mytool/openai.api")
+		cfg.EXPECT().GetString(ConfigKeyOpenAIKey).Return("literal-wins")
+
+		token, err := getOpenAICredentials(t.Context(), "", cfg)
+		require.NoError(t, err)
+		assert.Equal(t, "literal-wins", token)
 	})
 }
 

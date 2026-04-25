@@ -114,6 +114,35 @@ When disabled, `TrackCommandExtended` silently drops args and error messages —
 !!! warning "Privacy consideration"
     Only enable `ExtendedCollection` in tools deployed within controlled enterprise environments where data handling is governed by employment contracts and security policies. Never enable it for public-facing or open-source tools.
 
+### Credential Redaction
+
+Even with `ExtendedCollection` enabled, `command.args` and `command.error` values are never shipped verbatim. Every string is routed through [`pkg/redact`](redact.md) before being attached to the outgoing event. The redactor strips URL userinfo, common credential query parameters (`apikey`, `token`, `access_token`, `password`, …), `Authorization` headers quoted in free text, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack `xoxb-`, etc.), and very long opaque tokens.
+
+```go
+// A command invoked as:
+//   tool deploy --api-token=sk-proj-abc123def456...
+
+// Ships as:
+event.Args  = []string{"--api-token=sk-proj-***", "deploy"}
+event.Error = `failed POST https://<redacted>@api.example.co/v1?apikey=***: 401`
+```
+
+The redactor is idempotent and never retains the original string. It catches common shapes — not every possible credential format. Tool authors accepting unusual credential formats in their own commands should either match the common shape conventions (prefix + opaque hex/base64) or contribute a pattern upstream via a PR to `pkg/redact`.
+
+When a custom telemetry backend is used, events arrive pre-redacted — the backend does not need to repeat the work.
+
+### OTel Exporter Header Advisories
+
+If `WithOTelHeaders` is called with a header name that matches the sensitive-header pattern (`Authorization`, `X-API-Key`, custom names containing `auth`/`token`/`secret`/`bearer`/`password`/`credential`), the OTel backend emits a WARN at initialisation time:
+
+```
+WARN  OTel header Authorization appears to carry credentials; ensure the
+      exporter uses TLS and that any HTTP middleware logging headers
+      redacts this name. See docs/components/telemetry.md.
+```
+
+The warning is advisory — the header is still honoured. It exists so operators can audit which headers carry credentials and confirm their exporter uses TLS. Header **values** never appear in the warning text.
+
 ### What Is NOT Collected
 
 By default, the following are never collected:

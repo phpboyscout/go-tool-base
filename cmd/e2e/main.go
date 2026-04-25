@@ -13,6 +13,9 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
+	"github.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	"github.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
+	"github.com/phpboyscout/go-tool-base/internal/cmd/remove"
 	"github.com/phpboyscout/go-tool-base/internal/version"
 	"github.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
@@ -50,6 +53,10 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 			Name:        "gtb",
 			Summary:     "GTB E2E test binary",
 			Description: "A test-only binary with all features enabled for E2E/BDD testing.",
+			// Match production gtb's env prefix so the test binary does
+			// not inherit raw credential env vars (ANTHROPIC_API_KEY
+			// etc.) from the developer's shell via viper's AutomaticEnv.
+			EnvPrefix: "GTB",
 			ReleaseSource: props.ReleaseSource{
 				Type:  "github",
 				Owner: "phpboyscout",
@@ -62,6 +69,13 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 				props.Enable(props.McpCmd),
 				props.Enable(props.ConfigCmd),
 				props.Enable(props.TelemetryCmd),
+				// AiCmd + github + bitbucket are not enabled by
+				// default but are needed for BDD / manual testing of
+				// the credential setup wizards and the chat/VCS
+				// resolvers.
+				props.Enable(props.AiCmd),
+				props.Enable(props.FeatureCmd("github")),
+				props.Enable(props.FeatureCmd("bitbucket")),
 				props.Disable(props.DocsCmd), // no embedded assets in test binary
 			),
 			Telemetry: props.TelemetryConfig{
@@ -80,6 +94,13 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
 	rootCmd := root.NewCmdRoot(p)
+
+	// Register the internal scaffolding commands so BDD scenarios
+	// can exercise the real generator entry point (e.g. input
+	// validation for `generate project --name`).
+	rootCmd.AddCommand(generate.NewCmdGenerate(p))
+	rootCmd.AddCommand(remove.NewCmdRemove(p))
+	rootCmd.AddCommand(regenerate.NewCmdRegenerate(p))
 
 	return rootCmd, p
 }

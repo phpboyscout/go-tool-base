@@ -29,9 +29,36 @@ type healthSource interface {
 
 const healthUpdateInterval = 10 * time.Second
 
+// DefaultMaxGRPCMessageBytes caps both send and receive message sizes on
+// servers constructed via NewServer. Closes M-2 from
+// docs/development/reports/security-audit-2026-04-17.md. Set to 1 MiB —
+// tools with extraordinary message sizes can override via the explicit
+// grpc.MaxRecvMsgSize / grpc.MaxSendMsgSize options passed to NewServer.
+const DefaultMaxGRPCMessageBytes = 1 << 20 // 1 MiB
+
 // NewServer returns a new preconfigured grpc.Server.
+//
+// Default gRPC options applied (before caller-supplied opts):
+//   - grpc.MaxRecvMsgSize(DefaultMaxGRPCMessageBytes)
+//   - grpc.MaxSendMsgSize(DefaultMaxGRPCMessageBytes)
+//
+// Caller-supplied grpc.ServerOption values in opt override the defaults
+// (gRPC applies later options last, so a caller can raise or lower the
+// limits explicitly).
 func NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, error) {
-	srv := grpc.NewServer(opt...)
+	// numDefaultServerOpts is the count of default grpc.ServerOption
+	// values prepended before caller-supplied opts: MaxRecvMsgSize and
+	// MaxSendMsgSize.
+	const numDefaultServerOpts = 2
+
+	allOpts := make([]grpc.ServerOption, 0, numDefaultServerOpts+len(opt))
+	allOpts = append(allOpts,
+		grpc.MaxRecvMsgSize(DefaultMaxGRPCMessageBytes),
+		grpc.MaxSendMsgSize(DefaultMaxGRPCMessageBytes),
+	)
+	allOpts = append(allOpts, opt...)
+
+	srv := grpc.NewServer(allOpts...)
 	if cfg.GetBool("server.grpc.reflection") {
 		reflection.Register(srv)
 	}

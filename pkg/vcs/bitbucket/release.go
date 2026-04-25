@@ -10,17 +10,29 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/errors"
 
 	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/phpboyscout/go-tool-base/pkg/credentials"
 	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
+	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
 	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
+
+// bitbucketKeychainTimeout is the upper bound on a single keychain
+// retrieval during provider construction. The release.Register
+// factory interface does not propagate a caller context, so we
+// apply a local guard here — a misbehaving remote-store backend
+// (Vault, SSM) cannot stall startup indefinitely. OS-keychain
+// backends return well under this bound.
+const bitbucketKeychainTimeout = 5 * time.Second
 
 const (
 	bitbucketAPIBase = "https://api.bitbucket.org/2.0"
@@ -90,13 +102,19 @@ type BitbucketReleaseProvider struct {
 
 // NewReleaseProvider constructs a BitbucketReleaseProvider.
 //
-// Credentials are resolved in order:
-//  1. cfg keys "username" and "app_password"
-//  2. BITBUCKET_USERNAME / BITBUCKET_APP_PASSWORD environment variables
+// Credentials are resolved by [resolveCredentials]; see its doc for the
+// full precedence chain. A corrupt keychain blob aborts construction
+// rather than silently falling through to the legacy literal step.
 //
 // The filename regex can be overridden via src.Params["filename_pattern"].
 func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*BitbucketReleaseProvider, error) {
-	username, appPassword := resolveCredentials(cfg)
+	ctx, cancel := context.WithTimeout(context.Background(), bitbucketKeychainTimeout)
+	defer cancel()
+
+	username, appPassword, err := resolveCredentials(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	if src.Private && (username == "" || appPassword == "") {
 		return nil, errors.WithHint(
@@ -111,9 +129,11 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable)
 		patternStr = p
 	}
 
-	re, err := regexp.Compile(patternStr)
+	// Config-supplied pattern — bound compile time against ReDoS. Closes
+	// H-2 from docs/development/reports/security-audit-2026-04-17.md.
+	re, err := regexutil.CompileBoundedTimeout(patternStr, regexutil.DefaultCompileTimeout)
 	if err != nil {
-		return nil, errors.WithHintf(err, "filename_pattern %q is not a valid regular expression", patternStr)
+		return nil, errors.WithHintf(err, "filename_pattern is not a valid regular expression (length=%d)", len(patternStr))
 	}
 
 	return &BitbucketReleaseProvider{
@@ -169,6 +189,121 @@ func (p *BitbucketReleaseProvider) ListReleases(_ context.Context, _, _ string, 
 		release.ErrNotSupported,
 		"Bitbucket Downloads has no versioned releases. Use GetLatestRelease instead.",
 	)
+}
+
+// checksumsDefaultName is the manifest filename [DownloadChecksumManifest]
+// looks up in the Bitbucket downloads list. Matches the GoReleaser
+// default so operators who upload `checksums.txt` alongside their
+// binaries get verification with no extra config.
+const checksumsDefaultName = "checksums.txt"
+
+// DownloadChecksumManifest implements [release.ChecksumProvider] by
+// locating an uploaded `checksums.txt` by exact filename in the
+// repository's downloads list. The filename regex used by
+// [matchAssets] is intentionally tight around the binary pattern, so
+// the manifest is not picked up there; this method bypasses the
+// regex for the well-known manifest name.
+//
+// Returns [release.ErrNotSupported] when the downloads list contains
+// no `checksums.txt`, so the caller treats it the same as "provider
+// has no manifest support" and respects require_checksum policy.
+func (p *BitbucketReleaseProvider) DownloadChecksumManifest(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
+	url, err := p.resolveChecksumsURL(ctx, rel)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.fetchChecksumsByURL(ctx, url, maxBytes)
+}
+
+// resolveChecksumsURL locates the `checksums.txt` entry in the
+// repository's downloads list and returns its API URL. Returns
+// [release.ErrNotSupported] when the release has no assets to key
+// off or no checksums.txt was uploaded — the caller treats both
+// identically to "no manifest available".
+func (p *BitbucketReleaseProvider) resolveChecksumsURL(ctx context.Context, rel release.Release) (string, error) {
+	// rel is the synthetic release we built in matchAssets; its
+	// provenance doesn't carry owner/repo through, so we re-read
+	// from the URL of a known asset to derive them. All assets were
+	// produced from the same workspace/repo so any one works.
+	assets := rel.GetAssets()
+	if len(assets) == 0 {
+		return "", release.ErrNotSupported
+	}
+
+	workspace, repo, err := parseDownloadURL(assets[0].GetBrowserDownloadURL())
+	if err != nil {
+		return "", errors.Wrap(err, "resolving workspace/repo for checksums lookup")
+	}
+
+	downloads, err := p.fetchAllDownloads(ctx, workspace, repo)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dl := range downloads {
+		if dl.Name == checksumsDefaultName {
+			return dl.Links.Self.Href, nil
+		}
+	}
+
+	return "", release.ErrNotSupported
+}
+
+// fetchChecksumsByURL performs the authenticated HTTP fetch against
+// the API-provided checksums URL and returns the body, capped at
+// maxBytes bytes.
+func (p *BitbucketReleaseProvider) fetchChecksumsByURL(ctx context.Context, url string, maxBytes int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if p.username != "" {
+		req.SetBasicAuth(p.username, p.appPassword)
+	}
+
+	resp, err := p.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Newf("checksum manifest download failed: HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, errors.Wrap(err, "reading checksums manifest")
+	}
+
+	if int64(len(body)) > maxBytes {
+		return nil, errors.Newf("checksums manifest exceeded %d bytes", maxBytes)
+	}
+
+	return body, nil
+}
+
+// parseDownloadURL extracts the Bitbucket workspace and repo slug
+// from a downloads URL of the form
+// `https://bitbucket.org/{workspace}/{repo}/downloads/{filename}`.
+// Used to recover (workspace, repo) from the assets on a synthetic
+// release built by matchAssets — matchAssets does not propagate
+// those fields onto the release/asset structs.
+func parseDownloadURL(downloadURL string) (workspace, repo string, err error) {
+	u, err := url.Parse(downloadURL)
+	if err != nil {
+		return "", "", errors.Wrap(err, "parsing download URL")
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 3 || parts[2] != "downloads" {
+		return "", "", errors.Newf("unexpected Bitbucket downloads URL shape: %s", downloadURL)
+	}
+
+	return parts[0], parts[1], nil
 }
 
 // DownloadReleaseAsset streams the asset at its BrowserDownloadURL.
@@ -301,23 +436,150 @@ func (p *BitbucketReleaseProvider) matchAssets(downloads []bbDownloadJSON) (stri
 	return version, assets
 }
 
-// resolveCredentials reads Bitbucket credentials from config then env vars.
-func resolveCredentials(cfg config.Containable) (username, appPassword string) {
-	if cfg != nil {
-		sub := cfg.Sub("bitbucket")
-		if sub != nil {
-			username = sub.GetString("username")
-			appPassword = sub.GetString("app_password")
+// bitbucketKeychainBlob is the JSON shape stored in the OS keychain
+// when credentials are persisted via `bitbucket.keychain`. A single
+// entry carries the dual-credential pair so the user configures one
+// keychain item instead of two.
+type bitbucketKeychainBlob struct {
+	Username    string `json:"username"`
+	AppPassword string `json:"app_password"`
+}
+
+// resolveCredentials reads Bitbucket credentials from config then
+// env vars. Credential-storage precedence for each field:
+//
+//  1. bitbucket.<field>.env — NAME of an env var holding the value
+//     (preferred; keeps the secret out of the config file)
+//  2. bitbucket.keychain    — shared "<service>/<account>" reference
+//     to an OS-keychain entry whose value is a JSON blob carrying
+//     both fields. Only active when pkg/credentials/keychain is
+//     imported (or a custom Backend is registered). A corrupt or
+//     incomplete blob aborts resolution rather than falling through
+//     (per R3 of the hardening spec: a broken keychain item must be
+//     surfaced, not silently masked by a stale literal).
+//  3. bitbucket.<field>     — literal value in config (legacy).
+//     Viper's AutomaticEnv + tool prefix makes this step also
+//     pick up <PREFIX>_BITBUCKET_<FIELD> style env vars — so
+//     `MYTOOL_BITBUCKET_USERNAME=alice` works without any YAML.
+//  4. BITBUCKET_<FIELD>     — well-known unprefixed ecosystem env
+//     var; final fallback when the tool's prefix does not match and
+//     the user still wants the upstream convention.
+//
+// Bitbucket's dual-credential model means each field (username,
+// app_password) is resolved independently. Partial configuration
+// (e.g. username via env-var, app_password from keychain) is
+// supported and occasionally useful during rotation.
+//
+// See docs/development/specs/2026-04-02-credential-storage-hardening.md.
+func resolveCredentials(ctx context.Context, cfg config.Containable) (username, appPassword string, err error) {
+	blob, err := loadBitbucketKeychain(ctx, cfg)
+	if err != nil {
+		return "", "", err
+	}
+
+	username = resolveBitbucketField(cfg, "username", "BITBUCKET_USERNAME", blob.Username)
+	appPassword = resolveBitbucketField(cfg, "app_password", "BITBUCKET_APP_PASSWORD", blob.AppPassword)
+
+	return username, appPassword, nil
+}
+
+// resolveBitbucketField implements the four-step precedence for a
+// single Bitbucket credential field. keychainValue is the field as
+// decoded from the shared keychain blob (already loaded once per
+// [resolveCredentials] invocation); pass "" when the blob is absent
+// or the field was empty in it.
+func resolveBitbucketField(cfg config.Containable, field, fallbackEnv, keychainValue string) string {
+	if v := bitbucketFieldFromConfig(cfg, field, keychainValue); v != "" {
+		return v
+	}
+
+	return strings.TrimSpace(os.Getenv(fallbackEnv))
+}
+
+// bitbucketFieldFromConfig returns the configured value for a single
+// Bitbucket credential field. cfg.Sub("bitbucket") preserves the
+// root's env-binding configuration (see pkg/config.Container.Sub),
+// so sub-scoped lookups pick up prefixed env vars like
+// <TOOL>_BITBUCKET_USERNAME without a round-trip through the full
+// dot-path. keychainValue is consulted between the env-ref step and
+// the literal step. Returns empty string when nothing is configured.
+func bitbucketFieldFromConfig(cfg config.Containable, field, keychainValue string) string {
+	if cfg == nil {
+		return strings.TrimSpace(keychainValue)
+	}
+
+	sub := cfg.Sub("bitbucket")
+	if sub == nil {
+		return strings.TrimSpace(keychainValue)
+	}
+
+	if name := strings.TrimSpace(sub.GetString(field + ".env")); name != "" {
+		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+			return v
 		}
 	}
 
-	if username == "" {
-		username = os.Getenv("BITBUCKET_USERNAME")
+	if v := strings.TrimSpace(keychainValue); v != "" {
+		return v
 	}
 
-	if appPassword == "" {
-		appPassword = os.Getenv("BITBUCKET_APP_PASSWORD")
+	return strings.TrimSpace(sub.GetString(field))
+}
+
+// loadBitbucketKeychain retrieves and decodes the shared JSON blob
+// referenced by bitbucket.keychain, returning a zero blob when the
+// key is unset or the keychain backend is compiled out / empty.
+//
+// Only JSON-decode failures and incomplete blobs abort — generic
+// retrieval errors (unavailable backend, missing entry) fall through
+// silently so a configured-but-unreachable keychain cannot mask a
+// valid literal or env-var fallback further down the chain.
+func loadBitbucketKeychain(ctx context.Context, cfg config.Containable) (bitbucketKeychainBlob, error) {
+	var blob bitbucketKeychainBlob
+
+	if cfg == nil {
+		return blob, nil
 	}
 
-	return username, appPassword
+	sub := cfg.Sub("bitbucket")
+	if sub == nil {
+		return blob, nil
+	}
+
+	ref := strings.TrimSpace(sub.GetString("keychain"))
+	if ref == "" {
+		return blob, nil
+	}
+
+	i := strings.Index(ref, "/")
+	if i <= 0 || i == len(ref)-1 {
+		return blob, nil
+	}
+
+	service, account := ref[:i], ref[i+1:]
+
+	// Any retrieval error (stub backend, missing entry, backend
+	// unreachable) falls through to the next resolution step rather
+	// than aborting — only JSON-structure failures below abort, per
+	// R3 in the hardening spec.
+	secret, _ := credentials.Retrieve(ctx, service, account)
+	if secret == "" {
+		return blob, nil
+	}
+
+	if err := json.Unmarshal([]byte(secret), &blob); err != nil {
+		return bitbucketKeychainBlob{}, errors.WithHint(
+			errors.New("bitbucket keychain entry is not valid JSON"),
+			"re-run the setup wizard for bitbucket to repair the keychain entry",
+		)
+	}
+
+	if strings.TrimSpace(blob.Username) == "" || strings.TrimSpace(blob.AppPassword) == "" {
+		return bitbucketKeychainBlob{}, errors.WithHint(
+			errors.New("bitbucket keychain entry is missing username or app_password"),
+			"re-run the setup wizard for bitbucket to repair the keychain entry",
+		)
+	}
+
+	return blob, nil
 }

@@ -8,6 +8,7 @@ import (
 	p "github.com/phpboyscout/go-tool-base/pkg/props"
 	"github.com/phpboyscout/go-tool-base/pkg/setup"
 	_ "github.com/phpboyscout/go-tool-base/pkg/setup/ai"
+	_ "github.com/phpboyscout/go-tool-base/pkg/setup/bitbucket"
 	_ "github.com/phpboyscout/go-tool-base/pkg/setup/github"
 )
 

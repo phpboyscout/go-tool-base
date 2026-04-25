@@ -31,15 +31,18 @@ func TestClaudeProvider_Chat_ParallelTools(t *testing.T) {
 		defer server.Close()
 
 		cfgMock := mockConfig.NewMockContainable(t)
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider:      chat.ProviderClaude,
-			Token:         "test-key",
-			BaseURL:       server.URL + "/",
-			ParallelTools: true,
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+			ParallelTools:        true,
 		})
 		require.NoError(t, err)
 
@@ -117,15 +120,18 @@ func TestOpenAIProvider_Chat_ParallelTools(t *testing.T) {
 		defer server.Close()
 
 		cfgMock := mockConfig.NewMockContainable(t)
+		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider:      chat.ProviderOpenAI,
-			Token:         "test-key",
-			BaseURL:       server.URL + "/",
-			ParallelTools: true,
+			Provider:             chat.ProviderOpenAI,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+			ParallelTools:        true,
 		})
 		require.NoError(t, err)
 
@@ -211,15 +217,18 @@ func TestGeminiProvider_Chat_ParallelTools(t *testing.T) {
 		defer server.Close()
 
 		cfgMock := mockConfig.NewMockContainable(t)
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
 
 		client, err := chat.New(context.Background(), p, chat.Config{
-			Provider:      chat.ProviderGemini,
-			Token:         "test-key",
-			BaseURL:       server.URL,
-			ParallelTools: true,
+			Provider:             chat.ProviderGemini,
+			Token:                "test-key",
+			BaseURL:              server.URL,
+			AllowInsecureBaseURL: true,
+			ParallelTools:        true,
 		})
 		require.NoError(t, err)
 

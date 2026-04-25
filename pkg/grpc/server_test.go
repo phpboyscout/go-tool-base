@@ -31,6 +31,16 @@ func testLogger() logger.Logger {
 	return logger.NewNoop()
 }
 
+func TestDefaultMaxGRPCMessageBytes(t *testing.T) {
+	t.Parallel()
+
+	// The default must be 1 MiB. Any change to this constant is a
+	// behavioural change and requires updating both the spec
+	// (2026-04-17-post-audit-hardening-bundle.md) and this test.
+	assert.Equal(t, 1<<20, DefaultMaxGRPCMessageBytes,
+		"DefaultMaxGRPCMessageBytes must remain 1 MiB")
+}
+
 func TestGRPCServer_ReflectionDefaultOff(t *testing.T) {
 	t.Parallel()
 

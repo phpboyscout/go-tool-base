@@ -89,6 +89,8 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the file "([^"]*)" exists in the init directory$`, theFileExistsInInitDir)
 	ctx.Step(`^the config file in the init directory contains "([^"]*)"$`, theInitConfigContains)
 	ctx.Step(`^the config file in the init directory does not contain "([^"]*)"$`, theInitConfigDoesNotContain)
+	ctx.Step(`^the config file contains "([^"]*)"$`, theScenarioConfigContains)
+	ctx.Step(`^the config file does not contain "([^"]*)"$`, theScenarioConfigDoesNotContain)
 }
 
 // --- Given implementations ---
@@ -417,6 +419,40 @@ func theInitConfigDoesNotContain(ctx context.Context, substr string) error {
 	w := getCLIWorld(ctx)
 
 	content, err := os.ReadFile(filepath.Join(w.initDir, "config.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if strings.Contains(string(content), substr) {
+		return fmt.Errorf("config file should not contain %q\nconfig:\n%s", substr, content)
+	}
+
+	return nil
+}
+
+// theScenarioConfigContains reads the scenario's --config file (the one
+// iRunGTBWith always points at) and asserts a substring is present.
+// Distinct from theInitConfigContains, which targets the --dir path
+// used by the init command.
+func theScenarioConfigContains(ctx context.Context, substr string) error {
+	w := getCLIWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.configDir, "config.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if !strings.Contains(string(content), substr) {
+		return fmt.Errorf("config file does not contain %q\nconfig:\n%s", substr, content)
+	}
+
+	return nil
+}
+
+func theScenarioConfigDoesNotContain(ctx context.Context, substr string) error {
+	w := getCLIWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.configDir, "config.yaml"))
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}

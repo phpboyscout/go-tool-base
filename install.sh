@@ -21,11 +21,34 @@ cleanup() {
 # Trap to call cleanup function on script exit or interruption
 trap cleanup EXIT HUP INT QUIT TERM
 
-# Check if GITHUB_TOKEN is set
-if [ -z "${GITHUB_TOKEN}" ]; then
-  echo "Error: The GITHUB_TOKEN environment variable is not set."
-  echo "Please set it to a token with access to the repository releases."
-  exit 1
+# M-8 from docs/development/reports/security-audit-2026-04-17.md —
+# GITHUB_TOKEN is OPTIONAL for installing from a public repository.
+# When absent, we fall back to anonymous access (subject to GitHub's
+# 60 req/hr rate limit — unlikely to trip on a single install).
+# When present, we warn loudly if the token has scopes beyond what
+# reading release assets requires.
+AUTH_HEADER=""
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  AUTH_HEADER="Authorization: token ${GITHUB_TOKEN}"
+
+  # Inspect the token's OAuth scopes via GET /user (returns them in the
+  # X-OAuth-Scopes header). If any broad scope is present, warn the user —
+  # for release installation, a fine-grained token with 'contents: read'
+  # on this repo is sufficient.
+  if command -v curl >/dev/null 2>&1; then
+    scopes=$(curl -sI -H "${AUTH_HEADER}" "https://api.github.com/user" \
+             | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}' | tr -d '\r\n ')
+    case ",${scopes}," in
+      *,repo,*|*,admin:*|*,delete_repo,*|*,workflow,*)
+        echo "WARNING: GITHUB_TOKEN appears to have broad scopes (${scopes})." >&2
+        echo "         For installing releases from a public repo, a fine-grained" >&2
+        echo "         token with only 'contents: read' on this repo is sufficient." >&2
+        echo "         Proceeding anyway..." >&2
+        ;;
+    esac
+  fi
+else
+  echo "INFO: No GITHUB_TOKEN set. Proceeding anonymously (subject to rate limits)."
 fi
 
 # Check for required tools
@@ -72,7 +95,14 @@ package_name_to_clean="${package_name}" # Variable for trap cleanup
 
 echo "Fetching latest release information from github.com..."
 api_url="https://api.github.com/repos/phpboyscout/gtb/releases/latest"
-download_url=$(curl -sL -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" "${api_url}" | jq -r ".assets[] | select(.name == \"${package_name}\") | .browser_download_url")
+# Conditionally pass the Authorization header only when a token is present.
+if [ -n "${AUTH_HEADER}" ]; then
+  download_url=$(curl -sL -H "${AUTH_HEADER}" -H "Accept: application/vnd.github.v3+json" "${api_url}" \
+                 | jq -r ".assets[] | select(.name == \"${package_name}\") | .browser_download_url")
+else
+  download_url=$(curl -sL -H "Accept: application/vnd.github.v3+json" "${api_url}" \
+                 | jq -r ".assets[] | select(.name == \"${package_name}\") | .browser_download_url")
+fi
 
 
 if [[ -z "${download_url}" || "${download_url}" == "null" ]]; then
@@ -81,11 +111,16 @@ if [[ -z "${download_url}" || "${download_url}" == "null" ]]; then
   exit 1
 fi
 
-echo "Download URL: $download_url"
 echo "Downloading ${package_name}..."
 
-# Download the package
-curl -fL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/octet-stream" -o "${package_name}" "${download_url}"
+# Download the package — browser_download_url is a public URL; the token
+# is only needed to dodge the API rate limit. Pass it only when we have
+# one.
+if [ -n "${AUTH_HEADER}" ]; then
+  curl -fL -H "${AUTH_HEADER}" -H "Accept: application/octet-stream" -o "${package_name}" "${download_url}"
+else
+  curl -fL -H "Accept: application/octet-stream" -o "${package_name}" "${download_url}"
+fi
 if [ $? -ne 0 ]; then
   echo "Error: Failed to download '${package_name}' from '${download_url}'."
   exit 1

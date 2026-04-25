@@ -93,8 +93,9 @@ func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().Has("auth.env").Return(false)
-	cfg.EXPECT().Has("auth.value").Return(false)
+	cfg.EXPECT().GetString("auth.env").Return("")
+	cfg.EXPECT().GetString("auth.keychain").Return("")
+	cfg.EXPECT().GetString("auth.value").Return("")
 	cfg.EXPECT().GetString("url.api").Return("")
 
 	provider, err := NewReleaseProvider(cfg)
@@ -106,8 +107,8 @@ func TestNewReleaseProvider_WithToken(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().Has("auth.env").Return(false)
-	cfg.EXPECT().Has("auth.value").Return(true)
+	cfg.EXPECT().GetString("auth.env").Return("")
+	cfg.EXPECT().GetString("auth.keychain").Return("")
 	cfg.EXPECT().GetString("auth.value").Return("test-token")
 	cfg.EXPECT().GetString("url.api").Return("https://custom.gitlab.com/api/v4")
 

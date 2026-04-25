@@ -108,6 +108,7 @@ func DefaultChecks() []CheckFunc {
 		checkConfig,
 		checkGit,
 		checkAPIKeys,
+		checkNoLiteralCredentials,
 		checkPermissions,
 	}
 }

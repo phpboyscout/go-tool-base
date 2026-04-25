@@ -59,7 +59,7 @@ func NewCmdVersion(props *p.Props) *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), versionCheckTimeout)
 			defer cancel()
 
-			updater, err := setup.NewUpdater(props, "", false)
+			updater, err := setup.NewUpdater(ctx, props, "", false)
 			if err != nil {
 				props.Logger.Warn("failed to load updater for version check", "error", err)
 

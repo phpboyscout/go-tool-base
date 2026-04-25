@@ -85,6 +85,10 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return errors.Newf("failed to unmarshal manifest: %w", err)
 	}
 
+	if err := ValidateManifest(&m); err != nil {
+		return errors.Newf("manifest validation failed: %w", err)
+	}
+
 	g.props.Logger.Info("Regenerating project from manifest...")
 	g.props.Logger.Debugf("Manifest: %s, %d top-level commands", m.Properties.Name, len(m.Commands))
 

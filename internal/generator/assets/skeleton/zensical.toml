@@ -1,8 +1,8 @@
 [project]
-site_name = "{{ .Name }}"
-site_description = "{{ .Description }}"
-site_author = "{{ .Org }}"
-site_url = "https://{{ .Host }}/{{ .Repo }}"
+site_name = "{{ .Name | escapeTOML }}"
+site_description = "{{ .Description | escapeTOML }}"
+site_author = "{{ .Org | escapeTOML }}"
+site_url = "https://{{ .Host | escapeTOML }}/{{ .Repo | escapeTOML }}"
 copyright = ""
 
 [project.theme]

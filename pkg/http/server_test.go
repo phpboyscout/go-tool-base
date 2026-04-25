@@ -3,8 +3,10 @@ package http
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,80 @@ import (
 
 func testLogger() logger.Logger {
 	return logger.NewNoop()
+}
+
+func TestMaxBytesMiddleware_RejectsOversizedBody(t *testing.T) {
+	t.Parallel()
+
+	const limit int64 = 1024
+
+	// Handler attempts to read the body; MaxBytesReader returns an error
+	// once the limit is exceeded.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := io.ReadAll(r.Body); err != nil {
+			http.Error(w, err.Error(), http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	})
+
+	wrapped := MaxBytesMiddleware(limit)(handler)
+	srv := httptest.NewServer(wrapped)
+	t.Cleanup(srv.Close)
+
+	t.Run("body within limit is accepted", func(t *testing.T) {
+		t.Parallel()
+
+		body := strings.NewReader(strings.Repeat("a", int(limit)))
+		resp, err := http.Post(srv.URL, "text/plain", body)
+		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("body over limit is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		body := strings.NewReader(strings.Repeat("a", int(limit)+1))
+		resp, err := http.Post(srv.URL, "text/plain", body)
+		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+		assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode)
+	})
+}
+
+func TestMaxBytesMiddleware_NonPositiveLimitDisablesCap(t *testing.T) {
+	t.Parallel()
+
+	// A zero/negative limit must be treated as "no cap" so downstream
+	// handlers see the raw body unchanged.
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n, err := io.Copy(io.Discard, r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		_, _ = fmt.Fprintf(w, "read=%d", n)
+	})
+
+	wrapped := MaxBytesMiddleware(0)(handler)
+	srv := httptest.NewServer(wrapped)
+	t.Cleanup(srv.Close)
+
+	body := strings.NewReader(strings.Repeat("a", 1<<15)) // 32 KiB
+	resp, err := http.Post(srv.URL, "text/plain", body)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	got, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, fmt.Sprintf("read=%d", 1<<15), string(got))
 }
 
 func mockTLSDisabled(cfg *mockConfig.MockContainable) {

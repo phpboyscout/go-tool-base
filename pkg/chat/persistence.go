@@ -88,6 +88,16 @@ type ConversationStore interface {
 }
 
 // NewSnapshot creates a Snapshot with a new UUID and the current timestamp.
+//
+// The ID is generated via [uuid.New] so that it always satisfies the
+// canonical-UUID contract enforced by [FileStore.Save], [FileStore.Load],
+// and [FileStore.Delete]. Constructing a Snapshot struct directly and
+// populating ID by hand is supported but discouraged — any value that
+// fails [ValidateSnapshotID] will be rejected by the store. If you do
+// need to accept a caller-supplied ID (for example, reconstructing a
+// snapshot parsed from an external payload), call [ValidateSnapshotID]
+// at the boundary rather than relying on Save/Load/Delete to reject it
+// later.
 func NewSnapshot(provider Provider, model, systemPrompt string, messages json.RawMessage, tools map[string]Tool, metadata map[string]string) *Snapshot {
 	return &Snapshot{
 		ID:           uuid.New().String(),

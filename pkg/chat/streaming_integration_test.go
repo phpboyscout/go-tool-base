@@ -29,14 +29,17 @@ func TestStreamingIntegration_LiveSSERoundTrip(t *testing.T) {
 	defer server.Close()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+	cfg.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -97,14 +100,17 @@ func TestStreamingIntegration_ContextCancellation(t *testing.T) {
 	defer server.Close()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
+	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderOpenAI,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 
@@ -165,14 +171,17 @@ func TestStreamingIntegration_ToolCallDuringStream(t *testing.T) {
 	defer server.Close()
 
 	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfg.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
 	cfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 	p := &props.Props{Logger: logger.NewNoop(), Config: cfg}
 
 	client, err := chat.New(context.Background(), p, chat.Config{
-		Provider: chat.ProviderGemini,
-		Token:    "test-key",
-		BaseURL:  server.URL,
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
 	})
 	require.NoError(t, err)
 

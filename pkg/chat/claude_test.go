@@ -18,6 +18,8 @@ import (
 
 func TestClaudeProvider_New(t *testing.T) {
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
 
 	p := &props.Props{
@@ -49,6 +51,8 @@ func TestClaudeProvider_New(t *testing.T) {
 
 	t.Run("success_from_props", func(t *testing.T) {
 		cfgMock := mockConfig.NewMockContainable(t)
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("")
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("")
 		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key")
 		pWithKey := &props.Props{
 			Logger: logger.NewNoop(),
@@ -76,6 +80,8 @@ func TestClaudeProvider_Ask(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -84,9 +90,10 @@ func TestClaudeProvider_Ask(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -128,10 +135,11 @@ func TestClaudeProvider_Ask(t *testing.T) {
 
 	t.Run("no_tool_use_error", func(t *testing.T) {
 		cfgWithSchema := chat.Config{
-			Provider:       chat.ProviderClaude,
-			Token:          "test-key",
-			BaseURL:        server.URL + "/",
-			ResponseSchema: map[string]interface{}{"type": "object"},
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+			ResponseSchema:       map[string]interface{}{"type": "object"},
 		}
 		clientWithSchema, err := chat.New(context.Background(), p, cfgWithSchema)
 		require.NoError(t, err)
@@ -165,10 +173,11 @@ func TestClaudeProvider_Ask(t *testing.T) {
 			Answer string `json:"answer"`
 		}
 		cfgWithSchema := chat.Config{
-			Provider:       chat.ProviderClaude,
-			Token:          "test-key",
-			BaseURL:        server.URL + "/",
-			ResponseSchema: chat.GenerateSchema[response](),
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+			ResponseSchema:       chat.GenerateSchema[response](),
 		}
 		clientWithSchema, err := chat.New(context.Background(), p, cfgWithSchema)
 		require.NoError(t, err)
@@ -242,6 +251,8 @@ func TestClaudeProvider_Chat(t *testing.T) {
 	defer server.Close()
 
 	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
 	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 	p := &props.Props{
@@ -250,9 +261,10 @@ func TestClaudeProvider_Chat(t *testing.T) {
 	}
 
 	cfg := chat.Config{
-		Provider: chat.ProviderClaude,
-		Token:    "test-key",
-		BaseURL:  server.URL + "/",
+		Provider:             chat.ProviderClaude,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
 	}
 
 	client, err := chat.New(context.Background(), p, cfg)
@@ -358,7 +370,9 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		defer maxStepsServer.Close()
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),
@@ -366,10 +380,11 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		}
 
 		maxStepsCfg := chat.Config{
-			Provider: chat.ProviderClaude,
-			Token:    "test-key",
-			BaseURL:  maxStepsServer.URL + "/",
-			MaxSteps: 2,
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              maxStepsServer.URL + "/",
+			AllowInsecureBaseURL: true,
+			MaxSteps:             2,
 		}
 
 		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
@@ -425,7 +440,9 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		defer multiServer.Close()
 
 		multiCfgMock := mockConfig.NewMockContainable(t)
-		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
+		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		multiProps := &props.Props{
 			Logger: logger.NewNoop(),
@@ -433,9 +450,10 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		}
 
 		multiCfg := chat.Config{
-			Provider: chat.ProviderClaude,
-			Token:    "test-key",
-			BaseURL:  multiServer.URL + "/",
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              multiServer.URL + "/",
+			AllowInsecureBaseURL: true,
 		}
 
 		freshClient, err := chat.New(context.Background(), multiProps, multiCfg)

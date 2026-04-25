@@ -182,6 +182,44 @@ err := setup.VerifyChecksum(fs, "/path/to/file.tar.gz.sha256", fileData)
 
 `VerifyChecksum` accepts the standard `sha256sum` sidecar format (`<hex-hash>  <filename>`) and GoReleaser checksums.txt entries.
 
+#### Remote Checksum Verification (Phase 1)
+
+Remote updates via `Update()` automatically verify the downloaded binary against the release's `checksums.txt` manifest before extraction. GoReleaser produces this file by default on every release, so no `.goreleaser.yaml` change is required.
+
+**How it works:**
+
+1. After downloading the target binary, `Update()` looks for a `checksums.txt` asset in the same release.
+2. The manifest is downloaded (capped at `setup.MaxChecksumsSize`, default 1 MiB) and parsed line-by-line.
+3. The binary's SHA-256 is compared against the manifest entry in constant time.
+4. A mismatch aborts the update; a match logs `"checksum verified"` at INFO and proceeds to extraction.
+
+**Fail-open by default, fail-closed by opt-in:**
+
+The library defaults to fail-open — a release without `checksums.txt` logs a warning and proceeds, preserving backward compatibility with legacy releases. Tool authors who want fail-closed verification from day one set:
+
+```go
+func main() {
+    setup.DefaultRequireChecksum = true  // refuse unverified updates
+    // ...
+}
+```
+
+End users can override at runtime via config:
+
+```yaml
+update:
+  require_checksum: true
+  checksum_asset_name: ""    # override default "checksums.txt" if needed
+```
+
+Or via env var (respects the tool's env prefix): `MYTOOL_UPDATE_REQUIRE_CHECKSUM=true`.
+
+**Non-standard asset layouts:**
+
+Providers that don't publish `checksums.txt` as a release asset — notably the Direct HTTP provider and Bitbucket Downloads — opt in to the optional `release.ChecksumProvider` interface, retrieving the manifest via an alternate path (a URL template for Direct, an exact-name lookup in the downloads list for Bitbucket). The `Update()` flow prefers this interface when implemented and falls back to the asset-list scan otherwise.
+
+See [Secure Releases How-To](../../how-to/secure-releases.md) for the full setup and config story.
+
 #### Release Information
 ```go
 func (s *SelfUpdater) GetReleaseNotes(from string, to string) (string, error)
@@ -370,6 +408,43 @@ See [How to add a custom release source](../../how-to/custom-release-source.md) 
 - Supports environment variable and direct token configuration for all release providers
 - Tokens are stored in user's config directory with restricted permissions
 - Enterprise URL support for private installations (GitHub Enterprise, GitLab Self-Managed, self-hosted Gitea)
+
+### Credential Storage Modes
+
+The `gtb init ai` and `gtb init github` wizards now present a credential storage mode selector backed by [`pkg/credentials`](../credentials.md). Users choose how their secret is persisted, with sensible defaults:
+
+| Mode | Config output | When offered |
+|------|---------------|--------------|
+| Env-var reference (default) | `{provider}.api.env: ENV_NAME` / `github.auth.env: ENV_NAME` | Always. Selected by default. |
+| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `github.com/phpboyscout/go-tool-base/pkg/credentials/keychain` (or registers a custom [`Backend`](../credentials.md#backend-interface)) AND [`credentials.Probe`](../credentials.md#api) succeeds against that backend at wizard start. Phase 2. |
+| Literal | `{provider}.api.key: sk-...` / `github.auth.value: ghp_...` | Hidden entirely under `CI=true`; the wizard refuses to persist a plaintext credential into a config file that will almost certainly leak via CI artefacts or logs. |
+
+The AI wizard then prompts for an env var name (defaulting to the provider standard — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.
+
+The GitHub wizard:
+
+1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via Viper's `AutomaticEnv`), keychain reference, or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run does not overwrite an existing mode with a fresh OAuth token.
+2. **Refuses literal mode under `CI=true`** with a hint directing the user to the CI platform's secret-injection mechanism.
+3. **Presents the same three-mode selector as the AI wizard**, gated on CI (hides literal) and on `credentials.Probe` (hides keychain when no backend is reachable).
+4. **Env-var mode → OAuth + display-once.** The wizard prompts for an env var name (default `GITHUB_TOKEN`) then asks whether to run OAuth now. If yes, it captures a token via `gh auth login` (or the manual PAT entry fallback on headless hosts), displays the token once inside a protected note with instructions to `export GITHUB_TOKEN=<token>` in the shell profile, and waits for the user to acknowledge before continuing. Only the env-var reference is written to config — the token itself never hits disk.
+5. **Keychain mode → Store + ref.** Runs OAuth (or manual fallback) to capture a token, writes it via `credentials.Store(ctx, <toolname>, "github.auth", token)`, and records `github.auth.keychain: <toolname>/github.auth` in the config. No plaintext on disk.
+6. **Literal mode → legacy write.** Runs OAuth (or manual fallback) and writes the captured token to `github.auth.value`. Refused under CI.
+7. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser — common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted via the mode chosen in step 3.
+
+The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles Bitbucket's dual-credential model natively:
+
+- **Env-var mode** prompts for two env var names (defaults `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`) and writes both references — `bitbucket.username.env` and `bitbucket.app_password.env`.
+- **Keychain mode** collects the username and app password in one form (app password input uses a hidden echo mode), serialises the pair as `{"username": "...", "app_password": "..."}`, and stores it under a single `bitbucket.keychain` entry via the registered backend.
+- **Literal mode** collects both fields and writes them as plaintext (`bitbucket.username`, `bitbucket.app_password`). Refused under CI.
+
+Related surfaces that rely on the same taxonomy:
+
+- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Chat > Credential Resolution](../chat.md#credential-resolution).
+- **`pkg/vcs/bitbucket`** — dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals.
+- **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
+- **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
+
+See the end-user guide at [How to configure credentials](../../how-to/configure-credentials.md) for practical examples, the [Custom credential backend how-to](../../how-to/custom-credential-backend.md) for implementing a `Backend` against Vault, AWS SSM, or any other secret store, and the [Credential Storage Hardening spec](../../development/specs/2026-04-02-credential-storage-hardening.md) for the full design.
 
 ### SSH Key Handling
 - Keys are read but never logged or transmitted

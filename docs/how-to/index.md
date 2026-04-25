@@ -86,6 +86,9 @@ Wire up `UpdateCmd` with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct
 ### [Add a Custom Release Source](custom-release-source.md)
 Implement and register a custom `release.Provider` so your tool can self-update from any backend — S3, Artifactory, Nexus, or a proprietary store.
 
+### [Secure Releases — Checksum Verification](secure-releases.md)
+Publish `checksums.txt` alongside release binaries so `Update()` rejects tampered or truncated downloads. Covers the fail-open library default, the `setup.DefaultRequireChecksum` opt-in for fail-closed tools, and per-provider manifest retrieval (Bitbucket downloads, Direct's `checksum_url_template`).
+
 ## Telemetry
 
 ### [Create a Custom Telemetry Backend](custom-telemetry-backend.md)
@@ -116,3 +119,14 @@ Register a gRPC server with the controller, wire the standard health protocol, a
 
 ### [Add HTTP Security Headers](security-headers.md)
 Implement HSTS, CSP, and other security headers for your tool using the `pkg/http` middleware chain.
+
+## Credentials
+
+### [Configure Credentials](configure-credentials.md)
+Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords — env-var reference (recommended default), OS keychain (opt-in), or literal config (legacy) — and migrate between them safely.
+
+### [Implement a Custom Credential Backend](custom-credential-backend.md)
+Plug Hashicorp Vault, AWS Secrets Manager, 1Password Connect, or any other secret store into your tool by implementing the `credentials.Backend` interface and registering it at startup.
+
+### [Migrate literal credentials off config](migrate-literal-credentials.md)
+Use `config migrate-credentials` to move plaintext credentials in your tool's YAML out into environment-variable references or the OS keychain. Supports interactive and silent (CI/CD) flows.
