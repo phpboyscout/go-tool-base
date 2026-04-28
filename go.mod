@@ -30,7 +30,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0
 	github.com/leodido/go-conventionalcommits v0.12.0
 	github.com/njayp/ophis v1.1.4
-	github.com/openai/openai-go/v3 v3.31.0
+	github.com/openai/openai-go/v3 v3.32.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/spf13/afero v1.15.0
