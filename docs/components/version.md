@@ -84,7 +84,7 @@ builds:
 Both `v`-prefixed and bare versions are accepted.
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/version"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 result := version.CompareVersions("1.2.3", "v1.3.0")
 // result == -1  (1.2.3 < 1.3.0 → update available)

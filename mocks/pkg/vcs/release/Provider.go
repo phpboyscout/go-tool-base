@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	mock "github.com/stretchr/testify/mock"
 )
 

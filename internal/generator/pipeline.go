@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
 
 // StepWarning records a non-fatal failure within a pipeline step.

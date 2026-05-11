@@ -8,7 +8,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/spf13/viper"
 	mock "github.com/stretchr/testify/mock"
 )

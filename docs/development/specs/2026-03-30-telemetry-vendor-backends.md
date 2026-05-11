@@ -129,9 +129,9 @@ import (
     "time"
 
     "github.com/cockroachdb/errors"
-    gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/telemetry"
+    gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 // Region identifies a Datadog data center region.
@@ -276,7 +276,7 @@ func (b *backend) Close() error { return nil }
 ### Tool Author Usage
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/telemetry/datadog"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/datadog"
 
 props.Tool{
     Name: "mytool",
@@ -364,9 +364,9 @@ import (
     "time"
 
     "github.com/cockroachdb/errors"
-    gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/telemetry"
+    gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 // Instance identifies a PostHog deployment.
@@ -511,7 +511,7 @@ func (b *backend) Close() error { return nil }
 ### Tool Author Usage
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/telemetry/posthog"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/posthog"
 
 props.Tool{
     Name: "mytool",

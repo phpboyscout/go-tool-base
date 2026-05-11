@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/gitea"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/gitea"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // buildServer returns a test server that serves the given releases JSON at

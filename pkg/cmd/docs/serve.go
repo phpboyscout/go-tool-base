@@ -7,9 +7,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/browser"
-	docslib "github.com/phpboyscout/go-tool-base/pkg/docs"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
+	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 const (

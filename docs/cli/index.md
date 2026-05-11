@@ -35,7 +35,7 @@ Our command-line tool is designed to be your best friend when building powerful,
 To install the CLI tool, run:
 
 ```bash
-go install github.com/phpboyscout/go-tool-base@latest
+go install gitlab.com/phpboyscout/go-tool-base@latest
 ```
 
 Once installed, you can explore the available generation tools:

@@ -39,8 +39,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // resolveAPIKey implements the five-step precedence above. Whitespace

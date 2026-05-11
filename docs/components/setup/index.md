@@ -36,9 +36,9 @@ package main
 import (
     "os"
 
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/setup"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func main() {
@@ -233,7 +233,7 @@ Version comparison and formatting utilities live in `pkg/version`, not in
 `pkg/setup`. The self-updater uses them internally:
 
 ```go
-import ver "github.com/phpboyscout/go-tool-base/pkg/version"
+import ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 // Compare two version strings — returns -1, 0, or 1
 result := ver.CompareVersions("v1.2.3", "v1.3.0") // -1 (upgrade available)
@@ -388,7 +388,7 @@ See the [Release Provider component](../vcs/release.md) for a full `Params` refe
 Register a custom `release.Provider` factory before calling `NewUpdater`:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 
 func main() {
     release.Register("s3", func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
@@ -416,7 +416,7 @@ The `gtb init ai` and `gtb init github` wizards now present a credential storage
 | Mode | Config output | When offered |
 |------|---------------|--------------|
 | Env-var reference (default) | `{provider}.api.env: ENV_NAME` / `github.auth.env: ENV_NAME` | Always. Selected by default. |
-| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `github.com/phpboyscout/go-tool-base/pkg/credentials/keychain` (or registers a custom [`Backend`](../credentials.md#backend-interface)) AND [`credentials.Probe`](../credentials.md#api) succeeds against that backend at wizard start. Phase 2. |
+| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain` (or registers a custom [`Backend`](../credentials.md#backend-interface)) AND [`credentials.Probe`](../credentials.md#api) succeeds against that backend at wizard start. Phase 2. |
 | Literal | `{provider}.api.key: sk-...` / `github.auth.value: ghp_...` | Hidden entirely under `CI=true`; the wizard refuses to persist a plaintext credential into a config file that will almost certainly leak via CI artefacts or logs. |
 
 The AI wizard then prompts for an env var name (defaulting to the provider standard — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.

@@ -1,7 +1,7 @@
 package props_test
 
 import (
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // Compile-time interface satisfaction checks.

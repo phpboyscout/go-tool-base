@@ -45,7 +45,7 @@ func NewWizard(groups ...*huh.Group) *Wizard
 **Simple usage — static groups only:**
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/forms"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/forms"
 
 err := forms.NewWizard(
     huh.NewGroup(

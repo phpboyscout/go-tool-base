@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // ClientMiddleware wraps an http.RoundTripper with additional behaviour.

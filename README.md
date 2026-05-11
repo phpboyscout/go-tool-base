@@ -1,7 +1,8 @@
 # Go Tool Base (GTB)
 
-[![Tests](https://github.com/phpboyscout/go-tool-base/actions/workflows/test.yaml/badge.svg)](https://github.com/phpboyscout/go-tool-base/actions/workflows/test.yaml)
-[![Coverage](https://img.shields.io/badge/coverage-68%25-brightgreen)](https://github.com/phpboyscout/go-tool-base/actions/workflows/test.yaml)
+[![pipeline status](https://gitlab.com/phpboyscout/go-tool-base/badges/main/pipeline.svg)](https://gitlab.com/phpboyscout/go-tool-base/-/commits/main)
+[![coverage report](https://gitlab.com/phpboyscout/go-tool-base/badges/main/coverage.svg)](https://gitlab.com/phpboyscout/go-tool-base/-/commits/main)
+[![latest release](https://gitlab.com/phpboyscout/go-tool-base/-/badges/release.svg)](https://gitlab.com/phpboyscout/go-tool-base/-/releases)
 
 **The Intelligent Application Lifecycle Framework for Go.**
 
@@ -24,17 +25,16 @@ To install the `gtb` automation CLI, use the recommended installation script for
 
 **macOS/Linux (bash/zsh):**
 ```bash
-curl -sSL -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3.raw" "https://github.com/phpboyscout/go-tool-base/raw/main/install.sh" | bash
+curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-$env:GITHUB_TOKEN = "your_token_here"
-irm "https://github.com/phpboyscout/go-tool-base/raw/main/install.ps1" -Headers @{Authorization = "Bearer $env:GITHUB_TOKEN"} | iex
+irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 ```
 
 > [!NOTE]
-> For developers building from source, you can still use `go install github.com/phpboyscout/go-tool-base@latest`. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
+> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base@latest`. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
 
 ## 🚀 Key Advantages & Features
 
@@ -133,8 +133,8 @@ func NewCmdRoot(v pkgversion.Info) (*cobra.Command, *props.Props) {
             Name:        "mytool",
             Description: "My CLI tool",
             ReleaseSource: props.ReleaseSource{
-                Type:  "github",
-                Host:  "github.com",
+                Type:  "gitlab",
+                Host:  "gitlab.com",
                 Owner: "myorg",
                 Repo:  "mytool",
             },

@@ -58,9 +58,9 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 		)
 	}
 
-	f.ImportAlias("github.com/phpboyscout/go-tool-base/pkg/cmd/root", "gtbRoot")
+	f.ImportAlias("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "gtbRoot")
 
-	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("github.com/phpboyscout/go-tool-base/pkg/errorhandling", "New").Call(jen.Id("l"), jen.Id("p").Dot("Tool").Dot("Help"))
+	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "New").Call(jen.Id("l"), jen.Id("p").Dot("Tool").Dot("Help"))
 
 	subCmdArgs := make([]jen.Code, 0, 1+len(data.Subcommands))
 	subCmdArgs = append(subCmdArgs, jen.Id("p"))
@@ -70,30 +70,30 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 		subCmdArgs = append(subCmdArgs, jen.Qual(sub.ImportPath, sub.Constructor).Call(jen.Id("p")))
 	}
 
-	rootCmdInit := jen.Id("rootCmd").Op(":=").Qual("github.com/phpboyscout/go-tool-base/pkg/cmd/root", "NewCmdRoot").Call(
+	rootCmdInit := jen.Id("rootCmd").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "NewCmdRoot").Call(
 		subCmdArgs...,
 	)
 
 	toolDict := buildToolDict(data)
 
 	f.Func().Id("NewCmdRoot").Params(
-		jen.Id("v").Qual("github.com/phpboyscout/go-tool-base/pkg/version", "Info"),
+		jen.Id("v").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/version", "Info"),
 	).Params(
 		jen.Op("*").Qual("github.com/spf13/cobra", "Command"),
-		jen.Op("*").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props"),
+		jen.Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
 	).Block(
-		jen.Id("l").Op(":=").Qual("github.com/phpboyscout/go-tool-base/pkg/logger", "NewCharm").Call(
+		jen.Id("l").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "NewCharm").Call(
 			jen.Qual("os", "Stderr"),
-			jen.Qual("github.com/phpboyscout/go-tool-base/pkg/logger", "WithTimestamp").Call(jen.True()),
-			jen.Qual("github.com/phpboyscout/go-tool-base/pkg/logger", "WithLevel").Call(
-				jen.Qual("github.com/phpboyscout/go-tool-base/pkg/logger", "InfoLevel"),
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "WithTimestamp").Call(jen.True()),
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "WithLevel").Call(
+				jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "InfoLevel"),
 			),
 		),
 		jen.Line(),
-		jen.Id("p").Op(":=").Op("&").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props").Values(jen.Dict{
-			jen.Id("Tool"):    jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Tool").Values(toolDict),
+		jen.Id("p").Op(":=").Op("&").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props").Values(jen.Dict{
+			jen.Id("Tool"):    jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Tool").Values(toolDict),
 			jen.Id("Logger"):  jen.Id("l"),
-			jen.Id("Assets"):  jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "NewAssets").Call(jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "AssetMap").Values(jen.Dict{jen.Lit("root"): jen.Op("&").Id("assets")})),
+			jen.Id("Assets"):  jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "NewAssets").Call(jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "AssetMap").Values(jen.Dict{jen.Lit("root"): jen.Op("&").Id("assets")})),
 			jen.Id("FS"):      jen.Qual("github.com/spf13/afero", "NewOsFs").Call(),
 			jen.Id("Version"): jen.Id("v"),
 		}),
@@ -113,7 +113,7 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		jen.Id("Name"):          jen.Lit(data.Name),
 		jen.Id("Summary"):       jen.Lit(data.Name + " utility"),
 		jen.Id("Description"):   jen.Lit(data.Description),
-		jen.Id("ReleaseSource"): jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "ReleaseSource").Values(buildReleaseSourceDict(data)),
+		jen.Id("ReleaseSource"): jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ReleaseSource").Values(buildReleaseSourceDict(data)),
 	}
 
 	if data.EnvPrefix != "" {
@@ -122,19 +122,19 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 
 	switch data.HelpType {
 	case "slack":
-		toolDict[jen.Id("Help")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/errorhandling", "SlackHelp").Values(jen.Dict{
+		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "SlackHelp").Values(jen.Dict{
 			jen.Id("Channel"): jen.Lit(data.SlackChannel),
 			jen.Id("Team"):    jen.Lit(data.SlackTeam),
 		})
 	case "teams":
-		toolDict[jen.Id("Help")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/errorhandling", "TeamsHelp").Values(jen.Dict{
+		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "TeamsHelp").Values(jen.Dict{
 			jen.Id("Channel"): jen.Lit(data.TeamsChannel),
 			jen.Id("Team"):    jen.Lit(data.TeamsTeam),
 		})
 	}
 
 	if len(data.DisabledFeatures) > 0 || len(data.EnabledFeatures) > 0 {
-		toolDict[jen.Id("Features")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "SetFeatures").Call(buildFeatures(data)...)
+		toolDict[jen.Id("Features")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SetFeatures").Call(buildFeatures(data)...)
 	}
 
 	telemetryDict := jen.Dict{}
@@ -152,7 +152,7 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 	}
 
 	if hasTelemetry {
-		toolDict[jen.Id("Telemetry")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict)
+		toolDict[jen.Id("Telemetry")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict)
 	}
 
 	return toolDict
@@ -178,13 +178,13 @@ func buildFeatures(data SkeletonRootData) []jen.Code {
 
 	for _, f := range data.DisabledFeatures {
 		if cmd := getFeatureCmd(f); cmd != nil {
-			items = append(items, jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Disable").Call(cmd))
+			items = append(items, jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Disable").Call(cmd))
 		}
 	}
 
 	for _, f := range data.EnabledFeatures {
 		if cmd := getFeatureCmd(f); cmd != nil {
-			items = append(items, jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Enable").Call(cmd))
+			items = append(items, jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Enable").Call(cmd))
 		}
 	}
 
@@ -194,23 +194,23 @@ func buildFeatures(data SkeletonRootData) []jen.Code {
 func getFeatureCmd(feature string) jen.Code {
 	switch feature {
 	case "init":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "InitCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "InitCmd")
 	case "update":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "UpdateCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "UpdateCmd")
 	case "mcp":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "McpCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "McpCmd")
 	case "docs":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "DocsCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "DocsCmd")
 	case "doctor":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "DoctorCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "DoctorCmd")
 	case "ai":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "AiCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "AiCmd")
 	case "config":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "ConfigCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigCmd")
 	case "telemetry":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "TelemetryCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryCmd")
 	case "changelog":
-		return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "ChangelogCmd")
+		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ChangelogCmd")
 	}
 
 	return nil

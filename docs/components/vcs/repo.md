@@ -294,7 +294,7 @@ err = ts.WithRepo(func(gr *git.Repository) error {
 Use the generated mock for unit tests:
 
 ```go
-import mock_repo "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/repo"
+import mock_repo "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/repo"
 
 mockRepo := mock_repo.NewMockRepoLike(t)
 mockRepo.EXPECT().CreateBranch("feature/test").Return(nil)

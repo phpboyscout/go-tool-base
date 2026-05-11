@@ -7,10 +7,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	docslib "github.com/phpboyscout/go-tool-base/pkg/docs"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // NewCmdDocs creates the docs command with the interactive documentation browser.

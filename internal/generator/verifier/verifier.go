@@ -3,8 +3,8 @@ package verifier
 import (
 	"context"
 
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 // GeneratorFunc is a callback that writes the command files (main.go, test.go) based on the data.

@@ -27,7 +27,7 @@ import (
     "fmt"
     "io"
     "os"
-    "github.com/phpboyscout/go-tool-base/pkg/output"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/output"
 )
 
 type Result struct {

@@ -36,7 +36,7 @@ A pattern is accepted only if both layers pass.
 ## API
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/regexutil"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
 
 // When a context.Context is already in hand:
 re, err := regexutil.CompileBounded(ctx, pattern)

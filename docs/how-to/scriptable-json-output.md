@@ -52,8 +52,8 @@ import (
     "io"
     "os"
 
-    "github.com/phpboyscout/go-tool-base/pkg/output"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/output"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func NewCmdDeploy(p *props.Props) *cobra.Command {

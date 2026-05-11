@@ -21,8 +21,8 @@ import (
     "log/slog"
     "os"
 
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func main() {
@@ -188,7 +188,7 @@ p := &props.Props{
 To assert specific log calls in tests, use the generated mock:
 
 ```go
-import mock_logger "github.com/phpboyscout/go-tool-base/mocks/pkg/logger"
+import mock_logger "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/logger"
 
 ml := mock_logger.NewMockLogger(t)
 ml.EXPECT().Info("server started", "addr", ":8080").Once()

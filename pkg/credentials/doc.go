@@ -18,7 +18,7 @@
 //     Credential Manager). Available only when the process has a
 //     keychain-capable [Backend] registered — typically by blank-
 //     importing the optional
-//     github.com/phpboyscout/go-tool-base/pkg/credentials/keychain
+//     gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain
 //     subpackage. Without such a registration, [Store] / [Retrieve] /
 //     [Delete] return [ErrCredentialUnsupported] and resolvers fall
 //     through.
@@ -37,7 +37,7 @@
 // # Separation of the keychain backend
 //
 // The go-keyring-backed implementation lives in a dedicated
-// subpackage (github.com/phpboyscout/go-tool-base/pkg/credentials/
+// subpackage (gitlab.com/phpboyscout/go-tool-base/pkg/credentials/
 // keychain) that registers itself via [RegisterBackend] during its
 // init(). Downstream tools that want OS keychain support blank-
 // import that subpackage from their cmd/main; regulated or

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // ToolCall represents a single tool invocation request.

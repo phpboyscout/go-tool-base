@@ -1,0 +1,190 @@
+# .gitlab-ci.yml — pipeline translating the eight .github/workflows/*.yaml
+# entries into the GitLab equivalent. Stages run sequentially; jobs
+# within a stage run in parallel. The same blocking checks apply as the
+# previous GitHub setup: lint, tests, e2e, govulncheck, trivy, gitleaks,
+# osv-scanner, codeql-equivalent (semgrep) before docs+release.
+
+stages:
+  - lint
+  - test
+  - security
+  - docs
+  - release
+  - renovate
+
+variables:
+  GO_VERSION: "1.26.2"
+  CGO_ENABLED: "0"
+  GIT_DEPTH: "0" # semantic-release + goreleaser need the full history
+
+default:
+  image: golang:${GO_VERSION}-bookworm
+  tags: [saas-linux-medium-amd64]
+
+# Cache Go module downloads + build cache across jobs in a pipeline.
+.go-cache: &go-cache
+  cache:
+    key:
+      files: [go.sum]
+    paths:
+      - .go/pkg/mod/
+      - .go/cache/
+    policy: pull-push
+  before_script:
+    - export GOPATH="${CI_PROJECT_DIR}/.go"
+    - export GOCACHE="${CI_PROJECT_DIR}/.go/cache"
+    - mkdir -p "${GOPATH}/pkg/mod" "${GOCACHE}"
+    - go env GOPATH GOCACHE
+
+# ---------- lint stage ----------
+
+lint:
+  stage: lint
+  image: golangci/golangci-lint:v2.6.0
+  <<: *go-cache
+  script:
+    - golangci-lint run --timeout=30m
+
+# ---------- test stage ----------
+
+tests:
+  stage: test
+  <<: *go-cache
+  script:
+    - go test -race -coverprofile=cover.out ./...
+    - go tool cover -func=cover.out | tail -1
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cover.xml
+    paths:
+      - cover.out
+
+e2e-bdd-tests:
+  stage: test
+  <<: *go-cache
+  variables:
+    INT_TEST_E2E: "1"
+  script:
+    - go test ./test/e2e/... -v -timeout 5m
+
+# ---------- security stage ----------
+
+govulncheck:
+  stage: security
+  <<: *go-cache
+  script:
+    - go install golang.org/x/vuln/cmd/govulncheck@latest
+    - "$GOPATH/bin/govulncheck ./..."
+
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:0.69.0
+    entrypoint: [""]
+  script:
+    - trivy fs --exit-code 1 --severity HIGH,CRITICAL --no-progress .
+
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:v8.30.1
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --verbose --redact
+
+osv-scanner:
+  stage: security
+  image:
+    name: ghcr.io/google/osv-scanner:v2.3.8
+    entrypoint: [""]
+  script:
+    - /osv-scanner -L go.mod
+
+# CodeQL on GitLab requires Ultimate; semgrep is the practical OSS
+# equivalent for the same coverage tier. Keep job name `analyze` so
+# downstream dashboards keying off the GitHub name still match.
+analyze:
+  stage: security
+  image:
+    name: returntocorp/semgrep:1.137.0
+    entrypoint: [""]
+  script:
+    - semgrep --config p/golang --error --severity ERROR .
+
+# ---------- docs stage ----------
+
+# Publishes mkdocs site to GitLab Pages. Runs on main only.
+pages:
+  stage: docs
+  image: python:3.14-bookworm
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - pip install --require-hashes -r requirements-lock.txt
+    - mkdocs build --strict --site-dir public
+  artifacts:
+    paths:
+      - public
+
+# ---------- release stage ----------
+
+# Conventional-commit driven release. Runs on main only. Requires:
+#   GITLAB_TOKEN: a project access token with api + write_repository scope
+#                 (set as a masked, protected CI/CD variable).
+semantic-release:
+  stage: release
+  image: node:24-bookworm
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - npm install --no-save
+        semantic-release
+        @semantic-release/changelog
+        @semantic-release/git
+        @semantic-release/gitlab
+    - npx semantic-release
+
+# GoReleaser builds + publishes artefacts. Triggered by the tag
+# semantic-release pushes. Uses GitLab's package registry (set via
+# `gitlab_urls.use_package_registry: true` in .goreleaser.yaml) so no
+# external storage is needed.
+goreleaser:
+  stage: release
+  image:
+    name: goreleaser/goreleaser:v2.10.2
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  variables:
+    GIT_STRATEGY: clone
+  script:
+    - apt-get update && apt-get install -y --no-install-recommends syft || true
+    - goreleaser release --clean
+
+# ---------- renovate stage ----------
+
+# Self-hosted Renovate runner. Scheduled via the GitLab CI/CD →
+# Schedules UI (recommend daily at 03:00 UTC). The schedule variable
+# RENOVATE_TOKEN must be a project access token with api +
+# write_repository scope. See renovate.json for the policy
+# (auto-merge patch/minor, draft MR for majors, security bumps
+# always auto-merge).
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:38
+    entrypoint: [""]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RENOVATE_TASK == "scan"'
+  variables:
+    LOG_LEVEL: info
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: https://gitlab.com/api/v4/
+    RENOVATE_AUTODISCOVER: "false"
+    RENOVATE_REPOSITORIES: '["phpboyscout/go-tool-base"]'
+  script:
+    - renovate

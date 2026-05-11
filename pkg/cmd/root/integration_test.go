@@ -7,12 +7,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/root"
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // commandNames returns the Use field of each child command in the cobra tree.

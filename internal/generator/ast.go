@@ -194,7 +194,7 @@ func (g *Generator) fallbackParentFile(relPath, name string, isRoot bool) string
 
 func (g *Generator) addSubcommandImport(f *dst.File, path string, ctx *subcommandContext) {
 	importPath := fmt.Sprintf("\"%s\"", path)
-	setupPath := "\"github.com/phpboyscout/go-tool-base/pkg/setup\""
+	setupPath := "\"gitlab.com/phpboyscout/go-tool-base/pkg/setup\""
 
 	hasImport := g.hasImport(f, importPath)
 	hasSetup := g.hasImport(f, setupPath)

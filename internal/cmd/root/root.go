@@ -8,19 +8,19 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/root"
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
-	ver "github.com/phpboyscout/go-tool-base/pkg/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
-	"github.com/phpboyscout/go-tool-base/internal/cmd/generate"
-	"github.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
-	"github.com/phpboyscout/go-tool-base/internal/cmd/remove"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
 
 	// Register telemetry initialiser with the setup system.
-	_ "github.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
 )
 
 //go:embed all:assets
@@ -63,9 +63,9 @@ func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
 			Summary:     "The gtb CLI",
 			Description: "A CLI tool for managing and generating gtb projects.",
 			ReleaseSource: props.ReleaseSource{
-				Type:  "github",
+				Type:  "gitlab",
 				Owner: "phpboyscout",
-				Repo:  "gtb",
+				Repo:  "go-tool-base",
 			},
 			Features: props.SetFeatures(
 				props.Disable(props.InitCmd),

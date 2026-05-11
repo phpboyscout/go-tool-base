@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
 
 // ManifestCommandUpdate carries all fields that updateCommandRecursive writes to

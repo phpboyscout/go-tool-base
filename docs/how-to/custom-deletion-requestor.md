@@ -49,9 +49,9 @@ import (
 
     "github.com/cockroachdb/errors"
 
-    gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/telemetry"
+    gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 const requestTimeout = 10 * time.Second

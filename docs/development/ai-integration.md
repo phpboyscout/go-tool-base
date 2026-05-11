@@ -65,8 +65,8 @@ package myprovider
 
 import (
     "context"
-    "github.com/phpboyscout/go-tool-base/pkg/chat"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func init() {

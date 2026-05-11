@@ -14,8 +14,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 // OTelOption configures the OTLP backend.

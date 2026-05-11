@@ -10,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/output"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // CheckStatus is the outcome of a diagnostic check.

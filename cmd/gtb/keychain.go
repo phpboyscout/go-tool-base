@@ -12,4 +12,4 @@ package main
 // posture simply omit the equivalent blank import from their own
 // cmd package; consumer binaries only link the keychain chain when
 // the consumer opts in.
-import _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+import _ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"

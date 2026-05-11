@@ -11,9 +11,9 @@ import (
 	testifymock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/config"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestCmdSet_WritesValue(t *testing.T) {

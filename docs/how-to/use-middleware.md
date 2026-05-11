@@ -18,8 +18,8 @@ Global middleware applies to **every** command in your tool. This is typically d
 package root
 
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/setup"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func registerFeatureCommands(rootCmd *cobra.Command, props *props.Props) {
@@ -46,8 +46,8 @@ You typically register these in the `init()` function of your feature package:
 package chat
 
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/setup"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func init() {
@@ -101,8 +101,8 @@ Using standard cobra `root.AddCommand(myCmd)` will **bypass** the middleware cha
 package main
 
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func main() {

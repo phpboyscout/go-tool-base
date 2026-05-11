@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 )
 
 func ExampleSpin() {

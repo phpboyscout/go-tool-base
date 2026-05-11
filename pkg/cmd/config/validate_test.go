@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/config"
-	pkgcfg "github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	pkgcfg "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestCmdValidate_ValidConfig(t *testing.T) {

@@ -223,7 +223,7 @@ go tool changelog generate --include-all
 Add the tool directive to `go.mod`:
 
 ```
-tool github.com/phpboyscout/go-tool-base/cmd/changelog
+tool gitlab.com/phpboyscout/go-tool-base/cmd/changelog
 ```
 
 Use with `go:generate`:

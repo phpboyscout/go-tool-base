@@ -13,6 +13,6 @@ require-template-schema-exists: true
 template: testify
 template-schema: "{{.Template}}.schema.json"
 packages:
-  github.com/phpboyscout/go-tool-base/pkg:
+  gitlab.com/phpboyscout/go-tool-base/pkg:
     config:
       all: true

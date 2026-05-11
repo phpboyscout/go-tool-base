@@ -151,8 +151,8 @@ package main
 // CI exercises the full go-keyring path.
 
 import (
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
 )
 
 //nolint:gochecknoinits // side-effect registration for headless test runs

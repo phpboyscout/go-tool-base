@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // storeBlob writes a JSON blob through the active keychain backend

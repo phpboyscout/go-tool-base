@@ -124,11 +124,11 @@ import (
 
 	"github.com/spf13/afero"
 
-	_ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func main() {
@@ -233,10 +233,10 @@ import (
 
 	"github.com/spf13/afero"
 
-	_ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 func main() {
@@ -340,8 +340,8 @@ package main
 import (
 	"fmt"
 
-	_ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 func main() {

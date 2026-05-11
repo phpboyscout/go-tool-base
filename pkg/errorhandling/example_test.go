@@ -5,7 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
 
 func ExampleWithUserHint() {

@@ -5,8 +5,8 @@
 package setup
 
 import (
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	mock "github.com/stretchr/testify/mock"
 )
 

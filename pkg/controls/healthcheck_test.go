@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/controls"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func newTestController(t *testing.T) *controls.Controller {

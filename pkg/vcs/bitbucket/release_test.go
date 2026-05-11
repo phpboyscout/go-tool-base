@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // buildDownloadsServer returns a test server that serves a Bitbucket Downloads

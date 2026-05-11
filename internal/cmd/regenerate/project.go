@@ -6,9 +6,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
-	"github.com/phpboyscout/go-tool-base/internal/generator"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 type ProjectOptions struct {

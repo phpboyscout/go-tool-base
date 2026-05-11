@@ -10,7 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/repo"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
 )

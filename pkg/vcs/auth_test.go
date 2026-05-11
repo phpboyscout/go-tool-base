@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 )
 
 // ResolveToken precedence:

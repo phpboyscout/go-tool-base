@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // Build-tag-agnostic resolver behaviour. The "keychain entry missing

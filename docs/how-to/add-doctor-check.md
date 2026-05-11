@@ -22,8 +22,8 @@ package myfeature
 import (
     "context"
 
-    "github.com/phpboyscout/go-tool-base/pkg/props"
-    "github.com/phpboyscout/go-tool-base/pkg/setup"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func checkMyService(_ context.Context, props *props.Props) setup.CheckResult {
@@ -53,8 +53,8 @@ Use `setup.RegisterChecks` in your package's `init()` block. The `CheckProvider`
 package myfeature
 
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/props"
-    "github.com/phpboyscout/go-tool-base/pkg/setup"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func init() {

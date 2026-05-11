@@ -56,7 +56,7 @@ terminal output via `charmbracelet/log`.
 ```go
 import (
     "os"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 l := logger.NewCharm(os.Stderr,
@@ -86,7 +86,7 @@ that feed structured logs to an aggregator.
 import (
     "log/slog"
     "os"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Standard library JSON (for container logs)
@@ -211,7 +211,7 @@ p := &props.Props{
 If you need to assert specific log calls, use the generated mock:
 
 ```go
-import mock_logger "github.com/phpboyscout/go-tool-base/mocks/pkg/logger"
+import mock_logger "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/logger"
 
 ml := mock_logger.NewMockLogger(t)
 ml.EXPECT().Warn("low disk space", "free_gb", 1).Once()

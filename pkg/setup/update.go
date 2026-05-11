@@ -19,11 +19,11 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/phpboyscout/go-tool-base/pkg/changelog"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
-	ver "github.com/phpboyscout/go-tool-base/pkg/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (

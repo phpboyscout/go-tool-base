@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/browser"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
 )
 
 // FuzzOpenURL feeds random bytes into [browser.OpenURL] and asserts that

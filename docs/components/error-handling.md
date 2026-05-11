@@ -35,7 +35,7 @@ type ErrorHandler interface {
 ### Creating an ErrorHandler
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 
 // No help channel
 props.ErrorHandler = errorhandling.New(logger, nil)
@@ -142,7 +142,7 @@ Attach hints using `errors.WithHint` or `errorhandling.WrapWithHint`. `ErrorHand
 ```go
 import (
     "github.com/cockroachdb/errors"
-    "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
 
 // Attach a hint to a new error

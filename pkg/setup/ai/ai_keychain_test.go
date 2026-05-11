@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // mockKeychainFormCreator drives the wizard through the keychain

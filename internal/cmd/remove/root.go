@@ -3,7 +3,7 @@ package remove
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func NewCmdRemove(p *props.Props) *cobra.Command {

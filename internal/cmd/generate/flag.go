@@ -12,11 +12,11 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
-	"github.com/phpboyscout/go-tool-base/internal/generator"
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/utils"
+	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 type AddFlagOptions struct {

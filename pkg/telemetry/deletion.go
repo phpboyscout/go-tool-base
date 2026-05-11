@@ -11,9 +11,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/phpboyscout/go-tool-base/pkg/browser"
-	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (

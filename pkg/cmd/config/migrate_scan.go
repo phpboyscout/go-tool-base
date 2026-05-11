@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // envVarNameRe matches the conservative POSIX env var shape shared

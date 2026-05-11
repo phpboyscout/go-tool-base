@@ -20,11 +20,11 @@ Status
 ---
 
 ## Problem Statement
-The current Go module and GitHub repository are named `gtb` (`github.com/phpboyscout/go-tool-base`). Market research has shown that the acronym "GTB" is heavily overloaded across multiple industries (cybersecurity, bioinformatics, spatial analysis). This creates significant brand confusion and SEO issues. To effectively position the framework as the premier "Intelligent Application Lifecycle Framework for Go", the public presence, module path, and repository name must correctly reflect the full unabbreviated name: **Go Tool Base**.
+The current Go module and GitHub repository are named `gtb` (`gitlab.com/phpboyscout/go-tool-base`). Market research has shown that the acronym "GTB" is heavily overloaded across multiple industries (cybersecurity, bioinformatics, spatial analysis). This creates significant brand confusion and SEO issues. To effectively position the framework as the premier "Intelligent Application Lifecycle Framework for Go", the public presence, module path, and repository name must correctly reflect the full unabbreviated name: **Go Tool Base**.
 
 ## Goals
 - Rename the GitHub repository from `gtb` to `go-tool-base`.
-- Rename the Go module path from `github.com/phpboyscout/go-tool-base` to `github.com/phpboyscout/go-tool-base`.
+- Rename the Go module path from `gitlab.com/phpboyscout/go-tool-base` to `gitlab.com/phpboyscout/go-tool-base`.
 - Ensure all internal import paths within the repository are updated to the new module path.
 - Update the CLI generator (`gtb generate skeleton`/`command`) to output the new module path in generated projects.
 - Preserve `gtb` as the executable binary name for brevity in the terminal.
@@ -34,18 +34,18 @@ The current Go module and GitHub repository are named `gtb` (`github.com/phpboys
 - We are not changing the core architecture, interfaces, or logic in this workstream.
 
 ## Public API
-This is a massive breaking change (v2 semantic scale, or handled carefully pre-v1 release) for any consumers already importing `github.com/phpboyscout/go-tool-base`.
+This is a massive breaking change (v2 semantic scale, or handled carefully pre-v1 release) for any consumers already importing `gitlab.com/phpboyscout/go-tool-base`.
 
 Every occurrence of:
-`import "github.com/phpboyscout/go-tool-base/pkg/..."`
+`import "gitlab.com/phpboyscout/go-tool-base/pkg/..."`
 Must become:
-`import "github.com/phpboyscout/go-tool-base/pkg/..."`
+`import "gitlab.com/phpboyscout/go-tool-base/pkg/..."`
 
 ## Data Models
 No changes to structured types or databases.
 
 ## Error Cases
-- **Stale imports in user projects**: Existing projects importing `github.com/phpboyscout/go-tool-base` will eventually fail if GitHub removes the automated redirect, or if they attempt to upgrade to a version tagged only on the new module path.
+- **Stale imports in user projects**: Existing projects importing `gitlab.com/phpboyscout/go-tool-base` will eventually fail if GitHub removes the automated redirect, or if they attempt to upgrade to a version tagged only on the new module path.
 
 ## Testing Strategy
 1. A global find-and-replace will be executed.
@@ -54,8 +54,8 @@ No changes to structured types or databases.
 
 ## Implementation Phases
 1. **Repository Level**: Rename the repository in GitHub Settings from `gtb` to `go-tool-base`.
-2. **Module Level**: Update `go.mod` to `module github.com/phpboyscout/go-tool-base`.
-3. **Internal Imports**: Execute a global sed/find-replace for `"github.com/phpboyscout/go-tool-base/` -> `"github.com/phpboyscout/go-tool-base/` across all `.go` files.
+2. **Module Level**: Update `go.mod` to `module gitlab.com/phpboyscout/go-tool-base`.
+3. **Internal Imports**: Execute a global sed/find-replace for `"gitlab.com/phpboyscout/go-tool-base/` -> `"gitlab.com/phpboyscout/go-tool-base/` across all `.go` files.
 4. **Generator Templates**: Ensure `internal/generator/templates/` files output the correct import paths.
 5. **CI/CD**: Update GitHub Actions workflows, `install.sh`, `install.ps1`, and GoReleaser configurations to reflect the new repository name.
 

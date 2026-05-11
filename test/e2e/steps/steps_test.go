@@ -6,8 +6,8 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
-	"github.com/phpboyscout/go-tool-base/test/e2e/support"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/test/e2e/support"
 )
 
 func TestFeatures(t *testing.T) {

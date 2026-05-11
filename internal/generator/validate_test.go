@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/internal/generator"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 )
 
 func TestValidateName(t *testing.T) {

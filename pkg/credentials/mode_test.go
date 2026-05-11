@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 func TestAvailableModes_DefaultBuildOmitsKeychain(t *testing.T) {

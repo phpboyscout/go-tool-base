@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // newIntegrationProject creates a skeleton project with a mocked command runner
@@ -619,7 +619,7 @@ func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
 				content, err := afero.ReadFile(fs, keychainFile)
 				require.NoError(t, err)
 				assert.Contains(t, string(content),
-					`import _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"`,
+					`import _ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"`,
 					"scaffolded keychain.go must blank-import the subpackage")
 			}
 		})

@@ -5,7 +5,7 @@
 package props
 
 import (
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	mock "github.com/stretchr/testify/mock"
 )
 

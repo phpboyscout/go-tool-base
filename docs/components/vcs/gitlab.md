@@ -40,8 +40,8 @@ If neither `auth.env` nor `auth.value` is present, `NewReleaseProvider` falls ba
 
 ```go
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/vcs/gitlab"
-    "github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/gitlab"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 var provider release.Provider
@@ -90,7 +90,7 @@ io.Copy(outFile, rc)
 Use the `release.Provider` mock — there is no GitLab-specific mock:
 
 ```go
-import mock_release "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+import mock_release "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
 
 mockProvider := mock_release.NewMockProvider(t)
 mockProvider.EXPECT().

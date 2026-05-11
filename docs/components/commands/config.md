@@ -108,7 +108,7 @@ Tool authors can extend the masker via functional options on `NewCmdConfig`:
 
 ```go
 import (
-    cmdconfig "github.com/phpboyscout/go-tool-base/pkg/cmd/config"
+    cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
     "regexp"
 )
 

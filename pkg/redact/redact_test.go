@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 func TestString_Golden(t *testing.T) {

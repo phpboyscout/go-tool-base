@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/direct"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/direct"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 func versionServer(t *testing.T, contentType, body string) *httptest.Server {

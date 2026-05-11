@@ -114,7 +114,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 The `pkg/controls` package uses functional options for controller configuration:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/controls"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 
 // Create controller with defaults
 controller := controls.NewController(ctx)
@@ -145,7 +145,7 @@ controller := controls.NewController(ctx,
 The `pkg/vcs` package uses functional options for configuring repository clones:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 
 // Full clone (default)
 repo, worktree, err := r.OpenInMemory(url, branch)
@@ -184,7 +184,7 @@ repo, worktree, err := r.OpenInMemory(url, branch,
 The `pkg/docs` package uses functional options for TUI configuration:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/docs"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
 
 // Standard documentation browser
 model := docs.New(assets,
@@ -205,7 +205,7 @@ model := docs.New(assets,
 The `pkg/setup/ai` package uses functional options for customizing the AI configuration form:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/setup/ai"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/setup/ai"
 
 // Default AI setup form
 initialiser := ai.NewAIInitialiser()

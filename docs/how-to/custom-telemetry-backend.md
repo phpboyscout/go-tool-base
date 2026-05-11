@@ -49,8 +49,8 @@ import (
 
     "github.com/cockroachdb/errors"
 
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/telemetry"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 const publishTimeout = 5 * time.Second

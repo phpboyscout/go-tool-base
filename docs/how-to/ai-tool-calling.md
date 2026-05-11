@@ -34,7 +34,7 @@ import (
     "encoding/json"
 
     "github.com/invopop/jsonschema"
-    "github.com/phpboyscout/go-tool-base/pkg/chat"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 // Parameter structs must be exported and tagged for schema generation.

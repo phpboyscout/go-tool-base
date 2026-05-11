@@ -7,8 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	cfg "github.com/phpboyscout/go-tool-base/pkg/config"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
+	cfg "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // NewCmdValidate returns the "config validate" subcommand.

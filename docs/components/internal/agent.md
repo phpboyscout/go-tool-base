@@ -82,7 +82,7 @@ import (
     "fmt"
     "os/exec"
 
-    "github.com/phpboyscout/go-tool-base/pkg/chat"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
     "github.com/invopop/jsonschema"
 )
 

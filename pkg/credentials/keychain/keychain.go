@@ -1,5 +1,5 @@
 // Package keychain is the optional OS-keychain backend for
-// github.com/phpboyscout/go-tool-base/pkg/credentials. Importing this
+// gitlab.com/phpboyscout/go-tool-base/pkg/credentials. Importing this
 // package (even as a blank import) registers a go-keyring-backed
 // implementation of [credentials.Backend] at init time, so any
 // credential calls that follow route through the platform keychain:
@@ -22,7 +22,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/zalando/go-keyring"
 
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // Backend implements [credentials.Backend] against the OS keychain

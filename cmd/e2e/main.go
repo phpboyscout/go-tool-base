@@ -13,17 +13,17 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/internal/cmd/generate"
-	"github.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
-	"github.com/phpboyscout/go-tool-base/internal/cmd/remove"
-	"github.com/phpboyscout/go-tool-base/internal/version"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/root"
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
+	"gitlab.com/phpboyscout/go-tool-base/internal/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
 	// Register telemetry initialiser with the setup system.
-	_ "github.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
 )
 
 //go:embed all:assets
@@ -58,9 +58,9 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 			// etc.) from the developer's shell via viper's AutomaticEnv.
 			EnvPrefix: "GTB",
 			ReleaseSource: props.ReleaseSource{
-				Type:  "github",
+				Type:  "gitlab",
 				Owner: "phpboyscout",
-				Repo:  "gtb",
+				Repo:  "go-tool-base",
 			},
 			Features: props.SetFeatures(
 				props.Enable(props.InitCmd),

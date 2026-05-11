@@ -5,7 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 // FuzzValidateBaseURL exercises [chat.ValidateBaseURL] against a corpus

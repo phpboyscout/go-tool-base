@@ -24,7 +24,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 ### Clone and Setup
 
 ```bash
-git clone https://github.com/phpboyscout/go-tool-base.git
+git clone https://gitlab.com/phpboyscout/go-tool-base.git
 cd gtb
 
 # Install dependencies
@@ -367,9 +367,9 @@ import (
     "context"
     "testing"
 
-    "github.com/phpboyscout/go-tool-base/newpackage"
-    "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/newpackage"
+    "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
     "github.com/stretchr/testify/assert"
 )
 

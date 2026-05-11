@@ -48,8 +48,8 @@ import (
 
     "github.com/cockroachdb/errors"
 
-    "github.com/phpboyscout/go-tool-base/pkg/config"
-    "github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 type S3Provider struct {
@@ -148,8 +148,8 @@ Register the provider factory **before** any update operation runs. The cleanest
 package main
 
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "github.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 
     "github.com/myorg/mytool/pkg/vcs/s3"
 )
@@ -170,8 +170,8 @@ If your project has multiple entry points, or you want the provider to be availa
 package s3
 
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "github.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 func init() {

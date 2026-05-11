@@ -115,7 +115,7 @@ Use `apidiff` to detect API-level breaking changes between versions:
 
 ```bash
 go install golang.org/x/exp/cmd/apidiff@latest
-apidiff -m github.com/phpboyscout/go-tool-base v0.9.0 v1.0.0
+apidiff -m gitlab.com/phpboyscout/go-tool-base v0.9.0 v1.0.0
 ```
 
 Breaking changes to Stable-tier APIs detected by `apidiff` must not be merged

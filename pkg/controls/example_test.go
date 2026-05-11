@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 )
 
 func ExampleNewController() {

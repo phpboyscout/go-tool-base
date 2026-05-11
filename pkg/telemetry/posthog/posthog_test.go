@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 func newTestServer(t *testing.T) (*httptest.Server, *[]byte) {

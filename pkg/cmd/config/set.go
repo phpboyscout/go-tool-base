@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // setArgCount is the exact number of positional arguments required by "config set".

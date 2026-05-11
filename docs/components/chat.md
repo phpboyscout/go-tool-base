@@ -43,7 +43,7 @@ The `Config` struct accepts the following fields:
 | `MaxParallelTools` | `int` | Maximum number of tool calls executing concurrently. Zero uses the default (5). Only effective when `ParallelTools` is true. |
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/chat"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 
 cfg := chat.Config{
     Provider:     chat.ProviderOpenAI, // or ProviderClaude, ProviderGemini, ProviderClaudeLocal, ProviderOpenAICompatible
@@ -145,7 +145,7 @@ import (
     "encoding/json"
     "os"
 
-    "github.com/phpboyscout/go-tool-base/pkg/chat"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
     "github.com/cockroachdb/errors"
 )
 

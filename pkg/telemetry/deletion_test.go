@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func TestHTTPDeletionRequestor_Success(t *testing.T) {

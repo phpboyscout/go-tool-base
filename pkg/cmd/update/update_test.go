@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/internal/exectest"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/update"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
+	"gitlab.com/phpboyscout/go-tool-base/internal/exectest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func TestUpdate_SemVerValidation(t *testing.T) {

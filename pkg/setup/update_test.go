@@ -10,10 +10,10 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	mockRelease "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
+	mockRelease "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func createTestRelease(t *testing.T, tagName, body string, draft bool) release.Release {

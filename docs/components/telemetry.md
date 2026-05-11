@@ -280,7 +280,7 @@ The factory returns `any` to avoid an import cycle. The returned value must impl
 The `pkg/telemetry/datadog` package provides a backend that sends events to Datadog's HTTP Logs Intake API. Events are mapped to Datadog's native log format with `ddsource`, `ddtags`, `service`, and `hostname` fields — they appear immediately in Log Explorer without custom parsing.
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/telemetry/datadog"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/datadog"
 
 Telemetry: props.TelemetryConfig{
     Backend: func(p *props.Props) any {
@@ -317,7 +317,7 @@ Telemetry: props.TelemetryConfig{
 The `pkg/telemetry/posthog` package provides a backend that sends events to PostHog's Capture API using batch mode. Events map directly to PostHog's event model — they appear in the Events tab with all properties queryable.
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/telemetry/posthog"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/posthog"
 
 Telemetry: props.TelemetryConfig{
     Backend: func(p *props.Props) any {

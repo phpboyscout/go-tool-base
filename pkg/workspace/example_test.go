@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/phpboyscout/go-tool-base/pkg/workspace"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/workspace"
 )
 
 func ExampleDetect() {

@@ -9,11 +9,11 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	icmd "github.com/phpboyscout/go-tool-base/internal/cmd"
-	"github.com/phpboyscout/go-tool-base/internal/generator"
-	"github.com/phpboyscout/go-tool-base/pkg/forms"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/utils"
+	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // flagFieldCount is the number of colon-separated fields in a serialised flag string.

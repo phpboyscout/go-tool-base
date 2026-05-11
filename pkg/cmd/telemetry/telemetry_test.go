@@ -11,10 +11,10 @@ import (
 	testifymock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	cmdtelemetry "github.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func setupTestProps(t *testing.T) (*props.Props, *viper.Viper) {

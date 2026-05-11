@@ -73,7 +73,7 @@ By default, a release without `checksums.txt` logs a warning and the update proc
 ```go
 package main
 
-import "github.com/phpboyscout/go-tool-base/pkg/setup"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 
 func main() {
     setup.DefaultRequireChecksum = true
@@ -184,7 +184,7 @@ setup.DefaultRequireExternalCrosscheck = true
 ### Custom resolvers (third-party key source)
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/setup"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 
 type VaultResolver struct { /* ... */ }
 

@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/afero"
 	"golang.org/x/crypto/ssh"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
 const (

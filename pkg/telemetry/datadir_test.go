@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/viper"
 
-	mockcfg "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
+	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 func TestResolveDataDir_ConfigDir(t *testing.T) {

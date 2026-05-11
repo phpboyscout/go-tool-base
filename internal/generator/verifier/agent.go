@@ -7,10 +7,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/phpboyscout/go-tool-base/internal/agent"
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/internal/agent"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // AgentVerifier implements the Verifier interface using an autonomous agent loop.

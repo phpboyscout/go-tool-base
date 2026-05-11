@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // ResolveToken resolves an authentication token from a config subtree.

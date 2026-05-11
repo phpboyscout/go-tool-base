@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/changelog"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
 )
 
 const filePerm = 0o644

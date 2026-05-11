@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 `pkg/credentials` is the shared taxonomy for how GTB — and tools built on GTB — persist user-supplied secrets. It defines three storage modes, a [`Backend`](#backend-interface) interface, a capability check (`KeychainAvailable`), a live-reachability probe (`Probe`), and two sentinel errors. Consumers include the interactive setup wizards (`pkg/setup/ai`, `pkg/setup/github`), the runtime credential resolvers (`pkg/chat`, `pkg/vcs`), the doctor subsystem, and the config masker.
 
-The OS-keychain implementation lives in a dedicated subpackage (`github.com/phpboyscout/go-tool-base/pkg/credentials/keychain`). Downstream tools opt in by blank-importing that package from their `cmd/*/main`; regulated or air-gapped consumers omit the import, run with the stub backend, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of their linked binary. SBOM tools that inspect the compiled artefact (syft, cyclonedx-gomod on the linked binary) see a clean dependency surface in that case.
+The OS-keychain implementation lives in a dedicated subpackage (`gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain`). Downstream tools opt in by blank-importing that package from their `cmd/*/main`; regulated or air-gapped consumers omit the import, run with the stub backend, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of their linked binary. SBOM tools that inspect the compiled artefact (syft, cyclonedx-gomod on the linked binary) see a clean dependency surface in that case.
 
 ## Storage Modes
 
@@ -30,7 +30,7 @@ Three `Mode` values are supported:
 import (
     "context"
 
-    "github.com/phpboyscout/go-tool-base/pkg/credentials"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // Which modes can this build offer to the user?
@@ -100,7 +100,7 @@ To activate OS keychain support in a tool built on GTB:
 ```go
 // cmd/mytool/main.go
 import (
-    _ "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"  // registers Backend at init
+    _ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"  // registers Backend at init
     // …
 )
 ```

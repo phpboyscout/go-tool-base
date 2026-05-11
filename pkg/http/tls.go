@@ -3,7 +3,7 @@ package http
 import (
 	"crypto/tls"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // DefaultTLSConfig returns the hardened TLS configuration shared across

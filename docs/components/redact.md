@@ -38,7 +38,7 @@ Both invariants 1 and 2 are enforced by `FuzzRedactString` in CI.
 ## API
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/redact"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 
 // Clean a free-form string before shipping.
 clean := redact.String(userInput)

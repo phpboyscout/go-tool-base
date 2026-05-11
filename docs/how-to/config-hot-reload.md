@@ -23,7 +23,7 @@ The `watchConfig` loop starts automatically when the container is loaded from a 
 Create a struct that implements `config.Observable`:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/config"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 
 type DatabaseReconfigurer struct {
     pool *sql.DB

@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/controls"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func testLogger() logger.Logger {

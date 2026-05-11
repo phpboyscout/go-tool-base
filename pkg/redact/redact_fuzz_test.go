@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 // FuzzRedactString asserts the core invariants of [redact.String]:

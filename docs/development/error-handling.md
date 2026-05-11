@@ -137,7 +137,7 @@ Rather than embedding multi-line suggestion text directly in error messages, att
 ```go
 import (
     "github.com/cockroachdb/errors"
-    "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
 
 // Attach a hint to a new error

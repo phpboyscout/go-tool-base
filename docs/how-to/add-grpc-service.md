@@ -65,8 +65,8 @@ Use `grpc.Register` — a single call that creates the server, wires health chec
 
 ```go
 import (
-    gtbgrpc "github.com/phpboyscout/go-tool-base/pkg/grpc"
-    "github.com/phpboyscout/go-tool-base/pkg/controls"
+    gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
     pb "github.com/my-org/mytool/gen/proto/myservice/v1"
     "google.golang.org/grpc"
 )
@@ -155,7 +155,7 @@ If you need more control (e.g. custom server options, interceptors), use the low
 import (
     "google.golang.org/grpc"
     grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware/v2"
-    gtbgrpc "github.com/phpboyscout/go-tool-base/pkg/grpc"
+    gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 )
 
 // Create server with interceptors

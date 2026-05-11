@@ -14,8 +14,8 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/direct"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/direct"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 func TestDirectProvider_GetReleaseByTag(t *testing.T) {

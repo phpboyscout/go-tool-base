@@ -3,7 +3,7 @@ package props_test
 import (
 	"fmt"
 
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func ExampleSetFeatures() {

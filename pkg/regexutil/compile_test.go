@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
 )
 
 func TestCompileBounded_AcceptsValidPatterns(t *testing.T) {

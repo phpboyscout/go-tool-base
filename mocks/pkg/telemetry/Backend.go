@@ -7,7 +7,7 @@ package telemetry
 import (
 	"context"
 
-	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 	mock "github.com/stretchr/testify/mock"
 )
 

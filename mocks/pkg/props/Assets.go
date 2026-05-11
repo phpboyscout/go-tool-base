@@ -7,7 +7,7 @@ package props
 import (
 	"io/fs"
 
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	mock "github.com/stretchr/testify/mock"
 )
 

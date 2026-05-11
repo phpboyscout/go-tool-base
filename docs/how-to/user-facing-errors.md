@@ -43,7 +43,7 @@ A hint is a short, actionable suggestion shown to the user alongside the error m
 ```go
 import (
     "github.com/cockroachdb/errors"
-    "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
 
 // Attach a hint to an existing error
@@ -145,7 +145,7 @@ if errors.Is(err, ErrTokenExpired) {
 For commands that are planned but not yet built:
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 
 RunE: func(cmd *cobra.Command, args []string) error {
     return errorhandling.NewErrNotImplemented("https://github.com/my-org/mytool/issues/42")

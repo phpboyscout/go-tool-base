@@ -14,12 +14,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
-	mockConfig "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/controls"
-	gtbgrpc "github.com/phpboyscout/go-tool-base/pkg/grpc"
-	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // freePort binds a listener on :0 to obtain a free port, closes it, and

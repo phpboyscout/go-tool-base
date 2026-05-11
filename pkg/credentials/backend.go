@@ -13,7 +13,7 @@ import (
 // were compiled out entirely.
 //
 // Real backends are registered by a downstream optional module —
-// github.com/phpboyscout/go-tool-base/pkg/credentials/keychain — via
+// gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain — via
 // [RegisterBackend]. Tool authors may also plug in a custom backend
 // (Vault, AWS SSM, 1Password Connect, …) by implementing this
 // interface and calling RegisterBackend during program init. See

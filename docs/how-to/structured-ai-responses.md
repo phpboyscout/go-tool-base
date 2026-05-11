@@ -49,8 +49,8 @@ Pass `ResponseSchema` to enforce the output structure. The framework generates t
 import (
     "context"
 
-    "github.com/phpboyscout/go-tool-base/pkg/chat"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func analyseCode(ctx context.Context, p *props.Props, code string) (*CodeReview, error) {
@@ -204,7 +204,7 @@ chat.Config{
 In tests, avoid live API calls by mocking `ChatClient`:
 
 ```go
-import mock_chat "github.com/phpboyscout/go-tool-base/mocks/pkg/chat"
+import mock_chat "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/chat"
 
 func TestAnalyseCode(t *testing.T) {
     mockClient := mock_chat.NewMockChatClient(t)

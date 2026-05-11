@@ -115,8 +115,8 @@ package root
 
 import (
     "github.com/cockroachdb/errors"
-    "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-    p "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
     "github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package version
 import (
 	"runtime/debug"
 
-	pkgversion "github.com/phpboyscout/go-tool-base/pkg/version"
+	pkgversion "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 var (

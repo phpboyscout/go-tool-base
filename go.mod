@@ -1,4 +1,4 @@
-module github.com/phpboyscout/go-tool-base
+module gitlab.com/phpboyscout/go-tool-base
 
 go 1.26.1
 
@@ -197,7 +197,7 @@ require (
 )
 
 tool (
-	github.com/phpboyscout/go-tool-base/cmd/changelog
-	github.com/phpboyscout/go-tool-base/cmd/docs
 	github.com/vektra/mockery/v3
+	gitlab.com/phpboyscout/go-tool-base/cmd/changelog
+	gitlab.com/phpboyscout/go-tool-base/cmd/docs
 )

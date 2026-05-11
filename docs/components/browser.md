@@ -20,7 +20,7 @@ The package exists to guarantee four invariants that cannot be enforced after a 
 ## API
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/browser"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/browser"
 
 err := browser.OpenURL(ctx, "https://example.com")
 ```
@@ -39,8 +39,8 @@ Each failure returns a typed sentinel:
 
 | Failure | Error |
 |---------|-------|
-| Empty, too long, control chars, parse failure | [`ErrInvalidURL`](https://pkg.go.dev/github.com/phpboyscout/go-tool-base/pkg/browser#ErrInvalidURL) |
-| Disallowed scheme | [`ErrDisallowedScheme`](https://pkg.go.dev/github.com/phpboyscout/go-tool-base/pkg/browser#ErrDisallowedScheme) |
+| Empty, too long, control chars, parse failure | [`ErrInvalidURL`](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/browser#ErrInvalidURL) |
+| Disallowed scheme | [`ErrDisallowedScheme`](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/browser#ErrDisallowedScheme) |
 | Context cancelled before opener invoked | `ctx.Err()` |
 | OS URL handler failed | Wrapped underlying error |
 

@@ -2,8 +2,8 @@
 package cmd
 
 import (
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/workspace"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/workspace"
 )
 
 // ResolveProjectPath resolves the project root from the given path.

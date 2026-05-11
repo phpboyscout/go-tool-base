@@ -174,9 +174,9 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
 
-    mocks_config "github.com/phpboyscout/go-tool-base/mocks/pkg/config"
-    mocks_controls "github.com/phpboyscout/go-tool-base/mocks/pkg/controls"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    mocks_config "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+    mocks_controls "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/controls"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestMyFunction(t *testing.T) {
@@ -261,15 +261,15 @@ with-expecter: true
 dir: "mocks/{{.PackageName}}"
 filename: "{{.InterfaceName}}.go"
 packages:
-  github.com/phpboyscout/go-tool-base/pkg/config:
+  gitlab.com/phpboyscout/go-tool-base/pkg/config:
     interfaces:
       Containable:
       Observable:
       EmbeddedFileReader:
-  github.com/phpboyscout/go-tool-base/pkg/controls:
+  gitlab.com/phpboyscout/go-tool-base/pkg/controls:
     interfaces:
       Controllable:
-  github.com/phpboyscout/go-tool-base/pkg/vcs:
+  gitlab.com/phpboyscout/go-tool-base/pkg/vcs:
     interfaces:
       GitHubClient:
       RepoLike:

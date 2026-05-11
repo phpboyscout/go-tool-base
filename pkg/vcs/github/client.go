@@ -9,9 +9,9 @@ import (
 	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
 const (

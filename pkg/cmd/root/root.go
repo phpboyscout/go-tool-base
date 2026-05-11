@@ -13,27 +13,27 @@ import (
 
 	"github.com/njayp/ophis"
 
-	cmdchangelog "github.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
-	cmdconfig "github.com/phpboyscout/go-tool-base/pkg/cmd/config"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/docs"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/doctor"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/initialise"
-	cmdtelemetry "github.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/update"
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/version"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-	"github.com/phpboyscout/go-tool-base/pkg/output"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
-	"github.com/phpboyscout/go-tool-base/pkg/telemetry"
+	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
+	cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/docs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/doctor"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/initialise"
+	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Compile-time check: *telemetry.Collector implements props.TelemetryCollector.

@@ -49,7 +49,7 @@ func (s *MyService) Status() {
 Create a new `Controller` in your command's execution block.
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/controls"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 
 func runServer(ctx context.Context) {
     ctrl := controls.NewController(ctx)

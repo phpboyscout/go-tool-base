@@ -59,11 +59,11 @@ import (
     "embed"
     "os"
 
-    "github.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
-    "github.com/phpboyscout/go-tool-base/pkg/props"
-    "github.com/phpboyscout/go-tool-base/pkg/version"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/version"
     "github.com/spf13/afero"
 )
 

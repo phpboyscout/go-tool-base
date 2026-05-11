@@ -22,7 +22,7 @@ The `Tool` struct is constructed once at startup and injected into `Props`. Fill
 
 ```go
 import (
-    "github.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 tool := props.Tool{

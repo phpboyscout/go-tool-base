@@ -9,8 +9,8 @@ import (
 	"github.com/invopop/jsonschema"
 	"google.golang.org/genai"
 
-	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func init() {

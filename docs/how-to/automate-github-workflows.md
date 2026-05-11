@@ -37,7 +37,7 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 ### Creating the Client
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 
 client, err := github.NewGitHubClient(props.Config.Sub("github"))
 if err != nil {
@@ -226,7 +226,7 @@ See **[Release Provider](../components/vcs/release.md)** for the full interface.
 Use the generated mock to test commands that depend on `GHClient`:
 
 ```go
-import mock_github "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
+import mock_github "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
 
 mockClient := mock_github.NewMockGitHubClient(t)
 mockClient.EXPECT().

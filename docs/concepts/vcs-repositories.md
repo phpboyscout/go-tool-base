@@ -88,7 +88,7 @@ type RepoLike interface {
 ### Creating a Repo
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs/repo"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
 
 r, err := repo.NewRepo(props)
 ```
@@ -147,7 +147,7 @@ The target `afero.Fs` is typically `props.FS` — an `afero.MemMapFs` in tests, 
 ### Creating a Client
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 
 client, err := github.NewGitHubClient(cfg)
 ```
@@ -193,7 +193,7 @@ latest, err := provider.GetLatestRelease(ctx)
 ## `pkg/vcs/gitlab` — GitLab Release Provider
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/vcs/gitlab"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/gitlab"
 
 provider, err := gitlab.NewReleaseProvider(cfg)
 // provider implements release.Provider

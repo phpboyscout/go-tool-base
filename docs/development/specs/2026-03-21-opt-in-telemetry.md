@@ -1317,7 +1317,7 @@ var otelAuth string // Base64-encoded "<instanceID>:<apiKey>"
 
 Goreleaser ldflags (both build targets):
 ```
--X github.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+-X gitlab.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
 ```
 
 The `GTB_OTEL_AUTH` CI secret must be configured in the GitHub repository settings. The value is `base64("<instanceID>:<serviceAccountToken>")`. The Grafana Cloud free tier provides 50 GB/month log ingestion with 14-day retention — more than sufficient for CLI telemetry.
@@ -1530,7 +1530,7 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
     }
 
     if hasTelemetry {
-        toolDict[jen.Id("Telemetry")] = jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict)
+        toolDict[jen.Id("Telemetry")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict)
     }
 
     return toolDict
@@ -1544,7 +1544,7 @@ func getFeatureCmd(feature string) jen.Code {
     switch feature {
     // ... existing cases ...
     case "telemetry":
-        return jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "TelemetryCmd")
+        return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryCmd")
     }
     return nil
 }

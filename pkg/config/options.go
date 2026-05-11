@@ -3,7 +3,7 @@ package config
 import (
 	"io"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // ContainerOption configures optional behavior for config containers.

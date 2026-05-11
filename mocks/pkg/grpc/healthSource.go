@@ -7,7 +7,7 @@ package grpc
 import (
 	"context"
 
-	"github.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	mock "github.com/stretchr/testify/mock"
 )
 

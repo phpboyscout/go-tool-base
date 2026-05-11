@@ -93,11 +93,11 @@ mytool config migrate-credentials --yes
 
 ### 5. Migrate to the OS keychain
 
-The keychain target requires the tool's `main` to blank-import `github.com/phpboyscout/go-tool-base/pkg/credentials/keychain`. Without that, the command refuses:
+The keychain target requires the tool's `main` to blank-import `gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain`. Without that, the command refuses:
 
 ```
 Error: keychain target requested but no keychain-capable Backend is registered
-Hint: Import github.com/phpboyscout/go-tool-base/pkg/credentials/keychain in your
+Hint: Import gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain in your
       tool's main, or pass --target=env.
 ```
 

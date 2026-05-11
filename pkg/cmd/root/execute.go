@@ -6,8 +6,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // Execute runs the root command with centralized error handling.

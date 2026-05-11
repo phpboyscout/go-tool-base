@@ -9,9 +9,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // ownerRWX is the Unix file mode mask for owner read/write/execute permissions.

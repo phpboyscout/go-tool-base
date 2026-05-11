@@ -4,12 +4,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/output"
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/setup"
-	_ "github.com/phpboyscout/go-tool-base/pkg/setup/ai"
-	_ "github.com/phpboyscout/go-tool-base/pkg/setup/bitbucket"
-	_ "github.com/phpboyscout/go-tool-base/pkg/setup/github"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/ai"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/bitbucket"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/github"
 )
 
 // InitOption configures the init command for testability.

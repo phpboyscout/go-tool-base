@@ -84,7 +84,7 @@ The `generate` subcommand structure allows future additions (e.g. `validate`, `d
 
 In `go.mod`:
 ```
-tool github.com/phpboyscout/go-tool-base/cmd/changelog
+tool gitlab.com/phpboyscout/go-tool-base/cmd/changelog
 ```
 
 In `go:generate`:

@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 const (

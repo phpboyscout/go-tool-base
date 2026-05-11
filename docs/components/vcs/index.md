@@ -50,7 +50,7 @@ Returns an empty string when nothing is found. Callers decide whether that is an
 import (
     "context"
 
-    "github.com/phpboyscout/go-tool-base/pkg/vcs"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
 // Resolve a GitHub token from props.Config.Sub("github") with the

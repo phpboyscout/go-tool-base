@@ -138,7 +138,7 @@ GTB now honours full API stability as promised in `docs/about/api-stability.md`.
 - Before modifying any public type, interface, function signature, or exported constant in `pkg/`, check its stability tier. If Stable or Beta, the change **must** be backward-compatible.
 - If a breaking change is genuinely unavoidable, it must include: (1) a clear justification in the commit body, (2) a `BREAKING CHANGE:` footer to trigger a major bump, and (3) a migration guide entry in `docs/migration/`.
 - Deprecations must be annotated with `// Deprecated:` and survive at least one minor release before removal.
-- Use `apidiff` to verify no unintended breaking changes before merging: `apidiff -m github.com/phpboyscout/go-tool-base <previous-tag> .`
+- Use `apidiff` to verify no unintended breaking changes before merging: `apidiff -m gitlab.com/phpboyscout/go-tool-base <previous-tag> .`
 - `internal/` packages remain unstable and are not subject to this policy.
 
 The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
@@ -219,11 +219,11 @@ Use `pkg/redact` for any free-form string written to telemetry, distributed logs
 
 ### Credential Storage
 
-User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `pkg/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `github.com/phpboyscout/go-tool-base/pkg/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See `pkg/credentials`, `pkg/credentials/keychain`, and `docs/development/specs/2026-04-02-credential-storage-hardening.md`.
+User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `pkg/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See `pkg/credentials`, `pkg/credentials/keychain`, and `docs/development/specs/2026-04-02-credential-storage-hardening.md`.
 
 ## Linting
 
-Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `github.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.
+Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `gitlab.com/phpboyscout/go-tool-base`. Disabled linters: `perfsprint`, `wrapcheck`, `wsl`.
 
 **Lint resolution order** (simplest to most complex): `errcheck` → `gocritic` → `staticcheck` → `exhaustive` → `nestif` → `cyclop`. Run tests after every structural fix.
 

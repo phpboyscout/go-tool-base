@@ -257,7 +257,7 @@ func generateNewCmdFunction(f *jen.File, data CommandData) {
 	}
 
 	params := []jen.Code{
-		jen.Id("props").Op("*").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props"),
+		jen.Id("props").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
 	}
 
 	f.Func().Id("NewCmd" + data.PascalName).Params(params...).Params(returns...).BlockFunc(func(g *jen.Group) {
@@ -290,20 +290,20 @@ func CommandInitializer(data CommandData) *jen.File {
 
 	f.Line()
 	f.Func().Id("init").Params().Block(
-		jen.Qual("github.com/phpboyscout/go-tool-base/pkg/setup", "Register").Call(
-			jen.Qual("github.com/phpboyscout/go-tool-base/pkg/props", "FeatureCmd").Call(jen.Lit(data.Name)),
-			jen.Index().Qual("github.com/phpboyscout/go-tool-base/pkg/setup", "InitialiserProvider").Values(
-				jen.Func().Params(jen.Id("p").Op("*").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props")).Qual("github.com/phpboyscout/go-tool-base/pkg/setup", "Initialiser").Block(
+		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Register").Call(
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "FeatureCmd").Call(jen.Lit(data.Name)),
+			jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "InitialiserProvider").Values(
+				jen.Func().Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props")).Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Initialiser").Block(
 					jen.If(jen.Id("skip"+data.PascalName)).Block(jen.Return(jen.Nil())),
 					jen.Return(jen.Op("&").Id(data.PascalName+"Initialiser").Block()),
 				),
 			),
-			jen.Index().Qual("github.com/phpboyscout/go-tool-base/pkg/setup", "SubcommandProvider").Values(
-				jen.Func().Params(jen.Id("p").Op("*").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props")).Index().Op("*").Qual("github.com/spf13/cobra", "Command").Block(
+			jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "SubcommandProvider").Values(
+				jen.Func().Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props")).Index().Op("*").Qual("github.com/spf13/cobra", "Command").Block(
 					jen.Return(jen.Index().Op("*").Qual("github.com/spf13/cobra", "Command").Values(jen.Id("NewCmdInit"+data.PascalName).Call(jen.Id("p")))),
 				),
 			),
-			jen.Index().Qual("github.com/phpboyscout/go-tool-base/pkg/setup", "FeatureFlag").Values(
+			jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "FeatureFlag").Values(
 				jen.Func().Params(jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command")).Block(
 					jen.Id("cmd").Dot("Flags").Call().Dot("BoolVar").Call(
 						jen.Op("&").Id("skip"+data.PascalName),
@@ -325,17 +325,17 @@ func CommandInitializer(data CommandData) *jen.File {
 		jen.Return(jen.Lit(data.Name)),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName + "Initialiser")).Id("IsConfigured").Params(jen.Id("cfg").Qual("github.com/phpboyscout/go-tool-base/pkg/config", "Containable")).Bool().Block(
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName + "Initialiser")).Id("IsConfigured").Params(jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/config", "Containable")).Bool().Block(
 		jen.Return(jen.Id("cfg").Dot("IsSet").Call(jen.Lit(data.Name))),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("github.com/phpboyscout/go-tool-base/pkg/config", "Containable")).Error().Block(
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/config", "Containable")).Error().Block(
 		jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("cfg"))),
 	)
 
 	f.Line()
 	f.Func().Id("NewCmdInit"+data.PascalName).Params(
-		jen.Id("p").Op("*").Qual("github.com/phpboyscout/go-tool-base/pkg/props", "Props"),
+		jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
 	).Op("*").Qual("github.com/spf13/cobra", "Command").Block(
 		jen.Return(jen.Op("&").Qual("github.com/spf13/cobra", "Command").Values(jen.Dict{
 			jen.Id("Use"):   jen.Lit(data.Name),
@@ -686,7 +686,7 @@ func CommandConfigValidation(data CommandData) string {
 	sb.WriteString("package " + data.Package + "\n\n")
 	sb.WriteString("import (\n")
 	sb.WriteString("\t\"github.com/cockroachdb/errors\"\n")
-	sb.WriteString("\t\"github.com/phpboyscout/go-tool-base/pkg/config\"\n")
+	sb.WriteString("\t\"gitlab.com/phpboyscout/go-tool-base/pkg/config\"\n")
 	sb.WriteString(")\n\n")
 
 	fmt.Fprintf(&sb, "// %sConfig describes the configuration keys consumed by %s.\n", data.PascalName, data.Name)
@@ -783,8 +783,8 @@ func getCleanImports(rawImports []string, withInitializer, withConfigValidation 
 	// Add base imports first
 	baseImports := []string{
 		"context",
-		"github.com/phpboyscout/go-tool-base/pkg/props",
-		"github.com/phpboyscout/go-tool-base/pkg/errorhandling",
+		"gitlab.com/phpboyscout/go-tool-base/pkg/props",
+		"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling",
 	}
 
 	if withInitializer {
@@ -792,7 +792,7 @@ func getCleanImports(rawImports []string, withInitializer, withConfigValidation 
 	}
 
 	if withConfigValidation {
-		baseImports = append(baseImports, "github.com/phpboyscout/go-tool-base/pkg/config")
+		baseImports = append(baseImports, "gitlab.com/phpboyscout/go-tool-base/pkg/config")
 	}
 
 	for _, imp := range baseImports {

@@ -3,7 +3,7 @@ package props
 import (
 	"slices"
 
-	"github.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
 
 // FeatureCmd identifies a built-in feature that can be enabled or disabled.

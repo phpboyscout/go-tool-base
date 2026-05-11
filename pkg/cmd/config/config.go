@@ -7,7 +7,7 @@ package config
 import (
 	"github.com/spf13/cobra"
 
-	p "github.com/phpboyscout/go-tool-base/pkg/props"
+	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // NewCmdConfig returns the top-level "config" command with all subcommands

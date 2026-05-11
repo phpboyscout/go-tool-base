@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 func (g *Generator) resolveProvider() chat.Provider {

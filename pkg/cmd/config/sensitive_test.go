@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 )
 
 func TestNewMasker_DefaultsNotMutatedByOptions(t *testing.T) {

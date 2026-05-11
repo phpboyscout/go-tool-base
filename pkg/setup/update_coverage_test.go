@@ -23,12 +23,12 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	mockRelease "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
-	gtbhttp "github.com/phpboyscout/go-tool-base/pkg/http"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/vcs/release"
-	"github.com/phpboyscout/go-tool-base/pkg/version"
+	mockRelease "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // Helper to create a tar.gz buffer

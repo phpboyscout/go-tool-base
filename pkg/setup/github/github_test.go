@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	gossh "golang.org/x/crypto/ssh"
 
-	mockVCS "github.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	githubvcs "github.com/phpboyscout/go-tool-base/pkg/vcs/github"
+	mockVCS "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
 // generateUnencryptedKeyPEM generates a fresh ed25519 private key in OpenSSH PEM format.

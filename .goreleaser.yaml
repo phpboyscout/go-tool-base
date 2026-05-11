@@ -1,6 +1,6 @@
 version: 2
 project_name: gtb
-force_token: github
+force_token: gitlab
 before:
   hooks:
     - go mod tidy
@@ -21,8 +21,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X github.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X github.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
-      - -X github.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+      - -X gitlab.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
+      - -X gitlab.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
   - id: gtb
     main: ./cmd/gtb
     env:
@@ -38,8 +38,8 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X github.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X github.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
-      - -X github.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
+      - -X gitlab.com/phpboyscout/go-tool-base/internal/version.version={{.Version}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.commit={{.Commit}} -X gitlab.com/phpboyscout/go-tool-base/internal/version.date={{.Date}}
+      - -X gitlab.com/phpboyscout/go-tool-base/internal/cmd/root.otelAuth={{.Env.GTB_OTEL_AUTH}}
 
 notarize:
   macos:
@@ -89,7 +89,7 @@ release:
   make_latest: true
   mode: replace
 changelog:
-  use: "github"
+  use: "gitlab"
   groups:
     - title: Features
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
@@ -104,10 +104,11 @@ changelog:
       - "^docs:"
       - "^test:"
       - "^ci:"
-github_urls:
-  api: https://api.github.com/
-  upload: https://uploads.github.com/
-  download: https://github.com/
+gitlab_urls:
+  api: https://gitlab.com/api/v4/
+  download: https://gitlab.com/
+  use_package_registry: true
+  use_job_token: true
   skip_tls_verify: false
 snapshot:
   version_template: "{{ incpatch .Version }}-dev{{.ShortCommit}}"
@@ -121,7 +122,7 @@ homebrew_casks:
       name: goreleaserbot
       email: matt@phpboyscout.com
     commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-    homepage: "https://github.com/phpboyscout/go-tool-base"
+    homepage: "https://gitlab.com/phpboyscout/go-tool-base"
     description: "A helper utility for interacting and managing gtb repos and resources"
     dependencies:
       - formula: go

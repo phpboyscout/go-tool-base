@@ -73,7 +73,7 @@ package mypackage_test
 import (
     "testing"
 
-    "github.com/phpboyscout/go-tool-base/internal/testutil"
+    "gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 )
 
 func TestSomethingIntegration(t *testing.T) {

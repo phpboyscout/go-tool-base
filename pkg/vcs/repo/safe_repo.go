@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/spf13/afero"
 
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // ThreadSafeRepo wraps a *Repo with a mutex so that all RepoLike methods are safe

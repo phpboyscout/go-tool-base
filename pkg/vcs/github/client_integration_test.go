@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
-	"github.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 func ensureIntegrationPrerequisites(t *testing.T, client GitHubClient, owner, repo, branchBase, branchHead string) *github.PullRequest {

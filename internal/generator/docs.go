@@ -18,7 +18,7 @@ import (
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 var ErrInvalidPackageName = errors.Newf("invalid package name")

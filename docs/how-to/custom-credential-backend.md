@@ -71,7 +71,7 @@ import (
 	"github.com/cockroachdb/errors"
 	vaultapi "github.com/hashicorp/vault/api"
 
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // Backend writes secrets under <mount>/data/<prefix>/<service>/<account>.
@@ -235,7 +235,7 @@ In your tool's `main` package, register the backend before the first credential 
         "log"
         "os"
 
-        "github.com/phpboyscout/go-tool-base/pkg/credentials"
+        "gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
         "yourtool/credentials/vault"
     )
 
@@ -286,8 +286,8 @@ Register your Vault backend in an integration test, run the resolver, assert the
 import (
     "testing"
 
-    "github.com/phpboyscout/go-tool-base/pkg/credentials"
-    "github.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
 )
 
 func TestResolverReadsFromBackend(t *testing.T) {

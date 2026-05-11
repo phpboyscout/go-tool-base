@@ -4,7 +4,7 @@
 
 ## Overview
 
-This tool was generated using [gtb](https://pages.github.com/phpboyscout/go-tool-base).
+This tool was generated using [gtb](https://pages.gitlab.com/phpboyscout/go-tool-base).
 
 ## Usage
 

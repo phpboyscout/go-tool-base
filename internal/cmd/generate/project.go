@@ -10,10 +10,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/internal/generator"
-	"github.com/phpboyscout/go-tool-base/pkg/forms"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
-	"github.com/phpboyscout/go-tool-base/pkg/utils"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 type SkeletonOptions struct {

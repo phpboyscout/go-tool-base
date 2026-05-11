@@ -7,7 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/phpboyscout/go-tool-base/pkg/regexutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
 )
 
 // FuzzCompileBounded exercises [regexutil.CompileBounded] against a

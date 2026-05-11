@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":disableDependencyDashboard"
+  ],
+  "platform": "gitlab",
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "prCreation": "immediate",
+  "dependencyDashboard": false,
+  "automerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "rebase",
+  "packageRules": [
+    {
+      "description": "Auto-merge patch + minor for trusted ecosystems; majors require human review",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true
+    },
+    {
+      "description": "Major bumps land as draft MRs for review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "draftPR": true
+    },
+    {
+      "description": "Go module updates land grouped on Mondays to keep go.sum churn low",
+      "matchManagers": ["gomod"],
+      "schedule": ["before 9am on monday"],
+      "groupName": "gomod-weekly"
+    },
+    {
+      "description": "GitLab CI image bumps grouped similarly",
+      "matchManagers": ["gitlabci"],
+      "schedule": ["before 9am on monday"],
+      "groupName": "gitlab-ci-weekly"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "automerge": true,
+    "labels": ["security"]
+  }
+}

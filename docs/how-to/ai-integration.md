@@ -247,7 +247,7 @@ Beyond the `docs ask` command, you can use the AI chat client directly in your c
 ### Basic Chat
 
 ```go
-import "github.com/phpboyscout/go-tool-base/pkg/chat"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 
 func analyzeError(ctx context.Context, p *props.Props, errorLog string) (string, error) {
     client, err := chat.New(ctx, p, chat.Config{

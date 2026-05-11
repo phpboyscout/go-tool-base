@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zalando/go-keyring"
 
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
-	kc "github.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	kc "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
 )
 
 // TestBackend_RoundTrip exercises Store → Retrieve → Delete against

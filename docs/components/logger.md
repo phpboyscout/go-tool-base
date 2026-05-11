@@ -118,7 +118,7 @@ This is the default for all GTB-generated CLI tools.
 ```go
 import (
     "os"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 l := logger.NewCharm(os.Stderr,
@@ -154,7 +154,7 @@ JSON pipelines, or any slog ecosystem library.
 ```go
 import (
     "log/slog"
-    "github.com/phpboyscout/go-tool-base/pkg/logger"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Standard library JSON handler
@@ -273,7 +273,7 @@ func TestMyCommand(t *testing.T) {
 Mocks are available if you need to assert specific log calls:
 
 ```go
-import mock_logger "github.com/phpboyscout/go-tool-base/mocks/pkg/logger"
+import mock_logger "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/logger"
 
 func TestWithLogAssertions(t *testing.T) {
     ml := mock_logger.NewMockLogger(t)

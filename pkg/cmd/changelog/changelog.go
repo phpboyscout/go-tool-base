@@ -9,9 +9,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/phpboyscout/go-tool-base/pkg/changelog"
-	"github.com/phpboyscout/go-tool-base/pkg/output"
-	"github.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 const changelogAssetPath = "assets/CHANGELOG.md"

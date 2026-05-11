@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func TestNoopBackend(t *testing.T) {

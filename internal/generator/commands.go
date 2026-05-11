@@ -10,9 +10,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 
-	"github.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"github.com/phpboyscout/go-tool-base/internal/generator/verifier"
-	"github.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/verifier"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 var commandGenerationSystemPrompt = `PHASE 1 (Generation/Conversion):
@@ -39,7 +39,7 @@ The '%s' struct ONLY has fields corresponding to these flags:
 
 REQUIREMENTS:
 - Generate the ENTIRE file content, including 'package' declaration and 'import' block.
-- You MUST import "context" and "github.com/phpboyscout/go-tool-base/pkg/props".
+- You MUST import "context" and "gitlab.com/phpboyscout/go-tool-base/pkg/props".
 - You can optionally import other packages if needed (e.g., standard library), but consolidated imports are preferred.
 - Use 'github.com/cockroachdb/errors' for ALL error handling (aliased as 'errors').
 - Define any helper functions as unexported top-level functions in the same file.
@@ -53,11 +53,11 @@ REQUIREMENTS:
 - You must also generate a unit test file for the converted code.
 - The test file MUST use the black-box testing pattern (package name ends in '_test', e.g., '%s_test').
 - You MUST import the package under test (import path: '%s').
-- You MUST import "github.com/phpboyscout/go-tool-base/pkg/props" if you reference 'props.Props' in the test.
+- You MUST import "gitlab.com/phpboyscout/go-tool-base/pkg/props" if you reference 'props.Props' in the test.
 - You MUST reference functions and structs from the package under test (e.g., '%s.%s').
-- If mocking is required for props.Config, use the shared mocks in 'github.com/phpboyscout/go-tool-base/mocks/pkg/config'.
+- If mocking is required for props.Config, use the shared mocks in 'gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config'.
 - For the Logger ('props.Logger'), DO NOT use a mock. Instead, use an actual implementation:
-- Import "github.com/phpboyscout/go-tool-base/pkg/logger".
+- Import "gitlab.com/phpboyscout/go-tool-base/pkg/logger".
 - Initialize it with: l := logger.NewNoop().
 - For the FS ('props.FS'), DO NOT use a mock. Instead, use an actual implementation:
 - Import "github.com/spf13/afero".

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 )
 
 func TestIntegration_ExecuteToolsParallel_TrueParallelism(t *testing.T) {

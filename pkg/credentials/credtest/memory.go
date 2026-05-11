@@ -18,7 +18,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // MemoryBackend is a concurrency-safe in-memory implementation of
