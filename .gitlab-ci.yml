@@ -14,8 +14,10 @@ stages:
 
 variables:
   GO_VERSION: "1.26.2"
-  CGO_ENABLED: "0"
   GIT_DEPTH: "0" # semantic-release + goreleaser need the full history
+  # CGO is left at the toolchain default (=1 on Linux) because the
+  # race detector requires it. The goreleaser build block in
+  # .goreleaser.yaml sets CGO_ENABLED=0 explicitly per artefact.
 
 default:
   image: golang:${GO_VERSION}-bookworm
