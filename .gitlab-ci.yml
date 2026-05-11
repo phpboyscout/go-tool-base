@@ -121,7 +121,10 @@ analyze:
 
 # ---------- docs stage ----------
 
-# Publishes mkdocs site to GitLab Pages. Runs on main only.
+# Publishes the docs site to GitLab Pages. The previous GitHub Pages
+# workflow used `zensical build` (a mkdocs-material alternative); we
+# keep the same generator and rename its output directory `site/`
+# into the `public/` path GitLab Pages serves from.
 pages:
   stage: docs
   image: python:3.14-bookworm
@@ -129,7 +132,8 @@ pages:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   script:
     - pip install --require-hashes -r requirements-lock.txt
-    - mkdocs build --strict --site-dir public
+    - zensical build --clean
+    - mv site public
   artifacts:
     paths:
       - public
