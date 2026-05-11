@@ -40,7 +40,9 @@ default:
 
 lint:
   stage: lint
-  image: golangci/golangci-lint:v2.6.0
+  # Pin to a release built with go1.26+ to match go.mod. v2.6.0 was
+  # built with go1.25 and refused to load the config.
+  image: golangci/golangci-lint:v2.12.2
   <<: *go-cache
   script:
     - golangci-lint run --timeout=30m
