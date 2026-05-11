@@ -13,7 +13,7 @@ stages:
   - renovate
 
 variables:
-  GO_VERSION: "1.26.2"
+  GO_VERSION: "1.26.3"
   GIT_DEPTH: "0" # semantic-release + goreleaser need the full history
   # CGO is left at the toolchain default (=1 on Linux) because the
   # race detector requires it. The goreleaser build block in
