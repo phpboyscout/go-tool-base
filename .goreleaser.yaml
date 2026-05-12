@@ -113,26 +113,9 @@ gitlab_urls:
 snapshot:
   version_template: "{{ incpatch .Version }}-dev{{.ShortCommit}}"
 
-homebrew_casks:
-  - name: gtb
-    binary: gtb
-    conflicts:
-      - formula: gtb
-    commit_author:
-      name: goreleaserbot
-      email: matt@phpboyscout.com
-    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
-    homepage: "https://gitlab.com/phpboyscout/go-tool-base"
-    description: "A helper utility for interacting and managing gtb repos and resources"
-    dependencies:
-      - formula: go
-      - formula: golangci-lint
-    repository:
-      owner: phpboyscout
-      name: homebrew
-      branch: main
-      # HOMEBREW_TAP_GITHUB_TOKEN is scoped to the homebrew repo only so a
-      # bug or compromise of goreleaser cannot cross into the release repo.
-      # Closes M-7 from
-      # docs/development/reports/security-audit-2026-04-17.md.
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+# Homebrew tap distribution was previously published to a GitHub-hosted
+# tap repo via the HOMEBREW_TAP_GITHUB_TOKEN secret. Removed from this
+# release pipeline as part of the GitHub → GitLab migration —
+# docs/development/gitlab-migration-followups.md tracks the decision
+# (drop entirely, move tap to GitLab, or maintain a separate
+# GitHub-hosted tap). Re-add this block once the decision lands.
