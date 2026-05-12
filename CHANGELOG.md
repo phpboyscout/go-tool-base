@@ -1,3 +1,10 @@
+## [0.1.3](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.2...v0.1.3) (2026-05-12)
+
+
+### Bug Fixes
+
+* **release:** drop homebrew_casks block pending tap decision ([a7e913e](https://gitlab.com/phpboyscout/go-tool-base/commit/a7e913ecf8fa99b05572eabf434090ff664bb844))
+
 ## [0.1.2](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.1...v0.1.2) (2026-05-12)
 
 
