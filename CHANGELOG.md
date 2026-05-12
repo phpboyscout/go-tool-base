@@ -1,3 +1,10 @@
+## [0.1.2](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.1...v0.1.2) (2026-05-12)
+
+
+### Bug Fixes
+
+* **release:** drop the skip-ci directive so tag pipeline runs goreleaser ([b174ba1](https://gitlab.com/phpboyscout/go-tool-base/commit/b174ba11399d67dce279970f0ce4676bc2d40edf))
+
 ## [0.1.1](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.0...v0.1.1) (2026-05-12)
 
 
