@@ -20,5 +20,9 @@ plugins:
   - - "@semantic-release/git"
     - assets:
         - "CHANGELOG.md"
-      message: "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      # No [skip ci] — that suppresses the tag pipeline too, which
+      # is what triggers goreleaser. Loop prevention is handled at
+      # the semantic-release job's CI rule (skips when the commit
+      # author is the project access token bot).
+      message: "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
   # TODO: add slack integration

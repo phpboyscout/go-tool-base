@@ -147,7 +147,11 @@ semantic-release:
   stage: release
   image: node:24-bookworm
   rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    # Loop prevention: don't re-run on the chore(release) commits
+    # the semantic-release job itself pushes. Match the title
+    # explicitly so a human authoring a `chore(release):` commit by
+    # hand still triggers the job.
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE !~ /^chore\(release\):/'
   script:
     - npm install --no-save
         semantic-release
