@@ -1,3 +1,10 @@
+# [0.2.0](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.5...v0.2.0) (2026-05-13)
+
+
+### Features
+
+* **release:** restore homebrew_casks block pointing at gitlab.com/phpboyscout/homebrew ([cc08abf](https://gitlab.com/phpboyscout/go-tool-base/commit/cc08abf2a53acd3e5fab2f7fc56d5a21dd44baa3))
+
 ## [0.1.3](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.2...v0.1.3) (2026-05-12)
 
 
