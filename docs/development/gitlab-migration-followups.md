@@ -1,78 +1,65 @@
 ---
 title: "GitLab Migration — Operational Follow-ups"
-description: "Tasks that must be completed in the GitLab UI / dashboards before the release pipeline can run end-to-end. The code migration itself is done; these are operator-side prerequisites for cutting v0.1.0 on GitLab."
-date: 2026-05-11
+description: "Status of the post-migration tasks. The release pipeline now runs end-to-end (v0.1.3 published with binaries + checksums); the remaining items below are DNS records and secrets that only the project owner can set."
+date: 2026-05-13
 tags: [development, migration, gitlab, operations]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # GitLab Migration — Operational Follow-ups
 
-The code migration is complete. CI is green for lint, tests, e2e, all security scans, and Pages publishes the docs site. The remaining tasks are dashboard-side configuration that must happen before the first GitLab release can be cut.
+The code migration **and the release pipeline** are both done. v0.1.3 is live on GitLab with goreleaser-produced binaries, SBOMs, and `checksums.txt`. The remaining items are out-of-band — DNS records, optional secrets, and the GitHub archive.
 
-## 1. Project access token for semantic-release
+## 1. Project access token for semantic-release — ✅ DONE (using personal PAT as a fallback)
 
-The default `gitlab-ci-token` cannot push tags to a protected branch, which is why the `semantic-release` job currently fails with `EGITNOPERMISSION`.
+**Status:** `GITLAB_TOKEN` CI/CD variable is set, masked + protected, using the project owner's personal PAT (the GitLab.com Free tier doesn't expose project-access-token creation via API; project access tokens are a Premium feature).
 
-**Action:** In `Settings → Access Tokens → Project access tokens`, create a token with:
+**Recommended upgrade path:** when convenient (or if you move to Premium), create a dedicated `semantic-release-bot` project access token (Maintainer role, scopes `api + write_repository + read_repository`, 1 year expiry) and replace the `GITLAB_TOKEN` variable value. The personal PAT works today but mixes maintainer identity with the release bot.
 
-- Name: `semantic-release-bot`
-- Role: `Maintainer`
-- Scopes: `api`, `write_repository`, `read_repository`
-- Expiry: 1 year (calendar a renewal)
+## 2. Renovate runner schedule + token — ✅ DONE
 
-Then in `Settings → CI/CD → Variables`, add:
+**Status:** A daily pipeline schedule has been created (`schedule id 4245076`, runs at 03:00 UTC on `main` with `RENOVATE_TASK=scan`). `RENOVATE_TOKEN` is set to the same value as `GITLAB_TOKEN`.
 
-- `GITLAB_TOKEN` = the token above, masked + protected.
+Recommend separating the two tokens for auditability when you have a dedicated bot user.
 
-The semantic-release job picks it up via `process.env.GITLAB_TOKEN`. Once set, push a `feat` or `fix` commit to `main` and the pipeline should advance through to a successful tag + release.
+## 3. GoReleaser secrets — partially done
 
-## 2. Renovate runner schedule + token
+**Status:**
 
-Renovate runs as a scheduled CI job (`renovate` stage in `.gitlab-ci.yml`). It requires:
+- `GTB_OTEL_AUTH` — set to the literal placeholder string `placeholder` so the linker `-X` substitution succeeds without crashing. Telemetry is effectively disabled at runtime. Replace with the real base64-encoded `<otel-instance-id>:<otel-token>` whenever you want telemetry back on.
+- `APPLE_DEV_CERT`, `APPLE_DEV_CERT_PASSWORD`, `APPLE_NOTARY_ISSUER_ID`, `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_KEY` — **not set**. macOS binaries from v0.1.3 are not notarized; downloaders on macOS will hit Gatekeeper warnings. Add these masked + protected CI variables (same values as the previous GitHub workflow) when you want to restore notarization.
 
-- A pipeline schedule in `CI/CD → Schedules`:
-  - Pattern: `0 3 * * *` (daily 03:00 UTC)
-  - Ref: `main`
-  - Variables: `RENOVATE_TASK=scan`
-- `RENOVATE_TOKEN` CI/CD variable — the same project access token created above works (api + write_repository), or generate a dedicated token if you want auditability.
+## 4. Homebrew tap — pending decision
 
-## 3. GoReleaser secrets (when ready to ship signed builds)
+The `homebrew_casks` block was removed from `.goreleaser.yaml` as part of unblocking the v0.1.3 release. Choose one of:
 
-The `goreleaser` job runs only on `v*.*.*` tags. It needs:
+- **Drop Homebrew entirely** — no further action; users install via `https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh` or `go install`.
+- **Move the tap to GitLab** — create `phpboyscout/homebrew` on GitLab, re-add the block with a GitLab-hosted tap URL.
+- **Keep the tap on GitHub** — re-add the block with a `HOMEBREW_TAP_GITHUB_TOKEN` CI variable holding a GitHub PAT scoped to the tap repo only.
 
-- `GTB_OTEL_AUTH` — base64-encoded `<otel-instance-id>:<otel-token>` for telemetry. Currently injected via `ldflags` from this CI variable.
-- `APPLE_DEV_CERT`, `APPLE_DEV_CERT_PASSWORD`, `APPLE_NOTARY_ISSUER_ID`, `APPLE_NOTARY_KEY_ID`, `APPLE_NOTARY_KEY` — required for macOS notarization. Same set as the previous GitHub workflow.
+## 5. Branch protection — ✅ DONE (Free-tier subset)
 
-Mark all as masked + protected CI/CD variables.
+**Status:** `main` is protected (Maintainer-level push + merge, no force-push, no deletions). Project settings enforce FF-only merges, pipelines must pass, all discussions resolved.
 
-## 4. Homebrew tap
+**Pending (Premium-tier features):**
 
-`.goreleaser.yaml`'s `homebrew_casks` block still points at `github.com/phpboyscout/homebrew`. Three options:
+- Push rule for the Conventional Commits regex — requires GitLab Premium (`/projects/:id/push_rule` returned no-op on Free).
+- Required status check enforcement at the protected-branch level — uses GitLab's newer rulesets API; works on Free for public projects, untested here.
 
-- **Drop Homebrew distribution entirely** — remove the block. Users install via the GitLab raw URL `install.sh` (or `go install`).
-- **Move the tap to GitLab** — create `phpboyscout/homebrew` on GitLab, update the `repository:` block. Homebrew supports GitLab-hosted taps via `brew tap phpboyscout/homebrew https://gitlab.com/phpboyscout/homebrew.git`.
-- **Keep the tap on GitHub** — accepts that one piece of the toolchain still touches GitHub. Lowest disruption to existing Homebrew users (the tap URL stays stable).
+For now the merge-must-pass-pipeline setting catches the same window.
 
-The current config still references the GitHub tap and `HOMEBREW_TAP_GITHUB_TOKEN`; pick one of the above before the first release.
+## 6. GitLab Pages custom domain — ✅ DONE (DNS pending)
 
-## 5. Branch protection refinement
+**Status:** `gtb.phpboyscout.uk` is registered in GitLab Pages with `auto_ssl_enabled: true`.
 
-Main is currently protected at the `Maintainers` push level only. Suggested tightening:
+**Action required from you:** add these DNS records at your DNS provider:
 
-- `Settings → Repository → Protected branches`:
-  - `main`: require approvals = 0 (solo maintainer) or 1 (when team grows), enable "code owner approval if pushed", enable "require status checks to pass". Required checks: `lint`, `tests`, `e2e-bdd-tests`, `govulncheck`, `trivy`, `gitleaks`, `osv-scanner`, `analyze`, `pages`.
-- `Settings → Repository → Push rules`:
-  - Reject force push.
-  - Commit message regex: `^(feat|fix|perf|refactor|chore|ci|docs|style|test)(\([\w,-]+\))?!?:\s` to enforce Conventional Commits.
+```
+TXT  _gitlab-pages-verification-code.gtb.phpboyscout.uk  →  1f57181f87c0476964107eee88e8b0ec
+CNAME gtb.phpboyscout.uk  →  phpboyscout.gitlab.io
+```
 
-## 6. GitLab Pages custom domain (optional)
-
-Pages publishes to `phpboyscout.gitlab.io/go-tool-base` by default. The previous docs site lived at `gtb.phpboyscout.uk`. To keep the URL stable:
-
-- `Settings → Pages → New Domain` → `gtb.phpboyscout.uk`.
-- GitLab issues a TXT verification record and a Let's Encrypt cert automatically.
-- Add the verification + ALIAS/CNAME records at your DNS host.
+After propagation, GitLab will verify the domain and issue a Let's Encrypt cert automatically.
 
 ## 7. Archive the GitHub repository
 
