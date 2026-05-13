@@ -1,3 +1,10 @@
+## [0.2.1](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.0...v0.2.1) (2026-05-13)
+
+
+### Bug Fixes
+
+* **release:** switch homebrew tap push to SSH deploy key ([0d9d592](https://gitlab.com/phpboyscout/go-tool-base/commit/0d9d5924714b3ac8daa55977b6c6f67cc0239ad2))
+
 # [0.2.0](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.1.5...v0.2.0) (2026-05-13)
 
 
