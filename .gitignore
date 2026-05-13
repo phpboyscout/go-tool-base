@@ -43,3 +43,12 @@ CHANGELOG.md
 
 # Locally-saved CI logs
 *.log
+
+# Apple signing secrets — must NEVER be committed.
+# The .p8 is the App Store Connect API private key; the .cer is
+# the public half of the Developer ID Application certificate; the
+# .p12 is the combined identity used by `productsign`/`codesign`.
+*.p8
+*.cer
+*.p12
+*.pem
