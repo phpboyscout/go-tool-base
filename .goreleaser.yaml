@@ -136,6 +136,11 @@ homebrew_casks:
       owner: phpboyscout
       name: homebrew
       branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GITLAB_TOKEN }}"
+      # GoReleaser has no native GitLab API path for homebrew tap
+      # pushes (the `token:` field is GitHub-only). Push over SSH
+      # using a deploy key registered on the tap repo with
+      # write_access. The private key lives in the
+      # HOMEBREW_TAP_SSH_KEY masked CI variable.
       git:
-        url: "https://oauth2:{{ .Env.HOMEBREW_TAP_GITLAB_TOKEN }}@gitlab.com/phpboyscout/homebrew.git"
+        url: "git@gitlab.com:phpboyscout/homebrew.git"
+        private_key: "{{ .Env.HOMEBREW_TAP_SSH_KEY }}"
