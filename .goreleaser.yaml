@@ -113,9 +113,29 @@ gitlab_urls:
 snapshot:
   version_template: "{{ incpatch .Version }}-dev{{.ShortCommit}}"
 
-# Homebrew tap distribution was previously published to a GitHub-hosted
-# tap repo via the HOMEBREW_TAP_GITHUB_TOKEN secret. Removed from this
-# release pipeline as part of the GitHub → GitLab migration —
-# docs/development/gitlab-migration-followups.md tracks the decision
-# (drop entirely, move tap to GitLab, or maintain a separate
-# GitHub-hosted tap). Re-add this block once the decision lands.
+# Homebrew cask published to the GitLab-hosted tap at
+# gitlab.com/phpboyscout/homebrew (mirrored from the previous GitHub
+# tap during the GitLab migration). Auth via HOMEBREW_TAP_GITLAB_TOKEN
+# CI variable scoped to the tap repo only — a separate token from
+# GITLAB_TOKEN so a compromise of one cannot cross to the other.
+homebrew_casks:
+  - name: gtb
+    binary: gtb
+    conflicts:
+      - formula: gtb
+    commit_author:
+      name: goreleaserbot
+      email: matt@phpboyscout.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: "https://gitlab.com/phpboyscout/go-tool-base"
+    description: "A helper utility for interacting and managing gtb repos and resources"
+    dependencies:
+      - formula: go
+      - formula: golangci-lint
+    repository:
+      owner: phpboyscout
+      name: homebrew
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITLAB_TOKEN }}"
+      git:
+        url: "https://oauth2:{{ .Env.HOMEBREW_TAP_GITLAB_TOKEN }}@gitlab.com/phpboyscout/homebrew.git"
