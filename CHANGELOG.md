@@ -1,3 +1,10 @@
+## [0.2.3](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.2...v0.2.3) (2026-05-14)
+
+
+### Bug Fixes
+
+* **deps:** regenerate hash-pinned lockfile after renovate version bumps ([f46a44f](https://gitlab.com/phpboyscout/go-tool-base/commit/f46a44fd77e04b4f7a2eef635395b133ca27e9ca))
+
 ## [0.2.2](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.1...v0.2.2) (2026-05-14)
 
 
