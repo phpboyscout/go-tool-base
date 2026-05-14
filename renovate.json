@@ -36,6 +36,11 @@
       "matchManagers": ["gitlabci"],
       "schedule": ["before 9am on monday"],
       "groupName": "gitlab-ci-weekly"
+    },
+    {
+      "description": "Disable renovate for the hash-pinned Python docs toolchain — Renovate bumps the version line but cannot regenerate the SHA-256 hashes that `pip install --require-hashes` enforces, leaving CI broken. Bumps to requirements-lock.txt are handled manually via the recipe in the file's own header.",
+      "matchManagers": ["pip_requirements"],
+      "enabled": false
     }
   ],
   "vulnerabilityAlerts": {
