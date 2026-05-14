@@ -20,9 +20,9 @@ Updated as each gate is answered. Empty cells = still open.
 
 | Gate | Decision |
 |------|----------|
-| **1 — Signing key storage** | **AWS KMS**, RSA-4096 asymmetric key, `eu-west-2` (London) region. OIDC federation from GitHub Actions → IAM role with `kms:Sign` only on the release key. Rationale: easiest onboarding for a greenfield cloud account, native GitHub OIDC support, and the spec explicitly accepts RSA-4096 where Ed25519 isn't available (AWS KMS doesn't expose Ed25519 for asymmetric signing). |
+| **1 — Signing key storage** | **AWS KMS**, RSA-4096 asymmetric key, `eu-west-2` (London) region. OIDC federation from **GitLab CI** → IAM role with `kms:Sign` only on the release key. Rationale: easiest onboarding for a greenfield cloud account, native OIDC support, and the spec explicitly accepts RSA-4096 where Ed25519 isn't available (AWS KMS doesn't expose Ed25519 for asymmetric signing). |
 | **2 — WKD domain + release email** | **`openpgpkey.phpboyscout.uk`** subdomain, **`release@phpboyscout.uk`** role address. Static hosting via **Cloudflare Pages in Direct Upload mode** (free plan, auto-provisioned TLS via Cloudflare's CA, custom-domain binding is one DNS record). **No Git integration, no webhook** — the WKD directory is built locally and pushed via the Wrangler CLI authenticated by a Cloudflare API token scoped to `Pages: Edit` only. This intentionally excludes both GitHub and AWS from the deploy path: a compromise of either platform cannot poison the externally-served key. The Cloudflare account is administered with a distinct email + MFA factor from the GitHub and AWS accounts so all three trust anchors are independent. The WKD tree is reproducible from the public key file (which lives in offline storage alongside the rotation-authority backup), so no source-of-truth Git repo is needed. |
-| **3 — Access policy** | CI signs via the OIDC-federated IAM role defined in Gate 1; no human holds the signing secret. Trust policy pins the role to `refs/tags/v*` on `phpboyscout/go-tool-base` so only tagged-release workflows can mint a signature. A protected `release` environment in GitHub Actions gates the sign job on manual approval — solo maintainer approves their own runs for now; promotes cleanly to a required-reviewers gate when the project grows. Role policy also scoped to a single action (`kms:Sign`) on a single key ARN. |
+| **3 — Access policy** | CI signs via the OIDC-federated IAM role defined in Gate 1; no human holds the signing secret. Trust policy pins the role to `project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*` (GitLab CI's OIDC claim format) so only tagged-release pipelines can mint a signature. Role policy scoped to a single action (`kms:Sign`) on a single key ARN. Manual approval gate on the `release` environment in GitLab is optional — solo maintainer for now. |
 | **4 — Rotation-authority key** | Generated once on a trusted offline workstation (`gpg --full-generate-key`, Ed25519, no subkey, no expiry, passphrase-protected). Private half stored two ways, both in a single home safe: one encrypted USB (LUKS or VeraCrypt with a strong passphrase) **and** one printed paper backup produced via `paperkey`. The two-copy rule covers the ways a single copy fails (USB bit-rot / paper physical damage) without the complexity of multi-site storage. Public half: embedded in `internal/version/trustkeys/rotation-authority.asc` alongside the primary signing key, and published via the same WKD endpoint. A written runbook at `docs/operations/key-rotation.md` is produced in the Phase 2 implementation PR — the mechanism that *uses* this key is Phase 4 per the spec's Resolved Decision #10, but the key must exist and be embedded *now* to protect binaries released in Phase 2 and later. |
 
 ## Why a prep doc
@@ -88,7 +88,7 @@ Once Gate 1 is chosen, the key is generated **inside** the KMS or hardware token
 
 ### AWS KMS — GTB provisioning walkthrough
 
-The commands below are the concrete steps to run once your new AWS account is active. The provisioning needs to happen once; the GitHub Actions workflow then assumes the role on every release.
+The commands below are the concrete steps to run once your new AWS account is active. The provisioning needs to happen once; the GitLab CI release pipeline then assumes the role on every `v*` tag.
 
 **Pre-flight hardening (do this on the fresh root account before anything else):**
 
@@ -122,27 +122,30 @@ aws kms get-public-key \
   --output text --query PublicKey | base64 -d > signing-key-v1.pub.der
 ```
 
-**OIDC trust for GitHub Actions** (so the release workflow can assume a role without a stored long-lived secret):
+**OIDC trust for GitLab CI** (so the release pipeline can assume a role without a stored long-lived secret):
 
 ```bash
-# 1. Register GitHub's OIDC provider in your account (once per account).
+# 1. Register GitLab.com's OIDC provider in your account (once per account).
+#    Thumbprint can be left empty — IAM fetches GitLab's JWKS directly
+#    when the issuer URL is well-known.
 aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+  --url https://gitlab.com \
+  --client-id-list https://gitlab.com
 
-# 2. Create an IAM role restricted to the release workflow on the gtb
-#    repo's tags only. Replace <ACCOUNT-ID> with your account number.
+# 2. Create an IAM role restricted to tag-pipeline runs on the
+#    phpboyscout/go-tool-base project. Replace <ACCOUNT-ID> with your
+#    account number. The `sub` claim format for GitLab OIDC is
+#    `project_path:<group>/<repo>:ref_type:<branch|tag>:ref:<ref-name>`.
 cat > trust-policy.json <<'JSON'
 {
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": { "Federated": "arn:aws:iam::<ACCOUNT-ID>:oidc-provider/token.actions.githubusercontent.com" },
+    "Principal": { "Federated": "arn:aws:iam::<ACCOUNT-ID>:oidc-provider/gitlab.com" },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
-      "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-      "StringLike": { "token.actions.githubusercontent.com:sub": "repo:phpboyscout/go-tool-base:ref:refs/tags/v*" }
+      "StringEquals": { "gitlab.com:aud": "https://gitlab.com" },
+      "StringLike":   { "gitlab.com:sub": "project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*" }
     }
   }]
 }
@@ -170,16 +173,27 @@ aws iam put-role-policy \
   --policy-document file://sign-policy.json
 ```
 
-The workflow then authenticates with:
+The `.gitlab-ci.yml` `goreleaser` job (or a dedicated `sign` job before it) then mints the OIDC token and assumes the role:
 
 ```yaml
-- uses: aws-actions/configure-aws-credentials@v4
-  with:
-    role-to-assume: arn:aws:iam::<ACCOUNT-ID>:role/gtb-release-signer
-    aws-region: eu-west-2
+goreleaser:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  id_tokens:
+    AWS_WEB_IDENTITY_TOKEN:
+      aud: https://gitlab.com
+  variables:
+    AWS_REGION: eu-west-2
+    AWS_ROLE_ARN: "arn:aws:iam::<ACCOUNT-ID>:role/gtb-release-signer"
+    AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/aws-token
+  before_script:
+    - echo "$AWS_WEB_IDENTITY_TOKEN" > /tmp/aws-token
+  script:
+    - goreleaser release --clean   # AWS SDK auto-loads OIDC creds from the env
 ```
 
-No long-lived AWS credentials exist anywhere; the workflow gets a 15-minute token via OIDC only when running on a `v*` tag.
+No long-lived AWS credentials exist anywhere; the runner gets a 15-minute STS token via OIDC only when running on a `v*` tag.
 
 ### GCP Cloud KMS
 
