@@ -23,7 +23,7 @@
 #
 # Closes L-7 from docs/development/reports/security-audit-2026-04-17.md.
 
-click==8.3.2 \
+click==8.3.3 \
     --hash=sha256:1924d2c27c5653561cd2cae4548d1406039cb79b858b747cfea24924bbc1616d
 deepmerge==2.0 \
     --hash=sha256:6de9ce507115cff0bed95ff0ce9ecc31088ef50cbdf09bc90a09349a318b3d00
