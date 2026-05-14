@@ -1,3 +1,10 @@
+## [0.2.2](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.1...v0.2.2) (2026-05-14)
+
+
+### Bug Fixes
+
+* **ci:** drop missing-file coverage_report block from tests job ([792c5d2](https://gitlab.com/phpboyscout/go-tool-base/commit/792c5d2aceb2a413ae62a8c951402ae47981c331))
+
 ## [0.2.1](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.0...v0.2.1) (2026-05-13)
 
 
