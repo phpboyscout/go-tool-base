@@ -57,13 +57,14 @@ tests:
   script:
     - go test -race -coverprofile=cover.out ./...
     - go tool cover -func=cover.out | tail -1
+  # GitLab's coverage badge is driven entirely by this regex against
+  # the job log. The Cobertura coverage_report block was removed
+  # because the script produced cover.out (Go profile) but not
+  # cover.xml — the missing-file error from the artifact upload
+  # bubbled up and marked otherwise-passing pipelines as failed.
   coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
   artifacts:
     when: always
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: cover.xml
     paths:
       - cover.out
 
