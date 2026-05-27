@@ -55,7 +55,7 @@ func TestSkeletonRun(t *testing.T) {
 		"test-project/.github/CODEOWNERS",
 		"test-project/.github/renovate.json5",
 		"test-project/.github/workflows/docs.yaml",
-		"test-project/.github/workflows/semantic-release.yaml",
+		"test-project/.github/workflows/releaser-pleaser.yaml",
 		"test-project/.github/workflows/test.yaml",
 		"test-project/.github/workflows/goreleaser.yaml",
 		"test-project/.goreleaser.yaml",
