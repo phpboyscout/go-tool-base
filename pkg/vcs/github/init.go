@@ -6,8 +6,8 @@ import (
 )
 
 func init() {
-	release.Register(release.SourceTypeGitHub, func(_ release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
-		client, err := NewGitHubClient(cfg.Sub("github"))
+	release.Register(release.SourceTypeGitHub, func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
+		client, err := NewGitHubClient(src, cfg.Sub("github"))
 		if err != nil {
 			return nil, err
 		}

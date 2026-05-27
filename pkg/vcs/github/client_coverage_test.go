@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 var apiConfigGithub = `
@@ -36,7 +37,7 @@ func setupMockGitHubServer(t *testing.T, handler http.HandlerFunc) (*httptest.Se
 	// Configure container with mock server URL
 	containable := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(cfg)))
 
-	client, err := NewGitHubClient(containable)
+	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, containable)
 	require.NoError(t, err)
 
 	return server, client
@@ -382,13 +383,15 @@ auth: {}
 	assert.Contains(t, err.Error(), "GITHUB_TOKEN")
 }
 
-func TestNewGitHubClient_NilConfig(t *testing.T) {
+func TestNewGitHubClient_ConfiglessPublic(t *testing.T) {
 	t.Parallel()
 
-	client, err := NewGitHubClient(nil)
-	require.Error(t, err)
-	assert.Nil(t, client)
-	assert.Contains(t, err.Error(), "github configuration is missing")
+	// Config-less: a public repo needs no github config section. An empty
+	// ReleaseSource + nil config must yield a working public github.com
+	// client (token resolved from GITHUB_TOKEN env only).
+	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, client)
 }
 
 func TestListReleases_404(t *testing.T) {

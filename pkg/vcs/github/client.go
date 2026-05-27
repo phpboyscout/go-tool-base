@@ -12,7 +12,13 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
+
+// gitHubDotComHost is the canonical public GitHub host. A ReleaseSource
+// with this host (or an empty host) uses the public api.github.com
+// endpoints rather than GitHub Enterprise URLs.
+const gitHubDotComHost = "github.com"
 
 const (
 	// pullRequestsPerPage is the number of pull requests to fetch per API page.
@@ -217,26 +223,51 @@ func (c *GHClient) DownloadAssetTo(ctx context.Context, fs afero.Fs, owner, repo
 }
 
 // NewGitHubClient creates a GHClient configured from the github config subtree.
-func NewGitHubClient(cfg config.Containable) (*GHClient, error) {
-	if cfg == nil {
-		return nil, errors.New("github configuration is missing")
-	}
+// NewGitHubClient builds a GitHub API client. It is config-less by
+// design: a public repository needs only the ReleaseSource (an empty or
+// "github.com" Host targets the public api.github.com; any other Host is
+// treated as a GitHub Enterprise instance). cfg is the optional `github`
+// config subtree (nil when no such section exists); it supplies a token
+// (for private repos) and explicit `url.api`/`url.upload` overrides that
+// take precedence over the host-derived Enterprise URLs.
+func NewGitHubClient(src release.ReleaseSourceConfig, cfg config.Containable) (*GHClient, error) {
+	client := github.NewClient(gtbhttp.NewClient())
 
-	client, err := github.NewClient(gtbhttp.NewClient()).WithEnterpriseURLs(
-		cfg.GetString("url.api"),
-		cfg.GetString("url.upload"),
-	)
-	if err != nil {
-		return nil, err
+	if apiURL, uploadURL := enterpriseURLs(src, cfg); apiURL != "" {
+		var err error
+
+		client, err = client.WithEnterpriseURLs(apiURL, uploadURL)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Token is optional: public repositories work without authentication.
-	// Private repositories will receive a 401 from the API if no token is set.
+	// Private repositories will receive a 401 from the API if no token is
+	// set. A nil cfg resolves the token from the GITHUB_TOKEN env var only.
 	if token := vcs.ResolveToken(cfg, "GITHUB_TOKEN"); token != "" {
 		client = client.WithAuthToken(token)
 	}
 
 	return &GHClient{client, cfg}, nil
+}
+
+// enterpriseURLs resolves the GitHub Enterprise API/upload URLs from the
+// `github` config subtree (url.api/url.upload) when present, falling back
+// to URLs derived from a non-github.com ReleaseSource host. Empty results
+// mean "use the public github.com defaults".
+func enterpriseURLs(src release.ReleaseSourceConfig, cfg config.Containable) (apiURL, uploadURL string) {
+	if cfg != nil {
+		apiURL = cfg.GetString("url.api")
+		uploadURL = cfg.GetString("url.upload")
+	}
+
+	if apiURL == "" && src.Host != "" && src.Host != gitHubDotComHost {
+		apiURL = "https://" + src.Host + "/api/v3/"
+		uploadURL = "https://" + src.Host + "/api/uploads/"
+	}
+
+	return apiURL, uploadURL
 }
 
 // GetGitHubToken returns the GitHub token from config, erroring when none is

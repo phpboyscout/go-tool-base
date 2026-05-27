@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	release.Register(release.SourceTypeGitLab, func(_ release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
-		return NewReleaseProvider(cfg.Sub("gitlab"))
+	release.Register(release.SourceTypeGitLab, func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
+		return NewReleaseProvider(src, cfg.Sub("gitlab"))
 	})
 }

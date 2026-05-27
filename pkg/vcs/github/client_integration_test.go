@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 func ensureIntegrationPrerequisites(t *testing.T, client GitHubClient, owner, repo, branchBase, branchHead string) *github.PullRequest {
@@ -63,7 +64,7 @@ func TestGithubFindPullRequestByBranch(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
 	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(integrationConfigGithub)))
-	client, err := NewGitHubClient(cfg.Sub("github"))
+	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, cfg.Sub("github"))
 	require.NoError(t, err)
 
 	pr := ensureIntegrationPrerequisites(t, client, GitHubOrg, GitHubRepo, "main", "integration-test-branch")
@@ -76,7 +77,7 @@ func TestAddLabelsToPullRequest(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
 	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(integrationConfigGithub)))
-	client, err := NewGitHubClient(cfg.Sub("github"))
+	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, cfg.Sub("github"))
 	require.NoError(t, err)
 
 	pr := ensureIntegrationPrerequisites(t, client, GitHubOrg, GitHubRepo, "main", "integration-test-branch")

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 const (
@@ -32,7 +33,9 @@ const (
 var GitHubHost = "github.com"
 
 func defaultGitHubClientFactory(cfg config.Containable) (githubvcs.GitHubClient, error) {
-	return githubvcs.NewGitHubClient(cfg)
+	// SSH key management targets github.com (or the Enterprise host
+	// carried in cfg.url.api); release-source host is not relevant here.
+	return githubvcs.NewGitHubClient(release.ReleaseSourceConfig{}, cfg)
 }
 
 type configureSSHKeyConfig struct {

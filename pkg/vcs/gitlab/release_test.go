@@ -12,6 +12,7 @@ import (
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 func TestGitlabRelease_Accessors(t *testing.T) {
@@ -80,13 +81,15 @@ func TestGitlabAsset_Accessors(t *testing.T) {
 	assert.Equal(t, "https://gitlab.com/artifact.zip", asset.GetBrowserDownloadURL())
 }
 
-func TestNewReleaseProvider_NilConfig(t *testing.T) {
+func TestNewReleaseProvider_ConfiglessPublic(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewReleaseProvider(nil)
-	require.Error(t, err)
-	assert.Nil(t, provider)
-	assert.Contains(t, err.Error(), "gitlab configuration is missing")
+	// Config-less: a public repo needs no gitlab config section. An empty
+	// ReleaseSource + nil config must yield a working public gitlab.com
+	// provider (token resolved from GITLAB_TOKEN env only).
+	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, provider)
 }
 
 func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
@@ -98,7 +101,7 @@ func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
 	cfg.EXPECT().GetString("auth.value").Return("")
 	cfg.EXPECT().GetString("url.api").Return("")
 
-	provider, err := NewReleaseProvider(cfg)
+	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }
@@ -112,7 +115,7 @@ func TestNewReleaseProvider_WithToken(t *testing.T) {
 	cfg.EXPECT().GetString("auth.value").Return("test-token")
 	cfg.EXPECT().GetString("url.api").Return("https://custom.gitlab.com/api/v4")
 
-	provider, err := NewReleaseProvider(cfg)
+	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }

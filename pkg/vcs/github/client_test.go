@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 var integrationConfigGithub = `github:
@@ -33,7 +34,7 @@ func TestNewGitHubClientInstantiation(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
 	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(integrationConfigGithub)))
-	client, err := NewGitHubClient(cfg.Sub("github"))
+	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, cfg.Sub("github"))
 	require.NoError(t, err)
 	assert.NotNil(t, client)
 }

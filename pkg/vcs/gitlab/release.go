@@ -74,32 +74,36 @@ type GitLabReleaseProvider struct {
 }
 
 // NewReleaseProvider creates a new release provider for GitLab.
-func NewReleaseProvider(cfg config.Containable) (release.Provider, error) {
-	if cfg == nil {
-		return nil, errors.New("gitlab configuration is missing")
+// defaultGitLabAPI is the API base URL for the public gitlab.com host.
+const defaultGitLabAPI = "https://gitlab.com/api/v4"
+
+// NewReleaseProvider builds a GitLab release provider. It is config-less
+// by design: a public repository needs only the ReleaseSource (Host
+// selects the instance; empty means gitlab.com). cfg is the optional
+// `gitlab` config subtree (nil when no such section exists); it supplies
+// a token (for private repos) and an explicit `url.api` override. When
+// absent, the token falls back to the GITLAB_TOKEN env var and the base
+// URL is derived from src.Host.
+func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
+	baseURL := defaultGitLabAPI
+	if src.Host != "" {
+		baseURL = "https://" + src.Host + "/api/v4"
 	}
 
+	if cfg != nil {
+		if override := cfg.GetString("url.api"); override != "" {
+			baseURL = override
+		}
+	}
+
+	// Token is optional: public repositories work unauthenticated. A nil
+	// cfg resolves the token from the GITLAB_TOKEN env var only.
 	token := vcs.ResolveToken(cfg, "GITLAB_TOKEN")
 
-	baseURL := cfg.GetString("url.api")
-	if baseURL == "" {
-		baseURL = "https://gitlab.com/api/v4"
-	}
-
-	var (
-		err    error
-		client *gitlab.Client
+	client, err := gitlab.NewClient(token,
+		gitlab.WithBaseURL(baseURL),
+		gitlab.WithHTTPClient(gtbhttp.NewClient()),
 	)
-
-	secureClient := gtbhttp.NewClient()
-
-	if token != "" {
-		client, err = gitlab.NewClient(token, gitlab.WithBaseURL(baseURL), gitlab.WithHTTPClient(secureClient))
-	} else {
-		// Public client
-		client, err = gitlab.NewClient("", gitlab.WithBaseURL(baseURL), gitlab.WithHTTPClient(secureClient))
-	}
-
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
