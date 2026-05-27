@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.3.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.3.0)
+
+### Features
+
+- **generator**: scaffold releaser-pleaser instead of semantic-release
+
+### Bug Fixes
+
+- **release**: add "# Changelog" header for releaser-pleaser
+- **telemetry**: downgrade OTel sensitive-header advisory to DEBUG
+- **release**: resolve public releases config-less via ReleaseSource
+- **deps**: bump x/crypto, x/net, go-git for security advisories
+
 ## [0.2.3](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.2...v0.2.3) (2026-05-14)
 
 
