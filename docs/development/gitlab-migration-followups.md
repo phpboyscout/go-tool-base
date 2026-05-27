@@ -10,11 +10,16 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The migration is essentially complete. Latest release **v0.2.2** built end-to-end with notarized macOS binaries, checksums, SBOMs, and a homebrew cask pushed to the GitLab-hosted tap. The docs site is live at https://gtb.phpboyscout.uk.
 
-## 1. Project access token for semantic-release — ✅ DONE (using personal PAT as fallback)
+## 1. Release automation token — ✅ MOSTLY DONE (semantic-release → releaser-pleaser)
 
-**Status:** `GITLAB_TOKEN` CI/CD variable is set, masked + protected, using the project owner's personal PAT (GitLab.com Free tier doesn't expose project-access-token creation via API).
+**Status:** semantic-release has been replaced by [releaser-pleaser](https://releaser-pleaser.dev/) (Release-MR pattern, GitLab CI/CD component). The `RELEASER_PLEASER_TOKEN` CI/CD variable already exists.
 
-**Recommended upgrade path:** when convenient (or on Premium), create a dedicated `semantic-release-bot` project access token (Maintainer role, scopes `api + write_repository + read_repository`, 1 year expiry) and replace the `GITLAB_TOKEN` variable value.
+**Remaining checks before the new pipeline can cut a release:**
+
+1. Confirm `RELEASER_PLEASER_TOKEN` is a project access token with **Maintainer** role and scopes **`api`, `read_repository`, `write_repository`** (the CI job token is not sufficient).
+2. Set the project's **Merge method** to *Fast-forward merge* and **Squash commits** to *Require* — releaser-pleaser needs these to reliably map commits to MRs.
+
+**Cleanup:** the old `GITLAB_TOKEN` variable was only used by semantic-release (GoReleaser authenticates with the CI job token via `use_job_token: true`). Confirm nothing else references it, then remove it.
 
 ## 2. Renovate runner schedule + token — ✅ DONE
 

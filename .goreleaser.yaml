@@ -87,23 +87,15 @@ release:
   use_existing_draft: true
   replace_existing_artifacts: true
   make_latest: true
-  mode: replace
+  # keep-existing: releaser-pleaser owns the Release notes (it creates
+  # the Release with its changelog when the Release MR is merged). This
+  # job only attaches/replaces the build artefacts — it must not
+  # overwrite the body.
+  mode: keep-existing
 changelog:
-  use: "gitlab"
-  groups:
-    - title: Features
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 0
-    - title: "Bug fixes"
-      regexp: '^.*?(bug|fix)(\([[:word:]]+\))??!?:.+$'
-      order: 1
-    - title: Others
-      order: 999
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^ci:"
+  # releaser-pleaser owns the changelog (CHANGELOG.md and the Release
+  # notes), so GoReleaser does not generate its own.
+  disable: true
 gitlab_urls:
   api: https://gitlab.com/api/v4/
   download: https://gitlab.com/

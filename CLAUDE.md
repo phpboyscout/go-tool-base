@@ -85,7 +85,7 @@ go test ./pkg/props/... -run TestSpecificName -v
 
 ## Commit Conventions
 
-All commits must follow [Conventional Commits](https://www.conventionalcommits.org/). Semantic-release uses these to determine version bumps.
+All commits must follow [Conventional Commits](https://www.conventionalcommits.org/). releaser-pleaser uses these to compute the next version and the changelog on the Release MR.
 
 **Do not commit without explicit user approval.** Present a summary of changes and a proposed message, then wait for confirmation.
 
@@ -94,9 +94,11 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 | Type | Release |
 |------|---------|
 | `feat(scope):` | Minor |
-| `fix(scope):` / `perf(scope):` / `refactor(scope):` | Patch |
-| `ci:` / `chore:` / `style:` / `docs:` / `test:` | None |
-| `BREAKING CHANGE:` footer | Major |
+| `fix(scope):` | Patch |
+| `BREAKING CHANGE:` footer / `feat!:` | Major |
+| `perf:` / `refactor:` / `ci:` / `chore:` / `style:` / `docs:` / `test:` | None |
+
+Only `feat`, `fix`, and breaking changes cut a release. A batch containing only non-releasing types will not produce a Release MR; force a release with an `rp-next-version::*` label on the Release MR if needed.
 
 Always include a scope identifying the functional area (package name, subsystem, feature). Each commit represents one coherent change.
 
@@ -229,6 +231,8 @@ Config in `.golangci.yaml` (v2 format, 50+ linters). Local import prefix: `gitla
 
 ## Release
 
-Releases are automated via semantic-release on merge to `main` — do not manually tag. GoReleaser (`.goreleaser.yaml`) builds for darwin/linux/windows × amd64/arm64 with CGO disabled and FIPS mode. macOS binaries are notarized; a Homebrew formula is auto-updated.
+Releases use the **Release-MR** pattern via [releaser-pleaser](https://releaser-pleaser.dev/) (a GitLab CI/CD component) — **do not manually tag**. On merges to `main`, releaser-pleaser opens/updates a "Release" MR containing the pending version bump and `CHANGELOG.md` entries. Merging that Release MR (the human gate) creates the `vX.Y.Z` tag and the GitLab Release with notes. The tag triggers the `goreleaser` job, which builds for darwin/linux/windows × amd64/arm64 (CGO disabled, FIPS) and **attaches binaries** to the existing Release (`release.mode: keep-existing`) — releaser-pleaser owns the changelog/notes, GoReleaser owns the artefacts. macOS binaries are notarized; a Homebrew formula is auto-updated.
 
-Pre-release: run `just ci`, then `goreleaser check`, then `just snapshot` to verify `dist/` output.
+To cut a release: merge the open Release MR. To force a release from non-releasing commits, or to set a pre-release, add an `rp-next-version::*` label to the Release MR.
+
+Pre-release check: run `just ci`, then `goreleaser check`, then `just snapshot` to verify `dist/` output.

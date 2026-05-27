@@ -214,7 +214,7 @@ Any functional change must include a doc update in `docs/components/` or `docs/c
 
 ### Automated Releases
 
-Releases are automated via semantic-release on merge to `main` — never manually tag. Conventional Commits determine version bumps. No AI attribution in commits. Each commit represents one coherent change with a scope identifying the functional area.
+Releases use the Release-MR pattern via releaser-pleaser — never manually tag. Merges to `main` update a "Release" MR; merging it creates the tag + GitLab Release and triggers GoReleaser to attach binaries. Conventional Commits determine version bumps (feat/fix/breaking; other types do not release). No AI attribution in commits. Each commit represents one coherent change with a scope identifying the functional area.
 
 ### Three-Layer Project Structure
 

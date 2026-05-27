@@ -4,6 +4,21 @@
 # previous GitHub setup: lint, tests, e2e, govulncheck, trivy, gitleaks,
 # osv-scanner, codeql-equivalent (semgrep) before docs+release.
 
+# releaser-pleaser drives the release workflow via the Release-MR
+# pattern: on main it opens/updates a "Release" MR with the pending
+# changelog + version bump; merging that MR creates the tag and GitLab
+# Release, which triggers the `goreleaser` job below to attach binaries.
+# Distributed as a GitLab CI/CD component (no floating tags — pin the
+# full version): https://gitlab.com/explore/catalog/apricote/releaser-pleaser
+# Requires the RELEASER_PLEASER_TOKEN CI variable (project access token,
+# Maintainer role, scopes: api, read_repository, write_repository).
+include:
+  - component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@v0.8.0
+    inputs:
+      token: $RELEASER_PLEASER_TOKEN
+      branch: main
+      stage: release # reuse the existing stage; component default is "build"
+
 stages:
   - lint
   - test
@@ -14,7 +29,7 @@ stages:
 
 variables:
   GO_VERSION: "1.26.3"
-  GIT_DEPTH: "0" # semantic-release + goreleaser need the full history
+  GIT_DEPTH: "0" # releaser-pleaser + goreleaser need the full history
   # CGO is left at the toolchain default (=1 on Linux) because the
   # race detector requires it. The goreleaser build block in
   # .goreleaser.yaml sets CGO_ENABLED=0 explicitly per artefact.
@@ -141,29 +156,15 @@ pages:
 
 # ---------- release stage ----------
 
-# Conventional-commit driven release. Runs on main only. Requires:
-#   GITLAB_TOKEN: a project access token with api + write_repository scope
-#                 (set as a masked, protected CI/CD variable).
-semantic-release:
-  stage: release
-  image: node:24.15.0-bookworm
-  rules:
-    # Loop prevention: don't re-run on the chore(release) commits
-    # the semantic-release job itself pushes. Match the title
-    # explicitly so a human authoring a `chore(release):` commit by
-    # hand still triggers the job.
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_TITLE !~ /^chore\(release\):/'
-  script:
-    - npm install --no-save
-        semantic-release
-        @semantic-release/changelog
-        @semantic-release/git
-        @semantic-release/gitlab
-    - npx semantic-release
+# The release MR is managed by the releaser-pleaser CI/CD component
+# (see the `include:` near the top of this file). It injects its own
+# job into the `release` stage on main.
 
 # GoReleaser builds + publishes artefacts. Triggered by the tag
-# semantic-release pushes. Uses GitLab's package registry (set via
-# `gitlab_urls.use_package_registry: true` in .goreleaser.yaml) so no
+# releaser-pleaser creates when its Release MR is merged. GoReleaser
+# attaches binaries to the Release that releaser-pleaser already created
+# (release.mode: keep-existing in .goreleaser.yaml) and uses GitLab's
+# package registry (`gitlab_urls.use_package_registry: true`) so no
 # external storage is needed.
 goreleaser:
   stage: release
