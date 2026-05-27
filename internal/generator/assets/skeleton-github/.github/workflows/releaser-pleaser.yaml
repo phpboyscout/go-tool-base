@@ -1,0 +1,39 @@
+# releaser-pleaser drives releases via the Release-PR pattern: on main it
+# maintains a "Release" PR with the pending version bump + changelog;
+# merging it creates the tag and GitHub Release, which triggers the
+# goreleaser workflow to attach binaries.
+#
+# Setup required in the generated repository:
+#   - Settings > General > Pull Requests: allow ONLY squash merging.
+#   - Settings > Actions > General: enable "Allow GitHub Actions to
+#     create and approve pull requests".
+#   - Add a RELEASER_PLEASER_TOKEN secret: a PAT with contents +
+#     pull-requests write. The default GITHUB_TOKEN cannot be used here
+#     because tags it creates do NOT trigger the goreleaser workflow
+#     (GitHub suppresses workflow runs for default-token-created refs).
+name: releaser-pleaser
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types:
+      - edited
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: releaser-pleaser
+  cancel-in-progress: true
+
+jobs:
+  releaser-pleaser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: releaser-pleaser
+        uses: apricote/releaser-pleaser@v0.8.0
+        with:
+          token: ${{ "{{" }} secrets.RELEASER_PLEASER_TOKEN {{ "}}" }}

@@ -37,7 +37,9 @@ release:
   use_existing_draft: true
   replace_existing_artifacts: true
   make_latest: true
-  mode: replace
+  # releaser-pleaser creates the Release (with its changelog) when the
+  # Release PR/MR is merged; this job only attaches the build artefacts.
+  mode: keep-existing
 
 checksum:
   name_template: 'checksums.txt'
@@ -46,12 +48,8 @@ snapshot:
   version_template: "{{ "{{" }} incpatch .Version {{ "}}" }}-dev{{ "{{" }}.ShortCommit{{ "}}" }}"
 
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^ci:"
+  # releaser-pleaser owns the changelog and Release notes.
+  disable: true
 
 {{ if eq .ReleaseProvider "github" -}}
 github_urls:

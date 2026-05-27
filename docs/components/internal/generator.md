@@ -75,8 +75,8 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `renovate.json5`: Dependency update configuration.
 -   `workflows/lint.yaml`: CI linting checks.
 -   `workflows/test.yaml`: CI unit tests with race detection.
--   `workflows/goreleaser.yaml`: Release automation.
--   `workflows/semantic-release.yaml`: Automated versioning.
+-   `workflows/goreleaser.yaml`: Release automation (builds + attaches binaries on tag).
+-   `workflows/releaser-pleaser.yaml`: Version + changelog management via the Release-PR pattern (GitLab uses the releaser-pleaser CI/CD component in `.gitlab-ci.yml` instead).
 -   `workflows/docs.yaml`: Documentation publishing (GitHub) or `.gitlab/ci/pages.yml` (GitLab).
 
 #### Documentation (`docs/`)
