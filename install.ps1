@@ -5,12 +5,13 @@
     Installs or updates the 'gtb' utility.
 .DESCRIPTION
     This script downloads the appropriate 'gtb' binary for your system
-    from GitHub releases, extracts it, and installs it to a local binary
+    from GitLab releases, extracts it, and installs it to a local binary
     directory. It also checks if this directory is in your PATH.
 .NOTES
     Author: Matt Cockayne <matt@phpboyscout.com>
-    Version: 1.0
-    Requires GITHUB_TOKEN environment variable to be set for accessing releases.
+    Version: 1.1
+    GITLAB_TOKEN is optional; only needed behind a private mirror or to
+    avoid anonymous rate limits.
 #>
 
 # Strict mode and error handling
@@ -22,34 +23,21 @@ $script:tempDir = $null
 
 try {
     # --- Configuration ---
-    $repoOwner = "phpboyscout"
-    $repoName = "gtb"
-    $gitApiBaseUrl = "https://api.github.com" # Adjust if different from public GitHub
+    # gtb releases are published to GitLab (gitlab.com/phpboyscout/go-tool-base).
+    $projectPath = "phpboyscout/go-tool-base"
+    $projectPathEncoded = [uri]::EscapeDataString($projectPath)
+    $gitApiBaseUrl = "https://gitlab.com/api/v4"
 
-    # --- 1. GITHUB_TOKEN Check (optional) ---
-    # M-8 from docs/development/reports/security-audit-2026-04-17.md —
-    # GITHUB_TOKEN is OPTIONAL for public repositories. When absent, the
-    # script falls back to anonymous access, subject to GitHub's 60 req/hr
-    # rate limit (unlikely to trip on a single install). When present and
-    # broadly scoped, warn the user.
+    # --- 1. GITLAB_TOKEN Check (optional) ---
+    # GITLAB_TOKEN is OPTIONAL for this public project. When absent, the script
+    # fetches anonymously. When present (handy behind a private mirror, or to
+    # avoid anonymous rate limits), it is sent as a PRIVATE-TOKEN header.
     $authHeader = $null
-    if (-not [string]::IsNullOrEmpty($env:GITHUB_TOKEN)) {
-        $authHeader = @{ Authorization = "token $($env:GITHUB_TOKEN)" }
-
-        try {
-            $scopeResp = Invoke-WebRequest -Method Head -Uri "$gitApiBaseUrl/user" -Headers $authHeader -UseBasicParsing -ErrorAction Stop
-            $scopes = $scopeResp.Headers["X-OAuth-Scopes"]
-            if ($scopes -and ($scopes -match '(^|,\s*)(repo|admin:|delete_repo|workflow)($|,)')) {
-                Write-Warning "GITHUB_TOKEN appears to have broad scopes ($scopes)."
-                Write-Warning "For installing releases from a public repo, a fine-grained"
-                Write-Warning "token with only 'contents: read' on this repo is sufficient."
-                Write-Warning "Proceeding anyway..."
-            }
-        } catch {
-            # Scope check failure is non-fatal — token may still work.
-        }
+    if (-not [string]::IsNullOrEmpty($env:GITLAB_TOKEN)) {
+        $authHeader = @{ "PRIVATE-TOKEN" = $env:GITLAB_TOKEN }
+        Write-Host "INFO: Using GITLAB_TOKEN for authenticated requests."
     } else {
-        Write-Host "INFO: No GITHUB_TOKEN set. Proceeding anonymously (subject to rate limits)."
+        Write-Host "INFO: No GITLAB_TOKEN set. Proceeding anonymously."
     }
 
     # --- 2. Prerequisite PowerShell Cmdlet Check ---
@@ -122,13 +110,12 @@ try {
     Write-Host "Temporary directory created: $($script:tempDir.FullName)"
 
     # --- 6. Fetch Latest Release Information from API ---
-    Write-Host "Fetching latest release information from $gitApiBaseUrl for $repoOwner/$repoName..."
-    $latestReleaseApiUrl = "$gitApiBaseUrl/repos/$repoOwner/$repoName/releases/latest"
-    $apiHeaders = @{
-        "Accept" = "application/vnd.github.v3+json"
-    }
+    # permalink/latest 302-redirects to the newest tagged release; Invoke-RestMethod follows it.
+    Write-Host "Fetching latest release information from gitlab.com for $projectPath..."
+    $latestReleaseApiUrl = "$gitApiBaseUrl/projects/$projectPathEncoded/releases/permalink/latest"
+    $apiHeaders = @{}
     if ($authHeader) {
-        $apiHeaders["Authorization"] = $authHeader["Authorization"]
+        $apiHeaders["PRIVATE-TOKEN"] = $authHeader["PRIVATE-TOKEN"]
     }
 
     try {
@@ -151,18 +138,20 @@ try {
         exit 1
     }
 
-    # Determine the asset to download
+    # Determine the asset to download. GitLab exposes release assets under
+    # .assets.links[], each with a .name and a .direct_asset_url.
+    $assetLinks = $releaseInfo.assets.links
     $downloadAsset = $null
     $packageName = ""
     $isDirectExecutableDownload = $false
 
-    # For Windows, prioritize a direct .exe if available
+    # For Windows, prefer a direct .exe if a future release ships one...
     $windowsExeAssetNames = @(
         "gtb_${osIdentifier}_${archIdentifier}.exe", # e.g., gtb_Windows_x86_64.exe
         "gtb.exe"                                   # Generic gtb.exe
     )
     foreach ($assetName in $windowsExeAssetNames) {
-        $downloadAsset = $releaseInfo.assets | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
+        $downloadAsset = $assetLinks | Where-Object { $_.name -eq $assetName } | Select-Object -First 1
         if ($null -ne $downloadAsset) {
             $packageName = $downloadAsset.name
             $isDirectExecutableDownload = $true
@@ -171,10 +160,10 @@ try {
         }
     }
 
-    # If not a direct Windows exe, look for the .tar.gz
+    # ...otherwise fall back to the .tar.gz archive (what releases ship today).
     if ($null -eq $downloadAsset) {
         $tarGzPackageName = "gtb_${osIdentifier}_${archIdentifier}.tar.gz"
-        $downloadAsset = $releaseInfo.assets | Where-Object { $_.name -eq $tarGzPackageName } | Select-Object -First 1
+        $downloadAsset = $assetLinks | Where-Object { $_.name -eq $tarGzPackageName } | Select-Object -First 1
         if ($null -ne $downloadAsset) {
             $packageName = $downloadAsset.name
             Write-Host "Found tar.gz package asset for Windows: $packageName"
@@ -185,22 +174,20 @@ try {
         Write-Error "Error: Could not find a suitable download asset for ${osIdentifier}/${archIdentifier}."
         Write-Error "Looked for 'gtb_${osIdentifier}_${archIdentifier}.tar.gz' and potential direct executables for Windows."
         Write-Host "Available assets from release:"
-        $releaseInfo.assets | ForEach-Object { Write-Host "- $($_.name)" }
+        $assetLinks | ForEach-Object { Write-Host "- $($_.name)" }
         exit 1
     }
 
-    $downloadUrl = $downloadAsset.url
+    $downloadUrl = $downloadAsset.direct_asset_url
     Write-Host "Selected package for download: $packageName"
     Write-Host "Download URL: $downloadUrl"
 
     # --- 7. Download the Package ---
     $downloadPath = Join-Path $script:tempDir.FullName $packageName
     Write-Host "Downloading $packageName to $downloadPath..."
-    $downloadHeaders = @{
-        "Accept" = "application/octet-stream"
-    }
+    $downloadHeaders = @{}
     if ($authHeader) {
-        $downloadHeaders["Authorization"] = "Bearer $($env:GITHUB_TOKEN)"
+        $downloadHeaders["PRIVATE-TOKEN"] = $env:GITLAB_TOKEN
     }
     try {
         Invoke-WebRequest -Uri $downloadUrl -Headers $downloadHeaders -OutFile $downloadPath -UseBasicParsing

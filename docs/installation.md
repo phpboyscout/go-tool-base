@@ -42,14 +42,9 @@ irm "https://gitlab.com/phpboyscout/go-tool-base/raw/main/install.ps1" | iex
 
 ### Token Permissions
 
-The install scripts accept an optional `GITHUB_TOKEN` environment variable. For installing releases from this public repository, **no token is required** — anonymous access is sufficient and subject only to GitHub's 60 req/hr rate limit.
+Releases are published to GitLab (`gitlab.com/phpboyscout/go-tool-base`), and the install scripts resolve the latest release from the GitLab API. For installing from this public project, **no token is required** — anonymous access is sufficient.
 
-If you choose to supply a token (for example to raise that rate limit or when running inside a CI pipeline that always sets `GITHUB_TOKEN`), the minimum permissions are:
-
-- **Fine-grained PAT:** `contents: read` on `phpboyscout/go-tool-base`.
-- **Classic PAT:** the `public_repo` scope is sufficient.
-
-The install scripts will emit a warning if they detect a token with broader scopes (`repo`, `admin:*`, `delete_repo`, `workflow`) because those are unnecessary for installation and increase the blast radius if the token is ever leaked from shell history, environment dumps, or a misconfigured CI log.
+The scripts accept an optional `GITLAB_TOKEN` environment variable, useful behind a private mirror or to avoid anonymous rate limits (for example inside a CI pipeline). When set, it is sent as a `PRIVATE-TOKEN` header. A token with the `read_api` scope (or a project access token with the Reporter role) is all that's needed; nothing broader is required to download a release asset.
 
 ### From Source (go install)
 

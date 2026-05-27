@@ -21,34 +21,16 @@ cleanup() {
 # Trap to call cleanup function on script exit or interruption
 trap cleanup EXIT HUP INT QUIT TERM
 
-# M-8 from docs/development/reports/security-audit-2026-04-17.md —
-# GITHUB_TOKEN is OPTIONAL for installing from a public repository.
-# When absent, we fall back to anonymous access (subject to GitHub's
-# 60 req/hr rate limit — unlikely to trip on a single install).
-# When present, we warn loudly if the token has scopes beyond what
-# reading release assets requires.
+# gtb releases are published to GitLab (gitlab.com/phpboyscout/go-tool-base).
+# GITLAB_TOKEN is OPTIONAL for installing from this public project. When
+# absent, we fetch anonymously. When present (handy behind a private mirror,
+# or to avoid anonymous rate limits), it is sent as a PRIVATE-TOKEN header.
 AUTH_HEADER=""
-if [ -n "${GITHUB_TOKEN:-}" ]; then
-  AUTH_HEADER="Authorization: token ${GITHUB_TOKEN}"
-
-  # Inspect the token's OAuth scopes via GET /user (returns them in the
-  # X-OAuth-Scopes header). If any broad scope is present, warn the user —
-  # for release installation, a fine-grained token with 'contents: read'
-  # on this repo is sufficient.
-  if command -v curl >/dev/null 2>&1; then
-    scopes=$(curl -sI -H "${AUTH_HEADER}" "https://api.github.com/user" \
-             | awk -F': ' 'tolower($1)=="x-oauth-scopes"{print $2}' | tr -d '\r\n ')
-    case ",${scopes}," in
-      *,repo,*|*,admin:*|*,delete_repo,*|*,workflow,*)
-        echo "WARNING: GITHUB_TOKEN appears to have broad scopes (${scopes})." >&2
-        echo "         For installing releases from a public repo, a fine-grained" >&2
-        echo "         token with only 'contents: read' on this repo is sufficient." >&2
-        echo "         Proceeding anyway..." >&2
-        ;;
-    esac
-  fi
+if [ -n "${GITLAB_TOKEN:-}" ]; then
+  AUTH_HEADER="PRIVATE-TOKEN: ${GITLAB_TOKEN}"
+  echo "INFO: Using GITLAB_TOKEN for authenticated requests."
 else
-  echo "INFO: No GITHUB_TOKEN set. Proceeding anonymously (subject to rate limits)."
+  echo "INFO: No GITLAB_TOKEN set. Proceeding anonymously."
 fi
 
 # Check for required tools
@@ -93,33 +75,34 @@ fi
 package_name="gtb_$(uname -s)_${arch}.tar.gz"
 package_name_to_clean="${package_name}" # Variable for trap cleanup
 
-echo "Fetching latest release information from github.com..."
-api_url="https://api.github.com/repos/phpboyscout/gtb/releases/latest"
-# Conditionally pass the Authorization header only when a token is present.
+echo "Fetching latest release information from gitlab.com..."
+# permalink/latest 302-redirects to the newest tagged release; -L follows it.
+project_path="phpboyscout%2Fgo-tool-base"
+api_url="https://gitlab.com/api/v4/projects/${project_path}/releases/permalink/latest"
+
 if [ -n "${AUTH_HEADER}" ]; then
-  download_url=$(curl -sL -H "${AUTH_HEADER}" -H "Accept: application/vnd.github.v3+json" "${api_url}" \
-                 | jq -r ".assets[] | select(.name == \"${package_name}\") | .browser_download_url")
+  release_json=$(curl -sSL -H "${AUTH_HEADER}" "${api_url}")
 else
-  download_url=$(curl -sL -H "Accept: application/vnd.github.v3+json" "${api_url}" \
-                 | jq -r ".assets[] | select(.name == \"${package_name}\") | .browser_download_url")
+  release_json=$(curl -sSL "${api_url}")
 fi
 
+# Each release asset is an entry under .assets.links[]; match ours by name and
+# take its direct_asset_url (a stable …/-/releases/<tag>/downloads/<name> route).
+download_url=$(printf '%s' "${release_json}" \
+  | jq -r --arg name "${package_name}" \
+       '.assets.links[]? | select(.name == $name) | .direct_asset_url')
 
 if [[ -z "${download_url}" || "${download_url}" == "null" ]]; then
-  echo "Error: Could not find download URL for package '${package_name}'."
-  echo "Please check if a release asset matching your OS and architecture exists."
+  echo "Error: Could not find a release asset named '${package_name}'."
+  echo "Please check that a release asset matching your OS and architecture exists."
   exit 1
 fi
 
 echo "Downloading ${package_name}..."
-
-# Download the package — browser_download_url is a public URL; the token
-# is only needed to dodge the API rate limit. Pass it only when we have
-# one.
 if [ -n "${AUTH_HEADER}" ]; then
-  curl -fL -H "${AUTH_HEADER}" -H "Accept: application/octet-stream" -o "${package_name}" "${download_url}"
+  curl -fL -H "${AUTH_HEADER}" -o "${package_name}" "${download_url}"
 else
-  curl -fL -H "Accept: application/octet-stream" -o "${package_name}" "${download_url}"
+  curl -fL -o "${package_name}" "${download_url}"
 fi
 if [ $? -ne 0 ]; then
   echo "Error: Failed to download '${package_name}' from '${download_url}'."
