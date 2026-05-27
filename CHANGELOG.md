@@ -1,3 +1,5 @@
+# Changelog
+
 ## [0.2.3](https://gitlab.com/phpboyscout/go-tool-base/compare/v0.2.2...v0.2.3) (2026-05-14)
 
 
