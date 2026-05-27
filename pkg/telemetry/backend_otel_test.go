@@ -18,8 +18,9 @@ import (
 type spyLogger struct {
 	logger.Logger
 
-	mu    sync.Mutex
-	warns []warnEntry
+	mu     sync.Mutex
+	warns  []warnEntry
+	debugs []warnEntry
 }
 
 type warnEntry struct {
@@ -34,13 +35,20 @@ func (s *spyLogger) Warn(msg string, keyvals ...any) {
 	s.warns = append(s.warns, warnEntry{msg: msg, keyvals: keyvals})
 }
 
-// newSpyLogger wraps a noop logger with Warn interception. Other
+func (s *spyLogger) Debug(msg string, keyvals ...any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.debugs = append(s.debugs, warnEntry{msg: msg, keyvals: keyvals})
+}
+
+// newSpyLogger wraps a noop logger with Warn/Debug interception. Other
 // logger methods delegate to noop so unexercised paths do not panic.
 func newSpyLogger() *spyLogger {
 	return &spyLogger{Logger: logger.NewNoop()}
 }
 
-func TestWithOTelHeaders_WarnsOnSensitiveKeys(t *testing.T) {
+func TestWithOTelHeaders_DebugsOnSensitiveKeys(t *testing.T) {
 	t.Parallel()
 
 	// An HTTPS endpoint means the exporter is constructed lazily —
@@ -63,18 +71,20 @@ func TestWithOTelHeaders_WarnsOnSensitiveKeys(t *testing.T) {
 	spy.mu.Lock()
 	defer spy.mu.Unlock()
 
-	// Exactly two warnings — one per sensitive-looking key.
-	require.Len(t, spy.warns, 2, "expected a WARN per sensitive header")
+	// Exactly two DEBUG diagnostics — one per sensitive-looking key. The
+	// advisory is DEBUG (not WARN) so it doesn't spam every command.
+	assert.Empty(t, spy.warns, "sensitive-header advisory must not be WARN")
+	require.Len(t, spy.debugs, 2, "expected a DEBUG diagnostic per sensitive header")
 
-	msgs := []string{spy.warns[0].msg, spy.warns[1].msg}
+	msgs := []string{spy.debugs[0].msg, spy.debugs[1].msg}
 	combined := strings.Join(msgs, "\n")
 
 	assert.Contains(t, combined, "Authorization",
-		"warning should name the sensitive header key")
+		"diagnostic should name the sensitive header key")
 	assert.Contains(t, combined, "X-API-Key",
-		"warning should name the sensitive header key")
+		"diagnostic should name the sensitive header key")
 	assert.Contains(t, combined, "TLS",
-		"warning should mention the TLS / middleware remediation")
+		"diagnostic should mention the TLS / middleware remediation")
 
 	// Critically: the header VALUES must never appear in the warning.
 	// Callers routinely put tokens in these fields, so the warning

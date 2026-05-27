@@ -38,10 +38,12 @@ type otelConfig struct {
 //
 // Advisory: header keys matching the sensitive pattern (anything
 // suggesting a credential — Authorization, X-API-Key, custom names
-// containing "auth"/"token"/"secret"/etc.) produce a WARN at backend
-// initialisation so operators can audit which headers carry secrets
-// and verify their exporter uses TLS. See M-6 in
-// docs/development/reports/security-audit-2026-04-17.md.
+// containing "auth"/"token"/"secret"/etc.) produce a DEBUG diagnostic
+// at backend initialisation so operators auditing at debug level can
+// see which headers carry secrets and verify their exporter uses TLS.
+// It is intentionally DEBUG, not WARN: the header is usually a
+// tool-author-configured credential and a per-invocation WARN is noise.
+// See M-6 in docs/development/reports/security-audit-2026-04-17.md.
 func WithOTelHeaders(headers map[string]string) OTelOption {
 	return func(c *otelConfig) {
 		c.headers = headers
@@ -99,7 +101,11 @@ func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (B
 		}))
 
 		for _, w := range cfg.pendingWarnings {
-			cfg.log.Warn(w)
+			// DEBUG, not WARN: this is an audit hint about a header the
+			// tool author intentionally configured (e.g. a baked-in
+			// Authorization token). Emitting it at WARN on every command
+			// invocation is alarming noise with no end-user action.
+			cfg.log.Debug(w)
 		}
 	}
 
