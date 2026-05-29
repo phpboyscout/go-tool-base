@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.4.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.4.0)
+
+### Features
+
+- **config**: add generic ValidateStruct[T] / SchemaOf[T] helpers
+
 ## [v0.3.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.3.0)
 
 ### Features
