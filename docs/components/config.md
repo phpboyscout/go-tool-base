@@ -477,7 +477,9 @@ This design aligns with GTB's config architecture where defaults live in embedde
 
 **Per-package validation (recommended pattern):**
 
-Each package defines a config struct and a validation function for the keys it owns:
+Each package defines a config struct and validates the keys it owns with the
+generic `ValidateStruct[T]` helper, which derives the schema from the struct's
+tags and runs it against the container:
 
 ```go
 // pkg/myfeature/config.go
@@ -487,20 +489,16 @@ type Config struct {
     LogLevel string `config:"myfeature.log_level" enum:"debug,info,warn,error" default:"info"`
 }
 
-func ValidateConfig(cfg *config.Container) error {
-    schema, err := config.NewSchema(config.WithStructSchema(Config{}))
-    if err != nil {
-        return err
-    }
-
-    result := cfg.Validate(schema)
-    if !result.Valid() {
-        return errors.New(result.Error())
-    }
-
-    return nil
+func ValidateConfig(cfg config.Containable) error {
+    return config.ValidateStruct[Config](cfg)
 }
 ```
+
+`ValidateStruct[T]` takes the `Containable` interface, so there is no need to
+type-assert `Props.Config` down to the concrete `*Container`. Schema options pass
+straight through, e.g. `config.ValidateStruct[Config](cfg, config.WithStrictMode())`.
+When you need the `*Schema` itself (for hot-reload gating via `SetSchema`, say),
+build it with `config.SchemaOf[Config]()`, which caches the schema per type.
 
 **Load-time validation (for CLI tools):**
 
@@ -541,6 +539,13 @@ if !result.Valid() {
 |--------|-------------|
 | `WithStructSchema(v any)` | Derive schema from struct tags |
 | `WithStrictMode()` | Treat unknown keys as errors (default: warnings) |
+
+**Generic helpers:**
+
+| Function | Description |
+|----------|-------------|
+| `SchemaOf[T](opts ...SchemaOption)` | Build a schema from `T`'s struct tags; caches the option-free result per type |
+| `ValidateStruct[T](cfg Containable, opts ...SchemaOption)` | Validate `cfg` against `T`'s schema without a manual `*Container` cast |
 
 **Hot-reload integration:** Attach a schema to a container via `container.SetSchema(schema)`. When config files change, validation runs before notifying observers. Invalid reloads are rejected and logged.
 

@@ -149,13 +149,28 @@ type Config struct {
 
 ## Step 3: Add a Validation Function
 
-Expose a function that validates the config slice your package cares about:
+Expose a function that validates the config slice your package cares about. This
+is exactly what the generator scaffolds when you pass `--with-config-validation`:
 
 ```go
 // ValidateConfig checks that all required myfeature config keys are present
 // and that constrained values are within their allowed sets.
-func ValidateConfig(cfg *config.Container) error {
-    schema, err := config.NewSchema(config.WithStructSchema(Config{}))
+func ValidateConfig(cfg config.Containable) error {
+    return config.ValidateStruct[Config](cfg)
+}
+```
+
+`ValidateStruct[T]` derives the schema from `T`'s struct tags (caching it per
+type), runs it against the container, and returns a formatted error if anything
+fails. It takes the `Containable` interface, so callers never have to reach for
+the concrete `*config.Container`.
+
+If you need the `ValidationResult` itself — to inspect warnings, say — build the
+schema with `SchemaOf[T]` and validate by hand:
+
+```go
+func ValidateConfig(cfg config.Containable) error {
+    schema, err := config.SchemaOf[Config]()
     if err != nil {
         return err
     }
@@ -186,12 +201,7 @@ func NewCmdMyFeature(p *props.Props) *cobra.Command {
         Use:   "myfeature",
         Short: "Do something with myfeature",
         RunE: func(cmd *cobra.Command, args []string) error {
-            container, ok := p.Config.(*config.Container)
-            if !ok {
-                return errors.New("config container required for validation")
-            }
-
-            if err := myfeature.ValidateConfig(container); err != nil {
+            if err := myfeature.ValidateConfig(p.Config); err != nil {
                 return err
             }
 
@@ -217,7 +227,7 @@ config validation failed:
 For long-running services, attach the schema to the container to prevent invalid config reloads from reaching observers:
 
 ```go
-schema, err := config.NewSchema(config.WithStructSchema(Config{}))
+schema, err := config.SchemaOf[Config]()
 if err != nil {
     return err
 }
@@ -234,13 +244,12 @@ See [React to Configuration Changes at Runtime](config-hot-reload.md) for the fu
 
 ## Step 6: Strict Mode (Optional)
 
-By default, unknown keys produce warnings. If your package needs tighter control — for example, a user-facing config file where typos should be caught — enable strict mode:
+By default, unknown keys produce warnings. If your package needs tighter control — for example, a user-facing config file where typos should be caught — enable strict mode by passing the option straight through:
 
 ```go
-schema, err := config.NewSchema(
-    config.WithStructSchema(Config{}),
-    config.WithStrictMode(),
-)
+if err := config.ValidateStruct[Config](cfg, config.WithStrictMode()); err != nil {
+    return err
+}
 ```
 
 In strict mode, `myfeature.endpont` (typo) would produce an error instead of a warning.
@@ -267,8 +276,7 @@ myfeature:
     c, err := config.LoadFilesContainer(l, fs, "/config.yaml")
     require.NoError(t, err)
 
-    container := c.(*config.Container)
-    err = myfeature.ValidateConfig(container)
+    err = myfeature.ValidateConfig(c)
     assert.NoError(t, err)
 }
 
@@ -285,8 +293,7 @@ myfeature:
     c, err := config.LoadFilesContainer(l, fs, "/config.yaml")
     require.NoError(t, err)
 
-    container := c.(*config.Container)
-    err = myfeature.ValidateConfig(container)
+    err = myfeature.ValidateConfig(c)
     require.Error(t, err)
     assert.Contains(t, err.Error(), "myfeature.api_key")
 }

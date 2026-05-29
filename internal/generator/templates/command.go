@@ -685,7 +685,6 @@ func CommandConfigValidation(data CommandData) string {
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
 	sb.WriteString("import (\n")
-	sb.WriteString("\t\"github.com/cockroachdb/errors\"\n")
 	sb.WriteString("\t\"gitlab.com/phpboyscout/go-tool-base/pkg/config\"\n")
 	sb.WriteString(")\n\n")
 
@@ -699,16 +698,8 @@ func CommandConfigValidation(data CommandData) string {
 
 	fmt.Fprintf(&sb, "// Validate%sConfig checks that all required %s config keys are present\n", data.PascalName, data.Name)
 	fmt.Fprintf(&sb, "// and that constrained values are within their allowed sets.\n")
-	fmt.Fprintf(&sb, "func Validate%sConfig(cfg *config.Container) error {\n", data.PascalName)
-	fmt.Fprintf(&sb, "\tschema, err := config.NewSchema(config.WithStructSchema(%sConfig{}))\n", data.PascalName)
-	sb.WriteString("\tif err != nil {\n")
-	sb.WriteString("\t\treturn err\n")
-	sb.WriteString("\t}\n\n")
-	sb.WriteString("\tresult := cfg.Validate(schema)\n")
-	sb.WriteString("\tif !result.Valid() {\n")
-	sb.WriteString("\t\treturn errors.New(result.Error())\n")
-	sb.WriteString("\t}\n\n")
-	sb.WriteString("\treturn nil\n")
+	fmt.Fprintf(&sb, "func Validate%sConfig(cfg config.Containable) error {\n", data.PascalName)
+	fmt.Fprintf(&sb, "\treturn config.ValidateStruct[%sConfig](cfg)\n", data.PascalName)
 	sb.WriteString("}\n")
 
 	return sb.String()

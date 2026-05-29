@@ -2,7 +2,7 @@
 title: "Generic Config Validation Helper Specification"
 description: "Add a generic ValidateStruct[T] helper to pkg/config so callers validate a tagged config struct against the container without building a schema by hand or type-asserting Props.Config to the concrete *config.Container."
 date: 2026-05-29
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -25,7 +25,7 @@ Date
 :   29 May 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 Builds on
 :   [Config Schema Validation Specification](2026-03-26-config-schema-validation.md) (IMPLEMENTED)
@@ -278,15 +278,28 @@ config.ValidateStruct[HelloConfig](props.Config, config.WithStrictMode())
 
 ---
 
-## Open questions
+## Decisions
 
-1. **Naming.** `ValidateStruct[T]` is explicit; `Validate[T]` is shorter but sits
-   awkwardly next to the existing `Container.Validate` method. `Check[T]` is
-   another option. Preference?
-2. **Keep a per-command function?** Inlining `ValidateStruct[T]` at the call site
-   is the leanest, but a generated `Validate<Name>Config` (wrapping the generic)
-   keeps a named, greppable entry point per command. Which does the generator
-   emit?
-3. **Cache eviction.** A `sync.Map` keyed by `reflect.Type` is effectively
-   permanent. For the handful of config structs a tool defines this is a
-   non-issue, but worth a note if that assumption ever changes.
+Resolved during implementation:
+
+1. **Naming:** `ValidateStruct[T]` and `SchemaOf[T]`. `Validate[T]` was rejected
+   for sitting awkwardly next to the existing `Container.Validate` method;
+   `ValidateStruct` reads unambiguously at the call site.
+2. **Per-command function kept.** The generator continues to emit a named
+   `Validate<Name>Config`, now typed against `Containable` and delegating to
+   `config.ValidateStruct[<Name>Config]`. This keeps a greppable per-command entry
+   point while removing both the boilerplate and the cast. Callers that prefer to
+   inline `config.ValidateStruct[T](props.Config)` directly can still do so.
+3. **Cache eviction: none.** The `sync.Map` keyed by `reflect.Type` is
+   effectively permanent. For the handful of config structs a tool defines this is
+   a non-issue; revisit only if a use case ever generates schemas for unbounded
+   types at runtime.
+
+## Implementation notes
+
+- `pkg/config/validate_generic.go` adds `SchemaOf[T]` and `ValidateStruct[T]`,
+  with tests in `pkg/config/validate_generic_test.go`.
+- `internal/generator/templates/command.go` (`CommandConfigValidation`) emits the
+  streamlined `config.go`.
+- `docs/how-to/validate-component-config.md` and `docs/components/config.md`
+  updated to the cast-free pattern.
