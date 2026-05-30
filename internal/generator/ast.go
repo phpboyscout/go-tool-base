@@ -58,7 +58,7 @@ func (g *Generator) registerSubcommand() error {
 	}
 
 	g.props.Logger.Debugf("Adding import for %s", ctx.importPath)
-	g.addSubcommandImport(f, ctx.importPath, ctx)
+	g.addSubcommandImport(f, ctx.importPath)
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)
 	if err != nil {
@@ -192,22 +192,29 @@ func (g *Generator) fallbackParentFile(relPath, name string, isRoot bool) string
 	return filepath.Join(g.config.Path, relPath, name+".go")
 }
 
-func (g *Generator) addSubcommandImport(f *dst.File, path string, ctx *subcommandContext) {
-	importPath := fmt.Sprintf("\"%s\"", path)
-	setupPath := "\"gitlab.com/phpboyscout/go-tool-base/pkg/setup\""
+func (g *Generator) addSubcommandImport(f *dst.File, path string) {
+	g.ensureImport(f, fmt.Sprintf("\"%s\"", path))
+}
 
-	hasImport := g.hasImport(f, importPath)
-	hasSetup := g.hasImport(f, setupPath)
+// ensureImport adds quotedPath (a double-quoted import path) to f's imports if it
+// is not already present, appending to the last import block or creating one.
+func (g *Generator) ensureImport(f *dst.File, quotedPath string) {
+	if g.hasImport(f, quotedPath) {
+		return
+	}
 
-	lastImportDecl := g.findLastImportDecl(f)
+	spec := &dst.ImportSpec{Path: &dst.BasicLit{Kind: token.STRING, Value: quotedPath}}
 
-	if lastImportDecl != nil {
-		g.appendImportsToDecl(lastImportDecl, importPath, setupPath, hasImport, hasSetup, ctx.wrapSubcommands)
+	if decl := g.findLastImportDecl(f); decl != nil {
+		decl.Specs = append(decl.Specs, spec)
 
 		return
 	}
 
-	g.createNewImportBlock(f, importPath, setupPath, ctx.wrapSubcommands)
+	f.Decls = append([]dst.Decl{&dst.GenDecl{
+		Tok:   token.IMPORT,
+		Specs: []dst.Spec{spec},
+	}}, f.Decls...)
 }
 
 func (g *Generator) hasImport(f *dst.File, path string) bool {
@@ -230,39 +237,6 @@ func (g *Generator) findLastImportDecl(f *dst.File) *dst.GenDecl {
 	}
 
 	return lastImportDecl
-}
-
-func (g *Generator) appendImportsToDecl(decl *dst.GenDecl, importPath, setupPath string, hasImport, hasSetup, wrapSubcommands bool) {
-	if !hasImport {
-		decl.Specs = append(decl.Specs, &dst.ImportSpec{
-			Path: &dst.BasicLit{Kind: token.STRING, Value: importPath},
-		})
-	}
-
-	if wrapSubcommands && !hasSetup {
-		decl.Specs = append(decl.Specs, &dst.ImportSpec{
-			Path: &dst.BasicLit{Kind: token.STRING, Value: setupPath},
-		})
-	}
-}
-
-func (g *Generator) createNewImportBlock(f *dst.File, importPath, setupPath string, wrapSubcommands bool) {
-	specs := []dst.Spec{
-		&dst.ImportSpec{
-			Path: &dst.BasicLit{Kind: token.STRING, Value: importPath},
-		},
-	}
-
-	if wrapSubcommands {
-		specs = append(specs, &dst.ImportSpec{
-			Path: &dst.BasicLit{Kind: token.STRING, Value: setupPath},
-		})
-	}
-
-	f.Decls = append([]dst.Decl{&dst.GenDecl{
-		Tok:   token.IMPORT,
-		Specs: specs,
-	}}, f.Decls...)
 }
 
 func (g *Generator) findSubcommandTargetFunction(f *dst.File, parentName, parentFile string) (*dst.FuncDecl, error) {
@@ -547,6 +521,15 @@ func (g *Generator) applySubcommandRegistration(f *dst.File, fn *dst.FuncDecl, c
 		g.insertIntoRoot(fn, ctx)
 	} else {
 		g.props.Logger.Debugf("Inserting AddCommand call for %q before return statement", g.config.Name)
+
+		// Only this path emits setup.AddCommandWithMiddleware, so the setup
+		// import is added here rather than for every subcommand registration.
+		// The root path (insertIntoRoot) wraps via the library and never
+		// references setup, so importing it there leaves it unused.
+		if ctx.wrapSubcommands {
+			g.ensureImport(f, "\"gitlab.com/phpboyscout/go-tool-base/pkg/setup\"")
+		}
+
 		stmt := g.createRegistrationStmts(ctx)
 		g.insertGeneric(fn, stmt)
 	}

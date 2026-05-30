@@ -144,6 +144,13 @@ func TestFullLifecycle_SkeletonToCommandsToRemoval(t *testing.T) {
 	assert.Contains(t, string(rootCmd), "deploy", "root cmd.go should reference deploy")
 	assert.Contains(t, string(rootCmd), "status", "root cmd.go should reference status")
 
+	// Regression: the root registers subcommands directly inside NewCmdRoot
+	// (no setup.AddCommandWithMiddleware), so it must NOT import the setup
+	// package, otherwise the generated project fails to compile with
+	// "imported and not used".
+	assert.NotContains(t, string(rootCmd), "pkg/setup",
+		"root cmd.go must not import setup; it registers subcommands directly")
+
 	// --- Step 2: Add a nested subcommand ---
 	addCmd(t, p, path, "canary", "deploy")
 
@@ -151,6 +158,14 @@ func TestFullLifecycle_SkeletonToCommandsToRemoval(t *testing.T) {
 	deployCmdContent, err := afero.ReadFile(p.FS, deployCmdFile)
 	require.NoError(t, err)
 	assert.Contains(t, string(deployCmdContent), "canary", "deploy/cmd.go should reference canary subcommand")
+
+	// The nested-command path does wrap with setup.AddCommandWithMiddleware, so
+	// the setup import must be present and used here (the counterpart to the
+	// root assertion above).
+	assert.Contains(t, string(deployCmdContent), "pkg/setup",
+		"deploy/cmd.go should import setup for the wrapped nested command")
+	assert.Contains(t, string(deployCmdContent), "AddCommandWithMiddleware",
+		"nested command should be wrapped via setup.AddCommandWithMiddleware")
 
 	// Manifest should have canary nested under deploy
 	m = loadManifestFrom(t, p.FS, path)

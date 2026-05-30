@@ -710,7 +710,7 @@ func CommandExecution(data CommandData) string {
 		return data.FullFileContent
 	}
 
-	cleanImports := getCleanImports(data.Imports, data.WithInitializer, data.WithConfigValidation)
+	cleanImports := getCleanImports(data.Imports, data.WithInitializer)
 
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
@@ -766,7 +766,7 @@ func CommandExecution(data CommandData) string {
 	return sb.String()
 }
 
-func getCleanImports(rawImports []string, withInitializer, withConfigValidation bool) []string {
+func getCleanImports(rawImports []string, withInitializer bool) []string {
 	uniqueImports := make(map[string]bool)
 
 	var cleanImports []string
@@ -778,11 +778,9 @@ func getCleanImports(rawImports []string, withInitializer, withConfigValidation 
 		"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling",
 	}
 
+	// The generated Init<Name> stub takes a config.Containable, so the config
+	// package is required in main.go when an initializer is generated.
 	if withInitializer {
-		baseImports = append(baseImports, "github.com/spf13/viper")
-	}
-
-	if withConfigValidation {
 		baseImports = append(baseImports, "gitlab.com/phpboyscout/go-tool-base/pkg/config")
 	}
 
