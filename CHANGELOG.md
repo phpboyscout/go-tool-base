@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.4.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.4.1)
+
+### Bug Fixes
+
+- **generator**: drop unused imports from generated command files
+- resolve gtb install from GitLab releases, not GitHub
+
 ## [v0.4.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.4.0)
 
 ### Features
