@@ -2,7 +2,7 @@
 title: "Command Composition: setup.Command wrapper with Register"
 description: "Replace setup.AddCommandWithMiddleware(parent, cmd, feature) with a composed setup.Command type that carries its own feature and exposes a Register method, so subcommand registration wires middleware automatically and the generator never has to thread a feature key through each call. Fixes the nested-command compile regression by construction."
 date: 2026-05-30
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - generator
@@ -26,7 +26,7 @@ Date
 :   30 May 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 
@@ -258,18 +258,6 @@ way, e.g. `rootCmd.Register(hello.NewCmdHello(p), greet.NewCmdGreet(p))`.
 
 ---
 
-## Interim stopgap (optional, separate from this spec)
-
-If nested commands need to compile **before** this redesign lands, a one-line
-generator change unblocks them without any of the above: in
-`createRegistrationStmts` emit `props.FeatureCmd("<name>")` instead of
-`props.<Name>Cmd`. That is the idiom the generated `init.go` already uses and the
-framework root uses (`""`), so it is a faithful regression fix and ships as a
-patch (v0.4.2). Design A then supersedes it. Decide per urgency; the redesign
-does not depend on the stopgap.
-
----
-
 ## Out of scope
 
 - Changing what middleware does, or the global/feature middleware registries.
@@ -293,21 +281,17 @@ fallback if a breaking change is undesirable before v1.0.
 
 ---
 
-## Open questions
+## Resolutions
 
-1. **`Wrap` signature / naming.** `Wrap(feature, cmd)` vs `NewCommand(cmd, feature)`
-   vs a builder. Argument order?
-2. **Keep or deprecate `AddCommandWithMiddleware`.** It is still used by the
-   framework root for built-ins and may have external callers. Reimplement the
-   root in terms of `Register`, and keep `AddCommandWithMiddleware` as a thin
-   shim, or deprecate it with a removal target?
-3. **`Execute` signature.** Change to accept `*setup.Command`, or keep
-   `*cobra.Command` and have generated `main.go` pass `rootCmd.Command`?
-4. **Regression coverage.** Add a generator test that **compiles** a generated
-   project with a nested command (the current tests only assert file content,
-   which is why the regression shipped). At minimum, assert the generated parent
-   uses `.Register(` and references neither `props.<Name>Cmd` nor
-   `AddCommandWithMiddleware`.
+The originally-listed open questions were resolved during spec review
+(2026-05-30):
+
+1. **`Wrap` signature.** `func Wrap(feature props.FeatureCmd, cmd *cobra.Command) *Command` — feature first (the lookup-key-first convention) and the name *Wrap* reads cleanly at call sites.
+2. **`AddCommandWithMiddleware`.** Kept as a **thin deprecated shim** that delegates to `Register`, with a `// Deprecated:` marker pointing at `Command.Register`. Removal targeted at v1.0; protects any downstream callers.
+3. **`Execute` signature.** Changes to accept `*setup.Command`. Generated `main.go` passes the typed root directly. Keeps the migration consistent end to end.
+4. **Regression coverage.** A gated generator integration test scaffolds a project with a **nested** command and runs `go build` of the generated module. This is the bug-class catcher the file-content-only tests missed; it lands alongside the generator changes.
+
+The interim stopgap (a v0.4.2 one-line generator fix) is **not pursued** — the redesign supersedes it.
 
 ---
 
