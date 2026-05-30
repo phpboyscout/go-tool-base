@@ -121,10 +121,7 @@ Create a struct that describes the config keys your package consumes:
 // pkg/myfeature/config.go
 package myfeature
 
-import (
-    "github.com/cockroachdb/errors"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
-)
+import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 
 // Config describes the configuration keys consumed by myfeature.
 type Config struct {
@@ -273,7 +270,7 @@ myfeature:
 `), 0o644)
     require.NoError(t, err)
 
-    c, err := config.LoadFilesContainer(l, fs, "/config.yaml")
+    c, err := config.LoadFilesContainer(fs, config.WithLogger(l), config.WithConfigFiles("/config.yaml"))
     require.NoError(t, err)
 
     err = myfeature.ValidateConfig(c)
@@ -290,7 +287,7 @@ myfeature:
 `), 0o644)
     require.NoError(t, err)
 
-    c, err := config.LoadFilesContainer(l, fs, "/config.yaml")
+    c, err := config.LoadFilesContainer(fs, config.WithLogger(l), config.WithConfigFiles("/config.yaml"))
     require.NoError(t, err)
 
     err = myfeature.ValidateConfig(c)

@@ -109,6 +109,7 @@ You can generate lifecycle hook stubs for your command:
 - `--persistent-pre-run`: Generate a `PersistentPreRun` hook (runs before this command and all subcommands).
 - `--pre-run`: Generate a `PreRun` hook (runs before this command only).
 - `--with-initializer`: Generate a config Initializer for this command (creates `init.go` and adds an `Init<Name>` stub in `main.go`).
+- `--with-config-validation`: Generate a `config.go` with a `<Name>Config` struct and a `Validate<Name>Config(cfg config.Containable)` function (delegating to `config.ValidateStruct[<Name>Config]`) for validating this command's config keys. See [Define and Validate Config for a Component](../how-to/validate-component-config.md).
 
 ```bash
 # Generate a command with a PersistentPreRun hook and an initializer
