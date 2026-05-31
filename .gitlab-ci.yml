@@ -169,16 +169,18 @@ pages:
 goreleaser:
   stage: release
   image:
-    name: goreleaser/goreleaser:v2.15.4
+    name: goreleaser/goreleaser:v2.16.0
     entrypoint: [""]
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
   variables:
     GIT_STRATEGY: clone
-    # goreleaser/goreleaser:v2.10.2 ships with go1.24, but go.mod
-    # targets ≥1.26. GOTOOLCHAIN=auto tells the in-image go binary
-    # to fetch + use the requested toolchain (1.26.3) automatically.
-    GOTOOLCHAIN: auto
+    # goreleaser/goreleaser:v2.16.0 ships with golang:1.26.3-alpine, which
+    # already satisfies go.mod's `toolchain go1.26.3` directive. Pin
+    # GOTOOLCHAIN=local so the runner never attempts a sum.golang.org
+    # download — the v0.5.0 release first failed because that download
+    # tripped on a transient IPv6 routing issue on a shared runner.
+    GOTOOLCHAIN: local
   script:
     - goreleaser release --clean
 
