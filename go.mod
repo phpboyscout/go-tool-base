@@ -26,6 +26,7 @@ require (
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/google/go-github/v80 v80.0.0
 	github.com/google/uuid v1.6.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
 	github.com/hashicorp/hcl v1.0.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/leodido/go-conventionalcommits v0.12.0
@@ -115,7 +116,6 @@ require (
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-memdb v1.3.4 // indirect
