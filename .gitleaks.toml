@@ -15,11 +15,13 @@
 useDefault = true
 
 [allowlist]
-description = "pkg/redact test fixtures and component docs intentionally contain credential-shaped inputs for the redactor to strip; they are not real leaked secrets."
+description = "pkg/redact test fixtures and component docs intentionally contain credential-shaped inputs for the redactor to strip, and pkg/openapi vendors the minified Stoplight Elements UI (a third-party library whose tokenised minified code trips generic-api-key); none are real leaked secrets."
 paths = [
     '''pkg/redact/redact_test\.go''',
     '''pkg/redact/redact_fuzz_test\.go''',
     '''pkg/telemetry/telemetry_test\.go''',
     '''docs/components/redact\.md''',
     '''docs/components/telemetry\.md''',
+    '''pkg/openapi/assets/web-components\.min\.js''',
+    '''pkg/openapi/assets/styles\.min\.css''',
 ]
