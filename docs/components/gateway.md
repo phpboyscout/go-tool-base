@@ -1,0 +1,112 @@
+---
+title: Gateway
+description: grpc-gateway as a first-class transport for serving generated REST handlers.
+date: 2026-05-31
+tags: [components, gateway, grpc, http, networking]
+authors: [Matt Cockayne <matt@phpboyscout.com>]
+---
+
+# Gateway
+
+The `pkg/gateway` package makes a [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway) a first-class transport. It dials the local gRPC server — matching the server's own transport security — and serves the generated REST handlers, either mounted on an existing HTTP server or as its own controller-managed HTTP server.
+
+This gives you a JSON/REST surface over an existing gRPC service without standing up a separate, hand-written translation layer. The only gateway-specific code you write is a single registration function.
+
+## The RegisterFunc
+
+The caller supplies a `RegisterFunc` that wires the generated gateway handlers onto the mux using a client connection to the gRPC server. This is the only gateway-specific code a caller writes, and it is typically a one-liner calling the generated `RegisterXServiceHandler`.
+
+```go
+// RegisterFunc registers the generated gateway handlers onto the mux, using a
+// client connection to the gRPC server.
+type RegisterFunc func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error
+```
+
+A realistic implementation:
+
+```go
+register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+    return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
+}
+```
+
+## Functions
+
+- **`New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error)`**: Builds a grpc-gateway handler ready to mount on an existing HTTP server. It dials the local gRPC server via `grpc.DialLocal` (so transport security matches the server's own config) and applies `register` to wire the handlers. The returned handler is a `*runtime.ServeMux`, and the underlying gRPC connection lives for the process — the standard pattern for an in-process gateway.
+- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: Runs the gateway as its own controller-managed HTTP server. It is the first-class form of `New`, a peer of `grpc.Register` and `http.Register`. Internally it builds the handler with `New`, then registers it via `pkg/http`'s `Register` with `WithConfigPrefix(ConfigPrefix)`.
+
+## Configuration
+
+When run via `Register`, the gateway server reads its own config block:
+
+```go
+const ConfigPrefix = "server.gateway"
+```
+
+Port and TLS come from `server.gateway.*`, and TLS falls back to the shared `server.tls` defaults (following the same cascade as the other transports).
+
+```yaml
+server:
+  gateway:
+    port: 8081
+  tls:
+    enabled: true
+    cert: /etc/certs/server.crt
+    key: /etc/certs/server.key
+```
+
+With the shared `server.tls` keys set and no `server.gateway.tls` override, the gateway server uses the same certificate as the rest of the stack.
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `WithMuxOptions(opts ...runtime.ServeMuxOption)` | Passes `runtime.ServeMuxOption` values to the gateway mux (e.g. a custom error handler or header matcher). |
+| `WithDialOptions(opts ...grpc.DialOption)` | Passes extra `grpc.DialOption` values to the connection the gateway opens to the gRPC server. Transport security is set automatically. |
+
+## Usage Example: mounted on an existing server
+
+Use `New` when the REST handlers should share an origin with other routes — for example, serving the API alongside the OpenAPI docs on a single mux.
+
+```go
+register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+    return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
+}
+
+gw, err := gateway.New(ctx, props.Config, register)
+if err != nil {
+    return err
+}
+
+mux := http.NewServeMux()
+mux.Handle("/v1/", gw)            // REST handlers (annotations are /v1/...; do not strip the prefix)
+mux.Handle("/docs/", docsHandler) // OpenAPI docs, same origin
+
+srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Config, props.Logger, mux)
+if err != nil {
+    return err
+}
+```
+
+## Usage Example: as its own server
+
+Use `Register` to stand the gateway up as a controller-managed HTTP server on the `server.gateway` config block, peer to the gRPC and HTTP servers.
+
+```go
+register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+    return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
+}
+
+srv, err := gateway.Register(ctx, "gateway", controller, props.Config, props.Logger, register)
+if err != nil {
+    return err
+}
+```
+
+## Dependencies
+
+The package builds on the rest of the web-service stack:
+
+- **`pkg/grpc`** — `DialLocal` opens the connection to the local gRPC server with matching transport security.
+- **`pkg/http`** — `Register` and `WithConfigPrefix` host the gateway as a controller-managed server when using `Register`.
+- **grpc-gateway/v2 `runtime`** — provides the `ServeMux` and the generated handler registration.

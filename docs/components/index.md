@@ -34,6 +34,18 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Forms](forms.md)** | `pkg/forms` | Multi-step interactive CLI form helpers with Escape-to-go-back navigation, built on charmbracelet/huh. |
 | **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
 
+## Web Service
+
+Components for running a CLI as a long-lived service. See also **[Controls](controls.md)** for the lifecycle management they register against.
+
+| Component | Package | Description |
+| :--- | :--- | :--- |
+| **[gRPC](grpc.md)** | `pkg/grpc` | gRPC server wired to the controller, with health, reflection, interceptors and TLS — plus `DialLocal` and client credentials for in-process callers. |
+| **[HTTP](http.md)** | `pkg/http` | Hardened HTTP server and client, health endpoints, middleware chains, and per-server config prefixes. |
+| **[TLS](tls.md)** | `pkg/tls` | Shared hardened TLS config, the typed `Pair`, shared/per-transport resolution, and client cert-pool helpers. |
+| **[Gateway](gateway.md)** | `pkg/gateway` | grpc-gateway as a first-class transport: REST-to-gRPC, mounted or as its own server. |
+| **[OpenAPI](openapi.md)** | `pkg/openapi` | Serve an OpenAPI spec and an embedded Stoplight Elements docs site. |
+
 ## Testing Support
 
 | Component | Package | Description |

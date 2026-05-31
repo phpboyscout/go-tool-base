@@ -41,7 +41,7 @@ The package provides an interceptor chaining API for composing gRPC unary and st
 
 ## TLS
 
-The gRPC server supports TLS using the same hardened configuration as the HTTP server (TLS 1.2 minimum, curated AEAD cipher suites, X25519 curve preference).
+The gRPC server supports TLS using the shared hardened configuration from [`pkg/tls`](tls.md) (TLS 1.2 minimum, curated AEAD cipher suites, X25519 curve preference). The TLS listener advertises HTTP/2 via ALPN (`h2`); without it, grpc-go 1.67+ clients — including the [gateway](gateway.md) — refuse the connection with "missing selected ALPN property". The `Register`/`Start` path sets this for you.
 
 ### Configuration
 
@@ -90,7 +90,33 @@ if err != nil {
 srv := grpc.NewServer(grpc.Creds(creds))
 ```
 
-This uses the same hardened TLS config (`DefaultTLSConfig()`) as the automatic setup.
+This uses the same shared hardened TLS config from [`pkg/tls`](tls.md) as the automatic setup. (`credentials.NewTLS` advertises `h2` itself, so no explicit ALPN is needed on this path.)
+
+### Client Credentials and Local Dialling
+
+The package also provides the client side, used for example by the [gateway](gateway.md) when it dials the gRPC server over a self-signed or private-CA certificate:
+
+- **`TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, error)`**: client transport credentials trusting the given CA/cert files — the mirror of `TLSServerCredentials`. With no files it trusts the system roots.
+- **`DialLocal(cfg config.Containable, opts ...grpc.DialOption) (*grpc.ClientConn, error)`**: dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`server.grpc.tls` cascading to `server.tls`). Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
+
+```go
+// Connect to the local gRPC server with matching transport security in one call.
+conn, err := gtbgrpc.DialLocal(props.Config)
+if err != nil {
+    return err
+}
+```
+
+### Config Keys
+
+Exported constants for the gRPC server's config keys (prefer these over bare strings):
+
+| Constant | Key |
+|----------|-----|
+| `ConfigKeyPort` | `server.grpc.port` |
+| `ConfigKeyReflection` | `server.grpc.reflection` |
+| `ConfigKeySharedPort` | `server.port` (fallback when the port is unset) |
+| `ConfigTLSPrefix` | `server.grpc.tls` |
 
 ## Usage Example
 

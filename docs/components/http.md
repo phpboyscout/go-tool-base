@@ -40,9 +40,22 @@ server:
     key: /etc/certs/server.key
 ```
 
-When TLS is enabled, the server uses `ServeTLS` with the hardened `DefaultTLSConfig()` (TLS 1.2+, curated AEAD ciphers, X25519). When disabled, it uses plain `Serve`.
+When TLS is enabled, the server uses `ServeTLS` with the shared hardened config from [`pkg/tls`](tls.md) (TLS 1.2+, curated AEAD ciphers, X25519). When disabled, it uses plain `Serve`.
 
-The `DefaultTLSConfig()` and `ResolveTLSConfig()` functions are exported for use by other packages (e.g. `pkg/grpc`).
+TLS configuration and resolution live in [`pkg/tls`](tls.md) (`gtbtls.DefaultConfig`, `gtbtls.Resolve`, the typed `gtbtls.Pair`, plus the `CertPool`/`ClientConfig` client helpers), shared across the HTTP, gRPC and gateway transports.
+
+### Running a Second HTTP Server
+
+By default the server reads its port and TLS from the `server.http` config prefix. To run more than one HTTP server — for example the [gateway](gateway.md) on its own port — pass `WithConfigPrefix` so the second server reads its own block:
+
+```go
+// Reads server.gateway.port and server.gateway.tls.* (falling back to server.tls.*)
+srv, err := gtbhttp.Register(ctx, "gateway", controller, props.Config, props.Logger, handler,
+    gtbhttp.WithConfigPrefix("server.gateway"),
+)
+```
+
+The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_bytes`; the shared `server.port` remains the fallback.
 
 ### Functions
 

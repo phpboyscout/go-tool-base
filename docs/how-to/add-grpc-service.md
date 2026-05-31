@@ -101,12 +101,9 @@ func NewCmdServe(p *props.Props) *setup.Command {
         RunE: func(cmd *cobra.Command, args []string) error {
             ctx := cmd.Context()
 
-            controller, err := controls.NewController(ctx,
+            controller := controls.NewController(ctx,
                 controls.WithLogger(p.Logger),
             )
-            if err != nil {
-                return err
-            }
 
             if err := registerGRPCService(ctx, controller, p); err != nil {
                 return err
@@ -114,9 +111,9 @@ func NewCmdServe(p *props.Props) *setup.Command {
 
             controller.Start()
 
-            // Block until shutdown signal
-            <-ctx.Done()
-            controller.Stop()
+            // Block until the controller shuts down. The controller installs
+            // SIGINT/SIGTERM handlers itself and drives a graceful shutdown.
+            controller.Wait()
 
             return nil
         },
@@ -144,6 +141,22 @@ grpcurl -plaintext localhost:50051 list
 ```
 
 Disable reflection in production — it exposes your full API surface.
+
+---
+
+## Serving over TLS
+
+Enable TLS by setting the shared `server.tls` keys (one certificate serves every transport), or override per transport under `server.grpc.tls`:
+
+```yaml
+server:
+  tls:
+    enabled: true
+    cert: /etc/certs/server.crt
+    key: /etc/certs/server.key
+```
+
+`grpc.Register` and `Start` pick this up automatically — including advertising HTTP/2 via ALPN, which modern gRPC clients require. Resolution, the typed `Pair`, and the client-side cert-pool helpers live in the **[TLS component](../components/tls.md)**. For an in-process client (such as the gateway) that needs to dial the server with matching transport security, use `gtbgrpc.DialLocal(p.Config)`.
 
 ---
 
@@ -234,4 +247,7 @@ controller.Register("myservice",
 
 - **[Managing Background Services](manage-background-services.md)** — controller setup, service registration basics
 - **[Controls component](../components/controls.md)** — `Controllable`, `Runner`, `HealthReporter` interface reference
-- **[gRPC component](../components/grpc.md)** — `NewServer`, `RegisterHealthService`, `Start`/`Stop`/`Status` functions
+- **[gRPC component](../components/grpc.md)** — `NewServer`, `RegisterHealthService`, `Start`/`Stop`/`Status`, `DialLocal`
+- **[TLS component](../components/tls.md)** — shared TLS config, the typed `Pair`, and per-transport resolution
+- **[Gateway component](../components/gateway.md)** — expose the gRPC service as REST via grpc-gateway
+- **[OpenAPI component](../components/openapi.md)** — serve an OpenAPI spec and a Stoplight docs site
