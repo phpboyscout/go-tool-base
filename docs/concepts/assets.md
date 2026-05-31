@@ -46,14 +46,14 @@ Subcommands can then "register" their own domain-specific assets into the shared
 //go:embed assets/*
 var assets embed.FS
 
-func NewCmdSub(p *props.Props) *cobra.Command {
+func NewCmdSub(p *props.Props) *setup.Command {
     // Register subcommand assets with a unique name
     p.Assets.Register("sub", &assets)
 
-    return &cobra.Command{
+    return setup.Wrap("sub", &cobra.Command{
         Use: "sub",
         // ...
-    }
+    })
 }
 ```
 

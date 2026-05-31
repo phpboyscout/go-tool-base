@@ -270,4 +270,13 @@ func NewCmdParent(props *props.Props) *cobra.Command {
 	// It should now contain the nested path import
 	assert.Contains(t, codeStr, "\"test-tool/pkg/cmd/parent/child\"")
 	assert.Contains(t, codeStr, "child.NewCmdChild(props)")
+	// And must use the new cmd.Register(...) attachment shape rather than the
+	// legacy setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd)
+	// emission that referenced a feature constant the generator never created.
+	assert.Contains(t, codeStr, "cmd.Register(child.NewCmdChild(props))",
+		"generator must emit cmd.Register(...) for nested subcommands")
+	assert.NotContains(t, codeStr, "AddCommandWithMiddleware",
+		"generator must not emit the legacy setup.AddCommandWithMiddleware path")
+	assert.NotContains(t, codeStr, "props.ChildCmd",
+		"generator must not reference a props.<Name>Cmd constant it did not create")
 }

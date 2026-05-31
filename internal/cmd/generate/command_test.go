@@ -103,7 +103,10 @@ version:
 	content, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/test-cmd/cmd.go"))
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "func NewCmdTestCmd")
-	assert.Contains(t, string(content), "*cobra.Command")
+	assert.Contains(t, string(content), "*setup.Command",
+		"generated NewCmd<Name> must return *setup.Command (Slice 3 of command composition redesign)")
+	assert.Contains(t, string(content), "setup.Wrap(\"test-cmd\", &cobra.Command{",
+		"cmd must be wrapped as *setup.Command from the start")
 	assert.Contains(t, string(content), "props.Assets.Register(\"test-cmd\", &assets)")
 	assert.Contains(t, string(content), "return cmd")
 	assert.Contains(t, string(content), "Use:   \"test-cmd\"")
@@ -117,10 +120,14 @@ version:
 	assert.Contains(t, string(content), "cmd.Flags().IntVar(&opts.Count, \"count\", 0, \"Number of items\")")
 	assert.Contains(t, string(content), "cmd.Flags().BoolVar(&opts.Verbose, \"verbose\", false, \"Verbose output\")")
 
-	// Verify parent was updated correctly
+	// Verify parent was updated correctly — Slice 3 of the command composition
+	// redesign emits parent.Register(child.NewCmdChild(p)) instead of the legacy
+	// setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd) call (which
+	// referenced an undefined feature constant the generator never created).
 	parentUpdated, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/root/cmd.go"))
 	require.NoError(t, err)
-	assert.Contains(t, string(parentUpdated), "setup.AddCommandWithMiddleware(cmd, test_cmd.NewCmdTestCmd(props), props.TestCmdCmd)")
+	assert.Contains(t, string(parentUpdated), "cmd.Register(test_cmd.NewCmdTestCmd(props))")
+	assert.NotContains(t, string(parentUpdated), "AddCommandWithMiddleware")
 
 	// Verify docs
 	docContent, err := afero.ReadFile(fs, filepath.Join(projectRoot, "docs/commands/test-cmd/index.md"))
@@ -261,10 +268,12 @@ func NewCmdRoot(props *props.Props) *cobra.Command {
 	assert.Contains(t, string(content), "return cmd")
 	assert.NotRegexp(t, `return .*allAssets`, string(content))
 
-	// Verify parent was updated correctly (no asset collection)
+	// Verify parent was updated correctly (no asset collection) — Slice 3 of the
+	// command composition redesign emits parent.Register(child.NewCmdChild(p)).
 	parentUpdated, err := afero.ReadFile(fs, filepath.Join(projectRoot, "pkg/cmd/root/cmd.go"))
 	require.NoError(t, err)
-	assert.Contains(t, string(parentUpdated), "setup.AddCommandWithMiddleware(cmd, no_assets_cmd.NewCmdNoAssetsCmd(props), props.NoAssetsCmdCmd)")
+	assert.Contains(t, string(parentUpdated), "cmd.Register(no_assets_cmd.NewCmdNoAssetsCmd(props))")
+	assert.NotContains(t, string(parentUpdated), "AddCommandWithMiddleware")
 	assert.NotContains(t, string(parentUpdated), "append(allAssets")
 }
 

@@ -56,8 +56,8 @@ import (
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-func NewCmdDeploy(p *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdDeploy(p *props.Props) *setup.Command {
+    return setup.Wrap("deploy", &cobra.Command{
         Use:   "deploy",
         Short: "Deploy to an environment",
         RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +75,7 @@ func NewCmdDeploy(p *props.Props) *cobra.Command {
                     result.Version, result.Environment, result.Replicas)
             })
         },
-    }
+    })
 }
 ```
 

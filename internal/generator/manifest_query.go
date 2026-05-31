@@ -74,25 +74,6 @@ func findCommandPathRecursive(commands []ManifestCommand, targetName string) ([]
 	return nil, false
 }
 
-// findCommandByPath finds a command in the manifest by its full path parts.
-func findCommandByPath(commands []ManifestCommand, path []string) *ManifestCommand {
-	if len(path) == 0 {
-		return nil
-	}
-
-	for i := range commands {
-		if commands[i].Name == path[0] {
-			if len(path) == 1 {
-				return &commands[i]
-			}
-
-			return findCommandByPath(commands[i].Commands, path[1:])
-		}
-	}
-
-	return nil
-}
-
 func (g *Generator) loadFlagsFromManifest() ([]CommandFlag, error) {
 	cmd, err := g.findManifestCommand()
 	if err != nil {

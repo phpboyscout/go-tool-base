@@ -255,8 +255,9 @@ The Setup package provides a comprehensive middleware system for wrapping CLI co
 ### Core Features
 - **Functional Chain Pattern**: Middleware "wraps" the execution, allowing for logic before and after the command runs.
 - **Global & Feature Scopes**: Register middleware globally for all commands, or specifically for a feature.
-- **Built-ins**: Includes `WithTiming`, `WithRecovery` (panic protection), and `WithAuthCheck` (config validation).
+- **Built-ins**: Includes `WithTiming`, `WithRecovery` (panic protection), `WithAuthCheck` (config validation), and `WithTelemetry`.
 - **Thread-Safe Registry**: Secure registration during initialization with a "sealing" mechanism to prevent runtime modifications.
+- **Composed `Command` type**: Since v0.5, command constructors return `*setup.Command` (`{*cobra.Command, Feature props.FeatureCmd}`). Parents attach children via `cmd.Register(child...)`, which wraps each child's `RunE` exactly once with global and feature-specific middleware — no separate `AddCommandWithMiddleware` call required.
 
 ## Configuration Management
 
@@ -288,34 +289,34 @@ Interactive SSH key configuration:
 
 ### CLI Command Integration
 
-The setup package integrates seamlessly with cobra commands:
+The setup package integrates seamlessly with the GTB command composition pattern (`*setup.Command` returned from each constructor):
 
 ```go
 // In cmd/init/init.go
-func NewCmdInit(props *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdInit(p *props.Props) *setup.Command {
+    return setup.Wrap("init", &cobra.Command{
         Use:   "init",
         Short: "Initialize tool configuration",
-        Run: func(cmd *cobra.Command, args []string) {
+        RunE: func(cmd *cobra.Command, args []string) error {
             dir, _ := cmd.Flags().GetString("dir")
             clean, _ := cmd.Flags().GetBool("clean")
 
             if dir == "" {
-                dir = setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+                dir = setup.GetDefaultConfigDir(p.FS, p.Tool.Name)
             }
 
-            configFile, err := setup.Initialise(props, setup.InitOptions{
+            configFile, err := setup.Initialise(p, setup.InitOptions{
                 Dir: dir,
                 Clean: clean,
             })
             if err != nil {
-                props.Logger.Error("Initialization failed", "error", err)
-                return
+                return err
             }
 
-            props.Logger.Info("Configuration created", "file", configFile)
+            p.Logger.Info("Configuration created", "file", configFile)
+            return nil
         },
-    }
+    })
 }
 ```
 

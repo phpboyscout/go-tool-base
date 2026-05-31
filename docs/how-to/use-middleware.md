@@ -1,125 +1,138 @@
 ---
 title: Using Command Middleware
-description: How to register and apply built-in middleware to your CLI commands.
-date: 2026-03-24
+description: How to register and apply built-in middleware to your CLI commands with setup.Command.Register.
+date: 2026-05-31
 tags: [how-to, middleware, setup, config]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Using Command Middleware
 
-GTB's middleware system allows you to add cross-cutting behaviors like logging, timing, and authentication checks to your CLI commands without duplicating code in every handler.
+GTB's middleware system lets you add cross-cutting behaviour (logging, timing, authentication checks, telemetry) to your CLI commands without duplicating code in every handler. Since v0.5 middleware is wired automatically when a parent attaches a child via `setup.Command.Register` — there is no separate "wrap with middleware" call.
 
-## Registering Global Middleware
+## Registering global middleware
 
-Global middleware applies to **every** command in your tool. This is typically done during the initialization of your root command.
+Global middleware applies to **every** command in your tool. This is typically done by the framework's root constructor:
 
 ```go
-package root
-
 import (
     "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-func registerFeatureCommands(rootCmd *cobra.Command, props *props.Props) {
-    // 1. Register global middleware
+func init() {
     setup.RegisterGlobalMiddleware(
-        setup.WithRecovery(props.Logger),
-        setup.WithTiming(props.Logger),
+        setup.WithRecovery(logger),
+        setup.WithTiming(logger),
     )
-
-    // 2. Seal the registry before applying it to commands
-    setup.Seal()
-
-    // ... command registration continues
 }
 ```
 
-## Registering Feature Middleware
+The framework calls `setup.Seal()` once before building the command tree, so further `Register*Middleware` calls after sealing panic — register at process start (`init()` or before `NewCmdRoot`).
 
-Feature-specific middleware only applies to commands belonging to a particular feature. This is ideal for domain-specific checks like verifying API keys.
+## Registering feature middleware
 
-You typically register these in the `init()` function of your feature package:
+Feature middleware only applies to commands whose `Feature` key matches. Register it in the feature package's `init()`:
 
 ```go
 package chat
 
 import (
-    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func init() {
-    // This middleware will ONLY run for commands associated with FeatureCmdChat
-    setup.RegisterMiddleware(props.FeatureCmdChat,
+    // This middleware ONLY runs for commands wrapped with FeatureCmd("chat").
+    setup.RegisterMiddleware(props.FeatureCmd("chat"),
         setup.WithAuthCheck("chat.api_key", "chat.model"),
     )
 }
 ```
 
-## Using Built-in Middleware
-
-### WithRecovery
-Ensures your CLI doesn't crash on panics. Instead, it logs the panic and stack trace and returns a clean error.
+A command picks up that middleware by carrying the matching feature key:
 
 ```go
-setup.WithRecovery(props.Logger)
+func NewCmdChat(p *props.Props) *setup.Command {
+    return setup.Wrap("chat", &cobra.Command{Use: "chat", RunE: runChat})
+}
 ```
 
-### WithTiming
-Logs how long each command took to execute.
+## Built-in middleware
+
+### `WithRecovery`
+Catches panics and converts them into errors. Without it, an unhandled panic terminates the process — with it, you get a clean `Error: panic: ...` log line and a non-zero exit.
 
 ```go
-setup.WithTiming(props.Logger)
+setup.WithRecovery(logger)
 ```
 
-### WithAuthCheck
-Validates that required configuration settings are present before running the command. This prevents commands from failing midway because of missing credentials.
+### `WithTiming`
+Logs the wall-clock duration of every command at `INFO` level.
+
+```go
+setup.WithTiming(logger)
+```
+
+### `WithAuthCheck`
+Validates that required configuration keys are non-empty before running the command — short-circuiting with a useful error instead of failing partway through.
 
 ```go
 setup.WithAuthCheck("github.token")
 ```
 
-## How it Works Under the Hood
-
-When you register a command using GTB's standard root command pattern, the `Chain()` function is called:
-
-1.  It collects all **Global Middleware**.
-2.  It collects all **Feature Middleware** for the current command's feature.
-3.  It wraps the command's `RunE` function in a nested chain.
-
-If a middleware fails (e.g., `WithAuthCheck` finds a missing key), it returns an error, and the actual command handler is **never executed**.
-
-## Manual Command Registration
-
-If you are adding commands to your CLI tree manually (e.g., in `main.go` after calling `root.NewCmdRoot`), use the `AddCommandWithMiddleware` helper from `pkg/cmd/root`.
-
-Using standard cobra `root.AddCommand(myCmd)` will **bypass** the middleware chain.
+### `WithTelemetry`
+Emits structured command-invocation events through the telemetry collector. Active when the `telemetry` feature is enabled and a backend is configured.
 
 ```go
-package main
+setup.WithTelemetry(props)
+```
 
-import (
-    "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-)
+## Attaching commands
 
-func main() {
-    p := &props.Props{...}
-    rootCmd := root.NewCmdRoot(p)
+Use `*setup.Command.Register(child...)` from the parent. Middleware is applied at attach time:
 
-    // INCORRECT: myCmd will NOT have middleware (no timing, no recovery)
-    // rootCmd.AddCommand(myCmd)
+```go
+func NewCmdMyTool(p *props.Props) *setup.Command {
+    rootCmd := root.NewCmdRoot(p) // *setup.Command
 
-    // CORRECT: myCmd and its children will have middleware applied
-    root.AddCommandWithMiddleware(rootCmd, myCmd, props.FeatureCmdMyFeature)
+    rootCmd.Register(
+        chat.NewCmdChat(p),       // picks up chat-feature middleware
+        deploy.NewCmdDeploy(p),   // picks up deploy-feature middleware (if any)
+    )
 
-    rootCmd.Execute()
+    return rootCmd
 }
 ```
 
-This helper handles:
-1.  Wrapping the `RunE` of `myCmd`.
-2.  Recursively wrapping all subcommands of `myCmd`.
-3.  Registering `myCmd` with `rootCmd`.
+Equivalent and more common: pass children to the variadic constructor so the wiring is co-located with construction:
+
+```go
+rootCmd := root.NewCmdRoot(p,
+    chat.NewCmdChat(p),
+    deploy.NewCmdDeploy(p),
+)
+```
+
+Either form works — `Register` is what runs under the hood for both.
+
+!!! warning "Avoid the raw cobra `AddCommand`"
+    Calling `rootCmd.Command.AddCommand(unwrappedCobraCmd)` attaches a command without wrapping its `RunE`. The command runs without timing, recovery, or feature middleware. Always go through `setup.Command.Register` (or pass `*setup.Command` to the variadic root constructor).
+
+!!! warning "Deprecated: `setup.AddCommandWithMiddleware`"
+    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is kept as a `// Deprecated:` shim that delegates to `Register`. It no longer recurses into descendants (the recursive re-wrap with the parent's feature was always wrong) and will be removed in v1.0. Migrate to `parent.Register(child)`.
+
+## How it works under the hood
+
+`Command.Register` does three things per child:
+
+1. If the child has a `RunE`, replace it with `setup.Chain(child.Feature, child.RunE)`. `Chain` wraps with all registered global middleware first, then any middleware registered for `child.Feature`.
+2. Call the embedded `(*cobra.Command).AddCommand` to splice the child into the cobra tree.
+3. Leave the child's own `Register` calls (its grandchildren) untouched — those wrap themselves with their own feature when *they* were constructed.
+
+The result: every command in the tree is wrapped exactly once with its own feature, regardless of how deep the nesting goes.
+
+## See also
+
+- [Command Middleware System](../concepts/command-middleware.md) — chain semantics, execution order.
+- [Adding Custom Commands](custom-commands.md) — full custom-command walkthrough.
+- [Writing Custom Middleware](custom-middleware.md) — how to build your own.

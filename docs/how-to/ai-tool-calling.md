@@ -88,8 +88,8 @@ var searchTool = chat.Tool{
 ## Step 2: Create the Client and Register Tools
 
 ```go
-func NewCmdAnalyse(p *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdAnalyse(p *props.Props) *setup.Command {
+    return setup.Wrap("analyse", &cobra.Command{
         Use:   "analyse",
         Short: "Use AI to analyse the codebase",
         RunE: func(cmd *cobra.Command, args []string) error {
@@ -117,7 +117,7 @@ func NewCmdAnalyse(p *props.Props) *cobra.Command {
             p.Logger.Print(response)
             return nil
         },
-    }
+    })
 }
 ```
 

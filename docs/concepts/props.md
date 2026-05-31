@@ -38,14 +38,15 @@ Instead of using global variables or passing dozens of arguments to every functi
 Every command constructor in GTB accepts `*props.Props`:
 
 ```go
-func NewCmdExample(props *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdExample(p *props.Props) *setup.Command {
+    return setup.Wrap("example", &cobra.Command{
         Use: "example",
-        Run: func(cmd *cobra.Command, args []string) {
-            props.Logger.Info("Hello from Props!")
-            // Use props.FS to read a file
-            // Use props.Config to get a value
+        RunE: func(cmd *cobra.Command, args []string) error {
+            p.Logger.Info("Hello from Props!")
+            // Use p.FS to read a file
+            // Use p.Config to get a value
+            return nil
         },
-    }
+    })
 }
 ```

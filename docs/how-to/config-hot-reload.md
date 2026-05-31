@@ -53,8 +53,8 @@ func (r *DatabaseReconfigurer) Run(cfg config.Containable, errs chan error) {
 Register during command setup, after the config has been loaded:
 
 ```go
-func NewCmdServe(p *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdServe(p *props.Props) *setup.Command {
+    return setup.Wrap("serve", &cobra.Command{
         Use:  "serve",
         RunE: func(cmd *cobra.Command, args []string) error {
             pool, err := sql.Open("postgres", p.Config.GetString("database.dsn"))
@@ -70,7 +70,7 @@ func NewCmdServe(p *props.Props) *cobra.Command {
 
             return runServer(cmd.Context(), p, pool)
         },
-    }
+    })
 }
 ```
 

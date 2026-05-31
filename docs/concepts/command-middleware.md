@@ -51,18 +51,43 @@ To ensure thread safety and architectural consistency, the middleware registry f
 
 1.  **Registration**: Occurs during the `init()` phase of your packages.
 2.  **Sealing**: The registry is "sealed" during the root command registration. No further middleware can be added once the command tree is being built.
-3.  **Execution**: The `Chain()` function is called recursively for every command and subcommand, baking the middleware into the `RunE` field of the `cobra.Command`.
+3.  **Execution**: When a parent attaches a child via `parent.Register(child)`, `Chain()` wraps the child's `RunE` exactly once — with that child's own feature key. Every command in the tree picks up its own middleware at attach time; nothing is wrapped twice.
 
-## Manual Registration
+## How wrapping is wired
 
-If you add commands to your CLI tree *after* the root command has been initialized (e.g., dynamically or in a non-standard `main.go`), you must ensure middleware is applied manually.
+Each `*setup.Command` carries a `Feature` field (`props.FeatureCmd`) that the wrapping path uses as the middleware-registry key:
 
-While `setup.Seal()` prevents adding *new* middleware definitions, already registered middleware can still be applied to new commands using the helpers provided in `pkg/cmd/root`:
+```go
+type Command struct {
+    *cobra.Command
+    Feature props.FeatureCmd
+}
+```
 
-- `root.AddCommandWithMiddleware(parent, cmd, feature)`: Adds a command to a parent and recursively applies middleware.
-- `root.ApplyMiddlewareRecursively(cmd, feature)`: Applies middleware to an existing command tree.
+When the root constructor (or any parent) calls `Register`, the framework:
 
-Using these helpers ensures that even manually registered commands benefit from global concerns like recovery and timing.
+1. Iterates each child you pass in.
+2. Wraps the child's `RunE` with `Chain(child.Feature, child.RunE)` — applying global middleware then any middleware registered against the child's feature.
+3. Calls the embedded `(*cobra.Command).AddCommand` to splice the child into the cobra tree.
+
+Because each command owns its own feature, a parent never needs to know which middleware its descendants need. Siblings can have different feature keys and pick up entirely different middleware stacks.
+
+## Manual / late attachment
+
+If you build your CLI tree *after* the root has been initialised (dynamic plugins, conditional commands, late discovery), still use `Register`:
+
+```go
+rootCmd := root.NewCmdRoot(p) // *setup.Command
+
+if pluginEnabled {
+    rootCmd.Register(plugin.NewCmdPlugin(p))
+}
+```
+
+The `Register` call is idempotent against double-attachment (the underlying cobra parent rejects duplicates) and always wires middleware correctly, regardless of when it fires relative to `setup.Seal()`.
+
+!!! warning "Deprecated: `AddCommandWithMiddleware`"
+    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)` — the [v0.4-to-v0.5 migration guide](../migration/v0.4-to-v0.5.md) has the diff.
 
 ---
 

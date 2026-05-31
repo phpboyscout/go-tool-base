@@ -2,7 +2,7 @@
 title: "Command Composition: setup.Command wrapper with Register"
 description: "Replace setup.AddCommandWithMiddleware(parent, cmd, feature) with a composed setup.Command type that carries its own feature and exposes a Register method, so subcommand registration wires middleware automatically and the generator never has to thread a feature key through each call. Fixes the nested-command compile regression by construction."
 date: 2026-05-30
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -26,7 +26,7 @@ Date
 :   30 May 2026
 
 Status
-:   IN PROGRESS
+:   IMPLEMENTED
 
 ---
 

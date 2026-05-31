@@ -193,8 +193,8 @@ func ValidateConfig(cfg config.Containable) error {
 Validate in your command's `RunE` or `PersistentPreRunE`, after config has been loaded:
 
 ```go
-func NewCmdMyFeature(p *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdMyFeature(p *props.Props) *setup.Command {
+    return setup.Wrap("myfeature", &cobra.Command{
         Use:   "myfeature",
         Short: "Do something with myfeature",
         RunE: func(cmd *cobra.Command, args []string) error {
@@ -205,7 +205,7 @@ func NewCmdMyFeature(p *props.Props) *cobra.Command {
             // Config is valid — proceed
             return run(cmd.Context(), p)
         },
-    }
+    })
 }
 ```
 

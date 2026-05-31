@@ -32,6 +32,9 @@ How to toggle and tune framework features like Self-Updates, MCP, and AI documen
 ### [Adding Custom Commands](custom-commands.md)
 A hands-on guide to implementing domain-specific logic and registering it with the command tree.
 
+### [Adding Nested Subcommands](nested-subcommands.md)
+Build multi-level command trees (e.g. `tool deploy canary`) via the generator or by hand using `setup.Command.Register`.
+
 ## Advanced Guides
 
 ### [Testing & Mocking](testing.md)

@@ -81,8 +81,8 @@ func analyseCode(ctx context.Context, p *props.Props, code string) (*CodeReview,
 ## Step 3: Use the Result in a Command
 
 ```go
-func NewCmdReview(p *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdReview(p *props.Props) *setup.Command {
+    return setup.Wrap("review", &cobra.Command{
         Use:   "review [file]",
         Short: "AI-powered code review",
         Args:  cobra.ExactArgs(1),
@@ -114,7 +114,7 @@ func NewCmdReview(p *props.Props) *cobra.Command {
 
             return nil
         },
-    }
+    })
 }
 ```
 

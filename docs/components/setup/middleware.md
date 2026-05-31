@@ -48,15 +48,54 @@ func Chain(feature props.FeatureCmd, runE cobra.RunEFunc) cobra.RunEFunc
 ```
 Applies all registered global and feature-specific middleware to the provided `RunE` function, returning the final wrapped function.
 
-## Integration Helpers
+## Composed Commands: `setup.Command`
 
-While `pkg/setup` provides the core registry, the `pkg/cmd/root` package provides higher-level helpers for applying middleware to `cobra.Command` structures:
+Since v0.5 the canonical integration surface is the composed `setup.Command`
+type rather than the legacy `AddCommandWithMiddleware` helper. A
+`setup.Command` carries its own `props.FeatureCmd` key alongside the
+underlying `*cobra.Command`, and middleware is wired exactly once at
+attach time.
 
-#### `root.AddCommandWithMiddleware`
-Adds a command to a parent and recursively applies middleware to the command and all its children.
+```go
+type Command struct {
+    *cobra.Command
+    Feature props.FeatureCmd
+}
+```
 
-#### `root.ApplyMiddlewareRecursively`
-Applies middleware to an existing command tree. Use this if the command has already been added to a parent via standard cobra methods.
+#### `setup.Wrap`
+```go
+func Wrap(feature props.FeatureCmd, cmd *cobra.Command) *Command
+```
+Produces a `*Command` bound to `feature`. Untyped string literals are
+implicitly converted to `props.FeatureCmd`, so call sites typically read
+as `setup.Wrap("serve", &cobra.Command{...})`.
+
+#### `Command.Register`
+```go
+func (c *Command) Register(children ...*Command)
+```
+Attaches each child to the underlying cobra tree and wraps its `RunE`
+with `Chain(child.Feature, child.RunE)` — applying every global
+middleware and any feature-specific middleware registered for the
+child's key. Each child is wrapped exactly once with **its own** feature;
+the parent's feature is not propagated downward.
+
+```go
+parent := setup.Wrap("parent", &cobra.Command{Use: "parent"})
+parent.Register(
+    childA.NewCmdChildA(p),  // returns *setup.Command
+    childB.NewCmdChildB(p),
+)
+```
+
+### Deprecated helpers
+
+`AddCommandWithMiddleware(parent, child, feature)` and
+`ApplyMiddlewareRecursively(cmd, feature)` are retained as `// Deprecated:`
+shims for one release. The shim no longer recurses into descendants — only
+the immediate child's `RunE` is wrapped. New code should always use
+`parent.Register(child)`. Planned removal: v1.0.
 
 ## Built-in Middleware
 

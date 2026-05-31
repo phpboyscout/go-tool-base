@@ -31,7 +31,6 @@ type subcommandContext struct {
 	firstAllAssetsIdx    int
 	subCmdVar            string
 	funcNameToBeCalled   string
-	wrapSubcommands      bool
 	registered           bool
 }
 
@@ -126,37 +125,7 @@ func (g *Generator) prepareSubcommandContext() (*subcommandContext, error) {
 	ctx.subCmdVar = ctx.pkgName + "Cmd"
 	ctx.funcNameToBeCalled = "NewCmd" + PascalCase(g.config.Name)
 
-	// Determine if we should wrap subcommands with middleware
-	ctx.wrapSubcommands = g.shouldWrapSubcommands(parentParts)
-
 	return ctx, nil
-}
-
-func (g *Generator) shouldWrapSubcommands(parentParts []string) bool {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
-	if err != nil {
-		return true // Default to true if manifest is missing (unlikely here)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return true
-	}
-
-	if len(parentParts) == 0 {
-		// Root command - it always uses NewCmdRoot which handles wrapping
-		return true
-	}
-
-	// For nested commands, find the parent in the manifest
-	parent := findCommandByPath(m.Commands, parentParts)
-	if parent == nil {
-		return true
-	}
-
-	return parent.WrapSubcommandsWithMiddleware
 }
 
 func (g *Generator) calculateManifestCapacity() int {
@@ -375,13 +344,27 @@ func (g *Generator) analyzeExprStmt(es *dst.ExprStmt, ctx *subcommandContext) {
 	}
 
 	sel, ok := call.Fun.(*dst.SelectorExpr)
-	if !ok || sel.Sel.Name != "AddCommand" {
+	if !ok {
 		return
 	}
 
-	for _, arg := range call.Args {
-		if g.isAddCommandArg(arg, ctx) {
-			ctx.registered = true
+	switch sel.Sel.Name {
+	case "AddCommand", "Register":
+		// parent.AddCommand(...) and parent.Register(...) both register
+		// a child against the parent — either matters for idempotency.
+		for _, arg := range call.Args {
+			if g.isAddCommandArg(arg, ctx) {
+				ctx.registered = true
+			}
+		}
+	case "AddCommandWithMiddleware":
+		// Legacy setup.AddCommandWithMiddleware(parent, child, feature)
+		// emission — still recognise it to stay idempotent against
+		// pre-migration generated parents.
+		for _, arg := range call.Args {
+			if g.isAddCommandArg(arg, ctx) {
+				ctx.registered = true
+			}
 		}
 	}
 }
@@ -520,15 +503,7 @@ func (g *Generator) applySubcommandRegistration(f *dst.File, fn *dst.FuncDecl, c
 		g.props.Logger.Debugf("Inserting subcommand %q into root NewCmdRoot call", g.config.Name)
 		g.insertIntoRoot(fn, ctx)
 	} else {
-		g.props.Logger.Debugf("Inserting AddCommand call for %q before return statement", g.config.Name)
-
-		// Only this path emits setup.AddCommandWithMiddleware, so the setup
-		// import is added here rather than for every subcommand registration.
-		// The root path (insertIntoRoot) wraps via the library and never
-		// references setup, so importing it there leaves it unused.
-		if ctx.wrapSubcommands {
-			g.ensureImport(f, "\"gitlab.com/phpboyscout/go-tool-base/pkg/setup\"")
-		}
+		g.props.Logger.Debugf("Inserting Register call for %q before return statement", g.config.Name)
 
 		stmt := g.createRegistrationStmts(ctx)
 		g.insertGeneric(fn, stmt)
@@ -538,10 +513,13 @@ func (g *Generator) applySubcommandRegistration(f *dst.File, fn *dst.FuncDecl, c
 }
 
 func (g *Generator) createRegistrationStmts(ctx *subcommandContext) dst.Stmt {
-	// Create: cmd.AddCommand(pkg.NewCmdName(props))
-	// OR: setup.AddCommandWithMiddleware(cmd, pkg.NewCmdName(props), feature)
-
-	// pkg.NewCmdName(props)
+	// Emit: cmd.Register(pkg.NewCmdName(props))
+	//
+	// Each NewCmd<Name> returns *setup.Command carrying its own feature, so
+	// the parent only needs to attach the child via Register — middleware is
+	// wired once at attach time. This replaces the legacy
+	// setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd) emission
+	// which referenced a feature constant the generator never created.
 	newCmdCall := &dst.CallExpr{
 		Fun: &dst.SelectorExpr{
 			X:   dst.NewIdent(ctx.pkgName),
@@ -550,40 +528,19 @@ func (g *Generator) createRegistrationStmts(ctx *subcommandContext) dst.Stmt {
 		Args: []dst.Expr{dst.NewIdent(ctx.propsVarName)},
 	}
 
-	var callExpr *dst.CallExpr
-
-	if ctx.wrapSubcommands {
-		// setup.AddCommandWithMiddleware(cmd, pkg.NewCmdName(props), feature)
-		callExpr = &dst.CallExpr{
-			Fun: &dst.SelectorExpr{
-				X:   dst.NewIdent("setup"),
-				Sel: dst.NewIdent("AddCommandWithMiddleware"),
-			},
-			Args: []dst.Expr{
-				dst.NewIdent(ctx.cmdVarName),
-				newCmdCall,
-				&dst.SelectorExpr{
-					X:   dst.NewIdent("props"),
-					Sel: dst.NewIdent(PascalCase(g.config.Name) + "Cmd"),
-				},
-			},
-		}
-	} else {
-		// cmd.AddCommand(...)
-		callExpr = &dst.CallExpr{
-			Fun: &dst.SelectorExpr{
-				X:   dst.NewIdent(ctx.cmdVarName),
-				Sel: dst.NewIdent("AddCommand"),
-			},
-			Args: []dst.Expr{newCmdCall},
-		}
+	callExpr := &dst.CallExpr{
+		Fun: &dst.SelectorExpr{
+			X:   dst.NewIdent(ctx.cmdVarName),
+			Sel: dst.NewIdent("Register"),
+		},
+		Args: []dst.Expr{newCmdCall},
 	}
 
 	addCmdStmt := &dst.ExprStmt{
 		X: callExpr,
 	}
 
-	// Ensure newline before AddCommand
+	// Ensure newline before Register
 	addCmdStmt.Decs.Before = dst.NewLine
 
 	return addCmdStmt

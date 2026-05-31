@@ -79,7 +79,7 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 	f.Func().Id("NewCmdRoot").Params(
 		jen.Id("v").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/version", "Info"),
 	).Params(
-		jen.Op("*").Qual("github.com/spf13/cobra", "Command"),
+		jen.Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Command"),
 		jen.Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
 	).Block(
 		jen.Id("l").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "NewCharm").Call(

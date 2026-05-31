@@ -95,8 +95,8 @@ func registerGRPCService(ctx context.Context, controller controls.Controllable, 
 ## Step 4: Wire into Your Command
 
 ```go
-func NewCmdServe(p *props.Props) *cobra.Command {
-    return &cobra.Command{
+func NewCmdServe(p *props.Props) *setup.Command {
+    return setup.Wrap("serve", &cobra.Command{
         Use:  "serve",
         RunE: func(cmd *cobra.Command, args []string) error {
             ctx := cmd.Context()
@@ -120,7 +120,7 @@ func NewCmdServe(p *props.Props) *cobra.Command {
 
             return nil
         },
-    }
+    })
 }
 ```
 

@@ -253,7 +253,7 @@ func addFlagToStruct(g *jen.Group, flag CommandFlag) {
 
 func generateNewCmdFunction(f *jen.File, data CommandData) {
 	returns := []jen.Code{
-		jen.Op("*").Qual("github.com/spf13/cobra", "Command"),
+		jen.Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Command"),
 	}
 
 	params := []jen.Code{
@@ -273,7 +273,21 @@ func generateNewCmdFunction(f *jen.File, data CommandData) {
 
 		cmdFields := generateCommandFields(data)
 
-		g.Id("cmd").Op(":=").Op("&").Qual("github.com/spf13/cobra", "Command").Block(cmdFields...)
+		// cmd is *setup.Command from the start so any later parent.Register(...)
+		// AST insertion or in-body subcommand attachment goes through the
+		// composed type. setup.Wrap returns *setup.Command which embeds
+		// *cobra.Command, so cmd.Flags(), cmd.MarkFlagsMutuallyExclusive,
+		// and friends still chain through the embedded pointer.
+		//
+		// Go implicitly converts the untyped string constant to the named
+		// props.FeatureCmd type, so we emit a literal rather than
+		// props.FeatureCmd("<name>"). The literal avoids shadowing the
+		// `props` parameter with the `props` package import inside this
+		// function body.
+		g.Id("cmd").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Wrap").Call(
+			jen.Lit(data.Name),
+			jen.Op("&").Qual("github.com/spf13/cobra", "Command").Block(cmdFields...),
+		)
 		g.Line()
 
 		addFlagsToCommand(g, data.Flags, data.PersistentFlags)

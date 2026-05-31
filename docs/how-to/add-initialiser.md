@@ -106,7 +106,7 @@ import (
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/myfeature"
 )
 
-func NewCmdMyFeature(p *props.Props) *cobra.Command {
+func NewCmdMyFeature(p *props.Props) *setup.Command {
     // ...
 }
 ```

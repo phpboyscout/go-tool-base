@@ -144,12 +144,14 @@ func TestFullLifecycle_SkeletonToCommandsToRemoval(t *testing.T) {
 	assert.Contains(t, string(rootCmd), "deploy", "root cmd.go should reference deploy")
 	assert.Contains(t, string(rootCmd), "status", "root cmd.go should reference status")
 
-	// Regression: the root registers subcommands directly inside NewCmdRoot
-	// (no setup.AddCommandWithMiddleware), so it must NOT import the setup
-	// package, otherwise the generated project fails to compile with
-	// "imported and not used".
-	assert.NotContains(t, string(rootCmd), "pkg/setup",
-		"root cmd.go must not import setup; it registers subcommands directly")
+	// Post-redesign: NewCmdRoot returns *setup.Command, so the root cmd.go
+	// imports pkg/setup for the return type. Subcommands are still attached
+	// inside the gtbRoot.NewCmdRoot(...) call, not via a stale
+	// setup.AddCommandWithMiddleware emission.
+	assert.Contains(t, string(rootCmd), "pkg/setup",
+		"root cmd.go imports setup for *setup.Command return type")
+	assert.NotContains(t, string(rootCmd), "AddCommandWithMiddleware",
+		"root cmd.go must not emit setup.AddCommandWithMiddleware")
 
 	// --- Step 2: Add a nested subcommand ---
 	addCmd(t, p, path, "canary", "deploy")
@@ -159,13 +161,17 @@ func TestFullLifecycle_SkeletonToCommandsToRemoval(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(deployCmdContent), "canary", "deploy/cmd.go should reference canary subcommand")
 
-	// The nested-command path does wrap with setup.AddCommandWithMiddleware, so
-	// the setup import must be present and used here (the counterpart to the
-	// root assertion above).
+	// Post-redesign: nested-command attachment is `parent.Register(child.NewCmdChild(p))`.
+	// setup is imported because deploy/cmd.go's NewCmdDeploy itself returns
+	// *setup.Command via setup.Wrap, not because of any per-child wiring call.
 	assert.Contains(t, string(deployCmdContent), "pkg/setup",
-		"deploy/cmd.go should import setup for the wrapped nested command")
-	assert.Contains(t, string(deployCmdContent), "AddCommandWithMiddleware",
-		"nested command should be wrapped via setup.AddCommandWithMiddleware")
+		"deploy/cmd.go imports setup for its own NewCmdDeploy return type")
+	assert.Contains(t, string(deployCmdContent), "cmd.Register(canary.NewCmdCanary(props))",
+		"nested command should be attached via parent.Register(...)")
+	assert.NotContains(t, string(deployCmdContent), "AddCommandWithMiddleware",
+		"nested command must not use the legacy setup.AddCommandWithMiddleware path")
+	assert.NotContains(t, string(deployCmdContent), "props.CanaryCmd",
+		"generator must not reference a props.<Name>Cmd constant it did not create")
 
 	// Manifest should have canary nested under deploy
 	m = loadManifestFrom(t, p.FS, path)
