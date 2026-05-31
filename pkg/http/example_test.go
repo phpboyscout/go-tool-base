@@ -1,7 +1,6 @@
 package http_test
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -31,18 +30,6 @@ func ExampleNewClient_withRetry() {
 	)
 
 	_ = client
-}
-
-func ExampleDefaultTLSConfig() {
-	// DefaultTLSConfig returns the shared hardened TLS configuration
-	// used by both HTTP and gRPC servers/clients.
-	cfg := gtbhttp.DefaultTLSConfig()
-
-	fmt.Println("Min TLS version:", cfg.MinVersion)
-	fmt.Println("Cipher suites:", len(cfg.CipherSuites))
-	// Output:
-	// Min TLS version: 771
-	// Cipher suites: 6
 }
 
 func ExampleNewClientChain() {

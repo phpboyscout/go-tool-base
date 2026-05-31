@@ -10,14 +10,15 @@ import (
 	"github.com/cockroachdb/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 // healthSource is the narrow interface required by RegisterHealthService: health
@@ -28,6 +29,21 @@ type healthSource interface {
 }
 
 const healthUpdateInterval = 10 * time.Second
+
+// Config keys read by the gRPC server. Use these instead of bare strings when
+// setting or reading server config programmatically.
+const (
+	// ConfigKeyPort is the gRPC server listen port.
+	ConfigKeyPort = "server.grpc.port"
+	// ConfigKeyReflection toggles gRPC server reflection.
+	ConfigKeyReflection = "server.grpc.reflection"
+	// ConfigKeySharedPort is the shared fallback port used when ConfigKeyPort
+	// is unset.
+	ConfigKeySharedPort = "server.port"
+	// ConfigTLSPrefix is the gRPC TLS config prefix (resolved against the
+	// shared tls.SharedPrefix).
+	ConfigTLSPrefix = "server.grpc.tls"
+)
 
 // DefaultMaxGRPCMessageBytes caps both send and receive message sizes on
 // servers constructed via NewServer. Closes M-2 from
@@ -59,7 +75,7 @@ func NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, 
 	allOpts = append(allOpts, opt...)
 
 	srv := grpc.NewServer(allOpts...)
-	if cfg.GetBool("server.grpc.reflection") {
+	if cfg.GetBool(ConfigKeyReflection) {
 		reflection.Register(srv)
 	}
 
@@ -123,13 +139,13 @@ func RegisterHealthService(srv *grpc.Server, controller healthSource) {
 // Start returns a curried function suitable for use with the controls package.
 // TLS configuration cascades: server.grpc.tls.* overrides server.tls.* shared defaults.
 func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) controls.StartFunc {
-	portStr := cfg.GetInt("server.grpc.port")
+	portStr := cfg.GetInt(ConfigKeyPort)
 	if portStr == 0 {
-		portStr = cfg.GetInt("server.port")
+		portStr = cfg.GetInt(ConfigKeySharedPort)
 	}
 
 	port := fmt.Sprintf(":%d", portStr)
-	tlsEnabled, cert, key := gtbhttp.ResolveTLSConfig(cfg, "server.grpc.tls")
+	tlsPair := gtbtls.Resolve(cfg, ConfigTLSPrefix)
 
 	return func(ctx context.Context) error {
 		var lc net.ListenConfig
@@ -139,8 +155,8 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 			return errors.Wrap(err, "failed to listen")
 		}
 
-		if tlsEnabled {
-			tlsLis, tlsErr := wrapTLS(lis, cert, key)
+		if tlsPair.Enabled {
+			tlsLis, tlsErr := wrapTLS(lis, tlsPair)
 			if tlsErr != nil {
 				return tlsErr
 			}
@@ -162,16 +178,19 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 	}
 }
 
-// wrapTLS wraps a net.Listener with TLS using the shared hardened config
-// and the provided certificate and key files.
-func wrapTLS(lis net.Listener, certFile, keyFile string) (net.Listener, error) {
-	certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
+// wrapTLS wraps a net.Listener with TLS using the shared hardened config and
+// the certificate described by the pair.
+//
+// It advertises HTTP/2 via ALPN ("h2"). Without this the raw TLS listener does
+// not negotiate h2, and grpc-go >= 1.67 clients (including the grpc-gateway)
+// reject the connection with "missing selected ALPN property". The grpc.Creds
+// path gets this for free via credentials.NewTLS; the listener path does not,
+// so Pair.ServerConfig sets it explicitly here.
+func wrapTLS(lis net.Listener, pair gtbtls.Pair) (net.Listener, error) {
+	tlsCfg, err := pair.ServerConfig("h2")
 	if err != nil {
-		return nil, errors.Wrap(err, "loading gRPC TLS certificate")
+		return nil, errors.Wrap(err, "configuring gRPC TLS")
 	}
-
-	tlsCfg := gtbhttp.DefaultTLSConfig()
-	tlsCfg.Certificates = []tls.Certificate{certificate}
 
 	return tls.NewListener(lis, tlsCfg), nil
 }
@@ -179,16 +198,55 @@ func wrapTLS(lis net.Listener, certFile, keyFile string) (net.Listener, error) {
 // TLSServerCredentials returns gRPC server credentials using the shared
 // hardened TLS config. Use this when you need to pass credentials directly
 // to grpc.NewServer via grpc.Creds() instead of using the Start function.
+// (credentials.NewTLS advertises h2 itself, so no explicit ALPN is needed.)
 func TLSServerCredentials(certFile, keyFile string) (credentials.TransportCredentials, error) {
-	certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
+	tlsCfg, err := gtbtls.Pair{Cert: certFile, Key: keyFile}.ServerConfig()
 	if err != nil {
-		return nil, errors.Wrap(err, "loading gRPC TLS certificate")
+		return nil, errors.Wrap(err, "configuring gRPC TLS")
 	}
 
-	tlsCfg := gtbhttp.DefaultTLSConfig()
-	tlsCfg.Certificates = []tls.Certificate{certificate}
+	return credentials.NewTLS(tlsCfg), nil
+}
+
+// TLSClientCredentials returns gRPC client transport credentials that trust the
+// given CA/cert files. It is the client-side mirror of TLSServerCredentials —
+// e.g. for the grpc-gateway dialing a gRPC server that presents a self-signed
+// or private-CA certificate. With no files it trusts the system roots.
+func TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, error) {
+	tlsCfg, err := gtbtls.ClientConfig(caFiles...)
+	if err != nil {
+		return nil, err
+	}
 
 	return credentials.NewTLS(tlsCfg), nil
+}
+
+// DialLocal dials the gRPC server described by cfg over the loopback interface,
+// using transport security that matches the server's own TLS config
+// (server.grpc.tls -> server.tls). Intended for in-process callers such as the
+// grpc-gateway, so they connect to the local server without re-deriving the
+// endpoint or credentials by hand.
+func DialLocal(cfg config.Containable, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	port := cfg.GetInt(ConfigKeyPort)
+	if port == 0 {
+		port = cfg.GetInt(ConfigKeySharedPort)
+	}
+
+	endpoint := fmt.Sprintf("localhost:%d", port)
+
+	tlsPair := gtbtls.Resolve(cfg, ConfigTLSPrefix)
+	security := grpc.WithTransportCredentials(insecure.NewCredentials())
+
+	if tlsPair.Enabled {
+		creds, err := TLSClientCredentials(tlsPair.Cert)
+		if err != nil {
+			return nil, err
+		}
+
+		security = grpc.WithTransportCredentials(creds)
+	}
+
+	return grpc.NewClient(endpoint, append([]grpc.DialOption{security}, opts...)...)
 }
 
 // Stop returns a curried function suitable for use with the controls package.

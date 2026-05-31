@@ -13,6 +13,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 const (
@@ -77,14 +78,23 @@ func ReadinessHandler(controller controls.HealthReporter) http.HandlerFunc {
 	}
 }
 
-// NewServer returns a new preconfigured http.Server.
+// DefaultConfigPrefix is the config prefix an HTTP server reads (port, TLS,
+// max_header_bytes) unless overridden with WithConfigPrefix.
+const DefaultConfigPrefix = "server.http"
+
+// NewServer returns a new preconfigured http.Server reading from the default
+// "server.http" config prefix.
 func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error) {
-	port := cfg.GetInt("server.http.port")
+	return newServer(ctx, cfg, handler, DefaultConfigPrefix)
+}
+
+func newServer(ctx context.Context, cfg config.Containable, handler http.Handler, prefix string) (*http.Server, error) {
+	port := cfg.GetInt(prefix + ".port")
 	if port == 0 {
 		port = cfg.GetInt("server.port")
 	}
 
-	maxHeaderBytes := cfg.GetInt("server.http.max_header_bytes")
+	maxHeaderBytes := cfg.GetInt(prefix + ".max_header_bytes")
 	if maxHeaderBytes == 0 {
 		maxHeaderBytes = defaultMaxHeaderBytes
 	}
@@ -99,15 +109,20 @@ func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler
 		WriteTimeout:   writeTimeout,
 		IdleTimeout:    idleTimeout,
 		MaxHeaderBytes: maxHeaderBytes,
-		TLSConfig:      DefaultTLSConfig(),
+		TLSConfig:      gtbtls.DefaultConfig(),
 	}
 
 	return srv, nil
 }
 
-// Start returns a curried function suitable for use with the controls package.
+// Start returns a curried function suitable for use with the controls package,
+// reading TLS from the default "server.http" config prefix.
 func Start(cfg config.Containable, logger logger.Logger, srv *http.Server) controls.StartFunc {
-	tlsEnabled, cert, key := ResolveTLSConfig(cfg, "server.http.tls")
+	return start(cfg, logger, srv, DefaultConfigPrefix)
+}
+
+func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefix string) controls.StartFunc {
+	tlsPair := gtbtls.Resolve(cfg, prefix+".tls")
 
 	return func(ctx context.Context) error {
 		var lc net.ListenConfig
@@ -120,9 +135,9 @@ func Start(cfg config.Containable, logger logger.Logger, srv *http.Server) contr
 		go func() {
 			var err error
 
-			if tlsEnabled {
+			if tlsPair.Enabled {
 				logger.Info("starting http server", "tls", true, "addr", srv.Addr)
-				err = srv.ServeTLS(ln, cert, key)
+				err = srv.ServeTLS(ln, tlsPair.Cert, tlsPair.Key)
 			} else {
 				logger.Info("starting http server", "tls", false, "addr", srv.Addr)
 				err = srv.Serve(ln)
@@ -165,6 +180,16 @@ type RegisterOption func(*registerConfig)
 type registerConfig struct {
 	chain               *Chain
 	maxRequestBodyBytes int64
+	prefix              string
+}
+
+// WithConfigPrefix sets the config prefix this server reads its port, TLS and
+// max_header_bytes from (default "server.http"). Use it to run a second HTTP
+// server on its own config block, e.g. "server.gateway" for the grpc-gateway.
+func WithConfigPrefix(prefix string) RegisterOption {
+	return func(c *registerConfig) {
+		c.prefix = prefix
+	}
 }
 
 // WithMiddleware sets the middleware chain applied to the handler before
@@ -208,6 +233,7 @@ func MaxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...RegisterOption) (*http.Server, error) {
 	rc := registerConfig{
 		maxRequestBodyBytes: DefaultMaxRequestBodyBytes,
+		prefix:              DefaultConfigPrefix,
 	}
 	for _, o := range opts {
 		o(&rc)
@@ -226,13 +252,13 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 	mux.Handle("/readyz", bodyLimit(ReadinessHandler(controller)))
 	mux.Handle("/", bodyLimit(handler))
 
-	srv, err := NewServer(ctx, cfg, mux)
+	srv, err := newServer(ctx, cfg, mux, rc.prefix)
 	if err != nil {
 		return nil, err
 	}
 
 	controller.Register(id,
-		controls.WithStart(Start(cfg, logger, srv)),
+		controls.WithStart(start(cfg, logger, srv, rc.prefix)),
 		controls.WithStop(Stop(logger, srv)),
 		controls.WithStatus(Status(srv)),
 	)

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 type clientConfig struct {
@@ -34,7 +36,7 @@ func defaultClientConfig() *clientConfig {
 	return &clientConfig{
 		timeout:      defaultTimeout,
 		maxRedirects: defaultMaxRedirects,
-		tlsConfig:    DefaultTLSConfig(),
+		tlsConfig:    gtbtls.DefaultConfig(),
 	}
 }
 
@@ -78,7 +80,7 @@ func WithTransport(rt http.RoundTripper) ClientOption {
 // If tlsCfg is nil, DefaultTLSConfig() is used.
 func NewTransport(tlsCfg *tls.Config) *http.Transport {
 	if tlsCfg == nil {
-		tlsCfg = DefaultTLSConfig()
+		tlsCfg = gtbtls.DefaultConfig()
 	}
 
 	return &http.Transport{
