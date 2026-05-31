@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.5.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.5.0)
+
+### Features
+
+- **generator**: command composition emission (slices 3+4+6)
+- **setup**: command composition foundation (slices 1+2+5)
+
 ## [v0.4.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.4.1)
 
 ### Bug Fixes
