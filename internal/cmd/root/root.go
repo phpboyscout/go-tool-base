@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/spf13/afero"
-	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
@@ -54,7 +53,7 @@ func init() {
 	setup.DefaultRequireChecksum = true
 }
 
-func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
+func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
 	p := &props.Props{
@@ -88,17 +87,14 @@ func NewCmdRoot(v ver.Info) (*cobra.Command, *props.Props) {
 
 	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
-	// Create root command using the library functionality
-	rootCmd := root.NewCmdRoot(p)
-
-	// Add the generate command
-	rootCmd.AddCommand(generate.NewCmdGenerate(p))
-
-	// Add the remove command
-	rootCmd.AddCommand(remove.NewCmdRemove(p))
-
-	// Add the regenerate command
-	rootCmd.AddCommand(regenerate.NewCmdRegenerate(p))
+	// Create root command using the library functionality, with gtb-specific
+	// subcommands registered through the new composed Register pipeline so they
+	// pick up global middleware automatically.
+	rootCmd := root.NewCmdRoot(p,
+		generate.NewCmdGenerate(p),
+		remove.NewCmdRemove(p),
+		regenerate.NewCmdRegenerate(p),
+	)
 
 	return rootCmd, p
 }

@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/spf13/afero"
-	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
@@ -45,7 +45,7 @@ func main() {
 	root.Execute(rootCmd, p)
 }
 
-func newTestRoot() (*cobra.Command, *props.Props) {
+func newTestRoot() (*setup.Command, *props.Props) {
 	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
 	p := &props.Props{
@@ -93,14 +93,14 @@ func newTestRoot() (*cobra.Command, *props.Props) {
 
 	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
 
-	rootCmd := root.NewCmdRoot(p)
-
 	// Register the internal scaffolding commands so BDD scenarios
 	// can exercise the real generator entry point (e.g. input
 	// validation for `generate project --name`).
-	rootCmd.AddCommand(generate.NewCmdGenerate(p))
-	rootCmd.AddCommand(remove.NewCmdRemove(p))
-	rootCmd.AddCommand(regenerate.NewCmdRegenerate(p))
+	rootCmd := root.NewCmdRoot(p,
+		generate.NewCmdGenerate(p),
+		remove.NewCmdRemove(p),
+		regenerate.NewCmdRegenerate(p),
+	)
 
 	return rootCmd, p
 }

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 const changelogAssetPath = "assets/CHANGELOG.md"
@@ -19,7 +20,7 @@ const changelogAssetPath = "assets/CHANGELOG.md"
 // NewCmdChangelog creates the changelog command that displays version history
 // from the embedded assets. The CHANGELOG.md must be included in the tool's
 // props.Assets under any mount point. Returns nil if no assets are configured.
-func NewCmdChangelog(p *props.Props) *cobra.Command {
+func NewCmdChangelog(p *props.Props) *setup.Command {
 	var version string
 
 	var since string
@@ -51,7 +52,7 @@ By default, shows the full changelog. Use flags to filter by version.`,
 	cmd.Flags().StringVar(&since, "since", "", "Show changes since a version (exclusive)")
 	cmd.Flags().BoolVar(&latest, "latest", false, "Show only the most recent release")
 
-	return cmd
+	return setup.Wrap(props.ChangelogCmd, cmd)
 }
 
 // loadChangelog reads CHANGELOG.md from the tool's embedded assets.

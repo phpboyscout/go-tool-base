@@ -30,8 +30,8 @@ type VersionInfo struct {
 }
 
 // NewCmdVersion creates the version command that displays build information.
-func NewCmdVersion(props *p.Props) *cobra.Command {
-	return &cobra.Command{
+func NewCmdVersion(props *p.Props) *setup.Command {
+	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version of this program",
 		Long:  `Print version of this program`,
@@ -93,6 +93,9 @@ func NewCmdVersion(props *p.Props) *cobra.Command {
 			})
 		},
 	}
+
+	// "" feature: version is a generic built-in (no feature-specific middleware).
+	return setup.Wrap("", cmd)
 }
 
 func printVersionText(w io.Writer, info *VersionInfo) {

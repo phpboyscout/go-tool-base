@@ -59,7 +59,7 @@ type Updater interface {
 }
 
 // NewCmdUpdate creates the update command for self-updating the tool binary.
-func NewCmdUpdate(props *p.Props) *cobra.Command {
+func NewCmdUpdate(props *p.Props) *setup.Command {
 	var updateCmd = &cobra.Command{
 		Use:   "update",
 		Short: "update to the latest available version",
@@ -106,7 +106,7 @@ func NewCmdUpdate(props *p.Props) *cobra.Command {
 	updateCmd.Flags().String("from-file", "", "path to a local .tar.gz release archive for offline installation")
 	updateCmd.MarkFlagsMutuallyExclusive("from-file", "version")
 
-	return updateCmd
+	return setup.Wrap(p.UpdateCmd, updateCmd)
 }
 
 // UpdateResult contains the outcome of a successful update.

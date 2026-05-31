@@ -8,12 +8,13 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // Execute runs the root command with centralized error handling.
 // It silences Cobra's default error output and routes any error returned by
 // the command tree through ErrorHandler.Check at Fatal level.
-func Execute(rootCmd *cobra.Command, props *p.Props) {
+func Execute(rootCmd *setup.Command, props *p.Props) {
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true
 

@@ -73,7 +73,7 @@ func TestRegisterSubcommands_AiEnabled(t *testing.T) {
 	props := newTestProps()
 	props.Tool.Features = p.SetFeatures(p.Enable(p.AiCmd))
 
-	parent := &cobra.Command{Use: "init"}
+	parent := setup.Wrap("", &cobra.Command{Use: "init"})
 	registerSubcommands(props, parent)
 	// ai subcommand should have been registered
 	assert.NotEmpty(t, parent.Commands())

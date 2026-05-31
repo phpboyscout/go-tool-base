@@ -4,9 +4,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-func NewCmdRemove(p *props.Props) *cobra.Command {
+func NewCmdRemove(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove components from the project",
@@ -16,7 +17,8 @@ func NewCmdRemove(p *props.Props) *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(NewCmdCommand(p))
+	removeCmd := setup.Wrap("", cmd)
+	removeCmd.Register(setup.Wrap("", NewCmdCommand(p)))
 
-	return cmd
+	return removeCmd
 }

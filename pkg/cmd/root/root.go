@@ -332,14 +332,14 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 }
 
 // NewCmdRoot creates the root command with Props wiring and optional subcommands.
-func NewCmdRoot(props *p.Props, subcommands ...*cobra.Command) *cobra.Command {
+func NewCmdRoot(props *p.Props, subcommands ...*setup.Command) *setup.Command {
 	return NewCmdRootWithConfig(props, []string{}, subcommands...)
 }
 
 // NewCmdRootWithConfig creates the root command for the CLI application.
 // It accepts additional configuration file paths to be considered during initialization.
 // NewCmdRoot creates the root command with Props wiring and optional subcommands.
-func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*cobra.Command) *cobra.Command {
+func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*setup.Command) *setup.Command {
 	// Set the helper and logger for the error handling package
 	if props.ErrorHandler == nil {
 		props.ErrorHandler = errorhandling.New(props.Logger, props.Tool.Help)
@@ -358,13 +358,13 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 	}
 
 	setupRootFlags(rootCmd, props, state)
-	registerFeatureCommands(rootCmd, props, mcpLogLevel)
 
-	for _, subcommand := range subcommands {
-		setup.AddCommandWithMiddleware(rootCmd, subcommand, "")
-	}
+	wrapped := setup.Wrap("", rootCmd)
+	registerFeatureCommands(wrapped, props, mcpLogLevel)
 
-	return rootCmd
+	wrapped.Register(subcommands...)
+
+	return wrapped
 }
 
 func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState) func(*cobra.Command, []string) error {
@@ -447,7 +447,7 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	rootCmd.PersistentFlags().String("output", "text", "output format (text, json)")
 }
 
-func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
+func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
 	// Register global middleware
 	setup.RegisterGlobalMiddleware(
 		setup.WithRecovery(props.Logger),
@@ -458,14 +458,14 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 	// Seal the middleware registry to prevent modifications after initialization
 	setup.Seal()
 
-	setup.AddCommandWithMiddleware(rootCmd, version.NewCmdVersion(props), "")
+	rootCmd.Register(version.NewCmdVersion(props))
 
 	if props.Tool.IsEnabled(p.UpdateCmd) {
-		setup.AddCommandWithMiddleware(rootCmd, update.NewCmdUpdate(props), p.UpdateCmd)
+		rootCmd.Register(update.NewCmdUpdate(props))
 	}
 
 	if props.Tool.IsEnabled(p.InitCmd) {
-		setup.AddCommandWithMiddleware(rootCmd, initialise.NewCmdInit(props), p.InitCmd)
+		rootCmd.Register(initialise.NewCmdInit(props))
 	}
 
 	if props.Tool.IsEnabled(p.McpCmd) {
@@ -474,29 +474,29 @@ func registerFeatureCommands(rootCmd *cobra.Command, props *p.Props, mcpLogLevel
 				Level: mcpLogLevel,
 			},
 		})
-		setup.AddCommandWithMiddleware(rootCmd, mcpCmd, p.McpCmd)
+		rootCmd.Register(setup.Wrap(p.McpCmd, mcpCmd))
 	}
 
 	if props.Tool.IsEnabled(p.DocsCmd) {
 		if docsCmd := docs.NewCmdDocs(props); docsCmd != nil {
-			setup.AddCommandWithMiddleware(rootCmd, docsCmd, p.DocsCmd)
+			rootCmd.Register(docsCmd)
 		}
 	}
 
 	if props.Tool.IsEnabled(p.DoctorCmd) {
-		setup.AddCommandWithMiddleware(rootCmd, doctor.NewCmdDoctor(props), p.DoctorCmd)
+		rootCmd.Register(doctor.NewCmdDoctor(props))
 	}
 
 	if props.Tool.IsEnabled(p.ConfigCmd) {
-		setup.AddCommandWithMiddleware(rootCmd, cmdconfig.NewCmdConfig(props), p.ConfigCmd)
+		rootCmd.Register(cmdconfig.NewCmdConfig(props))
 	}
 
 	if props.Tool.IsEnabled(p.TelemetryCmd) {
-		setup.AddCommandWithMiddleware(rootCmd, cmdtelemetry.NewCmdTelemetry(props), p.TelemetryCmd)
+		rootCmd.Register(cmdtelemetry.NewCmdTelemetry(props))
 	}
 
 	if props.Tool.IsEnabled(p.ChangelogCmd) {
-		setup.AddCommandWithMiddleware(rootCmd, cmdchangelog.NewCmdChangelog(props), p.ChangelogCmd)
+		rootCmd.Register(cmdchangelog.NewCmdChangelog(props))
 	}
 }
 

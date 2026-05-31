@@ -8,12 +8,13 @@ import (
 	"github.com/spf13/cobra"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // NewCmdConfig returns the top-level "config" command with all subcommands
 // attached. MaskerOptions extend the built-in sensitive key and value patterns,
 // allowing tool authors to register their own credential formats.
-func NewCmdConfig(props *p.Props, opts ...MaskerOption) *cobra.Command {
+func NewCmdConfig(props *p.Props, opts ...MaskerOption) *setup.Command {
 	masker := NewMasker(opts...)
 
 	cmd := &cobra.Command{
@@ -28,11 +29,14 @@ For interactive guided reconfiguration of a subsystem (AI provider, GitHub
 authentication, etc.), use "init <subsystem>" instead.`,
 	}
 
-	cmd.AddCommand(NewCmdGet(props, masker))
-	cmd.AddCommand(NewCmdList(props, masker))
-	cmd.AddCommand(NewCmdSet(props))
-	cmd.AddCommand(NewCmdValidate(props))
-	cmd.AddCommand(NewCmdMigrate(props))
+	configCmd := setup.Wrap(p.ConfigCmd, cmd)
+	configCmd.Register(
+		setup.Wrap(p.ConfigCmd, NewCmdGet(props, masker)),
+		setup.Wrap(p.ConfigCmd, NewCmdList(props, masker)),
+		setup.Wrap(p.ConfigCmd, NewCmdSet(props)),
+		setup.Wrap(p.ConfigCmd, NewCmdValidate(props)),
+		setup.Wrap(p.ConfigCmd, NewCmdMigrate(props)),
+	)
 
-	return cmd
+	return configCmd
 }

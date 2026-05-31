@@ -82,23 +82,31 @@ func Chain(feature props.FeatureCmd, runE func(cmd *cobra.Command, args []string
 	return wrapped
 }
 
-// AddCommandWithMiddleware adds a command to a parent and applies all registered
-// middleware (global and feature-specific) to it and its subcommands.
+// AddCommandWithMiddleware adds cmd as a subcommand of parent and wraps
+// cmd.RunE with the middleware [Chain] for feature.
+//
+// Deprecated: use [Command.Register] instead. AddCommandWithMiddleware
+// remains as a thin shim that delegates to Register and will be removed
+// in v1.0. Unlike the prior implementation it does NOT recursively
+// re-wrap descendants with feature — each command should be wrapped
+// with its own feature at construction (via [Wrap]) and added to its
+// parent via the parent's Register method, which wires middleware
+// exactly once per command.
 func AddCommandWithMiddleware(parent, cmd *cobra.Command, feature props.FeatureCmd) {
-	if cmd.RunE != nil {
-		cmd.RunE = Chain(feature, cmd.RunE)
-	}
-
-	for _, sub := range cmd.Commands() {
-		ApplyMiddlewareRecursively(sub, feature)
-	}
-
-	parent.AddCommand(cmd)
+	// Wrap parent solely to reuse Register's AddCommand path; the
+	// parent's own feature is irrelevant here because Register only
+	// wraps the child's RunE, never the parent's.
+	Wrap("", parent).Register(Wrap(feature, cmd))
 }
 
-// ApplyMiddlewareRecursively applies middleware to a command and all of its
-// children recursively. This is useful when adding a command tree that was
-// built outside of the standard GTB registration flow.
+// ApplyMiddlewareRecursively applies middleware to cmd and all of its
+// descendants with the same feature key.
+//
+// Deprecated: prefer wrapping each command with its own feature at
+// construction (via [Wrap]) and registering subcommands via
+// [Command.Register], which wires middleware exactly once per command.
+// ApplyMiddlewareRecursively remains for backward compatibility and
+// will be removed in v1.0.
 func ApplyMiddlewareRecursively(cmd *cobra.Command, feature props.FeatureCmd) {
 	if cmd.RunE != nil {
 		cmd.RunE = Chain(feature, cmd.RunE)

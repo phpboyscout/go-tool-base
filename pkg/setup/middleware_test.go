@@ -229,7 +229,14 @@ func TestAddCommandWithMiddleware_NilRunE(t *testing.T) {
 	assert.Equal(t, []*cobra.Command{child}, parent.Commands())
 }
 
-func TestAddCommandWithMiddleware_WiresSubcommands(t *testing.T) {
+// TestAddCommandWithMiddleware_DoesNotRecurseSubcommands documents the
+// behaviour change introduced with [Command.Register]: the deprecated
+// shim wraps only the immediate cmd's RunE, not its descendants'. Each
+// subcommand wraps itself with its own feature when its parent
+// registers it via Command.Register. The old recursive
+// re-wrap-with-parent-feature path was always semantically wrong (it
+// imposed the parent's middleware key on children that have their own).
+func TestAddCommandWithMiddleware_DoesNotRecurseSubcommands(t *testing.T) {
 
 	resetRegistry(t)
 
@@ -253,7 +260,8 @@ func TestAddCommandWithMiddleware_WiresSubcommands(t *testing.T) {
 	err := sub.RunE(sub, nil)
 
 	require.NoError(t, err)
-	assert.Equal(t, []string{"global:before", "sub-handler", "global:after"}, order)
+	assert.Equal(t, []string{"sub-handler"}, order,
+		"sub.RunE must NOT be wrapped — only the immediate cmd is")
 }
 
 func TestApplyMiddlewareRecursively_Deep(t *testing.T) {

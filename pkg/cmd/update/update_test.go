@@ -57,7 +57,7 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 			err := cmd.Flags().Set("version", tt.version)
 			require.NoError(t, err)
 
-			err = cmd.RunE(cmd, nil)
+			err = cmd.RunE(cmd.Command, nil)
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "invalid version format")

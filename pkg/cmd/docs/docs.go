@@ -14,7 +14,7 @@ import (
 )
 
 // NewCmdDocs creates the docs command with the interactive documentation browser.
-func NewCmdDocs(p *props.Props) *cobra.Command {
+func NewCmdDocs(p *props.Props) *setup.Command {
 	var provider string
 
 	cmd := &cobra.Command{
@@ -53,12 +53,13 @@ func NewCmdDocs(p *props.Props) *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVar(&provider, "provider", "", "AI provider to use (openai, claude, gemini)")
 
-	setup.AddCommandWithMiddleware(cmd, NewCmdDocsAsk(p), props.DocsCmd)
+	docsCmd := setup.Wrap(props.DocsCmd, cmd)
+	docsCmd.Register(setup.Wrap(props.DocsCmd, NewCmdDocsAsk(p)))
 
 	// Only add serve command if the static site exists
 	if sfs, err := p.Assets.Exists("assets/site"); err == nil {
-		setup.AddCommandWithMiddleware(cmd, NewCmdDocsServe(p, sfs), props.DocsCmd)
+		docsCmd.Register(setup.Wrap(props.DocsCmd, NewCmdDocsServe(p, sfs)))
 	}
 
-	return cmd
+	return docsCmd
 }

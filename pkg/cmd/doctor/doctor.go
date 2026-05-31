@@ -39,7 +39,7 @@ type DoctorReport struct {
 }
 
 // NewCmdDoctor creates the doctor command.
-func NewCmdDoctor(props *p.Props) *cobra.Command {
+func NewCmdDoctor(props *p.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check environment and configuration health",
@@ -60,7 +60,7 @@ func NewCmdDoctor(props *p.Props) *cobra.Command {
 		},
 	}
 
-	return cmd
+	return setup.Wrap(p.DoctorCmd, cmd)
 }
 
 // RunChecks executes all diagnostic checks and returns a report.

@@ -1035,7 +1035,7 @@ func TestExecute_Success(t *testing.T) {
 		},
 	}
 
-	Execute(cmd, props)
+	Execute(setup.Wrap("", cmd), props)
 	assert.False(t, exitCalled)
 }
 
@@ -1060,7 +1060,7 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 		},
 	}
 
-	Execute(cmd, props)
+	Execute(setup.Wrap("", cmd), props)
 	assert.False(t, exitCalled)
 	assert.True(t, log.Contains("update complete"))
 }
@@ -1086,7 +1086,7 @@ func TestExecute_FatalError(t *testing.T) {
 		},
 	}
 
-	Execute(cmd, props)
+	Execute(setup.Wrap("", cmd), props)
 	assert.True(t, exitCalled)
 	assert.True(t, log.Contains("fatal test error"))
 }
@@ -1149,7 +1149,7 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 
 	// 2. Create root with subcommand - this calls registerFeatureCommands which seals the registry
 	// and should now correctly wrap the passed subcommands.
-	rootCmd := NewCmdRoot(props, subcmd)
+	rootCmd := NewCmdRoot(props, setup.Wrap("", subcmd))
 
 	// 3. Execute the subcommand directly via RunE
 	err := subcmd.RunE(subcmd, nil)
@@ -1170,7 +1170,7 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 	}
 
 	// Using the new public helper
-	setup.AddCommandWithMiddleware(rootCmd, manualSubcmd, "")
+	rootCmd.Register(setup.Wrap("", manualSubcmd))
 
 	err = manualSubcmd.RunE(manualSubcmd, nil)
 	require.NoError(t, err)

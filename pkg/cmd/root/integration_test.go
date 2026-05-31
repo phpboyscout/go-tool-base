@@ -45,7 +45,7 @@ func TestFeatureFlags_DefaultsRegisterExpectedCommands(t *testing.T) {
 
 	props := newTestProps() // all defaults
 	rootCmd := root.NewCmdRoot(props)
-	names := commandNames(rootCmd)
+	names := commandNames(rootCmd.Command)
 
 	// Default-enabled commands
 	assert.True(t, names["update"], "update should be registered by default")
@@ -67,7 +67,7 @@ func TestFeatureFlags_DisableRemovesCommand(t *testing.T) {
 		p.Disable(p.InitCmd),
 	)
 	rootCmd := root.NewCmdRoot(props)
-	names := commandNames(rootCmd)
+	names := commandNames(rootCmd.Command)
 
 	assert.False(t, names["update"], "disabled update should not appear")
 	assert.False(t, names["init"], "disabled init should not appear")
@@ -92,7 +92,7 @@ func TestFeatureFlags_DisableAllFeatureCommands(t *testing.T) {
 		p.Disable(p.ChangelogCmd),
 	)
 	rootCmd := root.NewCmdRoot(props)
-	names := commandNames(rootCmd)
+	names := commandNames(rootCmd.Command)
 
 	// Only version should remain (always registered, not feature-gated)
 	assert.True(t, names["version"], "version is always present")
@@ -106,8 +106,8 @@ func TestFeatureFlags_CustomSubcommandsUnaffected(t *testing.T) {
 
 	customCmd := &cobra.Command{Use: "custom", Run: func(_ *cobra.Command, _ []string) {}}
 	props := newTestProps(p.Disable(p.UpdateCmd))
-	rootCmd := root.NewCmdRoot(props, customCmd)
-	names := commandNames(rootCmd)
+	rootCmd := root.NewCmdRoot(props, setup.Wrap("", customCmd))
+	names := commandNames(rootCmd.Command)
 
 	assert.True(t, names["custom"], "custom subcommand always registered regardless of feature flags")
 	assert.False(t, names["update"], "disabled update should not appear")
@@ -127,7 +127,7 @@ func TestFeatureFlags_SelectiveToggling(t *testing.T) {
 		p.Enable(p.DoctorCmd),
 	)
 	rootCmd := root.NewCmdRoot(props)
-	names := commandNames(rootCmd)
+	names := commandNames(rootCmd.Command)
 
 	assert.True(t, names["doctor"], "explicitly enabled doctor should appear")
 	assert.True(t, names["version"], "version always present")

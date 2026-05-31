@@ -4,11 +4,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 var dryRun bool
 
-func NewCmdRegenerate(p *props.Props) *cobra.Command {
+func NewCmdRegenerate(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "regenerate",
 		Short: "Regenerate project or manifest",
@@ -17,8 +18,11 @@ func NewCmdRegenerate(p *props.Props) *cobra.Command {
 
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without writing files")
 
-	cmd.AddCommand(NewCmdProject(p))
-	cmd.AddCommand(NewCmdManifest(p))
+	regenerateCmd := setup.Wrap("", cmd)
+	regenerateCmd.Register(
+		setup.Wrap("", NewCmdProject(p)),
+		setup.Wrap("", NewCmdManifest(p)),
+	)
 
-	return cmd
+	return regenerateCmd
 }

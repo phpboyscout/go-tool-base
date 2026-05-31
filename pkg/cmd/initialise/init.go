@@ -20,7 +20,7 @@ type initConfig struct {
 }
 
 // NewCmdInit creates the init command for first-run configuration.
-func NewCmdInit(props *p.Props, opts ...InitOption) *cobra.Command {
+func NewCmdInit(props *p.Props, opts ...InitOption) *setup.Command {
 	cfg := &initConfig{}
 	for _, opt := range opts {
 		opt(cfg)
@@ -58,13 +58,15 @@ func NewCmdInit(props *p.Props, opts ...InitOption) *cobra.Command {
 	initCmd.Flags().StringVarP(&initOpts.Dir, "dir", "d", setup.GetDefaultConfigDir(props.FS, props.Tool.Name), "directory to initialise the config in")
 	initCmd.Flags().BoolVarP(&initOpts.Clean, "clean", "c", false, "reset the existing configuration and replace with the defaults")
 
+	wrapped := setup.Wrap(p.InitCmd, initCmd)
+
 	// Dynamic Discovery of Flags
 	registerFeatureFlags(initCmd)
 
 	// Dynamic Discovery of Subcommands
-	registerSubcommands(props, initCmd)
+	registerSubcommands(props, wrapped)
 
-	return initCmd
+	return wrapped
 }
 
 func discoverInitialisers(props *p.Props) []setup.Initialiser {
@@ -91,12 +93,12 @@ func registerFeatureFlags(cmd *cobra.Command) {
 	}
 }
 
-func registerSubcommands(props *p.Props, cmd *cobra.Command) {
+func registerSubcommands(props *p.Props, cmd *setup.Command) {
 	for feature, providers := range setup.GetSubcommands() {
 		if props.Tool.IsEnabled(feature) {
 			for _, provider := range providers {
 				for _, sub := range provider(props) {
-					setup.AddCommandWithMiddleware(cmd, sub, feature)
+					cmd.Register(setup.Wrap(feature, sub))
 				}
 			}
 		}

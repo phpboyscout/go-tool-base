@@ -19,20 +19,23 @@ import (
 const resetTimeout = 10 * time.Second
 
 // NewCmdTelemetry creates the telemetry command group.
-func NewCmdTelemetry(p *props.Props) *cobra.Command {
+func NewCmdTelemetry(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "telemetry",
 		Short: "Manage anonymous usage telemetry",
 	}
 
-	cmd.AddCommand(
-		newEnableCmd(p),
-		newDisableCmd(p),
-		newStatusCmd(p),
-		newResetCmd(p),
+	telCmd := setup.Wrap(props.TelemetryCmd, cmd)
+	// Subcommands share the parent's feature key, preserving the prior
+	// behaviour where ApplyMiddlewareRecursively propagated it down.
+	telCmd.Register(
+		setup.Wrap(props.TelemetryCmd, newEnableCmd(p)),
+		setup.Wrap(props.TelemetryCmd, newDisableCmd(p)),
+		setup.Wrap(props.TelemetryCmd, newStatusCmd(p)),
+		setup.Wrap(props.TelemetryCmd, newResetCmd(p)),
 	)
 
-	return cmd
+	return telCmd
 }
 
 func newEnableCmd(p *props.Props) *cobra.Command {
