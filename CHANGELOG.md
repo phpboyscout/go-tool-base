@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.6.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.6.0)
+
+### Features
+
+- **openapi**: serve OpenAPI spec + embedded Stoplight Elements docs
+- **gateway**: grpc-gateway as a first-class transport
+
 ## [v0.5.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.5.0)
 
 ### Features
