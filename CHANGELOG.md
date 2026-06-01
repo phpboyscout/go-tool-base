@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.7.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.7.0)
+
+### Features
+
+- **telemetry**: OTel-native observability (traces, metrics, logs) over OTLP
+
 ## [v0.6.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.6.0)
 
 ### Features
