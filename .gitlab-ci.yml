@@ -1,17 +1,22 @@
-# .gitlab-ci.yml — pipeline translating the eight .github/workflows/*.yaml
-# entries into the GitLab equivalent. Stages run sequentially; jobs
-# within a stage run in parallel. The same blocking checks apply as the
-# previous GitHub setup: lint, tests, e2e, govulncheck, trivy, gitleaks,
-# osv-scanner, codeql-equivalent (semgrep) before docs+release.
+# .gitlab-ci.yml — pipeline split by trigger:
+#
+#   merge_request_event → lint, test, security      (the merge gate)
+#   tag v*.*.*          → goreleaser, pages docs    (the release fan-out)
+#   default branch      → releaser-pleaser only     (manages the Release MR)
+#   schedule            → renovate
+#
+# Quality gates live exclusively at the MR level — pushing to main runs
+# nothing except releaser-pleaser (which itself opens an MR that gets the
+# full gate), so by the time anything lands on main it has already been
+# vetted. Goreleaser and the docs publish both trigger on the tag
+# releaser-pleaser cuts when its Release MR merges, which means the docs
+# site always reflects a tagged release.
+#
+# Project setting prerequisites:
+#   • Pipelines must succeed (so MR gates actually block merge)
+#   • Merge method: fast-forward + squash (so the tested commit is what
+#     lands on main)
 
-# releaser-pleaser drives the release workflow via the Release-MR
-# pattern: on main it opens/updates a "Release" MR with the pending
-# changelog + version bump; merging that MR creates the tag and GitLab
-# Release, which triggers the `goreleaser` job below to attach binaries.
-# Distributed as a GitLab CI/CD component (no floating tags — pin the
-# full version): https://gitlab.com/explore/catalog/apricote/releaser-pleaser
-# Requires the RELEASER_PLEASER_TOKEN CI variable (project access token,
-# Maintainer role, scopes: api, read_repository, write_repository).
 include:
   - component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@v0.8.0
     inputs:
@@ -23,9 +28,23 @@ stages:
   - lint
   - test
   - security
-  - docs
   - release
+  - docs
   - renovate
+
+# Pipeline-source gating: MR pipelines are primary; tag pipelines run
+# the release fan-out; main pipelines exist only so releaser-pleaser can
+# maintain its MR. The `never` rule suppresses duplicate branch
+# pipelines when a feature branch already has an open MR (otherwise
+# every push to a branch with an open MR would build twice).
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 variables:
   GO_VERSION: "1.26.3"
@@ -53,6 +72,13 @@ default:
     - mkdir -p "${GOPATH}/pkg/mod" "${GOCACHE}"
     - go env GOPATH GOCACHE
 
+# Reusable rule: run only on merge_request_event pipelines. Every quality
+# gate (lint, test, security) uses this so we never re-run them on the
+# default branch or on tag pipelines.
+.mr-only: &mr-only
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
 # ---------- lint stage ----------
 
 lint:
@@ -60,7 +86,7 @@ lint:
   # Pin to a release built with go1.26+ to match go.mod. v2.6.0 was
   # built with go1.25 and refused to load the config.
   image: golangci/golangci-lint:v2.12.2
-  <<: *go-cache
+  <<: [*go-cache, *mr-only]
   script:
     - golangci-lint run --timeout=30m
 
@@ -68,15 +94,14 @@ lint:
 
 tests:
   stage: test
-  <<: *go-cache
+  <<: [*go-cache, *mr-only]
   script:
     - go test -race -coverprofile=cover.out ./...
     - go tool cover -func=cover.out | tail -1
-  # GitLab's coverage badge is driven entirely by this regex against
-  # the job log. The Cobertura coverage_report block was removed
-  # because the script produced cover.out (Go profile) but not
-  # cover.xml — the missing-file error from the artifact upload
-  # bubbled up and marked otherwise-passing pipelines as failed.
+  # GitLab's coverage badge is driven by this regex against the job log.
+  # The badge reflects the latest successful run on the default branch by
+  # default, but since tests now only run on MR pipelines we accept that
+  # the badge tracks the most-recent merged-MR pipeline instead.
   coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
   artifacts:
     when: always
@@ -85,7 +110,7 @@ tests:
 
 e2e-bdd-tests:
   stage: test
-  <<: *go-cache
+  <<: [*go-cache, *mr-only]
   variables:
     INT_TEST_E2E: "1"
   script:
@@ -95,7 +120,7 @@ e2e-bdd-tests:
 
 govulncheck:
   stage: security
-  <<: *go-cache
+  <<: [*go-cache, *mr-only]
   script:
     - go install golang.org/x/vuln/cmd/govulncheck@latest
     - "$GOPATH/bin/govulncheck ./..."
@@ -105,6 +130,7 @@ trivy:
   image:
     name: aquasec/trivy:0.70.0
     entrypoint: [""]
+  <<: *mr-only
   script:
     - trivy fs --exit-code 1 --severity HIGH,CRITICAL --no-progress .
 
@@ -113,6 +139,7 @@ gitleaks:
   image:
     name: zricethezav/gitleaks:v8.30.1
     entrypoint: [""]
+  <<: *mr-only
   script:
     - gitleaks detect --source . --verbose --redact
 
@@ -121,6 +148,7 @@ osv-scanner:
   image:
     name: ghcr.io/google/osv-scanner:v2.3.8
     entrypoint: [""]
+  <<: *mr-only
   script:
     - /osv-scanner -L go.mod
 
@@ -132,33 +160,17 @@ analyze:
   image:
     name: returntocorp/semgrep:1.163.0
     entrypoint: [""]
+  <<: *mr-only
   script:
     - semgrep --config p/golang --error --severity ERROR .
-
-# ---------- docs stage ----------
-
-# Publishes the docs site to GitLab Pages. The previous GitHub Pages
-# workflow used `zensical build` (a mkdocs-material alternative); we
-# keep the same generator and rename its output directory `site/`
-# into the `public/` path GitLab Pages serves from.
-pages:
-  stage: docs
-  image: python:3.14-bookworm
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  script:
-    - pip install --require-hashes -r requirements-lock.txt
-    - zensical build --clean
-    - mv site public
-  artifacts:
-    paths:
-      - public
 
 # ---------- release stage ----------
 
 # The release MR is managed by the releaser-pleaser CI/CD component
-# (see the `include:` near the top of this file). It injects its own
-# job into the `release` stage on main.
+# (see the `include:` near the top of this file). It runs only on the
+# default branch and reads commit history to maintain the MR; the MR
+# pipeline that gets triggered when the component updates its branch
+# carries the full quality-gate suite via the .mr-only rules above.
 
 # GoReleaser builds + publishes artefacts. Triggered by the tag
 # releaser-pleaser creates when its Release MR is merged. GoReleaser
@@ -183,6 +195,26 @@ goreleaser:
     GOTOOLCHAIN: local
   script:
     - goreleaser release --clean
+
+# ---------- docs stage ----------
+
+# Publishes the docs site to GitLab Pages from the freshly-tagged release
+# tree, so the published site always corresponds to a real version. The
+# stage runs after `release` (goreleaser) in the same tag pipeline,
+# meaning the site reflects whatever changes shipped in the new tag and
+# never publishes mid-release in-progress work.
+pages:
+  stage: docs
+  image: python:3.14-bookworm
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
+  script:
+    - pip install --require-hashes -r requirements-lock.txt
+    - zensical build --clean
+    - mv site public
+  artifacts:
+    paths:
+      - public
 
 # ---------- renovate stage ----------
 
