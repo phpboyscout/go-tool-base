@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"go.opentelemetry.io/otel/trace"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
@@ -148,6 +149,14 @@ func LoggingMiddleware(l logger.Logger, opts ...LoggingOption) Middleware {
 				headers:   extractHeaders(r, cfg.headerFields),
 			}
 
+			// Correlate the access log with the active trace, when one is
+			// present (OTelMiddleware ahead of this in the chain). The fields
+			// flow to both the stderr sink and any OTLP log bridge.
+			if sc := trace.SpanContextFromContext(r.Context()); sc.IsValid() {
+				data.traceID = sc.TraceID().String()
+				data.spanID = sc.SpanID().String()
+			}
+
 			level := cfg.level
 			if data.status >= http.StatusInternalServerError {
 				level = logger.ErrorLevel
@@ -179,6 +188,8 @@ type requestData struct {
 	referer   string
 	timestamp time.Time
 	headers   map[string]string
+	traceID   string
+	spanID    string
 }
 
 func emitStructured(l logger.Logger, level logger.Level, cfg loggingConfig, d requestData) {
@@ -193,6 +204,10 @@ func emitStructured(l logger.Logger, level logger.Level, cfg loggingConfig, d re
 
 	if cfg.logUserAgent {
 		keyvals = append(keyvals, "user_agent", d.userAgent)
+	}
+
+	if d.traceID != "" {
+		keyvals = append(keyvals, "trace_id", d.traceID, "span_id", d.spanID)
 	}
 
 	for k, v := range d.headers {
@@ -263,6 +278,11 @@ func emitJSON(l logger.Logger, level logger.Level, cfg loggingConfig, d requestD
 
 	if cfg.logUserAgent {
 		m["user_agent"] = d.userAgent
+	}
+
+	if d.traceID != "" {
+		m["trace_id"] = d.traceID
+		m["span_id"] = d.spanID
 	}
 
 	for k, v := range d.headers {

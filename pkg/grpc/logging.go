@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -80,7 +81,7 @@ func unaryLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.UnaryS
 		start := time.Now()
 		resp, err := handler(ctx, req)
 
-		emitRPCLog(l, cfg, info.FullMethod, "unary", start, err)
+		emitRPCLog(ctx, l, cfg, info.FullMethod, "unary", start, err)
 
 		return resp, err
 	}
@@ -95,13 +96,25 @@ func streamLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.Strea
 		start := time.Now()
 		err := handler(srv, ss)
 
-		emitRPCLog(l, cfg, info.FullMethod, "stream", start, err)
+		ctx := context.Background()
+		if ss != nil {
+			ctx = ss.Context()
+		}
+
+		emitRPCLog(ctx, l, cfg, info.FullMethod, "stream", start, err)
 
 		return err
 	}
 }
 
-func emitRPCLog(l logger.Logger, cfg grpcLoggingConfig, method, rpcType string, start time.Time, err error) {
+func emitRPCLog(
+	ctx context.Context,
+	l logger.Logger,
+	cfg grpcLoggingConfig,
+	method, rpcType string,
+	start time.Time,
+	err error,
+) {
 	code := codes.OK
 
 	if err != nil {
@@ -122,6 +135,10 @@ func emitRPCLog(l logger.Logger, cfg grpcLoggingConfig, method, rpcType string, 
 
 	if cfg.logLatency {
 		keyvals = append(keyvals, "latency", time.Since(start).String())
+	}
+
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		keyvals = append(keyvals, "trace_id", sc.TraceID().String(), "span_id", sc.SpanID().String())
 	}
 
 	grpcLogAtLevel(l.With(keyvals...), level, "rpc completed")

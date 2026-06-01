@@ -30,6 +30,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Setup](setup/index.md)** | `pkg/setup` | bootstrapping logic for tool initialization, including GitHub authentication and self-updates. |
 | **[VCS](vcs/index.md)** | `pkg/vcs/...` | Git operations, GitHub/GitLab API clients, and backend-agnostic release provider. |
 | **[Chat](chat.md)** | `pkg/chat` | Multi-provider AI client (OpenAI, Anthropic, Gemini) for building intelligent features. |
+| **[Telemetry](telemetry.md)** | `pkg/telemetry` | Opt-in, consent-gated product analytics with pluggable backends (OTLP, PostHog, Datadog), bounded buffering and GDPR deletion. Distinct from web-service **[Observability](observability.md)**. |
 | **[Docs](docs.md)** | `pkg/docs` | Logic for the interactive TUI documentation browser. |
 | **[Forms](forms.md)** | `pkg/forms` | Multi-step interactive CLI form helpers with Escape-to-go-back navigation, built on charmbracelet/huh. |
 | **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
@@ -45,6 +46,7 @@ Components for running a CLI as a long-lived service. See also **[Controls](cont
 | **[TLS](tls.md)** | `pkg/tls` | Shared hardened TLS config, the typed `Pair`, shared/per-transport resolution, and client cert-pool helpers. |
 | **[Gateway](gateway.md)** | `pkg/gateway` | grpc-gateway as a first-class transport: REST-to-gRPC, mounted or as its own server. |
 | **[OpenAPI](openapi.md)** | `pkg/openapi` | Serve an OpenAPI spec and an embedded Stoplight Elements docs site. |
+| **[Observability](observability.md)** | `pkg/telemetry/*` | OTel-native traces, metrics and logs over OTLP; one-line transport instrumentation in `pkg/http`/`pkg/grpc`; trace-correlated request logs. |
 
 ## Testing Support
 

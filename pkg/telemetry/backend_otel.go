@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"net/url"
 	"strings"
 	"time"
 
@@ -11,11 +10,10 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
-	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
 // OTelOption configures the OTLP backend.
@@ -124,12 +122,8 @@ func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (B
 	}
 
 	if cfg.serviceName != "" {
-		res := resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(cfg.serviceName),
-			semconv.ServiceVersion(cfg.serviceVer),
-		)
-		providerOpts = append(providerOpts, sdklog.WithResource(res))
+		providerOpts = append(providerOpts,
+			sdklog.WithResource(otelcore.Resource(cfg.serviceName, cfg.serviceVer)))
 	}
 
 	provider := sdklog.NewLoggerProvider(providerOpts...)
@@ -138,25 +132,23 @@ func NewOTelBackend(ctx context.Context, endpoint string, opts ...OTelOption) (B
 }
 
 func buildOTelExporterOpts(endpoint string, cfg *otelConfig) ([]otlploghttp.Option, error) {
-	u, err := url.Parse(endpoint)
+	ep, err := otelcore.ParseEndpoint(endpoint, cfg.insecure, cfg.headers)
 	if err != nil {
-		return nil, errors.Wrap(err, "parsing OTLP endpoint URL")
+		return nil, err
 	}
 
 	exporterOpts := []otlploghttp.Option{
-		otlploghttp.WithEndpoint(u.Host),
+		otlploghttp.WithEndpoint(ep.Host),
+		// Append /v1/logs to the base path so the SDK sends to the correct route.
+		otlploghttp.WithURLPath(ep.BasePath + "/v1/logs"),
 	}
 
-	// Append /v1/logs to the base path so the SDK sends to the correct route.
-	urlPath := u.Path + "/v1/logs"
-	exporterOpts = append(exporterOpts, otlploghttp.WithURLPath(urlPath))
-
-	if u.Scheme == "http" || cfg.insecure {
+	if ep.Insecure {
 		exporterOpts = append(exporterOpts, otlploghttp.WithInsecure())
 	}
 
-	if len(cfg.headers) > 0 {
-		exporterOpts = append(exporterOpts, otlploghttp.WithHeaders(cfg.headers))
+	if len(ep.Headers) > 0 {
+		exporterOpts = append(exporterOpts, otlploghttp.WithHeaders(ep.Headers))
 	}
 
 	return exporterOpts, nil
