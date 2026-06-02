@@ -69,7 +69,13 @@ func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opt
 
 	mux := runtime.NewServeMux(o.muxOpts...)
 
-	conn, err := gtbgrpc.DialLocal(cfg, o.dialOpts...)
+	// Instrument the connection so the trace context propagates from the inbound
+	// REST request into the gRPC call: the request and its proxied RPC share one
+	// trace. A noop until telemetry.Setup installs the providers. Caller dial
+	// options follow, so they can override or add to it.
+	dialOpts := append([]grpc.DialOption{gtbgrpc.OTelClientHandler()}, o.dialOpts...)
+
+	conn, err := gtbgrpc.DialLocal(cfg, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
