@@ -123,3 +123,24 @@ func TestSetupAllEnabledRegistersControllerShutdown(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sh)
 }
+
+// Regression: the telemetry service must survive the controller actually
+// starting it. It used to register with a nil Start, and the supervisor calls
+// Start unconditionally — so Start()/Stop()/Wait() panicked the process. This
+// test would have caught that (the earlier registration test never started the
+// controller).
+func TestSetupTelemetryServiceRunsUnderController(t *testing.T) {
+	restoreGlobals(t)
+
+	controller := controls.NewController(context.Background(),
+		controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
+
+	_, err := Setup(context.Background(), testProps(map[string]any{
+		"telemetry.tracing.enabled": true, // no endpoint: nothing exported, fully hermetic
+	}), controller)
+	require.NoError(t, err)
+
+	controller.Start()
+	controller.Stop()
+	controller.Wait()
+}

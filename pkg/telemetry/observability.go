@@ -76,11 +76,24 @@ func Setup(ctx context.Context, p *props.Props, controller controls.Controllable
 	}
 
 	if controller != nil && len(shutdowns) > 0 {
-		controller.Register("telemetry", controls.WithStop(func(ctx context.Context) {
-			if err := shutdown(ctx); err != nil {
-				p.Logger.Warn("telemetry shutdown error", "error", err)
-			}
-		}))
+		// The providers do their work in their own background batch goroutines, so
+		// this "service" only needs to stay alive until shutdown and flush on the
+		// way out. Start blocks until the context is cancelled (the controller's
+		// shutdown signal); the flush happens in Stop. A nil Start would panic the
+		// supervisor, which calls it unconditionally.
+		controller.Register("telemetry",
+			controls.WithStart(func(ctx context.Context) error {
+				<-ctx.Done()
+
+				return nil
+			}),
+			controls.WithStop(func(ctx context.Context) {
+				if err := shutdown(ctx); err != nil {
+					p.Logger.Warn("telemetry shutdown error", "error", err)
+				}
+			}),
+			controls.WithStatus(func() error { return nil }),
+		)
 	}
 
 	return shutdown, nil
