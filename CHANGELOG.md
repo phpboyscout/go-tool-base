@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.7.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.7.1)
+
+### Bug Fixes
+
+- **gateway**: propagate trace context through the gateway's gRPC dial
+- **telemetry**: register a controller-safe telemetry service
+
 ## [v0.7.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.7.0)
 
 ### Features
