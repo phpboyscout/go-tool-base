@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.8.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.8.0)
+
+### Features
+
+- **http**: add WithCertPool client option
+
 ## [v0.7.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.7.1)
 
 ### Bug Fixes
