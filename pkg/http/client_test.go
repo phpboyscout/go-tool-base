@@ -1,6 +1,8 @@
 package http
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -80,6 +82,55 @@ func TestNewClient_RealHTTPSRequest(t *testing.T) {
 
 	// Use server's cert for the client
 	client := NewClient(WithTLSConfig(server.Client().Transport.(*http.Transport).TLSClientConfig))
+	resp, err := client.Get(server.URL)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestWithCertPool(t *testing.T) {
+	t.Parallel()
+
+	t.Run("PreservesHardenedDefaults", func(t *testing.T) {
+		t.Parallel()
+
+		pool := x509.NewCertPool()
+		cfg := defaultClientConfig()
+		WithCertPool(pool)(cfg)
+
+		assert.Same(t, pool, cfg.tlsConfig.RootCAs)
+		// Hardened defaults from gtbtls.DefaultConfig must remain intact.
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.tlsConfig.MinVersion)
+		assert.NotEmpty(t, cfg.tlsConfig.CipherSuites)
+	})
+
+	t.Run("SeedsConfigWhenNil", func(t *testing.T) {
+		t.Parallel()
+
+		pool := x509.NewCertPool()
+		cfg := &clientConfig{} // tlsConfig deliberately nil
+		WithCertPool(pool)(cfg)
+
+		require.NotNil(t, cfg.tlsConfig)
+		assert.Same(t, pool, cfg.tlsConfig.RootCAs)
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.tlsConfig.MinVersion)
+	})
+}
+
+func TestNewClient_WithCertPool_RealHTTPSRequest(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(server.Close)
+
+	// Trust the test server's self-signed cert via a custom pool — the
+	// private-CA scenario the option exists for.
+	pool := x509.NewCertPool()
+	pool.AddCert(server.Certificate())
+
+	client := NewClient(WithCertPool(pool))
 	resp, err := client.Get(server.URL)
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()

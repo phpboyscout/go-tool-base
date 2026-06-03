@@ -2,6 +2,7 @@ package http
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"net/http"
 	"time"
@@ -72,6 +73,22 @@ func WithTLSConfig(cfg *tls.Config) ClientOption {
 func WithTransport(rt http.RoundTripper) ClientOption {
 	return func(cfg *clientConfig) {
 		cfg.transport = rt
+	}
+}
+
+// WithCertPool sets the root CA pool used to verify server certificates,
+// preserving the hardened default TLS configuration (cipher suites, minimum
+// version, curve preferences). Use this to trust certificates that are not in
+// the system roots, such as a private CA or self-signed cert. Build the pool
+// with tls.CertPool. Applying WithTLSConfig after this option replaces the
+// pool along with the rest of the TLS configuration.
+func WithCertPool(pool *x509.CertPool) ClientOption {
+	return func(cfg *clientConfig) {
+		if cfg.tlsConfig == nil {
+			cfg.tlsConfig = gtbtls.DefaultConfig()
+		}
+
+		cfg.tlsConfig.RootCAs = pool
 	}
 }
 

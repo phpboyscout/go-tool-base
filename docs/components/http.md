@@ -131,6 +131,7 @@ The `pkg/http` package provides a factory for creating hardened `http.Client` in
 - `WithTimeout(d time.Duration)`
 - `WithMaxRedirects(n int)`
 - `WithTLSConfig(cfg *tls.Config)`
+- `WithCertPool(pool *x509.CertPool)` — trusts a custom root CA pool (private CA / self-signed) while preserving the hardened TLS defaults; build the pool with `tls.CertPool`
 - `WithTransport(rt http.RoundTripper)`
 - `WithRetry(cfg RetryConfig)` — enables automatic retry with exponential backoff
 - `WithClientMiddleware(chain ClientChain)` — applies a middleware chain to the transport
