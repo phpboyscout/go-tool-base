@@ -47,7 +47,7 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 variables:
-  GO_VERSION: "1.26.3"
+  GO_VERSION: "1.26.4"
   GIT_DEPTH: "0" # releaser-pleaser + goreleaser need the full history
   # CGO is left at the toolchain default (=1 on Linux) because the
   # race detector requires it. The goreleaser build block in
@@ -187,12 +187,14 @@ goreleaser:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
   variables:
     GIT_STRATEGY: clone
-    # goreleaser/goreleaser:v2.16.0 ships with golang:1.26.3-alpine, which
-    # already satisfies go.mod's `toolchain go1.26.3` directive. Pin
-    # GOTOOLCHAIN=local so the runner never attempts a sum.golang.org
-    # download — the v0.5.0 release first failed because that download
-    # tripped on a transient IPv6 routing issue on a shared runner.
-    GOTOOLCHAIN: local
+    # goreleaser/goreleaser:v2.16.0 ships with golang:1.26.3-alpine, but
+    # go.mod now requires `toolchain go1.26.4` (GO-2026-5037/5039 stdlib
+    # fixes). Pin GOTOOLCHAIN to that exact version so the runner fetches the
+    # matching toolchain rather than failing on the older bundled one. Revert
+    # to `local` once a goreleaser image ships Go 1.26.4. Note: this restores
+    # the sum.golang.org dependency that the v0.5.0 release first tripped on
+    # via a transient IPv6 routing issue on a shared runner.
+    GOTOOLCHAIN: go1.26.4
   script:
     - goreleaser release --clean
 
