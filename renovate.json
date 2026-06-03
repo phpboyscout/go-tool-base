@@ -3,7 +3,8 @@
   "extends": [
     "config:recommended",
     ":semanticCommits",
-    ":disableDependencyDashboard"
+    ":disableDependencyDashboard",
+    "gitlab>phpboyscout/cicd"
   ],
   "platform": "gitlab",
   "labels": ["dependencies"],
