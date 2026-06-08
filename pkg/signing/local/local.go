@@ -124,7 +124,7 @@ func parseRSAKey(block *pem.Block) (*rsa.PrivateKey, error) {
 // backend declares no CLI flags.
 type backend struct{}
 
-func (b *backend) Name() string                  { return backendName }
+func (b *backend) Name() string                   { return backendName }
 func (b *backend) RegisterFlags(_ *pflag.FlagSet) {}
 
 func (b *backend) NewSigner(ctx context.Context, keyID string) (crypto.Signer, error) {

@@ -13,11 +13,14 @@
 //
 // Built-in backends shipping with the standard `gtb` binary:
 //
-//   - "aws-kms" (pkg/signing/kms): RSA-4096 keys held in AWS KMS.
-//   - "gpg"     (pkg/signing/gpg): RSA keys in a local GnuPG keyring.
+//   - "aws-kms" (pkg/signing/kms):   RSA-4096 keys held in AWS KMS.
+//   - "local"   (pkg/signing/local): RSA keys loaded from an
+//     unencrypted PKCS#1 or PKCS#8 PEM file on disk. Use for the
+//     onboarding tutorial / local signing flows; never in CI.
 //
 // Third parties add backends by implementing Backend and calling
 // Register from their package's init(). No upstream change is needed.
+// See docs/how-to/add-signing-backend.md for the contract details.
 //
 // API stability: Beta. The interface is small and stable; the only
 // known evolution path is additive (e.g. ECDSA support, capability-

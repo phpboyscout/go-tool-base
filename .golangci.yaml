@@ -55,6 +55,13 @@ linters:
     - wrapcheck
     - wsl
   settings:
+    exhaustive:
+      # Treat a `default:` case as satisfying enum exhaustiveness.
+      # Without this the linter forces enumeration of every enum value
+      # (e.g. all 17 crypto.Hash constants) even when the default
+      # already handles the unsupported set with a typed error —
+      # noise without safety benefit.
+      default-signifies-exhaustive: true
     gosmopolitan:
       allow-time-local: true
     revive:

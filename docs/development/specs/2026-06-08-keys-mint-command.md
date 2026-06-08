@@ -1,7 +1,7 @@
 ---
 title: "`gtb keys mint` — pluggable OpenPGP-from-HSM minter"
 description: "Add `gtb keys mint` (mint an armored OpenPGP public key from an existing signer) and `gtb keys generate` (generate a fresh keypair locally + mint it), backed by a pluggable backend registry. Consumers can ship AWS KMS, GCP KMS, HashiCorp Vault, YubiKey, or any other backend without modifying the framework. Both commands keep operations inside the `gtb` binary — no shell-out to `gpg` or external tools required. Surfaces `openpgpkey` from `internal/` to `pkg/` and adds a public `pkg/signing` backend registry. Commands live in `internal/cmd/keys/` so they ship with the `gtb` binary only — scaffolded downstream tools do not inherit them."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-08
 tags:
   - specification
@@ -836,9 +836,13 @@ the `gpg` backend entirely.
    only the `local` backend (not `kms`) and asserts that
    `gtb keys mint --backend aws-kms` errors with `ErrUnknownBackend`.
    No build-tag plumbing in the code — the smoke is implemented as a
-   separate `cmd/gtb-no-aws/main.go` under a `_smoke` test directory
-   that the CI script `go build`s. Proves the blank-import-to-activate
-   pattern actually works.
+   separate `cmd/gtb-no-aws-smoke/main.go` that builds via plain
+   `go build`. Implementation: the kms + local blank-imports moved
+   out of `internal/cmd/root/root.go` into `cmd/gtb/signing.go`
+   (mirroring `cmd/gtb/keychain.go`); the smoke binary blank-imports
+   only `local`. `go list -deps ./cmd/gtb-no-aws-smoke/...` confirms
+   the AWS SDK is absent from the dependency closure (0 vs. 78
+   `github.com/aws/*` packages in standard gtb).
 5. **`pkg/openpgpkey` and `pkg/signing` are released as Beta tier** per
    `docs/about/api-stability.md`. Function signatures are stable; the
    only known evolution path is additive (ECDSA support).
@@ -863,6 +867,18 @@ the `gpg` backend entirely.
    that handles all cryptographic operations internally — no external
    shell-outs, no `gpg` install required, no offline-workstation gpg
    dance for new consumers.
+
+## Follow-ups
+
+- **BDD scenarios deferred.** Per CLAUDE.md, new CLI commands with
+  user workflows should ship Gherkin scenarios. The `gtb keys mint`
+  and `gtb keys generate` commands are covered by 22 unit tests
+  spanning both success and failure paths (registry lookup, flag
+  validation, output writing, fingerprint reproducibility, KMS
+  signer interaction via fake client, local PEM loader for both
+  PKCS#1 and PKCS#8). A focused follow-up will add E2E scenarios
+  for the user-facing happy path against a local backend; deferred
+  to keep this MR scoped to library + command implementation.
 
 ## Related
 

@@ -33,7 +33,7 @@ type fakeBackend struct {
 	signer crypto.Signer
 }
 
-func (b *fakeBackend) Name() string                  { return b.name }
+func (b *fakeBackend) Name() string                   { return b.name }
 func (b *fakeBackend) RegisterFlags(_ *pflag.FlagSet) {}
 func (b *fakeBackend) NewSigner(_ context.Context, _ string) (crypto.Signer, error) {
 	return b.signer, nil

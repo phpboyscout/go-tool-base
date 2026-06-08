@@ -3,6 +3,7 @@ package signing_test
 import (
 	"context"
 	"crypto"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -21,7 +22,7 @@ type fakeBackend struct {
 	name string
 }
 
-func (f *fakeBackend) Name() string                  { return f.name }
+func (f *fakeBackend) Name() string                   { return f.name }
 func (f *fakeBackend) RegisterFlags(_ *pflag.FlagSet) {}
 func (f *fakeBackend) NewSigner(_ context.Context, _ string) (crypto.Signer, error) {
 	return nil, nil //nolint:nilnil // test stub
@@ -75,8 +76,7 @@ func TestGet_UnknownBackend_ListsAvailable(t *testing.T) {
 	signing.Register(&fakeBackend{name: "beta"})
 
 	_, err := signing.Get("gamma")
-	require.Error(t, err)
-	assert.ErrorIs(t, err, signing.ErrUnknownBackend)
+	require.ErrorIs(t, err, signing.ErrUnknownBackend)
 
 	msg := err.Error()
 	assert.Contains(t, msg, `"gamma"`, "error must quote the requested backend name")
@@ -94,8 +94,7 @@ func TestGet_NoBackendsRegistered_HintsAtCompileTime(t *testing.T) {
 	t.Cleanup(signing.ResetForTesting)
 
 	_, err := signing.Get("aws-kms")
-	require.Error(t, err)
-	assert.ErrorIs(t, err, signing.ErrUnknownBackend)
+	require.ErrorIs(t, err, signing.ErrUnknownBackend)
 	assert.Contains(t, err.Error(), "no backends are registered",
 		"empty-registry error must point operators at the compile-time blank-import requirement")
 }
@@ -148,9 +147,5 @@ func TestRegister_Concurrent(t *testing.T) {
 }
 
 func backendName(i int) string {
-	if i < 10 {
-		return "backend-0" + string(rune('0'+i))
-	}
-
-	return "backend-" + string(rune('0'+(i/10))) + string(rune('0'+(i%10)))
+	return fmt.Sprintf("backend-%02d", i)
 }

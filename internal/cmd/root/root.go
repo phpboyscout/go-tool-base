@@ -21,14 +21,6 @@ import (
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
-
-	// Activate the signing backends shipped with the standard gtb
-	// binary. Blank-import is the activate-by-side-effect pattern
-	// (Backend.init() calls signing.Register). Downstream tools that
-	// want a different mix omit one or both of these in their own
-	// main package.
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/kms"
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/local"
 )
 
 //go:embed all:assets

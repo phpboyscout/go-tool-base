@@ -131,7 +131,7 @@ func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int
 		return errors.Wrap(err, "armoring public half")
 	}
 
-	if err := os.WriteFile(pubPath, pubArmored, 0o644); err != nil { //nolint:gosec // armored public keys are not sensitive
+	if err := os.WriteFile(pubPath, pubArmored, publicKeyFilePerm); err != nil {
 		return errors.Wrap(err, "writing public-half output")
 	}
 
@@ -140,7 +140,7 @@ func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int
 		return err
 	}
 
-	if err := os.WriteFile(privPath, privBytes, 0o600); err != nil {
+	if err := os.WriteFile(privPath, privBytes, privateKeyFilePerm); err != nil {
 		return errors.Wrap(err, "writing private-half output")
 	}
 

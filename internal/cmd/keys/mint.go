@@ -115,7 +115,7 @@ func runMint(cmd *cobra.Command, p *props.Props, backendName, keyID, name, email
 		return errors.Wrap(err, "minting armored public key")
 	}
 
-	if err := os.WriteFile(output, armored, 0o644); err != nil { //nolint:gosec // armored public keys are not sensitive
+	if err := os.WriteFile(output, armored, publicKeyFilePerm); err != nil {
 		return errors.Wrap(err, "writing output")
 	}
 

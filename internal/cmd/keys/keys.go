@@ -20,6 +20,15 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
+// File permissions for command outputs. Public-key (armored OpenPGP)
+// files are world-readable because they are explicitly not sensitive
+// — distributing them is the whole point. Private-key files are
+// owner-read/write only.
+const (
+	publicKeyFilePerm  = 0o644
+	privateKeyFilePerm = 0o600
+)
+
 // NewCmdKeys returns the top-level `gtb keys` command group with its
 // subcommands attached. Mirrors the shape of internal/cmd/generate's
 // constructor so the gtb root can compose it the same way.
