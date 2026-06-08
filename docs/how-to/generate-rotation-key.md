@@ -89,10 +89,15 @@ unlocking it first.
 ### 2. Paper backup (covers USB bit-rot)
 
 Install `paperkey` once on your operating system (Debian/Ubuntu:
-`apt install paperkey`; macOS: `brew install paperkey`).
+`apt install paperkey`; macOS: `brew install paperkey`). It also
+needs `gpg` available, only to strip ASCII armor from the input —
+no keyring is created.
 
 ```sh
-paperkey --secret-key rotation-authority.priv.asc --output rotation-authority.paperkey.txt
+# paperkey only accepts binary OpenPGP packets, not ASCII armor, so
+# dearmor on the fly. No intermediate file touches disk.
+gpg --dearmor < rotation-authority.priv.asc \
+  | paperkey --output rotation-authority.paperkey.txt
 lpr rotation-authority.paperkey.txt        # or any printer; print it on paper
 shred -u rotation-authority.paperkey.txt   # wipe the temporary file
 ```
@@ -139,7 +144,11 @@ chmod 700 $GNUPGHOME
 cat > retyped.txt
 # ... type the printed bytes; Ctrl-D when done ...
 
-paperkey --pubring rotation-authority.asc < retyped.txt | gpg --import
+# paperkey --pubring also wants binary, so dearmor the public half
+# the same way as during backup.
+gpg --dearmor < rotation-authority.asc > rotation-authority.pub.gpg
+paperkey --pubring rotation-authority.pub.gpg --secrets retyped.txt | gpg --import
+shred -u rotation-authority.pub.gpg retyped.txt
 
 # Compare:
 gpg --list-secret-keys --keyid-format long
