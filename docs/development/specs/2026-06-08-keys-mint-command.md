@@ -1,6 +1,6 @@
 ---
 title: "`gtb keys mint` — pluggable OpenPGP-from-HSM minter"
-description: "Add a `gtb keys mint` subcommand that produces an ASCII-armored OpenPGP public key from a remotely-held signing key, with a pluggable backend interface so consumers can ship AWS KMS, GCP KMS, HashiCorp Vault, YubiKey, or local GPG without modifying the framework. Surfaces openpgpkey from internal/ to pkg/ and adds a public `pkg/signing` backend registry. The command lives in `internal/cmd/keys/` so it ships with the `gtb` binary only — scaffolded downstream tools do not inherit it."
+description: "Add `gtb keys mint` (mint an armored OpenPGP public key from an existing signer) and `gtb keys generate` (generate a fresh keypair locally + mint it), backed by a pluggable backend registry. Consumers can ship AWS KMS, GCP KMS, HashiCorp Vault, YubiKey, or any other backend without modifying the framework. Both commands keep operations inside the `gtb` binary — no shell-out to `gpg` or external tools required. Surfaces `openpgpkey` from `internal/` to `pkg/` and adds a public `pkg/signing` backend registry. Commands live in `internal/cmd/keys/` so they ship with the `gtb` binary only — scaffolded downstream tools do not inherit them."
 status: APPROVED
 date: 2026-06-08
 tags:
@@ -52,12 +52,40 @@ never see a `mytool keys mint` command, because minting is a
 release-engineering concern of the tool author, not a runtime
 concern of their tool's users.
 
-The two backends shipped in the standard `gtb` binary are
-**`aws-kms`** (the primary production backend) and **`gpg`** (local
-GPG on disk — useful for testing, blog tutorials, and offline
-generation paths). Additional backends (GCP Cloud KMS, Azure Key
-Vault, Vault Transit, YubiKey) can be implemented by anyone consuming
-`pkg/signing` and blank-imported into a tool's `main` package.
+Two backends ship in the standard `gtb` binary: **`aws-kms`** (the
+production HSM-rooted path) and **`local`** (a PEM-encoded RSA private
+key on disk — for testing, blog tutorials, and self-hosted setups
+that don't have a cloud KMS). Additional backends (GCP Cloud KMS,
+Azure Key Vault, Vault Transit, YubiKey) can be implemented by anyone
+consuming `pkg/signing` and blank-imported into a tool's `main`
+package.
+
+Alongside `mint`, a companion **`gtb keys generate`** command produces
+fresh keypairs entirely inside the `gtb` process — no `gpg` install
+required, no shell-out. Used during onboarding to generate the
+rotation-authority key (Ed25519, sign-only, written to disk so the
+operator can move the private half to offline storage) and, for the
+tutorial path, the local RSA signing key that pairs with the `local`
+backend. The same `pkg/openpgpkey` library that wraps an HSM-held key
+also wraps these locally-generated keys, so every armored OpenPGP
+file the framework produces has a single, audited code path.
+
+This design keeps every step of the trust-chain bootstrap inside the
+`gtb` binary. A consumer who has just installed `gtb` can run three
+commands and have a complete signing chain ready to embed:
+
+```sh
+gtb keys generate --algorithm ed25519 --name "Tool Rotation Authority" \
+    --email rotation@example.com --output rotation.asc
+gtb keys generate --algorithm rsa --rsa-bits 4096 --name "Tool Release" \
+    --email release@example.com --output signing.pem
+gtb keys mint --backend local --key-id signing.pem \
+    --name "Tool Release" --email release@example.com --output release.asc
+```
+
+Production tools substitute the second step for a Terraform-applied
+KMS key + `gtb keys mint --backend aws-kms`. Same first and third
+commands.
 
 ## Background
 
@@ -92,26 +120,35 @@ knowing how to talk to its specific HSM/KMS surface and producing a
 - Provide a framework-supported way for tool authors to mint an
   OpenPGP public key from a remotely-held HSM signing key, with no
   exposure of the private half.
+- Provide a framework-supported way to **generate** a fresh keypair
+  locally (Ed25519 or RSA), with no external dependency on `gpg`,
+  `openssl`, or any other tool. Targets two onboarding flows:
+  - The rotation-authority key (Ed25519, sign-only).
+  - A local RSA signing key for the tutorial / no-cloud-KMS path.
 - Ship AWS KMS as a first-class backend (the prep-doc-recommended
   production path).
-- Ship a local GPG backend so the feature is **demonstrable without
-  cloud access** — important for the blog tutorial and for tools that
-  pick a local-GPG signing path.
+- Ship a `local` backend (PEM-encoded RSA private key on disk) so
+  the feature is **demonstrable without cloud access** — important
+  for the blog tutorial and for tools that don't have HSM access.
+- Keep every operation **inside the `gtb` binary** — no shell-out to
+  `gpg`, no off-tool key extraction. The framework distributes a
+  tool that handles all of the cryptographic operations natively.
 - Allow third-party backends (GCP KMS, Azure Key Vault, Vault
   Transit, YubiKey, custom) to be added by anyone consuming
   `pkg/signing`, registered via a blank-import in the tool's `main`,
   with no upstream change to `gtb` itself.
-- Keep the minter discoverable: `gtb keys mint --help` works
-  out-of-the-box on every standard `gtb` install.
+- Keep the commands discoverable: `gtb keys mint --help` and
+  `gtb keys generate --help` work out-of-the-box on every standard
+  `gtb` install.
 - Surface the OpenPGP packet-assembly primitives as a public,
-  reusable `pkg/openpgpkey` API.
+  reusable `pkg/openpgpkey` API supporting both RSA and Ed25519.
 
 ## Non-Goals
 
-- **Key generation**. KMS keys are provisioned by Terraform
-  (`terraform-aws-signing-kms` for AWS); local keys by `gpg
-  --quick-generate-key`. This spec covers transforming an existing
-  key's public half into OpenPGP form.
+- **Generating HSM-held keys.** KMS keys are provisioned by Terraform
+  (`terraform-aws-signing-kms` for AWS). `gtb keys generate` is
+  explicitly for *local* keys — its private half is written to disk
+  and the operator decides where it lives next.
 - **Signature verification**. That's Phase 2 of the
   remote-update-checksum-verification spec, already on MR !9.
 - **WKD publishing**. The minter emits a `.asc` file; pushing it to
@@ -127,14 +164,17 @@ knowing how to talk to its specific HSM/KMS surface and producing a
 
 ## Design Decisions
 
-### D1 — Command shape: `gtb keys mint`
+### D1 — Command shape: `gtb keys {mint,generate}`
 
 The command lives under a `gtb keys` group rather than a flat
 `gtb mint-signing-key` so the namespace can grow (future:
 `gtb keys verify`, `gtb keys fingerprint`, `gtb keys import-wkd`).
 
-Initial subcommand set: `mint` only. Other subcommands are
-out-of-scope for this spec and added separately if needed.
+Initial subcommand set: **`mint`** and **`generate`** (see D11).
+`mint` wraps an existing signer in OpenPGP framing; `generate`
+creates a fresh keypair locally and emits both halves. Other
+subcommands are out-of-scope for this spec and added separately if
+needed.
 
 ### D2 — Backend selection: explicit `--backend` always required
 
@@ -239,13 +279,29 @@ capability-discovery methods (e.g. `SupportsRSA() bool`,
 
 | Backend | Package | Registers as | Notes |
 |---|---|---|---|
-| AWS KMS | `pkg/signing/kms` | `aws-kms` | RSA `SIGN_VERIFY` keys. `--region`, default `eu-west-2`. Uses AWS SDK v2 default credential chain. |
-| Local GPG | `pkg/signing/gpg` | `gpg` | Reads from the user's `~/.gnupg/` (or `--gnupg-home` for isolated keyrings, see Q2). RSA keys only. |
+| AWS KMS | `pkg/signing/kms` | `aws-kms` | RSA `SIGN_VERIFY` keys. `--kms-region`, default `eu-west-2`. Uses AWS SDK v2 default credential chain. |
+| Local PEM | `pkg/signing/local` | `local` | Reads a PEM-encoded RSA private key from disk. `--key-id` is the file path. Optional `--local-passphrase-env <var>` reads a passphrase from the named environment variable for PKCS#8-encrypted PEMs. |
 
-Both are blank-imported in `cmd/gtb/main.go`. Downstream tools that
-want a different mix opt in by blank-importing only the backends they
-need. A regulated downstream tool can avoid linking the AWS SDK
-entirely by omitting `pkg/signing/kms`.
+The `local` backend exists to make the framework usable without an
+HSM — for blog tutorials, integration tests, and self-hosted setups
+that don't have a cloud KMS. It pairs naturally with
+`gtb keys generate --algorithm rsa --rsa-bits 4096 --output signing.pem`
+(see D11), giving a complete fresh-key-to-armored-OpenPGP flow with
+no external dependencies.
+
+A `gpg` backend was considered and rejected. Implementing
+`crypto.Signer.Sign(digest, opts)` against gpg would require either
+extracting the secret key from the keyring (defeating the "private
+key never leaves the keyring" claim that was its only advantage) or
+manually computing the OpenPGP binding-signature bytes outside of
+go-crypto (fragile against go-crypto framing changes). Neither
+trade-off pays off when `gtb keys generate` covers the same use case
+natively. See Resolution 8.
+
+Both built-in backends are blank-imported in `cmd/gtb/main.go`.
+Downstream tools that want a different mix opt in by blank-importing
+only the backends they need. A regulated downstream tool can avoid
+linking the AWS SDK entirely by omitting `pkg/signing/kms`.
 
 Provider plug-ins for **GCP KMS**, **Azure Key Vault**, **HashiCorp
 Vault Transit**, and **YubiKey** are explicitly out of scope here but
@@ -282,36 +338,108 @@ non-reproducible — breaks the "two armored copies, identical
 fingerprint, embedded + WKD-served" cross-check that the Phase 2
 verifier relies on.
 
-### D9 — Algorithm support: RSA only at v0.1
+### D9 — Algorithm support: RSA + Ed25519
 
-OpenPGP minting requires the signer's public half to be a known key
-type. v0.1 supports RSA only because:
+`pkg/openpgpkey` supports two algorithms in v0.1:
 
-- AWS KMS asymmetric `SIGN_VERIFY` keys are RSA (Ed25519 not exposed).
-- `go-crypto/openpgp` v4 entity assembly for ECDSA is more complex and
-  not needed for v0.1's customer set.
+- **RSA** — used by `mint` (HSM-held signing keys; AWS KMS only
+  exposes RSA for asymmetric `SIGN_VERIFY`) and by `generate` when
+  the operator picks `--algorithm rsa --rsa-bits 4096` (the
+  tutorial / local-signing path).
+- **Ed25519** — used by `generate` when the operator picks
+  `--algorithm ed25519` (the rotation-authority key path, and any
+  future signing-key path that uses a backend supporting Ed25519).
 
-A v0.2 with ECDSA support is straightforward to add; this spec
-explicitly tracks RSA-only as a constraint, not a permanent design
-choice.
+ECDSA support is *not* added in v0.1 — no concrete consumer has
+asked for it. The interface admits it additively when a need arises.
+
+The minting code branches on the `signer.Public()` type to choose
+between `packet.NewRSAPublicKey` and `packet.NewEdDSAPublicKey`; the
+rest of the OpenPGP packet assembly path is identical.
 
 ### D10 — Spec-first; tests-first within implementation
 
-This spec is approved before any HCL or Go code lands. The
-implementation MR carries:
+This spec is approved before any Go code lands. The implementation
+MR carries:
 
-- Unit tests for `pkg/openpgpkey` (existing tests on MR !9 are
-  carried forward; one path tests RSA-2048 minting against a stub
-  signer; one path covers the unsupported-key-type error).
+- Unit tests for `pkg/openpgpkey` (RSA + Ed25519 paths; opaque
+  signer simulating KMS; non-supported-key-type error; deterministic
+  fingerprint round-trip; failing-writer error propagation).
 - Unit tests for `pkg/signing` registry (Register/Get/Names,
-  concurrency, ErrUnknownBackend).
+  concurrency, ErrUnknownBackend, empty-registry hint).
 - Unit tests for `pkg/signing/kms` (mocked AWS SDK; happy path +
-  KMS-returns-non-RSA error path).
-- Unit tests for `pkg/signing/gpg` (table-driven; some paths gated
-  by `gpg` being on PATH).
-- BDD smoke test (Godog) for `gtb keys mint --backend gpg ...` (uses
-  a test keyring fixture; verifies the resulting armored output is
-  parseable by `gpg --show-key`).
+  KMS-returns-non-RSA error path + per-hash algorithm mapping).
+- Unit tests for `pkg/signing/local` (PEM parsing; PKCS#8-encrypted
+  PEM with `--local-passphrase-env`; non-RSA-in-PEM rejection).
+- Unit tests for `internal/cmd/keys/{mint,generate}` (flag wiring,
+  --backend unknown, --algorithm unknown, --output path errors,
+  fingerprint logged at INFO).
+- BDD smoke test (Godog) covering the three-command tutorial chain:
+  generate Ed25519 rotation → generate RSA local → mint local.
+
+### D11 — `gtb keys generate` command (companion to `mint`)
+
+`generate` produces a fresh keypair entirely inside the `gtb`
+process and writes both halves to disk. It exists to remove the
+external-tool dependency (`gpg`, `openssl`, etc.) from every
+consumer's onboarding flow, and to make the framework genuinely
+self-sufficient for trust-chain bootstrap.
+
+Flags:
+
+| Flag | Required | Default | Purpose |
+|---|---|---|---|
+| `--algorithm` | yes | — | `ed25519` or `rsa` |
+| `--rsa-bits` | RSA only | `4096` | `2048` / `3072` / `4096` |
+| `--name` | yes | — | OpenPGP UID real-name |
+| `--email` | yes | — | OpenPGP UID email |
+| `--output` | no | `<role>.asc` | Path for the armored OpenPGP public half |
+| `--private-output` | no | derived from `--output` | Path for the private half (armored OpenPGP for Ed25519; PEM for RSA) |
+| `--passphrase-env` | no | none | Reads a passphrase from the named env var to encrypt the private half (PKCS#8 for RSA PEM, OpenPGP s2k for Ed25519 armored) |
+| `--created` | no | now | RFC3339 timestamp baked into the OpenPGP entity |
+
+Two canonical invocations:
+
+```sh
+# Rotation-authority key (operator moves the private half to offline
+# storage after running):
+gtb keys generate \
+    --algorithm ed25519 \
+    --name "Tool Rotation Authority" \
+    --email rotation@example.com \
+    --output rotation-authority.asc \
+    --passphrase-env GTB_ROTATION_PASS
+
+# Local signing key (tutorial path):
+gtb keys generate \
+    --algorithm rsa --rsa-bits 4096 \
+    --name "Tool Release" \
+    --email release@example.com \
+    --output signing.asc \
+    --private-output signing.pem
+```
+
+The Ed25519 private half is written as an armored OpenPGP secret-key
+packet (compatible with `gpg --import` for inspection / rotation). The
+RSA private half is written as PKCS#8 PEM (compatible with
+`openssl rsa -in signing.pem ...` and consumable by the `local`
+backend).
+
+A successful run logs the fingerprint at INFO (per Resolution 7),
+along with a reminder to move the private-half file to offline
+storage.
+
+### D12 — Ed25519 support in `pkg/openpgpkey`
+
+`pkg/openpgpkey` accepts `crypto.Signer` instances whose `Public()`
+returns either `*rsa.PublicKey` or `ed25519.PublicKey`. Both flow
+through the same `entity()` assembly path; only the public-key packet
+constructor differs (`packet.NewRSAPublicKey` vs.
+`packet.NewEdDSAPublicKey`).
+
+This is purely additive — the existing RSA-only API surface stays
+backward-compatible. Other key types still return the existing
+unsupported-type error.
 
 ## Public API Changes
 
@@ -373,21 +501,33 @@ is exposed:
 func NewSigner(ctx context.Context, client *kms.Client, keyID string) (crypto.Signer, error)
 ```
 
-### New: `pkg/signing/gpg`
+### New: `pkg/signing/local`
 
-A `Backend` implementation that wraps a local GnuPG installation.
-Registers as `gpg`. Reads from `$GNUPGHOME` (or `--gnupg-home` flag),
-shells out to `gpg` for the signing operation. Public surface:
-blank-import to register.
+A `Backend` implementation that reads a PEM-encoded RSA private key
+from disk. Registers as `local`. Public surface: blank-import to
+register, plus a `NewSigner(path string) (crypto.Signer, error)`
+constructor for callers that want to bypass the registry.
+
+The backend supports unencrypted PKCS#1 / PKCS#8 PEMs, plus PKCS#8
+PEMs encrypted with a passphrase read from an environment variable
+named by `--local-passphrase-env`. Non-RSA keys in the PEM file are
+rejected with a clear error.
 
 ### New (internal): `internal/cmd/keys/`
 
-The `gtb keys` cobra command. Not part of the framework API; tool
-authors cannot enable it on their own binary.
+The `gtb keys` cobra command group, with two subcommands:
+
+  - `mint` — wraps an existing signer (KMS or local PEM) in OpenPGP
+    framing and writes the armored public half. Driven by D1.
+  - `generate` — generates a fresh keypair in-process and writes both
+    halves to disk. Driven by D11.
+
+Not part of the framework API; tool authors cannot enable these on
+their own binary.
 
 ### Modified: `cmd/gtb/main.go`
 
-Adds blank-imports of `pkg/signing/kms` and `pkg/signing/gpg`.
+Adds blank-imports of `pkg/signing/kms` and `pkg/signing/local`.
 
 ### Removed: `internal/openpgpkey/` (on MR !9, after this lands)
 
@@ -438,17 +578,55 @@ func (b *backend) NewSigner(ctx context.Context, keyID string) (crypto.Signer, e
 func init() { signing.Register(&backend{}) }
 ```
 
-### `pkg/signing/gpg/gpg.go`
+### `pkg/signing/local/local.go`
 
-Shells out to `gpg --export-secret-keys` to fetch the public half +
-agent-mediated `gpg --output ... --sign --detach-sign` for the
-signing operation. The `Backend` wraps this in a `crypto.Signer` whose
-`Sign()` shells out per call. Acceptable performance because the
-mint operation invokes `Sign` exactly once.
+Reads a PEM-encoded RSA private key from the path supplied as
+`--key-id`. Supports:
 
-A `--gnupg-home` flag lets the user point at an isolated keyring
-(useful for the offline-workstation pattern documented in
-`docs/development/phase2-signing-prep.md`).
+- Unencrypted PKCS#1 PEM (`-----BEGIN RSA PRIVATE KEY-----`).
+- Unencrypted PKCS#8 PEM (`-----BEGIN PRIVATE KEY-----`).
+- PKCS#8-encrypted PEM (`-----BEGIN ENCRYPTED PRIVATE KEY-----`),
+  with the passphrase read from `--local-passphrase-env <name>`'s
+  named environment variable. Refused if the env var is unset.
+
+The resulting `crypto.Signer` is a `*rsa.PrivateKey`, so
+`Public().(*rsa.PublicKey)` flows through to `pkg/openpgpkey`
+without any wrapping.
+
+Non-RSA keys in the PEM file (Ed25519, ECDSA, etc.) return
+`ErrUnsupportedKeyType`; this preserves the v0.1 design that the
+`local` backend is for the tutorial / no-KMS path which uses RSA.
+
+### `internal/cmd/keys/generate.go`
+
+```go
+func NewCmdKeysGenerate(p *props.Props) *setup.Command {
+    // Flags: --algorithm, --rsa-bits, --name, --email, --output,
+    //        --private-output, --passphrase-env, --created.
+    //
+    // RunE:
+    //   1. Validate flags.
+    //   2. Generate keypair:
+    //      - "ed25519": ed25519.GenerateKey(rand.Reader)
+    //      - "rsa":     rsa.GenerateKey(rand.Reader, var.rsaBits)
+    //   3. signer = key   (both *rsa.PrivateKey and ed25519.PrivateKey
+    //                      implement crypto.Signer)
+    //   4. armored, err := openpgpkey.ArmoredPublicKey(signer, name,
+    //                                                  email, created)
+    //   5. Write armored to --output.
+    //   6. Write private half to --private-output:
+    //      - Ed25519 → armored OpenPGP secret-key packet (optionally
+    //        s2k-encrypted with --passphrase-env)
+    //      - RSA     → PKCS#8 PEM (optionally PKCS#8-encrypted with
+    //        --passphrase-env)
+    //   7. Log fingerprint at INFO; remind operator to move private
+    //      half to offline storage.
+}
+```
+
+Wiring matches `internal/cmd/keys/mint.go` — registered into
+`internal/cmd/root/root.go` alongside `generate`, `regenerate`,
+`remove`, and the new `keys` command group.
 
 ### `internal/cmd/keys/mint.go`
 
@@ -506,39 +684,58 @@ Wired into `internal/cmd/root/root.go` alongside `generate`,
 |---|---|---|
 | `pkg/openpgpkey` | ≥90% | Stub signer, RSA-2048 fixture, parse output with go-crypto reader to confirm round-trip. |
 | `pkg/signing` | ≥95% | Registry concurrency (Register from multiple goroutines should be deterministic via init ordering). |
-| `pkg/signing/kms` | ≥80% | Mocked KMS client; happy path + non-RSA error path. |
-| `pkg/signing/gpg` | ≥75% | Some paths gated by `gpg` on PATH; covered by an integration test fixture if available. |
-| `internal/cmd/keys` | ≥85% | Flag parsing, error path for `--backend` unknown, happy path with a fake backend. |
+| `pkg/signing/kms` | ≥80% | Mocked KMS client; happy path + non-RSA error path + per-hash SigningAlgorithmSpec mapping. |
+| `pkg/signing/local` | ≥90% | PKCS#1 / PKCS#8 / encrypted PEM parsing; missing-env-var rejection; non-RSA-in-PEM rejection. No external dependency on `openssl`. |
+| `internal/cmd/keys` | ≥85% | Flag parsing, error path for `--backend` unknown, `--algorithm` unknown, `--output` collision, happy path for `mint` with a fake backend, happy path for `generate` end-to-end. |
 
 ### Integration (`INT_TEST=1`)
 
-- `gtb keys mint --backend gpg --gnupg-home <fixture> --key-id <fixture-uid> --name x --email x@example.com --output /tmp/out.asc` → exits 0, output parses as a valid OpenPGP entity.
+End-to-end smoke that exercises the three-command tutorial chain:
+
+```sh
+gtb keys generate --algorithm ed25519 --name "TR" --email tr@example.com --output /tmp/rotation.asc
+gtb keys generate --algorithm rsa --rsa-bits 4096 --name "TS" --email ts@example.com --output /tmp/signing.asc --private-output /tmp/signing.pem
+gtb keys mint --backend local --key-id /tmp/signing.pem --name "TS" --email ts@example.com --output /tmp/release.asc
+```
+
+Each command exits 0; each output is a valid OpenPGP entity; the
+`mint` output and the `generate` output for the RSA key have identical
+fingerprints (proves the `local` backend round-trips faithfully).
 
 ### BDD (Godog)
 
-One scenario in `features/keys-mint.feature`:
+`features/keys.feature` covers the two commands:
 
 ```gherkin
-Scenario: Mint an OpenPGP key from a local GPG backend
-  Given a local GnuPG keyring containing an RSA signing key
-  When I run "gtb keys mint --backend gpg ..."
+Scenario: Generate an Ed25519 rotation-authority key
+  When I run "gtb keys generate --algorithm ed25519 --name 'TR' --email tr@example.com --output /tmp/rotation.asc"
   Then the command exits with status 0
-  And the output file is a valid ASCII-armored OpenPGP public key
-  And the fingerprint matches the key in the keyring
+  And /tmp/rotation.asc parses as a valid OpenPGP public key
+  And the key algorithm is Ed25519
+  And the fingerprint is logged at INFO
+
+Scenario: Mint via the local backend chains with generate
+  Given an RSA private key produced by "gtb keys generate --algorithm rsa --rsa-bits 4096 ..."
+  When I run "gtb keys mint --backend local --key-id /tmp/signing.pem ..."
+  Then the resulting --output fingerprint matches the fingerprint logged by the previous generate command
 ```
 
 ## Documentation
 
-- `docs/components/openpgpkey.md` — package-level reference for the
-  new `pkg/openpgpkey`.
+- `docs/components/openpgpkey.md` — package-level reference for
+  `pkg/openpgpkey` (RSA + Ed25519).
 - `docs/components/signing.md` — `pkg/signing` registry, plus the two
-  ship-in-the-box backends.
+  ship-in-the-box backends (`aws-kms`, `local`).
 - `docs/concepts/release-binary-signing.md` — narrative concept doc
   introducing the HSM-rooted signing chain for a tool author who has
-  never set one up before. Companion to (but distinct from) the prep
-  doc in MR !9.
+  never set one up before. Walks through the `gtb keys generate` →
+  `gtb keys mint` flow, contrasts local vs. KMS for the signing key,
+  introduces the rotation-authority concept.
+- `docs/how-to/generate-rotation-key.md` — recipe for
+  `gtb keys generate --algorithm ed25519`, the offline-storage
+  pattern for the private half, and where to embed the public half.
 - `docs/how-to/mint-signing-key.md` — task-oriented recipes for each
-  ship-in-the-box backend (`aws-kms`, `gpg`). Designed to be
+  ship-in-the-box backend (`aws-kms`, `local`). Designed to be
   excerpted into a blog tutorial.
 - `docs/how-to/add-signing-backend.md` — guide for downstream
   consumers who want to add a new backend (GCP, Azure, Vault, etc.).
@@ -547,15 +744,24 @@ Scenario: Mint an OpenPGP key from a local GPG backend
 
 ## Rollout
 
-1. **This MR** lands the `pkg/openpgpkey` move, `pkg/signing` +
-   backends, `internal/cmd/keys/mint`, tests, and docs. Releaser-
+1. **This MR** lands the `pkg/openpgpkey` move (with Ed25519 support),
+   `pkg/signing` registry + the `aws-kms` and `local` backends,
+   `internal/cmd/keys/{mint,generate}`, tests, and docs. Releaser-
    pleaser picks up the `feat:` commits and proposes a minor bump
    (v0.x → v0.y).
 
-2. **After v0.y publishes**: run
-   `gtb keys mint --backend aws-kms --key-id alias/gtb-release-signing-v1 --name "GTB Release" --email release@phpboyscout.uk --output /tmp/release.asc`
-   to produce the actual `release.asc` for the Phase 2 rollout. The
-   trust-policy widening recipe (currently in the prep doc) applies.
+2. **After v0.y publishes**:
+   - `gtb keys mint --backend aws-kms --key-id alias/gtb-release-signing-v1 ...`
+     produces the production `release.asc` for the Phase 2 rollout.
+     The trust-policy widening recipe (currently in the prep doc)
+     applies.
+   - The current operator's existing offline-generated rotation-
+     authority key (Ed25519, fingerprint
+     `42FB 010F C2EB 81C4 4F5A 9FC5 3D73 36AF 4E27 CF6D`) is reused
+     as-is — its public half (`/tmp/rotation-authority.asc`) is
+     already in hand. Future operators bootstrapping a new tool use
+     `gtb keys generate --algorithm ed25519 ...` instead of the
+     offline-gpg dance.
 
 3. **MR !9 rebases** to:
    - Drop `internal/openpgpkey/`.
@@ -569,22 +775,26 @@ Scenario: Mint an OpenPGP key from a local GPG backend
 ## Resolutions
 
 The originally-listed open questions were resolved during spec review
-(2026-06-08):
+(2026-06-08). Resolution 8 was added during the second-round review
+that introduced D11 (`gtb keys generate`) and D12 (Ed25519 support);
+the original Q2 about `--gnupg-home` was rendered moot by dropping
+the `gpg` backend entirely.
 
 1. **No capability-discovery on `Backend` in v0.1.** Backends either
-   produce an RSA signer or fail; `Capabilities()` / `SupportedAlgorithms()`
-   add ceremony without consumers. Revisit when a second algorithm
-   (e.g. ECDSA) lands.
-2. **The `gpg` backend exposes a `--gnupg-home` flag** in addition to
-   honouring `$GNUPGHOME`. Mirrors the offline-workstation pattern
-   from `phase2-signing-prep.md` and lets a single shell session
-   target multiple isolated keyrings.
+   produce a Signer (RSA or Ed25519) or fail; `Capabilities()` /
+   `SupportedAlgorithms()` add ceremony without consumers. Revisit
+   when a third algorithm (e.g. ECDSA) lands.
+2. **Superseded.** The original question asked whether the `gpg`
+   backend should accept a `--gnupg-home` flag. With the `gpg`
+   backend removed (Resolution 8), this is moot. The `local` backend
+   takes the file path directly via `--key-id`, so there is no
+   equivalent flag needed.
 3. **No `--output -` stdout support in v0.1.** Default to a file path;
    passing `-` errors. Avoids the log-interleaving footgun. Revisit
    only if a real user asks.
 4. **Compile-time backend gating is a tested design property.** A CI
    smoke test compiles a minimal `gtb`-shaped binary that blank-imports
-   only the `gpg` backend (not `kms`) and asserts that
+   only the `local` backend (not `kms`) and asserts that
    `gtb keys mint --backend aws-kms` errors with `ErrUnknownBackend`.
    No build-tag plumbing in the code — the smoke is implemented as a
    separate `cmd/gtb-no-aws/main.go` under a `_smoke` test directory
@@ -600,7 +810,20 @@ The originally-listed open questions were resolved during spec review
 7. **Successful mint prints the resulting fingerprint at INFO level**
    to stderr (e.g. `INFO  Minted OpenPGP key  fingerprint=42FB ... `).
    Removes the need for a follow-up `gpg --show-key`; one less
-   transcription step in operator runbooks.
+   transcription step in operator runbooks. The same INFO line is
+   logged by `gtb keys generate` after successful keypair creation.
+8. **`gpg` backend dropped; replaced by `local` (PEM file) + native
+   `gtb keys generate`.** The `gpg` backend would have required either
+   extracting the secret key from the keyring (defeating the security
+   property that was its only advantage) or manually computing OpenPGP
+   binding-signature bytes outside go-crypto (fragile against
+   library changes). Neither pays off when `gtb keys generate` covers
+   the same use case natively. The `local` backend (PEM-encoded RSA
+   on disk) handles the no-cloud-KMS path with a simple, dependency-
+   free implementation. Net result: the framework distributes a tool
+   that handles all cryptographic operations internally — no external
+   shell-outs, no `gpg` install required, no offline-workstation gpg
+   dance for new consumers.
 
 ## Related
 
