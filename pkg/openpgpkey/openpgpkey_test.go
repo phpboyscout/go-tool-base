@@ -3,7 +3,9 @@ package openpgpkey
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"io"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,15 +109,67 @@ func TestArmoredPublicKey_OpaqueSigner_SimulatesKMS(t *testing.T) {
 	}
 }
 
-func TestArmoredPublicKey_RejectsNonRSA(t *testing.T) {
+func TestArmoredPublicKey_Ed25519_RoundTrips(t *testing.T) {
 	t.Parallel()
 
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	_, err = ArmoredPublicKey(priv, testName, testEmail, fixedTime)
+	pub, err := ArmoredPublicKey(priv, testName, testEmail, fixedTime)
+	require.NoError(t, err)
+
+	assert.True(t, bytes.HasPrefix(pub, []byte("-----BEGIN PGP PUBLIC KEY BLOCK-----")),
+		"output must be ASCII-armored")
+
+	ent := parseEntity(t, pub)
+	assert.Equal(t, packet.PubKeyAlgoEd25519, ent.PrimaryKey.PubKeyAlgo,
+		"primary key algo should be Ed25519 (RFC 9580 native, packet algorithm 27)")
+
+	require.Len(t, ent.Identities, 1)
+
+	for _, id := range ent.Identities {
+		require.NotNil(t, id.SelfSignature, "Ed25519 entity must carry a positive-cert self-signature")
+	}
+}
+
+// opaqueEd25519Signer reports an Ed25519 public half but is not a
+// concrete ed25519.PrivateKey. Used to verify that the Ed25519 path
+// refuses opaque signers in v0.1 with a clear error rather than
+// silently producing a key it cannot sign with.
+type opaqueEd25519Signer struct{ pub ed25519.PublicKey }
+
+func (s opaqueEd25519Signer) Public() crypto.PublicKey { return s.pub }
+func (s opaqueEd25519Signer) Sign(_ io.Reader, _ []byte, _ crypto.SignerOpts) ([]byte, error) {
+	return nil, errors.New("would call KMS in real life")
+}
+
+func TestArmoredPublicKey_Ed25519_RefusesOpaqueSigners(t *testing.T) {
+	t.Parallel()
+
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	_, err = ArmoredPublicKey(opaqueEd25519Signer{pub: pub}, testName, testEmail, fixedTime)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "only RSA")
+	assert.ErrorIs(t, err, ErrUnsupportedKeyType,
+		"v0.1 Ed25519 path requires a concrete stdlib ed25519.PrivateKey; opaque signers must surface ErrUnsupportedKeyType")
+	assert.Contains(t, err.Error(), "Ed25519",
+		"error must name the algorithm so operators understand which path is restricted")
+}
+
+func TestArmoredPublicKey_RejectsUnsupportedKeyType(t *testing.T) {
+	t.Parallel()
+
+	// ECDSA P-256 is not in the supported set (RSA and Ed25519 only).
+	// Use an opaque crypto.Signer whose Public() returns an ECDSA key
+	// to exercise the default branch in publicKeyPacket.
+	ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	_, err = ArmoredPublicKey(ecdsaKey, testName, testEmail, fixedTime)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrUnsupportedKeyType,
+		"non-RSA / non-Ed25519 keys must surface ErrUnsupportedKeyType")
 }
 
 func TestArmoredPublicKey_Deterministic(t *testing.T) {
