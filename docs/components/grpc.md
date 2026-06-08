@@ -18,9 +18,26 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 
 ## Functions
 
-- **`NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered.
+- **`NewServer(cfg config.Containable, opts ...any) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered. The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix`, which selects the config block the reflection flag is read from) and `grpc.ServerOption` values.
+- **`Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
 - **`RegisterHealthService(srv *grpc.Server, controller controls.Controllable)`**: Wires the gRPC health service to the controller status.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts both `grpc.ServerOption` and `RegisterOption` values.
+- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
+
+### Server Options
+
+`ServerOption` values select the config block (and port) a gRPC server uses, so you can run more than one gRPC server in a process. They are accepted by `NewServer`, `Start`, `DialLocal` and `Register`:
+
+- **`WithConfigPrefix(prefix string) ServerOption`**: Config prefix for port, reflection and TLS (default `server.grpc`). The keys become `<prefix>.port`, `<prefix>.reflection`, `<prefix>.tls.*`.
+- **`WithPort(port int) ServerOption`**: Explicit listen/dial port, bypassing config lookup (overrides `<prefix>.port` and the `server.port` fallback).
+
+```go
+// A second gRPC server on its own config block (server.internal.*):
+srv, _ := gtbgrpc.Register(ctx, "internal", controller, props.Config, props.Logger,
+    gtbgrpc.WithConfigPrefix("server.internal"))
+
+// ...and a gateway/in-process client dialling that same server:
+conn, _ := gtbgrpc.DialLocal(props.Config, gtbgrpc.WithConfigPrefix("server.internal"))
+```
 
 ## Interceptor Chaining
 
@@ -97,7 +114,7 @@ This uses the same shared hardened TLS config from [`pkg/tls`](tls.md) as the au
 The package also provides the client side, used for example by the [gateway](gateway.md) when it dials the gRPC server over a self-signed or private-CA certificate:
 
 - **`TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, error)`**: client transport credentials trusting the given CA/cert files — the mirror of `TLSServerCredentials`. With no files it trusts the system roots.
-- **`DialLocal(cfg config.Containable, opts ...grpc.DialOption) (*grpc.ClientConn, error)`**: dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`server.grpc.tls` cascading to `server.tls`). Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
+- **`DialLocal(cfg config.Containable, opts ...any) (*grpc.ClientConn, error)`**: dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`<prefix>.tls` cascading to `server.tls`). The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix` to dial a non-default server) and `grpc.DialOption` values. Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
 
 ```go
 // Connect to the local gRPC server with matching transport security in one call.
@@ -109,14 +126,15 @@ if err != nil {
 
 ### Config Keys
 
-Exported constants for the gRPC server's config keys (prefer these over bare strings):
+`DefaultConfigPrefix` (`server.grpc`) is the default config block; `WithConfigPrefix` derives `<prefix>.port`, `<prefix>.reflection` and `<prefix>.tls.*` from it. The shared `ConfigKeySharedPort` (`server.port`) is the fallback when the per-server port is unset.
 
-| Constant | Key |
-|----------|-----|
-| `ConfigKeyPort` | `server.grpc.port` |
-| `ConfigKeyReflection` | `server.grpc.reflection` |
-| `ConfigKeySharedPort` | `server.port` (fallback when the port is unset) |
-| `ConfigTLSPrefix` | `server.grpc.tls` |
+| Constant | Key | Notes |
+|----------|-----|-------|
+| `DefaultConfigPrefix` | `server.grpc` | Default prefix; override with `WithConfigPrefix`. |
+| `ConfigKeySharedPort` | `server.port` | Fallback when the per-server port is unset. |
+| `ConfigKeyPort` | `server.grpc.port` | Deprecated — prefer `WithConfigPrefix` / `<prefix>.port`. |
+| `ConfigKeyReflection` | `server.grpc.reflection` | Deprecated — prefer `WithConfigPrefix`. |
+| `ConfigTLSPrefix` | `server.grpc.tls` | Deprecated — the TLS prefix is `<prefix>.tls`. |
 
 ## Usage Example
 

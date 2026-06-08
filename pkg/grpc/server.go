@@ -30,20 +30,85 @@ type healthSource interface {
 
 const healthUpdateInterval = 10 * time.Second
 
-// Config keys read by the gRPC server. Use these instead of bare strings when
-// setting or reading server config programmatically.
+// DefaultConfigPrefix is the config prefix a gRPC server reads (port,
+// reflection, TLS) unless overridden with WithConfigPrefix. Use it to run a
+// second gRPC server on its own config block, e.g. "server.internal".
+const DefaultConfigPrefix = "server.grpc"
+
+// maxPort is the highest valid TCP port number.
+const maxPort = 65535
+
+// Config keys read by the gRPC server at the default prefix.
 const (
-	// ConfigKeyPort is the gRPC server listen port.
-	ConfigKeyPort = "server.grpc.port"
-	// ConfigKeyReflection toggles gRPC server reflection.
-	ConfigKeyReflection = "server.grpc.reflection"
-	// ConfigKeySharedPort is the shared fallback port used when ConfigKeyPort
-	// is unset.
+	// ConfigKeySharedPort is the shared fallback port used when the
+	// per-server port key is unset.
 	ConfigKeySharedPort = "server.port"
-	// ConfigTLSPrefix is the gRPC TLS config prefix (resolved against the
-	// shared tls.SharedPrefix).
-	ConfigTLSPrefix = "server.grpc.tls"
+
+	// Deprecated: use DefaultConfigPrefix with WithConfigPrefix, or read
+	// <prefix>.port. Retained as the default-prefix value for compatibility.
+	ConfigKeyPort = DefaultConfigPrefix + ".port"
+	// Deprecated: use WithConfigPrefix; reads <prefix>.reflection.
+	ConfigKeyReflection = DefaultConfigPrefix + ".reflection"
+	// Deprecated: use WithConfigPrefix; the TLS prefix is <prefix>.tls.
+	ConfigTLSPrefix = DefaultConfigPrefix + ".tls"
 )
+
+// serverConfig carries the construction settings consumed by NewServer, Start
+// and DialLocal. A zero field falls back to config or the built-in default.
+type serverConfig struct {
+	prefix string
+	port   *int
+}
+
+// defaultServerConfig returns the baseline settings: the default config prefix.
+func defaultServerConfig() serverConfig {
+	return serverConfig{prefix: DefaultConfigPrefix}
+}
+
+func (c serverConfig) portKey() string       { return c.prefix + ".port" }
+func (c serverConfig) reflectionKey() string { return c.prefix + ".reflection" }
+func (c serverConfig) tlsPrefix() string     { return c.prefix + ".tls" }
+
+// ServerOption configures the config prefix and port a gRPC server reads.
+// ServerOption values are accepted by NewServer, Start, DialLocal and Register
+// (alongside grpc.ServerOption / grpc.DialOption values).
+type ServerOption func(*serverConfig)
+
+// WithConfigPrefix sets the config prefix the server reads its port, reflection
+// and TLS settings from (default "server.grpc"). Pass the SAME prefix to
+// NewServer, Start and DialLocal to keep a non-default server consistent.
+func WithConfigPrefix(prefix string) ServerOption {
+	return func(c *serverConfig) {
+		c.prefix = prefix
+	}
+}
+
+// WithPort sets the listen (or dial) port explicitly, bypassing config lookup.
+// It overrides both <prefix>.port and the server.port shared fallback.
+func WithPort(port int) ServerOption {
+	return func(c *serverConfig) {
+		c.port = &port
+	}
+}
+
+// resolvePort returns the port: an explicit WithPort value if supplied
+// (validated), otherwise <prefix>.port falling back to the shared server.port.
+func resolvePort(cfg config.Containable, sc serverConfig) (int, error) {
+	if sc.port != nil {
+		if *sc.port < 0 || *sc.port > maxPort {
+			return 0, errors.Newf("grpc: invalid port %d (must be 0-%d)", *sc.port, maxPort)
+		}
+
+		return *sc.port, nil
+	}
+
+	port := cfg.GetInt(sc.portKey())
+	if port == 0 {
+		port = cfg.GetInt(ConfigKeySharedPort)
+	}
+
+	return port, nil
+}
 
 // DefaultMaxGRPCMessageBytes caps both send and receive message sizes on
 // servers constructed via NewServer. Closes M-2 from
@@ -58,10 +123,34 @@ const DefaultMaxGRPCMessageBytes = 1 << 20 // 1 MiB
 //   - grpc.MaxRecvMsgSize(DefaultMaxGRPCMessageBytes)
 //   - grpc.MaxSendMsgSize(DefaultMaxGRPCMessageBytes)
 //
-// Caller-supplied grpc.ServerOption values in opt override the defaults
-// (gRPC applies later options last, so a caller can raise or lower the
-// limits explicitly).
-func NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, error) {
+// Caller-supplied grpc.ServerOption values override the defaults (gRPC applies
+// later options last, so a caller can raise or lower the limits explicitly).
+//
+// The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix,
+// which selects the config block the reflection flag is read from) and
+// grpc.ServerOption values; other types are ignored.
+func NewServer(cfg config.Containable, opts ...any) (*grpc.Server, error) {
+	sc := defaultServerConfig()
+
+	var serverOpts []grpc.ServerOption
+
+	for _, o := range opts {
+		switch v := o.(type) {
+		case ServerOption:
+			v(&sc)
+		case grpc.ServerOption:
+			serverOpts = append(serverOpts, v)
+		}
+	}
+
+	return newServer(cfg, sc, serverOpts...)
+}
+
+func newServer(cfg config.Containable, sc serverConfig, opt ...grpc.ServerOption) (*grpc.Server, error) {
+	if sc.prefix == "" {
+		return nil, errors.New("grpc: config prefix must not be empty")
+	}
+
 	// numDefaultServerOpts is the count of default grpc.ServerOption
 	// values prepended before caller-supplied opts: MaxRecvMsgSize and
 	// MaxSendMsgSize.
@@ -75,7 +164,7 @@ func NewServer(cfg config.Containable, opt ...grpc.ServerOption) (*grpc.Server, 
 	allOpts = append(allOpts, opt...)
 
 	srv := grpc.NewServer(allOpts...)
-	if cfg.GetBool(ConfigKeyReflection) {
+	if cfg.GetBool(sc.reflectionKey()) {
 		reflection.Register(srv)
 	}
 
@@ -137,23 +226,41 @@ func RegisterHealthService(srv *grpc.Server, controller healthSource) {
 }
 
 // Start returns a curried function suitable for use with the controls package.
-// TLS configuration cascades: server.grpc.tls.* overrides server.tls.* shared defaults.
-func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) controls.StartFunc {
-	portStr := cfg.GetInt(ConfigKeyPort)
-	if portStr == 0 {
-		portStr = cfg.GetInt(ConfigKeySharedPort)
+// With no options it reads its port and TLS from the default "server.grpc"
+// config block; pass WithConfigPrefix/WithPort to target a custom server.
+// TLS configuration cascades: <prefix>.tls.* overrides server.tls.* shared defaults.
+func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc {
+	sc := defaultServerConfig()
+	for _, o := range opts {
+		o(&sc)
 	}
 
-	port := fmt.Sprintf(":%d", portStr)
-	tlsPair := gtbtls.Resolve(cfg, ConfigTLSPrefix)
+	if sc.prefix == "" {
+		sc.prefix = DefaultConfigPrefix
+	}
+
+	return start(cfg, logger, srv, sc)
+}
+
+func start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, sc serverConfig) controls.StartFunc {
+	portNum, portErr := resolvePort(cfg, sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
 
 	return func(ctx context.Context) error {
+		if portErr != nil {
+			return portErr
+		}
+
 		var lc net.ListenConfig
 
-		lis, err := lc.Listen(ctx, "tcp", port)
+		lis, err := lc.Listen(ctx, "tcp", fmt.Sprintf(":%d", portNum))
 		if err != nil {
 			return errors.Wrap(err, "failed to listen")
 		}
+
+		// Log the bound address, not the configured port: when the port is 0
+		// (ephemeral) the listener reports the OS-assigned port.
+		boundAddr := lis.Addr().String()
 
 		if tlsPair.Enabled {
 			tlsLis, tlsErr := wrapTLS(lis, tlsPair)
@@ -163,9 +270,9 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server) contr
 
 			lis = tlsLis
 
-			logger.Info("starting gRPC server", "tls", true, "addr", port)
+			logger.Info("starting gRPC server", "tls", true, "addr", boundAddr)
 		} else {
-			logger.Info("starting gRPC server", "tls", false, "addr", port)
+			logger.Info("starting gRPC server", "tls", false, "addr", boundAddr)
 		}
 
 		go func() {
@@ -226,21 +333,41 @@ func TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, 
 // (server.grpc.tls -> server.tls). Intended for in-process callers such as the
 // grpc-gateway, so they connect to the local server without re-deriving the
 // endpoint or credentials by hand.
-func DialLocal(cfg config.Containable, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	port := cfg.GetInt(ConfigKeyPort)
-	if port == 0 {
-		port = cfg.GetInt(ConfigKeySharedPort)
+// The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix to
+// dial a non-default gRPC server) and grpc.DialOption values; other types are
+// ignored.
+func DialLocal(cfg config.Containable, opts ...any) (*grpc.ClientConn, error) {
+	sc := defaultServerConfig()
+
+	var dialOpts []grpc.DialOption
+
+	for _, o := range opts {
+		switch v := o.(type) {
+		case ServerOption:
+			v(&sc)
+		case grpc.DialOption:
+			dialOpts = append(dialOpts, v)
+		}
+	}
+
+	return dialLocal(cfg, sc, dialOpts...)
+}
+
+func dialLocal(cfg config.Containable, sc serverConfig, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	port, err := resolvePort(cfg, sc)
+	if err != nil {
+		return nil, err
 	}
 
 	endpoint := fmt.Sprintf("localhost:%d", port)
 
-	tlsPair := gtbtls.Resolve(cfg, ConfigTLSPrefix)
+	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
 	security := grpc.WithTransportCredentials(insecure.NewCredentials())
 
 	if tlsPair.Enabled {
-		creds, err := TLSClientCredentials(tlsPair.Cert)
-		if err != nil {
-			return nil, err
+		creds, credErr := TLSClientCredentials(tlsPair.Cert)
+		if credErr != nil {
+			return nil, credErr
 		}
 
 		security = grpc.WithTransportCredentials(creds)
@@ -300,15 +427,20 @@ func WithInterceptors(chain InterceptorChain) RegisterOption {
 	}
 }
 
-// Register creates a new gRPC server and registers it with the controller under the given id.
-// The opts variadic accepts both grpc.ServerOption and RegisterOption values.
+// Register creates a new gRPC server and registers it with the controller under
+// the given id. The opts variadic accepts ServerOption values (port, prefix),
+// RegisterOption values (interceptors) and grpc.ServerOption values.
 func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error) {
+	sc := defaultServerConfig()
+
 	var rc registerConfig
 
 	var serverOpts []grpc.ServerOption
 
 	for _, o := range opts {
 		switch v := o.(type) {
+		case ServerOption:
+			v(&sc)
 		case RegisterOption:
 			v(&rc)
 		case grpc.ServerOption:
@@ -321,7 +453,7 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 		serverOpts = append(rc.chain.ServerOptions(), serverOpts...)
 	}
 
-	srv, err := NewServer(cfg, serverOpts...)
+	srv, err := newServer(cfg, sc, serverOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +461,7 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 	RegisterHealthService(srv, controller)
 
 	controller.Register(id,
-		controls.WithStart(Start(cfg, logger, srv)),
+		controls.WithStart(start(cfg, logger, srv, sc)),
 		controls.WithStop(Stop(logger, srv)),
 		controls.WithStatus(Status(srv)),
 	)

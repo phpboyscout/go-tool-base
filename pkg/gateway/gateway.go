@@ -72,8 +72,14 @@ func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opt
 	// Instrument the connection so the trace context propagates from the inbound
 	// REST request into the gRPC call: the request and its proxied RPC share one
 	// trace. A noop until telemetry.Setup installs the providers. Caller dial
-	// options follow, so they can override or add to it.
-	dialOpts := append([]grpc.DialOption{gtbgrpc.OTelClientHandler()}, o.dialOpts...)
+	// options follow, so they can override or add to it. DialLocal takes the
+	// option-typed variadic (...any), so the dial options are passed as such.
+	dialOpts := make([]any, 0, len(o.dialOpts)+1)
+	dialOpts = append(dialOpts, gtbgrpc.OTelClientHandler())
+
+	for _, d := range o.dialOpts {
+		dialOpts = append(dialOpts, d)
+	}
 
 	conn, err := gtbgrpc.DialLocal(cfg, dialOpts...)
 	if err != nil {
