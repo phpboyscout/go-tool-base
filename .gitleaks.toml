@@ -15,7 +15,7 @@
 useDefault = true
 
 [allowlist]
-description = "pkg/redact test fixtures and component docs intentionally contain credential-shaped inputs for the redactor to strip, and pkg/openapi vendors the minified Stoplight Elements UI (a third-party library whose tokenised minified code trips generic-api-key); none are real leaked secrets."
+description = "pkg/redact test fixtures and component docs intentionally contain credential-shaped inputs for the redactor to strip; pkg/openapi vendors the minified Stoplight Elements UI (a third-party library whose tokenised minified code trips generic-api-key); and the keys command's unit test plus its spec doc carry a throwaway generated private key / illustrative PEM example. None are real leaked secrets."
 paths = [
     '''pkg/redact/redact_test\.go''',
     '''pkg/redact/redact_fuzz_test\.go''',
@@ -24,4 +24,6 @@ paths = [
     '''docs/components/telemetry\.md''',
     '''pkg/openapi/assets/web-components\.min\.js''',
     '''pkg/openapi/assets/styles\.min\.css''',
+    '''internal/cmd/keys/keys_test\.go''',
+    '''docs/development/specs/2026-06-08-keys-mint-command\.md''',
 ]
