@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -82,21 +83,129 @@ func ReadinessHandler(controller controls.HealthReporter) http.HandlerFunc {
 // max_header_bytes) unless overridden with WithConfigPrefix.
 const DefaultConfigPrefix = "server.http"
 
-// NewServer returns a new preconfigured http.Server reading from the default
-// "server.http" config prefix.
-func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error) {
-	return newServer(ctx, cfg, handler, DefaultConfigPrefix)
+// maxPort is the highest valid TCP port number.
+const maxPort = 65535
+
+// serverConfig carries the construction settings consumed by NewServer and
+// Start. A zero field means "fall back to config or the built-in default".
+type serverConfig struct {
+	prefix         string
+	port           *int
+	maxHeaderBytes int
+	readTimeout    time.Duration
+	writeTimeout   time.Duration
+	idleTimeout    time.Duration
+	tlsConfig      *tls.Config
 }
 
-func newServer(ctx context.Context, cfg config.Containable, handler http.Handler, prefix string) (*http.Server, error) {
-	port := cfg.GetInt(prefix + ".port")
-	if port == 0 {
-		port = cfg.GetInt("server.port")
+// defaultServerConfig returns the baseline construction settings: the default
+// config prefix and the package's built-in timeouts.
+func defaultServerConfig() serverConfig {
+	return serverConfig{
+		prefix:       DefaultConfigPrefix,
+		readTimeout:  readTimeout,
+		writeTimeout: writeTimeout,
+		idleTimeout:  idleTimeout,
+	}
+}
+
+// ServerOption configures an HTTP server built by NewServer or started by
+// Start. ServerOption values are also accepted by Register.
+type ServerOption func(*serverConfig)
+
+// WithConfigPrefix sets the config prefix the server reads its port, TLS and
+// max_header_bytes from (default "server.http"). Use it to run a second HTTP
+// server on its own config block, e.g. "server.admin" for an internal server.
+//
+// When constructing a server outside Register, pass the SAME prefix to both
+// NewServer and Start so the listen port and TLS settings stay consistent.
+func WithConfigPrefix(prefix string) ServerOption {
+	return func(c *serverConfig) {
+		c.prefix = prefix
+	}
+}
+
+// WithPort sets the listen port explicitly, bypassing config lookup entirely.
+// It has the highest precedence: it overrides both <prefix>.port and the
+// server.port shared fallback.
+func WithPort(port int) ServerOption {
+	return func(c *serverConfig) {
+		c.port = &port
+	}
+}
+
+// WithMaxHeaderBytes overrides <prefix>.max_header_bytes and the built-in
+// 1 MB default for the constructed server's MaxHeaderBytes.
+func WithMaxHeaderBytes(n int) ServerOption {
+	return func(c *serverConfig) {
+		c.maxHeaderBytes = n
+	}
+}
+
+// WithReadTimeout overrides the built-in http.Server ReadTimeout.
+func WithReadTimeout(d time.Duration) ServerOption {
+	return func(c *serverConfig) {
+		c.readTimeout = d
+	}
+}
+
+// WithWriteTimeout overrides the built-in http.Server WriteTimeout.
+func WithWriteTimeout(d time.Duration) ServerOption {
+	return func(c *serverConfig) {
+		c.writeTimeout = d
+	}
+}
+
+// WithIdleTimeout overrides the built-in http.Server IdleTimeout.
+func WithIdleTimeout(d time.Duration) ServerOption {
+	return func(c *serverConfig) {
+		c.idleTimeout = d
+	}
+}
+
+// WithServerTLSConfig replaces the default hardened *tls.Config on the
+// constructed server. Cert/key resolution for serving still flows through
+// Start (from the server's TLS config prefix). It is named distinctly from the
+// client-side WithTLSConfig option in this package.
+func WithServerTLSConfig(c *tls.Config) ServerOption {
+	return func(sc *serverConfig) {
+		sc.tlsConfig = c
+	}
+}
+
+// NewServer returns a new preconfigured http.Server. With no options it reads
+// from the default "server.http" config prefix; pass ServerOption values such
+// as WithConfigPrefix or WithPort to run multiple independent servers.
+func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error) {
+	sc := defaultServerConfig()
+	for _, o := range opts {
+		o(&sc)
 	}
 
-	maxHeaderBytes := cfg.GetInt(prefix + ".max_header_bytes")
+	return newServer(ctx, cfg, handler, sc)
+}
+
+func newServer(ctx context.Context, cfg config.Containable, handler http.Handler, sc serverConfig) (*http.Server, error) {
+	if sc.prefix == "" {
+		return nil, errors.New("http: config prefix must not be empty")
+	}
+
+	port, err := resolvePort(cfg, sc)
+	if err != nil {
+		return nil, err
+	}
+
+	maxHeaderBytes := sc.maxHeaderBytes
 	if maxHeaderBytes == 0 {
-		maxHeaderBytes = defaultMaxHeaderBytes
+		maxHeaderBytes = cfg.GetInt(sc.prefix + ".max_header_bytes")
+		if maxHeaderBytes == 0 {
+			maxHeaderBytes = defaultMaxHeaderBytes
+		}
+	}
+
+	tlsConfig := sc.tlsConfig
+	if tlsConfig == nil {
+		tlsConfig = gtbtls.DefaultConfig()
 	}
 
 	srv := &http.Server{
@@ -105,20 +214,50 @@ func newServer(ctx context.Context, cfg config.Containable, handler http.Handler
 			return ctx
 		},
 		Handler:        handler,
-		ReadTimeout:    readTimeout,
-		WriteTimeout:   writeTimeout,
-		IdleTimeout:    idleTimeout,
+		ReadTimeout:    sc.readTimeout,
+		WriteTimeout:   sc.writeTimeout,
+		IdleTimeout:    sc.idleTimeout,
 		MaxHeaderBytes: maxHeaderBytes,
-		TLSConfig:      gtbtls.DefaultConfig(),
+		TLSConfig:      tlsConfig,
 	}
 
 	return srv, nil
 }
 
-// Start returns a curried function suitable for use with the controls package,
-// reading TLS from the default "server.http" config prefix.
-func Start(cfg config.Containable, logger logger.Logger, srv *http.Server) controls.StartFunc {
-	return start(cfg, logger, srv, DefaultConfigPrefix)
+// resolvePort returns the listen port: an explicit WithPort value if supplied
+// (validated), otherwise <prefix>.port falling back to the shared server.port.
+// A zero result is left permissive — the OS assigns an ephemeral port.
+func resolvePort(cfg config.Containable, sc serverConfig) (int, error) {
+	if sc.port != nil {
+		if *sc.port < 0 || *sc.port > maxPort {
+			return 0, errors.Newf("http: invalid port %d (must be 0-%d)", *sc.port, maxPort)
+		}
+
+		return *sc.port, nil
+	}
+
+	port := cfg.GetInt(sc.prefix + ".port")
+	if port == 0 {
+		port = cfg.GetInt("server.port")
+	}
+
+	return port, nil
+}
+
+// Start returns a curried function suitable for use with the controls package.
+// With no options it reads TLS from the default "server.http" config prefix;
+// pass WithConfigPrefix to match a server constructed on a custom prefix.
+func Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc {
+	sc := defaultServerConfig()
+	for _, o := range opts {
+		o(&sc)
+	}
+
+	if sc.prefix == "" {
+		sc.prefix = DefaultConfigPrefix
+	}
+
+	return start(cfg, logger, srv, sc.prefix)
 }
 
 func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefix string) controls.StartFunc {
@@ -132,14 +271,21 @@ func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefi
 			return errors.Wrap(err, "failed to listen")
 		}
 
+		// Log the address the listener actually bound to, not srv.Addr: when
+		// the configured port is 0 (ephemeral) srv.Addr is ":0", whereas
+		// ln.Addr() reports the OS-assigned port.
+		boundAddr := ln.Addr().String()
+
 		go func() {
 			var err error
 
 			if tlsPair.Enabled {
-				logger.Info("starting http server", "tls", true, "addr", srv.Addr)
+				logger.Info("starting http server", "tls", true, "addr", boundAddr)
+
 				err = srv.ServeTLS(ln, tlsPair.Cert, tlsPair.Key)
 			} else {
-				logger.Info("starting http server", "tls", false, "addr", srv.Addr)
+				logger.Info("starting http server", "tls", false, "addr", boundAddr)
+
 				err = srv.Serve(ln)
 			}
 
@@ -174,22 +320,17 @@ func Status(srv *http.Server) controls.StatusFunc {
 	}
 }
 
-// RegisterOption configures optional behaviour for HTTP server registration.
+// RegisterOption configures registration-only behaviour for an HTTP server
+// (middleware chain, request-body limit). Server construction settings — port,
+// prefix, timeouts — are ServerOption values; Register accepts both families.
 type RegisterOption func(*registerConfig)
 
+// registerConfig is the superset consumed by Register: it embeds the
+// construction settings and adds the registration-only knobs.
 type registerConfig struct {
+	serverConfig
 	chain               *Chain
 	maxRequestBodyBytes int64
-	prefix              string
-}
-
-// WithConfigPrefix sets the config prefix this server reads its port, TLS and
-// max_header_bytes from (default "server.http"). Use it to run a second HTTP
-// server on its own config block, e.g. "server.gateway" for the grpc-gateway.
-func WithConfigPrefix(prefix string) RegisterOption {
-	return func(c *registerConfig) {
-		c.prefix = prefix
-	}
 }
 
 // WithMiddleware sets the middleware chain applied to the handler before
@@ -229,14 +370,23 @@ func MaxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	}
 }
 
-// Register creates a new HTTP server and registers it with the controller under the given id.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...RegisterOption) (*http.Server, error) {
+// Register creates a new HTTP server and registers it with the controller under
+// the given id. The opts variadic accepts both ServerOption values (port,
+// prefix, timeouts) and RegisterOption values (middleware, body limit) — other
+// types are ignored. This mirrors the pkg/grpc Register signature.
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
 	rc := registerConfig{
+		serverConfig:        defaultServerConfig(),
 		maxRequestBodyBytes: DefaultMaxRequestBodyBytes,
-		prefix:              DefaultConfigPrefix,
 	}
+
 	for _, o := range opts {
-		o(&rc)
+		switch v := o.(type) {
+		case ServerOption:
+			v(&rc.serverConfig)
+		case RegisterOption:
+			v(&rc)
+		}
 	}
 
 	// Apply middleware chain to the handler, not the health endpoints.
@@ -252,7 +402,7 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 	mux.Handle("/readyz", bodyLimit(ReadinessHandler(controller)))
 	mux.Handle("/", bodyLimit(handler))
 
-	srv, err := newServer(ctx, cfg, mux, rc.prefix)
+	srv, err := newServer(ctx, cfg, mux, rc.serverConfig)
 	if err != nil {
 		return nil, err
 	}

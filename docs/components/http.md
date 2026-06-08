@@ -46,7 +46,9 @@ TLS configuration and resolution live in [`pkg/tls`](tls.md) (`gtbtls.DefaultCon
 
 ### Running a Second HTTP Server
 
-By default the server reads its port and TLS from the `server.http` config prefix. To run more than one HTTP server — for example the [gateway](gateway.md) on its own port — pass `WithConfigPrefix` so the second server reads its own block:
+By default a server reads its port and TLS from the `server.http` config prefix. To run more than one HTTP server in the same process — for example a public API server plus an internal/admin server — pass a `ServerOption` so each server reads its own config block or binds an explicit port.
+
+Through the controller-integrated `Register` (a single `WithConfigPrefix` threads the prefix to both construction and start):
 
 ```go
 // Reads server.gateway.port and server.gateway.tls.* (falling back to server.tls.*)
@@ -55,12 +57,42 @@ srv, err := gtbhttp.Register(ctx, "gateway", controller, props.Config, props.Log
 )
 ```
 
-The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_bytes`; the shared `server.port` remains the fallback.
+Or constructing standalone with `NewServer` + `Start` — pass the **same** prefix to both so the listen port and TLS settings stay consistent:
+
+```go
+// Public API server on server.http.*
+pub, _ := gtbhttp.NewServer(ctx, props.Config, pubHandler)
+controller.Register("public",
+    controls.WithStart(gtbhttp.Start(props.Config, props.Logger, pub)),
+    controls.WithStop(gtbhttp.Stop(props.Logger, pub)))
+
+// Internal admin server on its own config block (server.admin.*)
+adm, _ := gtbhttp.NewServer(ctx, props.Config, admHandler, gtbhttp.WithConfigPrefix("server.admin"))
+controller.Register("admin",
+    controls.WithStart(gtbhttp.Start(props.Config, props.Logger, adm, gtbhttp.WithConfigPrefix("server.admin"))),
+    controls.WithStop(gtbhttp.Stop(props.Logger, adm)))
+
+// ...or a fixed port with no config block at all:
+dbg, _ := gtbhttp.NewServer(ctx, props.Config, dbgHandler, gtbhttp.WithPort(9090))
+```
+
+The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_bytes`; the shared `server.port` remains the fallback. `WithPort` overrides config entirely. When the resolved port is `0`, the OS assigns an ephemeral port and `Start` logs the actually-bound address.
+
+### Server Options
+
+`ServerOption` values configure `NewServer` and `Start`, and are also accepted by `Register`:
+
+- **`WithConfigPrefix(prefix string) ServerOption`**: Config prefix for port, TLS and max-header-bytes (default `server.http`).
+- **`WithPort(port int) ServerOption`**: Explicit listen port, bypassing config lookup (highest precedence).
+- **`WithMaxHeaderBytes(n int) ServerOption`**: Overrides `<prefix>.max_header_bytes` and the 1 MB default.
+- **`WithReadTimeout` / `WithWriteTimeout` / `WithIdleTimeout(d time.Duration) ServerOption`**: Override the built-in `http.Server` timeouts.
+- **`WithServerTLSConfig(c *tls.Config) ServerOption`**: Replaces the default hardened `*tls.Config` on the constructed server (named distinctly from the client-side `WithTLSConfig`).
 
 ### Functions
 
-- **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler) (*http.Server, error)`**: Returns a pre-configured `*http.Server`.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...RegisterOption) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
+- **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error)`**: Returns a pre-configured `*http.Server`. With no options it reads the `server.http` prefix.
+- **`Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix` to match a server built on a custom prefix; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
+- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. The variadic accepts both `ServerOption` and `RegisterOption` values (mirroring `pkg/grpc.Register`). Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
 
 ### Middleware Chaining
 
