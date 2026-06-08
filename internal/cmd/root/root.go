@@ -15,11 +15,20 @@ import (
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
+
+	// Activate the signing backends shipped with the standard gtb
+	// binary. Blank-import is the activate-by-side-effect pattern
+	// (Backend.init() calls signing.Register). Downstream tools that
+	// want a different mix omit one or both of these in their own
+	// main package.
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/kms"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/local"
 )
 
 //go:embed all:assets
@@ -94,6 +103,7 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		generate.NewCmdGenerate(p),
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
+		keys.NewCmdKeys(p),
 	)
 
 	return rootCmd, p

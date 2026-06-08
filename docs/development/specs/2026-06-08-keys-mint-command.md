@@ -429,17 +429,56 @@ A successful run logs the fingerprint at INFO (per Resolution 7),
 along with a reminder to move the private-half file to offline
 storage.
 
-### D12 — Ed25519 support in `pkg/openpgpkey`
+### D12 — Ed25519 generation lives in `internal/cmd/keys/generate.go`, not `pkg/openpgpkey`
 
-`pkg/openpgpkey` accepts `crypto.Signer` instances whose `Public()`
-returns either `*rsa.PublicKey` or `ed25519.PublicKey`. Both flow
-through the same `entity()` assembly path; only the public-key packet
-constructor differs (`packet.NewRSAPublicKey` vs.
-`packet.NewEdDSAPublicKey`).
+**Revised during implementation.** The original D12 called for adding
+Ed25519 to `pkg/openpgpkey.Entity()` so it sat alongside the RSA path
+on the same `crypto.Signer`-based API. That turned out to be
+unworkable for the GnuPG-compatibility constraint we care about:
 
-This is purely additive — the existing RSA-only API surface stays
-backward-compatible. Other key types still return the existing
-unsupported-type error.
+- go-crypto's `packet.NewEdDSAPublicKey` (v4 EdDSA / algorithm 22 —
+  the form GnuPG 2.4 and older can import) needs an `*eddsa.PublicKey`
+  whose curve metadata comes from `openpgp/internal/ecc` — an
+  internal package, unreachable from outside the go-crypto module.
+- `packet.NewEd25519PublicKey` (v6 Ed25519 native / algorithm 27) is
+  reachable, but GnuPG 2.4 reports the resulting key as
+  `unknown_27 [INVALID_ALGO]`. v6 support landed in GnuPG 2.5+; by
+  the time gtb-derived tools see wide adoption, v6 will be common —
+  but until then, every existing operator's gpg toolchain rejects
+  these keys.
+
+The pragmatic compromise:
+
+- **`pkg/openpgpkey` stays RSA-only**, with a clean
+  `ErrUnsupportedKeyType` for everything else. The package's role is
+  *wrapping an existing signer in OpenPGP framing* — useful for AWS
+  KMS (RSA-only) and for the `local` PEM backend (RSA in v0.1).
+- **Ed25519 generation lives in `internal/cmd/keys/generate.go`**,
+  where it uses `openpgp.NewEntity(..., &packet.Config{Algorithm:
+  packet.PubKeyAlgoEdDSA, ...})`. NewEntity generates the keypair
+  *internally* using go-crypto's own access to `ecc`, emits a
+  v4-EdDSA entity (algorithm 22, GnuPG-2.4-compatible), and the
+  operator never sees a stdlib `ed25519.PrivateKey` for it.
+
+What this loses:
+
+- A `gtb keys mint --backend X` where `X` produces an Ed25519
+  `crypto.Signer`. No such consumer exists today (AWS KMS is RSA;
+  any future Ed25519-capable KMS waits for v0.2).
+
+What this gains:
+
+- GnuPG 2.4 compatibility for the produced Ed25519 keys (this is the
+  whole reason).
+- A clean single-responsibility separation: `pkg/openpgpkey` *wraps*
+  externally-held signers, `gtb keys generate` *creates* fresh keys.
+- One fewer point where the v4-vs-v6 OpenPGP-version choice can go
+  wrong.
+
+`pkg/openpgpkey.Entity()` and `ArmoredPublicKey()` remain Beta-tier
+public APIs (per D4). RSA-only is the v0.1 behaviour; if a future
+backend produces Ed25519 signers via a route that *does* land in
+mainstream gpg, the package gains an Ed25519 path additively.
 
 ## Public API Changes
 
