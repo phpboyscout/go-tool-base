@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.9.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.9.0)
+
+### Features
+
+- **grpc**: add ServerOption pattern for multi-server config prefixes
+- **http**: add ServerOption pattern to NewServer/Start/Register
+
 ## [v0.8.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.8.0)
 
 ### Features
