@@ -86,10 +86,13 @@ func namesLocked() []string {
 	return out
 }
 
-// resetForTesting clears the registry. Test-only — never call from
-// production code. Exported via export_test.go so external callers
-// can't reach it.
-func resetForTesting() {
+// ResetForTesting clears the registry. The "ForTesting" suffix is
+// the Go-standard signal that this is a test helper — production
+// code must not call it. Exported (rather than hidden behind a
+// _test.go-only build) so that tests in other packages (notably
+// `internal/cmd/keys`) can drive registry-mutating scenarios
+// against fake backends.
+func ResetForTesting() {
 	mu.Lock()
 	defer mu.Unlock()
 
