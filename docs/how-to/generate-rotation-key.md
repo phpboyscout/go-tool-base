@@ -35,27 +35,27 @@ gtb keys generate \
     --algorithm ed25519 \
     --name "MyTool Rotation Authority" \
     --email rotation@mytool.example \
-    --output rotation.asc
+    --output rotation-authority.asc
 ```
 
 Two files appear in the current directory:
 
-- `rotation.asc` — the **armored OpenPGP public** half. Safe to
+- `rotation-authority.asc` — the **armored OpenPGP public** half. Safe to
   commit. You'll embed this in your tool's
   `internal/trustkeys/keys/` and publish it alongside your signing
   key via WKD.
-- `rotation.priv.asc` — the **armored OpenPGP secret** half.
+- `rotation-authority.priv.asc` — the **armored OpenPGP secret** half.
   Compatible with `gpg --import` for inspection. **This file is
   what needs to go offline.**
 
 A successful run logs:
 
 ```
-INFO  Generated OpenPGP keypair  algorithm=ed25519  public_output=rotation.asc
-                                 private_output=rotation.priv.asc
+INFO  Generated OpenPGP keypair  algorithm=ed25519  public_output=rotation-authority.asc
+                                 private_output=rotation-authority.priv.asc
                                  creation_time=2026-06-08T12:00:00Z
                                  fingerprint=A1B2C3D4...
-WARN  Move the private-half file to offline storage now.  private_output=rotation.priv.asc
+WARN  Move the private-half file to offline storage now.  private_output=rotation-authority.priv.asc
 ```
 
 ## Move the private half offline
@@ -75,7 +75,7 @@ sudo mkdir -p /mnt/rotation
 sudo mount /dev/mapper/rotation-usb /mnt/rotation
 
 # Copy. The .asc file is small — milliseconds.
-sudo cp rotation.priv.asc /mnt/rotation/
+sudo cp rotation-authority.priv.asc /mnt/rotation/
 
 # Tidy up.
 sudo umount /mnt/rotation
@@ -92,9 +92,9 @@ Install `paperkey` once on your operating system (Debian/Ubuntu:
 `apt install paperkey`; macOS: `brew install paperkey`).
 
 ```sh
-paperkey --secret-key rotation.priv.asc --output rotation.paperkey.txt
-lpr rotation.paperkey.txt        # or any printer; print it on paper
-shred -u rotation.paperkey.txt   # wipe the temporary file
+paperkey --secret-key rotation-authority.priv.asc --output rotation-authority.paperkey.txt
+lpr rotation-authority.paperkey.txt        # or any printer; print it on paper
+shred -u rotation-authority.paperkey.txt   # wipe the temporary file
 ```
 
 Tape the printout into a notebook or laminate it into a sleeve. Put
@@ -104,7 +104,7 @@ outside of the sleeve too.
 ### 3. Wipe the local copy
 
 ```sh
-shred -u rotation.priv.asc
+shred -u rotation-authority.priv.asc
 ```
 
 The file is now in two physically-redundant places. If anyone asks,
@@ -139,11 +139,11 @@ chmod 700 $GNUPGHOME
 cat > retyped.txt
 # ... type the printed bytes; Ctrl-D when done ...
 
-paperkey --pubring rotation.asc < retyped.txt | gpg --import
+paperkey --pubring rotation-authority.asc < retyped.txt | gpg --import
 
 # Compare:
 gpg --list-secret-keys --keyid-format long
-# Should show the same fingerprint as `rotation.asc`.
+# Should show the same fingerprint as `rotation-authority.asc`.
 ```
 
 If the fingerprints match, the paper backup is recoverable. Wipe
@@ -155,7 +155,7 @@ backup good.
 
 ## Embed the public half
 
-Drop `rotation.asc` into your tool's `internal/trustkeys/keys/`
+Drop `rotation-authority.asc` into your tool's `internal/trustkeys/keys/`
 directory alongside the signing key. Go's `//go:embed all:keys`
 directive picks it up; it ships baked into every binary.
 
@@ -166,7 +166,7 @@ mytool/
         ├── trustkeys.go            ← uses //go:embed all:keys
         └── keys/
             ├── release.asc         ← the signing key
-            └── rotation.asc        ← this file
+            └── rotation-authority.asc        ← this file
 ```
 
 ## Publish via WKD too
