@@ -54,6 +54,22 @@ func init() {
 	// config key or `GTB_UPDATE_REQUIRE_CHECKSUM=false` env var if
 	// they need to update from a legacy release lacking the manifest.
 	setup.DefaultRequireChecksum = true
+
+	// Phase 2 of the same spec, completing the rollout. v0.12.2 was
+	// the first signed release (KMS-held key, OIDC-federated GitLab
+	// CI, ASCII-armored checksums.txt.sig attached to the GitLab
+	// Release). Every release from this binary's tag onward will
+	// carry a signature, so flipping the library default to
+	// fail-closed is now safe: a verifier with the embedded trust
+	// anchor (internal/trustkeys/keys/*.asc) cross-checked against
+	// the externally-served WKD copy at openpgpkey.phpboyscout.uk
+	// will refuse to install an update that wasn't signed by the
+	// trusted release key.
+	//
+	// End users can still override via the `update.require_signature`
+	// config key or `GTB_UPDATE_REQUIRE_SIGNATURE=false` env var if
+	// they need to install a legacy release that predates v0.12.2.
+	setup.DefaultRequireSignature = true
 }
 
 func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
