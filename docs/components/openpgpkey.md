@@ -122,6 +122,65 @@ re-derive an existing key after losing the `.asc` file, pin
 - **Hash**: chosen by go-crypto/openpgp at sign time; typically
   SHA-256 for RSA-2048/3072 and SHA-384/512 for larger keys.
 
+## Web Key Directory (WKD) tree generation
+
+The package also produces a complete WKD layout per
+[draft-koch-openpgp-webkey-service §3.1][wkd], paired with
+`pkg/setup/signing_wkd.go`'s client-side `WKDResolver`. Use this to
+publish public keys at `openpgpkey.<yourdomain>` so the verifier can
+cross-check the embedded key against an externally-served copy on
+each `gtb update`.
+
+```go
+// One bucket per email — keys are concatenated under hu/<hash> in
+// lexicographic fingerprint order for reproducible output.
+type Entry struct {
+    Email string
+    Keys  [][]byte // armored *or* binary; auto-detected
+}
+
+type Method string
+const (
+    MethodAdvanced Method = "advanced" // default — dedicated openpgpkey.<domain> subdomain
+    MethodDirect   Method = "direct"   // root-domain layout (no openpgpkey/<domain>/ level)
+)
+
+type Options struct {
+    Method            Method
+    SubmissionAddress string // optional; if non-empty, written to the domain root for WKS-aware clients
+}
+
+func WriteWKDTree(outDir, domain string, opts Options, entries ...Entry) ([]string, error)
+func WKDHash(email string) (string, error) // exposed for callers that just need the hash
+```
+
+Output for the standard PHP Boy Scout setup:
+
+```
+out/.well-known/openpgpkey/phpboyscout.uk/
+├── policy                                       (empty; required by RFC)
+├── submission-address                           (optional; configured via Options.SubmissionAddress)
+└── hu/y84sdmnksfqswe7fxf5mzjg53tbdz8f5          (binary concatenated public keys for release@)
+```
+
+`WKDHash` and the underlying `zbase32Encode` are validated against
+the reference implementation: a unit test feeds `joe.user@example.org`
+and compares to the output of `gpg-wks-client --print-wkd-hash`. Any
+drift from RFC compliance fails CI.
+
+### Why a native generator
+
+The reference tool, `gpg-wks-client`, is a thin shell wrapper over the
+same packet routines `pkg/openpgpkey` already uses. Bringing
+generation in-process means a downstream tool can publish WKD without
+requiring a `gpg` install — the same property `gtb keys generate`
+provides on the key-minting side.
+
+For the operator-facing recipe (Cloudflare Pages Direct Upload), see
+[How-to: publish via WKD](../how-to/publish-wkd.md).
+
+[wkd]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-15
+
 ## Related
 
 - [Release-binary signing concept](../concepts/release-binary-signing.md)
@@ -131,3 +190,5 @@ re-derive an existing key after losing the `.asc` file, pin
 - [Spec D12](../development/specs/2026-06-08-keys-mint-command.md) —
   the (revised) RSA-only design decision and why Ed25519 minting
   lives in `internal/cmd/keys/`.
+- [Spec 2026-06-09-keys-wkd-command](../development/specs/2026-06-09-keys-wkd-command.md)
+  — the WKD generator design (D1–D8) and resolved open questions.
