@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.12.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.12.2)
+
+### Bug Fixes
+
+- **release**: align goreleaser OIDC `aud` with IAM provider's client ID
+
 ## [v0.12.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.12.1)
 
 ### Bug Fixes
