@@ -121,7 +121,16 @@ default:
 goreleaser:
   id_tokens:
     AWS_WEB_IDENTITY_TOKEN:
-      aud: https://gitlab.com
+      # The IAM OIDC provider (terraform-aws-bootstrap's automation-iam
+      # module) hardcodes `client_id_list = ["sts.amazonaws.com"]`. AWS
+      # rejects assume-role-with-web-identity unless the JWT's `aud`
+      # claim is on that list — checked *before* the role's trust
+      # policy condition runs.
+      #
+      # The signing-kms role's trust policy is matched to this value
+      # via `oidc_audience = "sts.amazonaws.com"` in
+      # infra/src/main.signing-kms.tf.
+      aud: sts.amazonaws.com
   variables:
     AWS_REGION: eu-west-2
     AWS_ROLE_ARN: arn:aws:iam::049815585546:role/gtb-release-signing-v1-signer
