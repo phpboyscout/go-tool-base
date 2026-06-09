@@ -1,5 +1,17 @@
 # Changelog
 
+## [v0.10.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.10.0)
+
+### Features
+
+- **openpgpkey**: WKD tree generator + gtb keys wkd command
+- **keys**: add gtb keys {mint,generate} commands; revise D12 to RSA-only openpgpkey
+- **signing/local**: add PEM-file backend, registers as local
+- **signing/kms**: add AWS KMS backend, registers as aws-kms
+- **openpgpkey**: add Ed25519 support (D12)
+- **signing**: introduce pkg/signing — Backend registry for HSM/KMS signing keys
+- **openpgpkey**: add pkg/openpgpkey — mint armored OpenPGP key from crypto.Signer
+
 ## [v0.9.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.9.0)
 
 ### Features
