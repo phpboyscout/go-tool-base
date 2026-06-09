@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.13.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.13.0)
+
+### Features
+
+- **setup**: flip DefaultRequireSignature = true (Phase 2 close-out)
+
 ## [v0.12.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.12.2)
 
 ### Bug Fixes
