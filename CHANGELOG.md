@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.12.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.12.0)
+
+### Features
+
+- **setup**: Phase 2 self-update signature verification
+
 ## [v0.11.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.11.0)
 
 ### Features
