@@ -18,6 +18,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/sign"
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
@@ -96,6 +97,7 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
 		keys.NewCmdKeys(p),
+		sign.NewCmdSign(p),
 	)
 
 	return rootCmd, p
