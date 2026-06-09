@@ -19,6 +19,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/sign"
+	"gitlab.com/phpboyscout/go-tool-base/internal/trustkeys"
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
@@ -79,6 +80,12 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 				OTelHeaders: map[string]string{
 					"Authorization": "Basic " + otelAuth,
 				},
+			},
+			// Embedded release public key(s) for self-update signature
+			// verification. Empty until a key is added under
+			// internal/trustkeys/keys/*.asc — see phase2-signing-prep.md.
+			Signing: props.SigningConfig{
+				EmbeddedKeys: trustkeys.Keys(),
 			},
 		},
 		Logger:  l,

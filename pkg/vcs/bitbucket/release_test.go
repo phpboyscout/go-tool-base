@@ -265,6 +265,75 @@ func TestBitbucketProvider_OversizePattern_Error(t *testing.T) {
 	require.NotContains(t, err.Error(), oversize)
 }
 
+func TestBitbucketProvider_DownloadSignature(t *testing.T) {
+	t.Parallel()
+
+	sig := []byte("-----BEGIN PGP SIGNATURE-----\nxyz\n-----END PGP SIGNATURE-----\n")
+
+	mux := http.NewServeMux()
+
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	mux.HandleFunc("/repositories/myws/myrepo/downloads", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				makeDownload("mytool_v1.2.3_Linux_x86_64.tar.gz", time.Now().UTC().Format(time.RFC3339), "https://bitbucket.org/myws/myrepo/downloads/mytool_v1.2.3_Linux_x86_64.tar.gz"),
+				makeDownload(signatureFileName(), time.Now().UTC().Format(time.RFC3339), srv.URL+"/sig-content"),
+			},
+			"next": "",
+		})
+	})
+	mux.HandleFunc("/sig-content", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(sig)
+	})
+
+	p, err := newProviderWithBase(t, release.ReleaseSourceConfig{}, srv.URL)
+	require.NoError(t, err)
+
+	rel := &stubRelease{assets: []release.ReleaseAsset{
+		&stubAsset{url: "https://bitbucket.org/myws/myrepo/downloads/mytool_v1.2.3_Linux_x86_64.tar.gz"},
+	}}
+
+	got, err := p.DownloadSignature(context.Background(), rel, 8<<10)
+	require.NoError(t, err)
+	assert.Equal(t, sig, got)
+}
+
+func TestBitbucketProvider_DownloadSignature_NotFound(t *testing.T) {
+	t.Parallel()
+
+	srv := buildDownloadsServer(t, []map[string]any{
+		makeDownload("mytool_v1.2.3_Linux_x86_64.tar.gz", time.Now().UTC().Format(time.RFC3339), "https://bitbucket.org/myws/myrepo/downloads/mytool_v1.2.3_Linux_x86_64.tar.gz"),
+	})
+	defer srv.Close()
+
+	p, err := newProviderWithBase(t, release.ReleaseSourceConfig{}, srv.URL)
+	require.NoError(t, err)
+
+	rel := &stubRelease{assets: []release.ReleaseAsset{
+		&stubAsset{url: "https://bitbucket.org/myws/myrepo/downloads/mytool_v1.2.3_Linux_x86_64.tar.gz"},
+	}}
+
+	_, err = p.DownloadSignature(context.Background(), rel, 8<<10)
+	require.ErrorIs(t, err, release.ErrNotSupported,
+		"absent checksums.txt.sig must surface as ErrNotSupported")
+}
+
+// signatureFileName returns the well-known signature filename the
+// Bitbucket provider looks up. Kept as a helper so the test does not
+// hard-code a constant that is private to the package.
+func signatureFileName() string { return "checksums.txt.sig" }
+
+type stubRelease struct{ assets []release.ReleaseAsset }
+
+func (r *stubRelease) GetName() string                   { return "v1.2.3" }
+func (r *stubRelease) GetTagName() string                { return "v1.2.3" }
+func (r *stubRelease) GetBody() string                   { return "" }
+func (r *stubRelease) GetDraft() bool                    { return false }
+func (r *stubRelease) GetAssets() []release.ReleaseAsset { return r.assets }
+
 // newProviderWithBase creates a BitbucketReleaseProvider with the API base
 // URL redirected to the given test server URL.
 func newProviderWithBase(t *testing.T, src release.ReleaseSourceConfig, serverURL string) (*bitbucket.BitbucketReleaseProvider, error) {

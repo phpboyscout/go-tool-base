@@ -103,6 +103,20 @@ type ReleaseSource struct {
 	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
+// SigningConfig holds tool-author configuration for self-update
+// signature verification (Phase 2 of the remote-update-checksum spec).
+// The zero value is safe: with no embedded keys and no external key
+// email configured, signature verification is governed entirely by
+// setup.DefaultRequireSignature (default false) and stays dormant.
+type SigningConfig struct {
+	// EmbeddedKeys are ASCII-armored public keys baked into the binary,
+	// typically via //go:embed in an internal trustkeys package. They are
+	// the embedded trust anchor the SelfUpdater uses to verify the
+	// signature over checksums.txt. Not serialised — keys are compile-time
+	// build artefacts, never runtime config.
+	EmbeddedKeys [][]byte `json:"-" yaml:"-"`
+}
+
 // Tool holds metadata about the CLI tool: its identity, feature flags,
 // release source for self-updates, help channel configuration, and
 // telemetry settings. It is embedded in Props and passed to all commands.
@@ -119,6 +133,11 @@ type Tool struct {
 	// Telemetry holds tool-author telemetry configuration.
 	// Zero-value is safe — tools that don't set it are unaffected.
 	Telemetry TelemetryConfig `json:"telemetry" yaml:"telemetry"`
+
+	// Signing holds tool-author self-update signature configuration.
+	// Zero-value is safe — verification stays dormant until keys and/or
+	// require_signature are configured.
+	Signing SigningConfig `json:"-" yaml:"-"`
 
 	// EnvPrefix is the environment variable prefix used by the config package.
 	// When set, only env vars starting with this prefix (e.g., "GTB_") are

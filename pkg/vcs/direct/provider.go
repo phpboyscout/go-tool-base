@@ -56,22 +56,23 @@ func (a *directAsset) GetBrowserDownloadURL() string { return a.url }
 
 // DirectReleaseProvider implements release.Provider for direct HTTP downloads.
 type DirectReleaseProvider struct {
-	urlTemplate         string
-	checksumURLTemplate string
-	versionURL          string
-	versionFormat       string
-	versionKey          string
-	pinnedVersion       string
-	token               string
-	toolName            string
-	httpClient          *http.Client
+	urlTemplate          string
+	checksumURLTemplate  string
+	signatureURLTemplate string
+	versionURL           string
+	versionFormat        string
+	versionKey           string
+	pinnedVersion        string
+	token                string
+	toolName             string
+	httpClient           *http.Client
 }
 
 // NewReleaseProvider constructs a DirectReleaseProvider from a ReleaseSourceConfig.
 //
 // Required Params key: url_template.
 // Optional Params keys: version_url, version_format, version_key,
-// pinned_version, checksum_url_template.
+// pinned_version, checksum_url_template, signature_url_template.
 //
 // Token resolution: cfg key "direct.token", then DIRECT_TOKEN env var.
 func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*DirectReleaseProvider, error) {
@@ -87,15 +88,16 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable)
 	token := resolveToken(cfg)
 
 	return &DirectReleaseProvider{
-		urlTemplate:         urlTemplate,
-		checksumURLTemplate: src.Params["checksum_url_template"],
-		versionURL:          src.Params["version_url"],
-		versionFormat:       src.Params["version_format"],
-		versionKey:          src.Params["version_key"],
-		pinnedVersion:       src.Params["pinned_version"],
-		token:               token,
-		toolName:            src.Repo, // use Repo as tool name fallback; callers can override via url_template
-		httpClient:          gtbhttp.NewClient(),
+		urlTemplate:          urlTemplate,
+		checksumURLTemplate:  src.Params["checksum_url_template"],
+		signatureURLTemplate: src.Params["signature_url_template"],
+		versionURL:           src.Params["version_url"],
+		versionFormat:        src.Params["version_format"],
+		versionKey:           src.Params["version_key"],
+		pinnedVersion:        src.Params["pinned_version"],
+		token:                token,
+		toolName:             src.Repo, // use Repo as tool name fallback; callers can override via url_template
+		httpClient:           gtbhttp.NewClient(),
 	}, nil
 }
 
@@ -173,11 +175,36 @@ func (p *DirectReleaseProvider) DownloadReleaseAsset(ctx context.Context, _, _ s
 // wraps the response body with [io.LimitReader] bounded by
 // [setup.MaxChecksumsSize].
 func (p *DirectReleaseProvider) DownloadChecksumManifest(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
-	if p.checksumURLTemplate == "" {
+	return p.fetchTemplatedURL(ctx, p.checksumURLTemplate, rel.GetTagName(), maxBytes, "checksums manifest")
+}
+
+// DownloadSignature implements [release.SignatureProvider] by fetching
+// the detached signature from the URL produced by expanding
+// `signature_url_template` against the release version. Returns
+// [release.ErrNotSupported] when `signature_url_template` is unset, so
+// callers respect the require_signature policy.
+//
+// Size-capping is enforced here against maxBytes; the caller passes
+// [setup.MaxSignatureSize].
+func (p *DirectReleaseProvider) DownloadSignature(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
+	return p.fetchTemplatedURL(ctx, p.signatureURLTemplate, rel.GetTagName(), maxBytes, "signature")
+}
+
+// fetchTemplatedURL expands tmpl against tag, performs an authenticated
+// GET, and returns the body capped at maxBytes. Returns
+// [release.ErrNotSupported] when tmpl is empty. kind labels the
+// artefact in error messages ("checksums manifest", "signature").
+func (p *DirectReleaseProvider) fetchTemplatedURL(
+	ctx context.Context,
+	tmpl, tag string,
+	maxBytes int64,
+	kind string,
+) ([]byte, error) {
+	if tmpl == "" {
 		return nil, release.ErrNotSupported
 	}
 
-	url := p.expandTemplate(p.checksumURLTemplate, rel.GetTagName())
+	url := p.expandTemplate(tmpl, tag)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -196,17 +223,17 @@ func (p *DirectReleaseProvider) DownloadChecksumManifest(ctx context.Context, re
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Newf("checksum manifest download failed: HTTP %d from %s", resp.StatusCode, url)
+		return nil, errors.Newf("%s download failed: HTTP %d from %s", kind, resp.StatusCode, url)
 	}
 
-	// +1 lets us detect overshoot; the caller size-checks.
+	// +1 lets us detect overshoot; we size-check below.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
-		return nil, errors.Wrap(err, "reading checksums manifest")
+		return nil, errors.Wrapf(err, "reading %s", kind)
 	}
 
 	if int64(len(body)) > maxBytes {
-		return nil, errors.Newf("checksums manifest from %s exceeded %d bytes", url, maxBytes)
+		return nil, errors.Newf("%s from %s exceeded %d bytes", kind, url, maxBytes)
 	}
 
 	return body, nil

@@ -220,6 +220,10 @@ Providers that don't publish `checksums.txt` as a release asset — notably the 
 
 See [Secure Releases How-To](../../how-to/secure-releases.md) for the full setup and config story.
 
+#### Signature Verification (Phase 2)
+
+Phase 1 proves a download matches its manifest, but not that the manifest itself is authentic. Phase 2 adds OpenPGP signature verification of `checksums.txt` against a trust set whose anchor is diffused away from the VCS — an embedded key cross-checked against a Web Key Directory key. See [Signature Verification — Trust Anchors & Key Resolvers](signature-verification.md) for the `TrustSet` primitive, the minimum-strength policy, and the pluggable `KeyResolver` chain (embedded, WKD, composite).
+
 #### Release Information
 ```go
 func (s *SelfUpdater) GetReleaseNotes(from string, to string) (string, error)

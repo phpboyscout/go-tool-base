@@ -207,6 +207,82 @@ func TestDirectProvider_Auth_BearerTokenSent(t *testing.T) {
 	assert.Equal(t, "Bearer my-bearer-token", receivedAuth)
 }
 
+func TestDirectProvider_DownloadSignature(t *testing.T) {
+	t.Parallel()
+
+	sig := []byte("-----BEGIN PGP SIGNATURE-----\nabc\n-----END PGP SIGNATURE-----\n")
+
+	var gotPath string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		_, _ = w.Write(sig)
+	}))
+	defer srv.Close()
+
+	src := release.ReleaseSourceConfig{
+		Params: map[string]string{
+			"url_template":           "https://example.com/{version}.tar.gz",
+			"signature_url_template": srv.URL + "/{version}/checksums.txt.sig",
+		},
+	}
+
+	p, err := direct.NewReleaseProvider(src, nil)
+	require.NoError(t, err)
+
+	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.2.3")
+	require.NoError(t, err)
+
+	got, err := p.DownloadSignature(context.Background(), rel, 8<<10)
+	require.NoError(t, err)
+	assert.Equal(t, sig, got)
+	assert.Equal(t, "/v1.2.3/checksums.txt.sig", gotPath, "template must expand {version}")
+}
+
+func TestDirectProvider_DownloadSignature_NotSupported(t *testing.T) {
+	t.Parallel()
+
+	src := release.ReleaseSourceConfig{
+		Params: map[string]string{"url_template": "https://example.com/{version}.tar.gz"},
+	}
+
+	p, err := direct.NewReleaseProvider(src, nil)
+	require.NoError(t, err)
+
+	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.2.3")
+	require.NoError(t, err)
+
+	_, err = p.DownloadSignature(context.Background(), rel, 8<<10)
+	require.ErrorIs(t, err, release.ErrNotSupported,
+		"absent signature_url_template must surface as ErrNotSupported")
+}
+
+func TestDirectProvider_DownloadSignature_SizeCap(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(make([]byte, 2048))
+	}))
+	defer srv.Close()
+
+	src := release.ReleaseSourceConfig{
+		Params: map[string]string{
+			"url_template":           "https://example.com/{version}.tar.gz",
+			"signature_url_template": srv.URL + "/{version}.sig",
+		},
+	}
+
+	p, err := direct.NewReleaseProvider(src, nil)
+	require.NoError(t, err)
+
+	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.0.0")
+	require.NoError(t, err)
+
+	_, err = p.DownloadSignature(context.Background(), rel, 1024)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeded")
+}
+
 type stubAsset struct{ url string }
 
 func (s *stubAsset) GetID() int64                  { return 0 }

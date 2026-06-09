@@ -92,3 +92,43 @@ variables:
 
 default:
   tags: [saas-linux-medium-amd64]
+
+# ----------------------------------------------------------------------
+# Phase 2 release-binary signing — overlay on the `goreleaser` job
+# from the cicd component above.
+#
+# Goreleaser's `signs:` block invokes `scripts/sign-release.sh`, which
+# shells out to `go run ./cmd/gtb sign --backend aws-kms`. The aws-kms
+# backend uses the AWS SDK Go v2 default credential chain, which
+# auto-resolves a role via web-identity OIDC when
+# `AWS_WEB_IDENTITY_TOKEN_FILE` + `AWS_ROLE_ARN` are set — no aws-cli
+# or `assume-role-with-web-identity` invocation needed.
+#
+# The signer IAM role (provisioned by terraform-aws-signing-kms) has a
+# trust policy pinning it to
+# `project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*`, so even
+# if AWS_ROLE_ARN leaked, only this project's tag pipelines can assume
+# it. The component's tag-gated `rules:` already restrict the job to
+# release tags, so MR / branch / scheduled pipelines never reach the
+# OIDC step.
+#
+# id_tokens: AWS_WEB_IDENTITY_TOKEN is injected by GitLab CI with
+# `aud: https://gitlab.com`. We write it to a file the AWS SDK can
+# read; this is the standard convention for AWS SDK Go v2 (the SDK
+# refreshes the token from the file rather than reading the env var
+# directly).
+# ----------------------------------------------------------------------
+goreleaser:
+  id_tokens:
+    AWS_WEB_IDENTITY_TOKEN:
+      aud: https://gitlab.com
+  variables:
+    AWS_REGION: eu-west-2
+    AWS_ROLE_ARN: arn:aws:iam::049815585546:role/gtb-release-signing-v1-signer
+    AWS_ROLE_SESSION_NAME: gtb-release-${CI_COMMIT_TAG}
+    # AWS_WEB_IDENTITY_TOKEN_FILE must be in variables: (not just
+    # exported in before_script) because GitLab runs each script entry
+    # in its own shell — exports don't persist between steps.
+    AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
+  before_script:
+    - echo "$AWS_WEB_IDENTITY_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"

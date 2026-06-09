@@ -79,6 +79,27 @@ Implementations must:
 
 `github`, `gitlab`, `gitea`, and `codeberg` do **not** implement `ChecksumProvider`: they rely on the default asset-list lookup, which works cleanly because those platforms expose the GoReleaser-produced `checksums.txt` as an ordinary release asset.
 
+### SignatureProvider (Optional Interface)
+
+`SignatureProvider` mirrors `ChecksumProvider` exactly, for the detached OpenPGP signature over the checksums manifest (`checksums.txt.sig`). It is the provider half of [Phase 2 signature verification](../setup/signature-verification.md): the updater verifies this signature against a trust set before parsing the manifest.
+
+```go
+type SignatureProvider interface {
+    DownloadSignature(ctx context.Context, rel Release, maxBytes int64) ([]byte, error)
+}
+```
+
+The same opt-in semantics apply: providers that don't implement it fall back to locating the signature asset by filename in the release's asset list. Implementations return `release.ErrNotSupported` when retrieval is not configured, and cap the response at `maxBytes`.
+
+**Built-in implementations:**
+
+| Provider | Source | When `ErrNotSupported` is returned |
+|----------|--------|------------------------------------|
+| `direct` | Expands `signature_url_template` against the release version and HTTP-fetches it. | `signature_url_template` is empty. |
+| `bitbucket` | Looks up `checksums.txt.sig` by exact filename in the repository's downloads list. | No `checksums.txt.sig` download exists. |
+
+As with checksums, `github`, `gitlab`, `gitea`, and `codeberg` rely on the default asset-list lookup — a GoReleaser-signed release exposes `checksums.txt.sig` as an ordinary asset.
+
 ---
 
 ## Sentinel Errors
@@ -270,6 +291,7 @@ For tools distributed via arbitrary HTTP servers — S3, GCS, Artifactory, Nexus
 | `version_key` | No | Field name to extract from structured responses. Tries `tag_name` then `version` by default. |
 | `pinned_version` | No | Static version string. Disables all network version checks. |
 | `checksum_url_template` | No | Template for the SHA-256 checksums manifest URL. Same placeholders as `url_template`. Activates checksum verification on `Update()` — the Direct provider implements [`release.ChecksumProvider`](#checksumprovider-optional-interface) and fetches the manifest from the expanded URL. |
+| `signature_url_template` | No | Template for the detached signature (`checksums.txt.sig`) URL. Same placeholders as `url_template`. The Direct provider implements [`release.SignatureProvider`](#signatureprovider-optional-interface) and fetches the signature from the expanded URL for Phase 2 signature verification. |
 
 **URL template placeholders:**
 

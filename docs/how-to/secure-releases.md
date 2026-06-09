@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 GTB's self-update flow verifies every downloaded binary against a GoReleaser-produced `checksums.txt` manifest before installing it. A tampered or truncated binary is rejected; a passing check is logged at INFO (`"checksum verified"`) and the update proceeds.
 
-This is **Phase 1** of the release-integrity work from [`2026-04-02-remote-update-checksum-verification`](../development/specs/2026-04-02-remote-update-checksum-verification.md). Phase 2 adds a GPG signature over the manifest, closing the same-origin trust gap (an attacker who can replace the binary on the release platform can also replace `checksums.txt` — only a signature from an off-platform key defeats that).
+This is **Phase 1** of the release-integrity work from [`2026-04-02-remote-update-checksum-verification`](../development/specs/2026-04-02-remote-update-checksum-verification.md). **Phase 2** adds a GPG signature over the manifest, closing the same-origin trust gap (an attacker who can replace the binary on the release platform can also replace `checksums.txt` — only a signature from an off-platform key defeats that). Phase 2's code is implemented and dormant; see [Phase 2 below](#phase-2-gpg-signed-manifests).
 
 ## How it fits together
 
@@ -109,11 +109,43 @@ The manifest download is capped at `setup.MaxChecksumsSize` (1 MiB); the binary 
 setup.MaxBinaryDownloadSize = 2 << 30 // 2 GiB
 ```
 
-## Phase 2: GPG-signed manifests (planned)
+## Phase 2: GPG-signed manifests
 
 Phase 1 defends against accidental corruption and single-asset tampering, but a full VCS compromise can replace both the binary and `checksums.txt` on the release. Phase 2 closes that gap by signing the manifest with a project-controlled GPG key — an attacker who replaces the files on the VCS still cannot produce a valid `checksums.txt.sig` without access to the private key.
 
-> **Status**: designed, not yet implemented. See the [spec](../development/specs/2026-04-02-remote-update-checksum-verification.md) for the full design and the [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist for the ordered operational decisions (KMS choice, WKD endpoint, rollout sequence) that gate implementation. This section documents the intended shape of the public API and configuration so tool authors can plan their signing pipeline.
+> **Status**: the **verification side** (`TrustSet`, the `KeyResolver` chain, the `SelfUpdater` verify-before-parse gate) and the **build side** (a GoReleaser `signs` block + `scripts/sign-release.sh`) are **implemented**. They are **dormant by default**: signing only runs when a signing key is provisioned, and `setup.DefaultRequireSignature` stays `false` until the rollout completes. What remains is **operational provisioning** — generating the KMS-held key, publishing it via WKD, embedding the public key, and flipping the require-signature default — per the [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist. See also the [Signature Verification component](../components/setup/signature-verification.md) for the full verifier API.
+
+### Producing signed releases
+
+GoReleaser signs `checksums.txt` via a `signs` block that shells out to `scripts/sign-release.sh`, producing an ASCII-armored detached `checksums.txt.sig` (the exact shape `TrustSet.VerifyManifestSignature` expects):
+
+```yaml
+# .goreleaser.yaml
+signs:
+  - id: checksums
+    cmd: scripts/sign-release.sh
+    artifacts: checksum
+    signature: "${artifact}.sig"
+    args: ["${artifact}", "${signature}"]
+    output: true
+```
+
+`scripts/sign-release.sh` signs with whatever key gpg resolves for the `GTB_SIGNING_KEY` env var. Key custody is deliberately indirect so the same script works for local development (an ordinary gpg secret key) and production (a KMS/HSM-backed key exposed to gpg) — only the key source changes.
+
+**Gating (dormant until provisioned).** The release job runs GoReleaser with `--skip=sign` unless `GTB_SIGNING_KEY` is set, mirroring the existing notarize gate on `APPLE_DEV_CERT`:
+
+```yaml
+# .gitlab-ci.yml (goreleaser job)
+script:
+  - |
+    if [ -n "${GTB_SIGNING_KEY:-}" ]; then
+      goreleaser release --clean
+    else
+      goreleaser release --clean --skip=sign
+    fi
+```
+
+So until a signing key is configured in CI, releases ship unsigned exactly as before; once `GTB_SIGNING_KEY` is set, every release gains a `checksums.txt.sig`. The sign→verify loop is covered end-to-end by `TestSignReleaseScript_VerifiesViaTrustSet` (gated `INT_TEST_SIGNING=1`).
 
 ### Trust model at a glance
 
@@ -152,7 +184,7 @@ Three ship with GTB:
 | `setup.WKDResolver` | `https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<z-base-32>?l=<email>` | ❌ No | The project's public key published via the GPG WKD standard; cross-checks the embedded copy. |
 | `setup.CompositeResolver{Embedded, WKD}` | Both, with fingerprint-equality enforcement | ⚠️ Partial | The production default. Offline builds still work via `update.key_source=embedded`. |
 
-### Configuration surface (planned)
+### Configuration surface
 
 ```yaml
 update:

@@ -76,6 +76,29 @@ type SelfUpdater struct {
 	// releases that use a different manifest filename. Resolved from
 	// `update.checksum_asset_name`; empty means use the default.
 	checksumAssetName string
+
+	// requireSignature resolved from config (update.require_signature →
+	// env-prefixed env var → DefaultRequireSignature). When true, a
+	// missing/unverifiable signature over the checksums manifest aborts
+	// the update.
+	requireSignature bool
+	// signatureAssetName overrides the default "checksums.txt.sig"
+	// lookup. Resolved from `update.signature_asset_name`; empty means
+	// use the default.
+	signatureAssetName string
+	// keyResolver resolves the trust set used to verify the manifest
+	// signature. nil when signature verification is not configured.
+	keyResolver KeyResolver
+	// embeddedKeys are armored public keys supplied via WithEmbeddedKeys;
+	// consumed in NewUpdater to build keyResolver when one was not
+	// supplied explicitly via WithKeyResolver.
+	embeddedKeys [][]byte
+	// keySource / externalKeyEmail / requireExternalCrosscheck are the
+	// resolved update.* config values used to build the default
+	// resolver from embeddedKeys.
+	keySource                 string
+	externalKeyEmail          string
+	requireExternalCrosscheck bool
 }
 
 // checksumsDefaultAssetName is the filename GoReleaser produces for
@@ -152,7 +175,7 @@ func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...
 // private-repository token resolution, so remote-store credential
 // backends (Vault, SSM) honour the caller's deadline when fetching
 // the release token.
-func NewUpdater(ctx context.Context, p *props.Props, version string, force bool) (*SelfUpdater, error) {
+func NewUpdater(ctx context.Context, p *props.Props, version string, force bool, opts ...UpdaterOption) (*SelfUpdater, error) {
 	if p.Config == nil {
 		return nil, errors.New("configuration is not loaded")
 	}
@@ -187,19 +210,71 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool)
 		return nil, errors.WithStack(err)
 	}
 
-	return &SelfUpdater{
-		force:             force,
-		version:           version,
-		logger:            p.Logger,
-		Tool:              p.Tool,
-		releaseClient:     releaseClient,
-		CurrentVersion:    ver.FormatVersionString(p.Version.GetVersion(), true),
-		Fs:                p.FS,
-		osExecutable:      os.Executable,
-		execLookPath:      exec.LookPath,
-		requireChecksum:   resolveRequireChecksum(p.Config),
-		checksumAssetName: strings.TrimSpace(p.Config.GetString("update.checksum_asset_name")),
-	}, nil
+	s := &SelfUpdater{
+		force:                     force,
+		version:                   version,
+		logger:                    p.Logger,
+		Tool:                      p.Tool,
+		releaseClient:             releaseClient,
+		CurrentVersion:            ver.FormatVersionString(p.Version.GetVersion(), true),
+		Fs:                        p.FS,
+		osExecutable:              os.Executable,
+		execLookPath:              exec.LookPath,
+		requireChecksum:           resolveRequireChecksum(p.Config),
+		checksumAssetName:         strings.TrimSpace(p.Config.GetString("update.checksum_asset_name")),
+		requireSignature:          resolveRequireSignature(p.Config),
+		signatureAssetName:        strings.TrimSpace(p.Config.GetString("update.signature_asset_name")),
+		keySource:                 resolveKeySource(p.Config),
+		externalKeyEmail:          resolveExternalKeyEmail(p.Config),
+		requireExternalCrosscheck: resolveRequireExternalCrosscheck(p.Config),
+		// Seed the embedded trust anchor from the tool author's
+		// compile-time keys (e.g. an internal trustkeys //go:embed). All
+		// library command call sites (version/update/root) thus pick up
+		// the embedded keys without passing options. An explicit
+		// WithEmbeddedKeys/WithKeyResolver option below still overrides.
+		embeddedKeys: p.Tool.Signing.EmbeddedKeys,
+	}
+
+	for _, o := range opts {
+		o(s)
+	}
+
+	if err := s.buildDefaultKeyResolver(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// buildDefaultKeyResolver constructs keyResolver from the resolved
+// config and any keys supplied via WithEmbeddedKeys, unless an explicit
+// resolver was already set via WithKeyResolver. Does nothing when
+// neither embedded keys nor an external key email are configured —
+// signature verification is then governed entirely by requireSignature
+// at verify time.
+func (s *SelfUpdater) buildDefaultKeyResolver() error {
+	if s.keyResolver != nil {
+		return nil
+	}
+
+	if len(s.embeddedKeys) == 0 && s.externalKeyEmail == "" {
+		return nil
+	}
+
+	r, err := BuildKeyResolver(KeyResolverConfig{
+		KeySource:                 s.keySource,
+		ExternalKeyEmail:          s.externalKeyEmail,
+		RequireExternalCrosscheck: s.requireExternalCrosscheck,
+		Logger:                    s.logger,
+	}, s.embeddedKeys...)
+	if err != nil {
+		return errors.Wrap(err, "configuring update signature verification")
+	}
+
+	s.keyResolver = r
+	s.logger.Info("update signature verification configured", "resolver", r.Name())
+
+	return nil
 }
 
 // boolConfig is the narrow subset of [config.Containable] that
@@ -377,8 +452,8 @@ func (s *SelfUpdater) verifyAssetChecksum(
 ) error {
 	manifest, err := s.fetchChecksumsManifest(ctx, rel)
 	if err != nil {
-		if s.requireChecksum {
-			return errors.Wrap(err, "failed to retrieve checksums manifest (require_checksum is enabled)")
+		if s.requireChecksum || s.requireSignature {
+			return errors.Wrap(err, "failed to retrieve checksums manifest (require_checksum/require_signature is enabled)")
 		}
 
 		s.logger.Warn("failed to retrieve checksums manifest; proceeding without verification",
@@ -388,11 +463,12 @@ func (s *SelfUpdater) verifyAssetChecksum(
 	}
 
 	if manifest == nil {
-		if s.requireChecksum {
+		if s.requireChecksum || s.requireSignature {
 			return errors.WithHint(
 				errors.Newf("no checksums manifest found in release %q", rel.GetName()),
-				"The release does not include a checksums file and update.require_checksum is enabled. "+
-					"Publish a GoReleaser-style checksums.txt alongside the binaries, or set update.require_checksum=false to accept unverified updates.",
+				"The release does not include a checksums file and update.require_checksum or "+
+					"update.require_signature is enabled. Publish a GoReleaser-style checksums.txt "+
+					"alongside the binaries, or disable the require_* flag to accept unverified updates.",
 			)
 		}
 
@@ -400,6 +476,14 @@ func (s *SelfUpdater) verifyAssetChecksum(
 			"release", rel.GetName(), "asset", asset.GetName())
 
 		return nil
+	}
+
+	// Signature is verified over the raw manifest bytes BEFORE the
+	// manifest is parsed: unsigned content must never reach the parser
+	// (spec decision 17). The trust-set cross-check runs inside Resolve,
+	// the earliest failure point.
+	if err := s.verifyManifestSignature(ctx, rel, manifest); err != nil {
+		return err
 	}
 
 	if err := VerifyChecksumFromManifest(manifest, asset.GetName(), data); err != nil {
@@ -466,6 +550,21 @@ func (s *SelfUpdater) downloadChecksumManifest(
 	ctx context.Context,
 	asset release.ReleaseAsset,
 ) ([]byte, error) {
+	return s.downloadBoundedAsset(ctx, asset, MaxChecksumsSize, ErrChecksumTooLarge, "checksums manifest")
+}
+
+// downloadBoundedAsset downloads a small release asset (manifest or
+// signature) with a hard byte cap. Redirect responses are refused —
+// these artefacts are tiny and a redirect signals a non-standard
+// layout the verifier should not silently follow. tooLarge is the
+// sentinel returned on overshoot; kind labels the artefact in errors.
+func (s *SelfUpdater) downloadBoundedAsset(
+	ctx context.Context,
+	asset release.ReleaseAsset,
+	maxBytes int64,
+	tooLarge error,
+	kind string,
+) ([]byte, error) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, updateTimeout)
 	defer cancel()
 
@@ -473,7 +572,7 @@ func (s *SelfUpdater) downloadChecksumManifest(
 
 	rc, redirectURL, err := s.releaseClient.DownloadReleaseAsset(timeoutCtx, owner, repo, asset)
 	if err != nil {
-		return nil, errors.Wrap(err, "downloading checksums manifest")
+		return nil, errors.Wrapf(err, "downloading %s", kind)
 	}
 
 	if rc != nil {
@@ -481,22 +580,21 @@ func (s *SelfUpdater) downloadChecksumManifest(
 	}
 
 	if redirectURL != "" {
-		return nil, errors.Newf("checksums manifest redirected to %s; unsupported", redirectURL)
+		return nil, errors.Newf("%s redirected to %s; unsupported", kind, redirectURL)
 	}
 
 	// +1 so we can distinguish "exactly the limit" (accepted) from
 	// "exceeded the limit" (refused).
 	buf := bytes.Buffer{}
 
-	n, err := io.Copy(&buf, io.LimitReader(rc, MaxChecksumsSize+1))
+	n, err := io.Copy(&buf, io.LimitReader(rc, maxBytes+1))
 	if err != nil {
-		return nil, errors.Wrap(err, "reading checksums manifest")
+		return nil, errors.Wrapf(err, "reading %s", kind)
 	}
 
-	if n > MaxChecksumsSize {
-		return nil, errors.WithHintf(ErrChecksumTooLarge,
-			"checksums manifest %q exceeded MaxChecksumsSize (%d bytes)",
-			asset.GetName(), MaxChecksumsSize)
+	if n > maxBytes {
+		return nil, errors.WithHintf(tooLarge,
+			"%s %q exceeded maximum size (%d bytes)", kind, asset.GetName(), maxBytes)
 	}
 
 	return buf.Bytes(), nil

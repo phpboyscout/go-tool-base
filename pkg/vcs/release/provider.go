@@ -75,3 +75,33 @@ type ChecksumProvider interface {
 	// policy.
 	DownloadChecksumManifest(ctx context.Context, rel Release, maxBytes int64) ([]byte, error)
 }
+
+// SignatureProvider is an OPTIONAL interface implemented by release
+// providers that can fetch a detached signature over the checksums
+// manifest by means other than a standard release-asset download. It
+// mirrors [ChecksumProvider] exactly: the Direct provider composes a
+// URL from its `signature_url_template` param, and Bitbucket locates
+// an uploaded `checksums.txt.sig` by exact filename in the downloads
+// list.
+//
+// The update flow type-asserts at runtime — providers that do not
+// implement this interface fall back to locating the signature asset
+// by filename within the release's asset list (the GitHub/GitLab
+// path). This keeps third-party Provider implementations source-
+// compatible: they gain signature support by opting in, not by
+// implementing a new required method.
+type SignatureProvider interface {
+	// DownloadSignature returns the raw bytes of the detached
+	// signature over the checksums manifest for the given release.
+	// maxBytes caps the response so a hostile server cannot stream
+	// indefinitely.
+	//
+	// Returns [ErrNotSupported] when the provider is configured in a
+	// way that disables signature retrieval (e.g. the Direct
+	// provider's `signature_url_template` param is empty, or no
+	// signature file was uploaded to Bitbucket). The caller treats
+	// [ErrNotSupported] exactly like "provider does not implement this
+	// interface" — fall back to asset-by-name lookup if one is
+	// available, otherwise respect the require_signature policy.
+	DownloadSignature(ctx context.Context, rel Release, maxBytes int64) ([]byte, error)
+}

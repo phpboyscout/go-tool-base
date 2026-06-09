@@ -25,7 +25,7 @@ Date
 :   02 April 2026
 
 Status
-:   IN PROGRESS (Phase 1 active; Phase 2 pending KMS + WKD operational setup)
+:   IN PROGRESS (Phase 1 active; Phase 2 code implemented & dormant — verification + gated build-side signing landed; pending KMS key, WKD publication, embedded key, and the DefaultRequireSignature rollout)
 
 ---
 

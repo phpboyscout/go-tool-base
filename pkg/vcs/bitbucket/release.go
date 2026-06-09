@@ -197,6 +197,13 @@ func (p *BitbucketReleaseProvider) ListReleases(_ context.Context, _, _ string, 
 // binaries get verification with no extra config.
 const checksumsDefaultName = "checksums.txt"
 
+// signatureDefaultName is the detached-signature filename
+// [DownloadSignature] looks up in the Bitbucket downloads list.
+// Matches the GoReleaser-signed `checksums.txt.sig` convention so
+// operators who upload it alongside their binaries get signature
+// verification with no extra config.
+const signatureDefaultName = "checksums.txt.sig"
+
 // DownloadChecksumManifest implements [release.ChecksumProvider] by
 // locating an uploaded `checksums.txt` by exact filename in the
 // repository's downloads list. The filename regex used by
@@ -208,20 +215,33 @@ const checksumsDefaultName = "checksums.txt"
 // no `checksums.txt`, so the caller treats it the same as "provider
 // has no manifest support" and respects require_checksum policy.
 func (p *BitbucketReleaseProvider) DownloadChecksumManifest(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
-	url, err := p.resolveChecksumsURL(ctx, rel)
+	url, err := p.resolveDownloadURL(ctx, rel, checksumsDefaultName)
 	if err != nil {
 		return nil, err
 	}
 
-	return p.fetchChecksumsByURL(ctx, url, maxBytes)
+	return p.fetchDownloadByURL(ctx, url, maxBytes, "checksums manifest")
 }
 
-// resolveChecksumsURL locates the `checksums.txt` entry in the
-// repository's downloads list and returns its API URL. Returns
-// [release.ErrNotSupported] when the release has no assets to key
-// off or no checksums.txt was uploaded — the caller treats both
-// identically to "no manifest available".
-func (p *BitbucketReleaseProvider) resolveChecksumsURL(ctx context.Context, rel release.Release) (string, error) {
+// DownloadSignature implements [release.SignatureProvider] by locating
+// an uploaded `checksums.txt.sig` by exact filename in the downloads
+// list. Returns [release.ErrNotSupported] when no signature file was
+// uploaded, so the caller respects the require_signature policy.
+func (p *BitbucketReleaseProvider) DownloadSignature(ctx context.Context, rel release.Release, maxBytes int64) ([]byte, error) {
+	url, err := p.resolveDownloadURL(ctx, rel, signatureDefaultName)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.fetchDownloadByURL(ctx, url, maxBytes, "signature")
+}
+
+// resolveDownloadURL locates the entry named name in the repository's
+// downloads list and returns its API URL. Returns
+// [release.ErrNotSupported] when the release has no assets to key off
+// or no matching file was uploaded — the caller treats both
+// identically to "not available".
+func (p *BitbucketReleaseProvider) resolveDownloadURL(ctx context.Context, rel release.Release, name string) (string, error) {
 	// rel is the synthetic release we built in matchAssets; its
 	// provenance doesn't carry owner/repo through, so we re-read
 	// from the URL of a known asset to derive them. All assets were
@@ -233,7 +253,7 @@ func (p *BitbucketReleaseProvider) resolveChecksumsURL(ctx context.Context, rel 
 
 	workspace, repo, err := parseDownloadURL(assets[0].GetBrowserDownloadURL())
 	if err != nil {
-		return "", errors.Wrap(err, "resolving workspace/repo for checksums lookup")
+		return "", errors.Wrapf(err, "resolving workspace/repo for %q lookup", name)
 	}
 
 	downloads, err := p.fetchAllDownloads(ctx, workspace, repo)
@@ -242,7 +262,7 @@ func (p *BitbucketReleaseProvider) resolveChecksumsURL(ctx context.Context, rel 
 	}
 
 	for _, dl := range downloads {
-		if dl.Name == checksumsDefaultName {
+		if dl.Name == name {
 			return dl.Links.Self.Href, nil
 		}
 	}
@@ -250,10 +270,10 @@ func (p *BitbucketReleaseProvider) resolveChecksumsURL(ctx context.Context, rel 
 	return "", release.ErrNotSupported
 }
 
-// fetchChecksumsByURL performs the authenticated HTTP fetch against
-// the API-provided checksums URL and returns the body, capped at
-// maxBytes bytes.
-func (p *BitbucketReleaseProvider) fetchChecksumsByURL(ctx context.Context, url string, maxBytes int64) ([]byte, error) {
+// fetchDownloadByURL performs the authenticated HTTP fetch against the
+// API-provided URL and returns the body, capped at maxBytes bytes.
+// kind labels the artefact in error messages.
+func (p *BitbucketReleaseProvider) fetchDownloadByURL(ctx context.Context, url string, maxBytes int64, kind string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -271,16 +291,16 @@ func (p *BitbucketReleaseProvider) fetchChecksumsByURL(ctx context.Context, url 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Newf("checksum manifest download failed: HTTP %d", resp.StatusCode)
+		return nil, errors.Newf("%s download failed: HTTP %d", kind, resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
-		return nil, errors.Wrap(err, "reading checksums manifest")
+		return nil, errors.Wrapf(err, "reading %s", kind)
 	}
 
 	if int64(len(body)) > maxBytes {
-		return nil, errors.Newf("checksums manifest exceeded %d bytes", maxBytes)
+		return nil, errors.Newf("%s exceeded %d bytes", kind, maxBytes)
 	}
 
 	return body, nil
