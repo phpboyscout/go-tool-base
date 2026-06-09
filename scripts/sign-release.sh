@@ -53,11 +53,12 @@ if [[ ! -f "${public_key}" ]]; then
 	exit 1
 fi
 
-if [[ -z "${AWS_ACCESS_KEY_ID:-}" ]]; then
-	echo "sign-release.sh: AWS_ACCESS_KEY_ID is not set; refusing to sign." >&2
-	echo "  This script expects CI to have completed an" >&2
-	echo "  aws sts assume-role-with-web-identity in a before_script and" >&2
-	echo "  exported the resulting credentials." >&2
+if [[ -z "${AWS_ACCESS_KEY_ID:-}" && -z "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" ]]; then
+	echo "sign-release.sh: no AWS credentials are configured; refusing to sign." >&2
+	echo "  Either:" >&2
+	echo "    - AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN for assumed roles), or" >&2
+	echo "    - AWS_ROLE_ARN + AWS_WEB_IDENTITY_TOKEN_FILE (OIDC web-identity, used by CI)" >&2
+	echo "  must be set so the AWS SDK Go v2 default credential chain can resolve credentials." >&2
 	exit 1
 fi
 
