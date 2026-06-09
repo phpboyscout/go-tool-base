@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.12.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.12.1)
+
+### Bug Fixes
+
+- **release**: accept OIDC env vars in sign-release.sh's credential guard
+
 ## [v0.12.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.12.0)
 
 ### Features
