@@ -122,6 +122,61 @@ re-derive an existing key after losing the `.asc` file, pin
 - **Hash**: chosen by go-crypto/openpgp at sign time; typically
   SHA-256 for RSA-2048/3072 and SHA-384/512 for larger keys.
 
+## Detached OpenPGP signing (`DetachSign`)
+
+For the per-release-signing step (CI signs `checksums.txt` →
+`checksums.txt.sig`), the package exposes `DetachSign`, a
+companion to `ArmoredPublicKey` that produces armored detached
+signatures verifiable against the public key it was paired with.
+
+```go
+// DetachSign computes an ASCII-armored OpenPGP detached signature
+// over data using signer. publicKey is the armored OpenPGP public-key
+// block that identifies the signer; its fingerprint becomes the
+// signer-fingerprint embedded in the signature. signer must produce
+// signatures verifiable against publicKey's public half (we check
+// this at call time and refuse to proceed if they disagree).
+func DetachSign(signer crypto.Signer, publicKey []byte, data io.Reader, sigCreationTime time.Time) ([]byte, error)
+```
+
+### Why an armored detached signature
+
+It's the exact format the verifier in `pkg/setup`
+(`TrustSet.VerifyManifestSignature` →
+`openpgp.CheckArmoredDetachedSignature`) consumes, and what
+`gpg --verify` produces / accepts. One on-the-wire shape across
+producer, in-tool verifier, and standard third-party tools.
+
+### Reproducibility
+
+`sigCreationTime` is the **signature's** creation-time subpacket,
+*not* the key's (the key's creation time lives in `publicKey`).
+Pinning `sigCreationTime` plus PKCS#1 v1.5 RSA's deterministic
+output yields byte-identical signatures across runs over the same
+content — useful for SLSA-style attestation.
+
+To keep signatures deterministic, `DetachSign` explicitly disables
+go-crypto's default `NonDeterministicSignaturesViaNotation`
+(a random-salt subpacket added as a fault-injection defence
+designed for EdDSA on consumer hardware). The defence is
+inapplicable to our setup — the signer is AWS KMS, an HSM with its
+own fault-injection protections.
+
+### Signer/key-pair mismatch detection
+
+The signer's `Public()` RSA key is compared against `publicKey`'s
+public half via `n` and `e`; if they disagree, `DetachSign` errors
+out before producing a signature with a fingerprint that doesn't
+match the actual signing key (a silent-fail scenario that would
+ship unverifiable signatures to consumers).
+
+### Pairing with the CLI
+
+`gtb sign --backend <name> --key-id <id> --public-key <path.asc>
+<input>` is the operator-facing wrapper. See
+[How-to: sign release artefacts](../how-to/sign-releases.md) and
+[Spec 2026-06-09-sign-command](../development/specs/2026-06-09-sign-command.md).
+
 ## Web Key Directory (WKD) tree generation
 
 The package also produces a complete WKD layout per
