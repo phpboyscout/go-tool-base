@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.11.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.11.0)
+
+### Features
+
+- **openpgpkey**: DetachSign + gtb sign command
+
 ## [v0.10.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.10.0)
 
 ### Features
