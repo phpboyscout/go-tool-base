@@ -43,7 +43,7 @@ Available subcommands:
   generate  Generate a fresh keypair locally (Ed25519 or RSA) and emit both halves.
   wkd       Generate a Web Key Directory tree from one or more public keys (for static hosting).
 
-See https://github.com/phpboyscout/go-tool-base/blob/main/docs/development/specs/2026-06-08-keys-mint-command.md for the full design.`,
+See https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/docs/development/specs/2026-06-08-keys-mint-command.md for the full design.`,
 	}
 
 	keysCmd := setup.Wrap("", cmd)
