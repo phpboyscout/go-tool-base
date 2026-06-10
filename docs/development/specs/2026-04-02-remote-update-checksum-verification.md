@@ -2,7 +2,7 @@
 title: "Remote Update Integrity: Checksums + GPG Signatures"
 description: "Verify remote self-update downloads against a signed checksums manifest. Phase 1 adds SHA-256 verification of checksums.txt (same-origin). Phase 2 adds GPG signature verification of the manifest, providing cryptographic provenance that survives a VCS platform compromise. Complements existing Apple notarization (macOS-only Gatekeeper approval) with cross-platform cryptographic integrity."
 date: 2026-04-02
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - setup
@@ -25,7 +25,7 @@ Date
 :   02 April 2026
 
 Status
-:   IN PROGRESS (Phase 1 active; Phase 2 code implemented & dormant — verification + gated build-side signing landed; pending KMS key, WKD publication, embedded key, and the DefaultRequireSignature rollout)
+:   IMPLEMENTED — Phase 1 (checksum verification, `DefaultRequireChecksum=true`) shipped early 2026. Phase 2 (KMS-held key, OIDC-federated CI signing, WKD endpoint at `openpgpkey.phpboyscout.uk`, embedded trust set, `CompositeResolver{Embedded,WKD}`, `DefaultRequireSignature=true`) shipped 2026-06-09/10 across releases v0.12.0–v0.13.1. Phases 3–6 (Sigstore/Rekor transparency log, emergency key rotation, SLSA build provenance, checksum pinning / binary transparency) remain "Future Considerations" and are each deferred to their own follow-up specifications.
 
 ---
 

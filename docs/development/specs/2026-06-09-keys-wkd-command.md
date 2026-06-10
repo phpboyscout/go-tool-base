@@ -1,7 +1,7 @@
 ---
 title: "`gtb keys wkd` — generate the Web Key Directory tree from one or more public keys"
 description: "Add `gtb keys wkd` which, given one or more armored OpenPGP public keys and a domain, emits the `.well-known/openpgpkey/<domain>/hu/<z-base-32-hash>` directory structure expected by draft-koch-openpgp-webkey-service. Pure Go; no shell-out to `gpg-wks-client`. Pairs `pkg/setup`'s existing `WKDResolver` (client side, already on MR !9) with a server-side generator."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-09
 tags:
   - specification
@@ -23,7 +23,7 @@ Date
 :   2026-06-09
 
 Status
-:   DRAFT
+:   IMPLEMENTED (shipped in MR !34, 2026-06-09; live since v0.12.0)
 
 ## Summary
 

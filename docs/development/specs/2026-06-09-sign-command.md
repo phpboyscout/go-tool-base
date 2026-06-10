@@ -1,7 +1,7 @@
 ---
 title: "`gtb sign` — detached OpenPGP signing via a pluggable backend"
 description: "Add `gtb sign`, a top-level CLI that produces ASCII-armored OpenPGP detached signatures over arbitrary files using a `crypto.Signer` from the existing `pkg/signing` backend registry (AWS KMS, local PEM, etc.). Library side: `pkg/openpgpkey.DetachSign`. Pairs with the verifier in `pkg/setup` (MR !9) to close the release-binary signing chain without requiring `gpg` in production CI."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-09
 tags:
   - specification
@@ -23,7 +23,7 @@ Date
 :   2026-06-09
 
 Status
-:   APPROVED
+:   IMPLEMENTED (shipped in MR !35, 2026-06-09; live since v0.12.2)
 
 ## Summary
 
