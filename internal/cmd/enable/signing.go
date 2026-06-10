@@ -151,6 +151,25 @@ func mergeSigning(current generator.ManifestSigning, opts *signingOptions, set s
 	return m
 }
 
+// maybePromptEmail asks for the WKD email only on a genuine first enable: none
+// passed, none already in the manifest, and an interactive non-CI session. A
+// re-run that already has an email (e.g. adding --key-id later) never re-asks.
+// When the prompt runs, the email and key source it collects count as provided.
+func maybePromptEmail(cmd *cobra.Command, p *props.Props, opts *signingOptions, current generator.ManifestSigning, set *signingFlagSet) error {
+	if opts.Email != "" || current.ExternalKeyEmail != "" || !utils.IsInteractive() || isCI(cmd, p) {
+		return nil
+	}
+
+	if err := opts.promptInteractive(); err != nil {
+		return err
+	}
+
+	set.email = true
+	set.keySource = true
+
+	return nil
+}
+
 func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) error {
 	opts.Path = icmd.ResolveProjectPath(p, opts.Path)
 
@@ -168,28 +187,21 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 		publicKey:         cmd.Flags().Changed("public-key"),
 	}
 
-	// Prompt for the email when omitted and the session is interactive and not
-	// in CI; the answers count as provided. require_signature is never prompted.
-	if opts.Email == "" && utils.IsInteractive() && !isCI(cmd, p) {
-		if err := opts.promptInteractive(); err != nil {
-			return err
-		}
+	gen := generator.New(p, &generator.Config{Path: opts.Path, Overwrite: "allow"})
 
-		set.email = true
-		set.keySource = true
-	}
-
-	if err := validateSigningFlags(opts, set); err != nil {
+	// Load the existing signing block first, so flag overrides merge onto it
+	// (changing one field on a re-run never drops the others) and the email
+	// prompt only fires when there genuinely isn't one yet.
+	current, err := gen.CurrentSigning()
+	if err != nil {
 		return err
 	}
 
-	gen := generator.New(p, &generator.Config{Path: opts.Path, Overwrite: "allow"})
+	if err := maybePromptEmail(cmd, p, opts, current, &set); err != nil {
+		return err
+	}
 
-	// Merge the provided flags onto the existing signing block so changing one
-	// field on a re-run never silently drops the others (e.g. adding --key-id
-	// must not clear the WKD email set on the first enable).
-	current, err := gen.CurrentSigning()
-	if err != nil {
+	if err := validateSigningFlags(opts, set); err != nil {
 		return err
 	}
 
