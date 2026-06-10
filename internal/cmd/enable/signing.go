@@ -1,6 +1,9 @@
 package enable
 
 import (
+	"slices"
+	"strings"
+
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
@@ -9,12 +12,17 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // ErrInvalidKeySource is returned when --key-source is not one of the
 // accepted values.
 var ErrInvalidKeySource = errors.New("invalid --key-source: must be embedded, external, or both")
+
+// ErrInvalidBackend is returned when --backend is not a registered signing
+// backend.
+var ErrInvalidBackend = errors.New("invalid --backend: not a registered signing backend")
 
 // validKeySources lists the accepted --key-source values.
 var validKeySources = map[string]bool{"embedded": true, "external": true, "both": true}
@@ -25,6 +33,13 @@ type signingOptions struct {
 	KeySource                 string
 	RequireSignature          bool
 	RequireExternalCrosscheck bool
+	// Release-pipeline fields. Recording a KeyID is what turns the
+	// generated GoReleaser signs block on. Backend/KMSRegion/PublicKey
+	// default in the generator when a key id is set.
+	Backend   string
+	KeyID     string
+	KMSRegion string
+	PublicKey string
 }
 
 // NewCmdEnableSigning returns the `gtb enable signing` subcommand. It
@@ -57,6 +72,10 @@ flag to do so.`,
 	cmd.Flags().StringVar(&opts.KeySource, "key-source", "both", "Trust-anchor source: embedded, external, or both")
 	cmd.Flags().BoolVar(&opts.RequireSignature, "require-signature", false, "Fail updates closed when no valid signature is present (only flip once a signed release has shipped)")
 	cmd.Flags().BoolVar(&opts.RequireExternalCrosscheck, "require-external-crosscheck", false, "Fail closed when the external (WKD) resolver is unreachable")
+	cmd.Flags().StringVar(&opts.KeyID, "key-id", "", "Signing key id/ARN/alias (or PEM path for the local backend) the release pipeline signs with; recording it wires the GoReleaser signs block")
+	cmd.Flags().StringVar(&opts.Backend, "backend", "", "gtb sign backend for the release pipeline (default aws-kms when --key-id is set)")
+	cmd.Flags().StringVar(&opts.KMSRegion, "kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
+	cmd.Flags().StringVar(&opts.PublicKey, "public-key", "", "Path to the embedded public key the signature identifies (default internal/trustkeys/keys/signing-key-v1.asc)")
 
 	return setup.Wrap("", cmd)
 }
@@ -76,15 +95,23 @@ func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) 
 		return errors.Wrapf(ErrInvalidKeySource, "%q", opts.KeySource)
 	}
 
-	signing := generator.ManifestSigning{
+	if opts.Backend != "" && !slices.Contains(signing.Names(), opts.Backend) {
+		return errors.Wrapf(ErrInvalidBackend, "%q (available: %s)", opts.Backend, strings.Join(signing.Names(), ", "))
+	}
+
+	signingCfg := generator.ManifestSigning{
 		ExternalKeyEmail:          opts.Email,
 		RequireSignature:          opts.RequireSignature,
 		KeySource:                 normaliseKeySource(opts.KeySource),
 		RequireExternalCrosscheck: opts.RequireExternalCrosscheck,
+		Backend:                   opts.Backend,
+		KeyID:                     opts.KeyID,
+		KMSRegion:                 opts.KMSRegion,
+		PublicKey:                 opts.PublicKey,
 	}
 
 	gen := generator.New(p, &generator.Config{Path: opts.Path, Overwrite: "allow"})
-	if err := gen.EnableSigning(cmd.Context(), signing); err != nil {
+	if err := gen.EnableSigning(cmd.Context(), signingCfg); err != nil {
 		return err
 	}
 

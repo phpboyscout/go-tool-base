@@ -44,6 +44,35 @@ release:
 checksum:
   name_template: 'checksums.txt'
 
+{{ if and .Signing.Enabled .Signing.KeyID -}}
+# Release signing: gtb enable signing wired this. The signature over
+# checksums.txt is what the self-updater's embedded trust anchor verifies.
+# gtb is called directly (no shim); AWS credentials come from the CI OIDC
+# context, and goreleaser runs with --skip=sign when there isn't one.
+signs:
+  - id: checksums
+    cmd: gtb
+    args:
+      - "--ci"
+      - "sign"
+      - "--backend"
+      - "{{ .Signing.Backend }}"
+      {{- if eq .Signing.Backend "aws-kms" }}
+      - "--kms-region"
+      - "{{ .Signing.KMSRegion }}"
+      {{- end }}
+      - "--key-id"
+      - "{{ .Signing.KeyID }}"
+      - "--public-key"
+      - "{{ .Signing.PublicKey }}"
+      - "--output"
+      - "${signature}"
+      - "${artifact}"
+    artifacts: checksum
+    signature: "${artifact}.sig"
+    output: true
+
+{{ end -}}
 snapshot:
   version_template: "{{ "{{" }} incpatch .Version {{ "}}" }}-dev{{ "{{" }}.ShortCommit{{ "}}" }}"
 

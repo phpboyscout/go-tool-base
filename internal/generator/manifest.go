@@ -197,6 +197,26 @@ type ManifestSigning struct {
 	// RequireExternalCrosscheck fails closed when the external (WKD)
 	// resolver is unreachable, rather than degrading to embedded-only.
 	RequireExternalCrosscheck bool `yaml:"require_external_crosscheck,omitempty"`
+	// Backend selects the `gtb sign` backend the generated release
+	// pipeline signs with (e.g. "aws-kms", "local"). Defaults to
+	// "aws-kms" when a key id is recorded. Drives the GoReleaser signs
+	// block; backend-specific args (e.g. kms_region) are emitted only for
+	// the backends that take them.
+	Backend string `yaml:"backend,omitempty"`
+	// KeyID is the backend-specific signing key identifier passed to
+	// `gtb sign --key-id` (a KMS id/ARN/alias, or a PEM path for the
+	// local backend). Recording it is what turns the GoReleaser signs
+	// block on; empty leaves the release pipeline untouched.
+	KeyID string `yaml:"key_id,omitempty"`
+	// KMSRegion is the AWS region for the aws-kms backend
+	// (`gtb sign --kms-region`). Defaults to "eu-west-2". Ignored by
+	// backends that don't take a region.
+	KMSRegion string `yaml:"kms_region,omitempty"`
+	// PublicKey is the path to the armored public-key file the signature
+	// identifies (`gtb sign --public-key`), relative to the project root.
+	// Defaults to the embedded-key convention
+	// internal/trustkeys/keys/signing-key-v1.asc.
+	PublicKey string `yaml:"public_key,omitempty"`
 }
 
 type ManifestProperties struct {

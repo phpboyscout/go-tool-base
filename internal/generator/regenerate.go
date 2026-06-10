@@ -322,42 +322,42 @@ func (g *Generator) buildSkeletonSubcommands(commands []ManifestCommand) ([]temp
 	return subs, nil
 }
 
-// regenerateSkeletonFiles re-applies the project skeleton template files
-// (non-Go files such as CI configs, justfile, .goreleaser.yaml, etc.) from
-// the current GTB version, protecting any user customisations via hash
-// comparison before overwriting. Resulting hashes are persisted back to the
-// manifest so subsequent runs can detect further modifications.
-func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, error) {
-	g.props.Logger.Info("Regenerating project skeleton files...")
-	g.props.Logger.Debugf("Existing hashes: %d entries", len(m.Hashes))
+// skeletonTemplateData is the data passed to the non-Go skeleton asset
+// templates (CI configs, justfile, .goreleaser.yaml, ...) when
+// reconstructed from a manifest. Shared by the full regenerate and the
+// targeted .goreleaser.yaml re-render that enable/disable signing performs.
+type skeletonTemplateData struct {
+	Name                  string
+	Repo                  string
+	Host                  string
+	ModulePath            string
+	Description           string
+	Org                   string
+	RepoName              string
+	ReleaseProvider       string
+	GoToolBaseVersion     string
+	GoVersion             string
+	DisabledFeatures      []string
+	EnabledFeatures       []string
+	Private               bool
+	HelpType              string
+	SlackChannel          string
+	SlackTeam             string
+	TeamsChannel          string
+	TeamsTeam             string
+	TelemetryEndpoint     string
+	TelemetryOTelEndpoint string
+	EnvPrefix             string
+	Signing               ManifestSigning
+}
 
+// buildSkeletonTemplateData reconstructs the skeleton asset template data
+// from a manifest. GoVersion is not persisted, so it falls back to the
+// runtime default.
+func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 	_, org, repoName := m.GetReleaseSource()
 
-	// Reconstruct template data from the manifest. GoVersion is not persisted
-	// so we fall back to the current runtime version.
-	data := struct {
-		Name                  string
-		Repo                  string
-		Host                  string
-		ModulePath            string
-		Description           string
-		Org                   string
-		RepoName              string
-		ReleaseProvider       string
-		GoToolBaseVersion     string
-		GoVersion             string
-		DisabledFeatures      []string
-		EnabledFeatures       []string
-		Private               bool
-		HelpType              string
-		SlackChannel          string
-		SlackTeam             string
-		TeamsChannel          string
-		TeamsTeam             string
-		TelemetryEndpoint     string
-		TelemetryOTelEndpoint string
-		EnvPrefix             string
-	}{
+	return skeletonTemplateData{
 		Name:                  m.Properties.Name,
 		Repo:                  org + "/" + repoName,
 		Host:                  m.ReleaseSource.Host,
@@ -379,7 +379,22 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
+		Signing:               m.Properties.Signing,
 	}
+}
+
+// regenerateSkeletonFiles re-applies the project skeleton template files
+// (non-Go files such as CI configs, justfile, .goreleaser.yaml, etc.) from
+// the current GTB version, protecting any user customisations via hash
+// comparison before overwriting. Resulting hashes are persisted back to the
+// manifest so subsequent runs can detect further modifications.
+func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, error) {
+	g.props.Logger.Info("Regenerating project skeleton files...")
+	g.props.Logger.Debugf("Existing hashes: %d entries", len(m.Hashes))
+
+	// Reconstruct template data from the manifest. GoVersion is not persisted
+	// so we fall back to the current runtime version.
+	data := g.buildSkeletonTemplateData(m)
 
 	storedHashes := m.Hashes
 	if storedHashes == nil {

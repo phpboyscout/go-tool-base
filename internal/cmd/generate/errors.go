@@ -16,4 +16,5 @@ var (
 	ErrInvalidOverwriteValue   = errors.New("invalid --overwrite value: must be allow, deny, or ask")
 	ErrEnvPrefixInvalid        = errors.New("env prefix must contain only uppercase letters, digits, and underscores (e.g. MY_APP)")
 	ErrInvalidSigningKeySource = errors.New("invalid --signing-key-source: must be embedded, external, or both")
+	ErrInvalidSigningBackend   = errors.New("invalid --signing-backend: not a registered signing backend")
 )

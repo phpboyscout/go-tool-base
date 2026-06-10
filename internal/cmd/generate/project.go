@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -13,6 +14,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
@@ -42,6 +44,13 @@ type SkeletonOptions struct {
 	SigningEmail                     string
 	SigningKeySource                 string
 	SigningRequireExternalCrosscheck bool
+	// Release-pipeline fields. Recording a key id wires the generated
+	// GoReleaser signs block; backend/region/public-key default in the
+	// generator when a key id is set.
+	SigningBackend   string
+	SigningKeyID     string
+	SigningKMSRegion string
+	SigningPublicKey string
 }
 
 func NewCmdSkeleton(p *props.Props) *cobra.Command {
@@ -83,6 +92,10 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.SigningEmail, "signing-email", "", "Release WKD email for signing (external_key_email); implies --signing")
 	cmd.Flags().StringVar(&opts.SigningKeySource, "signing-key-source", "both", "Signing trust-anchor source: embedded, external, or both")
 	cmd.Flags().BoolVar(&opts.SigningRequireExternalCrosscheck, "signing-require-external-crosscheck", false, "Fail signing closed when the external (WKD) resolver is unreachable")
+	cmd.Flags().StringVar(&opts.SigningKeyID, "signing-key-id", "", "Signing key id/ARN/alias (or PEM path for local) the release pipeline signs with; wires the GoReleaser signs block")
+	cmd.Flags().StringVar(&opts.SigningBackend, "signing-backend", "", "gtb sign backend for the release pipeline (default aws-kms when --signing-key-id is set)")
+	cmd.Flags().StringVar(&opts.SigningKMSRegion, "signing-kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
+	cmd.Flags().StringVar(&opts.SigningPublicKey, "signing-public-key", "", "Path to the embedded public key the signature identifies (default internal/trustkeys/keys/signing-key-v1.asc)")
 
 	return cmd
 }
@@ -128,10 +141,15 @@ func (o *SkeletonOptions) validateSigningFields() error {
 
 	switch o.SigningKeySource {
 	case "", "embedded", "external", "both":
-		return nil
 	default:
 		return errors.Wrapf(ErrInvalidSigningKeySource, "%q", o.SigningKeySource)
 	}
+
+	if o.SigningBackend != "" && !slices.Contains(signing.Names(), o.SigningBackend) {
+		return errors.Wrapf(ErrInvalidSigningBackend, "%q (available: %s)", o.SigningBackend, strings.Join(signing.Names(), ", "))
+	}
+
+	return nil
 }
 
 // validateCoreFields groups the core identity checks (name, repo,
@@ -419,6 +437,11 @@ func (o *SkeletonOptions) runSigningStep() error {
 				huh.NewOption("External (WKD) only", "external"),
 			).
 			Value(&o.SigningKeySource),
+		huh.NewInput().
+			Title("Signing key id (optional)").
+			Description("KMS key alias/ARN/id the release pipeline signs with. Leave blank to wire the GoReleaser signs block later via `gtb enable signing --key-id`.").
+			Placeholder("alias/myapp-release-signing-v1").
+			Value(&o.SigningKeyID),
 	).
 		Title("Signing Configuration").
 		Description("These values are written to the manifest signing block.\n")
@@ -541,12 +564,19 @@ func (o *SkeletonOptions) resolveSigning() generator.ManifestSigning {
 		keySource = ""
 	}
 
-	return generator.ManifestSigning{
+	// ApplySigningDefaults fills backend/region/public-key when a key id is
+	// recorded, so the persisted manifest and the rendered .goreleaser.yaml
+	// agree — the same defaulting `gtb enable signing` applies.
+	return generator.ApplySigningDefaults(generator.ManifestSigning{
 		Enabled:                   true,
 		ExternalKeyEmail:          o.SigningEmail,
 		KeySource:                 keySource,
 		RequireExternalCrosscheck: o.SigningRequireExternalCrosscheck,
+		Backend:                   o.SigningBackend,
+		KeyID:                     o.SigningKeyID,
+		KMSRegion:                 o.SigningKMSRegion,
+		PublicKey:                 o.SigningPublicKey,
 		// RequireSignature is never set at generate time: it stays false
 		// until a signed release has shipped (flip via `gtb enable signing`).
-	}
+	})
 }

@@ -2,6 +2,7 @@ package generator
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -25,6 +26,48 @@ const signingGoPath = "pkg/cmd/root/signing.go"
 // project root. The generator writes only its .gitkeep; the author drops
 // minted *.asc files alongside.
 const signingKeysDir = "internal/trustkeys/keys"
+
+// Defaults for the release-signing pipeline, applied when a signing key id
+// is recorded so the generated GoReleaser signs block is always complete.
+const (
+	defaultSigningBackend   = "aws-kms"
+	defaultSigningKMSRegion = "eu-west-2"
+	defaultSigningPublicKey = "internal/trustkeys/keys/signing-key-v1.asc"
+)
+
+// goreleaserAssetRelPath is the generated release config (relative to the
+// project root); goreleaserAssetEmbedPath is its source in the embedded
+// skeleton FS.
+const (
+	goreleaserAssetRelPath   = ".goreleaser.yaml"
+	goreleaserAssetEmbedPath = "assets/skeleton/.goreleaser.yaml"
+)
+
+// ApplySigningDefaults fills the release-pipeline defaults when a signing
+// key id has been recorded, so the generated GoReleaser signs block is
+// always complete. With no key id the release pipeline is left untouched.
+// Exported so the generate command can default at its boundary, keeping the
+// persisted manifest and the rendered .goreleaser.yaml consistent — the same
+// defaulting EnableSigning applies.
+func ApplySigningDefaults(s ManifestSigning) ManifestSigning {
+	if s.KeyID == "" {
+		return s
+	}
+
+	if s.Backend == "" {
+		s.Backend = defaultSigningBackend
+	}
+
+	if s.Backend == defaultSigningBackend && s.KMSRegion == "" {
+		s.KMSRegion = defaultSigningKMSRegion
+	}
+
+	if s.PublicKey == "" {
+		s.PublicKey = defaultSigningPublicKey
+	}
+
+	return s
+}
 
 // writeGeneratedGoFile renders a jen file to path under the project root,
 // creating parent directories as needed. Used for the signing-related Go
@@ -108,6 +151,7 @@ func (g *Generator) removeGeneratedSigningGo() error {
 // regenerate — unrelated files are left untouched.
 func (g *Generator) EnableSigning(ctx context.Context, signing ManifestSigning) error {
 	signing.Enabled = true
+	signing = ApplySigningDefaults(signing)
 
 	return g.applySigningPosture(ctx, signing)
 }
@@ -143,18 +187,25 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 
 	m.Properties.Signing = signing
 
-	if err := g.writeManifest(m); err != nil {
-		return err
-	}
-
 	// Re-render the one root-command file so the Signing: field is added
 	// (enable) or dropped (disable). regenerateRootCommand reads the
-	// manifest values we just persisted via buildSkeletonRootData.
+	// in-memory manifest values via buildSkeletonRootData.
 	if err := g.regenerateRootCommand(*m); err != nil {
 		return err
 	}
 
 	if err := g.syncSigningFiles(*m); err != nil {
+		return err
+	}
+
+	// Add or remove the GoReleaser signs block in .goreleaser.yaml to match
+	// the signing posture. Updates m.Hashes for the re-rendered asset; the
+	// writeManifest below persists both the signing block and the new hash.
+	if err := g.regenerateGoreleaserAsset(m); err != nil {
+		return err
+	}
+
+	if err := g.writeManifest(m); err != nil {
 		return err
 	}
 
@@ -164,6 +215,46 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
 		g.runSkeletonPostProcessing(ctx, g.config.Path)
 	}
+
+	return nil
+}
+
+// regenerateGoreleaserAsset re-renders only the .goreleaser.yaml skeleton
+// asset from the manifest, so enabling/disabling signing adds or removes the
+// GoReleaser signs block. It goes through the same hash-protected render path
+// as a full regenerate, so a hand-customised .goreleaser.yaml is never
+// clobbered (a conflict is logged and skipped, matching walkSkeletonAssets),
+// and records the new hash on the manifest for the caller to persist.
+func (g *Generator) regenerateGoreleaserAsset(m *Manifest) error {
+	content, err := fs.ReadFile(skeletonAssets, goreleaserAssetEmbedPath)
+	if err != nil {
+		return errors.Newf("failed to read embedded %s: %w", goreleaserAssetEmbedPath, err)
+	}
+
+	storedHashes := m.Hashes
+	if storedHashes == nil {
+		storedHashes = make(map[string]string)
+	}
+
+	hash, err := g.renderAndHashSkeletonTemplate(
+		filepath.Join(g.config.Path, goreleaserAssetRelPath),
+		goreleaserAssetRelPath,
+		string(content),
+		g.buildSkeletonTemplateData(*m),
+		storedHashes,
+	)
+	if err != nil {
+		// Non-fatal: a customised .goreleaser.yaml is left untouched.
+		g.props.Logger.Warnf("Skipped %s: %v", goreleaserAssetRelPath, err)
+
+		return nil
+	}
+
+	if m.Hashes == nil {
+		m.Hashes = make(map[string]string)
+	}
+
+	m.Hashes[goreleaserAssetRelPath] = hash
 
 	return nil
 }
