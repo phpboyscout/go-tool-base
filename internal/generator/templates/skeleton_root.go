@@ -30,7 +30,12 @@ type SkeletonRootData struct {
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
-	Subcommands           []SkeletonSubcommand
+	// SigningEnabled gates the Signing: props.SigningConfig{...} block.
+	// When true the generated tool wires trustkeys.Keys() as its embedded
+	// trust anchor; ModulePath supplies the import path for that package.
+	SigningEnabled bool
+	ModulePath     string
+	Subcommands    []SkeletonSubcommand
 }
 
 func SkeletonRoot(data SkeletonRootData) *jen.File {
@@ -137,25 +142,48 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		toolDict[jen.Id("Features")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SetFeatures").Call(buildFeatures(data)...)
 	}
 
-	telemetryDict := jen.Dict{}
-	hasTelemetry := false
+	applyOptionalToolConfig(toolDict, data)
 
-	if data.TelemetryOTelEndpoint != "" {
+	return toolDict
+}
+
+// applyOptionalToolConfig adds the Telemetry and Signing entries to the
+// tool dict when their manifest values are present. Extracted from
+// buildToolDict to keep that function's cyclomatic complexity in check.
+func applyOptionalToolConfig(toolDict jen.Dict, data SkeletonRootData) {
+	if telemetry, ok := telemetryConfigValue(data); ok {
+		toolDict[jen.Id("Telemetry")] = telemetry
+	}
+
+	// When signing is enabled, wire the embedded trust anchor from the
+	// generated internal/trustkeys package. Like Telemetry, a conditional
+	// dict entry driven entirely from manifest values.
+	if data.SigningEnabled && data.ModulePath != "" {
+		toolDict[jen.Id("Signing")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SigningConfig").Values(jen.Dict{
+			jen.Id("EmbeddedKeys"): jen.Qual(data.ModulePath+"/internal/trustkeys", "Keys").Call(),
+		})
+	}
+}
+
+// telemetryConfigValue builds the props.TelemetryConfig value from the
+// manifest telemetry settings, reporting whether any were set. OTel takes
+// precedence over the plain endpoint.
+func telemetryConfigValue(data SkeletonRootData) (jen.Code, bool) {
+	telemetryDict := jen.Dict{}
+
+	switch {
+	case data.TelemetryOTelEndpoint != "":
 		telemetryDict[jen.Id("OTelEndpoint")] = jen.Lit(data.TelemetryOTelEndpoint)
 		telemetryDict[jen.Id("OTelHeaders")] = jen.Map(jen.String()).String().Values(jen.Dict{
 			jen.Lit("Authorization"): jen.Lit("Basic ").Op("+").Id("otelAuth"),
 		})
-		hasTelemetry = true
-	} else if data.TelemetryEndpoint != "" {
+	case data.TelemetryEndpoint != "":
 		telemetryDict[jen.Id("Endpoint")] = jen.Lit(data.TelemetryEndpoint)
-		hasTelemetry = true
+	default:
+		return nil, false
 	}
 
-	if hasTelemetry {
-		toolDict[jen.Id("Telemetry")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict)
-	}
-
-	return toolDict
+	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryConfig").Values(telemetryDict), true
 }
 
 func buildReleaseSourceDict(data SkeletonRootData) jen.Dict {

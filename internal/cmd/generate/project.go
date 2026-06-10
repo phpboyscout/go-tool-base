@@ -33,6 +33,15 @@ type SkeletonOptions struct {
 	TeamsChannel string
 	TeamsTeam    string
 	EnvPrefix    string
+
+	// Signing (off by default). When Signing is true the generated tool
+	// scaffolds internal/trustkeys and wires props.Signing. require_signature
+	// is intentionally not collectable here — it stays false until a signed
+	// release has shipped and is only ever flipped via `gtb enable signing`.
+	Signing                          bool
+	SigningEmail                     string
+	SigningKeySource                 string
+	SigningRequireExternalCrosscheck bool
 }
 
 func NewCmdSkeleton(p *props.Props) *cobra.Command {
@@ -70,6 +79,10 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.TeamsChannel, "teams-channel", "", "Microsoft Teams channel for help")
 	cmd.Flags().StringVar(&opts.TeamsTeam, "teams-team", "", "Microsoft Teams team name")
 	cmd.Flags().StringVar(&opts.EnvPrefix, "env-prefix", "", "Environment variable prefix for config overrides (e.g. MY_APP)")
+	cmd.Flags().BoolVar(&opts.Signing, "signing", false, "Enable consumer-side release-signing verification (scaffolds internal/trustkeys and wires props.Signing)")
+	cmd.Flags().StringVar(&opts.SigningEmail, "signing-email", "", "Release WKD email for signing (external_key_email); implies --signing")
+	cmd.Flags().StringVar(&opts.SigningKeySource, "signing-key-source", "both", "Signing trust-anchor source: embedded, external, or both")
+	cmd.Flags().BoolVar(&opts.SigningRequireExternalCrosscheck, "signing-require-external-crosscheck", false, "Fail signing closed when the external (WKD) resolver is unreachable")
 
 	return cmd
 }
@@ -99,7 +112,26 @@ func (o *SkeletonOptions) validateFields() error {
 		return err
 	}
 
-	return o.validateHelpFields()
+	if err := o.validateHelpFields(); err != nil {
+		return err
+	}
+
+	return o.validateSigningFields()
+}
+
+// validateSigningFields checks the signing key-source value when signing
+// is requested (explicitly or implied by a signing email).
+func (o *SkeletonOptions) validateSigningFields() error {
+	if !o.Signing && o.SigningEmail == "" {
+		return nil
+	}
+
+	switch o.SigningKeySource {
+	case "", "embedded", "external", "both":
+		return nil
+	default:
+		return errors.Wrapf(ErrInvalidSigningKeySource, "%q", o.SigningKeySource)
+	}
 }
 
 // validateCoreFields groups the core identity checks (name, repo,
@@ -338,7 +370,60 @@ func (o *SkeletonOptions) runWizard() error {
 				return nil
 			}
 		}).
+		// Stage 4: release signing — off by default. When enabled, collect
+		// the WKD email and key source. require_signature is never prompted.
+		Step(o.runSigningStep).
 		Run()
+}
+
+// runSigningStep asks whether to enable release signing (default No) and,
+// when enabled, collects the WKD email and key source. require_signature
+// is deliberately never prompted — it stays false until a signed release
+// has shipped and is only flipped later via `gtb enable signing`.
+func (o *SkeletonOptions) runSigningStep() error {
+	if o.SigningKeySource == "" {
+		o.SigningKeySource = "both"
+	}
+
+	enableGroup := huh.NewGroup(
+		huh.NewConfirm().
+			Title("Enable release signing?").
+			Description("Sets up consumer-side self-update signature verification. Needs a signing key and a published WKD endpoint — leave off unless you have them.").
+			Affirmative("Yes").
+			Negative("No").
+			Value(&o.Signing),
+	).
+		Title("Release Signing").
+		Description("Verify self-update downloads against an embedded release key.\n")
+
+	if err := forms.NewNavigable(enableGroup).Run(); err != nil {
+		return err
+	}
+
+	if !o.Signing {
+		return nil
+	}
+
+	detailGroup := huh.NewGroup(
+		huh.NewInput().
+			Title("Release WKD email").
+			Description("Derives the WKD URL and enables the external trust-anchor leg. Leave empty for embedded-only.").
+			Placeholder("release@example.com").
+			Value(&o.SigningEmail),
+		huh.NewSelect[string]().
+			Title("Key source").
+			Description("Where the trust anchor comes from.").
+			Options(
+				huh.NewOption("Both (embedded + external cross-check)", "both"),
+				huh.NewOption("Embedded only", "embedded"),
+				huh.NewOption("External (WKD) only", "external"),
+			).
+			Value(&o.SigningKeySource),
+	).
+		Title("Signing Configuration").
+		Description("These values are written to the manifest signing block.\n")
+
+	return forms.NewNavigable(detailGroup).Run()
 }
 
 // resolveFeatures builds the full feature list from the selected set,
@@ -438,5 +523,30 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		TeamsChannel: o.TeamsChannel,
 		TeamsTeam:    o.TeamsTeam,
 		EnvPrefix:    o.EnvPrefix,
+		Signing:      o.resolveSigning(),
 	})
+}
+
+// resolveSigning builds the manifest signing block from the options.
+// Supplying a signing email implies --signing. The framework-default key
+// source ("both") is stored as empty to keep the manifest minimal.
+func (o *SkeletonOptions) resolveSigning() generator.ManifestSigning {
+	enabled := o.Signing || o.SigningEmail != ""
+	if !enabled {
+		return generator.ManifestSigning{}
+	}
+
+	keySource := o.SigningKeySource
+	if keySource == "both" {
+		keySource = ""
+	}
+
+	return generator.ManifestSigning{
+		Enabled:                   true,
+		ExternalKeyEmail:          o.SigningEmail,
+		KeySource:                 keySource,
+		RequireExternalCrosscheck: o.SigningRequireExternalCrosscheck,
+		// RequireSignature is never set at generate time: it stays false
+		// until a signed release has shipped (flip via `gtb enable signing`).
+	}
 }

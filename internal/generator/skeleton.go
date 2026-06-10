@@ -46,9 +46,10 @@ type SkeletonConfig struct {
 	SlackTeam             string
 	TeamsChannel          string
 	TeamsTeam             string
-	TelemetryEndpoint     string // populated from manifest telemetry.endpoint
-	TelemetryOTelEndpoint string // populated from manifest telemetry.otel_endpoint
-	EnvPrefix             string // environment variable prefix for config overrides
+	TelemetryEndpoint     string          // populated from manifest telemetry.endpoint
+	TelemetryOTelEndpoint string          // populated from manifest telemetry.otel_endpoint
+	EnvPrefix             string          // environment variable prefix for config overrides
+	Signing               ManifestSigning // self-update signature-verification posture (disabled by default)
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -237,6 +238,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TelemetryEndpoint     string
 		TelemetryOTelEndpoint string
 		EnvPrefix             string
+		Signing               ManifestSigning
 	}{
 		Name:                  config.Name,
 		Repo:                  config.Repo,
@@ -259,6 +261,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TelemetryEndpoint:     config.TelemetryEndpoint,
 		TelemetryOTelEndpoint: config.TelemetryOTelEndpoint,
 		EnvPrefix:             config.EnvPrefix,
+		Signing:               config.Signing,
 	}
 
 	// Load existing project-level hashes so we can detect customised files.
@@ -383,6 +386,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
+	Signing               ManifestSigning
 }) error {
 	goFiles := map[string]*jen.File{
 		filepath.Join("cmd", data.Name, "main.go"): templates.SkeletonMain(data.ModulePath),
@@ -406,7 +410,23 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 			TelemetryEndpoint:     data.TelemetryEndpoint,
 			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
 			EnvPrefix:             data.EnvPrefix,
+			SigningEnabled:        data.Signing.Enabled,
+			ModulePath:            data.ModulePath,
 		}),
+	}
+
+	// Signing is disabled by default. When enabled, scaffold the
+	// internal/trustkeys embed package and the generated signing.go
+	// enforcement defaults alongside the Signing: wiring in cmd.go.
+	// The keys/.gitkeep is written separately as a raw file below.
+	if data.Signing.Enabled {
+		goFiles["internal/trustkeys/trustkeys.go"] = templates.SkeletonTrustKeys()
+		goFiles["pkg/cmd/root/signing.go"] = templates.SkeletonSigning(templates.SkeletonSigningData{
+			ExternalKeyEmail:          data.Signing.ExternalKeyEmail,
+			RequireSignature:          data.Signing.RequireSignature,
+			KeySource:                 data.Signing.KeySource,
+			RequireExternalCrosscheck: data.Signing.RequireExternalCrosscheck,
+		})
 	}
 
 	// Keychain support is default-enabled. Scaffold cmd/<name>/keychain.go
@@ -443,6 +463,37 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
 		}
 
 		g.props.Logger.Debugf("Wrote Go file: %s", fullPath)
+	}
+
+	// When signing is enabled, ensure internal/trustkeys/keys/.gitkeep
+	// exists so the directory ships in git and the `all:keys` embed has a
+	// file to match. Author-added *.asc keys live alongside it and are
+	// never touched.
+	if data.Signing.Enabled {
+		if err := g.writeGitkeep(filepath.Join(destPath, "internal", "trustkeys", "keys")); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// writeGitkeep ensures an empty .gitkeep exists in dir, creating the
+// directory if needed. It is a no-op when the file already exists so
+// author-added sibling files are left untouched.
+func (g *Generator) writeGitkeep(dir string) error {
+	if err := g.props.FS.MkdirAll(dir, os.ModePerm); err != nil {
+		return errors.Newf("failed to create directory %s: %w", dir, err)
+	}
+
+	gitkeepPath := filepath.Join(dir, ".gitkeep")
+
+	if exists, _ := afero.Exists(g.props.FS, gitkeepPath); exists {
+		return nil
+	}
+
+	if err := afero.WriteFile(g.props.FS, gitkeepPath, []byte{}, os.ModePerm); err != nil {
+		return errors.Newf("failed to write %s: %w", gitkeepPath, err)
 	}
 
 	return nil
@@ -642,6 +693,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 				TeamsChannel: config.TeamsChannel,
 				TeamsTeam:    config.TeamsTeam,
 			},
+			Signing: config.Signing,
 		},
 		ReleaseSource: ManifestReleaseSource{
 			Type:    releaseProviderForHost(config.Host),

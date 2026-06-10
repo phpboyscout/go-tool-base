@@ -117,9 +117,15 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 
 	g.props.Logger.Debug("Regenerating skeleton files...")
 
-	_, err = g.regenerateSkeletonFiles(m)
+	if _, err = g.regenerateSkeletonFiles(m); err != nil {
+		return err
+	}
 
-	return err
+	// Keep the signing-owned files in sync with the manifest posture:
+	// the trustkeys package, keys/.gitkeep and signing.go are emitted
+	// when signing is enabled, and signing.go is dropped when disabled.
+	// (cmd.go's Signing: field was handled by regenerateRootCommand.)
+	return g.syncSigningFiles(m)
 }
 
 // collectSkeletonHashes loads the current project file hashes from the manifest.
@@ -249,6 +255,8 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
+		SigningEnabled:        m.Properties.Signing.Enabled,
+		ModulePath:            m.ReleaseSource.Host + "/" + org + "/" + repoName,
 		Subcommands:           subcommands,
 	}
 }

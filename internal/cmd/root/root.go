@@ -14,6 +14,8 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/disable"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/enable"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
@@ -98,6 +100,8 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		regenerate.NewCmdRegenerate(p),
 		keys.NewCmdKeys(p),
 		sign.NewCmdSign(p),
+		enable.NewCmdEnable(p),
+		disable.NewCmdDisable(p),
 	)
 
 	return rootCmd, p

@@ -174,6 +174,31 @@ type ManifestTelemetry struct {
 	OTelEndpoint string `yaml:"otel_endpoint,omitempty"`
 }
 
+// ManifestSigning holds self-update signature-verification configuration
+// for generated tools. It is the manifest representation of the generated
+// internal/trustkeys package, the props.Tool.Signing wiring, and the
+// generated signing.go enforcement defaults. Signing is disabled by
+// default — a project with no signing block scaffolds nothing
+// signing-related. See docs/development/specs/2026-06-10-signing-generator-feature.md.
+type ManifestSigning struct {
+	// Enabled gates all signing scaffolding. Defaults to false; set true
+	// by `gtb enable signing` or `gtb generate project --signing`.
+	Enabled bool `yaml:"enabled,omitempty"`
+	// ExternalKeyEmail derives the WKD URL and enables the external
+	// (WKD) trust-anchor leg. Empty leaves verification embedded-only.
+	ExternalKeyEmail string `yaml:"external_key_email,omitempty"`
+	// RequireSignature fails an update closed when no valid signature is
+	// present. Stays false until a signed release has shipped (the N+1
+	// rollout); only ever flipped via `gtb enable signing --require-signature`.
+	RequireSignature bool `yaml:"require_signature,omitempty"`
+	// KeySource selects the trust-anchor source: "embedded", "external"
+	// or "both" (the framework default when empty).
+	KeySource string `yaml:"key_source,omitempty"`
+	// RequireExternalCrosscheck fails closed when the external (WKD)
+	// resolver is unreachable, rather than degrading to embedded-only.
+	RequireExternalCrosscheck bool `yaml:"require_external_crosscheck,omitempty"`
+}
+
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`
 	Description MultilineString   `yaml:"description"`
@@ -181,6 +206,7 @@ type ManifestProperties struct {
 	EnvPrefix   string            `yaml:"env_prefix,omitempty"`
 	Help        ManifestHelp      `yaml:"help,omitempty"`
 	Telemetry   ManifestTelemetry `yaml:"telemetry,omitempty"`
+	Signing     ManifestSigning   `yaml:"signing,omitempty"`
 }
 
 type ManifestHelp struct {
