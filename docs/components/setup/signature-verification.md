@@ -121,7 +121,23 @@ func NewWKDResolver(cfg WKDResolverConfig) (KeyResolver, error)
 func WKDURLs(email string) (advanced, direct, advancedHost string, err error)
 ```
 
-URL derivation follows the WKD draft §3.1: the SHA-1 of the lower-cased local part, encoded in Z-Base-32, plugged into an advanced URL (`https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<hash>?l=<local>`) and a direct fallback (`https://<domain>/.well-known/openpgpkey/hu/<hash>?l=<local>`).
+#### URL derivation — the only configurable input is the email
+
+URL derivation follows [draft-koch-openpgp-webkey-service §3.1][wkd-draft]. Given a release email `release@example.org`, the resolver computes:
+
+| Component | Source |
+|-----------|--------|
+| Local part | Everything before the `@` (`release`) |
+| Domain | Everything after the `@`, lowercased (`example.org`) |
+| Hash | SHA-1 of the lower-cased local part, encoded in z-base-32 |
+| **Advanced URL** | `https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<hash>?l=<localpart>` |
+| **Direct URL** (fallback on 404) | `https://<domain>/.well-known/openpgpkey/hu/<hash>?l=<localpart>` |
+
+The `openpgpkey.` subdomain prefix is **not configurable** — it is part of the WKD wire format. Every WKD client (GnuPG, our `WKDResolver`, Sequoia, etc.) hardcodes this prefix when constructing the advanced URL, so a WKD-publishing domain serves the key under that fixed pattern.
+
+In practice: **the only thing a tool author aligns across the framework, the DNS, and the hosting account is the release email.** Setting `setup.DefaultExternalKeyEmail` (or `update.external_key_email` via config) is sufficient — the verifier derives the URLs, the operator stands up the matching `openpgpkey.<domain>` endpoint, the keys flow.
+
+[wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
 
 !!! info "SHA-1 here is a directory lookup hash, not a security mechanism"
     The WKD wire format mandates SHA-1 to locate the key file. It is **not** used for integrity — signature verification runs on Ed25519/RSA via go-crypto. The `gosec` G401/G505 findings on this single use are exempted by path in `.golangci.yaml` for exactly this reason.

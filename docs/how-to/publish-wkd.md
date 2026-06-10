@@ -29,6 +29,21 @@ the round-trip with `gpg --auto-key-locate`.
 - A `gpg --locate-keys release@<yourdomain>` lookup that returns the
   same keys you embedded in the binary
 
+!!! info "Why `openpgpkey.<yourdomain>`?"
+    The `openpgpkey.` subdomain literal is fixed by
+    [draft-koch-openpgp-webkey-service §3.1][wkd-draft] — it is the
+    spec's "advanced" URL form. Every WKD client (GnuPG, GTB's
+    verifier, Sequoia, etc.) hardcodes this prefix when constructing
+    the lookup URL, so we don't choose it. The verifier configuration
+    on the consumer side only ever takes the **email**; the hostname
+    falls out mechanically. See the
+    [Release-binary signing concept][concept] doc's "How the
+    verifier finds your WKD endpoint" section for the full derivation
+    walk-through.
+
+[wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
+[concept]: ../concepts/release-binary-signing.md#how-the-verifier-finds-your-wkd-endpoint
+
 ## One-time setup
 
 Per [phase2-signing-prep doc][prep] § Gate 2, the WKD trust anchor

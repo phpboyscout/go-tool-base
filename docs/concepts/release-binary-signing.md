@@ -196,6 +196,63 @@ A successful poisoning attack now requires an attacker to compromise
 both the release registry **and** your WKD-hosting account. That's a
 materially higher bar.
 
+## How the verifier finds your WKD endpoint
+
+There is only **one** configurable input on the verifier side: the
+release email (`update.external_key_email`, e.g.
+`release@yourdomain.com`). Everything else — the hostname, the path,
+the file location — is mechanically derived from that email per
+[draft-koch-openpgp-webkey-service §3.1][wkd-draft], the protocol
+spec.
+
+[wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
+
+Walked through for `release@phpboyscout.uk`:
+
+| Step | Value |
+|------|-------|
+| Configured | `release@phpboyscout.uk` |
+| Split on `@` → local-part | `release` |
+| Split on `@` → domain | `phpboyscout.uk` |
+| Local-part hash (SHA-1 → z-base-32) | `y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
+| **Advanced URL** (tried first) | `https://openpgpkey.phpboyscout.uk/.well-known/openpgpkey/phpboyscout.uk/hu/y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
+| **Direct URL** (fallback on 404) | `https://phpboyscout.uk/.well-known/openpgpkey/hu/y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
+
+### Why specifically `openpgpkey.<domain>`?
+
+The literal string `openpgpkey.` is **not a `gtb` convention** — it
+is mandated by the WKD spec for the "advanced" URL form. WKD
+clients (GnuPG, our `WKDResolver`, Sequoia, anything implementing
+the protocol) all hardcode this prefix when constructing the
+advanced lookup URL, because the whole point of the spec is "I have
+an email, give me the key without knowing anything else about the
+target domain."
+
+A WKD-publishing domain can serve either or both URL forms:
+
+- **Advanced** is the production default. Hosting the key material
+  under a dedicated subdomain (`openpgpkey.phpboyscout.uk`) lets you
+  put the WKD endpoint behind separate TLS, separate hosting, and
+  ideally a separate registrar account — without disturbing the
+  main site. This is what the trust-anchor independence story relies
+  on (see [phase2-signing-prep][prep] for the Cloudflare Pages recipe).
+- **Direct** would serve the WKD layout from the bare `phpboyscout.uk`
+  domain. The resolver falls back to it on 404, so a domain that
+  hosts WKD on its main site also works.
+
+[prep]: ../development/phase2-signing-prep.md
+
+### Consequence: one variable to align
+
+If you're consuming GTB as a framework and adopting this signing
+chain in your own tool, **the only thing you align across the
+framework, the DNS, and the hosting account is the email.** Set
+`setup.DefaultExternalKeyEmail` in your tool's init (or pass it via
+`update.external_key_email` config), mint your key with that email
+on the UID, stand up the WKD endpoint at `openpgpkey.<yourdomain>`,
+publish the key. The framework derives the URL; the verifier knows
+where to look.
+
 ## What you'll see in `gtb update` logs
 
 Every update emits two structured log lines that tell you exactly
