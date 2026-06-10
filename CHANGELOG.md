@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.13.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.13.1)
+
+### Bug Fixes
+
+- **setup**: wire WKD cross-check by setting DefaultExternalKeyEmail
+- **keys**: point keys help at the GitLab repo, not the archived GitHub one
+
 ## [v0.13.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.13.0)
 
 ### Features
