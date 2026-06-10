@@ -12,8 +12,14 @@ Phase 1 of secure self-update verifies a downloaded binary against the release's
 
 Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an OpenPGP key, and the updater verifies that detached signature against a **trust set** of vetted public keys before the manifest is ever parsed. This page documents the cryptographic primitives that make up the trust layer.
 
-!!! note "Status"
-    The verification path is wired end-to-end in `pkg/setup`: the `TrustSet` primitive, the `KeyResolver` chain, the strength policy, the `update.*` config keys, and the verify-before-parse gate inside `SelfUpdater.Update()` are all implemented and tested. What remains are **operational**, not code: producing GTB's own signed releases (the `scripts/sign-release.sh` signing step and the `.goreleaser.yaml` signs block) and standing up the WKD endpoint with GTB's published key. Those are tracked in the [remote-update-checksum-verification spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md) and `docs/development/phase2-signing-prep.md`. A downstream tool can use the full path today by supplying its own keys.
+!!! success "Status — Phase 2 shipped"
+    Both the verification primitives and the production wiring are live:
+
+    - **v0.12.2** (2026-06-09) — first signed release. `checksums.txt.sig` attached to every release going forward; signature produced by an AWS-KMS-held RSA-4096 key via OIDC-federated CI.
+    - **v0.13.0** (2026-06-09) — `setup.DefaultRequireSignature = true`. Every update now refuses to install an unsigned release.
+    - **v0.13.1** (2026-06-10) — wired `setup.DefaultExternalKeyEmail = "release@phpboyscout.uk"` so the resolver chain becomes `CompositeResolver{Embedded, WKD}` by default. Before this, the verifier silently degraded to embedded-only — see [Interpreting verifier log output](#interpreting-verifier-log-output) below.
+
+    Downstream tools using `pkg/setup` get the same wiring out of the box by setting `setup.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md) cover the rollout history end-to-end.
 
 ## Threat Model
 
@@ -150,6 +156,63 @@ key_source: embedded  →  EmbeddedResolver                    (no cross-check)
 key_source: external  →  WKDResolver                         (single source of truth)
 key_source: both      →  CompositeResolver{Embedded, WKD}    (default; cross-checked)
 ```
+
+## Interpreting verifier log output
+
+Every `gtb update` emits two structured log lines that tell you exactly which trust anchors were consulted. They're the primary diagnostic both for operators and for support conversations.
+
+### `update signature verification configured`
+
+Emitted once at the start of an update attempt, **before** any network I/O for signature material. The `resolver` field names the concrete `KeyResolver` that will be asked to produce the trust set.
+
+```
+INFO update signature verification configured resolver=<name>
+```
+
+| `resolver=<name>` value | Meaning | Trust-anchor count |
+|--------------------------|---------|--------------------|
+| `embedded` | Only the keys baked into the binary at build time. WKD is **not** consulted. Happens when `update.key_source` is `embedded`, OR when `key_source=both` but `update.external_key_email` is empty. | 1 |
+| `wkd:<host>` | Only the keys served from that WKD endpoint. The embedded set is **not** consulted. Happens when `update.key_source` is `external`, OR when `key_source=both` but no keys were embedded into the binary. | 1 |
+| `composite[embedded,wkd:<host>]` | **The intended Phase 2 default.** Both the embedded set AND the WKD-served set are fetched. Their fingerprints must agree, or the update aborts with `ErrKeyResolverMismatch`. | 2 |
+| `composite[wkd:<host>,…]` (multiple WKD entries) | A tool author wired more than one external anchor. All listed entries are fetched in parallel and must agree. | ≥2 |
+
+### `signature verified`
+
+Emitted after the detached signature has been verified against the resolved trust set — i.e. after a successful signature check.
+
+```
+INFO signature verified resolver=<name>
+```
+
+The `resolver` value matches the one logged at `configured` (verification runs against the trust set the resolver produced). Seeing this line means:
+
+1. `update.require_signature` was enabled (or the release happened to ship a sig anyway).
+2. The trust set resolved successfully — including, for `composite[…]`, that all configured anchors **agreed on the same fingerprint set**.
+3. The OpenPGP signature over `checksums.txt` validated against at least one key in that trust set.
+
+### Failure-side log lines
+
+Mismatch, missing signature, weak key, or signature-doesn't-validate all log at `Warn` or `Error` with the matching sentinel from the [Sentinel Errors](#sentinel-errors) table. Notable failure shapes:
+
+```
+WARN composite resolver failed (RequireAll=false, continuing) resolver=wkd:openpgpkey.example.com err=...
+```
+
+A child resolver in a `composite[…]` chain failed (typically a transient network error or a 404 from the WKD endpoint), but `RequireAll` was `false` (the default), so the surviving resolver's trust set was used and the update continued. Re-run with `--debug` and check the WKD endpoint if you see this consistently.
+
+```
+ERROR ErrKeyResolverMismatch: composite: resolvers returned divergent fingerprint sets
+```
+
+**Active-tampering signal.** Two trust anchors disagreed on which key is currently valid. The update is aborted; investigate which anchor is wrong before retrying. This is the highest-priority signal the verifier emits.
+
+### Customer-facing summary
+
+For tickets where a user asks "is my update actually being verified?", read the `resolver=` value:
+
+- `resolver=composite[embedded,wkd:openpgpkey.phpboyscout.uk]` — full two-of-three trust-anchor independence. Both `internal/trustkeys/keys/*.asc` (embedded) and the live key served from Cloudflare Pages were consulted and agreed.
+- `resolver=embedded` — single-anchor verification. The embedded key alone was authoritative. **Cryptographically sound, but lower defence-in-depth.** This was the state of v0.13.0 binaries between 2026-06-09 (Phase 2 ship) and 2026-06-10 (the `DefaultExternalKeyEmail` fix in v0.13.1). Tell the customer: their next `gtb update` (from v0.13.1+) will upgrade to the composite resolver automatically.
+- `resolver=wkd:…` — single-anchor verification via WKD only. The customer's tool was built without an embedded key; the externally-served key is the sole trust anchor.
 
 ## Sentinel Errors
 

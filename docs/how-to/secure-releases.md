@@ -213,6 +213,19 @@ setup.DefaultRequireExternalCrosscheck = true
    - **Custom HTTPS** — implement `KeyResolver` with your own endpoint (Vault, static S3, internal CA-served HTTPS). Register it via `setup.WithKeyResolver` on `SelfUpdater`.
 4. **Store** the private half in a KMS (AWS/GCP/Azure), Vault Transit, or a hardware token. GitHub encrypted secrets are a last resort — see the spec's Key Management section.
 
+### Diagnosing live updates from logs
+
+Every `gtb update` (or your tool's equivalent) emits structured log lines that name the concrete resolver used:
+
+```
+INFO update signature verification configured resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
+INFO signature verified resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
+```
+
+The `resolver=` value is the most useful single field for support triage. `composite[embedded,wkd:…]` means both trust anchors were consulted and agreed; `embedded` or `wkd:…` alone means only one anchor was consulted (cryptographically sound but lower defence-in-depth). Full interpretation table — including failure-side log shapes for active-tampering signals — lives in the [Signature Verification component reference][svdocs].
+
+[svdocs]: ../components/setup/signature-verification.md#interpreting-verifier-log-output
+
 ### Custom resolvers (third-party key source)
 
 ```go

@@ -42,34 +42,11 @@ func init() {
 		otelAuth = base64.StdEncoding.EncodeToString([]byte(otelInstanceID + ":" + raw))
 	}
 
-	// Phase 1 of the update-checksum-verification spec: gtb is a
-	// security-tooling CLI that cannot silently accept unverified
-	// binaries. GoReleaser has always produced checksums.txt on every
-	// release, so flipping the library default to fail-closed is
-	// safe — a future release with a broken pipeline will abort the
-	// update with an actionable error rather than quietly installing
-	// an unverified binary.
-	//
-	// End users can still override via the `update.require_checksum`
-	// config key or `GTB_UPDATE_REQUIRE_CHECKSUM=false` env var if
-	// they need to update from a legacy release lacking the manifest.
-	setup.DefaultRequireChecksum = true
-
-	// Phase 2 of the same spec, completing the rollout. v0.12.2 was
-	// the first signed release (KMS-held key, OIDC-federated GitLab
-	// CI, ASCII-armored checksums.txt.sig attached to the GitLab
-	// Release). Every release from this binary's tag onward will
-	// carry a signature, so flipping the library default to
-	// fail-closed is now safe: a verifier with the embedded trust
-	// anchor (internal/trustkeys/keys/*.asc) cross-checked against
-	// the externally-served WKD copy at openpgpkey.phpboyscout.uk
-	// will refuse to install an update that wasn't signed by the
-	// trusted release key.
-	//
-	// End users can still override via the `update.require_signature`
-	// config key or `GTB_UPDATE_REQUIRE_SIGNATURE=false` env var if
-	// they need to install a legacy release that predates v0.12.2.
-	setup.DefaultRequireSignature = true
+	// gtb-specific signing defaults (DefaultRequireChecksum,
+	// DefaultRequireSignature, DefaultExternalKeyEmail) live in the
+	// sibling signing.go file. Kept out of root.go because the
+	// scaffolding generator templates from root.go and shouldn't ship
+	// our signing posture into downstream tools.
 }
 
 func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {

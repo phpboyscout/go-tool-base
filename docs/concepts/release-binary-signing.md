@@ -196,6 +196,36 @@ A successful poisoning attack now requires an attacker to compromise
 both the release registry **and** your WKD-hosting account. That's a
 materially higher bar.
 
+## What you'll see in `gtb update` logs
+
+Every update emits two structured log lines that tell you exactly
+which trust anchors were consulted:
+
+```
+INFO update signature verification configured resolver=<name>
+INFO signature verified resolver=<name>
+```
+
+The `resolver=` value names the concrete `KeyResolver` chain that
+produced the trust set. For a customer-facing summary:
+
+| `resolver=…` value | What it means |
+|--------------------|---------------|
+| `composite[embedded,wkd:<host>]` | **The intended Phase 2 default.** Both trust anchors (the keys baked into the binary at build time AND the keys served live from your WKD endpoint) were fetched and **must agree** on the same fingerprints before the update proceeds. Two-of-three trust-anchor independence — the security property this design exists to deliver. |
+| `embedded` | Single-anchor verification: only the keys baked into the binary at build time were consulted. Cryptographically sound (the signature still has to validate against a trusted key), but lower defence-in-depth than the composite default. Most commonly seen in tools where `update.external_key_email` hasn't been configured. |
+| `wkd:<host>` | Single-anchor verification: only the keys served by that WKD endpoint were consulted. Useful for tools that intentionally don't embed any keys (e.g. server-side automation that trusts its DNS but doesn't ship binary releases). |
+
+If you ever see `ErrKeyResolverMismatch` in the logs, that's an
+**active-tampering signal** — two trust anchors disagreed on which
+key is currently valid. Investigate which anchor is wrong before
+re-running. This is the highest-priority signal the verifier emits.
+
+The full table of log shapes and what to do about each lives in the
+[Signature Verification component reference][svdocs] under
+"Interpreting verifier log output".
+
+[svdocs]: ../components/setup/signature-verification.md#interpreting-verifier-log-output
+
 ## Where `gtb` stops and `goreleaser` starts
 
 `gtb keys` produces the trust artefacts (public keys). It does **not**
