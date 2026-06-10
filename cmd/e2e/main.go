@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
 	"gitlab.com/phpboyscout/go-tool-base/internal/version"
@@ -100,6 +101,7 @@ func newTestRoot() (*setup.Command, *props.Props) {
 		generate.NewCmdGenerate(p),
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
+		keys.NewCmdKeys(p),
 	)
 
 	return rootCmd, p

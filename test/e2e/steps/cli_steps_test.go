@@ -25,6 +25,7 @@ type cliWorld struct {
 	stderr     string
 	exitCode   int
 	envVars    map[string]string
+	keysDir    string // scratch dir for `gtb keys *` outputs; {keys_dir} placeholder
 }
 
 func getCLIWorld(ctx context.Context) *cliWorld {
@@ -58,6 +59,10 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 			_ = os.RemoveAll(w.initDir)
 		}
 
+		if w.keysDir != "" {
+			_ = os.RemoveAll(w.keysDir)
+		}
+
 		return ctx, nil
 	})
 
@@ -70,6 +75,8 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the config file contains:$`, theConfigFileContains)
 	ctx.Step(`^a config file with no log\.level key$`, aConfigFileWithNoLogLevelKey)
 	ctx.Step(`^a config file exists with:$`, aTemporaryDirectoryWithConfigFile)
+	ctx.Step(`^a temporary keys directory$`, aTemporaryKeysDirectory)
+	ctx.Step(`^an RSA keypair has been generated as "([^"]*)"$`, anRSAKeypairHasBeenGeneratedAs)
 
 	// --- When ---
 	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
@@ -91,6 +98,8 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the config file in the init directory does not contain "([^"]*)"$`, theInitConfigDoesNotContain)
 	ctx.Step(`^the config file contains "([^"]*)"$`, theScenarioConfigContains)
 	ctx.Step(`^the config file does not contain "([^"]*)"$`, theScenarioConfigDoesNotContain)
+	ctx.Step(`^the file "([^"]*)" exists in the keys directory$`, theFileExistsInKeysDir)
+	ctx.Step(`^the file "([^"]*)" in the keys directory contains "([^"]*)"$`, theFileInKeysDirContains)
 }
 
 // --- Given implementations ---
@@ -169,6 +178,13 @@ func iRunGTBWith(ctx context.Context, args string) context.Context {
 	// Substitute {init_dir} placeholder with the actual temp init directory
 	if w.initDir != "" {
 		args = strings.ReplaceAll(args, "{init_dir}", w.initDir)
+	}
+
+	// Substitute {keys_dir} placeholder with the keys scratch directory.
+	// Used by features/cli/keys.feature for outputs of `gtb keys generate`
+	// / `keys mint` / `keys wkd`.
+	if w.keysDir != "" {
+		args = strings.ReplaceAll(args, "{keys_dir}", w.keysDir)
 	}
 
 	parts := strings.Fields(args)
@@ -462,4 +478,87 @@ func theScenarioConfigDoesNotContain(ctx context.Context, substr string) error {
 	}
 
 	return nil
+}
+
+// --- `gtb keys` helpers ---------------------------------------------
+
+// aTemporaryKeysDirectory provisions an isolated scratch dir for
+// `gtb keys *` outputs. Referenced by the `{keys_dir}` placeholder in
+// `I run gtb with "..."` steps. Cleaned up in the scenario After hook.
+func aTemporaryKeysDirectory(ctx context.Context) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	tmpDir, err := os.MkdirTemp("", "gtb-e2e-keys-*")
+	if err != nil {
+		return ctx, fmt.Errorf("failed to create temp keys dir: %w", err)
+	}
+
+	w.keysDir = tmpDir
+
+	return ctx, nil
+}
+
+// theFileExistsInKeysDir asserts a file (or nested file) exists under
+// the keys scratch dir. The path is joined onto keysDir so callers can
+// use either a bare filename ("release.asc") or a relative path
+// ("wkd-staging/.well-known/openpgpkey/example.org/policy").
+func theFileExistsInKeysDir(ctx context.Context, path string) error {
+	w := getCLIWorld(ctx)
+
+	full := filepath.Join(w.keysDir, path)
+	if _, err := os.Stat(full); err != nil {
+		return fmt.Errorf("file %q does not exist in keys directory: %w", path, err)
+	}
+
+	return nil
+}
+
+// theFileInKeysDirContains asserts the file's bytes contain substr.
+// Used to spot-check OpenPGP armor headers without parsing the
+// underlying packets — the unit tests cover parsing correctness.
+func theFileInKeysDirContains(ctx context.Context, path, substr string) error {
+	w := getCLIWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.keysDir, path))
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	if !strings.Contains(string(content), substr) {
+		return fmt.Errorf("file %q should contain %q\ncontent:\n%s", path, substr, content)
+	}
+
+	return nil
+}
+
+// anRSAKeypairHasBeenGeneratedAs invokes `gtb keys generate
+// --algorithm rsa` to seed a pair of `<basename>.asc` / `<basename>.pem`
+// files for subsequent mint / wkd scenarios. Smaller key (2048) for
+// test speed; cryptographic-strength behaviour belongs in unit tests.
+func anRSAKeypairHasBeenGeneratedAs(ctx context.Context, basename string) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	parts := []string{
+		"keys", "generate",
+		"--algorithm", "rsa",
+		"--rsa-bits", "2048",
+		"--name", "Test",
+		"--email", "test@example.org",
+		"--output", filepath.Join(w.keysDir, basename+".asc"),
+		"--private-output", filepath.Join(w.keysDir, basename+".pem"),
+		"--ci",
+		"--config", filepath.Join(w.configDir, "config.yaml"),
+	}
+
+	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args derived from Gherkin step
+
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return ctx, fmt.Errorf("seed RSA keypair %q failed: %w\nstdout: %s\nstderr: %s", basename, err, stdout.String(), stderr.String())
+	}
+
+	return ctx, nil
 }

@@ -26,4 +26,5 @@ paths = [
     '''pkg/openapi/assets/styles\.min\.css''',
     '''internal/cmd/keys/keys_test\.go''',
     '''docs/development/specs/2026-06-08-keys-mint-command\.md''',
+    '''features/cli/keys\.feature''',
 ]
