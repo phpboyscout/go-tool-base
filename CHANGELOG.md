@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.15.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.15.1)
+
+### Bug Fixes
+
+- **enable**: only prompt for the email on a first enable
+- **enable**: merge signing flags onto the existing posture, don't replace
+
 ## [v0.15.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.15.0)
 
 ### Features
