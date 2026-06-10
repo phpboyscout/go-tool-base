@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.14.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.14.0)
+
+### Features
+
+- **generator**: scaffold release-signing via `gtb enable signing`
+
 ## [v0.13.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.13.1)
 
 ### Bug Fixes
