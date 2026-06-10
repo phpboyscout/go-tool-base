@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.15.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.15.0)
+
+### Features
+
+- **generator**: write the GoReleaser signs block via `gtb enable signing`
+
 ## [v0.14.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.14.0)
 
 ### Features
