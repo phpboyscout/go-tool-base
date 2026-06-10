@@ -144,6 +144,23 @@ func (g *Generator) removeGeneratedSigningGo() error {
 	return nil
 }
 
+// CurrentSigning returns the project's current manifest signing block, so a
+// caller (e.g. `gtb enable signing`) can merge flag overrides onto the
+// existing posture rather than replacing it. A project that has never enabled
+// signing returns the zero ManifestSigning.
+func (g *Generator) CurrentSigning() (ManifestSigning, error) {
+	if err := g.verifyProject(); err != nil {
+		return ManifestSigning{}, err
+	}
+
+	m, err := g.loadManifest()
+	if err != nil {
+		return ManifestSigning{}, err
+	}
+
+	return m.Properties.Signing, nil
+}
+
 // EnableSigning sets the manifest signing posture, then selectively
 // regenerates only the signing-affected files: it writes the trustkeys
 // package, keys/.gitkeep and signing.go, and re-renders the root command

@@ -80,45 +80,129 @@ flag to do so.`,
 	return setup.Wrap("", cmd)
 }
 
+// signingFlagSet records which signing fields an `enable signing` invocation
+// actually provided — via an explicit flag or the interactive prompt. Fields
+// not provided keep their existing manifest value, so changing one setting on
+// a re-run never resets the others.
+type signingFlagSet struct {
+	email             bool
+	keySource         bool
+	requireSignature  bool
+	requireCrosscheck bool
+	backend           bool
+	keyID             bool
+	kmsRegion         bool
+	publicKey         bool
+}
+
+// validateSigningFlags checks the flag values this invocation actually
+// provided: the key source must be one of the accepted set, and the backend
+// must be a registered signing backend. Unprovided fields aren't validated —
+// they keep their existing manifest value.
+func validateSigningFlags(opts *signingOptions, set signingFlagSet) error {
+	if set.keySource && !validKeySources[opts.KeySource] {
+		return errors.Wrapf(ErrInvalidKeySource, "%q", opts.KeySource)
+	}
+
+	if set.backend && opts.Backend != "" && !slices.Contains(signing.Names(), opts.Backend) {
+		return errors.Wrapf(ErrInvalidBackend, "%q (available: %s)", opts.Backend, strings.Join(signing.Names(), ", "))
+	}
+
+	return nil
+}
+
+// mergeSigning overlays the provided option values onto the current manifest
+// signing block, leaving unprovided fields untouched.
+func mergeSigning(current generator.ManifestSigning, opts *signingOptions, set signingFlagSet) generator.ManifestSigning {
+	m := current
+
+	if set.email {
+		m.ExternalKeyEmail = opts.Email
+	}
+
+	if set.keySource {
+		m.KeySource = normaliseKeySource(opts.KeySource)
+	}
+
+	if set.requireSignature {
+		m.RequireSignature = opts.RequireSignature
+	}
+
+	if set.requireCrosscheck {
+		m.RequireExternalCrosscheck = opts.RequireExternalCrosscheck
+	}
+
+	if set.backend {
+		m.Backend = opts.Backend
+	}
+
+	if set.keyID {
+		m.KeyID = opts.KeyID
+	}
+
+	if set.kmsRegion {
+		m.KMSRegion = opts.KMSRegion
+	}
+
+	if set.publicKey {
+		m.PublicKey = opts.PublicKey
+	}
+
+	return m
+}
+
 func runEnableSigning(cmd *cobra.Command, p *props.Props, opts *signingOptions) error {
 	opts.Path = icmd.ResolveProjectPath(p, opts.Path)
 
-	// Prompt for the email when omitted and the session is interactive
-	// and not in CI. require_signature is deliberately never prompted.
+	// Track which fields this invocation actually provides, so re-running to
+	// change one setting (the N+1 → N+2 → N+3 rollout) leaves the others as
+	// they are rather than resetting them to defaults.
+	set := signingFlagSet{
+		email:             cmd.Flags().Changed("email"),
+		keySource:         cmd.Flags().Changed("key-source"),
+		requireSignature:  cmd.Flags().Changed("require-signature"),
+		requireCrosscheck: cmd.Flags().Changed("require-external-crosscheck"),
+		backend:           cmd.Flags().Changed("backend"),
+		keyID:             cmd.Flags().Changed("key-id"),
+		kmsRegion:         cmd.Flags().Changed("kms-region"),
+		publicKey:         cmd.Flags().Changed("public-key"),
+	}
+
+	// Prompt for the email when omitted and the session is interactive and not
+	// in CI; the answers count as provided. require_signature is never prompted.
 	if opts.Email == "" && utils.IsInteractive() && !isCI(cmd, p) {
 		if err := opts.promptInteractive(); err != nil {
 			return err
 		}
+
+		set.email = true
+		set.keySource = true
 	}
 
-	if !validKeySources[opts.KeySource] {
-		return errors.Wrapf(ErrInvalidKeySource, "%q", opts.KeySource)
-	}
-
-	if opts.Backend != "" && !slices.Contains(signing.Names(), opts.Backend) {
-		return errors.Wrapf(ErrInvalidBackend, "%q (available: %s)", opts.Backend, strings.Join(signing.Names(), ", "))
-	}
-
-	signingCfg := generator.ManifestSigning{
-		ExternalKeyEmail:          opts.Email,
-		RequireSignature:          opts.RequireSignature,
-		KeySource:                 normaliseKeySource(opts.KeySource),
-		RequireExternalCrosscheck: opts.RequireExternalCrosscheck,
-		Backend:                   opts.Backend,
-		KeyID:                     opts.KeyID,
-		KMSRegion:                 opts.KMSRegion,
-		PublicKey:                 opts.PublicKey,
+	if err := validateSigningFlags(opts, set); err != nil {
+		return err
 	}
 
 	gen := generator.New(p, &generator.Config{Path: opts.Path, Overwrite: "allow"})
-	if err := gen.EnableSigning(cmd.Context(), signingCfg); err != nil {
+
+	// Merge the provided flags onto the existing signing block so changing one
+	// field on a re-run never silently drops the others (e.g. adding --key-id
+	// must not clear the WKD email set on the first enable).
+	current, err := gen.CurrentSigning()
+	if err != nil {
+		return err
+	}
+
+	merged := mergeSigning(current, opts, set)
+
+	if err := gen.EnableSigning(cmd.Context(), merged); err != nil {
 		return err
 	}
 
 	p.Logger.Info("Signing enabled.")
 	p.Logger.Info("Drop your minted public key(s) into internal/trustkeys/keys/*.asc, then commit.")
 
-	if !opts.RequireSignature {
+	if !merged.RequireSignature {
 		p.Logger.Info("require_signature stays off until a signed release has shipped — re-run with --require-signature to flip it.")
 	}
 
