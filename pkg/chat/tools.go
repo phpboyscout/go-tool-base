@@ -89,7 +89,12 @@ func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, na
 
 	out, err := tool.Handler(ctx, input)
 	if err != nil {
-		l.Warn("Tool execution failed", "tool", name, "error", err)
+		// Keep the repair loop readable: the message (build/test/lint output)
+		// goes to WARN, and the full wrapped error with its stack trace only to
+		// DEBUG. Logging the error value directly would dump the whole stack at
+		// WARN, which is noise during normal self-repair.
+		l.Warn("Tool execution failed", "tool", name, "error", err.Error())
+		l.Debug("Tool execution failure detail", "tool", name, "error", err)
 
 		return fmt.Sprintf("Error: %v", err)
 	}
