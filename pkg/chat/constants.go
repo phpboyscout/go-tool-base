@@ -4,13 +4,13 @@ import "github.com/openai/openai-go/v3"
 
 const (
 	// DefaultModelGemini is the default model for the Gemini provider.
-	DefaultModelGemini = "gemini-3-flash-preview"
+	DefaultModelGemini = "gemini-3.5-flash"
 
 	// DefaultModelClaude is the default model for the Claude provider.
-	DefaultModelClaude = "claude-sonnet-4-5"
+	DefaultModelClaude = "claude-sonnet-4-6"
 
 	// DefaultModelOpenAI is the default model for the OpenAI provider.
-	DefaultModelOpenAI = openai.ChatModelGPT5
+	DefaultModelOpenAI = openai.ChatModelGPT5_4
 
 	// DefaultMaxSteps is the default maximum number of ReAct loop iterations.
 	DefaultMaxSteps = 20

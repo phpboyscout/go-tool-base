@@ -20,9 +20,13 @@ const (
 )
 
 type Config struct {
-	Agentless                     bool
-	AIModel                       string
-	AIProvider                    string
+	Agentless  bool
+	AIModel    string
+	AIProvider string
+	// MaxSteps bounds the autonomous repair agent's ReAct loop. Zero uses the
+	// framework default (chat.DefaultMaxSteps). Raise it for complex commands
+	// the agent cannot finish within the default budget.
+	MaxSteps                      int
 	Aliases                       []string
 	Args                          string
 	DryRun                        bool

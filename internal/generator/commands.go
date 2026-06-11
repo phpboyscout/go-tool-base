@@ -611,6 +611,10 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 		SystemPrompt:   systemPrompt,
 		ResponseSchema: chat.GenerateSchema[verifier.AIResponse](),
 		SchemaName:     "go_conversion",
+		// MaxSteps bounds the autonomous repair agent's ReAct loop (this same
+		// client drives it via VerifyAndFix). Zero falls back to the provider
+		// default (chat.DefaultMaxSteps).
+		MaxSteps: g.config.MaxSteps,
 	}
 
 	client, err := chat.New(ctx, g.props, chatCfg)
