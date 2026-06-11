@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.16.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.16.0)
+
+### Features
+
+- **agent**: smarter, safer repair agent
+- **generate**: add --max-steps and refresh default AI models
+
 ## [v0.15.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.15.1)
 
 ### Bug Fixes
