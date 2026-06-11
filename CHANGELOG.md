@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.16.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.16.1)
+
+### Bug Fixes
+
+- **agent**: make golangci-lint a required verification gate
+
 ## [v0.16.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.16.0)
 
 ### Features
