@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -345,6 +346,124 @@ func ListDirTool(afs afero.Fs, basePath string) chat.Tool {
 			}
 
 			return strings.Join(result, "\n"), nil
+		},
+	}
+}
+
+// ReadFilesTool returns a tool for reading several files in a single call, so
+// the agent doesn't spend a round-trip per file. Each file's content is
+// returned under a header; a path that can't be read is reported inline rather
+// than failing the whole batch.
+func ReadFilesTool(afs afero.Fs, basePath string) chat.Tool {
+	return chat.Tool{
+		Name:        "read_files",
+		Description: "Reads the contents of several files in one call, each under a '===== <path> =====' header. Prefer this over multiple read_file calls when you need more than one file.",
+		Parameters: jsonschema.Reflect(struct {
+			Paths []string `json:"paths" jsonschema:"description=The absolute paths of the files to read"`
+		}{}),
+		Handler: func(_ context.Context, args json.RawMessage) (any, error) {
+			var params struct {
+				Paths []string `json:"paths"`
+			}
+			if err := json.Unmarshal(args, &params); err != nil {
+				return nil, errors.Wrap(err, "invalid arguments")
+			}
+
+			var sb strings.Builder
+
+			for _, p := range params.Paths {
+				resolvedPath, err := ensurePathAllowed(afs, basePath, p)
+				if err != nil {
+					fmt.Fprintf(&sb, "===== %s =====\nerror: %v\n\n", p, err)
+
+					continue
+				}
+
+				content, err := afero.ReadFile(afs, resolvedPath)
+				if err != nil {
+					fmt.Fprintf(&sb, "===== %s =====\nerror: %v\n\n", p, err)
+
+					continue
+				}
+
+				fmt.Fprintf(&sb, "===== %s =====\n%s\n\n", p, content)
+			}
+
+			return sb.String(), nil
+		},
+	}
+}
+
+// maxTreeEntries caps the tree tool's output so a large directory can't flood
+// the AI context.
+const maxTreeEntries = 500
+
+// TreeTool returns a tool that lists a directory and all its subdirectories
+// recursively in a single call, as sorted relative paths. It saves the agent
+// from walking the layout one folder at a time with list_dir.
+func TreeTool(afs afero.Fs, basePath string) chat.Tool {
+	return chat.Tool{
+		Name:        "tree",
+		Description: "Lists a directory and all its subdirectories recursively, as sorted relative paths (directories end with '/'), in one call. Prefer this over repeated list_dir calls to learn the project layout.",
+		Parameters: jsonschema.Reflect(struct {
+			Path string `json:"path" jsonschema:"description=The absolute path to the directory to walk"`
+		}{}),
+		Handler: func(_ context.Context, args json.RawMessage) (any, error) {
+			var params struct {
+				Path string `json:"path"`
+			}
+			if err := json.Unmarshal(args, &params); err != nil {
+				return nil, errors.Wrap(err, "invalid arguments")
+			}
+
+			resolvedPath, err := ensurePathAllowed(afs, basePath, params.Path)
+			if err != nil {
+				return nil, err
+			}
+
+			var paths []string
+
+			walkErr := afero.Walk(afs, resolvedPath, func(p string, info fs.FileInfo, walkErr error) error {
+				if walkErr != nil {
+					return walkErr
+				}
+
+				rel, relErr := filepath.Rel(resolvedPath, p)
+				if relErr != nil {
+					return relErr
+				}
+
+				if rel == "." {
+					return nil
+				}
+
+				if info.IsDir() {
+					rel += "/"
+				}
+
+				paths = append(paths, rel)
+
+				return nil
+			})
+			if walkErr != nil {
+				return nil, errors.Wrap(walkErr, "failed to walk directory")
+			}
+
+			sort.Strings(paths)
+
+			truncated := false
+
+			if len(paths) > maxTreeEntries {
+				paths = paths[:maxTreeEntries]
+				truncated = true
+			}
+
+			out := strings.Join(paths, "\n")
+			if truncated {
+				out += fmt.Sprintf("\n… [truncated at %d entries] …", maxTreeEntries)
+			}
+
+			return out, nil
 		},
 	}
 }

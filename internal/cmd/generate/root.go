@@ -24,7 +24,7 @@ func NewCmdGenerate(p *props.Props) *setup.Command {
 	}
 
 	cmd.PersistentFlags().StringVar(&aiProvider, "provider", "", "AI provider to use (openai/gemini/claude)")
-	cmd.PersistentFlags().StringVar(&aiModel, "model", "", "AI model to use (defaults: gemini-3-flash-preview, claude-sonnet-4-5)")
+	cmd.PersistentFlags().StringVar(&aiModel, "model", "", "AI model to use (defaults: claude-opus-4-8, gemini-3.5-flash, gpt-5.4)")
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without writing files")
 
 	generateCmd := setup.Wrap("", cmd)

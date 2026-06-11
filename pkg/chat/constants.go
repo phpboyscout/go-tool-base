@@ -7,7 +7,7 @@ const (
 	DefaultModelGemini = "gemini-3.5-flash"
 
 	// DefaultModelClaude is the default model for the Claude provider.
-	DefaultModelClaude = "claude-sonnet-4-6"
+	DefaultModelClaude = "claude-opus-4-8"
 
 	// DefaultModelOpenAI is the default model for the OpenAI provider.
 	DefaultModelOpenAI = openai.ChatModelGPT5_4

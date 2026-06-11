@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
@@ -14,6 +15,16 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/verifier"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
+
+// requestTimeout returns the configured per-request AI timeout override
+// (the ai.request_timeout config key), or zero to use chat's bounded default.
+func (g *Generator) requestTimeout() time.Duration {
+	if g.props.Config == nil {
+		return 0
+	}
+
+	return g.props.Config.GetDuration(chat.ConfigKeyAIRequestTimeout)
+}
 
 var commandGenerationSystemPrompt = `PHASE 1 (Generation/Conversion):
 If provided with a script, convert it into a COMPLETE, valid, safe, and secure Go file.
@@ -541,7 +552,7 @@ func (g *Generator) verifyAndFixProject(ctx context.Context, cmdDir string, data
 	if g.config.Agentless {
 		v = verifier.NewLegacy(g.props, g.config.Path)
 	} else {
-		v = verifier.NewAgentVerifier(g.props)
+		v = verifier.NewAgentVerifier(g.props, !g.config.NonInteractive)
 	}
 
 	genFunc := func(ctx context.Context, cmdDir string, data *templates.CommandData) error {
@@ -615,6 +626,10 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 		// client drives it via VerifyAndFix). Zero falls back to the provider
 		// default (chat.DefaultMaxSteps).
 		MaxSteps: g.config.MaxSteps,
+		// RequestTimeout lets a slow flagship model (e.g. opus) finish a
+		// single-shot generation; the ai.request_timeout config key overrides
+		// the bounded default. Zero falls back to chat.DefaultChatRequestTimeout.
+		RequestTimeout: g.requestTimeout(),
 	}
 
 	client, err := chat.New(ctx, g.props, chatCfg)

@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -38,6 +39,7 @@ type CommandOptions struct {
 	Prompt               string
 	Agentless            bool
 	MaxSteps             int
+	NonInteractive       bool
 	PersistentPreRun     bool
 	PreRun               bool
 	Force                bool
@@ -152,6 +154,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.Prompt, "prompt", "", "Natural language description or path to a file containing the description")
 	cmd.Flags().BoolVar(&opts.Agentless, "agentless", false, "Use original retry loop instead of autonomous agent")
 	cmd.Flags().IntVar(&opts.MaxSteps, "max-steps", 0, "Max repair-agent reasoning steps (0 = default 20); raise it for complex commands")
+	cmd.Flags().BoolVar(&opts.NonInteractive, "non-interactive", os.Getenv("CI") != "", "Never pause for input: disables the repair agent's query_user tool (defaults true when CI is set)")
 	cmd.Flags().BoolVar(&opts.PersistentPreRun, "persistent-pre-run", false, "Generate a PersistentPreRun hook")
 	cmd.Flags().BoolVar(&opts.PreRun, "pre-run", false, "Generate a PreRun hook")
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files")
@@ -560,6 +563,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		AIModel:                       aiModel,
 		Agentless:                     o.Agentless,
 		MaxSteps:                      o.MaxSteps,
+		NonInteractive:                o.NonInteractive || !utils.IsInteractive(),
 		PersistentPreRun:              o.PersistentPreRun,
 		PreRun:                        o.PreRun,
 		Force:                         o.Force,

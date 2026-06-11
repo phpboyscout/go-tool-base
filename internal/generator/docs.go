@@ -554,9 +554,10 @@ func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sys
 	}
 
 	chatCfg := chat.Config{
-		Provider:     chat.Provider(provider),
-		Model:        model,
-		SystemPrompt: sysPrompt,
+		Provider:       chat.Provider(provider),
+		Model:          model,
+		SystemPrompt:   sysPrompt,
+		RequestTimeout: g.requestTimeout(),
 	}
 
 	client, err := chat.New(ctx, g.props, chatCfg)

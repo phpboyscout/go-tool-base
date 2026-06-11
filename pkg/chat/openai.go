@@ -11,7 +11,6 @@ import (
 	"github.com/tiktoken-go/tokenizer"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -53,7 +52,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 
 	clientOpts := []option.RequestOption{
 		option.WithAPIKey(token),
-		option.WithHTTPClient(gtbhttp.NewClient()),
+		option.WithHTTPClient(newChatHTTPClient(resolveChatTimeout(cfg))),
 	}
 	if cfg.BaseURL != "" {
 		clientOpts = append(clientOpts, option.WithBaseURL(cfg.BaseURL))

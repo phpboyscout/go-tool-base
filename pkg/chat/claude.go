@@ -10,7 +10,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -47,7 +46,7 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 
 	opts := []option.RequestOption{
 		option.WithAPIKey(token),
-		option.WithHTTPClient(gtbhttp.NewClient()),
+		option.WithHTTPClient(newChatHTTPClient(resolveChatTimeout(cfg))),
 	}
 
 	if cfg.BaseURL != "" {

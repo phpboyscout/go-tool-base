@@ -26,7 +26,10 @@ type Config struct {
 	// MaxSteps bounds the autonomous repair agent's ReAct loop. Zero uses the
 	// framework default (chat.DefaultMaxSteps). Raise it for complex commands
 	// the agent cannot finish within the default budget.
-	MaxSteps                      int
+	MaxSteps int
+	// NonInteractive withholds the repair agent's query_user tool so a
+	// generation never blocks for input (CI / --non-interactive).
+	NonInteractive                bool
 	Aliases                       []string
 	Args                          string
 	DryRun                        bool

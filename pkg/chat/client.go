@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
@@ -31,6 +32,10 @@ const (
 
 // ConfigKeyAIProvider is the config key for the AI provider.
 const ConfigKeyAIProvider = "ai.provider"
+
+// ConfigKeyAIRequestTimeout is the config key for the per-request AI timeout
+// (a duration like "8m"). Overrides DefaultChatRequestTimeout.
+const ConfigKeyAIRequestTimeout = "ai.request_timeout"
 
 // EnvAIProvider is the environment variable for overriding the AI provider.
 const EnvAIProvider = "AI_PROVIDER"
@@ -132,6 +137,10 @@ type Config struct {
 	// MaxTokens sets the maximum tokens per response.
 	// Zero means use the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192).
 	MaxTokens int
+	// RequestTimeout bounds a single HTTP request to the provider. Zero falls
+	// back to the ai.request_timeout config key, then DefaultChatRequestTimeout.
+	// Bounded on purpose so a stuck model fails rather than hanging forever.
+	RequestTimeout time.Duration
 	// ParallelTools enables concurrent execution of multiple tool calls
 	// within a single ReAct step. Disabled by default.
 	ParallelTools bool

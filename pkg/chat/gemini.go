@@ -9,7 +9,6 @@ import (
 	"github.com/invopop/jsonschema"
 	"google.golang.org/genai"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -80,7 +79,7 @@ func getGeminiToken(ctx context.Context, p *props.Props, cfg Config) string {
 func buildGeminiClientConfig(token string, cfg Config) *genai.ClientConfig {
 	clientConfig := &genai.ClientConfig{
 		APIKey:     token,
-		HTTPClient: gtbhttp.NewClient(),
+		HTTPClient: newChatHTTPClient(resolveChatTimeout(cfg)),
 	}
 
 	if cfg.BaseURL != "" {
