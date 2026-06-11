@@ -127,12 +127,11 @@ Your task is to verify and fix the Go project located at: %s
 
 The project was just generated. Please:
 1. Use 'tree' to see the whole project layout in a single call.
-2. Run 'go_build' and 'go_test' in the project directory to identify issues.
+2. Run 'go_build', 'go_test' and 'golangci_lint' in the project directory to find build failures, test failures and lint issues. Run all three; a clean build and passing tests do not imply clean lint.
 3. If there are missing dependencies, use 'go_get'.
-4. If there are lint issues, use 'golangci_lint'.
-5. If there are errors, read the relevant files ('read_files' reads several at once), analyze the code, and overwrite them with fixes.
-6. Repeat verification ONLY if changes were made or if errors persist. Do NOT re-run builds or tests if they already succeeded and no code was changed.
-7. When the project builds successfully and tests pass, reply with "SUCCESS". If you cannot fix it after 5 attempts at fixing the same error, reply with "FAILURE" and the reason.
+4. If there are errors or lint issues, read the relevant files ('read_files' reads several at once), analyze the code, and overwrite them with fixes. Treat lint issues as real work to fix, not noise to ignore.
+5. Repeat verification ONLY if changes were made or if errors persist. Do NOT re-run a check that already passed if no code changed.
+6. Reply with "SUCCESS" only once 'go_build', 'go_test' AND 'golangci_lint' all pass with no errors and no reported issues. If you cannot fix it after 5 attempts at fixing the same error, reply with "FAILURE" and the reason.
 
 Work efficiently: prefer 'tree' over repeated 'list_dir', and 'read_files' over many single 'read_file' calls, to minimise round-trips.
 
