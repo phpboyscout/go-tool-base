@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.16.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.16.2)
+
+### Bug Fixes
+
+- **chat**: log tool-failure stack traces at DEBUG, not WARN
+
 ## [v0.16.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.16.1)
 
 ### Bug Fixes
