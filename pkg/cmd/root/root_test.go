@@ -2,10 +2,12 @@ package root
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/cockroachdb/errors"
 
@@ -758,6 +760,40 @@ func TestHandleOutdatedVersion_WithMockForm(t *testing.T) {
 			assert.Equal(t, tt.expectedExit, result.ShouldExit)
 		})
 	}
+}
+
+// TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate proves that a
+// failed update prompt (no TTY, Ctrl-C abort, timeout) is treated as "No" —
+// not as consent to self-update. The form runs headless with an empty input
+// and a short timeout so Run() deterministically returns an error
+// (huh.ErrTimeout) without needing a terminal, simulating the cron/CI/pipe
+// environments where the prompt cannot be answered.
+func TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	failingFormCreator := func(runUpdate *bool) *huh.Form {
+		return createUpdatePromptForm(runUpdate).
+			WithInput(strings.NewReader("")).
+			WithOutput(io.Discard).
+			WithTimeout(100 * time.Millisecond)
+	}
+
+	props := &p.Props{
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+		Tool:   p.Tool{Name: "test-tool"},
+	}
+
+	state := newRootState()
+	result := &UpdateCheckResult{}
+
+	handleOutdatedVersion(context.Background(), props, "Version 2.0.0 is available", result, state, WithForm(failingFormCreator))
+
+	assert.False(t, state.redirectingToUpdate, "a failed prompt must not redirect to update")
+	assert.False(t, result.HasUpdated, "a failed prompt must not run the update")
+	assert.NoError(t, result.Error, "a failed prompt must decline gracefully, not attempt an update")
 }
 
 func TestWithFormOption(t *testing.T) {

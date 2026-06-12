@@ -297,12 +297,20 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 		opt(cfg)
 	}
 
-	var runUpdate = true
+	// Default to declining: without a usable TTY (cron, CI, piped stdin) or
+	// on an aborted/timed-out prompt, form.Run returns an error and runUpdate
+	// must stay false. Defaulting to true here would silently self-update
+	// without consent and then skip the requested command while exiting 0.
+	var runUpdate = false
 
 	form := cfg.formCreator(&runUpdate)
 	// Allow nil form for testing (form creator can set the value and return nil)
 	if form != nil {
-		_ = form.Run()
+		if err := form.Run(); err != nil {
+			runUpdate = false
+
+			props.Logger.Debugf("update prompt unavailable (%v); declining update", err)
+		}
 	}
 
 	if runUpdate {
