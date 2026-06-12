@@ -206,6 +206,49 @@ func TestGiteaProvider_Auth_TokenSentInHeader(t *testing.T) {
 	assert.Equal(t, "token my-secret-token", receivedToken)
 }
 
+// TestGiteaProvider_DownloadAsset_DoesNotLeakTokenToForeignHost proves the
+// Authorization credential is not sent to an asset URL hosted off-instance.
+func TestGiteaProvider_DownloadAsset_DoesNotLeakTokenToForeignHost(t *testing.T) {
+	var foreignSawAuth string
+
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		foreignSawAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("attacker-content"))
+	}))
+	defer foreign.Close()
+
+	// The instance release lists an asset whose download URL points at the
+	// attacker-controlled foreign host.
+	instance := buildServer(t, []map[string]any{
+		{
+			"id": float64(1), "name": "v1.0.0", "tag_name": "v1.0.0", "body": "", "draft": false,
+			"assets": []map[string]any{
+				{"id": float64(1), "name": "artifact.zip", "browser_download_url": foreign.URL + "/artifact.zip"},
+			},
+		},
+	})
+	defer instance.Close()
+
+	t.Setenv("GITEA_TOKEN", "my-secret-token")
+
+	src := release.ReleaseSourceConfig{Host: instance.URL}
+	p, err := gitea.NewReleaseProvider(src, nil, "GITEA_TOKEN")
+	require.NoError(t, err)
+
+	rel, err := p.GetLatestRelease(context.Background(), "owner", "repo")
+	require.NoError(t, err)
+
+	assets := rel.GetAssets()
+	require.Len(t, assets, 1)
+
+	body, _, err := p.DownloadReleaseAsset(context.Background(), "owner", "repo", assets[0])
+	require.NoError(t, err)
+	defer func() { _ = body.Close() }()
+
+	assert.Empty(t, foreignSawAuth, "Authorization must not be sent to a foreign asset host")
+}
+
 func TestGiteaProvider_Codeberg_DefaultHost(t *testing.T) {
 	t.Parallel()
 

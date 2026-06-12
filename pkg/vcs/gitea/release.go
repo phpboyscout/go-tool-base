@@ -165,6 +165,22 @@ func (p *GiteaReleaseProvider) ListReleases(ctx context.Context, owner, repo str
 	return result, nil
 }
 
+// assetHostTrusted reports whether rawURL's host matches the configured
+// instance host derived from baseURL. It fails closed on any parse error.
+func (p *GiteaReleaseProvider) assetHostTrusted(rawURL string) bool {
+	base, err := url.Parse(p.baseURL)
+	if err != nil || base.Host == "" {
+		return false
+	}
+
+	target, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	return target.Host == base.Host
+}
+
 func (p *GiteaReleaseProvider) DownloadReleaseAsset(ctx context.Context, _, _ string, asset release.ReleaseAsset) (io.ReadCloser, string, error) {
 	downloadURL := asset.GetBrowserDownloadURL()
 	if downloadURL == "" {
@@ -176,7 +192,10 @@ func (p *GiteaReleaseProvider) DownloadReleaseAsset(ctx context.Context, _, _ st
 		return nil, "", errors.WithStack(err)
 	}
 
-	if p.token != "" {
+	// Asset download URLs are release-author-controlled; only attach the
+	// credential when the asset is hosted on the configured instance so the
+	// token cannot be exfiltrated to an arbitrary host.
+	if p.token != "" && p.assetHostTrusted(downloadURL) {
 		req.Header.Set("Authorization", "token "+p.token)
 	}
 

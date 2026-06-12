@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	neturl "net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -130,7 +131,8 @@ func TestDownloadReleaseAsset_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := &GitLabReleaseProvider{token: "test-token"}
+	// Asset hosted on the configured instance: the token is attached.
+	provider := &GitLabReleaseProvider{token: "test-token", apiHost: hostOf(t, server.URL)}
 	asset := &gitlabAsset{
 		link: &gitlab.ReleaseLink{
 			Name: "artifact.zip",
@@ -145,6 +147,38 @@ func TestDownloadReleaseAsset_Success(t *testing.T) {
 	data, err := io.ReadAll(body)
 	require.NoError(t, err)
 	assert.Equal(t, "binary-content", string(data))
+}
+
+// TestDownloadReleaseAsset_DoesNotLeakTokenToForeignHost proves that the
+// PRIVATE-TOKEN is not sent to an asset URL whose host differs from the
+// configured GitLab instance — a release author cannot point an asset link at
+// a host they control and capture the credential.
+func TestDownloadReleaseAsset_DoesNotLeakTokenToForeignHost(t *testing.T) {
+	t.Parallel()
+
+	var foreignSawToken string
+
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		foreignSawToken = r.Header.Get("PRIVATE-TOKEN")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("attacker-content"))
+	}))
+	defer foreign.Close()
+
+	// Instance host is example.com; the asset link points at the foreign host.
+	provider := &GitLabReleaseProvider{token: "secret-token", apiHost: "gitlab.example.com"}
+	asset := &gitlabAsset{
+		link: &gitlab.ReleaseLink{
+			Name: "artifact.zip",
+			URL:  foreign.URL + "/artifact.zip",
+		},
+	}
+
+	body, _, err := provider.DownloadReleaseAsset(context.Background(), "owner", "repo", asset)
+	require.NoError(t, err)
+	defer func() { _ = body.Close() }()
+
+	assert.Empty(t, foreignSawToken, "PRIVATE-TOKEN must not be sent to a foreign asset host")
 }
 
 func TestDownloadReleaseAsset_EmptyURL(t *testing.T) {
@@ -178,6 +212,14 @@ func TestDownloadReleaseAsset_ServerError(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, body)
 	assert.Contains(t, err.Error(), "status 500")
+}
+
+func hostOf(t *testing.T, rawURL string) string {
+	t.Helper()
+	u, err := neturl.Parse(rawURL)
+	require.NoError(t, err)
+
+	return u.Host
 }
 
 func newTestProvider(t *testing.T, server *httptest.Server) *GitLabReleaseProvider {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	neturl "net/url"
 
 	"github.com/cockroachdb/errors"
 	gitlab "gitlab.com/gitlab-org/api/client-go"
@@ -71,6 +72,11 @@ func (a *gitlabAsset) GetBrowserDownloadURL() string {
 type GitLabReleaseProvider struct {
 	client *gitlab.Client
 	token  string
+	// apiHost is the host (host:port) of the configured GitLab instance. The
+	// PRIVATE-TOKEN credential is only attached to asset downloads whose
+	// URL host matches it, so a release author cannot exfiltrate the token
+	// by pointing an asset link at a host they control.
+	apiHost string
 }
 
 // NewReleaseProvider creates a new release provider for GitLab.
@@ -108,9 +114,15 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable)
 		return nil, errors.WithStack(err)
 	}
 
+	var apiHost string
+	if u, perr := neturl.Parse(baseURL); perr == nil {
+		apiHost = u.Host
+	}
+
 	return &GitLabReleaseProvider{
-		client: client,
-		token:  token,
+		client:  client,
+		token:   token,
+		apiHost: apiHost,
 	}, nil
 }
 
@@ -160,6 +172,22 @@ func (p *GitLabReleaseProvider) ListReleases(ctx context.Context, owner, repo st
 	return result, nil
 }
 
+// assetHostTrusted reports whether rawURL's host matches the configured
+// GitLab instance host. It fails closed: an unparseable URL or an
+// unconfigured instance host is never trusted.
+func (p *GitLabReleaseProvider) assetHostTrusted(rawURL string) bool {
+	if p.apiHost == "" {
+		return false
+	}
+
+	u, err := neturl.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	return u.Host == p.apiHost
+}
+
 // DownloadReleaseAsset is more complex for GitLab.
 func (p *GitLabReleaseProvider) DownloadReleaseAsset(ctx context.Context, owner, repo string, asset release.ReleaseAsset) (io.ReadCloser, string, error) {
 	url := asset.GetBrowserDownloadURL()
@@ -172,7 +200,10 @@ func (p *GitLabReleaseProvider) DownloadReleaseAsset(ctx context.Context, owner,
 		return nil, "", errors.WithStack(err)
 	}
 
-	if p.token != "" {
+	// Only attach the credential when the asset is hosted on the configured
+	// GitLab instance. Asset link URLs are release-author-controlled, so
+	// sending the token to an arbitrary host would leak it off-instance.
+	if p.token != "" && p.assetHostTrusted(url) {
 		req.Header.Set("PRIVATE-TOKEN", p.token)
 	}
 
