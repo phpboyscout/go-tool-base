@@ -167,6 +167,21 @@ func TestStatus_NilServer(t *testing.T) {
 	assert.Contains(t, err.Error(), "grpc server is nil")
 }
 
+func TestStatus_ReportsServeExitError(t *testing.T) {
+	t.Parallel()
+
+	state := &serveState{}
+	statusFn := serverStatus(&grpc.Server{}, state)
+
+	require.NoError(t, statusFn())
+
+	state.setExit(fmt.Errorf("serve loop died"))
+
+	err := statusFn()
+	require.Error(t, err, "Status must report a dead serve loop, not only a nil server")
+	assert.Contains(t, err.Error(), "serve loop died")
+}
+
 func TestGRPCHealth(t *testing.T) {
 	t.Parallel()
 

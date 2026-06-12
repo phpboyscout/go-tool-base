@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -257,13 +258,48 @@ func Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts 
 		sc.prefix = DefaultConfigPrefix
 	}
 
-	return start(cfg, logger, srv, sc.prefix)
+	return start(cfg, logger, srv, sc.prefix, nil)
 }
 
-func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefix string) controls.StartFunc {
+// serveState records the serve goroutine's exit error so Status can report a
+// server that has died, rather than only checking that the *http.Server is
+// non-nil (which is invariantly true).
+type serveState struct {
+	mu      sync.Mutex
+	exitErr error
+}
+
+func (s *serveState) setExit(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.exitErr = err
+}
+
+func (s *serveState) status() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.exitErr
+}
+
+func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefix string, state *serveState) controls.StartFunc {
 	tlsPair := gtbtls.Resolve(cfg, prefix+".tls")
 
 	return func(ctx context.Context) error {
+		// Load the TLS material synchronously before serving so a misconfigured
+		// or missing certificate fails the start (and the controller) loudly,
+		// rather than failing asynchronously inside the serve goroutine while
+		// the controller and /healthz report the server as healthy.
+		if tlsPair.Enabled {
+			tlsCfg, err := tlsPair.ServerConfig()
+			if err != nil {
+				return errors.Wrap(err, "loading TLS configuration")
+			}
+
+			srv.TLSConfig = tlsCfg
+		}
+
 		var lc net.ListenConfig
 
 		ln, err := lc.Listen(ctx, "tcp", srv.Addr)
@@ -282,7 +318,7 @@ func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefi
 			if tlsPair.Enabled {
 				logger.Info("starting http server", "tls", true, "addr", boundAddr)
 
-				err = srv.ServeTLS(ln, tlsPair.Cert, tlsPair.Key)
+				err = srv.ServeTLS(ln, "", "") // certificate already loaded into srv.TLSConfig
 			} else {
 				logger.Info("starting http server", "tls", false, "addr", boundAddr)
 
@@ -291,6 +327,10 @@ func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefi
 
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				logger.Error("HTTP server failed", "error", err)
+
+				if state != nil {
+					state.setExit(err)
+				}
 			}
 		}()
 
@@ -310,14 +350,27 @@ func Stop(logger logger.Logger, srv *http.Server) controls.StopFunc {
 }
 
 // Status returns a curried function suitable for use with the controls package.
-func Status(srv *http.Server) controls.StatusFunc {
+// When state is non-nil it reports the serve goroutine's exit error, so a
+// server whose serve loop has died is no longer reported as healthy.
+func status(srv *http.Server, state *serveState) controls.StatusFunc {
 	return func() error {
 		if srv == nil {
 			return errors.New("http server is nil")
 		}
 
+		if state != nil {
+			return state.status()
+		}
+
 		return nil
 	}
+}
+
+// Status returns a curried health function for a manually-wired server. It
+// reports an error only when srv is nil; use the controller wiring (Serve) for
+// serve-goroutine death detection.
+func Status(srv *http.Server) controls.StatusFunc {
+	return status(srv, nil)
 }
 
 // RegisterOption configures registration-only behaviour for an HTTP server
@@ -407,10 +460,11 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 		return nil, err
 	}
 
+	state := &serveState{}
 	controller.Register(id,
-		controls.WithStart(start(cfg, logger, srv, rc.prefix)),
+		controls.WithStart(start(cfg, logger, srv, rc.prefix, state)),
 		controls.WithStop(Stop(logger, srv)),
-		controls.WithStatus(Status(srv)),
+		controls.WithStatus(status(srv, state)),
 	)
 
 	return srv, nil

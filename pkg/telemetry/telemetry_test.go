@@ -410,3 +410,49 @@ func indexOf(s, substr string) int {
 
 	return -1
 }
+
+// TestCollector_DisabledDoesNotBuffer proves a disabled collector is a true
+// no-op: it must not allocate and append events (the noop backend is non-nil,
+// so the backend==nil guard did not catch the disabled case).
+func TestCollector_DisabledDoesNotBuffer(t *testing.T) {
+	t.Parallel()
+
+	c := NewCollector(Config{Enabled: false}, NewNoopBackend(), "tool", "1.0.0", nil,
+		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+
+	for range 50 {
+		c.Track(props.EventFeatureUsed, "evt", nil)
+	}
+
+	c.mu.Lock()
+	n := len(c.buffer)
+	c.mu.Unlock()
+
+	if n != 0 {
+		t.Errorf("a disabled collector must not buffer events, got %d buffered", n)
+	}
+}
+
+// TestCollector_BufferBoundedWhenSpillUnavailable proves the buffer stays
+// bounded when spill cannot run (no data dir): the spill path used to early-
+// return without clearing the buffer, so it grew without bound.
+func TestCollector_BufferBoundedWhenSpillUnavailable(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
+		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false) // empty dataDir → spill unavailable
+	c.maxBuffer = 10
+
+	for range 100 {
+		c.Track(props.EventFeatureUsed, "evt", nil)
+	}
+
+	c.mu.Lock()
+	n := len(c.buffer)
+	c.mu.Unlock()
+
+	if n > c.maxBuffer+1 {
+		t.Errorf("buffer must stay bounded when spill is unavailable, got %d (max %d)", n, c.maxBuffer)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -268,4 +269,53 @@ func TestWithClientMiddleware_Integration(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 
 	assert.Equal(t, "Bearer integration-test", receivedAuth)
+}
+
+// TestWithRateLimit_SerialisesUnderConcurrency proves the rate limiter spaces
+// out concurrent requests rather than admitting a burst all at once. The prior
+// implementation let N goroutines sleep in parallel and then proceed together,
+// admitting N requests per interval instead of one.
+func TestWithRateLimit_SerialisesUnderConcurrency(t *testing.T) {
+	t.Parallel()
+
+	var passed atomic.Int32
+
+	inner := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		passed.Add(1)
+
+		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+	})
+
+	const rps = 50 // 20ms between requests
+	rt := WithRateLimit(rps)(inner)
+
+	const n = 4
+
+	var wg sync.WaitGroup
+
+	start := time.Now()
+
+	for range n {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.test", nil)
+			resp, err := rt.RoundTrip(req)
+			if err == nil {
+				_ = resp.Body.Close()
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	elapsed := time.Since(start)
+
+	assert.Equal(t, int32(n), passed.Load())
+	// n requests at 50 rps must take at least ~3 intervals (60ms). A buggy
+	// limiter admitting the whole burst finishes in ~one interval (≤20ms).
+	assert.GreaterOrEqual(t, elapsed, 40*time.Millisecond,
+		"concurrent requests must be spaced by the rate limiter, not admitted as a burst")
 }

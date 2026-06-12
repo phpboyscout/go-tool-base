@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -345,6 +346,44 @@ func TestStatus_NilServer(t *testing.T) {
 	err := Status(nil)()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "http server is nil")
+}
+
+func TestStatus_ReportsServeExitError(t *testing.T) {
+	t.Parallel()
+
+	state := &serveState{}
+	statusFn := status(&http.Server{}, state)
+
+	// Healthy until the serve goroutine records an exit error.
+	require.NoError(t, statusFn())
+
+	state.setExit(errors.New("serve loop died"))
+
+	err := statusFn()
+	require.Error(t, err, "Status must report a dead serve loop, not only a nil server")
+	assert.Contains(t, err.Error(), "serve loop died")
+}
+
+func TestStart_TLSBadCertFailsSynchronously(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	// TLS enabled with cert/key paths that do not exist.
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(true).Maybe()
+	cfg.EXPECT().GetString("server.tls.cert").Return("/nonexistent/cert.pem").Maybe()
+	cfg.EXPECT().GetString("server.tls.key").Return("/nonexistent/key.pem").Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
+	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
+
+	srv := &http.Server{Addr: ":0"}
+	startFn := Start(cfg, testLogger(), srv)
+
+	// A missing/invalid certificate must fail the start synchronously, not in
+	// a detached serve goroutine while the controller reports healthy.
+	err := startFn(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TLS")
 }
 
 func TestHealthz(t *testing.T) {

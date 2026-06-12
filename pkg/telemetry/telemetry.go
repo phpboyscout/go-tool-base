@@ -137,7 +137,7 @@ func (c *Collector) Track(eventType props.EventType, name string, extra map[stri
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.backend == nil {
+	if !c.config.Enabled || c.backend == nil {
 		return
 	}
 
@@ -168,7 +168,7 @@ func (c *Collector) TrackCommand(name string, durationMs int64, exitCode int, ex
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.backend == nil {
+	if !c.config.Enabled || c.backend == nil {
 		return
 	}
 
@@ -202,7 +202,7 @@ func (c *Collector) TrackCommandExtended(name string, args []string, durationMs 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.backend == nil {
+	if !c.config.Enabled || c.backend == nil {
 		return
 	}
 

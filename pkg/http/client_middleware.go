@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"golang.org/x/time/rate"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -133,36 +136,19 @@ func WithBasicAuth(username, password string) ClientMiddleware {
 }
 
 // WithRateLimit returns middleware that limits outbound requests to the
-// specified rate using a token bucket algorithm. Blocks until a token is
-// available or the request context is cancelled.
+// specified rate using a token-bucket limiter (burst 1). Blocks until a token
+// is available or the request context is cancelled. The limiter is shared
+// across all requests through the transport, so it holds under concurrency —
+// the previous hand-rolled version let concurrent goroutines sleep in parallel
+// and then proceed together, admitting a burst per interval.
 func WithRateLimit(requestsPerSecond float64) ClientMiddleware {
-	interval := time.Duration(float64(time.Second) / requestsPerSecond)
+	limiter := rate.NewLimiter(rate.Limit(requestsPerSecond), 1)
 
 	return func(next http.RoundTripper) http.RoundTripper {
-		var mu sync.Mutex
-
-		var lastRequest time.Time
-
 		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			mu.Lock()
-
-			now := time.Now()
-
-			if elapsed := now.Sub(lastRequest); elapsed < interval {
-				wait := interval - elapsed
-				mu.Unlock()
-
-				select {
-				case <-time.After(wait):
-				case <-req.Context().Done():
-					return nil, req.Context().Err()
-				}
-
-				mu.Lock()
+			if err := limiter.Wait(req.Context()); err != nil {
+				return nil, errors.WithStack(err)
 			}
-
-			lastRequest = time.Now()
-			mu.Unlock()
 
 			return next.RoundTrip(req)
 		})

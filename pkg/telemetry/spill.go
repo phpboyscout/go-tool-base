@@ -23,12 +23,15 @@ const (
 // Must be called with c.mu held.
 func (c *Collector) spillToDisk() {
 	if c.dataDir == "" {
+		c.enforceBufferBound()
+
 		return
 	}
 
 	data, err := json.Marshal(c.buffer)
 	if err != nil {
 		c.log.Debug("failed to marshal spill data", "error", err)
+		c.enforceBufferBound()
 
 		return
 	}
@@ -44,12 +47,27 @@ func (c *Collector) spillToDisk() {
 
 		if err := os.WriteFile(filename, chunk, filePermissions); err != nil {
 			c.log.Debug("failed to write spill file", "error", err)
+			c.enforceBufferBound()
 
 			return
 		}
 	}
 
 	c.buffer = c.buffer[:0]
+}
+
+// enforceBufferBound keeps the in-memory buffer bounded when spill is
+// unavailable, dropping the oldest events so a misconfigured or failing spill
+// path cannot grow the buffer without limit. Newest events are retained as the
+// most useful. Must be called with c.mu held.
+func (c *Collector) enforceBufferBound() {
+	if len(c.buffer) <= c.maxBuffer {
+		return
+	}
+
+	drop := len(c.buffer) - c.maxBuffer
+	c.buffer = append(c.buffer[:0], c.buffer[drop:]...)
+	c.log.Debug("telemetry buffer overflow; dropped oldest events", "dropped", drop)
 }
 
 // splitSpillData splits the buffer into chunks that each fit within maxSpillFileSize.

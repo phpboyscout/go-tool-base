@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -239,10 +240,32 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts 
 		sc.prefix = DefaultConfigPrefix
 	}
 
-	return start(cfg, logger, srv, sc)
+	return start(cfg, logger, srv, sc, nil)
 }
 
-func start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, sc serverConfig) controls.StartFunc {
+// serveState records the serve goroutine's exit error so Status can report a
+// gRPC server whose serve loop has died, rather than only checking that the
+// *grpc.Server is non-nil (which is invariantly true).
+type serveState struct {
+	mu      sync.Mutex
+	exitErr error
+}
+
+func (s *serveState) setExit(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.exitErr = err
+}
+
+func (s *serveState) status() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.exitErr
+}
+
+func start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, sc serverConfig, state *serveState) controls.StartFunc {
 	portNum, portErr := resolvePort(cfg, sc)
 	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
 
@@ -278,6 +301,10 @@ func start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, sc se
 		go func() {
 			if err := srv.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
 				logger.Error("gRPC server failed", "error", err)
+
+				if state != nil {
+					state.setExit(err)
+				}
 			}
 		}()
 
@@ -401,15 +428,27 @@ func Stop(logger logger.Logger, srv *grpc.Server) controls.StopFunc {
 	}
 }
 
-// Status returns a curried function suitable for use with the controls package.
-func Status(srv *grpc.Server) controls.StatusFunc {
+// status reports the serve goroutine's exit error when state is non-nil, so a
+// gRPC server whose serve loop has died is no longer reported as healthy.
+func serverStatus(srv *grpc.Server, state *serveState) controls.StatusFunc {
 	return func() error {
 		if srv == nil {
 			return errors.New("grpc server is nil")
 		}
 
+		if state != nil {
+			return state.status()
+		}
+
 		return nil
 	}
+}
+
+// Status returns a curried health function for a manually-wired server. It
+// reports an error only when srv is nil; use the controller wiring (Serve) for
+// serve-goroutine death detection.
+func Status(srv *grpc.Server) controls.StatusFunc {
+	return serverStatus(srv, nil)
 }
 
 // RegisterOption configures optional behaviour for gRPC server registration.
@@ -460,10 +499,11 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 
 	RegisterHealthService(srv, controller)
 
+	state := &serveState{}
 	controller.Register(id,
-		controls.WithStart(start(cfg, logger, srv, sc)),
+		controls.WithStart(start(cfg, logger, srv, sc, state)),
 		controls.WithStop(Stop(logger, srv)),
-		controls.WithStatus(Status(srv)),
+		controls.WithStatus(serverStatus(srv, state)),
 	)
 
 	return srv, nil
