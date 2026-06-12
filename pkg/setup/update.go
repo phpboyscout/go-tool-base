@@ -21,6 +21,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -66,6 +67,9 @@ type SelfUpdater struct {
 	Fs             afero.Fs
 	osExecutable   func() (string, error)
 	execLookPath   func(string) (string, error)
+	// isInteractive reports whether an interactive terminal is available
+	// for prompts. Defaults to utils.IsInteractive; injectable for tests.
+	isInteractive func() bool
 
 	// requireChecksum resolved from config (update.require_checksum →
 	// env-prefixed env var via viper AutomaticEnv → DefaultRequireChecksum).
@@ -161,11 +165,12 @@ func WithExecLookPath(fn func(string) (string, error)) UpdaterOption {
 // that do not require a VCS client or network access.
 func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...UpdaterOption) *SelfUpdater {
 	s := &SelfUpdater{
-		logger:       log,
-		Tool:         tool,
-		Fs:           fs,
-		osExecutable: os.Executable,
-		execLookPath: exec.LookPath,
+		logger:        log,
+		Tool:          tool,
+		Fs:            fs,
+		osExecutable:  os.Executable,
+		execLookPath:  exec.LookPath,
+		isInteractive: utils.IsInteractive,
 	}
 
 	for _, o := range opts {
@@ -225,6 +230,7 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		Fs:                        p.FS,
 		osExecutable:              os.Executable,
 		execLookPath:              exec.LookPath,
+		isInteractive:             utils.IsInteractive,
 		requireChecksum:           resolveRequireChecksum(p.Config),
 		checksumAssetName:         strings.TrimSpace(p.Config.GetString("update.checksum_asset_name")),
 		requireSignature:          resolveRequireSignature(p.Config),
@@ -404,7 +410,12 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	if skip := s.shouldSkipUpdate(ctx); skip {
+	skip, err := s.shouldSkipUpdate(ctx)
+	if err != nil {
+		return targetPath, err
+	}
+
+	if skip {
 		return targetPath, nil
 	}
 
@@ -614,19 +625,36 @@ func (s *SelfUpdater) UpdateFromFile(filePath string) (string, error) {
 		return "", err
 	}
 
+	// The offline path has no way to verify an OpenPGP signature (there is
+	// no manifest+signature flow for a local tarball), so a required
+	// signature cannot be satisfied here — fail closed rather than skip it.
+	if s.requireSignature {
+		return "", errors.WithHint(
+			errors.New("update.require_signature is enabled but the offline update path cannot verify signatures"),
+			"Use the online update path for signature-verified updates, or disable update.require_signature.",
+		)
+	}
+
 	data, err := afero.ReadFile(s.Fs, filePath)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to read update file")
 	}
 
 	sidecarPath := filePath + ".sha256"
-	if exists, _ := afero.Exists(s.Fs, sidecarPath); exists {
+
+	switch exists, _ := afero.Exists(s.Fs, sidecarPath); {
+	case exists:
 		if err := VerifyChecksum(s.Fs, sidecarPath, data); err != nil {
 			return "", err
 		}
 
 		s.logger.Info("checksum verified", "file", filePath)
-	} else {
+	case s.requireChecksum:
+		return "", errors.WithHintf(
+			errors.New("update.require_checksum is enabled but no checksum sidecar was found"),
+			"Provide %s alongside the archive, or disable update.require_checksum.", sidecarPath,
+		)
+	default:
 		s.logger.Warn("no checksum sidecar found, skipping verification", "expected", sidecarPath)
 	}
 
@@ -647,43 +675,60 @@ func (s *SelfUpdater) resolveTargetPath() (string, error) {
 		return "", errors.WithStack(err)
 	}
 
-	execPath, err := s.execLookPath(s.Tool.Name)
-	if err != nil {
-		return "", errors.WithStack(err)
+	// os.Executable already gives an authoritative path. A PATH lookup
+	// failure (e.g. running ./mytool, or the tool isn't on PATH) is not
+	// fatal — fall back to the running executable. Only prompt when the
+	// lookup succeeded AND resolved to a different path.
+	execPath, lookErr := s.execLookPath(s.Tool.Name)
+	pathsDiffer := lookErr == nil && targetPath != execPath
+
+	if !pathsDiffer {
+		return targetPath, nil
 	}
 
-	if targetPath != execPath {
-		err := huh.NewSelect[string]().
-			Title("Multiple installations detected, Please select which to update").
-			Options(
-				huh.NewOption(targetPath, targetPath),
-				huh.NewOption(execPath, execPath),
-			).
-			Value(&targetPath).
-			Run()
-		if err != nil {
-			return "", errors.WithStack(err)
-		}
+	// Paths differ. Without an interactive terminal (cron, CI, piped stdin)
+	// we cannot prompt — default to the running executable rather than
+	// blocking on a select that can never be answered.
+	if s.isInteractive == nil || !s.isInteractive() {
+		s.logger.Warn("multiple installations detected; updating the running executable",
+			"running", targetPath, "on_path", execPath)
+
+		return targetPath, nil
+	}
+
+	if err := huh.NewSelect[string]().
+		Title("Multiple installations detected, Please select which to update").
+		Options(
+			huh.NewOption(targetPath, targetPath),
+			huh.NewOption(execPath, execPath),
+		).
+		Value(&targetPath).
+		Run(); err != nil {
+		return "", errors.WithStack(err)
 	}
 
 	return targetPath, nil
 }
 
-func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) bool {
+// shouldSkipUpdate reports whether the explicit update should stop early
+// because the binary is already current. A version-check error is returned to
+// the caller rather than swallowed: the user invoked update explicitly, so a
+// failure to determine the target version must surface (non-zero exit) instead
+// of being treated as "already up to date". The throttled background check in
+// pkg/cmd/root uses a separate path that intentionally tolerates check errors.
+func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) (bool, error) {
 	isLatestVersion, message, err := s.IsLatestVersion(ctx)
 	if err != nil {
-		s.logger.Warn("failed to check for latest version", "error", err)
-
-		return true
+		return false, errors.Wrap(err, "failed to check for latest version")
 	}
 
 	if isLatestVersion && !s.force {
 		s.logger.Warn(message)
 
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }
 
 func (s *SelfUpdater) findReleaseAsset(rel release.Release) (release.ReleaseAsset, error) {
@@ -772,14 +817,19 @@ func (s *SelfUpdater) extract(file bytes.Buffer, targetPath string) error {
 			return errors.WithStack(err)
 		}
 
-		if header.Name == s.Tool.Name {
+		// Match the tool name or its Windows form: GoReleaser names the
+		// inner Windows binary "<name>.exe". The archive is platform-
+		// specific, so only one of these is ever present.
+		if header.Name == s.Tool.Name || header.Name == s.Tool.Name+".exe" {
 			s.logger.Infof("writing updated %s to %s", header.Name, targetPath)
 
 			return s.extractAndInstallBinary(tarReader, targetPath)
 		}
 	}
 
-	return nil
+	// Fall-through means no matching binary was found. Returning nil here
+	// would report a successful update while leaving the old binary in place.
+	return errors.Wrapf(ErrBinaryNotInArchive, "no %q binary in archive", s.Tool.Name)
 }
 
 func (s *SelfUpdater) isDevelopmentVersion() bool {

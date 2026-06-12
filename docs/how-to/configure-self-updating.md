@@ -249,6 +249,12 @@ The checksum sidecar is automatically detected and verified. No API token or net
 
 The `--from-file` flag is mutually exclusive with `--version`. The `--force` flag has no effect on offline updates since no version comparison is performed.
 
+!!! warning "Interaction with `require_*` flags"
+    The offline path enforces the same verification contract as the online path:
+
+    - **`update.require_checksum: true`** — the install **fails** if the `.sha256` sidecar is missing. Always transfer both files.
+    - **`update.require_signature: true`** — the offline path **cannot** verify an OpenPGP signature (there is no manifest+signature flow for a local archive), so it **refuses** the update. Use the online path for signature-verified updates, or disable `require_signature` for air-gapped installs.
+
 ---
 
 ## Related Documentation

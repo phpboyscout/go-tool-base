@@ -68,6 +68,11 @@ var ErrChecksumTooLarge = errors.New("download exceeds maximum size")
 // MaxBinaryDownloadSize. Indicates a hostile or misbehaving server.
 var ErrBinaryTooLarge = errors.New("binary download exceeds maximum size")
 
+// ErrBinaryNotInArchive is returned when the release archive does not
+// contain a binary matching the tool name. Without this, extraction
+// silently reported success while leaving the old binary in place.
+var ErrBinaryNotInArchive = errors.New("expected binary not found in archive")
+
 // checksumLinePattern matches a single GoReleaser manifest entry:
 // 64 hex chars, any whitespace run, then a non-whitespace filename.
 // Compiled once at package init.

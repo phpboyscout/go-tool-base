@@ -267,3 +267,37 @@ func TestGetReleaseNotes_Real(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, notes, "No release notes found between")
 }
+
+// TestUpdate_VersionCheckErrorPropagates proves the explicit update command
+// fails when it cannot determine the target version, rather than silently
+// reporting success (exit 0). Mirrors the e2e "update --version <nonexistent>"
+// scenario at the unit level.
+func TestUpdate_VersionCheckErrorPropagates(t *testing.T) {
+	t.Parallel()
+
+	memFS := afero.NewMemMapFs()
+	currentBin := "/usr/local/bin/test-tool"
+	require.NoError(t, memFS.MkdirAll(filepath.Dir(currentBin), 0o755))
+
+	mockClient := mockRelease.NewMockProvider(t)
+	mockClient.EXPECT().GetReleaseByTag(mock.Anything, "org", "repo", "v999.999.999").
+		Return(nil, assert.AnError).Maybe()
+	mockClient.EXPECT().GetLatestRelease(mock.Anything, "org", "repo").
+		Return(nil, assert.AnError).Maybe()
+
+	updater := &SelfUpdater{
+		Tool: props.Tool{Name: "test-tool", ReleaseSource: props.ReleaseSource{
+			Type: "github", Owner: "org", Repo: "repo",
+		}},
+		version:        "v999.999.999",
+		logger:         logger.NewNoop(),
+		releaseClient:  mockClient,
+		CurrentVersion: "v1.0.0",
+		Fs:             memFS,
+		osExecutable:   func() (string, error) { return currentBin, nil },
+		execLookPath:   func(_ string) (string, error) { return currentBin, nil },
+	}
+
+	_, err := updater.Update(context.Background())
+	require.Error(t, err)
+}
