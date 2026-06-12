@@ -30,6 +30,7 @@ graph TD
 
 - **Markers**: Status files (e.g., `last_checked`) are stored in the tool's config directory.
 - **Throttling**: By default, checks occur at most once every 24 hours.
+- **Consent default**: the update prompt defaults to **No**. If it cannot be answered — no TTY (cron, CI, piped stdin), or the user aborts — the update is declined rather than run. The tool continues with the current version; use the explicit `update` command (or `--ci`/`CI=true` to skip the check) for non-interactive environments.
 
 ### 2. Execution (Atomic Installation)
 

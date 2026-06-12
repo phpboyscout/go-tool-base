@@ -129,7 +129,7 @@ if err != nil {
 
 **Behavior:**
 
-- Returns error if the **first** file doesn't exist
+- Returns `ErrConfigFileNotFound` (match with `errors.Is`) if the **first** file doesn't exist — never a nil container with a nil error
 - Subsequent files are optional (merged if present)
 - No file watching (single load operation)
 - Preferred for CLI tools that require explicit configuration
