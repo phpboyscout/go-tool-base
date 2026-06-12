@@ -239,12 +239,13 @@ func (r *Repo) CreateBranch(branchName string) error {
 	}
 
 	if branchExists && !r.SourceIs(SourceMemory) {
-		// make sure we pull the latest changes
+		// make sure we pull the latest changes; an already-up-to-date branch
+		// is the common case and not a failure.
 		if err := r.tree.Pull(&git.PullOptions{
 			Auth:     r.auth,
 			Force:    true,
 			Progress: gitProgressOutput,
-		}); err != nil {
+		}); err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return errors.WithStack(err)
 		}
 	}

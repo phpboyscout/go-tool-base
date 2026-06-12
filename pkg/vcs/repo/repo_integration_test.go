@@ -7,10 +7,13 @@ import (
 	"embed"
 	"encoding/pem"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	git "github.com/go-git/go-git/v5"
+	gogitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/spf13/afero"
@@ -115,6 +118,59 @@ func TestCreateBranch(t *testing.T) {
 		})
 		assert.True(t, found)
 	}
+}
+
+// TestCreateBranch_ExistingBranchUpToDate proves that CreateBranch does not
+// fail when the post-checkout Pull reports the branch is already up to date.
+// go-git surfaces git.NoErrAlreadyUpToDate as a non-nil error in the common
+// up-to-date case (see TestPush), which CreateBranch must not treat as failure.
+// Uses a network-free local bare remote so the non-memory Pull path runs.
+func TestCreateBranch_ExistingBranchUpToDate(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
+
+	root := t.TempDir()
+	remoteDir := filepath.Join(root, "remote.git")
+	workDir := filepath.Join(root, "work")
+
+	// Bare remote.
+	_, err := git.PlainInit(remoteDir, true)
+	require.NoError(t, err)
+
+	// Working repo with one commit.
+	gitRepo, err := git.PlainInit(workDir, false)
+	require.NoError(t, err)
+
+	tree, err := gitRepo.Worktree()
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "README.md"), []byte("hello"), 0o644))
+	_, err = tree.Add("README.md")
+	require.NoError(t, err)
+
+	_, err = tree.Commit("initial", &git.CommitOptions{
+		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
+	})
+	require.NoError(t, err)
+
+	// Determine the default branch name and wire up origin.
+	head, err := gitRepo.Head()
+	require.NoError(t, err)
+	branchName := head.Name().Short()
+
+	_, err = gitRepo.CreateRemote(&gogitconfig.RemoteConfig{Name: "origin", URLs: []string{remoteDir}})
+	require.NoError(t, err)
+	require.NoError(t, gitRepo.Push(&git.PushOptions{RemoteName: "origin"}))
+
+	// Build a SourceLocal Repo over the working tree so CreateBranch reaches
+	// the branchExists + non-memory Pull path.
+	r := &Repo{}
+	r.SetRepo(gitRepo)
+	r.SetTree(tree)
+	r.SetSource(SourceLocal)
+
+	// The branch already exists and is up to date with origin: must succeed.
+	err = r.CreateBranch(branchName)
+	assert.NoError(t, err, "CreateBranch must not fail when the branch is already up to date")
 }
 
 func TestPush(t *testing.T) {
