@@ -455,16 +455,26 @@ func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
 	rootCmd.PersistentFlags().String("output", "text", "output format (text, json)")
 }
 
-func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
-	// Register global middleware
+// registerGlobalMiddlewareOnce registers the built-in global middleware and
+// seals the registry, but only on the first call per process. The middleware
+// registry is process-global, so a second NewCmdRoot reuses the already-sealed
+// registry rather than panicking on re-registration after seal.
+func registerGlobalMiddlewareOnce(props *p.Props) {
+	if setup.IsSealed() {
+		return
+	}
+
 	setup.RegisterGlobalMiddleware(
 		setup.WithRecovery(props.Logger),
 		setup.WithTiming(props.Logger),
 		setup.WithTelemetry(props),
 	)
 
-	// Seal the middleware registry to prevent modifications after initialization
 	setup.Seal()
+}
+
+func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
+	registerGlobalMiddlewareOnce(props)
 
 	rootCmd.Register(version.NewCmdVersion(props))
 
@@ -591,12 +601,27 @@ func ensureMinimalConfig(props *p.Props, v *viper.Viper, enabled bool) error {
 
 // buildTelemetryCollector creates the appropriate telemetry collector based on
 // feature flags, user config, environment variables, and tool-author settings.
+// resolveVersionString returns the tool version, or "" when Props was built
+// without a Version (the interface field is nilable on hand-constructed Props).
+func resolveVersionString(props *p.Props) string {
+	if props.Version == nil {
+		return ""
+	}
+
+	return props.Version.GetVersion()
+}
+
 func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Collector {
 	dataDir := telemetry.ResolveDataDir(props)
 
+	// Version is an interface and may be nil on a hand-constructed Props (the
+	// scaffold always sets it, but downstream tools need not). Resolve it once
+	// with a nil guard, mirroring shouldSkipUpdateCheck and the doctor command.
+	version := resolveVersionString(props)
+
 	if props.Tool.IsDisabled(p.TelemetryCmd) {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
+			props.Tool.Name, version, nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
 	cfg := telemetry.Config{
@@ -621,7 +646,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	if !cfg.Enabled {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-			props.Tool.Name, props.Version.GetVersion(), nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
+			props.Tool.Name, version, nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
 	deliveryMode := props.Tool.Telemetry.DeliveryMode
@@ -631,7 +656,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	backend, backendInfo := selectTelemetryBackend(ctx, props, cfg, dataDir)
 
-	collector := telemetry.NewCollector(cfg, backend, props.Tool.Name, props.Version.GetVersion(),
+	collector := telemetry.NewCollector(cfg, backend, props.Tool.Name, version,
 		props.Tool.Telemetry.Metadata, props.Logger, dataDir, deliveryMode, props.Tool.Telemetry.ExtendedCollection)
 	collector.SetBackendInfo(backendInfo)
 
@@ -656,7 +681,7 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 	case props.Tool.Telemetry.OTelEndpoint != "":
 		opts := []telemetry.OTelOption{
 			telemetry.WithOTelLogger(props.Logger),
-			telemetry.WithOTelService(props.Tool.Name, props.Version.GetVersion()),
+			telemetry.WithOTelService(props.Tool.Name, resolveVersionString(props)),
 		}
 
 		if props.Tool.Telemetry.OTelInsecure {

@@ -107,6 +107,14 @@ func NewCollector(cfg Config, backend Backend, toolName, version string, metadat
 	}
 }
 
+// Enabled reports whether this collector is actively collecting, as opposed to
+// a no-op disabled collector. It reflects the resolved decision (config, env
+// override, or tool-author ForceEnabled), so callers should gate a flush on
+// this rather than re-reading the raw config key.
+func (c *Collector) Enabled() bool {
+	return c.config.Enabled
+}
+
 // Track records a telemetry event. No-op when collector is disabled.
 // When the in-memory buffer reaches maxBuffer, events are spilled to disk.
 // mergeMetadata combines collector metadata with per-event extras and redacts

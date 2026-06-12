@@ -60,6 +60,10 @@ type TelemetryCollector interface {
 	Close(ctx context.Context) error
 	// Drop clears all buffered events and deletes any spill files without sending.
 	Drop() error
+	// Enabled reports whether the collector is actively collecting (as opposed
+	// to a no-op disabled collector). Reflects the resolved decision from
+	// config, env override, or tool-author ForceEnabled.
+	Enabled() bool
 }
 
 // TelemetryConfig holds tool-author telemetry declarations.

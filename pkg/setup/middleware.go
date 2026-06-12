@@ -57,6 +57,17 @@ func Seal() {
 	sealed = true
 }
 
+// IsSealed reports whether the middleware registry has been sealed. Callers
+// that register built-in middleware once per process use this to stay
+// idempotent — a second root construction reuses the already-sealed registry
+// instead of re-registering and panicking.
+func IsSealed() bool {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	return sealed
+}
+
 // Chain applies all registered middleware (global + feature-specific)
 // to the given RunE function and returns the wrapped function.
 func Chain(feature props.FeatureCmd, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	testifymock "github.com/stretchr/testify/mock"
@@ -13,8 +15,35 @@ import (
 
 	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	gtbconfig "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
+
+// TestCmdSet_EmbeddedMergeContainerPersists proves config set works in the
+// embedded-merge configuration GTB produces for InitCmd-disabled tools, where
+// the active viper has no bound file (so viper's WriteConfig/SafeWriteConfig
+// both fail). The value must be written to the user's default config path.
+func TestCmdSet_EmbeddedMergeContainerPersists(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	cfg := gtbconfig.NewReaderContainer(fs,
+		gtbconfig.WithConfigFormat("yaml"),
+		gtbconfig.WithConfigReaders(strings.NewReader("existing:\n  key: value\n")),
+	)
+
+	p := &props.Props{Config: cfg, FS: fs, Tool: props.Tool{Name: "settool"}}
+	cmd := config.NewCmdSet(p)
+	cmd.SetArgs([]string{"new.key", "hello"})
+
+	require.NoError(t, cmd.Execute())
+
+	path := filepath.Join(setup.GetDefaultConfigDir(fs, "settool"), setup.DefaultConfigFilename)
+	data, err := afero.ReadFile(fs, path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "hello")
+}
 
 func TestCmdSet_WritesValue(t *testing.T) {
 	t.Parallel()

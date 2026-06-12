@@ -39,11 +39,11 @@ func Execute(rootCmd *setup.Command, props *p.Props) {
 // backend. Uses a bounded background context so command-context cancellation
 // does not interrupt the flush.
 func flushTelemetry(props *p.Props) {
-	if props.Collector == nil {
-		return
-	}
-
-	if props.Config != nil && !props.Config.GetBool("telemetry.enabled") {
+	// Gate on the collector's resolved enabled state, not the raw config key:
+	// the collector may have been enabled via the TELEMETRY_ENABLED env var or
+	// the tool-author ForceEnabled path even when telemetry.enabled is false,
+	// and those buffered events must still be flushed.
+	if props.Collector == nil || !props.Collector.Enabled() {
 		return
 	}
 

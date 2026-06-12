@@ -859,6 +859,32 @@ func TestRootState_Isolation(t *testing.T) {
 	assert.Equal(t, "tool2", cmd2.Use)
 }
 
+// TestNewCmdRoot_SecondConstructionDoesNotPanic proves a second NewCmdRoot in
+// the same process does not panic on global-middleware re-registration after
+// the registry was sealed by the first construction.
+func TestNewCmdRoot_SecondConstructionDoesNotPanic(t *testing.T) {
+	// Not parallel: mutates the process-global middleware registry.
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+
+	mkProps := func(name string) *p.Props {
+		return &p.Props{
+			Logger: logger.NewNoop(),
+			FS:     afero.NewMemMapFs(),
+			Tool: p.Tool{
+				Name:     name,
+				Features: p.SetFeatures(p.Disable(p.UpdateCmd), p.Disable(p.InitCmd), p.Disable(p.McpCmd), p.Disable(p.DocsCmd)),
+			},
+		}
+	}
+
+	_ = NewCmdRoot(mkProps("tool1"))
+
+	assert.NotPanics(t, func() {
+		_ = NewCmdRoot(mkProps("tool2"))
+	}, "second NewCmdRoot must not panic after the first sealed the registry")
+}
+
 func TestRootState_DefaultFormCreator(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
