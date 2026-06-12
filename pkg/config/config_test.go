@@ -34,8 +34,12 @@ func TestLoadFilesContainer_NoFiles(t *testing.T) {
 
 func TestLoadFilesContainer_NonExistentFile(t *testing.T) {
 	t.Parallel()
+	// Documented contract: LoadFilesContainer "returns an error if the first
+	// file specified does not exist." It must never return (nil, nil), or
+	// callers that branch on err alone proceed with a nil Containable and panic.
 	c, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles("/does/not/exist.yaml"))
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.ErrorIs(t, err, config.ErrConfigFileNotFound)
 	assert.Nil(t, c)
 }
 

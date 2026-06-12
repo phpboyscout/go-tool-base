@@ -14,6 +14,11 @@ import (
 
 var (
 	ErrNoFilesFound = errors.Newf("no configuration files found please run init, or provide a config file using the --config flag")
+
+	// ErrConfigFileNotFound is returned by LoadFilesContainer when the first
+	// configured file does not exist. Callers can branch on this with
+	// errors.Is to fall back to defaults (e.g. on first run).
+	ErrConfigFileNotFound = errors.Newf("config file not found")
 )
 
 // LoadEnv loads environment variables from a .env file if it exists.

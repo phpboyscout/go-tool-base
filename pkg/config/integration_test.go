@@ -76,7 +76,7 @@ app:
 	assert.False(t, cfg.GetBool("app.debug"))
 }
 
-func TestLoadFilesContainer_MissingPrimaryReturnsNil(t *testing.T) {
+func TestLoadFilesContainer_MissingPrimaryReturnsError(t *testing.T) {
 	t.Parallel()
 	testutil.SkipIfNotIntegration(t, "config")
 
@@ -84,7 +84,7 @@ func TestLoadFilesContainer_MissingPrimaryReturnsNil(t *testing.T) {
 	missing := filepath.Join(dir, "missing.yaml")
 
 	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(missing))
-	require.NoError(t, err)
+	require.ErrorIs(t, err, config.ErrConfigFileNotFound)
 	assert.Nil(t, cfg)
 }
 

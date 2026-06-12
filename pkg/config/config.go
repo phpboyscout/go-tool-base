@@ -82,17 +82,22 @@ func LoadFilesContainerWithSchema(fs afero.Fs, schema *Schema, opts ...Container
 }
 
 // LoadFilesContainer loads configuration from files and returns a Containable.
-// Config files are specified via WithConfigFiles. It returns an error if the
-// first file specified does not exist.
+// Config files are specified via WithConfigFiles. It returns
+// ErrConfigFileNotFound if the first file specified does not exist; it never
+// returns a nil Containable with a nil error.
 func LoadFilesContainer(fs afero.Fs, opts ...ContainerOption) (Containable, error) {
 	o := applyOptions(opts)
 
 	c, err := loadFilesContainer(fs, o)
-	if c == nil {
+	if err != nil {
 		return nil, err
 	}
 
-	return c, err
+	if c == nil {
+		return nil, errors.WithStack(ErrConfigFileNotFound)
+	}
+
+	return c, nil
 }
 
 func loadFilesContainer(fs afero.Fs, o *containerOptions) (*Container, error) {
