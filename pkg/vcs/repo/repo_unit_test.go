@@ -644,3 +644,22 @@ github:
 		assert.Error(t, err)
 	})
 }
+
+// TestRepo_Unit_configureSSHAuth_ScalarSSH proves that a scalar github.ssh
+// value (e.g. `github.ssh: true`) — which passes the Has("github.ssh") gate
+// but has no github.ssh.key subtree — does not panic. Config.Sub returns a
+// nil Containable for the absent subtree, and configureSSHAuth dereferenced
+// it unguarded.
+func TestRepo_Unit_configureSSHAuth_ScalarSSH(t *testing.T) {
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
+github:
+  ssh: true
+`)))
+	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
+
+	assert.NotPanics(t, func() {
+		// Falls back to ssh-agent when no key details are present; may error
+		// if no agent is running, but must never panic on the nil subtree.
+		_, _ = NewRepo(p)
+	})
+}

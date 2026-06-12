@@ -610,6 +610,13 @@ func setSSHAgent(repo *Repo) error {
 
 func configureSSHAuth(repo *Repo, props *props.Props) error {
 	sshCfg := props.Config.Sub("github.ssh.key")
+	if sshCfg == nil {
+		// github.ssh is present but has no key subtree (e.g. a scalar
+		// `github.ssh: true`); fall back to ssh-agent.
+		props.Logger.Warn("No github.ssh.key configured, defaulting to ssh-agent")
+
+		return setSSHAgent(repo)
+	}
 
 	if sshCfg.GetString("type") == "agent" {
 		return setSSHAgent(repo)
