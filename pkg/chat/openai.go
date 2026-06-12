@@ -71,10 +71,16 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 		model = DefaultModelOpenAI
 	}
 
+	maxTokens := cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = DefaultMaxTokensOpenAI
+	}
+
 	params := openai.ChatCompletionNewParams{
-		Model:    model,
-		Messages: setup,
-		Seed:     openai.Int(0),
+		Model:               model,
+		Messages:            setup,
+		Seed:                openai.Int(0),
+		MaxCompletionTokens: openai.Int(int64(maxTokens)),
 	}
 
 	if cfg.ResponseSchema != nil {
@@ -138,6 +144,10 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any) error {
 	res, err := a.oai.Chat.Completions.New(ctx, a.params)
 	if err != nil {
 		return errors.Wrap(err, "AI completion request failed")
+	}
+
+	if len(res.Choices) == 0 {
+		return errors.New("OpenAI returned no choices")
 	}
 
 	a.params.Messages = append(a.params.Messages, res.Choices[0].Message.ToParam())
@@ -492,6 +502,10 @@ func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
 		resp, err := a.oai.Chat.Completions.New(ctx, a.params)
 		if err != nil {
 			return "", err
+		}
+
+		if len(resp.Choices) == 0 {
+			return "", errors.New("OpenAI returned no choices")
 		}
 
 		msg := resp.Choices[0].Message

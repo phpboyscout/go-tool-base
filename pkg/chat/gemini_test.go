@@ -478,3 +478,119 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 		assert.Contains(t, lastPart["text"], "favourite number")
 	})
 }
+
+// TestGeminiProvider_MaxTokensWired proves Config.MaxTokens reaches the Gemini
+// request as generationConfig.maxOutputTokens; it was previously ignored.
+func TestGeminiProvider_MaxTokensWired(t *testing.T) {
+	t.Parallel()
+
+	server := NewMockServer()
+	defer server.Close()
+
+	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
+
+	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+
+	client, err := chat.New(context.Background(), p, chat.Config{
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
+		MaxTokens:            1234,
+	})
+	require.NoError(t, err)
+
+	var captured float64
+
+	server.Handler = func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if gc, ok := body["generationConfig"].(map[string]interface{}); ok {
+			captured, _ = gc["maxOutputTokens"].(float64)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"candidates": []map[string]interface{}{
+				{"content": map[string]interface{}{"parts": []map[string]interface{}{{"text": "hi"}}}},
+			},
+		}
+		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+			t.Errorf("encode: %v", encErr)
+		}
+	}
+
+	_, err = client.Chat(context.Background(), "hello")
+	require.NoError(t, err)
+	assert.InEpsilon(t, 1234, captured, 0.001, "Config.MaxTokens must be sent as maxOutputTokens")
+}
+
+// TestGeminiProvider_ChatPersistsHistoryAcrossCalls proves that turns from a
+// Chat() call are written back into the conversation history, so a second
+// Chat() remembers the first exchange. The provider previously created a
+// throwaway session from g.history and never persisted the new turns, so
+// multi-turn memory (and Save()) silently lost everything said via Chat().
+func TestGeminiProvider_ChatPersistsHistoryAcrossCalls(t *testing.T) {
+	t.Parallel()
+
+	server := NewMockServer()
+	defer server.Close()
+
+	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
+
+	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+
+	cfg := chat.Config{
+		Provider:             chat.ProviderGemini,
+		Token:                "test-key",
+		BaseURL:              server.URL,
+		AllowInsecureBaseURL: true,
+	}
+
+	client, err := chat.New(context.Background(), p, cfg)
+	require.NoError(t, err)
+
+	call := 0
+
+	var secondCallBody map[string]interface{}
+
+	server.Handler = func(w http.ResponseWriter, r *http.Request) {
+		if call == 1 {
+			_ = json.NewDecoder(r.Body).Decode(&secondCallBody)
+		}
+
+		call++
+
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"candidates": []map[string]interface{}{
+				{"content": map[string]interface{}{"parts": []map[string]interface{}{{"text": "Nice to meet you, Alice."}}}},
+			},
+		}
+		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+			t.Errorf("encode response: %v", encErr)
+		}
+	}
+
+	_, err = client.Chat(context.Background(), "My name is Alice.")
+	require.NoError(t, err)
+
+	_, err = client.Chat(context.Background(), "What is my name?")
+	require.NoError(t, err)
+
+	// The second request must carry the first exchange as history: the
+	// user turn, the model reply, then the new user turn.
+	contents, ok := secondCallBody["contents"].([]interface{})
+	require.True(t, ok, "second request should contain a 'contents' array")
+	require.GreaterOrEqual(t, len(contents), 3,
+		"second Chat must include the prior user turn, model reply, and new prompt")
+
+	first := contents[0].(map[string]interface{})["parts"].([]interface{})[0].(map[string]interface{})
+	assert.Contains(t, first["text"], "My name is Alice")
+}

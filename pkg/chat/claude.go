@@ -55,6 +55,13 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 
 	client := anthropic.NewClient(opts...)
 
+	// Resolve the default model once so every path (Ask, Chat, StreamChat)
+	// sends a non-empty model; Chat/StreamChat previously sent the empty
+	// Config.Model verbatim, which the API rejects with a 400.
+	if cfg.Model == "" {
+		cfg.Model = DefaultModelClaude
+	}
+
 	c := &Claude{
 		props:  p,
 		client: client,
@@ -142,7 +149,46 @@ func (c *Claude) parseAskResponse(resp *anthropic.Message, target any) error {
 		return errors.New("Claude did not provide a tool use response as expected")
 	}
 
-	return nil
+	// No schema: return the raw text content into target, which per the
+	// ChatClient contract must be a *string or a json.Unmarshaler.
+	return assignText(collectText(resp.Content), target)
+}
+
+// collectText concatenates the text of every text content block.
+func collectText(content []anthropic.ContentBlockUnion) string {
+	var b strings.Builder
+
+	for _, block := range content {
+		if block.Type == "text" {
+			b.WriteString(block.Text)
+		}
+	}
+
+	return b.String()
+}
+
+// assignText writes raw text into target per the no-schema Ask contract:
+// target must be a *string or a json.Unmarshaler; any other pointer is given a
+// best-effort JSON unmarshal so a caller expecting structured text still works.
+func assignText(text string, target any) error {
+	switch t := target.(type) {
+	case *string:
+		*t = text
+
+		return nil
+	case json.Unmarshaler:
+		if err := t.UnmarshalJSON([]byte(text)); err != nil {
+			return errors.Newf("failed to unmarshal Claude text response: %w", err)
+		}
+
+		return nil
+	default:
+		if err := json.Unmarshal([]byte(text), target); err != nil {
+			return errors.Newf("Ask without a schema requires a *string or json.Unmarshaler target: %w", err)
+		}
+
+		return nil
+	}
 }
 
 // SetTools configures the tools available to the AI.
@@ -150,10 +196,10 @@ func (c *Claude) SetTools(tools []Tool) error {
 	claudeTools := make([]anthropic.ToolUnionParam, 0, len(tools))
 
 	for _, t := range tools {
-		inputSchema := anthropic.ToolInputSchemaParam{
-			Type:       "object",
-			Properties: t.Parameters.Properties,
-			Required:   t.Parameters.Required,
+		inputSchema := anthropic.ToolInputSchemaParam{Type: "object"}
+		if t.Parameters != nil {
+			inputSchema.Properties = t.Parameters.Properties
+			inputSchema.Required = t.Parameters.Required
 		}
 
 		claudeTools = append(claudeTools, anthropic.ToolUnionParam{

@@ -90,7 +90,12 @@ func buildGeminiClientConfig(token string, cfg Config) *genai.ClientConfig {
 }
 
 func buildGeminiGenerateConfig(cfg Config) *genai.GenerateContentConfig {
-	baseCfg := &genai.GenerateContentConfig{}
+	maxTokens := cfg.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = DefaultMaxTokensGemini
+	}
+
+	baseCfg := &genai.GenerateContentConfig{MaxOutputTokens: int32(maxTokens)}
 	if cfg.SystemPrompt != "" {
 		baseCfg.SystemInstruction = &genai.Content{
 			Parts: []*genai.Part{{Text: cfg.SystemPrompt}},
@@ -105,6 +110,21 @@ func buildGeminiGenerateConfig(cfg Config) *genai.GenerateContentConfig {
 	}
 
 	return baseCfg
+}
+
+// persistSessionHistory copies a chat session's accumulated turns back into
+// g.history so subsequent calls (and Save) see the exchange. User turns always
+// carry a role; a model turn whose role was omitted by the response is
+// normalised to RoleModel so the history stays valid for the next session.
+func (g *Gemini) persistSessionHistory(chat *genai.Chat) {
+	hist := chat.History(false)
+	for _, c := range hist {
+		if c != nil && c.Role == "" {
+			c.Role = genai.RoleModel
+		}
+	}
+
+	g.history = hist
 }
 
 // Add appends a user message to the conversation history.
@@ -148,6 +168,8 @@ func (g *Gemini) Ask(ctx context.Context, question string, target any) error {
 	if err := json.Unmarshal([]byte(text), target); err != nil {
 		return errors.Newf("failed to unmarshal gemini response: %w", err)
 	}
+
+	g.persistSessionHistory(chat)
 
 	return nil
 }
@@ -214,6 +236,8 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 
 		funcCalls := resp.FunctionCalls()
 		if len(funcCalls) == 0 {
+			g.persistSessionHistory(chat)
+
 			return textResponse.String(), nil
 		}
 
@@ -348,6 +372,8 @@ func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamC
 		}
 
 		if len(funcCalls) == 0 {
+			g.persistSessionHistory(chat)
+
 			_ = callback(StreamEvent{Type: EventComplete})
 
 			return fullText.String(), nil

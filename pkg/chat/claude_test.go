@@ -562,3 +562,83 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		assert.Len(t, toolResultContent, 2, "expected two tool results in the follow-up request")
 	})
 }
+
+// TestClaudeProvider_ContractFixes covers three Claude provider contract bugs:
+// Chat/StreamChat sending an empty model, SetTools panicking on nil tool
+// Parameters, and Ask without a schema leaving the target untouched.
+func TestClaudeProvider_ContractFixes(t *testing.T) {
+	t.Parallel()
+
+	server := NewMockServer()
+	defer server.Close()
+
+	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+
+	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+
+	newClient := func(t *testing.T) chat.ChatClient {
+		t.Helper()
+		c, err := chat.New(context.Background(), p, chat.Config{
+			Provider:             chat.ProviderClaude,
+			Token:                "test-key",
+			BaseURL:              server.URL + "/",
+			AllowInsecureBaseURL: true,
+		})
+		require.NoError(t, err)
+
+		return c
+	}
+
+	t.Run("chat_sends_default_model_when_unset", func(t *testing.T) {
+		var capturedModel string
+
+		server.Handler = func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]interface{}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			capturedModel, _ = body["model"].(string)
+
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{
+				"id": "msg_1", "type": "message", "role": "assistant", "model": "claude",
+				"content":     []map[string]interface{}{{"type": "text", "text": "hi"}},
+				"stop_reason": "end_turn",
+			}
+			if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+				t.Errorf("encode: %v", encErr)
+			}
+		}
+
+		_, err := newClient(t).Chat(context.Background(), "hello")
+		require.NoError(t, err)
+		assert.Equal(t, chat.DefaultModelClaude, capturedModel,
+			"Chat must send the default model when Config.Model is unset")
+	})
+
+	t.Run("settools_nil_parameters_does_not_panic", func(t *testing.T) {
+		err := newClient(t).SetTools([]chat.Tool{{Name: "noargs", Description: "no args", Parameters: nil}})
+		require.NoError(t, err)
+	})
+
+	t.Run("ask_without_schema_populates_target", func(t *testing.T) {
+		server.Handler = func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{
+				"id": "msg_2", "type": "message", "role": "assistant", "model": "claude",
+				"content":     []map[string]interface{}{{"type": "text", "text": "the raw answer"}},
+				"stop_reason": "end_turn",
+			}
+			if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+				t.Errorf("encode: %v", encErr)
+			}
+		}
+
+		var target string
+		err := newClient(t).Ask(context.Background(), "question?", &target)
+		require.NoError(t, err)
+		assert.Equal(t, "the raw answer", target,
+			"Ask without a schema must populate target with the raw text per the documented contract")
+	})
+}

@@ -145,7 +145,72 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "question cannot be empty")
 	})
+
+	t.Run("empty_choices_errors_not_panics", func(t *testing.T) {
+		server.Handler = func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			resp := map[string]interface{}{"id": "chatcmpl-empty", "choices": []map[string]interface{}{}}
+			if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+				t.Errorf("encode: %v", encErr)
+			}
+		}
+
+		var target map[string]interface{}
+		// An OpenAI-compatible backend (Ollama/vLLM) can return 200 with no
+		// choices; indexing Choices[0] must not panic.
+		assert.NotPanics(t, func() {
+			err := client.Ask(context.Background(), "test", &target)
+			require.Error(t, err)
+		})
+	})
 }
+
+// TestOpenAIProvider_MaxTokensWired proves Config.MaxTokens reaches the request
+// as max_completion_tokens; previously it was silently ignored by this provider.
+func TestOpenAIProvider_MaxTokensWired(t *testing.T) {
+	t.Parallel()
+
+	server := NewMockServer()
+	defer server.Close()
+
+	cfgMock := mockConfig.NewMockContainable(t)
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
+	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
+
+	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+
+	client, err := chat.New(context.Background(), p, chat.Config{
+		Provider:             chat.ProviderOpenAI,
+		Token:                "test-key",
+		BaseURL:              server.URL + "/",
+		AllowInsecureBaseURL: true,
+		MaxTokens:            1234,
+	})
+	require.NoError(t, err)
+
+	var capturedMaxTokens float64
+
+	server.Handler = func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]interface{}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		capturedMaxTokens, _ = body["max_completion_tokens"].(float64)
+
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"id":      "chatcmpl-mt",
+			"choices": []map[string]interface{}{{"message": map[string]interface{}{"role": "assistant", "content": "hi"}, "finish_reason": "stop"}},
+		}
+		if encErr := json.NewEncoder(w).Encode(resp); encErr != nil {
+			t.Errorf("encode: %v", encErr)
+		}
+	}
+
+	_, err = client.Chat(context.Background(), "hello")
+	require.NoError(t, err)
+	assert.InEpsilon(t, 1234, capturedMaxTokens, 0.001, "Config.MaxTokens must be sent as max_completion_tokens")
+}
+
 func TestOpenAIProvider_Add(t *testing.T) {
 	t.Parallel()
 
