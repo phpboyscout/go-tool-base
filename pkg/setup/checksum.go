@@ -64,6 +64,10 @@ var ErrChecksumManifestMalformed = errors.New("checksums manifest is malformed")
 //nolint:gochecknoglobals // sentinel error
 var ErrChecksumTooLarge = errors.New("download exceeds maximum size")
 
+// ErrBinaryTooLarge is returned when a downloaded release binary exceeds
+// MaxBinaryDownloadSize. Indicates a hostile or misbehaving server.
+var ErrBinaryTooLarge = errors.New("binary download exceeds maximum size")
+
 // checksumLinePattern matches a single GoReleaser manifest entry:
 // 64 hex chars, any whitespace run, then a non-whitespace filename.
 // Compiled once at package init.

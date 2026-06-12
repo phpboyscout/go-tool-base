@@ -54,7 +54,7 @@ func (t *TrustSet) VerifyManifestSignature(manifest, signature []byte) error
 
 ### Minimum-Strength Policy
 
-Every key entering a trust set — embedded or fetched — is checked against a short, explicit accept-list:
+Every key entering a trust set — embedded or fetched — is checked against a short, explicit accept-list. The check covers the primary key **and every signing-capable subkey**, because signature verification resolves issuers including subkeys; the RSA floor is also enforced at verification time (`MinRSABits`) as defense-in-depth.
 
 | Algorithm | Decision |
 |-----------|----------|

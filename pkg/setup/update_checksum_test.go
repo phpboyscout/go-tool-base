@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -464,4 +465,25 @@ func TestFindChecksumsAsset_HonoursConfiguredName(t *testing.T) {
 	got, ok = s.findChecksumsAsset(rel)
 	require.True(t, ok)
 	assert.Equal(t, "checksums.sha256", got.GetName())
+}
+
+// TestDownloadAsset_BoundedBySize proves the binary download is capped: a body
+// exceeding the configured limit is refused rather than read into memory
+// unbounded.
+func TestDownloadAsset_BoundedBySize(t *testing.T) {
+	t.Parallel()
+
+	rel := &fakeRelease{name: "v1.0.0", assets: []release.ReleaseAsset{
+		&fakeAsset{name: "testtool_Linux_x86_64.tar.gz"},
+	}}
+	provider := &fakeProvider{rel: rel, assetBodies: map[string][]byte{
+		"testtool_Linux_x86_64.tar.gz": bytes.Repeat([]byte("A"), 200),
+	}}
+
+	u := newTestUpdater(t, provider, false)
+	u.maxBinaryDownloadSize = 100
+
+	_, err := u.DownloadAsset(context.Background(), rel.assets[0])
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrBinaryTooLarge)
 }

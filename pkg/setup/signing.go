@@ -176,10 +176,39 @@ func loadTrustSetFromEntities(entities openpgp.EntityList) (*TrustSet, error) {
 			return nil, err
 		}
 
+		// Signature verification resolves issuers including signing-capable
+		// subkeys, so the strength floor must cover them too — otherwise a
+		// weak subkey could validate a signature under a strong primary.
+		for _, sub := range ent.Subkeys {
+			if !subkeyCanSign(sub) {
+				continue
+			}
+
+			if err := checkKeyStrength(sub.PublicKey); err != nil {
+				return nil, err
+			}
+		}
+
 		ts.entities = append(ts.entities, ent)
 	}
 
 	return ts, nil
+}
+
+// subkeyCanSign reports whether sub may be used to verify signatures. When the
+// binding signature's key flags are valid, it honours the Sign flag; when they
+// are absent it fails closed (treats the subkey as signing-capable) so an
+// unflagged subkey is still strength-checked.
+func subkeyCanSign(sub openpgp.Subkey) bool {
+	if sub.PublicKey == nil {
+		return false
+	}
+
+	if sub.Sig != nil && sub.Sig.FlagsValid {
+		return sub.Sig.FlagSign
+	}
+
+	return true
 }
 
 // checkKeyStrength enforces the minimum-strength policy. The accept-
@@ -239,11 +268,14 @@ func (t *TrustSet) VerifyManifestSignature(manifest, signature []byte) error {
 		return errors.Wrap(ErrSignatureInvalid, "signature is empty")
 	}
 
+	// Defense-in-depth: enforce the RSA strength floor at verification time
+	// too, so a weak key cannot validate a signature even if it reached the
+	// trust set through a path that skipped loadTrustSetFromEntities.
 	signer, err := openpgp.CheckArmoredDetachedSignature(
 		t.entities,
 		bytes.NewReader(manifest),
 		bytes.NewReader(signature),
-		nil,
+		&packet.Config{MinRSABits: uint16(minRSAStrengthBits)},
 	)
 	if err != nil {
 		return errors.Wrap(ErrSignatureInvalid, err.Error())

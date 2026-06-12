@@ -99,6 +99,11 @@ type SelfUpdater struct {
 	keySource                 string
 	externalKeyEmail          string
 	requireExternalCrosscheck bool
+
+	// maxBinaryDownloadSize caps DownloadAsset's in-memory read. Zero means
+	// use MaxBinaryDownloadSize. Overridable mainly so tests can assert the
+	// bound without allocating the full default.
+	maxBinaryDownloadSize int64
 }
 
 // checksumsDefaultAssetName is the filename GoReleaser produces for
@@ -725,9 +730,21 @@ func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset release.ReleaseAs
 		return file, errors.Newf("redirected to %s", redirectURL)
 	}
 
-	i, err := io.Copy(&file, rc)
+	maxBytes := s.maxBinaryDownloadSize
+	if maxBytes <= 0 {
+		maxBytes = MaxBinaryDownloadSize
+	}
+
+	// +1 so we can distinguish "exactly the limit" from "over the limit".
+	i, err := io.Copy(&file, io.LimitReader(rc, maxBytes+1))
 	if err != nil {
 		return file, errors.WithStack(err)
+	}
+
+	if i > maxBytes {
+		return file, errors.WithHintf(ErrBinaryTooLarge,
+			"asset %q exceeded MaxBinaryDownloadSize (%d bytes); raise the limit if this is legitimate",
+			asset.GetName(), maxBytes)
 	}
 
 	s.logger.Debug("downloaded", "size", i)

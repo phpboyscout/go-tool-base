@@ -109,6 +109,22 @@ func NewCollector(cfg Config, backend Backend, toolName, version string, metadat
 
 // Track records a telemetry event. No-op when collector is disabled.
 // When the in-memory buffer reaches maxBuffer, events are spilled to disk.
+// mergeMetadata combines collector metadata with per-event extras and redacts
+// every value at the ingest boundary. Metadata is operator-supplied free-form
+// text (endpoints, identifiers) and is the last place to catch a stray
+// credential before it ships, mirroring the args/errMsg redaction.
+func (c *Collector) mergeMetadata(extra map[string]string) map[string]string {
+	merged := make(map[string]string, len(c.metadata)+len(extra))
+	maps.Copy(merged, c.metadata)
+	maps.Copy(merged, extra)
+
+	for k, v := range merged {
+		merged[k] = redact.String(v)
+	}
+
+	return merged
+}
+
 func (c *Collector) Track(eventType props.EventType, name string, extra map[string]string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -117,9 +133,7 @@ func (c *Collector) Track(eventType props.EventType, name string, extra map[stri
 		return
 	}
 
-	merged := make(map[string]string, len(c.metadata)+len(extra))
-	maps.Copy(merged, c.metadata)
-	maps.Copy(merged, extra)
+	merged := c.mergeMetadata(extra)
 
 	c.buffer = append(c.buffer, Event{
 		Timestamp: time.Now().UTC(),
@@ -150,9 +164,7 @@ func (c *Collector) TrackCommand(name string, durationMs int64, exitCode int, ex
 		return
 	}
 
-	merged := make(map[string]string, len(c.metadata)+len(extra))
-	maps.Copy(merged, c.metadata)
-	maps.Copy(merged, extra)
+	merged := c.mergeMetadata(extra)
 
 	c.buffer = append(c.buffer, Event{
 		Timestamp:  time.Now().UTC(),
@@ -186,9 +198,7 @@ func (c *Collector) TrackCommandExtended(name string, args []string, durationMs 
 		return
 	}
 
-	merged := make(map[string]string, len(c.metadata)+len(extra))
-	maps.Copy(merged, c.metadata)
-	maps.Copy(merged, extra)
+	merged := c.mergeMetadata(extra)
 
 	event := Event{
 		Timestamp:  time.Now().UTC(),

@@ -87,31 +87,48 @@ func WithRequestLogging(log logger.Logger) ClientMiddleware {
 	}
 }
 
+// hostPinnedAuth wraps next so that authValue is injected as the Authorization
+// header only when the request host matches the first host this middleware
+// saw. Because credential middleware is a RoundTripper, it runs on every
+// redirect hop and net/http's cross-host Authorization stripping (which only
+// governs headers set on the initial request) does not apply — pinning the
+// host prevents leaking the credential to a redirect target the caller did
+// not address.
+func hostPinnedAuth(next http.RoundTripper, authValue string) http.RoundTripper {
+	var (
+		once        sync.Once
+		allowedHost string
+	)
+
+	return roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		once.Do(func() { allowedHost = req.URL.Host })
+
+		if req.URL.Host == allowedHost {
+			req = req.Clone(req.Context())
+			req.Header.Set("Authorization", authValue)
+		}
+
+		return next.RoundTrip(req)
+	})
+}
+
 // WithBearerToken returns middleware that injects an Authorization: Bearer
-// header on every request.
+// header. The header is only sent to the first host the client addresses, so
+// a cross-host redirect cannot capture the token.
 func WithBearerToken(token string) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			req = req.Clone(req.Context())
-			req.Header.Set("Authorization", "Bearer "+token)
-
-			return next.RoundTrip(req)
-		})
+		return hostPinnedAuth(next, "Bearer "+token)
 	}
 }
 
 // WithBasicAuth returns middleware that injects an Authorization: Basic
-// header on every request.
+// header. The header is only sent to the first host the client addresses, so
+// a cross-host redirect cannot capture the credential.
 func WithBasicAuth(username, password string) ClientMiddleware {
 	encoded := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 
 	return func(next http.RoundTripper) http.RoundTripper {
-		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			req = req.Clone(req.Context())
-			req.Header.Set("Authorization", "Basic "+encoded)
-
-			return next.RoundTrip(req)
-		})
+		return hostPinnedAuth(next, "Basic "+encoded)
 	}
 }
 

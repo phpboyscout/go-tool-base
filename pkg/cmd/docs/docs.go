@@ -13,6 +13,23 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
+// missingAssetsHint returns guidance shown when the running binary lacks the
+// embedded documentation assets. It uses the tool author's InstallHint when
+// set, otherwise a generic message — the framework never ships a hardcoded
+// installer for a specific product to downstream tools.
+func missingAssetsHint(tool props.Tool) string {
+	if tool.InstallHint != "" {
+		return tool.InstallHint
+	}
+
+	name := tool.Name
+	if name == "" {
+		name = "the tool"
+	}
+
+	return "Please reinstall " + name + " using its recommended installation method to get the full release binary."
+}
+
 // NewCmdDocs creates the docs command with the interactive documentation browser.
 func NewCmdDocs(p *props.Props) *setup.Command {
 	var provider string
@@ -28,8 +45,7 @@ func NewCmdDocs(p *props.Props) *setup.Command {
 					errors.Wrap(err, "failed to load documentation assets"),
 					"This command requires pre-built documentation assets.\n"+
 						"It looks like you might have installed using 'go install', which builds from source and lacks these assets.\n"+
-						"Please use the recommended installation method to get the full binary:\n"+
-						"  curl -sSL https://raw.githubusercontent.com/phpboyscout/gtb/main/install.sh | bash",
+						missingAssetsHint(p.Tool),
 				)
 			}
 

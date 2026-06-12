@@ -153,6 +153,37 @@ func TestString_Golden(t *testing.T) {
 			contains:    []string{"AKIA***"},
 			notContains: []string{"AKIA" + "IOSFODNN7EXAMPLE"},
 		},
+		{
+			// Prefix-underscore leak: the body of an sk- token contains
+			// underscores; only the "sk-" prefix may survive.
+			name:        "sk token with underscores in body",
+			input:       "key " + "sk-" + "live_DEADBEEFCAFE_secretbodypart_tail xyz",
+			contains:    []string{"sk-***"},
+			notContains: []string{"DEADBEEFCAFE", "secretbodypart"},
+		},
+		{
+			name:        "gitlab personal access token",
+			input:       "using " + "glpat-" + "abcdef1234567890abcdef",
+			contains:    []string{"glpat-***"},
+			notContains: []string{"abcdef1234567890abcdef"},
+		},
+		{
+			name:        "gitlab runner token",
+			input:       "runner " + "glrt-" + "ABCdef1234567890ABCdef",
+			contains:    []string{"glrt-***"},
+			notContains: []string{"ABCdef1234567890ABCdef"},
+		},
+		{
+			name:        "jwt bearer token",
+			input:       "Bearer " + "eyJhbGciOiJIUzI1NiJ9" + "." + "eyJzdWIiOiIxMjM0NUV4cCJ9" + "." + "SflKxwRJSMeKKF2QT4fabc",
+			notContains: []string{"eyJzdWIiOiIxMjM0NUV4cCJ9", "SflKxwRJSMeKKF2QT4fabc"},
+		},
+		{
+			name:        "aws secret access key assignment",
+			input:       "aws_secret_access_key=" + "wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY",
+			contains:    []string{"aws_secret_access_key=***"},
+			notContains: []string{"wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY"},
+		},
 
 		// Long opaque fallback — triggered when no earlier-precedence
 		// rule already scrubbed the content.

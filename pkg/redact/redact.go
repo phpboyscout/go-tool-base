@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+// prefixPattern pairs a credential-prefix regexp with the number of
+// leading characters to keep when redacting a match.
+type prefixPattern struct {
+	re   *regexp.Regexp
+	keep int
+}
+
 // Patterns are compiled once at package init via MustCompile. All of
 // them use RE2 syntax (no backtracking), so pattern matching is
 // linear in the input length.
@@ -33,17 +40,40 @@ var (
 
 	// Well-known credential prefixes. These formats are unambiguous —
 	// the appearance of the prefix followed by sufficient alphanumeric
-	// content is almost certainly a real credential.
-	prefixPatterns = []*regexp.Regexp{
-		regexp.MustCompile(`sk-[A-Za-z0-9_\-]{16,}`),       // OpenAI / Anthropic-style
-		regexp.MustCompile(`ghp_[A-Za-z0-9]{30,}`),         // GitHub PAT classic
-		regexp.MustCompile(`gho_[A-Za-z0-9]{30,}`),         // GitHub OAuth
-		regexp.MustCompile(`ghs_[A-Za-z0-9]{30,}`),         // GitHub app server
-		regexp.MustCompile(`github_pat_[A-Za-z0-9_]{30,}`), // GitHub fine-grained PAT
-		regexp.MustCompile(`xox[baprs]-[A-Za-z0-9-]{10,}`), // Slack
-		regexp.MustCompile(`AIza[A-Za-z0-9_\-]{30,}`),      // Google API key
-		regexp.MustCompile(`AKIA[A-Z0-9]{16}`),             // AWS access key ID
+	// content is almost certainly a real credential. keep is the number
+	// of leading characters preserved for debug readability (the literal
+	// prefix); the remainder is replaced with ***. keep is anchored to the
+	// known prefix rather than discovered from the matched text, so a token
+	// whose body happens to contain "_" or "-" cannot leak.
+	prefixPatterns = []prefixPattern{
+		{regexp.MustCompile(`sk-[A-Za-z0-9_\-]{16,}`), 3},        // OpenAI / Anthropic-style
+		{regexp.MustCompile(`ghp_[A-Za-z0-9]{30,}`), 4},          // GitHub PAT classic
+		{regexp.MustCompile(`gho_[A-Za-z0-9]{30,}`), 4},          // GitHub OAuth
+		{regexp.MustCompile(`ghs_[A-Za-z0-9]{30,}`), 4},          // GitHub app server
+		{regexp.MustCompile(`github_pat_[A-Za-z0-9_]{30,}`), 11}, // GitHub fine-grained PAT
+		{regexp.MustCompile(`glpat-[A-Za-z0-9_\-]{16,}`), 6},     // GitLab personal access token
+		{regexp.MustCompile(`glrt-[A-Za-z0-9_\-]{16,}`), 5},      // GitLab runner token
+		{regexp.MustCompile(`gldt-[A-Za-z0-9_\-]{16,}`), 5},      // GitLab deploy token
+		{regexp.MustCompile(`xox[baprs]-[A-Za-z0-9-]{10,}`), 5},  // Slack
+		{regexp.MustCompile(`AIza[A-Za-z0-9_\-]{30,}`), 4},       // Google API key
+		{regexp.MustCompile(`AKIA[A-Z0-9]{16}`), 4},              // AWS access key ID
 	}
+
+	// JSON Web Tokens: three base64url segments separated by dots. The
+	// distinctive `eyJ` header prefix keeps false positives low; the whole
+	// token is replaced (no meaningful prefix to preserve). Catches bare
+	// `Bearer eyJ...` tokens that the authorization-header rule misses.
+	jwtPattern = regexp.MustCompile(
+		`eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+`,
+	)
+
+	// AWS secret access keys rarely carry a distinguishing prefix, so they
+	// are matched by their assignment form (env var / ini / query) instead
+	// of by value — matching a bare 40-char value would also scrub git
+	// SHA-1 hashes.
+	awsSecretAssignPattern = regexp.MustCompile(
+		`(?i)(aws_secret_access_key|secret_access_key)(\s*[=:]\s*)\S+`,
+	)
 
 	// Fuzzy fallback: very long alphanumeric runs. 41 chars avoids
 	// false positives on UUIDs (32 or 36 with hyphens), MD5 (32),
@@ -74,9 +104,13 @@ func String(s string) string {
 	s = urlUserinfoPattern.ReplaceAllString(s, "${1}<redacted>@")
 	s = queryCredPattern.ReplaceAllString(s, "$1=***")
 	s = authHeaderPattern.ReplaceAllString(s, "${1}$2 ***")
+	s = awsSecretAssignPattern.ReplaceAllString(s, "${1}${2}***")
+	s = jwtPattern.ReplaceAllString(s, "<redacted-token>")
 
 	for _, p := range prefixPatterns {
-		s = p.ReplaceAllStringFunc(s, redactAfterPrefix)
+		s = p.re.ReplaceAllStringFunc(s, func(match string) string {
+			return keepPrefix(match, p.keep)
+		})
 	}
 
 	s = longOpaqueTokenPattern.ReplaceAllString(s, "<redacted-token>")
@@ -94,29 +128,13 @@ func Error(err error) string {
 	return String(err.Error())
 }
 
-// fixedPrefixKeepLen is the number of leading characters kept for
-// provider prefixes that do not contain "-" or "_" (AIza, AKIA).
-// Four is enough to distinguish provider families in debug output
-// while still removing the secret body.
-const fixedPrefixKeepLen = 4
-
-// redactAfterPrefix keeps the credential prefix ("sk-", "ghp_",
-// "AIza", "AKIA", etc.) so debug output remains meaningful, and
-// replaces the remainder with ***. The prefix boundary is whichever
-// of "_" (longest, e.g. github_pat_) or "-" (sk-, xoxb-) appears
-// first; if neither is present, we keep the first fixedPrefixKeepLen
-// characters.
-func redactAfterPrefix(match string) string {
-	if i := strings.LastIndex(match, "_"); i > 0 && i < len(match)-1 {
-		return match[:i+1] + "***"
-	}
-
-	if i := strings.Index(match, "-"); i > 0 && i < len(match)-1 {
-		return match[:i+1] + "***"
-	}
-
-	if len(match) > fixedPrefixKeepLen {
-		return match[:fixedPrefixKeepLen] + "***"
+// keepPrefix preserves the first keep characters of match (the known
+// literal credential prefix) and replaces the remainder with ***. The
+// keep length is anchored to the pattern, never discovered from the
+// matched text, so a token body containing "_" or "-" cannot leak.
+func keepPrefix(match string, keep int) string {
+	if keep > 0 && keep < len(match) {
+		return match[:keep] + "***"
 	}
 
 	return "***"

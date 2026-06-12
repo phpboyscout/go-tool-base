@@ -204,8 +204,8 @@ type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 | Middleware | Description |
 |-----------|-------------|
 | `WithRequestLogging(log)` | Logs method, URL, status code, and duration at debug level. Headers and body are NOT logged (security). |
-| `WithBearerToken(token)` | Injects `Authorization: Bearer {token}` on every request |
-| `WithBasicAuth(user, pass)` | Injects `Authorization: Basic {base64}` on every request |
+| `WithBearerToken(token)` | Injects `Authorization: Bearer {token}`. Sent only to the first host the client addresses, so a cross-host redirect cannot capture the token. |
+| `WithBasicAuth(user, pass)` | Injects `Authorization: Basic {base64}`. Host-pinned like `WithBearerToken` — not re-sent across a cross-host redirect. |
 | `WithRateLimit(rps)` | Token bucket rate limiting. Blocks until a token is available or the request context is cancelled. |
 
 **Usage example:**

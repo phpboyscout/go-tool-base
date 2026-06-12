@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Redact — Credential Stripping at Boundaries
 
-`pkg/redact` is the shared redactor for any surface in GTB — and in tools built on GTB — that writes free-form strings outside the trust boundary of the local process. It is applied automatically by the telemetry collector for `TrackCommandExtended` error and args fields, and by HTTP middleware for known-sensitive request headers. Callers that write their own logs or telemetry events should route untrusted strings through it too.
+`pkg/redact` is the shared redactor for any surface in GTB — and in tools built on GTB — that writes free-form strings outside the trust boundary of the local process. It is applied automatically by the telemetry collector for `TrackCommandExtended` error and args fields, for every event's metadata values (across `Track`, `TrackCommand`, and `TrackCommandExtended`), and by HTTP middleware for known-sensitive request headers. Callers that write their own logs or telemetry events should route untrusted strings through it too.
 
 Local-process logs that never leave the host do not need to go through this package — those may need raw content for debugging.
 
@@ -64,10 +64,15 @@ for _, k := range redact.SensitiveHeaderKeys { /* ... */ }
 | Authorization header in free text | `Authorization: <scheme> <token>` where scheme is Bearer/Basic/Digest/ApiKey | `Authorization: <scheme> ***` |
 | OpenAI-family prefix | `sk-[A-Za-z0-9_-]{16,}` | `sk-***` |
 | GitHub tokens | `ghp_`, `gho_`, `ghs_`, `github_pat_` | prefix + `***` |
+| GitLab tokens | `glpat-`, `glrt-`, `gldt-` | prefix + `***` |
 | Slack tokens | `xoxb-`, `xoxp-`, `xoxa-`, etc. | prefix + `***` |
-| Google API key | `AIza[A-Za-z0-9_-]{30,}` | `AIza***` (or more, up to the first `-` / `_`) |
+| Google API key | `AIza[A-Za-z0-9_-]{30,}` | `AIza***` |
 | AWS access key ID | `AKIA[A-Z0-9]{16}` | `AKIA***` |
+| AWS secret access key (assignment form) | `aws_secret_access_key=...` / `secret_access_key: ...` | value replaced with `***` |
+| JWT | `eyJ...` (three base64url segments) | `<redacted-token>` (also catches bare `Bearer eyJ...`) |
 | Fuzzy long token | any ≥ 41-char alphanumeric/`_`/`-` run not already caught | `<redacted-token>` |
+
+The credential-prefix replacement keeps only the known literal prefix (e.g. `sk-`, `glpat-`); a token body containing `_` or `-` cannot leak.
 
 ## Known Limitations
 

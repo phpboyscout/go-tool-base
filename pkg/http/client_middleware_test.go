@@ -112,6 +112,47 @@ func TestWithBearerToken(t *testing.T) {
 	assert.Equal(t, "Bearer my-secret-token", receivedAuth)
 }
 
+// TestWithBearerToken_NotLeakedOnCrossHostRedirect proves the Authorization
+// header is not re-injected when a request is redirected to a different host.
+// Because the middleware is a RoundTripper, net/http's cross-host stripping
+// (which only governs initial-request headers) does not protect it.
+func TestWithBearerToken_NotLeakedOnCrossHostRedirect(t *testing.T) {
+	t.Parallel()
+
+	var foreignAuth string
+
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		foreignAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer foreign.Close()
+
+	var originAuth string
+
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/start" {
+			originAuth = r.Header.Get("Authorization")
+			http.Redirect(w, r, foreign.URL+"/landing", http.StatusFound)
+
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer origin.Close()
+
+	chain := NewClientChain(WithBearerToken("my-secret-token"))
+	client := &http.Client{Transport: chain.Then(http.DefaultTransport)}
+
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, origin.URL+"/start", nil)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, "Bearer my-secret-token", originAuth, "origin host should receive the token")
+	assert.Empty(t, foreignAuth, "token must not be sent to the redirect target host")
+}
+
 func TestWithBasicAuth(t *testing.T) {
 	t.Parallel()
 

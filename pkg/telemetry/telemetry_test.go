@@ -80,6 +80,31 @@ func TestCollector_Track(t *testing.T) {
 	}
 }
 
+func TestCollector_RedactsMetadataValues(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyBackend{}
+	// A credential supplied via collector metadata must be scrubbed at ingest,
+	// just like args/errMsg are — metadata values were shipped verbatim.
+	meta := map[string]string{"base_url": "https://user:" + "s3cret@api.example.co/v1"}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", meta, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+
+	c.Track(props.EventCommandInvocation, "op", map[string]string{"token_arg": "token=" + "glpat-abcdef1234567890abcdef"})
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("flush error: %v", err)
+	}
+
+	e := spy.lastEvents[0]
+	if strings.Contains(e.Metadata["base_url"], "s3cret") {
+		t.Errorf("collector metadata not redacted: %q", e.Metadata["base_url"])
+	}
+
+	if strings.Contains(e.Metadata["token_arg"], "glpat-abcdef1234567890abcdef") {
+		t.Errorf("extra metadata not redacted: %q", e.Metadata["token_arg"])
+	}
+}
+
 func TestCollector_FlushEmpty(t *testing.T) {
 	t.Parallel()
 

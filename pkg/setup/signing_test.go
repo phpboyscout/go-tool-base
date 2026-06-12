@@ -130,6 +130,35 @@ func TestLoadTrustSet_StrengthPolicy(t *testing.T) {
 	}
 }
 
+// TestLoadTrustSet_WeakSigningSubkeyRejected proves the minimum-strength
+// policy covers signing-capable subkeys, not just the primary key. A strong
+// primary with a weak RSA-1024 signing subkey must be rejected — otherwise the
+// subkey could validate a signature while bypassing the documented floor.
+func TestLoadTrustSet_WeakSigningSubkeyRejected(t *testing.T) {
+	t.Parallel()
+
+	ent, err := openpgp.NewEntity("Strong Primary", "", "primary@test.example", &packet.Config{
+		Algorithm: packet.PubKeyAlgoEdDSA,
+		Curve:     packet.Curve25519,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, ent.AddSigningSubkey(&packet.Config{
+		Algorithm: packet.PubKeyAlgoRSA,
+		RSABits:   1024,
+	}))
+
+	var buf bytes.Buffer
+	w, err := armor.Encode(&buf, openpgp.PublicKeyType, nil)
+	require.NoError(t, err)
+	require.NoError(t, ent.Serialize(w))
+	require.NoError(t, w.Close())
+
+	_, err = LoadTrustSet(buf.Bytes())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrWeakKey)
+}
+
 func TestLoadTrustSet_MultipleKeys_AnyWeakFails(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)

@@ -143,6 +143,13 @@ type Tool struct {
 	// When set, only env vars starting with this prefix (e.g., "GTB_") are
 	// considered for config overrides. Empty means no prefix (all env vars match).
 	EnvPrefix string `json:"env_prefix,omitempty" yaml:"env_prefix,omitempty"`
+
+	// InstallHint is shown when a feature requires a full release binary
+	// (e.g. embedded docs) that the running binary lacks. Set it to your
+	// tool's recommended installation command. When empty, a generic
+	// message referencing Name is shown — the framework never assumes a
+	// particular installer.
+	InstallHint string `json:"install_hint,omitempty" yaml:"install_hint,omitempty"`
 }
 
 // isDefaultEnabled returns true if the feature is enabled by default.
