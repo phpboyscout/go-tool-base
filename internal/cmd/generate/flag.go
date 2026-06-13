@@ -14,7 +14,6 @@ import (
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
-	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
@@ -206,32 +205,16 @@ func (o *AddFlagOptions) saveManifest(p *props.Props, m *generator.Manifest, pat
 }
 
 func (o *AddFlagOptions) regenerateCommand(ctx context.Context, p *props.Props, cmd *generator.ManifestCommand, parentPath []string) error {
-	cmdDir := filepath.Join(o.Path, "pkg", "cmd", filepath.Join(parentPath...), cmd.Name)
+	// Regenerate through the same full-record mapping the `regenerate project`
+	// path uses. Building a partial CommandData here (as an earlier version did)
+	// silently dropped the command's aliases, persistent/required/shorthand
+	// flags, and pre-run hooks, and never wrote the refreshed cmd.go hash back
+	// to the manifest. RegenerateCommand populates CommandData from the full
+	// manifest command record and persists the new hash via the shared
+	// post-generation pipeline.
+	gen := generator.New(p, &generator.Config{Path: o.Path})
 
-	templateFlags := make([]templates.CommandFlag, 0, len(cmd.Flags))
-
-	for _, f := range cmd.Flags {
-		templateFlags = append(templateFlags, templates.CommandFlag{
-			Name:        f.Name,
-			Type:        f.Type,
-			Description: string(f.Description),
-			Persistent:  f.Persistent,
-		})
-	}
-
-	tData := templates.CommandData{
-		Name:       cmd.Name,
-		PascalName: generator.PascalCase(cmd.Name),
-		Short:      string(cmd.Description),
-		Long:       string(cmd.LongDescription),
-		Package:    strings.ReplaceAll(cmd.Name, "-", "_"),
-		WithAssets: cmd.WithAssets,
-		Flags:      templateFlags,
-	}
-
-	gen := generator.New(p, &generator.Config{})
-
-	if err := gen.GenerateCommandFile(ctx, cmdDir, &tData); err != nil {
+	if err := gen.RegenerateCommand(ctx, *cmd, parentPath); err != nil {
 		return errors.Newf("failed to regenerate command files: %w", err)
 	}
 

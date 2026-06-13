@@ -37,6 +37,7 @@ func initializeScenario(ctx *godog.ScenarioContext) {
 	initCLISteps(ctx)
 	initChatSteps(ctx)
 	initSignalSteps(ctx)
+	initGeneratorSteps(ctx)
 }
 
 func buildTagExpression() string {

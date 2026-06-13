@@ -221,6 +221,50 @@ func (g *Generator) runPostRegenerationLint(ctx context.Context, writtenHashes m
 	}
 }
 
+// RegenerateCommand regenerates a single command's cmd.go from its full
+// ManifestCommand record and persists the refreshed cmd.go hash back to the
+// manifest. It reuses the exact mapping the `regenerate project` path uses
+// (prepareRegenerationData → performGeneration → postGenerate), so a command's
+// aliases, persistent/required/shorthand flags, and pre-run hooks survive the
+// regeneration rather than being dropped by a hand-built partial CommandData.
+//
+// Unlike regenerateCommandRecursive it does NOT recurse into subcommands: it is
+// the entrypoint for the targeted `generate add-flag` regeneration, which must
+// only rewrite the command whose flag set changed. Child registrations in the
+// regenerated cmd.go are preserved by the pipeline's reRegisterChildCommands
+// step.
+func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
+	cmdCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
+
+	savedConfig := g.config
+	g.config = cmdCtx.ToConfig()
+
+	defer func() { g.config = savedConfig }()
+
+	cmdDir, err := g.getCommandPath()
+	if err != nil {
+		return err
+	}
+
+	if err := g.props.FS.MkdirAll(cmdDir, DefaultDirMode); err != nil {
+		return errors.Newf("failed to create command directory: %w", err)
+	}
+
+	data := g.prepareRegenerationData(cmd, cmdDir)
+
+	if err := g.performGeneration(ctx, cmdDir, &data); err != nil {
+		return err
+	}
+
+	// Skip documentation generation: add-flag is a flag-set change, not a docs
+	// operation, and the docs step requires AI configuration that the add-flag
+	// caller does not wire up. The manifest step still runs, persisting the
+	// refreshed cmd.go hash and the full flag set.
+	_, err = newCommandPipeline(g, PipelineOptions{SkipDocumentation: true}).Run(ctx, data, cmdDir)
+
+	return err
+}
+
 func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
 	g.props.Logger.Debugf("Building command context for %q (parent=%v)", cmd.Name, parentPath)
 

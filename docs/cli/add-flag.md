@@ -31,6 +31,9 @@ This command performs three key actions:
 !!! note "Separation of Concerns"
     We separate the boilerplate (`cmd.go`) from your logic (`main.go`) so that we can regenerate the boilerplate as you add flags or change configurations without overwriting your hard work!
 
+!!! info "Full metadata is preserved"
+    `add-flag` regenerates `cmd.go` from the command's **complete** manifest record, using the same mapping the `regenerate` command uses. Your command's aliases, persistent / required / shorthand flags, and pre-run hooks all survive the regeneration, and the refreshed `cmd.go` hash is written back to the manifest so the next `regenerate` does not flag the file as a manual customisation.
+
 ## Supported Types
 
 You can use any of the following types for your flags:
