@@ -68,7 +68,7 @@ All seven findings (and the three folded-in low/info items) are addressed.
 
 ## O4 — Enumerated exported-signature changes (for changelog/migration)
 
-Migration note: `docs/migration/v0.16-to-v0.17-controls-supervisor.md`.
+Migration note: `docs/migration/v0.16-controls-supervisor.md`.
 
 | Symbol | Before | After | Kind |
 |--------|--------|-------|------|
