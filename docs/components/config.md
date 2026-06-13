@@ -43,7 +43,12 @@ type Containable interface {
     WriteConfigAs(dest string) error
     Sub(key string) Containable
     AddObserver(o Observable)
-    AddObserverFunc(f func(Containable, chan error))
+    AddObserverFunc(f func(Containable) error)
+    // OnReloadError registers a callback invoked when a hot-reload is
+    // rejected (candidate build or schema validation failed) and the
+    // last-known-good config is retained. See "Reacting to rejected
+    // reloads" below.
+    OnReloadError(f func(error))
     ToJSON() string
     Dump(w io.Writer)
     Validate(schema *Schema) *ValidationResult
@@ -599,17 +604,30 @@ For a complete walkthrough of defining config defaults AND validation for a new 
 
 ## Observer Pattern for Configuration Changes
 
-The configuration system includes a built-in observer pattern that monitors filesystem changes and notifies registered observers when configuration files are updated.
+The configuration system includes a built-in observer pattern. The file-backed
+`Container` runs its own `fsnotify` watcher over **every** configured file. On a
+change it rebuilds and re-merges all files into a candidate, validates the
+candidate against the schema (if any), and — only on success — swaps the live
+config atomically and notifies observers. A reload that fails to parse any file
+or fails validation is rejected **fail-closed**: the last-known-good config is
+retained, `Get*` keeps serving the previous values, and observers are not
+notified. Save bursts are coalesced behind a configurable debounce window
+(default 250 ms; see `WithReloadDebounce`).
 
 ### Observable Interface
 
+`Run` returns an `error`. A returned error is logged by the framework; it does
+not abort subsequent observers and never stalls future reloads. (This replaced
+the previous `chan error` parameter — see the
+[migration guide](../migration/v0.16-hot-reload-observer.md).)
+
 ```go
 type Observable interface {
-    Run(Containable, chan error)
+    Run(Containable) error
 }
 
 type Observer struct {
-    handler func(Containable, chan error)
+    handler func(Containable) error
 }
 ```
 
@@ -623,15 +641,17 @@ type ConfigWatcher struct {
     name string
 }
 
-func (cw *ConfigWatcher) Run(cfg config.Containable, errs chan error) {
+func (cw *ConfigWatcher) Run(cfg config.Containable) error {
     // React to configuration changes
     newPort := cfg.GetInt("app.port")
     fmt.Printf("Configuration updated - new port: %d\n", newPort)
 
-    // Signal any errors back through the channel
+    // Return any error; it is logged by the framework
     if newPort < 1024 {
-        errs <- fmt.Errorf("invalid port number: %d", newPort)
+        return fmt.Errorf("invalid port number: %d", newPort)
     }
+
+    return nil
 }
 
 // Register the observer
@@ -639,29 +659,85 @@ watcher := &ConfigWatcher{name: "port-monitor"}
 container.AddObserver(watcher)
 
 // Or use a function directly
-container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
+container.AddObserverFunc(func(cfg config.Containable) error {
     l.Info("Configuration reloaded", "timestamp", time.Now())
+
+    return nil
 })
 ```
 
 ### Automatic File Watching
 
-When using multiple configuration files, the Container automatically watches for changes:
+Every file-backed container is watched — single-file as well as multi-file —
+once construction completes:
 
 ```go
 // This enables file watching automatically
 container := config.NewFilesContainer(fs,
     config.WithLogger(l),
     config.WithConfigFiles("config.yaml", "local.yaml"),
+    config.WithReloadDebounce(500*time.Millisecond), // optional; default 250ms
 )
+defer container.Close() // stop the watcher and release OS resources
 
-// File watching triggers observers when config files change
-container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
-    // This will be called whenever config.yaml or local.yaml changes
+// File watching triggers observers when either file changes
+container.AddObserverFunc(func(cfg config.Containable) error {
+    // Called whenever config.yaml or local.yaml changes, after the merged
+    // candidate has validated and been swapped in.
     newLogLevel := cfg.GetString("log.level")
     // Reconfigure logging, restart services, etc.
+    _ = newLogLevel
+
+    return nil
 })
 ```
+
+### Reacting to rejected reloads
+
+Observers are notified only when a reload **succeeds** — the candidate config
+was built, passed schema validation, and was swapped in. They are never handed
+a rejected reload, because nothing changed and the returned-error contract has
+no channel to push a reload-time error back to an observer.
+
+To learn about a **rejected** reload programmatically, register an
+`OnReloadError` callback. It fires whenever a reload is rejected and the
+last-known-good config is retained — that is, when:
+
+- the candidate failed to build (a fail-closed partial-merge / parse error, or
+  the primary file went missing, honouring `ErrConfigFileNotFound`); or
+- the candidate failed schema validation.
+
+```go
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml", "local.yaml"),
+    config.WithSchema(schema),
+)
+
+// Fires on a CHANGE that was applied.
+container.AddObserverFunc(func(cfg config.Containable) error {
+    // apply the new, validated configuration
+    return nil
+})
+
+// Fires on a CHANGE that was REJECTED (config unchanged, last-known-good kept).
+container.OnReloadError(func(err error) {
+    l.Warn("config reload rejected; keeping last-known-good", "error", err)
+    // e.g. raise an alert, bump a metric, surface a banner
+})
+```
+
+**Guarantees and ordering**
+
+- The container always logs the rejection at `ERROR`; `OnReloadError` callbacks
+  are **additive** to that log, not a replacement.
+- `OnReloadError` is **never** invoked for a successful reload; observers are.
+- Callbacks are stored under the container mutex, copied under the lock, and
+  invoked **outside** the lock (the same race-safe, deadlock-free discipline as
+  observer notification), so registering a callback concurrently with an active
+  reload is safe under `-race`.
+- Callbacks run in registration order on the watcher goroutine; a slow callback
+  delays subsequent reloads, so offload expensive work.
 
 ## Testing and Mocking
 
@@ -769,8 +845,8 @@ Testing observers is important because they often contain critical business logi
 #### Why Test Observers?
 
 - **Critical Logic**: Observers often restart services, update logging levels, or reconfigure security settings
-- **Error Handling**: Observers can signal configuration validation errors through error channels
-- **Concurrency**: Observers run concurrently and need proper error handling and synchronization
+- **Error Handling**: Observers signal configuration validation errors via the returned `error`
+- **Direct invocation**: Observers can be exercised by calling `Run(cfg)` directly — no file watching required
 
 #### Testing Strategies
 
@@ -779,23 +855,17 @@ Testing observers is important because they often contain critical business logi
 ```go
 import (
     "testing"
-    "time"
 
     "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
     "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
 )
 
 func TestLogLevelObserver(t *testing.T) {
-    // Create a mock configuration
     mockConfig := config.NewMockContainable(t)
-
-    // Set up expectations for the observer
     mockConfig.EXPECT().GetString("log.level").Return("debug")
-    mockConfig.EXPECT().Has("log.level").Return(true)
 
-    // Test the observer logic directly
     observerCalled := false
-    errorsCh := make(chan error, 1)
 
     observer := &LogLevelObserver{
         onLevelChange: func(level string) {
@@ -804,19 +874,8 @@ func TestLogLevelObserver(t *testing.T) {
         },
     }
 
-    // Run the observer with mock config
-    observer.Run(mockConfig, errorsCh)
-
-    // Verify observer was called
+    require.NoError(t, observer.Run(mockConfig))
     assert.True(t, observerCalled)
-
-    // Check no errors were reported
-    select {
-    case err := <-errorsCh:
-        t.Fatalf("Unexpected error: %v", err)
-    default:
-        // No error, which is expected
-    }
 }
 ```
 
@@ -826,7 +885,6 @@ func TestLogLevelObserver(t *testing.T) {
 func TestObserverRegistration(t *testing.T) {
     fs := afero.NewMemMapFs()
 
-    // Create container with test config
     container := config.NewReaderContainer(fs,
         config.WithConfigFormat("yaml"),
         config.WithConfigReaders(strings.NewReader(`
@@ -837,55 +895,26 @@ database:
 `)),
     )
 
-    // Track observer execution
     observerCalled := false
-    errorCount := 0
 
-    // Add observer function
-    container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
+    container.AddObserverFunc(func(cfg config.Containable) error {
         observerCalled = true
 
-        // Test configuration access within observer
         logLevel := cfg.GetString("log.level")
         if logLevel == "" {
-            errs <- errors.New("log level not configured")
-            return
+            return errors.New("log level not configured")
         }
 
-        // Validate configuration
-        if logLevel != "debug" && logLevel != "info" && logLevel != "warn" && logLevel != "error" {
-            errs <- fmt.Errorf("invalid log level: %s", logLevel)
-        }
+        return nil
     })
 
-    // Simulate observer execution (since file watching isn't available in tests)
-    // In real usage, this would be triggered by file system changes
-    errorsCh := make(chan error, 10)
-    wg := &sync.WaitGroup{}
-
-    // Execute observers manually
-    observers := container.GetObservers()
-    for _, observer := range observers {
-        wg.Add(1)
-        go func(obs config.Observable) {
-            defer wg.Done()
-            obs.Run(container, errorsCh)
-        }(observer)
+    // Execute the registered observers directly (file watching is not
+    // available for reader containers).
+    for _, observer := range container.GetObservers() {
+        require.NoError(t, observer.Run(container))
     }
 
-    wg.Wait()
-    close(errorsCh)
-
-    // Check results
     assert.True(t, observerCalled, "Observer should have been called")
-
-    // Count any errors
-    for err := range errorsCh {
-        t.Logf("Observer error: %v", err)
-        errorCount++
-    }
-
-    assert.Equal(t, 0, errorCount, "No observer errors expected")
 }
 ```
 
@@ -895,50 +924,34 @@ database:
 func TestObserverErrorHandling(t *testing.T) {
     fs := afero.NewMemMapFs()
 
-    // Create container with invalid config
     container := config.NewReaderContainer(fs,
         config.WithConfigFormat("yaml"),
         config.WithConfigReaders(strings.NewReader(`
 log:
-  level: "invalid_level"  # This should trigger an error
+  level: "invalid_level"
 `)),
     )
 
-    // Add observer that validates configuration
-    container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
+    container.AddObserverFunc(func(cfg config.Containable) error {
         logLevel := cfg.GetString("log.level")
         validLevels := []string{"debug", "info", "warn", "error"}
 
-        isValid := false
-        for _, valid := range validLevels {
-            if logLevel == valid {
-                isValid = true
-                break
-            }
+        if !slices.Contains(validLevels, logLevel) {
+            return fmt.Errorf("invalid log level '%s', must be one of: %v", logLevel, validLevels)
         }
 
-        if !isValid {
-            errs <- fmt.Errorf("invalid log level '%s', must be one of: %v", logLevel, validLevels)
-        }
+        return nil
     })
 
-    // Execute observer and capture errors
-    errorsCh := make(chan error, 10)
-    observers := container.GetObservers()
-
-    for _, observer := range observers {
-        observer.Run(container, errorsCh)
-    }
-    close(errorsCh)
-
-    // Verify error was reported
-    errorCount := 0
-    for err := range errorsCh {
-        assert.Contains(t, err.Error(), "invalid log level")
-        errorCount++
+    var gotErr error
+    for _, observer := range container.GetObservers() {
+        if err := observer.Run(container); err != nil {
+            gotErr = err
+        }
     }
 
-    assert.Equal(t, 1, errorCount, "Expected exactly one validation error")
+    require.Error(t, gotErr)
+    assert.Contains(t, gotErr.Error(), "invalid log level")
 }
 ```
 
@@ -951,14 +964,15 @@ type TestServiceRestarter struct {
     serviceName   string
 }
 
-func (t *TestServiceRestarter) Run(cfg config.Containable, errs chan error) {
+func (t *TestServiceRestarter) Run(cfg config.Containable) error {
     if cfg.Has("service.restart_required") && cfg.GetBool("service.restart_required") {
         t.restartCalled = true
-        // Simulate service restart logic
         if t.serviceName == "" {
-            errs <- errors.New("service name not configured")
+            return errors.New("service name not configured")
         }
     }
+
+    return nil
 }
 
 func TestCustomObserver(t *testing.T) {
@@ -967,19 +981,9 @@ func TestCustomObserver(t *testing.T) {
     mockConfig.EXPECT().GetBool("service.restart_required").Return(true)
 
     observer := &TestServiceRestarter{serviceName: "test-service"}
-    errorsCh := make(chan error, 1)
 
-    observer.Run(mockConfig, errorsCh)
-
+    require.NoError(t, observer.Run(mockConfig))
     assert.True(t, observer.restartCalled)
-
-    // Verify no errors
-    select {
-    case err := <-errorsCh:
-        t.Fatalf("Unexpected error: %v", err)
-    default:
-        // Success - no errors
-    }
 }
 ```
 
@@ -1066,7 +1070,12 @@ type Containable interface {
     WriteConfigAs(dest string) error
     Sub(key string) Containable
     AddObserver(o Observable)
-    AddObserverFunc(f func(Containable, chan error))
+    AddObserverFunc(f func(Containable) error)
+    // OnReloadError registers a callback invoked when a hot-reload is
+    // rejected (candidate build or schema validation failed) and the
+    // last-known-good config is retained. See "Reacting to rejected
+    // reloads" below.
+    OnReloadError(f func(error))
     ToJSON() string
     Dump(w io.Writer)
     Validate(schema *Schema) *ValidationResult
@@ -1111,17 +1120,19 @@ func setupConfiguration(l logger.Logger, fs afero.Fs) (*config.Container, error)
 ```go
 // Use observers for configuration-dependent services
 func setupConfigWatching(container *config.Container, l logger.Logger) {
-    container.AddObserverFunc(func(cfg config.Containable, errs chan error) {
+    container.AddObserverFunc(func(cfg config.Containable) error {
         // Reconfigure logging level
         if cfg.Has("log.level") {
             newLevel := cfg.GetString("log.level")
             // Update logger configuration
         }
 
-        // Handle any errors
+        // Return any error; it is logged by the framework
         if someValidationFails {
-            errs <- fmt.Errorf("configuration validation failed")
+            return fmt.Errorf("configuration validation failed")
         }
+
+        return nil
     })
 }
 ```

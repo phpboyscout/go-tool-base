@@ -5,8 +5,8 @@
 package config
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // NewMockObservable creates a new instance of MockObservable. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -37,9 +37,20 @@ func (_m *MockObservable) EXPECT() *MockObservable_Expecter {
 }
 
 // Run provides a mock function for the type MockObservable
-func (_mock *MockObservable) Run(containable config.Containable, errCh chan error) {
-	_mock.Called(containable, errCh)
-	return
+func (_mock *MockObservable) Run(containable config.Containable) error {
+	ret := _mock.Called(containable)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Run")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(config.Containable) error); ok {
+		r0 = returnFunc(containable)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
 }
 
 // MockObservable_Run_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Run'
@@ -49,35 +60,29 @@ type MockObservable_Run_Call struct {
 
 // Run is a helper method to define mock.On call
 //   - containable config.Containable
-//   - errCh chan error
-func (_e *MockObservable_Expecter) Run(containable interface{}, errCh interface{}) *MockObservable_Run_Call {
-	return &MockObservable_Run_Call{Call: _e.mock.On("Run", containable, errCh)}
+func (_e *MockObservable_Expecter) Run(containable interface{}) *MockObservable_Run_Call {
+	return &MockObservable_Run_Call{Call: _e.mock.On("Run", containable)}
 }
 
-func (_c *MockObservable_Run_Call) Run(run func(containable config.Containable, errCh chan error)) *MockObservable_Run_Call {
+func (_c *MockObservable_Run_Call) Run(run func(containable config.Containable)) *MockObservable_Run_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 config.Containable
 		if args[0] != nil {
 			arg0 = args[0].(config.Containable)
 		}
-		var arg1 chan error
-		if args[1] != nil {
-			arg1 = args[1].(chan error)
-		}
 		run(
 			arg0,
-			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *MockObservable_Run_Call) Return() *MockObservable_Run_Call {
-	_c.Call.Return()
+func (_c *MockObservable_Run_Call) Return(err error) *MockObservable_Run_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockObservable_Run_Call) RunAndReturn(run func(containable config.Containable, errCh chan error)) *MockObservable_Run_Call {
-	_c.Run(run)
+func (_c *MockObservable_Run_Call) RunAndReturn(run func(containable config.Containable) error) *MockObservable_Run_Call {
+	_c.Call.Return(run)
 	return _c
 }

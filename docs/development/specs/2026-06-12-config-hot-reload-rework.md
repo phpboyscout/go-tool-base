@@ -1,7 +1,7 @@
 ---
 title: "Config hot-reload rework — a container-owned watcher that actually reloads merged config"
 description: "Replace the viper-driven single-file WatchConfig with a container-owned fsnotify watcher that re-reads and re-merges all configured files on change, validates a candidate before swapping, notifies observers without deadlocking, and is race-safe. Closes five compounding hot-reload findings from the 2026-06-12 audit."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -24,7 +24,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12; see `docs/development/implementation-notes/2026-06-12-config-hot-reload-rework.md`)
 
 ## Summary
 

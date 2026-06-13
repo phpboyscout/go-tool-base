@@ -10,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
@@ -47,7 +48,12 @@ type Containable interface {
 	WriteConfigAs(dest string) error
 	Sub(key string) Containable
 	AddObserver(o Observable)
-	AddObserverFunc(f func(Containable, chan error))
+	AddObserverFunc(f func(Containable) error)
+	// OnReloadError registers a callback invoked whenever a hot-reload is
+	// rejected (candidate build or schema validation failed) and the
+	// last-known-good config is retained. It is never called for a
+	// successful reload; observers handle that case.
+	OnReloadError(f func(error))
 	ToJSON() string
 	Dump(w io.Writer)
 	// Validate checks the container's current values against the provided schema.
@@ -71,11 +77,31 @@ type Containable interface {
 //     honours `<TOOL_PREFIX>_GITHUB_AUTH_VALUE`, which a Viper-native
 //     Sub would silently drop.
 type Container struct {
-	ID        string
-	viper     *viper.Viper
-	logger    logger.Logger
+	ID     string
+	viper  *viper.Viper
+	logger logger.Logger
+	// mu guards viper (swapped on reload), observers, and schema
+	// against concurrent access from the watcher goroutine.
+	mu        sync.Mutex
 	observers []Observable
 	schema    *Schema
+	// reloadErrFuncs are callbacks invoked when a reload is rejected
+	// (candidate build or validation failed). Guarded by mu, copied
+	// under lock, and invoked outside it (same discipline as observers).
+	reloadErrFuncs []func(error)
+	// fs and configFiles record the filesystem and ordered list of
+	// config files this container was loaded from, so the watcher can
+	// re-read and re-merge them on change. Empty for reader/embedded
+	// containers, which are not watched.
+	fs          afero.Fs
+	configFiles []string
+	// reloadDebounce is the coalescing window for hot-reload events.
+	reloadDebounce time.Duration
+	// watcher is the container-owned fsnotify watcher. nil until
+	// watchConfig starts it; closed by Close.
+	watcher *fsnotify.Watcher
+	// watchDone is closed to signal the watch goroutine to stop.
+	watchDone chan struct{}
 	// root is nil on the top-level container and points at the
 	// original container on every sub-container. Enables Get/Set
 	// to reach the Viper instance that owns the env-binding setup.
@@ -173,10 +199,22 @@ func (c *Container) Set(key string, value any) {
 // Get/Set/Has/IsSet surface. Sub-containers return the root
 // container's Viper so Viper's AutomaticEnv + prefix configuration
 // fires; root containers return their own Viper.
+//
+// The viper pointer is read under the owning container's lock because
+// hot-reload swaps it atomically on a successful reload.
 func (c *Container) resolverViper() *viper.Viper {
 	if c.root != nil {
-		return c.root.viper
+		return c.root.liveViper()
 	}
+
+	return c.liveViper()
+}
+
+// liveViper returns the container's current viper instance, read under
+// the container lock so concurrent reload swaps are observed safely.
+func (c *Container) liveViper() *viper.Viper {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	return c.viper
 }
@@ -193,7 +231,7 @@ func (c *Container) qualifyKey(key string) string {
 
 // WriteConfigAs writes the current configuration to the given path.
 func (c *Container) WriteConfigAs(dest string) error {
-	return c.viper.WriteConfigAs(dest)
+	return c.liveViper().WriteConfigAs(dest)
 }
 
 // Sub returns a view over a subtree of the parent configuration.
@@ -226,7 +264,7 @@ func (c *Container) Sub(key string) Containable {
 	// Use the structural view for existence check so legacy
 	// consumers see the same behaviour when no env or file value
 	// is present. Viper's Sub also uses this path.
-	subV := root.viper.Sub(fullPrefix)
+	subV := root.liveViper().Sub(fullPrefix)
 	if subV == nil {
 		return nil
 	}
@@ -254,60 +292,307 @@ func (c *Container) handleReadFileError(err error) {
 }
 
 // SetSchema attaches a validation schema to the container.
-// When set, hot-reload will validate config changes before notifying observers.
+// When set, hot-reload will validate a candidate config before swapping it in;
+// a candidate that fails validation is rejected and the last-known-good config
+// is retained.
 func (c *Container) SetSchema(schema *Schema) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.schema = schema
 }
 
-// watchConfig monitor the changes in the config file.
+// watchConfig starts the container-owned fsnotify watcher over every
+// configured file. On any change event (coalesced behind the reload debounce
+// window), the container rebuilds and validates a candidate config and, only
+// on success, swaps it in and notifies observers. The watcher is a no-op for
+// containers with no backing files (reader/embedded). Start the watcher only
+// after construction has fully completed.
 func (c *Container) watchConfig() {
-	c.viper.OnConfigChange(func(e fsnotify.Event) {
-		c.logger.Info(fmt.Sprintf("Config updated %v", e))
+	if len(c.configFiles) == 0 {
+		return
+	}
 
-		if c.schema != nil {
-			result := c.Validate(c.schema)
-			if !result.Valid() {
-				c.logger.Error("config reload rejected: validation failed", "errors", result.Error())
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		c.logger.Warn("config hot-reload disabled: failed to create watcher", "error", err)
 
+		return
+	}
+
+	for _, f := range c.configFiles {
+		if addErr := watcher.Add(f); addErr != nil {
+			c.logger.Debug("config watch: failed to add file", "file", f, "error", addErr)
+		}
+	}
+
+	done := make(chan struct{})
+
+	c.mu.Lock()
+	c.watcher = watcher
+	c.watchDone = done
+	c.mu.Unlock()
+
+	// The loop captures the watcher and done channel as locals so it never
+	// reads the (Close-mutated) struct fields without the lock.
+	go c.watchLoop(watcher, done)
+}
+
+// watchLoop consumes fsnotify events, debounces a save burst, re-establishes
+// the watch on each path (atomic-rename saves replace the inode), then reloads.
+func (c *Container) watchLoop(watcher *fsnotify.Watcher, done <-chan struct{}) {
+	debounce := c.reloadDebounce
+	if debounce <= 0 {
+		debounce = DefaultReloadDebounce
+	}
+
+	timer := time.NewTimer(debounce)
+	if !timer.Stop() {
+		<-timer.C
+	}
+
+	defer timer.Stop()
+
+	pending := false
+
+	for {
+		select {
+		case <-done:
+			return
+		case event, ok := <-watcher.Events:
+			if !ok {
 				return
 			}
+
+			c.handleWatchEvent(watcher, event, timer, debounce)
+
+			pending = true
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+
+			c.logger.Warn("config watch: error", "error", err)
+		case <-timer.C:
+			pending = c.fireReload(pending)
+		}
+	}
+}
+
+// fireReload performs a reload when one is pending, returning the new pending
+// state (always false after a fired reload).
+func (c *Container) fireReload(pending bool) bool {
+	if pending {
+		c.reload()
+	}
+
+	return false
+}
+
+// handleWatchEvent logs an fsnotify event, re-establishes the watch on the
+// affected path (atomic-rename saves replace the inode), and arms the debounce
+// timer so a burst of events coalesces into a single reload.
+func (c *Container) handleWatchEvent(watcher *fsnotify.Watcher, event fsnotify.Event, timer *time.Timer, debounce time.Duration) {
+	c.logger.Debug("config watch: event", "event", event.String())
+
+	c.rewatch(watcher, event.Name)
+
+	timer.Reset(debounce)
+}
+
+// rewatch re-adds a single path to the watcher, tolerating the brief window
+// during an atomic rename where the path may not yet exist.
+func (c *Container) rewatch(watcher *fsnotify.Watcher, path string) {
+	if watcher == nil || path == "" {
+		return
+	}
+
+	_ = watcher.Remove(path)
+
+	if err := watcher.Add(path); err != nil {
+		c.logger.Debug("config watch: failed to re-add file", "file", path, "error", err)
+	}
+}
+
+// reload rebuilds a candidate viper from all configured files, validates it
+// against the schema (if any), and on success swaps it in and notifies
+// observers of the change. On any failure (parse, merge, or validation) the
+// reload is rejected fail-closed: the last-known-good config is retained, the
+// error is logged, and observers are not notified because no values changed.
+func (c *Container) reload() {
+	c.mu.Lock()
+	schema := c.schema
+	files := append([]string(nil), c.configFiles...)
+	fs := c.fs
+	c.mu.Unlock()
+
+	candidate, err := c.buildCandidate(fs, files)
+	if err != nil {
+		// Fail-closed: a parse/merge failure in any file rejects the whole
+		// reload. The last-known-good config is retained and observers are
+		// not notified, because no values changed.
+		c.logger.Error("config reload rejected: failed to build candidate", "error", err.Error())
+		c.notifyReloadError(err)
+
+		return
+	}
+
+	if schema != nil {
+		result := validateViper(candidate, schema)
+		if !result.Valid() {
+			// Validation failure: keep last-known-good, do not swap, do not
+			// notify (no change occurred).
+			c.logger.Error("config reload rejected: validation failed", "errors", result.Error())
+			c.notifyReloadError(errors.Newf("config reload rejected: validation failed: %s", result.Error()))
+
+			return
+		}
+	}
+
+	c.mu.Lock()
+	c.viper = candidate
+	c.mu.Unlock()
+
+	c.logger.Info("config reloaded")
+	c.notify()
+}
+
+// buildCandidate reads file[0] and merges files[1:] in order into a fresh
+// viper, mirroring the initial load. The whole reload is fail-closed: if any
+// file fails to parse, an error is returned and no swap occurs.
+func (c *Container) buildCandidate(fs afero.Fs, files []string) (*viper.Viper, error) {
+	if len(files) == 0 {
+		return nil, errors.WithStack(ErrConfigFileNotFound)
+	}
+
+	c.mu.Lock()
+	envPrefix := c.viper.GetEnvPrefix()
+	c.mu.Unlock()
+
+	v := newResolverViper(fs, envPrefix)
+
+	exists, err := afero.Exists(fs, files[0])
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to check config file existence")
+	}
+
+	if !exists {
+		return nil, errors.WithStack(ErrConfigFileNotFound)
+	}
+
+	v.SetConfigFile(files[0])
+
+	if err := v.ReadInConfig(); err != nil {
+		return nil, errors.Newf("failed to read config file %s: %w", files[0], err)
+	}
+
+	for _, f := range files[1:] {
+		exists, err := afero.Exists(fs, f)
+		if err != nil || !exists {
+			continue
 		}
 
-		errs := make(chan error)
+		v.SetConfigFile(f)
 
-		wg := &sync.WaitGroup{}
-		for _, o := range c.observers {
-			wg.Add(1)
-
-			go func(o Observable, wg *sync.WaitGroup, errs chan error) {
-				o.Run(c, errs)
-				wg.Done()
-			}(o, wg, errs)
+		if err := v.MergeInConfig(); err != nil {
+			return nil, errors.Newf("failed to merge config file %s: %w", f, err)
 		}
+	}
 
-		wg.Wait()
-	})
-	c.viper.WatchConfig()
+	return v, nil
+}
+
+// notify copies the observer slice under lock and runs each observer outside
+// the lock with the (already-swapped) live config. Observer errors are logged
+// and never block subsequent observers or reloads.
+func (c *Container) notify() {
+	c.mu.Lock()
+	observers := append([]Observable(nil), c.observers...)
+	c.mu.Unlock()
+
+	for _, o := range observers {
+		if err := o.Run(c); err != nil {
+			c.logger.Error("config observer returned an error", "error", err.Error())
+		}
+	}
+}
+
+// OnReloadError registers a callback invoked whenever a hot-reload is rejected:
+// the candidate failed to build (fail-closed partial-merge, parse error, or a
+// missing primary file) or failed schema validation, so the live config was NOT
+// swapped and the last-known-good config is retained. The callback is never
+// invoked for a successful reload (observers are notified of that change
+// instead). Callbacks run in registration order on the watcher goroutine, after
+// the container has logged the error; a slow callback delays subsequent reloads,
+// so expensive work should be offloaded.
+func (c *Container) OnReloadError(f func(error)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.reloadErrFuncs = append(c.reloadErrFuncs, f)
+}
+
+// notifyReloadError copies the reload-error callback slice under lock and runs
+// each callback outside the lock with the rejection error, mirroring notify()'s
+// race-safe, deadlock-free discipline.
+func (c *Container) notifyReloadError(err error) {
+	c.mu.Lock()
+	funcs := append([](func(error)){}, c.reloadErrFuncs...)
+	c.mu.Unlock()
+
+	for _, f := range funcs {
+		f(err)
+	}
+}
+
+// Close stops the hot-reload watcher and releases its resources. It is safe to
+// call on containers that are not watching and safe to call more than once.
+func (c *Container) Close() error {
+	c.mu.Lock()
+	watcher := c.watcher
+	done := c.watchDone
+	c.watcher = nil
+	c.watchDone = nil
+	c.mu.Unlock()
+
+	if done != nil {
+		close(done)
+	}
+
+	if watcher != nil {
+		return watcher.Close()
+	}
+
+	return nil
 }
 
 // AddObserver attach observer to trigger on config update.
 func (c *Container) AddObserver(o Observable) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.observers = append(c.observers, o)
 }
 
 // AddObserverFunc attach function to trigger on config update.
-func (c *Container) AddObserverFunc(f func(Containable, chan error)) {
+func (c *Container) AddObserverFunc(f func(Containable) error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.observers = append(c.observers, Observer{f})
 }
 
 // GetObservers retrieve all currently attached Observers.
 func (c *Container) GetObservers() []Observable {
-	return c.observers
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return append([]Observable(nil), c.observers...)
 }
 
 // Dump return config as json string.
 func (c *Container) ToJSON() string {
-	s := c.viper.AllSettings()
+	s := c.liveViper().AllSettings()
 
 	bs, err := json.Marshal(s)
 	if err != nil {

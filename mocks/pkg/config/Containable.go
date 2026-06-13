@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	mock "github.com/stretchr/testify/mock"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockContainable creates a new instance of MockContainable. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -82,7 +82,7 @@ func (_c *MockContainable_AddObserver_Call) RunAndReturn(run func(o config.Obser
 }
 
 // AddObserverFunc provides a mock function for the type MockContainable
-func (_mock *MockContainable) AddObserverFunc(f func(config.Containable, chan error)) {
+func (_mock *MockContainable) AddObserverFunc(f func(config.Containable) error) {
 	_mock.Called(f)
 	return
 }
@@ -93,16 +93,16 @@ type MockContainable_AddObserverFunc_Call struct {
 }
 
 // AddObserverFunc is a helper method to define mock.On call
-//   - f func(config.Containable, chan error)
+//   - f func(config.Containable) error
 func (_e *MockContainable_Expecter) AddObserverFunc(f interface{}) *MockContainable_AddObserverFunc_Call {
 	return &MockContainable_AddObserverFunc_Call{Call: _e.mock.On("AddObserverFunc", f)}
 }
 
-func (_c *MockContainable_AddObserverFunc_Call) Run(run func(f func(config.Containable, chan error))) *MockContainable_AddObserverFunc_Call {
+func (_c *MockContainable_AddObserverFunc_Call) Run(run func(f func(config.Containable) error)) *MockContainable_AddObserverFunc_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 func(config.Containable, chan error)
+		var arg0 func(config.Containable) error
 		if args[0] != nil {
-			arg0 = args[0].(func(config.Containable, chan error))
+			arg0 = args[0].(func(config.Containable) error)
 		}
 		run(
 			arg0,
@@ -116,7 +116,7 @@ func (_c *MockContainable_AddObserverFunc_Call) Return() *MockContainable_AddObs
 	return _c
 }
 
-func (_c *MockContainable_AddObserverFunc_Call) RunAndReturn(run func(f func(config.Containable, chan error))) *MockContainable_AddObserverFunc_Call {
+func (_c *MockContainable_AddObserverFunc_Call) RunAndReturn(run func(f func(config.Containable) error)) *MockContainable_AddObserverFunc_Call {
 	_c.Run(run)
 	return _c
 }
@@ -722,6 +722,46 @@ func (_c *MockContainable_IsSet_Call) Return(b bool) *MockContainable_IsSet_Call
 
 func (_c *MockContainable_IsSet_Call) RunAndReturn(run func(key string) bool) *MockContainable_IsSet_Call {
 	_c.Call.Return(run)
+	return _c
+}
+
+// OnReloadError provides a mock function for the type MockContainable
+func (_mock *MockContainable) OnReloadError(f func(error)) {
+	_mock.Called(f)
+	return
+}
+
+// MockContainable_OnReloadError_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnReloadError'
+type MockContainable_OnReloadError_Call struct {
+	*mock.Call
+}
+
+// OnReloadError is a helper method to define mock.On call
+//   - f func(error)
+func (_e *MockContainable_Expecter) OnReloadError(f interface{}) *MockContainable_OnReloadError_Call {
+	return &MockContainable_OnReloadError_Call{Call: _e.mock.On("OnReloadError", f)}
+}
+
+func (_c *MockContainable_OnReloadError_Call) Run(run func(f func(error))) *MockContainable_OnReloadError_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func(error)
+		if args[0] != nil {
+			arg0 = args[0].(func(error))
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_OnReloadError_Call) Return() *MockContainable_OnReloadError_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockContainable_OnReloadError_Call) RunAndReturn(run func(f func(error))) *MockContainable_OnReloadError_Call {
+	_c.Run(run)
 	return _c
 }
 
