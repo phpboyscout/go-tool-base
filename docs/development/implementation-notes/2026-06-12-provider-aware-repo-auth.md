@@ -51,7 +51,7 @@ Branch: `feat/provider-aware-repo-auth`
 
 - `docs/components/vcs/repo.md` — forge-aware auth table, non-fatal-public behaviour, `GetSSHKeyWithPassphrase`, CLI-prompt responsibility, unopened-repo contract.
 - `docs/concepts/vcs-repositories.md` — forge-aware auth table + scope-boundary note (repo auth ≠ release auth).
-- `docs/migration/v0.x-repo-provider-auth.md` (+ index row) — the two behaviour changes.
+- `docs/migration/v0.16-repo-provider-auth.md` (+ index row) — the two behaviour changes.
 - `pkg/vcs/repo/doc.go` — package comment rewritten (it previously described URL parsing, which this package never did).
 
 ## Deviations from the spec
