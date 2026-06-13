@@ -2,20 +2,27 @@ package config
 
 import (
 	"io"
+	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
+
+// DefaultReloadDebounce is the default coalescing window applied to the burst
+// of filesystem events a single save produces before a hot-reload is performed.
+// The relatively generous default tolerates slow or networked filesystems.
+const DefaultReloadDebounce = 250 * time.Millisecond
 
 // ContainerOption configures optional behavior for config containers.
 type ContainerOption func(*containerOptions)
 
 type containerOptions struct {
-	logger        logger.Logger
-	envPrefix     string
-	configFiles   []string
-	configFormat  string
-	configReaders []io.Reader
-	schema        *Schema
+	logger         logger.Logger
+	envPrefix      string
+	configFiles    []string
+	configFormat   string
+	configReaders  []io.Reader
+	schema         *Schema
+	reloadDebounce time.Duration
 }
 
 // WithLogger sets the logger for the config container. When not provided,
@@ -68,6 +75,16 @@ func WithSchema(schema *Schema) ContainerOption {
 	}
 }
 
+// WithReloadDebounce sets the coalescing window for hot-reload events. A single
+// file save typically emits a burst of filesystem events (write, rename,
+// chmod); the container waits for the burst to settle for the given duration
+// before performing a reload. Values <= 0 fall back to DefaultReloadDebounce.
+func WithReloadDebounce(d time.Duration) ContainerOption {
+	return func(o *containerOptions) {
+		o.reloadDebounce = d
+	}
+}
+
 func applyOptions(opts []ContainerOption) *containerOptions {
 	o := &containerOptions{}
 	for _, opt := range opts {
@@ -76,6 +93,10 @@ func applyOptions(opts []ContainerOption) *containerOptions {
 
 	if o.logger == nil {
 		o.logger = logger.NewNoop()
+	}
+
+	if o.reloadDebounce <= 0 {
+		o.reloadDebounce = DefaultReloadDebounce
 	}
 
 	return o

@@ -17,25 +17,43 @@ func initContainer(fs afero.Fs, opts *containerOptions) *Container {
 		l = logger.NewNoop()
 	}
 
-	c := Container{
-		ID:        "",
-		viper:     viper.New(),
-		logger:    l,
-		observers: make([]Observable, 0),
+	debounce := opts.reloadDebounce
+	if debounce <= 0 {
+		debounce = DefaultReloadDebounce
 	}
 
-	c.viper.SetFs(fs)
+	c := Container{
+		ID:             "",
+		viper:          newResolverViper(fs, opts.envPrefix),
+		logger:         l,
+		observers:      make([]Observable, 0),
+		fs:             fs,
+		configFiles:    append([]string(nil), opts.configFiles...),
+		reloadDebounce: debounce,
+	}
+
 	LoadEnv(fs, opts.logger)
 
-	if opts.envPrefix != "" {
-		c.viper.SetEnvPrefix(opts.envPrefix)
+	return &c
+}
+
+// newResolverViper builds a viper instance configured identically to the
+// container's live viper (afero filesystem, env prefix, automatic env, key
+// replacer, type-by-default). Used both for the initial load and for building
+// reload candidates so a swapped-in candidate behaves identically.
+func newResolverViper(fs afero.Fs, envPrefix string) *viper.Viper {
+	v := viper.New()
+	v.SetFs(fs)
+
+	if envPrefix != "" {
+		v.SetEnvPrefix(envPrefix)
 	}
 
-	c.viper.AutomaticEnv()
-	c.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	c.viper.SetTypeByDefaultValue(true)
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.SetTypeByDefaultValue(true)
 
-	return &c
+	return v
 }
 
 // NewContainerFromViper creates a new Container from an existing Viper instance.
@@ -78,6 +96,10 @@ func LoadFilesContainerWithSchema(fs afero.Fs, schema *Schema, opts ...Container
 		return nil, errors.New(result.Error())
 	}
 
+	// Start the watcher only after construction (read, merge, schema) is
+	// complete so the reload goroutine never observes a half-built container.
+	c.watchConfig()
+
 	return c, nil
 }
 
@@ -96,6 +118,9 @@ func LoadFilesContainer(fs afero.Fs, opts ...ContainerOption) (Containable, erro
 	if c == nil {
 		return nil, errors.WithStack(ErrConfigFileNotFound)
 	}
+
+	// Start the watcher only after construction completes.
+	c.watchConfig()
 
 	return c, nil
 }
@@ -158,8 +183,11 @@ func NewFilesContainer(fs afero.Fs, opts ...ContainerOption) *Container {
 		}
 
 		c.logger.Info("Loaded Config")
-		c.watchConfig()
 	}
+
+	// Watch every file-backed container, including single-file ones, only
+	// after construction completes (D5). No-op when there are no files.
+	c.watchConfig()
 
 	return c
 }

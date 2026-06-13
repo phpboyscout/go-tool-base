@@ -128,7 +128,7 @@ type Containable interface {
     WriteConfigAs(dest string) error
     Sub(key string) Containable
     AddObserver(o Observable)
-    AddObserverFunc(f func(Containable, chan error))
+    AddObserverFunc(f func(Containable) error)
     ToJSON() string
     Dump(w io.Writer)
 }
@@ -164,7 +164,7 @@ func loadDatabaseConfig(cfg config.Containable) (*DatabaseConfig, error) {
 
 ```go
 type Observable interface {
-    Run(Containable, chan error)
+    Run(Containable) error
 }
 ```
 
@@ -177,10 +177,8 @@ type ConfigReloader struct {
     service *MyService
 }
 
-func (r *ConfigReloader) Run(cfg config.Containable, errs chan error) {
-    if err := r.service.Reconfigure(cfg); err != nil {
-        errs <- err
-    }
+func (r *ConfigReloader) Run(cfg config.Containable) error {
+    return r.service.Reconfigure(cfg)
 }
 
 container.AddObserver(&ConfigReloader{service: myService})
@@ -495,7 +493,7 @@ classDiagram
     
     class Observable {
         <<interface>>
-        +Run(Containable, chan error)
+        +Run(Containable) error
     }
     
     class Assets {

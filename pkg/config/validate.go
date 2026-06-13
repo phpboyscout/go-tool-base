@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 // ValidationError contains details about a single validation failure.
@@ -65,14 +67,21 @@ func (r *ValidationResult) addWarning(key, message, hint string) {
 // Validate checks the current configuration against the provided schema.
 // Returns a ValidationResult; callers should check result.Valid().
 func (c *Container) Validate(schema *Schema) *ValidationResult {
+	return validateViper(c.liveViper(), schema)
+}
+
+// validateViper checks an arbitrary viper instance against the schema. It is
+// used both by Container.Validate (over the live config) and by the hot-reload
+// path (over a candidate config, before it is swapped in).
+func validateViper(v *viper.Viper, schema *Schema) *ValidationResult {
 	result := &ValidationResult{}
 
 	for key, field := range schema.fields {
-		value := c.viper.Get(key)
+		value := v.Get(key)
 		validateField(key, field, value, result)
 	}
 
-	detectUnknownKeys(c.viper.AllKeys(), schema.fields, result, schema.strict)
+	detectUnknownKeys(v.AllKeys(), schema.fields, result, schema.strict)
 
 	return result
 }

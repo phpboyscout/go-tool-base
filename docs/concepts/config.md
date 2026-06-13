@@ -49,13 +49,15 @@ You can register an observer either as an object implementing the `Observable` i
 
 ```go
 // Using a function
-props.Config.AddObserverFunc(func(c config.Containable, errs chan error) {
+props.Config.AddObserverFunc(func(c config.Containable) error {
     newLevel := c.GetString("log.level")
     props.Logger.SetLevel(log.ParseLevel(newLevel))
+
+    return nil
 })
 ```
 
-When the underlying configuration file is modified on disk, the framework detects the change via `fsnotify`, reloads the values, and executes all registered observers in parallel.
+When a configuration file is modified on disk, the container-owned `fsnotify` watcher rebuilds and re-merges **all** configured files into a candidate, validates it against the schema (if any), and — only on success — swaps the values in and executes all registered observers in registration order. An invalid or unparseable reload is rejected fail-closed: the last-known-good values are kept and observers are not notified. An observer that returns an error has it logged; the error never stalls subsequent reloads.
 
 ---
 

@@ -81,7 +81,7 @@ func (_c *MockContainable_AddObserver_Call) RunAndReturn(run func(o config.Obser
 }
 
 // AddObserverFunc provides a mock function for the type MockContainable
-func (_mock *MockContainable) AddObserverFunc(f func(config.Containable, chan error)) {
+func (_mock *MockContainable) AddObserverFunc(f func(config.Containable) error) {
 	_mock.Called(f)
 	return
 }
@@ -92,16 +92,16 @@ type MockContainable_AddObserverFunc_Call struct {
 }
 
 // AddObserverFunc is a helper method to define mock.On call
-//   - f func(config.Containable, chan error)
+//   - f func(config.Containable) error
 func (_e *MockContainable_Expecter) AddObserverFunc(f interface{}) *MockContainable_AddObserverFunc_Call {
 	return &MockContainable_AddObserverFunc_Call{Call: _e.mock.On("AddObserverFunc", f)}
 }
 
-func (_c *MockContainable_AddObserverFunc_Call) Run(run func(f func(config.Containable, chan error))) *MockContainable_AddObserverFunc_Call {
+func (_c *MockContainable_AddObserverFunc_Call) Run(run func(f func(config.Containable) error)) *MockContainable_AddObserverFunc_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 func(config.Containable, chan error)
+		var arg0 func(config.Containable) error
 		if args[0] != nil {
-			arg0 = args[0].(func(config.Containable, chan error))
+			arg0 = args[0].(func(config.Containable) error)
 		}
 		run(
 			arg0,
@@ -115,7 +115,7 @@ func (_c *MockContainable_AddObserverFunc_Call) Return() *MockContainable_AddObs
 	return _c
 }
 
-func (_c *MockContainable_AddObserverFunc_Call) RunAndReturn(run func(f func(config.Containable, chan error))) *MockContainable_AddObserverFunc_Call {
+func (_c *MockContainable_AddObserverFunc_Call) RunAndReturn(run func(f func(config.Containable) error)) *MockContainable_AddObserverFunc_Call {
 	_c.Run(run)
 	return _c
 }

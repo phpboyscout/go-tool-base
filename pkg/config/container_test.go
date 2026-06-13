@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,62 +18,65 @@ import (
 )
 
 type TestObserver struct {
-	handler func(config.Containable, chan error)
+	handler func(config.Containable) error
 }
 
-func (o TestObserver) Run(c config.Containable, errs chan error) {
-	o.handler(c, errs)
+func (o TestObserver) Run(c config.Containable) error {
+	return o.handler(c)
 }
 
-// TestContainer_AddObserver provides a convoluted test for triggering multiple observers of filesystem changes.
+// TestContainer_AddObserver asserts that a single-file container actually
+// observes a change (D5: the watcher must fire for single-file containers, not
+// only multi-file ones). It uses an atomic int64 observation counter and polls
+// for observed > 0 rather than asserting an exact count, because fsnotify can
+// coalesce or repeat events.
 func TestContainer_AddObserver(t *testing.T) {
 	t.Parallel()
-	logger := logger.NewNoop()
+	log := logger.NewNoop()
 
 	t.Run("with single config file", func(t *testing.T) {
 		t.Parallel()
-		// Use t.TempDir() to avoid polluting /tmp and ensure cleanup
+
 		tmpDir := t.TempDir()
 		filename := filepath.Join(tmpDir, "config.yml")
 
-		// Create initial file
-		err := os.WriteFile(filename, []byte(firstMockFilesYaml), 0644)
-		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filename, []byte(firstMockFilesYaml), 0o644))
 
-		// Must use OsFs because Viper's WatchConfig relies on fsnotify which requires real filesystem events.
-		// MemMapFs does not support this.
-		c := config.NewFilesContainer(afero.NewOsFs(), config.WithLogger(logger), config.WithConfigFiles(filename))
+		// OsFs is required: fsnotify needs real filesystem events; MemMapFs
+		// cannot deliver them.
+		c := config.NewFilesContainer(
+			afero.NewOsFs(),
+			config.WithLogger(log),
+			config.WithConfigFiles(filename),
+			config.WithReloadDebounce(20*time.Millisecond),
+		)
+		t.Cleanup(func() { _ = c.Close() })
+
 		origValue := c.GetString("yaml.key")
-		observed := 0
 
-		observeFunc := func(c config.Containable, errors chan error) {
-			observed++
-			newValue := c.GetString("yaml.key")
-			// t.Logf("observed = %d, origValue = %s, newValue = %s", observed, origValue, newValue)
-			if origValue == newValue {
-				t.Fail()
+		var observed atomic.Int64
+
+		observeFunc := func(cc config.Containable) error {
+			if cc.GetString("yaml.key") != origValue {
+				observed.Add(1)
 			}
+
+			return nil
 		}
 
 		c.AddObserver(TestObserver{observeFunc})
 		c.AddObserverFunc(observeFunc)
 
-		// Give watcher time to start? Viper WatchConfig is usually async.
-		time.Sleep(100 * time.Millisecond)
+		// Give the watcher goroutine time to start.
+		time.Sleep(50 * time.Millisecond)
 
-		// Update file
-		err = os.WriteFile(filename, []byte(secondMockFilesYaml), 0644)
-		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filename, []byte(secondMockFilesYaml), 0o644))
 
-		time.Sleep(1 * time.Second)
+		require.Eventually(t, func() bool {
+			return observed.Load() > 0
+		}, 3*time.Second, 20*time.Millisecond, "single-file container should observe the change")
 
 		assert.Len(t, c.GetObservers(), 2)
-
-		if observed >= 2 && observed%len(c.GetObservers()) != 0 {
-			// fsnotify can at times trigger multiple times, so the test accounts for this by testing
-			// for the modulus of observations to the number of observers
-			t.Errorf("Expected 2 observations, Observed: %d", observed)
-		}
 	})
 }
 
