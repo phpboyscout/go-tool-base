@@ -125,6 +125,13 @@ props.ErrorHandler.Check(err, "", errorhandling.LevelFatal) // exits 130
 
 `ExitCode(err)` reads the attached code back (returning `0` for `nil` and `1` for an error without an attachment). The attachment is transparent to `errors.Is`/`errors.As` and survives further wrapping, so hints and stack traces continue to work as normal. This keeps every process exit routed through the single `ErrorHandler` exit path instead of scattering `os.Exit` calls.
 
+For expected, user-initiated terminations — a SIGINT/SIGTERM interrupt — use `LevelFatalQuiet` instead of `LevelFatal`. It exits identically (honouring any attached `WithExitCode`) but logs the message at **debug** rather than error, so an interrupt does not surface as an error to end users while the notice remains visible under `--debug`:
+
+```go
+err := errorhandling.WithExitCode(errors.New("interrupted by signal: interrupt"), 130)
+props.ErrorHandler.Check(err, "", errorhandling.LevelFatalQuiet) // exits 130, logs at debug
+```
+
 ## Advanced Features
 
 ### Stack Trace Support

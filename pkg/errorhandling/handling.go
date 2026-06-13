@@ -13,13 +13,20 @@ import (
 )
 
 const (
-	LevelFatal    = "fatal"
-	LevelError    = "error"
-	LevelWarn     = "warn"
-	KeyStacktrace = "stacktrace"
-	KeyHelp       = "help"
-	KeyHints      = "hints"
-	KeyDetails    = "details"
+	LevelFatal = "fatal"
+	// LevelFatalQuiet exits the process exactly like LevelFatal — honouring any
+	// exit code attached via WithExitCode — but logs the message at debug rather
+	// than error. It exists for expected, user-initiated terminations (e.g. a
+	// SIGINT/SIGTERM interrupt) where the non-zero exit code is the signal and an
+	// error-level log line would be noise. The message is still emitted at debug
+	// so `--debug` continues to surface it.
+	LevelFatalQuiet = "fatal-quiet"
+	LevelError      = "error"
+	LevelWarn       = "warn"
+	KeyStacktrace   = "stacktrace"
+	KeyHelp         = "help"
+	KeyHints        = "hints"
+	KeyDetails      = "details"
 )
 
 var (
@@ -164,6 +171,9 @@ func (h *StandardErrorHandler) logError(err error, prefix, level string) {
 	switch level {
 	case LevelFatal:
 		l.Error(err.Error(), kvPairs...)
+		h.Exit(ExitCode(err))
+	case LevelFatalQuiet:
+		l.Debug(err.Error(), kvPairs...)
 		h.Exit(ExitCode(err))
 	case LevelError:
 		l.Error(err.Error(), kvPairs...)

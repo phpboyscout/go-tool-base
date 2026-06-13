@@ -113,3 +113,32 @@ func TestCheck_FatalUsesAttachedExitCode(t *testing.T) {
 		})
 	}
 }
+
+// TestCheck_FatalQuietLogsDebugButStillExits proves the LevelFatalQuiet path
+// honours the attached exit code (128+signum) exactly like LevelFatal, while
+// demoting the notice from error to debug — an interrupt is a user choice, not
+// a failure. The message is still emitted (at debug) so `--debug` surfaces it.
+func TestCheck_FatalQuietLogsDebugButStillExits(t *testing.T) {
+	t.Parallel()
+
+	buf := logger.NewBuffer()
+	exitCode := -1
+	h := errorhandling.New(buf, nil,
+		errorhandling.WithExitFunc(func(code int) { exitCode = code }))
+
+	err := errorhandling.WithExitCode(errors.New("interrupted by signal: interrupt"), 130)
+	h.Check(err, "", errorhandling.LevelFatalQuiet)
+
+	assert.Equal(t, 130, exitCode, "LevelFatalQuiet must still exit with the attached code")
+
+	entries := buf.Entries()
+	require.Len(t, entries, 1, "the interrupt notice must be emitted exactly once")
+	assert.Equal(t, logger.DebugLevel, entries[0].Level,
+		"the interrupt notice must be logged at debug, not error")
+	assert.Equal(t, "interrupted by signal: interrupt", entries[0].Message)
+
+	for _, e := range entries {
+		assert.NotEqual(t, logger.ErrorLevel, e.Level,
+			"LevelFatalQuiet must never log at error")
+	}
+}

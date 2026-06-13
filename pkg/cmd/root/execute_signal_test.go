@@ -2,6 +2,7 @@ package root
 
 import (
 	"os"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -111,6 +112,51 @@ func TestExecute_SignalCancelsContextAndSetsExitCode(t *testing.T) {
 				"a signal-terminated run must exit 128+signum via the ErrorHandler")
 		})
 	}
+}
+
+// TestExecute_InterruptNoticeIsDebugNotError proves the review decision: an
+// interrupted run still exits 128+signum, but the "interrupted by signal"
+// notice is logged at debug (visible under --debug), never at error — an
+// interrupt is a deliberate user choice, not a failure.
+func TestExecute_InterruptNoticeIsDebugNotError(t *testing.T) {
+	t.Parallel()
+
+	buf := logger.NewBuffer()
+	spy := &exitSpy{}
+	props := &p.Props{
+		Logger: buf,
+		ErrorHandler: errorhandling.New(buf, nil,
+			errorhandling.WithExitFunc(spy.exit)),
+	}
+
+	started := make(chan struct{})
+	rootCmd := newBlockingCommand(started)
+	sigCh := make(chan os.Signal, 2)
+
+	go func() {
+		<-started
+		sigCh <- syscall.SIGINT
+	}()
+
+	runExecute(t, rootCmd, props, executeOptions{signals: sigCh})
+
+	assert.Equal(t, []int{130}, spy.codes, "interrupted run still exits 130")
+
+	var noticeAtDebug bool
+
+	for _, e := range buf.Entries() {
+		if strings.Contains(e.Message, "interrupted by signal") {
+			assert.Equal(t, logger.DebugLevel, e.Level,
+				"the interrupt notice must be logged at debug, not error")
+
+			noticeAtDebug = true
+		}
+
+		assert.NotEqualf(t, logger.ErrorLevel, e.Level,
+			"an interrupt must not log at error (saw %q)", e.Message)
+	}
+
+	assert.True(t, noticeAtDebug, "the interrupt notice must still be emitted at debug")
 }
 
 // TestExecute_SecondSignalForcesExit proves spec D2: a second signal

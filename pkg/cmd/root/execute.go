@@ -64,13 +64,17 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 
 	if sig := receivedSignal(); sig != nil {
 		// The run was interrupted: exit 128+signum regardless of what the
-		// command tree returned (usually context.Canceled).
+		// command tree returned (usually context.Canceled). An interrupt is a
+		// deliberate user choice, not a failure — the non-zero exit code is the
+		// signal, so the notice is logged at debug (LevelFatalQuiet), not error.
+		// The exit path is otherwise identical to LevelFatal: the flush above has
+		// already run, and the attached 128+signum code is honoured.
 		flush()
 		props.ErrorHandler.Check(
 			errorhandling.WithExitCode(
 				errors.Newf("interrupted by signal: %v", sig),
 				signalExitCode(sig),
-			), "", errorhandling.LevelFatal)
+			), "", errorhandling.LevelFatalQuiet)
 
 		return
 	}

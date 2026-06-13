@@ -72,6 +72,8 @@ The lifecycle mirrors `kubectl`/`docker`:
 2. **Second signal** — force-exits immediately, so a hung cleanup can never trap the user.
 3. **Exit code** — a signal-terminated run exits `128 + signum` (`130` for SIGINT, `143` for SIGTERM), threaded through the `ErrorHandler`'s exit path via `errorhandling.WithExitCode` so it never conflicts with normal error exits.
 
+An interrupt is a deliberate user choice, not a failure, so the `interrupted by signal: …` notice is logged at **debug**, not error (it routes through `errorhandling.LevelFatalQuiet`, which exits like `LevelFatal` but logs at debug). End users see a clean exit with the conventional code; `--debug` still surfaces the notice. The non-zero exit code is the signal.
+
 On Windows only `os.Interrupt` is deliverable; the SIGTERM registration is harmless there, so no build tags are needed.
 
 !!! note "Interactive prompts own Ctrl-C"
