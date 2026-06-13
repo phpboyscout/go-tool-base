@@ -398,7 +398,7 @@ func TestRepo_Unit_GetSSHKey(t *testing.T) {
 		require.NoError(t, fs.Mkdir("/keydir", 0o755))
 		_, err := GetSSHKey("/keydir", fs)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Could not open SSH key")
+		assert.Contains(t, err.Error(), "could not open SSH key")
 	})
 
 	t.Run("invalid_key_bytes", func(t *testing.T) {
@@ -596,10 +596,16 @@ func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
 }
 
 func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
-	// Config has no github.ssh and no auth token → configureTokenAuth fails.
+	// Config has no github.ssh and no auth token. A private release source
+	// requires a token, so configureTokenAuth fails.
 	t.Setenv("GITHUB_TOKEN", "")
 	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {}`)))
-	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
+	p := &props.Props{
+		FS:     afero.NewMemMapFs(),
+		Logger: logger.NewNoop(),
+		Config: cfg,
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github", Private: true}},
+	}
 	_, err := NewRepo(p)
 	assert.Error(t, err)
 }

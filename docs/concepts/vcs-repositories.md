@@ -226,13 +226,17 @@ Both forms check, in order:
 
 Returns empty when nothing is found; callers decide whether absence is an error.
 
-For SSH operations (`OpenLocal`/`OpenInMemory` with SSH URLs), `repo.NewRepo` attempts:
+For git clone/push operations, `repo.NewRepo` is **forge-aware**: it reads the config subtree of the tool's forge (`github`, `gitlab`, `bitbucket`, `gitea`, `codeberg`), determined from `Tool.ReleaseSource.Type` and overridable via the `vcs.provider` config key:
 
 | Priority | Method | Source |
 |----------|--------|--------|
-| 1 | SSH agent | Standard Unix SSH agent socket |
-| 2 | Identity file | `github.ssh.key.path` in config |
-| 3 | PAT / basic auth | Resolved via `ResolveTokenContext` |
+| 1 | SSH agent | `<forge>.ssh.key.type = "agent"` |
+| 2 | Identity file | `<forge>.ssh.key.path` (or env var named by `<forge>.ssh.key.env`) |
+| 3 | Token / basic auth | `vcs.ResolveToken` on the `<forge>` subtree, falling back to `<FORGE>_TOKEN` |
+
+A missing token is non-fatal for public repositories — the repo proceeds unauthenticated; only `ReleaseSource.Private: true` requires a credential. Passphrase-protected SSH keys surface the typed `*ssh.PassphraseMissingError` for the CLI layer to handle (the library never prompts interactively).
+
+Note this git-auth path is independent of the release/update subsystem's token resolution — they share only the low-level `vcs.ResolveToken` primitive.
 
 ---
 

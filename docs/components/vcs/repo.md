@@ -20,7 +20,7 @@ Provides git repository operations backed by `go-git`. Supports both local files
 func NewRepo(props *props.Props, ops ...RepoOpt) (*Repo, error)
 ```
 
-`NewRepo` reads authentication from `props.Config` and returns a configured `*Repo`. Authentication is resolved automatically (see [Authentication](#authentication)) — you rarely need to call `SetKey` or `SetBasicAuth` directly.
+`NewRepo` reads authentication from `props.Config` and returns a configured `*Repo`. Authentication is resolved automatically per forge (see [Authentication](#authentication)) — you rarely need to call `SetKey` or `SetBasicAuth` directly.
 
 **Options:**
 
@@ -170,13 +170,19 @@ This is the standard pattern for hydrating a virtual filesystem with files from 
 
 ## Authentication
 
-`NewRepo` configures authentication from `props.Config` automatically:
+`NewRepo` configures authentication from `props.Config` automatically, reading the config subtree of the tool's **forge**. The forge is derived from `Tool.ReleaseSource.Type` (`github`, `gitlab`, `bitbucket`, `gitea`, `codeberg`), overridable with the `vcs.provider` config key. An empty or `direct` type falls back to `github` — the `direct` release source is a download URL with no git remote, so it has no forge of its own.
 
 | Priority | Condition | Auth method |
 |----------|-----------|-------------|
-| 1 | `github.ssh.key.type = "agent"` | SSH agent (`ssh.DefaultAuthBuilder`) |
-| 2 | `github.ssh.key.path` or `$GITHUB_KEY` set | Identity file (`GetSSHKey`) |
-| 3 | No `github.ssh` config at all | PAT via `GITHUB_TOKEN` (basic auth `x-access-token:<token>`) |
+| 1 | `<forge>.ssh.key.type = "agent"` | SSH agent (`ssh.DefaultAuthBuilder`) |
+| 2 | `<forge>.ssh.key.path` or the env var named by `<forge>.ssh.key.env` | Identity file (`GetSSHKey`) |
+| 3 | No `<forge>.ssh` config at all | Token via `vcs.ResolveToken` on the `<forge>` subtree (`auth.env` → `auth.keychain` → `auth.value` → `<FORGE>_TOKEN` env var) |
+
+Token auth uses HTTP basic auth with a forge-appropriate username: `x-access-token` for GitHub (and unknown forges), `oauth2` for GitLab, `x-token-auth` for Bitbucket.
+
+**Missing credentials are non-fatal for public repositories.** When no token resolves and `ReleaseSource.Private` is false, `NewRepo` proceeds with unauthenticated access (clones of public repos need no token). Only `Private: true` enforces a token, failing fast with a hint naming the fallback env var.
+
+Existing `github.*` configs keep working unchanged — `github` was always the GitHub forge subtree; the other forges' subtrees are simply read alongside. No migration is required.
 
 You can override auth manually after construction:
 
@@ -186,13 +192,26 @@ r.SetBasicAuth("user", "pass") // Basic / PAT
 auth := r.GetAuth()            // Retrieve current method
 ```
 
-### `GetSSHKey`
+### `GetSSHKey` / `GetSSHKeyWithPassphrase`
 
 ```go
 func GetSSHKey(filePath string, localfs afero.Fs) (*ssh.PublicKeys, error)
+func GetSSHKeyWithPassphrase(filePath string, localfs afero.Fs, passphrase string) (*ssh.PublicKeys, error)
 ```
 
-Reads a PEM private key from `localfs`. If the key is passphrase-protected, prompts the user interactively via a `charmbracelet/huh` input form.
+Reads a PEM/OpenSSH private key from `localfs`. The library never blocks on a TUI: if the key is passphrase-protected, `GetSSHKey` returns an error wrapping the typed `*ssh.PassphraseMissingError` from `golang.org/x/crypto/ssh`. Interactive callers — the CLI layer, not this package — are responsible for detecting it, prompting the user, and retrying:
+
+```go
+keys, err := repo.GetSSHKey(path, fs)
+
+var missing *gossh.PassphraseMissingError
+if errors.As(err, &missing) {
+    passphrase := promptUser() // CLI-layer TUI (e.g. huh input form)
+    keys, err = repo.GetSSHKeyWithPassphrase(path, fs, passphrase)
+}
+```
+
+The same typed error propagates out of `NewRepo` when the configured `<forge>.ssh.key` is encrypted.
 
 ---
 
@@ -246,6 +265,10 @@ type RepoLike interface {
     WithTree(func(*git.Worktree) error) error
 }
 ```
+
+### Unopened-repo contract
+
+Every `RepoLike` method that needs the underlying repository or worktree returns the sentinel `ErrNoRepository` / `ErrNoWorktree` when called before `Open*`/`Clone` (or `SetRepo`/`SetTree`) — none of them panic. Methods touching the worktree (`Checkout`, `CheckoutCommit`, `Commit`) return `ErrNoWorktree`; methods touching the repository (`Push`, `CreateBranch`, `WalkTree`, `FileExists`, `DirectoryExists`, `GetFile`, `CreateRemote`, `Remote`) return `ErrNoRepository`. Check with `errors.Is`.
 
 ---
 

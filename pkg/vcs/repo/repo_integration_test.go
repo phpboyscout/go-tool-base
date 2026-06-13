@@ -16,6 +16,7 @@ import (
 	gogitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -413,4 +414,99 @@ func TestFileOperations(t *testing.T) {
 		exists, _ := afero.Exists(fs, "/README")
 		assert.True(t, exists, "README should be added to FS")
 	})
+}
+
+// TestForgeAuthClonePush proves the provider-aware auth path end-to-end:
+// NewRepo configured for each forge's token shape can clone from and push to
+// a local bare remote. The file transport ignores credentials, so this
+// exercises the full NewRepo wiring (forge selection, token resolution,
+// BasicAuth construction) around real clone/commit/push operations.
+func TestForgeAuthClonePush(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
+
+	forges := []struct {
+		forge    string
+		yamlCfg  string
+		envName  string
+		dummy    string
+		username string
+	}{
+		{
+			forge:    "github",
+			yamlCfg:  `github: {auth: {env: GTB_INT_GH_TOKEN}}`,
+			envName:  "GTB_INT_GH_TOKEN",
+			dummy:    "ghp_integration",
+			username: "x-access-token",
+		},
+		{
+			forge:    "gitlab",
+			yamlCfg:  `gitlab: {auth: {env: GTB_INT_GL_TOKEN}}`,
+			envName:  "GTB_INT_GL_TOKEN",
+			dummy:    "glpat-integration",
+			username: "oauth2",
+		},
+	}
+
+	for _, tc := range forges {
+		t.Run(tc.forge, func(t *testing.T) {
+			t.Setenv(tc.envName, tc.dummy)
+
+			root := t.TempDir()
+			remoteDir := filepath.Join(root, "remote.git")
+			seedDir := filepath.Join(root, "seed")
+			cloneDir := filepath.Join(root, "clone")
+
+			// Bare remote seeded with one commit.
+			_, err := git.PlainInit(remoteDir, true)
+			require.NoError(t, err)
+
+			seedRepo, err := git.PlainInit(seedDir, false)
+			require.NoError(t, err)
+			seedTree, err := seedRepo.Worktree()
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(seedDir, "README.md"), []byte("seed"), 0o644))
+			_, err = seedTree.Add("README.md")
+			require.NoError(t, err)
+			_, err = seedTree.Commit("seed", &git.CommitOptions{
+				Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
+			})
+			require.NoError(t, err)
+			_, err = seedRepo.CreateRemote(&gogitconfig.RemoteConfig{Name: "origin", URLs: []string{remoteDir}})
+			require.NoError(t, err)
+			require.NoError(t, seedRepo.Push(&git.PushOptions{RemoteName: "origin"}))
+
+			// Forge-configured Repo: clone, commit, push.
+			cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(tc.yamlCfg)))
+			p := &props.Props{
+				Logger: logger.NewNoop(),
+				Config: cfg,
+				FS:     afero.NewOsFs(),
+				Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: tc.forge}},
+			}
+
+			r, err := NewRepo(p)
+			require.NoError(t, err)
+
+			auth, ok := r.GetAuth().(*githttp.BasicAuth)
+			require.True(t, ok, "expected BasicAuth from forge token config")
+			assert.Equal(t, tc.username, auth.Username)
+			assert.Equal(t, tc.dummy, auth.Password)
+
+			_, _, err = r.Clone(remoteDir, cloneDir)
+			require.NoError(t, err)
+
+			require.NoError(t, os.WriteFile(filepath.Join(cloneDir, "new.txt"), []byte("new"), 0o644))
+			err = r.WithTree(func(wt *git.Worktree) error {
+				_, addErr := wt.Add("new.txt")
+				return addErr
+			})
+			require.NoError(t, err)
+			_, err = r.Commit("add new.txt", &git.CommitOptions{
+				Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
+			})
+			require.NoError(t, err)
+
+			require.NoError(t, r.Push(nil))
+		})
+	}
 }
