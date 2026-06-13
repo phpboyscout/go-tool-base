@@ -89,7 +89,20 @@ The `Register` call is idempotent against double-attachment (the underlying cobr
 !!! warning "Deprecated: `AddCommandWithMiddleware`"
     The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)` — the [v0.4-to-v0.5 migration guide](../migration/v0.4-to-v0.5.md) has the diff.
 
+## Hooks vs. the framework bootstrap
+
+The framework's own bootstrap — config loading, log-level setup, feature-flag resolution, telemetry collector construction, and the update check — runs in the **root command's `PersistentPreRunE`**. By default cobra runs only the *closest* `PersistentPreRunE` in the command chain, so a subcommand that defines its own would silently shadow the root bootstrap for that subtree (a footgun where `props.Config` ends up nil at runtime).
+
+GTB removes this footgun: `NewCmdRoot` sets `cobra.EnableTraverseRunHooks = true`, so cobra runs **every** `PersistentPreRunE` from root to leaf. The guarantee is:
+
+1. The framework bootstrap (root hook) **always runs first**.
+2. Your subcommand's `PersistentPreRunE` runs **after** it — never instead of it.
+
+This means a downstream `PersistentPreRunE` can safely rely on `props.Config`, `props.Collector`, and the resolved log level already being populated. You do **not** need to (and should not) call the framework bootstrap yourself. When the tree contains a downstream `PersistentPreRunE`, GTB emits a one-time debug log noting this bootstrap-then-child ordering.
+
 ---
 
 !!! tip "Middleware vs. Hooks"
     Use **Hooks** (`PersistentPreRunE`) for environmental setup like loading config files. Use **Middleware** for operational concerns that need to wrap the execution, like timing, logging, or error recovery.
+
+    A subcommand-level `PersistentPreRunE` does **not** replace the framework bootstrap — `NewCmdRoot` enables `cobra.EnableTraverseRunHooks`, so the root bootstrap always runs first and your hook runs after it (root→leaf). Your hook can rely on `props.Config` already being loaded.

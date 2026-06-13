@@ -115,6 +115,17 @@ rootCmd := gtbRoot.NewCmdRoot(p,
 
 ---
 
+## Subcommand `PersistentPreRunE` and the framework bootstrap
+
+A nested command may define its own `PersistentPreRunE` for environmental setup. This does **not** disable the framework bootstrap (config load, telemetry, update check) that runs in the root command's hook. `NewCmdRoot` enables `cobra.EnableTraverseRunHooks`, so cobra runs every `PersistentPreRunE` from root to leaf:
+
+1. The framework bootstrap (root hook) runs **first**.
+2. Your subcommand's `PersistentPreRunE` runs **after** it.
+
+So a hook on `deploy` or `canary` can rely on `props.Config`, `props.Collector`, and the resolved log level already being populated — no need to re-run any framework setup yourself. See [Command Middleware System → Hooks vs. the framework bootstrap](../concepts/command-middleware.md#hooks-vs-the-framework-bootstrap) for the full ordering guarantee.
+
+---
+
 ## Verifying the tree compiles and runs
 
 ```bash

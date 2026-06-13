@@ -1,7 +1,7 @@
 ---
 title: "Framework bootstrap vs child PersistentPreRunE — stop downstream hooks silently disabling setup"
 description: "Cobra runs only the closest PersistentPreRunE, so a downstream subcommand that defines one silently shadows the root bootstrap (config load, telemetry, update check). Make the framework bootstrap run regardless — via EnableTraverseRunHooks or by moving bootstrap into Execute/outermost middleware — and warn when a downstream hook would shadow it."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12; implemented 2026-06-13)
 
 ## Summary
 
