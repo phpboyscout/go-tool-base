@@ -348,6 +348,16 @@ func NewCmdRoot(props *p.Props, subcommands ...*setup.Command) *setup.Command {
 // It accepts additional configuration file paths to be considered during initialization.
 // NewCmdRoot creates the root command with Props wiring and optional subcommands.
 func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*setup.Command) *setup.Command {
+	// Run every parent PersistentPreRunE from root to leaf rather than only the
+	// closest one. Without this, a downstream subcommand that defines its own
+	// PersistentPreRunE silently shadows the root bootstrap (config load,
+	// telemetry, update check) for that subtree. With it set, the framework
+	// bootstrap always runs first and a child hook runs after it. Cobra exposes
+	// this as a package-global; only the root command defines a persistent
+	// pre-run hook in GTB's own tree, so root→leaf traversal is otherwise a
+	// no-op for the framework. See spec 2026-06-12-bootstrap-prerun-traversal.
+	cobra.EnableTraverseRunHooks = true
+
 	// Set the helper and logger for the error handling package
 	if props.ErrorHandler == nil {
 		props.ErrorHandler = errorhandling.New(props.Logger, props.Tool.Help)
@@ -372,7 +382,43 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 
 	wrapped.Register(subcommands...)
 
+	// Once the full tree is assembled, warn (once, at debug) if any downstream
+	// command defines its own PersistentPreRunE so authors understand it runs
+	// AFTER the framework bootstrap rather than instead of it.
+	logShadowingPreRunHooks(rootCmd, props.Logger)
+
 	return wrapped
+}
+
+// logShadowingPreRunHooks emits a single debug log if any non-root command in
+// the tree defines a PersistentPreRunE. EnableTraverseRunHooks guarantees the
+// framework bootstrap (the root hook) still runs first, so this is purely an
+// ordering note for authors rather than a warning about lost behaviour.
+func logShadowingPreRunHooks(root *cobra.Command, l logger.Logger) {
+	for _, cmd := range root.Commands() {
+		if commandTreeHasPersistentPreRun(cmd) {
+			l.Debug("a downstream command defines its own PersistentPreRunE; " +
+				"it runs AFTER the framework bootstrap (config load, telemetry, update check), not instead of it")
+
+			return
+		}
+	}
+}
+
+// commandTreeHasPersistentPreRun reports whether cmd or any of its descendants
+// defines a PersistentPreRunE hook.
+func commandTreeHasPersistentPreRun(cmd *cobra.Command) bool {
+	if cmd.PersistentPreRunE != nil || cmd.PersistentPreRun != nil {
+		return true
+	}
+
+	for _, child := range cmd.Commands() {
+		if commandTreeHasPersistentPreRun(child) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState) func(*cobra.Command, []string) error {

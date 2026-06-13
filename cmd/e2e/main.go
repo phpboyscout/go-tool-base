@@ -102,6 +102,11 @@ func newTestRoot() (*setup.Command, *props.Props) {
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
 		keys.NewCmdKeys(p),
+		// config-probe is a contrived fixture for the bootstrap-traversal
+		// E2E (spec 2026-06-12): a subcommand with its own
+		// PersistentPreRunE that reads props.Config in RunE, proving the
+		// root bootstrap still runs via EnableTraverseRunHooks.
+		newConfigProbeCmd(p),
 	)
 
 	return rootCmd, p

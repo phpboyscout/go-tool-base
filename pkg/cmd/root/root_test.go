@@ -1239,3 +1239,115 @@ func TestNewCmdRoot_SubcommandsHaveMiddleware(t *testing.T) {
 	assert.True(t, subcommandExecuted)
 	assert.True(t, middlewareExecuted, "middleware should have executed for manually registered subcommand")
 }
+
+// bootstrapTestProps builds a Props with the network/prompt-driven features
+// disabled so an end-to-end Execute through the command tree exercises only the
+// config-loading bootstrap without hitting the update check or telemetry prompt.
+// A real config file is written to the in-memory FS and its path returned so the
+// caller can point --config at it, keeping the config load deterministic.
+func bootstrapTestProps(t *testing.T) (*p.Props, string) {
+	t.Helper()
+
+	fs := afero.NewMemMapFs()
+	cfgPath := "/config.yaml"
+	require.NoError(t, afero.WriteFile(fs, cfgPath, []byte("log:\n  level: info\n"), 0o644))
+
+	return &p.Props{
+		Logger: logger.NewNoop(),
+		FS:     fs,
+		Assets: p.NewAssets(),
+		Tool: p.Tool{
+			Name: "bootstraptool",
+			Features: p.SetFeatures(
+				p.Disable(p.UpdateCmd),
+				p.Disable(p.McpCmd),
+				p.Disable(p.DocsCmd),
+				p.Disable(p.DoctorCmd),
+				p.Disable(p.TelemetryCmd),
+			),
+		},
+	}, cfgPath
+}
+
+// TestBootstrapRunsDespiteChildPersistentPreRunE is the core regression test for
+// the bootstrap-prerun-traversal fix. A downstream subcommand that defines its
+// own PersistentPreRunE must NOT shadow the root bootstrap: cobra runs only the
+// closest PersistentPreRunE unless EnableTraverseRunHooks is set. Without the
+// fix the child hook shadows the root hook, props.Config / props.Collector are
+// never populated, and bootstrap is silently skipped.
+func TestBootstrapRunsDespiteChildPersistentPreRunE(t *testing.T) {
+	// Not parallel: NewCmdRoot seals the process-global middleware registry,
+	// and the test relies on cobra's process-global EnableTraverseRunHooks.
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+
+	props, cfgPath := bootstrapTestProps(t)
+
+	var (
+		childHookRan bool
+		childRan     bool
+	)
+
+	child := &cobra.Command{
+		Use: "child",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			childHookRan = true
+
+			return nil
+		},
+		RunE: func(_ *cobra.Command, _ []string) error {
+			childRan = true
+
+			return nil
+		},
+	}
+
+	rootCmd := NewCmdRoot(props, setup.Wrap("", child))
+	rootCmd.SetArgs([]string{"--config", cfgPath, "child"})
+	rootCmd.SetOut(io.Discard)
+	rootCmd.SetErr(io.Discard)
+
+	require.NoError(t, rootCmd.ExecuteContext(context.Background()))
+
+	assert.True(t, childRan, "child command should have executed")
+	assert.True(t, childHookRan, "child PersistentPreRunE should have executed")
+	require.NotNil(t, props.Config,
+		"root bootstrap must run even when a child defines its own PersistentPreRunE — props.Config is nil, so bootstrap was silently skipped")
+	require.NotNil(t, props.Collector,
+		"root bootstrap must build the telemetry collector even when a child defines its own PersistentPreRunE")
+}
+
+// TestBootstrapOrdering_RootBeforeChild asserts the documented ordering: with
+// EnableTraverseRunHooks the framework bootstrap (root PersistentPreRunE) runs
+// before the child's PersistentPreRunE (root→leaf), so the child can rely on
+// props.Config already being populated.
+func TestBootstrapOrdering_RootBeforeChild(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+
+	props, cfgPath := bootstrapTestProps(t)
+
+	var configWhenChildHookRan config.Containable
+
+	child := &cobra.Command{
+		Use: "child",
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			// Capture whether the root bootstrap (which sets props.Config) has
+			// already run by the time the child hook fires.
+			configWhenChildHookRan = props.Config
+
+			return nil
+		},
+		RunE: func(_ *cobra.Command, _ []string) error { return nil },
+	}
+
+	rootCmd := NewCmdRoot(props, setup.Wrap("", child))
+	rootCmd.SetArgs([]string{"--config", cfgPath, "child"})
+	rootCmd.SetOut(io.Discard)
+	rootCmd.SetErr(io.Discard)
+
+	require.NoError(t, rootCmd.ExecuteContext(context.Background()))
+
+	assert.NotNil(t, configWhenChildHookRan,
+		"framework bootstrap must run before the child PersistentPreRunE (root→leaf ordering)")
+}
