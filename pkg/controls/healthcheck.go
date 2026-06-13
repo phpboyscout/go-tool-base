@@ -43,9 +43,20 @@ func (e *healthCheckEntry) result(parentCtx context.Context) *CheckResult {
 	return e.lastResult.Load()
 }
 
-// toServiceStatus converts a CheckResult to a ServiceStatus for inclusion in HealthReport.
-func toServiceStatus(name string, r *CheckResult) (ServiceStatus, bool) {
+// toServiceStatus converts a CheckResult to a ServiceStatus for inclusion in a
+// HealthReport. A nil result means an async check has not yet produced a cached
+// value. When failClosed is true (readiness gating) this is reported as not-ready;
+// otherwise it defaults to OK.
+func toServiceStatus(name string, r *CheckResult, failClosed bool) (ServiceStatus, bool) {
 	if r == nil {
+		if failClosed {
+			return ServiceStatus{
+				Name:   name,
+				Status: "ERROR",
+				Error:  "check has not completed its first run",
+			}, false
+		}
+
 		return ServiceStatus{
 			Name:   name,
 			Status: "OK",

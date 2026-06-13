@@ -46,14 +46,30 @@ stateDiagram-v2
     Stopped --> [*]
 ```
 
+### Run outcomes and restart semantics
+
+Each supervised run of a service's `Start` is classified into one of three explicit outcomes, and **only an error triggers a restart**:
+
+- **Clean start** — `Start` returned `nil`. This is the common case for a server that spawns its listener in a background goroutine: returning `nil` means "started successfully", *not* "exited". The controller never restarts a clean start; it supervises such a service via its `Status`/health check (when a `RestartPolicy` with a `HealthFailureThreshold` is configured) and otherwise simply waits for shutdown.
+- **Context cancelled** — the run ended because the controller context was cancelled (graceful shutdown), or `Start` returned a *valid* terminal error (see below). Never restarts.
+- **Error** — `Start` returned a genuine error while the context was still live. This is the only outcome that may trigger a restart, subject to the `RestartPolicy`.
+
+The restart counter measures **consecutive failures**, not lifetime restarts: after a service has run healthily for the `RestartResetInterval` (default 30 s, configurable via `WithRestartResetInterval`), the counter resets to zero. The controller **never sends `nil`** on the error channel.
+
+`WithValidError(func(error) bool)` registers a predicate identifying expected terminal errors (e.g. `http.ErrServerClosed`, `context.Canceled`). A matching error is treated as a graceful end-of-run: it neither counts toward the restart total nor is forwarded as a failure.
+
 ### Graceful Shutdown
 
 Handling shutdowns correctly is critical, especially when services hold file locks or open network connections. The controller handles this through two primary triggers:
 
-1.  **OS Signals**: Automatically traps `SIGINT` and `SIGTERM` to initiate a stop sequence.
+1.  **OS Signals**: Traps `SIGINT` and `SIGTERM` to initiate a stop sequence. Signal handling is registered only after construction options are applied, so `WithoutSignals` truly leaves the default OS disposition in place (no orphaned `signal.Notify`). The registration is detached via `signal.Stop` when the signal channel is swapped out or at shutdown. A **second** signal arriving during shutdown forces the signal-handler goroutine to exit so a wedged shutdown can be escalated.
 2.  **Context Cancellation**: Listens to the parent `context.Context` and triggers a shutdown if the context is cancelled.
 
-When a stop is triggered, the controller iterates through all registered services and calls their `Stop()` functions before waiting for all goroutines to finish via a `sync.WaitGroup`.
+When a stop is triggered, the controller stops services in **reverse registration order**, one at a time, so the last-started service stops first (respecting startup dependencies). Each `StopFunc` runs under the shutdown deadline: a context-ignoring stop is **abandoned** when the deadline elapses rather than hanging `Wait()` forever. The controller then waits for all goroutines to finish via a `sync.WaitGroup`.
+
+`Start` is **idempotent**: it transitions `Unknown → Running` under a compare-and-set, so a second `Start()` is a safe no-op that does not double-start services or double-count the wait group. Services registered without a `Start` or `Stop` function default to no-ops, so they never panic at start or shutdown.
+
+The controller's internal goroutines (error/context handler, signal handler, message processor) all terminate when shutdown completes — none busy-spins on a cancelled context or leaks past `Wait()`.
 
 ## State & Thread Safety
 

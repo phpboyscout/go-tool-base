@@ -224,10 +224,18 @@ type Controller struct {
 // Factory function with options
 func NewController(ctx context.Context, opts ...ControllerOpt) *Controller
 
-// Available options
+// Available controller options
 func WithoutSignals() ControllerOpt
 func WithLogger(l logger.Logger) ControllerOpt
+func WithShutdownTimeout(d time.Duration) ControllerOpt
+func WithValidError(fn ValidErrorFunc) ControllerOpt
 ```
+
+OS-signal handling is registered only **after** all options are applied, so
+`WithoutSignals` genuinely leaves `SIGINT`/`SIGTERM` with their default
+disposition (no orphaned `signal.Notify`). The registration is detached with
+`signal.Stop` when the signal channel is replaced via `SetSignalsChannel` and at
+shutdown.
 
 ## Service Types and States
 
@@ -269,7 +277,12 @@ func WithLiveness(fn ProbeFunc) ServiceOption
 func WithReadiness(fn ProbeFunc) ServiceOption
 
 func WithRestartPolicy(policy RestartPolicy) ServiceOption
+func WithRestartResetInterval(d time.Duration) ServiceOption
 ```
+
+A service registered without a `Start` or `Stop` function defaults to a no-op for
+the missing function, so it never panics at start or shutdown. `Start()` is
+idempotent: a second call while already running is a safe no-op.
 
 ### Self-Healing and Automatic Restarts
 
@@ -277,15 +290,32 @@ The `controls` package includes an opt-in supervisor loop that can automatically
 
 ```go
 type RestartPolicy struct {
-    MaxRestarts            int           // Maximum number of consecutive restarts (0 = infinite)
+    MaxRestarts            int           // Maximum number of CONSECUTIVE restarts (0 = infinite)
     InitialBackoff         time.Duration // Backoff before the first restart (default: 1s)
     MaxBackoff             time.Duration // Maximum backoff duration (default: 30s)
     HealthFailureThreshold int           // Number of consecutive health check failures before triggering a restart
     HealthCheckInterval    time.Duration // Interval between health checks (default: 10s)
+    RestartResetInterval   time.Duration // Healthy run duration after which the failure counter resets (default: 30s)
 }
 ```
 
-When a policy is provided, the controller will automatically restart the service if its `StartFunc` returns an error, or if its `StatusFunc` reports errors exceeding the `HealthFailureThreshold`. The backoff between restarts grows exponentially up to `MaxBackoff`.
+Each supervised run is classified into one of three explicit outcomes, and **only an error triggers a restart**:
+
+- **Clean start** — `StartFunc` returned `nil`. A server that spawns its listener in a background goroutine and returns `nil` has *started*, not *exited*. It is **never** restarted on that basis; it is supervised via its `StatusFunc` (when `HealthFailureThreshold > 0`) and otherwise simply runs until shutdown.
+- **Context cancelled / valid error** — the run ended because the controller context was cancelled, or `StartFunc` returned an error matched by a `WithValidError` predicate (e.g. `http.ErrServerClosed`). Never restarts; never forwarded as a failure.
+- **Error** — `StartFunc` returned a genuine error while the context was live, or the `StatusFunc` exceeded `HealthFailureThreshold`. This is the only restart-worthy outcome.
+
+`MaxRestarts` counts **consecutive** failures. After a service runs healthily for `RestartResetInterval` (default 30 s; set per-service via `WithRestartResetInterval` or the policy field), the counter resets to zero. The backoff between restarts grows exponentially up to `MaxBackoff`. The controller **never sends `nil`** on the error channel.
+
+To exempt expected terminal errors from the restart count for the whole controller, register a predicate with `WithValidError`:
+
+```go
+controller := controls.NewController(ctx,
+    controls.WithValidError(func(err error) bool {
+        return errors.Is(err, http.ErrServerClosed) || errors.Is(err, context.Canceled)
+    }),
+)
+```
 
 You can retrieve the runtime statistics for any service, including its current restart count, using the `GetServiceInfo` method on the `Controller`:
 
@@ -406,6 +436,14 @@ controller.RegisterHealthCheck(controls.HealthCheck{
     Type:     controls.CheckTypeBoth,
 })
 ```
+
+!!! note "Readiness fails closed before the first async run"
+    An async check has no cached result until its first interval run completes.
+    For **readiness** gating (`/readyz`), an async readiness check with no result
+    yet is reported as **not-ready** (HTTP 503) rather than defaulting to OK. This
+    prevents a brief window at startup where traffic is admitted before the check
+    has actually run. The same uninitialised result is treated as OK for `/healthz`
+    and `/livez`, which are not traffic gates.
 
 #### Check Types
 
