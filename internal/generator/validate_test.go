@@ -501,6 +501,10 @@ func TestValidateSigningKeyID(t *testing.T) {
 		{name: "space", input: "alias/x y", wantErr: true},
 		{name: "NUL byte", input: "alias/x\x00", wantErr: true},
 		{name: "over-length", input: strings.Repeat("a", 257), wantErr: true},
+
+		{name: "dotdot traversal", input: "../../etc/x", wantErr: true},
+		{name: "dotdot in alias", input: "alias/..", wantErr: true},
+		{name: "dotdot interior", input: "../release.pem", wantErr: true},
 	}
 
 	for _, tc := range tests {
@@ -529,11 +533,16 @@ func TestValidateSigningPublicKey(t *testing.T) {
 		{name: "empty accepted", input: "", wantErr: false},
 		{name: "default convention", input: "internal/trustkeys/keys/signing-key-v1.asc", wantErr: false},
 		{name: "single segment", input: "key.asc", wantErr: false},
+		{name: "leading dot-slash normalised", input: "./key.asc", wantErr: false},
+		{name: "leading dot-slash with subdir", input: "./sub/key.asc", wantErr: false},
 
 		{name: "absolute path", input: "/etc/passwd", wantErr: true},
 		{name: "traversal", input: "../../home/user/.ssh/id_rsa", wantErr: true},
 		{name: "interior traversal", input: "keys/../../escape.asc", wantErr: true},
-		{name: "unclean dot prefix", input: "./key.asc", wantErr: true},
+		{name: "dot-slash traversal escape", input: "./../escape.asc", wantErr: true},
+		{name: "absolute key", input: "/abs/key.asc", wantErr: true},
+		{name: "parent escape", input: "../escape.asc", wantErr: true},
+		{name: "doubled dot-slash", input: "././key.asc", wantErr: true},
 		{name: "backslash separator", input: `keys\key.asc`, wantErr: true},
 		{name: "yaml injection", input: "x\"\n  - artifact: pwned", wantErr: true},
 		{name: "inline armor rejected", input: "-----BEGIN PGP PUBLIC KEY BLOCK-----", wantErr: true},

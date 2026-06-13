@@ -170,8 +170,21 @@ func ValidateSigningKMSRegion(region string) error {
 // KMS key-id / ARN / alias character class (which also admits the local
 // backend's PEM paths). The value is rendered into the generated
 // .goreleaser.yaml, so quotes, whitespace, and control characters are all
-// outside the class.
+// outside the class. A literal `..` substring is rejected as
+// defence-in-depth: legitimate KMS ids, ARNs, aliases, and the local
+// backend's relative PEM paths never contain it, mirroring how
+// ValidateCommandName forecloses traversal.
 func ValidateSigningKeyID(keyID string) error {
+	if keyID == "" {
+		return nil
+	}
+
+	if strings.Contains(keyID, "..") {
+		return rejectf("SigningKeyID",
+			"signing key id must not contain `..`",
+			keyID)
+	}
+
 	return validateOptionalPattern("SigningKeyID", keyID, signingKeyIDRe,
 		"signing key id must match ^[a-zA-Z0-9:/_.=+,@-]{1,256}$ (a KMS id/ARN/alias, or a PEM path for the local backend)")
 }
@@ -179,8 +192,11 @@ func ValidateSigningKeyID(keyID string) error {
 // ValidateSigningPublicKey accepts an empty string and otherwise requires a
 // clean, slash-separated path relative to the project root (the manifest
 // documents the field as the path to the armored public-key file, e.g.
-// internal/trustkeys/keys/signing-key-v1.asc). Absolute paths, `..`
-// escapes, and unclean forms are rejected.
+// internal/trustkeys/keys/signing-key-v1.asc). A single leading `./` is
+// normalised away as a friendliness affordance, so `./key.asc` is treated
+// as `key.asc`. Absolute paths, `..` escapes, backslashes, and any other
+// unclean forms are still rejected — the path must resolve inside the
+// project root.
 func ValidateSigningPublicKey(publicKey string) error {
 	if publicKey == "" {
 		return nil
@@ -193,7 +209,13 @@ func ValidateSigningPublicKey(publicKey string) error {
 			p)
 	}
 
-	if path.Clean(p) != p {
+	// Normalise a single leading `./` before the cleanliness check so that
+	// the friendly `./key.asc` form is accepted. Anything beyond the one
+	// leading `./` (e.g. `././`, `./../`) remains unclean and is rejected
+	// by the path.Clean comparison below.
+	p = strings.TrimPrefix(p, "./")
+
+	if p == "" || path.Clean(p) != p {
 		return rejectf("SigningPublicKey",
 			"public key must be a clean relative path (no `.`, `..`, doubled, or trailing slashes)",
 			p)
