@@ -36,6 +36,7 @@ type Containable interface {
     GetTime(key string) time.Time
     GetDuration(key string) time.Duration
     GetViper() *viper.Viper
+    BindPFlag(key string, flag *pflag.Flag) error
     Has(key string) bool
     IsSet(key string) bool
     Set(key string, value any)
@@ -452,6 +453,51 @@ func NewDatabaseCommand(props *props.Props) *cobra.Command {
     cmd.Flags().StringVar(&dbHost, "db-host", "", "Database host")
 
     return cmd
+}
+```
+
+The manual `if dbHost == ""` dance above is only needed when a flag is **not** bound to a config key. The recommended approach is to bind the flag so `props.Config.Get*` resolves precedence for you — see [Binding CLI flags to config](#binding-cli-flags-to-config).
+
+### Binding CLI flags to config
+
+GTB documents a configuration precedence of **flags > env > file > embedded > defaults**. For a CLI flag to participate in that precedence, it must be *bound* to a configuration key. Binding wires the flag into viper via `BindPFlag` during config load, after the file and env layers are established, so viper's native order (`BindPFlag` above `AutomaticEnv`) yields the documented result.
+
+Register bound flags on the root command using the `RootOption`s:
+
+```go
+portFlags := pflag.NewFlagSet("server", pflag.ContinueOnError)
+portFlags.Int("server-port", 8080, "server port")
+
+rootCmd := root.NewCmdRootWithOptions(props,
+    // Explicit map: config key -> flag.
+    root.WithBoundFlags(map[string]*pflag.Flag{
+        "server.port": portFlags.Lookup("server-port"),
+    }),
+)
+```
+
+For zero-boilerplate binding, use the convention helper, which derives the config key from the flag name by replacing hyphens with dots (`--server-port` → `server.port`):
+
+```go
+rootCmd := root.NewCmdRootWithOptions(props,
+    root.WithConventionBoundFlags(portFlags), // binds every flag in the set
+)
+```
+
+Both options register the supplied flags on the root command's persistent flag set, so cobra parses them and GTB binds them during the pre-run.
+
+**Per-command flags** are bound automatically: a subcommand's own *local* flags are mapped by the same hyphen-to-dot convention when that command runs, so `mytool serve --server-port 9090` overrides `server.port` for the `serve` command's `RunE`.
+
+**Only changed flags are bound.** A flag the user did *not* set on the command line is filtered out (`flag.Changed == false`) and never overrides config — this avoids viper's classic default-clobber footgun where binding a defaulted flag silently masks file/env values.
+
+The built-in `--debug` and `--ci` flags are folded through the same binding path, so `Config.GetBool("ci")` reflects `--ci`. `--debug` additionally retains its immediate effect on the log level.
+
+To bind a flag directly onto a container (advanced; the options above are preferred), use `Containable.BindPFlag`:
+
+```go
+// key, flag — bind only when flag.Changed is true.
+if flag.Changed {
+    _ = props.Config.BindPFlag("server.port", flag)
 }
 ```
 
@@ -1013,6 +1059,7 @@ type Containable interface {
     GetTime(key string) time.Time
     GetDuration(key string) time.Duration
     GetViper() *viper.Viper
+    BindPFlag(key string, flag *pflag.Flag) error
     Has(key string) bool
     IsSet(key string) bool
     Set(key string, value any)

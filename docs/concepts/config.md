@@ -22,11 +22,23 @@ Instead of industrializing Viper directly in your application code, GTB provides
 
 When a configuration value is requested, the framework looks through these layers in order of priority (highest first):
 
-1. **Environment Variables**: Prefixed automatically with your tool name. These always take highest priority.
-2. **Local .env Files**: Automatically loaded from the current working directory during initialization.
-3. **Flags**: Command-line arguments explicitly bound to configuration keys.
-4. **Local Configuration Files**: Files located in your tool's config directory (~/.mytool/) or provided via `--config`.
-5. **Default Configuration**: Embedded assets provided by the framework or your tool's `assets/` directory.
+1. **CLI Flags**: Command-line arguments bound to configuration keys (see [Binding Flags to Config](#binding-flags-to-config)). A flag the user explicitly set on the command line wins over everything below it.
+2. **Environment Variables**: Prefixed automatically with your tool name (e.g. `MYTOOL_SERVER_PORT`). `.env` files in the working directory are loaded into the environment during initialisation and participate at this tier.
+3. **Local Configuration Files**: Files located in your tool's config directory (`~/.mytool/`) or provided via `--config`. Multiple files merge in load order (later files override earlier).
+4. **Embedded / Default Configuration**: Embedded assets provided by the framework or your tool's `assets/` directory (e.g. `assets/init/config.yaml`).
+5. **Defaults**: Values registered programmatically via viper defaults.
+
+> This order matches viper's native resolution (`Set` / `BindPFlag` > `AutomaticEnv` > config file > defaults). It is the single canonical precedence; the [component reference](../components/config.md) documents the same order.
+
+### Binding Flags to Config
+
+Flags only participate in precedence once they are **bound** to a configuration key. GTB binds them automatically during config load when you register them with the root command:
+
+- **Explicit map** — `root.WithBoundFlags(map[string]*pflag.Flag{"server.port": portFlag})`.
+- **Convention** — `root.WithConventionBoundFlags(flagSet)` derives keys from flag names by replacing hyphens with dots (`--server-port` → `server.port`).
+- **Per-command** — a subcommand's own local flags are bound by the same hyphen-to-dot convention when that command runs, so `mytool serve --server-port 9090` overrides `server.port` for `serve`.
+
+Only flags the user **explicitly changed** are bound. A flag left at its default never overrides a configured value. See the [Binding CLI flags to config](../how-to/bind-flags-to-config.md) how-to and the [config component reference](../components/config.md#binding-cli-flags-to-config) for full detail.
 
 ### Default Asset Convention
 GTB follows a naming convention for modular default configuration. By placing a file at **`assets/init/config.yaml`** within your embedded filesystem, you register it as a "sane default" for your module.
