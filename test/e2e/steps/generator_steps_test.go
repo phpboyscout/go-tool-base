@@ -122,7 +122,10 @@ commands:
 		return ctx, fmt.Errorf("write manifest: %w", err)
 	}
 
-	path, err := support.BinaryPath()
+	// Generator scenarios drive the real gtb binary (./cmd/gtb), which disables
+	// InitCmd and therefore runs generate/add-flag without an external config
+	// file — unlike the InitCmd-enabled e2e framework binary.
+	path, err := support.GeneratorBinaryPath()
 	if err != nil {
 		return ctx, fmt.Errorf("build gtb binary: %w", err)
 	}
