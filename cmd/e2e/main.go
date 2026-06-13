@@ -1,8 +1,24 @@
-// Package main provides a test-only CLI binary for E2E/BDD testing.
+// Package main provides a test-only CLI binary for E2E/BDD testing of
+// framework features.
 //
-// This binary enables ALL feature-flagged commands (including init) and uses
-// a stub release source so that update/init scenarios can run without reaching
-// external services. It is NOT shipped in releases — goreleaser only builds cmd/gtb.
+// Why it exists: it lets us write contrived scenarios for the framework that a
+// downstream tool inherits (init, doctor, config, update, chat, controls,
+// signals, bootstrap) WITHOUT baking test fixtures into the real, shipped
+// binary. It enables ALL feature-flagged commands and uses a stub release
+// source so update/init flows never reach the network. It is NOT shipped —
+// goreleaser only builds ./cmd/gtb.
+//
+// IMPORTANT — when NOT to use this binary: because it ENABLES InitCmd, the
+// framework bootstrap REQUIRES a config file (init is how a tool's first config
+// is created), so scenarios driving this binary must provide one. Conversely,
+// gtb's own command-line tooling — generate, regenerate, remove, keys — is
+// tested against ./cmd/gtb, which DISABLES InitCmd and runs config-free
+// (allow-empty bootstrap), matching production. Driving the generator through
+// this InitCmd-enabled binary wrongly demands a config file: green locally
+// (ambient ~/.config/gtb config), red in CI's clean environment. Generator
+// scenarios use support.GeneratorBinaryPath() (./cmd/gtb), not this binary.
+//
+// See docs/development/testing/index.md § "E2E test binaries".
 package main
 
 import (

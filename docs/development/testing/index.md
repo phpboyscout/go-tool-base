@@ -2,7 +2,7 @@
 title: Testing
 description: Guides for testing GTB — automated suites (unit, race, integration, E2E) and hands-on walkthroughs for exercising features end-to-end against a real host.
 tags: [testing, development]
-authors: [Matt Cockayne <matt@phpboyscout.com>]
+authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---
 
 # Testing
@@ -19,6 +19,33 @@ This section collects the hands-on guides for testing GTB. Most day-to-day work 
 | `just security` | `govulncheck`, `trivy`, `gitleaks`, `osv-scanner` |
 
 Some features involve external platform state (OS keychains, OAuth flows, rate-limited APIs) that the automated suites either mock out or skip. The guides in this directory cover how to exercise those paths on a real workstation, primarily for spec verification and pre-release smoke testing.
+
+## E2E test binaries — `cmd/e2e` vs `cmd/gtb`
+
+E2E scenarios drive a *compiled* binary, and **which binary matters**. There are two, with deliberately different feature flags — pick the one that matches what you are testing.
+
+### `cmd/e2e` — the framework test binary (default)
+
+`cmd/e2e` exists so we can write **contrived scenarios for framework features without baking test fixtures into the shipped binary**. It enables *every* feature-flagged command (`InitCmd`, `UpdateCmd`, `DoctorCmd`, `ConfigCmd`, `AiCmd`, the VCS login commands, …), wires a stub release source so update/init flows don't reach the network, and embeds a minimal config. It is **not shipped** — GoReleaser only builds `cmd/gtb`.
+
+Use it (via `support.BinaryPath()`) for scenarios exercising the **framework** a downstream tool inherits: init, doctor, config, update, chat, controls lifecycle, signal handling, bootstrap traversal, and so on.
+
+> **The gotcha that keeps biting us:** because `cmd/e2e` *enables* `InitCmd`, the framework bootstrap **requires a config file** (init is how a tool's first config gets created). Scenarios that drive `cmd/e2e` must therefore provide one — the CLI step world writes a default `config.yaml`, and `aTemporaryDirectoryWithConfigFile` overrides it per scenario. Run `cmd/e2e` with no config and it exits non-zero with *"no configuration files found, please run init, or provide a config file"*.
+
+### `cmd/gtb` — the real shipped binary
+
+`cmd/gtb` (`internal/cmd/root`) **disables** `InitCmd`, so its bootstrap treats a missing config as *allow-empty* and gtb's own command-line tooling — `generate`, `regenerate`, `remove`, `keys` — runs **without any config file**, exactly as it does in production.
+
+Scenarios that test **gtb's own tooling** must build and run `cmd/gtb` (via `support.GeneratorBinaryPath()`), **not** `cmd/e2e`. Driving `generate`/`add-flag` through the `InitCmd`-enabled `cmd/e2e` would wrongly demand a config file (green on a developer's machine that has an ambient `~/.config/gtb` config, red in CI's clean environment) and misrepresents how the generator actually runs.
+
+### Rule of thumb
+
+| Testing… | Binary | Helper |
+|----------|--------|--------|
+| A **framework** feature a downstream tool inherits (init, doctor, config, update, chat, controls, signals) | `cmd/e2e` | `support.BinaryPath()` |
+| **gtb's own** CLI tooling (generate, regenerate, remove, keys) | `cmd/gtb` | `support.GeneratorBinaryPath()` |
+
+When a generator/tooling scenario fails in CI with a config error but passes locally, this binary mismatch is almost always why.
 
 ## In this section
 
