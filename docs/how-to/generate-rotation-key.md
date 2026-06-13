@@ -48,6 +48,13 @@ Two files appear in the current directory:
   Compatible with `gpg --import` for inspection. **This file is
   what needs to go offline.**
 
+!!! warning "No silent overwrites"
+    `gtb keys generate` refuses to overwrite an existing key file (public or
+    private). A private key on disk is irreplaceable, so the default is to
+    fail rather than clobber it in place. Pass `--force` only when you
+    deliberately want to overwrite an existing key. The private half is always
+    written with `0600` permissions.
+
 A successful run logs:
 
 ```

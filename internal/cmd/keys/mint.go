@@ -2,7 +2,6 @@ package keys
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -27,6 +26,7 @@ func NewCmdKeysMint(p *props.Props) *setup.Command {
 		email       string
 		output      string
 		createdRaw  string
+		force       bool
 	)
 
 	cmd := &cobra.Command{
@@ -49,7 +49,7 @@ binary's main package. The standard gtb binary ships with:
 Other backends (GCP KMS, Vault, etc.) can be added by anyone consuming
 pkg/signing. See docs/how-to/add-signing-backend.md.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMint(cmd, p, backendName, keyID, name, email, output, createdRaw)
+			return runMint(cmd, p, backendName, keyID, name, email, output, createdRaw, force)
 		},
 	}
 
@@ -67,6 +67,8 @@ pkg/signing. See docs/how-to/add-signing-backend.md.`,
 		"Output file path for the armored public key.")
 	cmd.Flags().StringVar(&createdRaw, "created", "",
 		"Creation time RFC3339 (default now). Pin only on re-mint of an existing key — different creation times produce different fingerprints.")
+	cmd.Flags().BoolVar(&force, "force", false,
+		"Overwrite an existing output file. Without this, mint refuses to clobber an existing file.")
 
 	for _, who := range []string{"backend", "key-id", "name", "email"} {
 		_ = cmd.MarkFlagRequired(who)
@@ -88,7 +90,7 @@ pkg/signing. See docs/how-to/add-signing-backend.md.`,
 	return setup.Wrap("", cmd)
 }
 
-func runMint(cmd *cobra.Command, p *props.Props, backendName, keyID, name, email, output, createdRaw string) error {
+func runMint(cmd *cobra.Command, p *props.Props, backendName, keyID, name, email, output, createdRaw string, force bool) error {
 	b, err := signing.Get(backendName)
 	if err != nil {
 		return err
@@ -115,7 +117,7 @@ func runMint(cmd *cobra.Command, p *props.Props, backendName, keyID, name, email
 		return errors.Wrap(err, "minting armored public key")
 	}
 
-	if err := os.WriteFile(output, armored, publicKeyFilePerm); err != nil {
+	if err := writeKeyFile(output, armored, publicKeyFilePerm, force); err != nil {
 		return errors.Wrap(err, "writing output")
 	}
 

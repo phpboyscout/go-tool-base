@@ -164,7 +164,7 @@ func TestRunMint_HappyPath_LogsFingerprint(t *testing.T) {
 	out := filepath.Join(dir, "out.asc")
 
 	err = runMint(&cobra.Command{}, newTestProps(), "test-backend", "test-key",
-		"TestName", "test@example.com", out, "2026-06-08T00:00:00Z")
+		"TestName", "test@example.com", out, "2026-06-08T00:00:00Z", false)
 	require.NoError(t, err)
 
 	data, err := os.ReadFile(out)
@@ -184,7 +184,7 @@ func TestRunMint_RejectsStdoutOutput(t *testing.T) {
 	withRegisteredBackend(t, &fakeBackend{name: "test-backend", signer: priv})
 
 	err = runMint(&cobra.Command{}, newTestProps(),
-		"test-backend", "k", "n", "e@x", "-", "")
+		"test-backend", "k", "n", "e@x", "-", "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `"-"`)
 }
@@ -194,7 +194,7 @@ func TestRunMint_UnknownBackend(t *testing.T) {
 	t.Cleanup(signing.ResetForTesting)
 
 	err := runMint(&cobra.Command{}, newTestProps(),
-		"no-such-backend", "k", "n", "e@x", "out.asc", "")
+		"no-such-backend", "k", "n", "e@x", "out.asc", "", false)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, signing.ErrUnknownBackend)
 }
@@ -206,7 +206,7 @@ func TestRunMint_InvalidCreatedTime(t *testing.T) {
 	withRegisteredBackend(t, &fakeBackend{name: "test-backend", signer: priv})
 
 	err = runMint(&cobra.Command{}, newTestProps(),
-		"test-backend", "k", "n", "e@x", "out.asc", "garbage")
+		"test-backend", "k", "n", "e@x", "out.asc", "garbage", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "RFC3339")
 }
@@ -222,7 +222,7 @@ func TestRunGenerate_RSA_HappyPath(t *testing.T) {
 
 	err := runGenerate(&cobra.Command{}, newTestProps(),
 		algoRSA, 2048, "TestRSA", "rsa@example.com",
-		pubPath, privPath, "2026-06-08T00:00:00Z")
+		pubPath, privPath, "2026-06-08T00:00:00Z", false)
 	require.NoError(t, err)
 
 	pubData, err := os.ReadFile(pubPath)
@@ -249,7 +249,7 @@ func TestRunGenerate_Ed25519_HappyPath(t *testing.T) {
 
 	err := runGenerate(&cobra.Command{}, newTestProps(),
 		algoEd25519, 0, "TestEd25519", "ed@example.com",
-		pubPath, privPath, "")
+		pubPath, privPath, "", false)
 	require.NoError(t, err)
 
 	pubData, err := os.ReadFile(pubPath)
@@ -275,7 +275,7 @@ func TestRunGenerate_RSA_BitsValidation(t *testing.T) {
 
 	err := runGenerate(&cobra.Command{}, newTestProps(),
 		algoRSA, 1024, "N", "e@x",
-		filepath.Join(dir, "out.asc"), filepath.Join(dir, "out.pem"), "")
+		filepath.Join(dir, "out.asc"), filepath.Join(dir, "out.pem"), "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--rsa-bits")
 }
@@ -287,7 +287,7 @@ func TestRunGenerate_UnknownAlgorithm(t *testing.T) {
 
 	err := runGenerate(&cobra.Command{}, newTestProps(),
 		"magic", 4096, "N", "e@x",
-		filepath.Join(dir, "out.asc"), filepath.Join(dir, "out.pem"), "")
+		filepath.Join(dir, "out.asc"), filepath.Join(dir, "out.pem"), "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown algorithm")
 }
@@ -299,7 +299,7 @@ func TestRunGenerate_InvalidCreatedTime(t *testing.T) {
 
 	err := runGenerate(&cobra.Command{}, newTestProps(),
 		algoRSA, 2048, "N", "e@x",
-		filepath.Join(dir, "out.asc"), filepath.Join(dir, "out.pem"), "garbage")
+		filepath.Join(dir, "out.asc"), filepath.Join(dir, "out.pem"), "garbage", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "RFC3339")
 }
@@ -308,7 +308,7 @@ func TestRunGenerate_PathCollision(t *testing.T) {
 	t.Parallel()
 
 	err := runGenerate(&cobra.Command{}, newTestProps(),
-		algoRSA, 2048, "N", "e@x", "same.asc", "same.asc", "")
+		algoRSA, 2048, "N", "e@x", "same.asc", "same.asc", "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must differ")
 }
@@ -321,7 +321,7 @@ func TestRunGenerate_FingerprintRoundTripsThroughLocalBackend(t *testing.T) {
 	created := "2026-06-08T00:00:00Z"
 	err := runGenerate(&cobra.Command{}, newTestProps(),
 		algoRSA, 2048, "X", "x@y",
-		genPubPath, genPrivPath, created)
+		genPubPath, genPrivPath, created, false)
 	require.NoError(t, err)
 
 	genPub, err := os.ReadFile(genPubPath)
@@ -338,7 +338,7 @@ func TestRunGenerate_FingerprintRoundTripsThroughLocalBackend(t *testing.T) {
 
 	mintPath := filepath.Join(dir, "mint.asc")
 	err = runMint(&cobra.Command{}, newTestProps(),
-		"local-stub", "ignored", "X", "x@y", mintPath, created)
+		"local-stub", "ignored", "X", "x@y", mintPath, created, false)
 	require.NoError(t, err)
 
 	mintPub, err := os.ReadFile(mintPath)
@@ -348,6 +348,112 @@ func TestRunGenerate_FingerprintRoundTripsThroughLocalBackend(t *testing.T) {
 
 	assert.Equal(t, genFP, mintFP,
 		"generate + mint must produce the same fingerprint when --created is pinned and the same key is used")
+}
+
+// ---- no-clobber guard ------------------------------------------------------
+
+// statMode returns the file's permission bits, failing the test on error.
+func statMode(t *testing.T, path string) os.FileMode {
+	t.Helper()
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+
+	return info.Mode().Perm()
+}
+
+func TestRunGenerate_RefusesToClobberPrivateKey(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	pubPath := filepath.Join(dir, "rsa.asc")
+	privPath := filepath.Join(dir, "rsa.pem")
+
+	// First generation succeeds and writes the private half 0o600.
+	require.NoError(t, runGenerate(&cobra.Command{}, newTestProps(),
+		algoRSA, 2048, "First", "first@example.com",
+		pubPath, privPath, "2026-06-08T00:00:00Z", false))
+
+	assert.Equal(t, os.FileMode(0o600), statMode(t, privPath),
+		"freshly generated private key must be 0o600")
+
+	original, err := os.ReadFile(privPath)
+	require.NoError(t, err)
+
+	// Second generation without --force must refuse and leave the original
+	// private key untouched.
+	err = runGenerate(&cobra.Command{}, newTestProps(),
+		algoRSA, 2048, "Second", "second@example.com",
+		pubPath, privPath, "2026-06-09T00:00:00Z", false)
+	require.ErrorIs(t, err, ErrKeyFileExists)
+
+	after, err := os.ReadFile(privPath)
+	require.NoError(t, err)
+	assert.Equal(t, original, after,
+		"a refused generate must not modify the existing private key")
+}
+
+func TestRunGenerate_ForceOverwritesPrivateKey(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	pubPath := filepath.Join(dir, "rsa.asc")
+	privPath := filepath.Join(dir, "rsa.pem")
+
+	require.NoError(t, runGenerate(&cobra.Command{}, newTestProps(),
+		algoRSA, 2048, "First", "first@example.com",
+		pubPath, privPath, "2026-06-08T00:00:00Z", false))
+
+	original, err := os.ReadFile(privPath)
+	require.NoError(t, err)
+
+	// --force overwrites and preserves 0o600 perms.
+	require.NoError(t, runGenerate(&cobra.Command{}, newTestProps(),
+		algoRSA, 2048, "Second", "second@example.com",
+		pubPath, privPath, "2026-06-09T00:00:00Z", true))
+
+	after, err := os.ReadFile(privPath)
+	require.NoError(t, err)
+	assert.NotEqual(t, original, after,
+		"--force must overwrite the existing private key")
+	assert.Equal(t, os.FileMode(0o600), statMode(t, privPath),
+		"overwritten private key must remain 0o600")
+}
+
+func TestRunMint_RefusesToClobberOutput(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	withRegisteredBackend(t, &fakeBackend{name: "test-backend", signer: priv})
+
+	dir := t.TempDir()
+	out := filepath.Join(dir, "release.asc")
+
+	require.NoError(t, runMint(&cobra.Command{}, newTestProps(),
+		"test-backend", "test-key", "N", "e@x", out, "2026-06-08T00:00:00Z", false))
+
+	original, err := os.ReadFile(out)
+	require.NoError(t, err)
+
+	// Without --force, a second mint to the same path must refuse.
+	err = runMint(&cobra.Command{}, newTestProps(),
+		"test-backend", "test-key", "N", "e@x", out, "2026-06-08T00:00:00Z", false)
+	require.ErrorIs(t, err, ErrKeyFileExists)
+
+	after, err := os.ReadFile(out)
+	require.NoError(t, err)
+	assert.Equal(t, original, after, "a refused mint must not modify the existing file")
+
+	// With --force, the mint succeeds.
+	require.NoError(t, runMint(&cobra.Command{}, newTestProps(),
+		"test-backend", "test-key", "N", "e@x", out, "2026-06-08T00:00:00Z", true))
+}
+
+func TestNewCmdKeysGenerate_HasForceFlag(t *testing.T) {
+	t.Parallel()
+
+	genCmd := NewCmdKeysGenerate(newTestProps())
+	assert.NotNil(t, genCmd.Flags().Lookup("force"), "generate must expose --force")
 }
 
 // ---- Cobra wiring smoke ----------------------------------------------------

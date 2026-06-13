@@ -77,7 +77,12 @@ INFO  Minted OpenPGP key  backend=aws-kms  key_id=alias/mytool-release-signing-v
 | `--name` | yes | — | OpenPGP UID real name. |
 | `--email` | yes | — | OpenPGP UID email. |
 | `--output` | no | `release.asc` | Output path for the armored public key. |
+| `--force` | no | `false` | Overwrite the output file if it already exists. Without it, `mint` refuses to clobber an existing file and exits with an error. |
 | `--created` | no | now | RFC3339 creation time. Pin only when re-minting an existing key — different creation times produce different fingerprints. |
+
+!!! warning "No silent overwrites"
+    `gtb keys mint` refuses to overwrite an existing `--output` file. If you
+    are intentionally re-minting to the same path, pass `--force`.
 
 ### Credentials
 

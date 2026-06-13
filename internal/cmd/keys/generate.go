@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -45,6 +44,7 @@ func NewCmdKeysGenerate(p *props.Props) *setup.Command {
 		output        string
 		privateOutput string
 		createdRaw    string
+		force         bool
 	)
 
 	cmd := &cobra.Command{
@@ -70,7 +70,7 @@ standard library doesn't expose PKCS#8 encryption and a clean
 OpenPGP s2k path is additive. Use filesystem-level encryption (LUKS,
 FileVault, age) until v0.2 adds in-tool encryption.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runGenerate(cmd, p, algorithm, rsaBits, name, email, output, privateOutput, createdRaw)
+			return runGenerate(cmd, p, algorithm, rsaBits, name, email, output, privateOutput, createdRaw, force)
 		},
 	}
 
@@ -88,6 +88,8 @@ FileVault, age) until v0.2 adds in-tool encryption.`,
 		"Output file path for the private half. Default: derived from --output by replacing the extension (.asc → .priv.asc for Ed25519, .asc → .pem for RSA).")
 	cmd.Flags().StringVar(&createdRaw, "created", "",
 		"Creation time RFC3339 (default now). Pin only when re-deriving an existing key — different creation times produce different fingerprints.")
+	cmd.Flags().BoolVar(&force, "force", false,
+		"Overwrite existing output files. Without this, generate refuses to clobber an existing key to avoid destroying a private key in place.")
 
 	for _, who := range []string{"algorithm", "name", "email"} {
 		_ = cmd.MarkFlagRequired(who)
@@ -96,7 +98,7 @@ FileVault, age) until v0.2 adds in-tool encryption.`,
 	return setup.Wrap("", cmd)
 }
 
-func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int, name, email, output, privateOutput, createdRaw string) error {
+func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int, name, email, output, privateOutput, createdRaw string, force bool) error {
 	creationTime, err := parseCreatedTime(createdRaw)
 	if err != nil {
 		return err
@@ -131,17 +133,21 @@ func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int
 		return errors.Wrap(err, "armoring public half")
 	}
 
-	if err := os.WriteFile(pubPath, pubArmored, publicKeyFilePerm); err != nil {
-		return errors.Wrap(err, "writing public-half output")
-	}
-
+	// Encode the private half before writing anything so a failure there does
+	// not leave a lone public key behind. Write the private half first under
+	// the no-clobber guard: it is the irreplaceable artefact, so refusing to
+	// overwrite it is the highest-value protection.
 	privBytes, err := encodePrivateHalf(algorithm, ent, signer)
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(privPath, privBytes, privateKeyFilePerm); err != nil {
+	if err := writeKeyFile(privPath, privBytes, privateKeyFilePerm, force); err != nil {
 		return errors.Wrap(err, "writing private-half output")
+	}
+
+	if err := writeKeyFile(pubPath, pubArmored, publicKeyFilePerm, force); err != nil {
+		return errors.Wrap(err, "writing public-half output")
 	}
 
 	fp := fmt.Sprintf("%X", ent.PrimaryKey.Fingerprint)

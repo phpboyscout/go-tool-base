@@ -14,6 +14,9 @@
 package keys
 
 import (
+	"os"
+
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -28,6 +31,43 @@ const (
 	publicKeyFilePerm  = 0o644
 	privateKeyFilePerm = 0o600
 )
+
+// ErrKeyFileExists is returned when a key output file already exists and
+// --force was not supplied. Overwriting a private key in place could silently
+// destroy the only copy of a signing key, so the default is to refuse.
+var ErrKeyFileExists = errors.New("output file already exists")
+
+// writeKeyFile writes data to path with the given permissions, refusing to
+// clobber an existing file unless force is set.
+//
+// The no-clobber guard uses O_EXCL so the existence check and the create are a
+// single atomic syscall — there is no TOCTOU window between "does it exist?"
+// and "create it". With force, the file is truncated and rewritten. Either way
+// the file is created with mode perm (0o600 for private halves), so a fresh
+// private key is never world-readable.
+func writeKeyFile(path string, data []byte, perm os.FileMode, force bool) error {
+	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
+	if force {
+		flags = os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	}
+
+	f, err := os.OpenFile(path, flags, perm)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return errors.Wrapf(ErrKeyFileExists, "%q (pass --force to overwrite)", path)
+		}
+
+		return errors.Wrapf(err, "opening %q for writing", path)
+	}
+
+	defer func() { _ = f.Close() }()
+
+	if _, err := f.Write(data); err != nil {
+		return errors.Wrapf(err, "writing %q", path)
+	}
+
+	return nil
+}
 
 // NewCmdKeys returns the top-level `gtb keys` command group with its
 // subcommands attached. Mirrors the shape of internal/cmd/generate's
