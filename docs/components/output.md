@@ -225,6 +225,27 @@ fmt.Print(output.RenderMarkdown(releaseNotes))
 
 ---
 
+### Spin / SpinWithResult
+
+Runs `fn` while showing a spinner with a status message. In interactive
+terminals an animated spinner is shown; in non-interactive environments (CI,
+piped output) plain status lines are printed instead. The supplied context is
+passed to `fn` and used for cancellation.
+
+```go
+func Spin(ctx context.Context, msg string, fn func(ctx context.Context) error) error
+func SpinWithResult[T any](ctx context.Context, msg string, fn func(ctx context.Context) (T, error)) (T, error)
+```
+
+**Interrupt handling:** If the user presses **Ctrl-C** while the spinner is
+active, the context passed to `fn` is cancelled and the call returns
+`context.Canceled` (and the zero value for `SpinWithResult`). The interruption
+is surfaced as an error rather than reported as a (zero, `nil`) false success,
+so callers will not mistakenly treat interrupted work as completed and the
+in-flight goroutine is signalled to unwind via its cancelled context.
+
+---
+
 ### TableWriter
 
 Renders structured data as an aligned text table, JSON, YAML, or CSV. Columns are derived from `table` struct tags or defined explicitly via `WithColumns`.

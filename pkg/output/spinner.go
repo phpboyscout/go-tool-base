@@ -19,6 +19,10 @@ var spinnerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 // In interactive terminals, displays an animated spinner.
 // In non-interactive environments (CI, piped output), prints plain text.
 // The context is passed to fn and used for cancellation.
+//
+// If the user interrupts an active spinner with Ctrl-C, the context passed to
+// fn is cancelled and Spin returns context.Canceled rather than reporting a
+// false success.
 func Spin(ctx context.Context, msg string, fn func(ctx context.Context) error) error {
 	_, err := SpinWithResult(ctx, msg, func(ctx context.Context) (struct{}, error) {
 		return struct{}{}, fn(ctx)
@@ -28,6 +32,9 @@ func Spin(ctx context.Context, msg string, fn func(ctx context.Context) error) e
 }
 
 // SpinWithResult is like Spin but returns a value alongside the error.
+//
+// As with Spin, a Ctrl-C interrupt while the spinner is active cancels fn's
+// context and returns (zero, context.Canceled).
 func SpinWithResult[T any](ctx context.Context, msg string, fn func(ctx context.Context) (T, error)) (T, error) {
 	if !IsInteractive() {
 		return spinPlain(ctx, os.Stderr, msg, fn)
@@ -55,6 +62,7 @@ type spinnerModel[T any] struct {
 	spinner spinner.Model
 	msg     string
 	ctx     context.Context
+	cancel  context.CancelFunc
 	fn      func(ctx context.Context) (T, error)
 	result  T
 	err     error
@@ -71,10 +79,15 @@ func newSpinnerModel[T any](ctx context.Context, msg string, fn func(ctx context
 	s.Spinner = spinner.Dot
 	s.Style = spinnerStyle
 
+	// Wrap the caller's context so that a Ctrl-C interrupt while the spinner is
+	// active cancels the in-flight work rather than leaving it running.
+	runCtx, cancel := context.WithCancel(ctx)
+
 	return spinnerModel[T]{
 		spinner: s,
 		msg:     msg,
-		ctx:     ctx,
+		ctx:     runCtx,
+		cancel:  cancel,
 		fn:      fn,
 	}
 }
@@ -101,6 +114,16 @@ func (m spinnerModel[T]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
+			// Cancel the in-flight work and surface the interruption as an
+			// error rather than reporting a (zero, nil) false success.
+			if m.cancel != nil {
+				m.cancel()
+			}
+
+			var zero T
+
+			m.result = zero
+			m.err = context.Canceled
 			m.done = true
 
 			return m, tea.Quit
@@ -125,6 +148,8 @@ func (m spinnerModel[T]) View() tea.View {
 // spinTUI runs the Bubble Tea spinner program.
 func spinTUI[T any](ctx context.Context, msg string, fn func(ctx context.Context) (T, error)) (T, error) {
 	model := newSpinnerModel(ctx, msg, fn)
+	// Release the wrapped context regardless of how the program exits.
+	defer model.cancel()
 
 	p := tea.NewProgram(model, tea.WithOutput(os.Stderr))
 
