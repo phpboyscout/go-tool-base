@@ -104,11 +104,22 @@ fault-injection paths (fsnotify error channel, `watcher.Add`/`Remove` failures,
 
 ## Open questions for review
 
-1. **Rejected-reload notification (deviation 1).** Confirm that logging-only on a rejected
-   reload (rather than invoking observers with unchanged config) is the intended realization
-   of "notify observers of the error" under the new returned-error contract. If observers must
-   be told about a *failed* reload, we'd need an additional surface (e.g. an
-   `OnReloadError(func(error))` hook) — not in the current spec.
+1. **Rejected-reload notification (deviation 1). — RESOLVED.** Per review, an
+   `OnReloadError(func(error))` hook was added to the file-backed container (and to the
+   `Containable` interface; mocks regenerated). It is the faithful realization of the spec's
+   "notify observers of the error" intent under the returned-error contract: observers
+   *return* errors (and so cannot *receive* a pushed reload-time error), so a dedicated
+   reload-error hook lets embedders react to a rejected reload programmatically. The hook
+   fires on every rejected reload — a fail-closed candidate-build failure (partial-merge /
+   parse error / missing primary file) or a schema-validation failure — where last-known-good
+   is retained; it is *not* called on a successful reload (observers are). Callbacks are stored
+   in a mutex-guarded slice, copied under the lock and invoked outside it (the same discipline
+   as `notify()`), so concurrent registration during active reloads is race-safe. The container
+   still logs the rejection at `ERROR`; the hook is additive. Documented in
+   `docs/components/config.md` (§ Reacting to rejected reloads), `docs/how-to/config-hot-reload.md`,
+   and the migration note. Tests: validation-rejection fires the hook, fail-closed partial-merge
+   fires the hook, a successful reload does *not* fire it, and a `-race` concurrent-registration
+   test.
 
 2. **Reader/embedded containers.** Confirmed out of scope and unaffected — `NewReaderContainer`
    sets no `configFiles`, so `watchConfig()` is a no-op for it. `Close()` is also a no-op

@@ -42,6 +42,11 @@ type Containable interface {
 	Sub(key string) Containable
 	AddObserver(o Observable)
 	AddObserverFunc(f func(Containable) error)
+	// OnReloadError registers a callback invoked whenever a hot-reload is
+	// rejected (candidate build or schema validation failed) and the
+	// last-known-good config is retained. It is never called for a
+	// successful reload; observers handle that case.
+	OnReloadError(f func(error))
 	ToJSON() string
 	Dump(w io.Writer)
 	// Validate checks the container's current values against the provided schema.
@@ -73,6 +78,10 @@ type Container struct {
 	mu        sync.Mutex
 	observers []Observable
 	schema    *Schema
+	// reloadErrFuncs are callbacks invoked when a reload is rejected
+	// (candidate build or validation failed). Guarded by mu, copied
+	// under lock, and invoked outside it (same discipline as observers).
+	reloadErrFuncs []func(error)
 	// fs and configFiles record the filesystem and ordered list of
 	// config files this container was loaded from, so the watcher can
 	// re-read and re-merge them on change. Empty for reader/embedded
@@ -394,6 +403,7 @@ func (c *Container) reload() {
 		// reload. The last-known-good config is retained and observers are
 		// not notified, because no values changed.
 		c.logger.Error("config reload rejected: failed to build candidate", "error", err.Error())
+		c.notifyReloadError(err)
 
 		return
 	}
@@ -404,6 +414,7 @@ func (c *Container) reload() {
 			// Validation failure: keep last-known-good, do not swap, do not
 			// notify (no change occurred).
 			c.logger.Error("config reload rejected: validation failed", "errors", result.Error())
+			c.notifyReloadError(errors.Newf("config reload rejected: validation failed: %s", result.Error()))
 
 			return
 		}
@@ -474,6 +485,34 @@ func (c *Container) notify() {
 		if err := o.Run(c); err != nil {
 			c.logger.Error("config observer returned an error", "error", err.Error())
 		}
+	}
+}
+
+// OnReloadError registers a callback invoked whenever a hot-reload is rejected:
+// the candidate failed to build (fail-closed partial-merge, parse error, or a
+// missing primary file) or failed schema validation, so the live config was NOT
+// swapped and the last-known-good config is retained. The callback is never
+// invoked for a successful reload (observers are notified of that change
+// instead). Callbacks run in registration order on the watcher goroutine, after
+// the container has logged the error; a slow callback delays subsequent reloads,
+// so expensive work should be offloaded.
+func (c *Container) OnReloadError(f func(error)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.reloadErrFuncs = append(c.reloadErrFuncs, f)
+}
+
+// notifyReloadError copies the reload-error callback slice under lock and runs
+// each callback outside the lock with the rejection error, mirroring notify()'s
+// race-safe, deadlock-free discipline.
+func (c *Container) notifyReloadError(err error) {
+	c.mu.Lock()
+	funcs := append([](func(error)){}, c.reloadErrFuncs...)
+	c.mu.Unlock()
+
+	for _, f := range funcs {
+		f(err)
 	}
 }
 

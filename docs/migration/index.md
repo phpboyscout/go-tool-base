@@ -14,7 +14,7 @@ provides before/after code examples with a clear migration path.
 |---|---|---|
 | v0.4 | v0.5 | [Command composition redesign](v0.4-to-v0.5.md) |
 | v0.5 | v0.6 | [Web-service components and shared TLS](v0.5-to-v0.6.md) |
-| v0.16 | — | [Config observer signature (channel → returned error)](v0.16-hot-reload-observer.md) |
+| v0.16 | v0.17 | [Hot-reload observer contract](v0.16-hot-reload-observer.md) |
 | v0.x | v1.0 | [Migrating to v1.0](v0.x-to-v1.0.md) |
 
 ## Writing a new guide

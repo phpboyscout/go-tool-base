@@ -8,8 +8,8 @@ import (
 	"io"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"github.com/spf13/viper"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -667,6 +667,46 @@ func (_c *MockContainable_IsSet_Call) RunAndReturn(run func(key string) bool) *M
 	return _c
 }
 
+// OnReloadError provides a mock function for the type MockContainable
+func (_mock *MockContainable) OnReloadError(f func(error)) {
+	_mock.Called(f)
+	return
+}
+
+// MockContainable_OnReloadError_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OnReloadError'
+type MockContainable_OnReloadError_Call struct {
+	*mock.Call
+}
+
+// OnReloadError is a helper method to define mock.On call
+//   - f func(error)
+func (_e *MockContainable_Expecter) OnReloadError(f interface{}) *MockContainable_OnReloadError_Call {
+	return &MockContainable_OnReloadError_Call{Call: _e.mock.On("OnReloadError", f)}
+}
+
+func (_c *MockContainable_OnReloadError_Call) Run(run func(f func(error))) *MockContainable_OnReloadError_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func(error)
+		if args[0] != nil {
+			arg0 = args[0].(func(error))
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_OnReloadError_Call) Return() *MockContainable_OnReloadError_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockContainable_OnReloadError_Call) RunAndReturn(run func(f func(error))) *MockContainable_OnReloadError_Call {
+	_c.Run(run)
+	return _c
+}
+
 // Set provides a mock function for the type MockContainable
 func (_mock *MockContainable) Set(key string, value any) {
 	_mock.Called(key, value)
@@ -709,46 +749,6 @@ func (_c *MockContainable_Set_Call) Return() *MockContainable_Set_Call {
 }
 
 func (_c *MockContainable_Set_Call) RunAndReturn(run func(key string, value any)) *MockContainable_Set_Call {
-	_c.Run(run)
-	return _c
-}
-
-// SetEnvPrefix provides a mock function for the type MockContainable
-func (_mock *MockContainable) SetEnvPrefix(prefix string) {
-	_mock.Called(prefix)
-	return
-}
-
-// MockContainable_SetEnvPrefix_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetEnvPrefix'
-type MockContainable_SetEnvPrefix_Call struct {
-	*mock.Call
-}
-
-// SetEnvPrefix is a helper method to define mock.On call
-//   - prefix string
-func (_e *MockContainable_Expecter) SetEnvPrefix(prefix interface{}) *MockContainable_SetEnvPrefix_Call {
-	return &MockContainable_SetEnvPrefix_Call{Call: _e.mock.On("SetEnvPrefix", prefix)}
-}
-
-func (_c *MockContainable_SetEnvPrefix_Call) Run(run func(prefix string)) *MockContainable_SetEnvPrefix_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockContainable_SetEnvPrefix_Call) Return() *MockContainable_SetEnvPrefix_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockContainable_SetEnvPrefix_Call) RunAndReturn(run func(prefix string)) *MockContainable_SetEnvPrefix_Call {
 	_c.Run(run)
 	return _c
 }

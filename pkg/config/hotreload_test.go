@@ -402,3 +402,228 @@ func TestHotReload_RaceConcurrentObservers(t *testing.T) {
 	// base layer must still be intact after the churn.
 	assert.Equal(t, "b", c.GetString("base"))
 }
+
+// TestHotReload_OnReloadError_Validation asserts that a registered
+// OnReloadError callback receives the error when a reload is rejected by schema
+// validation, while last-known-good is retained and observers do not fire.
+func TestHotReload_OnReloadError_Validation(t *testing.T) {
+	t.Parallel()
+
+	type appConfig struct {
+		Level string `config:"log.level" enum:"debug,info,warn,error"`
+	}
+
+	schema, err := config.NewSchema(config.WithStructSchema(appConfig{}))
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "config.yml")
+	writeFile(t, file, "log:\n  level: \"info\"\n")
+
+	c := config.NewFilesContainer(
+		afero.NewOsFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFiles(file),
+		config.WithSchema(schema),
+		config.WithReloadDebounce(testDebounce),
+	)
+	t.Cleanup(func() { _ = c.Close() })
+	c.SetSchema(schema)
+
+	var (
+		reloadErrs atomic.Int64
+		observed   atomic.Bool
+		lastErr    atomic.Pointer[string]
+	)
+
+	c.OnReloadError(func(e error) {
+		reloadErrs.Add(1)
+
+		msg := e.Error()
+		lastErr.Store(&msg)
+	})
+	c.AddObserverFunc(func(config.Containable) error {
+		observed.Store(true)
+
+		return nil
+	})
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Write an invalid value (not in the enum). The reload must be rejected.
+	writeFile(t, file, "log:\n  level: \"not-a-level\"\n")
+
+	require.Eventually(t, func() bool {
+		return reloadErrs.Load() >= 1
+	}, 3*time.Second, 20*time.Millisecond, "OnReloadError must fire for a rejected reload")
+
+	// Last-known-good retained, Get* unchanged, observers never notified.
+	assert.Equal(t, "info", c.GetString("log.level"))
+	assert.False(t, observed.Load(), "observers must not fire for a rejected reload")
+
+	if p := lastErr.Load(); assert.NotNil(t, p) {
+		assert.Contains(t, *p, "validation failed")
+	}
+}
+
+// TestHotReload_OnReloadError_PartialMergeFailClosed asserts the OnReloadError
+// hook also fires when a fail-closed partial-merge parse failure rejects the
+// candidate build.
+func TestHotReload_OnReloadError_PartialMergeFailClosed(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	f0 := filepath.Join(dir, "f0.yml")
+	f1 := filepath.Join(dir, "f1.yml")
+
+	writeFile(t, f0, "a: \"a0\"\n")
+	writeFile(t, f1, "b: \"b0\"\n")
+
+	c := config.NewFilesContainer(
+		afero.NewOsFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFiles(f0, f1),
+		config.WithReloadDebounce(testDebounce),
+	)
+	t.Cleanup(func() { _ = c.Close() })
+
+	var (
+		reloadErrs atomic.Int64
+		swapped    atomic.Bool
+	)
+
+	c.OnReloadError(func(error) {
+		reloadErrs.Add(1)
+	})
+	c.AddObserverFunc(func(config.Containable) error {
+		swapped.Store(true)
+
+		return nil
+	})
+
+	time.Sleep(50 * time.Millisecond)
+
+	// Make f1 malformed YAML; the candidate build must fail and reject.
+	writeFile(t, f1, "b: \"b1\"\n  : : not valid : :\n}{\n")
+
+	require.Eventually(t, func() bool {
+		return reloadErrs.Load() >= 1
+	}, 3*time.Second, 20*time.Millisecond, "OnReloadError must fire for a fail-closed partial-merge parse error")
+
+	assert.False(t, swapped.Load(), "observers must not fire for a rejected reload")
+	assert.Equal(t, "a0", c.GetString("a"), "last-known-good retained")
+	assert.Equal(t, "b0", c.GetString("b"))
+}
+
+// TestHotReload_OnReloadError_NotCalledOnSuccess asserts the OnReloadError hook
+// is NOT invoked for a successful reload; only observers are notified.
+func TestHotReload_OnReloadError_NotCalledOnSuccess(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "config.yml")
+	writeFile(t, file, "n: \"0\"\n")
+
+	c := config.NewFilesContainer(
+		afero.NewOsFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFiles(file),
+		config.WithReloadDebounce(testDebounce),
+	)
+	t.Cleanup(func() { _ = c.Close() })
+
+	var (
+		reloadErrs atomic.Int64
+		observed   atomic.Bool
+	)
+
+	c.OnReloadError(func(error) {
+		reloadErrs.Add(1)
+	})
+	c.AddObserverFunc(func(config.Containable) error {
+		observed.Store(true)
+
+		return nil
+	})
+
+	time.Sleep(50 * time.Millisecond)
+
+	writeFile(t, file, "n: \"1\"\n")
+
+	// Observers fire on the successful reload.
+	require.Eventually(t, func() bool {
+		return observed.Load() && c.GetString("n") == "1"
+	}, 3*time.Second, 20*time.Millisecond, "a successful reload must notify observers")
+
+	// OnReloadError must never fire for that successful reload.
+	require.Never(t, func() bool {
+		return reloadErrs.Load() > 0
+	}, 500*time.Millisecond, 50*time.Millisecond, "OnReloadError must not fire on a successful reload")
+}
+
+// TestHotReload_RaceConcurrentReloadErrors exercises concurrent OnReloadError
+// registration during active (rejected) reloads under -race, mirroring the
+// concurrent-observer race test.
+func TestHotReload_RaceConcurrentReloadErrors(t *testing.T) {
+	t.Parallel()
+
+	type appConfig struct {
+		Level string `config:"log.level" enum:"debug,info,warn,error"`
+	}
+
+	schema, err := config.NewSchema(config.WithStructSchema(appConfig{}))
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "config.yml")
+	writeFile(t, file, "log:\n  level: \"info\"\n")
+
+	c := config.NewFilesContainer(
+		afero.NewOsFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFiles(file),
+		config.WithSchema(schema),
+		config.WithReloadDebounce(testDebounce),
+	)
+	t.Cleanup(func() { _ = c.Close() })
+	c.SetSchema(schema)
+
+	var (
+		wg   sync.WaitGroup
+		hits atomic.Int64
+	)
+
+	stop := make(chan struct{})
+
+	// Concurrently register reload-error callbacks while reloads are rejected.
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				c.OnReloadError(func(error) {
+					hits.Add(1)
+				})
+
+				time.Sleep(1 * time.Millisecond)
+			}
+		}
+	}()
+
+	// Drive several rejected reloads by writing invalid values.
+	for i := 1; i <= 5; i++ {
+		writeFile(t, file, "log:\n  level: \"bad-"+time.Now().Format("150405.000000000")+"\"\n")
+		time.Sleep(2 * testDebounce)
+	}
+
+	close(stop)
+	wg.Wait()
+
+	// Last-known-good retained throughout the churn.
+	assert.Equal(t, "info", c.GetString("log.level"))
+}

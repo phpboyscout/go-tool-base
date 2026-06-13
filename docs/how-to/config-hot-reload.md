@@ -123,6 +123,30 @@ An error returned by one observer is logged and does not prevent subsequent obse
 
 ---
 
+## Reacting to a Rejected Reload
+
+Observers see **changes**: they are called only after a reload succeeds — the candidate was built, validated, and swapped in. They are **never** called when a reload is *rejected*, because nothing changed (the returned-error contract means observers *return* errors; there is no channel to *push* a reload-time error to them).
+
+To react to a **rejected** reload — a fail-closed parse/merge error, a missing primary file, or a schema-validation failure that caused the container to keep last-known-good — register an `OnReloadError` callback. It is additive to the container's own `ERROR` log:
+
+```go
+// Observer: fires on a reload that was APPLIED.
+p.Config.AddObserverFunc(func(cfg config.Containable) error {
+    return updateLogLevel(cfg)
+})
+
+// OnReloadError: fires on a reload that was REJECTED.
+// The config is unchanged and last-known-good is retained.
+p.Config.OnReloadError(func(err error) {
+    p.Logger.Warn("config reload rejected; keeping last-known-good", "error", err)
+    // raise an alert, bump a metric, surface a banner, etc.
+})
+```
+
+`OnReloadError` callbacks run in registration order on the watch goroutine and follow the same locking discipline as observers (copied under the container lock, invoked outside it), so registering one concurrently with an active reload is race-safe. Keep them fast for the same reason observers should be fast.
+
+---
+
 ## Tuning the Debounce Window
 
 The default debounce is 250 ms, chosen to tolerate slow or networked filesystems. Tune it with `WithReloadDebounce`:

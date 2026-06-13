@@ -43,6 +43,11 @@ type Containable interface {
     Sub(key string) Containable
     AddObserver(o Observable)
     AddObserverFunc(f func(Containable) error)
+    // OnReloadError registers a callback invoked when a hot-reload is
+    // rejected (candidate build or schema validation failed) and the
+    // last-known-good config is retained. See "Reacting to rejected
+    // reloads" below.
+    OnReloadError(f func(error))
     ToJSON() string
     Dump(w io.Writer)
     Validate(schema *Schema) *ValidationResult
@@ -635,10 +640,58 @@ container.AddObserverFunc(func(cfg config.Containable) error {
     // candidate has validated and been swapped in.
     newLogLevel := cfg.GetString("log.level")
     // Reconfigure logging, restart services, etc.
+    _ = newLogLevel
 
     return nil
 })
 ```
+
+### Reacting to rejected reloads
+
+Observers are notified only when a reload **succeeds** — the candidate config
+was built, passed schema validation, and was swapped in. They are never handed
+a rejected reload, because nothing changed and the returned-error contract has
+no channel to push a reload-time error back to an observer.
+
+To learn about a **rejected** reload programmatically, register an
+`OnReloadError` callback. It fires whenever a reload is rejected and the
+last-known-good config is retained — that is, when:
+
+- the candidate failed to build (a fail-closed partial-merge / parse error, or
+  the primary file went missing, honouring `ErrConfigFileNotFound`); or
+- the candidate failed schema validation.
+
+```go
+container := config.NewFilesContainer(fs,
+    config.WithLogger(l),
+    config.WithConfigFiles("config.yaml", "local.yaml"),
+    config.WithSchema(schema),
+)
+
+// Fires on a CHANGE that was applied.
+container.AddObserverFunc(func(cfg config.Containable) error {
+    // apply the new, validated configuration
+    return nil
+})
+
+// Fires on a CHANGE that was REJECTED (config unchanged, last-known-good kept).
+container.OnReloadError(func(err error) {
+    l.Warn("config reload rejected; keeping last-known-good", "error", err)
+    // e.g. raise an alert, bump a metric, surface a banner
+})
+```
+
+**Guarantees and ordering**
+
+- The container always logs the rejection at `ERROR`; `OnReloadError` callbacks
+  are **additive** to that log, not a replacement.
+- `OnReloadError` is **never** invoked for a successful reload; observers are.
+- Callbacks are stored under the container mutex, copied under the lock, and
+  invoked **outside** the lock (the same race-safe, deadlock-free discipline as
+  observer notification), so registering a callback concurrently with an active
+  reload is safe under `-race`.
+- Callbacks run in registration order on the watcher goroutine; a slow callback
+  delays subsequent reloads, so offload expensive work.
 
 ## Testing and Mocking
 
@@ -971,6 +1024,11 @@ type Containable interface {
     Sub(key string) Containable
     AddObserver(o Observable)
     AddObserverFunc(f func(Containable) error)
+    // OnReloadError registers a callback invoked when a hot-reload is
+    // rejected (candidate build or schema validation failed) and the
+    // last-known-good config is retained. See "Reacting to rejected
+    // reloads" below.
+    OnReloadError(f func(error))
     ToJSON() string
     Dump(w io.Writer)
     Validate(schema *Schema) *ValidationResult
