@@ -1,15 +1,16 @@
 package repo
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 
-	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
@@ -195,40 +196,46 @@ func (r *Repo) WithTree(fn func(*git.Worktree) error) error {
 	return fn(r.tree)
 }
 
+// Checkout checks out the given branch.
+// Returns ErrNoWorktree if the worktree has not been initialised.
 func (r *Repo) Checkout(branch plumbing.ReferenceName) error {
+	if r.tree == nil {
+		return ErrNoWorktree
+	}
+
 	return r.tree.Checkout(&git.CheckoutOptions{
 		Branch: branch,
 	})
 }
 
 // CheckoutCommit checks out a specific commit by hash.
+// Returns ErrNoWorktree if the worktree has not been initialised.
 func (r *Repo) CheckoutCommit(hash plumbing.Hash) error {
+	if r.tree == nil {
+		return ErrNoWorktree
+	}
+
 	return r.tree.Checkout(&git.CheckoutOptions{
 		Hash: hash,
 	})
 }
 
 // CreateBranch creates a branch in the git tree.
+// Returns ErrNoRepository / ErrNoWorktree if the repo has not been opened.
 func (r *Repo) CreateBranch(branchName string) error {
-	bref := plumbing.NewBranchReferenceName(branchName)
-
-	branchExists := false
-
-	branches, err := r.repo.Branches()
-	if err != nil {
-		return errors.WithStack(err)
+	if r.repo == nil {
+		return ErrNoRepository
 	}
 
-	if err = branches.ForEach(func(branch *plumbing.Reference) error {
-		if branch.Name().Short() == bref.Short() {
-			branchExists = true
+	if r.tree == nil {
+		return ErrNoWorktree
+	}
 
-			return nil
-		}
+	bref := plumbing.NewBranchReferenceName(branchName)
 
-		return nil
-	}); err != nil {
-		return errors.WithStack(err)
+	branchExists, err := r.branchExists(bref)
+	if err != nil {
+		return err
 	}
 
 	if err := r.tree.Checkout(&git.CheckoutOptions{
@@ -253,7 +260,35 @@ func (r *Repo) CreateBranch(branchName string) error {
 	return nil
 }
 
+// branchExists reports whether the named branch exists in the repository.
+func (r *Repo) branchExists(bref plumbing.ReferenceName) (bool, error) {
+	branches, err := r.repo.Branches()
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+
+	exists := false
+
+	if err = branches.ForEach(func(branch *plumbing.Reference) error {
+		if branch.Name().Short() == bref.Short() {
+			exists = true
+		}
+
+		return nil
+	}); err != nil {
+		return false, errors.WithStack(err)
+	}
+
+	return exists, nil
+}
+
+// Push pushes the repository using the configured auth when opts.Auth is nil.
+// Returns ErrNoRepository if the repository has not been initialised.
 func (r *Repo) Push(opts *git.PushOptions) error {
+	if r.repo == nil {
+		return ErrNoRepository
+	}
+
 	if opts == nil {
 		opts = &git.PushOptions{}
 	}
@@ -265,7 +300,13 @@ func (r *Repo) Push(opts *git.PushOptions) error {
 	return r.repo.Push(opts)
 }
 
+// Commit records a commit on the current worktree.
+// Returns ErrNoWorktree if the worktree has not been initialised.
 func (r *Repo) Commit(commitMsg string, opts *git.CommitOptions) (plumbing.Hash, error) {
+	if r.tree == nil {
+		return plumbing.ZeroHash, ErrNoWorktree
+	}
+
 	if opts == nil {
 		opts = &git.CommitOptions{}
 	}
@@ -273,26 +314,70 @@ func (r *Repo) Commit(commitMsg string, opts *git.CommitOptions) (plumbing.Hash,
 	return r.tree.Commit(commitMsg, opts)
 }
 
+// CreateRemote creates a named remote with the given URLs.
+// Returns ErrNoRepository if the repository has not been initialised.
 func (r *Repo) CreateRemote(name string, urls []string) (*git.Remote, error) {
+	if r.repo == nil {
+		return nil, ErrNoRepository
+	}
+
 	return r.repo.CreateRemote(&config.RemoteConfig{
 		Name: name,
 		URLs: urls,
 	})
 }
 
+// Remote returns the named remote.
+// Returns ErrNoRepository if the repository has not been initialised.
 func (r *Repo) Remote(name string) (*git.Remote, error) {
+	if r.repo == nil {
+		return nil, ErrNoRepository
+	}
+
 	return r.repo.Remote(name)
 }
 
-// GetSSHKey loads an SSH public key from the filesystem for git authentication.
+// GetSSHKey loads an SSH private key from the filesystem for git
+// authentication. If the key is passphrase-protected, the returned error
+// wraps [gossh.PassphraseMissingError]; interactive callers (the CLI layer)
+// should detect it with errors.As, prompt the user, and retry via
+// [GetSSHKeyWithPassphrase]. This package never blocks on a TUI.
 func GetSSHKey(filePath string, localfs afero.Fs) (*ssh.PublicKeys, error) {
+	return GetSSHKeyWithPassphrase(filePath, localfs, "")
+}
+
+// GetSSHKeyWithPassphrase loads an SSH private key from the filesystem,
+// decrypting it with the supplied passphrase when non-empty.
+func GetSSHKeyWithPassphrase(filePath string, localfs afero.Fs, passphrase string) (*ssh.PublicKeys, error) {
+	sshKey, err := readSSHKeyFile(filePath, localfs)
+	if err != nil {
+		return nil, err
+	}
+
+	if passphrase == "" {
+		if _, err := gossh.ParsePrivateKey(sshKey); err != nil {
+			var missing *gossh.PassphraseMissingError
+			if errors.As(err, &missing) {
+				return nil, errors.WithHint(
+					errors.Wrapf(err, "SSH key '%s' is passphrase-protected", filePath),
+					"Prompt for the passphrase and retry with GetSSHKeyWithPassphrase, or load the key into ssh-agent",
+				)
+			}
+		}
+	}
+
+	return ssh.NewPublicKeys("git", sshKey, passphrase)
+}
+
+// readSSHKeyFile reads the raw private-key bytes from localfs.
+func readSSHKeyFile(filePath string, localfs afero.Fs) ([]byte, error) {
 	fileHandle, err := localfs.Stat(filePath)
-	if os.IsNotExist(err) {
+	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	if fileHandle.IsDir() {
-		return nil, errors.Newf("Could not open SSH key at '%s', make sure the GITHUB_KEY environment variable is set", filePath)
+		return nil, errors.Newf("could not open SSH key at '%s': path is a directory", filePath)
 	}
 
 	sshKey, err := afero.ReadFile(localfs, filePath)
@@ -300,22 +385,7 @@ func GetSSHKey(filePath string, localfs afero.Fs) (*ssh.PublicKeys, error) {
 		return nil, errors.WithStack(err)
 	}
 
-	passphrase := ""
-
-	_, err = gossh.ParsePrivateKey(sshKey)
-	if err != nil && strings.Contains(err.Error(), "passphrase protected") {
-		// If the error indicates an encrypted key, it has a passphrase
-		err := huh.NewInput().
-			Title("Please enter your SSH Key passphrase").
-			EchoMode(huh.EchoModePassword).
-			Value(&passphrase).
-			Run()
-		if err != nil {
-			return nil, errors.WithStack(err)
-		}
-	}
-
-	return ssh.NewPublicKeys("git", sshKey, passphrase)
+	return sshKey, nil
 }
 
 func (r *Repo) OpenInMemory(location string, branch string, opts ...CloneOption) (*git.Repository, *git.Worktree, error) {
@@ -441,23 +511,37 @@ func (r *Repo) Clone(uri string, targetPath string, opts ...CloneOption) (*git.R
 	return r.repo, r.tree, nil
 }
 
-// WalkTree walks the git tree and calls the provided function for each file.
-func (r *Repo) WalkTree(fn func(*object.File) error) error {
-	// Get the current HEAD commit
+// headTree resolves the tree of the current HEAD commit.
+// Returns ErrNoRepository if the repository has not been initialised.
+func (r *Repo) headTree() (*object.Tree, error) {
+	if r.repo == nil {
+		return nil, ErrNoRepository
+	}
+
 	head, err := r.repo.Head()
 	if err != nil {
-		return errors.Wrap(err, "failed to get HEAD reference")
+		return nil, errors.Wrap(err, "failed to get HEAD reference")
 	}
 
 	commit, err := r.repo.CommitObject(head.Hash())
 	if err != nil {
-		return errors.Wrap(err, "failed to get HEAD commit")
+		return nil, errors.Wrap(err, "failed to get HEAD commit")
 	}
 
-	// Get the tree from the commit
 	tree, err := commit.Tree()
 	if err != nil {
-		return errors.Wrap(err, "failed to get commit tree")
+		return nil, errors.Wrap(err, "failed to get commit tree")
+	}
+
+	return tree, nil
+}
+
+// WalkTree walks the git tree and calls the provided function for each file.
+// Returns ErrNoRepository if the repository has not been initialised.
+func (r *Repo) WalkTree(fn func(*object.File) error) error {
+	tree, err := r.headTree()
+	if err != nil {
+		return err
 	}
 
 	// Walk the git tree and call the provided function for each file
@@ -465,22 +549,11 @@ func (r *Repo) WalkTree(fn func(*object.File) error) error {
 }
 
 // FileExists checks if a file exists in the git repository at the given relative path.
+// Returns ErrNoRepository if the repository has not been initialised.
 func (r *Repo) FileExists(relPath string) (bool, error) {
-	// Get the current HEAD commit
-	head, err := r.repo.Head()
+	tree, err := r.headTree()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to get HEAD reference")
-	}
-
-	commit, err := r.repo.CommitObject(head.Hash())
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get HEAD commit")
-	}
-
-	// Get the tree from the commit
-	tree, err := commit.Tree()
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get commit tree")
+		return false, err
 	}
 
 	_, err = tree.File(relPath)
@@ -497,22 +570,11 @@ func (r *Repo) FileExists(relPath string) (bool, error) {
 
 // DirectoryExists checks if a directory exists in the git repository at the given relative path
 // In git, directories don't exist as separate entities - we check if any files exist under the path.
+// Returns ErrNoRepository if the repository has not been initialised.
 func (r *Repo) DirectoryExists(relPath string) (bool, error) {
-	// Get the current HEAD commit
-	head, err := r.repo.Head()
+	tree, err := r.headTree()
 	if err != nil {
-		return false, errors.Wrap(err, "failed to get HEAD reference")
-	}
-
-	commit, err := r.repo.CommitObject(head.Hash())
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get HEAD commit")
-	}
-
-	// Get the tree from the commit
-	tree, err := commit.Tree()
-	if err != nil {
-		return false, errors.Wrap(err, "failed to get commit tree")
+		return false, err
 	}
 
 	// Normalize the path - ensure it doesn't end with separator
@@ -541,22 +603,11 @@ func (r *Repo) DirectoryExists(relPath string) (bool, error) {
 }
 
 // GetFile retrieves a file from the git repository at the given relative path.
+// Returns ErrNoRepository if the repository has not been initialised.
 func (r *Repo) GetFile(relPath string) (*object.File, error) {
-	// Get the current HEAD commit
-	head, err := r.repo.Head()
+	tree, err := r.headTree()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get HEAD reference")
-	}
-
-	commit, err := r.repo.CommitObject(head.Hash())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get HEAD commit")
-	}
-
-	// Get the tree from the commit
-	tree, err := commit.Tree()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get commit tree")
+		return nil, err
 	}
 
 	file, err := tree.File(relPath)
@@ -608,12 +659,46 @@ func setSSHAgent(repo *Repo) error {
 	return nil
 }
 
-func configureSSHAuth(repo *Repo, props *props.Props) error {
-	sshCfg := props.Config.Sub("github.ssh.key")
+// resolveForge determines which forge config subtree NewRepo reads clone/push
+// credentials from. The forge comes from ReleaseSource.Type, overridable by
+// the `vcs.provider` config key. An empty or "direct" type falls back to
+// "github" — the `direct` release source is a download URL with no git
+// remote, so the repo layer has no forge of its own to read.
+func resolveForge(p *props.Props) string {
+	forge := strings.ToLower(strings.TrimSpace(p.Tool.ReleaseSource.Type))
+
+	if p.Config != nil && p.Config.IsSet("vcs.provider") {
+		if override := strings.ToLower(strings.TrimSpace(p.Config.GetString("vcs.provider"))); override != "" {
+			forge = override
+		}
+	}
+
+	if forge == "" || forge == release.SourceTypeDirect {
+		return release.SourceTypeGitHub
+	}
+
+	return forge
+}
+
+// basicAuthUsername returns the username each forge expects for
+// git-over-HTTPS token authentication.
+func basicAuthUsername(forge string) string {
+	switch forge {
+	case release.SourceTypeGitLab:
+		return "oauth2"
+	case release.SourceTypeBitbucket:
+		return "x-token-auth"
+	default:
+		return "x-access-token"
+	}
+}
+
+func configureSSHAuth(repo *Repo, p *props.Props, forge string) error {
+	sshCfg := p.Config.Sub(forge + ".ssh.key")
 	if sshCfg == nil {
-		// github.ssh is present but has no key subtree (e.g. a scalar
+		// <forge>.ssh is present but has no key subtree (e.g. a scalar
 		// `github.ssh: true`); fall back to ssh-agent.
-		props.Logger.Warn("No github.ssh.key configured, defaulting to ssh-agent")
+		p.Logger.Warn("No ssh.key subtree configured for forge, defaulting to ssh-agent", "forge", forge)
 
 		return setSSHAgent(repo)
 	}
@@ -628,14 +713,14 @@ func configureSSHAuth(repo *Repo, props *props.Props) error {
 	}
 
 	if sshPath == "" || sshPath == "." {
-		props.Logger.Warn("No SSH key defined via config or GITHUB_KEY environment variable, defaulting to ssh-agent")
+		p.Logger.Warn("No SSH key path resolved from forge ssh.key config, defaulting to ssh-agent", "forge", forge)
 
 		return setSSHAgent(repo)
 	}
 
-	publicKey, err := GetSSHKey(sshPath, props.FS)
+	publicKey, err := GetSSHKey(sshPath, p.FS)
 	if err != nil {
-		return errors.Newf("failed to get SSH key: %w", err)
+		return errors.Wrap(err, "failed to get SSH key")
 	}
 
 	repo.auth = publicKey
@@ -643,15 +728,29 @@ func configureSSHAuth(repo *Repo, props *props.Props) error {
 	return nil
 }
 
-func configureTokenAuth(repo *Repo, props *props.Props) error {
-	props.Logger.Warn("No SSH keys defined, defaulting to GITHUB_TOKEN")
+// configureTokenAuth resolves a token from the forge's config subtree via
+// the shared vcs.ResolveToken chain (auth.env → auth.keychain → auth.value →
+// <FORGE>_TOKEN env var). Missing credentials are non-fatal for public
+// repositories: the repo proceeds unauthenticated. Private repositories
+// require a token and fail fast with a hint.
+func configureTokenAuth(repo *Repo, p *props.Props, forge string) error {
+	fallbackEnv := strings.ToUpper(forge) + "_TOKEN"
 
-	token, err := githubvcs.GetGitHubToken(props.Config.Sub("github"))
-	if err != nil {
-		return errors.Newf("failed to get GitHub token: %w", err)
+	token := vcs.ResolveToken(p.Config.Sub(forge), fallbackEnv)
+	if token == "" {
+		if p.Tool.ReleaseSource.Private {
+			return errors.WithHint(
+				errors.Newf("no %s token available for private repository", strings.ToUpper(forge)),
+				fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable git operations", fallbackEnv, forge),
+			)
+		}
+
+		p.Logger.Debug("No credential configured for forge; using unauthenticated git access", "forge", forge)
+
+		return nil
 	}
 
-	repo.SetBasicAuth("x-access-token", token)
+	repo.SetBasicAuth(basicAuthUsername(forge), token)
 
 	return nil
 }
@@ -669,7 +768,13 @@ func WithConfig(cfg *config.Config) RepoOpt {
 }
 
 // NewRepo creates a Repo with the given options.
-func NewRepo(props *props.Props, ops ...RepoOpt) (*Repo, error) {
+//
+// Clone/push authentication is resolved from the config subtree of the
+// tool's forge (github, gitlab, bitbucket, gitea, codeberg) — see
+// resolveForge. When `<forge>.ssh` is configured, SSH auth is used;
+// otherwise token auth is resolved via vcs.ResolveToken. Missing
+// credentials are only an error when ReleaseSource.Private is true.
+func NewRepo(p *props.Props, ops ...RepoOpt) (*Repo, error) {
 	repo := &Repo{}
 
 	for _, opt := range ops {
@@ -679,18 +784,18 @@ func NewRepo(props *props.Props, ops ...RepoOpt) (*Repo, error) {
 		}
 	}
 
-	if props.Config == nil {
+	if p.Config == nil {
 		return repo, nil
 	}
 
-	if props.Config.Has("github.ssh") {
-		if err := configureSSHAuth(repo, props); err != nil {
+	forge := resolveForge(p)
+
+	if p.Config.Has(forge + ".ssh") {
+		if err := configureSSHAuth(repo, p, forge); err != nil {
 			return nil, err
 		}
-	} else {
-		if err := configureTokenAuth(repo, props); err != nil {
-			return nil, err
-		}
+	} else if err := configureTokenAuth(repo, p, forge); err != nil {
+		return nil, err
 	}
 
 	return repo, nil

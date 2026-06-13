@@ -1,7 +1,7 @@
 ---
 title: "Provider-aware repository auth — stop hard-coding GitHub for clone/push credentials"
 description: "pkg/vcs/repo.NewRepo resolves clone/push auth from GitHub config only and hard-fails non-GitHub tools, even though the release-provider layer already has a clean multi-provider abstraction. Add a provider dimension to git auth via vcs.ResolveToken and make missing auth non-fatal for public repos."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12)
 
 ## Summary
 
