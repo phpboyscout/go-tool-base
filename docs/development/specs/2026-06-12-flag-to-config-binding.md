@@ -1,7 +1,7 @@
 ---
 title: "Flag-to-config binding — implement the documented flags precedence layer"
 description: "The documented configuration precedence puts CLI flags above env vars and file config, but there is no BindPFlag anywhere and no binding facility — built-ins like --debug are special-cased and arbitrary flags never reach Config. Add a WithBoundFlags binding hook applied during config load, and reconcile the two docs that contradict each other on whether flags beat env vars."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12; delivered 2026-06-13)
 
 ## Summary
 
@@ -87,7 +87,6 @@ Bind **both** root/persistent flags and **per-command** flags. A command's own f
 
 ## Out of scope
 
-- Per-command flag binding (follow-up, O4).
 - Changing the env-var prefix mechanism (`EnvPrefix` stays as-is).
 
 ## Related

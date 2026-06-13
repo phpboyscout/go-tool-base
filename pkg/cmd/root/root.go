@@ -31,6 +31,7 @@ import (
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -341,13 +342,26 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 
 // NewCmdRoot creates the root command with Props wiring and optional subcommands.
 func NewCmdRoot(props *p.Props, subcommands ...*setup.Command) *setup.Command {
-	return NewCmdRootWithConfig(props, []string{}, subcommands...)
+	return NewCmdRootWithOptions(props, WithSubcommands(subcommands...))
 }
 
 // NewCmdRootWithConfig creates the root command for the CLI application.
 // It accepts additional configuration file paths to be considered during initialization.
-// NewCmdRoot creates the root command with Props wiring and optional subcommands.
 func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*setup.Command) *setup.Command {
+	return NewCmdRootWithOptions(props,
+		WithConfigPaths(configPaths...),
+		WithSubcommands(subcommands...),
+	)
+}
+
+// NewCmdRootWithOptions creates the root command, configured by the supplied
+// [RootOption]s. This is the extensible constructor; [NewCmdRoot] and
+// [NewCmdRootWithConfig] are thin wrappers over it. Use [WithBoundFlags] or
+// [WithConventionBoundFlags] to wire CLI flags into the configuration
+// precedence (flags > env > file > embedded > defaults).
+func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
+	o := applyRootOptions(opts)
+
 	// Set the helper and logger for the error handling package
 	if props.ErrorHandler == nil {
 		props.ErrorHandler = errorhandling.New(props.Logger, props.Tool.Help)
@@ -362,20 +376,29 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 		Use:               props.Tool.Name,
 		Short:             props.Tool.Summary,
 		Long:              props.Tool.Description,
-		PersistentPreRunE: newRootPreRunE(props, configPaths, mcpLogLevel, state),
+		PersistentPreRunE: newRootPreRunE(props, o.configPaths, mcpLogLevel, state, o.boundFlags),
 	}
 
 	setupRootFlags(rootCmd, props, state)
 
+	// Register author-supplied bound flags on the root's persistent flag set so
+	// cobra parses them; they are then bound onto the config container during
+	// the pre-run (filtered by flag.Changed).
+	for _, flag := range o.boundFlags {
+		if flag != nil && rootCmd.PersistentFlags().Lookup(flag.Name) == nil {
+			rootCmd.PersistentFlags().AddFlag(flag)
+		}
+	}
+
 	wrapped := setup.Wrap("", rootCmd)
 	registerFeatureCommands(wrapped, props, mcpLogLevel)
 
-	wrapped.Register(subcommands...)
+	wrapped.Register(o.subcommands...)
 
 	return wrapped
 }
 
-func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState) func(*cobra.Command, []string) error {
+func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState, boundFlags map[string]*pflag.Flag) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		// Extract and validate flags
 		flags, err := extractFlags(cmd)
@@ -412,6 +435,13 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Set config in props
 		props.Config = cfg
 
+		// Bind CLI flags into the configuration so the documented precedence
+		// (flags > env > file > embedded > defaults) holds. Binding happens
+		// after the file and env layers are established; viper's BindPFlag sits
+		// above AutomaticEnv, so no custom precedence is needed. Only flags the
+		// user explicitly changed are bound (handled in bindCommandFlags).
+		bindCommandFlags(cmd, cfg, props.Logger, boundFlags)
+
 		// Validate config for common misconfigurations
 		validateConfig(cfg, props.Logger)
 
@@ -440,6 +470,63 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 
 		return nil
 	}
+}
+
+// bindCommandFlags wires CLI flags into the configuration container so the
+// documented precedence (flags > env > file > embedded > defaults) holds. It
+// binds three sources, all filtered by flag.Changed:
+//
+//  1. the explicit author-supplied boundFlags map (config key → flag),
+//  2. the special-cased built-ins --ci and --debug (folded through the same
+//     binding path so config visibility is consistent — D3), and
+//  3. the dispatched command's own local flags, mapped by the hyphen-to-dot
+//     convention (--server-port → server.port) into the command-scoped config
+//     view (D5).
+//
+// Only flags the user explicitly set are bound; a flag at its default never
+// overrides config (viper's default-clobber footgun).
+func bindCommandFlags(cmd *cobra.Command, cfg config.Containable, log logger.Logger, boundFlags map[string]*pflag.Flag) {
+	// 1. Explicit author-supplied bindings (persistent/root flags).
+	bindChangedFlags(cfg, boundFlags, log)
+
+	// 2. Built-ins --ci / --debug, folded through the same binding path so
+	//    Config.GetBool("ci"/"debug") reflects the flag at the documented
+	//    precedence. --debug's immediate log-level effect is still applied
+	//    separately in configureLogging.
+	builtins := map[string]*pflag.Flag{}
+
+	for key := range builtinBoundFlags {
+		if f := cmd.Flags().Lookup(key); f != nil {
+			builtins[key] = f
+		}
+	}
+
+	bindChangedFlags(cfg, builtins, log)
+
+	// 3. The dispatched command's own local flags, by convention. Inherited
+	//    persistent flags are skipped here (the root binds its own); only the
+	//    command's local flag set participates so e.g. `serve --port` overrides
+	//    server.port for the serve command.
+	convention := map[string]*pflag.Flag{}
+
+	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
+		// Skip flags already explicitly bound or handled as built-ins to avoid
+		// surprising convention mappings overriding an author's explicit choice.
+		if _, ok := builtinBoundFlags[f.Name]; ok {
+			return
+		}
+
+		convention[ConventionKey(f.Name)] = f
+	})
+
+	bindChangedFlags(cfg, convention, log)
+}
+
+// builtinBoundFlags is the set of built-in persistent flags folded through the
+// binding path (D3). The map value is unused; only the key set matters.
+var builtinBoundFlags = map[string]struct{}{
+	"ci":    {},
+	"debug": {},
 }
 
 func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -34,6 +35,12 @@ type Containable interface {
 	// configuration reads. Use GetViper only when the Containable interface
 	// does not cover your use case.
 	GetViper() *viper.Viper
+	// BindPFlag binds a single pflag to the given configuration key. Once
+	// bound, the flag's value participates in Viper's precedence resolution,
+	// sitting above environment variables and file config. Callers should only
+	// bind flags the user explicitly changed (flag.Changed) so that a flag left
+	// at its default does not clobber configured values.
+	BindPFlag(key string, flag *pflag.Flag) error
 	Has(key string) bool
 	IsSet(key string) bool
 	Set(key string, value any)
@@ -121,6 +128,28 @@ func (c *Container) GetDuration(key string) time.Duration {
 // Get methods).
 func (c *Container) GetViper() *viper.Viper {
 	return c.viper
+}
+
+// BindPFlag binds a single pflag to the given configuration key.
+//
+// Binding is routed through the same Viper instance used for value
+// resolution (the root container's Viper on sub-containers), and the key is
+// qualified with the sub-container's prefix, so a bound flag is visible to the
+// typed Get methods at Viper's documented precedence (flag > env > file).
+//
+// Bind only flags the user explicitly changed (flag.Changed); binding a flag
+// at its default value would clobber configured values — Viper's classic
+// default-clobber footgun.
+func (c *Container) BindPFlag(key string, flag *pflag.Flag) error {
+	if flag == nil {
+		return errors.Newf("cannot bind nil flag to key %q", key)
+	}
+
+	if err := c.resolverViper().BindPFlag(c.qualifyKey(key), flag); err != nil {
+		return errors.Wrapf(err, "failed to bind flag %q to config key %q", flag.Name, key)
+	}
+
+	return nil
 }
 
 // Has reports whether the given key exists in the underlying

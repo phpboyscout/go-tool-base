@@ -59,6 +59,9 @@ Replace the charmbracelet terminal logger with a `slog` JSON backend for daemon 
 
 ## Configuration
 
+### [Bind CLI Flags to Config](bind-flags-to-config.md)
+Make `--server-port` override `server.port` by binding flags into the configuration precedence (flags > env > file).
+
 ### [React to Configuration Changes at Runtime](config-hot-reload.md)
 Use `config.Observable` and `AddObserver` to reconfigure long-running services without restarting.
 

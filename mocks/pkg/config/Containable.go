@@ -8,9 +8,10 @@ import (
 	"io"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // NewMockContainable creates a new instance of MockContainable. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -117,6 +118,63 @@ func (_c *MockContainable_AddObserverFunc_Call) Return() *MockContainable_AddObs
 
 func (_c *MockContainable_AddObserverFunc_Call) RunAndReturn(run func(f func(config.Containable, chan error))) *MockContainable_AddObserverFunc_Call {
 	_c.Run(run)
+	return _c
+}
+
+// BindPFlag provides a mock function for the type MockContainable
+func (_mock *MockContainable) BindPFlag(key string, flag *pflag.Flag) error {
+	ret := _mock.Called(key, flag)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BindPFlag")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, *pflag.Flag) error); ok {
+		r0 = returnFunc(key, flag)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockContainable_BindPFlag_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BindPFlag'
+type MockContainable_BindPFlag_Call struct {
+	*mock.Call
+}
+
+// BindPFlag is a helper method to define mock.On call
+//   - key string
+//   - flag *pflag.Flag
+func (_e *MockContainable_Expecter) BindPFlag(key interface{}, flag interface{}) *MockContainable_BindPFlag_Call {
+	return &MockContainable_BindPFlag_Call{Call: _e.mock.On("BindPFlag", key, flag)}
+}
+
+func (_c *MockContainable_BindPFlag_Call) Run(run func(key string, flag *pflag.Flag)) *MockContainable_BindPFlag_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 *pflag.Flag
+		if args[1] != nil {
+			arg1 = args[1].(*pflag.Flag)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_BindPFlag_Call) Return(err error) *MockContainable_BindPFlag_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockContainable_BindPFlag_Call) RunAndReturn(run func(key string, flag *pflag.Flag) error) *MockContainable_BindPFlag_Call {
+	_c.Call.Return(run)
 	return _c
 }
 
@@ -709,46 +767,6 @@ func (_c *MockContainable_Set_Call) Return() *MockContainable_Set_Call {
 }
 
 func (_c *MockContainable_Set_Call) RunAndReturn(run func(key string, value any)) *MockContainable_Set_Call {
-	_c.Run(run)
-	return _c
-}
-
-// SetEnvPrefix provides a mock function for the type MockContainable
-func (_mock *MockContainable) SetEnvPrefix(prefix string) {
-	_mock.Called(prefix)
-	return
-}
-
-// MockContainable_SetEnvPrefix_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetEnvPrefix'
-type MockContainable_SetEnvPrefix_Call struct {
-	*mock.Call
-}
-
-// SetEnvPrefix is a helper method to define mock.On call
-//   - prefix string
-func (_e *MockContainable_Expecter) SetEnvPrefix(prefix interface{}) *MockContainable_SetEnvPrefix_Call {
-	return &MockContainable_SetEnvPrefix_Call{Call: _e.mock.On("SetEnvPrefix", prefix)}
-}
-
-func (_c *MockContainable_SetEnvPrefix_Call) Run(run func(prefix string)) *MockContainable_SetEnvPrefix_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockContainable_SetEnvPrefix_Call) Return() *MockContainable_SetEnvPrefix_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockContainable_SetEnvPrefix_Call) RunAndReturn(run func(prefix string)) *MockContainable_SetEnvPrefix_Call {
 	_c.Run(run)
 	return _c
 }
