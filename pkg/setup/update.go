@@ -891,6 +891,18 @@ func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath 
 		return errors.Wrap(err, "failed to create temp file")
 	}
 
+	// Remove the partial temp file on any failure path — including a
+	// context-cancelled download (SIGINT mid-install) — so an interrupted
+	// update never leaves a "<target>_" orphan behind.
+	installed := false
+
+	defer func() {
+		if !installed {
+			_ = tempFile.Close()
+			_ = s.Fs.Remove(tempFilePath)
+		}
+	}()
+
 	// Copy file in chunks to help mitigate a decompression bomb attack
 	for {
 		_, err := io.CopyN(tempFile, tarReader, copyChunkSize)
@@ -910,6 +922,8 @@ func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath 
 	if err := s.Fs.Rename(tempFilePath, targetPath); err != nil {
 		return errors.Wrap(err, "failed to rename temp file to target")
 	}
+
+	installed = true
 
 	return s.Fs.Chmod(targetPath, filePermExecutable)
 }

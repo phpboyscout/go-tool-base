@@ -1,7 +1,7 @@
 ---
 title: "Signal-aware execution context — flow Ctrl-C through cmd.Context() and the cleanup path"
 description: "Give the root command a signal.NotifyContext so SIGINT/SIGTERM cancel cmd.Context(), run deferred telemetry flush and update-temp cleanup, and let long-running commands observe cancellation — instead of Go's default handler killing the process abruptly."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12; implemented 2026-06-13 — see [implementation notes](../implementation-notes/2026-06-12-signal-aware-execution-context.md))
 
 ## Summary
 
