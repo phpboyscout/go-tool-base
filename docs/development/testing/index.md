@@ -43,9 +43,11 @@ Scenarios that test **gtb's own tooling** must build and run `cmd/gtb` (via `sup
 | Testing… | Binary | Helper |
 |----------|--------|--------|
 | A **framework** feature a downstream tool inherits (init, doctor, config, update, chat, controls, signals) | `cmd/e2e` | `support.BinaryPath()` |
-| **gtb's own** CLI tooling (generate, regenerate, remove, keys) | `cmd/gtb` | `support.GeneratorBinaryPath()` |
+| **gtb's own** tooling *behaviour* (generate/regenerate/remove output, add-flag metadata, key files) | `cmd/gtb` | `support.GeneratorBinaryPath()` |
 
 When a generator/tooling scenario fails in CI with a config error but passes locally, this binary mismatch is almost always why.
+
+> **One deliberate exception.** `cmd/e2e` *does* register the generator commands (`cmd/e2e/main.go`), but only so that **input-validation rejection** scenarios (`features/generator/validation.feature` — e.g. `generate project --name BadName` is rejected) can run through the shared CLI step-world, which supplies a config. Those scenarios assert *rejection* and never reach real generation, so the InitCmd/config requirement is met by the CLI world's config. Anything exercising **successful generation behaviour** must still use `cmd/gtb`.
 
 ## In this section
 
