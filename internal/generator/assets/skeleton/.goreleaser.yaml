@@ -56,15 +56,15 @@ signs:
       - "--ci"
       - "sign"
       - "--backend"
-      - "{{ .Signing.Backend }}"
+      - {{ .Signing.Backend | escapeYAML }}
       {{- if eq .Signing.Backend "aws-kms" }}
       - "--kms-region"
-      - "{{ .Signing.KMSRegion }}"
+      - {{ .Signing.KMSRegion | escapeYAML }}
       {{- end }}
       - "--key-id"
-      - "{{ .Signing.KeyID }}"
+      - {{ .Signing.KeyID | escapeYAML }}
       - "--public-key"
-      - "{{ .Signing.PublicKey }}"
+      - {{ .Signing.PublicKey | escapeYAML }}
       - "--output"
       - "${signature}"
       - "${artifact}"

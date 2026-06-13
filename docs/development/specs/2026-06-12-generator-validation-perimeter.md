@@ -1,7 +1,7 @@
 ---
 title: "Generator validation perimeter — close the manifest/signing/AI-tool input gaps"
 description: "Extend the generator's input-validation gate so every user-influenced field that flows into a file path or a non-code render site is validated and escaped. Closes the two high-severity generator findings from the 2026-06-12 audit (command-name path traversal via a tampered manifest, and unescaped/unvalidated ManifestSigning fields injected into the CI-executed .goreleaser.yaml), plus the AI doc-tool path-traversal and a sentinel-with-format-verb defect."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12; implemented 2026-06-13)
 
 ## Summary
 

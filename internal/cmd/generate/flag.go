@@ -144,7 +144,7 @@ func (o *AddFlagOptions) loadManifest(p *props.Props) (*generator.Manifest, erro
 	manifestPath := filepath.Join(o.Path, ".gtb", "manifest.yaml")
 
 	if _, err := p.FS.Stat(manifestPath); os.IsNotExist(err) {
-		return nil, errors.Newf("%w (.gtb/manifest.yaml not found)", generator.ErrNotGoToolBaseProject)
+		return nil, errors.Wrapf(generator.ErrNotGoToolBaseProject, "at %q", o.Path)
 	}
 
 	data, err := afero.ReadFile(p.FS, manifestPath)

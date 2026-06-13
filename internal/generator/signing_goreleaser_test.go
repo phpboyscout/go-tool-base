@@ -155,3 +155,27 @@ func TestGenerateSkeleton_SignsBlock_DisabledNoBlock(t *testing.T) {
 
 	assert.NotContains(t, out, "signs:")
 }
+
+// TestGenerateSkeleton_SignsBlock_EscapesHostileValues is the
+// defence-in-depth half of spec D2: even if a hostile signing value reaches
+// rendering (this path deliberately bypasses ValidateManifest), the
+// escapeYAML pipe keeps it inside a double-quoted scalar so the GoReleaser
+// signs block cannot be broken out of.
+func TestGenerateSkeleton_SignsBlock_EscapesHostileValues(t *testing.T) {
+	out := generateAndReadGoreleaser(t, ManifestSigning{
+		Enabled:   true,
+		Backend:   "aws-kms",
+		KMSRegion: "eu-west-2",
+		KeyID:     "inj\"\n  - artifact: pwned",
+		PublicKey: "internal/trustkeys/keys/signing-key-v1.asc",
+	})
+
+	// The newline never reaches the output raw — only as the YAML escape
+	// sequence inside the quoted scalar.
+	assert.NotContains(t, out, "\n  - artifact: pwned")
+	assert.Contains(t, out, `\n  - artifact: pwned`)
+
+	// The rendered file must still parse as YAML.
+	var doc map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(out), &doc))
+}

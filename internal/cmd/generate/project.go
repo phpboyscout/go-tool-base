@@ -149,7 +149,18 @@ func (o *SkeletonOptions) validateSigningFields() error {
 		return errors.Wrapf(ErrInvalidSigningBackend, "%q (available: %s)", o.SigningBackend, strings.Join(signing.Names(), ", "))
 	}
 
-	return nil
+	// The remaining release-pipeline fields are rendered into the
+	// CI-executed .goreleaser.yaml, so they are validated here at the CLI
+	// boundary (the manifest path re-validates via ValidateManifest).
+	if err := generator.ValidateSigningKMSRegion(o.SigningKMSRegion); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateSigningKeyID(o.SigningKeyID); err != nil {
+		return err
+	}
+
+	return generator.ValidateSigningPublicKey(o.SigningPublicKey)
 }
 
 // validateCoreFields groups the core identity checks (name, repo,

@@ -46,6 +46,16 @@ Examples:
 }
 
 func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
+	// A CLI-typed name or parent path is a hard error when invalid — the
+	// removal would otherwise flow into FS.RemoveAll under pkg/cmd.
+	if err := generator.ValidateCommandName(o.Name); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateParentPath(o.Parent); err != nil {
+		return err
+	}
+
 	o.Path = icmd.ResolveProjectPath(p, o.Path)
 
 	cfg := &generator.Config{

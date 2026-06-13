@@ -3,6 +3,7 @@ package generate
 import (
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -164,12 +165,29 @@ func TestValidateNonInteractive_ReservedName(t *testing.T) {
 	o := &CommandOptions{Name: "options"}
 	err := o.validateNonInteractive()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "reserved")
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
+	assert.Contains(t, errors.FlattenHints(err), "reserved")
+}
+
+func TestValidateNonInteractive_TraversalName(t *testing.T) {
+	t.Parallel()
+	o := &CommandOptions{Name: "../../evil"}
+	err := o.validateNonInteractive()
+	require.Error(t, err)
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
+}
+
+func TestValidateNonInteractive_TraversalParent(t *testing.T) {
+	t.Parallel()
+	o := &CommandOptions{Name: "deploy", Parent: "../escape"}
+	err := o.validateNonInteractive()
+	require.Error(t, err)
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
 }
 
 func TestValidateNonInteractive_Valid(t *testing.T) {
 	t.Parallel()
-	o := &CommandOptions{Name: "deploy"}
+	o := &CommandOptions{Name: "deploy", Parent: "root"}
 	err := o.validateNonInteractive()
 	assert.NoError(t, err)
 }
