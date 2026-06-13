@@ -46,6 +46,26 @@ Every user-influenced field has a dedicated validator in `internal/generator/val
 | `SlackTeam` | `^[a-zA-Z0-9][a-zA-Z0-9-]{0,20}$` (or empty) | Slack workspace rules. |
 | `TeamsChannel` / `TeamsTeam` | ≤ 100 bytes; no control chars; no `{{`/`}}` | Teams is less constrained than Slack; apply YAML-safety. |
 | `TelemetryEndpoint` / `TelemetryOTelEndpoint` | Parses as URL; scheme `http` or `https`; no control chars; ≤ 2048 bytes | Prevents endpoint-config injection into scaffolded YAML. |
+| Command `Name` (`ValidateCommandName`) | `^[a-z][a-z0-9_-]{0,63}$`; `/`, `\`, and `.` rejected explicitly; `root` and `options` reserved | The name flows into `filepath.Join(path, "pkg", "cmd", name)` and `FS.RemoveAll`; this rule forecloses path traversal from CLI flags and tampered manifests alike. Underscores are permitted for snake_case command names. |
+| Parent path (`ValidateParentPath`) | `/`-separated command names; literal `root` (or empty) accepted as-is | `--parent` segments join into the same command-directory path. |
+| `Signing.Backend` (`ValidateSigningBackend`) | `^[a-z][a-z0-9-]{0,31}$` (or empty) | Registered `gtb sign` backend names (`aws-kms`, `local`); rendered into the CI-executed `.goreleaser.yaml` signs block. |
+| `Signing.KMSRegion` (`ValidateSigningKMSRegion`) | `^[a-z][a-z0-9-]{0,31}$` (or empty) | AWS region identifiers; same render site. |
+| `Signing.KeyID` (`ValidateSigningKeyID`) | `^[a-zA-Z0-9:/_.=+,@-]{1,256}$` (or empty) | KMS ids/ARNs/aliases plus the local backend's PEM paths; quotes, whitespace, and control characters are outside the class so the value cannot break out of its quoted YAML scalar. |
+| `Signing.PublicKey` (`ValidateSigningPublicKey`) | Clean `/`-separated path relative to the project root; no absolute paths, `.`/`..` segments, or backslashes; segments `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$` | The field is a path to the armored public-key file (default `internal/trustkeys/keys/signing-key-v1.asc`), not inline armor. |
+
+### Where the Validators Fire
+
+`ValidateManifest` is the gate for the regenerate path: it walks `Properties`, `ReleaseSource`, **every command in the `Commands` tree** (via `ValidateCommandName`), and **every rendered `Signing` field**, so a tampered `.gtb/manifest.yaml` cannot drive writes or deletes outside the project tree, nor inject YAML into the release pipeline.
+
+The same rules apply at every entry point, with severity matched to the input's origin:
+
+- **CLI flags / interactive wizard** (`gtb generate command`, `gtb remove command`, `gtb generate project --signing-*`, `gtb enable signing`) — an invalid value is a **hard error**: the user typed it and can correct it.
+- **Manifest entries** (the `regenerate` path) — an invalid command or signing block is **skipped, not fatal**: the generator logs at ERROR level naming the entry and the rule it failed, and the remaining valid entries still regenerate. A skipped entry is never acted on, so the `filepath.Join`/`RemoveAll` sink is foreclosed. The on-disk manifest is left untouched for the user to fix.
+- **The join sink itself** (`getCommandPath`) — independently of entry-point validation, every resolved command directory is checked (via `filepath.Rel`) to sit strictly under `<project>/pkg/cmd`.
+
+### AI Doc-Tool Containment
+
+The AI documentation generator exposes `read_file`, `list_dir`, and `go_doc` tools to the model. All three are contained to the project root: model-supplied relative paths are joined to the absolute project root and rejected (`filepath.Abs` + `filepath.Rel`) if the result escapes it, so a model-supplied `../../etc/passwd` cannot read or list outside the tree.
 
 ## Output Escaping
 

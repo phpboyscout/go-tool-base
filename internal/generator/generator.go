@@ -145,7 +145,7 @@ func (g *Generator) verifyProject() error {
 	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
 
 	if _, err := g.props.FS.Stat(manifestPath); os.IsNotExist(err) {
-		return errors.Newf("Warning: "+ErrNotGoToolBaseProject.Error()+". Please run 'generate skeleton' first", g.config.Path)
+		return errors.Wrapf(ErrNotGoToolBaseProject, "at %q; run 'generate skeleton' first", g.config.Path)
 	}
 
 	m, _ := g.loadManifest()

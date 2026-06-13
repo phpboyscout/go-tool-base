@@ -230,11 +230,33 @@ func (o *CommandOptions) ValidateOrPrompt() error {
 }
 
 func (o *CommandOptions) validateNonInteractive() error {
-	if o.Name == "options" {
-		return errors.Newf("command name 'options' is reserved")
+	// A CLI-typed command name is a hard error when invalid — the user
+	// can correct and re-run. The same gate also covers the manifest path
+	// via generator.ValidateManifest.
+	if err := generator.ValidateCommandName(o.Name); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateParentPath(o.Parent); err != nil {
+		return err
 	}
 
 	return o.syncFlagsToOptions()
+}
+
+// hintedValidation rewrites a generator validation error so its hint —
+// which names the field and the rule — is the message a form displays
+// instead of the bare sentinel text.
+func hintedValidation(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if hint := errors.FlattenHints(err); hint != "" {
+		return errors.Newf("%s", hint)
+	}
+
+	return err
 }
 
 func (o *CommandOptions) runInteractivePrompt() error {
@@ -256,19 +278,7 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 			Description("Kebab-case name (e.g. create-user)").
 			Value(&o.Name).
 			Validate(func(s string) error {
-				if s == "" {
-					return errors.Newf("name is required")
-				}
-
-				if strings.Contains(s, " ") {
-					return errors.Newf("name must not contain spaces")
-				}
-
-				if s == "options" {
-					return errors.Newf("command name 'options' is reserved")
-				}
-
-				return nil
+				return hintedValidation(generator.ValidateCommandName(s))
 			}),
 		huh.NewInput().
 			Title("Short Description").
@@ -291,7 +301,10 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 		huh.NewInput().
 			Title("Parent Command").
 			Description("Parent command name or path (e.g. root, or kube/ctx)").
-			Value(&o.Parent),
+			Value(&o.Parent).
+			Validate(func(s string) error {
+				return hintedValidation(generator.ValidateParentPath(s))
+			}),
 		huh.NewInput().
 			Title("Positional Arguments").
 			Description("Cobra argument validation (e.g. ExactArgs(1), ArbitraryArgs)").

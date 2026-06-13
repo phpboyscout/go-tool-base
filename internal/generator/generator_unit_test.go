@@ -28,7 +28,8 @@ func TestVerifyProject(t *testing.T) {
 	t.Run("No manifest", func(t *testing.T) {
 		err := g.verifyProject()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Please run 'generate skeleton' first")
+		require.ErrorIs(t, err, ErrNotGoToolBaseProject)
+		assert.Contains(t, err.Error(), "run 'generate skeleton' first")
 	})
 
 	t.Run("Valid manifest - same version", func(t *testing.T) {

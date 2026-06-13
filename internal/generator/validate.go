@@ -21,6 +21,7 @@ package generator
 import (
 	"fmt"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"unicode"
@@ -48,6 +49,7 @@ var ErrInvalidInput = errors.New("invalid generator input")
 
 var (
 	nameRe         = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+	commandNameRe  = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,63}$`)
 	envPrefixRe    = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,31}$`)
 	slackChannelRe = regexp.MustCompile(`^[a-z0-9-]{1,80}$`)
 	slackTeamRe    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-]{0,20}$`)
@@ -57,7 +59,156 @@ var (
 	// components are separated by "/"; a leading domain component may
 	// contain ":" when a port is appended.
 	repoSegmentRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._~-]*$`)
+	// signingBackendRe matches registered `gtb sign` backend names
+	// (e.g. "aws-kms", "local"): lowercase alphanumeric with hyphens.
+	signingBackendRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+	// kmsRegionRe matches AWS region identifiers (e.g. "eu-west-2",
+	// "us-gov-west-1"): lowercase alphanumeric with hyphens.
+	kmsRegionRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+	// signingKeyIDRe matches KMS key ids, ARNs
+	// (arn:aws:kms:region:account:key/uuid), aliases (alias/name), and
+	// the local backend's PEM paths (./release.pem). The class excludes
+	// quotes, whitespace, and control characters, so a value can never
+	// break out of the double-quoted YAML scalar it is rendered into.
+	signingKeyIDRe = regexp.MustCompile(`^[a-zA-Z0-9:/_.=+,@-]{1,256}$`)
+	// publicKeySegmentRe matches one path segment of the armored
+	// public-key path. A leading alphanumeric forecloses "." and ".."
+	// segments.
+	publicKeySegmentRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$`)
 )
+
+// reservedCommandNames are command names the generator claims for itself:
+// "root" is the scaffolded root command package and "options" collides with
+// the generated options struct file.
+var reservedCommandNames = map[string]bool{
+	"options": true,
+	"root":    true,
+}
+
+// ValidateCommandName enforces the naming rule for generated commands —
+// kebab-case plus underscore, a lowercase letter first, at most 64
+// characters: ^[a-z][a-z0-9_-]{0,63}$. Path separators and dots are
+// rejected explicitly (before the character-class check) because the name
+// flows into filepath.Join(path, "pkg", "cmd", name) and FS.RemoveAll —
+// this rule is the gate that forecloses path traversal from CLI flags and
+// tampered manifests alike.
+func ValidateCommandName(name string) error {
+	n := norm.NFC.String(name)
+	if n == "" {
+		return rejectf("CommandName", "command name must not be empty", "")
+	}
+
+	if strings.ContainsAny(n, `/\`) || strings.Contains(n, ".") {
+		return rejectf("CommandName",
+			"command name must not contain path separators (`/`, `\\`) or dots (`.`, `..`)",
+			n)
+	}
+
+	if reservedCommandNames[n] {
+		return rejectf("CommandName", fmt.Sprintf("command name %q is reserved", n), n)
+	}
+
+	if !commandNameRe.MatchString(n) {
+		return rejectf("CommandName",
+			"command name must match ^[a-z][a-z0-9_-]{0,63}$ — lowercase letter first, then lowercase letters, digits, hyphens, or underscores, max 64 chars",
+			n)
+	}
+
+	return nil
+}
+
+// ValidateParentPath validates a `/`-separated parent command path as
+// supplied via --parent. The literal "root" (and the empty string) mean
+// the root command and are accepted as-is; every other segment must be a
+// valid command name.
+func ValidateParentPath(parent string) error {
+	p := strings.TrimSpace(parent)
+	if p == "" || p == "root" {
+		return nil
+	}
+
+	for _, seg := range strings.Split(strings.Trim(p, "/"), "/") {
+		if err := ValidateCommandName(seg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateOptionalPattern accepts an empty value (these fields are all
+// optional in the manifest schema) and otherwise requires the
+// NFC-normalised value to match the given anchored pattern.
+func validateOptionalPattern(field, value string, re *regexp.Regexp, rule string) error {
+	if value == "" {
+		return nil
+	}
+
+	v := norm.NFC.String(value)
+	if !re.MatchString(v) {
+		return rejectf(field, rule, v)
+	}
+
+	return nil
+}
+
+// ValidateSigningBackend accepts an empty string (meaning "default") and
+// otherwise enforces the registered-backend-name character class.
+func ValidateSigningBackend(backend string) error {
+	return validateOptionalPattern("SigningBackend", backend, signingBackendRe,
+		"signing backend must match ^[a-z][a-z0-9-]{0,31}$")
+}
+
+// ValidateSigningKMSRegion accepts an empty string and otherwise enforces
+// the AWS region character class.
+func ValidateSigningKMSRegion(region string) error {
+	return validateOptionalPattern("SigningKMSRegion", region, kmsRegionRe,
+		"KMS region must match ^[a-z][a-z0-9-]{0,31}$")
+}
+
+// ValidateSigningKeyID accepts an empty string and otherwise enforces the
+// KMS key-id / ARN / alias character class (which also admits the local
+// backend's PEM paths). The value is rendered into the generated
+// .goreleaser.yaml, so quotes, whitespace, and control characters are all
+// outside the class.
+func ValidateSigningKeyID(keyID string) error {
+	return validateOptionalPattern("SigningKeyID", keyID, signingKeyIDRe,
+		"signing key id must match ^[a-zA-Z0-9:/_.=+,@-]{1,256}$ (a KMS id/ARN/alias, or a PEM path for the local backend)")
+}
+
+// ValidateSigningPublicKey accepts an empty string and otherwise requires a
+// clean, slash-separated path relative to the project root (the manifest
+// documents the field as the path to the armored public-key file, e.g.
+// internal/trustkeys/keys/signing-key-v1.asc). Absolute paths, `..`
+// escapes, and unclean forms are rejected.
+func ValidateSigningPublicKey(publicKey string) error {
+	if publicKey == "" {
+		return nil
+	}
+
+	p := norm.NFC.String(publicKey)
+	if strings.HasPrefix(p, "/") || strings.Contains(p, `\`) {
+		return rejectf("SigningPublicKey",
+			"public key must be a `/`-separated path relative to the project root",
+			p)
+	}
+
+	if path.Clean(p) != p {
+		return rejectf("SigningPublicKey",
+			"public key must be a clean relative path (no `.`, `..`, doubled, or trailing slashes)",
+			p)
+	}
+
+	for _, seg := range strings.Split(p, "/") {
+		if !publicKeySegmentRe.MatchString(seg) {
+			return rejectf("SigningPublicKey",
+				fmt.Sprintf("public key path segment %q must match ^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$", seg),
+				p)
+		}
+	}
+
+	return nil
+}
 
 // ValidateName enforces the naming rule for the scaffolded tool —
 // lowercase alphanumeric with optional hyphens, a letter first, and
@@ -449,7 +600,50 @@ func ValidateManifest(m *Manifest) error {
 		return err
 	}
 
+	if err := validateManifestSigning(&m.Properties.Signing); err != nil {
+		return err
+	}
+
+	if err := validateManifestCommands(m.Commands); err != nil {
+		return err
+	}
+
 	return validateManifestReleaseSource(&m.ReleaseSource)
+}
+
+// validateManifestCommands walks the manifest command tree and validates
+// every command name, so a tampered manifest cannot drive the
+// filepath.Join / RemoveAll sinks through the regenerate path.
+func validateManifestCommands(cmds []ManifestCommand) error {
+	for i := range cmds {
+		if err := ValidateCommandName(cmds[i].Name); err != nil {
+			return err
+		}
+
+		if err := validateManifestCommands(cmds[i].Commands); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateManifestSigning validates every ManifestSigning field that is
+// rendered into the CI-executed .goreleaser.yaml signs block.
+func validateManifestSigning(s *ManifestSigning) error {
+	if err := ValidateSigningBackend(s.Backend); err != nil {
+		return err
+	}
+
+	if err := ValidateSigningKMSRegion(s.KMSRegion); err != nil {
+		return err
+	}
+
+	if err := ValidateSigningKeyID(s.KeyID); err != nil {
+		return err
+	}
+
+	return ValidateSigningPublicKey(s.PublicKey)
 }
 
 // validateManifestProperties groups the Properties-level validations

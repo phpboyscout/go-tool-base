@@ -610,6 +610,24 @@ func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sys
 	return client, nil
 }
 
+// containedProjectPath joins a model-supplied relative path under the
+// project root and rejects any result that escapes it, using the same
+// filepath.Abs + filepath.Rel containment the go-doc tool path applies.
+// The AI doc tools must never read or list outside the project tree.
+func (g *Generator) containedProjectPath(rel string) (string, error) {
+	root, err := filepath.Abs(g.config.Path)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to resolve absolute project root")
+	}
+
+	target, _, err := joinContained(root, rel)
+	if err != nil {
+		return "", errors.Newf("path %q escapes the project root", rel)
+	}
+
+	return target, nil
+}
+
 func (g *Generator) handleReadFileTool(ctx context.Context, args json.RawMessage) (any, error) {
 	var params struct {
 		Path string `json:"path"`
@@ -618,7 +636,10 @@ func (g *Generator) handleReadFileTool(ctx context.Context, args json.RawMessage
 		return nil, errors.Wrap(err, "failed to parse tool arguments")
 	}
 
-	targetPath := filepath.Join(g.config.Path, params.Path)
+	targetPath, err := g.containedProjectPath(params.Path)
+	if err != nil {
+		return nil, err
+	}
 
 	data, err := afero.ReadFile(g.props.FS, targetPath)
 	if err != nil {
@@ -636,7 +657,10 @@ func (g *Generator) handleListDirTool(ctx context.Context, args json.RawMessage)
 		return nil, errors.Wrap(err, "failed to parse tool arguments")
 	}
 
-	targetPath := filepath.Join(g.config.Path, params.Path)
+	targetPath, err := g.containedProjectPath(params.Path)
+	if err != nil {
+		return nil, err
+	}
 
 	entries, err := afero.ReadDir(g.props.FS, targetPath)
 	if err != nil {

@@ -85,14 +85,9 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return errors.Newf("failed to unmarshal manifest: %w", err)
 	}
 
-	if err := ValidateManifest(&m); err != nil {
-		return errors.Newf("manifest validation failed: %w", err)
-	}
-
-	g.props.Logger.Info("Regenerating project from manifest...")
-	g.props.Logger.Debugf("Manifest: %s, %d top-level commands", m.Properties.Name, len(m.Commands))
-
-	// If the flag was provided, update all commands in the manifest
+	// If the flag was provided, update all commands in the manifest. This
+	// runs before sanitisation so a skipped (invalid) command is never
+	// dropped from the on-disk manifest — skipping is an in-memory act.
 	if g.config.WrapSubcommandsWithMiddleware != nil {
 		updateWrapSubcommandsRecursive(&m.Commands, *g.config.WrapSubcommandsWithMiddleware)
 
@@ -102,6 +97,19 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 			_ = afero.WriteFile(g.props.FS, manifestPath, updated, DefaultFileMode)
 		}
 	}
+
+	// Skip-not-abort (spec D1/O3): drop invalid commands and an invalid
+	// signing block from the in-memory manifest with an ERROR log, so the
+	// valid entries still regenerate while the traversal/injection sinks
+	// are foreclosed. Structural fields then remain a hard error below.
+	g.sanitiseManifest(&m)
+
+	if err := ValidateManifest(&m); err != nil {
+		return errors.Newf("manifest validation failed: %w", err)
+	}
+
+	g.props.Logger.Info("Regenerating project from manifest...")
+	g.props.Logger.Debugf("Manifest: %s, %d top-level commands", m.Properties.Name, len(m.Commands))
 
 	if err := g.regenerateRootCommand(m); err != nil {
 		return err
@@ -126,6 +134,55 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	// when signing is enabled, and signing.go is dropped when disabled.
 	// (cmd.go's Signing: field was handled by regenerateRootCommand.)
 	return g.syncSigningFiles(m)
+}
+
+// sanitiseManifest removes manifest entries that fail validation so the
+// remaining valid entries can still regenerate (skip-not-abort, spec D1/O3).
+// Each skipped entry is surfaced with an ERROR-level log naming the entry
+// and the rule it failed; a skipped command is never acted on, so the
+// filepath.Join / RemoveAll traversal sink is foreclosed. The manifest is
+// only modified in memory — the on-disk file is left for the user to fix.
+func (g *Generator) sanitiseManifest(m *Manifest) {
+	m.Commands = g.sanitiseManifestCommands(m.Commands)
+
+	if err := validateManifestSigning(&m.Properties.Signing); err != nil {
+		g.props.Logger.Error("Skipping signing-block rendering: invalid signing configuration in manifest",
+			"reason", validationReason(err))
+
+		m.Properties.Signing = ManifestSigning{}
+	}
+}
+
+// sanitiseManifestCommands returns the commands whose names pass
+// ValidateCommandName, recursing into subcommands, and logs an ERROR for
+// every command it skips.
+func (g *Generator) sanitiseManifestCommands(cmds []ManifestCommand) []ManifestCommand {
+	valid := make([]ManifestCommand, 0, len(cmds))
+
+	for _, cmd := range cmds {
+		if err := ValidateCommandName(cmd.Name); err != nil {
+			g.props.Logger.Error("Skipping command with invalid name in manifest",
+				"command", truncateInput(cmd.Name, truncatedInputLen),
+				"reason", validationReason(err))
+
+			continue
+		}
+
+		cmd.Commands = g.sanitiseManifestCommands(cmd.Commands)
+		valid = append(valid, cmd)
+	}
+
+	return valid
+}
+
+// validationReason renders a validator error for logging: the hint carries
+// the field, the rule, and the (truncated) offending input.
+func validationReason(err error) string {
+	if hints := errors.FlattenHints(err); hints != "" {
+		return hints
+	}
+
+	return err.Error()
 }
 
 // collectSkeletonHashes loads the current project file hashes from the manifest.

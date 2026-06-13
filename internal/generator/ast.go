@@ -643,7 +643,7 @@ func (g *Generator) getCommandPath() (string, error) {
 	pathParts := g.getParentPathParts()
 
 	if len(pathParts) == 0 {
-		return filepath.Join(g.config.Path, "pkg", "cmd", g.config.Name), nil
+		return g.containedCommandPath(g.config.Name)
 	}
 
 	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
@@ -664,7 +664,39 @@ func (g *Generator) getCommandPath() (string, error) {
 		return "", errors.Newf("%w: %s", ErrParentPathNotFound, g.config.Parent)
 	}
 
-	return filepath.Join(g.config.Path, "pkg", "cmd", filepath.Join(append(pathParts, g.config.Name)...)), nil
+	return g.containedCommandPath(filepath.Join(append(pathParts, g.config.Name)...))
+}
+
+// containedCommandPath joins rel under <project>/pkg/cmd and rejects any
+// result that escapes that directory (or resolves to the directory itself).
+// This is the single chokepoint in front of the command-directory
+// write/RemoveAll sinks: even if a hostile name slips past entry-point
+// validation, the traversal is stopped here.
+func (g *Generator) containedCommandPath(rel string) (string, error) {
+	cmdRoot := filepath.Join(g.config.Path, "pkg", "cmd")
+
+	target, contained, err := joinContained(cmdRoot, rel)
+	if err != nil || contained == "." {
+		return "", errors.Newf("command path %q escapes the project command directory", rel)
+	}
+
+	return target, nil
+}
+
+// joinContained joins rel beneath root and returns the result together with
+// its root-relative form, rejecting any result that escapes root. Shared by
+// the command-directory chokepoint above and the AI doc-tool containment in
+// docs.go so the two guards cannot drift apart.
+func joinContained(root, rel string) (target, contained string, err error) {
+	target = filepath.Join(root, rel)
+
+	contained, rerr := filepath.Rel(root, target)
+	if rerr != nil || contained == ".." ||
+		strings.HasPrefix(contained, ".."+string(filepath.Separator)) {
+		return "", "", errors.Newf("path %q escapes %q", rel, root)
+	}
+
+	return target, contained, nil
 }
 
 func (g *Generator) deregisterSubcommand() error {

@@ -170,6 +170,12 @@ func (g *Generator) EnableSigning(ctx context.Context, signing ManifestSigning) 
 	signing.Enabled = true
 	signing = ApplySigningDefaults(signing)
 
+	// CLI-supplied signing fields are a hard error when invalid — the
+	// values are rendered into the CI-executed .goreleaser.yaml.
+	if err := validateManifestSigning(&signing); err != nil {
+		return err
+	}
+
 	return g.applySigningPosture(ctx, signing)
 }
 

@@ -326,3 +326,325 @@ func TestValidate_HintContainsFieldAndRule(t *testing.T) {
 	require.Contains(t, hint, "Name")
 	require.Contains(t, hint, "lowercase")
 }
+
+func TestValidateCommandName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "simple lowercase", input: "deploy", wantErr: false},
+		{name: "kebab", input: "create-user", wantErr: false},
+		{name: "underscore allowed", input: "create_user", wantErr: false},
+		{name: "kebab and underscore mixed", input: "my-cmd_v2", wantErr: false},
+		{name: "single char", input: "a", wantErr: false},
+		{name: "digits after first", input: "cmd2", wantErr: false},
+		{name: "max length 64", input: "a" + strings.Repeat("b", 63), wantErr: false},
+
+		{name: "empty", input: "", wantErr: true},
+		{name: "reserved options", input: "options", wantErr: true},
+		{name: "reserved root", input: "root", wantErr: true},
+		{name: "dot", input: ".", wantErr: true},
+		{name: "dot dot", input: "..", wantErr: true},
+		{name: "embedded dot", input: "cmd.go", wantErr: true},
+		{name: "slash", input: "a/b", wantErr: true},
+		{name: "backslash", input: `a\b`, wantErr: true},
+		{name: "traversal", input: "../../evil", wantErr: true},
+		{name: "leading digit", input: "2cmd", wantErr: true},
+		{name: "leading hyphen", input: "-cmd", wantErr: true},
+		{name: "leading underscore", input: "_cmd", wantErr: true},
+		{name: "uppercase", input: "Deploy", wantErr: true},
+		{name: "space", input: "my cmd", wantErr: true},
+		{name: "over-length 65", input: "a" + strings.Repeat("b", 64), wantErr: true},
+		{name: "newline", input: "cmd\n", wantErr: true},
+		{name: "NUL byte", input: "cmd\x00", wantErr: true},
+		{name: "cyrillic homoglyph", input: "dеploy", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateCommandName(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateParentPath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty means root", input: "", wantErr: false},
+		{name: "root literal", input: "root", wantErr: false},
+		{name: "single parent", input: "kube", wantErr: false},
+		{name: "nested parent", input: "kube/ctx", wantErr: false},
+		{name: "surrounding slashes trimmed", input: "/kube/ctx/", wantErr: false},
+
+		{name: "traversal segment", input: "../evil", wantErr: true},
+		{name: "nested traversal", input: "kube/../../evil", wantErr: true},
+		{name: "dot segment", input: "kube/./ctx", wantErr: true},
+		{name: "uppercase segment", input: "Kube/ctx", wantErr: true},
+		{name: "reserved options segment", input: "options", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateParentPath(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateSigningBackend(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted", input: "", wantErr: false},
+		{name: "aws-kms", input: "aws-kms", wantErr: false},
+		{name: "local", input: "local", wantErr: false},
+
+		{name: "uppercase", input: "AWS-KMS", wantErr: true},
+		{name: "leading digit", input: "1kms", wantErr: true},
+		{name: "yaml breakout", input: "x\"\n  - artifact: pwned", wantErr: true},
+		{name: "space", input: "aws kms", wantErr: true},
+		{name: "over-length", input: strings.Repeat("a", 33), wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateSigningBackend(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateSigningKMSRegion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted", input: "", wantErr: false},
+		{name: "eu-west-2", input: "eu-west-2", wantErr: false},
+		{name: "us-gov-west-1", input: "us-gov-west-1", wantErr: false},
+
+		{name: "uppercase", input: "EU-WEST-2", wantErr: true},
+		{name: "underscore", input: "eu_west_2", wantErr: true},
+		{name: "yaml breakout", input: "x\"\n  - artifact: pwned", wantErr: true},
+		{name: "over-length", input: strings.Repeat("a", 33), wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateSigningKMSRegion(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateSigningKeyID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted", input: "", wantErr: false},
+		{name: "kms alias", input: "alias/acme-release-signing-v1", wantErr: false},
+		{name: "kms uuid", input: "1234abcd-12ab-34cd-56ef-1234567890ab", wantErr: false},
+		{name: "kms arn", input: "arn:aws:kms:eu-west-2:123456789012:key/1234abcd-12ab-34cd-56ef-1234567890ab", wantErr: false},
+		{name: "local pem path", input: "./release.pem", wantErr: false},
+
+		{name: "yaml injection", input: "x\"\n  - artifact: pwned", wantErr: true},
+		{name: "newline", input: "alias/x\nalias/y", wantErr: true},
+		{name: "double quote", input: `alias/"x"`, wantErr: true},
+		{name: "space", input: "alias/x y", wantErr: true},
+		{name: "NUL byte", input: "alias/x\x00", wantErr: true},
+		{name: "over-length", input: strings.Repeat("a", 257), wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateSigningKeyID(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateSigningPublicKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted", input: "", wantErr: false},
+		{name: "default convention", input: "internal/trustkeys/keys/signing-key-v1.asc", wantErr: false},
+		{name: "single segment", input: "key.asc", wantErr: false},
+
+		{name: "absolute path", input: "/etc/passwd", wantErr: true},
+		{name: "traversal", input: "../../home/user/.ssh/id_rsa", wantErr: true},
+		{name: "interior traversal", input: "keys/../../escape.asc", wantErr: true},
+		{name: "unclean dot prefix", input: "./key.asc", wantErr: true},
+		{name: "backslash separator", input: `keys\key.asc`, wantErr: true},
+		{name: "yaml injection", input: "x\"\n  - artifact: pwned", wantErr: true},
+		{name: "inline armor rejected", input: "-----BEGIN PGP PUBLIC KEY BLOCK-----", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateSigningPublicKey(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// validTestManifest returns a minimal manifest that passes ValidateManifest,
+// for the walk tests to mutate.
+func validTestManifest() *generator.Manifest {
+	m := &generator.Manifest{}
+	m.Properties.Name = "mytool"
+
+	return m
+}
+
+// TestValidateManifest_WalksCommands proves ValidateManifest recursively
+// validates every command name in the manifest tree, so the regenerate path
+// (which trusts the manifest) is covered against path traversal.
+func TestValidateManifest_WalksCommands(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid nested commands accepted", func(t *testing.T) {
+		t.Parallel()
+
+		m := validTestManifest()
+		m.Commands = []generator.ManifestCommand{
+			{Name: "deploy", Commands: []generator.ManifestCommand{{Name: "status_check"}}},
+		}
+		require.NoError(t, generator.ValidateManifest(m))
+	})
+
+	t.Run("traversal in top-level command rejected", func(t *testing.T) {
+		t.Parallel()
+
+		m := validTestManifest()
+		m.Commands = []generator.ManifestCommand{{Name: "../../evil"}}
+
+		err := generator.ValidateManifest(m)
+		require.Error(t, err)
+		require.ErrorIs(t, err, generator.ErrInvalidInput)
+	})
+
+	t.Run("traversal in nested command rejected", func(t *testing.T) {
+		t.Parallel()
+
+		m := validTestManifest()
+		m.Commands = []generator.ManifestCommand{
+			{Name: "good", Commands: []generator.ManifestCommand{{Name: "../escape"}}},
+		}
+
+		err := generator.ValidateManifest(m)
+		require.Error(t, err)
+		require.ErrorIs(t, err, generator.ErrInvalidInput)
+	})
+}
+
+// TestValidateManifest_WalksSigning proves ValidateManifest validates every
+// ManifestSigning field that is rendered into the CI-executed
+// .goreleaser.yaml.
+func TestValidateManifest_WalksSigning(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid signing block accepted", func(t *testing.T) {
+		t.Parallel()
+
+		m := validTestManifest()
+		m.Properties.Signing = generator.ManifestSigning{
+			Enabled:   true,
+			Backend:   "aws-kms",
+			KMSRegion: "eu-west-2",
+			KeyID:     "alias/acme-release-signing-v1",
+			PublicKey: "internal/trustkeys/keys/signing-key-v1.asc",
+		}
+		require.NoError(t, generator.ValidateManifest(m))
+	})
+
+	tests := []struct {
+		name   string
+		mutate func(*generator.ManifestSigning)
+	}{
+		{name: "backend injection", mutate: func(s *generator.ManifestSigning) { s.Backend = "x\"\n  - artifact: pwned" }},
+		{name: "region injection", mutate: func(s *generator.ManifestSigning) { s.KMSRegion = "x\"\n  - artifact: pwned" }},
+		{name: "key id injection", mutate: func(s *generator.ManifestSigning) { s.KeyID = "x\"\n  - artifact: pwned" }},
+		{name: "public key traversal", mutate: func(s *generator.ManifestSigning) { s.PublicKey = "../../etc/passwd" }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			m := validTestManifest()
+			m.Properties.Signing = generator.ManifestSigning{Enabled: true}
+			tc.mutate(&m.Properties.Signing)
+
+			err := generator.ValidateManifest(m)
+			require.Error(t, err)
+			require.ErrorIs(t, err, generator.ErrInvalidInput)
+		})
+	}
+}
