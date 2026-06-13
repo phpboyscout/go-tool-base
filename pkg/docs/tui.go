@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
@@ -1161,12 +1162,33 @@ func (m *Model) helpView() string {
 }
 
 func extractExcerpt(text string, start, length int) string {
-	// Extract context
-	ctxStart := max(0, start-searchContextPre)
-	ctxEnd := min(len(text), start+length+searchContextPost)
+	// Extract context. The context bounds are byte offsets, so snap them to
+	// rune boundaries — slicing mid-rune corrupts multi-byte UTF-8 content.
+	ctxStart := alignRuneStart(text, max(0, start-searchContextPre))
+	ctxEnd := alignRuneEnd(text, min(len(text), start+length+searchContextPost))
 
 	excerpt := text[ctxStart:ctxEnd]
 	excerpt = strings.ReplaceAll(excerpt, "\n", " ")
 
 	return "..." + excerpt + "..."
+}
+
+// alignRuneStart moves i forward to the start of the rune it falls within, so a
+// slice beginning at the returned offset never starts mid-rune.
+func alignRuneStart(s string, i int) int {
+	for i > 0 && i < len(s) && !utf8.RuneStart(s[i]) {
+		i++
+	}
+
+	return i
+}
+
+// alignRuneEnd moves i forward to the next rune boundary, so a slice ending at
+// the returned offset never cuts a rune in half.
+func alignRuneEnd(s string, i int) int {
+	for i < len(s) && !utf8.RuneStart(s[i]) {
+		i++
+	}
+
+	return i
 }

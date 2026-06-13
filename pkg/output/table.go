@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
 	"github.com/cockroachdb/errors"
 	"gopkg.in/yaml.v3"
@@ -108,7 +109,41 @@ const (
 	columnPadding        = 3
 	ellipsisMinWidth     = 3
 	defaultTerminalWidth = 80
+	ellipsis             = "..."
 )
+
+// truncateCell shrinks a cell to fit within w display columns. It is aware of
+// multi-byte runes, wide (CJK/emoji) characters, and ANSI escape sequences, so
+// it never splits a rune mid-sequence or miscounts display width. When there is
+// room, an ellipsis tail is appended to signal truncation.
+func truncateCell(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+
+	if ansi.StringWidth(s) <= w {
+		return s
+	}
+
+	tail := ellipsis
+	if w <= ellipsisMinWidth {
+		tail = ""
+	}
+
+	return ansi.Truncate(s, w, tail)
+}
+
+// padCell left-aligns s within w display columns, padding with spaces. Padding
+// is computed from display width (not byte length) so multi-byte and wide
+// content aligns correctly.
+func padCell(s string, w int) string {
+	gap := w - ansi.StringWidth(s)
+	if gap <= 0 {
+		return s
+	}
+
+	return s + strings.Repeat(" ", gap)
+}
 
 // WriteRows renders the provided slice as a table.
 // The input must be a slice of structs (for tag-based columns) or []map[string]any.
@@ -286,16 +321,9 @@ func (t *TableWriter) writeMarkdownRow(cells []string, widths []int) {
 
 		w := widths[i]
 
-		display := cell
-		if len(display) > w {
-			if w > ellipsisMinWidth {
-				display = display[:w-ellipsisMinWidth] + "..."
-			} else {
-				display = display[:w]
-			}
-		}
+		display := padCell(truncateCell(cell, w), w)
 
-		fmt.Fprintf(&sb, " %-*s |", w, display)
+		fmt.Fprintf(&sb, " %s |", display)
 	}
 
 	_, _ = fmt.Fprintln(t.w, sb.String())
@@ -328,17 +356,10 @@ func (t *TableWriter) writeRow(cells []string, widths []int) {
 			continue
 		}
 
-		display := cell
-		if len(display) > w {
-			if w > ellipsisMinWidth {
-				display = display[:w-ellipsisMinWidth] + "..."
-			} else {
-				display = display[:w]
-			}
-		}
+		display := truncateCell(cell, w)
 
 		if i < len(cells)-1 {
-			fmt.Fprintf(&sb, "%-*s", w+columnPadding, display)
+			sb.WriteString(padCell(display, w+columnPadding))
 		} else {
 			sb.WriteString(display)
 		}
@@ -519,11 +540,13 @@ func calculateWidths(cols []Column, rows [][]string) []int {
 			continue
 		}
 
-		widths[i] = len(col.Header)
+		widths[i] = ansi.StringWidth(col.Header)
 
 		for _, row := range rows {
-			if i < len(row) && len(row[i]) > widths[i] {
-				widths[i] = len(row[i])
+			if i < len(row) {
+				if cw := ansi.StringWidth(row[i]); cw > widths[i] {
+					widths[i] = cw
+				}
 			}
 		}
 	}

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -461,4 +463,110 @@ func TestColumnsFromStruct_SkipDash(t *testing.T) {
 	require.Len(t, cols, 2)
 	assert.Equal(t, "NAME", cols[0].Header)
 	assert.Equal(t, "STATUS", cols[1].Header)
+}
+
+// utf8Row is a fixture for multi-byte / wide-character truncation tests.
+type utf8Row struct {
+	Name  string `table:"NAME,sortable"`
+	Value string `table:"VALUE"`
+}
+
+// cjk builds a wide-character (East-Asian) string from code points at runtime.
+// Constructing it programmatically keeps Han-script glyphs out of the source
+// literals (which the gosmopolitan linter rejects) while still exercising the
+// multi-byte / display-width truncation paths.
+func cjk(codepoints ...rune) string {
+	return string(codepoints)
+}
+
+// Common CJK fixtures: 日(U+65E5) 本(U+672C) 語(U+8A9E) テ(U+30C6) キ(U+30AD)
+// ス(U+30B9) ト(U+30C8) — each two display columns wide.
+var (
+	cjkNihongo = cjk(0x65E5, 0x672C, 0x8A9E) // "Japanese"
+	cjkLong    = cjk(0x65E5, 0x672C, 0x8A9E, 0x30C6, 0x30AD, 0x30B9, 0x30C8, 0x30C6, 0x30AD, 0x30B9, 0x30C8)
+)
+
+func TestTruncateCell_PreservesUTF8(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		width int
+	}{
+		{name: "accented latin", input: "café crème brûlée déjà vu", width: 8},
+		{name: "cjk", input: cjkLong, width: 6},
+		{name: "emoji", input: "deploy 🚀🎉🔥 done now", width: 9},
+		{name: "mixed", input: "naïve " + cjkNihongo + " 🚀 mix", width: 7},
+		{name: "narrow ellipsis-min", input: cjkNihongo, width: 3},
+		{name: "narrow sub-ellipsis", input: "café latte", width: 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := truncateCell(tc.input, tc.width)
+
+			assert.True(t, utf8.ValidString(got),
+				"truncation must not split a rune: %q -> %q", tc.input, got)
+			assert.LessOrEqual(t, ansi.StringWidth(got), tc.width,
+				"display width must stay within column width: %q", got)
+		})
+	}
+}
+
+func TestTableWriter_TextFormat_MultiByteTruncation(t *testing.T) {
+	t.Parallel()
+
+	rows := []utf8Row{
+		{Name: "service", Value: strings.Repeat(cjkLong, 3)},
+	}
+
+	var buf bytes.Buffer
+	tw := NewTableWriter(&buf, FormatText, WithMaxWidth(20))
+
+	err := tw.WriteRows(rows)
+	require.NoError(t, err)
+
+	out := buf.String()
+	assert.True(t, utf8.ValidString(out), "output must be valid UTF-8 (no mojibake): %q", out)
+
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		assert.LessOrEqual(t, ansi.StringWidth(line), 20,
+			"line display width should not exceed max width: %q", line)
+	}
+}
+
+func TestTableWriter_MarkdownFormat_MultiByteTruncation(t *testing.T) {
+	t.Parallel()
+
+	rows := []utf8Row{
+		{Name: "emoji", Value: "🚀🎉🔥 launch celebration party time everyone"},
+	}
+
+	var buf bytes.Buffer
+	// Fixed narrow column forces truncation.
+	tw := NewTableWriter(&buf, FormatMarkdown, WithColumns(
+		Column{Header: "NAME", Field: "Name"},
+		Column{Header: "VALUE", Field: "Value", Width: 8},
+	))
+
+	err := tw.WriteRows(rows)
+	require.NoError(t, err)
+
+	out := buf.String()
+	assert.True(t, utf8.ValidString(out), "markdown output must be valid UTF-8: %q", out)
+}
+
+func TestCalculateWidths_UsesDisplayWidth(t *testing.T) {
+	t.Parallel()
+
+	cols := []Column{{Header: "H", Field: "Value"}}
+	// Three CJK glyphs == 6 display columns but 9 bytes.
+	rows := [][]string{{cjkNihongo}}
+
+	widths := calculateWidths(cols, rows)
+	require.Len(t, widths, 1)
+	assert.Equal(t, 6, widths[0], "width should be display columns, not byte length")
 }

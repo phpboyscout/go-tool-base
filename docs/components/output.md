@@ -278,6 +278,14 @@ Tag format: `table:"HEADER"` or `table:"HEADER,sortable"`. Use `table:"-"` to ex
 | `WithNoTruncation()` | Disable terminal-width truncation |
 | `WithMaxWidth(width int)` | Override automatic terminal width detection |
 
+**UTF-8 / display-width-aware truncation:** Column widths and cell truncation
+are measured in terminal display columns (via `charmbracelet/x/ansi`), not
+bytes. Multi-byte runes, wide East-Asian (CJK) characters, emoji, and ANSI
+escape sequences are handled correctly — cells are never cut mid-rune (no
+mojibake) and wide glyphs are counted as the columns they actually occupy. When
+a cell is shortened, an ellipsis (`...`) is appended if the column is wide
+enough.
+
 **Column struct:**
 
 ```go

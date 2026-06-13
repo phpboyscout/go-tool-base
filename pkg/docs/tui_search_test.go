@@ -5,6 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
@@ -69,3 +70,30 @@ func TestPerformSearch_PathologicalRegexTerminates(t *testing.T) {
 // Compile-time assertion that performSearch returns a tea.Cmd — guards
 // against a future refactor that accidentally changes the signature.
 var _ tea.Cmd = (&Model{}).performSearch("")
+
+// TestExtractExcerpt_PreservesUTF8 guards against byte-offset slicing that
+// would cut a multi-byte rune in half. The context window boundaries
+// (searchContextPre/Post) must snap to rune boundaries so the excerpt is
+// always valid UTF-8 (no mojibake / replacement characters).
+func TestExtractExcerpt_PreservesUTF8(t *testing.T) {
+	t.Parallel()
+
+	// Build a body where the context window edges land inside multi-byte
+	// runes: long runs of CJK and emoji on either side of an ASCII match.
+	// The CJK glyph (U+65E5, 3 bytes) is built at runtime to keep Han-script
+	// literals out of the source (gosmopolitan).
+	pre := strings.Repeat(string(rune(0x65E5)), 100) // 3 bytes each
+	post := strings.Repeat("🚀", 100)                 // 4 bytes each
+	text := pre + "MATCH" + post
+
+	start := strings.Index(text, "MATCH")
+	require.NotEqual(t, -1, start)
+
+	excerpt := extractExcerpt(text, start, len("MATCH"))
+
+	assert.True(t, utf8.ValidString(excerpt),
+		"excerpt must be valid UTF-8, got %q", excerpt)
+	assert.NotContains(t, excerpt, "�",
+		"excerpt must not contain the Unicode replacement character")
+	assert.Contains(t, excerpt, "MATCH")
+}
