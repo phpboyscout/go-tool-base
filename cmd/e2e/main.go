@@ -104,5 +104,9 @@ func newTestRoot() (*setup.Command, *props.Props) {
 		keys.NewCmdKeys(p),
 	)
 
+	// Register the hidden `block` fixture used by the SIGINT E2E scenario to
+	// exercise the signal-aware execution context at the OS level.
+	rootCmd.Register(newBlockCommand())
+
 	return rootCmd, p
 }
