@@ -145,12 +145,30 @@ type RestartPolicy struct {
 	MaxBackoff             time.Duration
 	HealthFailureThreshold int
 	HealthCheckInterval    time.Duration
+	// RestartResetInterval is how long a service must run healthily before its
+	// consecutive-failure restart counter is reset to zero. Zero selects
+	// DefaultRestartResetInterval. The count therefore measures consecutive
+	// failures, not lifetime restarts.
+	RestartResetInterval time.Duration
 }
 
 // WithRestartPolicy configures automatic restart behaviour for a service.
 func WithRestartPolicy(policy RestartPolicy) ServiceOption {
 	return func(s *Service) {
 		s.RestartPolicy = &policy
+	}
+}
+
+// WithRestartResetInterval sets how long a service must run healthily before its
+// consecutive-failure restart counter resets. It implies a restart policy: if
+// the service has none, a default policy is created so the interval takes effect.
+func WithRestartResetInterval(d time.Duration) ServiceOption {
+	return func(s *Service) {
+		if s.RestartPolicy == nil {
+			s.RestartPolicy = &RestartPolicy{}
+		}
+
+		s.RestartPolicy.RestartResetInterval = d
 	}
 }
 

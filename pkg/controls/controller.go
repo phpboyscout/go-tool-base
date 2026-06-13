@@ -38,6 +38,11 @@ type Controller struct {
 	stateMutex      sync.Mutex
 	services        Services
 	healthChecks    map[string]*healthCheckEntry
+	validError      ValidErrorFunc
+	// shutdownComplete is closed once handleStopMessage has finished the full
+	// shutdown sequence. The error/context and signal handler goroutines watch
+	// it as their exit condition so they terminate rather than spin or leak.
+	shutdownComplete chan struct{}
 }
 
 func (c *Controller) GetContext() context.Context {
@@ -65,6 +70,13 @@ func (c *Controller) Signals() chan os.Signal {
 }
 
 func (c *Controller) SetSignalsChannel(signals chan os.Signal) {
+	// Detach any prior OS-signal registration so a swapped-out channel does not
+	// keep receiving SIGINT/SIGTERM (D6). signal.Stop is a no-op for channels
+	// that were never passed to signal.Notify.
+	if c.signals != nil {
+		signal.Stop(c.signals)
+	}
+
 	c.signals = signals
 }
 
@@ -183,21 +195,38 @@ func (c *Controller) compareAndSetState(expected, next State) bool {
 	return true
 }
 
-// Start launches all registered services. Duplicate calls while already
-// running are no-ops.
+// Start launches all registered services. It is idempotent: a second call while
+// already running (or stopping/stopped) returns early without double-starting
+// services or double-counting the wait group (D3).
 func (c *Controller) Start() {
-	go c.controls()
+	// CAS Unknown -> Running. Only the first caller proceeds; this also sets the
+	// Running state before launching services so the signal handler (running
+	// concurrently via controls()) can transition to Stopping if an interrupt
+	// arrives while services are still initialising.
+	if !c.compareAndSetState(Unknown, Running) {
+		c.logger.Warn("Start called, but controller is not in the Unknown state; ignoring", "current_state", c.GetState())
+
+		return
+	}
+
+	c.logger.Debug("Controller set to running state")
+
+	// Propagate the valid-error predicate to the supervisor before any service
+	// run can be classified.
+	c.services.validError = c.validError
+
+	// Snapshot the service count under the services mutex so the wait-group add
+	// matches exactly the goroutines services.start will spawn.
+	c.services.mu.Lock()
+	serviceCount := len(c.services.services)
+	c.services.mu.Unlock()
 
 	// +1 for the controller lifecycle itself — this is only decremented
 	// when handleStopMessage completes, ensuring Wait() blocks until the
 	// full shutdown sequence (stop all services, set state) has finished.
-	c.wg.Add(1 + len(c.services.services))
+	c.wg.Add(1 + serviceCount)
 
-	// Set state before launching services so the signal handler
-	// (running concurrently via controls()) can transition to Stopping if
-	// an interrupt arrives while services are still initialising.
-	c.SetState(Running)
-	c.logger.Debug("Controller set to running state")
+	go c.controls()
 
 	c.services.start(c.ctx, c.wg, c.errs)
 	c.startAsyncHealthChecks()
@@ -228,20 +257,42 @@ func (c *Controller) controls() {
 }
 
 func (c *Controller) startSignalHandler() {
-	// handle signals
-	if c.signals != nil {
-		go func() {
-			sig := <-c.Signals()
+	// Handle OS signals. Only runs when a signal channel is configured.
+	if c.signals == nil {
+		return
+	}
+
+	go func() {
+		select {
+		case sig := <-c.Signals():
 			c.logger.Warn("received signal", "signal", sig)
 			c.Stop()
-		}()
-	}
+		case <-c.shutdownComplete:
+			// Shutdown was driven by some other path (context cancel, direct
+			// Stop). Exit rather than leak waiting for a signal that will never
+			// come.
+			return
+		}
+
+		// First signal initiated a graceful stop. Wait for shutdown to complete,
+		// but allow a second signal to force an immediate exit of this goroutine
+		// (the caller can then escalate to os.Exit if the shutdown is wedged).
+		select {
+		case sig := <-c.Signals():
+			c.logger.Warn("received second signal, forcing handler exit", "signal", sig)
+		case <-c.shutdownComplete:
+		}
+	}()
 }
 
 func (c *Controller) startErrorAndContextHandler() {
-	// handle errors and context cancellation
+	// Handle errors and context cancellation. Exits once shutdown is complete so
+	// it neither leaks nor busy-spins on a permanently-ready ctx.Done() case.
 	go func() {
-		ctxCancelled := false
+		// Local copy of the done channel; set to nil after first receipt so the
+		// select case is disabled and stops firing on every iteration (the
+		// busy-spin fix, D4).
+		done := c.GetContext().Done()
 
 		for {
 			select {
@@ -253,31 +304,59 @@ func (c *Controller) startErrorAndContextHandler() {
 				if !errors.Is(err, context.Canceled) {
 					c.logger.Error("control error", "error", err)
 				}
-			case <-c.GetContext().Done():
-				if !ctxCancelled {
-					ctxCancelled = true
+			case <-done:
+				done = nil // disable this case; ctx.Done() is now permanently ready
 
-					if !c.IsStopping() && !c.IsStopped() {
-						c.logger.Debug("stopping due to context cancellation", "error", c.GetContext().Err())
-						c.Stop()
-					}
+				if !c.IsStopping() && !c.IsStopped() {
+					c.logger.Debug("stopping due to context cancellation", "error", c.GetContext().Err())
+					c.Stop()
 				}
+			case <-c.shutdownComplete:
+				// Real exit condition: shutdown sequence finished. Drain any
+				// buffered errors without blocking, then return.
+				c.drainErrors()
+
+				return
 			}
 		}
 	}()
 }
 
-func (c *Controller) processControlMessages() {
-	// handle the control message cases
+// drainErrors empties the error channel without blocking, logging any non-cancel
+// errors. Used at handler shutdown so a buffered error is not silently dropped.
+func (c *Controller) drainErrors() {
 	for {
-		msg := <-c.Messages()
-		switch msg {
-		case Stop:
-			c.logger.Debug("received Stop message")
-			c.handleStopMessage()
-		case Status:
-			c.logger.Debug("received Status message")
-			_ = c.services.status()
+		select {
+		case err, ok := <-c.Errors():
+			if !ok {
+				return
+			}
+
+			if err != nil && !errors.Is(err, context.Canceled) {
+				c.logger.Error("control error", "error", err)
+			}
+		default:
+			return
+		}
+	}
+}
+
+func (c *Controller) processControlMessages() {
+	// Handle control messages until shutdown completes, then exit so the
+	// goroutine terminates rather than blocking forever on the channel.
+	for {
+		select {
+		case msg := <-c.Messages():
+			switch msg {
+			case Stop:
+				c.logger.Debug("received Stop message")
+				c.handleStopMessage()
+			case Status:
+				c.logger.Debug("received Status message")
+				_ = c.services.status()
+			}
+		case <-c.shutdownComplete:
+			return
 		}
 	}
 }
@@ -293,6 +372,12 @@ func (c *Controller) handleStopMessage() {
 
 	c.logger.Warn("Stopping Services")
 
+	// Detach OS-signal handling at shutdown so a late signal does not land on a
+	// channel no one is reading (D6).
+	if c.signals != nil {
+		signal.Stop(c.signals)
+	}
+
 	// Cancel the controller context so all StartFuncs blocking on
 	// ctx.Done() are unblocked before the shutdown timeout fires.
 	c.cancel(ErrShutdown)
@@ -307,6 +392,11 @@ func (c *Controller) handleStopMessage() {
 	c.services.stop(ctx)
 	c.SetState(Stopped)
 	c.logger.Info("Stopped")
+
+	// Signal the handler goroutines (error/context, signal, message processor)
+	// that the shutdown sequence is complete so they terminate.
+	close(c.shutdownComplete)
+
 	c.wg.Done()
 }
 
@@ -347,8 +437,10 @@ func (c *Controller) startAsyncCheck(entry *healthCheckEntry) {
 }
 
 // healthCheckStatuses collects ServiceStatus entries from health checks
-// matching the given filter function.
-func (c *Controller) healthCheckStatuses(filter func(CheckType) bool) ([]ServiceStatus, bool) {
+// matching the given filter function. When failClosed is true (readiness gating),
+// an async check whose first run has not yet produced a cached result is reported
+// as not-ready rather than defaulting to OK (D7).
+func (c *Controller) healthCheckStatuses(filter func(CheckType) bool, failClosed bool) ([]ServiceStatus, bool) {
 	var statuses []ServiceStatus
 
 	allHealthy := true
@@ -359,7 +451,7 @@ func (c *Controller) healthCheckStatuses(filter func(CheckType) bool) ([]Service
 		}
 
 		r := entry.result(c.ctx)
-		s, healthy := toServiceStatus(entry.check.Name, r)
+		s, healthy := toServiceStatus(entry.check.Name, r, failClosed)
 		statuses = append(statuses, s)
 
 		if !healthy {
@@ -373,8 +465,8 @@ func (c *Controller) healthCheckStatuses(filter func(CheckType) bool) ([]Service
 // Status returns an aggregate health report for all registered services and health checks.
 func (c *Controller) Status() HealthReport {
 	report := c.services.status()
-	// Status includes all check types.
-	checks, healthy := c.healthCheckStatuses(func(_ CheckType) bool { return true })
+	// Status includes all check types. Not a readiness gate, so do not fail closed.
+	checks, healthy := c.healthCheckStatuses(func(_ CheckType) bool { return true }, false)
 	report.Services = append(report.Services, checks...)
 
 	if !healthy {
@@ -389,7 +481,7 @@ func (c *Controller) Liveness() HealthReport {
 	report := c.services.liveness()
 	checks, healthy := c.healthCheckStatuses(func(ct CheckType) bool {
 		return ct == CheckTypeLiveness || ct == CheckTypeBoth
-	})
+	}, false)
 	report.Services = append(report.Services, checks...)
 
 	if !healthy {
@@ -402,9 +494,10 @@ func (c *Controller) Liveness() HealthReport {
 // Readiness returns an aggregate readiness report for all registered services and health checks.
 func (c *Controller) Readiness() HealthReport {
 	report := c.services.readiness()
+	// Readiness gates traffic: fail closed when an async check has not yet run.
 	checks, healthy := c.healthCheckStatuses(func(ct CheckType) bool {
 		return ct == CheckTypeReadiness || ct == CheckTypeBoth
-	})
+	}, true)
 	report.Services = append(report.Services, checks...)
 
 	if !healthy {
@@ -457,6 +550,29 @@ func WithLogger(l logger.Logger) ControllerOpt {
 	}
 }
 
+// WithValidError registers a predicate that identifies expected terminal errors
+// (e.g. http.ErrServerClosed, context.Canceled). The restart supervisor treats a
+// matching error as a graceful end-of-run rather than a failure, so it neither
+// counts toward the restart total nor is forwarded on the error channel (D7).
+func WithValidError(fn ValidErrorFunc) ControllerOpt {
+	return func(c Configurable) {
+		if vs, ok := c.(validErrorSetter); ok {
+			vs.setValidError(fn)
+		}
+	}
+}
+
+// validErrorSetter is satisfied by *Controller and lets WithValidError set the
+// predicate through the Configurable option surface without widening the public
+// Configurable interface.
+type validErrorSetter interface {
+	setValidError(fn ValidErrorFunc)
+}
+
+func (c *Controller) setValidError(fn ValidErrorFunc) {
+	c.validError = fn
+}
+
 // NewController creates a Controller with the given context and options.
 // By default, it registers SIGINT and SIGTERM handlers for graceful shutdown.
 // Use WithoutSignals to disable signal handling (useful in tests).
@@ -464,24 +580,30 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 	ctx, cancel := context.WithCancelCause(ctx)
 
 	c := &Controller{
-		ctx:             ctx,
-		cancel:          cancel,
-		logger:          logger.NewCharm(os.Stdout),
-		messages:        make(chan Message),
-		health:          make(chan HealthMessage),
-		errs:            make(chan error),
-		wg:              &sync.WaitGroup{},
-		shutdownTimeout: DefaultShutdownTimeout,
-		state:           Unknown,
-		services:        Services{},
-		healthChecks:    make(map[string]*healthCheckEntry),
+		ctx:              ctx,
+		cancel:           cancel,
+		logger:           logger.NewCharm(os.Stdout),
+		messages:         make(chan Message),
+		health:           make(chan HealthMessage),
+		errs:             make(chan error),
+		signals:          make(chan os.Signal, 1),
+		wg:               &sync.WaitGroup{},
+		shutdownTimeout:  DefaultShutdownTimeout,
+		state:            Unknown,
+		services:         Services{},
+		healthChecks:     make(map[string]*healthCheckEntry),
+		shutdownComplete: make(chan struct{}),
 	}
-
-	c.SetSignalsChannel(make(chan os.Signal, 1))
-	signal.Notify(c.Signals(), syscall.SIGINT, syscall.SIGTERM)
 
 	for _, opt := range opts {
 		opt(c)
+	}
+
+	// Register OS-signal handling only after options are applied, and only if a
+	// signal channel survives (WithoutSignals sets it to nil). This prevents an
+	// orphaned signal.Notify registration that would swallow SIGINT/SIGTERM (D6).
+	if c.signals != nil {
+		signal.Notify(c.signals, syscall.SIGINT, syscall.SIGTERM)
 	}
 
 	return c

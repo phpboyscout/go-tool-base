@@ -1,7 +1,7 @@
 ---
 title: "Controls supervisor & lifecycle hardening — idempotent start, real restart semantics, no busy-spin"
 description: "Fix the pkg/controls supervisor and goroutine-lifecycle cluster: an idempotent Start, a restart policy that distinguishes clean-exit/cancel/error and never sends nil errors, a busy-spin-free error/context handler, force-stop on shutdown timeout, correct signal disposition for WithoutSignals, validated lifecycle funcs, and readiness that fails closed before the first async check. Closes seven controls findings from the 2026-06-12 audit."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-12
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-12
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-12)
+:   IMPLEMENTED (open questions resolved in review 2026-06-12; implemented on `fix/controls-supervisor-lifecycle`, see `docs/development/implementation-notes/2026-06-12-controls-supervisor-lifecycle.md`)
 
 ## Summary
 

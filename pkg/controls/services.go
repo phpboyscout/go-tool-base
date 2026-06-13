@@ -13,26 +13,91 @@ const (
 	defaultMaxBackoff     = 30 * time.Second
 	defaultHealthInterval = 10 * time.Second
 	backoffMultiplier     = 2.0
+
+	// DefaultRestartResetInterval is the duration a service must run healthily
+	// before its consecutive-failure restart counter resets to zero.
+	DefaultRestartResetInterval = 30 * time.Second
 )
+
+// runOutcome classifies the result of a single service run for the supervisor.
+type runOutcome int
+
+const (
+	// outcomeCleanStart means Start returned nil — the service either completed
+	// cleanly or, more commonly, serves in a background goroutine. It is NOT an
+	// exit and is never restarted; such services are supervised via health checks.
+	outcomeCleanStart runOutcome = iota
+	// outcomeCancelled means the run ended because the controller context was
+	// cancelled (graceful shutdown). It never triggers a restart.
+	outcomeCancelled
+	// outcomeError means Start returned a non-nil, non-valid error while the
+	// context was still live. Only this outcome may trigger a restart.
+	outcomeError
+)
+
+// noopStop is the default StopFunc used when a service registers none.
+func noopStop(context.Context) {}
+
+// noopStart is the default StartFunc used when a service registers none.
+func noopStart(context.Context) error { return nil }
 
 // Services manages the collection of registered services and their lifecycle.
 type Services struct {
-	mu       sync.Mutex
-	services []Service
-	info     sync.Map // map[string]ServiceInfo
+	mu         sync.Mutex
+	services   []Service
+	info       sync.Map // map[string]ServiceInfo
+	validError ValidErrorFunc
 }
 
 func (q *Services) add(s Service) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
+	// D5: default missing lifecycle funcs to no-ops so the supervisor and the
+	// shutdown sequence never dereference a nil func.
+	if s.Start == nil {
+		s.Start = noopStart
+	}
+
+	if s.Stop == nil {
+		s.Stop = noopStop
+	}
+
 	q.services = append(q.services, s)
 	q.info.Store(s.Name, ServiceInfo{Name: s.Name})
 }
 
-func (q *Services) monitorHealth(ctx context.Context, srv Service, updateInfo func(func(*ServiceInfo))) {
+// classifyRun determines the outcome of a single Start invocation. The validError
+// predicate (if set) exempts expected terminal errors (e.g. http.ErrServerClosed)
+// from being treated as failures.
+func (q *Services) classifyRun(ctx context.Context, err error) runOutcome {
+	if err == nil {
+		return outcomeCleanStart
+	}
+
+	if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+		return outcomeCancelled
+	}
+
+	if q.validError != nil && q.validError(err) {
+		return outcomeCancelled
+	}
+
+	return outcomeError
+}
+
+// monitorHealth supervises a background-serving service via its Status probe. It
+// returns true if it ended because the health-failure threshold was breached (a
+// restart-worthy condition), or false if it ended because the context was
+// cancelled or there is nothing to monitor (in which case the service is supervised
+// purely by its clean start and should simply wait for shutdown).
+func (q *Services) monitorHealth(ctx context.Context, srv Service, updateInfo func(func(*ServiceInfo))) bool {
 	if srv.RestartPolicy.HealthFailureThreshold <= 0 || srv.Status == nil {
-		return
+		// Nothing to monitor: a clean start is not an exit, so block until the
+		// controller shuts down rather than falling through to a restart.
+		<-ctx.Done()
+
+		return false
 	}
 
 	healthInterval := srv.RestartPolicy.HealthCheckInterval
@@ -53,13 +118,13 @@ func (q *Services) monitorHealth(ctx context.Context, srv Service, updateInfo fu
 						i.Error = errors.Wrap(err, "health check failed")
 					})
 
-					return
+					return true
 				}
 			} else {
 				healthFailures = 0 // Reset on success
 			}
 		case <-ctx.Done():
-			return
+			return false
 		}
 	}
 }
@@ -112,7 +177,9 @@ func (q *Services) runOnce(ctx context.Context, srv Service, errs chan error, up
 		i.Error = err
 	})
 
-	if err != nil {
+	// Only forward genuine errors; a clean start, a cancellation, or a valid
+	// terminal error (e.g. http.ErrServerClosed) is not a failure.
+	if q.classifyRun(ctx, err) == outcomeError {
 		errs <- err
 	}
 }
@@ -126,40 +193,89 @@ func calculateNextBackoff(current, max time.Duration) time.Duration {
 	return next
 }
 
+// restartTimings holds the resolved backoff/reset parameters for a restart loop.
+type restartTimings struct {
+	backoff       time.Duration
+	maxBackoff    time.Duration
+	resetInterval time.Duration
+}
+
+func resolveRestartTimings(p *RestartPolicy) restartTimings {
+	t := restartTimings{
+		backoff:       p.InitialBackoff,
+		maxBackoff:    p.MaxBackoff,
+		resetInterval: p.RestartResetInterval,
+	}
+
+	if t.backoff == 0 {
+		t.backoff = defaultInitialBackoff
+	}
+
+	if t.maxBackoff == 0 {
+		t.maxBackoff = defaultMaxBackoff
+	}
+
+	if t.resetInterval == 0 {
+		t.resetInterval = DefaultRestartResetInterval
+	}
+
+	return t
+}
+
+// runOnceWithRestart performs a single supervised run. It returns the Start error
+// and whether the restart loop should keep going (false means terminate: graceful
+// shutdown or a clean start with no exit).
+func (q *Services) runOnceWithRestart(ctx context.Context, srv Service, markStarted func(), updateInfo func(func(*ServiceInfo))) (error, bool) {
+	updateInfo(func(i *ServiceInfo) { i.LastStarted = time.Now() })
+
+	err := srv.Start(ctx)
+
+	updateInfo(func(i *ServiceInfo) {
+		i.LastStopped = time.Now()
+		i.Error = err
+	})
+
+	switch q.classifyRun(ctx, err) {
+	case outcomeCancelled:
+		// Graceful shutdown (or an expected terminal error). Never restart.
+		return err, false
+	case outcomeCleanStart:
+		// Start returned nil: the service serves in the background. Mark it
+		// started and supervise it via its health check. monitorHealth blocks
+		// until the context is cancelled (shutdown) or the health threshold is
+		// breached. A clean start that is not health-failed is never an exit.
+		markStarted()
+
+		return err, q.monitorHealth(ctx, srv, updateInfo)
+	default: // outcomeError
+		return err, true
+	}
+}
+
 func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs chan error, markStarted func(), updateInfo func(func(*ServiceInfo))) {
 	restarts := 0
-
-	backoff := srv.RestartPolicy.InitialBackoff
-	if backoff == 0 {
-		backoff = defaultInitialBackoff
-	}
-
-	maxBackoff := srv.RestartPolicy.MaxBackoff
-	if maxBackoff == 0 {
-		maxBackoff = defaultMaxBackoff
-	}
+	timings := resolveRestartTimings(srv.RestartPolicy)
 
 	for {
-		updateInfo(func(i *ServiceInfo) { i.LastStarted = time.Now() })
+		runStarted := time.Now()
 
-		err := srv.Start(ctx)
-
-		updateInfo(func(i *ServiceInfo) {
-			i.LastStopped = time.Now()
-			i.Error = err
-		})
-
-		// Clean exit or successful start
-		if err == nil {
-			markStarted()
-			q.monitorHealth(ctx, srv, updateInfo)
-		} else if errors.Is(err, context.Canceled) {
+		err, keepGoing := q.runOnceWithRestart(ctx, srv, markStarted, updateInfo)
+		if !keepGoing {
 			return
 		}
 
-		// Check if we've exhausted restarts
+		// The run ended in a failure (Start error or health breach). Reset the
+		// consecutive-failure counter if it ran healthily for long enough.
+		if time.Since(runStarted) >= timings.resetInterval {
+			restarts = 0
+		}
+
+		// Check if we've exhausted restarts.
 		if srv.RestartPolicy.MaxRestarts > 0 && restarts >= srv.RestartPolicy.MaxRestarts {
-			finalErr := errors.Wrap(err, "max restarts exceeded")
+			finalErr := errors.New("max restarts exceeded")
+			if err != nil {
+				finalErr = errors.Wrap(err, "max restarts exceeded")
+			}
 
 			updateInfo(func(i *ServiceInfo) { i.Error = finalErr })
 
@@ -172,12 +288,17 @@ func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs c
 
 		updateInfo(func(i *ServiceInfo) { i.RestartCount = restarts })
 
-		errs <- err
+		// Never send nil on errs (errors.Wrap(nil,...) returns nil). A health
+		// failure stores its error via monitorHealth/updateInfo; only forward a
+		// non-nil Start error here.
+		if err != nil {
+			errs <- err
+		}
 
-		// Wait for backoff or cancellation
+		// Wait for backoff or cancellation.
 		select {
-		case <-time.After(backoff):
-			backoff = calculateNextBackoff(backoff, maxBackoff)
+		case <-time.After(timings.backoff):
+			timings.backoff = calculateNextBackoff(timings.backoff, timings.maxBackoff)
 
 			continue
 		case <-ctx.Done():
@@ -186,15 +307,48 @@ func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs c
 	}
 }
 
+// stop shuts services down in reverse registration order, one at a time. Each
+// StopFunc runs in its own goroutine and is awaited against ctx.Done(): a
+// context-ignoring stop is abandoned at the shutdown deadline rather than hanging
+// the caller (and Wait()) forever. The abandoned goroutine is left to finish on
+// its own. Returns the number of services.
 func (q *Services) stop(ctx context.Context) int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	for _, s := range q.services {
-		s.Stop(ctx)
+	for i := len(q.services) - 1; i >= 0; i-- {
+		s := q.services[i]
+
+		done := make(chan struct{})
+
+		go func() {
+			defer close(done)
+
+			callStop(ctx, s.Stop)
+		}()
+
+		select {
+		case <-done:
+			// Stop completed within the remaining deadline.
+		case <-ctx.Done():
+			// Deadline reached: abandon this stop and move on to the next service.
+			// Remaining stops still get a best-effort attempt, but with the
+			// deadline already elapsed their own ctx.Done() fires immediately.
+			// The abandoned goroutine is left to finish on its own.
+		}
 	}
 
 	return len(q.services)
+}
+
+// callStop invokes a StopFunc, recovering from a panic so a misbehaving stop
+// cannot crash the shutdown sequence. fn is never nil (defaulted at registration).
+func callStop(ctx context.Context, fn StopFunc) {
+	defer func() {
+		_ = recover()
+	}()
+
+	fn(ctx)
 }
 
 // callProbe calls fn and returns any error it produces. If fn panics, the panic
