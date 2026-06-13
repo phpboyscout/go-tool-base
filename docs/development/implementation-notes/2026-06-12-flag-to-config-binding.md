@@ -3,7 +3,7 @@ title: "Implementation notes — Flag-to-config binding"
 description: "What shipped for the flag-to-config-binding spec, deviations, and open questions for review."
 date: 2026-06-13
 tags: [implementation-notes, config, cmd, flags]
-authors: [Matt Cockayne <matt@phpboyscout.com>]
+authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---
 
 # Implementation notes — Flag-to-config binding
