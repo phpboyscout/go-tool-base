@@ -164,7 +164,7 @@ func (h *StandardErrorHandler) logError(err error, prefix, level string) {
 	switch level {
 	case LevelFatal:
 		l.Error(err.Error(), kvPairs...)
-		h.Exit(1)
+		h.Exit(ExitCode(err))
 	case LevelError:
 		l.Error(err.Error(), kvPairs...)
 	case LevelWarn:

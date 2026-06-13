@@ -112,7 +112,18 @@ func main() {
 }
 ```
 
-`Execute` sets `SilenceErrors` and `SilenceUsage` on the root command so Cobra never prints errors itself, and adds a `--help` hint to all flag parse errors.
+`Execute` sets `SilenceErrors` and `SilenceUsage` on the root command so Cobra never prints errors itself, and adds a `--help` hint to all flag parse errors. It also runs the command tree under a signal-aware context — see the [Root Command documentation](commands/root.md#signal-handling) for the full signal lifecycle.
+
+#### 4. Custom Exit Codes
+
+A fatal error normally terminates the process with exit code `1`. Callers that need a different code — for example the Unix `128+signum` convention for signal-terminated runs — attach it with `WithExitCode` and the `ErrorHandler`'s fatal path honours it:
+
+```go
+err := errorhandling.WithExitCode(errors.New("interrupted by signal: interrupt"), 130)
+props.ErrorHandler.Check(err, "", errorhandling.LevelFatal) // exits 130
+```
+
+`ExitCode(err)` reads the attached code back (returning `0` for `nil` and `1` for an error without an attachment). The attachment is transparent to `errors.Is`/`errors.As` and survives further wrapping, so hints and stack traces continue to work as normal. This keeps every process exit routed through the single `ErrorHandler` exit path instead of scattering `os.Exit` calls.
 
 ## Advanced Features
 
