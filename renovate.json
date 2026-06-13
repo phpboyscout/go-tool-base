@@ -14,6 +14,8 @@
   "automerge": true,
   "automergeType": "pr",
   "automergeStrategy": "rebase",
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
   "packageRules": [
     {
       "description": "Auto-merge patch + minor for trusted ecosystems; majors require human review",
@@ -47,6 +49,7 @@
   "vulnerabilityAlerts": {
     "enabled": true,
     "automerge": true,
+    "minimumReleaseAge": "0",
     "labels": ["security"]
   }
 }
