@@ -378,6 +378,83 @@ func TestValidateCommandName(t *testing.T) {
 	}
 }
 
+func TestValidateFlagName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "simple", input: "env", wantErr: false},
+		{name: "kebab", input: "log-level", wantErr: false},
+		{name: "digits after first", input: "v2", wantErr: false},
+		{name: "max length 64", input: "a" + strings.Repeat("b", 63), wantErr: false},
+
+		{name: "empty", input: "", wantErr: true},
+		{name: "uppercase", input: "Env", wantErr: true},
+		{name: "underscore", input: "log_level", wantErr: true},
+		{name: "leading digit", input: "2fa", wantErr: true},
+		{name: "leading hyphen", input: "-env", wantErr: true},
+		{name: "traversal", input: "../escape", wantErr: true},
+		{name: "slash", input: "a/b", wantErr: true},
+		{name: "space", input: "log level", wantErr: true},
+		{name: "over-length 65", input: "a" + strings.Repeat("b", 64), wantErr: true},
+		{name: "NUL byte", input: "env\x00", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateFlagName(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateFlagType(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty defaults to string", input: "", wantErr: false},
+		{name: "string", input: "string", wantErr: false},
+		{name: "bool", input: "bool", wantErr: false},
+		{name: "int", input: "int", wantErr: false},
+		{name: "float64", input: "float64", wantErr: false},
+		{name: "duration", input: "duration", wantErr: false},
+		{name: "stringSlice", input: "stringSlice", wantErr: false},
+		{name: "intSlice", input: "intSlice", wantErr: false},
+
+		{name: "unknown", input: "notatype", wantErr: true},
+		{name: "go-ism not supported", input: "[]string", wantErr: true},
+		{name: "uppercase string", input: "String", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateFlagType(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateParentPath(t *testing.T) {
 	t.Parallel()
 

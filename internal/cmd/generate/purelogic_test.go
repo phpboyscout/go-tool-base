@@ -338,6 +338,69 @@ func TestAddFlagOptions_ValidateOrPrompt_BothSet(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestAddFlagOptions_ValidateOrPrompt_NonInteractiveValidation proves the
+// non-interactive path (both --command and --name supplied) applies the
+// same --type / --name / command-path validation the interactive wizard
+// relies on, so a bad value can't corrupt the manifest.
+func TestAddFlagOptions_ValidateOrPrompt_NonInteractiveValidation(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{Logger: logger.NewNoop()}
+
+	cases := []struct {
+		name    string
+		opts    AddFlagOptions
+		wantErr bool
+	}{
+		{
+			name:    "valid",
+			opts:    AddFlagOptions{CommandName: "deploy", FlagName: "env", FlagType: "string"},
+			wantErr: false,
+		},
+		{
+			name:    "valid nested command path",
+			opts:    AddFlagOptions{CommandName: "kube/login", FlagName: "context", FlagType: "stringSlice"},
+			wantErr: false,
+		},
+		{
+			name:    "bad flag type",
+			opts:    AddFlagOptions{CommandName: "deploy", FlagName: "env", FlagType: "notatype"},
+			wantErr: true,
+		},
+		{
+			name:    "bad flag name uppercase",
+			opts:    AddFlagOptions{CommandName: "deploy", FlagName: "Env", FlagType: "string"},
+			wantErr: true,
+		},
+		{
+			name:    "bad flag name traversal",
+			opts:    AddFlagOptions{CommandName: "deploy", FlagName: "../escape", FlagType: "string"},
+			wantErr: true,
+		},
+		{
+			name:    "bad command path segment",
+			opts:    AddFlagOptions{CommandName: "deploy/../etc", FlagName: "env", FlagType: "string"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			o := tc.opts
+			err := o.ValidateOrPrompt(p)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 // -- AddFlagOptions.loadManifest ----------------------------------------------
 
 func TestAddFlagOptions_LoadManifest_NotFound(t *testing.T) {

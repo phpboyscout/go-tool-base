@@ -168,6 +168,22 @@ Flags:
   -t, --type string          Flag type (string, bool, int, float64, stringSlice, intSlice) (default "string")
 ```
 
+Both invocation paths validate their inputs. The non-interactive path
+(both `--command` and `--name` supplied on the command line) applies the
+same rules the interactive wizard enforces before touching the manifest:
+
+- the command path is validated segment-by-segment via
+  `generator.ValidateCommandName` (kebab-case + underscore, lowercase
+  first, no path separators or dots),
+- `--name` is validated by `generator.ValidateFlagName`
+  (`^[a-z][a-z0-9-]{0,63}$`), and
+- `--type` is validated by `generator.ValidateFlagType` (one of the
+  renderable types; an unknown type is rejected rather than silently
+  degraded to a string flag).
+
+A bad value returns a `generator.ErrInvalidInput`-wrapped error instead
+of corrupting `.gtb/manifest.yaml`.
+
 ### Docs
 
 Generates documentation for a command using AI analysis of the source code.
@@ -194,3 +210,10 @@ Flags:
       --path string      Path to project root (default ".")
       --source string    Path to the command source code (deprecated, use --command)
 ```
+
+`--source` is a **deprecated** alias for `--command` (Cobra prints a
+deprecation warning steering you to `--command`). It still works:
+`docs` falls back to `--source` when `--command` is empty, and it
+participates in the one-required `{command|package|source}` group, so a
+source-only invocation is accepted rather than wrongly rejected.
+`--source` is mutually exclusive with `--package`.

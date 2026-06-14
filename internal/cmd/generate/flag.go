@@ -54,7 +54,7 @@ func NewCmdAddFlag(p *props.Props) *cobra.Command {
 
 func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 	if o.CommandName != "" && o.FlagName != "" {
-		return nil
+		return o.validateNonInteractive()
 	}
 
 	if !utils.IsInteractive() {
@@ -107,6 +107,25 @@ func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 	)
 
 	return form.Run()
+}
+
+// validateNonInteractive applies the same field rules the interactive
+// wizard enforces (and more) when both --command and --name arrive from
+// the command line. Without this gate a bad --type or --name flowed
+// straight into the manifest and the generated Go identifiers; the
+// command path is validated segment-by-segment the same way --parent is.
+func (o *AddFlagOptions) validateNonInteractive() error {
+	for _, seg := range strings.Split(strings.Trim(o.CommandName, "/"), "/") {
+		if err := generator.ValidateCommandName(seg); err != nil {
+			return err
+		}
+	}
+
+	if err := generator.ValidateFlagName(o.FlagName); err != nil {
+		return err
+	}
+
+	return generator.ValidateFlagType(o.FlagType)
 }
 
 func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {

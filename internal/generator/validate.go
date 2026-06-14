@@ -75,7 +75,36 @@ var (
 	// public-key path. A leading alphanumeric forecloses "." and ".."
 	// segments.
 	publicKeySegmentRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$`)
+	// flagNameRe matches a generated command's flag name (the long form
+	// passed to cobra's Flags().XxxVar): kebab-case, a lowercase letter
+	// first, at most 64 characters. The name flows into a generated Go
+	// identifier (pascalCase) and a cobra flag registration, so the class
+	// is constrained the same way command names are.
+	flagNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 )
+
+// validFlagTypes is the set of flag types the command generator knows
+// how to render (kept in sync with templates/command.go's flagFuncMap
+// plus the empty/"string" default). A flag type outside this set would
+// silently fall back to a string flag at generation time, so the
+// non-interactive add-flag path rejects it up front.
+var validFlagTypes = map[string]bool{
+	"":            true,
+	"string":      true,
+	"bool":        true,
+	"int":         true,
+	"int32":       true,
+	"int64":       true,
+	"uint":        true,
+	"uint32":      true,
+	"uint64":      true,
+	"float64":     true,
+	"duration":    true,
+	"stringSlice": true,
+	"stringslice": true,
+	"intSlice":    true,
+	"intslice":    true,
+}
 
 // reservedCommandNames are command names the generator claims for itself:
 // "root" is the scaffolded root command package and "options" collides with
@@ -247,6 +276,42 @@ func ValidateName(name string) error {
 		return rejectf("Name",
 			"name must match ^[a-z][a-z0-9-]{0,63}$ — lowercase letter first, then lowercase letters, digits, or hyphens, max 64 chars",
 			n)
+	}
+
+	return nil
+}
+
+// ValidateFlagName enforces the naming rule for a generated command's
+// flag: kebab-case, a lowercase letter first, at most 64 characters
+// (^[a-z][a-z0-9-]{0,63}$). The name becomes a Go identifier in the
+// generated options struct and a cobra flag registration, so the same
+// constraint as command names applies.
+func ValidateFlagName(name string) error {
+	n := norm.NFC.String(name)
+	if n == "" {
+		return rejectf("FlagName", "flag name must not be empty", "")
+	}
+
+	if !flagNameRe.MatchString(n) {
+		return rejectf("FlagName",
+			"flag name must match ^[a-z][a-z0-9-]{0,63}$ — lowercase letter first, then lowercase letters, digits, or hyphens, max 64 chars",
+			n)
+	}
+
+	return nil
+}
+
+// ValidateFlagType rejects a flag type the command generator can't
+// render. The empty string and "string" are accepted (both map to a
+// string flag); every other value must be one the generator's
+// flagFuncMap knows. Without this gate an unknown type silently
+// degrades to a string flag in the generated code.
+func ValidateFlagType(flagType string) error {
+	t := norm.NFC.String(flagType)
+	if !validFlagTypes[t] {
+		return rejectf("FlagType",
+			"flag type must be one of: string, bool, int, int32, int64, uint, uint32, uint64, float64, duration, stringSlice, intSlice",
+			t)
 	}
 
 	return nil
