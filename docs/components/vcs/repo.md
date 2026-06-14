@@ -70,7 +70,7 @@ gitRepo, worktree, err := r.Clone(url, "/path/to/target",
 
 ### Polymorphic open
 
-`Open` dispatches to `OpenLocal` or `OpenInMemory` based on the `RepoType` string:
+`Open` dispatches to `OpenLocal` or `OpenInMemory` based on the `RepoType` value (a defined string type):
 
 ```go
 gitRepo, worktree, err := r.Open(repo.InMemoryRepo, url, "main",
@@ -224,7 +224,7 @@ const (
     SourceLocal          // 2 — filesystem storage
 )
 
-var (
+const (
     LocalRepo    RepoType = "local"
     InMemoryRepo RepoType = "inmemory"
 )

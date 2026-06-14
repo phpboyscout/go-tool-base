@@ -37,9 +37,11 @@ const (
 )
 
 // RepoType identifies the repository backend (local filesystem or in-memory).
-type RepoType = string
+// It is a defined type rather than a bare string alias so the backend
+// discriminator carries its own type at call sites.
+type RepoType string
 
-var (
+const (
 	LocalRepo    RepoType = "local"
 	InMemoryRepo RepoType = "inmemory"
 )
@@ -463,7 +465,7 @@ func (r *Repo) OpenLocal(location string, branch string) (*git.Repository, *git.
 
 // Open opens a local git repository. if no repo exists will init a repo.
 func (r *Repo) Open(repoType RepoType, location string, branch string, opts ...CloneOption) (*git.Repository, *git.Worktree, error) {
-	switch strings.ToLower(repoType) {
+	switch RepoType(strings.ToLower(string(repoType))) {
 	case LocalRepo:
 		return r.OpenLocal(location, branch)
 	case InMemoryRepo:
