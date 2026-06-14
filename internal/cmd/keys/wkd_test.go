@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/armor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -31,6 +34,84 @@ func writeArmoredKey(t *testing.T, dir, filename, name, email string) string {
 	return path
 }
 
+// TestParseKeyFiles_RingFileDeduplicatesPerEntity proves that a single
+// input file holding two entities yields two parsedKey entries whose
+// `raw` bytes differ (each is the re-serialized single entity), rather
+// than two copies of the whole file. Regression for
+// wkd-keyring-file-duplicates-raw-bytes-per-entity.
+func TestParseKeyFiles_RingFileDeduplicatesPerEntity(t *testing.T) {
+	t.Parallel()
+
+	in := t.TempDir()
+
+	ringBytes := twoEntityRing(t, "release@phpboyscout.uk")
+
+	ring := filepath.Join(in, "ring.asc")
+	require.NoError(t, os.WriteFile(ring, ringBytes, 0o600))
+
+	parsed, err := parseKeyFiles([]string{ring})
+	require.NoError(t, err)
+	require.Len(t, parsed, 2, "a two-entity ring must yield two parsedKey entries")
+
+	// Each entry carries ONLY its own entity, so the two raw blobs differ
+	// and neither equals the whole-file bytes (the old bug attached the
+	// whole ring to every entity).
+	assert.NotEqual(t, parsed[0].raw, parsed[1].raw,
+		"per-entity bytes must differ; the old bug attached the whole file to both")
+	assert.NotEqual(t, ringBytes, parsed[0].raw,
+		"parsedKey.raw must be a single re-serialized entity, not the whole ring file")
+
+	// Each re-serialized entity must itself be a parseable single key.
+	for _, pk := range parsed {
+		single, perr := parseKeyFiles([]string{writeRaw(t, in, pk.raw)})
+		require.NoError(t, perr)
+		assert.Len(t, single, 1)
+	}
+}
+
+// twoEntityRing builds a single ASCII-armored block containing two
+// distinct OpenPGP public keys that both claim the same email, so
+// ReadArmoredKeyRing parses it as a two-entity ring.
+func twoEntityRing(t *testing.T, email string) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+
+	w, err := armor.Encode(&buf, openpgp.PublicKeyType, nil)
+	require.NoError(t, err)
+
+	for range 2 {
+		priv, kerr := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, kerr)
+
+		armored, aerr := openpgpkey.ArmoredPublicKey(priv, "Release", email, time.Date(2026, 6, 9, 0, 0, 0, 0, time.UTC))
+		require.NoError(t, aerr)
+
+		ents, perr := openpgp.ReadArmoredKeyRing(bytes.NewReader(armored))
+		require.NoError(t, perr)
+		require.Len(t, ents, 1)
+		require.NoError(t, ents[0].Serialize(w))
+	}
+
+	require.NoError(t, w.Close())
+
+	return buf.Bytes()
+}
+
+// writeRaw writes b to a uniquely-named .asc file under dir and returns
+// the path, for round-tripping re-serialized entity bytes.
+func writeRaw(t *testing.T, dir string, b []byte) string {
+	t.Helper()
+
+	f, err := os.CreateTemp(dir, "entity-*.asc")
+	require.NoError(t, err)
+	_, err = f.Write(b)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	return f.Name()
+}
+
 func TestWKD_HappyPath(t *testing.T) {
 	t.Parallel()
 
@@ -46,7 +127,7 @@ func TestWKD_HappyPath(t *testing.T) {
 		[]string{"release@phpboyscout.uk"},
 		out,
 		"advanced",
-		"",
+		"auto", // opt in to the submission-address file (first --email)
 	)
 	require.NoError(t, err)
 
@@ -63,7 +144,7 @@ func TestWKD_HappyPath(t *testing.T) {
 	}
 }
 
-func TestWKD_SubmissionAddress_DefaultsToFirstEmail(t *testing.T) {
+func TestWKD_SubmissionAddress_EmptyOmitsFile(t *testing.T) {
 	t.Parallel()
 
 	in := t.TempDir()
@@ -77,13 +158,59 @@ func TestWKD_SubmissionAddress_DefaultsToFirstEmail(t *testing.T) {
 		[]string{"release@phpboyscout.uk"},
 		out,
 		"advanced",
-		"", // empty → should default to first --email
+		"", // empty → omit the submission-address file (matches the help)
+	)
+	require.NoError(t, err)
+
+	_, statErr := os.Stat(filepath.Join(out, ".well-known", "openpgpkey", "phpboyscout.uk", "submission-address"))
+	assert.True(t, os.IsNotExist(statErr),
+		"empty --submission-address must omit the file, per the documented behaviour")
+}
+
+func TestWKD_SubmissionAddress_AutoUsesFirstEmail(t *testing.T) {
+	t.Parallel()
+
+	in := t.TempDir()
+	out := t.TempDir()
+
+	key := writeArmoredKey(t, in, "k.asc", "Release", "release@phpboyscout.uk")
+
+	err := runWKD(newTestProps(),
+		[]string{key},
+		"phpboyscout.uk",
+		[]string{"release@phpboyscout.uk"},
+		out,
+		"advanced",
+		"auto", // explicit opt-in → first --email
 	)
 	require.NoError(t, err)
 
 	sub, err := os.ReadFile(filepath.Join(out, ".well-known", "openpgpkey", "phpboyscout.uk", "submission-address"))
 	require.NoError(t, err)
 	assert.Equal(t, "release@phpboyscout.uk", string(sub))
+}
+
+func TestWKD_SubmissionAddress_ExplicitOverride(t *testing.T) {
+	t.Parallel()
+
+	in := t.TempDir()
+	out := t.TempDir()
+
+	key := writeArmoredKey(t, in, "k.asc", "Release", "release@phpboyscout.uk")
+
+	err := runWKD(newTestProps(),
+		[]string{key},
+		"phpboyscout.uk",
+		[]string{"release@phpboyscout.uk"},
+		out,
+		"advanced",
+		"keys@phpboyscout.uk", // explicit address used verbatim
+	)
+	require.NoError(t, err)
+
+	sub, err := os.ReadFile(filepath.Join(out, ".well-known", "openpgpkey", "phpboyscout.uk", "submission-address"))
+	require.NoError(t, err)
+	assert.Equal(t, "keys@phpboyscout.uk", string(sub))
 }
 
 func TestWKD_AutoDiscoverEmails_WhenFlagOmitted(t *testing.T) {

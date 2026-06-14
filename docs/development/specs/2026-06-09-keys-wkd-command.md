@@ -163,7 +163,7 @@ Per RFC §3.1 the directory `policy` file is "always provided but may be empty";
 Emit both:
 
 - **`policy`** — zero-byte file by default. A future `--policy-key value` flag could populate it.
-- **`submission-address`** — written when `Options.SubmissionAddress` is non-empty (CLI flag `--submission-address <email>`, defaulting to the first `--email` value). The file's content is the email address with no trailing newline.
+- **`submission-address`** — written when `Options.SubmissionAddress` is non-empty. At the CLI, `--submission-address` is empty by default and the file is **omitted**; pass `--submission-address auto` to populate it from the first `--email`, or `--submission-address <email>` to set it explicitly. (Earlier drafts defaulted empty to the first `--email`, contradicting the flag help — the empty-means-omit behaviour the help promised is now the implemented default.) The file's content is the email address with no trailing newline.
 
 Both files live in the same directory as `hu/` — i.e. `.well-known/openpgpkey/<domain>/` for the advanced method, `.well-known/openpgpkey/` for direct.
 
@@ -201,7 +201,7 @@ Before generating the tree:
 Open questions were reviewed with the user on 2026-06-09 before implementation:
 
 1. **Q1 — Multi-email enabled in v0.1.** `--email` is repeatable; each requested address gets its own `hu/<hash>` bucket; a single key with multiple matching UIDs ends up in each matching bucket. Bigger initial surface than the single-email v0.1 the spec originally proposed, but rounds out the RFC coverage in one go. (See D5.)
-2. **Q2 — Emit both `policy` and `submission-address`.** `policy` is zero-byte by default (RFC-required). `submission-address` is configurable via `--submission-address <email>` and defaults to the first `--email` value. Future-proofs the endpoint for any WKS-aware client without needing a re-deploy when we add WKS support. (See D6.)
+2. **Q2 — Emit `policy` always, `submission-address` on request.** `policy` is zero-byte by default (RFC-required). `submission-address` is omitted unless `--submission-address` is set — `auto` populates it from the first `--email`, any other value is used verbatim. Future-proofs the endpoint for any WKS-aware client without needing a re-deploy when we add WKS support. (See D6.)
 3. **Q3 — Lexicographic by fingerprint.** Multi-key `hu/<hash>` files concatenate keys in uppercase-hex fingerprint order, making re-runs bit-identical regardless of argument order. (See D7.)
 4. **Q4 — Keep `--method`.** Default `advanced` (production); `--method direct` available for the root-domain layout. ~10 lines of conditional logic but full RFC coverage in `pkg/openpgpkey`, and gives the library's own test suite a way to exercise both shapes. (See D3.)
 5. **Q5 — Stay armored-only in `internal/trustkeys/keys/`** (deferred default). `gtb keys wkd` dearmors `.asc` files on the fly when emitting `hu/<hash>`. No binary copy embedded.

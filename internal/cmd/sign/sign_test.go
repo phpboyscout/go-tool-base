@@ -44,9 +44,14 @@ func newTestProps() *props.Props {
 	return &props.Props{Logger: logger.NewBuffer()}
 }
 
-// withRegisteredBackend registers b for the duration of the test. Not
-// parallel-safe — tests that touch the registry must use t.Run
-// subtests if they need isolation.
+// withRegisteredBackend registers b for the duration of the test.
+//
+// Tests that call this (or otherwise touch the process-global signing
+// registry via ResetForTesting/Register) must NOT call t.Parallel():
+// the registry is shared mutable state, so one test's ResetForTesting
+// would clear another parallel test's backend mid-run, surfacing as an
+// intermittent ErrUnknownBackend / registry panic. They run serially
+// instead — fast enough that the loss of parallelism is immaterial.
 func withRegisteredBackend(t *testing.T, b signing.Backend) {
 	t.Helper()
 
@@ -88,8 +93,6 @@ func writePEM(t *testing.T, dir string, priv *rsa.PrivateKey) string {
 }
 
 func TestRunSign_HappyPath_LocalBackend(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	priv, pubPath := fixture(t, tmp)
 
@@ -114,8 +117,6 @@ func TestRunSign_HappyPath_LocalBackend(t *testing.T) {
 }
 
 func TestRunSign_RefusesOutputEqualsInput(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	priv, pubPath := fixture(t, tmp)
 	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: priv})
@@ -135,8 +136,6 @@ func TestRunSign_RefusesOutputEqualsInput(t *testing.T) {
 }
 
 func TestRunSign_MissingPublicKey_Errors(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	priv, _ := fixture(t, tmp)
 	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: priv})
@@ -156,8 +155,6 @@ func TestRunSign_MissingPublicKey_Errors(t *testing.T) {
 }
 
 func TestRunSign_UnknownBackend_Errors(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	_, pubPath := fixture(t, tmp)
 	signing.ResetForTesting()
@@ -178,8 +175,6 @@ func TestRunSign_UnknownBackend_Errors(t *testing.T) {
 }
 
 func TestRunSign_SignerMismatchPublicKey_Errors(t *testing.T) {
-	t.Parallel()
-
 	// Two distinct keys: pubPath is the IDENTITY claimed; the backend
 	// returns an unrelated signer. This is the safety check that
 	// catches "wrong key configured" before producing an unverifiable
@@ -206,8 +201,6 @@ func TestRunSign_SignerMismatchPublicKey_Errors(t *testing.T) {
 }
 
 func TestRunSign_InvalidCreatedFlag_Errors(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	priv, pubPath := fixture(t, tmp)
 	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: priv})
@@ -227,8 +220,6 @@ func TestRunSign_InvalidCreatedFlag_Errors(t *testing.T) {
 }
 
 func TestRunSign_OutputDefaultsToInputDotSig(t *testing.T) {
-	t.Parallel()
-
 	tmp := t.TempDir()
 	priv, pubPath := fixture(t, tmp)
 	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: priv})
@@ -252,4 +243,78 @@ func TestRunSign_OutputDefaultsToInputDotSig(t *testing.T) {
 	// "used"); also serves as a future regression test slot when the
 	// local backend grows test coverage in this file.
 	_ = writePEM(t, tmp, priv)
+}
+
+// TestSameSignPath_CleanedSpellings proves the clobber guard catches
+// different spellings of the same path that a raw string compare would
+// miss ("./x" vs "x", trailing slash, redundant ".." segments).
+func TestSameSignPath_CleanedSpellings(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name   string
+		output string
+		input  string
+		same   bool
+	}{
+		{name: "identical", output: "x.txt", input: "x.txt", same: true},
+		{name: "dot-slash prefix", output: "./x.txt", input: "x.txt", same: true},
+		{name: "redundant dotdot", output: "a/../x.txt", input: "x.txt", same: true},
+		{name: "different files", output: "x.txt.sig", input: "x.txt", same: false},
+		{name: "different dirs", output: "a/x.txt", input: "b/x.txt", same: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.same, sameSignPath(tc.output, tc.input))
+		})
+	}
+}
+
+// TestSameSignPath_SameFileViaSymlink proves the guard falls back to
+// os.SameFile so a symlink (or otherwise distinct spelling that resolves
+// to the same inode) is still refused.
+func TestSameSignPath_SameFileViaSymlink(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+
+	target := filepath.Join(tmp, "artifact.txt")
+	require.NoError(t, os.WriteFile(target, []byte("payload"), 0o600))
+
+	link := filepath.Join(tmp, "link.txt")
+	require.NoError(t, os.Symlink(target, link))
+
+	// Distinct path strings (clean compare differs) but the same
+	// underlying file: os.SameFile must catch it.
+	assert.True(t, sameSignPath(link, target),
+		"a symlink resolving to the input must be refused via os.SameFile")
+}
+
+// TestRunSign_RefusesOutputEqualsInput_DotSlashSpelling proves the
+// end-to-end guard rejects "./payload.txt" as --output when the input is
+// "payload.txt" (the spelling-bypass the finding describes).
+func TestRunSign_RefusesOutputEqualsInput_DotSlashSpelling(t *testing.T) {
+	tmp := t.TempDir()
+	priv, pubPath := fixture(t, tmp)
+	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: priv})
+
+	inputPath := filepath.Join(tmp, "payload.txt")
+	require.NoError(t, os.WriteFile(inputPath, []byte("x"), 0o600))
+
+	// Spell the output as "<dir>/./payload.txt" — a raw string compare
+	// against inputPath ("<dir>/payload.txt") would let this slip through.
+	dottedOutput := filepath.Dir(inputPath) + string(filepath.Separator) + "." + string(filepath.Separator) + filepath.Base(inputPath)
+
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	err := runSign(cmd, newTestProps(),
+		"fake", "ignored", pubPath, dottedOutput, "",
+		inputPath,
+	)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "equals the input path")
 }

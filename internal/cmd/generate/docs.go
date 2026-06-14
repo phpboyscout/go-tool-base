@@ -44,8 +44,15 @@ Examples:
 	cmd.Flags().StringVar(&opts.CommandName, "command", "", "Name/Path of command to document")
 	cmd.Flags().StringVar(&opts.PackagePath, "package", "", "Path to package to document (relative to project root)")
 
+	// --source is a deprecated alias for --command (Run() falls back to it
+	// when --command is empty). It must therefore participate in the
+	// one-required group, otherwise a source-only invocation is wrongly
+	// rejected before Run() can read it.
+	_ = cmd.Flags().MarkDeprecated("source", "use --command instead")
+
 	cmd.MarkFlagsMutuallyExclusive("command", "package")
-	cmd.MarkFlagsOneRequired("command", "package")
+	cmd.MarkFlagsMutuallyExclusive("source", "package")
+	cmd.MarkFlagsOneRequired("command", "package", "source")
 
 	return cmd
 }

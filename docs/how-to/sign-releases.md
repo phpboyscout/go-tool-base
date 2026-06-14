@@ -47,7 +47,11 @@ INFO Signed file backend=aws-kms key_id=alias/gtb-release-signing-v1
 ```
 
 `--output` defaults to `<input>.sig` if omitted. The command refuses
-to write a `.sig` over its own input.
+to write a `.sig` over its own input. The guard compares
+`filepath.Clean`'d paths and falls back to `os.SameFile`, so a
+different spelling of the same file (`./x` vs `x`, an absolute vs
+relative form, or a symlink) is still refused rather than silently
+clobbering the input.
 
 ### Reproducible signatures
 

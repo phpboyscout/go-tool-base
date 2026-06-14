@@ -165,17 +165,41 @@ func resolveSignOptions(input, output, createdRaw string) (time.Time, string, er
 		output = input + ".sig"
 	}
 
-	if output == input {
-		return time.Time{}, "", errors.Newf("refusing to write signature to %q which equals the input path", output)
+	if sameSignPath(output, input) {
+		return time.Time{}, "", errors.Newf("refusing to write signature to %q which equals the input path %q", output, input)
 	}
 
 	return sigCreationTime, output, nil
 }
 
+// sameSignPath reports whether output and input name the same file, so
+// the clobber guard isn't bypassed by a different spelling of the same
+// path ("./x" vs "x" vs an absolute form, or two symlinks/hardlinks to
+// one inode). It first compares cleaned strings (catches the common
+// spelling cases without touching the filesystem), then falls back to
+// os.SameFile when both paths already exist on disk (catches links and
+// case/normalisation differences the string compare misses).
+func sameSignPath(output, input string) bool {
+	if filepath.Clean(output) == filepath.Clean(input) {
+		return true
+	}
+
+	outInfo, outErr := os.Stat(output)
+	inInfo, inErr := os.Stat(input)
+
+	if outErr != nil || inErr != nil {
+		return false
+	}
+
+	return os.SameFile(outInfo, inInfo)
+}
+
 // loadSignInputs reads the armored public-key file and constructs
 // the backend-resolved signer.
 func loadSignInputs(cmd *cobra.Command, backendName, keyID, publicKeyPath string) ([]byte, crypto.Signer, error) {
-	publicKey, err := os.ReadFile(filepath.Clean(publicKeyPath)) //nolint:gosec // public key paths come from the operator's command line.
+	// Public-key path comes from the operator's command line; the G304
+	// exception is declared in .golangci.yaml.
+	publicKey, err := os.ReadFile(filepath.Clean(publicKeyPath))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "reading public key %s", publicKeyPath)
 	}
@@ -195,11 +219,15 @@ func loadSignInputs(cmd *cobra.Command, backendName, keyID, publicKeyPath string
 
 // signFile streams the input file through openpgpkey.DetachSign.
 func signFile(signer crypto.Signer, publicKey []byte, input string, sigCreationTime time.Time) ([]byte, error) {
-	in, err := os.Open(filepath.Clean(input)) //nolint:gosec // input path comes from the operator's command line.
+	// Input path comes from the operator's command line; the G304
+	// exception is declared in .golangci.yaml.
+	in, err := os.Open(filepath.Clean(input))
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening %s", input)
 	}
-	defer in.Close() //nolint:errcheck // best-effort close on a read-only file.
+	// Best-effort close on a read-only file: the read result is already
+	// consumed by DetachSign, so a close error is not actionable.
+	defer func() { _ = in.Close() }()
 
 	sig, err := openpgpkey.DetachSign(signer, publicKey, in, sigCreationTime)
 	if err != nil {

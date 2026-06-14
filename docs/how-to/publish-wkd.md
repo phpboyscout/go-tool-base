@@ -113,6 +113,19 @@ wkd-staging/
 A successful run logs each `hu/` bucket's hash plus every file
 written.
 
+### The submission-address file
+
+`--submission-address` controls the optional WKS `submission-address`
+file:
+
+- **omitted / empty** (the default) — the file is **not** written.
+- **`--submission-address auto`** — writes the first `--email` value.
+- **`--submission-address <email>`** — writes that address verbatim.
+
+Pass `auto` (as opposed to leaving the flag unset) when you want the
+file populated from your first `--email` without spelling the address
+out twice.
+
 ### One-bucket vs multi-bucket
 
 WKD groups by email. If both your keys have the same UID

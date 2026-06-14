@@ -1,11 +1,13 @@
 package keys
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/armor"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
@@ -80,17 +82,18 @@ Examples:
 		`URL layout: "advanced" (default; served from openpgpkey.<domain>) or "direct" (served from <domain> itself).`)
 	cmd.Flags().StringVar(&submissionAddress, "submission-address", "",
 		"Email address to write to the WKD submission-address file. Empty (default) means do not emit the file. "+
-			"When non-empty but you haven't set a value explicitly, defaults to the first --email.")
+			`Pass "auto" to use the first --email; pass an explicit address to override.`)
 
 	_ = cmd.MarkFlagRequired("domain")
 
 	return setup.Wrap("", cmd)
 }
 
-// parsedKey binds one input file's raw bytes to the emails its UIDs
-// contain. We carry the raw armored bytes (not the parsed entity) so
-// the library handles dearmoring + canonicalisation once, the same
-// way for both CLI and library callers.
+// parsedKey binds one entity's own armored bytes to the emails its UIDs
+// contain. We re-serialize each entity individually (rather than carry
+// the whole input file's bytes) so that a ring file holding several
+// entities does not duplicate every entity's packets into every bucket —
+// each parsedKey publishes exactly the one entity it represents.
 type parsedKey struct {
 	raw    []byte
 	emails []string
@@ -109,7 +112,15 @@ func runWKD(p *props.Props, keyPaths []string, domain string, emails []string, o
 		return err
 	}
 
-	if submissionAddress == "" && len(emails) > 0 {
+	// Empty means omit the submission-address file entirely (matches the
+	// --submission-address help and openpgpkey.WriteWKDTree's contract).
+	// The explicit "auto" sentinel opts in to the first --email; any
+	// other value is used verbatim.
+	if submissionAddress == "auto" {
+		if len(emails) == 0 {
+			return errors.New(`--submission-address auto requires at least one resolvable --email`)
+		}
+
 		submissionAddress = emails[0]
 	}
 
@@ -155,11 +166,39 @@ func parseKeyFiles(keyPaths []string) ([]parsedKey, error) {
 				return nil, errors.Newf("key %s has no UID with a parseable email", kp)
 			}
 
-			parsed = append(parsed, parsedKey{raw: raw, emails: extracted})
+			entityBytes, serErr := serializeEntity(ent)
+			if serErr != nil {
+				return nil, errors.Wrapf(serErr, "serializing a key from %s", kp)
+			}
+
+			parsed = append(parsed, parsedKey{raw: entityBytes, emails: extracted})
 		}
 	}
 
 	return parsed, nil
+}
+
+// serializeEntity re-encodes a single parsed entity to its own
+// ASCII-armored public-key block. This is what lets parseKeyFiles attach
+// per-entity bytes instead of the whole-file bytes, so a multi-entity
+// ring file doesn't cross-publish every entity into every bucket.
+func serializeEntity(ent *openpgp.Entity) ([]byte, error) {
+	var buf bytes.Buffer
+
+	w, err := armor.Encode(&buf, openpgp.PublicKeyType, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "opening armor writer")
+	}
+
+	if err := ent.Serialize(w); err != nil {
+		return nil, errors.Wrap(err, "serializing entity")
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, errors.Wrap(err, "closing armor writer")
+	}
+
+	return buf.Bytes(), nil
 }
 
 // extractEmails returns the distinct, non-empty emails from every UID
