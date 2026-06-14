@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/go-github/v80/github"
@@ -22,7 +23,10 @@ const gitHubDotComHost = "github.com"
 
 const (
 	// pullRequestsPerPage is the number of pull requests to fetch per API page.
-	pullRequestsPerPage = 300
+	// GitHub clamps the List per-page parameter to a hard maximum of 100, so
+	// requesting more is silently capped server-side. We pin to that maximum;
+	// the Head filter keeps the branch's PR within the first page in practice.
+	pullRequestsPerPage = 100
 	// releasesPerPage is the number of releases to fetch per API page.
 	releasesPerPage = 100
 )
@@ -52,7 +56,6 @@ type GitHubClient interface {
 // GHClient implements GitHubClient using the GitHub REST and GraphQL APIs.
 type GHClient struct {
 	Client *github.Client
-	cfg    config.Containable
 }
 
 func (c *GHClient) GetClient() *github.Client {
@@ -249,7 +252,7 @@ func NewGitHubClient(src release.ReleaseSourceConfig, cfg config.Containable) (*
 		client = client.WithAuthToken(token)
 	}
 
-	return &GHClient{client, cfg}, nil
+	return &GHClient{Client: client}, nil
 }
 
 // enterpriseURLs resolves the GitHub Enterprise API/upload URLs from the
@@ -267,7 +270,29 @@ func enterpriseURLs(src release.ReleaseSourceConfig, cfg config.Containable) (ap
 		uploadURL = "https://" + src.Host + "/api/uploads/"
 	}
 
+	// When the operator overrides url.api (or it is host-derived) but leaves
+	// url.upload unset, go-github would otherwise receive an empty, host-less
+	// upload URL. Derive the upload endpoint from the API host so asset
+	// uploads target the same Enterprise instance.
+	if apiURL != "" && uploadURL == "" {
+		uploadURL = deriveUploadURL(apiURL)
+	}
+
 	return apiURL, uploadURL
+}
+
+// deriveUploadURL maps a GitHub Enterprise API base URL to its sibling
+// upload base URL. The conventional GHE layout pairs `/api/v3/` with
+// `/api/uploads/` on the same host; for any other shape we fall back to
+// the API host's `/api/uploads/` path. Returns apiURL unchanged when it
+// cannot be parsed, leaving go-github to surface the error.
+func deriveUploadURL(apiURL string) string {
+	u, err := url.Parse(apiURL)
+	if err != nil || u.Host == "" {
+		return apiURL
+	}
+
+	return u.Scheme + "://" + u.Host + "/api/uploads/"
 }
 
 // GetGitHubToken returns the GitHub token from config, erroring when none is

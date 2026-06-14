@@ -29,7 +29,7 @@ Token is optional — public repositories work without one. Private repositories
 | Key | Default | Description |
 |-----|---------|-------------|
 | `url.api` | `""` | GitHub Enterprise API base URL. Empty string uses `https://api.github.com`. |
-| `url.upload` | `""` | GitHub Enterprise upload URL. |
+| `url.upload` | `""` | GitHub Enterprise upload URL. When `url.api` is set (or host-derived) and this is left empty, the upload URL is derived from the API host as `https://<api-host>/api/uploads/`. |
 | `auth.env` | — | Name of the environment variable holding the token |
 | `auth.value` | — | Literal token value (use `auth.env` in preference) |
 
