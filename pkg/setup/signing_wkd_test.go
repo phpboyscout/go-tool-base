@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,6 +59,133 @@ func TestWKDURLs_InvalidEmail(t *testing.T) {
 		_, _, _, err := WKDURLs(in)
 		require.Error(t, err, "expected error for %q", in)
 	}
+}
+
+func TestFilterEntitiesByEmail(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	// Build an entity whose structured UserId.Email is empty but whose raw
+	// Id carries the address — exercises the fallback scan in entityHasEmail.
+	rawIDEntity := &openpgp.Entity{
+		Identities: map[string]*openpgp.Identity{
+			"raw": {UserId: &packet.UserId{Id: "Release Bot <release@phpboyscout.uk>"}},
+		},
+	}
+
+	nilUIDEntity := &openpgp.Entity{
+		Identities: map[string]*openpgp.Identity{"x": {UserId: nil}},
+	}
+
+	cases := []struct {
+		name     string
+		entities openpgp.EntityList
+		want     string
+		wantLen  int
+	}{
+		{"structured-match", openpgp.EntityList{testWKDEd25519.entity}, "release@phpboyscout.uk", 1},
+		{"case-insensitive", openpgp.EntityList{testWKDEd25519.entity}, "RELEASE@PHPBOYSCOUT.UK", 1},
+		{"no-match", openpgp.EntityList{testEd25519.entity}, "release@phpboyscout.uk", 0},
+		{"raw-id-fallback", openpgp.EntityList{rawIDEntity}, "release@phpboyscout.uk", 1},
+		{"nil-userid-skipped", openpgp.EntityList{nilUIDEntity}, "release@phpboyscout.uk", 0},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := filterEntitiesByEmail(tc.entities, tc.want)
+			assert.Len(t, got, tc.wantLen)
+		})
+	}
+}
+
+func TestWKDURLs_RejectsUnsafeDomain(t *testing.T) {
+	t.Parallel()
+
+	// Each email carries a domain that must not be spliced into a WKD URL:
+	// a path separator, "..", a leading/trailing dot, or a control/space
+	// character. WKDURLs must reject them before deriving any URL.
+	cases := []string{
+		"release@evil.com/../phpboyscout.uk",
+		"release@phpboyscout..uk",
+		"release@.phpboyscout.uk",
+		"release@phpboyscout.uk.",
+		"release@phpboyscout uk",
+		"release@host\x00.uk",
+	}
+
+	for _, in := range cases {
+		in := in
+		t.Run(in, func(t *testing.T) {
+			t.Parallel()
+			_, _, _, err := WKDURLs(in)
+			require.Error(t, err, "domain in %q must be rejected", in)
+		})
+	}
+}
+
+// TestWKDResolver_RejectsUIDMismatch proves the key_source=external trust
+// filter: a WKD endpoint that returns a strong, well-formed key whose UID
+// does not name the requested address must not have that key enter the
+// trust set. Without the filter, a hostile directory could substitute its
+// own key.
+func TestWKDResolver_RejectsUIDMismatch(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	// testEd25519's UID is ed25519@test.example, NOT the resolved address.
+	keyBytes := serializeBinaryKey(t, testEd25519.entity)
+
+	server, client := newWKDTestServer(t, map[string]http.HandlerFunc{
+		"/.well-known/openpgpkey/phpboyscout.uk/hu/": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(keyBytes)
+		},
+	})
+
+	r, err := NewWKDResolver(WKDResolverConfig{
+		Email:       "release@phpboyscout.uk",
+		HTTPClient:  client,
+		URLOverride: server.URL,
+	})
+	require.NoError(t, err)
+
+	_, err = r.Resolve(context.Background())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrKeyResolverUnavailable,
+		"a key whose UID does not match the resolved email must be rejected")
+}
+
+// TestWKDResolver_FiltersMixedResponse proves that when a WKD response
+// bundles a matching key alongside an unrelated one, only the matching key
+// is trusted (the off-address key is dropped, not allowed to ride along).
+func TestWKDResolver_FiltersMixedResponse(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	// Matching key (release@phpboyscout.uk) + off-address key (test.example).
+	mixed := append(
+		serializeBinaryKey(t, testWKDEd25519.entity),
+		serializeBinaryKey(t, testRSA4096.entity)...,
+	)
+
+	server, client := newWKDTestServer(t, map[string]http.HandlerFunc{
+		"/.well-known/openpgpkey/phpboyscout.uk/hu/": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(mixed)
+		},
+	})
+
+	r, err := NewWKDResolver(WKDResolverConfig{
+		Email:       "release@phpboyscout.uk",
+		HTTPClient:  client,
+		URLOverride: server.URL,
+	})
+	require.NoError(t, err)
+
+	ts, err := r.Resolve(context.Background())
+	require.NoError(t, err)
+	assert.Len(t, ts.Fingerprints(), 1,
+		"only the UID-matching key may enter the trust set")
 }
 
 func TestNewWKDResolver_MalformedURLOverride(t *testing.T) {
@@ -132,7 +260,7 @@ func TestWKDResolver_ResolveAdvanced(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	keyBytes := serializeBinaryKey(t, testEd25519.entity)
+	keyBytes := serializeBinaryKey(t, testWKDEd25519.entity)
 
 	server, client := newWKDTestServer(t, map[string]http.HandlerFunc{
 		"/.well-known/openpgpkey/phpboyscout.uk/hu/": func(w http.ResponseWriter, _ *http.Request) {
@@ -162,7 +290,7 @@ func TestWKDResolver_FallbackToDirect(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	keyBytes := serializeBinaryKey(t, testEd25519.entity)
+	keyBytes := serializeBinaryKey(t, testWKDEd25519.entity)
 
 	var (
 		advancedHits int
@@ -267,7 +395,7 @@ func TestWKDResolver_RejectsWeakKey(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	keyBytes := serializeBinaryKey(t, testRSA1024.entity)
+	keyBytes := serializeBinaryKey(t, testWKDRSA1024.entity)
 
 	server, client := newWKDTestServer(t, map[string]http.HandlerFunc{
 		"/.well-known/openpgpkey/phpboyscout.uk/hu/": func(w http.ResponseWriter, _ *http.Request) {
@@ -368,7 +496,7 @@ func TestWKDResolver_MultipleKeysRotation(t *testing.T) {
 	mustInitTestSigningKeys(t)
 
 	// Concatenate two binary keys — WKD's rotation-overlap pattern.
-	rotation := append(serializeBinaryKey(t, testEd25519.entity), serializeBinaryKey(t, testRSA4096.entity)...)
+	rotation := append(serializeBinaryKey(t, testWKDEd25519.entity), serializeBinaryKey(t, testWKDRSA4096.entity)...)
 
 	server, client := newWKDTestServer(t, map[string]http.HandlerFunc{
 		"/.well-known/openpgpkey/phpboyscout.uk/hu/": func(w http.ResponseWriter, _ *http.Request) {
@@ -389,8 +517,8 @@ func TestWKDResolver_MultipleKeysRotation(t *testing.T) {
 		"rotation-overlap WKD response should yield both fingerprints")
 
 	manifest := []byte("abc123  artifact.tar.gz\n")
-	sigEd := detachSign(t, testEd25519.entity, manifest)
-	sigRSA := detachSign(t, testRSA4096.entity, manifest)
+	sigEd := detachSign(t, testWKDEd25519.entity, manifest)
+	sigRSA := detachSign(t, testWKDRSA4096.entity, manifest)
 	assert.NoError(t, ts.VerifyManifestSignature(manifest, sigEd))
 	assert.NoError(t, ts.VerifyManifestSignature(manifest, sigRSA))
 }

@@ -26,7 +26,19 @@ var (
 	testRSA4096 testSigningKey
 	testRSA1024 testSigningKey
 	testECDSA   testSigningKey
+
+	// WKD fixtures carry the UID the WKD resolver tests resolve against
+	// (release@phpboyscout.uk), so the UID-to-email trust filter accepts
+	// them. testWKDEd25519/testWKDRSA4096 are strong; testWKDRSA1024 is
+	// weak (for the strength-rejection path).
+	testWKDEd25519 testSigningKey
+	testWKDRSA4096 testSigningKey
+	testWKDRSA1024 testSigningKey
 )
+
+// wkdFixtureEmail is the UID email shared by the testWKD* fixtures and the
+// Email passed to the WKD resolver under test.
+const wkdFixtureEmail = "release@phpboyscout.uk"
 
 // testSigningKey bundles a generated entity with its ASCII-armored
 // public-key blob, so each test can either sign with the entity or load
@@ -67,6 +79,27 @@ func mustInitTestSigningKeys(t *testing.T) {
 			Algorithm: packet.PubKeyAlgoECDSA,
 			Curve:     packet.CurveNistP256,
 		}, "ECDSA P-256 Test", "ecdsa@test.example")
+		if testKeysErr != nil {
+			return
+		}
+		testWKDEd25519, testKeysErr = generateTestSigningKey(&packet.Config{
+			Algorithm: packet.PubKeyAlgoEdDSA,
+			Curve:     packet.Curve25519,
+		}, "WKD Ed25519 Test", wkdFixtureEmail)
+		if testKeysErr != nil {
+			return
+		}
+		testWKDRSA4096, testKeysErr = generateTestSigningKey(&packet.Config{
+			Algorithm: packet.PubKeyAlgoRSA,
+			RSABits:   4096,
+		}, "WKD RSA 4096 Test", wkdFixtureEmail)
+		if testKeysErr != nil {
+			return
+		}
+		testWKDRSA1024, testKeysErr = generateTestSigningKey(&packet.Config{
+			Algorithm: packet.PubKeyAlgoRSA,
+			RSABits:   1024,
+		}, "WKD RSA 1024 Test", wkdFixtureEmail)
 	})
 	require.NoError(t, testKeysErr, "test key generation must succeed")
 }

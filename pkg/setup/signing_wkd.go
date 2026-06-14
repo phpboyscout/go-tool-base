@@ -68,6 +68,11 @@ func WKDURLs(email string) (advanced, direct, advancedHost string, _ error) {
 
 	local := email[:at]
 	domain := strings.ToLower(email[at+1:])
+
+	if err := validateWKDDomain(domain); err != nil {
+		return "", "", "", err
+	}
+
 	hash := wkdLocalPartHash(local)
 	qs := "?l=" + url.QueryEscape(local)
 
@@ -76,6 +81,50 @@ func WKDURLs(email string) (advanced, direct, advancedHost string, _ error) {
 	direct = "https://" + domain + "/.well-known/openpgpkey/hu/" + hash + qs
 
 	return advanced, direct, advancedHost, nil
+}
+
+// validateWKDDomain rejects email domains that are not safe to splice into
+// a WKD URL. It mirrors the publish-side hostname check in
+// pkg/openpgpkey (validateDomain) so the resolver never derives an
+// advanced/direct URL from a domain carrying a path separator, "..",
+// leading/trailing dot, or any non-hostname character — values that could
+// otherwise reshape the request target or escape the WKD path.
+func validateWKDDomain(domain string) error {
+	switch {
+	case domain == "":
+		return errors.New("wkd: email domain is empty")
+	case strings.ContainsAny(domain, "/\\"):
+		return errors.Newf("wkd: email domain %q contains a path separator", domain)
+	case strings.Contains(domain, ".."):
+		return errors.Newf("wkd: email domain %q contains '..'", domain)
+	case strings.HasPrefix(domain, "."), strings.HasSuffix(domain, "."):
+		return errors.Newf("wkd: email domain %q has a leading or trailing dot", domain)
+	}
+
+	for _, r := range domain {
+		if !isWKDHostnameRune(r) {
+			return errors.Newf("wkd: email domain %q contains invalid character %q", domain, r)
+		}
+	}
+
+	return nil
+}
+
+// isWKDHostnameRune reports whether r is permitted in a DNS hostname label
+// (letters, digits, hyphens, and the label separator '.').
+func isWKDHostnameRune(r rune) bool {
+	switch {
+	case r >= 'a' && r <= 'z':
+		return true
+	case r >= 'A' && r <= 'Z':
+		return true
+	case r >= '0' && r <= '9':
+		return true
+	case r == '.' || r == '-':
+		return true
+	default:
+		return false
+	}
 }
 
 // WKDResolverConfig parameterises NewWKDResolver. Email and HTTPClient
@@ -92,6 +141,7 @@ type WKDResolverConfig struct {
 type wkdResolver struct {
 	advancedURL string
 	directURL   string
+	email       string
 	client      *http.Client
 	name        string
 }
@@ -135,6 +185,7 @@ func NewWKDResolver(cfg WKDResolverConfig) (KeyResolver, error) {
 	return &wkdResolver{
 		advancedURL: advanced,
 		directURL:   direct,
+		email:       cfg.Email,
 		client:      cfg.HTTPClient,
 		name:        "wkd:" + canonicalHost,
 	}, nil
@@ -148,10 +199,18 @@ func (r *wkdResolver) Name() string {
 }
 
 // Resolve fetches the WKD public key, parses it as binary OpenPGP
-// (WKD's wire format), and applies the trust-set minimum-strength
-// policy. Returns ErrKeyResolverUnavailable for network/HTTP failures,
-// ErrWKDResponseTooLarge for oversized responses, ErrWeakKey for
-// rejected keys, and wraps the parser error for malformed responses.
+// (WKD's wire format), filters the returned entities to those carrying a
+// UID matching the resolver's email, and applies the trust-set
+// minimum-strength policy. Returns ErrKeyResolverUnavailable for
+// network/HTTP failures, ErrWKDResponseTooLarge for oversized responses,
+// ErrWeakKey for rejected keys, and wraps the parser error for malformed
+// responses.
+//
+// The UID-to-email filter closes the key_source=external gap: a WKD
+// endpoint must not be able to inject an unrelated key (one whose UIDs do
+// not name the requested address) into the trust set. The composite
+// resolver already cross-checks fingerprints across sources; this filter
+// gives the single-source path an equivalent guarantee.
 func (r *wkdResolver) Resolve(ctx context.Context) (*TrustSet, error) {
 	body, err := r.fetch(ctx, r.advancedURL)
 	if errors.Is(err, errWKDNotFound) {
@@ -171,7 +230,57 @@ func (r *wkdResolver) Resolve(ctx context.Context) (*TrustSet, error) {
 		return nil, errors.Wrap(err, "wkd: parsing key response")
 	}
 
-	return loadTrustSetFromEntities(entities)
+	matched := filterEntitiesByEmail(entities, r.email)
+	if len(matched) == 0 {
+		return nil, errors.Wrapf(ErrKeyResolverUnavailable,
+			"wkd: no returned key carries a UID matching %q", r.email)
+	}
+
+	return loadTrustSetFromEntities(matched)
+}
+
+// filterEntitiesByEmail returns the subset of entities that carry at least
+// one User ID whose email matches want (case-insensitively). WKD responses
+// are addressed by the local-part hash, but the server still controls the
+// returned bytes, so a response could include keys for unrelated UIDs;
+// trusting only the UID-matching subset prevents a malicious or
+// misconfigured directory from smuggling an off-address key into the trust
+// set.
+func filterEntitiesByEmail(entities openpgp.EntityList, want string) openpgp.EntityList {
+	want = strings.ToLower(strings.TrimSpace(want))
+
+	var matched openpgp.EntityList
+
+	for _, ent := range entities {
+		if entityHasEmail(ent, want) {
+			matched = append(matched, ent)
+		}
+	}
+
+	return matched
+}
+
+// entityHasEmail reports whether ent has an identity whose UserId email
+// equals want (already lower-cased). It falls back to scanning the raw
+// UserId string when the parsed Email field is empty, covering keys whose
+// UID was not split into structured fields.
+func entityHasEmail(ent *openpgp.Entity, want string) bool {
+	for _, ident := range ent.Identities {
+		if ident.UserId == nil {
+			continue
+		}
+
+		if strings.ToLower(strings.TrimSpace(ident.UserId.Email)) == want {
+			return true
+		}
+
+		if ident.UserId.Email == "" &&
+			strings.Contains(strings.ToLower(ident.UserId.Id), "<"+want+">") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // errWKDNotFound is an internal sentinel used to drive the

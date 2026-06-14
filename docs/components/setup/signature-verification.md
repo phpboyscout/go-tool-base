@@ -135,6 +135,8 @@ URL derivation follows [draft-koch-openpgp-webkey-service §3.1][wkd-draft]. Giv
 
 The `openpgpkey.` subdomain prefix is **not configurable** — it is part of the WKD wire format. Every WKD client (GnuPG, our `WKDResolver`, Sequoia, etc.) hardcodes this prefix when constructing the advanced URL, so a WKD-publishing domain serves the key under that fixed pattern.
 
+Before deriving any URL, `WKDURLs` validates the email domain with the same hostname rules the publish side (`pkg/openpgpkey.WriteWKDTree`) applies: the domain must be a plain DNS hostname (letters, digits, hyphens, dot separators) with no path separator, no `..`, and no leading/trailing dot. A domain that fails this check is rejected with an error rather than spliced into an `https://<domain>/…` URL — so an operator-supplied email cannot reshape the request target or escape the WKD path.
+
 In practice: **the only thing a tool author aligns across the framework, the DNS, and the hosting account is the release email.** Setting `setup.DefaultExternalKeyEmail` (or `update.external_key_email` via config) is sufficient — the verifier derives the URLs, the operator stands up the matching `openpgpkey.<domain>` endpoint, the keys flow.
 
 [wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
@@ -147,7 +149,8 @@ In practice: **the only thing a tool author aligns across the framework, the DNS
 - Tries the **advanced** URL first; falls back to the **direct** URL only on HTTP 404. Any other failure (network, non-200, TLS, oversize, weak key) returns to the caller without falling through.
 - Requires a hardened `*http.Client` — wire [`pkg/http.NewClient`](../http.md) so TLS 1.2+, certificate validation, the request timeout, and the HTTPS-downgrade redirect policy are all enforced. Non-HTTPS targets are refused outright.
 - Caps the response body at `MaxWKDResponseSize` (64 KiB, accommodates multiple keys per identity) → `ErrWKDResponseTooLarge`.
-- Parses the binary OpenPGP wire format and runs the same [strength policy](#minimum-strength-policy) as the embedded path.
+- Parses the binary OpenPGP wire format and **filters the returned entities by UID-to-email match**: only keys carrying a User ID for the resolved address (`release@example.org`) are trusted. A WKD endpoint is addressed by the local-part hash, but the server still controls the returned bytes — without this filter a hostile or misconfigured directory could smuggle an off-address key into the trust set. When no returned key matches, `Resolve` fails with `ErrKeyResolverUnavailable`. This gives the single-source (`key_source=external`) path the same anchoring guarantee that the composite path gets from its fingerprint cross-check.
+- Runs the same [strength policy](#minimum-strength-policy) as the embedded path on the surviving (UID-matching) keys.
 - Surfaces network and HTTP failures as `ErrKeyResolverUnavailable`.
 
 ### CompositeResolver
@@ -169,7 +172,7 @@ type CompositeResolver struct {
 
 ```
 key_source: embedded  →  EmbeddedResolver                    (no cross-check)
-key_source: external  →  WKDResolver                         (single source of truth)
+key_source: external  →  WKDResolver                         (single source; UID-to-email filtered)
 key_source: both      →  CompositeResolver{Embedded, WKD}    (default; cross-checked)
 ```
 
