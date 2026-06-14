@@ -37,7 +37,7 @@ The `.agent/` directory contains the primary execution mechanisms for this proje
 - Implement the minimum code to pass. Refactor. Re-run tests.
 - Use `github.com/cockroachdb/errors` for all error creation and wrapping — `go-errors/errors` has been removed.
 - New `pkg/` features must have **≥90% test coverage**.
-- Never add `//nolint` decorators — always address the root cause.
+- Address the root cause first; do not silence a linter to avoid fixing real issues. When a suppression is **genuinely unavoidable** (e.g. gosec G204 for an intentional dev-tooling subprocess, G304 for an operator-named file path, gochecknoglobals for an ldflags injection target), use a **narrowly-scoped inline `//nolint:<linter> // <justification>`** on the exact line — never a file-scoped `.golangci.yaml` exclusion, which would also mask new, unintended violations of that linter in the same file.
 
 ### Library-First
 

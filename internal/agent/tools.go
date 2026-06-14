@@ -234,6 +234,7 @@ func createSingleDirTool(name, description, successMsg string, command []string,
 				return nil, err
 			}
 
+			//nolint:gosec // G204: argv is a fixed dev-tool allow-list (go build/test, golangci-lint) plus an operator-sanctioned dir, never raw model output
 			cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 			cmd.Dir = resolvedDir
 
@@ -531,6 +532,7 @@ func GoGetTool(afs afero.Fs, basePath string) chat.Tool {
 				return nil, errors.Wrap(ErrInvalidPackageName, params.Package)
 			}
 
+			//nolint:gosec // G204: fixed "go get" argv plus a validated package arg (no leading '-', restricted char class), never raw model output
 			cmd := exec.CommandContext(ctx, "go", "get", params.Package)
 			cmd.Dir = resolvedDir
 

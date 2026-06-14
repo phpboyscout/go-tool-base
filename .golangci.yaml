@@ -99,36 +99,6 @@ linters:
         text: "G401|G505"
         linters:
           - gosec
-      # The agent's whole purpose is to run developer tooling (go build,
-      # go test, go get, golangci-lint) inside an operator-sanctioned
-      # working directory. G204 ("subprocess launched with variable") is
-      # inherent to that contract — the command argv is constructed from
-      # a fixed allow-list plus a validated package name (no leading '-',
-      # restricted character class), never from raw model output. Scoped
-      # to this one file rather than suppressed inline per the project's
-      # "no //nolint" rule.
-      - path: internal/agent/tools\.go
-        text: "G204"
-        linters:
-          - gosec
-      # gtb sign reads the operator-supplied --public-key / <input> paths
-      # from the command line and filepath.Clean's them before opening.
-      # G304 ("file inclusion via variable") is the expected shape of a
-      # CLI that signs an operator-named artifact; a fixed path would
-      # defeat the command. Scoped to the file instead of an inline
-      # //nolint per the project rule.
-      - path: internal/cmd/sign/sign\.go
-        text: "G304"
-        linters:
-          - gosec
-      # otelAuth in internal/cmd/root is a compile-time ldflags injection
-      # target ("-X ...root.otelAuth=<base64>"); the Go linker can only
-      # set package-level string vars, so gochecknoglobals is structurally
-      # unavoidable here. Scoped to root.go rather than an inline
-      # //nolint per the project rule.
-      - path: internal/cmd/root/root\.go
-        linters:
-          - gochecknoglobals
     paths:
       - third_party$
       - builtin$

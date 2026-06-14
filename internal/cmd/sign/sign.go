@@ -197,8 +197,7 @@ func sameSignPath(output, input string) bool {
 // loadSignInputs reads the armored public-key file and constructs
 // the backend-resolved signer.
 func loadSignInputs(cmd *cobra.Command, backendName, keyID, publicKeyPath string) ([]byte, crypto.Signer, error) {
-	// Public-key path comes from the operator's command line; the G304
-	// exception is declared in .golangci.yaml.
+	//nolint:gosec // G304: operator-supplied --public-key path, cleaned before read; a fixed path would defeat the command
 	publicKey, err := os.ReadFile(filepath.Clean(publicKeyPath))
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "reading public key %s", publicKeyPath)
@@ -219,8 +218,7 @@ func loadSignInputs(cmd *cobra.Command, backendName, keyID, publicKeyPath string
 
 // signFile streams the input file through openpgpkey.DetachSign.
 func signFile(signer crypto.Signer, publicKey []byte, input string, sigCreationTime time.Time) ([]byte, error) {
-	// Input path comes from the operator's command line; the G304
-	// exception is declared in .golangci.yaml.
+	//nolint:gosec // G304: operator-supplied <input> path, cleaned before open; a fixed path would defeat the command
 	in, err := os.Open(filepath.Clean(input))
 	if err != nil {
 		return nil, errors.Wrapf(err, "opening %s", input)
