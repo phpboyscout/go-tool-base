@@ -55,6 +55,31 @@ func WithRetry(cfg RetryConfig) ClientOption {
 	}
 }
 
+// normalized returns a copy of the config with invalid values clamped to safe
+// defaults so the backoff computation cannot produce a negative or zero bound
+// (which would panic crypto/rand.Int). A negative MaxRetries is treated as
+// zero; non-positive backoff durations fall back to the package defaults; a
+// MaxBackoff below InitialBackoff is raised to InitialBackoff.
+func (c RetryConfig) normalized() RetryConfig {
+	if c.MaxRetries < 0 {
+		c.MaxRetries = 0
+	}
+
+	if c.InitialBackoff <= 0 {
+		c.InitialBackoff = defaultInitialBackoff
+	}
+
+	if c.MaxBackoff <= 0 {
+		c.MaxBackoff = defaultMaxBackoff
+	}
+
+	if c.MaxBackoff < c.InitialBackoff {
+		c.MaxBackoff = c.InitialBackoff
+	}
+
+	return c
+}
+
 // retryTransport wraps an http.RoundTripper with retry logic using exponential
 // backoff and full jitter. Request bodies are rewound via GetBody between attempts.
 // Response bodies from failed attempts are drained and closed to allow connection reuse.
@@ -89,7 +114,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 
 		resp, err = t.next.RoundTrip(req)
-		if !t.shouldRetry(attempt, resp, err) {
+		if !t.shouldRetry(attempt, req, resp, err) {
 			break
 		}
 
@@ -104,8 +129,16 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 // shouldRetry determines whether the request should be retried.
-func (t *retryTransport) shouldRetry(attempt int, resp *http.Response, err error) bool {
+func (t *retryTransport) shouldRetry(attempt int, req *http.Request, resp *http.Response, err error) bool {
 	if attempt >= t.cfg.MaxRetries {
+		return false
+	}
+
+	// A retry resends the request, but the body has already been consumed by the
+	// first attempt. Without a GetBody to rewind it, a retry would resend an
+	// empty (or partially-read) body, silently corrupting the request. Refuse to
+	// retry such requests. A nil body (e.g. GET) is always safe to resend.
+	if req != nil && req.Body != nil && req.Body != http.NoBody && req.GetBody == nil {
 		return false
 	}
 
@@ -157,34 +190,51 @@ func isTransientNetworkError(err error) bool {
 
 // computeDelay calculates the backoff delay for a retry attempt using
 // exponential backoff with full jitter: uniform random in [0, min(cap, base * 2^attempt)].
-// If the previous response included a Retry-After header, that value is used as the delay floor.
+// A server-supplied Retry-After header is honoured but clamped to MaxBackoff so
+// a hostile or misconfigured server cannot stall the client indefinitely.
+//
+// The exponential term is clamped to MaxBackoff BEFORE the multiply so the
+// int64 nanosecond value cannot overflow (a negative value would panic
+// crypto/rand.Int). The config is normalised at construction, so InitialBackoff
+// and MaxBackoff are always positive here.
 func (t *retryTransport) computeDelay(attempt int, resp *http.Response) time.Duration {
-	// Check Retry-After header
+	maxBackoff := t.cfg.MaxBackoff
+	if maxBackoff <= 0 {
+		maxBackoff = defaultMaxBackoff
+	}
+
+	// Check Retry-After header, clamped to the configured maximum.
 	if resp != nil {
 		if ra := parseRetryAfter(resp.Header.Get("Retry-After")); ra > 0 {
-			return ra
+			return min(ra, maxBackoff)
 		}
 	}
 
 	backoff := t.cfg.InitialBackoff
-	if backoff == 0 {
+	if backoff <= 0 {
 		backoff = defaultInitialBackoff
 	}
 
-	maxBackoff := t.cfg.MaxBackoff
-	if maxBackoff == 0 {
-		maxBackoff = defaultMaxBackoff
-	}
-
-	// Exponential backoff: base * 2^(attempt-1)
+	// Exponential backoff: base * 2^(attempt-1). Clamp the shift and detect the
+	// point at which doubling would exceed the cap, applying the cap instead of
+	// overflowing int64.
 	shift := min(uint(max(attempt, 1))-1, maxBackoffShift)
-	backoff *= 1 << shift
+	for range shift {
+		if backoff >= maxBackoff || backoff > maxBackoff/2 {
+			backoff = maxBackoff
+
+			break
+		}
+
+		backoff *= 2
+	}
 
 	if backoff > maxBackoff {
 		backoff = maxBackoff
 	}
 
-	// Full jitter: uniform random in [0, backoff]
+	// Full jitter: uniform random in [0, backoff]. backoff is always >= 1 here
+	// (positive InitialBackoff, positive cap), so the rand.Int argument is > 0.
 	n, _ := rand.Int(rand.Reader, big.NewInt(int64(backoff)+1))
 
 	return time.Duration(n.Int64())

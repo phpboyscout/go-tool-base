@@ -452,6 +452,176 @@ func TestParseRetryAfter(t *testing.T) {
 	})
 }
 
+// TestRetryTransport_RetryAfterClampedToMaxBackoff verifies that a hostile or
+// misconfigured server cannot stall the client beyond MaxBackoff via a large
+// Retry-After header.
+func TestRetryTransport_RetryAfterClampedToMaxBackoff(t *testing.T) {
+	t.Parallel()
+
+	rt := &retryTransport{
+		cfg: RetryConfig{
+			InitialBackoff: 10 * time.Millisecond,
+			MaxBackoff:     2 * time.Second,
+		},
+	}
+
+	resp := &http.Response{Header: http.Header{}}
+	resp.Header.Set("Retry-After", "3600") // 1 hour
+
+	delay := rt.computeDelay(1, resp)
+	assert.Equal(t, 2*time.Second, delay, "Retry-After must be clamped to MaxBackoff")
+}
+
+// TestRetryTransport_RetryAfterHonouredWithinCap verifies a reasonable
+// Retry-After below the cap is still honoured verbatim.
+func TestRetryTransport_RetryAfterHonouredWithinCap(t *testing.T) {
+	t.Parallel()
+
+	rt := &retryTransport{
+		cfg: RetryConfig{
+			InitialBackoff: 10 * time.Millisecond,
+			MaxBackoff:     30 * time.Second,
+		},
+	}
+
+	resp := &http.Response{Header: http.Header{}}
+	resp.Header.Set("Retry-After", "2")
+
+	delay := rt.computeDelay(1, resp)
+	assert.Equal(t, 2*time.Second, delay)
+}
+
+// TestRetryTransport_NoRetryWhenBodyConsumedAndNoGetBody verifies a request
+// whose body was consumed by the first attempt and that has no GetBody to
+// rewind it is not retried (resending would corrupt the request).
+func TestRetryTransport_NoRetryWhenBodyConsumedAndNoGetBody(t *testing.T) {
+	t.Parallel()
+
+	var calls atomic.Int64
+	transport := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		calls.Add(1)
+
+		return &http.Response{
+			StatusCode: http.StatusServiceUnavailable,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Header:     http.Header{},
+		}, nil
+	})
+
+	rt := &retryTransport{
+		next: transport,
+		cfg: RetryConfig{
+			MaxRetries:           3,
+			InitialBackoff:       1 * time.Millisecond,
+			MaxBackoff:           10 * time.Millisecond,
+			RetryableStatusCodes: []int{503},
+		},
+	}
+
+	// Non-rewindable body: a plain reader with GetBody explicitly cleared.
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.invalid/", bytes.NewReader([]byte("payload")))
+	require.NoError(t, err)
+	req.GetBody = nil
+
+	resp, err := rt.RoundTrip(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+	assert.Equal(t, int64(1), calls.Load(), "must not retry a consumed non-rewindable body")
+}
+
+// TestRetryTransport_RetriesWhenBodyRewindable confirms the consumed-body guard
+// does not block retries when GetBody is present.
+func TestRetryTransport_RetriesWhenBodyRewindable(t *testing.T) {
+	t.Parallel()
+
+	var calls atomic.Int64
+	transport := roundTripperFunc(func(_ *http.Request) (*http.Response, error) {
+		if calls.Add(1) == 1 {
+			return &http.Response{
+				StatusCode: http.StatusServiceUnavailable,
+				Body:       io.NopCloser(bytes.NewReader(nil)),
+				Header:     http.Header{},
+			}, nil
+		}
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Header:     http.Header{},
+		}, nil
+	})
+
+	rt := &retryTransport{
+		next: transport,
+		cfg: RetryConfig{
+			MaxRetries:           3,
+			InitialBackoff:       1 * time.Millisecond,
+			MaxBackoff:           10 * time.Millisecond,
+			RetryableStatusCodes: []int{503},
+		},
+	}
+
+	// bytes.NewReader gives http.NewRequest a non-nil GetBody automatically.
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.invalid/", bytes.NewReader([]byte("payload")))
+	require.NoError(t, err)
+	require.NotNil(t, req.GetBody)
+
+	resp, err := rt.RoundTrip(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, int64(2), calls.Load(), "rewindable body must still be retried")
+}
+
+// TestRetryTransport_BackoffNeverOverflows drives computeDelay with extreme
+// attempt counts and configs that would overflow int64 if clamped after the
+// multiply, asserting the result is always within [0, MaxBackoff] and the
+// rand.Int argument never goes <= 0 (which would panic).
+func TestRetryTransport_BackoffNeverOverflows(t *testing.T) {
+	t.Parallel()
+
+	configs := []RetryConfig{
+		{InitialBackoff: time.Hour, MaxBackoff: 30 * time.Second},
+		{InitialBackoff: time.Nanosecond, MaxBackoff: time.Duration(1<<62 - 1)},
+		{InitialBackoff: 500 * time.Millisecond, MaxBackoff: 30 * time.Second},
+	}
+
+	for _, cfg := range configs {
+		rt := &retryTransport{cfg: cfg.normalized()}
+		for attempt := 1; attempt <= 100; attempt++ {
+			delay := rt.computeDelay(attempt, nil)
+			assert.GreaterOrEqual(t, delay, time.Duration(0))
+			assert.LessOrEqual(t, delay, rt.cfg.MaxBackoff)
+		}
+	}
+}
+
+// TestRetryConfig_Normalized verifies invalid configurations are clamped to
+// safe values so computeDelay cannot produce a non-positive rand.Int bound.
+func TestRetryConfig_Normalized(t *testing.T) {
+	t.Parallel()
+
+	got := RetryConfig{
+		MaxRetries:     -5,
+		InitialBackoff: -1,
+		MaxBackoff:     0,
+	}.normalized()
+
+	assert.Equal(t, 0, got.MaxRetries)
+	assert.Equal(t, defaultInitialBackoff, got.InitialBackoff)
+	assert.Equal(t, defaultMaxBackoff, got.MaxBackoff)
+
+	// MaxBackoff below InitialBackoff is raised to InitialBackoff.
+	got2 := RetryConfig{
+		InitialBackoff: 10 * time.Second,
+		MaxBackoff:     1 * time.Second,
+	}.normalized()
+	assert.Equal(t, 10*time.Second, got2.MaxBackoff)
+}
+
 // roundTripperFunc adapts a function to the http.RoundTripper interface.
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 

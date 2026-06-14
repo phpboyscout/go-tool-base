@@ -133,7 +133,7 @@ func NewClient(opts ...ClientOption) *http.Client {
 	}
 
 	if cfg.retry != nil {
-		transport = &retryTransport{next: transport, cfg: *cfg.retry}
+		transport = &retryTransport{next: transport, cfg: cfg.retry.normalized()}
 	}
 
 	if cfg.clientChain != nil {
