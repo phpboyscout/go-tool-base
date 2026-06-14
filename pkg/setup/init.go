@@ -54,10 +54,15 @@ type InitOptions struct {
 	Initialisers []Initialiser
 }
 
-// GetDefaultConfigDir returns the default config directory for the named tool (~/.toolname/).
+// GetDefaultConfigDir returns the default config directory for the named
+// tool (~/.toolname/). It returns an empty string when the user home
+// directory cannot be resolved (e.g. HOME is unset or empty) — callers
+// must treat an empty result as "no config dir" and skip any read/write
+// rather than joining it with a filename, which would otherwise resolve to
+// a relative path under the current working directory.
 func GetDefaultConfigDir(fs afero.Fs, name string) string {
 	homeDir, err := os.UserHomeDir()
-	if err != nil {
+	if err != nil || homeDir == "" {
 		return ""
 	}
 

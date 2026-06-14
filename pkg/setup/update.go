@@ -44,8 +44,11 @@ const (
 	releasesPerPage = 100
 	// defaultCheckInterval is the default time interval for update checks.
 	defaultCheckInterval = 24 * time.Hour
-	// updateTimeout is the timeout for update operations (5 minutes).
-	updateTimeout = 3 * time.Minute
+	// updateTimeout is the timeout for update operations. Five minutes
+	// is sized for binary downloads: release archives can run to tens of
+	// megabytes and must complete over slow or intermittent links, so the
+	// previous 3-minute value risked aborting otherwise-healthy updates.
+	updateTimeout = 5 * time.Minute
 )
 
 type timeSinceKey string
@@ -130,9 +133,22 @@ func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Durati
 }
 
 // SetTimeSinceLast records the current time as the last check or update timestamp.
+// When the default config directory cannot be resolved (empty/unset HOME),
+// it is a no-op: stamping a relative path would otherwise write the marker
+// into the current working directory.
 func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
-	defaultConfigDir := GetDefaultConfigDir(fs, name)
-	lastSinceFile := filepath.Join(defaultConfigDir, fmt.Sprintf("last_%s", status))
+	return setTimeSinceLastIn(fs, GetDefaultConfigDir(fs, name), status)
+}
+
+// setTimeSinceLastIn stamps the marker for status under configDir. An empty
+// configDir is a no-op (see SetTimeSinceLast) so the marker never lands in
+// the current working directory via a relative join.
+func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey) error {
+	if configDir == "" {
+		return nil
+	}
+
+	lastSinceFile := filepath.Join(configDir, fmt.Sprintf("last_%s", status))
 
 	if _, err := fs.Stat(lastSinceFile); os.IsNotExist(err) {
 		f, err := fs.Create(lastSinceFile)
@@ -389,8 +405,16 @@ func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error)
 	}
 
 	latestVersion, err := s.GetLatestVersionString(ctx)
-	if err != nil || latestVersion == "" {
+	if err != nil {
 		return false, "failed to check for latest version", errors.WithStack(err)
+	}
+
+	if latestVersion == "" {
+		// A nil err with an empty tag means the release source returned an
+		// unparseable/blank version. Surface a real error instead of
+		// errors.WithStack(nil) (which is nil) so the caller does not treat
+		// the binary as up to date and silently skip the update.
+		return false, "failed to check for latest version", errors.New("setup: latest version string is empty")
 	}
 
 	switch ver.CompareVersions(s.CurrentVersion, latestVersion) {
@@ -442,12 +466,18 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 		return targetPath, err
 	}
 
-	defer func() {
-		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
-		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, CheckedKey)
-	}()
+	if err := s.extract(file, targetPath); err != nil {
+		return targetPath, err
+	}
 
-	return targetPath, s.extract(file, targetPath)
+	// Stamp the freshness markers only after a successful extract — a
+	// failed extract must not record the binary as freshly updated, or the
+	// reminder/skip logic would defer the next attempt for up to the check
+	// interval despite no update having landed.
+	_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
+	_ = SetTimeSinceLast(s.Fs, s.Tool.Name, CheckedKey)
+
+	return targetPath, nil
 }
 
 // verifyAssetChecksum locates the release's checksums manifest and
@@ -662,11 +692,15 @@ func (s *SelfUpdater) UpdateFromFile(filePath string) (string, error) {
 
 	file.Write(data)
 
-	defer func() {
-		_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
-	}()
+	if err := s.extract(file, targetPath); err != nil {
+		return targetPath, err
+	}
 
-	return targetPath, s.extract(file, targetPath)
+	// Stamp the freshness marker only after a successful extract (see the
+	// online Update path for the rationale).
+	_ = SetTimeSinceLast(s.Fs, s.Tool.Name, UpdatedKey)
+
+	return targetPath, nil
 }
 
 func (s *SelfUpdater) resolveTargetPath() (string, error) {
