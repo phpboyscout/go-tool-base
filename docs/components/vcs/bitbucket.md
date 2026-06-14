@@ -75,6 +75,8 @@ Bitbucket uses HTTP Basic Auth with a username and app password. Each field is r
 
 When `Private: true` is set, missing credentials return an error instead of proceeding anonymously. `NewReleaseProvider` applies a short internal timeout to the keychain lookup so a misbehaving remote-store backend cannot stall startup.
 
+Basic-auth credentials are **host-pinned**: they are attached only to requests whose host matches the configured Bitbucket API host (`api.bitbucket.org`). Pagination `next` links, asset `self` links, and download URLs are read from API response bodies, so this defence-in-depth measure prevents a compromised or spoofed response from redirecting credentials to an attacker-chosen host.
+
 See [How to configure credentials](../../how-to/configure-credentials.md) for wizard-driven setup and [How to implement a custom credential backend](../../how-to/custom-credential-backend.md) for Vault / AWS SSM / other remote stores.
 
 ### Filename Pattern

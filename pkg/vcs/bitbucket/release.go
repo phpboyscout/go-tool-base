@@ -150,6 +150,31 @@ func (p *BitbucketReleaseProvider) SetAPIBase(base string) {
 	p.apiBase = base
 }
 
+// setBasicAuthIfHostMatches attaches the configured basic-auth credentials to
+// req only when the request targets the same host as the pinned apiBase. The
+// pagination "next" links, asset "self" links, and download URLs we follow all
+// originate from API response bodies; host-pinning prevents a compromised or
+// spoofed API response from redirecting our credentials to an attacker-chosen
+// host. When apiBase cannot be parsed (it never should — it is set in code),
+// or credentials are unset, no auth is attached. Defence-in-depth: apiBase
+// itself is hard-pinned to api.bitbucket.org in NewReleaseProvider.
+func (p *BitbucketReleaseProvider) setBasicAuthIfHostMatches(req *http.Request) {
+	if p.username == "" {
+		return
+	}
+
+	base, err := url.Parse(p.apiBase)
+	if err != nil || base.Host == "" {
+		return
+	}
+
+	if req.URL == nil || req.URL.Host != base.Host {
+		return
+	}
+
+	req.SetBasicAuth(p.username, p.appPassword)
+}
+
 // GetLatestRelease returns a synthetic release built from the most recently
 // uploaded Downloads that match the filename pattern.
 func (p *BitbucketReleaseProvider) GetLatestRelease(ctx context.Context, owner, repo string) (release.Release, error) {
@@ -279,9 +304,7 @@ func (p *BitbucketReleaseProvider) fetchDownloadByURL(ctx context.Context, url s
 		return nil, errors.WithStack(err)
 	}
 
-	if p.username != "" {
-		req.SetBasicAuth(p.username, p.appPassword)
-	}
+	p.setBasicAuthIfHostMatches(req)
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
@@ -338,9 +361,7 @@ func (p *BitbucketReleaseProvider) DownloadReleaseAsset(ctx context.Context, _, 
 		return nil, "", errors.WithStack(err)
 	}
 
-	if p.username != "" {
-		req.SetBasicAuth(p.username, p.appPassword)
-	}
+	p.setBasicAuthIfHostMatches(req)
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {
@@ -381,9 +402,7 @@ func (p *BitbucketReleaseProvider) fetchDownloadsPage(ctx context.Context, endpo
 		return nil, errors.WithStack(err)
 	}
 
-	if p.username != "" {
-		req.SetBasicAuth(p.username, p.appPassword)
-	}
+	p.setBasicAuthIfHostMatches(req)
 
 	resp, err := p.httpClient.Do(req)
 	if err != nil {

@@ -223,6 +223,86 @@ func TestBitbucketProvider_Auth_BasicAuthSent(t *testing.T) {
 	assert.Equal(t, "testpass", receivedPass)
 }
 
+// TestBitbucketProvider_Auth_NotSentToForeignHost proves credentials are
+// host-pinned: a download "self" link that the API response points at a
+// *different* host must not receive the basic-auth credentials. The API
+// (apiBase) host returns the downloads list; the foreign host serves the
+// signature content and records whether Authorization was attached.
+func TestBitbucketProvider_Auth_NotSentToForeignHost(t *testing.T) {
+	var foreignAuthSeen bool
+
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _, ok := r.BasicAuth()
+		foreignAuthSeen = ok
+		_, _ = w.Write([]byte("signature-bytes"))
+	}))
+	defer foreign.Close()
+
+	mux := http.NewServeMux()
+	api := httptest.NewServer(mux)
+	defer api.Close()
+
+	// The signature's self link points at the foreign host, not the API host.
+	mux.HandleFunc("/repositories/myws/myrepo/downloads", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []map[string]any{
+				makeDownload("mytool_v1.2.3_Linux_x86_64.tar.gz", time.Now().UTC().Format(time.RFC3339), "https://bitbucket.org/myws/myrepo/downloads/mytool_v1.2.3_Linux_x86_64.tar.gz"),
+				makeDownload(signatureFileName(), time.Now().UTC().Format(time.RFC3339), foreign.URL+"/sig-content"),
+			},
+			"next": "",
+		})
+	})
+
+	t.Setenv("BITBUCKET_USERNAME", "testuser")
+	t.Setenv("BITBUCKET_APP_PASSWORD", "testpass")
+
+	p, err := newProviderWithBase(t, release.ReleaseSourceConfig{}, api.URL)
+	require.NoError(t, err)
+
+	rel := &stubRelease{assets: []release.ReleaseAsset{
+		&stubAsset{url: "https://bitbucket.org/myws/myrepo/downloads/mytool_v1.2.3_Linux_x86_64.tar.gz"},
+	}}
+
+	_, err = p.DownloadSignature(context.Background(), rel, 8<<10)
+	require.NoError(t, err)
+	assert.False(t, foreignAuthSeen, "basic auth must not be sent to a non-apiBase host")
+}
+
+// TestBitbucketProvider_Auth_NotSentToForeignPaginationHost proves the
+// host-pin also applies to the pagination "next" link: a next URL pointing
+// at a foreign host must not carry credentials.
+func TestBitbucketProvider_Auth_NotSentToForeignPaginationHost(t *testing.T) {
+	var foreignAuthSeen bool
+
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _, ok := r.BasicAuth()
+		foreignAuthSeen = ok
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"values": []any{}, "next": ""})
+	}))
+	defer foreign.Close()
+
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// First page points the "next" link at the foreign host.
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"values": []any{},
+			"next":   foreign.URL + "/page2",
+		})
+	}))
+	defer api.Close()
+
+	t.Setenv("BITBUCKET_USERNAME", "testuser")
+	t.Setenv("BITBUCKET_APP_PASSWORD", "testpass")
+
+	p, err := newProviderWithBase(t, release.ReleaseSourceConfig{}, api.URL)
+	require.NoError(t, err)
+
+	_, _ = p.GetLatestRelease(context.Background(), "workspace", "repo")
+	assert.False(t, foreignAuthSeen, "basic auth must not be sent to a foreign pagination host")
+}
+
 func TestBitbucketProvider_Private_MissingCredentials_Error(t *testing.T) {
 	t.Parallel()
 
