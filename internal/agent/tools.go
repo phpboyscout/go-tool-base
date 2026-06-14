@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 var (
@@ -33,19 +34,21 @@ const maxSymlinkDepth = 255
 // outputHeadLines and outputTailLines cap the number of subprocess-output
 // lines folded into wrapped errors. Addresses L-1 from
 // docs/development/reports/security-audit-2026-04-17.md — prevents a
-// tool that emits a large stderr from flooding the AI context and
-// reduces (but does not yet eliminate) the chance of a secret embedded
-// deep in output reaching the AI. When the pkg/redact package lands
-// per 2026-04-17-telemetry-redaction.md, truncateOutput should route
-// the result through redact.String as a follow-up.
+// tool that emits a large stderr from flooding the AI context. The
+// retained head+tail is additionally routed through redact.String so a
+// secret embedded in subprocess output (e.g. a token echoed by `go get`
+// or a failing test) is scrubbed before the text reaches an AI provider,
+// completing the L-1 follow-up.
 const (
 	outputHeadLines = 50
 	outputTailLines = 50
 )
 
-// truncateOutput returns a bounded head+tail representation of b suitable
-// for embedding in error messages. When the line count is within the
-// head+tail budget, the input is returned unchanged.
+// truncateOutput returns a bounded, credential-redacted head+tail
+// representation of b suitable for embedding in error messages that flow
+// back to an AI provider. When the line count is within the head+tail
+// budget the full (still redacted) output is returned; otherwise the
+// middle is elided.
 func truncateOutput(b []byte) string {
 	if len(b) == 0 {
 		return ""
@@ -53,7 +56,7 @@ func truncateOutput(b []byte) string {
 
 	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
 	if len(lines) <= outputHeadLines+outputTailLines {
-		return strings.Join(lines, "\n")
+		return redact.String(strings.Join(lines, "\n"))
 	}
 
 	omitted := len(lines) - outputHeadLines - outputTailLines
@@ -64,7 +67,7 @@ func truncateOutput(b []byte) string {
 	fmt.Fprintf(&sb, "\n… [omitted %d line(s)] …\n", omitted)
 	sb.WriteString(strings.Join(lines[len(lines)-outputTailLines:], "\n"))
 
-	return sb.String()
+	return redact.String(sb.String())
 }
 
 // symlinksResolver holds state for component-by-component symlink resolution.
@@ -231,7 +234,7 @@ func createSingleDirTool(name, description, successMsg string, command []string,
 				return nil, err
 			}
 
-			cmd := exec.CommandContext(ctx, command[0], command[1:]...) //nolint:gosec // intentional command execution by agent
+			cmd := exec.CommandContext(ctx, command[0], command[1:]...)
 			cmd.Dir = resolvedDir
 
 			output, err := cmd.CombinedOutput()
@@ -517,13 +520,18 @@ func GoGetTool(afs afero.Fs, basePath string) chat.Tool {
 				return nil, err
 			}
 
-			// Validate params.Package to prevent command injection
-			validPackage := regexp.MustCompile(`^[a-zA-Z0-9_\-./@]+$`)
+			// Validate params.Package to prevent command injection. A
+			// leading '-' is rejected explicitly so the argument cannot
+			// be mistaken for a flag and injected into the `go get`
+			// subprocess (e.g. "-modcacherw" or a future value-carrying
+			// flag), even though the character class would otherwise
+			// permit it.
+			validPackage := regexp.MustCompile(`^[a-zA-Z0-9_./@][a-zA-Z0-9_\-./@]*$`)
 			if !validPackage.MatchString(params.Package) {
 				return nil, errors.Wrap(ErrInvalidPackageName, params.Package)
 			}
 
-			cmd := exec.CommandContext(ctx, "go", "get", params.Package) //nolint:gosec // intentional command execution by agent
+			cmd := exec.CommandContext(ctx, "go", "get", params.Package)
 			cmd.Dir = resolvedDir
 
 			output, err := cmd.CombinedOutput()

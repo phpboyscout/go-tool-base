@@ -65,6 +65,29 @@ func ensurePathAllowed(basePath, targetPath string) error {
 }
 ```
 
+### Security Strategy: Subprocess Output Redaction
+
+Every `go_build` / `go_test` / `go_get` / `golangci_lint` failure folds the
+subprocess's combined output into the error that the ReAct loop hands back
+to the AI provider. That output is first passed through `truncateOutput`,
+which:
+
+- caps the retained text to a head + tail window (50 lines each) so a noisy
+  build can't flood the model context, and
+- routes the retained window through `pkg/redact.String`, so a credential
+  echoed by a tool (an `Authorization:` header, a `user:pass@host` URL, a
+  `sk-`/`ghp_`/`AIza` token) is scrubbed **before** it can leave the
+  process for a third-party AI endpoint.
+
+### Security Strategy: go_get Argument Validation
+
+`go_get` validates its `package` argument against
+`^[a-zA-Z0-9_./@][a-zA-Z0-9_\-./@]*$` before exec. The leading character
+class deliberately excludes `-`, so a value can never be mistaken for a
+flag and injected into the `go get` subprocess (e.g. `-modcacherw` or a
+future value-carrying flag). A rejected value returns
+`ErrInvalidPackageName`.
+
 ## Tutorial: Building a New Agent Tool
 
 This tutorial demonstrates how to add a `grep_search` tool to the agent, allowing the LLM to search for patterns in files.
