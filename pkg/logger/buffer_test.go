@@ -154,6 +154,35 @@ func TestBufferBackend_ConcurrentAccess(t *testing.T) {
 	assert.Equal(t, 100, buf.Len())
 }
 
+func TestBufferBackend_ConcurrentLevelAccess(t *testing.T) {
+	// Run under -race: concurrent SetLevel / GetLevel / record on the same
+	// logger must be data-race clean now that level is atomic.
+	buf := NewBuffer()
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 50; i++ {
+		wg.Add(3)
+
+		go func() {
+			defer wg.Done()
+			buf.SetLevel(WarnLevel)
+		}()
+
+		go func() {
+			defer wg.Done()
+			_ = buf.GetLevel()
+		}()
+
+		go func() {
+			defer wg.Done()
+			buf.Info("concurrent")
+		}()
+	}
+
+	wg.Wait()
+}
+
 func TestBufferBackend_InterfaceSatisfaction(t *testing.T) {
 	var _ Logger = NewBuffer()
 }

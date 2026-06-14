@@ -116,6 +116,28 @@ func TestParse_BreakingChangeFooter(t *testing.T) {
 	assert.Equal(t, "remove deprecated SetPath method", entries[0].Description)
 }
 
+func TestParse_BreakingChangeHyphenFooter(t *testing.T) {
+	t.Parallel()
+
+	// Conventional Commits treats "BREAKING-CHANGE:" as a synonym for
+	// "BREAKING CHANGE:" — the parser must recognise both.
+	input := `# v2.0.0
+
+### Features
+
+* **config:** BREAKING-CHANGE: remove deprecated SetPath method
+`
+
+	cl := Parse(input)
+	require.Len(t, cl.Releases, 1)
+
+	entries := cl.Releases[0].Entries
+	require.Len(t, entries, 1)
+	assert.Equal(t, CategoryBreaking, entries[0].Category)
+	assert.Equal(t, "config", entries[0].Scope)
+	assert.Equal(t, "remove deprecated SetPath method", entries[0].Description)
+}
+
 func TestParse_ScopedEntries(t *testing.T) {
 	t.Parallel()
 

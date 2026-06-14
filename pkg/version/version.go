@@ -60,7 +60,7 @@ func (i Info) IsDevelopment() bool {
 
 // FormatVersionString adds or removes a "v" prefix from version string.
 func FormatVersionString(version string, prefixWanted bool) string {
-	version = strings.TrimLeft(version, "v")
+	version = strings.TrimPrefix(version, "v")
 	if prefixWanted && version != "" {
 		version = fmt.Sprintf("v%s", version)
 	}

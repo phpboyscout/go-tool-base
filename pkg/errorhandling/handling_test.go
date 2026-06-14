@@ -34,6 +34,16 @@ func TestErrorHandler_Check(t *testing.T) {
 		assert.Contains(t, entries[0].Message, "simple warning")
 	})
 
+	t.Run("Unknown_level_falls_back_to_error", func(t *testing.T) {
+		log := logger.NewBuffer()
+		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+		h.Check(errors.New("boom"), "", "totally-unknown-level")
+		entries := log.Entries()
+		require.NotEmpty(t, entries, "unknown level must not silently swallow the error")
+		assert.Equal(t, logger.ErrorLevel, entries[0].Level)
+		assert.Contains(t, entries[0].Message, "boom")
+	})
+
 	t.Run("ErrNotImplemented_downgrades_to_warn", func(t *testing.T) {
 		log := logger.NewBuffer()
 		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}

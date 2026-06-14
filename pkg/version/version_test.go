@@ -66,6 +66,11 @@ func TestFormatVersionString(t *testing.T) {
 		{"no prefix needed", "1.2.3", false, "1.2.3"},
 		{"empty with prefix", "", true, ""},
 		{"empty without prefix", "", false, ""},
+		// TrimPrefix strips exactly one leading "v" — a literal version part
+		// beginning with another "v" must be preserved (TrimLeft would have
+		// eaten both, which is the bug this guards against).
+		{"strips only one v", "vvendor", false, "vendor"},
+		{"strips only one v re-prefixed", "vvendor", true, "vvendor"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

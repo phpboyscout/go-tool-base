@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Entry represents a single captured log message.
@@ -54,9 +55,13 @@ func (s *entryStore) len() int {
 }
 
 // bufferLogger captures log messages in memory for test assertions.
+//
+// level is stored atomically because SetLevel may be called concurrently with
+// logging from other goroutines; prefix and fields are construction-only and
+// never mutated after the value is created.
 type bufferLogger struct {
 	store  *entryStore
-	level  Level
+	level  atomic.Int32
 	prefix string
 	fields []any
 }
@@ -72,14 +77,33 @@ type bufferLogger struct {
 //	    t.Error("missing expected log message")
 //	}
 func NewBuffer() *bufferLogger {
-	return &bufferLogger{
+	b := &bufferLogger{
 		store: &entryStore{},
-		level: DebugLevel,
 	}
+	b.storeLevel(DebugLevel)
+
+	return b
+}
+
+// getLevel returns the current level, read atomically.
+func (b *bufferLogger) getLevel() Level {
+	return Level(b.level.Load())
+}
+
+// storeLevel writes the level atomically. The defined levels are small
+// non-negative constants, so the int->int32 narrowing is always lossless; the
+// explicit bound makes that invariant checkable and avoids storing a corrupted
+// value if an out-of-range Level is ever passed.
+func (b *bufferLogger) storeLevel(level Level) {
+	if level < DebugLevel || level > FatalLevel {
+		level = ErrorLevel
+	}
+
+	b.level.Store(int32(level))
 }
 
 func (b *bufferLogger) record(level Level, msg string, keyvals ...any) {
-	if level < b.level {
+	if level < b.getLevel() {
 		return
 	}
 
@@ -130,12 +154,14 @@ func (b *bufferLogger) With(keyvals ...any) Logger {
 	copy(merged, b.fields)
 	copy(merged[len(b.fields):], keyvals)
 
-	return &bufferLogger{
+	derived := &bufferLogger{
 		store:  b.store,
-		level:  b.level,
 		prefix: b.prefix,
 		fields: merged,
 	}
+	derived.storeLevel(b.getLevel())
+
+	return derived
 }
 
 func (b *bufferLogger) WithPrefix(prefix string) Logger {
@@ -144,16 +170,18 @@ func (b *bufferLogger) WithPrefix(prefix string) Logger {
 		newPrefix = b.prefix + ": " + prefix
 	}
 
-	return &bufferLogger{
+	derived := &bufferLogger{
 		store:  b.store,
-		level:  b.level,
 		prefix: newPrefix,
 		fields: b.fields,
 	}
+	derived.storeLevel(b.getLevel())
+
+	return derived
 }
 
-func (b *bufferLogger) SetLevel(level Level)     { b.level = level }
-func (b *bufferLogger) GetLevel() Level          { return b.level }
+func (b *bufferLogger) SetLevel(level Level)     { b.storeLevel(level) }
+func (b *bufferLogger) GetLevel() Level          { return b.getLevel() }
 func (b *bufferLogger) SetFormatter(_ Formatter) {}
 func (b *bufferLogger) Handler() slog.Handler    { return noopHandler{} }
 

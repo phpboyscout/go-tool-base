@@ -77,7 +77,7 @@ cl := changelog.Parse(rawMarkdown)
 1. Splits into per-release sections by detecting `# vX.Y.Z` headers.
 2. Within each release, detects section headers (`### Features`, `### Bug Fixes`, `### BREAKING CHANGES`, etc.) to determine the current category.
 3. Parses bullet points (`* **scope:** description` or `* description`) into `Entry` structs.
-4. Detects `BREAKING CHANGE:` footers within entry descriptions and reclassifies them as `CategoryBreaking`.
+4. Detects `BREAKING CHANGE:` footers within entry descriptions and reclassifies them as `CategoryBreaking`. The hyphenated `BREAKING-CHANGE:` spelling is recognised as an equivalent synonym, matching the Conventional Commits specification (this applies both when parsing existing changelogs and when generating from commit-message bodies).
 
 Releases are returned oldest-first.
 

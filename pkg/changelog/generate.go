@@ -277,11 +277,16 @@ func parseCommitMessage(parser conventionalcommits.Machine, message string, incl
 }
 
 // extractSubject returns the first line of the commit message and whether the
-// body contains a BREAKING CHANGE footer.
+// body contains a BREAKING CHANGE footer. Per the Conventional Commits spec the
+// hyphenated "BREAKING-CHANGE:" form is an accepted synonym, so both spellings
+// are recognised.
 func extractSubject(message string) (string, bool) {
 	subject := strings.TrimSpace(strings.SplitN(message, "\n", subjectParts)[0])
 
-	return subject, strings.Contains(message, "\nBREAKING CHANGE:")
+	breaking := strings.Contains(message, "\nBREAKING CHANGE:") ||
+		strings.Contains(message, "\nBREAKING-CHANGE:")
+
+	return subject, breaking
 }
 
 // buildEntry constructs a changelog Entry from a parsed conventional commit.

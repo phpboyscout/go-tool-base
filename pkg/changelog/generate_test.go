@@ -227,6 +227,20 @@ func TestGenerateFromRepo(t *testing.T) {
 		assert.Contains(t, result, "* **config:** rename config path")
 	})
 
+	t.Run("breaking change via hyphenated footer", func(t *testing.T) {
+		t.Parallel()
+
+		repo, dir := initTestRepo(t)
+		h1 := commitFile(t, repo, dir, "a.txt", "a", "feat(config): rename config path\n\nBREAKING-CHANGE: ConfigPath renamed to ConfigDir")
+		createTag(t, repo, "v2.0.0", h1)
+
+		result, err := GenerateFromRepo(dir)
+		require.NoError(t, err)
+
+		assert.Contains(t, result, "### Breaking Changes")
+		assert.Contains(t, result, "* **config:** rename config path")
+	})
+
 	t.Run("skip test and ci commits", func(t *testing.T) {
 		t.Parallel()
 

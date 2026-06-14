@@ -179,6 +179,10 @@ func (h *StandardErrorHandler) logError(err error, prefix, level string) {
 		l.Error(err.Error(), kvPairs...)
 	case LevelWarn:
 		l.Warn(err.Error(), kvPairs...)
+	default:
+		// An unrecognised level must never silently swallow the error;
+		// fall back to logging at Error so the failure is still surfaced.
+		l.Error(err.Error(), kvPairs...)
 	}
 }
 

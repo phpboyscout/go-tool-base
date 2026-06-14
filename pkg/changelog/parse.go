@@ -197,10 +197,16 @@ func parseEntry(line string, current *Release, cat Category) *Release {
 }
 
 // reclassifyBreaking detects a BREAKING CHANGE: footer in the entry description
-// and reclassifies the entry as CategoryBreaking.
+// and reclassifies the entry as CategoryBreaking. Per the Conventional Commits
+// spec the hyphenated "BREAKING-CHANGE:" form is an accepted synonym, so both
+// spellings are recognised.
 func reclassifyBreaking(e *Entry) {
-	if strings.HasPrefix(e.Description, "BREAKING CHANGE:") {
-		e.Category = CategoryBreaking
-		e.Description = strings.TrimSpace(strings.TrimPrefix(e.Description, "BREAKING CHANGE:"))
+	for _, token := range []string{"BREAKING CHANGE:", "BREAKING-CHANGE:"} {
+		if strings.HasPrefix(e.Description, token) {
+			e.Category = CategoryBreaking
+			e.Description = strings.TrimSpace(strings.TrimPrefix(e.Description, token))
+
+			return
+		}
 	}
 }
