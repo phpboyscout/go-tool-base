@@ -54,6 +54,17 @@ func GetAllMarkdownContent(fsys fs.FS) (string, error) {
 // streaming, deltas are delivered via deltaFn as they arrive. logFn receives status
 // messages. Either callback may be nil.
 func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, logFn func(string, logger.Level), deltaFn func(string), providerOverride ...string) (string, error) {
+	// The doc comment promises either callback may be nil; honour it by
+	// substituting no-ops so the body can call them unconditionally without
+	// a nil-deref panic on the very first status message.
+	if logFn == nil {
+		logFn = func(string, logger.Level) {}
+	}
+
+	if deltaFn == nil {
+		deltaFn = func(string) {}
+	}
+
 	logFn("Collating documentation...", logger.InfoLevel)
 
 	content, err := GetAllMarkdownContent(fsys)

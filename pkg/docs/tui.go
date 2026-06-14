@@ -192,6 +192,32 @@ func (m *Model) ensureRenderer(width int) *glamour.TermRenderer {
 	return r
 }
 
+// renderMarkdown renders content at the given word-wrap width using the
+// cached renderer, refreshing it when the width changes. It is nil-safe:
+// glamour.NewTermRenderer can in principle return (nil, nil), and a render
+// error is also possible, so on either path it falls back to the raw text
+// rather than dereferencing a nil renderer (a latent panic before this
+// guard) or surfacing an empty page.
+func (m *Model) renderMarkdown(content string, width int) string {
+	return renderMarkdownWith(m.ensureRenderer(width), content)
+}
+
+// renderMarkdownWith renders content with the given renderer, falling back
+// to the raw content when the renderer is nil or the render fails. Split out
+// from renderMarkdown so the nil-guard is independently testable.
+func renderMarkdownWith(renderer *glamour.TermRenderer, content string) string {
+	if renderer == nil {
+		return content
+	}
+
+	rendered, err := renderer.Render(content)
+	if err != nil {
+		return content
+	}
+
+	return rendered
+}
+
 // NewModel creates a documentation browser Model backed by the given filesystem.
 func NewModel(fsys fs.FS, opts ...Option) *Model {
 	r, _ := glamour.NewTermRenderer(
@@ -332,6 +358,13 @@ func waitForAskDelta(ch <-chan string) tea.Cmd {
 }
 
 func (m *Model) performSearch(query string) tea.Cmd {
+	// Snapshot useRegex by value here, on the Update goroutine, rather than
+	// reading m.useRegex from inside the returned tea.Cmd closure. The Cmd
+	// runs on a separate goroutine and Update may flip m.useRegex (e.g. via
+	// Ctrl+R) before/while it executes — reading the field there is a data
+	// race whose worst case is a search performed in the wrong mode.
+	useRegex := m.useRegex
+
 	return func() tea.Msg {
 		results := []SearchResult{}
 
@@ -341,7 +374,7 @@ func (m *Model) performSearch(query string) tea.Cmd {
 			return SearchResultMessage{Results: results, Query: query}
 		}
 
-		if m.useRegex {
+		if useRegex {
 			// User-supplied search query — bound compile time against
 			// ReDoS. Closes H-3 from
 			// docs/development/reports/security-audit-2026-04-17.md.
@@ -468,12 +501,8 @@ func (m *Model) handleAskResult(msg AskResultMsg) {
 	if msg.Err != nil {
 		m.content = fmt.Sprintf("\nError: %v\n", msg.Err)
 	} else {
-		rendered, err := m.renderer.Render(msg.Response)
-		if err != nil {
-			rendered = msg.Response
-		}
-
-		m.content = rendered
+		contentWidth := m.width - m.sidebarWidth() - uiPadding
+		m.content = m.renderMarkdown(msg.Response, contentWidth)
 	}
 
 	m.showSearchResults = false
@@ -816,12 +845,7 @@ func (m *Model) loadFile(path string) {
 	sidebarWidth := m.sidebarWidth()
 	contentWidth := m.width - sidebarWidth - uiPadding
 
-	renderer := m.ensureRenderer(contentWidth)
-
-	rendered, err := renderer.Render(textContent)
-	if err != nil {
-		rendered = textContent
-	}
+	rendered := m.renderMarkdown(textContent, contentWidth)
 
 	m.content = rendered
 	m.viewport.SetContent(rendered)
@@ -861,11 +885,8 @@ func (m *Model) updateViewportSize() {
 
 		// Reuse the cached renderer keyed by contentWidth so a resize
 		// doesn't cost a second full TermRenderer build on top of
-		// loadFile's.
-		renderedInfo, err := m.ensureRenderer(contentWidth).Render(content)
-		if err != nil {
-			renderedInfo = content
-		}
+		// loadFile's. renderMarkdown is nil-safe.
+		renderedInfo := m.renderMarkdown(content, contentWidth)
 
 		footerHeight := lipgloss.Height(renderedInfo) + 1 // +1 for spacing/divider
 		viewportHeight -= footerHeight

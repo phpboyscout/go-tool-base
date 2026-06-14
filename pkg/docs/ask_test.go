@@ -49,6 +49,27 @@ func TestAskAI_FSError(t *testing.T) {
 	assert.Positive(t, logCalls, "logFn should have been called")
 }
 
+// TestAskAI_NilCallbacksDoNotPanic exercises the documented "either
+// callback may be nil" contract: AskAI must guard nil logFn/deltaFn rather
+// than dereferencing them on the first status message. The unsupported
+// provider makes the call fail fast, but only after the nil-guarded logFn
+// has already been invoked — so a missing guard would panic before the
+// error is returned.
+func TestAskAI_NilCallbacksDoNotPanic(t *testing.T) {
+	t.Parallel()
+
+	fsys := fstest.MapFS{
+		"guide.md": {Data: []byte("# Guide\n")},
+	}
+
+	p := &props.Props{Logger: logger.NewNoop()}
+
+	assert.NotPanics(t, func() {
+		_, err := AskAI(context.Background(), p, fsys, "what is this?", nil, nil, "bad-provider")
+		require.Error(t, err)
+	}, "nil logFn/deltaFn must not panic")
+}
+
 func TestResolveProvider(t *testing.T) {
 	t.Run("explicit override", func(t *testing.T) {
 		p := &props.Props{}
