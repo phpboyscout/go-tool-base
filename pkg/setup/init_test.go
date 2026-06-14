@@ -3,6 +3,7 @@ package setup
 import (
 	"bytes"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -12,6 +13,26 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
+
+// TestInitialise_MkdirFailure_PreservesCause proves the init-newf-drops-error-cause
+// fix: when the directory create fails, the returned error must wrap the
+// underlying cause so errors.Is keeps matching it. A ReadOnlyFs.MkdirAll returns
+// syscall.EPERM; the old errors.Newf("...: %s", err) form would flatten that into
+// a string and break the chain.
+func TestInitialise_MkdirFailure_PreservesCause(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{
+		Logger: logger.NewNoop(),
+		FS:     afero.NewReadOnlyFs(afero.NewMemMapFs()),
+	}
+
+	_, err := Initialise(p, InitOptions{Dir: "/cannot/create"})
+	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.EPERM,
+		"the wrapped error must preserve the underlying MkdirAll cause")
+	assert.Contains(t, err.Error(), "Failed to create directory")
+}
 
 func TestInitializeConfig(t *testing.T) {
 	t.Parallel()

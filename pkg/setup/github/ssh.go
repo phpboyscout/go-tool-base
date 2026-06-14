@@ -188,7 +188,7 @@ func handleSSHKeySelection(props *props.Props, cfg config.Containable, targetKey
 	case "generate":
 		key, err := generateKey(props, cfg, optsConfig.generateKeyOpts...)
 		if err != nil {
-			return "", "", errors.Newf("failed to generate SSH key: %v", err)
+			return "", "", errors.Wrap(err, "failed to generate SSH key")
 		}
 
 		return keyType, key, nil

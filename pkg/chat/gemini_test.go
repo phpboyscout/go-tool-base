@@ -70,6 +70,30 @@ func TestGeminiProvider_New(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create gemini client")
 	})
+
+	t.Run("genainewclient_wrong_type_returns_error_not_panic", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := chat.Config{
+			Provider: chat.ProviderGemini,
+			Token:    "test-key",
+			// A value that is non-nil but not the expected constructor signature.
+			// The comma-ok assertion must turn this into a wrapped error rather
+			// than panicking.
+			GenaiNewClient: "definitely-not-a-constructor",
+		}
+
+		var (
+			client chat.ChatClient
+			err    error
+		)
+		require.NotPanics(t, func() {
+			client, err = chat.New(context.Background(), p, cfg)
+		})
+		require.Error(t, err)
+		assert.Nil(t, client)
+		assert.Contains(t, err.Error(), "GenaiNewClient override has unexpected type")
+	})
 }
 
 func TestGeminiProvider_Ask(t *testing.T) {

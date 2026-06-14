@@ -1,6 +1,10 @@
 package logger
 
 import (
+	// Deliberate exception to the repo-wide cockroachdb/errors rule: logger is a
+	// foundational, near-leaf package that every other package depends on, so it
+	// must not pull in the heavier cockroachdb/errors tree. The sentinel and the
+	// single fmt.Errorf %w wrap below stay on the stdlib.
 	"errors"
 	"fmt"
 	"log/slog"

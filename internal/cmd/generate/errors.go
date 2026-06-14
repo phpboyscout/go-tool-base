@@ -1,6 +1,6 @@
 package generate
 
-import "errors"
+import "github.com/cockroachdb/errors"
 
 var (
 	ErrCommandNameRequired     = errors.New("command name is required")

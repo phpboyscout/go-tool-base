@@ -17,8 +17,8 @@ GTB interfaces follow these key principles:
 **Interface Segregation**
 :   Interfaces are kept small and focused on specific behaviours rather than encompassing all possible methods.
 
-**Accept Interfaces, Return Structs**
-:   Functions accept interface parameters for flexibility but return concrete types for clarity.
+**Accept Interfaces, Return Concrete — Except Provider Factories**
+:   Functions accept interface parameters for flexibility. The default return is a concrete type for clarity. The deliberate exception is a *factory constructor* that selects among several interchangeable implementations behind one contract (the provider pattern): these return the interface, because the concrete type is an implementation detail the caller must not depend on. `chat.New` returns `ChatClient`, `errorhandling.New` returns `ErrorHandler`, and the `logger.New*` constructors return `Logger` for exactly this reason. A constructor with a single concrete implementation still returns that concrete type.
 
 **Consumer-Defined Interfaces**
 :   Interfaces are defined where they're consumed, not where they're implemented, following Go idioms.
@@ -587,19 +587,44 @@ func NewCommand(reader FileReader) *cobra.Command {
 }
 ```
 
-### 3. Accept Interfaces, Return Structs
+### 3. Accept Interfaces, Return Concrete (Factories Excepted)
+
+Accept interfaces and, by default, return the concrete type so callers keep
+full access to the implementation:
 
 ```go
-// ✓ Good: Accept interface, return concrete
+// ✓ Good: single implementation — accept interface, return concrete
 func NewService(cfg config.Containable) *MyService {
     return &MyService{cfg: cfg}
 }
 
-// ✗ Avoid: Returning interface hides implementation
+// ✗ Avoid for a single implementation: returning the interface needlessly
+//   hides the concrete type
 func NewService(cfg config.Containable) ServiceInterface {
     return &MyService{cfg: cfg}
 }
 ```
+
+The exception is a **factory constructor** that picks one of several
+interchangeable implementations behind a shared contract. Here returning the
+interface is correct — the concrete type is intentionally hidden so the caller
+cannot couple to a specific provider:
+
+```go
+// ✓ Good: factory over multiple providers — return the interface
+func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+    switch cfg.Provider {
+    case ProviderClaude:
+        return newClaude(ctx, p, cfg)
+    case ProviderGemini:
+        return newGemini(ctx, p, cfg)
+    // ...
+    }
+}
+```
+
+This is why `chat.New`, `errorhandling.New`, and the `logger.New*` constructors
+return interfaces rather than concrete structs.
 
 ---
 

@@ -78,7 +78,7 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 	targetFile := filepath.Join(opts.Dir, DefaultConfigFilename)
 
 	if err := props.FS.MkdirAll(opts.Dir, dirPermStandard); err != nil {
-		return "", errors.Newf("Failed to create directory: %s", err)
+		return "", errors.Wrap(err, "Failed to create directory")
 	}
 
 	cfg, err := initializeConfig(props, opts.Dir, targetFile, opts.Clean)
@@ -141,7 +141,7 @@ func mergeExtraConfig(props *props.Props, cfg *viper.Viper) error {
 	}
 
 	if err := cfg.MergeConfig(bytes.NewReader(data)); err != nil {
-		return errors.Newf("Failed to merge extra configuration: %s", err)
+		return errors.Wrap(err, "Failed to merge extra configuration")
 	}
 
 	return nil
@@ -153,7 +153,7 @@ func initializeConfig(props *props.Props, dir, targetFile string, clean bool) (*
 	cfg.SetConfigType("yaml")
 
 	if err := cfg.ReadConfig(bytes.NewReader(DefaultConfig)); err != nil {
-		return nil, errors.Newf("Failed to read default configuration: %s", err)
+		return nil, errors.Wrap(err, "Failed to read default configuration")
 	}
 
 	// Load and merge any domain-specific "extra" configs from the Assets layer.
@@ -166,7 +166,7 @@ func initializeConfig(props *props.Props, dir, targetFile string, clean bool) (*
 		cfg.AddConfigPath(dir)
 
 		if err = cfg.MergeInConfig(); err != nil {
-			return nil, errors.Newf("Failed to merge configuration: %s", err)
+			return nil, errors.Wrap(err, "Failed to merge configuration")
 		}
 	}
 

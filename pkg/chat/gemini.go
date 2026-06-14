@@ -37,8 +37,17 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	clientConfig := buildGeminiClientConfig(token, cfg)
 
 	newClient := genai.NewClient
+
 	if cfg.GenaiNewClient != nil {
-		newClient = cfg.GenaiNewClient.(func(context.Context, *genai.ClientConfig) (*genai.Client, error))
+		override, ok := cfg.GenaiNewClient.(func(context.Context, *genai.ClientConfig) (*genai.Client, error))
+		if !ok {
+			return nil, errors.Newf(
+				"GenaiNewClient override has unexpected type %T; want func(context.Context, *genai.ClientConfig) (*genai.Client, error)",
+				cfg.GenaiNewClient,
+			)
+		}
+
+		newClient = override
 	}
 
 	client, err := newClient(ctx, clientConfig)

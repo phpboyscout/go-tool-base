@@ -29,6 +29,13 @@ type kmsClient interface {
 // digest (because go-crypto pre-hashes via crypto.SignerOpts.HashFunc()
 // and passes the digest in).
 type kmsSigner struct {
+	// ctx is the construction-time context, captured because the
+	// crypto.Signer.Sign method this type satisfies has no context
+	// parameter. It is used for the KMS Sign RPC in every subsequent
+	// Sign call, so its lifetime must outlive the signer: pass a context
+	// scoped to the whole signing operation (not a per-request or
+	// already-cancelled one) into newSigner. A cancelled ctx fails all
+	// later Sign calls.
 	ctx    context.Context
 	client kmsClient
 	keyID  string
