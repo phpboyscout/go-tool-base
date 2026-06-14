@@ -14,13 +14,44 @@ import (
 
 const (
 	readHeaderTimeout = 3 * time.Second
+
+	// defaultServeHost is the loopback interface the documentation server
+	// binds to unless widened via [WithHost]. Binding loopback by default
+	// keeps the docs server off the local network — the static site is only
+	// reachable from the machine running the command.
+	defaultServeHost = "127.0.0.1"
 )
 
-// --- Documentation Server ---
+// serveConfig holds the resolved configuration for the documentation server.
+type serveConfig struct {
+	host string
+}
 
-// Serve starts a documentation server on the given port serving the provided filesystem.
-func Serve(ctx context.Context, fsys fs.FS, port int) error {
-	addr := fmt.Sprintf(":%d", port)
+// ServeOption configures the documentation server started by [Serve].
+type ServeOption func(*serveConfig)
+
+// WithHost overrides the interface the documentation server binds to. The
+// default is loopback (127.0.0.1). Pass "0.0.0.0" (or "::") to expose the
+// server on all interfaces — only do this on a trusted network. An empty
+// host falls back to the loopback default.
+func WithHost(host string) ServeOption {
+	return func(c *serveConfig) {
+		if host != "" {
+			c.host = host
+		}
+	}
+}
+
+// Serve starts a documentation server on the given port serving the provided
+// filesystem. By default it binds the loopback interface (127.0.0.1); pass
+// [WithHost] to widen the bind address.
+func Serve(ctx context.Context, fsys fs.FS, port int, opts ...ServeOption) error {
+	cfg := serveConfig{host: defaultServeHost}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	addr := net.JoinHostPort(cfg.host, fmt.Sprintf("%d", port))
 
 	var lc net.ListenConfig
 
@@ -29,8 +60,10 @@ func Serve(ctx context.Context, fsys fs.FS, port int) error {
 		return errors.Wrap(err, "failed to start listener")
 	}
 
-	actualPort := listener.Addr().(*net.TCPAddr).Port
-	url := fmt.Sprintf("http://localhost:%d", actualPort)
+	// Report the address the listener actually bound to (including the
+	// resolved port when the caller passed 0) rather than a hard-coded
+	// "localhost", which would mislead when the bind host is widened.
+	url := fmt.Sprintf("http://%s", listener.Addr().String())
 
 	slog.Info("Documentation server starting", "url", url)
 

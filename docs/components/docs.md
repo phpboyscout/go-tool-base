@@ -31,6 +31,15 @@ The run-time interface resides in the generated binary and provides:
 - **Streaming Responses**: When the selected provider supports streaming (Claude, OpenAI, Gemini), the AI answer appears in the TUI viewport as it is generated rather than after a full round-trip. `ProviderClaudeLocal` falls back to a non-streaming response.
 - **AI Response Engine**: Specialized prompt engineering ensures high-quality Markdown responses with clear headings, lists, and consistent terminology.
 
+### 3. Static Site Server (`docs serve`)
+
+When the binary embeds a pre-built Material/Zensical static site (`assets/site`), the `docs serve` subcommand starts a local HTTP server for it.
+
+- **Loopback by default**: the server binds `127.0.0.1` so the locally-served site is **not** reachable from the network. The startup log reports the address the listener actually bound to (including the resolved port when `--port 0` is used) rather than a hard-coded `localhost`.
+- **Widening the bind**: pass `--host 0.0.0.0` (or another interface, e.g. `--host ::`) to expose the server on all interfaces. Only do this on a trusted network. The library equivalent is the additive `docs.WithHost` option to `docs.Serve`.
+- **Flags**: `--port` / `-p` (default `8080`, `0` for a random port), `--host` (default `127.0.0.1`), and `--open` (auto-open the browser; skipped when `--port 0` since the bound port is not known to the caller).
+- **Standard error path**: the command runs as `RunE` and flows through the recovery/timing/telemetry middleware chain like every other built-in, surfacing failures via the structured `ErrorHandler`.
+
 ## Integration Details
 
 ### Asset Structure
