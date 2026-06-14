@@ -176,3 +176,40 @@ func TestDirectProvider_VersionURL_FallbackKey(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "v6.0.0", rel.GetTagName())
 }
+
+// TestDirectProvider_VersionURL_BoundedRead proves the version-endpoint
+// read is capped: a hostile/misconfigured endpoint streaming a body well
+// past the 1 MiB ceiling must fail rather than buffer it all into memory.
+// The valid version token is buried after >1 MiB of padding, so a bounded
+// read both rejects the oversize body and never reaches the token.
+func TestDirectProvider_VersionURL_BoundedRead(t *testing.T) {
+	t.Parallel()
+
+	const overCap = (1 << 20) + 1024 // just past maxVersionResponseSize
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		// Stream padding past the cap, then a would-be-valid version.
+		padding := make([]byte, overCap)
+		for i := range padding {
+			padding[i] = ' '
+		}
+		_, _ = w.Write(padding)
+		_, _ = w.Write([]byte("v9.9.9\n"))
+	}))
+	defer srv.Close()
+
+	src := release.ReleaseSourceConfig{
+		Params: map[string]string{
+			"url_template": "https://example.com/{version}.tar.gz",
+			"version_url":  srv.URL,
+		},
+	}
+
+	p, err := direct.NewReleaseProvider(src, nil)
+	require.NoError(t, err)
+
+	_, err = p.GetLatestRelease(context.Background(), "", "")
+	require.Error(t, err, "an oversize version response must be rejected")
+	assert.Contains(t, err.Error(), "exceeded")
+}

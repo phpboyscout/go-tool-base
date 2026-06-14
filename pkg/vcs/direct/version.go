@@ -12,6 +12,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// maxVersionResponseSize bounds the version-endpoint read. A version
+// document (plain text, JSON, YAML, or XML naming a single tag) is tiny;
+// 1 MiB is a generous ceiling that still caps a hostile or misconfigured
+// endpoint from streaming an unbounded body into memory. It mirrors the
+// size-capping the sibling checksum/signature fetches already apply.
+const maxVersionResponseSize = 1 << 20 // 1 MiB
+
 // fetchVersion retrieves the latest version string from a URL.
 // Format is auto-detected from Content-Type unless overridden by the
 // version_format param. Supported formats: text, json, yaml, xml.
@@ -32,9 +39,14 @@ func fetchVersion(ctx context.Context, client *http.Client, versionURL, formatOv
 		return "", errors.Newf("version endpoint returned HTTP %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// +1 lets us detect overshoot past the cap; we size-check below.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxVersionResponseSize+1))
 	if err != nil {
 		return "", errors.Wrap(err, "reading version response body")
+	}
+
+	if int64(len(body)) > maxVersionResponseSize {
+		return "", errors.Newf("version response exceeded %d bytes", maxVersionResponseSize)
 	}
 
 	format := detectFormat(resp.Header.Get("Content-Type"), formatOverride)

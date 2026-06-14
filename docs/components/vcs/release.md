@@ -286,7 +286,7 @@ For tools distributed via arbitrary HTTP servers — S3, GCS, Artifactory, Nexus
 | Key | Required | Description |
 |-----|----------|-------------|
 | `url_template` | Yes | Download URL template. See placeholders below. |
-| `version_url` | No | URL returning the latest version string. |
+| `version_url` | No | URL returning the latest version string. The response body is read under a 1 MiB cap (mirroring the checksum/signature fetches) so a hostile or misconfigured endpoint cannot stream an unbounded body into memory. |
 | `version_format` | No | Override format detection: `text`, `json`, `yaml`, or `xml`. |
 | `version_key` | No | Field name to extract from structured responses. Tries `tag_name` then `version` by default. |
 | `pinned_version` | No | Static version string. Disables all network version checks. |
