@@ -319,6 +319,91 @@ func TestStop(t *testing.T) {
 	stopFn(ctx)
 }
 
+// TestNewServer_BaseContextNotCancelledByParent verifies the per-request
+// BaseContext is detached from the construction context's cancellation, so a
+// shutdown that cancels the parent does not cancel in-flight requests mid-drain.
+func TestNewServer_BaseContextNotCancelledByParent(t *testing.T) {
+	t.Parallel()
+
+	cfg := mockConfig.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(0)
+	cfg.EXPECT().GetInt("server.port").Return(0)
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	srv, err := NewServer(ctx, cfg, http.DefaultServeMux)
+	require.NoError(t, err)
+
+	baseCtx := srv.BaseContext(nil)
+
+	cancel()
+
+	require.NoError(t, baseCtx.Err(), "request BaseContext must survive parent cancellation")
+}
+
+// TestStop_ForceClosesAfterShutdownTimeout verifies that when Shutdown returns a
+// context error (a handler that outlives the shutdown deadline) the server is
+// force-closed, so the hung connection cannot keep the listener open.
+func TestStop_ForceClosesAfterShutdownTimeout(t *testing.T) {
+	t.Parallel()
+
+	release := make(chan struct{})
+	handlerStarted := make(chan struct{})
+
+	srv := &http.Server{
+		Addr: "127.0.0.1:0",
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			close(handlerStarted)
+			<-release // never returns within the shutdown deadline
+			w.WriteHeader(http.StatusOK)
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	go func() { _ = srv.Serve(ln) }()
+
+	addr := ln.Addr().String()
+
+	// Fire a request that blocks in the handler.
+	go func() {
+		client := &http.Client{}
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+addr+"/", nil)
+		resp, reqErr := client.Do(req)
+		if reqErr == nil {
+			_ = resp.Body.Close()
+		}
+	}()
+
+	select {
+	case <-handlerStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler did not start")
+	}
+
+	stopFn := Stop(testLogger(), srv)
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		stopFn(ctx) // Shutdown will time out, then Close force-closes.
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Force-close returned promptly despite the hung handler.
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("Stop did not force-close after shutdown timeout")
+	}
+
+	close(release)
+}
+
 func TestRegister(t *testing.T) {
 	t.Parallel()
 

@@ -228,11 +228,11 @@ func TestLoggingMiddleware_WithHeaderFields_RedactsSensitive(t *testing.T) {
 	}
 }
 
-func TestLoggingMiddleware_ClientIP_XForwardedFor(t *testing.T) {
+func TestLoggingMiddleware_ClientIP_XForwardedFor_TrustedProxy(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf)
+	mw := LoggingMiddleware(buf, WithTrustedProxy())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -249,11 +249,11 @@ func TestLoggingMiddleware_ClientIP_XForwardedFor(t *testing.T) {
 	assert.Equal(t, "10.20.30.40", kv["client_ip"])
 }
 
-func TestLoggingMiddleware_ClientIP_XRealIP(t *testing.T) {
+func TestLoggingMiddleware_ClientIP_XRealIP_TrustedProxy(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf)
+	mw := LoggingMiddleware(buf, WithTrustedProxy())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -268,6 +268,32 @@ func TestLoggingMiddleware_ClientIP_XRealIP(t *testing.T) {
 
 	kv := keyvalMap(buf.Entries()[0].Keyvals)
 	assert.Equal(t, "10.20.30.50", kv["client_ip"])
+}
+
+// TestLoggingMiddleware_ClientIP_IgnoresSpoofedHeadersByDefault verifies that
+// without WithTrustedProxy the spoofable X-Forwarded-For / X-Real-IP headers
+// are ignored and the connection RemoteAddr is logged instead.
+func TestLoggingMiddleware_ClientIP_IgnoresSpoofedHeadersByDefault(t *testing.T) {
+	t.Parallel()
+
+	buf := logger.NewBuffer()
+	mw := LoggingMiddleware(buf)
+
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "192.168.1.1:9999"
+	req.Header.Set("X-Forwarded-For", "10.20.30.40, 10.20.30.41")
+	req.Header.Set("X-Real-IP", "10.20.30.50")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	kv := keyvalMap(buf.Entries()[0].Keyvals)
+	assert.Equal(t, "192.168.1.1", kv["client_ip"],
+		"spoofable proxy headers must be ignored without WithTrustedProxy")
 }
 
 func TestLoggingMiddleware_DefaultStatusCode(t *testing.T) {

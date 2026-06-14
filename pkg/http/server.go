@@ -209,10 +209,16 @@ func newServer(ctx context.Context, cfg config.Containable, handler http.Handler
 		tlsConfig = gtbtls.DefaultConfig()
 	}
 
+	// Detach the per-request BaseContext from the construction context's
+	// cancellation. Cancelling ctx (typically at shutdown) must not propagate
+	// into already-accepted requests, which would cancel them mid-drain and
+	// defeat Shutdown's graceful-drain guarantee. Values on ctx are preserved.
+	baseCtx := context.WithoutCancel(ctx)
+
 	srv := &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		BaseContext: func(_ net.Listener) context.Context {
-			return ctx
+			return baseCtx
 		},
 		Handler:        handler,
 		ReadTimeout:    sc.readTimeout,
@@ -339,12 +345,20 @@ func start(cfg config.Containable, logger logger.Logger, srv *http.Server, prefi
 }
 
 // Stop returns a curried function suitable for use with the controls package.
+// Shutdown is attempted first to drain in-flight requests. If the shutdown
+// context expires (or Shutdown otherwise errors) the server is force-closed via
+// Close so a hung handler cannot leave the listener and connections open,
+// mirroring the gRPC transport's graceful-then-force-stop behaviour.
 func Stop(logger logger.Logger, srv *http.Server) controls.StopFunc {
 	return func(ctx context.Context) {
 		logger.Info("stopping http server", "addr", srv.Addr)
 
 		if err := srv.Shutdown(ctx); err != nil {
-			logger.Error("server shutdown failed", "error", err)
+			logger.Error("server shutdown failed, forcing close", "error", err)
+
+			if cerr := srv.Close(); cerr != nil {
+				logger.Error("server force close failed", "error", cerr)
+			}
 		}
 	}
 }

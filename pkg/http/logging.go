@@ -49,6 +49,7 @@ type loggingConfig struct {
 	logUserAgent bool
 	pathFilter   map[string]struct{}
 	headerFields []string
+	trustedProxy bool
 }
 
 func defaultLoggingConfig() loggingConfig {
@@ -102,6 +103,20 @@ func WithPathFilter(paths ...string) LoggingOption {
 	}
 }
 
+// WithTrustedProxy makes the logging middleware trust the client-supplied
+// X-Forwarded-For and X-Real-IP headers when deriving the logged client IP.
+//
+// These headers are trivially spoofable by any direct client, so they are
+// IGNORED by default and the connection's RemoteAddr is logged instead. Enable
+// this option only when the server sits behind a trusted reverse proxy or load
+// balancer that overwrites (rather than appends to) these headers. Enabling it
+// on a directly-exposed server lets clients forge the recorded client IP.
+func WithTrustedProxy() LoggingOption {
+	return func(c *loggingConfig) {
+		c.trustedProxy = true
+	}
+}
+
 // WithHeaderFields logs the specified request header values as fields.
 // Header names are normalised to lowercase. Values are truncated to 256 bytes.
 //
@@ -142,7 +157,7 @@ func LoggingMiddleware(l logger.Logger, opts ...LoggingOption) Middleware {
 				status:    rl.statusCode,
 				bytes:     rl.bytesWritten,
 				latency:   time.Since(start),
-				clientIP:  clientIP(r),
+				clientIP:  clientIP(r, cfg.trustedProxy),
 				userAgent: r.UserAgent(),
 				referer:   r.Referer(),
 				timestamp: start,
@@ -343,17 +358,23 @@ func extractHeaders(r *http.Request, fields []string) map[string]string {
 	return m
 }
 
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if ip, _, ok := strings.Cut(xff, ","); ok {
-			return strings.TrimSpace(ip)
+// clientIP derives the client IP for logging. The X-Forwarded-For and
+// X-Real-IP headers are spoofable by any direct client, so they are only
+// consulted when trustedProxy is set (the server sits behind a trusted reverse
+// proxy). Otherwise the connection's RemoteAddr is used.
+func clientIP(r *http.Request, trustedProxy bool) string {
+	if trustedProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if ip, _, ok := strings.Cut(xff, ","); ok {
+				return strings.TrimSpace(ip)
+			}
+
+			return strings.TrimSpace(xff)
 		}
 
-		return strings.TrimSpace(xff)
-	}
-
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		if xri := r.Header.Get("X-Real-IP"); xri != "" {
+			return xri
+		}
 	}
 
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
