@@ -93,6 +93,9 @@ The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_by
 - **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error)`**: Returns a pre-configured `*http.Server`. With no options it reads the `server.http` prefix.
 - **`Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix` to match a server built on a custom prefix; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
 - **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. The variadic accepts both `ServerOption` and `RegisterOption` values (mirroring `pkg/grpc.Register`). Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
+- **`Stop(logger logger.Logger, srv *http.Server) controls.StopFunc`**: Returns a controller stop function. It calls `srv.Shutdown(ctx)` to drain in-flight requests; if the shutdown context deadline expires (a handler outlives it), the server is **force-closed** via `srv.Close()` so a hung handler cannot leave the listener and connections open. This mirrors the gRPC transport's graceful-then-force-stop behaviour.
+
+**Drain semantics**: the server's per-request `BaseContext` is detached from the construction context with `context.WithoutCancel`. Cancelling the construction context (typically at shutdown) therefore does **not** cancel already-accepted requests mid-drain — `Shutdown` is left to drain them within its deadline. Context *values* on the construction context are still propagated to each request.
 
 ### Middleware Chaining
 
@@ -120,7 +123,9 @@ The package provides an alice-style middleware chaining API. Middleware uses the
 | `FormatCombined` | NCSA Combined Log Format (CLF + Referer + User-Agent) |
 | `FormatJSON` | Single JSON object per request |
 
-**Other options**: `WithLogLevel`, `WithoutLatency`, `WithoutUserAgent`, `WithPathFilter`, `WithHeaderFields`.
+**Other options**: `WithLogLevel`, `WithoutLatency`, `WithoutUserAgent`, `WithPathFilter`, `WithHeaderFields`, `WithTrustedProxy`.
+
+**Client IP and trusted proxies**: by default the logged `client_ip` is taken from the connection's `RemoteAddr`. The `X-Forwarded-For` and `X-Real-IP` headers are **ignored** because any direct client can forge them. Enable `WithTrustedProxy()` only when the server sits behind a trusted reverse proxy or load balancer that overwrites these headers; with it set, the left-most `X-Forwarded-For` entry (falling back to `X-Real-IP`) is used. Enabling it on a directly-exposed server lets clients spoof the recorded client IP.
 
 ### Usage Example
 
@@ -182,7 +187,7 @@ The client supports opt-in retry for transient failures via `WithRetry`. Retry i
 | `RetryableStatusCodes` | 429, 502, 503, 504 | HTTP status codes that trigger a retry |
 | `ShouldRetry` | nil | Optional custom predicate replacing default logic |
 
-**Backoff strategy**: Full jitter — `uniform random in [0, min(cap, base × 2^attempt)]`. This reduces thundering-herd effects compared to fixed or equal-jitter backoff.
+**Backoff strategy**: Full jitter — `uniform random in [0, min(cap, base × 2^attempt)]`. This reduces thundering-herd effects compared to fixed or equal-jitter backoff. The exponential term is clamped to `MaxBackoff` *before* the doubling so the computed delay can never overflow. Invalid `RetryConfig` values (negative `MaxRetries`, non-positive backoff durations, `MaxBackoff` below `InitialBackoff`) are normalised to safe defaults at client construction.
 
 ### Client Middleware Chain
 
@@ -225,9 +230,9 @@ client := gtbhttp.NewClient(
 
 The middleware chain is applied after retry wrapping, so retry operates on the raw transport (not on logged/authed requests). Custom middleware can be written by implementing the `ClientMiddleware` function signature.
 
-**Retry-After support**: When a 429 or 503 response includes a `Retry-After` header (seconds or HTTP-date), that value is used as the delay instead of the computed backoff.
+**Retry-After support**: When a 429 or 503 response includes a `Retry-After` header (seconds or HTTP-date), that value is used as the delay instead of the computed backoff. The header value is **clamped to `MaxBackoff`**, so a hostile or misconfigured server cannot stall the client beyond the configured cap.
 
-**Body rewind**: Request bodies are rewound via `GetBody` between attempts. Response bodies from failed attempts are drained and closed to allow connection reuse.
+**Body rewind**: Request bodies are rewound via `GetBody` between attempts. Response bodies from failed attempts are drained and closed to allow connection reuse. A request whose body has already been consumed and that has **no `GetBody`** to rewind it (e.g. a streamed `io.Reader` body) is **not retried** — resending it would silently send an empty or partial body. A `nil` body (e.g. `GET`) is always safe to retry.
 
 **Context cancellation**: If the request context is cancelled during a backoff wait, the retry loop exits immediately with the context error.
 
