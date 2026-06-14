@@ -253,6 +253,34 @@ func TestValidateBeforeOpen(t *testing.T) {
 	assert.False(t, opener.Invoked())
 }
 
+func TestAllowedSchemes_ReturnsExpectedSet(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, []string{"https", "http", "mailto"}, browser.AllowedSchemes())
+}
+
+func TestAllowedSchemes_ReturnsCopyCallerCannotMutate(t *testing.T) {
+	t.Parallel()
+
+	// Mutating the returned slice must not widen the internal allowlist:
+	// a previously disallowed scheme must remain rejected by OpenURL.
+	got := browser.AllowedSchemes()
+	for i := range got {
+		got[i] = "file"
+	}
+	got = append(got, "javascript")
+	_ = got
+
+	// A fresh call still reports the canonical, unmodified set.
+	assert.Equal(t, []string{"https", "http", "mailto"}, browser.AllowedSchemes())
+
+	// And OpenURL still rejects a scheme the caller tried to inject.
+	opener := &fakeOpener{}
+	err := browser.OpenURL(context.Background(), "file:///etc/passwd", browser.WithOpener(opener.Open))
+	require.ErrorIs(t, err, browser.ErrDisallowedScheme)
+	assert.False(t, opener.Invoked())
+}
+
 // alreadyPastTime returns a time in the past for deadline testing.
 func alreadyPastTime() (t time.Time) {
 	return time.Unix(0, 0)

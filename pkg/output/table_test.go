@@ -158,6 +158,90 @@ func TestTableWriter_MarkdownFormat(t *testing.T) {
 	assert.True(t, strings.HasSuffix(lines[2], "|"))
 }
 
+func TestTableWriter_MarkdownFormat_PipeInjection(t *testing.T) {
+	t.Parallel()
+
+	type cellRow struct {
+		Name  string `table:"NAME"`
+		Notes string `table:"NOTES"`
+	}
+
+	// A pipe in cell content must not open a new column, and a newline must
+	// not open a new row. Without escaping, this single data row would render
+	// as a malformed table with extra columns/rows.
+	rows := []cellRow{
+		{Name: "evil", Notes: "a | b | c"},
+	}
+
+	var buf bytes.Buffer
+	tw := NewTableWriter(&buf, FormatMarkdown, WithNoTruncation())
+
+	require.NoError(t, tw.WriteRows(rows))
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	require.Len(t, lines, 3, "header + separator + exactly one data row")
+
+	dataLine := lines[2]
+
+	// Two columns means exactly three pipe delimiters (leading, middle,
+	// trailing). The injected pipes must be escaped, not counted as cells.
+	assert.Equal(t, 3, strings.Count(dataLine, "|")-strings.Count(dataLine, "\\|"),
+		"injected pipes must be escaped so the row keeps two columns")
+	assert.Contains(t, dataLine, "a \\| b \\| c", "pipes should be backslash-escaped")
+}
+
+func TestTableWriter_MarkdownFormat_NewlineInjection(t *testing.T) {
+	t.Parallel()
+
+	type cellRow struct {
+		Name  string `table:"NAME"`
+		Notes string `table:"NOTES"`
+	}
+
+	rows := []cellRow{
+		{Name: "evil", Notes: "line1\nline2\r\nline3"},
+	}
+
+	var buf bytes.Buffer
+	tw := NewTableWriter(&buf, FormatMarkdown, WithNoTruncation())
+
+	require.NoError(t, tw.WriteRows(rows))
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	require.Len(t, lines, 3, "newlines in a cell must not create extra rows")
+
+	dataLine := lines[2]
+	assert.NotContains(t, dataLine, "\n")
+	assert.NotContains(t, dataLine, "\r")
+	assert.Contains(t, dataLine, "line1<br>line2<br>line3", "newlines should fold to <br>")
+}
+
+func TestEscapeMarkdownCell(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "plain", in: "hello world", want: "hello world"},
+		{name: "pipe", in: "a|b", want: "a\\|b"},
+		{name: "lf", in: "a\nb", want: "a<br>b"},
+		{name: "cr", in: "a\rb", want: "a<br>b"},
+		{name: "crlf", in: "a\r\nb", want: "a<br>b"},
+		{name: "mixed", in: "a|b\nc", want: "a\\|b<br>c"},
+		{name: "empty", in: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, escapeMarkdownCell(tt.in))
+		})
+	}
+}
+
 func TestTableWriter_MarkdownFormat_NoHeader(t *testing.T) {
 	t.Parallel()
 

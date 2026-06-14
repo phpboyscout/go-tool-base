@@ -3,6 +3,7 @@ package browser
 import (
 	"context"
 	"net/url"
+	"slices"
 	"strings"
 
 	clibrowser "github.com/cli/browser"
@@ -17,12 +18,23 @@ import (
 // URLs including mailto: with long bodies.
 const MaxURLLength = 8192
 
-// AllowedSchemes lists the URI schemes that [OpenURL] permits.
+// allowedSchemes lists the URI schemes that [OpenURL] permits.
 //
 // Scheme comparison is case-insensitive per RFC 3986. The list is
 // intentionally not configurable — extending it requires a code change
-// and a security-review sign-off.
-var AllowedSchemes = []string{"https", "http", "mailto"}
+// and a security-review sign-off. It is an unexported package var so that
+// callers cannot widen the allowlist at runtime; read it through
+// [AllowedSchemes], which returns a defensive copy.
+var allowedSchemes = []string{"https", "http", "mailto"}
+
+// AllowedSchemes returns the URI schemes that [OpenURL] permits.
+//
+// The returned slice is a fresh copy on every call: mutating it has no
+// effect on the validation performed by [OpenURL]. The allowlist is
+// intentionally not configurable — see the package documentation.
+func AllowedSchemes() []string {
+	return slices.Clone(allowedSchemes)
+}
 
 // ErrInvalidURL is returned when a URL fails hygiene validation:
 // empty, too long, contains control characters, or fails to parse.
@@ -129,7 +141,7 @@ func validate(rawURL string) error {
 	if !isAllowedScheme(parsed.Scheme) {
 		return errors.WithHintf(
 			ErrDisallowedScheme,
-			"scheme %q is not permitted; allowed: %v", parsed.Scheme, AllowedSchemes,
+			"scheme %q is not permitted; allowed: %v", parsed.Scheme, allowedSchemes,
 		)
 	}
 
@@ -143,10 +155,10 @@ func isControl(r rune) bool {
 	return r < 0x20 || r == 0x7F
 }
 
-// isAllowedScheme reports whether scheme is in [AllowedSchemes]. The
+// isAllowedScheme reports whether scheme is in the allowlist. The
 // comparison is case-insensitive per RFC 3986.
 func isAllowedScheme(scheme string) bool {
-	for _, s := range AllowedSchemes {
+	for _, s := range allowedSchemes {
 		if strings.EqualFold(scheme, s) {
 			return true
 		}

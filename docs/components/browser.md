@@ -32,8 +32,14 @@ Fail-fast in this order:
 1. Length ≤ `MaxURLLength`
 2. No ASCII control characters (0x00–0x1F, 0x7F)
 3. `net/url.Parse` succeeds
-4. Scheme matches `AllowedSchemes` (case-insensitive per RFC 3986)
+4. Scheme matches the allowlist (case-insensitive per RFC 3986)
 5. Context not cancelled
+
+The allowlist is `https`, `http`, `mailto`. It is **not configurable**:
+the schemes are held in an unexported package var and can only be inspected
+through `AllowedSchemes()`, which returns a fresh copy on every call.
+Mutating that copy has no effect on the validation performed by `OpenURL` —
+extending the allowlist requires a code change and security-review sign-off.
 
 Each failure returns a typed sentinel:
 

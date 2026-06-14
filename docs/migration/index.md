@@ -17,6 +17,7 @@ provides before/after code examples with a clear migration path.
 | v0.16 | v0.17 | [Repo provider-aware auth](v0.16-repo-provider-auth.md) |
 | v0.16 | v0.17 | [Hot-reload observer contract](v0.16-hot-reload-observer.md) |
 | v0.16 | v0.17 | [Controls supervisor & lifecycle hardening](v0.16-controls-supervisor.md) |
+| v0.16 | v0.17 | [Browser allowlist is immutable](v0.16-browser-allowed-schemes.md) |
 | v0.x | v1.0 | [Migrating to v1.0](v0.x-to-v1.0.md) |
 
 ## Writing a new guide

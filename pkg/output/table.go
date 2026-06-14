@@ -293,20 +293,48 @@ func (t *TableWriter) renderMarkdown(rows any) error {
 		}
 	}
 
-	widths := calculateWidths(cols, extracted)
+	// Escape cell content up front so a literal "|" cannot open a new column
+	// and newlines cannot open a new row. Escaping before width calculation
+	// keeps the column widths consistent with what is actually rendered.
+	headers := escapeMarkdownRow(headerValues(cols))
+
+	escaped := make([][]string, len(extracted))
+	for i, row := range extracted {
+		escaped[i] = escapeMarkdownRow(row)
+	}
+
+	// Include the escaped header row in the width calculation so escaping a
+	// header (rare, but possible) never desynchronises column widths.
+	widthRows := escaped
+	if !t.cfg.noHeader {
+		widthRows = append([][]string{headers}, escaped...)
+	}
+
+	widths := calculateWidths(cols, widthRows)
 
 	// Header row
 	if !t.cfg.noHeader {
-		t.writeMarkdownRow(headerValues(cols), widths)
+		t.writeMarkdownRow(headers, widths)
 		t.writeMarkdownSeparator(widths)
 	}
 
 	// Data rows
-	for _, row := range extracted {
+	for _, row := range escaped {
 		t.writeMarkdownRow(row, widths)
 	}
 
 	return nil
+}
+
+// escapeMarkdownRow returns a copy of cells with each value escaped via
+// [escapeMarkdownCell].
+func escapeMarkdownRow(cells []string) []string {
+	out := make([]string, len(cells))
+	for i, c := range cells {
+		out[i] = escapeMarkdownCell(c)
+	}
+
+	return out
 }
 
 func (t *TableWriter) writeMarkdownRow(cells []string, widths []int) {
@@ -321,12 +349,34 @@ func (t *TableWriter) writeMarkdownRow(cells []string, widths []int) {
 
 		w := widths[i]
 
+		// Cells are pre-escaped by writeMarkdown before width calculation,
+		// so a literal "|" or newline can never break out of the cell here.
 		display := padCell(truncateCell(cell, w), w)
 
 		fmt.Fprintf(&sb, " %s |", display)
 	}
 
 	_, _ = fmt.Fprintln(t.w, sb.String())
+}
+
+// escapeMarkdownCell neutralises characters that would otherwise break out of
+// a GitHub-flavoured Markdown table cell: a literal pipe ("|") would start a
+// new column and any newline (CR or LF) would start a new row. Pipes are
+// backslash-escaped (the canonical GFM escape) and newlines are folded to the
+// "<br>" line-break tag so multi-line content stays inside its cell.
+func escapeMarkdownCell(s string) string {
+	if !strings.ContainsAny(s, "|\r\n") {
+		return s
+	}
+
+	r := strings.NewReplacer(
+		"|", "\\|",
+		"\r\n", "<br>",
+		"\r", "<br>",
+		"\n", "<br>",
+	)
+
+	return r.Replace(s)
 }
 
 func (t *TableWriter) writeMarkdownSeparator(widths []int) {

@@ -309,6 +309,13 @@ type Column struct {
 | `FormatMarkdown` | Pipe-delimited markdown table with separator row |
 | `FormatTSV` | Tab-separated values for shell pipelines (`awk`, `cut`, `sort`) |
 
+!!! note "Markdown cell escaping"
+    In `FormatMarkdown`, cell content is escaped so it cannot break the table
+    structure: a literal `|` is backslash-escaped (`\|`) so it does not open a
+    new column, and any newline (`\n`, `\r`, `\r\n`) is folded to a `<br>` tag so
+    multi-line values stay inside their cell. This prevents column/row injection
+    when rendering untrusted data.
+
 **Example:**
 
 ```go
