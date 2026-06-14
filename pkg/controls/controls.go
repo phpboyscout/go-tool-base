@@ -239,6 +239,13 @@ type StateAccessor interface {
 }
 
 // Configurable provides controller configuration setters.
+//
+// These setters mutate channel and logger fields that controller
+// goroutines read after Start. They carry no internal synchronization
+// and must only be called during construction — before Start — which is
+// how the WithX ControllerOpt options apply them inside NewController.
+// Calling any setter after Start races the running goroutines and is a
+// programming error.
 type Configurable interface {
 	SetErrorsChannel(errs chan error)
 	SetMessageChannel(control chan Message)

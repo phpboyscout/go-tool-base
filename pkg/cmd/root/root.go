@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -462,15 +463,19 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 			return nil
 		}
 
-		// Load and merge configuration
+		// Load and merge configuration. Clone the captured slice per
+		// invocation so the append below never accumulates across repeated
+		// PersistentPreRunE runs and never mutates the caller's backing array.
 		allowEmpty := props.Tool.IsDisabled(p.InitCmd)
+		paths := slices.Clone(configPaths)
+
 		if allowEmpty {
-			configPaths = append(configPaths, "assets/init/config.yaml")
+			paths = append(paths, "assets/init/config.yaml")
 		}
 
 		cfg, err := loadAndMergeConfig(ConfigLoadOptions{
 			CfgPaths:    state.cfgPaths,
-			ConfigPaths: configPaths,
+			ConfigPaths: paths,
 			Props:       props,
 			AllowEmpty:  allowEmpty,
 		})

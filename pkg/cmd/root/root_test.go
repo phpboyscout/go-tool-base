@@ -14,6 +14,7 @@ import (
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1350,4 +1351,63 @@ func TestBootstrapOrdering_RootBeforeChild(t *testing.T) {
 
 	assert.NotNil(t, configWhenChildHookRan,
 		"framework bootstrap must run before the child PersistentPreRunE (root→leaf ordering)")
+}
+
+// TestNewRootPreRunE_ConfigPathsNotAccumulated proves the configpaths-closure
+// fix: the PersistentPreRunE closure must clone the captured configPaths slice
+// each invocation so the per-run "assets/init/config.yaml" append neither grows
+// the captured slice across repeated runs nor clobbers the caller's backing
+// array (it is given spare capacity here so an aliasing append would corrupt the
+// element past len).
+func TestNewRootPreRunE_ConfigPathsNotAccumulated(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	// Not parallel: exercises the process-global middleware registry path.
+
+	// A slice with spare capacity and a sentinel element past its length. An
+	// aliasing append in the closure would overwrite "sentinel".
+	backing := make([]string, 1, 2)
+	backing[0] = "config.yaml"
+	backing = append(backing, "sentinel")
+	configPaths := backing[:1] // len 1, cap 2, backing[1] == "sentinel"
+
+	props := &p.Props{
+		Logger:       logger.NewNoop(),
+		FS:           afero.NewMemMapFs(),
+		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		Tool: p.Tool{
+			Name: "tool",
+			// InitCmd disabled -> allowEmpty true -> the append fires.
+			// Update/Telemetry disabled -> no network / no consent prompt.
+			Features: p.SetFeatures(
+				p.Disable(p.InitCmd),
+				p.Disable(p.UpdateCmd),
+				p.Disable(p.TelemetryCmd),
+			),
+		},
+	}
+
+	mcpLogLevel := &slog.LevelVar{}
+	state := newRootState()
+	preRun := newRootPreRunE(props, configPaths, mcpLogLevel, state, map[string]*pflag.Flag{})
+
+	mkCmd := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "tool"}
+		cmd.Flags().Bool("ci", true, "ci flag")
+		cmd.Flags().Bool("debug", false, "debug flag")
+		cmd.SetContext(context.Background())
+		return cmd
+	}
+
+	// Invoke the closure multiple times, as repeated Execute would.
+	for range 3 {
+		require.NoError(t, preRun(mkCmd(), nil))
+	}
+
+	// The caller's slice length is untouched...
+	assert.Len(t, configPaths, 1, "captured slice length must not grow")
+	assert.Equal(t, "config.yaml", configPaths[0])
+	// ...and the sentinel past len was never clobbered by an aliasing append.
+	assert.Equal(t, "sentinel", backing[1],
+		"closure must clone configPaths, not append into the caller's backing array")
 }

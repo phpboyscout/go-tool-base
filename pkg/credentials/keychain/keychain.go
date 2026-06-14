@@ -39,8 +39,11 @@ type Backend struct{}
 // this in a goroutine and drop the result when the context fires.
 func (Backend) Store(_ context.Context, service, account, secret string) error {
 	if err := keyring.Set(service, account, secret); err != nil {
-		// Wrap without the secret: go-keyring sometimes quotes
-		// portions of the payload on failure.
+		// The pinned go-keyring (v0.2.6) never embeds the secret in its
+		// error strings, so this wrap cannot leak the payload. The
+		// defensive wrap is kept regardless: it adds the service/account
+		// context without ever interpolating the secret, so a future
+		// go-keyring that did quote the payload would still be safe here.
 		return errors.Wrapf(err, "keyring.Set %s/%s", service, account)
 	}
 

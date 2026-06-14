@@ -178,9 +178,11 @@ func (c *Container) BindPFlag(key string, flag *pflag.Flag) error {
 	return nil
 }
 
-// Has reports whether the given key exists in the underlying
-// configuration. Routed through the root container so env vars
-// picked up by Viper's AutomaticEnv are counted as "set".
+// Has reports whether the given key is present in the loaded file
+// configuration. It is backed by Viper's InConfig, which inspects only
+// keys read from a config file — env vars picked up by AutomaticEnv,
+// flag bindings, and Set overrides are not counted. Use IsSet for a
+// presence check that spans file, env, and flag sources.
 func (c *Container) Has(key string) bool {
 	return c.resolverViper().InConfig(c.qualifyKey(key))
 }
