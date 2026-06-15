@@ -1,7 +1,7 @@
 ---
 title: "Generator release-signing pipeline — `gtb enable signing` writes the GoReleaser `signs:` block"
 description: "Extend `gtb enable signing` to own the produce half of release signing: when a signing key is recorded, scaffold a shim-free GoReleaser `signs:` block into the generated `.goreleaser.yaml` that calls `gtb sign` directly. Records backend, key_id, kms_region and public_key in the manifest signing block; emits the block only when a key id is set; the backend is dynamic (the block emits backend-specific args). Companion to the embed-and-wire spec (2026-06-10-signing-generator-feature.md), which deliberately left the release pipeline out of scope."
-status: DRAFT
+status: IMPLEMENTED
 date: 2026-06-10
 tags:
   - specification
@@ -12,7 +12,7 @@ tags:
   - openpgp
 author:
   - name: Matt Cockayne
-    email: matt@phpboyscout.com
+    email: matt@phpboyscout.uk
 ---
 
 # Generator release-signing pipeline — `gtb enable signing` writes the GoReleaser `signs:` block
@@ -24,7 +24,7 @@ Date
 :   10 June 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED (status corrected 2026-06-15 — the GoReleaser `signs:` block ships in `internal/generator/assets/skeleton/.goreleaser.yaml` gated on `{{ if and .Signing.Enabled .Signing.KeyID }}` with backend-conditional args; `Backend`/`KeyID`/`KMSRegion`/`PublicKey` in `ManifestSigning`; `gtb enable signing` key flags in `internal/cmd/enable/signing.go`; covered by `signing_goreleaser_test.go`)
 
 ---
 

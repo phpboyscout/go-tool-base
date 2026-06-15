@@ -1,7 +1,7 @@
 ---
 title: "Generator signing support — `gtb enable signing`, scaffold `internal/trustkeys`, wire `props.Signing`"
 description: "Teach the generator to set up consumer-side release-signing verification without hand-editing generated code. Signing is disabled by default (it needs real prep — a key, KMS, WKD — so a quick `generate project` shouldn't carry it); enabling is an active choice via a new `gtb enable signing` command (and a `--signing` flag plus an interactive prompt on `generate project`). When enabled it scaffolds an `internal/trustkeys` embed package, templates the `Signing: props.SigningConfig{...}` block into the generated root command, and emits a manifest-driven `signing.go` for the enforcement defaults. `gtb enable signing` updates `.gtb/manifest.yaml` and selectively regenerates only the affected files. Minting (`gtb keys mint`) and WKD publishing (`gtb keys wkd`) are out of scope — this is only the embed-and-wire half."
-status: DRAFT
+status: IMPLEMENTED
 date: 2026-06-10
 tags:
   - specification
@@ -12,7 +12,7 @@ tags:
   - scaffolding
 author:
   - name: Matt Cockayne
-    email: matt@phpboyscout.com
+    email: matt@phpboyscout.uk
 ---
 
 # Generator signing support — `gtb enable signing`, scaffold `internal/trustkeys`, wire `props.Signing`
@@ -24,7 +24,7 @@ Date
 :   10 June 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED (status corrected 2026-06-15 — shipped via `internal/cmd/enable/signing.go`, `internal/cmd/disable/disable.go`, `internal/generator/signing.go`, `ManifestSigning` in `internal/generator/manifest.go`, the `internal/generator/templates/skeleton_trustkeys.go` scaffold + `Signing:` wiring in `skeleton_root.go`, and the `signing_*_test` suites)
 
 ---
 

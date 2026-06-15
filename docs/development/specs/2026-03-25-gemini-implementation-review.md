@@ -2,7 +2,7 @@
 title: "Post-Gemini Implementation Review"
 description: "Cross-reference of v1.5.0→HEAD implementation against feature specifications. Identifies deviations, missing items, and quality regressions introduced during Gemini-assisted development."
 date: 2026-03-25
-status: implemented
+status: IMPLEMENTED
 tags:
   - review
   - quality
