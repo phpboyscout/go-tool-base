@@ -123,10 +123,10 @@ func buildSignals(ctx context.Context, p *props.Props, res *resource.Resource, b
 // partial Setup failure does not strand global providers (and their background
 // batch goroutines). Shutdown errors are logged, not returned: the caller is
 // already returning the original setup error.
-func teardownInstalled(ctx context.Context, p *props.Props, shutdowns []func(context.Context) error) {
+func teardownInstalled(ctx context.Context, p props.LoggerProvider, shutdowns []func(context.Context) error) {
 	for i := len(shutdowns) - 1; i >= 0; i-- {
 		if err := shutdowns[i](ctx); err != nil {
-			p.Logger.Warn("telemetry setup rollback: provider shutdown error", "error", err)
+			p.GetLogger().Warn("telemetry setup rollback: provider shutdown error", "error", err)
 		}
 	}
 }
