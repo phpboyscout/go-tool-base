@@ -57,12 +57,13 @@ By default, shows the full changelog. Use flags to filter by version.`,
 
 // loadChangelog reads CHANGELOG.md from the tool's embedded assets.
 // Returns a helpful error if the changelog is not available.
-func loadChangelog(p *props.Props) (string, error) {
-	if p.Assets == nil {
+func loadChangelog(p props.AssetProvider) (string, error) {
+	assets := p.GetAssets()
+	if assets == nil {
 		return "", errors.New("no changelog available — assets not configured")
 	}
 
-	f, err := p.Assets.Open(changelogAssetPath)
+	f, err := assets.Open(changelogAssetPath)
 	if err != nil {
 		return "", errors.New("no changelog available — CHANGELOG.md not found in embedded assets")
 	}
@@ -118,9 +119,9 @@ func filterReleases(cl *changelog.Changelog, version, since string, latest bool)
 	return cl.Releases
 }
 
-func renderOutput(cmd *cobra.Command, p *props.Props, releases []changelog.Release) error {
+func renderOutput(cmd *cobra.Command, p props.LoggerProvider, releases []changelog.Release) error {
 	if len(releases) == 0 {
-		p.Logger.Print("No matching changelog entries found.")
+		p.GetLogger().Print("No matching changelog entries found.")
 
 		return nil
 	}
@@ -151,7 +152,7 @@ func renderOutput(cmd *cobra.Command, p *props.Props, releases []changelog.Relea
 	}
 
 	rendered := output.RenderMarkdown(sb.String())
-	p.Logger.Print(rendered)
+	p.GetLogger().Print(rendered)
 
 	return nil
 }

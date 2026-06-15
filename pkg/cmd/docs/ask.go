@@ -36,18 +36,20 @@ func NewCmdDocsAsk(p *props.Props) *cobra.Command {
 }
 
 // logToProps forwards a docs log message to the props logger at the appropriate level.
-func logToProps(p *props.Props, s string, level logger.Level) {
+func logToProps(p props.LoggerProvider, s string, level logger.Level) {
+	log := p.GetLogger()
+
 	switch level {
 	case logger.DebugLevel:
-		p.Logger.Debug(s)
+		log.Debug(s)
 	case logger.InfoLevel:
-		p.Logger.Info(s)
+		log.Info(s)
 	case logger.WarnLevel:
-		p.Logger.Warn(s)
+		log.Warn(s)
 	case logger.ErrorLevel:
-		p.Logger.Error(s)
+		log.Error(s)
 	case logger.FatalLevel:
-		p.Logger.Fatal(s)
+		log.Fatal(s)
 	}
 }
 

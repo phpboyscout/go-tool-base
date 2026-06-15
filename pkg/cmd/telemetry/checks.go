@@ -94,10 +94,11 @@ func checkTelemetryConnectivity(ctx context.Context, p *props.Props) setup.Check
 	}
 }
 
-func resolveEndpoint(p *props.Props) string {
-	if p.Tool.Telemetry.OTelEndpoint != "" {
-		return p.Tool.Telemetry.OTelEndpoint
+func resolveEndpoint(p props.ToolMetadataProvider) string {
+	tool := p.GetTool()
+	if tool.Telemetry.OTelEndpoint != "" {
+		return tool.Telemetry.OTelEndpoint
 	}
 
-	return p.Tool.Telemetry.Endpoint
+	return tool.Telemetry.Endpoint
 }
