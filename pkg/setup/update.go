@@ -359,9 +359,9 @@ func reflectIsNil(i any) bool {
 // requireReleaseToken returns an error if no authentication token is available
 // for the given VCS provider. Used to give a clear error for private repositories
 // before attempting an unauthenticated API call that would fail with a 401.
-func requireReleaseToken(ctx context.Context, vcsProvider string, p *props.Props) error {
+func requireReleaseToken(ctx context.Context, vcsProvider string, p props.ConfigProvider) error {
 	var (
-		cfg         = p.Config.Sub(vcsProvider)
+		cfg         = p.GetConfig().Sub(vcsProvider)
 		fallbackEnv string
 	)
 
