@@ -1,7 +1,7 @@
 ---
 title: "Generator git initialisation & initial commit (opt-out), optional remote push"
 description: "gtb generate project scaffolds files but leaves the destination un-versioned — the operator must hand-run git init, add, commit before the tree is tracked. Add an opt-out post-generation git step (init + add + initial commit, only when the destination is not already a repo) and an optional push to the remote derived from props.Tool.ReleaseSource, reusing pkg/vcs/repo for auth."
-status: DRAFT
+status: APPROVED
 date: 2026-06-15
 tags:
   - specification
@@ -26,7 +26,7 @@ Date
 :   2026-06-15
 
 Status
-:   DRAFT
+:   APPROVED (open questions resolved in review 2026-06-15)
 
 ## Summary
 
@@ -271,17 +271,17 @@ the maintainer wants the scaffold itself to seed the first changelog entry.
   the git step entirely (treating CI runs as ephemeral) is an
   [open question](#open-questions).
 
-### D9 — Manifest records the preference
+### D9 — Manifest records the preference (withdrawn)
 
-`generate project` already records its inputs in `.gtb/manifest.yaml`. A
-git/no-git (and push) preference is recorded under a new optional manifest block
-(e.g. `properties.git: { init: true, push: false, branch: main }`), mirroring how
-signing/help/telemetry preferences are persisted. This keeps a manifest-driven
-regeneration self-describing. The block is **advisory for `generate project`
-only** — `regenerate` ignores it for git actions
-([Interaction with `regenerate`/`remove`](#interaction-with-regenerateremove)).
-Whether the preference belongs in the manifest at all (vs being a pure
-invocation-time flag) is an [open question](#open-questions).
+*Resolved per [O7](#open-questions) (2026-06-15): there is **no manifest
+footprint**.* The git/no-git (and push) preference is a **pure invocation-time
+flag** with no `.gtb/manifest.yaml` block. Git-init is a one-time lifecycle
+action and `regenerate` never re-inits, so persisting the preference would only
+mislead a manifest-driven regeneration. The earlier proposal — recording
+`properties.git: { init: true, push: false, branch: main }` mirroring how
+signing/help/telemetry preferences are persisted — is therefore withdrawn; the
+default branch is supplied at invocation time
+([D4](#d4--branch-name-and-author-identity)).
 
 ## Interaction with `regenerate`/`remove`
 
@@ -308,37 +308,77 @@ commits** is part of the [verification plan](#verification-plan).
    while init+commit is opt-out ([D6](#d6--push-is-opt-in-not-opt-out)). Is
    opt-in the right safety posture, or should push be opt-out-with-confirmation
    in interactive mode?
+
+   *Resolved (2026-06-15):* Push is **opt-in** (`--push`, default off);
+   init+commit is **opt-out** (default on, `--no-git` to skip). The opt-in /
+   opt-out split is confirmed as the safe default — push has remote side effects
+   and stays off unless explicitly requested.
 2. **O2 — Remote creation scope.** Confirm forge-API creation of the remote
    repository is **out of scope** for iteration 1
    ([D6a](#d6a--when-the-remote-does-not-exist-yet)), with push targeting an
    assumed-existing remote and failing to a warning. Is a follow-up to
    create-then-push wanted, and on which forges?
+
+   *Resolved (2026-06-15):* Forge-API remote **creation is OUT of scope for
+   v1**. Push targets an assumed-existing remote and degrades to an actionable
+   warning if the remote is absent. Create-then-push is noted as a plausible
+   future follow-up but does not block this DX win.
 3. **O3 — Author identity source.** Confirm the resolution order in
    [D4](#d4--branch-name-and-author-identity) (host git config → GTB config key →
    framework fallback). go-git does not read host `user.*` automatically — is
    reading the host git config acceptable, or should GTB require its own config
    key / prompt?
+
+   *Resolved (2026-06-15):* Resolution order is **host git config → GTB config
+   key → framework fallback**. Reading the host `user.*` git config is
+   **acceptable** (and preferred, so the commit carries a real identity); the
+   framework fallback guarantees the commit never fails for lack of identity.
 4. **O4 — Commit message convention.** Confirm `chore: scaffold <tool> with gtb`
    ([D7](#d7--commit-message-convention)) vs a `feat:` initial commit that seeds
    the first changelog entry.
+
+   *Resolved (2026-06-15):* The initial commit message is
+   **`chore: scaffold <tool> with gtb`**, NOT `feat:`. A `feat` scaffold commit
+   would make releaser-pleaser cut a release from the empty scaffold, which is
+   undesirable; `chore:` is non-releasing and correct here.
 5. **O5 — Default branch name.** Confirm `main`
    ([D4](#d4--branch-name-and-author-identity)) as the hard default, overridable
    by flag/manifest.
+
+   *Resolved (2026-06-15):* Default branch is **`main`**, overridable by flag.
 6. **O6 — `--ci` behaviour.** Should `--ci`/non-interactive **suppress** the git
    step entirely (CI runs as ephemeral), or run init+commit as in
    [D8](#d8--dry-run-and-ci-behaviour) (push still opt-in)?
+
+   *Resolved (2026-06-15):* `--ci`/non-interactive **runs init+commit** (it is
+   harmless and useful for automated scaffolding). `--no-git` still opts out;
+   push stays opt-in (it does not auto-enable under `--ci`).
 7. **O7 — Manifest preference.** Should the git/push preference be persisted in
    `.gtb/manifest.yaml` ([D9](#d9--manifest-records-the-preference)) or stay a
    pure invocation-time flag with no manifest footprint?
+
+   *Resolved (2026-06-15):* **No manifest footprint.** The git/push preference
+   stays a pure invocation-time flag. Git-init is a one-time lifecycle action and
+   `regenerate` never re-inits, so persisting the preference would only mislead.
+   [D9](#d9--manifest-records-the-preference) is withdrawn accordingly.
 8. **O8 — `pkg/vcs/repo` surface.** Confirm the small additions to
    `pkg/vcs/repo` ([D5](#d5--reuse-pkgvcsrepo-not-go-git-directly)): an
    init-only/discovery primitive distinct from `OpenLocal`'s init-if-absent, and
    a `.gitignore`-respecting staging method on the role surface. Are these
    acceptable additive changes to a Beta-tier package, or should they live in an
    `internal/` helper to avoid widening the public API?
+
+   *Resolved (2026-06-15):* **Add** the init/discovery and `.gitignore`-aware
+   staging primitives to `pkg/vcs/repo` — keeping go-git usage in one place.
+   Additive changes to a pre-1.0 Beta package are acceptable, so these belong on
+   the public role surface rather than in an `internal/` helper.
 9. **O9 — Staging correctness.** Confirm that `.gitignore` is honoured at stage
    time (go-git `AddWithOptions`), so generated build artefacts are not
    committed — and that the `.gitignore` itself *is* committed.
+
+   *Resolved (2026-06-15):* **Yes** — `.gitignore` is honoured at stage time
+   (go-git `AddWithOptions`), so generated build artefacts are excluded, and the
+   `.gitignore` file itself IS committed.
 
 ## Verification plan
 
@@ -398,5 +438,6 @@ commits** is part of the [verification plan](#verification-plan).
   `CreateRemote`, `OpenLocal`), `NewRepo`'s provider-aware auth.
 - `pkg/props/tool.go` — `Tool.ReleaseSource` (Type/Host/Owner/Repo) the remote
   URL is derived from.
-- `internal/generator/manifest.go` — `.gtb/manifest.yaml` where a git/push
-  preference would be recorded ([D9](#d9--manifest-records-the-preference)).
+- `internal/generator/manifest.go` — `.gtb/manifest.yaml`. Per the resolution of
+  [O7](#open-questions), the git/push preference is **not** recorded here; it is
+  a pure invocation-time flag ([D9 withdrawn](#d9--manifest-records-the-preference-withdrawn)).

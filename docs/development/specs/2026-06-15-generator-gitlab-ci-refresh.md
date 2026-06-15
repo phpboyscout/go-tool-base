@@ -1,7 +1,7 @@
 ---
 title: "Refresh the generator's GitLab CI to the phpboyscout/cicd component model"
 description: "The gtb generate project GitLab skeleton still emits hand-written local job files (.gitlab/ci/{test,lint,release,pages}.yml) plus the releaser-pleaser component. go-tool-base's own .gitlab-ci.yml has since moved to the phpboyscout/cicd CI/CD components (go-lint, go-test, go-security, goreleaser, zensical-pages, renovate-self) with an MR-gate / tag-release / main-branch-releaser-pleaser / scheduled-renovate model. Refresh the scaffolded default GitLab CI to mirror that component model, decide the fate of the local job files, pin component versions and keep them current via the cicd renovate preset, and document the project prerequisites."
-status: DRAFT
+status: APPROVED
 date: 2026-06-15
 tags:
   - specification
@@ -27,7 +27,7 @@ Date
 :   2026-06-15
 
 Status
-:   DRAFT
+:   APPROVED (open questions resolved in review 2026-06-15)
 
 ## Summary
 
@@ -163,9 +163,14 @@ four hand-written jobs.
 The skeleton's `.gitlab-ci.yml` is rewritten to the component-include shape
 above: the `phpboyscout/cicd` components for lint/test/security/release/pages/
 renovate, the `apricote/releaser-pleaser/run` component, the source-gated
-`workflow:` block, `stages`, `GIT_DEPTH: "0"`, and `default.tags`. The header
-comment block (gate model + project-setting prerequisites) is carried forward,
-adapted to the generated tool (its own repository path in the renovate
+`workflow:` block, `stages`, `GIT_DEPTH: "0"`, and `default.tags`. Because the
+cicd components are **public and reusable downstream** (resolved [O1](#open-questions)),
+the scaffold `include`s the **absolute `gitlab.com/phpboyscout/cicd/...@vX.Y.Z`
+path directly**, mirroring the framework — with the include base sourced from a
+configurable `ci.component_source` (default `gitlab.com/phpboyscout/cicd`) so a
+mirrored/self-hosted downstream can repoint it ([D4](#d4-templated-vs-static)).
+The header comment block (gate model + project-setting prerequisites) is carried
+forward, adapted to the generated tool (its own repository path in the renovate
 `repositories` input — see [D4](#d4-templated-vs-static)).
 
 The framework-internal overlays (AWS-KMS `goreleaser:` signing, advisory
@@ -183,12 +188,10 @@ which definition is authoritative.
 Removing them means `walkSkeletonAssets` no longer renders those paths; the
 generated tree simply has no `.gitlab/ci/` job directory. (The skeleton's
 `.gitlab/CODEOWNERS`, which is templated and unrelated to the job files, is
-retained.) Whether instead to **keep one or more as commented-out optional
-override stubs** — to show operators the extension point for a custom job
-without a custom-template set — is an [open question](#open-questions); the
-default recommendation is clean removal, since the
+retained.) Per [O3](#open-questions) (resolved 2026-06-15), **all four files are
+removed cleanly** — no commented-out override stubs are kept, since the
 [custom-partial-templates](2026-06-15-generator-custom-partial-templates.md)
-mechanism is the sanctioned way to override.
+mechanism is the sanctioned way to override with a bespoke job.
 
 ### D3 — Component version pinning + renovate currency
 
@@ -213,12 +216,12 @@ things keep those pins current for the **downstream** project:
    skeleton today ships a config but never runs it.
 
 **Default versions at scaffold time** and **how the generator stays in sync as
-cicd releases** are [open questions](#open-questions): the simplest model pins
-the same versions the framework's `.gitlab-ci.yml` currently uses (a constant in
-the generator, e.g. a `cicdComponentVersion` defaulted to the current pin), bumped
-in lockstep when the framework upgrades cicd — but that couples the generator's
-release cadence to cicd's. Alternatives (templating from a manifest value,
-resolving "latest" at scaffold time) are weighed there.
+cicd releases** are resolved ([O2](#open-questions)) to the **lockstep generator
+constant**: the scaffold pins the same versions the framework's `.gitlab-ci.yml`
+currently uses (a constant in the generator, e.g. a `cicdComponentVersion`
+defaulted to the current pin), bumped in lockstep when the framework upgrades
+cicd. This couples the generator's release cadence to cicd's, which is accepted;
+the scaffolded renovate then keeps the pins current for the downstream tool.
 
 ### D4 — Templated vs static
 
@@ -232,20 +235,24 @@ component model needs a small amount of templating from the manifest:
 - **releaser-pleaser `branch`** — defaults to `main`; templated only if the
   generator grows a configurable default branch (it relates to the default-branch
   decision in the [git-init spec](2026-06-15-generator-git-initialisation.md)).
-- **Component versions** — interpolated from the generator's pinned constant /
-  manifest value per [D3](#d3-component-version-pinning--renovate-currency),
-  rather than hardcoded in the asset, so a single bump updates all pins.
-- **`enable_e2e`** — whether to scaffold it `true`. The framework enables E2E;
-  a freshly generated tool has no E2E suite yet, so the safer default is
-  **`false`** (or omit, taking the component default), flagged as an
-  [open question](#open-questions).
+- **Component source** — the include base is templated from a configurable
+  `ci.component_source` (generator input / manifest value) defaulting to
+  `gitlab.com/phpboyscout/cicd` and overridable, so a mirrored/self-hosted
+  downstream can repoint it (resolved [O1](#open-questions)).
+- **Component versions** — interpolated from the generator's pinned constant per
+  [D3](#d3-component-version-pinning--renovate-currency) (the lockstep constant,
+  resolved [O2](#open-questions)), rather than hardcoded in the asset, so a
+  single bump updates all pins.
+- **`enable_e2e`** — scaffolded **`false`** (or omitted, taking the component
+  default): a freshly generated tool has no E2E suite (resolved
+  [O4](#open-questions)).
 - **Image / `gotoolchain` overrides** — the reference overrides the go-test/
   go-security images and the goreleaser `gotoolchain` to clear specific stdlib
   advisories and a goreleaser-image/go.mod toolchain skew. These overrides are
-  **point-in-time workarounds**, not steady state. The scaffold should default
-  to the **component defaults** (no override) and let renovate/cicd carry the
-  toolchain, rather than baking the framework's transient pins into every
-  generated tool — also an [open question](#open-questions).
+  **point-in-time workarounds**, not steady state. The scaffold emits **no
+  overrides** and leans on the component defaults, letting renovate/cicd carry
+  the toolchain rather than baking the framework's transient pins into every
+  generated tool (resolved [O5](#open-questions)).
 
 Everything else (the `workflow:` rules, `stages`, `GIT_DEPTH`, the component
 list structure, releaser-pleaser `token: $RELEASER_PLEASER_TOKEN` / `stage`) is
@@ -255,12 +262,12 @@ list structure, releaser-pleaser `token: $RELEASER_PLEASER_TOKEN` / `stage`) is
 
 The scaffolded `renovate.json5` is updated to extend the cicd preset
 (`gitlab>phpboyscout/cicd`) so the component-pin auto-bump manager is active, and
-to set `platform: gitlab` for a GitLab-scaffolded tool. The existing
-go-dependency package rules can be kept or folded into the preset's behaviour
-(an [open question](#open-questions) — keep the skeleton's explicit gomod
-grouping, or lean entirely on the preset as the framework's own `renovate.json`
-does). The `renovate.json5` already lives only in the `skeleton-gitlab` tree, so
-this change is GitLab-scoped.
+to set `platform: gitlab` for a GitLab-scaffolded tool. Per [O6](#open-questions)
+(resolved 2026-06-15) the config is **aligned with the framework**: extend the
+preset for component currency (resolvable since the components and preset are
+public), keeping a **minimal gomod grouping only where it adds value**. The
+`renovate.json5` already lives only in the `skeleton-gitlab` tree, so this change
+is GitLab-scoped.
 
 ### D6 — Prerequisites documentation
 
@@ -305,36 +312,80 @@ for the generated pipeline to actually function.
      or the path must be configurable. **This is the gating decision for the
      whole spec** and must be resolved before implementation; the rest of the
      design (templated component source vs hardcoded path) hangs off it.
+
+   *Resolved (2026-06-15):* The `gitlab.com/phpboyscout/cicd/*` components are
+   **PUBLIC and fully reusable by any downstream GitLab project**
+   (maintainer-confirmed). The "private/internal" branch above is therefore
+   resolved to **public → absolute path**: the scaffold `include`s the absolute
+   `gitlab.com/phpboyscout/cicd/...@vX.Y.Z` path directly, mirroring the
+   framework. **Additionally**, the generator exposes a **configurable component
+   source** — a generator input / manifest value (`ci.component_source`)
+   defaulting to `gitlab.com/phpboyscout/cicd` and overridable — so a
+   self-hosted or mirrored downstream can repoint the include base. The
+   `$CI_SERVER_FQDN`-relative concern only governs the releaser-pleaser
+   component ([O7](#open-questions)), which stays instance-local.
 2. **O2 — Default pinned versions + sync mechanism.** What versions does the
    scaffold pin at generation time, and how does the generator stay current as
    cicd releases? In lockstep with the framework's own `.gitlab-ci.yml` pin (a
    generator constant bumped when the framework upgrades), templated from a
    manifest value, or resolved at scaffold time? ([D3](#d3-component-version-pinning--renovate-currency))
+
+   *Resolved (2026-06-15):* **Lockstep generator constant.** The scaffold pins
+   the same component versions the framework's own `.gitlab-ci.yml` pins (a
+   generator constant bumped when the framework upgrades cicd); the scaffolded
+   renovate then keeps those pins current downstream.
 3. **O3 — Local job files: remove vs keep as override stubs.** Remove the four
    `.gitlab/ci/*.yml` entirely ([D2](#d2--fate-of-the-local-gitlabciyml-files)),
    or keep one or more as commented-out optional override examples? Clean removal
    is the recommendation given the custom-template override path exists.
+
+   *Resolved (2026-06-15):* **Remove all four** local `.gitlab/ci/*.yml` files.
+   Bespoke CI is covered by the custom-template overlay path
+   ([custom-partial-templates](2026-06-15-generator-custom-partial-templates.md)),
+   so no commented-out stubs are kept.
 4. **O4 — `enable_e2e` default.** Scaffold `enable_e2e: false` / omit it (a fresh
    tool has no E2E suite), or `true` to match the framework and prompt the
    operator to add scenarios? ([D4](#d4-templated-vs-static))
+
+   *Resolved (2026-06-15):* **`false` / omit** (take the component default). A
+   freshly generated tool has no E2E suite, so E2E is not enabled by default.
 5. **O5 — Image / `gotoolchain` overrides.** Scaffold **no** overrides (lean on
    component defaults, the steady-state recommendation), or carry the framework's
    current advisory/toolchain overrides into every generated tool? The overrides
    are point-in-time workarounds in the reference. ([D4](#d4-templated-vs-static))
+
+   *Resolved (2026-06-15):* **No** image / `gotoolchain` overrides. Lean on the
+   component defaults; the framework's overrides are point-in-time advisory
+   workarounds and must not be baked into every generated tool.
 6. **O6 — Renovate config scope.** Keep the skeleton's explicit gomod grouping
    rules alongside the cicd preset, or lean entirely on the preset as the
    framework's `renovate.json` does? And does extending the cicd preset reintroduce
    the visibility question from [O1](#open-questions) (is the *preset* itself
    `gitlab>phpboyscout/cicd` resolvable by a downstream project)?
    ([D5](#d5-renovate-config-alignment))
+
+   *Resolved (2026-06-15):* **Align renovate with the framework** — extend the
+   `gitlab>phpboyscout/cicd` preset so the component-pin auto-bump manager is
+   active downstream; keep a minimal gomod grouping only where it adds value. The
+   preset-resolvability twin of [O1](#open-questions) is resolved **YES**: the
+   components and the preset are public, so a downstream project can extend the
+   preset directly.
 7. **O7 — releaser-pleaser version.** The reference pins
    `apricote/releaser-pleaser/run@v0.8.0` `$CI_SERVER_FQDN`-relative. Carry that
    exact pin forward, and keep it `$CI_SERVER_FQDN`-relative (instance-local) or
    absolute?
+
+   *Resolved (2026-06-15):* Carry **`apricote/releaser-pleaser/run@v0.8.0`**
+   forward, **`$CI_SERVER_FQDN`-relative** (instance-local), exactly as the
+   framework references it.
 8. **O8 — GitHub parity.** The maintainer asked specifically for GitLab. Confirm
    the GitHub skeleton CI (`skeleton-github/.github/workflows`) is a **separate
    follow-up** (or explicitly out of scope) — GitHub has no analogue to the cicd
    GitLab components, so parity would be a distinct reusable-workflow design.
+
+   *Resolved (2026-06-15):* GitHub parity is **OUT of scope** here — a separate
+   follow-up. GitHub has no cicd-component analogue; reusable-workflows would be
+   a distinct design.
 
 ## Verification plan
 
