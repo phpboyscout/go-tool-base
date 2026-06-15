@@ -32,6 +32,11 @@ source: ../reports/codebase-audit-2026-06-12.md
 | `flag-setup-creates-config-dir-side-effect` | low | Make `GetDefaultConfigDir` pure; create the dir lazily at first write. *(Coordinate with Plan 2 Phase 1's error-return change — same function.)* |
 | `completion-command-ungated-undocumented` | low | Add a `CompletionCmd` feature flag + a how-to page. |
 
+**Review decisions (2026-06-15):** Per maintainer review, three of the five Phase 2 items are **implemented** — `collector-invariant-not-upheld-for-init`, `init-detection-by-use-string`, and `flag-setup-creates-config-dir-side-effect`. The remaining two are **rejected by design** and will not be implemented:
+
+- `no-root-version-flag` — **rejected**: GTB deliberately exposes a `version` *command*, not a `--version` *flag*. Adding the flag would duplicate the existing surface.
+- `completion-command-ungated-undocumented` — **rejected**: cobra provides the `completion` command automatically; gating it behind a feature flag would diverge from upstream cobra behaviour for no benefit.
+
 ## Phase 3 — `pkg/controls` small wiring — **S**
 
 | ID | Sev | Fix |
