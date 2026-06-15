@@ -80,11 +80,17 @@ func (s *kmsSigner) Public() crypto.PublicKey { return s.pub }
 // Only RSASSA-PKCS1-v1_5 (SHA-256/384/512) is mapped. That covers
 // go-crypto/openpgp's RSA signing path — which is the only consumer
 // of this signer (the minter only ever issues a single self-signature
-// during ArmoredPublicKey). PSS support would be additive but is not
-// requested by any path that exercises this signer.
+// during ArmoredPublicKey). If a caller requests RSASSA-PSS by passing
+// *rsa.PSSOptions, Sign returns ErrPSSUnsupported rather than silently
+// signing PKCS#1 v1.5 — a silent scheme downgrade in an exported
+// crypto.Signer is a contract violation.
 func (s *kmsSigner) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	if opts == nil {
 		return nil, errors.New("kmsSigner.Sign requires non-nil SignerOpts (needs HashFunc to pick KMS algorithm)")
+	}
+
+	if _, isPSS := opts.(*rsa.PSSOptions); isPSS {
+		return nil, errors.Wrapf(ErrPSSUnsupported, "requested PSS with hash %s", opts.HashFunc())
 	}
 
 	alg, err := signingAlgorithm(opts.HashFunc())

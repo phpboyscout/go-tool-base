@@ -190,11 +190,15 @@ func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Rel
 		return nil
 	}
 
-	if err := trustSet.VerifyManifestSignature(manifest, sig); err != nil {
+	fingerprint, err := trustSet.VerifyManifestSignatureSigner(manifest, sig)
+	if err != nil {
 		return err
 	}
 
-	s.logger.Info("signature verified", "resolver", s.keyResolver.Name())
+	// Record the verifying key's fingerprint for the audit trail: it
+	// identifies exactly which trust-anchor key authorised this update.
+	s.logger.Info("signature verified",
+		"resolver", s.keyResolver.Name(), "fingerprint", fingerprint)
 
 	return nil
 }

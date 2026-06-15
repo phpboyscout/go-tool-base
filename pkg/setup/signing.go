@@ -264,8 +264,23 @@ func checkKeyStrength(pk *packet.PublicKey) error {
 // the keys tried, so a caller that logs only the sentinel does not leak
 // which key in the set rejected the signature.
 func (t *TrustSet) VerifyManifestSignature(manifest, signature []byte) error {
+	_, err := t.VerifyManifestSignatureSigner(manifest, signature)
+
+	return err
+}
+
+// VerifyManifestSignatureSigner is the fingerprint-returning form of
+// [TrustSet.VerifyManifestSignature]. On success it returns the 40-char
+// uppercase hex fingerprint of the trust-set key that validated the
+// signature, so callers can record which key was used for the audit trail.
+//
+// The error contract is identical to VerifyManifestSignature: it returns
+// ErrSignatureInvalid (via errors.Is) for an empty, malformed, or
+// non-validating signature, and the returned fingerprint is empty on any
+// error.
+func (t *TrustSet) VerifyManifestSignatureSigner(manifest, signature []byte) (string, error) {
 	if len(signature) == 0 {
-		return errors.Wrap(ErrSignatureInvalid, "signature is empty")
+		return "", errors.Wrap(ErrSignatureInvalid, "signature is empty")
 	}
 
 	// Defense-in-depth: enforce the RSA strength floor at verification time
@@ -278,14 +293,14 @@ func (t *TrustSet) VerifyManifestSignature(manifest, signature []byte) error {
 		&packet.Config{MinRSABits: uint16(minRSAStrengthBits)},
 	)
 	if err != nil {
-		return errors.Wrap(ErrSignatureInvalid, err.Error())
+		return "", errors.Wrap(ErrSignatureInvalid, err.Error())
 	}
 
-	if signer == nil {
-		return errors.Wrap(ErrSignatureInvalid, "no signer in trust set matched")
+	if signer == nil || signer.PrimaryKey == nil {
+		return "", errors.Wrap(ErrSignatureInvalid, "no signer in trust set matched")
 	}
 
-	return nil
+	return strings.ToUpper(hex.EncodeToString(signer.PrimaryKey.Fingerprint)), nil
 }
 
 // KeyResolver returns the TrustSet used to verify release signatures.

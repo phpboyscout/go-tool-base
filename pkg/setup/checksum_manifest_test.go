@@ -82,6 +82,39 @@ func TestVerifyChecksumFromManifest_MalformedLineRejectsManifest(t *testing.T) {
 	assert.ErrorIs(t, err, ErrChecksumManifestMalformed)
 }
 
+func TestVerifyChecksumFromManifest_DuplicateFilenameRejected(t *testing.T) {
+	t.Parallel()
+
+	good := []byte("the genuine binary")
+	goodSum := sha256.Sum256(good)
+	evilSum := sha256.Sum256([]byte("attacker substitute"))
+
+	// Two entries for the same filename: a tampered manifest could append a
+	// second line to shadow the genuine hash. The whole manifest must be
+	// rejected, not silently resolved last-wins.
+	manifest := []byte(fmt.Sprintf("%s  gtb_Linux_x86_64.tar.gz\n%s  gtb_Linux_x86_64.tar.gz\n",
+		hex.EncodeToString(goodSum[:]), hex.EncodeToString(evilSum[:])))
+
+	err := VerifyChecksumFromManifest(manifest, "gtb_Linux_x86_64.tar.gz", good)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrChecksumManifestDuplicate)
+}
+
+func TestVerifyChecksumFromManifest_DuplicateOfOtherFilenameRejected(t *testing.T) {
+	t.Parallel()
+
+	body := []byte("body")
+	sum := hex.EncodeToString(func() []byte { s := sha256.Sum256(body); return s[:] }())
+
+	// A duplicate of an unrelated filename still rejects the manifest — a
+	// repeated entry anywhere signals corruption or tampering.
+	manifest := []byte(fmt.Sprintf("%s  a.tar.gz\n%s  a.tar.gz\n%s  target.tar.gz\n", sum, sum, sum))
+
+	err := VerifyChecksumFromManifest(manifest, "target.tar.gz", body)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrChecksumManifestDuplicate)
+}
+
 func TestVerifyChecksumFromManifest_CRLFLineEndings(t *testing.T) {
 	t.Parallel()
 

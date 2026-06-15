@@ -270,6 +270,39 @@ func TestVerifyManifestSignature_Valid(t *testing.T) {
 	}
 }
 
+func TestVerifyManifestSignatureSigner_ReturnsFingerprint(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	k := testEd25519
+	manifest := []byte("abc123  artifact.tar.gz\n")
+	sig := detachSign(t, k.entity, manifest)
+
+	ts, err := LoadTrustSet(k.armoredPub)
+	require.NoError(t, err)
+
+	fp, err := ts.VerifyManifestSignatureSigner(manifest, sig)
+	require.NoError(t, err)
+
+	// The returned fingerprint must match the verifying key's fingerprint
+	// from the trust set — that is what callers log for the audit trail.
+	require.Len(t, ts.Fingerprints(), 1)
+	assert.Equal(t, ts.Fingerprints()[0], fp)
+}
+
+func TestVerifyManifestSignatureSigner_InvalidReturnsEmptyFingerprint(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	ts, err := LoadTrustSet(testEd25519.armoredPub)
+	require.NoError(t, err)
+
+	fp, err := ts.VerifyManifestSignatureSigner([]byte("manifest"), []byte("not a signature"))
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrSignatureInvalid)
+	assert.Empty(t, fp)
+}
+
 func TestVerifyManifestSignature_TamperedManifest(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)

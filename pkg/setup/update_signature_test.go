@@ -361,6 +361,59 @@ func TestVerifyManifestSignature_ValidPasses(t *testing.T) {
 	require.NoError(t, s.verifyManifestSignature(context.Background(), rel, manifest))
 }
 
+// infoSpyLogger embeds a noop Logger and records Info calls so tests can
+// assert the verifying key fingerprint is logged on a successful verification.
+type infoSpyLogger struct {
+	logger.Logger
+	infos []logEntry
+}
+
+type logEntry struct {
+	msg     string
+	keyvals []any
+}
+
+func (l *infoSpyLogger) Info(msg string, keyvals ...any) {
+	l.infos = append(l.infos, logEntry{msg: msg, keyvals: keyvals})
+}
+
+func TestVerifyManifestSignature_LogsVerifyingFingerprint(t *testing.T) {
+	t.Parallel()
+	mustInitTestSigningKeys(t)
+
+	manifest := []byte("deadbeef  testtool_Linux_x86_64.tar.gz\n")
+	sig := detachSign(t, testEd25519.entity, manifest)
+	rel, provider := relWithSig(sig)
+
+	spy := &infoSpyLogger{Logger: logger.NewNoop()}
+	s := newSigningUpdater(provider, NewEmbeddedResolver(testEd25519.armoredPub), true)
+	s.logger = spy
+
+	require.NoError(t, s.verifyManifestSignature(context.Background(), rel, manifest))
+
+	// Expected fingerprint comes from the trust set of the verifying key.
+	ts, err := LoadTrustSet(testEd25519.armoredPub)
+	require.NoError(t, err)
+	require.Len(t, ts.Fingerprints(), 1)
+	wantFP := ts.Fingerprints()[0]
+
+	var found bool
+
+	for _, e := range spy.infos {
+		if e.msg != "signature verified" {
+			continue
+		}
+
+		for i := 0; i+1 < len(e.keyvals); i += 2 {
+			if e.keyvals[i] == "fingerprint" && e.keyvals[i+1] == wantFP {
+				found = true
+			}
+		}
+	}
+
+	assert.True(t, found, "successful verification must log the verifying key fingerprint %s for the audit trail", wantFP)
+}
+
 func TestVerifyManifestSignature_InvalidAlwaysFatal(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)

@@ -49,6 +49,12 @@ var (
 	// ErrUnsupportedHashFunc is returned by the signer when the
 	// caller requests a hash function KMS RSA Sign does not map to.
 	ErrUnsupportedHashFunc = errors.New("unsupported hash function; KMS RSA Sign accepts SHA-256 / 384 / 512 only")
+
+	// ErrPSSUnsupported is returned by the signer when the caller requests
+	// RSASSA-PSS via *rsa.PSSOptions. This backend only implements
+	// RSASSA-PKCS1-v1_5; it refuses rather than silently downgrading the
+	// signature scheme behind the caller's back.
+	ErrPSSUnsupported = errors.New("RSASSA-PSS is not supported; this KMS signer only implements RSASSA-PKCS1-v1_5")
 )
 
 // NewSigner is the programmatic constructor for callers that don't

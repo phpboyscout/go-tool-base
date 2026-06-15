@@ -98,6 +98,12 @@ backend resolves AWS credentials through the standard SDK chain
 hash digest length to the matching `RSASSA_PKCS1_V15_SHA_*`
 signing algorithm.
 
+The signer implements **only** `RSASSA-PKCS1-v1_5`. If a caller
+requests `RSASSA-PSS` by passing `*rsa.PSSOptions` to `Sign`, the
+signer returns `ErrPSSUnsupported` rather than silently downgrading to
+PKCS#1 v1.5 — a silent scheme swap behind an exported `crypto.Signer`
+is a contract violation, so the signer refuses loudly instead.
+
 Flags:
 
 - `--kms-region` (default `eu-west-2`)

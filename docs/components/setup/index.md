@@ -189,7 +189,7 @@ Remote updates via `Update()` automatically verify the downloaded binary against
 **How it works:**
 
 1. After downloading the target binary, `Update()` looks for a `checksums.txt` asset in the same release.
-2. The manifest is downloaded (capped at `setup.MaxChecksumsSize`, default 1 MiB) and parsed line-by-line.
+2. The manifest is downloaded (capped at `setup.MaxChecksumsSize`, default 1 MiB) and parsed line-by-line. A single malformed line rejects the whole manifest (`ErrChecksumManifestMalformed`), and a filename listed **more than once** rejects it too (`ErrChecksumManifestDuplicate`) — a duplicate is never silently resolved last-wins, since that would let a tampered manifest shadow the genuine hash with an attacker-chosen one.
 3. The binary's SHA-256 is compared against the manifest entry in constant time.
 4. A mismatch aborts the update; a match logs `"checksum verified"` at INFO and proceeds to extraction.
 

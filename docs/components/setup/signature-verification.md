@@ -46,11 +46,13 @@ func LoadTrustSet(armoredKeys ...[]byte) (*TrustSet, error)
 
 func (t *TrustSet) Fingerprints() []string
 func (t *TrustSet) VerifyManifestSignature(manifest, signature []byte) error
+func (t *TrustSet) VerifyManifestSignatureSigner(manifest, signature []byte) (string, error)
 ```
 
 - **`LoadTrustSet`** parses one or more ASCII-armored public-key blobs and enforces the [minimum-strength policy](#minimum-strength-policy) at construction time. Any weak key in the input aborts the load, so a weak key never enters a trust set even transiently.
 - **`Fingerprints`** returns the 40-character uppercase hex fingerprint of every key, sorted ascending — so two trust sets can be compared for equality by their fingerprint slices (this is what [`CompositeResolver`](#compositeresolver) uses to cross-check).
 - **`VerifyManifestSignature`** verifies an ASCII-armored detached signature over the manifest using any key in the set. It returns `nil` on the first key that validates, and `ErrSignatureInvalid` for an empty, malformed, or non-validating signature. The failure path deliberately does **not** name the keys tried, so a caller that logs only the sentinel does not leak which key rejected the signature.
+- **`VerifyManifestSignatureSigner`** is the fingerprint-returning form: on success it returns the 40-char uppercase hex fingerprint of the key that validated the signature (empty on any error), so the updater can record which key authorised the update for the audit trail. `VerifyManifestSignature` delegates to it.
 
 ### Minimum-Strength Policy
 
@@ -200,10 +202,10 @@ INFO update signature verification configured resolver=<name>
 Emitted after the detached signature has been verified against the resolved trust set — i.e. after a successful signature check.
 
 ```
-INFO signature verified resolver=<name>
+INFO signature verified resolver=<name> fingerprint=<40-char-hex>
 ```
 
-The `resolver` value matches the one logged at `configured` (verification runs against the trust set the resolver produced). Seeing this line means:
+The `fingerprint` field records the **verifying key's** 40-character uppercase hex fingerprint — exactly which trust-anchor key authorised this update. It is the primary audit-trail field: cross-reference it against `Fingerprints()` of the embedded/WKD key to confirm which anchor was used. The `resolver` value matches the one logged at `configured` (verification runs against the trust set the resolver produced). Seeing this line means:
 
 1. `update.require_signature` was enabled (or the release happened to ship a sig anyway).
 2. The trust set resolved successfully — including, for `composite[…]`, that all configured anchors **agreed on the same fingerprint set**.

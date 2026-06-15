@@ -197,6 +197,29 @@ func TestSign_UnsupportedHashFunc(t *testing.T) {
 	assert.ErrorIs(t, err, ErrUnsupportedHashFunc)
 }
 
+func TestSign_PSSRequested_ReturnsErrPSSUnsupported(t *testing.T) {
+	der, _ := rsaPublicKeyDER(t)
+	fk := &fakeKMS{
+		getPublicKey: func(_ *kms.GetPublicKeyInput) (*kms.GetPublicKeyOutput, error) {
+			return &kms.GetPublicKeyOutput{PublicKey: der}, nil
+		},
+		sign: func(_ *kms.SignInput) (*kms.SignOutput, error) {
+			return &kms.SignOutput{Signature: []byte("should-not-be-reached")}, nil
+		},
+	}
+
+	s, err := newSigner(context.Background(), fk, "alias/test")
+	require.NoError(t, err)
+
+	// Requesting PSS must error explicitly rather than silently signing
+	// PKCS#1 v1.5 — a silent scheme downgrade in a crypto.Signer.
+	opts := &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthAuto, Hash: crypto.SHA256}
+	_, err = s.Sign(rand.Reader, make([]byte, 32), opts)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrPSSUnsupported)
+	assert.Nil(t, fk.lastSignInput, "KMS Sign must not be called when PSS is requested")
+}
+
 func TestSign_HashAlgorithmMapping(t *testing.T) {
 	der, _ := rsaPublicKeyDER(t)
 

@@ -57,6 +57,15 @@ var ErrChecksumAssetNotFound = errors.New("asset not found in checksums manifest
 //nolint:gochecknoglobals // sentinel error
 var ErrChecksumManifestMalformed = errors.New("checksums manifest is malformed")
 
+// ErrChecksumManifestDuplicate is returned when a filename appears more
+// than once in the checksums manifest. A duplicate entry is ambiguous —
+// silently letting the last one win would let a tampered manifest shadow
+// the genuine hash with an attacker-chosen one — so the whole manifest is
+// rejected.
+//
+//nolint:gochecknoglobals // sentinel error
+var ErrChecksumManifestDuplicate = errors.New("checksums manifest contains a duplicate filename")
+
 // ErrChecksumTooLarge is returned when either the checksums manifest
 // or the binary download exceeds its configured size bound. Indicates
 // a hostile or misbehaving server; the update aborts before hashing.
@@ -129,11 +138,14 @@ func VerifyChecksum(fs afero.Fs, sidecarPath string, data []byte) error {
 // GoReleaser-style checksums manifest. The manifest format is one
 // "<hex-sha256>  <filename>" entry per line; blank lines are permitted
 // at end-of-file. Every non-blank line must match the expected shape
-// or the manifest is rejected as malformed.
+// or the manifest is rejected as malformed. A filename listed more than
+// once rejects the whole manifest ([ErrChecksumManifestDuplicate]) rather
+// than letting the last entry silently win.
 //
 // Returns nil if the checksum matches, [ErrChecksumAssetNotFound] if
 // the filename is not listed, [ErrChecksumManifestMalformed] on
-// invalid syntax, or an error wrapping [errors.WithHint] on mismatch.
+// invalid syntax, [ErrChecksumManifestDuplicate] on a repeated filename,
+// or an error wrapping [errors.WithHint] on mismatch.
 func VerifyChecksumFromManifest(manifest []byte, filename string, data []byte) error {
 	expectedHex, err := parseChecksumManifest(manifest, filename)
 	if err != nil {
@@ -221,6 +233,8 @@ func parseChecksumManifest(manifest []byte, filename string) (string, error) {
 
 	var found string
 
+	seen := make(map[string]struct{})
+
 	for scanner.Scan() {
 		// GoReleaser's checksums.txt is LF-terminated, but accept CRLF
 		// too — users occasionally round-trip the manifest through a
@@ -236,7 +250,15 @@ func parseChecksumManifest(manifest []byte, filename string) (string, error) {
 				"unexpected line in checksums manifest: %q", line)
 		}
 
-		if m[2] == filename {
+		entryName := m[2]
+		if _, dup := seen[entryName]; dup {
+			return "", errors.WithHintf(ErrChecksumManifestDuplicate,
+				"%q is listed more than once in the checksums manifest", entryName)
+		}
+
+		seen[entryName] = struct{}{}
+
+		if entryName == filename {
 			found = m[1]
 		}
 	}
