@@ -13,7 +13,7 @@ generate:
 # Build the {{ .Name | escapeComment }} binary
 [default]
 build: tidy generate
-    go build -o bin/{{ .Name }} ./cmd/{{ .Name }}
+    go build -o bin/{{ .Name | escapeShellArg }} ./cmd/{{ .Name | escapeShellArg }}
 
 # Build a snapshot release with goreleaser
 snapshot:
@@ -67,7 +67,7 @@ deadcode:
 
 # Install the {{ .Name | escapeComment }} binary to $GOPATH/bin
 install:
-    go install ./cmd/{{ .Name }}
+    go install ./cmd/{{ .Name | escapeShellArg }}
 
 # Serve documentation locally
 docs-serve:

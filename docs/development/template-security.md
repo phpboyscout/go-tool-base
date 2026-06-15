@@ -72,8 +72,9 @@ The AI documentation generator exposes `read_file`, `list_dir`, and `go_doc` too
 The `templateFuncMap` in `template_escape.go` is registered on every `text/template` used by the generator. Call sites in non-code locations pipe their values through the appropriate helper:
 
 ```text
-# README.md — Markdown prose context
-{{ .Name | escapeMarkdown }} is a tool built with [gtb](...).
+# README.md — Markdown prose vs fenced code block
+{{ .Name | escapeMarkdown }} is a tool built with [gtb](...).   # prose
+    go install {{ .Repo | escapeMarkdownCodeBlock }}@latest     # inside ``` fence
 
 # zensical.toml — TOML string values
 site_name = "{{ .Name | escapeTOML }}"
@@ -84,9 +85,16 @@ project_name: {{ .Name | escapeYAML }}   # YAML value (non-code)
     main: cmd/{{ .Name }}/main.go        # code path (no escape)
 
 # justfile — mixed contexts
-# Build the {{ .Name | escapeComment }} binary   # comment (non-code)
-build: go build -o bin/{{ .Name }}                 # code path (no escape)
+# Build the {{ .Name | escapeComment }} binary               # comment (non-code)
+build: go build -o bin/{{ .Name | escapeShellArg }} ...      # sh recipe body (shell arg)
 ```
+
+Both `escapeShellArg` (justfile recipe bodies) and `escapeMarkdownCodeBlock`
+(fenced README/docs blocks) are wired at the render sites above as
+defence-in-depth: `ValidateName`/`ValidateRepo` already restrict the inputs to
+a shell- and fence-safe character class, so clean projects see no diff, but the
+pipe keeps the output safe if a validator is ever widened. The
+`TestEscape_HelpersWiredAtDocumentedSites` test asserts the pipes stay in place.
 
 ### Helper Contract
 

@@ -5,11 +5,11 @@
 ## Installation
 
 \`\`\`bash
-go install {{ .Repo }}@latest
+go install {{ .Repo | escapeMarkdownCodeBlock }}@latest
 \`\`\`
 
 ## Usage
 
 \`\`\`bash
-{{ .Name }} --help
+{{ .Name | escapeMarkdownCodeBlock }} --help
 \`\`\`

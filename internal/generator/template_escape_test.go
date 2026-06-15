@@ -7,6 +7,7 @@ package generator
 
 import (
 	"bytes"
+	"io/fs"
 	"strings"
 	"testing"
 
@@ -338,6 +339,29 @@ func TestEscape_TemplateFuncMapCompletenes(t *testing.T) {
 	for _, fn := range wantFns {
 		_, ok := templateFuncMap[fn]
 		assert.Truef(t, ok, "templateFuncMap missing %q", fn)
+	}
+}
+
+// TestEscape_HelpersWiredAtDocumentedSites guards against the
+// "documented as in-use but no call site" drift the audit flagged:
+// escapeShellArg and escapeMarkdownCodeBlock must actually be piped
+// through in the skeleton assets they are documented to protect
+// (justfile shell recipes; fenced README/docs code blocks). If a
+// future edit drops the pipe, this test fails rather than letting the
+// doc silently lie again.
+func TestEscape_HelpersWiredAtDocumentedSites(t *testing.T) {
+	t.Parallel()
+
+	wantPipes := map[string]string{
+		"assets/skeleton/justfile":  "| escapeShellArg",
+		"assets/skeleton/README.md": "| escapeMarkdownCodeBlock",
+	}
+
+	for path, pipe := range wantPipes {
+		data, err := fs.ReadFile(skeletonAssets, path)
+		require.NoErrorf(t, err, "reading embedded %s", path)
+		assert.Containsf(t, string(data), pipe,
+			"%s must pipe a user-influenced value through %q (defence-in-depth at the documented render site)", path, pipe)
 	}
 }
 
