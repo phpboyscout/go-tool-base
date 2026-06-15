@@ -1,7 +1,7 @@
 ---
 title: "Provider-interface adoption — make GTB eat its own dogfood"
 description: "pkg/props defines nine narrow provider interfaces (LoggerProvider, ConfigProvider, FileSystemProvider, …) so a leaf function can declare only the dependencies it needs, but nothing internal consumes them — every signature takes the whole *props.Props. This spec analyses the impact of adopting the interfaces in leaf-package signatures (backward-compatible, since *Props satisfies each) and proposes a phased rollout behind the advisory apidiff job, or the alternative of documenting them as downstream-convenience-only."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-15
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-15
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-15)
+:   IMPLEMENTED (open questions resolved in review 2026-06-15)
 
 ## Summary
 
