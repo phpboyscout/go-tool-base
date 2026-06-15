@@ -729,19 +729,20 @@ func isValidProvider(provider string) bool {
 }
 
 // IsAIConfigured checks if the AI provider and its corresponding key are configured.
-func IsAIConfigured(p *props.Props) bool {
-	if p.Config == nil {
+func IsAIConfigured(p props.ConfigProvider) bool {
+	cfg := p.GetConfig()
+	if cfg == nil {
 		return false
 	}
 
-	provider := p.Config.GetString(chat.ConfigKeyAIProvider)
+	provider := cfg.GetString(chat.ConfigKeyAIProvider)
 	if !isValidProvider(provider) {
 		return false
 	}
 
 	keyPath := providerConfigKey(provider)
 
-	return keyPath != "" && p.Config.GetString(keyPath) != ""
+	return keyPath != "" && cfg.GetString(keyPath) != ""
 }
 
 // NewCmdInitAI creates the `init ai` subcommand.
