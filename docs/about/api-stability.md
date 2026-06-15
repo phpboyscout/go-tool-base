@@ -12,8 +12,10 @@ GTB uses a three-tier stability classification to set clear expectations for
 consumers and contributors. Each public type, interface, and function belongs
 to one of the tiers below.
 
-!!! success "Stable API"
-    **As of v1.11.0, GTB honours full API stability.** Breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+). The v1.10.x to v1.11.0 transition includes a breaking change to `pkg/config` constructor signatures (options pattern migration). The guarantee takes full effect from v1.11.0 onwards.
+!!! warning "Pre-1.0 — tiers describe *intent*, not a current guarantee"
+    GTB is currently **pre-1.0** (`v0.x`). While the module is `v0.x` the public API is **not** frozen: breaking changes are permitted and ship as a **minor** version bump (`v0.N` → `v0.N+1`). The version annotations and tier guarantees in the tables below describe the stability commitment that **takes effect from v1.0** — they are not in force yet. Use them to understand which APIs are *intended* to be stable, and expect that any of them may still change before v1.0. The `just apidiff` target and the advisory (non-blocking) CI `apidiff` job exist to make pre-1.0 API changes **visible** so they are seen and intentional; that gate becomes **blocking at v1.0**.
+
+    The `Since` columns below record when each symbol first appeared in its current shape; some annotations (e.g. `v1.11`, `v1.12`) predate the move to `v0.x` versioning and should be read as relative ordering, not literal released tags.
 
 ---
 
@@ -88,10 +90,8 @@ depend on them in production code without pinning to a specific version.
 
 | Version range | Policy |
 |---------------|--------|
-| `v1.0.0` to `v1.9.x` | **Historical — Unstable:** Breaking changes occurred in minor versions during the rapid development phase. |
-| `v1.10.0` to `v1.10.x` | **Transitional:** The `pkg/config` constructor signatures were migrated to an options pattern, which is a breaking change included in v1.11.0. |
-| `v1.11.0+` | **Guaranteed Stability:** Standard Go semver. Breaking changes require a major version bump (v2.0.0+). |
-| `v1.12.0` | `pkg/credentials.Backend` gained `context.Context` on every method. `pkg/setup.NewUpdater` signature changed to accept `ctx` as first parameter. Both were introduced in v1.11.0 and refined in v1.12.0 before external uptake; see [migration guide](../migration/v1.x-credentials-context.md). |
+| `v0.x` (current) | **Unstable — pre-1.0:** Breaking changes to any public API are permitted and ship as a **minor** bump. The tier tables above describe the *intended* v1.0 commitment, not a current guarantee. Prefer backward-compatible changes where cheap; document any break in `docs/migration/`. |
+| `v1.0.0+` | **Guaranteed Stability (future):** From the first `v1.0.0` release, standard Go semver applies — breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+), and the advisory CI `apidiff` job becomes a blocking gate. |
 
 The `internal/` directory is always unstable regardless of version — it is not
 part of the public API surface.
@@ -114,9 +114,18 @@ part of the public API surface.
 Use `apidiff` to detect API-level breaking changes between versions:
 
 ```bash
-go install golang.org/x/exp/cmd/apidiff@latest
-apidiff -m gitlab.com/phpboyscout/go-tool-base v0.9.0 v1.0.0
+just apidiff   # compares the working tree against the latest release tag
 ```
 
-Breaking changes to Stable-tier APIs detected by `apidiff` must not be merged
-without a major version bump.
+`just apidiff` installs `golang.org/x/exp/cmd/apidiff` on demand and runs
+`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`. The CI
+`apidiff` job runs the same comparison on every merge request.
+
+**Pre-1.0:** the comparison is **advisory** — incompatible changes are expected
+(they ship as minor bumps) and the CI job is non-blocking (`allow_failure:
+true`). Its purpose is visibility: an API change should be *seen* and
+*intentional*, reflected in the diff a reviewer reads.
+
+**From v1.0:** breaking changes to Stable- and Beta-tier APIs detected by
+`apidiff` must not be merged without a major version bump, and the CI job
+becomes blocking.

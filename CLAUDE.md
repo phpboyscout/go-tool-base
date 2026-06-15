@@ -130,18 +130,21 @@ props.SetFeatures(
     props.Enable(props.AiCmd),
 )
 ```
-Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`.
+Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`, `ChangelogCmd`.
 
-### API Stability (v1.11.0+)
+### API Stability (pre-1.0)
 
-GTB now honours full API stability as promised in `docs/about/api-stability.md`. This means:
+GTB is currently **pre-1.0** (`v0.x`). During this phase the public `pkg/` API is **not** frozen: breaking changes are permitted and ship as a **minor** bump (the project has made several deliberate ones). The stability tiers and "no breaking changes without a major bump" guarantees described in `docs/about/api-stability.md` are **aspirational and take effect from v1.0** — do not treat them as binding while the module is `v0.x`.
 
-- **No breaking changes** to Stable or Beta tier `pkg/` APIs without a major version bump (v2.0.0+).
-- Before modifying any public type, interface, function signature, or exported constant in `pkg/`, check its stability tier. If Stable or Beta, the change **must** be backward-compatible.
-- If a breaking change is genuinely unavoidable, it must include: (1) a clear justification in the commit body, (2) a `BREAKING CHANGE:` footer to trigger a major bump, and (3) a migration guide entry in `docs/migration/`.
-- Deprecations must be annotated with `// Deprecated:` and survive at least one minor release before removal.
-- Use `apidiff` to verify no unintended breaking changes before merging: `apidiff -m gitlab.com/phpboyscout/go-tool-base <previous-tag> .`
-- `internal/` packages remain unstable and are not subject to this policy.
+What this means in practice today:
+
+- A breaking change to a `pkg/` type, interface, signature, or exported constant is allowed; it ships as a `feat`/`fix` minor/patch (no `BREAKING CHANGE:` footer is used on the v0 line — a major bump is not desired yet).
+- Still prefer backward-compatible changes where the cost is low, and reach for a clean break over a long-lived shim when a break is warranted.
+- When you do break a public API, note it in the commit body and add a migration note in `docs/migration/` so the v1.0 migration guide stays accurate.
+- Deprecations should still be annotated with `// Deprecated:` so downstreams get a transition window.
+- `internal/` packages are unstable and never subject to this policy.
+
+For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/about/api-stability.md` applies.
 
 The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
 
