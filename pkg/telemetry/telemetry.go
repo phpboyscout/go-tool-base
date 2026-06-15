@@ -141,7 +141,20 @@ func (c *Collector) mergeMetadata(extra map[string]string) map[string]string {
 	return merged
 }
 
-func (c *Collector) Track(eventType props.EventType, name string, extra map[string]string) {
+// record is the single buffering path shared by every Track* method.
+// The caller supplies the event-type-specific fields (Type, Name, the
+// optional Duration/ExitCode/Args/Error) on evt; record stamps the
+// common envelope (timestamp, machine/tool identity, runtime info),
+// merges and redacts metadata, appends under the buffer lock, and
+// spills to disk when the buffer is full. Centralising this is what
+// keeps the spill behaviour identical across the Track methods — the
+// earlier per-method divergence is exactly how the spill inconsistency
+// survived.
+//
+// evt.Args / evt.Error are expected to already be redacted by the
+// caller (TrackCommandExtended) since their inclusion is gated on
+// extendedCollection; record redacts only the merged metadata.
+func (c *Collector) record(evt Event, extra map[string]string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -149,87 +162,50 @@ func (c *Collector) Track(eventType props.EventType, name string, extra map[stri
 		return
 	}
 
-	merged := c.mergeMetadata(extra)
+	evt.Timestamp = time.Now().UTC()
+	evt.MachineID = c.machineID
+	evt.ToolName = c.toolName
+	evt.Version = c.version
+	evt.OS = runtime.GOOS
+	evt.Arch = runtime.GOARCH
+	evt.GoVersion = c.goVersion
+	evt.OSVersion = c.osVersion
+	evt.Metadata = c.mergeMetadata(extra)
 
-	c.buffer = append(c.buffer, Event{
-		Timestamp: time.Now().UTC(),
-		Type:      EventType(eventType),
-		Name:      name,
-		MachineID: c.machineID,
-		ToolName:  c.toolName,
-		Version:   c.version,
-		OS:        runtime.GOOS,
-		Arch:      runtime.GOARCH,
-		GoVersion: c.goVersion,
-		OSVersion: c.osVersion,
-		Metadata:  merged,
-	})
+	c.buffer = append(c.buffer, evt)
 
 	if len(c.buffer) >= c.maxBuffer {
 		c.spillToDisk()
 	}
 }
 
+func (c *Collector) Track(eventType props.EventType, name string, extra map[string]string) {
+	c.record(Event{
+		Type: EventType(eventType),
+		Name: name,
+	}, extra)
+}
+
 // TrackCommand records a command invocation event with duration and exit code.
 // This is a convenience wrapper around Track for command lifecycle events.
 func (c *Collector) TrackCommand(name string, durationMs int64, exitCode int, extra map[string]string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if !c.config.Enabled || c.backend == nil {
-		return
-	}
-
-	merged := c.mergeMetadata(extra)
-
-	c.buffer = append(c.buffer, Event{
-		Timestamp:  time.Now().UTC(),
+	c.record(Event{
 		Type:       EventType(props.EventCommandInvocation),
 		Name:       name,
-		MachineID:  c.machineID,
-		ToolName:   c.toolName,
-		Version:    c.version,
-		OS:         runtime.GOOS,
-		Arch:       runtime.GOARCH,
-		GoVersion:  c.goVersion,
-		OSVersion:  c.osVersion,
 		DurationMs: durationMs,
 		ExitCode:   exitCode,
-		Metadata:   merged,
-	})
-
-	if len(c.buffer) >= c.maxBuffer {
-		c.spillToDisk()
-	}
+	}, extra)
 }
 
 // TrackCommandExtended records a command invocation with full context.
 // When ExtendedCollection is disabled on the collector, args and errMsg are
 // silently dropped — callers do not need to check the flag themselves.
 func (c *Collector) TrackCommandExtended(name string, args []string, durationMs int64, exitCode int, errMsg string, extra map[string]string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if !c.config.Enabled || c.backend == nil {
-		return
-	}
-
-	merged := c.mergeMetadata(extra)
-
 	event := Event{
-		Timestamp:  time.Now().UTC(),
 		Type:       EventType(props.EventCommandInvocation),
 		Name:       name,
-		MachineID:  c.machineID,
-		ToolName:   c.toolName,
-		Version:    c.version,
-		OS:         runtime.GOOS,
-		Arch:       runtime.GOARCH,
-		GoVersion:  c.goVersion,
-		OSVersion:  c.osVersion,
 		DurationMs: durationMs,
 		ExitCode:   exitCode,
-		Metadata:   merged,
 	}
 
 	// Only include args and error when extended collection is explicitly enabled.
@@ -246,11 +222,7 @@ func (c *Collector) TrackCommandExtended(name string, args []string, durationMs 
 		event.Error = redact.String(errMsg)
 	}
 
-	c.buffer = append(c.buffer, event)
-
-	if len(c.buffer) >= c.maxBuffer {
-		c.spillToDisk()
-	}
+	c.record(event, extra)
 }
 
 // Flush sends all buffered events to the backend, then clears the buffer.

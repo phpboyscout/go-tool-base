@@ -80,6 +80,49 @@ func TestCollector_Track(t *testing.T) {
 	}
 }
 
+func TestCollector_TrackCommand(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+
+	c.TrackCommand("build", 1234, 2, map[string]string{"flag": "v"})
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("flush error: %v", err)
+	}
+
+	if len(spy.lastEvents) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(spy.lastEvents))
+	}
+
+	e := spy.lastEvents[0]
+	if e.Type != EventCommandInvocation {
+		t.Errorf("type = %q, want %q", e.Type, EventCommandInvocation)
+	}
+
+	if e.Name != "build" {
+		t.Errorf("name = %q, want build", e.Name)
+	}
+
+	if e.DurationMs != 1234 {
+		t.Errorf("duration = %d, want 1234", e.DurationMs)
+	}
+
+	if e.ExitCode != 2 {
+		t.Errorf("exit_code = %d, want 2", e.ExitCode)
+	}
+
+	// Common envelope stamped by record().
+	if e.ToolName != "mytool" || e.Version != "2.0.0" {
+		t.Errorf("envelope not stamped: tool=%q version=%q", e.ToolName, e.Version)
+	}
+
+	if e.Metadata["flag"] != "v" {
+		t.Errorf("metadata[flag] = %q, want v", e.Metadata["flag"])
+	}
+}
+
 func TestCollector_RedactsMetadataValues(t *testing.T) {
 	t.Parallel()
 
