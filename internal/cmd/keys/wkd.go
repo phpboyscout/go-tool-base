@@ -293,10 +293,10 @@ func containsEmail(emails []string, want string) bool {
 	return false
 }
 
-func logWKDOutcome(p *props.Props, buckets []bucket, written []string, output, method string) {
+func logWKDOutcome(p props.LoggerProvider, buckets []bucket, written []string, output, method string) {
 	for _, b := range buckets {
 		hash, _ := openpgpkey.WKDHash(b.email)
-		p.Logger.Info("WKD bucket",
+		p.GetLogger().Info("WKD bucket",
 			"email", b.email,
 			"hash", hash,
 			"keys", len(b.keys),
@@ -304,10 +304,10 @@ func logWKDOutcome(p *props.Props, buckets []bucket, written []string, output, m
 	}
 
 	for _, w := range written {
-		p.Logger.Info("wrote", "path", filepath.Join(output, w))
+		p.GetLogger().Info("wrote", "path", filepath.Join(output, w))
 	}
 
-	p.Logger.Info("WKD tree complete",
+	p.GetLogger().Info("WKD tree complete",
 		"output", output,
 		"method", method,
 		"emails", len(buckets),

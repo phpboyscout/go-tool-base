@@ -98,7 +98,7 @@ FileVault, age) until v0.2 adds in-tool encryption.`,
 	return setup.Wrap("", cmd)
 }
 
-func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int, name, email, output, privateOutput, createdRaw string, force bool) error {
+func runGenerate(_ *cobra.Command, p props.LoggerProvider, algorithm string, rsaBits int, name, email, output, privateOutput, createdRaw string, force bool) error {
 	creationTime, err := parseCreatedTime(createdRaw)
 	if err != nil {
 		return err
@@ -152,14 +152,14 @@ func runGenerate(_ *cobra.Command, p *props.Props, algorithm string, rsaBits int
 
 	fp := fmt.Sprintf("%X", ent.PrimaryKey.Fingerprint)
 
-	p.Logger.Info("Generated OpenPGP keypair",
+	p.GetLogger().Info("Generated OpenPGP keypair",
 		"algorithm", algorithm,
 		"public_output", pubPath,
 		"private_output", privPath,
 		"creation_time", creationTime.Format(time.RFC3339),
 		"fingerprint", fp,
 	)
-	p.Logger.Warn("Move the private-half file to offline storage now.",
+	p.GetLogger().Warn("Move the private-half file to offline storage now.",
 		"private_output", privPath,
 	)
 

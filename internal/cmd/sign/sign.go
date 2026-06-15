@@ -248,7 +248,7 @@ func writeSignature(output string, sig []byte) error {
 
 // logSignOutcome emits the structured INFO line operators rely on to
 // confirm the signing identity without invoking gpg --verify.
-func logSignOutcome(p *props.Props, backendName, keyID string, publicKey []byte, publicKeyPath, input, output string, sigCreationTime time.Time) {
+func logSignOutcome(p props.LoggerProvider, backendName, keyID string, publicKey []byte, publicKeyPath, input, output string, sigCreationTime time.Time) {
 	logArgs := []any{
 		"backend", backendName,
 		"key_id", keyID,
@@ -262,7 +262,7 @@ func logSignOutcome(p *props.Props, backendName, keyID string, publicKey []byte,
 		logArgs = append(logArgs, "fingerprint", fp)
 	}
 
-	p.Logger.Info("Signed file", logArgs...)
+	p.GetLogger().Info("Signed file", logArgs...)
 }
 
 // parseCreatedTime parses --created. Empty defaults to now,

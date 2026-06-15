@@ -90,7 +90,7 @@ pkg/signing. See docs/how-to/add-signing-backend.md.`,
 	return setup.Wrap("", cmd)
 }
 
-func runMint(cmd *cobra.Command, p *props.Props, backendName, keyID, name, email, output, createdRaw string, force bool) error {
+func runMint(cmd *cobra.Command, p props.LoggerProvider, backendName, keyID, name, email, output, createdRaw string, force bool) error {
 	b, err := signing.Get(backendName)
 	if err != nil {
 		return err
@@ -126,9 +126,9 @@ func runMint(cmd *cobra.Command, p *props.Props, backendName, keyID, name, email
 		// Don't fail the mint — we wrote the file; the operator can
 		// recover the fingerprint with gpg --show-key. But log the
 		// inability to read it back ourselves.
-		p.Logger.Warn("Wrote armored key but could not parse it back to read fingerprint", "error", err, "output", output)
+		p.GetLogger().Warn("Wrote armored key but could not parse it back to read fingerprint", "error", err, "output", output)
 	} else {
-		p.Logger.Info("Minted OpenPGP key",
+		p.GetLogger().Info("Minted OpenPGP key",
 			"backend", backendName,
 			"key_id", keyID,
 			"output", output,
