@@ -1,7 +1,7 @@
 ---
 title: "RepoLike role-interface split — break the 23-method kitchen sink into focused roles"
 description: "pkg/vcs/repo.RepoLike is a 23-method kitchen-sink interface mixing auth-config, lifecycle (open/clone), branch, commit, push, remote, and tree-inspection concerns. This spec analyses splitting it into focused role interfaces (reader / writer / brancher / remote / worktree …) following the pkg/controls precedent, keeping RepoLike as a composite that embeds them so the change is non-breaking, and decides whether to land the additive roles pre-1.0 now or stage the kitchen-sink reduction for v2."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-15
 tags:
   - specification
@@ -26,7 +26,10 @@ Date
 :   2026-06-15
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-15)
+:   IMPLEMENTED (open questions resolved in review 2026-06-15; additive role split landed on `feat/g2-repolike-role-split`)
+
+Implementation note
+:   The eight role interfaces (`TreeReader`, `Opener`, `Authenticator`, `WorktreeController`, `Committer`, `SourceState`, `GitAccessor`, `Brancher`) were added to `pkg/vcs/repo/repo.go` and `RepoLike` recomposed as their composite (method set unchanged). Compile-time `var _ Role = (*Repo)(nil)` / `(*ThreadSafeRepo)(nil)` assertions added for the composite and every role. `CreateRemote`/`Remote` stay concrete-only on `*Repo` (O3). No per-role mocks generated (O5); `MockRepoLike` unchanged.
 
 ## Summary
 
