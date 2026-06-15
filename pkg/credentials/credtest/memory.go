@@ -106,6 +106,13 @@ func (*MemoryBackend) Available() bool {
 //
 // Returns the backend so tests can pre-populate entries directly
 // if they want to seed data without going through credentials.Store.
+//
+// NOT parallel-safe: Install mutates the process-wide backend
+// registered in pkg/credentials and restores it on cleanup, so a
+// concurrent test calling Install (or relying on the default stub)
+// can observe the other test's backend. Do NOT call t.Parallel in a
+// test that calls Install, and do not share an installed backend
+// across parallel subtests.
 func Install(t testingT) *MemoryBackend {
 	t.Helper()
 

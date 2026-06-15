@@ -490,7 +490,7 @@ func TestValidateEnvVarName(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			err := validateEnvVarName(tc.in)
+			err := credentials.ValidateEnvVarName(tc.in)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {

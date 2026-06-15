@@ -1,18 +1,11 @@
 package config
 
 import (
-	"regexp"
 	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
-
-// envVarNameRe matches the conservative POSIX env var shape shared
-// with pkg/setup/ai, pkg/setup/github, and pkg/setup/bitbucket.
-//
-//nolint:gochecknoglobals // compiled once; pattern is a constant
-var envVarNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
 
 // literalCredential describes a single credential the scanner
 // discovered in the config, along with the destination keys and

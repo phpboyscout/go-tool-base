@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -21,12 +20,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
-
-// keychainOpTimeout bounds any single credentials-backend operation
-// triggered by the migrate command. Matches the bound the setup
-// wizards use so a remote-store backend (Vault, SSM) that hangs
-// cannot stall migration.
-const keychainOpTimeout = 5 * time.Second
 
 // configKeyDefaultTarget lets tool authors pin a default `--target`
 // for `config migrate-credentials` in the tool's config so CI flows
@@ -329,7 +322,7 @@ func migrateToKeychain(
 		return action, nil
 	}
 
-	storeCtx, cancel := context.WithTimeout(ctx, keychainOpTimeout)
+	storeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
 	defer cancel()
 
 	if err := credentials.Store(storeCtx, service, c.KeychainAccount, secret); err != nil {
@@ -426,7 +419,7 @@ func resolveEnvVarName(opts MigrateOptions, c literalCredential) (string, error)
 				Description("Credential currently stored as literal. Choose the env var that will hold it. Default is the upstream ecosystem standard.").
 				Placeholder(envName).
 				Value(&envName).
-				Validate(validateEnvVarName),
+				Validate(credentials.ValidateEnvVarName),
 		),
 	).Run()
 	if err != nil {
@@ -546,20 +539,6 @@ func defaultVCSEnvVarName(key string) string {
 	}
 
 	return ""
-}
-
-// validateEnvVarName matches the shape used by pkg/setup/ai and
-// pkg/setup/github — conservative POSIX env var form.
-func validateEnvVarName(name string) error {
-	if name == "" {
-		return errors.New("env var name is required")
-	}
-
-	if !envVarNameRe.MatchString(name) {
-		return errors.New("env var name must match ^[A-Z][A-Z0-9_]{0,63}$")
-	}
-
-	return nil
 }
 
 // applyPlan atomically commits a [rewritePlan] to the config file:

@@ -7,9 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
-	"time"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -24,23 +22,11 @@ import (
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
-// keychainOpTimeout bounds any single credentials-backend operation
-// initiated by the GitHub wizard (Probe, Store). Mirrors pkg/setup/ai
-// — the wizard is interactive and synchronous, so a remote-store
-// backend that hangs (Vault, SSM) must not stall the user
-// indefinitely.
-const keychainOpTimeout = 5 * time.Second
-
 // githubKeychainAccount is the account portion of the
 // "<service>/<account>" reference used by keychain storage mode.
 // The service portion is the tool name so entries are clearly
 // labelled in the OS keychain UI.
 const githubKeychainAccount = "github.auth"
-
-// envVarNameRe is the permitted shape for the env var name form —
-// conservative `^[A-Z][A-Z0-9_]{0,63}$` so the value is a valid POSIX
-// env var and fits shell/YAML contexts without quoting.
-var envVarNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
 
 var (
 	skipLogin bool
@@ -248,7 +234,7 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 	// certainly leak the token to build artefacts or logs. The
 	// --skip-login default already suppresses this path under CI,
 	// but belt-and-braces the invariant here. See R5 in the spec.
-	if isCI() {
+	if credentials.IsCI() {
 		return errors.WithHint(
 			errors.New("GitHub literal-token storage is refused under CI"),
 			"Set GITHUB_TOKEN via your CI platform's secret injection and add `github.auth.env: GITHUB_TOKEN` to the tool's config.")
@@ -259,7 +245,7 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 	// surfaces prefixed env like <TOOL>_GITHUB_AUTH_VALUE through
 	// pkg/config's env-aware Sub), or the unprefixed GITHUB_TOKEN
 	// ecosystem fallback — don't overwrite with a fresh OAuth token.
-	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
 	if token := vcs.ResolveTokenContext(ctx, cfg.Sub("github"), "GITHUB_TOKEN"); token != "" {
@@ -278,10 +264,8 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 
 	// CI belt-and-braces: refuse literal even if a test-injected form
 	// creator bypassed the selector.
-	if authCfg.StorageMode == credentials.ModeLiteral && isCI() {
-		return errors.WithHint(
-			errors.New("literal credential storage is refused under CI"),
-			"CI environments must use platform-injected secrets referenced via env-var mode.")
+	if err := credentials.RefuseLiteralUnderCI(authCfg.StorageMode); err != nil {
+		return err
 	}
 
 	return g.runAuthCredentialStage(ctx, p, cfg, fCfg, authCfg)
@@ -429,10 +413,13 @@ func writeGitHubCredential(ctx context.Context, cfg config.Containable, toolName
 // hidden unless [credentials.Probe] succeeds against the registered
 // backend.
 func defaultStorageModeForm(cfg *GitHubAuthConfig) *huh.Form {
-	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	options := githubStorageModeOptions(isCI(), credentials.Probe(ctx))
+	options := credentials.StorageModeOptions(credentials.IsCI(), credentials.Probe(ctx),
+		"Environment variable reference (recommended)",
+		"OS keychain",
+		"Literal value in config file (plaintext)")
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar
@@ -442,30 +429,11 @@ func defaultStorageModeForm(cfg *GitHubAuthConfig) *huh.Form {
 		huh.NewGroup(
 			huh.NewSelect[credentials.Mode]().
 				Title("GitHub Credential Storage").
-				Description(githubStorageModeDescription(isCI())).
+				Description(githubStorageModeDescription(credentials.IsCI())).
 				Options(options...).
 				Value(&cfg.StorageMode),
 		),
 	)
-}
-
-// githubStorageModeOptions filters the mode selector by CI state and
-// keychain probe result. Parallel to pkg/setup/ai; kept local to
-// avoid a circular dependency.
-func githubStorageModeOptions(ci, keychainUsable bool) []huh.Option[credentials.Mode] {
-	opts := []huh.Option[credentials.Mode]{
-		huh.NewOption("Environment variable reference (recommended)", credentials.ModeEnvVar),
-	}
-
-	if keychainUsable {
-		opts = append(opts, huh.NewOption("OS keychain", credentials.ModeKeychain))
-	}
-
-	if !ci {
-		opts = append(opts, huh.NewOption("Literal value in config file (plaintext)", credentials.ModeLiteral))
-	}
-
-	return opts
 }
 
 func githubStorageModeDescription(ci bool) string {
@@ -493,7 +461,7 @@ func defaultEnvVarNameForm(cfg *GitHubAuthConfig) *huh.Form {
 					"multiple tools with conflicting tokens.").
 				Placeholder("GITHUB_TOKEN").
 				Value(&cfg.EnvVarName).
-				Validate(validateEnvVarName),
+				Validate(credentials.ValidateEnvVarName),
 		),
 	)
 }
@@ -584,26 +552,6 @@ func runAuthFormStage(creator func(*GitHubAuthConfig) *huh.Form, cfg *GitHubAuth
 	return nil
 }
 
-// validateEnvVarName enforces `^[A-Z][A-Z0-9_]{0,63}$` so the name is
-// a valid POSIX env var and fits downstream shell/YAML contexts.
-func validateEnvVarName(name string) error {
-	if name == "" {
-		return errors.New("env var name is required")
-	}
-
-	if !envVarNameRe.MatchString(name) {
-		return errors.New("env var name must match ^[A-Z][A-Z0-9_]{0,63}$")
-	}
-
-	return nil
-}
-
-// isCI reports whether the process appears to be running under a CI
-// system.
-func isCI() bool {
-	return os.Getenv("CI") == "true"
-}
-
 // promptManualGitHubToken is the fallback authentication path used
 // when the OAuth device flow cannot complete — typically on headless
 // servers where no web browser is available to launch.
@@ -680,14 +628,16 @@ func NewCmdInitGitHub(p *props.Props) *cobra.Command {
 		Use:   "github",
 		Short: "Configure GitHub authentication and SSH keys",
 		Long:  `Configures the GitHub token for API access via the three-mode selector (env-var reference, OS keychain, or literal), and generates or selects an SSH key for Git operations.`,
-		Run: func(cmd *cobra.Command, _ []string) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
 			if err := RunInitCmd(p, dir); err != nil {
-				p.Logger.Fatalf("Failed to configure GitHub: %s", err)
+				return errors.Wrap(err, "failed to configure GitHub")
 			}
 
 			p.Logger.Info("GitHub configuration saved successfully")
+
+			return nil
 		},
 	}
 

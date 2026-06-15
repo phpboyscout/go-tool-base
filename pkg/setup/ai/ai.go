@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
-	"time"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -24,13 +22,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
-
-// keychainOpTimeout bounds any single credentials-backend operation
-// initiated by the setup wizard (Probe, Store). The wizard is
-// interactive and synchronous; a remote-store backend (Vault, SSM)
-// that hangs would block the user indefinitely without this guard.
-// OS-keychain backends complete well under this bound.
-const keychainOpTimeout = 5 * time.Second
 
 var skipAI bool
 
@@ -180,10 +171,13 @@ func defaultProviderForm(cfg *AIConfig) *huh.Form {
 // (canary round-trip) so the user is never offered an option that
 // will fail the moment they pick it.
 func defaultStorageModeForm(cfg *AIConfig) *huh.Form {
-	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	options := storageModeOptions(isCI(), credentials.Probe(ctx))
+	options := credentials.StorageModeOptions(credentials.IsCI(), credentials.Probe(ctx),
+		"Environment variable reference (recommended)",
+		"OS keychain",
+		"Literal value in config file (plaintext)")
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar
@@ -193,7 +187,7 @@ func defaultStorageModeForm(cfg *AIConfig) *huh.Form {
 		huh.NewGroup(
 			huh.NewSelect[credentials.Mode]().
 				Title("Credential Storage").
-				Description(storageModeDescription(isCI())).
+				Description(storageModeDescription(credentials.IsCI())).
 				Options(options...).
 				Value(&cfg.StorageMode),
 		),
@@ -220,32 +214,10 @@ func defaultEnvVarForm(cfg *AIConfig) *huh.Form {
 						"after running this wizard.",
 					providerLabel(cfg.Provider))).
 				Placeholder(defaultName).
-				Validate(validateEnvVarName).
+				Validate(credentials.ValidateEnvVarName).
 				Value(&cfg.EnvVarName),
 		),
 	)
-}
-
-// storageModeOptions returns the huh.Option list for the storage
-// mode selector, filtered by CI state, keychain build tag, and a
-// live-backend probe. The keychain option only surfaces when the
-// backend is compiled in AND reachable — a locked keychain or a
-// headless Linux host without D-Bus must not leave the user stuck on
-// a dead option during first-run setup.
-func storageModeOptions(ci, keychainUsable bool) []huh.Option[credentials.Mode] {
-	opts := []huh.Option[credentials.Mode]{
-		huh.NewOption("Environment variable reference (recommended)", credentials.ModeEnvVar),
-	}
-
-	if keychainUsable {
-		opts = append(opts, huh.NewOption("OS keychain", credentials.ModeKeychain))
-	}
-
-	if !ci {
-		opts = append(opts, huh.NewOption("Literal value in config file (plaintext)", credentials.ModeLiteral))
-	}
-
-	return opts
 }
 
 func storageModeDescription(ci bool) string {
@@ -254,29 +226,6 @@ func storageModeDescription(ci bool) string {
 	}
 
 	return "Environment variable references keep secrets out of the config file. Pick literal mode only for throwaway environments."
-}
-
-// validateEnvVarName enforces a conservative ^[A-Z][A-Z0-9_]{0,63}$
-// shape so the name is a valid POSIX env var and fits downstream
-// shell/YAML contexts without quoting.
-func validateEnvVarName(name string) error {
-	if name == "" {
-		return errors.New("env var name is required")
-	}
-
-	if !envVarNameRe.MatchString(name) {
-		return errors.New("env var name must match ^[A-Z][A-Z0-9_]{0,63}$")
-	}
-
-	return nil
-}
-
-var envVarNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
-
-// isCI reports whether the process appears to be running under a CI
-// system. Mirrors the check used by the --skip-ai flag default.
-func isCI() bool {
-	return os.Getenv("CI") == "true"
 }
 
 func defaultKeyForm(cfg *AIConfig) *huh.Form {
@@ -478,7 +427,7 @@ func storeAIKeyInKeychain(toolName string, aiCfg *AIConfig) (string, error) {
 		return "", errors.New("cannot write keychain entry without both tool name and provider account")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
 	if err := credentials.Store(ctx, toolName, account, aiCfg.APIKey); err != nil {
@@ -535,10 +484,8 @@ func runAIForms(existingCfg config.Containable, opts ...FormOption) (*AIConfig, 
 
 	// CI defence-in-depth: refuse literal even if a test-injected
 	// creator bypassed the storage-mode form.
-	if aiCfg.StorageMode == credentials.ModeLiteral && isCI() {
-		return nil, errors.WithHint(
-			errors.New("literal credential storage is refused under CI"),
-			"CI environments must use platform-injected secrets referenced via env-var mode.")
+	if err := credentials.RefuseLiteralUnderCI(aiCfg.StorageMode); err != nil {
+		return nil, err
 	}
 
 	return runAICredentialStage(fCfg, aiCfg)
@@ -803,14 +750,16 @@ func NewCmdInitAI(p *props.Props, opts ...FormOption) *cobra.Command {
 		Use:   "ai",
 		Short: "Configure AI provider integration",
 		Long:  `Configures the AI provider and API keys for AI-powered features such as documentation Q&A and code analysis.`,
-		Run: func(cmd *cobra.Command, _ []string) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
 			if err := RunAIInit(p, dir, opts...); err != nil {
-				p.Logger.Fatalf("Failed to configure AI: %s", err)
+				return errors.Wrap(err, "failed to configure AI")
 			}
 
 			p.Logger.Info("AI configuration saved successfully")
+
+			return nil
 		},
 	}
 

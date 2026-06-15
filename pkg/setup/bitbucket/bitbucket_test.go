@@ -158,27 +158,9 @@ func TestIsConfigured(t *testing.T) {
 	}
 }
 
-// TestStorageModeOptions_CIHidesLiteral — under CI, the selector
-// never offers literal, regardless of keychain reachability.
-func TestStorageModeOptions_CIHidesLiteral(t *testing.T) {
-	t.Parallel()
-
-	opts := storageModeOptions(true, true)
-	require.Len(t, opts, 2)
-	assert.Equal(t, credentials.ModeEnvVar, opts[0].Value)
-	assert.Equal(t, credentials.ModeKeychain, opts[1].Value)
-}
-
-// TestStorageModeOptions_ProbeHidesKeychain — when the probe returns
-// false, the keychain option is suppressed regardless of CI.
-func TestStorageModeOptions_ProbeHidesKeychain(t *testing.T) {
-	t.Parallel()
-
-	opts := storageModeOptions(false, false)
-	require.Len(t, opts, 2)
-	assert.Equal(t, credentials.ModeEnvVar, opts[0].Value)
-	assert.Equal(t, credentials.ModeLiteral, opts[1].Value)
-}
+// The storage-mode option matrix is now provided by
+// credentials.StorageModeOptions and exercised in pkg/credentials's
+// wizard_test.go — a single source of truth shared by every wizard.
 
 // TestWriteKeychainBlob_MissingFields defends against a regression
 // that would write a half-populated entry when the form is bypassed
@@ -196,30 +178,5 @@ func TestWriteKeychainBlob_MissingFields(t *testing.T) {
 	assert.Contains(t, err.Error(), "requires both username and app password")
 }
 
-// TestValidateEnvVarName pins the accepted shapes — shared contract
-// with pkg/setup/ai and pkg/setup/github.
-func TestValidateEnvVarName(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct {
-		name    string
-		value   string
-		wantErr bool
-	}{
-		{"empty", "", true},
-		{"lowercase", "bitbucket_username", true},
-		{"valid", "BITBUCKET_USERNAME", false},
-		{"starts with digit", "2TOKEN", true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := validateEnvVarName(tc.value)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
+// Env-var-name validation is now credentials.ValidateEnvVarName,
+// covered by pkg/credentials's wizard_test.go.

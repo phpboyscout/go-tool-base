@@ -562,6 +562,35 @@ func TestNewCmdInitAI_Wiring(t *testing.T) {
 	assert.Equal(t, "ai", cmd.Use)
 	assert.NotEmpty(t, cmd.Short)
 	assert.NotNil(t, cmd.Flags().Lookup("dir"))
+	// The init subcommand must use RunE (not Run) so failures route
+	// through the ErrorHandler/telemetry path instead of a direct
+	// logger.Fatalf that bypasses hints, ExitFunc, and the flush.
+	assert.NotNil(t, cmd.RunE, "init ai must expose RunE")
+	assert.Nil(t, cmd.Run, "init ai must not use the fatal-on-error Run")
+}
+
+// TestNewCmdInitAI_RunEReturnsError proves a configuration failure is
+// surfaced as a returned error (consumed by cobra's standard error
+// path / ErrorHandler) rather than terminating the process via
+// logger.Fatalf. A non-TTY form stage fails deterministically here.
+func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
+	// Not parallel: forces CI so the storage-mode stage refuses a TTY
+	// and the credential path cannot complete interactively.
+	t.Setenv("CI", "true")
+
+	props := newTestProps(t)
+
+	// Inject a provider form that fails to run (no TTY) so RunAIInit
+	// returns an error without prompting.
+	cmd := NewCmdInitAI(props, WithAIForm(func(_ *AIConfig) []*huh.Form {
+		return []*huh.Form{
+			huh.NewForm(huh.NewGroup(huh.NewInput().Title("dummy"))),
+		}
+	}))
+
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to configure AI")
 }
 
 func TestRunAIForms_ProviderFormCancellation(t *testing.T) {

@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
-	"time"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -20,21 +18,10 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-// keychainOpTimeout bounds any single credentials-backend operation
-// initiated by the Bitbucket wizard. Matches pkg/setup/ai's bound so
-// a remote-store backend (Vault, SSM) that hangs can't stall the
-// interactive flow.
-const keychainOpTimeout = 5 * time.Second
-
 // bitbucketKeychainAccount is the account portion of the
 // "<service>/<account>" reference used by keychain mode. A single
 // entry carries the JSON-serialised dual credentials.
 const bitbucketKeychainAccount = "bitbucket.auth"
-
-// envVarNameRe enforces `^[A-Z][A-Z0-9_]{0,63}$` for env var names —
-// same shape as pkg/setup/ai so callers see a consistent validation
-// error across wizards.
-var envVarNameRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
 
 // skipBitbucket mirrors the --skip-login / --skip-ai pattern used by
 // the other setup subsystems. Set by the feature flag below.
@@ -171,7 +158,7 @@ func (i *Initialiser) IsConfigured(cfg config.Containable) bool {
 // Configure runs the interactive wizard and persists the captured
 // credentials according to the selected storage mode.
 func (i *Initialiser) Configure(p *props.Props, cfg config.Containable) error {
-	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
 	bbCfg, err := runForms(i.formOpts...)
@@ -179,10 +166,8 @@ func (i *Initialiser) Configure(p *props.Props, cfg config.Containable) error {
 		return err
 	}
 
-	if bbCfg.StorageMode == credentials.ModeLiteral && isCI() {
-		return errors.WithHint(
-			errors.New("literal credential storage is refused under CI"),
-			"CI environments must use platform-injected secrets referenced via env-var mode.")
+	if err := credentials.RefuseLiteralUnderCI(bbCfg.StorageMode); err != nil {
+		return err
 	}
 
 	err = writeBitbucketCredentials(ctx, cfg, p.Tool.Name, bbCfg)
@@ -199,10 +184,13 @@ func (i *Initialiser) Configure(p *props.Props, cfg config.Containable) error {
 // is hidden under CI; keychain is hidden unless [credentials.Probe]
 // passes.
 func defaultStorageModeForm(cfg *BitbucketConfig) *huh.Form {
-	ctx, cancel := context.WithTimeout(context.Background(), keychainOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	options := storageModeOptions(isCI(), credentials.Probe(ctx))
+	options := credentials.StorageModeOptions(credentials.IsCI(), credentials.Probe(ctx),
+		"Environment variable references (recommended)",
+		"OS keychain (single JSON blob)",
+		"Literal values in config file (plaintext)")
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar
@@ -212,27 +200,11 @@ func defaultStorageModeForm(cfg *BitbucketConfig) *huh.Form {
 		huh.NewGroup(
 			huh.NewSelect[credentials.Mode]().
 				Title("Bitbucket Credential Storage").
-				Description(storageModeDescription(isCI())).
+				Description(storageModeDescription(credentials.IsCI())).
 				Options(options...).
 				Value(&cfg.StorageMode),
 		),
 	)
-}
-
-func storageModeOptions(ci, keychainUsable bool) []huh.Option[credentials.Mode] {
-	opts := []huh.Option[credentials.Mode]{
-		huh.NewOption("Environment variable references (recommended)", credentials.ModeEnvVar),
-	}
-
-	if keychainUsable {
-		opts = append(opts, huh.NewOption("OS keychain (single JSON blob)", credentials.ModeKeychain))
-	}
-
-	if !ci {
-		opts = append(opts, huh.NewOption("Literal values in config file (plaintext)", credentials.ModeLiteral))
-	}
-
-	return opts
 }
 
 func storageModeDescription(ci bool) string {
@@ -261,13 +233,13 @@ func defaultEnvVarNamesForm(cfg *BitbucketConfig) *huh.Form {
 				Description("Name of the env var that holds your Bitbucket username.").
 				Placeholder("BITBUCKET_USERNAME").
 				Value(&cfg.UsernameEnvName).
-				Validate(validateEnvVarName),
+				Validate(credentials.ValidateEnvVarName),
 			huh.NewInput().
 				Title("App password env var name").
 				Description("Name of the env var that holds your Bitbucket app password.").
 				Placeholder("BITBUCKET_APP_PASSWORD").
 				Value(&cfg.AppPasswordEnvName).
-				Validate(validateEnvVarName),
+				Validate(credentials.ValidateEnvVarName),
 		),
 	)
 }
@@ -426,24 +398,6 @@ func writeKeychainBlob(ctx context.Context, cfg config.Containable, toolName str
 	return nil
 }
 
-// validateEnvVarName enforces `^[A-Z][A-Z0-9_]{0,63}$` so the name is
-// a valid POSIX env var.
-func validateEnvVarName(name string) error {
-	if name == "" {
-		return errors.New("env var name is required")
-	}
-
-	if !envVarNameRe.MatchString(name) {
-		return errors.New("env var name must match ^[A-Z][A-Z0-9_]{0,63}$")
-	}
-
-	return nil
-}
-
-func isCI() bool {
-	return os.Getenv("CI") == "true"
-}
-
 // RunBitbucketInit executes the wizard against an existing config
 // container, typically invoked by [NewCmdInitBitbucket].
 func RunBitbucketInit(p *props.Props, cfg config.Containable) error {
@@ -460,14 +414,16 @@ func NewCmdInitBitbucket(p *props.Props) *cobra.Command {
 		Long: `Configures Bitbucket credentials via the three-mode selector: environment variable references (recommended default), OS keychain (single JSON blob), or literal values in the config file.
 
 Bitbucket's dual-credential model (username + app_password) is handled natively — env-var mode records two env-var names, keychain mode stores a single JSON blob, literal mode writes both fields to config.`,
-		Run: func(cmd *cobra.Command, _ []string) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
 			if err := RunInitCmd(p, dir); err != nil {
-				p.Logger.Fatalf("Failed to configure Bitbucket: %s", err)
+				return errors.Wrap(err, "failed to configure Bitbucket")
 			}
 
 			p.Logger.Info("Bitbucket configuration saved successfully")
+
+			return nil
 		},
 	}
 

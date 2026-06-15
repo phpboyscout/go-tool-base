@@ -27,8 +27,6 @@ type FieldSchema struct {
 	Default any
 	// Enum restricts the field to a set of allowed values.
 	Enum []any
-	// Children defines nested fields for map/object types.
-	Children map[string]FieldSchema
 }
 
 // SchemaOption configures schema construction.

@@ -84,6 +84,44 @@ Every method takes a `context.Context` so remote-store backends (Hashicorp Vault
 
 The zero-dep default backend is `stubBackend`; every call returns `ErrCredentialUnsupported`. `credtest.MemoryBackend` (in `pkg/credentials/credtest`) is an in-process implementation useful for unit tests of resolvers and setup flows without touching the host keychain.
 
+!!! warning "`credtest.Install` is not parallel-safe"
+    `credtest.Install` swaps the process-wide backend registered in `pkg/credentials` and restores it via `t.Cleanup`. Because the registry is global, a test that calls `Install` must **not** call `t.Parallel` — a concurrent test would observe the wrong backend. Keep installs in serial tests and do not share an installed backend across parallel subtests.
+
+### Wizard helpers (single source of truth)
+
+The interactive setup wizards (`pkg/setup/ai`, `pkg/setup/github`, `pkg/setup/bitbucket`) and the `config migrate-credentials` command share their CI/keychain decision logic through these hoisted helpers, so the security-relevant rules live in exactly one place rather than drifting across copies:
+
+```go
+// CI detection — the single gate every wizard consults.
+if credentials.IsCI() { /* ... */ }
+
+// Bound every backend operation a wizard performs.
+ctx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+
+// Validate a chosen env var name (^[A-Z][A-Z0-9_]{0,63}$).
+err := credentials.ValidateEnvVarName(name)
+
+// CI-literal-refusal: the single source of truth. Returns a hinted
+// error when ModeLiteral is selected under CI, nil otherwise. Wizards
+// call this as defence-in-depth even when the selector hid literal.
+if err := credentials.RefuseLiteralUnderCI(mode); err != nil {
+    return err
+}
+
+// Build the storage-mode selector options, filtered by CI state and a
+// live keychain probe. Literal is hidden under CI; keychain is hidden
+// when the probe is unusable. Labels are caller-supplied so each wizard
+// can phrase them for its credential shape.
+opts := credentials.StorageModeOptions(
+    credentials.IsCI(), credentials.Probe(ctx),
+    "Environment variable reference (recommended)",
+    "OS keychain",
+    "Literal value in config file (plaintext)",
+)
+```
+
+The **CI-literal-refusal** invariant (literal-mode writes in CI almost certainly leak the secret to build artefacts or logs) is enforced **only** through `RefuseLiteralUnderCI`. Do not re-derive the `mode == ModeLiteral && IsCI()` check inline.
+
 ### Sentinel Errors
 
 | Error | Meaning |

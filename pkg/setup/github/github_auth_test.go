@@ -185,57 +185,10 @@ func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "no GitHub token captured")
 }
 
-// TestGitHubStorageModeOptions_CIHidesLiteral — under CI, the
-// selector must never offer literal mode, even if the keychain is
-// reachable.
-func TestGitHubStorageModeOptions_CIHidesLiteral(t *testing.T) {
-	opts := githubStorageModeOptions(true, true)
-
-	require.Len(t, opts, 2)
-	assert.Equal(t, credentials.ModeEnvVar, opts[0].Value)
-	assert.Equal(t, credentials.ModeKeychain, opts[1].Value)
-}
-
-// TestGitHubStorageModeOptions_ProbeHidesKeychain — when the probe
-// returns false, the keychain option is suppressed regardless of CI.
-func TestGitHubStorageModeOptions_ProbeHidesKeychain(t *testing.T) {
-	opts := githubStorageModeOptions(false, false)
-
-	require.Len(t, opts, 2)
-	assert.Equal(t, credentials.ModeEnvVar, opts[0].Value)
-	assert.Equal(t, credentials.ModeLiteral, opts[1].Value)
-}
-
-// TestValidateEnvVarName pins the accepted / rejected shapes.
-func TestValidateEnvVarName(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		value   string
-		wantErr bool
-	}{
-		{"empty", "", true},
-		{"lowercase", "github_token", true},
-		{"valid", "GITHUB_TOKEN", false},
-		{"valid with digits", "TOKEN_2", false},
-		{"starts with digit", "2TOKEN", true},
-		{"too long", "A" + string(make([]byte, 65)), true},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			err := validateEnvVarName(tc.value)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
-}
+// The storage-mode option matrix and the env-var-name validation are
+// now provided by pkg/credentials (StorageModeOptions /
+// ValidateEnvVarName) and exercised in that package's wizard_test.go —
+// a single source of truth shared by every setup wizard.
 
 // Compile-time guard: AuthFormOption is exposed and composable with
 // WithAuthForm. Protects the public test-extension surface from

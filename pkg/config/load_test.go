@@ -414,3 +414,70 @@ func TestLoadEnv_WithDotEnvFile(t *testing.T) {
 
 	assert.Equal(t, "loaded", os.Getenv("LOAD_ENV_TEST_VAR"))
 }
+
+func TestLoadEnv_NilLoggerDoesNotPanic(t *testing.T) {
+	// A nil logger must be tolerated: LoadEnv falls back to a no-op
+	// logger rather than dereferencing nil. Both the .env-present and
+	// .env-absent paths log, so cover the present path.
+	tmpDir := t.TempDir()
+	envFile := tmpDir + "/.env"
+	require.NoError(t, os.WriteFile(envFile, []byte("LOAD_ENV_NIL_LOGGER_VAR=ok\n"), 0o644))
+
+	fs := afero.NewOsFs()
+
+	prev, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	t.Cleanup(func() { _ = os.Chdir(prev) })
+
+	assert.NotPanics(t, func() {
+		config.LoadEnv(fs, nil)
+	})
+
+	assert.Equal(t, "ok", os.Getenv("LOAD_ENV_NIL_LOGGER_VAR"))
+}
+
+func TestLoadEmbed_HonoursCallerFormat(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewNoop()
+
+	// Embedded asset is JSON. Without honouring the caller's format
+	// LoadEmbed would force YAML parsing; JSON happens to be a YAML
+	// subset for flat docs, so use a payload that only parses cleanly
+	// as JSON to prove the format reached the reader container.
+	jsonContent := `{"server": {"port": 9090, "host": "json-host"}}`
+	mockFS := fstest.MapFS{
+		"config.json": &fstest.MapFile{Data: []byte(jsonContent)},
+	}
+
+	container, err := config.LoadEmbed(
+		[]string{"config.json"},
+		mockFS,
+		config.WithLogger(log),
+		config.WithConfigFormat("json"),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, container)
+
+	assert.Equal(t, 9090, container.GetInt("server.port"))
+	assert.Equal(t, "json-host", container.GetString("server.host"))
+}
+
+func TestLoadEmbed_DefaultsToYAML(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewNoop()
+
+	yamlContent := "server:\n  port: 7070\n"
+	mockFS := fstest.MapFS{
+		"config.yaml": &fstest.MapFile{Data: []byte(yamlContent)},
+	}
+
+	// No WithConfigFormat supplied: the YAML default must still apply.
+	container, err := config.LoadEmbed([]string{"config.yaml"}, mockFS, config.WithLogger(log))
+	require.NoError(t, err)
+	require.NotNil(t, container)
+
+	assert.Equal(t, 7070, container.GetInt("server.port"))
+}

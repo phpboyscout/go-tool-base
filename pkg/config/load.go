@@ -22,7 +22,13 @@ var (
 )
 
 // LoadEnv loads environment variables from a .env file if it exists.
-func LoadEnv(fs afero.Fs, logger logger.Logger) {
+// A nil log is tolerated — it falls back to a no-op logger so callers
+// that have not yet wired logging cannot trigger a nil-pointer panic.
+func LoadEnv(fs afero.Fs, log logger.Logger) {
+	if log == nil {
+		log = logger.NewNoop()
+	}
+
 	dotEnv := ".env"
 
 	exists, err := afero.Exists(fs, dotEnv)
@@ -37,10 +43,10 @@ func LoadEnv(fs afero.Fs, logger logger.Logger) {
 
 	defer func() { _ = f.Close() }()
 
-	logger.Debug("Loading environment variables from .env")
+	log.Debug("Loading environment variables from .env")
 
 	if err := gotenv.Apply(f); err != nil {
-		logger.Warn("Failed to format merged config", "error", err)
+		log.Warn("Failed to apply .env environment variables", "error", err)
 	}
 }
 
@@ -88,5 +94,20 @@ func LoadEmbed(paths []string, assets fs.FS, opts ...ContainerOption) (Containab
 		configs = append(configs, bytes.NewReader(config))
 	}
 
-	return NewReaderContainer(afero.NewOsFs(), append(opts, WithConfigFormat("yaml"), WithConfigReaders(configs...))...), nil
+	// Default to YAML but let the caller override the format via their
+	// own WithConfigFormat: the default goes first so caller-supplied
+	// opts (applied later, last-wins) take precedence. WithConfigReaders
+	// is appended last because the readers are intrinsic to this call,
+	// not caller-overridable.
+	// intrinsicOpts is the count of options LoadEmbed always supplies
+	// itself (the default format + the reader source), bracketing the
+	// caller's opts.
+	const intrinsicOpts = 2
+
+	merged := make([]ContainerOption, 0, len(opts)+intrinsicOpts)
+	merged = append(merged, WithConfigFormat("yaml"))
+	merged = append(merged, opts...)
+	merged = append(merged, WithConfigReaders(configs...))
+
+	return NewReaderContainer(afero.NewOsFs(), merged...), nil
 }
