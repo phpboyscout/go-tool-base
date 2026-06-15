@@ -187,7 +187,7 @@ func (o *SkeletonOptions) validateCoreFields() error {
 
 	// Derive org from repo for validation so a bad org fails early
 	// rather than at CODEOWNERS render time.
-	if org, _, err := splitRepoOrgForValidate(o.Repo); err == nil {
+	if org, err := splitRepoOrgForValidate(o.Repo); err == nil {
 		if verr := generator.ValidateOrg(org, o.GitBackend); verr != nil {
 			return verr
 		}
@@ -213,27 +213,43 @@ func (o *SkeletonOptions) validateHelpFields() error {
 	return generator.ValidateTeamsTeam(o.TeamsTeam)
 }
 
-// splitRepoOrgForValidate extracts the namespace portion of a
-// fully-qualified repo path (e.g. "github.com/myorg/mytool" →
-// "myorg"; "gitlab.com/group/sub/mytool" → "group/sub"). The first
-// segment is treated as the host and the last as the repo name;
-// everything between is the org/namespace validated by
-// [generator.ValidateOrg].
+// splitRepoOrgForValidate extracts the namespace portion of a repo
+// path for org validation. Two shapes are supported:
+//
+//   - host/org/name (3+ segments): the first segment is the host and
+//     the last is the repo name; everything between is the
+//     org/namespace (e.g. "github.com/myorg/mytool" → "myorg";
+//     "gitlab.com/group/sub/mytool" → "group/sub").
+//   - org/name (exactly 2 segments, no host prefix): the first segment
+//     is the org and the second is the repo name (e.g.
+//     "myorg/mytool" → "myorg"). Previously this shape was rejected,
+//     which silently skipped ValidateOrg for host-less repos and let a
+//     malformed org through to CODEOWNERS render time.
+//
+// The org returned is validated by [generator.ValidateOrg].
 //
 // This is distinct from the older splitRepoPath helper in
 // internal/generator/skeleton.go which splits on the LAST `/` and
 // therefore returns the entire `host/group/subgroup` prefix as
 // "org". We avoid that shape because it cannot appear in a real
 // GitHub or GitLab mention.
-func splitRepoOrgForValidate(repo string) (org, name string, err error) {
-	const minRepoSegments = 3
+func splitRepoOrgForValidate(repo string) (org string, err error) {
+	const (
+		minRepoSegments    = 2
+		hostQualifiedCount = 3
+	)
 
 	segments := strings.Split(repo, "/")
 	if len(segments) < minRepoSegments {
-		return "", "", errors.Newf("repo %q must be host/org/name (at least 3 segments)", repo)
+		return "", errors.Newf("repo %q must be org/name or host/org/name", repo)
 	}
 
-	return strings.Join(segments[1:len(segments)-1], "/"), segments[len(segments)-1], nil
+	if len(segments) < hostQualifiedCount {
+		// Two segments: org/name, with no host prefix to strip.
+		return segments[0], nil
+	}
+
+	return strings.Join(segments[1:len(segments)-1], "/"), nil
 }
 
 func (o *SkeletonOptions) defaultHost() string {

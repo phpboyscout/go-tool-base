@@ -2,12 +2,15 @@ package generate
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -168,4 +171,59 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	content, err = afero.ReadFile(memFs, "gitlab-project/.gitlab/CODEOWNERS")
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "@mygroup")
+}
+
+// TestSplitRepoOrgForValidate covers both repo shapes, including the
+// two-segment (host-less) case that previously errored and silently
+// skipped org validation (audit: org-validation-silently-skipped-two-segment-repo).
+func TestSplitRepoOrgForValidate(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		repo    string
+		wantOrg string
+		wantErr bool
+	}{
+		{"github.com/myorg/mytool", "myorg", false},
+		{"gitlab.com/group/sub/mytool", "group/sub", false},
+		{"myorg/mytool", "myorg", false}, // two-segment, no host
+		{"single", "", true},
+	}
+
+	for _, tc := range cases {
+		org, err := splitRepoOrgForValidate(tc.repo)
+		if tc.wantErr {
+			require.Errorf(t, err, "repo %q", tc.repo)
+
+			continue
+		}
+
+		require.NoErrorf(t, err, "repo %q", tc.repo)
+		assert.Equalf(t, tc.wantOrg, org, "repo %q", tc.repo)
+	}
+}
+
+// TestValidateCoreFields_TwoSegmentRepoOrgValidated proves a malformed
+// org in a two-segment repo is now rejected. "my_org" passes the repo
+// segment rule (which permits `_`) but violates the GitHub org rule, so
+// before the fix it slipped through unvalidated.
+func TestValidateCoreFields_TwoSegmentRepoOrgValidated(t *testing.T) {
+	t.Parallel()
+
+	o := &SkeletonOptions{
+		Name:        "mytool",
+		Description: "a tool",
+		Repo:        "my_org/mytool",
+		GitBackend:  "github",
+	}
+
+	err := o.validateCoreFields()
+	require.Error(t, err)
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
+	assert.Contains(t, strings.Join(errors.GetAllHints(err), " "), "Org",
+		"the two-segment repo's org must now reach ValidateOrg")
+
+	// A well-formed two-segment org passes.
+	o.Repo = "myorg/mytool"
+	require.NoError(t, o.validateCoreFields())
 }
