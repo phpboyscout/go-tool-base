@@ -127,7 +127,7 @@ Examples:
 	return setup.Wrap("", cmd)
 }
 
-func runSign(cmd *cobra.Command, p *props.Props, backendName, keyID, publicKeyPath, output, createdRaw, input string) error {
+func runSign(cmd *cobra.Command, p props.LoggerProvider, backendName, keyID, publicKeyPath, output, createdRaw, input string) error {
 	sigCreationTime, output, err := resolveSignOptions(input, output, createdRaw)
 	if err != nil {
 		return err

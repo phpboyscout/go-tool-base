@@ -99,7 +99,7 @@ type parsedKey struct {
 	emails []string
 }
 
-func runWKD(p *props.Props, keyPaths []string, domain string, emails []string, output, method, submissionAddress string) error {
+func runWKD(p props.LoggerProvider, keyPaths []string, domain string, emails []string, output, method, submissionAddress string) error {
 	parsed, err := parseKeyFiles(keyPaths)
 	if err != nil {
 		return err
