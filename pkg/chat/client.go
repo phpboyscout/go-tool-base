@@ -155,6 +155,14 @@ type Config struct {
 	// Zero means use the default (5). Only effective when ParallelTools is true.
 	MaxParallelTools int
 
+	// Seed, when non-nil, requests deterministic sampling from providers
+	// that support a seed parameter (currently OpenAI / OpenAI-compatible).
+	// Nil — the default — omits the seed entirely so the provider samples
+	// normally. A previous build hardcoded seed=0, silently pinning every
+	// OpenAI request to one sampling path; set this only when you need
+	// reproducible-ish completions.
+	Seed *int64
+
 	// ExecLookPath overrides exec.LookPath for the ClaudeLocal provider.
 	// Nil means use the real exec.LookPath.
 	ExecLookPath func(string) (string, error) `json:"-"`

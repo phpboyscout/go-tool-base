@@ -210,6 +210,10 @@ func (g *Gemini) Ask(ctx context.Context, question string, target any) error {
 func (g *Gemini) SetTools(tools []Tool) error {
 	decls := make([]*genai.FunctionDeclaration, 0, len(tools))
 
+	// Replace (not merge) the handler map so a second SetTools call drops
+	// handlers from the first (audit: settools-accumulates-stale-handlers).
+	g.tools = make(map[string]Tool, len(tools))
+
 	for _, t := range tools {
 		g.tools[t.Name] = t
 

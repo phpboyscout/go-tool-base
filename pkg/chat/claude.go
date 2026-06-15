@@ -25,6 +25,7 @@ type Claude struct {
 	props      *props.Props
 	messages   []anthropic.MessageParam
 	cfg        Config
+	system     []anthropic.TextBlockParam
 	tools      map[string]Tool
 	toolParams []anthropic.ToolUnionParam
 }
@@ -94,8 +95,12 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	}
 	c.observer = cfg.UsageObserver
 
+	// Carry the system prompt in the dedicated System field on every request
+	// rather than smuggling it in as a user turn (audit:
+	// claude-system-prompt-as-user-message). The API treats System with
+	// higher priority and keeps the conversation history clean.
 	if cfg.SystemPrompt != "" {
-		c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(cfg.SystemPrompt)))
+		c.system = []anthropic.TextBlockParam{{Text: cfg.SystemPrompt}}
 	}
 
 	return c, nil
@@ -152,6 +157,7 @@ func (c *Claude) buildAskParams() anthropic.MessageNewParams {
 		Model:     anthropic.Model(model),
 		MaxTokens: int64(maxTokens),
 		Messages:  c.messages,
+		System:    c.system,
 	}
 
 	if c.cfg.ResponseSchema != nil {
@@ -239,12 +245,12 @@ func (c *Claude) SetTools(tools []Tool) error {
 		})
 	}
 
+	// Reset the response schema, handler map, and tool params together so a
+	// second SetTools call fully replaces the first — no stale handlers or
+	// tool params survive (audit: settools-accumulates-stale-handlers).
 	c.cfg.ResponseSchema = nil
 
-	if c.tools == nil {
-		c.tools = make(map[string]Tool)
-	}
-
+	c.tools = make(map[string]Tool, len(tools))
 	for _, t := range tools {
 		c.tools[t.Name] = t
 	}
@@ -278,6 +284,7 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 			Model:     anthropic.Model(c.cfg.Model),
 			MaxTokens: int64(maxTokens),
 			Messages:  c.messages,
+			System:    c.system,
 			Tools:     c.toolParams,
 		}
 
@@ -389,6 +396,7 @@ func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamC
 			Model:     anthropic.Model(c.cfg.Model),
 			MaxTokens: int64(maxTokens),
 			Messages:  c.messages,
+			System:    c.system,
 			Tools:     c.toolParams,
 		}
 
@@ -428,6 +436,19 @@ type claudePendingTool struct {
 	id     string
 	name   string
 	argBuf strings.Builder
+}
+
+// args returns the accumulated tool-argument JSON, normalising an empty
+// buffer to "{}". A streamed tool call with no input_json_delta events
+// leaves argBuf empty; emitting "" downstream is invalid JSON and breaks
+// both the assistant turn echoed back to the API and the handler's
+// json.Unmarshal (audit: claude-stream-empty-tool-args-invalid-json).
+func (t *claudePendingTool) args() string {
+	if s := t.argBuf.String(); s != "" {
+		return s
+	}
+
+	return "{}"
 }
 
 func (c *Claude) streamClaudeStep(
@@ -536,7 +557,7 @@ func (c *Claude) buildClaudeStreamAssistantMsg(stepText string, tools []*claudeP
 	}
 
 	for _, t := range tools {
-		blocks = append(blocks, anthropic.NewToolUseBlock(t.id, json.RawMessage(t.argBuf.String()), t.name))
+		blocks = append(blocks, anthropic.NewToolUseBlock(t.id, json.RawMessage(t.args()), t.name))
 	}
 
 	return anthropic.NewAssistantMessage(blocks...)
@@ -551,7 +572,7 @@ func (c *Claude) execClaudeStreamTools(
 	argStrings := make([]string, len(tools))
 
 	for i, t := range tools {
-		argStrings[i] = t.argBuf.String()
+		argStrings[i] = t.args()
 		toolCalls[i] = ToolCall{Name: t.name, Input: json.RawMessage(argStrings[i])}
 	}
 
@@ -640,6 +661,16 @@ func (c *Claude) Restore(snapshot *Snapshot) error {
 
 	c.messages = messages
 	c.cfg.SystemPrompt = snapshot.SystemPrompt
+
+	// Rebuild the System field from the restored prompt. The prompt is no
+	// longer carried inside c.messages (it lives in the dedicated System
+	// field), so a restore must repopulate it explicitly or subsequent
+	// requests would drop the system instruction.
+	if snapshot.SystemPrompt != "" {
+		c.system = []anthropic.TextBlockParam{{Text: snapshot.SystemPrompt}}
+	} else {
+		c.system = nil
+	}
 
 	return nil
 }

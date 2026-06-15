@@ -33,7 +33,7 @@ The `Config` struct accepts the following fields:
 | `Model` | `string` | Model name. Falls back to a sensible default per provider if empty. Required for `ProviderOpenAICompatible`. |
 | `Token` | `string` | API key. Optional if set via environment variable. |
 | `BaseURL` | `string` | API endpoint override. Required for `ProviderOpenAICompatible`. |
-| `SystemPrompt` | `string` | Initial system prompt for the conversation. |
+| `SystemPrompt` | `string` | Initial system prompt for the conversation. For Claude it is sent in the API's dedicated `system` field (not as a user turn); OpenAI sends it as the first system message; Gemini restores it to both config and history. |
 | `ResponseSchema` | `any` | JSON schema for enforcing structured output (used by `Ask`). |
 | `SchemaName` | `string` | Name for the response schema tool. |
 | `SchemaDescription` | `string` | Description for the response schema tool. |
@@ -41,6 +41,7 @@ The `Config` struct accepts the following fields:
 | `MaxTokens` | `int` | Maximum tokens per response. Zero uses the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192). |
 | `ParallelTools` | `bool` | Enables concurrent execution of multiple tool calls within a single ReAct step. Disabled by default. |
 | `MaxParallelTools` | `int` | Maximum number of tool calls executing concurrently. Zero uses the default (5). Only effective when `ParallelTools` is true. |
+| `Seed` | `*int64` | Optional sampling seed for OpenAI / OpenAI-compatible providers. `nil` (the default) omits the seed entirely so the model samples normally; set a value only for reproducible-ish completions. (Earlier builds hardcoded `seed=0`.) |
 | `UsageObserver` | `func(Usage)` | Optional opt-in hook fired once per provider round-trip with that round-trip's token usage. See [Token usage & cost observability](#token-usage--cost-observability). |
 
 ```go
@@ -135,6 +136,13 @@ tools := []chat.Tool{
 }
 client.SetTools(tools)
 ```
+
+`SetTools` **replaces** the client's tool set on every call — it does not merge.
+Each call installs exactly the handlers in `tools` and discards any handlers
+registered by a previous `SetTools` call, so a stale handler can never linger.
+For Claude, the call also clears any `ResponseSchema` set at construction
+(structured-output `Ask` and tool calling are mutually exclusive), keeping the
+reset consistent with the other providers.
 
 #### Complete Tool Handler Example
 
@@ -533,7 +541,7 @@ if pc, ok := client.(chat.PersistentChatClient); ok {
 
 | Provider | Persistence | Notes |
 |----------|------------|-------|
-| Claude | Yes | Messages include system prompt as first user message |
+| Claude | Yes | System prompt sent in the API's dedicated `system` field (not as a user turn) |
 | OpenAI | Yes | System prompt preserved as first SystemMessage |
 | OpenAI-Compatible | Yes | Same as OpenAI |
 | Gemini | Yes | System prompt restored to both config and history |

@@ -99,8 +99,14 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 	params := openai.ChatCompletionNewParams{
 		Model:               model,
 		Messages:            setup,
-		Seed:                openai.Int(0),
 		MaxCompletionTokens: openai.Int(int64(maxTokens)),
+	}
+
+	// Only pin a sampling seed when the caller explicitly asked for one.
+	// A previous build hardcoded Seed: 0, silently fixing every request to
+	// one sampling path (audit: openai-hardcoded-seed-zero).
+	if cfg.Seed != nil {
+		params.Seed = openai.Int(*cfg.Seed)
 	}
 
 	if cfg.ResponseSchema != nil {
@@ -296,10 +302,9 @@ func (a *OpenAI) SetTools(tools []Tool) error {
 
 	a.params.Tools = oaiTools
 
-	if a.tools == nil {
-		a.tools = make(map[string]Tool)
-	}
-
+	// Replace (not merge) the handler map so a second SetTools call drops
+	// handlers from the first (audit: settools-accumulates-stale-handlers).
+	a.tools = make(map[string]Tool, len(tools))
 	for _, t := range tools {
 		a.tools[t.Name] = t
 	}
