@@ -231,7 +231,7 @@ func promptAndValidateSSHKey(props *props.Props, optsConfig *configureSSHKeyConf
 	return targetKey, nil
 }
 
-func validateSSHKey(contents []byte, props *props.Props) error {
+func validateSSHKey(contents []byte, p props.LoggerProvider) error {
 	_, err := ssh.ParseRawPrivateKey(contents)
 	if err != nil {
 		if err.Error() != "ssh: this private key is passphrase protected" {
@@ -241,7 +241,7 @@ func validateSSHKey(contents []byte, props *props.Props) error {
 		return nil
 	}
 
-	props.Logger.Warn("Key is not protected with passphrase")
+	p.GetLogger().Warn("Key is not protected with passphrase")
 
 	return nil
 }
