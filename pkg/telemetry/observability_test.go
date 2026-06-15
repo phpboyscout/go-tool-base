@@ -60,7 +60,7 @@ func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
 	// third fails — the first two shutdowns must run, newest-first. The first
 	// shutdown returns an error to exercise the best-effort logging branch.
 	makeOK := func(id int, shutdownErr error) signalBuilder {
-		return func(_ context.Context, _ *props.Props, _ *resource.Resource) (func(context.Context) error, bool, error) {
+		return func(_ context.Context, _ props.ConfigProvider, _ *resource.Resource) (func(context.Context) error, bool, error) {
 			return func(context.Context) error {
 				order = append(order, id)
 
@@ -69,7 +69,7 @@ func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
 		}
 	}
 
-	failing := func(_ context.Context, _ *props.Props, _ *resource.Resource) (func(context.Context) error, bool, error) {
+	failing := func(_ context.Context, _ props.ConfigProvider, _ *resource.Resource) (func(context.Context) error, bool, error) {
 		return nil, false, errors.New("signal install failed")
 	}
 

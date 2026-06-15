@@ -29,7 +29,7 @@ type Shutdown func(context.Context) error
 // signalBuilder builds one observability signal. It returns the provider's
 // shutdown and true when the signal is enabled, or (nil, false, nil) when the
 // operator has not enabled it.
-type signalBuilder func(context.Context, *props.Props, *resource.Resource) (func(context.Context) error, bool, error)
+type signalBuilder func(context.Context, props.ConfigProvider, *resource.Resource) (func(context.Context) error, bool, error)
 
 // Setup builds every enabled observability provider (traces, metrics, logs) from
 // p.Config, installs them as the OTel globals, sets the W3C propagators so traces
@@ -131,15 +131,17 @@ func teardownInstalled(ctx context.Context, p props.LoggerProvider, shutdowns []
 	}
 }
 
-func setupTracing(ctx context.Context, p *props.Props, res *resource.Resource) (func(context.Context) error, bool, error) {
-	s := otelcore.Resolve(p.Config, otelcore.SignalTracing)
+func setupTracing(ctx context.Context, p props.ConfigProvider, res *resource.Resource) (func(context.Context) error, bool, error) {
+	cfg := p.GetConfig()
+
+	s := otelcore.Resolve(cfg, otelcore.SignalTracing)
 	if !s.Enabled {
 		return nil, false, nil
 	}
 
 	var opts []tracing.Option
-	if p.Config.IsSet(configKeySampling) {
-		opts = append(opts, tracing.WithSampling(p.Config.GetFloat(configKeySampling)))
+	if cfg.IsSet(configKeySampling) {
+		opts = append(opts, tracing.WithSampling(cfg.GetFloat(configKeySampling)))
 	}
 
 	tp, err := tracing.NewProvider(ctx, res, s, opts...)
@@ -152,15 +154,17 @@ func setupTracing(ctx context.Context, p *props.Props, res *resource.Resource) (
 	return tp.Shutdown, true, nil
 }
 
-func setupMetrics(ctx context.Context, p *props.Props, res *resource.Resource) (func(context.Context) error, bool, error) {
-	s := otelcore.Resolve(p.Config, otelcore.SignalMetrics)
+func setupMetrics(ctx context.Context, p props.ConfigProvider, res *resource.Resource) (func(context.Context) error, bool, error) {
+	cfg := p.GetConfig()
+
+	s := otelcore.Resolve(cfg, otelcore.SignalMetrics)
 	if !s.Enabled {
 		return nil, false, nil
 	}
 
 	var opts []metrics.Option
-	if p.Config.IsSet(configKeyInterval) {
-		opts = append(opts, metrics.WithInterval(p.Config.GetDuration(configKeyInterval)))
+	if cfg.IsSet(configKeyInterval) {
+		opts = append(opts, metrics.WithInterval(cfg.GetDuration(configKeyInterval)))
 	}
 
 	mp, err := metrics.NewProvider(ctx, res, s, opts...)
@@ -173,8 +177,8 @@ func setupMetrics(ctx context.Context, p *props.Props, res *resource.Resource) (
 	return mp.Shutdown, true, nil
 }
 
-func setupLogs(ctx context.Context, p *props.Props, res *resource.Resource) (func(context.Context) error, bool, error) {
-	s := otelcore.Resolve(p.Config, otelcore.SignalLogs)
+func setupLogs(ctx context.Context, p props.ConfigProvider, res *resource.Resource) (func(context.Context) error, bool, error) {
+	s := otelcore.Resolve(p.GetConfig(), otelcore.SignalLogs)
 	if !s.Enabled {
 		return nil, false, nil
 	}

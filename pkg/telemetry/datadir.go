@@ -10,7 +10,7 @@ import (
 // ResolveDataDir determines the directory for telemetry data files (spill files,
 // local-only logs). Uses the config directory if it exists and is writable,
 // otherwise falls back to os.TempDir().
-func ResolveDataDir(p *props.Props) string {
+func ResolveDataDir(p props.ConfigProvider) string {
 	if dir, ok := configDataDir(p); ok {
 		return dir
 	}
@@ -18,12 +18,13 @@ func ResolveDataDir(p *props.Props) string {
 	return os.TempDir()
 }
 
-func configDataDir(p *props.Props) (string, bool) {
-	if p.Config == nil {
+func configDataDir(p props.ConfigProvider) (string, bool) {
+	cfg := p.GetConfig()
+	if cfg == nil {
 		return "", false
 	}
 
-	cfgFile := p.Config.GetViper().ConfigFileUsed()
+	cfgFile := cfg.GetViper().ConfigFileUsed()
 	if cfgFile == "" {
 		return "", false
 	}
