@@ -116,13 +116,13 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 }
 
 // ResolveProvider determines the AI provider to use based on override, config, and defaults.
-func ResolveProvider(p *props.Props, providerOverride ...string) chat.Provider {
+func ResolveProvider(p props.ConfigProvider, providerOverride ...string) chat.Provider {
 	if len(providerOverride) > 0 && providerOverride[0] != "" {
 		return chat.Provider(providerOverride[0])
 	}
 
-	if p.Config != nil {
-		if pName := p.Config.GetString(chat.ConfigKeyAIProvider); pName != "" {
+	if cfg := p.GetConfig(); cfg != nil {
+		if pName := cfg.GetString(chat.ConfigKeyAIProvider); pName != "" {
 			return chat.Provider(pName)
 		}
 	}
