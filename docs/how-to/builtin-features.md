@@ -68,7 +68,11 @@ The following table provides a complete reference for all `FeatureCmd` constants
 | `props.InitCmd` | **Enabled** | `init`, `init github` | Disable if your tool has no configuration requirements |
 | `props.McpCmd` | **Enabled** | `mcp`, `mcp serve`, `mcp tools` | Disable if AI agent integration is not needed |
 | `props.DocsCmd` | **Enabled** | `docs`, `docs serve`, `docs ask` | Disable if you don't embed documentation |
+| `props.DoctorCmd` | **Enabled** | `doctor` | Disable if you don't ship environment/configuration health checks |
+| `props.ChangelogCmd` | **Enabled** | `changelog` | Disable if your tool has no embedded changelog |
 | `props.AiCmd` | **Opt-in** | `init ai` | Enable to allow users to configure AI providers |
+| `props.ConfigCmd` | **Opt-in** | `config get`, `config set`, `config list`, `config validate` | Enable to expose programmatic config access |
+| `props.TelemetryCmd` | **Opt-in** | `telemetry status`, `telemetry reset` | Enable to ship opt-in anonymous usage telemetry |
 
 !!! tip "Enable vs Disable Semantics"
 

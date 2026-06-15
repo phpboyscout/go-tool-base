@@ -85,7 +85,7 @@ Every telemetry event contains:
 | `os.version` | `6.8.0-106-generic` | OS/kernel version |
 | `host.arch` | `amd64` | CPU architecture |
 | `go.version` | `go1.26.1` | Go runtime version |
-| `machine.id` | `4a3f8c1d9e2b6f70` | Anonymised machine identifier (16 hex chars) |
+| `machine.id` | `4a3f8c1d9e2b6f70` | Pseudonymous machine identifier (16 hex chars); stable per machine and correlatable across tools |
 | `command.duration_ms` | `142` | Execution time (command events only) |
 | `command.exit_code` | `0` | Exit status (command events only) |
 
@@ -181,7 +181,9 @@ The machine ID is a privacy-preserving identifier derived from four system signa
 3. **Hostname**
 4. **Username**
 
-All four are concatenated and hashed with SHA-256. The first 8 bytes (16 hex chars) are used. Each signal degrades gracefully if unavailable. The hash cannot be reversed to recover any input value.
+All four are concatenated and hashed with SHA-256. The first 8 bytes (16 hex chars) are used. Each signal degrades gracefully if unavailable.
+
+The machine ID is **pseudonymous, not anonymous**. The SHA-256 hash is one-way (you cannot directly read the source signals back out of it), but because the inputs are stable per machine, the resulting identifier is itself stable and therefore *correlatable*: the same machine produces the same ID, and — because no per-tool salt is applied — every GTB-based tool on that machine produces the *same* ID. An observer holding event streams from multiple tools can link them to a single machine, and anyone who can enumerate the (small) input space for a known machine could confirm a match by recomputing the hash. Treat it as a stable per-machine pseudonym, not as anonymised data.
 
 The machine ID is computed fresh on every invocation — it is not persisted to config.
 

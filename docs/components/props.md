@@ -118,7 +118,7 @@ The following features are **opt-in** (disabled by default):
 The preferred way to define a tool's feature set in code is using the `props.SetFeatures` constructor. It automatically applies all default features first, allowing you to only specify overrides:
 
 ```go
-// Returns defaults (Update, Init, Mcp, Docs enabled)
+// Returns defaults (Update, Init, Mcp, Docs, Doctor, Changelog enabled)
 Features: props.SetFeatures(),
 
 // Starts with defaults, but disables 'init' and enables 'ai'

@@ -21,7 +21,9 @@ GTB provides a set of essential built-in commands that are automatically include
 | **[Update](update.md)** | Automated binary updates and migration. |
 | **[Docs](docs.md)** | Interactive TUI documentation browser. |
 | **[Doctor](doctor.md)** | Environment and configuration health checks. |
+| **[Changelog](changelog.md)** | Embedded changelog display. |
 | **[MCP](mcp.md)** | AI agent integration (Model Context Protocol). |
+| **[Telemetry](telemetry.md)** | Opt-in usage telemetry status and management. (opt-in) |
 
 ---
 
@@ -55,8 +57,9 @@ func main() {
     // Initialize props...
     props.Assets = props.NewAssets(&assets)
 
-    // Create root command. Built-in commands (init, version, update, docs, mcp)
-    // are automatically registered unless explicitly disabled.
+    // Create root command. Built-in commands (init, version, update, docs,
+    // doctor, changelog, mcp) are automatically registered unless explicitly
+    // disabled.
     rootCmd := root.NewCmdRoot(props)
     rootCmd.Execute()
 }
@@ -86,6 +89,7 @@ props := &props.Props{
 - `props.McpCmd`: Disables the `mcp` command.
 - `props.DocsCmd`: Disables the `docs` command.
 - `props.DoctorCmd`: Disables the `doctor` command.
+- `props.ChangelogCmd`: Disables the `changelog` command.
 - `props.ConfigCmd`: Disables the `config` command (note: already disabled by default).
 
 Note: The `version` command cannot be disabled as it's essential for troubleshooting.

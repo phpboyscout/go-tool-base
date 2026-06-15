@@ -52,7 +52,11 @@ func TestMyCommand(t *testing.T) {
 The `pkg/config` package provides an in-memory container builder for testing:
 
 ```go
-cfg := config.NewReaderContainer(logger, "yaml", bytes.NewReader([]byte("key: test-value")))
+cfg := config.NewReaderContainer(fs,
+    config.WithLogger(logger),
+    config.WithConfigFormat("yaml"),
+    config.WithConfigReaders(bytes.NewReader([]byte("key: test-value"))),
+)
 props.Config = cfg
 ```
 
