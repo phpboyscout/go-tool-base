@@ -1,25 +1,86 @@
-# releaser-pleaser drives releases via the Release-MR pattern: on main it
-# maintains a "Release" MR with the pending version bump + changelog;
-# merging it creates the tag and GitLab Release, which triggers the
-# goreleaser job (.gitlab/ci/release.yml) to attach binaries.
+# .gitlab-ci.yml — pipeline assembled from phpboyscout/cicd components.
 #
-# Requires a RELEASER_PLEASER_TOKEN CI/CD variable: a project access token
-# with Maintainer role and scopes api, read_repository, write_repository.
-# The project must also use fast-forward + squash merges. The component
-# does not support floating tags — pin the full version.
+#   merge_request_event → lint, test, security        (the merge gate)
+#   tag v*.*.*          → goreleaser, pages docs       (the release fan-out)
+#   default branch      → releaser-pleaser, zensical-pages deploy
+#   schedule            → renovate
+#
+# Quality gates live exclusively at the MR level — pushing to the default
+# branch runs nothing except releaser-pleaser (which itself opens an MR that
+# gets the full gate), so by the time anything lands it has already been
+# vetted. Goreleaser and the zensical-pages deploy both fire from the tag
+# releaser-pleaser cuts when its Release MR merges, which means the docs site
+# always corresponds to a real tagged release.
+#
+# Project setting prerequisites (configure these on the GitLab project before
+# the pipeline can function):
+#   • RELEASER_PLEASER_TOKEN — a project access token with the Maintainer
+#     role and the api, read_repository, write_repository scopes, set as a
+#     CI/CD variable. releaser-pleaser uses it to open/update the Release MR
+#     and cut the tag. The component does not support floating tags.
+#   • Merge method: fast-forward + squash (so the tested commit is what lands
+#     on the default branch).
+#   • Pipelines must succeed (so the MR gates actually block merge).
+#
+# The phpboyscout/cicd components are version-pinned below; Renovate (also via
+# this pipeline) keeps the pins current via the cicd preset extended in
+# renovate.json5. Bump deliberately through the Renovate MRs rather than
+# floating the tags.
+
 include:
-  - local: .gitlab/ci/test.yml
-  - local: .gitlab/ci/lint.yml
-  - local: .gitlab/ci/release.yml
-  - local: .gitlab/ci/pages.yml
-  - component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@v0.8.0
+  # Quality gates — MR-only by default. Toolchain images are left at the
+  # component defaults; let Renovate/cicd carry the toolchain rather than
+  # pinning point-in-time overrides here.
+  - component: {{ .CIComponentSource }}/go-lint@{{ .CICDComponentVersion }}
+  - component: {{ .CIComponentSource }}/go-test@{{ .CICDComponentVersion }}
+    inputs:
+      enable_e2e: {{ .CIEnableE2E }}
+  - component: {{ .CIComponentSource }}/go-security@{{ .CICDComponentVersion }}
+
+  # Release — tag-gated goreleaser + default-branch zensical-pages deploy.
+  - component: {{ .CIComponentSource }}/goreleaser@{{ .CICDComponentVersion }}
+  - component: {{ .CIComponentSource }}/zensical-pages@{{ .CICDComponentVersion }}
+
+  # Release MR machinery (external). Referenced $CI_SERVER_FQDN-relative so it
+  # resolves on whichever GitLab instance hosts this project.
+  - component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@{{ .ReleaserPleaserVersion }}
     inputs:
       token: $RELEASER_PLEASER_TOKEN
       branch: main
       stage: release
 
+  # Scheduled Renovate run — wires its own schedule gate
+  # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json5)
+  # carries the custom manager that auto-bumps the component pins above.
+  - component: {{ .CIComponentSource }}/renovate-self@{{ .CICDComponentVersion }}
+    inputs:
+      repositories: '["{{ .Repo }}"]'
+
 stages:
-  - test
   - lint
+  - test
+  - security
   - release
   - pages
+  - renovate
+
+# Pipeline-source gating: MR pipelines are primary; tag pipelines run the
+# release fan-out; default-branch pipelines exist only so releaser-pleaser can
+# maintain its MR. The `never` rule suppresses duplicate branch pipelines when
+# a feature branch already has an open MR (otherwise every push to a branch
+# with an open MR would build twice).
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+variables:
+  # releaser-pleaser + goreleaser walk the full commit history.
+  GIT_DEPTH: "0"
+
+default:
+  tags: [saas-linux-medium-amd64]

@@ -50,6 +50,10 @@ type SkeletonConfig struct {
 	TelemetryOTelEndpoint string          // populated from manifest telemetry.otel_endpoint
 	EnvPrefix             string          // environment variable prefix for config overrides
 	Signing               ManifestSigning // self-update signature-verification posture (disabled by default)
+	// CIComponentSource overrides the phpboyscout/cicd include base in the
+	// scaffolded GitLab pipeline. Empty falls back to
+	// DefaultCICDComponentSource. GitLab-only; ignored for GitHub projects.
+	CIComponentSource string
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -131,6 +135,17 @@ func resolveGoVersion(configured string) string {
 	}
 
 	return strings.TrimPrefix(runtime.Version(), "go")
+}
+
+// resolveCIComponentSource returns the configured phpboyscout/cicd include
+// base, falling back to the framework default when unset so a manifest with no
+// ci block (or a hand-written one) still renders a complete pipeline.
+func resolveCIComponentSource(configured string) string {
+	if configured != "" {
+		return configured
+	}
+
+	return DefaultCICDComponentSource
 }
 
 func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) {
@@ -217,28 +232,32 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 	}
 
 	data := skeletonTemplateData{
-		Name:                  config.Name,
-		Repo:                  config.Repo,
-		Host:                  config.Host,
-		ModulePath:            fmt.Sprintf("%s/%s", config.Host, config.Repo),
-		Description:           config.Description,
-		Org:                   org,
-		RepoName:              repoName,
-		ReleaseProvider:       releaseProviderForHost(config.Host),
-		GoToolBaseVersion:     g.currentVersion(),
-		GoVersion:             resolveGoVersion(config.GoVersion),
-		DisabledFeatures:      calculateDisabledFeatures(config.Features),
-		EnabledFeatures:       calculateEnabledFeatures(config.Features),
-		Private:               config.Private,
-		HelpType:              config.HelpType,
-		SlackChannel:          config.SlackChannel,
-		SlackTeam:             config.SlackTeam,
-		TeamsChannel:          config.TeamsChannel,
-		TeamsTeam:             config.TeamsTeam,
-		TelemetryEndpoint:     config.TelemetryEndpoint,
-		TelemetryOTelEndpoint: config.TelemetryOTelEndpoint,
-		EnvPrefix:             config.EnvPrefix,
-		Signing:               config.Signing,
+		Name:                   config.Name,
+		Repo:                   config.Repo,
+		Host:                   config.Host,
+		ModulePath:             fmt.Sprintf("%s/%s", config.Host, config.Repo),
+		Description:            config.Description,
+		Org:                    org,
+		RepoName:               repoName,
+		ReleaseProvider:        releaseProviderForHost(config.Host),
+		GoToolBaseVersion:      g.currentVersion(),
+		GoVersion:              resolveGoVersion(config.GoVersion),
+		DisabledFeatures:       calculateDisabledFeatures(config.Features),
+		EnabledFeatures:        calculateEnabledFeatures(config.Features),
+		Private:                config.Private,
+		HelpType:               config.HelpType,
+		SlackChannel:           config.SlackChannel,
+		SlackTeam:              config.SlackTeam,
+		TeamsChannel:           config.TeamsChannel,
+		TeamsTeam:              config.TeamsTeam,
+		TelemetryEndpoint:      config.TelemetryEndpoint,
+		TelemetryOTelEndpoint:  config.TelemetryOTelEndpoint,
+		EnvPrefix:              config.EnvPrefix,
+		Signing:                config.Signing,
+		CIComponentSource:      resolveCIComponentSource(config.CIComponentSource),
+		CICDComponentVersion:   CICDComponentVersion,
+		ReleaserPleaserVersion: ReleaserPleaserComponentVersion,
+		CIEnableE2E:            false,
 	}
 
 	// Load existing project-level hashes so we can detect customised files.
@@ -627,6 +646,11 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 				TeamsTeam:    config.TeamsTeam,
 			},
 			Signing: config.Signing,
+			CI: ManifestCI{
+				// Persist only an explicit non-default source so the manifest
+				// stays minimal; an absent ci block defaults on render.
+				ComponentSource: config.CIComponentSource,
+			},
 		},
 		ReleaseSource: ManifestReleaseSource{
 			Type:    releaseProviderForHost(config.Host),

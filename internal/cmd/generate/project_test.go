@@ -133,10 +133,6 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	// GitLab CI files should be present
 	gitlabFiles := []string{
 		"gitlab-project/.gitlab-ci.yml",
-		"gitlab-project/.gitlab/ci/test.yml",
-		"gitlab-project/.gitlab/ci/lint.yml",
-		"gitlab-project/.gitlab/ci/release.yml",
-		"gitlab-project/.gitlab/ci/pages.yml",
 		"gitlab-project/.gitlab/CODEOWNERS",
 		"gitlab-project/renovate.json5",
 	}
@@ -145,6 +141,22 @@ func TestSkeletonRunGitLab(t *testing.T) {
 		exists, err := afero.Exists(memFs, f)
 		require.NoError(t, err)
 		assert.True(t, exists, "file %s should exist", f)
+	}
+
+	// The local-job-file CI model was replaced by the phpboyscout/cicd
+	// component model (spec 2026-06-15-generator-gitlab-ci-refresh); the four
+	// .gitlab/ci/*.yml job files must no longer be emitted.
+	removedCIFiles := []string{
+		"gitlab-project/.gitlab/ci/test.yml",
+		"gitlab-project/.gitlab/ci/lint.yml",
+		"gitlab-project/.gitlab/ci/release.yml",
+		"gitlab-project/.gitlab/ci/pages.yml",
+	}
+
+	for _, f := range removedCIFiles {
+		exists, err := afero.Exists(memFs, f)
+		require.NoError(t, err)
+		assert.False(t, exists, "local CI job file %s should no longer be scaffolded", f)
 	}
 
 	// GitHub CI files should NOT be present
@@ -159,6 +171,30 @@ func TestSkeletonRunGitLab(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, exists, "file %s should not exist for gitlab provider", f)
 	}
+
+	// .gitlab-ci.yml must mirror the component model: absolute cicd component
+	// paths pinned to the lockstep version, the $CI_SERVER_FQDN-relative
+	// releaser-pleaser component, and the templated repositories input. No
+	// leftover local-job includes.
+	ciContent, err := afero.ReadFile(memFs, "gitlab-project/.gitlab-ci.yml")
+	require.NoError(t, err)
+	ci := string(ciContent)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/go-lint@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/go-test@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/go-security@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/goreleaser@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/zensical-pages@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/renovate-self@"+generator.CICDComponentVersion)
+	assert.Contains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@"+generator.ReleaserPleaserComponentVersion)
+	assert.Contains(t, ci, `repositories: '["mygroup/my-tool"]'`)
+	assert.Contains(t, ci, "enable_e2e: false")
+	assert.NotContains(t, ci, "local: .gitlab/ci/")
+
+	// renovate.json5 must extend the public cicd preset so the component-pin
+	// auto-bump manager is active downstream.
+	renovateContent, err := afero.ReadFile(memFs, "gitlab-project/renovate.json5")
+	require.NoError(t, err)
+	assert.Contains(t, string(renovateContent), "gitlab>phpboyscout/cicd")
 
 	// .goreleaser.yaml should use gitlab provider
 	content, err := afero.ReadFile(memFs, "gitlab-project/.goreleaser.yaml")

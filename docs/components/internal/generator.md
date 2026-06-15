@@ -70,14 +70,40 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `justfile`: Development task runner definitions (replaces the legacy `Taskfile.yml`).
 -   `go.mod`: Go module definition (templated).
 
-#### CI/CD & Automation (`.github/`)
+#### CI/CD & Automation — GitHub (`.github/`)
 -   `CODEOWNERS`: Default ownership rules.
 -   `renovate.json5`: Dependency update configuration.
 -   `workflows/lint.yaml`: CI linting checks.
 -   `workflows/test.yaml`: CI unit tests with race detection.
 -   `workflows/goreleaser.yaml`: Release automation (builds + attaches binaries on tag).
--   `workflows/releaser-pleaser.yaml`: Version + changelog management via the Release-PR pattern (GitLab uses the releaser-pleaser CI/CD component in `.gitlab-ci.yml` instead).
--   `workflows/docs.yaml`: Documentation publishing (GitHub) or `.gitlab/ci/pages.yml` (GitLab).
+-   `workflows/releaser-pleaser.yaml`: Version + changelog management via the Release-PR pattern.
+-   `workflows/docs.yaml`: Documentation publishing.
+
+#### CI/CD & Automation — GitLab (`.gitlab/`, `.gitlab-ci.yml`)
+-   `.gitlab/CODEOWNERS`: Default ownership rules.
+-   `renovate.json5`: Dependency update configuration. Extends the public
+    `gitlab>phpboyscout/cicd` preset so the custom manager auto-bumps the
+    `gitlab.com/phpboyscout/cicd/*@vX.Y.Z` component pins in `.gitlab-ci.yml`.
+-   `.gitlab-ci.yml`: A component pipeline assembled from the
+    [`phpboyscout/cicd`](https://gitlab.com/phpboyscout/cicd) CI/CD components
+    (`go-lint`, `go-test`, `go-security`, `goreleaser`, `zensical-pages`,
+    `renovate-self`) plus the `apricote/releaser-pleaser/run` component, with a
+    source-gated `workflow:` (MR → gates; tag → release; default branch →
+    releaser-pleaser; schedule → renovate). This replaces the older
+    hand-written `.gitlab/ci/{test,lint,release,pages}.yml` local-job files.
+    -   **Component versions** are pinned by the `CICDComponentVersion` /
+        `ReleaserPleaserComponentVersion` generator constants
+        (`internal/generator/generator.go`), kept in *lockstep* with the
+        framework's own root `.gitlab-ci.yml` and bumped downstream by Renovate.
+    -   **Component source** defaults to `gitlab.com/phpboyscout/cicd` and is
+        overridable via the `--ci-component-source` flag (persisted to the
+        manifest's `properties.ci.component_source`) so a mirrored or
+        self-hosted downstream can repoint the include base. The
+        releaser-pleaser component stays `$CI_SERVER_FQDN`-relative regardless.
+    -   **Prerequisites** (documented in the rendered file's header): a
+        `RELEASER_PLEASER_TOKEN` project access token (Maintainer role; `api`,
+        `read_repository`, `write_repository` scopes), fast-forward + squash
+        merges, and pipelines-must-succeed.
 
 #### Documentation (`docs/`)
 -   `zensical.toml`: Documentation site configuration (Zensical/MkDocs-Material).

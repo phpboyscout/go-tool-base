@@ -132,6 +132,106 @@ func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
 	assert.Equal(t, "my-tool", m.ReleaseSource.Repo)
 }
 
+// newGitLabCIGenerator builds an in-memory generator for the GitLab CI
+// render tests.
+func newGitLabCIGenerator(t *testing.T) (*Generator, afero.Fs) {
+	t.Helper()
+
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{})
+	g.runCommand = func(context.Context, string, string, ...string) ([]byte, error) {
+		return []byte("done"), nil
+	}
+
+	return g, fs
+}
+
+// TestGenerateSkeletonGitLabCIComponents verifies the scaffolded
+// .gitlab-ci.yml mirrors the phpboyscout/cicd component model: absolute,
+// version-pinned component includes, the $CI_SERVER_FQDN-relative
+// releaser-pleaser component, a templated repositories input, valid YAML, and
+// no leftover local-job includes. (Spec 2026-06-15-generator-gitlab-ci-refresh.)
+func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
+	g, fs := newGitLabCIGenerator(t)
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name:        "my-tool",
+		Repo:        "mygroup/my-tool",
+		Host:        "gitlab.com",
+		Description: "A GitLab tool",
+		Path:        "/work",
+	}))
+
+	raw, err := afero.ReadFile(fs, "/work/.gitlab-ci.yml")
+	require.NoError(t, err)
+	ci := string(raw)
+
+	// Valid YAML.
+	var doc any
+	require.NoError(t, yaml.Unmarshal(raw, &doc))
+
+	for _, comp := range []string{"go-lint", "go-test", "go-security", "goreleaser", "zensical-pages", "renovate-self"} {
+		assert.Contains(t, ci, "component: "+DefaultCICDComponentSource+"/"+comp+"@"+CICDComponentVersion)
+	}
+
+	assert.Contains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@"+ReleaserPleaserComponentVersion)
+	assert.Contains(t, ci, `repositories: '["mygroup/my-tool"]'`)
+	assert.Contains(t, ci, "enable_e2e: false")
+	assert.NotContains(t, ci, "local: .gitlab/ci/")
+
+	// The four local CI job files must not be rendered.
+	for _, f := range []string{"test.yml", "lint.yml", "release.yml", "pages.yml"} {
+		exists, _ := afero.Exists(fs, "/work/.gitlab/ci/"+f)
+		assert.False(t, exists, ".gitlab/ci/%s should not be scaffolded", f)
+	}
+
+	// renovate.json5 extends the cicd preset.
+	rj, err := afero.ReadFile(fs, "/work/renovate.json5")
+	require.NoError(t, err)
+	assert.Contains(t, string(rj), "gitlab>phpboyscout/cicd")
+}
+
+// TestGenerateSkeletonGitLabCIComponentSourceOverride verifies that an
+// explicit component source repoints every cicd include and round-trips
+// through the manifest's ci.component_source field.
+func TestGenerateSkeletonGitLabCIComponentSourceOverride(t *testing.T) {
+	g, fs := newGitLabCIGenerator(t)
+
+	const src = "git.acme.example/mirror/cicd"
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name:              "my-tool",
+		Repo:              "myorg/mygroup/my-tool",
+		Host:              "gitlab.com",
+		Description:       "A mirrored GitLab tool",
+		Path:              "/work",
+		CIComponentSource: src,
+	}))
+
+	raw, err := afero.ReadFile(fs, "/work/.gitlab-ci.yml")
+	require.NoError(t, err)
+	ci := string(raw)
+
+	assert.Contains(t, ci, "component: "+src+"/go-lint@"+CICDComponentVersion)
+	assert.NotContains(t, ci, DefaultCICDComponentSource+"/go-lint")
+	// releaser-pleaser stays instance-local regardless of the source.
+	assert.Contains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@")
+	// nested group path threads into the repositories input.
+	assert.Contains(t, ci, `repositories: '["myorg/mygroup/my-tool"]'`)
+
+	// Manifest persists the override.
+	mraw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+	require.NoError(t, err)
+
+	var m Manifest
+	require.NoError(t, yaml.Unmarshal(mraw, &m))
+	assert.Equal(t, src, m.Properties.CI.ComponentSource)
+
+	// And the regenerate path re-renders the same source from the manifest.
+	data := g.buildSkeletonTemplateData(m)
+	assert.Equal(t, src, data.CIComponentSource)
+}
+
 func TestSplitRepoPath(t *testing.T) {
 	tests := []struct {
 		input    string

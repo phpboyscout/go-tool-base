@@ -19,6 +19,35 @@ const (
 	DefaultDirMode  = 0o755
 )
 
+// CICD component pins for the scaffolded GitLab pipeline.
+//
+// These are kept in LOCKSTEP with the framework's own root .gitlab-ci.yml
+// (resolved O2 of the 2026-06-15 generator-gitlab-ci-refresh spec): when the
+// framework upgrades its phpboyscout/cicd component pins, bump these in the
+// same change. The scaffolded renovate config (extending the cicd preset)
+// then keeps the pins current for the downstream tool.
+//
+// The releaser-pleaser component is pinned separately because it lives under
+// apricote/, not phpboyscout/cicd, and is referenced $CI_SERVER_FQDN-relative
+// (instance-local) per O7.
+const (
+	// DefaultCICDComponentSource is the default include base for the
+	// phpboyscout/cicd components. It is overridable via the manifest
+	// `ci.component_source` value (O1) so a mirrored/self-hosted downstream
+	// can repoint the include base; the default works out-of-the-box.
+	DefaultCICDComponentSource = "gitlab.com/phpboyscout/cicd"
+
+	// CICDComponentVersion is the phpboyscout/cicd component version the
+	// scaffold pins (go-lint, go-test, go-security, goreleaser,
+	// zensical-pages, renovate-self). Mirror the framework's own pin.
+	CICDComponentVersion = "v0.10.1"
+
+	// ReleaserPleaserComponentVersion is the apricote/releaser-pleaser/run
+	// component version the scaffold pins. The component does not support
+	// floating tags, so this is always a full version (O7).
+	ReleaserPleaserComponentVersion = "v0.8.0"
+)
+
 type Config struct {
 	Agentless  bool
 	AIModel    string

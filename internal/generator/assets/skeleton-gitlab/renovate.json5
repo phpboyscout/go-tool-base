@@ -1,12 +1,22 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  // Extends the public phpboyscout/cicd preset, which carries the custom
+  // manager that recognises and auto-bumps the
+  // `gitlab.com/phpboyscout/cicd/*@vX.Y.Z` component pins in .gitlab-ci.yml.
+  // Without this extend the component pins would never be bumped.
   extends: [
     'config:recommended',
+    ':semanticCommits',
+    ':disableDependencyDashboard',
+    'gitlab>phpboyscout/cicd',
   ],
+  platform: 'gitlab',
   enabledManagers: [
     'gomod',
+    'gitlabci',
     'pre-commit',
   ],
+  rangeStrategy: 'bump',
   automerge: false,
   prHourlyLimit: 10,
   prConcurrentLimit: 10,
@@ -31,11 +41,13 @@
   semanticCommitType: 'chore',
   packageRules: [
     {
+      // Patch + minor go dependencies land grouped to keep go.sum churn low.
       matchDatasources: [
-        'gomod-datasource',
+        'go',
       ],
       matchUpdateTypes: [
         'patch',
+        'minor',
       ],
       groupName: 'go dependencies',
       groupSlug: 'go-deps',
@@ -43,20 +55,9 @@
       automergeType: 'pr',
     },
     {
+      // Major go dependencies require explicit human review.
       matchDatasources: [
-        'gomod-datasource',
-      ],
-      matchUpdateTypes: [
-        'minor',
-      ],
-      groupName: 'go dependencies (minor)',
-      groupSlug: 'go-deps',
-      automerge: false,
-      automergeType: 'pr',
-    },
-    {
-      matchDatasources: [
-        'gomod-datasource',
+        'go',
       ],
       matchUpdateTypes: [
         'major',

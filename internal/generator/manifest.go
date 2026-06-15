@@ -304,6 +304,23 @@ type ManifestSigning struct {
 	PublicKey string `yaml:"public_key,omitempty"`
 }
 
+// ManifestCI holds CI-pipeline configuration for generated tools. It is the
+// manifest representation of the scaffolded GitLab pipeline's configurable
+// inputs. Currently it carries only the phpboyscout/cicd component source so a
+// mirrored or self-hosted downstream can repoint the include base; the
+// component versions are pinned by a generator constant kept in lockstep with
+// the framework (not manifest-driven). See
+// docs/development/specs/2026-06-15-generator-gitlab-ci-refresh.md.
+type ManifestCI struct {
+	// ComponentSource is the include base for the phpboyscout/cicd
+	// components in the scaffolded .gitlab-ci.yml. Empty means "use the
+	// framework default" (DefaultCICDComponentSource,
+	// gitlab.com/phpboyscout/cicd); a mirrored/self-hosted downstream sets
+	// this to repoint the include base. Defaulted on render so a manifest
+	// with no ci block still produces a complete pipeline.
+	ComponentSource string `yaml:"component_source,omitempty"`
+}
+
 type ManifestProperties struct {
 	Name        string            `yaml:"name"`
 	Description MultilineString   `yaml:"description"`
@@ -312,6 +329,7 @@ type ManifestProperties struct {
 	Help        ManifestHelp      `yaml:"help,omitempty"`
 	Telemetry   ManifestTelemetry `yaml:"telemetry,omitempty"`
 	Signing     ManifestSigning   `yaml:"signing,omitempty"`
+	CI          ManifestCI        `yaml:"ci,omitempty"`
 }
 
 type ManifestHelp struct {

@@ -36,6 +36,11 @@ type SkeletonOptions struct {
 	TeamsTeam    string
 	EnvPrefix    string
 
+	// CIComponentSource overrides the phpboyscout/cicd include base in the
+	// scaffolded GitLab pipeline (GitLab backend only). Empty uses the
+	// framework default, gitlab.com/phpboyscout/cicd.
+	CIComponentSource string
+
 	// Signing (off by default). When Signing is true the generated tool
 	// scaffolds internal/trustkeys and wires props.Signing. require_signature
 	// is intentionally not collectable here — it stays false until a signed
@@ -88,6 +93,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.TeamsChannel, "teams-channel", "", "Microsoft Teams channel for help")
 	cmd.Flags().StringVar(&opts.TeamsTeam, "teams-team", "", "Microsoft Teams team name")
 	cmd.Flags().StringVar(&opts.EnvPrefix, "env-prefix", "", "Environment variable prefix for config overrides (e.g. MY_APP)")
+	cmd.Flags().StringVar(&opts.CIComponentSource, "ci-component-source", "", "Override the phpboyscout/cicd component include base in the scaffolded GitLab pipeline (default gitlab.com/phpboyscout/cicd)")
 	cmd.Flags().BoolVar(&opts.Signing, "signing", false, "Enable consumer-side release-signing verification (scaffolds internal/trustkeys and wires props.Signing)")
 	cmd.Flags().StringVar(&opts.SigningEmail, "signing-email", "", "Release WKD email for signing (external_key_email); implies --signing")
 	cmd.Flags().StringVar(&opts.SigningKeySource, "signing-key-source", "both", "Signing trust-anchor source: embedded, external, or both")
@@ -193,7 +199,11 @@ func (o *SkeletonOptions) validateCoreFields() error {
 		}
 	}
 
-	return generator.ValidateEnvPrefix(o.EnvPrefix)
+	if err := generator.ValidateEnvPrefix(o.EnvPrefix); err != nil {
+		return err
+	}
+
+	return generator.ValidateCIComponentSource(o.CIComponentSource)
 }
 
 // validateHelpFields groups the Slack/Teams help-channel checks.
@@ -559,21 +569,22 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	}
 
 	return gen.GenerateSkeleton(ctx, generator.SkeletonConfig{
-		Name:         o.Name,
-		Repo:         o.Repo,
-		Host:         host,
-		Private:      o.Private,
-		Description:  o.Description,
-		Path:         o.Path,
-		GoVersion:    o.GoVersion,
-		Features:     features,
-		HelpType:     helpType,
-		SlackChannel: o.SlackChannel,
-		SlackTeam:    o.SlackTeam,
-		TeamsChannel: o.TeamsChannel,
-		TeamsTeam:    o.TeamsTeam,
-		EnvPrefix:    o.EnvPrefix,
-		Signing:      o.resolveSigning(),
+		Name:              o.Name,
+		Repo:              o.Repo,
+		Host:              host,
+		Private:           o.Private,
+		Description:       o.Description,
+		Path:              o.Path,
+		GoVersion:         o.GoVersion,
+		Features:          features,
+		HelpType:          helpType,
+		SlackChannel:      o.SlackChannel,
+		SlackTeam:         o.SlackTeam,
+		TeamsChannel:      o.TeamsChannel,
+		TeamsTeam:         o.TeamsTeam,
+		EnvPrefix:         o.EnvPrefix,
+		CIComponentSource: o.CIComponentSource,
+		Signing:           o.resolveSigning(),
 	})
 }
 

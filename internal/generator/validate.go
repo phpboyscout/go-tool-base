@@ -39,6 +39,7 @@ const (
 	maxGitLabNamespaceLen   = 255
 	maxTeamsLen             = 100
 	maxTelemetryEndpointLen = 2048
+	maxCIComponentSourceLen = 255
 	truncatedInputLen       = 32
 )
 
@@ -601,6 +602,66 @@ func ValidateTelemetryEndpoint(endpoint string) error {
 	return nil
 }
 
+// ValidateCIComponentSource accepts an empty string (meaning "use the
+// framework default") and otherwise requires a bare host/path component
+// source such as `gitlab.com/phpboyscout/cicd`. The value is interpolated
+// verbatim into an unquoted YAML include path in the scaffolded
+// .gitlab-ci.yml, so it is restricted to a strict character class
+// (alphanumerics, `.`, `-`, `_`, `/`) and rejected if it carries a URL
+// scheme, whitespace, control characters, or template delimiters.
+func ValidateCIComponentSource(source string) error {
+	if source == "" {
+		return nil
+	}
+
+	s := norm.NFC.String(source)
+
+	const field = "CIComponentSource"
+
+	if len(s) > maxCIComponentSourceLen {
+		return rejectf(field,
+			fmt.Sprintf("component source must be at most %d bytes", maxCIComponentSourceLen),
+			s)
+	}
+
+	if err := rejectControlChars(s, field, nil); err != nil {
+		return err
+	}
+
+	if strings.Contains(s, "{{") || strings.Contains(s, "}}") {
+		return rejectf(field, "component source must not contain `{{` or `}}`", s)
+	}
+
+	for _, r := range s {
+		if !isComponentSourceRune(r) {
+			return rejectf(field,
+				"component source must be a bare host/path (letters, digits, `.`, `-`, `_`, `/`)",
+				s)
+		}
+	}
+
+	return nil
+}
+
+// componentSourcePunct is the set of non-alphanumeric ASCII runes permitted in
+// a CI component source (a bare host/path).
+const componentSourcePunct = "._-/"
+
+// isComponentSourceRune reports whether r is allowed in a CI component source:
+// ASCII letters, digits, and the path punctuation in componentSourcePunct.
+func isComponentSourceRune(r rune) bool {
+	if r > unicode.MaxASCII {
+		return false
+	}
+
+	return isASCIIAlphanumeric(r) || strings.ContainsRune(componentSourcePunct, r)
+}
+
+// isASCIIAlphanumeric reports whether r is an ASCII letter or digit.
+func isASCIIAlphanumeric(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')
+}
+
 // rejectf constructs an ErrInvalidInput-wrapped error whose hint
 // identifies the failing field, the rule, and the offending input
 // (truncated) so the user sees actionable context without unbounded
@@ -768,7 +829,11 @@ func validateManifestProperties(p *ManifestProperties) error {
 		return err
 	}
 
-	return ValidateTelemetryEndpoint(p.Telemetry.OTelEndpoint)
+	if err := ValidateTelemetryEndpoint(p.Telemetry.OTelEndpoint); err != nil {
+		return err
+	}
+
+	return ValidateCIComponentSource(p.CI.ComponentSource)
 }
 
 // validateManifestReleaseSource validates Host and Owner only when

@@ -316,6 +316,42 @@ func TestValidateTelemetryEndpoint(t *testing.T) {
 	}
 }
 
+func TestValidateCIComponentSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted (default)", input: "", wantErr: false},
+		{name: "framework default", input: "gitlab.com/phpboyscout/cicd", wantErr: false},
+		{name: "self-hosted mirror", input: "git.acme.example/mirror/cicd", wantErr: false},
+		{name: "underscores and hyphens", input: "git_host.example/my-group/ci_cd", wantErr: false},
+
+		{name: "scheme rejected", input: "https://gitlab.com/phpboyscout/cicd", wantErr: true},
+		{name: "whitespace rejected", input: "gitlab.com/phpboyscout/ cicd", wantErr: true},
+		{name: "control char rejected", input: "gitlab.com/phpboyscout/cicd\n", wantErr: true},
+		{name: "template delimiters rejected", input: "gitlab.com/{{ .Org }}/cicd", wantErr: true},
+		{name: "quote rejected", input: `gitlab.com/phpboyscout/cicd"`, wantErr: true},
+		{name: "too long", input: strings.Repeat("a", 300), wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateCIComponentSource(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidate_HintContainsFieldAndRule(t *testing.T) {
 	t.Parallel()
 

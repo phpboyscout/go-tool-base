@@ -1,7 +1,7 @@
 ---
 title: "Refresh the generator's GitLab CI to the phpboyscout/cicd component model"
 description: "The gtb generate project GitLab skeleton still emits hand-written local job files (.gitlab/ci/{test,lint,release,pages}.yml) plus the releaser-pleaser component. go-tool-base's own .gitlab-ci.yml has since moved to the phpboyscout/cicd CI/CD components (go-lint, go-test, go-security, goreleaser, zensical-pages, renovate-self) with an MR-gate / tag-release / main-branch-releaser-pleaser / scheduled-renovate model. Refresh the scaffolded default GitLab CI to mirror that component model, decide the fate of the local job files, pin component versions and keep them current via the cicd renovate preset, and document the project prerequisites."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-15
 tags:
   - specification
@@ -27,7 +27,7 @@ Date
 :   2026-06-15
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-15)
+:   IMPLEMENTED (2026-06-15 — scaffold now emits the phpboyscout/cicd component pipeline; the four local `.gitlab/ci/*.yml` job files removed; component versions pinned by a lockstep generator constant; `properties.ci.component_source` added to the manifest; renovate aligned to the cicd preset)
 
 ## Summary
 
