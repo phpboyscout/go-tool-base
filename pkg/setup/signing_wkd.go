@@ -3,7 +3,6 @@ package setup
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,48 +10,20 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/cockroachdb/errors"
-)
 
-// zBase32Alphabet is the Z-Base-32 alphabet from RFC 6189 §5.1.6, used
-// by the WKD draft for hashing the local part of an email address.
-const zBase32Alphabet = "ybndrfg8ejkmcpqxot1uwisza345h769"
-
-const (
-	bitsPerByte          = 8
-	zBase32BitsPerChar   = 5
-	zBase32CharMask      = 0x1f
-	wkdHashEncodedLength = sha1.Size * bitsPerByte / zBase32BitsPerChar
+	"gitlab.com/phpboyscout/go-tool-base/pkg/openpgpkey"
 )
 
 // wkdLocalPartHash returns the Z-Base-32 encoding of the SHA-1 of the
 // lower-cased local part, per draft-koch-openpgp-webkey-service §3.1.
-// SHA-1 is used here as a fixed identifier hash defined by the WKD
-// wire format — not for cryptographic integrity. Signature verification
-// uses ed25519/RSA via go-crypto and never relies on this hash.
+// It delegates to the single canonical implementation in
+// pkg/openpgpkey so the wire-format-critical hash cannot drift between
+// the publish side (WriteWKDTree) and the resolve side here. SHA-1 is
+// a fixed identifier hash defined by the WKD wire format — not for
+// cryptographic integrity; signature verification uses ed25519/RSA via
+// go-crypto and never relies on this hash.
 func wkdLocalPartHash(localPart string) string {
-	sum := sha1.Sum([]byte(strings.ToLower(localPart)))
-
-	out := make([]byte, wkdHashEncodedLength)
-
-	var (
-		bits     uint32
-		bitCount uint
-	)
-
-	j := 0
-
-	for _, b := range sum {
-		bits = (bits << bitsPerByte) | uint32(b)
-		bitCount += bitsPerByte
-
-		for bitCount >= zBase32BitsPerChar {
-			bitCount -= zBase32BitsPerChar
-			out[j] = zBase32Alphabet[(bits>>bitCount)&zBase32CharMask]
-			j++
-		}
-	}
-
-	return string(out)
+	return openpgpkey.WKDLocalPartHash(localPart)
 }
 
 // WKDURLs derives the advanced and direct WKD URLs and the canonical

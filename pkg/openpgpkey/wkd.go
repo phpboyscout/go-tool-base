@@ -238,6 +238,22 @@ func writeHuFiles(outDir, root string, merged map[string][][]byte) ([]string, er
 // hash a UID without writing files.
 func WKDHash(email string) (string, error) { return wkdHash(email) }
 
+// WKDLocalPartHash returns the z-base-32 encoded SHA-1 of the
+// lowercased local-part, per draft-koch-openpgp-webkey-service §3.1.
+// Unlike WKDHash it takes the local-part directly (no '@' parsing),
+// for callers that have already split the address. SHA-1 here is the
+// IETF-mandated bucket identifier, not a security primitive — see the
+// wkd.go file header.
+//
+// This is the single canonical implementation of the WKD local-part
+// hash; all consumers (including pkg/setup's WKD resolver) route
+// through it so the wire format cannot drift between call sites.
+func WKDLocalPartHash(localPart string) string {
+	sum := sha1.Sum([]byte(strings.ToLower(localPart))) //nolint:gosec // RFC-mandated bucket identifier; see file-header comment.
+
+	return zbase32Encode(sum[:])
+}
+
 // wkdHash computes the z-base-32 SHA-1 of the lowercased local part.
 func wkdHash(email string) (string, error) {
 	addr, err := mail.ParseAddress(email)
@@ -250,11 +266,7 @@ func wkdHash(email string) (string, error) {
 		return "", errors.Newf("email %q has no local part", email)
 	}
 
-	local := strings.ToLower(addr.Address[:at])
-
-	sum := sha1.Sum([]byte(local)) //nolint:gosec // RFC-mandated bucket identifier; see file-header comment.
-
-	return zbase32Encode(sum[:]), nil
+	return WKDLocalPartHash(addr.Address[:at]), nil
 }
 
 // mergeEntriesByEmail collapses multiple Entry values sharing an

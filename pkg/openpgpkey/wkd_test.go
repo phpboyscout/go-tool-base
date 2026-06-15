@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -342,5 +343,45 @@ func TestWKDHash_MatchesGPGWKSClient(t *testing.T) {
 		got, err := openpgpkey.WKDHash(email)
 		require.NoError(t, err, email)
 		assert.Equal(t, want, got, email)
+	}
+}
+
+// TestWKDLocalPartHash_GoldenVectors locks the shared local-part hash
+// (the single implementation consumed by pkg/setup's WKD resolver)
+// against gpg-wks-client --print-wkd-hash output. This is the
+// wire-format anchor: if it drifts, published WKD URLs become
+// unfetchable.
+func TestWKDLocalPartHash_GoldenVectors(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		// draft-koch-openpgp-webkey-service canonical example.
+		"joe.doe": "iy9q119eutrkn8s1mk4r39qejnbu3n5q",
+		// gpg-wks-client --print-wkd-hash output for joe.user@example.org.
+		"joe.user": "1eywsd1ce1nfs68idcpb69buui6xnxrd",
+		"release":  "y84sdmnksfqswe7fxf5mzjg53tbdz8f5",
+		// Casing on the local-part must not affect the output.
+		"Joe.Doe": "iy9q119eutrkn8s1mk4r39qejnbu3n5q",
+		"Release": "y84sdmnksfqswe7fxf5mzjg53tbdz8f5",
+	}
+
+	for localPart, want := range cases {
+		got := openpgpkey.WKDLocalPartHash(localPart)
+		assert.Equalf(t, want, got, "WKDLocalPartHash(%q)", localPart)
+		assert.Lenf(t, got, 32, "WKD hash must be 32 z-base-32 chars: %q", localPart)
+	}
+}
+
+// TestWKDLocalPartHash_MatchesWKDHash proves the local-part helper and
+// the email-parsing WKDHash agree, so the two former call sites
+// (publish + resolve) produce byte-identical output.
+func TestWKDLocalPartHash_MatchesWKDHash(t *testing.T) {
+	t.Parallel()
+
+	for _, email := range []string{"joe.user@example.org", "release@phpboyscout.uk"} {
+		at := strings.LastIndexByte(email, '@')
+		want, err := openpgpkey.WKDHash(email)
+		require.NoError(t, err, email)
+		assert.Equal(t, want, openpgpkey.WKDLocalPartHash(email[:at]), email)
 	}
 }
