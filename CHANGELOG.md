@@ -1,5 +1,71 @@
 # Changelog
 
+## [v0.17.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.17.0)
+
+### Features
+
+- **http**: add SecurityHeadersMiddleware applied to built-in docs surfaces
+- **chat**: surface token usage from all providers
+- **props**: add public propstest fixture helper
+- **config**: add OnReloadError hook for rejected hot-reloads
+- **config**: container-owned hot-reload watcher with candidate-validate-swap
+- **config**: bind CLI flags into config precedence
+- **vcs**: provider-aware repository auth for clone/push
+- **cmd**: signal-aware execution context with graceful cancellation
+
+### Bug Fixes
+
+- **controls**: cancel health-check contexts on stop
+- **controls**: warn when Register is called after Start
+- **sign**: drop redundant signature buffer and fix inverted flag name
+- **chat**: replace tool handlers on SetTools, fix system prompt, seed, empty tool args
+- **generate**: validate org for two-segment repo paths
+- **agent**: surface missing-binary exec error in single-dir tools
+- **generator**: wire escapeShellArg/escapeMarkdownCodeBlock at render sites
+- **trustkeys**: fix stale "ships empty" doc and propagate WalkDir error
+- **signing**: harden signing chain — reject dup manifest, refuse PSS, log fingerprint
+- **chat**: recover panicking tool handlers as tool-error content
+- **telemetry**: honour at-least-once, roll back partial setup, sync BackendInfo
+- **telemetry**: validate OTLP endpoint fail-fast in ParseEndpoint
+- **config**: make GetDefaultConfigDir pure and create the dir at first write
+- **props**: default Collector to a noop to uphold the non-nil invariant
+- **setup,chat,generate,regenerate**: audit phase 8 error-idiom sweep
+- **config,credentials,cmd-root,controls**: audit phase 7 residuals
+- **errorhandling,logger,changelog,version**: audit — bug cluster
+- **output,browser**: audit — markdown cell escaping and immutable scheme allowlist
+- **generate**: validate type/name in non-interactive add-flag path
+- **sign,keys,generate**: sign/wkd/docs CLI-edge bug cluster
+- **agent**: reject leading-dash go_get arg and redact subprocess output
+- **docs**: bind docs server to loopback and route serve through middleware
+- **docs**: guard nil ask callbacks, snapshot search mode, harden renderer
+- **http**: clamp retry backoff and refuse unsafe body resends
+- **http**: gate client-IP proxy headers and harden server shutdown drain
+- **vcs**: clamp GitHub PR per-page and derive empty enterprise upload URL
+- **vcs**: host-pin bitbucket basic auth to the API host
+- **setup**: correct update timestamp, empty-version, and config-dir handling
+- **direct**: bound the version-endpoint read
+- **setup**: harden WKD key trust with UID filtering and domain validation
+- **output**: UTF-8/width-aware table cell truncation
+- **output**: return cancellation when a spinner run is interrupted
+- **keys**: refuse to clobber an existing private key without --force
+- **generate**: preserve command metadata through add-flag regeneration
+- **ci**: add 3-day minimumReleaseAge cooldown to Renovate automerge
+- **generator**: tighten signing KeyID and normalize PublicKey ./ prefix
+- **cmd**: demote interrupt notice from error to debug
+- **controls**: idempotent start, real restart semantics, no busy-spin
+- **generator**: close manifest/signing/AI-tool validation gaps
+- **root**: bootstrap survives child PersistentPreRunE via EnableTraverseRunHooks
+- audit — transport bugs (TLS fail-fast, status, rate-limit, telemetry buffer)
+- audit — cmd-root/telemetry bug cluster (flush, nil-version, seal, config-set)
+- audit — self-update correctness (Windows extract, offline require-flags, target path)
+- audit tier 2 — security quick-fixes (redact, telemetry, vcs, http, setup)
+- audit tier 2 — chat cross-provider contract conformance
+- **vcs**: only send release token to the configured instance host
+- **vcs**: guard nil ssh subtree in configureSSHAuth
+- **vcs**: treat already-up-to-date pull as success in CreateBranch
+- **config**: honour LoadFilesContainer missing-file contract
+- **root**: decline update when the prompt cannot be answered
+
 ## [v0.16.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.16.2)
 
 ### Bug Fixes
