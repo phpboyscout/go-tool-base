@@ -1,6 +1,6 @@
 ---
 title: Telemetry
-description: Opt-in anonymous usage analytics with pluggable backends, privacy controls, and GDPR-compliant data deletion.
+description: Opt-in pseudonymous usage analytics with pluggable backends, privacy controls, and GDPR-compliant data deletion.
 date: 2026-03-31
 tags: [components, telemetry, analytics, privacy]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 ## Overview
 
-The telemetry package provides an opt-in framework for collecting anonymous usage analytics from CLI tools built on GTB. It is designed around three principles:
+The telemetry package provides an opt-in framework for collecting pseudonymous usage analytics from CLI tools built on GTB. It is designed around three principles:
 
 1. **Explicit consent** — telemetry is never enabled by default. Users must opt in via `telemetry enable`, the `init` prompt, or the `TELEMETRY_ENABLED` environment variable.
 2. **Privacy by design** — no personally identifiable information is collected. Machine IDs are derived from multiple system signals and hashed with SHA-256. Command arguments, file contents, and IP addresses are never recorded.
