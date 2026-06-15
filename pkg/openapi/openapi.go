@@ -15,6 +15,8 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/errors"
+
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 )
 
 //go:embed assets/web-components.min.js assets/styles.min.css
@@ -48,9 +50,11 @@ var indexTemplate = template.Must(template.New("index").Parse(
 `))
 
 type config struct {
-	specPath string
-	docsPath string
-	title    string
+	specPath            string
+	docsPath            string
+	title               string
+	securityHeaders     []gtbhttp.SecurityHeadersOption
+	withoutSecurityHdrs bool
 }
 
 // Option configures the docs endpoints.
@@ -71,6 +75,22 @@ func WithDocsPath(p string) Option {
 // WithTitle sets the docs page title.
 func WithTitle(t string) Option {
 	return func(c *config) { c.title = t }
+}
+
+// WithSecurityHeaderOptions customises the security-header middleware applied to
+// the docs/spec handlers. By default the conservative
+// http.SecurityHeadersMiddleware defaults are used (nosniff, X-Frame-Options:
+// DENY, frame-ancestors 'none', Referrer-Policy: no-referrer, HSTS off).
+func WithSecurityHeaderOptions(opts ...gtbhttp.SecurityHeadersOption) Option {
+	return func(c *config) { c.securityHeaders = append(c.securityHeaders, opts...) }
+}
+
+// WithoutSecurityHeaders disables the default security-header middleware on the
+// docs/spec handlers. Use this only when an outer middleware chain already sets
+// equivalent headers; the built-in interactive docs UI is otherwise served
+// without nosniff/frame/referrer protections.
+func WithoutSecurityHeaders() Option {
+	return func(c *config) { c.withoutSecurityHdrs = true }
 }
 
 // Register mounts the OpenAPI spec and the Stoplight Elements docs site onto the
@@ -101,19 +121,40 @@ func Register(mux *http.ServeMux, spec []byte, opts ...Option) error {
 		return err
 	}
 
-	mux.HandleFunc("GET "+cfg.specPath, func(w http.ResponseWriter, _ *http.Request) {
+	// Wrap every built-in docs/spec handler with conservative security
+	// headers by default — the docs path serves an interactive try-it console
+	// that benefits from nosniff/frame/referrer protections. Callers may
+	// customise via WithSecurityHeaderOptions or opt out via
+	// WithoutSecurityHeaders.
+	secure := securityWrapper(cfg)
+
+	specHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/yaml")
 		_, _ = w.Write(spec)
 	})
+	mux.Handle("GET "+cfg.specPath, secure(specHandler))
 
-	// Exact docs path -> the generated index; subtree -> the embedded JS/CSS.
-	mux.HandleFunc("GET "+cfg.docsPath+"{$}", func(w http.ResponseWriter, _ *http.Request) {
+	indexHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(index)
 	})
-	mux.Handle("GET "+cfg.docsPath, http.StripPrefix(cfg.docsPath, http.FileServer(http.FS(assets))))
+
+	// Exact docs path -> the generated index; subtree -> the embedded JS/CSS.
+	mux.Handle("GET "+cfg.docsPath+"{$}", secure(indexHandler))
+	mux.Handle("GET "+cfg.docsPath, secure(http.StripPrefix(cfg.docsPath, http.FileServer(http.FS(assets)))))
 
 	return nil
+}
+
+// securityWrapper returns the middleware applied to the docs/spec handlers:
+// the security-headers middleware by default, or a no-op pass-through when
+// WithoutSecurityHeaders was supplied.
+func securityWrapper(cfg *config) gtbhttp.Middleware {
+	if cfg.withoutSecurityHdrs {
+		return func(next http.Handler) http.Handler { return next }
+	}
+
+	return gtbhttp.SecurityHeadersMiddleware(cfg.securityHeaders...)
 }
 
 func renderIndex(cfg *config) ([]byte, error) {

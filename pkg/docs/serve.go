@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 )
 
 const (
@@ -70,9 +72,14 @@ func Serve(ctx context.Context, fsys fs.FS, port int, opts ...ServeOption) error
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.FS(fsys)))
 
+	// Apply conservative security headers to the built-in docs surface
+	// (nosniff, frame-ancestors 'none', referrer-policy). HSTS stays off:
+	// the server is plain HTTP on loopback by default.
+	handler := gtbhttp.SecurityHeadersMiddleware()(mux)
+
 	server := &http.Server{
 		Addr:              addr,
-		Handler:           mux,
+		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 

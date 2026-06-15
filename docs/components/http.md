@@ -127,6 +127,36 @@ The package provides an alice-style middleware chaining API. Middleware uses the
 
 **Client IP and trusted proxies**: by default the logged `client_ip` is taken from the connection's `RemoteAddr`. The `X-Forwarded-For` and `X-Real-IP` headers are **ignored** because any direct client can forge them. Enable `WithTrustedProxy()` only when the server sits behind a trusted reverse proxy or load balancer that overwrites these headers; with it set, the left-most `X-Forwarded-For` entry (falling back to `X-Real-IP`) is used. Enabling it on a directly-exposed server lets clients spoof the recorded client IP.
 
+### Built-in Security-Headers Middleware
+
+`SecurityHeadersMiddleware` sets a conservative set of response security headers on every request. It is a standard `Middleware`, so it composes into any `NewChain`/`WithMiddleware` pipeline.
+
+- **`SecurityHeadersMiddleware(opts ...SecurityHeadersOption) Middleware`**
+
+**Default headers:**
+
+| Header | Default value |
+|--------|---------------|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Content-Security-Policy` | `frame-ancestors 'none'` |
+| `Referrer-Policy` | `no-referrer` |
+| `Strict-Transport-Security` | *(off by default)* |
+
+**Options:**
+
+| Option | Effect |
+|--------|--------|
+| `WithContentTypeOptions(v)` | Override `X-Content-Type-Options` (empty omits the header). |
+| `WithFrameOptions(v)` | Override `X-Frame-Options` (empty omits the header). |
+| `WithReferrerPolicy(v)` | Override `Referrer-Policy` (empty omits the header). |
+| `WithContentSecurityPolicy(p)` | Set a full CSP, replacing the frame-ancestors-only default. An empty value falls back to the default so the clickjacking control is never silently dropped. |
+| `WithHSTS(maxAge, includeSubdomains, preload)` | Enable `Strict-Transport-Security`. **Off by default** — HSTS is only meaningful (and only safe) over TLS. A non-positive `maxAge` leaves it disabled. |
+
+Headers are set **before** the wrapped handler runs, so a handler that writes its own response still emits them; a handler may override any value by setting its own.
+
+**Applied to the built-in surfaces by default.** The interactive docs/OpenAPI handlers (`pkg/openapi.Register`) and the documentation server (`pkg/docs.Serve`) wrap their handlers with this middleware automatically — the docs UI serves a "try-it" console that benefits from `nosniff`/frame/referrer protections. Customise via `openapi.WithSecurityHeaderOptions(...)` or opt out with `openapi.WithoutSecurityHeaders()`. The middleware is **not** forced onto user-supplied handlers; add it to your own chain where you want it.
+
 ### Usage Example
 
 ```go
