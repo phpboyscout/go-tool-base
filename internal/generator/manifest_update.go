@@ -1,12 +1,10 @@
 package generator
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
@@ -33,19 +31,13 @@ type ManifestCommandUpdate struct {
 }
 
 func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes map[string]string) error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(g.config.Path)
 
 	g.props.Logger.Debugf("Updating manifest at %s for command %q", manifestPath, g.config.Name)
 
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	mFlags := g.convertFlagsToManifest(parsedFlags)
@@ -60,7 +52,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 	g.props.Logger.Debugf("Manifest update: parent=%v, flags=%d, hashes=%d", pathParts, len(mFlags), len(hashes))
 
 	if len(pathParts) == 0 {
-		g.updateRootCommand(&m, mFlags, hashes)
+		g.updateRootCommand(m, mFlags, hashes)
 	} else if !updateCommandRecursive(&m.Commands, pathParts, ManifestCommandUpdate{
 		Name:                          g.config.Name,
 		Description:                   g.config.Short,
@@ -81,15 +73,8 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 		return errors.Newf("%w: %s", ErrParentPathNotFound, g.config.Parent)
 	}
 
-	updated, err := yaml.Marshal(m)
-	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
-	}
-
-	permission := DefaultFileMode
-
-	if err := afero.WriteFile(g.props.FS, manifestPath, updated, os.FileMode(permission)); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
+	if err := g.marshalManifestFile(manifestPath, m); err != nil {
+		return err
 	}
 
 	g.props.Logger.Debugf("Manifest updated successfully at %s", manifestPath)
@@ -272,29 +257,18 @@ func (g *Generator) updateParentCmdHash() error {
 
 	hash := calculateHash(content)
 
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(g.config.Path)
 
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	if !updateCommandHashRecursive(&m.Commands, parentParts, hash) {
 		return nil
 	}
 
-	updated, err := yaml.Marshal(m)
-	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
-	}
-
-	return afero.WriteFile(g.props.FS, manifestPath, updated, DefaultFileMode)
+	return g.marshalManifestFile(manifestPath, m)
 }
 
 func updateCommandHashRecursive(commands *[]ManifestCommand, path []string, hash string) bool {

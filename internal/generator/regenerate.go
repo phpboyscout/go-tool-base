@@ -10,7 +10,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
@@ -71,18 +70,13 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 // regenerateProjectFiles performs the core regeneration: root command, recursive
 // commands, and skeleton files. It does not run post-processing shell commands.
 func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(g.config.Path)
 
 	g.props.Logger.Debugf("Reading manifest from %s", manifestPath)
 
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	// If the flag was provided, update all commands in the manifest. This
@@ -91,27 +85,24 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	if g.config.WrapSubcommandsWithMiddleware != nil {
 		updateWrapSubcommandsRecursive(&m.Commands, *g.config.WrapSubcommandsWithMiddleware)
 
-		// Save updated manifest
-		updated, err := yaml.Marshal(m)
-		if err == nil {
-			_ = afero.WriteFile(g.props.FS, manifestPath, updated, DefaultFileMode)
-		}
+		// Save updated manifest (best-effort).
+		_ = g.marshalManifestFile(manifestPath, m)
 	}
 
 	// Skip-not-abort (spec D1/O3): drop invalid commands and an invalid
 	// signing block from the in-memory manifest with an ERROR log, so the
 	// valid entries still regenerate while the traversal/injection sinks
 	// are foreclosed. Structural fields then remain a hard error below.
-	g.sanitiseManifest(&m)
+	g.sanitiseManifest(m)
 
-	if err := ValidateManifest(&m); err != nil {
+	if err := ValidateManifest(m); err != nil {
 		return errors.Newf("manifest validation failed: %w", err)
 	}
 
 	g.props.Logger.Info("Regenerating project from manifest...")
 	g.props.Logger.Debugf("Manifest: %s, %d top-level commands", m.Properties.Name, len(m.Commands))
 
-	if err := g.regenerateRootCommand(m); err != nil {
+	if err := g.regenerateRootCommand(*m); err != nil {
 		return err
 	}
 
@@ -125,7 +116,7 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 
 	g.props.Logger.Debug("Regenerating skeleton files...")
 
-	if _, err = g.regenerateSkeletonFiles(m); err != nil {
+	if _, err = g.regenerateSkeletonFiles(*m); err != nil {
 		return err
 	}
 
@@ -133,7 +124,7 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	// the trustkeys package, keys/.gitkeep and signing.go are emitted
 	// when signing is enabled, and signing.go is dropped when disabled.
 	// (cmd.go's Signing: field was handled by regenerateRootCommand.)
-	return g.syncSigningFiles(m)
+	return g.syncSigningFiles(*m)
 }
 
 // sanitiseManifest removes manifest entries that fail validation so the
@@ -452,6 +443,11 @@ type skeletonTemplateData struct {
 	Signing               ManifestSigning
 }
 
+// GetReleaseProvider satisfies releaseProviderAccessor so
+// extractReleaseProvider can read the provider without the reflection
+// fallback now that every caller passes the named skeletonTemplateData.
+func (d skeletonTemplateData) GetReleaseProvider() string { return d.ReleaseProvider }
+
 // buildSkeletonTemplateData reconstructs the skeleton asset template data
 // from a manifest. GoVersion is not persisted, so it falls back to the
 // runtime default.
@@ -528,39 +524,18 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 // persistProjectHashes reads the current manifest, updates the top-level
 // Hashes field, and writes it back to disk.
 func (g *Generator) persistProjectHashes(hashes map[string]string) error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(g.config.Path)
 
 	g.props.Logger.Debugf("Persisting %d project hashes to manifest", len(hashes))
 
-	raw, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(raw, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	m.Hashes = hashes
 
-	f, err := g.props.FS.Create(manifestPath)
-	if err != nil {
-		return errors.Newf("failed to open manifest for writing: %w", err)
-	}
-
-	defer func() { _ = f.Close() }()
-
-	enc := yaml.NewEncoder(f)
-
-	const indent = 2
-	enc.SetIndent(indent)
-
-	if err := enc.Encode(m); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
+	return g.encodeManifestFile(manifestPath, m)
 }
 
 // updateWrapSubcommandsRecursive sets the WrapSubcommandsWithMiddleware flag

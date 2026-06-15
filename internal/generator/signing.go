@@ -9,7 +9,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/dave/jennifer/jen"
 	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
@@ -285,24 +284,5 @@ func (g *Generator) regenerateGoreleaserAsset(m *Manifest) error {
 // writeManifest serialises a manifest back to .gtb/manifest.yaml,
 // preserving the project's two-space indentation.
 func (g *Generator) writeManifest(m *Manifest) error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-
-	f, err := g.props.FS.Create(manifestPath)
-	if err != nil {
-		return errors.Newf("failed to open manifest for writing: %w", err)
-	}
-
-	defer func() { _ = f.Close() }()
-
-	enc := yaml.NewEncoder(f)
-
-	const indent = 2
-
-	enc.SetIndent(indent)
-
-	if err := enc.Encode(m); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
+	return g.encodeManifestFile(ManifestPathFor(g.config.Path), m)
 }

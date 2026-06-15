@@ -646,16 +646,8 @@ func (g *Generator) getCommandPath() (string, error) {
 		return g.containedCommandPath(g.config.Name)
 	}
 
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
 	if err != nil {
-		return "", err
-	}
-
-	var m Manifest
-
-	if err := yaml.Unmarshal(data, &m); err != nil {
 		return "", err
 	}
 

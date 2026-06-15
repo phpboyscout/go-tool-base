@@ -1,26 +1,15 @@
 package generator
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/spf13/afero"
-	"gopkg.in/yaml.v3"
 )
 
 func (g *Generator) FindCommandParentPath(name string) ([]string, error) {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
 	if err != nil {
-		return nil, errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, errors.Newf("failed to unmarshal manifest: %w", err)
+		return nil, err
 	}
 
 	path, found := findCommandPathRecursive(m.Commands, name)
@@ -101,16 +90,9 @@ func (g *Generator) loadFlagsFromManifest() ([]CommandFlag, error) {
 }
 
 func (g *Generator) findManifestCommand() (*ManifestCommand, error) {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read manifest")
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal manifest")
+		return nil, err
 	}
 
 	pathParts := g.getParentPathParts()
@@ -175,16 +157,11 @@ func findCommandRecursive(commands []ManifestCommand, parentPath []string, name 
 }
 
 func (g *Generator) setCommandProtection(name string, pathParts []string, protected bool) error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(g.config.Path)
 
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	found := false
@@ -209,18 +186,7 @@ func (g *Generator) setCommandProtection(name string, pathParts []string, protec
 		return errors.Newf("command %s not found in manifest", strings.Join(pathParts, "/"))
 	}
 
-	updated, err := yaml.Marshal(m)
-	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
-	}
-
-	permission := DefaultFileMode
-
-	if err := afero.WriteFile(g.props.FS, manifestPath, updated, os.FileMode(permission)); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
+	return g.marshalManifestFile(manifestPath, m)
 }
 
 func updateProtectionRecursive(commands *[]ManifestCommand, pathParts []string, protected bool) bool {
@@ -262,17 +228,11 @@ func removeCommand(commands *[]ManifestCommand, pathParts []string, name string)
 }
 
 func (g *Generator) removeFromManifest() error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(g.config.Path)
 
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	if !removeCommand(&m.Commands, g.getParentPathParts(), g.config.Name) {
@@ -283,16 +243,7 @@ func (g *Generator) removeFromManifest() error {
 		m.Version.GoToolBase = g.props.Version.GetVersion()
 	}
 
-	updated, err := yaml.Marshal(m)
-	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
-	}
-
-	if err := afero.WriteFile(g.props.FS, manifestPath, updated, os.FileMode(DefaultFileMode)); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
+	return g.marshalManifestFile(manifestPath, m)
 }
 
 func removeFromCommandRecursive(commands *[]ManifestCommand, parentPath []string, name string) bool {

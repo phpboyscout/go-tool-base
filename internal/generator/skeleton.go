@@ -216,30 +216,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		config.Description = fmt.Sprintf("%s utility", config.Name)
 	}
 
-	data := struct {
-		Name                  string
-		Repo                  string
-		Host                  string
-		ModulePath            string
-		Description           string
-		Org                   string
-		RepoName              string
-		ReleaseProvider       string
-		GoToolBaseVersion     string
-		GoVersion             string
-		DisabledFeatures      []string
-		EnabledFeatures       []string
-		Private               bool
-		HelpType              string
-		SlackChannel          string
-		SlackTeam             string
-		TeamsChannel          string
-		TeamsTeam             string
-		TelemetryEndpoint     string
-		TelemetryOTelEndpoint string
-		EnvPrefix             string
-		Signing               ManifestSigning
-	}{
+	data := skeletonTemplateData{
 		Name:                  config.Name,
 		Repo:                  config.Repo,
 		Host:                  config.Host,
@@ -298,16 +275,11 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 
 	g.props.Logger.Debugf("Refreshing hashes for %d project files after post-processing", len(writtenKeys))
 
-	manifestPath := filepath.Join(projectPath, ".gtb", "manifest.yaml")
+	manifestPath := ManifestPathFor(projectPath)
 
-	raw, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(raw, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	if m.Hashes == nil {
@@ -326,23 +298,7 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 		m.Hashes[relPath] = calculateHash(content)
 	}
 
-	f, err := g.props.FS.Create(manifestPath)
-	if err != nil {
-		return errors.Newf("failed to open manifest for writing: %w", err)
-	}
-
-	defer func() { _ = f.Close() }()
-
-	enc := yaml.NewEncoder(f)
-
-	const indent = 2
-	enc.SetIndent(indent)
-
-	if err := enc.Encode(m); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
+	return g.encodeManifestFile(manifestPath, m)
 }
 
 // loadProjectFileHashes reads the existing manifest at the given path and
@@ -364,30 +320,7 @@ func (g *Generator) loadProjectFileHashes(projectPath string) map[string]string 
 	return m.Hashes
 }
 
-func (g *Generator) generateSkeletonGoFiles(destPath string, data struct {
-	Name                  string
-	Repo                  string
-	Host                  string
-	ModulePath            string
-	Description           string
-	Org                   string
-	RepoName              string
-	ReleaseProvider       string
-	GoToolBaseVersion     string
-	GoVersion             string
-	DisabledFeatures      []string
-	EnabledFeatures       []string
-	Private               bool
-	HelpType              string
-	SlackChannel          string
-	SlackTeam             string
-	TeamsChannel          string
-	TeamsTeam             string
-	TelemetryEndpoint     string
-	TelemetryOTelEndpoint string
-	EnvPrefix             string
-	Signing               ManifestSigning
-}) error {
+func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTemplateData) error {
 	goFiles := map[string]*jen.File{
 		filepath.Join("cmd", data.Name, "main.go"): templates.SkeletonMain(data.ModulePath),
 		"internal/version/version.go":              templates.SkeletonInternalVersion(data.ModulePath),
@@ -719,27 +652,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 		return errors.Newf("failed to create manifest directory: %w", err)
 	}
 
-	manifestPath := filepath.Join(manifestDir, "manifest.yaml")
-
-	f, err := g.props.FS.Create(manifestPath)
-	if err != nil {
-		return errors.Newf("failed to create manifest file: %w", err)
-	}
-
-	defer func() {
-		_ = f.Close()
-	}()
-
-	enc := yaml.NewEncoder(f)
-
-	const indent = 2
-	enc.SetIndent(indent)
-
-	if err := enc.Encode(manifest); err != nil {
-		return errors.Newf("failed to encode manifest: %w", err)
-	}
-
-	return nil
+	return g.encodeManifestFile(filepath.Join(manifestDir, "manifest.yaml"), &manifest)
 }
 
 func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, args ...string) error {

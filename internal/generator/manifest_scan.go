@@ -68,18 +68,9 @@ func (g *Generator) writeManifestFile(manifestPath string, m Manifest) error {
 		return errors.Newf("failed to create .gtb directory: %w", err)
 	}
 
-	updated, err := yaml.Marshal(m)
-	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
-	}
-
 	g.props.Logger.Info("Writing updated manifest.yaml...")
 
-	if err := afero.WriteFile(g.props.FS, manifestPath, updated, DefaultFileMode); err != nil {
-		return errors.Wrap(err, "failed to write manifest")
-	}
-
-	return nil
+	return g.marshalManifestFile(manifestPath, &m)
 }
 
 type commandEntry struct {

@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,18 +12,24 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
 
-func (g *Generator) loadManifest() (*Manifest, error) {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
+// manifestIndent is the two-space indentation every manifest.yaml is
+// serialised with. Centralised so the encoder-based write sites cannot
+// drift from one another.
+const manifestIndent = 2
 
-	g.props.Logger.Debugf("Loading manifest from %s", manifestPath)
+// ManifestPathFor returns the canonical .gtb/manifest.yaml path under
+// the given project root.
+func ManifestPathFor(projectPath string) string {
+	return filepath.Join(projectPath, ".gtb", "manifest.yaml")
+}
 
-	if exists, _ := afero.Exists(g.props.FS, manifestPath); !exists {
-		g.props.Logger.Debug("Manifest not found")
-
-		return nil, errors.New("manifest.yaml not found")
-	}
-
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+// DecodeManifestFile reads and unmarshals the manifest at the given
+// manifest.yaml path from fs. It is the single read/decode helper routed
+// through by every manifest-loading site (including the generate-flag
+// command in internal/cmd), so the read+unmarshal boilerplate — and its
+// error wording — lives in one place.
+func DecodeManifestFile(fs afero.Fs, manifestPath string) (*Manifest, error) {
+	data, err := afero.ReadFile(fs, manifestPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read manifest")
 	}
@@ -32,9 +39,87 @@ func (g *Generator) loadManifest() (*Manifest, error) {
 		return nil, errors.Newf("failed to unmarshal manifest: %w", err)
 	}
 
+	return &m, nil
+}
+
+// EncodeManifestFile serialises m to the given manifest.yaml path on fs
+// using the streaming yaml encoder with the canonical two-space indent.
+// It is the single encode helper for the encoder-based write sites
+// (writeManifest, persistProjectHashes, the skeleton hash refresh), so
+// the Create+SetIndent+Encode boilerplate cannot drift.
+func EncodeManifestFile(fs afero.Fs, manifestPath string, m *Manifest) error {
+	f, err := fs.Create(manifestPath)
+	if err != nil {
+		return errors.Newf("failed to open manifest for writing: %w", err)
+	}
+
+	defer func() { _ = f.Close() }()
+
+	enc := yaml.NewEncoder(f)
+	enc.SetIndent(manifestIndent)
+
+	if err := enc.Encode(m); err != nil {
+		return errors.Newf("failed to write manifest: %w", err)
+	}
+
+	return nil
+}
+
+// MarshalManifestFile serialises m with yaml.Marshal and writes it to
+// the given manifest.yaml path on fs with the supplied file mode. This
+// is the buffered (whole-document) write flavour used by the
+// update/scan/query/flag sites; it differs from EncodeManifestFile only
+// in that it produces the yaml.Marshal default indentation, preserving
+// each site's existing on-disk output.
+func MarshalManifestFile(fs afero.Fs, manifestPath string, m *Manifest, mode os.FileMode) error {
+	updated, err := yaml.Marshal(m)
+	if err != nil {
+		return errors.Newf("failed to marshal manifest: %w", err)
+	}
+
+	if err := afero.WriteFile(fs, manifestPath, updated, mode); err != nil {
+		return errors.Newf("failed to write manifest: %w", err)
+	}
+
+	return nil
+}
+
+// decodeManifestFile reads and decodes the manifest from the generator's
+// filesystem. Thin instance wrapper over DecodeManifestFile.
+func (g *Generator) decodeManifestFile(manifestPath string) (*Manifest, error) {
+	return DecodeManifestFile(g.props.FS, manifestPath)
+}
+
+// encodeManifestFile is the instance wrapper over EncodeManifestFile.
+func (g *Generator) encodeManifestFile(manifestPath string, m *Manifest) error {
+	return EncodeManifestFile(g.props.FS, manifestPath, m)
+}
+
+// marshalManifestFile is the instance wrapper over MarshalManifestFile.
+// Every generator write uses the standard DefaultFileMode.
+func (g *Generator) marshalManifestFile(manifestPath string, m *Manifest) error {
+	return MarshalManifestFile(g.props.FS, manifestPath, m, os.FileMode(DefaultFileMode))
+}
+
+func (g *Generator) loadManifest() (*Manifest, error) {
+	manifestPath := ManifestPathFor(g.config.Path)
+
+	g.props.Logger.Debugf("Loading manifest from %s", manifestPath)
+
+	if exists, _ := afero.Exists(g.props.FS, manifestPath); !exists {
+		g.props.Logger.Debug("Manifest not found")
+
+		return nil, errors.New("manifest.yaml not found")
+	}
+
+	m, err := g.decodeManifestFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+
 	g.props.Logger.Debugf("Manifest loaded: %s (%d commands)", m.Properties.Name, len(m.Commands))
 
-	return &m, nil
+	return m, nil
 }
 
 type MultilineString string

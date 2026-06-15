@@ -3,14 +3,11 @@ package generate
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
@@ -159,24 +156,13 @@ func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {
 }
 
 func (o *AddFlagOptions) loadManifest(p *props.Props) (*generator.Manifest, error) {
-	manifestPath := filepath.Join(o.Path, ".gtb", "manifest.yaml")
+	manifestPath := generator.ManifestPathFor(o.Path)
 
 	if _, err := p.FS.Stat(manifestPath); os.IsNotExist(err) {
 		return nil, errors.Wrapf(generator.ErrNotGoToolBaseProject, "at %q", o.Path)
 	}
 
-	data, err := afero.ReadFile(p.FS, manifestPath)
-	if err != nil {
-		return nil, errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m generator.Manifest
-
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil, errors.Newf("failed to unmarshal manifest: %w", err)
-	}
-
-	return &m, nil
+	return generator.DecodeManifestFile(p.FS, manifestPath)
 }
 
 func (o *AddFlagOptions) updateCommandFlag(cmd *generator.ManifestCommand) {
@@ -208,19 +194,9 @@ func (o *AddFlagOptions) saveManifest(p *props.Props, m *generator.Manifest, pat
 		return errors.Newf("%w for command %s", ErrUpdateManifestFailed, o.CommandName)
 	}
 
-	updated, err := yaml.Marshal(m)
-	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
-	}
+	const permission = 0o644
 
-	manifestPath := filepath.Join(o.Path, ".gtb", "manifest.yaml")
-	permission := 0644
-
-	if err := afero.WriteFile(p.FS, manifestPath, updated, os.FileMode(permission)); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
+	return generator.MarshalManifestFile(p.FS, generator.ManifestPathFor(o.Path), m, os.FileMode(permission))
 }
 
 func (o *AddFlagOptions) regenerateCommand(ctx context.Context, p *props.Props, cmd *generator.ManifestCommand, parentPath []string) error {

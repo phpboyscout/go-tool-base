@@ -856,16 +856,9 @@ func getFrontmatter(fs afero.Fs, docPath string) map[string]any {
 }
 
 func (g *Generator) generateCommandsIndex() error {
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-
-	data, err := afero.ReadFile(g.props.FS, manifestPath)
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
 	if err != nil {
-		return errors.Newf("failed to read manifest: %w", err)
-	}
-
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return errors.Newf("failed to unmarshal manifest: %w", err)
+		return err
 	}
 
 	indexPath := filepath.Join(g.config.Path, "docs", "commands", "index.md")
