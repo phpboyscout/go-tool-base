@@ -86,6 +86,65 @@ gtb generate project -n mytool -r myorg/mytool \
   --features init,update,mcp,docs,doctor,changelog
 ```
 
+#### Post-generation git step
+
+After the skeleton is written and post-processing settles (`go mod tidy`,
+`golangci-lint --fix`, manifest-hash refresh), `generate project` makes the
+destination a real repository with a single initial commit. This is **opt-out**:
+it runs by default, including under `--ci`/non-interactive.
+
+| Flag | Default | Behaviour |
+|------|---------|-----------|
+| `--no-git` | off (git step on) | Skip the init + initial commit entirely; no `.git` is created. |
+| `--push` | off (opt-in) | After the commit, add the derived remote as `origin` and push the default branch. |
+| `--git-branch <name>` | `main` | Default branch the initial commit lands on (matches the rendered releaser-pleaser CI). |
+
+Behaviour details:
+
+- **Already a repo.** If the destination is already inside a git repository
+  (discovery walks upward for an enclosing `.git`), the whole step is skipped
+  with an info log — the scaffold is never committed into someone else's tree,
+  and a subdirectory of an existing repo is treated as already-a-repo.
+- **Staging.** The tree is staged honouring the generated `.gitignore`, so build
+  artefacts are excluded while the `.gitignore` itself is committed.
+- **Commit message.** `chore: scaffold <tool> with gtb` — the non-releasing
+  `chore:` type means the empty scaffold does not make releaser-pleaser cut a
+  release.
+- **Author identity.** Resolved in order: host git config (`user.name` /
+  `user.email`, repo-local → global → system) → the GTB config keys
+  `generator.git.author.name` / `generator.git.author.email` → a safe framework
+  fallback (`gtb <gtb@localhost>`), so the commit never fails for lack of an
+  identity.
+- **Push target.** Derived from the release source as
+  `https://{host}/{owner}/{repo}.git` (GitLab nested group paths are preserved),
+  using `pkg/vcs/repo`'s provider-aware auth. **Creating the remote on the forge
+  is out of scope** — the push assumes the remote exists.
+- **Best-effort.** Every git action is non-fatal: any failure (init, commit,
+  missing remote, auth, network) logs a warning and generation still succeeds.
+  A failed push prints the manual `git push -u origin <branch>` to run once the
+  remote exists.
+- **Conflicting flags.** `--no-git` with `--push` is rejected — push has no
+  commit to publish without the git step.
+- **Dry-run.** `--dry-run` performs no git actions; the would-be init/commit
+  (and push under `--push`) is listed under "Post-generation actions".
+- **`regenerate` / `remove`** never init, stage, commit, or push — the git step
+  is exclusive to initial scaffolding via `generate project`.
+
+The step is built on the `pkg/vcs/repo` `Initializer` primitives
+(`DiscoverRepository`, `InitLocal`, `AddAll`) plus `CreateRemote` / `Push` — see
+[vcs/repo](../../vcs/repo.md).
+
+```bash
+# default: scaffold and make the initial commit on main
+gtb generate project -n mytool -r myorg/mytool
+
+# scaffold only, no commit
+gtb generate project -n mytool -r myorg/mytool --no-git
+
+# scaffold, commit, and push to the (assumed-existing) remote
+gtb generate project -n mytool -r myorg/mytool --push
+```
+
 ### Command
 
 Generates a new Cobra command, optionally using AI or from a script.

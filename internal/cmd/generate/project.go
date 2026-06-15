@@ -41,6 +41,13 @@ type SkeletonOptions struct {
 	// framework default, gitlab.com/phpboyscout/cicd.
 	CIComponentSource string
 
+	// Git post-generation step. NoGit opts out of the default init + initial
+	// commit; Push (opt-in) additionally adds the derived remote and pushes;
+	// GitBranch overrides the default branch the initial commit lands on.
+	NoGit     bool
+	Push      bool
+	GitBranch string
+
 	// Signing (off by default). When Signing is true the generated tool
 	// scaffolds internal/trustkeys and wires props.Signing. require_signature
 	// is intentionally not collectable here — it stays false until a signed
@@ -102,6 +109,9 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.SigningBackend, "signing-backend", "", "gtb sign backend for the release pipeline (default aws-kms when --signing-key-id is set)")
 	cmd.Flags().StringVar(&opts.SigningKMSRegion, "signing-kms-region", "", "AWS region for the aws-kms backend (default eu-west-2)")
 	cmd.Flags().StringVar(&opts.SigningPublicKey, "signing-public-key", "", "Path to the embedded public key the signature identifies (default internal/trustkeys/keys/signing-key-v1.asc)")
+	cmd.Flags().BoolVar(&opts.NoGit, "no-git", false, "Skip the post-generation git init and initial commit (init+commit is on by default)")
+	cmd.Flags().BoolVar(&opts.Push, "push", false, "After the initial commit, add the derived remote as origin and push the default branch (push failures are non-fatal)")
+	cmd.Flags().StringVar(&opts.GitBranch, "git-branch", "main", "Default branch the initial commit lands on")
 
 	return cmd
 }
@@ -550,10 +560,19 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		return errors.Wrapf(ErrInvalidOverwriteValue, "%q", o.Overwrite)
 	}
 
+	// --push implies a commit to push; --no-git removes it. The two are
+	// contradictory, so reject the combination rather than silently dropping one.
+	if o.NoGit && o.Push {
+		return ErrGitFlagsConflict
+	}
+
 	gen := generator.New(p, &generator.Config{
 		DryRun:    dryRun,
 		Path:      o.Path,
 		Overwrite: o.Overwrite,
+		GitInit:   !o.NoGit,
+		GitPush:   o.Push,
+		GitBranch: o.GitBranch,
 	})
 
 	features := resolveFeatures(o.Features)

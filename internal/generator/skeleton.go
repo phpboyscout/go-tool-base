@@ -181,7 +181,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 func (g *Generator) GenerateSkeletonDryRun(ctx context.Context, config SkeletonConfig) (*DryRunResult, error) {
 	g.props.Logger.Infof("Dry run: previewing skeleton for %s in %s...", config.Name, config.Path)
 
-	return g.withDryRunOverlay(ctx, config.Path, func() error {
+	result, err := g.withDryRunOverlay(ctx, config.Path, func() error {
 		return g.generateSkeletonFiles(config)
 	}, &dryRunPostProcess{
 		commands: [][]string{
@@ -189,6 +189,40 @@ func (g *Generator) GenerateSkeletonDryRun(ctx context.Context, config SkeletonC
 			{"golangci-lint", "run", "--fix"},
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	result.Actions = append(result.Actions, g.describeGitInit(config)...)
+
+	return result, nil
+}
+
+// describeGitInit returns the would-be git side effects for the dry-run
+// preview, mirroring the gating runSkeletonGitInit applies at write time.
+func (g *Generator) describeGitInit(config SkeletonConfig) []string {
+	if !g.config.GitInit {
+		return nil
+	}
+
+	if found, err := repoDiscover(config.Path); err == nil && found {
+		return []string{fmt.Sprintf("would skip git init: %s is already inside a git repository", config.Path)}
+	}
+
+	branch := g.config.GitBranch
+	if branch == "" {
+		branch = defaultGitBranch
+	}
+
+	actions := []string{fmt.Sprintf("would git init on branch %q and commit %q", branch, initialCommitSubject(config.Name))}
+
+	if g.config.GitPush {
+		if url, err := remoteURLFromConfig(config); err == nil {
+			actions = append(actions, fmt.Sprintf("would push branch %q to %s", branch, url))
+		}
+	}
+
+	return actions
 }
 
 func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig) error {
@@ -208,6 +242,11 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 		if err := g.refreshProjectFileHashes(config.Path, storedHashes); err != nil {
 			g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
 		}
+
+		// The initial commit captures the fully-settled tree (post-tidy,
+		// post-lint-fix, final manifest hashes). Best-effort: any git failure is
+		// a warning, never a generation error.
+		g.runSkeletonGitInit(config)
 	}
 
 	g.props.Logger.Infof("Successfully generated skeleton in %s", config.Path)

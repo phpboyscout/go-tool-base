@@ -57,6 +57,47 @@ gitRepo, worktree, err := r.OpenLocal("/path/to/repo", "main")
 
 Use for: persistent working trees, development tools that need a full working directory.
 
+### Init-only and repository discovery
+
+`OpenLocal` conflates "opened an existing repo" with "initialised a new one" and
+does not walk upward to find an enclosing `.git`. When a caller must keep those
+two outcomes distinct — for example the generator's first-commit step, which
+must never `git init` inside an existing tree — use the init-only primitives:
+
+```go
+// Read-only probe: walks upward from the path (git's own discovery semantics).
+// A subdirectory of an existing repo reports true. Never creates a repo.
+found, err := repo.DiscoverRepository("/path/to/dest")
+
+// Init-only: initialises a fresh repo on the named branch (default "main"),
+// or returns ErrAlreadyRepository if the path is already inside one.
+gitRepo, worktree, err := r.InitLocal("/path/to/dest", "main")
+```
+
+`DiscoverRepository` and `InitLocal` are the counterparts to `OpenLocal`'s
+init-if-absent behaviour. `InitLocal` returns
+[`ErrAlreadyRepository`](#error-values) rather than silently opening an existing
+repository, so the caller's init/open decision stays explicit.
+
+### Gitignore-aware staging
+
+`AddAll` stages the entire worktree honouring the repository's `.gitignore`
+rules — build artefacts and other ignored paths are excluded, while the
+`.gitignore` file itself is staged. It wraps go-git's
+`Worktree.AddWithOptions{All: true}`; a plain `Add(".")` would *not* apply the
+ignore patterns.
+
+```go
+err := r.AddAll() // ignored paths skipped; .gitignore committed
+hash, err := r.Commit("chore: scaffold widget with gtb", &git.CommitOptions{Author: sig})
+```
+
+These three (`DiscoverRepository`, `InitLocal`, `AddAll`) compose the
+[`Initializer`](#role-interfaces) role — deliberately *not* part of `RepoLike`,
+since init/discovery and ignore-aware staging are first-commit concerns a
+clone/checkout consumer never needs. Both `*Repo` and `*ThreadSafeRepo` satisfy
+`Initializer`.
+
 ### Clone to disk
 
 `Clone` is distinct from `OpenLocal` — it clones a remote URL to a target path.
@@ -273,6 +314,14 @@ the composite, so callers still pass their `*Repo` / `*ThreadSafeRepo` unchanged
 | `SourceState` | `SourceIs`, `SetSource` | Backend discriminator (memory vs local) |
 | `GitAccessor` | `WithRepo`, `WithTree` | Raw go-git escape hatches |
 | `Brancher` | `CreateBranch` | Branch creation |
+| `Initializer` | `InitLocal`, `AddAll` | Init-only + gitignore-aware staging (first-commit path) |
+
+`Initializer` is satisfied by both concrete types but is **not embedded in
+`RepoLike`** — init/discovery and ignore-aware staging are scaffold-time
+concerns a clone/checkout consumer never touches, so callers that need them
+(the generator git step) depend on the narrow role directly. The package-level
+`DiscoverRepository` helper is the read-only discovery probe that complements
+`InitLocal`.
 
 ```go
 // before — advertises Push, auth mutation, branch creation it never uses
@@ -293,6 +342,14 @@ The named-remote operations `CreateRemote` / `Remote` are **concrete-only on
 ### Unopened-repo contract
 
 Every `RepoLike` method that needs the underlying repository or worktree returns the sentinel `ErrNoRepository` / `ErrNoWorktree` when called before `Open*`/`Clone` (or `SetRepo`/`SetTree`) — none of them panic. Methods touching the worktree (`Checkout`, `CheckoutCommit`, `Commit`) return `ErrNoWorktree`; methods touching the repository (`Push`, `CreateBranch`, `WalkTree`, `FileExists`, `DirectoryExists`, `GetFile`, `CreateRemote`, `Remote`) return `ErrNoRepository`. Check with `errors.Is`.
+
+### Error values
+
+| Sentinel | Returned by | Meaning |
+|----------|-------------|---------|
+| `ErrNoRepository` | repository-touching methods | called before the repo was opened/initialised |
+| `ErrNoWorktree` | worktree-touching methods | called before the worktree was bound |
+| `ErrAlreadyRepository` | `InitLocal` | the target path is already inside a git repository — init refused |
 
 ---
 

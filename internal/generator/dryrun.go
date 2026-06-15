@@ -18,6 +18,9 @@ import (
 type DryRunResult struct {
 	Created  []FilePreview `json:"created,omitempty"`
 	Modified []FilePreview `json:"modified,omitempty"`
+	// Actions describes non-file side effects the run would perform (e.g. the
+	// post-generation git init/commit/push), surfaced as plain text lines.
+	Actions []string `json:"actions,omitempty"`
 }
 
 // FilePreview represents a single file operation in a dry run.
@@ -29,34 +32,65 @@ type FilePreview struct {
 
 // Print writes a human-readable preview of the dry-run result to w.
 func (r *DryRunResult) Print(w io.Writer) {
-	if len(r.Created) == 0 && len(r.Modified) == 0 {
+	if len(r.Created) == 0 && len(r.Modified) == 0 && len(r.Actions) == 0 {
 		_, _ = fmt.Fprintln(w, "No changes would be made.")
 
 		return
 	}
 
-	if len(r.Created) > 0 {
-		_, _ = fmt.Fprintf(w, "Files to create: %d file(s) to create\n", len(r.Created))
+	r.printCreated(w)
+	r.printModified(w)
+	r.printActions(w)
+}
 
-		for _, f := range r.Created {
-			_, _ = fmt.Fprintf(w, "  + %s\n", f.Path)
-		}
+// printCreated lists the files the run would create.
+func (r *DryRunResult) printCreated(w io.Writer) {
+	if len(r.Created) == 0 {
+		return
 	}
 
-	if len(r.Modified) > 0 {
-		if len(r.Created) > 0 {
-			_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintf(w, "Files to create: %d file(s) to create\n", len(r.Created))
+
+	for _, f := range r.Created {
+		_, _ = fmt.Fprintf(w, "  + %s\n", f.Path)
+	}
+}
+
+// printModified lists the files the run would modify, with diffs.
+func (r *DryRunResult) printModified(w io.Writer) {
+	if len(r.Modified) == 0 {
+		return
+	}
+
+	if len(r.Created) > 0 {
+		_, _ = fmt.Fprintln(w)
+	}
+
+	_, _ = fmt.Fprintf(w, "Files to modify: %d file(s) to modify\n", len(r.Modified))
+
+	for _, f := range r.Modified {
+		_, _ = fmt.Fprintf(w, "  ~ %s\n", f.Path)
+
+		if f.Diff != "" {
+			_, _ = fmt.Fprintln(w, f.Diff)
 		}
+	}
+}
 
-		_, _ = fmt.Fprintf(w, "Files to modify: %d file(s) to modify\n", len(r.Modified))
+// printActions lists the non-file side effects the run would perform.
+func (r *DryRunResult) printActions(w io.Writer) {
+	if len(r.Actions) == 0 {
+		return
+	}
 
-		for _, f := range r.Modified {
-			_, _ = fmt.Fprintf(w, "  ~ %s\n", f.Path)
+	if len(r.Created) > 0 || len(r.Modified) > 0 {
+		_, _ = fmt.Fprintln(w)
+	}
 
-			if f.Diff != "" {
-				_, _ = fmt.Fprintln(w, f.Diff)
-			}
-		}
+	_, _ = fmt.Fprintln(w, "Post-generation actions:")
+
+	for _, a := range r.Actions {
+		_, _ = fmt.Fprintf(w, "  * %s\n", a)
 	}
 }
 

@@ -58,10 +58,20 @@ type Config struct {
 	MaxSteps int
 	// NonInteractive withholds the repair agent's query_user tool so a
 	// generation never blocks for input (CI / --non-interactive).
-	NonInteractive                bool
-	Aliases                       []string
-	Args                          string
-	DryRun                        bool
+	NonInteractive bool
+	Aliases        []string
+	Args           string
+	DryRun         bool
+	// GitInit controls the post-generation git step on `generate project`
+	// (init + stage + initial commit). It is opt-out: the CLI sets it true by
+	// default and false under --no-git. Only honoured by GenerateSkeleton.
+	GitInit bool
+	// GitPush, when true (--push), adds the derived remote as origin and pushes
+	// the initial commit. Opt-in; requires GitInit. Push failures are non-fatal.
+	GitPush bool
+	// GitBranch is the default branch the initial commit lands on (default
+	// "main", overridable via --git-branch).
+	GitBranch                     string
 	Flags                         []string
 	Force                         bool
 	Hidden                        bool

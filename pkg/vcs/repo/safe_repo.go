@@ -148,6 +148,20 @@ func (r *ThreadSafeRepo) OpenLocal(location string, branch string) (*git.Reposit
 	return r.repo.OpenLocal(location, branch)
 }
 
+func (r *ThreadSafeRepo) InitLocal(location string, branch string) (*git.Repository, *git.Worktree, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.repo.InitLocal(location, branch)
+}
+
+func (r *ThreadSafeRepo) AddAll() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.repo.AddAll()
+}
+
 func (r *ThreadSafeRepo) Open(repoType RepoType, location string, branch string, opts ...CloneOption) (*git.Repository, *git.Worktree, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

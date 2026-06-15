@@ -16,6 +16,24 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
+func TestSkeletonRun_GitFlagsConflict(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop()}
+
+	opts := SkeletonOptions{
+		Name:  "test-tool",
+		Repo:  "phpboyscout/test-tool",
+		Path:  "test-project",
+		NoGit: true,
+		Push:  true,
+	}
+
+	err := opts.Run(context.Background(), p)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrGitFlagsConflict))
+}
+
 func TestSkeletonRun(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	p := &props.Props{

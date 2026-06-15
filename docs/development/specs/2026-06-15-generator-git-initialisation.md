@@ -1,7 +1,7 @@
 ---
 title: "Generator git initialisation & initial commit (opt-out), optional remote push"
 description: "gtb generate project scaffolds files but leaves the destination un-versioned — the operator must hand-run git init, add, commit before the tree is tracked. Add an opt-out post-generation git step (init + add + initial commit, only when the destination is not already a repo) and an optional push to the remote derived from props.Tool.ReleaseSource, reusing pkg/vcs/repo for auth."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-15
 tags:
   - specification
@@ -26,7 +26,7 @@ Date
 :   2026-06-15
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-15)
+:   IMPLEMENTED (2026-06-15 — post-generation git step wired into `generate project`; `pkg/vcs/repo` `DiscoverRepository`/`InitLocal`/`AddAll` primitives added; opt-out init+commit on `main`, opt-in `--push` to the release-source-derived remote via the provider-aware auth)
 
 ## Summary
 

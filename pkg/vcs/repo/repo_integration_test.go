@@ -510,3 +510,73 @@ func TestForgeAuthClonePush(t *testing.T) {
 		})
 	}
 }
+
+// TestInitAddPushForgeAuth proves the generator's scaffold-and-push sequence
+// end-to-end against a network-free local bare remote: a forge-configured Repo
+// inits a fresh tree, stages it honouring .gitignore, commits, adds the remote
+// as origin, and pushes — the exact InitLocal/AddAll/CreateRemote/Push flow the
+// generator's git step performs, with provider-aware auth selected by NewRepo.
+func TestInitAddPushForgeAuth(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "vcs")
+
+	t.Setenv("GTB_INT_GH_TOKEN", "ghp_integration")
+
+	root := t.TempDir()
+	remoteDir := filepath.Join(root, "remote.git")
+	workDir := filepath.Join(root, "work")
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
+
+	_, err := git.PlainInit(remoteDir, true)
+	require.NoError(t, err)
+
+	// Seed a scaffold tree with a .gitignore and an ignored artefact.
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, ".gitignore"), []byte("*.log\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "main.go"), []byte("package main\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(workDir, "build.log"), []byte("noise\n"), 0o644))
+
+	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`github: {auth: {env: GTB_INT_GH_TOKEN}}`)))
+	p := &props.Props{
+		Logger: logger.NewNoop(),
+		Config: cfg,
+		FS:     afero.NewOsFs(),
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
+	}
+
+	r, err := NewRepo(p)
+	require.NoError(t, err)
+
+	auth, ok := r.GetAuth().(*githttp.BasicAuth)
+	require.True(t, ok, "expected provider-aware BasicAuth")
+	assert.Equal(t, "x-access-token", auth.Username)
+
+	_, _, err = r.InitLocal(workDir, "main")
+	require.NoError(t, err)
+	require.NoError(t, r.AddAll())
+	_, err = r.Commit("chore: scaffold widget with gtb", &git.CommitOptions{
+		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
+	})
+	require.NoError(t, err)
+
+	_, err = r.CreateRemote("origin", []string{remoteDir})
+	require.NoError(t, err)
+
+	refspec := gogitconfig.RefSpec("refs/heads/main:refs/heads/main")
+	require.NoError(t, r.Push(&git.PushOptions{RemoteName: "origin", RefSpecs: []gogitconfig.RefSpec{refspec}}))
+
+	// Remote received the commit on main; ignored artefact absent.
+	remote, err := git.PlainOpen(remoteDir)
+	require.NoError(t, err)
+	ref, err := remote.Reference("refs/heads/main", false)
+	require.NoError(t, err)
+
+	commit, err := remote.CommitObject(ref.Hash())
+	require.NoError(t, err)
+	tree, err := commit.Tree()
+	require.NoError(t, err)
+
+	_, err = tree.File("main.go")
+	require.NoError(t, err)
+	_, err = tree.File("build.log")
+	require.Error(t, err, "ignored *.log must not have been pushed")
+}
