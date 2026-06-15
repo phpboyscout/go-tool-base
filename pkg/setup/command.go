@@ -27,12 +27,42 @@ type Command struct {
 	Feature props.FeatureCmd
 }
 
+// FeatureAnnotation is the cobra.Command.Annotations key under which [Wrap]
+// records the feature a command belongs to. Code that only has the raw
+// *cobra.Command (e.g. a PersistentPreRunE hook) can identify the command by
+// feature via [FeatureOf] instead of matching the fragile Use string.
+const FeatureAnnotation = "gtb.feature"
+
 // Wrap pairs a cobra command with the feature it belongs to. The
 // returned *Command embeds cmd, so it behaves as a cobra.Command for
 // every method cobra offers; .Command exposes the underlying pointer
 // when the cobra API needs *cobra.Command directly.
+//
+// Wrap also stamps the feature onto the underlying command's Annotations
+// (under [FeatureAnnotation]) so the feature is recoverable from the raw
+// *cobra.Command via [FeatureOf] — even where only cobra's own type is in hand.
 func Wrap(feature props.FeatureCmd, cmd *cobra.Command) *Command {
+	if cmd != nil && feature != "" {
+		if cmd.Annotations == nil {
+			cmd.Annotations = map[string]string{}
+		}
+
+		cmd.Annotations[FeatureAnnotation] = string(feature)
+	}
+
 	return &Command{Command: cmd, Feature: feature}
+}
+
+// FeatureOf returns the feature a command was wrapped with via [Wrap], or the
+// empty FeatureCmd when the command carries no feature annotation. It works on
+// the raw *cobra.Command, so it is usable from hooks that never see the
+// composing *Command.
+func FeatureOf(cmd *cobra.Command) props.FeatureCmd {
+	if cmd == nil || cmd.Annotations == nil {
+		return ""
+	}
+
+	return props.FeatureCmd(cmd.Annotations[FeatureAnnotation])
 }
 
 // Register adds each child as a subcommand and wraps the child's RunE

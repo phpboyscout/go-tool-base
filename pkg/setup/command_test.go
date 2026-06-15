@@ -28,6 +28,57 @@ func TestWrap_AssignsFeatureAndEmbedsCommand(t *testing.T) {
 	assert.Equal(t, "child", c.Use)
 }
 
+func TestWrap_StampsFeatureAnnotation(t *testing.T) {
+	t.Parallel()
+
+	raw := &cobra.Command{Use: "init"}
+	_ = Wrap(props.InitCmd, raw)
+
+	assert.Equal(t, string(props.InitCmd), raw.Annotations[FeatureAnnotation],
+		"Wrap must stamp the feature onto the raw command's annotations")
+}
+
+func TestFeatureOf_IdentifiesByAnnotationNotUseString(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cmd  func() *cobra.Command
+		want props.FeatureCmd
+	}{
+		{
+			name: "wrapped init command is identified by feature",
+			cmd:  func() *cobra.Command { return Wrap(props.InitCmd, &cobra.Command{Use: "init"}).Command },
+			want: props.InitCmd,
+		},
+		{
+			name: "unrelated command literally named init is NOT the init feature",
+			// The fragile cmd.Use == "init" check would misfire here; FeatureOf
+			// must not, because this command carries no init annotation.
+			cmd:  func() *cobra.Command { return &cobra.Command{Use: "init"} },
+			want: "",
+		},
+		{
+			name: "init command with an arg suffix in Use is still identified",
+			cmd:  func() *cobra.Command { return Wrap(props.InitCmd, &cobra.Command{Use: "init [dir]"}).Command },
+			want: props.InitCmd,
+		},
+		{
+			name: "nil command yields the empty feature",
+			cmd:  func() *cobra.Command { return nil },
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, FeatureOf(tc.cmd()))
+		})
+	}
+}
+
 func TestRegister_WiresChildOwnFeatureMiddleware(t *testing.T) {
 	resetRegistry(t)
 

@@ -462,8 +462,11 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 			return errors.Wrap(err, "failed to read command flags")
 		}
 
-		// Skip config loading for init command but still configure logging
-		if cmd.Use == "init" {
+		// Skip config loading for the init command but still configure logging.
+		// Identify it by the typed feature annotation (stamped by setup.Wrap),
+		// not the fragile Use string: a string match misfires for any unrelated
+		// command literally named "init" and breaks if Use carries an arg suffix.
+		if setup.FeatureOf(cmd) == p.InitCmd {
 			if flags.Debug {
 				props.Logger.SetLevel(logger.DebugLevel)
 				mcpLogLevel.Set(slog.LevelDebug)
