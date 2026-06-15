@@ -23,12 +23,32 @@ func init() {
 // OpenAI implements the ChatClient interface for interacting with OpenAI's API
 // and any OpenAI-compatible API endpoint.
 type OpenAI struct {
+	usageTracker
+
 	oai    openai.Client
 	params openai.ChatCompletionNewParams
 	logger logger.Logger
 	config config.Containable
 	cfg    Config
 	tools  map[string]Tool
+}
+
+// openAIUsage maps an OpenAI CompletionUsage into the provider-neutral Usage.
+func openAIUsage(u openai.CompletionUsage) Usage {
+	// total/cached/reasoning of zero with zero input+output means the provider
+	// reported nothing on this round-trip (e.g. an empty usage block); guard so
+	// such a round-trip does not appear as a Known zero usage.
+	if u.PromptTokens == 0 && u.CompletionTokens == 0 && u.TotalTokens == 0 {
+		return Usage{}
+	}
+
+	return newUsage(
+		int(u.PromptTokens),
+		int(u.CompletionTokens),
+		int(u.TotalTokens),
+		int(u.PromptTokensDetails.CachedTokens),
+		int(u.CompletionTokensDetails.ReasoningTokens),
+	)
 }
 
 // newOpenAI initializes a new OpenAI (or OpenAI-compatible) chat client.
@@ -96,13 +116,16 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 		}
 	}
 
-	return &OpenAI{
+	c := &OpenAI{
 		config: props.Config,
 		logger: props.Logger,
 		oai:    client,
 		cfg:    cfg,
 		params: params,
-	}, nil
+	}
+	c.observer = cfg.UsageObserver
+
+	return c, nil
 }
 
 // Add appends a new user message to the chat session.
@@ -145,6 +168,8 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any) error {
 	if err != nil {
 		return errors.Wrap(err, "AI completion request failed")
 	}
+
+	a.recordUsage(openAIUsage(res.Usage))
 
 	if len(res.Choices) == 0 {
 		return errors.New("OpenAI returned no choices")
@@ -290,6 +315,13 @@ func (a *OpenAI) StreamChat(ctx context.Context, prompt string, callback StreamC
 
 	a.params.ResponseFormat = openai.ChatCompletionNewParamsResponseFormatUnion{}
 
+	// Opt in to a final usage chunk so streaming can report token usage like
+	// the non-streaming path. The usage chunk carries empty Choices, so the
+	// existing per-choice loop is unaffected.
+	a.params.StreamOptions = openai.ChatCompletionStreamOptionsParam{
+		IncludeUsage: openai.Bool(true),
+	}
+
 	maxSteps := a.cfg.MaxSteps
 	if maxSteps <= 0 {
 		maxSteps = DefaultMaxSteps
@@ -350,6 +382,10 @@ func (a *OpenAI) streamOpenAIStep(
 
 	for stream.Next() {
 		chunk := stream.Current()
+
+		if u := openAIUsage(chunk.Usage); u.Known {
+			a.recordUsage(u)
+		}
 
 		for _, choice := range chunk.Choices {
 			if err := a.handleOpenAIChoice(choice, tools, &toolOrder, &stepText, fullText, callback); err != nil {
@@ -503,6 +539,8 @@ func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		a.recordUsage(openAIUsage(resp.Usage))
 
 		if len(resp.Choices) == 0 {
 			return "", errors.New("OpenAI returned no choices")

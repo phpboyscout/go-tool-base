@@ -110,6 +110,13 @@ type ChatClient interface {
 	// are configured, the provider handles tool calls internally via a
 	// ReAct loop bounded by Config.MaxSteps (default 20).
 	Chat(ctx context.Context, prompt string) (string, error)
+	// Usage returns the cumulative token usage across every provider
+	// round-trip made by this client instance since construction. A single
+	// Chat/Ask/StreamChat call may make multiple round-trips (one per ReAct
+	// step) and all are summed. Providers that do not report token counts
+	// (e.g. ProviderClaudeLocal) contribute a zero, Known == false Usage.
+	// Wire Config.UsageObserver to observe usage per round-trip instead.
+	Usage() Usage
 }
 
 // Config holds configuration for a chat client.
@@ -159,6 +166,15 @@ type Config struct {
 	// Must be func(context.Context, *genai.ClientConfig) (*genai.Client, error).
 	// Nil means use the real genai.NewClient.
 	GenaiNewClient any `json:"-"`
+
+	// UsageObserver, when non-nil, is invoked once per provider round-trip
+	// with that round-trip's token usage. A ReAct tool-calling loop fires it
+	// once per step. This is the opt-in hook for emitting a telemetry event,
+	// metric, or log line; the chat client never depends on a telemetry
+	// collector. Providers that do not report usage still fire the observer
+	// with a Known == false Usage. The callback runs synchronously on the
+	// calling goroutine, so keep it fast and non-blocking.
+	UsageObserver func(Usage) `json:"-"`
 
 	// AllowInsecureBaseURL permits HTTP (non-HTTPS) BaseURLs. This is
 	// exclusively for tests that point at an httptest.Server. Production

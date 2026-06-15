@@ -19,12 +19,37 @@ func init() {
 
 // Claude implements the ChatClient interface using Anthropic's official Go SDK.
 type Claude struct {
+	usageTracker
+
 	client     anthropic.Client
 	props      *props.Props
 	messages   []anthropic.MessageParam
 	cfg        Config
 	tools      map[string]Tool
 	toolParams []anthropic.ToolUnionParam
+}
+
+// claudeUsage maps an Anthropic SDK Usage into the provider-neutral Usage.
+func claudeUsage(u anthropic.Usage) Usage {
+	return newUsage(
+		int(u.InputTokens),
+		int(u.OutputTokens),
+		0, // Anthropic does not return a total; compute it.
+		int(u.CacheReadInputTokens),
+		0,
+	)
+}
+
+// claudeDeltaUsage maps the cumulative usage carried on a streaming
+// message_delta event into the provider-neutral Usage.
+func claudeDeltaUsage(u anthropic.MessageDeltaUsage) Usage {
+	return newUsage(
+		int(u.InputTokens),
+		int(u.OutputTokens),
+		0,
+		int(u.CacheReadInputTokens),
+		0,
+	)
 }
 
 // newClaude initializes a new Claude chat client.
@@ -67,6 +92,7 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 		client: client,
 		cfg:    cfg,
 	}
+	c.observer = cfg.UsageObserver
 
 	if cfg.SystemPrompt != "" {
 		c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(cfg.SystemPrompt)))
@@ -100,6 +126,8 @@ func (c *Claude) Ask(ctx context.Context, question string, target any) error {
 	if err != nil {
 		return errors.Newf("failed to call Anthropic API: %w", err)
 	}
+
+	c.recordUsage(claudeUsage(resp.Usage))
 
 	return c.parseAskResponse(resp, target)
 }
@@ -257,6 +285,8 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 		if err != nil {
 			return "", errors.Newf("failed to call Anthropic API: %w", err)
 		}
+
+		c.recordUsage(claudeUsage(resp.Usage))
 
 		c.messages = append(c.messages, anthropic.NewAssistantMessage(resContentToBlocks(resp.Content)...))
 
@@ -416,6 +446,10 @@ func (c *Claude) streamClaudeStep(
 
 	for stream.Next() {
 		event := stream.Current()
+
+		if event.Type == "message_delta" {
+			c.recordUsage(claudeDeltaUsage(event.Usage))
+		}
 
 		if err := c.processClaudeStreamEvent(event, tools, &toolOrder, &stepText, fullText, callback); err != nil {
 			return nil, err

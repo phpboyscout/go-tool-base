@@ -41,6 +41,10 @@ func (m *MockChatClient) Chat(ctx context.Context, prompt string) (string, error
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockChatClient) Usage() chat.Usage {
+	return chat.Usage{}
+}
+
 func TestGenerateDocs_Command(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()

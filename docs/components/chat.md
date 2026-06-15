@@ -41,6 +41,7 @@ The `Config` struct accepts the following fields:
 | `MaxTokens` | `int` | Maximum tokens per response. Zero uses the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192). |
 | `ParallelTools` | `bool` | Enables concurrent execution of multiple tool calls within a single ReAct step. Disabled by default. |
 | `MaxParallelTools` | `int` | Maximum number of tool calls executing concurrently. Zero uses the default (5). Only effective when `ParallelTools` is true. |
+| `UsageObserver` | `func(Usage)` | Optional opt-in hook fired once per provider round-trip with that round-trip's token usage. See [Token usage & cost observability](#token-usage--cost-observability). |
 
 ```go
 import "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
@@ -320,6 +321,73 @@ func queryAI(ctx context.Context, client chat.ChatClient, prompt string, deltaFn
 ```
 
 This pattern is used by `pkg/docs` (`AskAI`) and `internal/generator` (`writeAIDocs`) so that all three streaming providers benefit automatically without callers needing to know which provider is active.
+
+## Token usage & cost observability
+
+Every provider surfaces token usage so a tool built on GTB can observe and cost its LLM calls. Usage is reported in a provider-neutral `Usage` struct — you never touch a provider SDK's usage type.
+
+```go
+type Usage struct {
+    InputTokens     int  // prompt / input tokens
+    OutputTokens    int  // completion / output tokens
+    TotalTokens     int  // provider total, or InputTokens+OutputTokens when not supplied
+    CachedTokens    int  // input tokens served from a prompt cache, when reported
+    ReasoningTokens int  // tokens spent on internal reasoning, when reported
+    Known           bool // false when the provider reported no token counts
+}
+```
+
+There are two complementary ways to read usage:
+
+### `Usage()` accessor — cumulative total
+
+`ChatClient.Usage()` returns the **cumulative** usage across every provider round-trip made by that client instance since construction:
+
+```go
+client, _ := chat.New(ctx, p, cfg)
+_, _ = client.Chat(ctx, "Summarise this changelog…")
+
+u := client.Usage()
+if u.Known {
+    fmt.Printf("tokens: in=%d out=%d total=%d\n", u.InputTokens, u.OutputTokens, u.TotalTokens)
+}
+```
+
+### `UsageObserver` — opt-in per-round-trip hook
+
+The chat client never depends on a telemetry collector. To emit a telemetry event, metric, or log line, wire the opt-in `Config.UsageObserver` callback. It fires **once per provider round-trip** (synchronously, on the calling goroutine — keep it fast):
+
+```go
+cfg := chat.Config{
+    Provider: chat.ProviderClaude,
+    UsageObserver: func(u chat.Usage) {
+        // e.g. emit a telemetry event; the chat client itself has no telemetry dependency
+        collector.Track(ctx, "llm.usage", map[string]any{
+            "input_tokens":  u.InputTokens,
+            "output_tokens": u.OutputTokens,
+            "total_tokens":  u.TotalTokens,
+        })
+    },
+}
+```
+
+### Per-loop summing semantics
+
+A single `Chat`, `Ask`, or `StreamChat` call may make **multiple** provider round-trips: a ReAct tool-calling loop makes one round-trip per step. Usage is **summed across the whole loop** — this is the figure you want for cost accounting.
+
+- The `Usage()` accessor returns the running total across every round-trip (and every call) on that client.
+- The `UsageObserver` hook fires once per round-trip, so you see each step individually and can aggregate however you like.
+
+### Per-provider mapping
+
+| Provider | Source | Mapping |
+| :--- | :--- | :--- |
+| Claude (Anthropic) | `Message.Usage` (and the streaming `message_delta` event) | `input_tokens` → `InputTokens`, `output_tokens` → `OutputTokens`, `cache_read_input_tokens` → `CachedTokens`; `TotalTokens` computed. |
+| OpenAI / OpenAI-compatible | `ChatCompletion.Usage` | `prompt_tokens` → `InputTokens`, `completion_tokens` → `OutputTokens`, `total_tokens` → `TotalTokens`, plus cached/reasoning detail tokens. Streaming opts in to the final usage chunk automatically. |
+| Gemini | `GenerateContentResponse.UsageMetadata` | `promptTokenCount` → `InputTokens`, `candidatesTokenCount` → `OutputTokens`, `totalTokenCount` → `TotalTokens`, cached/thoughts tokens mapped. |
+| **ProviderClaudeLocal** | optional `usage` block of the `claude` CLI JSON output | Surfaced when the binary reports it; **otherwise `Usage{Known: false}`**. The local CLI does not guarantee per-call token counts, so do **not** rely on `ProviderClaudeLocal` for cost accounting — always check `Usage.Known`. |
+
+A freshly-constructed client, and any provider that reports nothing for a call, returns a zero-valued `Usage` with `Known == false`. Always check `Known` before treating the counts as authoritative.
 
 ## Provider Reference
 

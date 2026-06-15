@@ -18,6 +18,8 @@ func init() {
 
 // Gemini implements the ChatClient interface using Google's Generative AI SDK.
 type Gemini struct {
+	usageTracker
+
 	client  *genai.Client
 	model   string
 	config  *genai.GenerateContentConfig
@@ -25,6 +27,22 @@ type Gemini struct {
 	history []*genai.Content
 	tools   map[string]Tool
 	props   *props.Props
+}
+
+// geminiUsage maps Gemini's UsageMetadata into the provider-neutral Usage.
+// A nil metadata (provider reported nothing) yields a zero, unknown Usage.
+func geminiUsage(m *genai.GenerateContentResponseUsageMetadata) Usage {
+	if m == nil {
+		return Usage{}
+	}
+
+	return newUsage(
+		int(m.PromptTokenCount),
+		int(m.CandidatesTokenCount),
+		int(m.TotalTokenCount),
+		int(m.CachedContentTokenCount),
+		int(m.ThoughtsTokenCount),
+	)
 }
 
 // newGemini initializes a new Gemini chat client.
@@ -62,7 +80,7 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 
 	baseCfg := buildGeminiGenerateConfig(cfg)
 
-	return &Gemini{
+	g := &Gemini{
 		client:  client,
 		model:   modelName,
 		config:  baseCfg,
@@ -70,7 +88,10 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 		history: make([]*genai.Content, 0),
 		tools:   make(map[string]Tool),
 		props:   p,
-	}, nil
+	}
+	g.observer = cfg.UsageObserver
+
+	return g, nil
 }
 
 func getGeminiToken(ctx context.Context, p *props.Props, cfg Config) string {
@@ -169,6 +190,8 @@ func (g *Gemini) Ask(ctx context.Context, question string, target any) error {
 		return errors.Newf("gemini send message failed: %w", err)
 	}
 
+	g.recordUsage(geminiUsage(resp.UsageMetadata))
+
 	text := resp.Text()
 	if text == "" {
 		return errors.New("empty response from Gemini")
@@ -237,6 +260,8 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 		if err != nil {
 			return "", g.handleGeminiError(err, step)
 		}
+
+		g.recordUsage(geminiUsage(resp.UsageMetadata))
 
 		if text := resp.Text(); text != "" {
 			textResponse.WriteString(text)
@@ -409,6 +434,12 @@ func (g *Gemini) streamGeminiStep(
 	for chunk, err := range chat.SendStream(ctx, parts...) {
 		if err != nil {
 			return nil, g.handleGeminiError(err, 0)
+		}
+
+		// Gemini emits cumulative UsageMetadata on the terminal chunk of a
+		// streamed turn; record it when present.
+		if u := geminiUsage(chunk.UsageMetadata); u.Known {
+			g.recordUsage(u)
 		}
 
 		if text := chunk.Text(); text != "" {

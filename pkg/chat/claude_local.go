@@ -19,6 +19,8 @@ func init() {
 // This provider is useful in environments where direct API access to api.anthropic.com is
 // blocked but the pre-authenticated claude binary is permitted.
 type ClaudeLocal struct {
+	usageTracker
+
 	props     *props.Props
 	cfg       Config
 	sessionID string   // captured after first Chat/Ask call; used for --resume
@@ -46,11 +48,14 @@ func newClaudeLocal(_ context.Context, p *props.Props, cfg Config) (ChatClient, 
 		)
 	}
 
-	return &ClaudeLocal{
+	c := &ClaudeLocal{
 		props:   p,
 		cfg:     cfg,
 		command: command,
-	}, nil
+	}
+	c.observer = cfg.UsageObserver
+
+	return c, nil
 }
 
 // Add buffers a user message to be prepended to the next Chat or Ask call.
@@ -162,11 +167,40 @@ func (c *ClaudeLocal) buildArgs(prompt string) []string {
 }
 
 // claudeResult is the JSON structure returned by claude --output-format json.
+//
+// Usage is best-effort: older claude binaries omit the field entirely, in which
+// case all counts are zero and the provider reports an unknown (Known == false)
+// Usage. The claude CLI does not expose per-call API token usage on every
+// version, so callers must not rely on ProviderClaudeLocal for cost accounting.
 type claudeResult struct {
-	Type      string `json:"type"`
-	Result    string `json:"result"`
-	SessionID string `json:"session_id"`
-	IsError   bool   `json:"is_error"`
+	Type      string           `json:"type"`
+	Result    string           `json:"result"`
+	SessionID string           `json:"session_id"`
+	IsError   bool             `json:"is_error"`
+	Usage     *claudeLocalCost `json:"usage"`
+}
+
+// claudeLocalCost mirrors the optional usage block of the claude CLI JSON output.
+type claudeLocalCost struct {
+	InputTokens         int `json:"input_tokens"`
+	OutputTokens        int `json:"output_tokens"`
+	CacheReadInputToken int `json:"cache_read_input_tokens"`
+}
+
+// usage maps the optional CLI usage block to the provider-neutral Usage. A nil
+// block (binary did not report usage) yields a zero, unknown Usage.
+func (r claudeResult) usage() Usage {
+	if r.Usage == nil {
+		return Usage{}
+	}
+
+	return newUsage(
+		r.Usage.InputTokens,
+		r.Usage.OutputTokens,
+		0,
+		r.Usage.CacheReadInputToken,
+		0,
+	)
 }
 
 // runClaude executes the claude subprocess and returns the result text and session ID.
@@ -194,6 +228,8 @@ func (c *ClaudeLocal) runClaude(ctx context.Context, args []string) (result stri
 	if res.IsError {
 		return "", "", errors.Newf("claude returned an error: %s", res.Result)
 	}
+
+	c.recordUsage(res.usage())
 
 	c.props.Logger.Debug("ClaudeLocal response received", "session_id", res.SessionID)
 
