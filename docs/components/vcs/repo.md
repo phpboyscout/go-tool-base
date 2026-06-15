@@ -236,35 +236,59 @@ const (
 
 ## RepoLike Interface
 
-All methods above are part of `RepoLike`. Functions that accept a repository should depend on `RepoLike` rather than `*Repo`:
+`RepoLike` is a **composite** built by embedding eight focused **role interfaces**,
+mirroring the `pkg/controls.Controllable` precedent. Its method set is exactly the
+sum of the embedded roles — unchanged from the previous flat declaration — so
+`*Repo`, `*ThreadSafeRepo`, and the generated `MockRepoLike` satisfy it without any
+code change.
 
 ```go
 type RepoLike interface {
-    SourceIs(int) bool
-    SetSource(int)
-    SetRepo(*git.Repository)
-    SetKey(*ssh.PublicKeys)
-    SetBasicAuth(string, string)
-    GetAuth() transport.AuthMethod
-    SetTree(*git.Worktree)
-    Checkout(plumbing.ReferenceName) error
-    CheckoutCommit(plumbing.Hash) error
-    CreateBranch(string) error
-    Push(*git.PushOptions) error
-    Commit(string, *git.CommitOptions) (plumbing.Hash, error)
-    OpenInMemory(string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
-    OpenLocal(string, string) (*git.Repository, *git.Worktree, error)
-    Open(RepoType, string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
-    Clone(string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
-    WalkTree(func(*object.File) error) error
-    FileExists(string) (bool, error)
-    DirectoryExists(string) (bool, error)
-    GetFile(string) (*object.File, error)
-    AddToFS(fs afero.Fs, gitFile *object.File, fullPath string) error
-    WithRepo(func(*git.Repository) error) error
-    WithTree(func(*git.Worktree) error) error
+    TreeReader
+    Opener
+    Authenticator
+    WorktreeController
+    Committer
+    SourceState
+    GitAccessor
+    Brancher
 }
 ```
+
+### Role interfaces
+
+Prefer depending on the **narrowest role** that covers what a function actually
+touches, rather than the full `RepoLike`. A reader that only inspects the tree
+should take `TreeReader`, not `RepoLike` — the signature then documents what it
+touches and needs only a narrow fake. The concrete types satisfy every role via
+the composite, so callers still pass their `*Repo` / `*ThreadSafeRepo` unchanged.
+
+| Role | Methods | Concern |
+|------|---------|---------|
+| `TreeReader` | `WalkTree`, `FileExists`, `DirectoryExists`, `GetFile`, `AddToFS` | Read-only queries over the committed tree |
+| `Opener` | `Open`, `OpenLocal`, `OpenInMemory`, `Clone` | Repository lifecycle / acquisition |
+| `Authenticator` | `SetKey`, `SetBasicAuth`, `GetAuth`, `SetRepo` | Credential / repo-handle configuration |
+| `WorktreeController` | `SetTree`, `Checkout`, `CheckoutCommit` | Working-tree / checkout state |
+| `Committer` | `Commit`, `Push` | Write path (record + publish) |
+| `SourceState` | `SourceIs`, `SetSource` | Backend discriminator (memory vs local) |
+| `GitAccessor` | `WithRepo`, `WithTree` | Raw go-git escape hatches |
+| `Brancher` | `CreateBranch` | Branch creation |
+
+```go
+// before — advertises Push, auth mutation, branch creation it never uses
+func indexTree(r repo.RepoLike) error { return r.WalkTree(...) }
+
+// after — honest, narrow contract; same *Repo passed at the call site
+func indexTree(r repo.TreeReader) error { return r.WalkTree(...) }
+```
+
+The named-remote operations `CreateRemote` / `Remote` are **concrete-only on
+`*Repo`** — they are deliberately not part of any role or of `RepoLike`, because
+`ThreadSafeRepo` does not wrap them. Reach for `*Repo` directly when you need them.
+
+> Per-role mocks (`MockTreeReader`, …) are **not** generated yet; they will be
+> added lazily when the first narrow consumer needs one. Today only the composite
+> `MockRepoLike` exists.
 
 ### Unopened-repo contract
 

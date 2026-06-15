@@ -96,33 +96,60 @@ func init() {
 	}
 }
 
-// RepoLike defines the interface for git repository operations.
-type RepoLike interface {
-	SourceIs(int) bool
-	SetSource(int)
-	SetRepo(*git.Repository)
-	SetKey(*ssh.PublicKeys)
-	SetBasicAuth(string, string)
-	GetAuth() transport.AuthMethod
-	SetTree(*git.Worktree)
-	Checkout(plumbing.ReferenceName) error
-	CheckoutCommit(plumbing.Hash) error
-	CreateBranch(string) error
-	Push(*git.PushOptions) error
-	Commit(string, *git.CommitOptions) (plumbing.Hash, error)
+// The role interfaces below decompose git-repository operations into focused,
+// single-concern contracts following the pkg/controls precedent (where
+// Controllable is composed from Runner, HealthReporter, …). A consumer should
+// depend on the narrowest role that covers what it actually touches rather than
+// the full RepoLike composite. They cover the common subset that both *Repo and
+// *ThreadSafeRepo satisfy; the named-remote operations (CreateRemote, Remote)
+// remain concrete-only on *Repo and are deliberately not part of any role.
 
-	OpenInMemory(string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
-	OpenLocal(string, string) (*git.Repository, *git.Worktree, error)
-	Open(RepoType, string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
-	Clone(string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
-
-	// Git tree operations for in-memory repositories
+// TreeReader provides read-only queries over the committed git tree.
+type TreeReader interface {
 	WalkTree(func(*object.File) error) error
 	FileExists(string) (bool, error)
 	DirectoryExists(string) (bool, error)
 	GetFile(string) (*object.File, error)
 	AddToFS(fs afero.Fs, gitFile *object.File, fullPath string) error
+}
 
+// Opener acquires a repository via local open, in-memory open, or clone.
+type Opener interface {
+	Open(RepoType, string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
+	OpenLocal(string, string) (*git.Repository, *git.Worktree, error)
+	OpenInMemory(string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
+	Clone(string, string, ...CloneOption) (*git.Repository, *git.Worktree, error)
+}
+
+// Authenticator configures credentials and the underlying repository handle.
+type Authenticator interface {
+	SetKey(*ssh.PublicKeys)
+	SetBasicAuth(string, string)
+	GetAuth() transport.AuthMethod
+	SetRepo(*git.Repository)
+}
+
+// WorktreeController manages working-tree and checkout state.
+type WorktreeController interface {
+	SetTree(*git.Worktree)
+	Checkout(plumbing.ReferenceName) error
+	CheckoutCommit(plumbing.Hash) error
+}
+
+// Committer records and publishes changes.
+type Committer interface {
+	Commit(string, *git.CommitOptions) (plumbing.Hash, error)
+	Push(*git.PushOptions) error
+}
+
+// SourceState discriminates the repository backend (in-memory vs local).
+type SourceState interface {
+	SourceIs(int) bool
+	SetSource(int)
+}
+
+// GitAccessor exposes raw go-git escape hatches.
+type GitAccessor interface {
 	// WithRepo calls fn with the underlying *git.Repository.
 	// Returns ErrNoRepository if the repository has not been initialised.
 	WithRepo(func(*git.Repository) error) error
@@ -131,6 +158,50 @@ type RepoLike interface {
 	// Returns ErrNoWorktree if the worktree has not been initialised.
 	WithTree(func(*git.Worktree) error) error
 }
+
+// Brancher creates branches.
+type Brancher interface {
+	CreateBranch(string) error
+}
+
+// RepoLike is the full git-repository interface, composed of focused role
+// interfaces. Prefer depending on the narrower roles (TreeReader, Committer, …)
+// where possible. Its method set is identical to the sum of the embedded roles,
+// so *Repo and *ThreadSafeRepo satisfy it unchanged.
+type RepoLike interface {
+	TreeReader
+	Opener
+	Authenticator
+	WorktreeController
+	Committer
+	SourceState
+	GitAccessor
+	Brancher
+}
+
+// Compile-time proof that both concrete repository types satisfy the full
+// composite and every individual role interface.
+var (
+	_ RepoLike = (*Repo)(nil)
+	_ RepoLike = (*ThreadSafeRepo)(nil)
+
+	_ TreeReader         = (*Repo)(nil)
+	_ TreeReader         = (*ThreadSafeRepo)(nil)
+	_ Opener             = (*Repo)(nil)
+	_ Opener             = (*ThreadSafeRepo)(nil)
+	_ Authenticator      = (*Repo)(nil)
+	_ Authenticator      = (*ThreadSafeRepo)(nil)
+	_ WorktreeController = (*Repo)(nil)
+	_ WorktreeController = (*ThreadSafeRepo)(nil)
+	_ Committer          = (*Repo)(nil)
+	_ Committer          = (*ThreadSafeRepo)(nil)
+	_ SourceState        = (*Repo)(nil)
+	_ SourceState        = (*ThreadSafeRepo)(nil)
+	_ GitAccessor        = (*Repo)(nil)
+	_ GitAccessor        = (*ThreadSafeRepo)(nil)
+	_ Brancher           = (*Repo)(nil)
+	_ Brancher           = (*ThreadSafeRepo)(nil)
+)
 
 // Repo implements RepoLike using go-git for local and in-memory repositories.
 type Repo struct {
