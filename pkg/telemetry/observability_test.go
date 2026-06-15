@@ -4,10 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/sdk/resource"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
@@ -44,6 +46,39 @@ func restoreGlobals(t *testing.T) {
 		otel.SetMeterProvider(mp)
 		otel.SetTextMapPropagator(prop)
 	})
+}
+
+// TestBuildSignalsRollsBackOnPartialFailure proves that when a later signal
+// builder fails, the shutdown funcs of providers installed by earlier builders
+// are run (best-effort, reverse order) instead of being stranded.
+func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
+	restoreGlobals(t)
+
+	var order []int
+
+	// Two builders install successfully (recording a shutdown spy each), the
+	// third fails — the first two shutdowns must run, newest-first. The first
+	// shutdown returns an error to exercise the best-effort logging branch.
+	makeOK := func(id int, shutdownErr error) signalBuilder {
+		return func(_ context.Context, _ *props.Props, _ *resource.Resource) (func(context.Context) error, bool, error) {
+			return func(context.Context) error {
+				order = append(order, id)
+
+				return shutdownErr
+			}, true, nil
+		}
+	}
+
+	failing := func(_ context.Context, _ *props.Props, _ *resource.Resource) (func(context.Context) error, bool, error) {
+		return nil, false, errors.New("signal install failed")
+	}
+
+	shutdowns, err := buildSignals(context.Background(), testProps(map[string]any{}), nil,
+		[]signalBuilder{makeOK(1, errors.New("shutdown boom")), makeOK(2, nil), failing})
+
+	require.Error(t, err)
+	assert.Nil(t, shutdowns, "no shutdowns returned on failure")
+	assert.Equal(t, []int{2, 1}, order, "installed providers must be shut down in reverse order")
 }
 
 func TestSetupAllSignalsDisabled(t *testing.T) {

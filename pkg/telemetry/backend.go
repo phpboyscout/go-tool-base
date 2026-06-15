@@ -107,8 +107,15 @@ type httpBackend struct {
 }
 
 // NewHTTPBackend returns a backend that POSTs events as JSON to the given endpoint.
-// Non-2xx responses are logged at debug level via the provided logger.
-// Network errors are silently dropped — telemetry must never block the user.
+//
+// Send returns transport-level failures (a refused connection, a timeout, a
+// non-2xx status) so the spill/retry layer can honour the configured
+// DeliveryMode: under DeliveryAtLeastOnce a failed batch's spill file is
+// retained for the next flush rather than deleted as if delivered. This does
+// not block the user — callers (Flush, flushSpillFiles) log the error at
+// debug/warn and continue; the error only informs the retain-vs-delete
+// decision. Non-2xx responses are additionally logged at debug level via the
+// provided logger.
 func NewHTTPBackend(endpoint string, log logger.Logger) Backend {
 	return &httpBackend{
 		endpoint: endpoint,
@@ -132,7 +139,10 @@ func (h *httpBackend) Send(ctx context.Context, events []Event) error {
 
 	resp, err := h.client.Do(req)
 	if err != nil {
-		return nil // silently drop — telemetry must never block the user
+		// Return the transport failure so the at-least-once spill layer
+		// retains the batch instead of treating it as delivered. The caller
+		// never blocks on this — it logs and continues.
+		return errors.Wrap(err, "sending telemetry batch")
 	}
 
 	defer func() {
@@ -143,6 +153,8 @@ func (h *httpBackend) Send(ctx context.Context, events []Event) error {
 	if resp.StatusCode >= httpErrorThreshold {
 		h.log.Debug("telemetry endpoint returned non-success status",
 			"status", resp.StatusCode, "endpoint", h.endpoint)
+
+		return errors.Newf("telemetry endpoint returned status %d", resp.StatusCode)
 	}
 
 	return nil

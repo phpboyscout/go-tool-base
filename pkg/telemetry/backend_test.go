@@ -150,10 +150,11 @@ func TestHTTPBackend_Non2xx(t *testing.T) {
 
 	b := NewHTTPBackend(srv.URL, logger.NewNoop())
 
-	// Should not return an error — non-2xx is logged at debug, not propagated
+	// A non-2xx response is a delivery failure: it must surface so the
+	// at-least-once spill layer retains the batch rather than dropping it.
 	err := b.Send(context.Background(), []Event{{Name: "test"}})
-	if err != nil {
-		t.Errorf("expected nil error for non-2xx, got %v", err)
+	if err == nil {
+		t.Error("expected an error for non-2xx status, got nil")
 	}
 }
 
@@ -163,8 +164,10 @@ func TestHTTPBackend_NetworkError(t *testing.T) {
 	// Closed server — connection refused
 	b := NewHTTPBackend("http://127.0.0.1:1", logger.NewNoop())
 
+	// A transport failure must surface (not be swallowed) so the spill/retry
+	// layer can honour at-least-once delivery.
 	err := b.Send(context.Background(), []Event{{Name: "test"}})
-	if err != nil {
-		t.Errorf("expected nil error for network failure, got %v", err)
+	if err == nil {
+		t.Error("expected an error for network failure, got nil")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -69,21 +70,28 @@ type Collector struct {
 	goVersion          string
 	osVersion          string
 	extendedCollection bool
-	backendInfo        string
-	metadata           map[string]string
-	buffer             []Event
-	mu                 sync.Mutex
-	log                logger.Logger
-	dataDir            string
-	deliveryMode       props.DeliveryMode
-	maxBuffer          int
+	// backendInfo holds the human-readable backend description. It is set by
+	// the root command after backend selection and read by the doctor/status
+	// commands — a documented cross-goroutine handoff — so it is guarded by an
+	// atomic.Value rather than the buffer mutex. Stored value is always string.
+	backendInfo  atomic.Value
+	metadata     map[string]string
+	buffer       []Event
+	mu           sync.Mutex
+	log          logger.Logger
+	dataDir      string
+	deliveryMode props.DeliveryMode
+	maxBuffer    int
 }
 
 // NewCollector creates a Collector. When cfg.Enabled is false, returns a noop
 // collector so callers never need to nil-check.
 func NewCollector(cfg Config, backend Backend, toolName, version string, metadata map[string]string, log logger.Logger, dataDir string, deliveryMode props.DeliveryMode, extendedCollection bool) *Collector {
 	if !cfg.Enabled {
-		return &Collector{backend: NewNoopBackend(), log: log, maxBuffer: defaultMaxBuffer, backendInfo: "noop (disabled)"}
+		c := &Collector{backend: NewNoopBackend(), log: log, maxBuffer: defaultMaxBuffer}
+		c.SetBackendInfo("noop (disabled)")
+
+		return c
 	}
 
 	if deliveryMode == "" {
@@ -263,7 +271,21 @@ func (c *Collector) Flush(ctx context.Context) error {
 	}
 
 	if err := c.backend.Send(ctx, events); err != nil {
-		c.log.Warn("telemetry flush failed", "error", err, "events_dropped", len(events))
+		// Under at-least-once, a failed send must not lose the batch: spill it
+		// back to disk so the next flush retries. Without this re-spill the
+		// buffer was already cleared above, defeating the no-data-loss
+		// guarantee whenever a backend surfaces a transport error.
+		if c.deliveryMode == props.DeliveryAtLeastOnce {
+			c.mu.Lock()
+			c.buffer = append(c.buffer, events...)
+			c.spillToDisk()
+			c.mu.Unlock()
+
+			c.log.Warn("telemetry flush failed; batch spilled for retry",
+				"error", err, "events_spilled", len(events))
+		} else {
+			c.log.Warn("telemetry flush failed", "error", err, "events_dropped", len(events))
+		}
 
 		return err
 	}
@@ -285,14 +307,20 @@ func (c *Collector) Close(ctx context.Context) error {
 }
 
 // BackendInfo returns a human-readable description of the active backend.
+// Safe for concurrent use: the value is read atomically, honouring the
+// documented cross-goroutine handoff with SetBackendInfo.
 func (c *Collector) BackendInfo() string {
-	return c.backendInfo
+	if v, ok := c.backendInfo.Load().(string); ok {
+		return v
+	}
+
+	return ""
 }
 
 // SetBackendInfo sets the human-readable backend description.
-// Called by the root command after backend selection.
+// Called by the root command after backend selection. Safe for concurrent use.
 func (c *Collector) SetBackendInfo(info string) {
-	c.backendInfo = info
+	c.backendInfo.Store(info)
 }
 
 // Drop clears all buffered events and deletes any spill files without sending.

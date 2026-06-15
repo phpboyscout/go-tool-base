@@ -217,7 +217,7 @@ telemetry.NewFileBackend("/path/to/telemetry.log")
 
 ### HTTP
 
-POSTs events as a JSON array to an endpoint. Network errors are silently dropped. Non-2xx responses are logged at debug level.
+POSTs events as a JSON array to an endpoint. `Send` **returns** transport-level failures — a refused connection, a timeout, or a non-2xx status — rather than swallowing them. This is deliberate: under `DeliveryAtLeastOnce` the spill/retry layer must see the failure to retain the batch instead of treating it as delivered. The error does **not** block the user: `Flush` and the spill replay log it (at warn/debug) and continue; the error only informs the retain-vs-delete decision. Non-2xx responses are additionally logged at debug level.
 
 ```go
 telemetry.NewHTTPBackend("https://analytics.example.com/events", logger)
@@ -239,6 +239,8 @@ backend, err := telemetry.NewOTelBackend(ctx,
 ```
 
 The endpoint URL is parsed into host and path components. The SDK appends `/v1/logs` to the path automatically.
+
+**Endpoint validation.** `otelcore.ParseEndpoint` validates the OTLP endpoint fail-fast (mirroring `chat.ValidateBaseURL`): an empty, over-long (> `MaxEndpointLength`, 2 KiB), control-character-bearing, unparseable, schemeless, or hostless URL is rejected, as is any URL carrying userinfo (`http://user:pass@host` — credentials belong in headers). Only `http` and `https` schemes are accepted; `http` is plaintext and marks the endpoint insecure. Rejections wrap `otelcore.ErrInvalidEndpoint` (matchable with `errors.Is`). A malformed endpoint therefore fails at `NewOTelBackend`/provider-construction time rather than silently failing later at export. A signal provider (`tracing`/`metrics`/`logs`) with an empty endpoint falls back to the `OTEL_EXPORTER_OTLP_*` environment variables and is not subject to this validation.
 
 **OTel Options:**
 
@@ -425,8 +427,10 @@ The shared `telemetry.ResolveDataDir(p)` helper determines the data directory fo
 
 | Mode | Behaviour | Trade-off |
 |------|-----------|-----------|
-| `DeliveryAtLeastOnce` (default) | Spill files deleted **after** successful send | Possible duplicates if ack is lost; no data loss |
+| `DeliveryAtLeastOnce` (default) | Spill files deleted **after** successful send; a failed in-memory `Flush` batch is re-spilled for retry | Possible duplicates if ack is lost; no data loss |
 | `DeliveryAtMostOnce` | Spill files deleted **before** send | Possible data loss; no duplicates |
+
+The at-least-once guarantee relies on backends **surfacing** delivery failures from `Send` (see the HTTP backend above). When a backend returns an error, `flushSpillFiles` retains the spill file, and a failed in-memory `Flush` batch is re-spilled to disk so the next flush retries it — without this, a backend that swallowed transport errors would silently drop batches while reporting success, defeating the guarantee.
 
 ```go
 Telemetry: props.TelemetryConfig{
@@ -584,10 +588,10 @@ The spill file mechanism trades strict thread safety for simplicity. `flushSpill
 | Noop | N/A | Always returns `nil` |
 | Stdout | N/A | Returns encoder errors |
 | File | N/A | Returns file I/O errors |
-| HTTP | Silently returns `nil` | Non-2xx logged at debug |
+| HTTP | Returned from `Send` (wrapped) | Non-2xx returned + logged at debug |
 | OTLP | Surfaced via OTel error handler | Returns `nil` from `Send` |
 
-This means `Flush()` only logs warnings for file/stdout backend failures. HTTP and OTLP failures are either silently dropped or routed through the OTel SDK error handler. This is by design — telemetry must never block the CLI — but tool authors debugging delivery issues should enable debug logging.
+The HTTP backend now **returns** transport and non-2xx failures from `Send` so the at-least-once spill/retry layer can honour the delivery guarantee. This does not block the CLI: `Flush()` and the spill replay log the error (at warn/debug) and continue — under `DeliveryAtLeastOnce` the failed batch is retained (spill file kept, in-memory batch re-spilled) for the next attempt. The OTLP backend still routes its transport failures through the OTel SDK error handler (its batch processor owns retry/queueing internally). Tool authors debugging delivery should enable debug logging.
 
 ### Backend Fallback on Misconfiguration
 

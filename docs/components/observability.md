@@ -43,6 +43,8 @@ if _, err := telemetry.Setup(ctx, p, controller); err != nil {
 
 Signals whose `telemetry.<signal>.enabled` is false are skipped, so an unconfigured service pays nothing.
 
+**Teardown on partial failure.** `Setup` installs each provider's global (tracer, then meter, then logger) in order, accumulating its shutdown func as it goes. If a later signal fails to build, the providers already installed are **not** stranded: their shutdowns are run best-effort, in reverse install order, before `Setup` returns the error. So a failure midway through setup leaves no live global providers (and no orphaned background batch goroutines) behind.
+
 ## Transport instrumentation
 
 Spans and the standard server metrics come from the OTel contrib libraries, wrapped as one-line helpers that read the global providers `Setup` installed.

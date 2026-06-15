@@ -134,6 +134,54 @@ func TestCollector_FlushError(t *testing.T) {
 	}
 }
 
+// TestCollector_FlushFailureSpillsForRetry proves the at-least-once guarantee:
+// when the backend's Send surfaces a transport failure, the in-memory batch is
+// not lost but spilled to disk so a later flush against a healthy backend
+// re-delivers it. This is the behaviour that the previously error-swallowing
+// HTTP backend defeated.
+func TestCollector_FlushFailureSpillsForRetry(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	spy := &spyBackend{sendErr: errBackend}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+
+	c.Track(props.EventCommandInvocation, "test", nil)
+
+	// First flush fails at the backend; the batch must be spilled, not dropped.
+	if err := c.Flush(context.Background()); err == nil {
+		t.Fatal("expected error from failing flush")
+	}
+
+	files, _ := filepath.Glob(filepath.Join(dir, spillPattern))
+	if len(files) == 0 {
+		t.Fatal("expected a spill file after a failed at-least-once flush; batch was dropped")
+	}
+
+	// Recover the backend and flush again: the spilled batch must be delivered.
+	spy.mu.Lock()
+	spy.sendErr = nil
+	spy.lastEvents = nil
+	spy.mu.Unlock()
+
+	if err := c.Flush(context.Background()); err != nil {
+		t.Fatalf("retry flush should succeed: %v", err)
+	}
+
+	spy.mu.Lock()
+	delivered := len(spy.lastEvents)
+	spy.mu.Unlock()
+
+	if delivered == 0 {
+		t.Error("expected the spilled batch to be re-delivered on retry")
+	}
+
+	remaining, _ := filepath.Glob(filepath.Join(dir, spillPattern))
+	if len(remaining) != 0 {
+		t.Errorf("spill files should be removed after successful delivery, got %d", len(remaining))
+	}
+}
+
 func TestCollector_ConcurrentTrack(t *testing.T) {
 	t.Parallel()
 
@@ -160,6 +208,61 @@ func TestCollector_ConcurrentTrack(t *testing.T) {
 	if len(spy.lastEvents) != 100 {
 		t.Errorf("expected 100 events, got %d", len(spy.lastEvents))
 	}
+}
+
+// TestCollector_BackendInfo proves the getter round-trips the setter and that
+// the default for an enabled collector (never set) is the empty string.
+func TestCollector_BackendInfo(t *testing.T) {
+	t.Parallel()
+
+	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+
+	assert := func(got, want string) {
+		t.Helper()
+
+		if got != want {
+			t.Errorf("BackendInfo = %q, want %q", got, want)
+		}
+	}
+
+	assert(c.BackendInfo(), "")
+
+	c.SetBackendInfo("http (https://collector)")
+	assert(c.BackendInfo(), "http (https://collector)")
+
+	// A disabled collector reports the noop description.
+	d := NewCollector(Config{Enabled: false}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	assert(d.BackendInfo(), "noop (disabled)")
+}
+
+// TestCollector_BackendInfoConcurrent must be race-clean under -race: concurrent
+// readers and writers exercise the atomic guard on backendInfo, honouring the
+// documented concurrency contract.
+func TestCollector_BackendInfoConcurrent(t *testing.T) {
+	t.Parallel()
+
+	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
+		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+
+	var wg sync.WaitGroup
+
+	for i := range 50 {
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+			c.SetBackendInfo("backend-" + string(rune('a'+i%26)))
+		}()
+
+		go func() {
+			defer wg.Done()
+			_ = c.BackendInfo()
+		}()
+	}
+
+	wg.Wait()
 }
 
 func TestCollector_NoPII(t *testing.T) {

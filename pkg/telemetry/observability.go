@@ -53,17 +53,9 @@ func Setup(ctx context.Context, p *props.Props, controller controls.Controllable
 		propagation.Baggage{},
 	))
 
-	var shutdowns []func(context.Context) error
-
-	for _, build := range []signalBuilder{setupTracing, setupMetrics, setupLogs} {
-		sh, enabled, err := build(ctx, p, res)
-		if err != nil {
-			return nil, err
-		}
-
-		if enabled {
-			shutdowns = append(shutdowns, sh)
-		}
+	shutdowns, err := buildSignals(ctx, p, res, []signalBuilder{setupTracing, setupMetrics, setupLogs})
+	if err != nil {
+		return nil, err
 	}
 
 	shutdown := func(ctx context.Context) error {
@@ -97,6 +89,46 @@ func Setup(ctx context.Context, p *props.Props, controller controls.Controllable
 	}
 
 	return shutdown, nil
+}
+
+// buildSignals runs each signal builder in order, accumulating the shutdown func
+// of every provider that successfully installed. If a builder fails, the
+// already-installed providers are torn down (reverse order, best-effort) before
+// the error is returned, so a partial failure never strands a global provider.
+func buildSignals(ctx context.Context, p *props.Props, res *resource.Resource, builders []signalBuilder) ([]func(context.Context) error, error) {
+	var shutdowns []func(context.Context) error
+
+	for _, build := range builders {
+		sh, enabled, err := build(ctx, p, res)
+		if err != nil {
+			// A later builder failed after earlier signals already installed
+			// their global providers (tracer/meter/logger). Tear those down,
+			// best-effort and in reverse install order, so we don't strand
+			// providers and their background batch goroutines.
+			teardownInstalled(ctx, p, shutdowns)
+
+			return nil, err
+		}
+
+		if enabled {
+			shutdowns = append(shutdowns, sh)
+		}
+	}
+
+	return shutdowns, nil
+}
+
+// teardownInstalled runs the shutdown funcs of providers already installed
+// before a setup step failed, best-effort and in reverse install order, so a
+// partial Setup failure does not strand global providers (and their background
+// batch goroutines). Shutdown errors are logged, not returned: the caller is
+// already returning the original setup error.
+func teardownInstalled(ctx context.Context, p *props.Props, shutdowns []func(context.Context) error) {
+	for i := len(shutdowns) - 1; i >= 0; i-- {
+		if err := shutdowns[i](ctx); err != nil {
+			p.Logger.Warn("telemetry setup rollback: provider shutdown error", "error", err)
+		}
+	}
 }
 
 func setupTracing(ctx context.Context, p *props.Props, res *resource.Resource) (func(context.Context) error, bool, error) {
