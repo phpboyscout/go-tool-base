@@ -270,11 +270,12 @@ The Setup package provides a comprehensive middleware system for wrapping CLI co
 func GetDefaultConfigDir(fs afero.Fs, name string) string
 ```
 
-Creates and returns the standard configuration directory:
+Resolves and returns the standard configuration directory path:
 
 - Linux/macOS: `~/.toolname/`
-- Creates directory with 0700 permissions if missing
-- Returns empty string if home directory unavailable
+- **Pure** — computes and returns the path only; it never creates the directory. Building the command tree (`--help`, completions, default flag values) resolves this path, so a hidden `MkdirAll` here would create `~/.toolname` as a side effect of merely running `--help`. Directory creation is deferred to the writers that actually persist a file under it (the init flow, the update-timestamp marker, and the config writers in `pkg/cmd/config`), each of which `MkdirAll`s its parent at write time.
+- Returns empty string if the home directory is unavailable (callers must treat this as "no config dir" and skip the read/write rather than joining a relative path).
+- The `fs` parameter is retained for API compatibility and is unused.
 
 #### SSH Key Management
 ```go

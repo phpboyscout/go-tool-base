@@ -227,18 +227,49 @@ func TestCheckPermissions_EmptyDir(t *testing.T) {
 	tempHome := t.TempDir() // real OS dir, owned by test runner with 0700 perms
 	t.Setenv("HOME", tempHome)
 
+	// Pre-create the config dir with correct owner permissions. GetDefaultConfigDir
+	// is now pure (it never creates the directory), so the diagnostic check only
+	// passes when the dir already exists — directory creation is a write-time
+	// concern, not something a read-only doctor check should trigger.
+	fs := afero.NewOsFs()
+	configDir := setup.GetDefaultConfigDir(fs, "emptydirtest")
+	require.NoError(t, fs.MkdirAll(configDir, 0o700))
+
 	props := &p.Props{
-		FS:   afero.NewOsFs(), // real FS so GetDefaultConfigDir can create the dir
+		FS:   fs,
 		Tool: p.Tool{Name: "emptydirtest"},
 	}
 
 	result := checkPermissions(context.Background(), props)
 
-	// GetDefaultConfigDir creates <tempHome>/.emptydirtest with correct perms.
-	// An empty (just-created) config directory with the right owner permissions
-	// should pass the check.
+	// An empty config directory with the right owner permissions passes.
 	assert.Equal(t, CheckPass, result.Status)
 	assert.Contains(t, result.Message, "config dir:")
+}
+
+func TestCheckPermissions_MissingDirWarns(t *testing.T) {
+	// Not parallel: modifies HOME. With the pure GetDefaultConfigDir, merely
+	// running the diagnostic must NOT create ~/.toolname; a missing dir warns.
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+
+	fs := afero.NewOsFs()
+
+	props := &p.Props{
+		FS:   fs,
+		Tool: p.Tool{Name: "missingdirtest"},
+	}
+
+	result := checkPermissions(context.Background(), props)
+
+	assert.Equal(t, CheckWarn, result.Status)
+	assert.Contains(t, result.Message, "does not exist")
+
+	// The check must not have created the directory as a side effect.
+	configDir := setup.GetDefaultConfigDir(fs, "missingdirtest")
+	exists, err := afero.DirExists(fs, configDir)
+	require.NoError(t, err)
+	assert.False(t, exists, "the read-only check must not create the config dir")
 }
 
 func TestCheckPermissions_NonExistent(t *testing.T) {

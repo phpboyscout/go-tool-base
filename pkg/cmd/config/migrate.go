@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -616,6 +617,15 @@ const migratedConfigFilePerm = 0o600
 func writeConfigAtomic(fs afero.Fs, path string, data []byte) error {
 	if fs == nil {
 		fs = afero.NewOsFs()
+	}
+
+	// Create the parent dir lazily at first write — setup.GetDefaultConfigDir
+	// is pure and no longer creates ~/.toolname as a side effect.
+	const configDirPerm = 0o700
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := fs.MkdirAll(dir, configDirPerm); err != nil {
+			return errors.Wrap(err, "create config directory")
+		}
 	}
 
 	tmpPath := path + ".migrate.tmp"

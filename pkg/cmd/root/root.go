@@ -739,14 +739,22 @@ func ensureMinimalConfig(props *p.Props, v *viper.Viper, enabled bool) error {
 
 	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
 
+	// Create the config dir lazily at first write — setup.GetDefaultConfigDir
+	// is pure and no longer creates it as a side effect.
+	const configDirPerm = 0o700
+	if err := props.FS.MkdirAll(configDir, configDirPerm); err != nil {
+		return errors.Wrap(err, "failed to create config directory")
+	}
+
 	fresh := viper.New()
+	fresh.SetFs(props.FS)
 	fresh.SetConfigFile(configFile)
 	fresh.SetConfigType("yaml")
 	fresh.Set("telemetry.enabled", enabled)
 
 	v.SetConfigFile(configFile)
 
-	return fresh.WriteConfigAs(configFile)
+	return errors.Wrap(fresh.WriteConfigAs(configFile), "failed to write config")
 }
 
 // buildTelemetryCollector creates the appropriate telemetry collector based on

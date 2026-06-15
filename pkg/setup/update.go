@@ -148,6 +148,12 @@ func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey) erro
 		return nil
 	}
 
+	// Create the config dir lazily at first write — GetDefaultConfigDir is pure
+	// and no longer creates it as a side effect.
+	if err := fs.MkdirAll(configDir, dirPermUserOnly); err != nil {
+		return errors.Wrap(err, "failed to create config directory")
+	}
+
 	lastSinceFile := filepath.Join(configDir, fmt.Sprintf("last_%s", status))
 
 	if _, err := fs.Stat(lastSinceFile); os.IsNotExist(err) {

@@ -60,17 +60,22 @@ type InitOptions struct {
 // must treat an empty result as "no config dir" and skip any read/write
 // rather than joining it with a filename, which would otherwise resolve to
 // a relative path under the current working directory.
-func GetDefaultConfigDir(fs afero.Fs, name string) string {
+//
+// It is pure: it computes and returns the path only and never creates the
+// directory. Building the command tree (--help, completions, default flag
+// values) resolves this path, so a hidden MkdirAll here would create
+// ~/.toolname as a side effect of merely running --help. Directory creation is
+// deferred to the writers that actually persist a file under it (Initialise,
+// setTimeSinceLastIn, the config writers in pkg/cmd), each of which MkdirAlls
+// its parent at write time. The fs parameter is retained for API
+// compatibility and is unused.
+func GetDefaultConfigDir(_ afero.Fs, name string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil || homeDir == "" {
 		return ""
 	}
 
-	defaultConfigDir := filepath.Join(homeDir, fmt.Sprintf(".%s", strings.ToLower(name)))
-
-	_ = fs.MkdirAll(defaultConfigDir, dirPermUserOnly)
-
-	return defaultConfigDir
+	return filepath.Join(homeDir, fmt.Sprintf(".%s", strings.ToLower(name)))
 }
 
 // Initialise creates the default configuration file in the specified directory.

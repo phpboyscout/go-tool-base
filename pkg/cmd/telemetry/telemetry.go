@@ -193,9 +193,17 @@ func ensureConfigFile(p *props.Props, v *viper.Viper) error {
 
 	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
 
+	// Create the config dir lazily at first write — setup.GetDefaultConfigDir
+	// is pure and no longer creates it as a side effect.
+	const configDirPerm = 0o700
+	if err := p.FS.MkdirAll(configDir, configDirPerm); err != nil {
+		return errors.Wrap(err, "failed to create config directory")
+	}
+
 	// Create a fresh Viper with only the telemetry keys to avoid writing
 	// embedded defaults (GitHub auth, log config, etc.) into the user's config.
 	fresh := viper.New()
+	fresh.SetFs(p.FS)
 	fresh.SetConfigFile(configFile)
 	fresh.SetConfigType("yaml")
 	fresh.Set("telemetry.enabled", v.GetBool("telemetry.enabled"))
