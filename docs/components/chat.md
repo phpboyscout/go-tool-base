@@ -226,6 +226,8 @@ cfg := chat.Config{
 - Tool errors (handler errors, tool not found) are returned as error strings in the conversation, consistent with the sequential path — they do not abort the ReAct loop.
 - Bounded by `MaxParallelTools` (default 5) to prevent goroutine storms when the AI returns many calls at once.
 
+**Tool handler panics become tool-error content.** Tool handlers run model-generated, potentially adversarial input. A handler that panics is recovered and converted to a tool-error string (`Error: tool handler panicked: <value>`) that is fed back to the model as conversation content — exactly like a returned `error` — rather than crashing the process. This holds for **both** the sequential and the parallel dispatch paths (in the parallel path the handler runs in a bare goroutine, where an unrecovered panic would otherwise be fatal). The recovered value is also logged at `Error` level. Handlers should still return errors explicitly where possible; the recover is a safety net, not a substitute for error handling.
+
 **Thread safety:** tool handlers receive independent `json.RawMessage` inputs and return independent results. Parallel execution is safe as long as individual handlers do not share mutable state without synchronization.
 
 ### Multi-Turn Conversations

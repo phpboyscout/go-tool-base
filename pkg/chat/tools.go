@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/cockroachdb/errors"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -76,6 +78,11 @@ func dispatchToolExecution(ctx context.Context, l logger.Logger, tools map[strin
 // marshalled. Errors at any stage are returned as formatted error strings suitable
 // for feeding back into the AI conversation (matching existing provider behaviour
 // where tool errors become conversation content rather than aborting the ReAct loop).
+//
+// A tool handler that panics — handlers run model-generated, adversarial input —
+// is recovered and converted to a tool-error string rather than crashing the
+// process. This holds for both the serial and the parallel dispatch paths, since
+// both route through executeTool.
 func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, name string, input json.RawMessage) string {
 	l.Info("Tool Call", "tool", name)
 	l.Debug("Tool Parameters", "tool", name, "args", input)
@@ -87,7 +94,7 @@ func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, na
 		return fmt.Sprintf("Error: Tool %s not found", name)
 	}
 
-	out, err := tool.Handler(ctx, input)
+	out, err := callToolHandler(ctx, l, tool, name, input)
 	if err != nil {
 		// Keep the repair loop readable: the message (build/test/lint output)
 		// goes to WARN, and the full wrapped error with its stack trace only to
@@ -115,4 +122,23 @@ func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, na
 	l.Info("Tool executed successfully", "tool", name)
 
 	return string(b)
+}
+
+// callToolHandler invokes the tool handler with panic recovery. A panicking
+// handler (recall handlers run model-generated input) is converted into a
+// returned error so executeTool feeds it back to the model as tool-error
+// content, matching the documented "errors become conversation content"
+// behaviour, rather than unwinding the stack and crashing the process — which
+// in the parallel path runs in a bare goroutine and would be fatal.
+func callToolHandler(ctx context.Context, l logger.Logger, tool Tool, name string, input json.RawMessage) (out any, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			l.Error("Tool handler panicked", "tool", name, "panic", r)
+
+			out = nil
+			err = errors.Errorf("tool handler panicked: %v", r)
+		}
+	}()
+
+	return tool.Handler(ctx, input)
 }

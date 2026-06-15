@@ -58,6 +58,76 @@ func TestExecuteTool_HandlerError(t *testing.T) {
 	assert.Contains(t, result, assert.AnError.Error())
 }
 
+func TestExecuteTool_HandlerPanicRecovered(t *testing.T) {
+	t.Parallel()
+
+	tools := map[string]Tool{
+		"boom": {
+			Name: "boom",
+			Handler: func(_ context.Context, _ json.RawMessage) (any, error) {
+				panic("kaboom")
+			},
+		},
+	}
+
+	// A panicking handler must not crash the process; it is converted into a
+	// tool-error string so the model can react to it.
+	result := executeTool(context.Background(), testLogger(), tools, "boom", nil)
+	assert.Contains(t, result, "Error:")
+	assert.Contains(t, result, "panic")
+	assert.Contains(t, result, "kaboom")
+}
+
+func TestDispatchToolExecution_PanicRecoveredSerialAndParallel(t *testing.T) {
+	t.Parallel()
+
+	tools := map[string]Tool{
+		"boom": {
+			Name: "boom",
+			Handler: func(_ context.Context, _ json.RawMessage) (any, error) {
+				panic("kaboom")
+			},
+		},
+		"ok": {
+			Name: "ok",
+			Handler: func(_ context.Context, _ json.RawMessage) (any, error) {
+				return "fine", nil
+			},
+		},
+	}
+
+	calls := []ToolCall{
+		{Name: "boom"},
+		{Name: "ok"},
+	}
+
+	tests := []struct {
+		name     string
+		parallel bool
+	}{
+		{name: "serial", parallel: false},
+		{name: "parallel", parallel: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// The whole batch must complete: the panic in "boom" becomes a
+			// tool-error string and "ok" still runs — the loop is not aborted.
+			results := dispatchToolExecution(context.Background(), testLogger(), tools, calls, tt.parallel, 0)
+			require.Len(t, results, 2)
+
+			assert.Equal(t, "boom", results[0].Name)
+			assert.Contains(t, results[0].Result, "panic")
+			assert.Contains(t, results[0].Result, "kaboom")
+
+			assert.Equal(t, "ok", results[1].Name)
+			assert.Equal(t, "fine", results[1].Result)
+		})
+	}
+}
+
 func TestExecuteTool_NonStringResult(t *testing.T) {
 	t.Parallel()
 
