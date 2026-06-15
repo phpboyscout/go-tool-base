@@ -21,6 +21,8 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Error Handling](error-handling.md)** | `pkg/errorhandling` | Centralized error reporting and formatting, ensuring consistent exit codes and log output. |
 | **[Output](output.md)** | `pkg/output` | Dual-format (text/JSON) structured output for scriptable CLI commands. |
 | **[Version](version.md)** | `pkg/version` | Semantic version parsing, comparison, and development-build detection. |
+| **[Errors](errors.md)** | `pkg/...` | Catalogue of sentinel errors defined across GTB packages, with descriptions and handling guidance. |
+| **[Changelog](changelog.md)** | `pkg/changelog` | Parse conventional-commit release notes into categorised change summaries. |
 
 ## Advanced Features
 
@@ -28,12 +30,29 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | :--- | :--- | :--- |
 | **[Controls](controls.md)** | `pkg/controls` | Service orchestration and lifecycle management for long-running processes (e.g., servers, watchers). |
 | **[Setup](setup/index.md)** | `pkg/setup` | bootstrapping logic for tool initialization, including GitHub authentication and self-updates. |
-| **[VCS](vcs/index.md)** | `pkg/vcs/...` | Git operations, GitHub/GitLab API clients, and backend-agnostic release provider. |
+| **[VCS](vcs/index.md)** | `pkg/vcs/...` | Git operations, GitHub/GitLab API clients, and backend-agnostic release provider. (See also the [Version Control](version-control.md) redirect page.) |
 | **[Chat](chat.md)** | `pkg/chat` | Multi-provider AI client (OpenAI, Anthropic, Gemini) for building intelligent features. |
 | **[Telemetry](telemetry.md)** | `pkg/telemetry` | Opt-in, consent-gated product analytics with pluggable backends (OTLP, PostHog, Datadog), bounded buffering and GDPR deletion. Distinct from web-service **[Observability](observability.md)**. |
 | **[Docs](docs.md)** | `pkg/docs` | Logic for the interactive TUI documentation browser. |
 | **[Forms](forms.md)** | `pkg/forms` | Multi-step interactive CLI form helpers with Escape-to-go-back navigation, built on charmbracelet/huh. |
 | **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
+| **[Workspace](workspace.md)** | `pkg/workspace` | Project root detection by walking up from the current directory to find marker files. |
+
+## Security & Credentials
+
+| Component | Package | Description |
+| :--- | :--- | :--- |
+| **[Credentials](credentials.md)** | `pkg/credentials` | Storage-mode taxonomy for user-supplied secrets (API keys, VCS tokens), shared by the setup wizard, config masking, doctor checks, and runtime resolvers. |
+| **[Redact](redact.md)** | `pkg/redact` | Pattern-based credential stripping for strings shipped to telemetry, distributed logs, and third-party observability surfaces. |
+| **[Browser](browser.md)** | `pkg/browser` | The single validated entry point for opening URLs — enforces a scheme allowlist, URL-length bound, and control-character rejection before invoking the OS handler. |
+| **[Regexutil](regexutil.md)** | `pkg/regexutil` | DoS-safe wrappers around `regexp.Compile` for user- or config-supplied patterns, with a byte-length cap and compile timeout. |
+
+## Release Signing
+
+| Component | Package | Description |
+| :--- | :--- | :--- |
+| **[Signing](signing.md)** | `pkg/signing` | Backend registry letting `gtb keys mint` and downstream tools target arbitrary HSM/KMS/keyring back-ends through a single `Backend` interface. |
+| **[OpenPGP Key](openpgpkey.md)** | `pkg/openpgpkey` | OpenPGP packet assembly from a `crypto.Signer`, wrapping an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. |
 
 ## Web Service
 

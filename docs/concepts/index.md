@@ -46,14 +46,26 @@ Understand how defaults, files, environment variables, and flags merge to create
 ### [Universal Asset Management](asset-management.md)
 Explore embedded assets, multi-filesystem merging, and how the framework manages structured data across the application.
 
+### [Asset Management](assets.md)
+A focused look at embedded assets, virtual filesystems, and configuration merging.
+
 ### [Integrated Documentation](integrated-docs.md)
 Learn about the CLI-first documentation browser and AI-powered Q&A system.
 
 ### [Tool Initialisers & Feature Setup](feature-setup.md)
 Understand the architecture of modular features, self-registration, and initialisation logic.
 
+### [Tool Initialisers](initialisers.md)
+A deeper look at the Initialiser pattern for modular, self-registering feature configuration.
+
+### [Command Middleware System](command-middleware.md)
+Understand the middleware chain pattern for cross-cutting CLI command concerns.
+
 ### [Auto-Update Lifecycle](auto-update.md)
 Learn how the framework manages throttled version checks and atomic binary replacement.
+
+### [Release-binary Signing](release-binary-signing.md)
+How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI — without anyone holding a private key on their laptop.
 
 ### [VCS & Repository Abstraction](vcs-repositories.md)
 Explore the polymorphic repository strategy and unified GitHub automation API.
