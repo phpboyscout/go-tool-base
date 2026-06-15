@@ -29,12 +29,12 @@ func NewCmdProject(p *props.Props) *cobra.Command {
 		Short: "Regenerate project from manifest",
 		Long: `Regenerate all command registration files (cmd.go) based on the manifest.yaml.
 Does not overwrite implementation files (main.go) unless --force is provided.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if cmd.Flags().Changed("wrap-subcommands") {
 				opts.WrapSubcommands = &wrapSubcommandsFlag
 			}
 
-			p.ErrorHandler.Fatal(opts.Run(cmd.Context(), p))
+			return opts.Run(cmd.Context(), p)
 		},
 	}
 

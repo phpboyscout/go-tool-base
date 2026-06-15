@@ -18,8 +18,8 @@ func NewCmdGenerate(p *props.Props) *setup.Command {
 		Use:   "generate",
 		Short: "Scaffold new projects or commands",
 		Long:  `Scaffold new projects (skeletons) or add new commands to existing gtb projects.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = cmd.Usage()
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Usage()
 		},
 	}
 

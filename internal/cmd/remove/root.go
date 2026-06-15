@@ -12,8 +12,8 @@ func NewCmdRemove(p *props.Props) *setup.Command {
 		Use:   "remove",
 		Short: "Remove components from the project",
 		Long:  `Remove commands or other components from an existing gtb project.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = cmd.Usage()
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return cmd.Usage()
 		},
 	}
 

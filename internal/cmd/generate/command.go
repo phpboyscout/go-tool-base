@@ -125,8 +125,10 @@ Examples:
   # Temporarily unprotect a command to allow overwrite
   gtb generate command -n sensible --protected=false --force
 `,
-		Run: func(cmd *cobra.Command, args []string) {
-			p.ErrorHandler.Fatal(opts.ValidateOrPrompt())
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := opts.ValidateOrPrompt(); err != nil {
+				return err
+			}
 
 			// Handle tri-state protected flag
 			if cmd.Flags().Changed("protected") {
@@ -137,7 +139,7 @@ Examples:
 				opts.WrapSubcommands = &wrapSubcommandsFlag
 			}
 
-			p.ErrorHandler.Fatal(opts.Run(cmd.Context(), p))
+			return opts.Run(cmd.Context(), p)
 		},
 	}
 
@@ -178,15 +180,16 @@ func NewCmdProtect(p *props.Props) *cobra.Command {
 		Use:   "protect [command-path]",
 		Short: "Protect a command from being overwritten",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			gen := generator.New(p, &generator.Config{Path: path})
 
-			err := gen.SetProtection(cmd.Context(), args[0], true)
-			if err != nil {
-				p.ErrorHandler.Fatal(err)
+			if err := gen.SetProtection(cmd.Context(), args[0], true); err != nil {
+				return err
 			}
 
 			p.Logger.Infof("Command '%s' is now protected", args[0])
+
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&path, "path", "p", ".", "Path to project root")
@@ -201,15 +204,16 @@ func NewCmdUnprotect(p *props.Props) *cobra.Command {
 		Use:   "unprotect [command-path]",
 		Short: "Unprotect a command to allow overwriting",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			gen := generator.New(p, &generator.Config{Path: path})
 
-			err := gen.SetProtection(cmd.Context(), args[0], false)
-			if err != nil {
-				p.ErrorHandler.Fatal(err)
+			if err := gen.SetProtection(cmd.Context(), args[0], false); err != nil {
+				return err
 			}
 
 			p.Logger.Warnf("Command '%s' is now unprotected", args[0])
+
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&path, "path", "p", ".", "Path to project root")

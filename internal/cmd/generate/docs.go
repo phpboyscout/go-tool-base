@@ -32,8 +32,8 @@ Examples:
   # Generate docs for a command
   gtb generate docs --path ./internal/cmd/mycmd
 `,
-		Run: func(cmd *cobra.Command, args []string) {
-			p.ErrorHandler.Fatal(opts.Run(cmd.Context(), p))
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return opts.Run(cmd.Context(), p)
 		},
 	}
 

@@ -21,8 +21,8 @@ func NewCmdManifest(p *props.Props) *cobra.Command {
 		Use:   "manifest",
 		Short: "Regenerate manifest from source code",
 		Long:  `Scan the project for cobra.Command definitions and rebuild the manifest.yaml file.`,
-		Run: func(cmd *cobra.Command, args []string) {
-			p.ErrorHandler.Fatal(opts.Run(cmd.Context(), p))
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return opts.Run(cmd.Context(), p)
 		},
 	}
 
