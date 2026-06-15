@@ -44,6 +44,11 @@ type ToolMetadataProvider interface {
 	GetTool() Tool
 }
 
+// TelemetryProvider provides access to the telemetry collector.
+type TelemetryProvider interface {
+	GetCollector() TelemetryCollector
+}
+
 // LoggingConfigProvider is the most common combination — logging and configuration.
 type LoggingConfigProvider interface {
 	LoggerProvider
@@ -66,6 +71,7 @@ var (
 	_ VersionProvider       = (*Props)(nil)
 	_ ErrorHandlerProvider  = (*Props)(nil)
 	_ ToolMetadataProvider  = (*Props)(nil)
+	_ TelemetryProvider     = (*Props)(nil)
 	_ LoggingConfigProvider = (*Props)(nil)
 	_ CoreProvider          = (*Props)(nil)
 )

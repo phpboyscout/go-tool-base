@@ -46,3 +46,7 @@ func (p *Props) GetErrorHandler() errorhandling.ErrorHandler { return p.ErrorHan
 
 // GetTool returns the tool metadata.
 func (p *Props) GetTool() Tool { return p.Tool }
+
+// GetCollector returns the telemetry collector. It is always non-nil once the
+// root command tree is built, so consumers may call it unconditionally.
+func (p *Props) GetCollector() TelemetryCollector { return p.Collector }

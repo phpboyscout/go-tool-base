@@ -154,6 +154,7 @@ Props provides narrow role-based interfaces that `*Props` satisfies. When writin
 | `VersionProvider` | `GetVersion()` | You only need version info |
 | `ErrorHandlerProvider` | `GetErrorHandler()` | You only need error handling |
 | `ToolMetadataProvider` | `GetTool()` | You only need tool metadata |
+| `TelemetryProvider` | `GetCollector()` | You only need the telemetry collector |
 | `LoggingConfigProvider` | `GetLogger()`, `GetConfig()` | You need logging + config |
 | `CoreProvider` | `GetLogger()`, `GetConfig()`, `GetFS()` | You need the three most common capabilities |
 
