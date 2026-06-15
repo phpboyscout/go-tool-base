@@ -1,7 +1,7 @@
 ---
 title: "Improve the generated project's default README.md"
 description: "The generator's scaffolded README.md is a four-section stub (title, one-line, go install, --help). Replace the embedded default with a richer, GENERIC starter README that orients an engineer arriving at a freshly generated project: what it is, prerequisites, install, build & run via the scaffold's own just recipes, a Develop section (project layout, the .gtb/manifest.yaml + generate/regenerate model, config & env prefix), Documentation, Releasing, Contributing/conventions, and links into the GTB docs. Every command and path it references must actually exist in the scaffold; user-influenced values keep the existing escapeMarkdown/escapeMarkdownCodeBlock pipes; a custom-overlay can still override it."
-status: DRAFT
+status: APPROVED
 date: 2026-06-15
 tags:
   - specification
@@ -26,7 +26,7 @@ Date
 :   2026-06-15
 
 Status
-:   DRAFT
+:   APPROVED (open questions resolved in review 2026-06-15)
 
 ## Summary
 
@@ -132,8 +132,12 @@ scaffold actually ships.
      detected as a conflict on the next run). No fields (static).
    - **Config & env prefix**: configuration precedence and the
      `{{ .EnvPrefix }}` environment-variable prefix for overrides. Uses
-     `.EnvPrefix`. (Optionally surface the enabled feature set from
-     `.EnabledFeatures` / which built-ins are active.)
+     `.EnvPrefix`.
+   - **Enabled built-ins**: a brief list of the active built-in commands rendered
+     from `.EnabledFeatures`, via a small inline key→readable-name mapping in the
+     template (`ai`→"AI chat", `config`→"Config management",
+     `telemetry`→"Telemetry", `docs`→"Embedded docs", …). No large new computed
+     data-struct field is required (resolved O2).
 
 7. **Documentation.** The bundled `zensical.toml` docs site and `docs/` — author
    serves locally with `just docs-serve` (real recipe → `zensical serve`). Uses
@@ -144,16 +148,20 @@ scaffold actually ships.
    scaffolded CI (`.goreleaser.yaml` + the provider CI under `.github/` or
    `.gitlab/`), conventional-commit driven, with a link out to the deeper GTB
    release how-to rather than reproducing it. Uses `.ReleaseProvider` to pick
-   GitHub-vs-GitLab phrasing/links (already in the data). Whether this section
-   ships by default is an [open question](#open-questions).
+   GitHub-vs-GitLab phrasing/links (already in the data). This section ships by
+   default as a brief paragraph plus a `.ReleaseProvider`-driven link out, not
+   reproduced CI detail (resolved O3).
 
 9. **Contributing / conventions.** Conventional Commits, run `just ci` before a
    PR, and the regen-owned-files caveat restated. Static.
 
 10. **Links / "go deeper".** A short list of GTB documentation links (framework
     README, generator/regenerate concepts, config & env-prefix, testing,
-    releasing) so a developer can dig in. Static links; exact targets are an
-    [open question](#open-questions).
+    releasing) so a developer can dig in. Static links standardised on GTB's
+    published documentation site (the zensical-pages docs site), falling back to
+    the `gitlab.com/phpboyscout/go-tool-base` repo where a page isn't published;
+    the exact site URL is read from the framework's `zensical.toml`/pages config
+    (resolved O4).
 
 ### Template data fields already available
 
@@ -170,17 +178,17 @@ via `generateSkeletonTemplateFiles` / `walkSkeletonAssets`:
 | `.Host`, `.Org`, `.RepoName` | Links, ownership phrasing |
 | `.GoVersion` | Prerequisites (Go version) |
 | `.EnvPrefix` | Config / env-prefix section |
-| `.EnabledFeatures`, `.DisabledFeatures` | Optionally list active built-ins |
+| `.EnabledFeatures`, `.DisabledFeatures` | "Enabled built-ins" list (via inline key→name map; resolved O2) |
 | `.ReleaseProvider` | GitHub-vs-GitLab Releasing phrasing |
 
-**No NEW data-struct field is strictly required** — the richer README is
-achievable with the existing contract. This is a deliberate scoping win: the
-change is template-text-only. The single accuracy correction (install path under
-`cmd/<name>`) is also expressible with existing fields (`.ModulePath`, `.Name`).
-The only *candidate* additions, both optional and called out as open questions,
-are: surfacing `.EnabledFeatures` as a human-readable feature list, and a
-convenience `.BinaryPath`-style field (purely cosmetic — derivable inline as
-`cmd/{{ .Name }}`).
+**No NEW data-struct field is required** — the richer README is achievable with
+the existing contract. This is a deliberate scoping win: the change is
+template-text-only. The single accuracy correction (install path under
+`cmd/<name>`) is expressible with existing fields (`.ModulePath`, `.Name`). The
+"Enabled built-ins" list (resolved O2) is rendered with a small inline
+key→readable-name map over `.EnabledFeatures` in the template — no large new
+computed field. A convenience `.BinaryPath`-style field is deliberately not
+added (purely cosmetic — derivable inline as `cmd/{{ .Name }}`).
 
 ## Design decisions
 
@@ -202,11 +210,11 @@ The recipe names are taken verbatim from
 `snapshot`, `cleanup`). Paths are taken from `generateSkeletonGoFiles` /
 `generateSkeletonTemplateFiles` (`cmd/<name>/main.go`, `pkg/cmd/root/...`,
 `pkg/cmd/root/assets/init/config.yaml`, `internal/version/`, `.gtb/manifest.yaml`,
-`docs/`, `zensical.toml`). The verification plan asserts this. Feature-gated
-references (e.g. `just docs-serve` only meaningful when the `docs` feature is
-on, AI/config/telemetry built-ins) are either always-true for the default
-scaffold or conditionalised with `{{ if … }}` against `.EnabledFeatures` /
-`.DisabledFeatures` — see [open questions](#open-questions).
+`docs/`, `zensical.toml`). The verification plan asserts this. The
+`just` recipes always exist regardless of feature flags, so the template stays
+**branch-free**: it simply avoids referencing feature-gated *tool subcommands* in
+the README, and no `{{ if … }}` guards against `.EnabledFeatures` /
+`.DisabledFeatures` are needed (resolved O5).
 
 ### D3 — Escaping (unchanged discipline)
 
@@ -216,10 +224,10 @@ template and its siblings: `| escapeMarkdown` for prose interpolation
 fenced code blocks (`.ModulePath`, `.Repo`, `.Name` in `go install` / shell
 lines), per `internal/generator/template_escape.go` and
 `docs/development/template-security.md`. No new user-facing field class is
-introduced, so no new escaper is needed; the markdown table cells that
-interpolate user values use `escapeMarkdown` (and must guard pipe characters —
-an [open question](#open-questions) on whether table interpolation needs a
-dedicated cell escaper or should avoid putting user values in tables).
+introduced, so no new escaper is needed. User values are **not** interpolated
+into markdown table cells — they stay in prose/code-fence contexts already
+covered by the existing escapers — so no dedicated pipe-guarding cell escaper is
+required (resolved O6).
 
 ### D4 — Regeneration / hash interaction
 
@@ -270,6 +278,9 @@ design centre.
    product copy the author must delete. Proposed: one clearly-marked "What is
    this?" placeholder block, everything else accurate framework prose.
 
+   *Resolved (2026-06-15):* one clearly-marked "What is this?" placeholder block
+   for the author's product blurb; everything else is accurate framework prose.
+
 2. **O2 — Expose `.EnabledFeatures` as a human list?** All raw fields needed are
    already exposed. Should we additionally render a friendly "Enabled built-ins"
    list (mapping `ai`/`config`/`telemetry`/`docs`/… to readable names) — which
@@ -277,12 +288,24 @@ design centre.
    feature list from the README entirely? Default leaning: omit for v1
    (keep template-text-only), revisit if requested.
 
+   *Resolved (2026-06-15):* **include** a brief "Enabled built-ins" list rendered
+   from `.EnabledFeatures`, kept simple — a small inline key→readable-name mapping
+   in the template (e.g. `ai`→"AI chat", `config`→"Config management",
+   `telemetry`→"Telemetry", `docs`→"Embedded docs", …); no large new computed
+   data-struct field is required. This is the one spot worth a touch more than
+   pure static text, because it directly serves the "better jumping-off point"
+   goal.
+
 3. **O3 — Ship a Releasing/CI section by default?** Releasing detail is
    provider-specific and largely covered by the
    [gitlab-ci-refresh spec](2026-06-15-generator-gitlab-ci-refresh.md) and the
    GitHub workflow scaffold. Should the README carry a brief Releasing paragraph
    (with a `.ReleaseProvider`-driven link out) or just a single "see CI" line to
    avoid drift? Proposed: a brief paragraph + link, not reproduced detail.
+
+   *Resolved (2026-06-15):* a **brief Releasing paragraph + a
+   `.ReleaseProvider`-driven link out**, not reproduced CI detail (avoids drift
+   with the gitlab-ci-refresh spec).
 
 4. **O4 — Doc-link targets.** Which GTB doc URLs does the "go deeper" list point
    at, and are they stable enough to hard-code? (Framework README, generator /
@@ -292,6 +315,14 @@ design centre.
    `gitlab.com/phpboyscout/go-tool-base` and a `pages.gitlab.com/...` host —
    pick one).
 
+   *Resolved (2026-06-15):* standardise the "go deeper" links on **GTB's
+   published documentation site (the zensical-pages docs site), falling back to
+   the `gitlab.com/phpboyscout/go-tool-base` repo** where a page isn't published.
+   Resolve the scaffold's current two-host inconsistency in favour of the
+   published docs site. The implementation reads the exact site URL from the
+   framework's `zensical.toml`/pages config; the canonical target is the
+   published GTB docs site, with the repo as fallback.
+
 5. **O5 — Conditionalise feature-gated references?** Should mentions of
    feature-gated tooling (e.g. `just docs-serve`/docs when the `docs` built-in
    is disabled) be wrapped in `{{ if … }}` against `.DisabledFeatures`, or is the
@@ -299,16 +330,29 @@ design centre.
    readability? Proposed: keep branch-free unless a referenced command can
    genuinely be absent.
 
+   *Resolved (2026-06-15):* **keep the template branch-free** — the `just`
+   recipes always exist regardless of feature flags; simply avoid referencing
+   feature-gated *tool subcommands* in the README, so no `{{ if … }}` is needed.
+
 6. **O6 — Markdown-table escaping.** If user values (`.Name`, `.Description`)
    appear in a markdown table, do we need a cell-safe escaper (pipe-guarding) or
    should the template simply avoid interpolating user values into table cells?
    Proposed: avoid user values in tables; keep them in prose/code-fence contexts
    already covered by existing escapers.
 
+   *Resolved (2026-06-15):* **avoid user values in tables** — keep `.Name` /
+   `.Description` in prose/code-fence contexts already covered by the existing
+   `escapeMarkdown` / `escapeMarkdownCodeBlock` pipes; no dedicated cell escaper
+   is introduced.
+
 7. **O7 — Correct the install path.** Confirm switching the install example to
    `cmd/<name>` (the actual `main` package location) — the current
    `go install {{ .Repo }}@latest` points at the module root, which has no
    `main`. This is an accuracy fix bundled into the README rework.
+
+   *Resolved (2026-06-15):* **yes, correct it** to
+   `go install <module>/cmd/<name>@latest` (the actual `main` package location);
+   the current module-root path has no `main`. Bundled into the README rework.
 
 ## Verification plan
 
