@@ -2,6 +2,8 @@ package generator
 
 import (
 	"context"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -212,4 +214,127 @@ func TestRunSkeletonCommand(t *testing.T) {
 	ctx := context.Background()
 	err := g.runSkeletonCommand(ctx, ".", "echo", "hello")
 	assert.NoError(t, err)
+}
+
+// generateReadmeFixture scaffolds a project with the given features and
+// returns the rendered README and justfile contents.
+func generateReadmeFixture(t *testing.T, cfg SkeletonConfig) (readme, justfile string) {
+	t.Helper()
+
+	fs := afero.NewMemMapFs()
+	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
+
+	g := New(p, &Config{})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {
+		return []byte("done"), nil
+	}
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), cfg))
+
+	readmeBytes, err := afero.ReadFile(fs, cfg.Path+"/README.md")
+	require.NoError(t, err)
+
+	justBytes, err := afero.ReadFile(fs, cfg.Path+"/justfile")
+	require.NoError(t, err)
+
+	return string(readmeBytes), string(justBytes)
+}
+
+// TestSkeletonReadme_Accuracy guards the richer default README against the
+// accuracy constraint from the generated-README spec: no leftover template
+// delimiters, the install path points at cmd/<name> (the real main package),
+// per-project fields are substituted, and every `just <recipe>` it names is
+// actually defined in the rendered justfile.
+func TestSkeletonReadme_Accuracy(t *testing.T) {
+	t.Parallel()
+
+	readme, justfile := generateReadmeFixture(t, SkeletonConfig{
+		Name:        "myapp",
+		Repo:        "acme/myapp",
+		Host:        "gitlab.com",
+		Description: "A sample tool",
+		Path:        "/work",
+		EnvPrefix:   "MYAPP",
+		Features: []ManifestFeature{
+			{Name: "init", Enabled: true},
+			{Name: "docs", Enabled: true},
+		},
+	})
+
+	// No leftover template delimiters anywhere in the rendered README.
+	assert.NotContains(t, readme, "{{", "README still contains unrendered template delimiters")
+	assert.NotContains(t, readme, "}}", "README still contains unrendered template delimiters")
+
+	// Install path uses the real main package location, cmd/<name>.
+	assert.Contains(t, readme, "go install gitlab.com/acme/myapp/cmd/myapp@latest")
+	assert.NotContains(t, readme, "go install gitlab.com/acme/myapp@latest",
+		"README must not install the module root, which has no main package")
+
+	// Per-project field substitution.
+	assert.Contains(t, readme, "# myapp")
+	assert.Contains(t, readme, "A sample tool")
+	assert.Contains(t, readme, "MYAPP_LOG_LEVEL")
+	assert.Contains(t, readme, "./bin/myapp --help")
+
+	// Fenced code blocks are balanced.
+	assert.Equal(t, 0, strings.Count(readme, "```")%2, "unbalanced ``` fences in README")
+
+	// Every `just <recipe>` the README names must exist in the justfile.
+	recipeRe := regexp.MustCompile(`just ([a-z][a-z-]*)`)
+	defined := func(name string) bool {
+		return regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(name) + `:`).MatchString(justfile)
+	}
+
+	seen := map[string]bool{}
+	for _, m := range recipeRe.FindAllStringSubmatch(readme, -1) {
+		recipe := m[1]
+		if seen[recipe] {
+			continue
+		}
+
+		seen[recipe] = true
+
+		assert.Truef(t, defined(recipe),
+			"README references `just %s` but no such recipe is defined in the justfile", recipe)
+	}
+
+	require.NotEmpty(t, seen, "expected the README to reference at least one just recipe")
+}
+
+// TestSkeletonReadme_EnabledBuiltins exercises the inline feature->name map:
+// with no opt-in features the README states none are enabled; with opt-in
+// features enabled it lists their readable names.
+func TestSkeletonReadme_EnabledBuiltins(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no opt-in features", func(t *testing.T) {
+		t.Parallel()
+
+		readme, _ := generateReadmeFixture(t, SkeletonConfig{
+			Name: "plain", Repo: "acme/plain", Host: "github.com",
+			Description: "Plain tool", Path: "/work", EnvPrefix: "PLAIN",
+			Features: []ManifestFeature{{Name: "docs", Enabled: true}},
+		})
+
+		assert.Contains(t, readme, "No opt-in built-ins")
+		assert.NotContains(t, readme, "**AI chat**")
+	})
+
+	t.Run("opt-in features enabled", func(t *testing.T) {
+		t.Parallel()
+
+		readme, _ := generateReadmeFixture(t, SkeletonConfig{
+			Name: "rich", Repo: "acme/rich", Host: "github.com",
+			Description: "Rich tool", Path: "/work", EnvPrefix: "RICH",
+			Features: []ManifestFeature{
+				{Name: "ai", Enabled: true},
+				{Name: "config", Enabled: true},
+				{Name: "telemetry", Enabled: true},
+			},
+		})
+
+		assert.Contains(t, readme, "**AI chat**")
+		assert.Contains(t, readme, "**Config management**")
+		assert.Contains(t, readme, "**Telemetry**")
+	})
 }

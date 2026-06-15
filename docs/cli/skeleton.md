@@ -46,7 +46,7 @@ my-awesome-tool/
 ├── pkg/cmd/root/cmd.go         # The Root: Setup and registration of all commands
 ├── docs/                       # Documentation: Your project's documentation site
 ├── go.mod                      # Dependencies: Uses Go 1.24+ tool directives
-└── README.md                   # Welcome: Basic info about your new tool
+└── README.md                   # Onboarding: install, build, develop, and links into GTB docs
 ```
 
 ### The Generated Root Command
@@ -135,6 +135,23 @@ func main() {
 ```
 
 `pkgRoot.Execute` silences Cobra's own error printing and routes any error returned from `RunE` through `ErrorHandler.Check` at fatal level. There is no need for an `os.Exit` call in `main.go`.
+
+### The Generated README
+
+The scaffold ships a rich, **generic** `README.md` that orients a newcomer: the
+install command (`go install <module>/cmd/<name>@latest`), the `just` build/run
+recipes, a Develop section (project layout, the `.gtb/manifest.yaml` regeneration
+model, config and the environment-variable prefix), an "Enabled built-ins" list,
+Releasing, and links into the GTB documentation site. Every command and path it
+mentions exists in the generated tree.
+
+Only one block is a placeholder: the **"What is this?"** section. Replace it with
+your product's description — everything else is accurate framework prose you can
+keep or trim. Because the README is hash-tracked in `.gtb/manifest.yaml`, the
+README is *yours to edit*: a later `gtb regenerate` detects your edit as a
+conflict and prompts before overwriting it, so your product blurb survives
+regeneration. An organisation that wants a house-style README can supply one via
+a [template overlay](command.md), which replaces this embedded default.
 
 ## How to run it
 

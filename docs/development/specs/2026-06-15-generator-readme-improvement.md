@@ -1,7 +1,7 @@
 ---
 title: "Improve the generated project's default README.md"
 description: "The generator's scaffolded README.md is a four-section stub (title, one-line, go install, --help). Replace the embedded default with a richer, GENERIC starter README that orients an engineer arriving at a freshly generated project: what it is, prerequisites, install, build & run via the scaffold's own just recipes, a Develop section (project layout, the .gtb/manifest.yaml + generate/regenerate model, config & env prefix), Documentation, Releasing, Contributing/conventions, and links into the GTB docs. Every command and path it references must actually exist in the scaffold; user-influenced values keep the existing escapeMarkdown/escapeMarkdownCodeBlock pipes; a custom-overlay can still override it."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-15
 tags:
   - specification
@@ -26,7 +26,7 @@ Date
 :   2026-06-15
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-15)
+:   IMPLEMENTED (open questions resolved in review 2026-06-15; embedded default README template rewritten and tested 2026-06-15 — install path corrected to `cmd/<name>`, "go deeper" links standardised on the published GTB docs site `https://phpboyscout.gitlab.io/go-tool-base/`)
 
 ## Summary
 
