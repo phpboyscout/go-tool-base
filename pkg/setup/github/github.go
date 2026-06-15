@@ -350,15 +350,16 @@ func (g *GitHubInitialiser) runEnvVarAuth(p *props.Props, fCfg *authFormConfig, 
 
 // captureToken runs OAuth, falling back to manual entry if the OAuth
 // device flow can't launch a browser.
-func (g *GitHubInitialiser) captureToken(p *props.Props) (string, error) {
-	p.Logger.Info("Logging into Github", "host", GitHubHost)
+func (g *GitHubInitialiser) captureToken(p props.LoggerProvider) (string, error) {
+	log := p.GetLogger()
+	log.Info("Logging into Github", "host", GitHubHost)
 
 	token, err := g.loginFunc(GitHubHost)
 	if err == nil {
 		return token, nil
 	}
 
-	p.Logger.Warn("GitHub OAuth flow unavailable, falling back to manual token entry",
+	log.Warn("GitHub OAuth flow unavailable, falling back to manual token entry",
 		"reason", err)
 
 	return promptManualGitHubToken(GitHubHost)

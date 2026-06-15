@@ -128,12 +128,13 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 	return targetFile, nil
 }
 
-func mergeExtraConfig(props *props.Props, cfg *viper.Viper) error {
-	if props.Assets == nil {
+func mergeExtraConfig(p props.AssetProvider, cfg *viper.Viper) error {
+	assets := p.GetAssets()
+	if assets == nil {
 		return nil
 	}
 
-	f, err := props.Assets.Open(filepath.Join("assets/init", DefaultConfigFilename))
+	f, err := assets.Open(filepath.Join("assets/init", DefaultConfigFilename))
 	if err != nil {
 		return nil
 	}

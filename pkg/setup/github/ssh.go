@@ -365,8 +365,8 @@ func generateKey(props *props.Props, cfg config.Containable, opts ...GenerateKey
 	return keypath, err
 }
 
-func uploadSSHKeyToGitHub(props *props.Props, cfg config.Containable, keyname string, publicKey []byte, clientFactory func(config.Containable) (githubvcs.GitHubClient, error)) error {
-	props.Logger.Info("Uploading SSH public key to Github", "key", string(publicKey))
+func uploadSSHKeyToGitHub(p props.LoggerProvider, cfg config.Containable, keyname string, publicKey []byte, clientFactory func(config.Containable) (githubvcs.GitHubClient, error)) error {
+	p.GetLogger().Info("Uploading SSH public key to Github", "key", string(publicKey))
 
 	c, err := clientFactory(cfg)
 	if err != nil {
