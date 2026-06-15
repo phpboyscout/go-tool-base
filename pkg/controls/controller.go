@@ -143,6 +143,22 @@ func (c *Controller) Register(id string, opts ...ServiceOption) {
 		opt(&s)
 	}
 
+	// Registering after Start has already transitioned the controller away from
+	// the initial Unknown state cannot supervise the service: Start has already
+	// snapshotted the service count and launched the supervisor goroutines, so a
+	// late registration is never started, monitored, or stopped. Mirror
+	// RegisterHealthCheck's guard by surfacing the problem — but as a WARNING,
+	// since Register has no error return and the supervisor spec defaults missing
+	// funcs to no-ops. The service is still added (behaviour unchanged) so any
+	// status query still reflects it; it simply is not supervised.
+	if c.GetState() != Unknown {
+		c.logger.Warn(
+			"Register called after Start; service will not be supervised",
+			"service_name", id,
+			"current_state", c.GetState(),
+		)
+	}
+
 	c.services.add(s)
 	c.logger.Debug("Registered service", "service_name", id)
 }

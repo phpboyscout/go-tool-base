@@ -284,6 +284,15 @@ A service registered without a `Start` or `Stop` function defaults to a no-op fo
 the missing function, so it never panics at start or shutdown. `Start()` is
 idempotent: a second call while already running is a safe no-op.
 
+**Register before Start.** `Register` must be called before `Start()`. Once
+`Start()` has run, the controller has already snapshotted the service set and
+launched its supervisor goroutines, so a service registered afterwards is never
+started, monitored, or stopped. `Register` has no error return (missing lifecycle
+funcs default to no-ops), so a late call does not fail — instead it logs a
+**WARNING** (`Register called after Start; service will not be supervised`) and
+still records the service so status queries reflect it. Treat that warning as a
+programming error to fix, not a supported pattern.
+
 ### Self-Healing and Automatic Restarts
 
 The `controls` package includes an opt-in supervisor loop that can automatically restart failing services. By default, services are not restarted. To enable self-healing for a specific service, provide a `RestartPolicy` during registration:

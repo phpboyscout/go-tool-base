@@ -531,3 +531,57 @@ func TestControllerErrorHandler_ExitsOnCancel(t *testing.T) {
 
 	c.Wait()
 }
+
+// TestRegister_AfterStart_WarnsUnsupervised verifies that calling Register after
+// the controller has started emits a WARNING (the service cannot be supervised),
+// does not panic, and leaves the controller running.
+func TestRegister_AfterStart_WarnsUnsupervised(t *testing.T) {
+	t.Parallel()
+
+	buf := &syncBuffer{}
+	l := logger.NewCharm(buf)
+
+	c := controls.NewController(context.Background(),
+		controls.WithoutSignals(),
+		controls.WithLogger(l),
+	)
+	c.Start()
+
+	require.True(t, c.IsRunning())
+
+	// Must not panic and must keep running.
+	c.Register("late-service",
+		controls.WithStart(func(_ context.Context) error { return nil }),
+	)
+
+	require.True(t, c.IsRunning())
+	assert.Contains(t, buf.String(), "Register called after Start")
+	assert.Contains(t, buf.String(), "late-service")
+
+	c.Stop()
+	c.Wait()
+}
+
+// TestRegister_BeforeStart_NoWarning verifies that the normal pre-Start
+// registration path does not emit the after-start warning.
+func TestRegister_BeforeStart_NoWarning(t *testing.T) {
+	t.Parallel()
+
+	buf := &syncBuffer{}
+	l := logger.NewCharm(buf)
+
+	c := controls.NewController(context.Background(),
+		controls.WithoutSignals(),
+		controls.WithLogger(l),
+	)
+
+	c.Register("early-service",
+		controls.WithStart(func(_ context.Context) error { return nil }),
+	)
+
+	assert.NotContains(t, buf.String(), "Register called after Start")
+
+	c.Start()
+	c.Stop()
+	c.Wait()
+}
