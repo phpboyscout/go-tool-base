@@ -93,6 +93,10 @@ osv-scan:
 security: vuln trivy gitleaks osv-scan
     @echo "All security scans passed"
 
+# Report public-API changes vs the latest release tag (advisory, pre-1.0)
+apidiff *args:
+    ./scripts/apidiff.sh {{args}}
+
 # Find unreachable exported symbols
 deadcode:
     deadcode ./...

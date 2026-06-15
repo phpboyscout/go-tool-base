@@ -141,3 +141,32 @@ goreleaser:
     AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/oidc-token
   before_script:
     - echo "$AWS_WEB_IDENTITY_TOKEN" > "$AWS_WEB_IDENTITY_TOKEN_FILE"
+
+# ----------------------------------------------------------------------
+# Public-API diff — ADVISORY (non-blocking) while pre-1.0.
+#
+# GTB is currently v0.x. Per docs/about/api-stability.md, breaking
+# changes are *permitted* and ship as a MINOR bump during this phase, so
+# a hard gate here would (correctly) reject legitimate, intentional
+# breaks. This job therefore exists for VISIBILITY, not enforcement: it
+# prints the public-API delta between the latest release tag and the MR's
+# tree so a reviewer can see — and confirm as intentional — any API
+# change. `scripts/apidiff.sh` always exits 0, and `allow_failure: true`
+# is a belt-and-braces guard so this never blocks a merge.
+#
+# AT v1.0 THIS BECOMES A BLOCKING GATE: drop `allow_failure`, and have
+# the job (or the script) fail on incompatible changes that lack a major
+# version bump. Until then, keep it advisory.
+#
+# GIT_DEPTH is 0 globally (see variables: above), so the full tag history
+# and the baseline tag's tree are available for the worktree comparison.
+apidiff:
+  stage: test
+  image: golang:1.26.4-bookworm
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  allow_failure: true
+  script:
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - ./scripts/apidiff.sh
