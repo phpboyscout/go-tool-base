@@ -430,6 +430,47 @@ props.FS = cowFs
 
 ## Testing with Props
 
+### `propstest.New` (recommended)
+
+The `pkg/props/propstest` package — public, so tools built on GTB can use it too — distils the common "construct a fully-wired `*props.Props`" pattern into a single call. Every field gets a hermetic, safe default, so the documented invariants (notably non-nil `Collector` and a usable `Config`) hold without hand-assembly:
+
+```go
+import "gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+
+func TestMyCommand(t *testing.T) {
+    t.Parallel()
+
+    p := propstest.New() // all fields wired with safe defaults
+
+    // Override only what the test cares about:
+    p = propstest.New(
+        propstest.WithTool(props.Tool{Name: "mytool", EnvPrefix: "MYTOOL"}),
+        propstest.WithFS(afero.NewMemMapFs()),
+    )
+
+    // ... drive code that needs a *props.Props ...
+}
+```
+
+Defaults applied by `propstest.New`:
+
+| Field | Default |
+|-------|---------|
+| `Logger` | `logger.NewNoop()` |
+| `FS` | `afero.NewMemMapFs()` (in-memory, isolated) |
+| `Collector` | `props.NoopCollector{}` (upholds the non-nil invariant) |
+| `ErrorHandler` | `errorhandling.New(...)` with an inert `Exit` and `io.Discard` writer — a `Fatal` under test never terminates the process |
+| `Tool` | benign valid metadata (`testtool`, `EnvPrefix: TESTTOOL`, a GitHub `ReleaseSource`) |
+| `Version` | deterministic `version.NewInfo("v0.0.0-test", ...)` |
+| `Assets` | empty-but-valid `props.NewAssets()` |
+| `Config` | empty-but-usable `config.NewReaderContainer(fs)` — `Get*` is always safe |
+
+Each call returns a fresh, independent instance with no real filesystem, network, keychain or `os.Exit` side effects, so it is safe under `t.Parallel()`. Override options are: `WithTool`, `WithLogger`, `WithFS`, `WithCollector`, `WithVersion`, `WithAssets`, `WithConfig`, and `WithErrorHandler`.
+
+### Manual construction
+
+For full control you can still assemble a `Props` literal directly. Remember to set `Collector: props.NoopCollector{}` so the non-nil invariant holds:
+
 ```go
 func createTestProps() *props.Props {
     l := logger.NewNoop()
@@ -440,9 +481,10 @@ func createTestProps() *props.Props {
             Name:    "test-tool",
             Summary: "Test tool",
         },
-        Logger:  l,
-        FS:      memFs,
-        Version: version.NewInfo("0.0.0-test", "", ""),
+        Logger:    l,
+        FS:        memFs,
+        Version:   version.NewInfo("0.0.0-test", "", ""),
+        Collector: props.NoopCollector{},
     }
 }
 ```

@@ -10,6 +10,25 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 One of the primary goals of GTB is to make CLI tools easily testable. By using the `Props` container, you can inject mock behaviors for filesystems, logging, and configuration.
 
+## Building a test `Props` in one call
+
+The fastest way to get a fully-wired `*props.Props` for a test — with a noop logger, in-memory filesystem, noop telemetry collector, inert error handler and a usable empty config — is the public `propstest.New` helper:
+
+```go
+import "gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+
+func TestMyCommand(t *testing.T) {
+    t.Parallel()
+
+    p := propstest.New(
+        propstest.WithTool(props.Tool{Name: "mytool", EnvPrefix: "MYTOOL"}),
+    )
+    // ... run your command logic with p ...
+}
+```
+
+It is hermetic (no disk, network, keychain, or `os.Exit`) and returns a fresh instance per call, so it is safe under `t.Parallel()`. See the full default table and option list in the [Props component reference](../components/props.md#testing-with-props). The manual patterns below remain available when you need finer control.
+
 ## Mocking the Filesystem
 
 GTB uses `afero` for filesystem operations. In your tests, you can use `afero.NewMemMapFs()` to simulate a filesystem without touching the disk:
