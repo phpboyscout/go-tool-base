@@ -94,11 +94,11 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	return g, nil
 }
 
-func getGeminiToken(ctx context.Context, p *props.Props, cfg Config) string {
+func getGeminiToken(ctx context.Context, p props.ConfigProvider, cfg Config) string {
 	return resolveAPIKey(
 		ctx,
 		cfg.Token,
-		p.Config,
+		p.GetConfig(),
 		ConfigKeyGeminiEnv,
 		ConfigKeyGeminiKeychain,
 		ConfigKeyGeminiKey,
