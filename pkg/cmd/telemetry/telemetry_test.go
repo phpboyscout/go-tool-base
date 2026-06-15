@@ -40,6 +40,10 @@ func setupTestProps(t *testing.T) (*props.Props, *viper.Viper) {
 		Tool:   props.Tool{Name: "test-tool"},
 		Logger: logger.NewNoop(),
 		Config: mock,
+		// These tests exercise commands directly, bypassing the root bootstrap
+		// that would otherwise default the collector; set the noop explicitly to
+		// honour the always-non-nil Collector invariant.
+		Collector: props.NoopCollector{},
 	}
 
 	return p, v

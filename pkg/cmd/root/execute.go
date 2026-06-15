@@ -43,6 +43,14 @@ func Execute(rootCmd *setup.Command, props *p.Props) {
 }
 
 func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
+	// Uphold the Props.Collector invariant for the Execute-only entry point:
+	// NewCmdRootWithOptions already defaults it, but a caller may build the root
+	// command tree by another route and only call Execute. Defaulting here keeps
+	// flushTelemetry and every other consumer free of nil-checks.
+	if props.Collector == nil {
+		props.Collector = p.NoopCollector{}
+	}
+
 	rootCmd.SilenceErrors = true
 	rootCmd.SilenceUsage = true
 
@@ -187,7 +195,7 @@ func flushTelemetry(props *p.Props) {
 	// the collector may have been enabled via the TELEMETRY_ENABLED env var or
 	// the tool-author ForceEnabled path even when telemetry.enabled is false,
 	// and those buffered events must still be flushed.
-	if props.Collector == nil || !props.Collector.Enabled() {
+	if !props.Collector.Enabled() {
 		return
 	}
 

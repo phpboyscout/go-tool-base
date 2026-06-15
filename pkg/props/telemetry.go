@@ -66,6 +66,44 @@ type TelemetryCollector interface {
 	Enabled() bool
 }
 
+// NoopCollector is a zero-behaviour TelemetryCollector. It is the default value
+// of Props.Collector so the "always non-nil" invariant holds even before the
+// root bootstrap resolves the real collector (e.g. on the init and help paths)
+// and for Props constructed directly as a struct literal (tests, cmd/e2e).
+//
+// The concrete *telemetry.Collector from pkg/telemetry supersedes it once the
+// root PersistentPreRunE runs; NoopCollector reports Enabled() == false so the
+// telemetry flush is correctly skipped while it is in place.
+type NoopCollector struct{}
+
+// Track is a no-op.
+func (NoopCollector) Track(EventType, string, map[string]string) {}
+
+// TrackCommand is a no-op.
+func (NoopCollector) TrackCommand(string, int64, int, map[string]string) {}
+
+// TrackCommandExtended is a no-op.
+func (NoopCollector) TrackCommandExtended(string, []string, int64, int, string, map[string]string) {
+}
+
+// Flush is a no-op and never errors.
+func (NoopCollector) Flush(context.Context) error { return nil }
+
+// BackendInfo reports the disabled noop backend.
+func (NoopCollector) BackendInfo() string { return "noop (disabled)" }
+
+// Close is a no-op and never errors.
+func (NoopCollector) Close(context.Context) error { return nil }
+
+// Drop is a no-op and never errors.
+func (NoopCollector) Drop() error { return nil }
+
+// Enabled always reports false: a noop collector never actively collects.
+func (NoopCollector) Enabled() bool { return false }
+
+// Compile-time check that NoopCollector satisfies the interface.
+var _ TelemetryCollector = NoopCollector{}
+
 // TelemetryConfig holds tool-author telemetry declarations.
 // It is embedded in Tool and specifies where and how to send telemetry.
 // The end-user's opt-in state is stored in the config file under

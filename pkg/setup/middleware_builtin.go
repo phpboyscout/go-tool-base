@@ -85,9 +85,9 @@ func WithTelemetry(p *props.Props) Middleware {
 				exitCode = 1
 			}
 
-			if p.Collector != nil {
-				p.Collector.TrackCommand(cmd.Name(), durationMs, exitCode, nil)
-			}
+			// Props.Collector is always non-nil (defaulted to a noop in the
+			// root bootstrap), so no nil-guard is needed here.
+			p.Collector.TrackCommand(cmd.Name(), durationMs, exitCode, nil)
 
 			return err
 		}

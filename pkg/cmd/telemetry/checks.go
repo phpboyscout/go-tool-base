@@ -33,10 +33,7 @@ func checkTelemetryStatus(_ context.Context, p *props.Props) setup.CheckResult {
 		}
 	}
 
-	info := "enabled"
-	if p.Collector != nil {
-		info = fmt.Sprintf("enabled — %s", p.Collector.BackendInfo())
-	}
+	info := fmt.Sprintf("enabled — %s", p.Collector.BackendInfo())
 
 	return setup.CheckResult{
 		Name:    "Telemetry",

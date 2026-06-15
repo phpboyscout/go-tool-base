@@ -69,6 +69,8 @@ type Props struct {
 !!! note "Collector is always non-nil"
     When telemetry is disabled, `Collector` is a noop implementation. Commands can safely call `p.Collector.Track(...)` without checking whether telemetry is enabled.
 
+    The root bootstrap upholds this invariant automatically: building the command tree (`NewCmdRoot`) defaults the field to `props.NoopCollector{}`, and the resolved `*telemetry.Collector` replaces it once config loads. A `Props` constructed directly as a struct literal — for example in tests that exercise a command without going through the bootstrap — should set `Collector: props.NoopCollector{}` itself, or run the command via `root.Execute` (which also defaults it).
+
 !!! note "ErrorHandler is an Interface"
     The `ErrorHandler` field is an interface type, not a pointer. This enables easy mocking and custom implementations for testing.
 

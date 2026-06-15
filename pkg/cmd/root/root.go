@@ -378,6 +378,15 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 		props.ErrorHandler = errorhandling.New(props.Logger, props.Tool.Help)
 	}
 
+	// Uphold the documented Props.Collector invariant ("always non-nil"). The
+	// real *telemetry.Collector is resolved later in the root PersistentPreRunE,
+	// but the init and help paths return before that — and Props built as a
+	// struct literal (tests, cmd/e2e) never set it. Default to a noop here so
+	// every consumer can call props.Collector unconditionally.
+	if props.Collector == nil {
+		props.Collector = p.NoopCollector{}
+	}
+
 	state := newRootState()
 
 	// mcpLogLevel is used to control the log level of the MCP server dynamically

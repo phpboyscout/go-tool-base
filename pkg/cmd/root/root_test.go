@@ -860,6 +860,32 @@ func TestRootState_Isolation(t *testing.T) {
 	assert.Equal(t, "tool2", cmd2.Use)
 }
 
+// TestNewCmdRoot_DefaultsCollector proves the documented Props.Collector
+// invariant: a Props constructed as a struct literal (no Collector set) gets a
+// non-nil, disabled noop collector once the root command tree is built — before
+// the PersistentPreRunE ever runs.
+func TestNewCmdRoot_DefaultsCollector(t *testing.T) {
+	// Not parallel: NewCmdRoot seals the process-global middleware registry.
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+
+	props := &p.Props{
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+		Tool: p.Tool{
+			Name:     "tool",
+			Features: p.SetFeatures(p.Disable(p.UpdateCmd), p.Disable(p.InitCmd), p.Disable(p.McpCmd), p.Disable(p.DocsCmd)),
+		},
+	}
+
+	require.Nil(t, props.Collector, "precondition: struct-literal Props has no collector")
+
+	_ = NewCmdRoot(props)
+
+	require.NotNil(t, props.Collector, "NewCmdRoot must default the collector to uphold the invariant")
+	assert.False(t, props.Collector.Enabled(), "the defaulted collector is a disabled noop")
+}
+
 // TestNewCmdRoot_SecondConstructionDoesNotPanic proves a second NewCmdRoot in
 // the same process does not panic on global-middleware re-registration after
 // the registry was sealed by the first construction.

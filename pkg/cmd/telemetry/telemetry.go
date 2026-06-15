@@ -65,9 +65,7 @@ func newDisableCmd(p *props.Props) *cobra.Command {
 
 			// Immediately drop all buffered and spilled events — the user's
 			// withdrawal of consent is immediate and total.
-			if p.Collector != nil {
-				_ = p.Collector.Drop()
-			}
+			_ = p.Collector.Drop()
 
 			p.Logger.Print("All pending events have been discarded.")
 
@@ -95,9 +93,7 @@ func newStatusCmd(p *props.Props) *cobra.Command {
 
 			p.Logger.Print("Machine ID: " + telemetry.HashedMachineID())
 
-			if p.Collector != nil {
-				p.Logger.Print("Backend: " + p.Collector.BackendInfo())
-			}
+			p.Logger.Print("Backend: " + p.Collector.BackendInfo())
 
 			return nil
 		},
@@ -115,9 +111,7 @@ func newResetCmd(p *props.Props) *cobra.Command {
 			machineID := telemetry.HashedMachineID()
 
 			// 1. Drop all local data
-			if p.Collector != nil {
-				_ = p.Collector.Drop()
-			}
+			_ = p.Collector.Drop()
 
 			// Clear local-only log if it exists
 			dataDir := telemetry.ResolveDataDir(p)

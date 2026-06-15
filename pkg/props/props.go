@@ -20,7 +20,10 @@ type Props struct {
 	FS           afero.Fs
 	Version      version.Version
 	ErrorHandler errorhandling.ErrorHandler
-	Collector    TelemetryCollector // always non-nil; noop when telemetry disabled
+	// Collector is always non-nil once the root command tree is built: the
+	// bootstrap defaults it to a NoopCollector and later replaces it with the
+	// resolved *telemetry.Collector. Consumers may call it unconditionally.
+	Collector TelemetryCollector
 }
 
 // GetLogger returns the application logger.
