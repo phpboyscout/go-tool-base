@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -253,4 +254,72 @@ func TestListDirTool_RejectsOutsidePath(t *testing.T) {
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrPathInvalid)
+}
+
+// TestSingleDirTool_MissingBinarySurfacesExecError covers the audit
+// finding single-dir-tool-discards-exec-error: a tool whose binary is
+// not on PATH must surface the underlying "executable file not found"
+// exec error, not an empty failureErr (e.g. a bare "lint issues found"
+// with no output), which would mislead the model into thinking the tool
+// ran and reported problems.
+func TestSingleDirTool_MissingBinarySurfacesExecError(t *testing.T) {
+	t.Parallel()
+
+	afs := afero.NewOsFs()
+	basePath := t.TempDir()
+
+	// A binary name that cannot exist on PATH.
+	tool := createSingleDirTool(
+		"missing_tool",
+		"runs a non-existent binary",
+		"ok",
+		[]string{"gtb-nonexistent-binary-xyz", "run"},
+		ErrLinterFailed,
+		afs,
+		basePath,
+	)
+
+	args, err := json.Marshal(map[string]string{"dir": basePath})
+	require.NoError(t, err)
+
+	_, err = tool.Handler(context.Background(), args)
+	require.Error(t, err)
+
+	// The real exec cause must be surfaced (named binary), not swallowed.
+	require.ErrorIs(t, err, exec.ErrNotFound)
+	assert.Contains(t, err.Error(), "gtb-nonexistent-binary-xyz",
+		"missing-binary error must name the binary, not present as empty %q", ErrLinterFailed)
+}
+
+// TestSingleDirTool_NonZeroExitMapsToFailureErr is the companion: when
+// the binary runs but exits non-zero, the tool maps to failureErr (with
+// the captured output) — the existing, intended behaviour.
+func TestSingleDirTool_NonZeroExitMapsToFailureErr(t *testing.T) {
+	t.Parallel()
+
+	afs := afero.NewOsFs()
+	basePath := t.TempDir()
+
+	// `false` exits 1 with no output on every POSIX system.
+	if _, lookErr := exec.LookPath("false"); lookErr != nil {
+		t.Skip("`false` not available on PATH")
+	}
+
+	tool := createSingleDirTool(
+		"always_fails",
+		"runs `false`",
+		"ok",
+		[]string{"false"},
+		ErrLinterFailed,
+		afs,
+		basePath,
+	)
+
+	args, err := json.Marshal(map[string]string{"dir": basePath})
+	require.NoError(t, err)
+
+	_, err = tool.Handler(context.Background(), args)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrLinterFailed)
+	assert.NotErrorIs(t, err, exec.ErrNotFound)
 }

@@ -240,6 +240,17 @@ func createSingleDirTool(name, description, successMsg string, command []string,
 
 			output, err := cmd.CombinedOutput()
 			if err != nil {
+				// Distinguish a non-zero *exit* (the tool ran and reported
+				// problems — e.g. lint issues) from a failure to *start* the
+				// process (missing binary, permission denied). Only the former
+				// maps to failureErr; the latter has no output, so wrapping it
+				// in failureErr would surface an empty "lint issues found" and
+				// hide the real "executable file not found" cause.
+				var exitErr *exec.ExitError
+				if !errors.As(err, &exitErr) {
+					return nil, errors.Wrapf(err, "%s: failed to run %q", failureErr, command[0])
+				}
+
 				return nil, errors.Wrapf(failureErr, "\n%s", truncateOutput(output))
 			}
 
