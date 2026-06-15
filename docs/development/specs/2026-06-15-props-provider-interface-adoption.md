@@ -1,7 +1,7 @@
 ---
 title: "Provider-interface adoption — make GTB eat its own dogfood"
 description: "pkg/props defines nine narrow provider interfaces (LoggerProvider, ConfigProvider, FileSystemProvider, …) so a leaf function can declare only the dependencies it needs, but nothing internal consumes them — every signature takes the whole *props.Props. This spec analyses the impact of adopting the interfaces in leaf-package signatures (backward-compatible, since *Props satisfies each) and proposes a phased rollout behind the advisory apidiff job, or the alternative of documenting them as downstream-convenience-only."
-status: DRAFT
+status: APPROVED
 date: 2026-06-15
 tags:
   - specification
@@ -25,7 +25,7 @@ Date
 :   2026-06-15
 
 Status
-:   DRAFT
+:   APPROVED (open questions resolved in review 2026-06-15)
 
 ## Summary
 
@@ -178,7 +178,7 @@ Narrow **free functions and methods** first (lowest blast radius — parameters 
 
 ### D5 — Add a `TelemetryProvider` if (and only if) we narrow the collector-only sites
 
-Two sites use only `Collector`. To narrow them we must first add a `TelemetryProvider` interface (`GetCollector() TelemetryCollector`), a `GetCollector` getter on `*Props`, and a satisfaction check — a small, additive, non-breaking change. Do this only if O1 chooses adoption *and* the maintainer wants the collector-only sites narrowed; otherwise leave them on `*Props`. (See O5.)
+Two sites use only `Collector`. To narrow them we add a `TelemetryProvider` interface (`GetCollector() TelemetryCollector`), a `GetCollector` getter on `*Props`, and a satisfaction check — a small, additive, non-breaking change. Resolved: this is **in scope** (O5) — the collector-only sites are narrowed and the missing provider is added for consistency with the other seven fields. (See O5.)
 
 ### D6 — Phased, package-by-package, behind the advisory apidiff job
 
@@ -188,26 +188,26 @@ Roll out one package per MR, lowest-risk first, so each `apidiff` advisory diff 
 
 Each phase is an independent MR; lint + tests + the advisory `apidiff` job run per MR. Ordered lowest-risk → highest, fully abortable after any phase.
 
-1. **Phase 0 — groundwork (optional).** If adopting collector-only sites: add `TelemetryProvider` + `GetCollector()` + satisfaction check (D5). Pure addition, zero diff to existing signatures.
+1. **Phase 0 — groundwork.** Add `TelemetryProvider` + `GetCollector()` + satisfaction check (D5, resolved in scope per O5). Pure addition, zero diff to existing signatures.
 2. **Phase 1 — `Logger`-only cluster** (`internal/cmd/{disable,generate,keys,sign}`, `pkg/chat/claude_local.go`). All single-field `LoggerProvider`. Lowest risk, biggest count, establishes the field→getter pattern.
 3. **Phase 2 — `Config`-only cluster** (`pkg/telemetry/datadir.go`, `pkg/docs/ask.go`). Single-field `ConfigProvider`.
 4. **Phase 3 — `Config`+`Logger` cluster** (`pkg/chat/{claude,client,gemini,openai}.go`, `internal/cmd/enable/signing.go`) via `LoggingConfigProvider`. The single biggest readability win.
 5. **Phase 4 — `FS`+`Logger` and other 2-field clusters** (`internal/cmd/resolve.go`, `internal/generator/{ast_extract,verifier}`, `internal/cmd/generate/flag.go`, `pkg/cmd/changelog`, `pkg/cmd/docs/docs.go`, `internal/cmd/root/root.go`).
 6. **Phase 5 — 3-field composite fits** (`internal/generator/commands.go` via `CoreProvider`; `pkg/setup/init.go`, `pkg/cmd/telemetry/checks.go` if a composite reads cleanly).
-7. **Phase 6 — docs + scaffolding decision.** Update `docs/concepts/`/`docs/components/` to show the now-live convention. Decide whether the **generator templates** should emit narrowed signatures for *new* scaffolded commands (Out of scope by default — see below).
+7. **Phase 6 — docs.** Update `docs/concepts/`/`docs/components/` to show the now-live convention. The **generator templates** keep emitting `*props.Props` for *new* scaffolded commands (O8 resolved — Out of scope; see below).
 
 Category-(c) packages (`pkg/vcs/repo`, `pkg/setup/update.go`, `pkg/telemetry/observability.go`, `pkg/setup/ai`, generator `New`) are explicitly **not** in the plan; they keep `*Props`.
 
 ## Open questions
 
-1. **O1 — Adopt or document-only?** Option A (adopt the interfaces in leaf signatures — recommended) vs Option B (keep `*Props` everywhere and re-document the interfaces as a downstream-convenience surface only, closing the finding by amending the docs). *Drafting recommendation: A.* This is the one decision that gates the entire spec.
-2. **O2 — The narrowing threshold.** Is "narrow only when the body uses ≤2 fields" the right line? Or stricter (single-field only) / looser (≤3 with a composite)? (D2)
-3. **O3 — Constructors.** Should constructors ever narrow, or is `*Props` the standing rule for any `New*`? And confirm exported struct fields / return types stay `*Props` (recommended). (D4)
-4. **O4 — Composites policy.** Use the two existing composites only, or are we willing to add more (and where's the line before composite-proliferation is worse than two params)? (D3)
-5. **O5 — `TelemetryProvider`.** Add the missing collector provider (and getter) so collector-only sites can narrow, or leave them on `*Props`? (D5)
-6. **O6 — Field access vs getters.** Adoption forces narrowed sites from `p.Logger` to `p.GetLogger()`. Are we comfortable with the mixed style during rollout (some files getter-based, some field-based), or do we want a convention note so it doesn't read as accidental inconsistency?
-7. **O7 — How far?** Full rollout through Phase 5, or stop after the high-value Logger/Config phases (1–3) and leave the rest as "narrow opportunistically when touched"? The advisory-diff noise scales with how far we push.
-8. **O8 — Generator templates.** Should newly *scaffolded* commands be generated with narrowed signatures (teaching downstreams the pattern by example), or keep emitting `*props.Props` for simplicity? (Currently Out of scope.)
+1. **O1 — Adopt or document-only?** Option A (adopt the interfaces in leaf signatures — recommended) vs Option B (keep `*Props` everywhere and re-document the interfaces as a downstream-convenience surface only, closing the finding by amending the docs). *Drafting recommendation: A.* This is the one decision that gates the entire spec. *Resolved (2026-06-15):* **Option A — ADOPT** the provider interfaces internally (dogfood them). Not document-only.
+2. **O2 — The narrowing threshold.** Is "narrow only when the body uses ≤2 fields" the right line? Or stricter (single-field only) / looser (≤3 with a composite)? (D2) *Resolved (2026-06-15):* narrow a function/method to provider-interface params **only when it uses ≤2 Props fields**; if it needs >2, keep `*props.Props`.
+3. **O3 — Constructors.** Should constructors ever narrow, or is `*Props` the standing rule for any `New*`? And confirm exported struct fields / return types stay `*Props` (recommended). (D4) *Resolved (2026-06-15):* constructors stay on `*props.Props` (they build many-field state); narrow only free functions and methods. Exported struct fields and return types stay `*Props`.
+4. **O4 — Composites policy.** Use the two existing composites only, or are we willing to add more (and where's the line before composite-proliferation is worse than two params)? (D3) *Resolved (2026-06-15):* reuse the existing composites (`LoggingConfigProvider`, `CoreProvider`) only; do **not** mint a new composite per combination — anything needing >2 providers stays `*Props` (consistent with O2).
+5. **O5 — `TelemetryProvider`.** Add the missing collector provider (and getter) so collector-only sites can narrow, or leave them on `*Props`? (D5) *Resolved (2026-06-15):* **ADD** a new `TelemetryProvider` interface (a getter for the `Collector`) so collector-only sites can narrow too — closing the one field that lacks a provider, for consistency. Add a `GetCollector()`-equivalent getter to `Props` if one does not already exist, as part of implementation.
+6. **O6 — Field access vs getters.** Adoption forces narrowed sites from `p.Logger` to `p.GetLogger()`. Are we comfortable with the mixed style during rollout (some files getter-based, some field-based), or do we want a convention note so it doesn't read as accidental inconsistency? *Resolved (2026-06-15):* narrowed code accesses dependencies via the getters (`p.GetLogger()`, etc.), not the exported fields, since the interfaces expose getters.
+7. **O7 — How far?** Full rollout through Phase 5, or stop after the high-value Logger/Config phases (1–3) and leave the rest as "narrow opportunistically when touched"? The advisory-diff noise scales with how far we push. *Resolved (2026-06-15):* be **comprehensive but pragmatic** — adopt across **all** eligible sites (not just a Logger/Config first phase then stop), bounded by the O2 ≤2-field threshold. The phased per-package rollout stays for safety, but the end-state target is full adoption of every eligible site.
+8. **O8 — Generator templates.** Should newly *scaffolded* commands be generated with narrowed signatures (teaching downstreams the pattern by example), or keep emitting `*props.Props` for simplicity? (Currently Out of scope.) *Resolved (2026-06-15):* generated/scaffolded command output stays on `*props.Props` (keeps downstream-author ergonomics simple); the narrowing is an internal-GTB dogfooding exercise, **not** pushed into the generator templates.
 
 ## Verification plan
 
@@ -220,7 +220,7 @@ Category-(c) packages (`pkg/vcs/repo`, `pkg/setup/update.go`, `pkg/telemetry/obs
 
 ## Out of scope
 
-- **Generator template / scaffold output.** The `*props.Props` strings emitted by `internal/generator/templates/` and `stubs.go` into downstream scaffolds stay as-is unless O8 decides otherwise; changing them alters what every new tool is generated with.
+- **Generator template / scaffold output.** The `*props.Props` strings emitted by `internal/generator/templates/` and `stubs.go` into downstream scaffolds stay as-is (O8 resolved: keep emitting `*props.Props`); changing them alters what every new tool is generated with.
 - **Category-(c) packages.** `pkg/vcs/repo`, `pkg/setup/update.go`, `pkg/telemetry/observability.go`, `pkg/setup/ai`, and the generator `New` constructor keep `*Props`.
 - **Narrowing exported struct fields and return types.** Parameters only (D4).
 - **Removing the exported `Props` fields in favour of getters.** The fields stay public; this spec only adds getter *usage* at narrowed sites.

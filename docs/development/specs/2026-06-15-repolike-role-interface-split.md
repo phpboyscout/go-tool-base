@@ -1,7 +1,7 @@
 ---
 title: "RepoLike role-interface split — break the 23-method kitchen sink into focused roles"
 description: "pkg/vcs/repo.RepoLike is a 23-method kitchen-sink interface mixing auth-config, lifecycle (open/clone), branch, commit, push, remote, and tree-inspection concerns. This spec analyses splitting it into focused role interfaces (reader / writer / brancher / remote / worktree …) following the pkg/controls precedent, keeping RepoLike as a composite that embeds them so the change is non-breaking, and decides whether to land the additive roles pre-1.0 now or stage the kitchen-sink reduction for v2."
-status: DRAFT
+status: APPROVED
 date: 2026-06-15
 tags:
   - specification
@@ -26,7 +26,7 @@ Date
 :   2026-06-15
 
 Status
-:   DRAFT
+:   APPROVED (open questions resolved in review 2026-06-15)
 
 ## Summary
 
@@ -140,9 +140,9 @@ That is **23 methods** spanning **7 concerns**.
 | `Brancher` | `CreateBranch` | 1 | Branch creation |
 | `SourceState` | `SourceIs`, `SetSource` | 2 | Backend discriminator (memory vs local) |
 | `GitAccessor` | `WithRepo`, `WithTree` | 2 | Raw go-git escape hatches |
-| *(optional)* `RemoteManager` | `CreateRemote`, `Remote` | 2 | Named-remote management — **only if O3 promotes these into the interface** |
+| *(deferred)* `RemoteManager` | `CreateRemote`, `Remote` | 2 | Named-remote management — **not defined now** (O3 resolved: concrete-only on `*Repo`; add only when a real consumer needs it) |
 
-That is **8 roles** covering the existing 23 interface methods (or **9 roles / 25 methods** if `RemoteManager` is promoted). Boundaries are deliberately concern-aligned, not size-balanced — `Brancher` is one method by design, exactly as `pkg/controls` keeps single-purpose roles.
+That is **8 roles** covering the existing 23 interface methods. `RemoteManager` is **not** introduced (O3 resolved): `CreateRemote`/`Remote` exist only on the concrete `*Repo`, not on `ThreadSafeRepo`, so the roles cover the common subset both implementers satisfy. Boundaries are deliberately concern-aligned, not size-balanced — `Brancher` is one method by design, exactly as `pkg/controls` keeps single-purpose roles.
 
 `RepoLike` is then **redefined as a composite that embeds every role**, identical in shape to `Controllable`:
 
@@ -158,7 +158,8 @@ type RepoLike interface {
     Committer
     TreeReader
     GitAccessor
-    // RemoteManager // only if O3 promotes CreateRemote/Remote
+    // RemoteManager is NOT embedded (O3 resolved): CreateRemote/Remote stay
+    // concrete-only on *Repo, since ThreadSafeRepo does not wrap them.
 }
 ```
 
@@ -209,9 +210,9 @@ Split into the **8 roles** in the table above (`TreeReader`, `Opener`, `Authenti
 
 Use behavioural role nouns consistent with `pkg/controls` (`Runner`, `HealthReporter`, `Configurable`). `TreeReader`, `Committer`, `Brancher`, `Opener`, `Authenticator`, `WorktreeController`, `SourceState`, `GitAccessor`. Exact names are open (e.g. `Reader` vs `TreeReader`, `Lifecycle` vs `Opener`). (See O2.)
 
-### D3 — `RepoLike` keeps its current method set (no `RemoteManager` in the interface yet)
+### D3 — `RepoLike` keeps its current method set (no `RemoteManager` defined yet)
 
-Do **not** promote `CreateRemote` / `Remote` into `RepoLike` as part of the split — that would *change* the composite's method set (additive but a deliberate API growth) and is a separate decision from re-grouping the existing 23. Define `RemoteManager` as a role interface that the concrete `*Repo` *also* satisfies (it already has both methods), but leave it **out** of the `RepoLike` composite until there is a reason to expose remotes through the abstraction. (See O3.)
+Do **not** promote `CreateRemote` / `Remote` into `RepoLike` as part of the split — that would *change* the composite's method set (additive but a deliberate API growth) and is a separate decision from re-grouping the existing 23. Resolved (O3): do **not** define a `RemoteManager` role now either. `CreateRemote`/`Remote` exist only on the concrete `*Repo`, not on `ThreadSafeRepo`; promoting them would force speculative thread-safe wrappers (and a locking decision) and a mock regen for an interface with zero consumers. The roles therefore cover the **common subset** both `Repo` and `ThreadSafeRepo` satisfy; `CreateRemote`/`Remote` stay concrete-only on `*Repo`. Add a `RemoteManager` role + the `ThreadSafeRepo` wrappers only if/when a real consumer needs remote management through the interface. (See O3.)
 
 ### D4 — Land additive roles now; defer any method *removal* to v2
 
@@ -265,13 +266,13 @@ This is the explicit decision the maintainer asked both G specs to surface.
 
 ## Open questions
 
-1. **O1 — Land additive roles now, or defer the whole split to v2?** The gating decision. *Drafting recommendation: land the additive roles + composite now; stage the subtractive reduction for v2.* If deferred, the finding closes with a doc-comment note on `RepoLike` only.
-2. **O2 — Role boundaries and names.** Are the 8 roles (and their boundaries) right? Specifically: should `Authenticator` include `SetRepo` (repo-handle injection) or is that a `SourceState`/lifecycle concern? Should `AddToFS` (writes to an *afero* FS, reads from git) live in `TreeReader` or its own `TreeExporter`? Should `SetTree` sit with `WorktreeController` or `Authenticator`-style setters? And the names: `TreeReader` vs `Reader`, `Opener` vs `Lifecycle`, `GitAccessor` vs `RawAccessor`. (D1, D2)
-3. **O3 — Promote `CreateRemote` / `Remote` into the interface?** They exist on `*Repo` but not on `RepoLike`. Define a `RemoteManager` role and (a) leave it out of the composite (recommended — re-grouping only), (b) add it to the composite (grows `RepoLike`'s method set — additive but a deliberate expansion), or (c) leave `CreateRemote`/`Remote` off the abstraction entirely. (D3)
-4. **O4 — Does the eventual v2 drop methods from `RepoLike`?** Confirm the v2 direction: make `RepoLike` a *small* composite (or remove it) and force consumers onto roles, vs keep it as a convenience god-composite indefinitely. This determines whether the now-additive roles are a stepping stone or the permanent end state. (D4)
-5. **O5 — Per-role mocks now or lazily?** Generate `MockTreeReader` et al. up front (eight new generated files, no test using them yet) or only when the first narrow consumer lands (recommended). (D5)
-6. **O6 — Split the concrete `Repo` too?** This spec splits only the *interface*. The concrete `*Repo` stays one struct (its fields — `source`, `config`, `repo`, `auth`, `tree` — are genuinely shared across roles). Confirm we are **not** splitting the concrete type, only exposing role-shaped views of it. (Recommended: interface-only.)
-7. **O7 — `ThreadSafeRepo` parity.** Confirm `ThreadSafeRepo` needs no change (it already implements every method and therefore every role); the only question is whether its doc-comment should reference the roles like `RepoLike` will.
+1. **O1 — Land additive roles now, or defer the whole split to v2?** The gating decision. *Drafting recommendation: land the additive roles + composite now; stage the subtractive reduction for v2.* If deferred, the finding closes with a doc-comment note on `RepoLike` only. *Resolved (2026-06-15):* **LAND** the additive role interfaces + keep `RepoLike` as a composite embedding them, now (non-breaking). The subtractive god-interface reduction (dropping methods from `RepoLike`) is staged for **v2**.
+2. **O2 — Role boundaries and names.** Are the 8 roles (and their boundaries) right? Specifically: should `Authenticator` include `SetRepo` (repo-handle injection) or is that a `SourceState`/lifecycle concern? Should `AddToFS` (writes to an *afero* FS, reads from git) live in `TreeReader` or its own `TreeExporter`? Should `SetTree` sit with `WorktreeController` or `Authenticator`-style setters? And the names: `TreeReader` vs `Reader`, `Opener` vs `Lifecycle`, `GitAccessor` vs `RawAccessor`. (D1, D2) *Resolved (2026-06-15):* adopt the roles **as drafted** — `TreeReader`, `Opener`, `Authenticator`, `WorktreeController`, `Committer`, `SourceState`, `GitAccessor`, `Brancher` (boundaries and names as proposed in D1/D2).
+3. **O3 — Promote `CreateRemote` / `Remote` into the interface?** They exist on `*Repo` but not on `RepoLike`. Define a `RemoteManager` role and (a) leave it out of the composite (recommended — re-grouping only), (b) add it to the composite (grows `RepoLike`'s method set — additive but a deliberate expansion), or (c) leave `CreateRemote`/`Remote` off the abstraction entirely. (D3) *Resolved (2026-06-15):* **NO — do not promote.** Investigation showed `CreateRemote`/`Remote` exist only on the concrete `*Repo`, **not** on `ThreadSafeRepo` (which is `{mu, repo *Repo}` with explicit per-method mutex delegation and never wrapped remote ops). Promoting them would force writing speculative thread-safe `ThreadSafeRepo` wrappers (plus a locking decision) and a mock regen for an interface with **zero** current consumers. The roles therefore cover the **common subset** both `Repo` and `ThreadSafeRepo` satisfy; `CreateRemote`/`Remote` stay concrete-only on `*Repo`. Add a `RemoteManager` role + the `ThreadSafeRepo` wrappers only if/when a real consumer needs remote management via the interface.
+4. **O4 — Does the eventual v2 drop methods from `RepoLike`?** Confirm the v2 direction: make `RepoLike` a *small* composite (or remove it) and force consumers onto roles, vs keep it as a convenience god-composite indefinitely. This determines whether the now-additive roles are a stepping stone or the permanent end state. (D4) *Resolved (2026-06-15):* **out of scope** for this line — the method-dropping (god-interface shrink) is explicitly a future **v2** direction, not decided here.
+5. **O5 — Per-role mocks now or lazily?** Generate `MockTreeReader` et al. up front (eight new generated files, no test using them yet) or only when the first narrow consumer lands (recommended). (D5) *Resolved (2026-06-15):* generate per-role mocks **lazily** — only when a consumer actually needs one — not all upfront.
+6. **O6 — Split the concrete `Repo` too?** This spec splits only the *interface*. The concrete `*Repo` stays one struct (its fields — `source`, `config`, `repo`, `auth`, `tree` — are genuinely shared across roles). Confirm we are **not** splitting the concrete type, only exposing role-shaped views of it. (Recommended: interface-only.) *Resolved (2026-06-15):* `Repo` stays a **single concrete struct**; the segregation is interface-only.
+7. **O7 — `ThreadSafeRepo` parity.** Confirm `ThreadSafeRepo` needs no change (it already implements every method and therefore every role); the only question is whether its doc-comment should reference the roles like `RepoLike` will. *Resolved (2026-06-15):* `ThreadSafeRepo` keeps **parity with the composite `RepoLike`** — it satisfies the same composite as `Repo` (the common subset; remote ops remain concrete-only on `*Repo` per O3).
 
 ## Verification plan
 
