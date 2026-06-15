@@ -405,6 +405,13 @@ func (c *Controller) handleStopMessage() {
 	ctx, cancel := context.WithTimeout(context.Background(), c.shutdownTimeout)
 	defer cancel()
 
+	// Cancel each async health-check context explicitly. Cancelling c.ctx above
+	// already propagates to these derived contexts, but the per-check CancelFunc
+	// must still be invoked to release its resources (the Go contract for every
+	// context.WithCancel); skipping it leaks the cancellation goroutine until the
+	// parent is collected.
+	c.cancelHealthChecks()
+
 	c.services.stop(ctx)
 	c.SetState(Stopped)
 	c.logger.Info("Stopped")
@@ -422,6 +429,18 @@ func (c *Controller) startAsyncHealthChecks() {
 	for _, entry := range c.healthChecks {
 		if entry.check.Interval > 0 {
 			c.startAsyncCheck(entry)
+		}
+	}
+}
+
+// cancelHealthChecks invokes each async health check's CancelFunc, releasing the
+// per-check context derived in startAsyncCheck. It is best-effort and nil-safe:
+// sync checks (and any entry whose async goroutine was never launched) have a nil
+// cancel and are skipped.
+func (c *Controller) cancelHealthChecks() {
+	for _, entry := range c.healthChecks {
+		if entry.cancel != nil {
+			entry.cancel()
 		}
 	}
 }

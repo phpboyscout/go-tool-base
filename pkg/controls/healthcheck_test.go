@@ -2,6 +2,7 @@ package controls_test
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -382,6 +383,52 @@ func TestAsyncCheck_StopsOnShutdown(t *testing.T) {
 	countAfterStop := callCount.Load()
 	time.Sleep(150 * time.Millisecond)
 	assert.Equal(t, countAfterStop, callCount.Load(), "async check should stop after shutdown")
+}
+
+// TestAsyncCheck_ContextCancelledOnStop verifies that the per-health-check
+// context (derived in startAsyncCheck) is cancelled when the controller stops, so
+// the entry.cancel CancelFunc is invoked rather than leaked. The check blocks on
+// its context with a generous Timeout, so an early unblock can only come from the
+// parent per-check context being cancelled at Stop — not from the check's own
+// per-run timeout firing.
+func TestAsyncCheck_ContextCancelledOnStop(t *testing.T) {
+	t.Parallel()
+
+	unblocked := make(chan struct{})
+
+	var once sync.Once
+
+	c := controls.NewController(context.Background(),
+		controls.WithoutSignals(),
+		controls.WithLogger(logger.NewNoop()),
+	)
+
+	require.NoError(t, c.RegisterHealthCheck(controls.HealthCheck{
+		Name: "ctx-check",
+		Check: func(ctx context.Context) controls.CheckResult {
+			<-ctx.Done()
+			once.Do(func() { close(unblocked) })
+
+			return controls.CheckResult{Status: controls.CheckHealthy}
+		},
+		// Far longer than the test's Stop latency: if the check unblocks promptly
+		// it is because the per-check context was cancelled, not the per-run
+		// timeout.
+		Timeout:  30 * time.Second,
+		Interval: 50 * time.Millisecond,
+		Type:     controls.CheckTypeReadiness,
+	}))
+
+	c.Start()
+
+	c.Stop()
+	c.Wait()
+
+	select {
+	case <-unblocked:
+	case <-time.After(2 * time.Second):
+		t.Fatal("per-check context was not cancelled on Stop; entry.cancel leaked")
+	}
 }
 
 func TestGetCheckResult(t *testing.T) {
