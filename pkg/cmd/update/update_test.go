@@ -234,6 +234,59 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
+// TestUpdate_WithUpdaterOption proves the parallel-safe injection path:
+// WithUpdater supplies the factory directly, so the test does NOT mutate
+// the deprecated ExportNewUpdater package var and is safe under t.Parallel.
+func TestUpdate_WithUpdaterOption(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		FS:      afero.NewMemMapFs(),
+		Tool:    p.Tool{Name: "test-tool"},
+		Logger:  logger.NewNoop(),
+		Version: &mockVersion{version: "v1.0.0"},
+	}
+
+	mu := &mockUpdater{latestVersion: "v1.2.0", binPath: "/tmp/new-bin"}
+
+	result, err := update.Update(context.Background(), props, "", false,
+		update.WithUpdater(func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
+			return mu, nil
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.Updated)
+	assert.Equal(t, "v1.2.0", result.NewVersion)
+}
+
+// TestUpdateFromFile_WithOfflineUpdaterOption proves the offline path
+// honours the injected factory via NewCmdUpdate + the --from-file flag,
+// without mutating any package var, and is therefore parallel-safe.
+func TestUpdateFromFile_WithOfflineUpdaterOption(t *testing.T) {
+	t.Parallel()
+
+	props := &p.Props{
+		FS:      afero.NewMemMapFs(),
+		Tool:    p.Tool{Name: "test-tool"},
+		Logger:  logger.NewNoop(),
+		Version: &mockVersion{version: "v1.0.0"},
+	}
+
+	called := false
+	mu := &mockUpdater{fromFileBinPath: "/usr/local/bin/test-tool"}
+
+	cmd := update.NewCmdUpdate(props, update.WithOfflineUpdater(func(_ *p.Props) update.Updater {
+		called = true
+
+		return mu
+	}))
+	cmd.SetArgs([]string{"--from-file", "/tmp/release.tar.gz"})
+
+	require.NoError(t, cmd.Execute())
+	assert.True(t, called, "injected offline updater factory must be consulted")
+}
+
 type mockVersion struct {
 	version string
 }

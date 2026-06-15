@@ -50,3 +50,27 @@ No VCS client, API token, or network access is required for offline updates.
 ## Implementation
 
 The update command is implemented in `cmd/update/update.go`. Online updates use `pkg/setup.NewUpdater()` while offline updates use `pkg/setup.NewOfflineUpdater()`.
+
+### Injecting updater factories (testing)
+
+`NewCmdUpdate`, `Update`, and the offline path accept `UpdateConfigOption`s. To substitute the updater in tests — without touching any package-level state — pass a factory option:
+
+```go
+cmd := update.NewCmdUpdate(props,
+    update.WithUpdater(func(ctx context.Context, p *props.Props, version string, force bool) (update.Updater, error) {
+        return myFakeUpdater, nil
+    }),
+    update.WithOfflineUpdater(func(p *props.Props) update.Updater {
+        return myFakeOfflineUpdater
+    }),
+)
+```
+
+Each call site receives its own factory, so concurrent (`t.Parallel`) tests cannot clobber one another.
+
+!!! warning "Deprecated: `ExportNewUpdater` / `ExportNewOfflineUpdater`"
+    The package-level vars `ExportNewUpdater` and `ExportNewOfflineUpdater` are **deprecated**. They are mutable global test seams that race under parallel tests. They still work (consulted as the default when no option is given) and are retained for one minor release; migrate to `WithUpdater` / `WithOfflineUpdater`.
+
+### Error handling in `init` subcommands
+
+The `init ai`, `init github`, and `init bitbucket` subcommands use cobra `RunE` and **return** configuration errors rather than calling `logger.Fatalf`. Returning the error routes it through the framework's standard error path — user-facing hints, the configurable `ExitFunc`, and the deferred telemetry flush all apply — instead of terminating the process abruptly and bypassing them.

@@ -23,30 +23,81 @@ func init() {
 	))
 }
 
-var (
-	// semVerPattern matches semantic version strings in the format v0.0.0 or v0.0.0-suffix.
-	semVerPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+(-\w+)?$`)
+// semVerPattern matches semantic version strings in the format v0.0.0 or v0.0.0-suffix.
+var semVerPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+(-\w+)?$`)
 
-	// ExportNewUpdater creates an Updater for online updates. Tests may replace this.
-	ExportNewUpdater = func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error) {
-		return setup.NewUpdater(ctx, props, version, force)
-	}
-	// ExportNewOfflineUpdater creates an Updater for offline file-based updates. Tests may replace this.
-	ExportNewOfflineUpdater = func(props *p.Props) Updater {
-		return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
-	}
-)
+// NewUpdaterFunc constructs an [Updater] for online updates.
+type NewUpdaterFunc func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error)
+
+// NewOfflineUpdaterFunc constructs an [Updater] for offline,
+// file-based updates.
+type NewOfflineUpdaterFunc func(props *p.Props) Updater
+
+// Deprecated: ExportNewUpdater is a package-level test seam that races
+// under parallel tests. Inject a factory with [WithUpdater] instead.
+// Retained for one minor release for backward compatibility; it is
+// consulted only as the default when no [WithUpdater] option is given.
+//
+//nolint:gochecknoglobals // deprecated test seam, retained for compatibility
+var ExportNewUpdater NewUpdaterFunc = func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error) {
+	return setup.NewUpdater(ctx, props, version, force)
+}
+
+// Deprecated: ExportNewOfflineUpdater is a package-level test seam that
+// races under parallel tests. Inject a factory with [WithOfflineUpdater]
+// instead. Retained for one minor release for backward compatibility;
+// it is consulted only as the default when no [WithOfflineUpdater]
+// option is given.
+//
+//nolint:gochecknoglobals // deprecated test seam, retained for compatibility
+var ExportNewOfflineUpdater NewOfflineUpdaterFunc = func(props *p.Props) Updater {
+	return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
+}
 
 // UpdateConfigOption configures the UpdateConfig function.
 type UpdateConfigOption func(*updateConfigOptions)
 
 type updateConfigOptions struct {
-	execCommand func(context.Context, string, ...string) *exec.Cmd
+	execCommand       func(context.Context, string, ...string) *exec.Cmd
+	newUpdater        NewUpdaterFunc
+	newOfflineUpdater NewOfflineUpdaterFunc
 }
 
 // WithExecCommand overrides exec.CommandContext for testing.
 func WithExecCommand(fn func(context.Context, string, ...string) *exec.Cmd) UpdateConfigOption {
 	return func(o *updateConfigOptions) { o.execCommand = fn }
+}
+
+// WithUpdater injects the online [Updater] factory, replacing the
+// default that builds a real [setup.NewUpdater]. This is the
+// parallel-safe replacement for mutating the deprecated
+// [ExportNewUpdater] package var: each call site receives its own
+// factory, so concurrent tests cannot clobber one another.
+func WithUpdater(fn NewUpdaterFunc) UpdateConfigOption {
+	return func(o *updateConfigOptions) { o.newUpdater = fn }
+}
+
+// WithOfflineUpdater injects the offline [Updater] factory, replacing
+// the default that builds a real [setup.NewOfflineUpdater]. The
+// parallel-safe replacement for mutating the deprecated
+// [ExportNewOfflineUpdater] package var.
+func WithOfflineUpdater(fn NewOfflineUpdaterFunc) UpdateConfigOption {
+	return func(o *updateConfigOptions) { o.newOfflineUpdater = fn }
+}
+
+// resolveUpdaterFactories fills in the updater factories from the
+// supplied options, falling back to the deprecated package-level vars
+// (which themselves default to the real constructors) when an option
+// is not given. Centralising this keeps the deprecated seam working
+// for one more minor release without scattering the fallback.
+func (o *updateConfigOptions) resolveUpdaterFactories() {
+	if o.newUpdater == nil {
+		o.newUpdater = ExportNewUpdater
+	}
+
+	if o.newOfflineUpdater == nil {
+		o.newOfflineUpdater = ExportNewOfflineUpdater
+	}
 }
 
 // Updater defines the interface for self-updating functionality.
@@ -58,8 +109,12 @@ type Updater interface {
 	GetCurrentVersion() string
 }
 
-// NewCmdUpdate creates the update command for self-updating the tool binary.
-func NewCmdUpdate(props *p.Props) *setup.Command {
+// NewCmdUpdate creates the update command for self-updating the tool
+// binary. The optional [UpdateConfigOption]s are threaded into both
+// the online and offline update paths — pass [WithUpdater] /
+// [WithOfflineUpdater] to inject test doubles without mutating any
+// package-level seam (parallel-safe).
+func NewCmdUpdate(props *p.Props, opts ...UpdateConfigOption) *setup.Command {
 	var updateCmd = &cobra.Command{
 		Use:   "update",
 		Short: "update to the latest available version",
@@ -71,7 +126,7 @@ func NewCmdUpdate(props *p.Props) *setup.Command {
 			}
 
 			if fromFile != "" {
-				return updateFromFile(cmd, props, fromFile)
+				return updateFromFile(cmd, props, fromFile, opts...)
 			}
 
 			force, err := cmd.Flags().GetBool("force")
@@ -88,7 +143,7 @@ func NewCmdUpdate(props *p.Props) *setup.Command {
 				return errors.Newf("invalid version format %q, expected semVer pattern v0.0.0", version)
 			}
 
-			result, err := Update(cmd.Context(), props, version, force)
+			result, err := Update(cmd.Context(), props, version, force, opts...)
 			if err != nil {
 				return err
 			}
@@ -118,7 +173,14 @@ type UpdateResult struct {
 
 // Update downloads and installs the specified version (or latest) of the tool.
 func Update(ctx context.Context, props *p.Props, version string, force bool, opts ...UpdateConfigOption) (*UpdateResult, error) {
-	updater, err := ExportNewUpdater(ctx, props, version, force)
+	o := &updateConfigOptions{execCommand: exec.CommandContext}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	o.resolveUpdaterFactories()
+
+	updater, err := o.newUpdater(ctx, props, version, force)
 	if err != nil {
 		return nil, err
 	}
@@ -177,15 +239,22 @@ func showUpdateChangelog(ctx context.Context, props *p.Props, updater Updater, p
 	props.Logger.Print(styledNotes)
 }
 
-func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string) error {
-	updater := ExportNewOfflineUpdater(props)
+func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ...UpdateConfigOption) error {
+	o := &updateConfigOptions{execCommand: exec.CommandContext}
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	o.resolveUpdaterFactories()
+
+	updater := o.newOfflineUpdater(props)
 
 	targetPath, err := updater.UpdateFromFile(filePath)
 	if err != nil {
 		return err
 	}
 
-	UpdateConfig(cmd.Context(), props, targetPath)
+	UpdateConfig(cmd.Context(), props, targetPath, opts...)
 
 	props.Logger.Infof("successfully installed from %s to %s", filePath, targetPath)
 
