@@ -241,6 +241,9 @@ func TestSplitRepoOrgForValidate(t *testing.T) {
 		{"github.com/myorg/mytool", "myorg", false},
 		{"gitlab.com/group/sub/mytool", "group/sub", false},
 		{"myorg/mytool", "myorg", false}, // two-segment, no host
+		// Host-less GitLab nested group: the first segment is a group, not a
+		// host (no dot), so the whole namespace is the org — bug #195.
+		{"group/sub/mytool", "group/sub", false},
 		{"single", "", true},
 	}
 
@@ -254,6 +257,35 @@ func TestSplitRepoOrgForValidate(t *testing.T) {
 
 		require.NoErrorf(t, err, "repo %q", tc.repo)
 		assert.Equalf(t, tc.wantOrg, org, "repo %q", tc.repo)
+	}
+}
+
+func TestNormalizeRepoHost(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		repo     string
+		host     string
+		wantRepo string
+		wantHost string
+	}{
+		{"host-qualified github adopts host", "github.com/acme/tool", "", "acme/tool", "github.com"},
+		{"host-qualified gitlab nested adopts host", "gitlab.com/group/sub/tool", "", "group/sub/tool", "gitlab.com"},
+		{"self-hosted host stripped", "git.acme.example/mirror/tool", "", "mirror/tool", "git.acme.example"},
+		{"bare org/repo unchanged", "acme/tool", "", "acme/tool", ""},
+		{"host-less nested group preserved", "group/sub/tool", "", "group/sub/tool", ""},
+		{"explicit host kept, repo host stripped", "github.com/acme/tool", "github.com", "acme/tool", "github.com"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			gotRepo, gotHost := normalizeRepoHost(tc.repo, tc.host)
+			assert.Equal(t, tc.wantRepo, gotRepo, "repo")
+			assert.Equal(t, tc.wantHost, gotHost, "host")
+		})
 	}
 }
 

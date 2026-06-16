@@ -134,6 +134,13 @@ func (o *SkeletonOptions) ValidateOrPrompt(p *props.Props) error {
 		}
 	}
 
+	// Strip a leading host segment from --repo (e.g. "github.com/acme/tool")
+	// before validation and generation, so the manifest stores a host-less
+	// org/repo and the module path is not double-prefixed. A GitLab nested
+	// group ("group/sub/tool") has no host-like first segment and is left
+	// intact. Runs after both the wizard and flag paths.
+	o.Repo, o.Host = normalizeRepoHost(o.Repo, o.Host)
+
 	return o.validateFields()
 }
 
@@ -261,22 +268,45 @@ func (o *SkeletonOptions) validateHelpFields() error {
 // "org". We avoid that shape because it cannot appear in a real
 // GitHub or GitLab mention.
 func splitRepoOrgForValidate(repo string) (org string, err error) {
-	const (
-		minRepoSegments    = 2
-		hostQualifiedCount = 3
-	)
+	const minRepoSegments = 2
+
+	// Drop a leading host segment (dot-detected) so a host-qualified repo and
+	// a bare org/repo yield the same org, and a GitLab nested group is kept
+	// whole.
+	repo, _ = normalizeRepoHost(repo, "")
 
 	segments := strings.Split(repo, "/")
 	if len(segments) < minRepoSegments {
 		return "", errors.Newf("repo %q must be org/name or host/org/name", repo)
 	}
 
-	if len(segments) < hostQualifiedCount {
-		// Two segments: org/name, with no host prefix to strip.
-		return segments[0], nil
+	// Everything before the last segment is the org/namespace (the host, if
+	// any, was already stripped above).
+	return strings.Join(segments[:len(segments)-1], "/"), nil
+}
+
+// normalizeRepoHost strips a leading host segment from a host-qualified repo
+// path so the stored org/repo and the generated module path never include the
+// host: "github.com/acme/tool" → repo "acme/tool", host "github.com". The
+// first segment is treated as a host only when it looks like one (contains a
+// "."), which preserves GitLab nested groups ("group/sub/tool"). A stripped
+// host is adopted only when no host was supplied explicitly, so an explicit
+// --host always wins.
+//
+// Normalising here keeps the two repo splitters (this one and the generator's
+// splitRepoPath) and the module-path builder consistent: a host-qualified
+// --repo no longer stores an org with the host baked in, which previously
+// produced a manifest that `regenerate project` rejected.
+func normalizeRepoHost(repo, host string) (string, string) {
+	if first, rest, found := strings.Cut(repo, "/"); found && strings.Contains(first, ".") {
+		if host == "" {
+			host = first
+		}
+
+		return rest, host
 	}
 
-	return strings.Join(segments[1:len(segments)-1], "/"), nil
+	return repo, host
 }
 
 func (o *SkeletonOptions) defaultHost() string {
