@@ -1,7 +1,7 @@
 ---
 title: "Opt-in ForcedUpdate — three-state self-update gating with a configurable interval"
 description: "Replace the always-on self-update check (which hijacks unrelated commands and masks failures with exit 0) with an opt-in ForcedUpdate capability that has three states (enabled / prompt / disabled), a configurable check interval, a locally cached latest-version with a persistent out-of-date WARN, and a non-zero exit on a genuinely failed forced update. --ci continues to bypass the check entirely."
-status: DRAFT
+status: APPROVED
 date: 2026-06-16
 tags:
   - specification
@@ -23,7 +23,7 @@ Date
 :   16 June 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 

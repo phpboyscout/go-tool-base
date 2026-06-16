@@ -1,7 +1,7 @@
 ---
 title: "`gtb enable/disable <feature>` — manifest-driven feature toggles that survive regeneration"
 description: "Add `gtb enable <feature>` and `gtb disable <feature>` subcommands that flip the properties.features block in .gtb/manifest.yaml and re-render the generated root command, so a tool's built-in feature set (ai, config, telemetry, init, update, mcp, docs, doctor, changelog) can be changed after creation without hand-editing the DO-NOT-EDIT root cmd.go — which regenerate project rewrites. Mirrors the existing `gtb enable/disable signing`."
-status: DRAFT
+status: APPROVED
 date: 2026-06-16
 tags:
   - specification
@@ -23,7 +23,7 @@ Date
 :   16 June 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 ---
 
