@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.18.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.18.0)
+
+### Features
+
+- **cmd**: toggle built-in features with gtb enable/disable <feature>...
+- **update**: configurable self-update check interval baseline
+- **generator**: scaffold tools with a self-update policy
+- **update**: opt-in three-state ForcedUpdate policy
+- **generator**: --template flag and gtb template command group
+- **generator**: fetch, cache, and overlay layering for custom templates
+- **generator**: custom template overlay engine, descriptor and security model
+- **generator**: git-init + initial commit (opt-out) and optional push on generate project
+- **generator**: scaffold GitLab CI from phpboyscout/cicd components
+- **generator**: richer default README for generated projects
+- **props**: add TelemetryProvider interface and GetCollector getter
+- **vcs**: split RepoLike into role interfaces (composite preserved)
+
+### Bug Fixes
+
+- **docs**: point docs site_url and generated README links at gtb.phpboyscout.uk
+- **generate**: strip a leading host from --repo so projects can regenerate
+- **generator**: reject Go reserved words as command names
+- **generator**: recognise zensical projects in the docs-nav step
+- **generator**: make AI doc-generation opt-in and respect --agentless
+- **credentials**: never persist a credential alongside another storage mode
+
 ## [v0.17.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.17.0)
 
 ### Features
