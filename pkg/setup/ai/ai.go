@@ -375,6 +375,28 @@ func providerConfigKeys(provider string) (providerConfigKeyTriple, bool) {
 	return providerConfigKeyTriple{env: envKey, literal: litKey, keychain: kcKey}, true
 }
 
+// clearStaleAICredentialKeys blanks the provider credential key paths
+// that the selected storage mode does NOT own. Re-running the setup
+// wizard in a different mode (e.g. literal → env-var) must never leave
+// the prior secret — or a stale reference — behind: exactly one of env
+// / literal / keychain may carry a value, so a prior mode cannot mask
+// the new one at resolve time. An empty mode is treated as literal (the
+// test-only path that sets APIKey directly). Callers invoke this only
+// after the selected mode's key has actually been written, so an empty
+// wizard form never wipes an existing credential.
+func clearStaleAICredentialKeys(w credentials.KeyWriter, keys providerConfigKeyTriple, keep credentials.Mode) {
+	all := []string{keys.env, keys.literal, keys.keychain}
+
+	switch keep {
+	case credentials.ModeEnvVar:
+		credentials.ClearKeysExcept(w, all, keys.env)
+	case credentials.ModeKeychain:
+		credentials.ClearKeysExcept(w, all, keys.keychain)
+	case credentials.ModeLiteral, "":
+		credentials.ClearKeysExcept(w, all, keys.literal)
+	}
+}
+
 // applyStorageModeWrite performs the single Set call corresponding
 // to the selected storage mode. Extracted so the cyclomatic cost of
 // the four-arm switch doesn't hit the outer function's budget.
@@ -383,6 +405,7 @@ func applyStorageModeWrite(cfg config.Containable, toolName string, keys provide
 	case credentials.ModeEnvVar:
 		if aiCfg.EnvVarName != "" {
 			cfg.Set(keys.env, aiCfg.EnvVarName)
+			clearStaleAICredentialKeys(cfg, keys, credentials.ModeEnvVar)
 		}
 
 		return nil
@@ -392,6 +415,7 @@ func applyStorageModeWrite(cfg config.Containable, toolName string, keys provide
 		// bypass the wizard and set APIKey directly.
 		if aiCfg.APIKey != "" {
 			cfg.Set(keys.literal, aiCfg.APIKey)
+			clearStaleAICredentialKeys(cfg, keys, credentials.ModeLiteral)
 		}
 
 		return nil
@@ -404,6 +428,7 @@ func applyStorageModeWrite(cfg config.Containable, toolName string, keys provide
 
 		if ref != "" {
 			cfg.Set(keys.keychain, ref)
+			clearStaleAICredentialKeys(cfg, keys, credentials.ModeKeychain)
 		}
 
 		return nil
@@ -620,6 +645,13 @@ func writeAIConfig(p *props.Props, dir string, aiCfg *AIConfig) error {
 		return err
 	}
 
+	// Drop every credential key for the selected provider that may have
+	// been carried over from an existing config, so the upcoming write
+	// leaves exactly one — the selected mode's — behind. Without this a
+	// prior literal key (or stale env/keychain reference) would persist
+	// alongside the new one and mask it (or leak) at resolve time.
+	cfg = pruneAICredentialKeys(cfg, p.FS, aiCfg.Provider)
+
 	configMap := map[string]any{
 		"ai": map[string]any{
 			"provider": aiCfg.Provider,
@@ -691,7 +723,7 @@ func setAICredentialOnViper(cfg *viper.Viper, toolName string, aiCfg *AIConfig) 
 			cfg.Set(keys.literal, aiCfg.APIKey)
 		}
 	case credentials.ModeKeychain:
-		return writeKeychainRefToViper(cfg, toolName, keys.keychain, aiCfg)
+		return writeKeychainRefToViper(cfg, toolName, keys, aiCfg)
 	default:
 		return errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
 	}
@@ -703,17 +735,63 @@ func setAICredentialOnViper(cfg *viper.Viper, toolName string, aiCfg *AIConfig) 
 // records the reference on the viper instance. Split out of
 // [setAICredentialOnViper] to keep that function under the
 // cyclomatic-complexity budget.
-func writeKeychainRefToViper(cfg *viper.Viper, toolName, kcKey string, aiCfg *AIConfig) error {
+func writeKeychainRefToViper(cfg *viper.Viper, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
 	ref, err := storeAIKeyInKeychain(toolName, aiCfg)
 	if err != nil {
 		return err
 	}
 
-	if kcKey != "" && ref != "" {
-		cfg.Set(kcKey, ref)
+	if keys.keychain != "" && ref != "" {
+		cfg.Set(keys.keychain, ref)
 	}
 
 	return nil
+}
+
+// pruneAICredentialKeys returns a viper instance with every credential
+// key path for the given provider (env / literal / keychain) removed.
+// viper has no delete primitive, so it rebuilds from AllSettings minus
+// those nested keys. The file-write path calls this after loading any
+// existing config so re-running the wizard never leaves a stale
+// credential from a prior storage mode behind — exactly one credential
+// key persists. An unknown provider returns the input unchanged.
+func pruneAICredentialKeys(cfg *viper.Viper, fs afero.Fs, provider string) *viper.Viper {
+	keys, ok := providerConfigKeys(provider)
+	if !ok {
+		return cfg
+	}
+
+	settings := cfg.AllSettings()
+	for _, key := range []string{keys.env, keys.literal, keys.keychain} {
+		deleteNestedKey(settings, strings.Split(key, "."))
+	}
+
+	pruned := viper.New()
+	pruned.SetFs(fs)
+	pruned.SetConfigType("yaml")
+	_ = pruned.MergeConfigMap(settings)
+
+	return pruned
+}
+
+// deleteNestedKey removes the value addressed by the dotted path from a
+// nested map, pruning now-empty parent maps so no empty scaffolding
+// (e.g. `anthropic: {api: {}}`) is left behind in the written config.
+func deleteNestedKey(m map[string]any, path []string) {
+	switch len(path) {
+	case 0:
+		return
+	case 1:
+		delete(m, path[0])
+	default:
+		if sub, ok := m[path[0]].(map[string]any); ok {
+			deleteNestedKey(sub, path[1:])
+
+			if len(sub) == 0 {
+				delete(m, path[0])
+			}
+		}
+	}
 }
 
 // validProviders is the set of permitted AI provider identifiers.

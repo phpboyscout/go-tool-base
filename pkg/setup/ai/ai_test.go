@@ -187,6 +187,80 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 	assert.NotContains(t, contentStr, "gemini")
 }
 
+// TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral is the regression
+// guard for the keryx-reported security bug: re-running the wizard in
+// env-var mode over a config that already held a literal API key must
+// purge the literal secret from the persisted file — never leave both
+// a `.env` reference and a plaintext `.key` behind.
+func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
+	withNoCI(t)
+
+	props := newTestProps(t)
+	props.Assets = p.NewAssets()
+	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
+
+	// A config left behind by a prior literal-mode run.
+	require.NoError(t, props.FS.MkdirAll(dir, 0o755))
+	require.NoError(t, afero.WriteFile(props.FS, configFile,
+		[]byte("anthropic:\n  api:\n    key: sk-ant-STALE-SECRET\n"), 0o600))
+
+	// Re-run the wizard, this time choosing env-var mode.
+	err := RunAIInit(props, dir, WithAIForm(mockEnvVarFormCreator("claude", "ANTHROPIC_API_KEY")))
+	require.NoError(t, err)
+
+	content, err := afero.ReadFile(props.FS, configFile)
+	require.NoError(t, err)
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "env: ANTHROPIC_API_KEY",
+		"env-var mode must record the env var name")
+	assert.NotContains(t, contentStr, "sk-ant-STALE-SECRET",
+		"switching to env-var mode must purge the stale literal secret from config")
+}
+
+// TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys exercises the
+// live-config write path (the interactive wizard) directly: writing a
+// credential in one mode must blank the key paths owned by the other
+// modes, enforcing the spec's single-credential-key invariant.
+func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
+	t.Run("env-var mode clears a stale literal", func(t *testing.T) {
+		cfg := config.NewFilesContainer(afero.NewMemMapFs())
+		cfg.Set("anthropic.api.key", "sk-ant-STALE")
+
+		err := writeAICredentialKeys(cfg, "test-tool", &AIConfig{
+			Provider:    "claude",
+			StorageMode: credentials.ModeEnvVar,
+			EnvVarName:  "ANTHROPIC_API_KEY",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, "ANTHROPIC_API_KEY", cfg.GetString("anthropic.api.env"))
+		assert.Empty(t, cfg.GetString("anthropic.api.key"),
+			"env-var mode must clear the stale literal key")
+	})
+
+	t.Run("literal mode clears a stale env reference", func(t *testing.T) {
+		cfg := config.NewFilesContainer(afero.NewMemMapFs())
+		cfg.Set("anthropic.api.env", "OLD_ENV_NAME")
+
+		// Held in a variable rather than an inline APIKey literal so
+		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
+		replacement := "sk-ant-new"
+
+		err := writeAICredentialKeys(cfg, "test-tool", &AIConfig{
+			Provider:    "claude",
+			StorageMode: credentials.ModeLiteral,
+			APIKey:      replacement,
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, replacement, cfg.GetString("anthropic.api.key"))
+		assert.Empty(t, cfg.GetString("anthropic.api.env"),
+			"literal mode must clear the stale env reference")
+	})
+}
+
 func TestRunAIInit_MergesExistingConfig(t *testing.T) {
 	withNoCI(t)
 
@@ -496,6 +570,9 @@ func TestAIInitialiser_Configure(t *testing.T) {
 	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
 	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(chat.ProviderClaude)).Once()
 	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test").Once()
+	// Writing the literal also blanks the sibling env/keychain key
+	// paths so a prior storage mode cannot leave a stale value behind.
+	cfg.EXPECT().Set(mock.Anything, "").Maybe()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{

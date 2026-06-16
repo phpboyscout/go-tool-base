@@ -185,6 +185,48 @@ func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "no GitHub token captured")
 }
 
+// TestWriteGitHubCredential_ModeSwitchClearsStaleKeys is the
+// regression guard for the credential single-key invariant: writing a
+// credential in one storage mode must purge any value left behind by a
+// prior mode, so config never carries both an env reference and a
+// literal token (the keryx-reported leak class, applied to the GitHub
+// backend).
+func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
+	t.Run("env-var mode clears a stale literal token", func(t *testing.T) {
+		cfg := config.NewContainerFromViper(nil, viper.New())
+		cfg.Set("github.auth.value", "ghp_STALE_TOKEN")
+
+		err := writeGitHubCredential(t.Context(), cfg, "testtool", &GitHubAuthConfig{
+			StorageMode: credentials.ModeEnvVar,
+			EnvVarName:  "GITHUB_TOKEN",
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, "GITHUB_TOKEN", cfg.GetString("github.auth.env"))
+		assert.Empty(t, cfg.GetString("github.auth.value"),
+			"switching to env-var mode must purge the stale literal token")
+	})
+
+	t.Run("literal mode clears a stale env reference", func(t *testing.T) {
+		cfg := config.NewContainerFromViper(nil, viper.New())
+		cfg.Set("github.auth.env", "OLD_GH_ENV")
+
+		// Held in a variable rather than an inline Token literal so
+		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
+		replacement := "ghp_new_token"
+
+		err := writeGitHubCredential(t.Context(), cfg, "testtool", &GitHubAuthConfig{
+			StorageMode: credentials.ModeLiteral,
+			Token:       replacement,
+		})
+		require.NoError(t, err)
+
+		assert.Equal(t, replacement, cfg.GetString("github.auth.value"))
+		assert.Empty(t, cfg.GetString("github.auth.env"),
+			"switching to literal mode must purge the stale env reference")
+	})
+}
+
 // The storage-mode option matrix and the env-var-name validation are
 // now provided by pkg/credentials (StorageModeOptions /
 // ValidateEnvVarName) and exercised in that package's wizard_test.go —

@@ -76,6 +76,9 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
 	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(chat.ProviderClaude)).Once()
 	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api").Once()
+	// Recording the keychain reference also blanks the sibling
+	// env/literal key paths so a prior storage mode leaves nothing.
+	cfg.EXPECT().Set(mock.Anything, "").Maybe()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{

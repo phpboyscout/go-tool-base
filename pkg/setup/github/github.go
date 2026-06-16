@@ -374,6 +374,7 @@ func writeGitHubCredential(ctx context.Context, cfg config.Containable, toolName
 	case credentials.ModeEnvVar:
 		if authCfg.EnvVarName != "" {
 			cfg.Set("github.auth.env", authCfg.EnvVarName)
+			credentials.ClearKeysExcept(cfg, githubCredentialKeys, "github.auth.env")
 		}
 
 		return nil
@@ -394,12 +395,14 @@ func writeGitHubCredential(ctx context.Context, cfg config.Containable, toolName
 		}
 
 		cfg.Set("github.auth.keychain", toolName+"/"+githubKeychainAccount)
+		credentials.ClearKeysExcept(cfg, githubCredentialKeys, "github.auth.keychain")
 
 		return nil
 
 	case credentials.ModeLiteral, "":
 		if authCfg.Token != "" {
 			cfg.Set("github.auth.value", authCfg.Token)
+			credentials.ClearKeysExcept(cfg, githubCredentialKeys, "github.auth.value")
 		}
 
 		return nil
@@ -407,6 +410,17 @@ func writeGitHubCredential(ctx context.Context, cfg config.Containable, toolName
 	default:
 		return errors.Newf("unsupported credential storage mode %q", authCfg.StorageMode)
 	}
+}
+
+// githubCredentialKeys is the full set of config key paths that can
+// carry a GitHub credential across the three storage modes. The setup
+// wizard clears the keys not owned by the selected mode so switching
+// modes never leaves a stale token or reference behind (the
+// single-credential-key invariant from the hardening spec).
+var githubCredentialKeys = []string{
+	"github.auth.env",
+	"github.auth.value",
+	"github.auth.keychain",
 }
 
 // defaultStorageModeForm presents the three-mode selector. Literal
