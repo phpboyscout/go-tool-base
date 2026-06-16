@@ -305,6 +305,24 @@ We use Go's `text/template` engine to render code. Templates are stored as strin
 - `main.go.tmpl`: The implementation stub.
 - `main_test.go.tmpl`: Unit test scaffolding.
 
+### 8. Custom Template Overlays (`templatesource*.go`)
+
+Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files — `README.md` and `gtb-template.yaml` — are excluded from rendering.
+
+| File | Responsibility |
+|------|----------------|
+| `templatesource.go` | The descriptor (`gtb-template.yaml`), the versioned metadata-only `TemplateContractData`, the restricted `overlayFuncMap`, write-path containment (`containedOutputPath`), the protected-path denylist (`isProtectedOverlayPath`), the alias→paths suppression map, and `renderOverlay` |
+| `templatesource_fetch.go` | Resolving a source to a readable tree: local folder direct, git via the XDG `@<sha>` cache; offline cold-cache-for-override errors clearly |
+| `templatesource_clone_real.go` | The production git clone, wired on `pkg/vcs/repo` (provider-aware auth, inert fetch) and injected via `EnableRealTemplateClone` |
+| `templatesource_apply.go` | Layering sources in manifest order (last-writer-wins), per-source hashes, local-drift warning, stranded-suppressed cleanup |
+| `templatesource_validate.go` | `ValidateTemplateSource` (type/location/ref/SHA), wired into `ValidateManifest` |
+| `templatesource_spec.go` | Parsing the CLI `<src>@<ref>` spec and inferring local vs git |
+| `templatesource_manage.go` | The `gtb template add/update/remove/list` manifest-edit + regenerate operations (with add rollback on a rejected overlay) |
+
+The consumer manifest's `properties.templates:` block is **provenance + pinning only** — `{name, type, location, ref, resolved, fingerprint, hashes}` per source. Suppression behaviour (`replaces:`) lives with the template set in its `gtb-template.yaml`, not in the consumer manifest. A git source records the resolved commit SHA for byte-stable `regenerate`; a local source records a content fingerprint and `regenerate` warns on drift.
+
+The overlay deliberately steps outside the escape-at-known-sites model — see the threat model in [Template Security](../../development/template-security.md#custom-template-overlays-a-different-threat-model) and the how-to [Author and Apply Custom Template Overlays](../../how-to/custom-templates.md).
+
 ## Development Workflows
 
 ### Adding a New Flag Type

@@ -35,6 +35,9 @@ A hands-on guide to implementing domain-specific logic and registering it with t
 ### [Adding Nested Subcommands](nested-subcommands.md)
 Build multi-level command trees (e.g. `tool deploy canary`) via the generator or by hand using `setup.Command.Register`.
 
+### [Author and Apply Custom Template Overlays](custom-templates.md)
+Extend the generator with your own files — org `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline — from a local folder or a git repo, layered over the embedded skeleton and pinned in the manifest.
+
 ## Advanced Guides
 
 ### [Testing & Mocking](testing.md)

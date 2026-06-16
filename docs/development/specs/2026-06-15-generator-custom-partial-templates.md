@@ -1,7 +1,7 @@
 ---
 title: "Generator custom/extensible template overlays (local folder or git repo, ref-pinned, manifest-tracked)"
 description: "The generator renders only its embedded skeleton; users cannot extend it with their own templates. Add user-supplied custom template overlays — sourced from a local folder or a git repo (public over https/go-git, private over a configured forge with provider-aware auth), pinned to a git ref resolved to a commit SHA, tracked in .gtb/manifest.yaml. Every file in the source is rendered through the existing text/template engine to the identical relative path in the generated project: a new path adds a file; a path that also exists in the embedded skeleton is overwritten (user wins). A source-side gtb-template.yaml descriptor can suppress whole embedded forge-CI scaffolds, so a user CI file becomes the suitable ALTERNATIVE simply by living at the same path. Includes a security model for executing user/remote-fetched templates."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-15
 tags:
   - specification
@@ -27,7 +27,7 @@ Date
 :   2026-06-15
 
 Status
-:   APPROVED (open questions resolved in review 2026-06-15)
+:   IMPLEMENTED (2026-06-16 — per-file overlay, `gtb-template.yaml` `replaces:` suppression, local + git (public/private forge) sources with XDG `@<sha>` cache and ref→SHA pinning, per-source hashes + offline-reproducible regenerate, the security containment/denylist/restricted-FuncMap/metadata-only-contract posture, `ValidateManifest` gating, the `--template` flag, and the `gtb template add/update/remove/list` group all landed; open questions resolved in review 2026-06-15)
 
 ## Summary
 

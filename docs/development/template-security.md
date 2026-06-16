@@ -127,3 +127,26 @@ When you add a new field that flows from the wizard/flags/manifest into skeleton
 5. **Run the existing fuzz and regression tests.** No golden-hash drift should occur for existing clean fixtures — the escape functions are identity on the safe class.
 
 See `docs/development/specs/2026-04-02-generator-template-escaping.md` for the full rationale and the complete audit of template locations.
+
+## Custom Template Overlays — A Different Threat Model
+
+The escape-at-known-sites model above protects GTB's **own** templates: GTB authors every template and escapes the **user-supplied field values** it interpolates. Custom template overlays (`docs/development/specs/2026-06-15-generator-custom-partial-templates.md`) deliberately step **outside** that perimeter — the generator renders `text/template` content **GTB did not author**, fetched (for git sources) over the network from a repository the framework does not control. The **template author controls the output directly**, so the escape helpers cannot guarantee a custom template's output is well-formed; that correctness is the **template author's responsibility**.
+
+GTB's guarantees for custom overlays are therefore confined to **where** output may land and **what data** a template may see — not the bytes emitted. The posture is **trusted-source with bounded blast radius**, *not* a sandbox (a true sandbox is out of scope). Adding a source **is** the trust decision; the SHA pin records exactly what was trusted.
+
+### Hard controls (always on)
+
+| Control | What it stops | Where |
+|---------|---------------|-------|
+| **Write-path containment** | A source file rendering to `../escape` or an absolute path leaving the project tree | `containedOutputPath` — `filepath.Abs` + `filepath.Rel` confine every output strictly under the project root |
+| **Protected-path denylist** | An overlay shadowing `.gtb/**` (manifest/ignore), `internal/trustkeys/**` (signing anchors), or `go.mod`/`go.sum` — supply-chain injection | `isProtectedOverlayPath` — denied unconditionally, even for a `replaces:` source |
+| **Restricted FuncMap** | A template reaching a file/exec/env/network helper | `overlayFuncMap` — only the pure escape helpers + pure string/format funcs; nothing that reads files, runs commands, opens sockets, or reads env |
+| **Metadata-only data contract** | Exfiltration of secrets via the data context | `TemplateContractData` — a versioned, secret-free projection of `skeletonTemplateData`; no resolved token, env var, absolute path, or forge credential is reachable |
+| **Inert fetch** | Clone-time code execution (hooks, filters, submodules) | go-git `PlainClone` runs no hooks/filters; submodules are not recursed; a per-file 1 MiB bound caps a pathological source |
+| **Manifest-gate validation** | A tampered `templates` entry driving a fetch/write outside the rules | `ValidateTemplateSource` (type, location char-class, ref/SHA shape) via `ValidateManifest`; the source `gtb-template.yaml` is validated for a known `contract:` version and a maintained `replaces:` alias |
+| **SHA pin** | A branch/tag `ref` silently changing under the operator between runs | `resolved` commit SHA; `regenerate` targets the SHA, never the moving ref |
+| **First-use confirmation** | A remote source being fetched without an explicit trust decision | Interactive confirm naming host/owner/repo + ref; suppressible only under `--ci`/non-interactive, where supplying `--template` is itself the acceptance |
+
+### Output escaping reality
+
+GTB **cannot** guarantee a custom template emits valid YAML/Markdown/etc., and a malicious `.gitlab-ci.yml` or `justfile` it renders could run attacker code when CI/`just` later runs. That downstream-injection risk is inherent to running an operator-chosen template and is **out of scope** for GTB to neutralise — it is the same trust the operator extends to a `Makefile` or a pre-commit hook they chose to run. The controls above bound the **blast radius at generate time**; they do not vet the semantics of the emitted bytes.

@@ -198,7 +198,12 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | `--slack-team` | | Slack team name (e.g. `My Team`) | — |
 | `--teams-channel` | | Microsoft Teams channel | — |
 | `--teams-team` | | Microsoft Teams team name | — |
+| `--template` | | Custom template overlay source `<src>@<ref>` (local path or forge repo); repeatable, layered in order | — |
 | `--dry-run` | | Preview changes without writing files | `false` |
+
+### Custom Template Overlays
+
+`--template <src>@<ref>` layers a [custom template overlay](../how-to/custom-templates.md) over the embedded skeleton — your own `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline, etc. The flag is repeatable (sources layer in order, last writer wins). Manage sources on an existing project with the [`gtb template`](template.md) command group.
 
 ### Dry-Run Mode
 

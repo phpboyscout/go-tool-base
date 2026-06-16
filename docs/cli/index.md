@@ -53,6 +53,7 @@ go run main.go generate --help
 In the following sections, we'll dive into how to scaffold a new project, grow it with hierarchical commands, and keep it documented with our AI-powered tools. Let's build something amazing! ✨
 
 - [Project Skeleton](skeleton.md): Scaffold your next big idea.
+- [Custom Template Overlays](template.md): Layer your own files over the skeleton with `gtb template`.
 - [Generating Commands](command.md): Add functionality with ease.
 - [AI Script Conversion](ai-conversion.md): Turn existing scripts into Go.
 - [Generating Documentation](docs.md): Instant, AI-powered docs for commands and packages.
