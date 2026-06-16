@@ -326,10 +326,13 @@ type ManifestProperties struct {
 	Description MultilineString   `yaml:"description"`
 	Features    []ManifestFeature `yaml:"features"`
 	EnvPrefix   string            `yaml:"env_prefix,omitempty"`
-	Help        ManifestHelp      `yaml:"help,omitempty"`
-	Telemetry   ManifestTelemetry `yaml:"telemetry,omitempty"`
-	Signing     ManifestSigning   `yaml:"signing,omitempty"`
-	CI          ManifestCI        `yaml:"ci,omitempty"`
+	// UpdatePolicy is the generated tool's self-update posture baseline
+	// (disabled / prompt / enabled). Empty = framework default (disabled).
+	UpdatePolicy string            `yaml:"update_policy,omitempty"`
+	Help         ManifestHelp      `yaml:"help,omitempty"`
+	Telemetry    ManifestTelemetry `yaml:"telemetry,omitempty"`
+	Signing      ManifestSigning   `yaml:"signing,omitempty"`
+	CI           ManifestCI        `yaml:"ci,omitempty"`
 	// Templates records the custom template-overlay sources applied to the
 	// project, in render (layer) order: embedded base → templates[0] →
 	// templates[1] → … (last writer wins for a shared path). Each entry is

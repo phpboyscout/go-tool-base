@@ -247,6 +247,40 @@ func TestValidateEnvPrefix(t *testing.T) {
 	}
 }
 
+func TestValidateUpdatePolicy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted (framework default)", input: "", wantErr: false},
+		{name: "disabled", input: "disabled", wantErr: false},
+		{name: "prompt", input: "prompt", wantErr: false},
+		{name: "enabled", input: "enabled", wantErr: false},
+
+		{name: "unknown value rejected", input: "always", wantErr: true},
+		{name: "case-sensitive: Prompt rejected", input: "Prompt", wantErr: true},
+		{name: "whitespace rejected", input: " prompt", wantErr: true},
+		{name: "numeric rejected", input: "1", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateUpdatePolicy(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateSlackChannel(t *testing.T) {
 	t.Parallel()
 

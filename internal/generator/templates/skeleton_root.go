@@ -30,6 +30,10 @@ type SkeletonRootData struct {
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
+	// UpdatePolicy wires props.Tool.UpdatePolicy in the generated root. Empty
+	// (or "disabled") leaves the field off so the framework default applies;
+	// "prompt"/"enabled" emit the matching props.UpdatePolicy* constant.
+	UpdatePolicy string
 	// SigningEnabled gates the Signing: props.SigningConfig{...} block.
 	// When true the generated tool wires trustkeys.Keys() as its embedded
 	// trust anchor; ModulePath supplies the import path for that package.
@@ -125,6 +129,12 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		toolDict[jen.Id("EnvPrefix")] = jen.Lit(data.EnvPrefix)
 	}
 
+	// Wire a non-default update policy. "disabled" is the framework default, so
+	// only "prompt"/"enabled" emit a field (keeps the generated Tool minimal).
+	if c := updatePolicyConst(data.UpdatePolicy); c != "" {
+		toolDict[jen.Id("UpdatePolicy")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", c)
+	}
+
 	switch data.HelpType {
 	case "slack":
 		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "SlackHelp").Values(jen.Dict{
@@ -150,6 +160,21 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 // applyOptionalToolConfig adds the Telemetry and Signing entries to the
 // tool dict when their manifest values are present. Extracted from
 // buildToolDict to keep that function's cyclomatic complexity in check.
+// updatePolicyConst maps a manifest update-policy value to the matching
+// props.UpdatePolicy* constant name, or "" for the framework default
+// (empty/"disabled") so no field is emitted. Validation upstream rejects any
+// other value before render.
+func updatePolicyConst(policy string) string {
+	switch policy {
+	case "prompt":
+		return "UpdatePolicyPrompt"
+	case "enabled":
+		return "UpdatePolicyEnabled"
+	default:
+		return ""
+	}
+}
+
 func applyOptionalToolConfig(toolDict jen.Dict, data SkeletonRootData) {
 	if telemetry, ok := telemetryConfigValue(data); ok {
 		toolDict[jen.Id("Telemetry")] = telemetry

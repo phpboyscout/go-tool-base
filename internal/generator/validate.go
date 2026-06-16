@@ -510,6 +510,22 @@ func ValidateEnvPrefix(prefix string) error {
 	return nil
 }
 
+// ValidateUpdatePolicy accepts an empty string (meaning "use the framework
+// default of disabled") and otherwise requires one of the three known
+// posture values: disabled, prompt, or enabled. The value selects a typed
+// props.UpdatePolicy constant rendered into the generated tool, so an
+// unknown value is rejected rather than silently treated as disabled.
+func ValidateUpdatePolicy(policy string) error {
+	switch policy {
+	case "", "disabled", "prompt", "enabled":
+		return nil
+	default:
+		return rejectf("UpdatePolicy",
+			"update policy must be one of: disabled, prompt, enabled",
+			policy)
+	}
+}
+
 // ValidateSlackChannel accepts an empty string and otherwise enforces
 // Slack's own channel-name rules — lowercase, alphanumeric, hyphens,
 // 1–80 characters.
@@ -822,19 +838,11 @@ func validateManifestProperties(p *ManifestProperties) error {
 		return err
 	}
 
-	if err := ValidateSlackChannel(p.Help.SlackChannel); err != nil {
+	if err := ValidateUpdatePolicy(p.UpdatePolicy); err != nil {
 		return err
 	}
 
-	if err := ValidateSlackTeam(p.Help.SlackTeam); err != nil {
-		return err
-	}
-
-	if err := ValidateTeamsChannel(p.Help.TeamsChannel); err != nil {
-		return err
-	}
-
-	if err := ValidateTeamsTeam(p.Help.TeamsTeam); err != nil {
+	if err := validateManifestHelp(&p.Help); err != nil {
 		return err
 	}
 
@@ -847,6 +855,24 @@ func validateManifestProperties(p *ManifestProperties) error {
 	}
 
 	return ValidateCIComponentSource(p.CI.ComponentSource)
+}
+
+// validateManifestHelp validates the Slack/Teams help-channel fields,
+// keeping validateManifestProperties under the cyclomatic-complexity budget.
+func validateManifestHelp(h *ManifestHelp) error {
+	if err := ValidateSlackChannel(h.SlackChannel); err != nil {
+		return err
+	}
+
+	if err := ValidateSlackTeam(h.SlackTeam); err != nil {
+		return err
+	}
+
+	if err := ValidateTeamsChannel(h.TeamsChannel); err != nil {
+		return err
+	}
+
+	return ValidateTeamsTeam(h.TeamsTeam)
 }
 
 // validateManifestReleaseSource validates Host and Owner only when

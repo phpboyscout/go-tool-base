@@ -313,3 +313,29 @@ func TestValidateCoreFields_TwoSegmentRepoOrgValidated(t *testing.T) {
 	o.Repo = "myorg/mytool"
 	require.NoError(t, o.validateCoreFields())
 }
+
+func TestValidateCoreFields_UpdatePolicy(t *testing.T) {
+	t.Parallel()
+
+	base := func() *SkeletonOptions {
+		return &SkeletonOptions{
+			Name:        "mytool",
+			Description: "a tool",
+			Repo:        "myorg/mytool",
+			GitBackend:  "github",
+		}
+	}
+
+	for _, policy := range []string{"", "disabled", "prompt", "enabled"} {
+		o := base()
+		o.UpdatePolicy = policy
+		require.NoErrorf(t, o.validateCoreFields(), "policy %q should be accepted", policy)
+	}
+
+	o := base()
+	o.UpdatePolicy = "always"
+	err := o.validateCoreFields()
+	require.Error(t, err)
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
+	assert.Contains(t, strings.Join(errors.GetAllHints(err), " "), "UpdatePolicy")
+}

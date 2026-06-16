@@ -37,6 +37,11 @@ type SkeletonOptions struct {
 	TeamsTeam    string
 	EnvPrefix    string
 
+	// UpdatePolicy is the generated tool's self-update posture baseline
+	// (disabled / prompt / enabled). Empty leaves it unset so the framework
+	// default (disabled) applies.
+	UpdatePolicy string
+
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline (GitLab backend only). Empty uses the
 	// framework default, gitlab.com/phpboyscout/cicd.
@@ -106,6 +111,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.TeamsChannel, "teams-channel", "", "Microsoft Teams channel for help")
 	cmd.Flags().StringVar(&opts.TeamsTeam, "teams-team", "", "Microsoft Teams team name")
 	cmd.Flags().StringVar(&opts.EnvPrefix, "env-prefix", "", "Environment variable prefix for config overrides (e.g. MY_APP)")
+	cmd.Flags().StringVar(&opts.UpdatePolicy, "update-policy", "", "Self-update posture for the generated tool: disabled, prompt, or enabled (empty = framework default disabled)")
 	cmd.Flags().StringVar(&opts.CIComponentSource, "ci-component-source", "", "Override the phpboyscout/cicd component include base in the scaffolded GitLab pipeline (default gitlab.com/phpboyscout/cicd)")
 	cmd.Flags().BoolVar(&opts.Signing, "signing", false, "Enable consumer-side release-signing verification (scaffolds internal/trustkeys and wires props.Signing)")
 	cmd.Flags().StringVar(&opts.SigningEmail, "signing-email", "", "Release WKD email for signing (external_key_email); implies --signing")
@@ -224,6 +230,10 @@ func (o *SkeletonOptions) validateCoreFields() error {
 	}
 
 	if err := generator.ValidateEnvPrefix(o.EnvPrefix); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateUpdatePolicy(o.UpdatePolicy); err != nil {
 		return err
 	}
 
@@ -375,6 +385,7 @@ func (o *SkeletonOptions) runWizard() error {
 
 	return forms.NewWizard(stage1).
 		Step(o.runEnvPrefixStep).
+		Step(o.runUpdatePolicyStep).
 		// Stage 2: git config — built dynamically so the description reflects the chosen backend
 		Step(func() error {
 			if o.Host == "" {
@@ -588,6 +599,27 @@ func (o *SkeletonOptions) runEnvPrefixStep() error {
 	return forms.NewNavigable(envPrefixGroup).Run()
 }
 
+// runUpdatePolicyStep presents the self-update posture selector. The default
+// (and the "Disabled" choice) leaves the policy empty so the framework default
+// applies; "prompt"/"enabled" are wired into the generated tool.
+func (o *SkeletonOptions) runUpdatePolicyStep() error {
+	group := huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Self-Update Policy").
+			Description("How the generated tool behaves when a newer release is found. Users can override via the update.policy config key.").
+			Options(
+				huh.NewOption("Disabled — log that an update is available, then continue (default)", "").Selected(o.UpdatePolicy == "" || o.UpdatePolicy == "disabled"),
+				huh.NewOption("Prompt — ask to update; declining continues the command", "prompt").Selected(o.UpdatePolicy == "prompt"),
+				huh.NewOption("Enabled — block every command until the tool is updated", "enabled").Selected(o.UpdatePolicy == "enabled"),
+			).
+			Value(&o.UpdatePolicy),
+	).
+		Title("Self-Update Policy").
+		Description("Sets props.Tool.UpdatePolicy in the generated tool.\n")
+
+	return forms.NewNavigable(group).Run()
+}
+
 func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	if o.Overwrite == "" {
 		o.Overwrite = "ask"
@@ -644,6 +676,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		TeamsChannel:      o.TeamsChannel,
 		TeamsTeam:         o.TeamsTeam,
 		EnvPrefix:         o.EnvPrefix,
+		UpdatePolicy:      o.UpdatePolicy,
 		CIComponentSource: o.CIComponentSource,
 		Signing:           o.resolveSigning(),
 		Templates:         templates,

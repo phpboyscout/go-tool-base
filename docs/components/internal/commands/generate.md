@@ -145,6 +145,29 @@ gtb generate project -n mytool -r myorg/mytool --no-git
 gtb generate project -n mytool -r myorg/mytool --push
 ```
 
+#### Self-update policy
+
+The `--update-policy` flag (interactive: the **Self-Update Policy** wizard step)
+sets the generated tool's `props.Tool.UpdatePolicy` baseline — how it behaves
+when a newer release is found. The value is persisted to the manifest so
+`gtb regenerate` preserves it, and end users can override it at runtime via the
+`update.policy` config key.
+
+| `--update-policy` | Emitted `props.Tool.UpdatePolicy` | Behaviour when a newer release exists |
+|-------------------|-----------------------------------|----------------------------------------|
+| `disabled` / *(empty)* | *(field omitted — framework default)* | Logs that an update is available, then continues the command. |
+| `prompt` | `props.UpdatePolicyPrompt` | Prompts the user to update; declining continues the command. |
+| `enabled` | `props.UpdatePolicyEnabled` | Blocks every command until the tool is updated. |
+
+The check is always skipped under `--ci`/`ci: true` regardless of policy. See
+[the self-update policy migration note](../../../migration/v0.17-update-policy.md)
+for the full resolution order.
+
+```bash
+# generate a tool that prompts to self-update
+gtb generate project -n mytool -r myorg/mytool --update-policy prompt
+```
+
 ### Command
 
 Generates a new Cobra command, optionally using AI or from a script.

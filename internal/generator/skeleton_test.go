@@ -91,6 +91,73 @@ func TestGenerateSkeleton(t *testing.T) {
 	assert.Contains(t, content, "Type:  \"github\"")
 	assert.Contains(t, content, "Owner: \"phpboyscout\"")
 	assert.Contains(t, content, "Repo:  \"test-project\"")
+
+	// No UpdatePolicy was configured, so the framework default (disabled)
+	// applies and nothing is emitted into the Tool literal.
+	assert.NotContains(t, content, "UpdatePolicy")
+}
+
+// TestGenerateSkeleton_UpdatePolicy verifies the self-update posture flows
+// from SkeletonConfig through to both the persisted manifest and the typed
+// props.UpdatePolicy constant rendered into the generated root command.
+func TestGenerateSkeleton_UpdatePolicy(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name      string
+		policy    string
+		wantConst string // "" => nothing emitted
+	}{
+		{name: "disabled is the default and emits nothing", policy: "disabled", wantConst: ""},
+		{name: "empty is the default and emits nothing", policy: "", wantConst: ""},
+		{name: "prompt emits the typed constant", policy: "prompt", wantConst: "props.UpdatePolicyPrompt"},
+		{name: "enabled emits the typed constant", policy: "enabled", wantConst: "props.UpdatePolicyEnabled"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			p := &props.Props{FS: fs, Logger: logger.NewNoop()}
+
+			g := New(p, &Config{})
+			g.runCommand = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+				return []byte("done"), nil
+			}
+
+			config := SkeletonConfig{
+				Name:         "test-project",
+				Repo:         "phpboyscout/test-project",
+				Host:         "github.com",
+				Description:  "A test project",
+				Path:         "/work",
+				UpdatePolicy: tc.policy,
+			}
+
+			require.NoError(t, g.GenerateSkeleton(context.Background(), config))
+
+			// Manifest persists the configured value verbatim so regenerate
+			// can faithfully reconstruct the tool.
+			data, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+			require.NoError(t, err)
+
+			var m Manifest
+			require.NoError(t, yaml.Unmarshal(data, &m))
+			assert.Equal(t, tc.policy, m.Properties.UpdatePolicy)
+
+			rootCmd, err := afero.ReadFile(fs, "/work/pkg/cmd/root/cmd.go")
+			require.NoError(t, err)
+			content := string(rootCmd)
+
+			if tc.wantConst == "" {
+				assert.NotContains(t, content, "UpdatePolicy",
+					"disabled/empty policy must not emit a UpdatePolicy field")
+			} else {
+				assert.Contains(t, content, "UpdatePolicy: "+tc.wantConst)
+			}
+		})
+	}
 }
 
 func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {

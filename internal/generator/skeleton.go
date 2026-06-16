@@ -50,6 +50,11 @@ type SkeletonConfig struct {
 	TelemetryOTelEndpoint string          // populated from manifest telemetry.otel_endpoint
 	EnvPrefix             string          // environment variable prefix for config overrides
 	Signing               ManifestSigning // self-update signature-verification posture (disabled by default)
+	// UpdatePolicy is the generated tool's self-update posture baseline
+	// (disabled / prompt / enabled). Empty leaves it unset so the framework
+	// default (disabled) applies; wired into the generated root command's
+	// props.Tool.UpdatePolicy. See docs/development/specs/2026-06-16-forced-update-feature.md.
+	UpdatePolicy string
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline. Empty falls back to
 	// DefaultCICDComponentSource. GitLab-only; ignored for GitHub projects.
@@ -297,6 +302,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TelemetryOTelEndpoint:  config.TelemetryOTelEndpoint,
 		EnvPrefix:              config.EnvPrefix,
 		Signing:                config.Signing,
+		UpdatePolicy:           config.UpdatePolicy,
 		CIComponentSource:      resolveCIComponentSource(config.CIComponentSource),
 		CICDComponentVersion:   CICDComponentVersion,
 		ReleaserPleaserVersion: ReleaserPleaserComponentVersion,
@@ -409,6 +415,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			TelemetryEndpoint:     data.TelemetryEndpoint,
 			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
 			EnvPrefix:             data.EnvPrefix,
+			UpdatePolicy:          data.UpdatePolicy,
 			SigningEnabled:        data.Signing.Enabled,
 			ModulePath:            data.ModulePath,
 		}),
@@ -743,10 +750,11 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 
 	manifest := Manifest{
 		Properties: ManifestProperties{
-			Name:        config.Name,
-			Description: MultilineString(config.Description),
-			Features:    config.Features,
-			EnvPrefix:   config.EnvPrefix,
+			Name:         config.Name,
+			Description:  MultilineString(config.Description),
+			Features:     config.Features,
+			EnvPrefix:    config.EnvPrefix,
+			UpdatePolicy: config.UpdatePolicy,
 			Help: ManifestHelp{
 				Type:         config.HelpType,
 				SlackChannel: config.SlackChannel,
