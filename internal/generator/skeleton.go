@@ -54,6 +54,10 @@ type SkeletonConfig struct {
 	// scaffolded GitLab pipeline. Empty falls back to
 	// DefaultCICDComponentSource. GitLab-only; ignored for GitHub projects.
 	CIComponentSource string
+	// Templates carries the custom template-overlay sources (in layer order)
+	// through generation. The wizard/flags populate it and
+	// writeSkeletonManifest persists it.
+	Templates []TemplateSource
 }
 
 // splitRepoPath splits a repository path on the last '/', returning the org
@@ -308,10 +312,14 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 
 	ignoreRules := LoadIgnoreRules(g.props.FS, config.Path)
 
-	writtenHashes, err := g.generateSkeletonTemplateFiles(config.Path, data, storedHashes, ignoreRules)
+	writtenHashes, updatedSources, err := g.generateSkeletonTemplateFilesWithSources(config.Path, data, storedHashes, ignoreRules, config.Templates)
 	if err != nil {
 		return err
 	}
+
+	// Persist the resolved pins (SHA/fingerprint) and per-source hashes back
+	// onto the manifest entries.
+	config.Templates = updatedSources
 
 	// Merge: keep stored hashes for any files the user chose to skip so that
 	// subsequent runs can still detect further modifications to those files.
@@ -490,8 +498,30 @@ func (g *Generator) writeGitkeep(dir string) error {
 	return nil
 }
 
-func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, storedHashes map[string]string, rules *IgnoreRules) (map[string]string, error) {
+// generateSkeletonTemplateFilesWithSources renders the embedded skeleton
+// template files and then layers the custom template overlays on top
+// (D1/D6/D3). It resolves every source first so any gtb-template.yaml
+// `replaces:` suppression is applied to the embedded walk before the overlay
+// renders, then renders the sources in manifest order with last-writer-wins.
+// It returns the collected embedded+overlay hashes and the updated source
+// entries (with resolved SHA/fingerprint and per-source hashes).
+func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, data any, storedHashes map[string]string, rules *IgnoreRules, sources []TemplateSource) (map[string]string, []TemplateSource, error) {
 	collectedHashes := make(map[string]string)
+
+	// Resolve sources up-front so descriptor `replaces:` suppression is known
+	// before the embedded walk runs.
+	resolved, err := g.resolveAllSources(sources)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	suppressed := collectSuppressedPrefixes(resolved)
+
+	// On an incremental regenerate, embedded files written by a prior run may
+	// already be on disk for a path a `replaces:` now suppresses. Remove those
+	// stranded files (and drop them from tracking) so suppression takes effect
+	// rather than leaving a now-orphaned embedded file behind (D3).
+	g.removeStrandedSuppressed(destPath, suppressed, storedHashes)
 
 	tmplFiles := map[string]string{
 		"pkg/cmd/root/assets/init/config.yaml": templates.SkeletonConfig,
@@ -524,8 +554,8 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 	releaseProvider := extractReleaseProvider(data)
 
 	// Walk the common skeleton assets.
-	if err := g.walkSkeletonAssets(skeletonAssets, "assets/skeleton", destPath, data, storedHashes, collectedHashes, rules); err != nil {
-		return nil, err
+	if err := g.walkSkeletonAssets(skeletonAssets, "assets/skeleton", destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
+		return nil, nil, err
 	}
 
 	// Walk the provider-specific CI assets.
@@ -534,17 +564,26 @@ func (g *Generator) generateSkeletonTemplateFiles(destPath string, data any, sto
 		providerFS, providerRoot = skeletonGitLabAssets, "assets/skeleton-gitlab"
 	}
 
-	if err := g.walkSkeletonAssets(providerFS, providerRoot, destPath, data, storedHashes, collectedHashes, rules); err != nil {
-		return nil, err
+	if err := g.walkSkeletonAssets(providerFS, providerRoot, destPath, data, storedHashes, collectedHashes, rules, suppressed); err != nil {
+		return nil, nil, err
 	}
 
-	return collectedHashes, nil
+	// Layer the custom template overlays on top of the embedded base.
+	updatedSources, err := g.applyOverlays(destPath, data, storedHashes, collectedHashes, rules, sources, resolved)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return collectedHashes, updatedSources, nil
 }
 
 // walkSkeletonAssets walks an embedded filesystem rooted at assetRoot,
 // rendering each file as a template and collecting its hash. Skipped files
 // (e.g. user declined overwrite) are logged as warnings and the walk continues.
-func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, data any, storedHashes, collectedHashes map[string]string, rules *IgnoreRules) error {
+// A relPath matched by suppressed (a `replaces:` descriptor) is dropped from
+// the walk entirely: it is not written and not hashed, so the overlay can
+// supply the complete replacement with no stranded embedded files (D3).
+func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, data any, storedHashes, collectedHashes map[string]string, rules *IgnoreRules, suppressed []string) error {
 	return fs.WalkDir(fsys, assetRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -553,6 +592,14 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 		relPath, err := filepath.Rel(assetRoot, path)
 		if err != nil {
 			return errors.Newf("failed to get relative path: %w", err)
+		}
+
+		// A `replaces:` descriptor suppresses this embedded scaffold path
+		// before the overlay renders — skip it entirely.
+		if isSuppressed(relPath, suppressed) {
+			g.props.Logger.Debugf("Suppressed by template replaces: %s", relPath)
+
+			return nil
 		}
 
 		// Check ignore rules — skip generation but hash on-disk content
@@ -614,8 +661,25 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 		return "", errors.Newf("failed to execute template %s: %w", fullPath, err)
 	}
 
-	newContent := buf.Bytes()
+	return g.writeRenderedSkeletonFile(fullPath, relPath, buf.Bytes(), storedHashes)
+}
 
+// renderPreRenderedSkeletonFile writes already-rendered content (e.g. a custom
+// template overlay file, rendered through the restricted overlay engine) to
+// disk via the same conflict-checked write path the embedded templates use, so
+// a user-edited overlay output is protected identically (D8). It returns the
+// written content hash.
+func (g *Generator) renderPreRenderedSkeletonFile(fullPath, relPath string, content []byte, storedHashes map[string]string) (string, error) {
+	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
+		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
+	}
+
+	return g.writeRenderedSkeletonFile(fullPath, relPath, content, storedHashes)
+}
+
+// writeRenderedSkeletonFile is the shared write+conflict-check+hash tail used
+// by both the embedded template render and the pre-rendered overlay write.
+func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newContent []byte, storedHashes map[string]string) (string, error) {
 	// If the file already exists, verify the user has not customised it.
 	if exists, _ := afero.Exists(g.props.FS, fullPath); exists {
 		g.props.Logger.Debugf("Checking for conflicts on existing file: %s", relPath)
@@ -634,6 +698,12 @@ func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr str
 	g.props.Logger.Debugf("Wrote skeleton file: %s (%d bytes, hash=%s)", relPath, len(newContent), hash)
 
 	return hash, nil
+}
+
+// joinProjectPath joins a project root and a clean slash-separated relative
+// path into an OS path.
+func joinProjectPath(destPath, relPath string) string {
+	return filepath.Join(destPath, filepath.FromSlash(relPath))
 }
 
 // checkSkeletonConflict compares the on-disk file against its stored hash. If
@@ -690,6 +760,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 				// stays minimal; an absent ci block defaults on render.
 				ComponentSource: config.CIComponentSource,
 			},
+			Templates: config.Templates,
 		},
 		ReleaseSource: ManifestReleaseSource{
 			Type:    releaseProviderForHost(config.Host),

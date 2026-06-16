@@ -110,6 +110,22 @@ type Generator struct {
 	config     *Config
 	chatClient chat.ChatClient
 	runCommand func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
+	// cloneTemplate fetches a git custom-template source into a staging dir
+	// and returns the resolved commit SHA. nil means "no clone available"
+	// (offline): a cold cache for a git source then errors clearly rather
+	// than silently restoring a suppressed embedded scaffold. Tests inject a
+	// local-remote/fake; production wires the real provider-aware clone via
+	// WithTemplateClone / EnableRealTemplateClone.
+	cloneTemplate templateCloneFunc
+}
+
+// WithTemplateClone injects the git template-source clone implementation.
+// Primarily for tests (a local bare remote or a fake); production code calls
+// EnableRealTemplateClone to wire the provider-aware pkg/vcs/repo clone.
+func (g *Generator) WithTemplateClone(fn templateCloneFunc) *Generator {
+	g.cloneTemplate = fn
+
+	return g
 }
 
 func New(p *props.Props, cfg *Config) *Generator {

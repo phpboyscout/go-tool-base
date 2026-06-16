@@ -516,7 +516,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 
 	ignoreRules := LoadIgnoreRules(g.props.FS, g.config.Path)
 
-	writtenHashes, err := g.generateSkeletonTemplateFiles(g.config.Path, data, storedHashes, ignoreRules)
+	writtenHashes, updatedSources, err := g.generateSkeletonTemplateFilesWithSources(g.config.Path, data, storedHashes, ignoreRules, m.Properties.Templates)
 	if err != nil {
 		return nil, err
 	}
@@ -534,12 +534,13 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 
 	g.props.Logger.Debugf("Skeleton regeneration complete: %d files written, %d total hashes", len(writtenHashes), len(finalHashes))
 
-	return writtenHashes, g.persistProjectHashes(finalHashes)
+	return writtenHashes, g.persistProjectHashesAndSources(finalHashes, updatedSources)
 }
 
-// persistProjectHashes reads the current manifest, updates the top-level
-// Hashes field, and writes it back to disk.
-func (g *Generator) persistProjectHashes(hashes map[string]string) error {
+// persistProjectHashesAndSources updates the top-level Hashes field and (when
+// provided) the templates source entries with their refreshed pins/hashes,
+// then writes the manifest back to disk.
+func (g *Generator) persistProjectHashesAndSources(hashes map[string]string, sources []TemplateSource) error {
 	manifestPath := ManifestPathFor(g.config.Path)
 
 	g.props.Logger.Debugf("Persisting %d project hashes to manifest", len(hashes))
@@ -550,6 +551,10 @@ func (g *Generator) persistProjectHashes(hashes map[string]string) error {
 	}
 
 	m.Hashes = hashes
+
+	if sources != nil {
+		m.Properties.Templates = sources
+	}
 
 	return g.encodeManifestFile(manifestPath, m)
 }
