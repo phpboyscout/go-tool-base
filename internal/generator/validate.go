@@ -20,6 +20,7 @@ package generator
 
 import (
 	"fmt"
+	"go/token"
 	"net/url"
 	"path"
 	"regexp"
@@ -136,6 +137,14 @@ func ValidateCommandName(name string) error {
 
 	if reservedCommandNames[n] {
 		return rejectf("CommandName", fmt.Sprintf("command name %q is reserved", n), n)
+	}
+
+	// A command name becomes a Go package name (`package <name>`) and
+	// directory, so a Go reserved word produces uncompilable output. Reject
+	// it with a clear message rather than emitting a broken command.
+	if token.IsKeyword(n) {
+		return rejectf("CommandName",
+			fmt.Sprintf("command name %q is a Go reserved word; choose another name", n), n)
 	}
 
 	if !commandNameRe.MatchString(n) {
