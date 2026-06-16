@@ -37,6 +37,16 @@ Global Flags:
 
 Scans the filesystem for existing commands and updates `manifest.yaml`. Use this if you have manually added files or if the manifest is out of sync.
 
+The scan walks the full `pkg/cmd/<parent>/<child>/…` tree and recognises both
+cobra's `parent.AddCommand(child…)` and the GTB `setup.Command` wrapper's
+`parent.Register(child…)`, so **nested subcommands are preserved** in
+`commands[].commands` rather than dropped as orphans.
+
+`properties.features` is **preserved** from the existing manifest rather than
+re-derived from the generated root command: feature state (including the
+scaffold-only `keychain` feature and the opt-ins) is author configuration that
+the root cannot losslessly express, so the manifest remains its source of truth.
+
 **Help (`regenerate manifest --help`):**
 
 ```text
@@ -53,6 +63,14 @@ Flags:
 ### Project
 
 Re-renders all `cmd.go` boilerplate files based on the structure defined in `manifest.yaml`. This is non-destructive to `main.go` files unless `--force` is used.
+
+**Operator-owned seed files are never overwritten.** Files gtb scaffolds once and
+then hands to the developer — the init assets it seeds (`pkg/cmd/**/assets/**`,
+e.g. the `init/config.yaml` you fill in), the project `README.md`, the docs
+landing page (`docs/index.md`), and the `justfile` — are preserved on every
+`regenerate project`, **even under `--overwrite allow`**. Framework-structural
+files (the generated `cmd.go`, CI pipelines, `.goreleaser.yaml`) remain
+gtb-managed and continue to update. Use `--dry-run` to preview the blast radius.
 
 **Help (`regenerate project --help`):**
 

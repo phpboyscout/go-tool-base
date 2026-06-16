@@ -609,19 +609,22 @@ func (g *Generator) extractSubcommandOrMeta(call *dst.CallExpr, cmd *ManifestCom
 
 	target := sel.Sel.Name
 
-	if target == "AddCommand" {
+	switch target {
+	// cobra's parent.AddCommand(child...) and the GTB setup.Command wrapper's
+	// parent.Register(child...) both register subcommands. The wrapper is what
+	// real generated parents use (for middleware), so the scanner must treat
+	// Register identically — otherwise Register-wired children look orphaned and
+	// are dropped from the rebuilt manifest. Mirrors the insertion side in
+	// ast.go, which already handles both verbs.
+	case "AddCommand", "Register":
 		g.extractAddCommand(call, imports, currentPkgPath, varToConstructor, subcommandFuncs)
 
 		return
-	}
-
-	if target == "MarkFlagsMutuallyExclusive" {
+	case "MarkFlagsMutuallyExclusive":
 		g.extractMarkFlagsMutuallyExclusive(call, cmd)
 
 		return
-	}
-
-	if target == "MarkFlagsRequiredTogether" {
+	case "MarkFlagsRequiredTogether":
 		g.extractMarkFlagsRequiredTogether(call, cmd)
 
 		return

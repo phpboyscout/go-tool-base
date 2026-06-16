@@ -120,6 +120,204 @@ func NewCmdChild(p *props.Props) *cobra.Command {
 	assert.Equal(t, "child desc", string(m.Commands[0].Commands[0].Description))
 }
 
+// TestRegenerateManifest_PreservesRegisterWrappedSubcommands is the regression
+// guard for the keryx "regenerate drops nested subcommands" data-loss bug.
+//
+// Real generated code wires a parent to its children through the
+// setup.Command middleware wrapper — `cmd.Register(child.NewCmdChild(props))` —
+// NOT cobra's `cmd.AddCommand(...)`. The manifest scanner only recognised
+// AddCommand, so a Register-wired child was treated as orphaned and dropped
+// from the rebuilt manifest, which then made `regenerate project` emit a parent
+// with no Register call and destroy the command tree. This test mirrors the
+// real generated shape (setup.Wrap + cmd.Register) and asserts the nesting
+// survives RegenerateManifest.
+func TestRegenerateManifest_PreservesRegisterWrappedSubcommands(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	var logBuf strings.Builder
+
+	l := logger.NewCharm(&logBuf)
+	workDir := "/work"
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/root"), 0755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/reel"), 0755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/reel/build"), 0755))
+
+	// root registers the top-level command via the variadic NewCmdRoot pattern
+	// (which the scanner already handles).
+	rootCode := `package root
+import (
+	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"test-tool/pkg/cmd/reel"
+)
+func NewCmdRoot(p *props.Props) *setup.Command {
+	rootCmd := gtbRoot.NewCmdRoot(p, reel.NewCmdReel(p))
+	return rootCmd
+}`
+
+	// parent wires its child via the setup.Command wrapper's Register — the
+	// pattern the scanner regressed on.
+	reelCode := `package reel
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"test-tool/pkg/cmd/reel/build"
+)
+func NewCmdReel(props *props.Props) *setup.Command {
+	cmd := setup.Wrap("reel", &cobra.Command{Use: "reel", Short: "reel cmds"})
+	cmd.Register(build.NewCmdBuild(props))
+	return cmd
+}`
+
+	buildCode := `package build
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+func NewCmdBuild(props *props.Props) *setup.Command {
+	return setup.Wrap("build", &cobra.Command{Use: "build", Short: "build a reel"})
+}`
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/root/cmd.go"), []byte(rootCode), 0644))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/reel/cmd.go"), []byte(reelCode), 0644))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/reel/build/cmd.go"), []byte(buildCode), 0644))
+
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
+
+	p := &props.Props{
+		FS:     fs,
+		Logger: l,
+		Config: config.NewFilesContainer(fs),
+		Tool:   props.Tool{Name: "test-tool"},
+	}
+
+	g := New(p, &Config{Path: workDir})
+
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	data, err := afero.ReadFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"))
+	require.NoError(t, err)
+
+	var m Manifest
+	require.NoError(t, yaml.Unmarshal(data, &m))
+
+	require.Len(t, m.Commands, 1, "reel must be recorded as a top-level command")
+	assert.Equal(t, "reel", m.Commands[0].Name)
+
+	require.Len(t, m.Commands[0].Commands, 1,
+		"the Register-wired child must survive regenerate manifest (not be dropped as orphaned)")
+	assert.Equal(t, "build", m.Commands[0].Commands[0].Name)
+
+	assert.NotContains(t, logBuf.String(), "orphaned command build",
+		"the child must be linked to its parent, not skipped as orphaned")
+}
+
+// TestRegenerateManifest_PreservesFeatures is the regression guard for keryx
+// defect B: regenerate manifest must not reset properties.features.
+//
+// Feature state (especially opt-ins like config/telemetry and the scaffold-only
+// keychain) is author configuration that lives in the manifest and cannot be
+// losslessly recovered from the generated root command. The scanner previously
+// replaced properties.features with a stale re-derivation from root cmd.go
+// (which only knew init/update/mcp/docs), silently dropping config, telemetry,
+// keychain, doctor and changelog — and the following regenerate project then
+// emitted a root with the matching Enable() calls missing. RegenerateManifest
+// must preserve the existing manifest's features.
+func TestRegenerateManifest_PreservesFeatures(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	var logBuf strings.Builder
+
+	l := logger.NewCharm(&logBuf)
+	workDir := "/work"
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/root"), 0755))
+
+	// The generated root only encodes non-default features as Enable()/Disable()
+	// calls; keychain (a scaffold-time decision) never appears here at all.
+	rootCode := `package root
+import (
+	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
+	p := &props.Props{
+		Tool: props.Tool{
+			Name:        "test-tool",
+			Description: "desc",
+			ReleaseSource: props.ReleaseSource{Host: "github.com", Owner: "acme", Repo: "test-tool", Type: "github"},
+			Features:    props.SetFeatures(props.Enable(props.ConfigCmd), props.Enable(props.TelemetryCmd)),
+		},
+	}
+	rootCmd := gtbRoot.NewCmdRoot(p)
+	return rootCmd, p
+}`
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/root/cmd.go"), []byte(rootCode), 0644))
+
+	// The existing manifest is the source of truth for features, including
+	// keychain (which cannot be recovered from root) and the opt-ins.
+	manifestYAML := `properties:
+  name: test-tool
+  features:
+    - name: init
+      enabled: true
+    - name: update
+      enabled: true
+    - name: mcp
+      enabled: true
+    - name: docs
+      enabled: true
+    - name: doctor
+      enabled: true
+    - name: changelog
+      enabled: true
+    - name: keychain
+      enabled: true
+    - name: config
+      enabled: true
+    - name: telemetry
+      enabled: true
+`
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte(manifestYAML), 0644))
+
+	p := &props.Props{
+		FS:     fs,
+		Logger: l,
+		Config: config.NewFilesContainer(fs),
+		Tool:   props.Tool{Name: "test-tool"},
+	}
+
+	g := New(p, &Config{Path: workDir})
+
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	data, err := afero.ReadFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"))
+	require.NoError(t, err)
+
+	var m Manifest
+	require.NoError(t, yaml.Unmarshal(data, &m))
+
+	enabled := map[string]bool{}
+	for _, f := range m.Properties.Features {
+		enabled[f.Name] = f.Enabled
+	}
+
+	// The full author feature set must survive — not be replaced by the lossy
+	// init/update/mcp/docs re-derivation.
+	for _, name := range []string{"config", "telemetry", "keychain", "doctor", "changelog"} {
+		assert.Truef(t, enabled[name], "feature %q must be preserved through regenerate manifest", name)
+	}
+}
+
 func TestScanCommands_OrphansAndDuplicates(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder

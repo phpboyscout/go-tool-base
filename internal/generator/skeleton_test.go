@@ -222,6 +222,51 @@ func TestGenerateSkeleton_UpdateCheckInterval(t *testing.T) {
 	}
 }
 
+// TestRegenerateProject_PreservesUserOwnedSeedFiles is the regression guard for
+// keryx defect C: regenerate project must not clobber operator-owned seed files
+// (the init assets the operator fills in, the README, the docs landing page,
+// the justfile) — not even under the blunt --overwrite allow. These are
+// scaffolded once and then belong to the developer.
+func TestRegenerateProject_PreservesUserOwnedSeedFiles(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	p := &props.Props{FS: fs, Logger: logger.NewNoop()}
+
+	g := New(p, &Config{})
+	g.runCommand = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+		return []byte("done"), nil
+	}
+
+	require.NoError(t, g.GenerateSkeleton(context.Background(), SkeletonConfig{
+		Name:        "demo",
+		Repo:        "acme/demo",
+		Host:        "github.com",
+		Description: "a demo",
+		Path:        "/work",
+	}))
+
+	// The developer customises seed files after scaffolding.
+	seed := map[string]string{
+		"/work/pkg/cmd/root/assets/init/config.yaml": "seeded: true\ncustom_key: value\n",
+		"/work/docs/index.md":                        "# My Custom Docs Home\n",
+		"/work/README.md":                            "# My Custom Readme\n",
+		"/work/justfile":                             "# my custom recipe\ncustom:\n\techo hi\n",
+	}
+	for path, content := range seed {
+		require.NoError(t, afero.WriteFile(fs, path, []byte(content), 0644))
+	}
+
+	// Regenerate with the blunt overwrite mode that previously clobbered them.
+	g2 := New(p, &Config{Path: "/work", Overwrite: "allow"})
+	require.NoError(t, g2.RegenerateProject(context.Background()))
+
+	for path, content := range seed {
+		got, err := afero.ReadFile(fs, path)
+		require.NoErrorf(t, err, "%s must still exist", path)
+		assert.Equalf(t, content, string(got),
+			"%s is operator-owned and must not be overwritten by regenerate", path)
+	}
+}
+
 func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()

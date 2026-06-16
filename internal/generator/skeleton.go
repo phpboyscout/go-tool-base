@@ -694,8 +694,27 @@ func (g *Generator) renderPreRenderedSkeletonFile(fullPath, relPath string, cont
 // writeRenderedSkeletonFile is the shared write+conflict-check+hash tail used
 // by both the embedded template render and the pre-rendered overlay write.
 func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newContent []byte, storedHashes map[string]string) (string, error) {
+	exists, _ := afero.Exists(g.props.FS, fullPath)
+
+	// Operator-owned seed files (the init assets the operator fills in, the
+	// README, the docs landing page, the justfile) are scaffolded once and then
+	// belong to the developer. On a re-run they are preserved unconditionally —
+	// even under --overwrite allow, which otherwise auto-approves overwriting a
+	// modified file — so regenerate never destroys developer content (keryx
+	// defect C). The stored hash is kept in sync with what is actually on disk.
+	if exists && isUserOwnedSeedFile(relPath) {
+		g.props.Logger.Debugf("Preserving operator-owned file (not overwritten on regenerate): %s", relPath)
+
+		existing, err := afero.ReadFile(g.props.FS, fullPath)
+		if err != nil {
+			return "", errors.Newf("failed to read existing file %s: %w", fullPath, err)
+		}
+
+		return calculateHash(existing), nil
+	}
+
 	// If the file already exists, verify the user has not customised it.
-	if exists, _ := afero.Exists(g.props.FS, fullPath); exists {
+	if exists {
 		g.props.Logger.Debugf("Checking for conflicts on existing file: %s", relPath)
 
 		if err := g.checkSkeletonConflict(fullPath, relPath, newContent, storedHashes); err != nil {
@@ -718,6 +737,26 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 // path into an OS path.
 func joinProjectPath(destPath, relPath string) string {
 	return filepath.Join(destPath, filepath.FromSlash(relPath))
+}
+
+// isUserOwnedSeedFile reports whether relPath (slash-separated, project-root
+// relative) is a file gtb scaffolds once and then hands to the developer:
+// operator-filled config and other assets under a command's assets/ directory,
+// the project README, the docs landing page, and the justfile. These are
+// preserved on every regenerate so developer content is never clobbered.
+// Framework-structural files (CI pipelines, .goreleaser.yaml, go.mod, the
+// generated DO-NOT-EDIT cmd.go) are deliberately NOT in this set — they remain
+// gtb-managed and continue to update.
+func isUserOwnedSeedFile(relPath string) bool {
+	rel := filepath.ToSlash(relPath)
+
+	switch rel {
+	case "README.md", "docs/index.md", "justfile":
+		return true
+	}
+
+	// Seeded assets the operator fills in, e.g. pkg/cmd/root/assets/init/config.yaml.
+	return strings.HasPrefix(rel, "pkg/cmd/") && strings.Contains(rel, "/assets/")
 }
 
 // checkSkeletonConflict compares the on-disk file against its stored hash. If

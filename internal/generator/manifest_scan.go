@@ -44,14 +44,26 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 
 	m.Commands = commands
 
+	// Feature state is author configuration that lives in the manifest and
+	// cannot be losslessly recovered from the generated root command: the root
+	// only encodes non-default features as Enable()/Disable() calls, and the
+	// scaffold-only `keychain` feature never appears there at all. Preserve the
+	// existing manifest's features across the rebuild rather than replacing them
+	// with a lossy re-derivation from root cmd.go (keryx defect B).
+	existingFeatures := m.Properties.Features
+
 	// Extract project properties from the generated root cmd.go so that
-	// name, description, release_source, and features are always up to date.
+	// name, description, and release_source are always up to date.
 	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
 	if mProps, rs, err := g.extractProjectProperties(rootCmdPath); err == nil {
 		m.Properties = *mProps
 		m.ReleaseSource = *rs
 	} else {
 		g.props.Logger.Warnf("Could not extract project properties from root cmd.go: %v", err)
+	}
+
+	if len(existingFeatures) > 0 {
+		m.Properties.Features = existingFeatures
 	}
 
 	if g.props.Version != nil {
