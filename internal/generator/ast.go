@@ -767,10 +767,65 @@ func (g *Generator) removeSubcommandRegistration(fn *dst.FuncDecl, ctx *subcomma
 			continue
 		}
 
+		// A root-level command is registered as a variadic argument inside the
+		// gtbRoot.NewCmdRoot(p, foo.NewCmdFoo(p), ...) call, not as its own
+		// statement — strip that argument in place rather than dropping the whole
+		// statement (keryx v0.19.0 Bug 1: the import was removed but the call left
+		// behind, breaking the build).
+		g.stripSubcommandRegistrationArg(stmt, ctx)
+
 		newList = append(newList, stmt)
 	}
 
 	fn.Body.List = newList
+}
+
+// stripSubcommandRegistrationArg removes the `<pkg>.NewCmd<Name>(...)` argument
+// from any call on a kept statement's right-hand side (the variadic
+// NewCmdRoot(p, child1, child2) registration), preserving the statement and its
+// other arguments.
+func (g *Generator) stripSubcommandRegistrationArg(stmt dst.Stmt, ctx *subcommandContext) {
+	as, ok := stmt.(*dst.AssignStmt)
+	if !ok {
+		return
+	}
+
+	for _, rhs := range as.Rhs {
+		call, ok := rhs.(*dst.CallExpr)
+		if !ok {
+			continue
+		}
+
+		filtered := make([]dst.Expr, 0, len(call.Args))
+
+		for _, arg := range call.Args {
+			if g.isSubcommandConstructorCall(arg, ctx) {
+				continue
+			}
+
+			filtered = append(filtered, arg)
+		}
+
+		call.Args = filtered
+	}
+}
+
+// isSubcommandConstructorCall reports whether expr is the constructor call for
+// the subcommand being removed, e.g. `foo.NewCmdFoo(p)` for pkg "foo".
+func (g *Generator) isSubcommandConstructorCall(expr dst.Expr, ctx *subcommandContext) bool {
+	call, ok := expr.(*dst.CallExpr)
+	if !ok {
+		return false
+	}
+
+	sel, ok := call.Fun.(*dst.SelectorExpr)
+	if !ok {
+		return false
+	}
+
+	xid, ok := sel.X.(*dst.Ident)
+
+	return ok && xid.Name == ctx.pkgName && sel.Sel.Name == ctx.funcNameToBeCalled
 }
 
 func (g *Generator) isSubcommandInit(stmt dst.Stmt, ctx *subcommandContext) bool {
@@ -804,17 +859,31 @@ func (g *Generator) isSubcommandAddCommand(stmt dst.Stmt, ctx *subcommandContext
 	}
 
 	sel, ok := call.Fun.(*dst.SelectorExpr)
-	if !ok || sel.Sel.Name != "AddCommand" {
+	// cobra's parent.AddCommand(child) and the GTB setup.Command wrapper's
+	// parent.Register(child) both register a subcommand; a parent built on the
+	// wrapper uses Register, so removal must recognise it too.
+	if !ok || (sel.Sel.Name != "AddCommand" && sel.Sel.Name != "Register") {
 		return false
 	}
 
 	for _, arg := range call.Args {
-		if id, ok := arg.(*dst.Ident); ok && (id.Name == ctx.subCmdVar || id.Name == ctx.pkgName+"Cmd") {
+		if g.argRegistersSubcommand(arg, ctx) {
 			return true
 		}
 	}
 
 	return false
+}
+
+// argRegistersSubcommand reports whether a registration-call argument refers to
+// the subcommand in ctx — either the `<pkg>Cmd` variable (the AddCommand(var)
+// form) or the `<pkg>.NewCmd<Name>(props)` constructor call (the Register form).
+func (g *Generator) argRegistersSubcommand(arg dst.Expr, ctx *subcommandContext) bool {
+	if id, ok := arg.(*dst.Ident); ok && (id.Name == ctx.subCmdVar || id.Name == ctx.pkgName+"Cmd") {
+		return true
+	}
+
+	return g.isSubcommandConstructorCall(arg, ctx)
 }
 
 func (g *Generator) isSubcommandAssetAppend(stmt dst.Stmt, ctx *subcommandContext) bool {

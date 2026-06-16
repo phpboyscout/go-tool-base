@@ -49,6 +49,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
 	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
 	ctx.Step(`^the generated "([^"]*)" file contains "([^"]*)"$`, theGeneratedFileContains)
+	ctx.Step(`^the generated "([^"]*)" file does not contain "([^"]*)"$`, theGeneratedFileDoesNotContain)
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 }
@@ -239,6 +240,21 @@ func theGeneratedFileContains(ctx context.Context, relPath, substr string) error
 
 	if !strings.Contains(string(content), substr) {
 		return fmt.Errorf("generated %q does not contain %q\ncontent:\n%s", relPath, substr, content)
+	}
+
+	return nil
+}
+
+func theGeneratedFileDoesNotContain(ctx context.Context, relPath, substr string) error {
+	w := getGeneratorWorld(ctx)
+
+	content, err := os.ReadFile(filepath.Join(w.projectDir, relPath))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	if strings.Contains(string(content), substr) {
+		return fmt.Errorf("generated %q unexpectedly contains %q\ncontent:\n%s", relPath, substr, content)
 	}
 
 	return nil
