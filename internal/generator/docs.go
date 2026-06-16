@@ -155,24 +155,56 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 
 	moduleName := g.getModuleNameSafe()
 
+	sysPrompt, fullCmdName, outputPath := g.getPromptAndOutput(name, relPath, moduleName, isPackage)
+
+	// AI doc-gen is opt-in: only call a provider when one is explicitly
+	// configured and --agentless is not set. Otherwise write deterministic
+	// boilerplate with no API call (quietly), so `generate command` never
+	// reaches out to Anthropic by default.
+	if !g.aiDocsEnabled() {
+		g.props.Logger.Debugf("AI docs not enabled (no provider configured or --agentless); writing boilerplate for %q", name)
+
+		return g.handleNoAIDocs(name, fullCmdName, outputPath, isPackage)
+	}
+
 	// 2. Read Source
 	content, err := g.readSource(absPath, isPackage)
 	if err != nil {
 		return err
 	}
 
-	sysPrompt, fullCmdName, outputPath := g.getPromptAndOutput(name, relPath, moduleName, isPackage)
-
 	provider, model := g.resolveAIConfig()
 
 	client, err := g.createAIDocsClient(ctx, provider, model, sysPrompt)
 	if err != nil {
-		g.props.Logger.Warnf("AI client unavailable: %v", err)
+		g.props.Logger.Infof("AI docs unavailable for %q, writing boilerplate: %v", name, err)
 
 		return g.handleNoAIDocs(name, fullCmdName, outputPath, isPackage)
 	}
 
 	return g.writeAIDocs(ctx, client, content, outputPath, isPackage)
+}
+
+// aiDocsEnabled reports whether AI-assisted documentation generation should
+// run. It is opt-in: a provider must be explicitly configured — via the
+// `--provider` flag (g.config.AIProvider), the `ai.provider` config key, or an
+// injected chat client — and `--agentless` must not be set. When false the
+// generator writes deterministic boilerplate with no network call, so the
+// generator never reaches out to a paid AI API by default.
+func (g *Generator) aiDocsEnabled() bool {
+	if g.config.Agentless {
+		return false
+	}
+
+	if g.chatClient != nil {
+		return true
+	}
+
+	if g.config.AIProvider != "" {
+		return true
+	}
+
+	return g.props.Config != nil && g.props.Config.GetString("ai.provider") != ""
 }
 
 // handleNoAIDocs writes documentation without AI assistance.

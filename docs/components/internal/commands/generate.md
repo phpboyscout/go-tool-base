@@ -245,22 +245,41 @@ of corrupting `.gtb/manifest.yaml`.
 
 ### Docs
 
-Generates documentation for a command using AI analysis of the source code.
+Generates documentation for a command. **AI doc-generation is opt-in:** it runs
+only when an AI provider is explicitly configured (via `--provider` or the
+`ai.provider` config key) and `--agentless` is not set. Otherwise — and this is
+the default — GTB writes deterministic **boilerplate** documentation from the
+manifest with **no API call**. A configured-but-failing AI call (e.g. no API
+credit) degrades quietly to the same boilerplate rather than erroring loudly.
+The same gate governs the docs step of `generate command`, so scaffolding a new
+command never reaches out to a paid AI API by default.
 
 **Help (`generate docs --help`):**
 
 ```text
-Generate comprehensive Markdown documentation for a Go command using AI.
-This command analyzes the source code of the specified command and uses the AI integration to generate docs following Zensical/MkDocs conventions.
+Generate Markdown documentation for a Go command.
+
+When an AI provider is configured (via --provider or the ai.provider config
+key) and --agentless is not set, the command source is analysed and the AI
+integration produces rich docs following the docs-site conventions. Otherwise
+GTB writes deterministic boilerplate documentation with no API call — AI
+doc-generation is opt-in.
 
 Examples:
-  # Generate docs for a command
-  gtb generate docs --path ./internal/cmd/mycmd
+  # Boilerplate docs (no AI), the default
+  gtb generate docs --command mycmd
+
+  # AI-assisted docs (requires a configured provider)
+  gtb generate docs --command mycmd --provider claude
+
+  # Force boilerplate even with a provider configured
+  gtb generate docs --command mycmd --agentless
 
 Usage:
   gtb generate docs [flags]
 
 Flags:
+      --agentless        Skip AI doc-generation and write boilerplate docs only
       --command string   Name/Path of command to document
   -h, --help             help for docs
   -n, --name string      Command name (optional, inferred from path)

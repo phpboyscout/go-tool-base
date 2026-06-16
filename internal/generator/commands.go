@@ -450,24 +450,25 @@ func (g *Generator) handleDocumentationGeneration(ctx context.Context, data temp
 	exists, _ := afero.Exists(g.props.FS, docPath)
 
 	switch {
-	case g.config.UpdateDocs:
-		g.props.Logger.Infof("AI documentation update/generation requested for %q...", data.Name)
-
-		if err := g.GenerateDocs(ctx, cmdDir, false); err != nil {
-			g.props.Logger.Warnf("Failed to generate documentation for %q with AI: %v", data.Name, err)
+	case g.config.UpdateDocs || !exists:
+		if g.aiDocsEnabled() {
+			g.props.Logger.Infof("Generating documentation for %q with AI...", data.Name)
+		} else {
+			g.props.Logger.Debugf("Generating boilerplate documentation for %q...", data.Name)
 		}
-	case !exists:
-		g.props.Logger.Infof("No documentation found for %q, attempting AI generation...", data.Name)
 
+		// GenerateDocs is opt-in: it writes boilerplate (no API call) unless a
+		// provider is configured. If an enabled AI call fails mid-flight, fall
+		// back to boilerplate quietly rather than failing the generation.
 		if err := g.GenerateDocs(ctx, cmdDir, false); err != nil {
-			g.props.Logger.Warnf("Failed to generate documentation for %q with AI, falling back to boilerplate: %v", data.Name, err)
+			g.props.Logger.Infof("Documentation for %q fell back to boilerplate: %v", data.Name, err)
 
 			if err := g.generateDocs(); err != nil {
 				g.props.Logger.Warnf("Failed to generate documentation for %q: %v", data.Name, err)
 			}
 		}
 	default:
-		g.props.Logger.Infof("Documentation for %q already exists, skipping boilerplate generation. Use --update-docs to update with AI.", data.Name)
+		g.props.Logger.Infof("Documentation for %q already exists, skipping. Use --update-docs to regenerate.", data.Name)
 	}
 }
 

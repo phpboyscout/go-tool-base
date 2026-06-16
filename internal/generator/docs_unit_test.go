@@ -496,3 +496,76 @@ func TestGenerateCommandsIndex(t *testing.T) {
 	content, _ := afero.ReadFile(fs, indexPath)
 	assert.Contains(t, string(content), "| [mycmd](mycmd/index.md) | My command description |")
 }
+
+// TestGenerateDocs_OptInBoilerplateWithoutProvider is the regression guard for
+// the keryx-reported bug: `generate command` must NOT reach out to a paid AI
+// API by default. With no provider configured and no chat client injected,
+// GenerateDocs writes deterministic boilerplate (no network call) and succeeds.
+func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	l := logger.NewNoop()
+	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(l))
+	// Deliberately NO ai.provider set.
+
+	root := "/work"
+	_ = fs.MkdirAll(filepath.Join(root, "pkg/cmd/mycmd"), 0o755)
+	_ = afero.WriteFile(fs, filepath.Join(root, "pkg/cmd/mycmd/mycmd.go"),
+		[]byte("package mycmd\n"), 0o644)
+	_ = afero.WriteFile(fs, filepath.Join(root, ".gtb/manifest.yaml"),
+		[]byte("properties:\n  name: mytool\ncommands:\n  - name: mycmd\n    description: My command\n"), 0o644)
+
+	g := &Generator{
+		props:  &props.Props{FS: fs, Logger: l, Config: cfgContainer},
+		config: &Config{Path: root, Name: "mycmd"},
+		// no chatClient injected, no provider configured -> AI must not run.
+	}
+
+	require.False(t, g.aiDocsEnabled(), "AI docs must be disabled without a configured provider")
+
+	err := g.GenerateDocs(context.Background(), "mycmd", false)
+	require.NoError(t, err)
+
+	content, err := afero.ReadFile(fs, filepath.Join(root, "docs/commands/mycmd/index.md"))
+	require.NoError(t, err, "boilerplate docs must still be written when AI is off")
+	assert.Contains(t, string(content), "mycmd")
+}
+
+// TestAIDocsEnabled pins the opt-in gate: a provider must be explicitly
+// configured (flag, config key, or injected client) and --agentless unset.
+func TestAIDocsEnabled(t *testing.T) {
+	cases := []struct {
+		name         string
+		agentless    bool
+		cfgProvider  string
+		propProvider string
+		injectClient bool
+		want         bool
+	}{
+		{"nothing configured", false, "", "", false, false},
+		{"flag provider set", false, "claude", "", false, true},
+		{"config ai.provider set", false, "", "openai", false, true},
+		{"injected client", false, "", "", true, true},
+		{"agentless overrides flag provider", true, "claude", "", false, false},
+		{"agentless overrides injected client", true, "", "", true, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := afero.NewMemMapFs()
+			cfgContainer := config.NewFilesContainer(fs)
+			if tc.propProvider != "" {
+				cfgContainer.GetViper().Set("ai.provider", tc.propProvider)
+			}
+
+			g := &Generator{
+				props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfgContainer},
+				config: &Config{Agentless: tc.agentless, AIProvider: tc.cfgProvider},
+			}
+			if tc.injectClient {
+				g.chatClient = new(MockChatClient)
+			}
+
+			assert.Equal(t, tc.want, g.aiDocsEnabled())
+		})
+	}
+}

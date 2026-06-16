@@ -17,6 +17,7 @@ type DocsOptions struct {
 	CommandName string
 	PackagePath string
 	LegacySrc   string
+	Agentless   bool
 }
 
 func NewCmdDocs(p *props.Props) *cobra.Command {
@@ -24,13 +25,24 @@ func NewCmdDocs(p *props.Props) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "docs",
-		Short: "Generate documentation for a command using AI",
-		Long: `Generate comprehensive Markdown documentation for a Go command using AI.
-This command analyzes the source code of the specified command and uses the AI integration to generate docs following MkDocs conventions.
+		Short: "Generate documentation for a command (AI-assisted when a provider is configured)",
+		Long: `Generate Markdown documentation for a Go command.
+
+When an AI provider is configured (via --provider or the ai.provider config
+key) and --agentless is not set, the command source is analysed and the AI
+integration produces rich docs following the docs-site conventions. Otherwise
+GTB writes deterministic boilerplate documentation with no API call — AI
+doc-generation is opt-in.
 
 Examples:
-  # Generate docs for a command
-  gtb generate docs --path ./internal/cmd/mycmd
+  # Boilerplate docs (no AI), the default
+  gtb generate docs --command mycmd
+
+  # AI-assisted docs (requires a configured provider)
+  gtb generate docs --command mycmd --provider claude
+
+  # Force boilerplate even with a provider configured
+  gtb generate docs --command mycmd --agentless
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context(), p)
@@ -43,6 +55,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.Parent, "parent", "", "Parent command name (optional, if not in manifest)")
 	cmd.Flags().StringVar(&opts.CommandName, "command", "", "Name/Path of command to document")
 	cmd.Flags().StringVar(&opts.PackagePath, "package", "", "Path to package to document (relative to project root)")
+	cmd.Flags().BoolVar(&opts.Agentless, "agentless", false, "Skip AI doc-generation and write boilerplate docs only")
 
 	// --source is a deprecated alias for --command (Run() falls back to it
 	// when --command is empty). It must therefore participate in the
@@ -67,6 +80,7 @@ func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
 		DryRun:     dryRun,
 		AIProvider: aiProvider,
 		AIModel:    aiModel,
+		Agentless:  o.Agentless,
 	}
 
 	gen := generator.New(p, cfg)
