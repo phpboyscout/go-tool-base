@@ -1,17 +1,22 @@
-// Package disable is the gtb-only `disable` command group, the inverse
-// of internal/cmd/enable. It hosts verbs that turn off a generated
-// tool's capabilities and rewrite the generated wiring to match.
+// Package disable is the gtb-only `disable` command, the inverse of
+// internal/cmd/enable. It turns off a capability of a generated tool and
+// rewrites the generated wiring to match.
 //
-// The first member is `gtb disable signing`, which turns off
-// consumer-side release-signing verification: it flips the manifest
-// signing block off, drops the Signing: field from the root command and
-// removes the generated signing.go. It never deletes internal/trustkeys
-// or author-added *.asc keys.
+// Simple on/off built-in features (ai, config, telemetry, init, update, mcp,
+// docs, doctor, changelog) are a positional argument on `disable` itself —
+// `gtb disable doctor` flips properties.features in .gtb/manifest.yaml and
+// re-renders the root command. Capabilities with their own configuration are
+// scoped subcommands: `gtb disable signing` turns off consumer-side
+// release-signing verification (dropping the Signing field and signing.go,
+// keeping internal/trustkeys and any *.asc keys).
 //
-// See docs/development/specs/2026-06-10-signing-generator-feature.md.
+// See docs/development/specs/2026-06-16-enable-disable-features.md and
+// docs/development/specs/2026-06-10-signing-generator-feature.md.
 package disable
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
@@ -20,17 +25,43 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-// NewCmdDisable returns the top-level `gtb disable` command group with
-// its subcommands attached.
+// NewCmdDisable returns the top-level `gtb disable [feature]` command. A
+// built-in feature passed positionally is toggled off; a first argument
+// matching a scoped subcommand (signing) routes there instead; no argument
+// opens the feature picker.
 func NewCmdDisable(p *props.Props) *setup.Command {
-	cmd := &cobra.Command{
-		Use:   "disable",
-		Short: "Disable a capability on a generated project",
-		Long: `Turn off a generated tool's capabilities, rewriting the generated wiring to match.
+	var path string
 
-Available subcommands:
-  signing   Turn off release-signing verification: drop props.Signing and the enforcement defaults. Keeps internal/trustkeys and any *.asc keys.`,
+	cmd := &cobra.Command{
+		Use:   "disable [feature...]",
+		Short: "Disable a capability on a generated project",
+		Long: `Turn off a capability of a generated project, re-rendering the generated wiring to match.
+
+Pass one or more built-in features as positional arguments to toggle them off:
+  ` + strings.Join(generator.ToggleableFeatures, ", ") + `
+This flips properties.features in .gtb/manifest.yaml and re-renders the root
+command's props.SetFeatures(...). Because the change lives in the manifest it
+survives 'gtb regenerate project'. With no feature, an interactive multi-select
+of the currently-enabled features is shown (a name is required in CI).
+
+Disabling 'update' removes the self-update subsystem, including the ForcedUpdate
+check, so the tool no longer detects or applies new releases.
+
+Capabilities with their own configuration are scoped subcommands:
+  signing   Turn off release-signing verification: drop props.Signing and the
+            enforcement defaults. Keeps internal/trustkeys and any *.asc keys
+            (run 'gtb disable signing --help').`,
+		Example: `  gtb disable doctor                  # turn off the doctor feature
+  gtb disable mcp docs                # turn off several at once
+  gtb disable                         # pick features interactively
+  gtb disable signing`,
+		Args: cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return icmd.RunFeatureToggle(cmd, p, path, args, false)
+		},
 	}
+
+	cmd.Flags().StringVarP(&path, "path", "p", ".", "Path to project root")
 
 	disableCmd := setup.Wrap("", cmd)
 	disableCmd.Register(

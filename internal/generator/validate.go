@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -526,6 +527,20 @@ func ValidateUpdatePolicy(policy string) error {
 			"update policy must be one of: disabled, prompt, enabled",
 			policy)
 	}
+}
+
+// ValidateFeatureName rejects any name that is not one of the toggleable
+// built-in features (see ToggleableFeatures). Used by `gtb enable <feature>` /
+// `gtb disable <feature>` so an unknown name fails fast with the valid set
+// listed, rather than silently writing a junk manifest entry.
+func ValidateFeatureName(name string) error {
+	if slices.Contains(ToggleableFeatures, name) {
+		return nil
+	}
+
+	return rejectf("Feature",
+		"unknown feature (valid: "+strings.Join(ToggleableFeatures, ", ")+")",
+		name)
 }
 
 // ValidateUpdateCheckInterval accepts an empty string (meaning "use the

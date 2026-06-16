@@ -44,8 +44,10 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 
 	ctx.Step(`^a gtb project with a "([^"]*)" command that has aliases, a required shorthand flag, and a pre-run hook$`,
 		aGTBProjectWithACommandWithMetadata)
+	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
+	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
 	ctx.Step(`^the generated "([^"]*)" file contains "([^"]*)"$`, theGeneratedFileContains)
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
@@ -135,6 +137,48 @@ commands:
 	return ctx, nil
 }
 
+// aFreshlyGeneratedGTBProject scaffolds a real project with the gtb generator
+// (the same binary the enable/disable verbs run against), so the manifest and
+// generated root command are exactly what a user starts from.
+func aFreshlyGeneratedGTBProject(ctx context.Context) (context.Context, error) {
+	w := getGeneratorWorld(ctx)
+
+	path, err := support.GeneratorBinaryPath()
+	if err != nil {
+		return ctx, fmt.Errorf("build gtb binary: %w", err)
+	}
+
+	w.binaryPath = path
+
+	dir, err := os.MkdirTemp("", "gtb-e2e-feat-*")
+	if err != nil {
+		return ctx, fmt.Errorf("create project dir: %w", err)
+	}
+
+	w.projectDir = dir
+
+	cmd := exec.CommandContext(ctx, path,
+		"generate", "project",
+		"--name", "feattool",
+		"--repo", "acme/feattool",
+		"--path", dir,
+		"--no-git",
+		"--ci",
+	) //nolint:gosec // test-only: fixed args
+	cmd.Dir = dir
+
+	var stdout, stderr strings.Builder
+
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return ctx, fmt.Errorf("generate project: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
+	}
+
+	return ctx, nil
+}
+
 func iRunGTBInTheProjectWith(ctx context.Context, args string) context.Context {
 	w := getGeneratorWorld(ctx)
 
@@ -171,6 +215,15 @@ func theProjectExitCodeIs(ctx context.Context, expected int) error {
 	if w.exitCode != expected {
 		return fmt.Errorf("expected exit code %d, got %d\nstdout: %s\nstderr: %s",
 			expected, w.exitCode, w.stdout, w.stderr)
+	}
+
+	return nil
+}
+
+func theProjectExitCodeIsNotZero(ctx context.Context) error {
+	w := getGeneratorWorld(ctx)
+	if w.exitCode == 0 {
+		return fmt.Errorf("expected non-zero exit code, got 0\nstdout: %s\nstderr: %s", w.stdout, w.stderr)
 	}
 
 	return nil

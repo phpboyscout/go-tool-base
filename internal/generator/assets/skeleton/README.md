@@ -142,9 +142,13 @@ The following opt-in built-ins are also enabled:
 {{- end }}
 {{- end }}
 {{ else -}}
-No opt-in built-ins (AI chat, config management, telemetry) are enabled. Enable
-them by regenerating with the relevant feature flag.
+No opt-in built-ins (AI chat, config management, telemetry) are enabled.
 {{ end }}
+Change the feature set with `gtb enable <feature>` / `gtb disable <feature>`
+(e.g. `gtb enable ai`) — this updates `.gtb/manifest.yaml` and re-renders the
+root command, so the change survives `gtb regenerate project`. Do **not**
+hand-edit `pkg/cmd/root/cmd.go`; it is generated and will be overwritten.
+
 Run `{{ .Name }} --help` to see the full command list.
 
 ## Documentation

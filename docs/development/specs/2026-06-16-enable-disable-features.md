@@ -1,7 +1,7 @@
 ---
 title: "`gtb enable/disable <feature>` — manifest-driven feature toggles that survive regeneration"
 description: "Add `gtb enable <feature>` and `gtb disable <feature>` subcommands that flip the properties.features block in .gtb/manifest.yaml and re-render the generated root command, so a tool's built-in feature set (ai, config, telemetry, init, update, mcp, docs, doctor, changelog) can be changed after creation without hand-editing the DO-NOT-EDIT root cmd.go — which regenerate project rewrites. Mirrors the existing `gtb enable/disable signing`."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-16
 tags:
   - specification
@@ -23,7 +23,7 @@ Date
 :   16 June 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
@@ -83,13 +83,15 @@ way.
 ### CLI surface
 
 ```bash
-gtb enable <feature>     # e.g. gtb enable ai
-gtb disable <feature>    # e.g. gtb disable doctor
+gtb enable <feature>...     # e.g. gtb enable ai   /   gtb enable ai config
+gtb disable <feature>...    # e.g. gtb disable doctor
 ```
 
 `<feature>` is one of the toggleable built-ins (the set the generator already
 understands via `--features`): `ai`, `config`, `telemetry`, `init`, `update`,
-`mcp`, `docs`, `doctor`, `changelog`. The command:
+`mcp`, `docs`, `doctor`, `changelog`. **One or more** may be given in a single
+invocation; the manifest is updated for each and the root is re-rendered once.
+The command:
 
 1. Loads `.gtb/manifest.yaml` (errors clearly if not a gtb project, like the
    other `internal/cmd` verbs).
@@ -126,17 +128,25 @@ the delta from `DefaultFeatures`.
 
 ## Implementation
 
-- **`internal/cmd/enable/enable.go` / `internal/cmd/disable/disable.go`**: add a
-  `feature` subcommand (or a positional `<feature>` arg on a new
-  `enable feature` / `disable feature`) — exact shape is OQ1. Register alongside
-  `signing`.
-- **Manifest edit** (`internal/generator` or a small helper): set/clear a
-  `ManifestFeature` entry; normalise against `DefaultFeatures`.
-- **Re-render**: reuse the signing path's root re-render
-  (`applySigningPosture`-style) so root `cmd.go` is regenerated from the manifest
-  via the hash-protected skeleton render.
-- **Validation**: a `toggleableFeatures` set + a `ValidateFeatureName` helper
-  with a clear "unknown feature %q (valid: …)" error.
+- **`internal/cmd/enable/enable.go` / `internal/cmd/disable/disable.go`** (OQ1
+  resolved → positional): the feature is a **positional argument on the
+  `enable`/`disable` parent command itself** (`gtb enable ai`). `signing` (and
+  any future configuration-heavy capability) stays a **scoped subcommand** with
+  its own flags. cobra routes a first argument that matches a registered
+  subcommand (`signing`) there, and a non-matching first argument falls through
+  to the parent's `RunE` — so a simple `MaximumNArgs(1)` + `RunE` on the parent
+  gives positional feature toggles without polluting it with signing's flags.
+  With no argument, the parent opens the interactive multi-select picker.
+- **Shared toggle helper** (`internal/cmd/feature_toggle.go`): `RunFeatureToggle`
+  resolves the positional name (or the picker) into a desired feature→state map
+  and calls the generator; both `enable` and `disable` parents delegate to it.
+- **Generator** (`internal/generator/features.go`): `ApplyFeatures(ctx, desired)`
+  sets/clears each `ManifestFeature`, normalised against `DefaultFeatures`, then
+  re-renders root via `regenerateRootCommand` (the signing path's
+  `applySigningPosture`-style root render). `CurrentFeatures`/`FeatureEnabled`
+  back the picker.
+- **Validation**: a `ToggleableFeatures` set + a `ValidateFeatureName` helper
+  with a clear "unknown feature (valid: …)" error.
 - **Docs**: `docs/components/` generator/enable page; note in the generated
   project README / tutorial that features are changed via `gtb enable/disable`,
   not by editing the DO-NOT-EDIT root.
@@ -163,19 +173,29 @@ the delta from `DefaultFeatures`.
 
 ## Open questions
 
-1. **Command shape** — `gtb enable <feature>` (positional, the feature is the
-   arg) vs `gtb enable feature <name>` (a `feature` subcommand under
-   `enable`). The first is terser and matches the keryx ask; the second composes
-   with the existing `enable signing` shape (sibling subcommands). Leaning
-   positional `gtb enable <feature>` with `signing` remaining a named subcommand
-   (i.e. `enable` accepts either a known feature arg or the `signing`
-   subcommand). **Resolve before implementation.**
-2. **Which features are toggleable** — all nine, or exclude any that are unsafe
-   to disable post-hoc (e.g. does disabling `update` interact with the
-   ForcedUpdate spec)? Proposal: all nine; document interactions.
-3. **Interactive vs non-interactive** — should there be a wizard, or is the
-   positional arg + `--ci`-friendly non-interactive path sufficient? Proposal:
-   non-interactive only (it is a single, named operation).
+All three resolved 2026-06-16 (author):
+
+1. **Command shape** — RESOLVED: **positional**. The feature is a positional
+   argument on the `enable`/`disable` parent (`gtb enable ai`); there is no
+   `feature` subcommand. Capabilities with their own configuration (`signing`,
+   and any future complex ones) remain **scoped subcommands** so their flags
+   don't leak onto the parent — cobra routes a first arg matching a subcommand
+   there, otherwise it falls through to the parent's positional handler. (An
+   earlier pass briefly implemented a `feature` subcommand and a fully-unified
+   `enable <capability>` that folded signing in; both were rejected — the former
+   for the extra noun, the latter because signing's eight flags then polluted
+   the shared command.)
+2. **Which features are toggleable** — RESOLVED: all nine (`ai`, `config`,
+   `telemetry`, `init`, `update`, `mcp`, `docs`, `doctor`, `changelog`).
+   Document the `update`↔ForcedUpdate interaction: disabling `update` removes the
+   self-update subsystem (and therefore the ForcedUpdate check) from the tool
+   entirely.
+3. **Interactive vs non-interactive** — RESOLVED: non-interactive when a feature
+   name is given (CI-safe); when **no** name is given, the parent command opens
+   an interactive multi-select wizard of candidate features (the disabled ones
+   for `enable`, the enabled ones for `disable`). The wizard is suppressed under
+   `--ci`/non-interactive sessions, which instead error asking for an explicit
+   feature name.
 
 ---
 
