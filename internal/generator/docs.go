@@ -987,7 +987,20 @@ func (g *Generator) regenerateMkdocsNav() error {
 	mkdocsPath := filepath.Join(g.config.Path, "mkdocs.yml")
 
 	if exists, _ := afero.Exists(g.props.FS, mkdocsPath); !exists {
-		g.props.Logger.Warn("mkdocs.yml not found, skipping navigation update")
+		// Projects on the current docs toolchain use zensical.toml, which has
+		// no explicit nav list: zensical builds navigation from the docs/ tree
+		// and the generated section index pages (commands/index.md,
+		// packages/index.md). There is nothing to rewrite, so this is a quiet
+		// no-op rather than the misleading "skipping navigation update" warning
+		// it used to emit on every generate against a zensical project.
+		zensicalPath := filepath.Join(g.config.Path, "zensical.toml")
+		if exists, _ := afero.Exists(g.props.FS, zensicalPath); exists {
+			g.props.Logger.Debug("zensical project: navigation is generated from the docs tree; no nav file to update")
+
+			return nil
+		}
+
+		g.props.Logger.Debug("no mkdocs.yml or zensical.toml found; skipping navigation update")
 
 		return nil
 	}

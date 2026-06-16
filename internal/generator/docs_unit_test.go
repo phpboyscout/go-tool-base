@@ -569,3 +569,27 @@ func TestAIDocsEnabled(t *testing.T) {
 		})
 	}
 }
+
+// TestRegenerateMkdocsNav_ZensicalProject is the regression guard for the
+// keryx-reported bug: a zensical project (zensical.toml, no mkdocs.yml) builds
+// navigation from the docs tree, so the nav step is a quiet no-op — not the
+// old misleading "mkdocs.yml not found, skipping navigation update" warning.
+func TestRegenerateMkdocsNav_ZensicalProject(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	root := "/work"
+
+	// A zensical project: zensical.toml present, no mkdocs.yml.
+	_ = afero.WriteFile(fs, filepath.Join(root, "zensical.toml"),
+		[]byte("[project]\nsite_name = \"My Tool\"\n"), 0o644)
+
+	g := &Generator{
+		props:  &props.Props{FS: fs, Logger: logger.NewNoop()},
+		config: &Config{Path: root},
+	}
+
+	require.NoError(t, g.regenerateMkdocsNav())
+
+	// The step must not fabricate an mkdocs.yml for a zensical project.
+	exists, _ := afero.Exists(fs, filepath.Join(root, "mkdocs.yml"))
+	assert.False(t, exists, "zensical projects must not get an mkdocs.yml written")
+}
