@@ -160,6 +160,68 @@ func TestGenerateSkeleton_UpdatePolicy(t *testing.T) {
 	}
 }
 
+// TestGenerateSkeleton_UpdateCheckInterval verifies the check-interval baseline
+// flows from SkeletonConfig to both the persisted manifest and a readable
+// time.Duration expression in the generated root command. Empty/zero values
+// leave the field off so the framework default (24h) applies.
+func TestGenerateSkeleton_UpdateCheckInterval(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		interval string
+		wantExpr string // "" => nothing emitted
+	}{
+		{name: "empty uses framework default, emits nothing", interval: "", wantExpr: ""},
+		{name: "zero uses framework default, emits nothing", interval: "0s", wantExpr: ""},
+		{name: "whole hours render as time.Hour", interval: "168h", wantExpr: "UpdateCheckInterval: 168 * time.Hour"},
+		{name: "whole minutes render as time.Minute", interval: "90m", wantExpr: "UpdateCheckInterval: 90 * time.Minute"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fs := afero.NewMemMapFs()
+			p := &props.Props{FS: fs, Logger: logger.NewNoop()}
+
+			g := New(p, &Config{})
+			g.runCommand = func(ctx context.Context, dir, name string, args ...string) ([]byte, error) {
+				return []byte("done"), nil
+			}
+
+			config := SkeletonConfig{
+				Name:                "test-project",
+				Repo:                "phpboyscout/test-project",
+				Host:                "github.com",
+				Description:         "A test project",
+				Path:                "/work",
+				UpdateCheckInterval: tc.interval,
+			}
+
+			require.NoError(t, g.GenerateSkeleton(context.Background(), config))
+
+			data, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
+			require.NoError(t, err)
+
+			var m Manifest
+			require.NoError(t, yaml.Unmarshal(data, &m))
+			assert.Equal(t, tc.interval, m.Properties.UpdateCheckInterval)
+
+			rootCmd, err := afero.ReadFile(fs, "/work/pkg/cmd/root/cmd.go")
+			require.NoError(t, err)
+			content := string(rootCmd)
+
+			if tc.wantExpr == "" {
+				assert.NotContains(t, content, "UpdateCheckInterval",
+					"empty/zero interval must not emit a UpdateCheckInterval field")
+			} else {
+				assert.Contains(t, content, tc.wantExpr)
+			}
+		})
+	}
+}
+
 func TestGenerateSkeletonGitLabNestedPath(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()

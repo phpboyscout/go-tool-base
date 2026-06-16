@@ -163,9 +163,30 @@ The check is always skipped under `--ci`/`ci: true` regardless of policy. See
 [the self-update policy migration note](../../../migration/v0.17-update-policy.md)
 for the full resolution order.
 
+#### Update check interval
+
+The `--update-check-interval` flag (interactive: the **Update Check Interval**
+wizard step) sets the generated tool's `props.Tool.UpdateCheckInterval` baseline
+— how often it checks for a newer release, as a [Go duration](https://pkg.go.dev/time#ParseDuration)
+(e.g. `24h`, `168h`, `30m`). Like the policy, it is persisted to the manifest
+(`update_check_interval`) so `gtb regenerate` preserves it, rendered into the
+`props.Tool` literal as a `time.Duration` expression (`168 * time.Hour`), and
+overridable at runtime via the `update.check_interval` config key.
+
+| `--update-check-interval` | Emitted `props.Tool.UpdateCheckInterval` | Effect |
+|---------------------------|------------------------------------------|--------|
+| *(empty)* | *(field omitted — framework default)* | Checks at most once every 24h. |
+| `168h` | `168 * time.Hour` | Checks at most once a week. |
+| `0`/`0s` | *(field omitted)* | A zero baseline is treated as "unset" → 24h. To check on **every** invocation, set `update.check_interval: "0"` in config at runtime — a compiled-in "every run" baseline is intentionally not offered. |
+
+Resolution precedence at runtime: a valid `update.check_interval` config value
+(where `0` means "every run") → the `props.Tool.UpdateCheckInterval` baseline (if
+positive) → the framework default (24h).
+
 ```bash
-# generate a tool that prompts to self-update
-gtb generate project -n mytool -r myorg/mytool --update-policy prompt
+# generate a tool that prompts to self-update and checks weekly
+gtb generate project -n mytool -r myorg/mytool \
+  --update-policy prompt --update-check-interval 168h
 ```
 
 ### Command

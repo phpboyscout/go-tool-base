@@ -2,6 +2,7 @@ package props
 
 import (
 	"slices"
+	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 )
@@ -136,6 +137,14 @@ type Tool struct {
 	// force updates out of the box. Overridable at runtime by the
 	// `update.policy` config key. See ResolveUpdatePolicy.
 	UpdatePolicy UpdatePolicy `json:"update_policy,omitempty" yaml:"update_policy,omitempty"`
+
+	// UpdateCheckInterval is the tool author's baseline throttle between
+	// self-update checks. The zero value means "use the framework default"
+	// (setup.DefaultCheckInterval, 24h) — it is NOT interpreted as
+	// "check every run". Overridable at runtime by the `update.check_interval`
+	// config key (where "0"/"0s" does mean every run). See
+	// setup.ResolveCheckInterval.
+	UpdateCheckInterval time.Duration `json:"update_check_interval,omitempty" yaml:"update_check_interval,omitempty"`
 
 	// Telemetry holds tool-author telemetry configuration.
 	// Zero-value is safe — tools that don't set it are unaffected.

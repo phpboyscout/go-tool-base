@@ -339,3 +339,29 @@ func TestValidateCoreFields_UpdatePolicy(t *testing.T) {
 	require.ErrorIs(t, err, generator.ErrInvalidInput)
 	assert.Contains(t, strings.Join(errors.GetAllHints(err), " "), "UpdatePolicy")
 }
+
+func TestValidateCoreFields_UpdateCheckInterval(t *testing.T) {
+	t.Parallel()
+
+	base := func() *SkeletonOptions {
+		return &SkeletonOptions{
+			Name:        "mytool",
+			Description: "a tool",
+			Repo:        "myorg/mytool",
+			GitBackend:  "github",
+		}
+	}
+
+	for _, interval := range []string{"", "24h", "168h", "0s"} {
+		o := base()
+		o.UpdateCheckInterval = interval
+		require.NoErrorf(t, o.validateCoreFields(), "interval %q should be accepted", interval)
+	}
+
+	o := base()
+	o.UpdateCheckInterval = "soon"
+	err := o.validateCoreFields()
+	require.Error(t, err)
+	require.ErrorIs(t, err, generator.ErrInvalidInput)
+	assert.Contains(t, strings.Join(errors.GetAllHints(err), " "), "UpdateCheckInterval")
+}

@@ -55,6 +55,11 @@ type SkeletonConfig struct {
 	// default (disabled) applies; wired into the generated root command's
 	// props.Tool.UpdatePolicy. See docs/development/specs/2026-06-16-forced-update-feature.md.
 	UpdatePolicy string
+	// UpdateCheckInterval is the generated tool's baseline self-update-check
+	// throttle as a Go duration string (e.g. "24h"). Empty leaves it unset so
+	// the framework default (24h) applies; wired into the generated root
+	// command's props.Tool.UpdateCheckInterval.
+	UpdateCheckInterval string
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline. Empty falls back to
 	// DefaultCICDComponentSource. GitLab-only; ignored for GitHub projects.
@@ -303,6 +308,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		EnvPrefix:              config.EnvPrefix,
 		Signing:                config.Signing,
 		UpdatePolicy:           config.UpdatePolicy,
+		UpdateCheckInterval:    config.UpdateCheckInterval,
 		CIComponentSource:      resolveCIComponentSource(config.CIComponentSource),
 		CICDComponentVersion:   CICDComponentVersion,
 		ReleaserPleaserVersion: ReleaserPleaserComponentVersion,
@@ -416,6 +422,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
 			EnvPrefix:             data.EnvPrefix,
 			UpdatePolicy:          data.UpdatePolicy,
+			UpdateCheckInterval:   data.UpdateCheckInterval,
 			SigningEnabled:        data.Signing.Enabled,
 			ModulePath:            data.ModulePath,
 		}),
@@ -750,11 +757,12 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 
 	manifest := Manifest{
 		Properties: ManifestProperties{
-			Name:         config.Name,
-			Description:  MultilineString(config.Description),
-			Features:     config.Features,
-			EnvPrefix:    config.EnvPrefix,
-			UpdatePolicy: config.UpdatePolicy,
+			Name:                config.Name,
+			Description:         MultilineString(config.Description),
+			Features:            config.Features,
+			EnvPrefix:           config.EnvPrefix,
+			UpdatePolicy:        config.UpdatePolicy,
+			UpdateCheckInterval: config.UpdateCheckInterval,
 			Help: ManifestHelp{
 				Type:         config.HelpType,
 				SlackChannel: config.SlackChannel,

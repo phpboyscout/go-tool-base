@@ -42,6 +42,11 @@ type SkeletonOptions struct {
 	// default (disabled) applies.
 	UpdatePolicy string
 
+	// UpdateCheckInterval is the generated tool's baseline self-update-check
+	// throttle as a Go duration string (e.g. "24h"). Empty leaves it unset so
+	// the framework default (24h) applies.
+	UpdateCheckInterval string
+
 	// CIComponentSource overrides the phpboyscout/cicd include base in the
 	// scaffolded GitLab pipeline (GitLab backend only). Empty uses the
 	// framework default, gitlab.com/phpboyscout/cicd.
@@ -112,6 +117,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().StringVar(&opts.TeamsTeam, "teams-team", "", "Microsoft Teams team name")
 	cmd.Flags().StringVar(&opts.EnvPrefix, "env-prefix", "", "Environment variable prefix for config overrides (e.g. MY_APP)")
 	cmd.Flags().StringVar(&opts.UpdatePolicy, "update-policy", "", "Self-update posture for the generated tool: disabled, prompt, or enabled (empty = framework default disabled)")
+	cmd.Flags().StringVar(&opts.UpdateCheckInterval, "update-check-interval", "", "Baseline interval between self-update checks as a Go duration, e.g. 24h or 168h (empty = framework default 24h)")
 	cmd.Flags().StringVar(&opts.CIComponentSource, "ci-component-source", "", "Override the phpboyscout/cicd component include base in the scaffolded GitLab pipeline (default gitlab.com/phpboyscout/cicd)")
 	cmd.Flags().BoolVar(&opts.Signing, "signing", false, "Enable consumer-side release-signing verification (scaffolds internal/trustkeys and wires props.Signing)")
 	cmd.Flags().StringVar(&opts.SigningEmail, "signing-email", "", "Release WKD email for signing (external_key_email); implies --signing")
@@ -229,6 +235,16 @@ func (o *SkeletonOptions) validateCoreFields() error {
 		}
 	}
 
+	if err := o.validateUpdateFields(); err != nil {
+		return err
+	}
+
+	return generator.ValidateCIComponentSource(o.CIComponentSource)
+}
+
+// validateUpdateFields groups the env-prefix and self-update posture checks,
+// keeping validateCoreFields under the cyclomatic-complexity budget.
+func (o *SkeletonOptions) validateUpdateFields() error {
 	if err := generator.ValidateEnvPrefix(o.EnvPrefix); err != nil {
 		return err
 	}
@@ -237,7 +253,7 @@ func (o *SkeletonOptions) validateCoreFields() error {
 		return err
 	}
 
-	return generator.ValidateCIComponentSource(o.CIComponentSource)
+	return generator.ValidateUpdateCheckInterval(o.UpdateCheckInterval)
 }
 
 // validateHelpFields groups the Slack/Teams help-channel checks.
@@ -386,6 +402,7 @@ func (o *SkeletonOptions) runWizard() error {
 	return forms.NewWizard(stage1).
 		Step(o.runEnvPrefixStep).
 		Step(o.runUpdatePolicyStep).
+		Step(o.runUpdateCheckIntervalStep).
 		// Stage 2: git config — built dynamically so the description reflects the chosen backend
 		Step(func() error {
 			if o.Host == "" {
@@ -620,6 +637,24 @@ func (o *SkeletonOptions) runUpdatePolicyStep() error {
 	return forms.NewNavigable(group).Run()
 }
 
+// runUpdateCheckIntervalStep collects the baseline self-update-check throttle
+// as a Go duration. Empty leaves it unset so the framework default (24h)
+// applies; end users can still override at runtime via update.check_interval.
+func (o *SkeletonOptions) runUpdateCheckIntervalStep() error {
+	group := huh.NewGroup(
+		huh.NewInput().
+			Title("Update Check Interval").
+			Description("How often the generated tool checks for updates, as a Go duration (e.g. 24h, 168h). Leave empty for the framework default (24h). Users can override via update.check_interval.").
+			Placeholder("24h").
+			Value(&o.UpdateCheckInterval).
+			Validate(generator.ValidateUpdateCheckInterval),
+	).
+		Title("Update Check Interval").
+		Description("Sets props.Tool.UpdateCheckInterval in the generated tool.\n")
+
+	return forms.NewNavigable(group).Run()
+}
+
 func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	if o.Overwrite == "" {
 		o.Overwrite = "ask"
@@ -662,24 +697,25 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	}
 
 	return gen.GenerateSkeleton(ctx, generator.SkeletonConfig{
-		Name:              o.Name,
-		Repo:              o.Repo,
-		Host:              host,
-		Private:           o.Private,
-		Description:       o.Description,
-		Path:              o.Path,
-		GoVersion:         o.GoVersion,
-		Features:          features,
-		HelpType:          helpType,
-		SlackChannel:      o.SlackChannel,
-		SlackTeam:         o.SlackTeam,
-		TeamsChannel:      o.TeamsChannel,
-		TeamsTeam:         o.TeamsTeam,
-		EnvPrefix:         o.EnvPrefix,
-		UpdatePolicy:      o.UpdatePolicy,
-		CIComponentSource: o.CIComponentSource,
-		Signing:           o.resolveSigning(),
-		Templates:         templates,
+		Name:                o.Name,
+		Repo:                o.Repo,
+		Host:                host,
+		Private:             o.Private,
+		Description:         o.Description,
+		Path:                o.Path,
+		GoVersion:           o.GoVersion,
+		Features:            features,
+		HelpType:            helpType,
+		SlackChannel:        o.SlackChannel,
+		SlackTeam:           o.SlackTeam,
+		TeamsChannel:        o.TeamsChannel,
+		TeamsTeam:           o.TeamsTeam,
+		EnvPrefix:           o.EnvPrefix,
+		UpdatePolicy:        o.UpdatePolicy,
+		UpdateCheckInterval: o.UpdateCheckInterval,
+		CIComponentSource:   o.CIComponentSource,
+		Signing:             o.resolveSigning(),
+		Templates:           templates,
 	})
 }
 

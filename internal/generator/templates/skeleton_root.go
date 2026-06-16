@@ -1,6 +1,8 @@
 package templates
 
 import (
+	"time"
+
 	"github.com/dave/jennifer/jen"
 )
 
@@ -34,6 +36,10 @@ type SkeletonRootData struct {
 	// (or "disabled") leaves the field off so the framework default applies;
 	// "prompt"/"enabled" emit the matching props.UpdatePolicy* constant.
 	UpdatePolicy string
+	// UpdateCheckInterval wires props.Tool.UpdateCheckInterval as a Go duration
+	// string (e.g. "24h"). Empty, unparseable, or non-positive values leave the
+	// field off so the framework default (24h) applies.
+	UpdateCheckInterval string
 	// SigningEnabled gates the Signing: props.SigningConfig{...} block.
 	// When true the generated tool wires trustkeys.Keys() as its embedded
 	// trust anchor; ModulePath supplies the import path for that package.
@@ -135,6 +141,12 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		toolDict[jen.Id("UpdatePolicy")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", c)
 	}
 
+	// Wire a non-default check interval. Empty/zero means "framework default"
+	// (24h), so only a positive duration emits a field.
+	if code, ok := updateCheckIntervalCode(data.UpdateCheckInterval); ok {
+		toolDict[jen.Id("UpdateCheckInterval")] = code
+	}
+
 	switch data.HelpType {
 	case "slack":
 		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "SlackHelp").Values(jen.Dict{
@@ -172,6 +184,32 @@ func updatePolicyConst(policy string) string {
 		return "UpdatePolicyEnabled"
 	default:
 		return ""
+	}
+}
+
+// updateCheckIntervalCode renders a Go duration string (e.g. "24h") as a
+// readable time.Duration expression for the generated Tool literal — choosing
+// the largest whole unit (`168 * time.Hour`, `30 * time.Minute`) and falling
+// back to a raw time.Duration nanosecond literal for sub-second remainders.
+// It returns ok=false for empty, unparseable, or non-positive values so the
+// caller omits the field and the framework default (24h) applies. Validation
+// upstream rejects malformed values before render; the parse guard here is
+// defence-in-depth.
+func updateCheckIntervalCode(raw string) (jen.Code, bool) {
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return nil, false
+	}
+
+	switch {
+	case d%time.Hour == 0:
+		return jen.Lit(int(d/time.Hour)).Op("*").Qual("time", "Hour"), true
+	case d%time.Minute == 0:
+		return jen.Lit(int(d/time.Minute)).Op("*").Qual("time", "Minute"), true
+	case d%time.Second == 0:
+		return jen.Lit(int(d/time.Second)).Op("*").Qual("time", "Second"), true
+	default:
+		return jen.Qual("time", "Duration").Call(jen.Lit(int64(d))), true
 	}
 }
 

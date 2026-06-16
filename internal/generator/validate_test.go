@@ -281,6 +281,42 @@ func TestValidateUpdatePolicy(t *testing.T) {
 	}
 }
 
+func TestValidateUpdateCheckInterval(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted (framework default)", input: "", wantErr: false},
+		{name: "hours", input: "24h", wantErr: false},
+		{name: "week of hours", input: "168h", wantErr: false},
+		{name: "minutes", input: "90m", wantErr: false},
+		{name: "compound", input: "1h30m", wantErr: false},
+		{name: "zero accepted (every run at runtime)", input: "0s", wantErr: false},
+
+		{name: "bare number rejected", input: "24", wantErr: true},
+		{name: "unit-less garbage rejected", input: "soon", wantErr: true},
+		{name: "negative rejected", input: "-5h", wantErr: true},
+		{name: "overlong rejected", input: strings.Repeat("1", 40) + "h", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateUpdateCheckInterval(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateSlackChannel(t *testing.T) {
 	t.Parallel()
 

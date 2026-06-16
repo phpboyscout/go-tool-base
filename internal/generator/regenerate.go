@@ -348,6 +348,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
+		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		SigningEnabled:        m.Properties.Signing.Enabled,
 		ModulePath:            m.ReleaseSource.Host + "/" + org + "/" + repoName,
 		Subcommands:           subcommands,
@@ -442,6 +443,7 @@ type skeletonTemplateData struct {
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
 	UpdatePolicy          string
+	UpdateCheckInterval   string
 	Signing               ManifestSigning
 	// CIComponentSource is the resolved phpboyscout/cicd include base for
 	// the scaffolded GitLab pipeline (defaulted to DefaultCICDComponentSource
@@ -491,6 +493,7 @@ func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 		TelemetryOTelEndpoint:  m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:              m.Properties.EnvPrefix,
 		UpdatePolicy:           m.Properties.UpdatePolicy,
+		UpdateCheckInterval:    m.Properties.UpdateCheckInterval,
 		Signing:                m.Properties.Signing,
 		CIComponentSource:      resolveCIComponentSource(m.Properties.CI.ComponentSource),
 		CICDComponentVersion:   CICDComponentVersion,

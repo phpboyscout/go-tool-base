@@ -122,21 +122,25 @@ const checksumsDefaultAssetName = "checksums.txt"
 // `update.check_interval` is unset or invalid.
 const DefaultCheckInterval = defaultCheckInterval
 
-// ResolveCheckInterval parses an `update.check_interval` config value as a Go
-// duration. An empty or invalid value yields [DefaultCheckInterval]; a zero
-// value ("0", "0s") means "check on every invocation" (no throttle).
-func ResolveCheckInterval(configValue string) time.Duration {
-	v := strings.TrimSpace(configValue)
-	if v == "" {
-		return DefaultCheckInterval
+// ResolveCheckInterval resolves the update-check throttle from, in order of
+// precedence: the `update.check_interval` config value (if a valid, non-negative
+// Go duration — where "0"/"0s" means "check on every invocation"), then the
+// tool author's baseline (toolDefault, if greater than zero), then
+// [DefaultCheckInterval]. A toolDefault of zero is treated as "unset" and falls
+// through to the framework default rather than meaning "every run"; runtime
+// config is the only way to request the no-throttle behaviour.
+func ResolveCheckInterval(toolDefault time.Duration, configValue string) time.Duration {
+	if v := strings.TrimSpace(configValue); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d >= 0 {
+			return d
+		}
 	}
 
-	d, err := time.ParseDuration(v)
-	if err != nil || d < 0 {
-		return DefaultCheckInterval
+	if toolDefault > 0 {
+		return toolDefault
 	}
 
-	return d
+	return DefaultCheckInterval
 }
 
 // timeSinceLast returns the age of the recorded "last <status>" timestamp and

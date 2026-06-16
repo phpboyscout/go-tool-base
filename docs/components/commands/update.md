@@ -97,14 +97,21 @@ update:
   check_interval: 24h   # any Go duration; 0 = check every invocation
 ```
 
-A tool author sets the baseline on the `Tool`:
+A tool author sets the baselines on the `Tool`:
 
 ```go
 props.Tool{
     // ...
-    UpdatePolicy: props.UpdatePolicyPrompt,
+    UpdatePolicy:        props.UpdatePolicyPrompt,
+    UpdateCheckInterval: 7 * 24 * time.Hour, // optional; zero = framework default (24h)
 }
 ```
+
+**Check-interval precedence:** a valid `update.check_interval` config value
+(where `0`/`0s` means "check every run") → the `props.Tool.UpdateCheckInterval`
+baseline (if positive) → the framework default (24h). A zero-value baseline is
+treated as "unset" and falls through to 24h, so an "every run" cadence is only
+reachable via runtime config, never as a compiled-in baseline.
 
 **Persistent out-of-date reminder.** The latest version discovered by a check is
 cached in the `last_checked` marker's body (its modtime still drives the

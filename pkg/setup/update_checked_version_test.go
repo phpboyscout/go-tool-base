@@ -43,21 +43,36 @@ func TestCheckedVersion_RoundTrip(t *testing.T) {
 func TestResolveCheckInterval(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]time.Duration{
-		"":        setup.DefaultCheckInterval,
-		"24h":     24 * time.Hour,
-		"168h":    168 * time.Hour,
-		"0":       0,
-		"0s":      0,
-		"garbage": setup.DefaultCheckInterval,
-		"-5h":     setup.DefaultCheckInterval,
-		"  48h  ": 48 * time.Hour,
+	cases := []struct {
+		name        string
+		toolDefault time.Duration
+		configValue string
+		want        time.Duration
+	}{
+		// No tool baseline: config drives the result, falling back to the
+		// framework default for empty/invalid values.
+		{name: "empty config, no baseline -> framework default", configValue: "", want: setup.DefaultCheckInterval},
+		{name: "config 24h", configValue: "24h", want: 24 * time.Hour},
+		{name: "config 168h", configValue: "168h", want: 168 * time.Hour},
+		{name: "config 0 means every run", configValue: "0", want: 0},
+		{name: "config 0s means every run", configValue: "0s", want: 0},
+		{name: "config garbage -> framework default", configValue: "garbage", want: setup.DefaultCheckInterval},
+		{name: "config negative -> framework default", configValue: "-5h", want: setup.DefaultCheckInterval},
+		{name: "config trims whitespace", configValue: "  48h  ", want: 48 * time.Hour},
+
+		// Tool baseline applies only when config does not supply a valid value.
+		{name: "baseline used when config empty", toolDefault: 12 * time.Hour, configValue: "", want: 12 * time.Hour},
+		{name: "baseline used when config invalid", toolDefault: 12 * time.Hour, configValue: "nope", want: 12 * time.Hour},
+		{name: "config overrides baseline", toolDefault: 12 * time.Hour, configValue: "1h", want: time.Hour},
+		{name: "config 0 overrides baseline (every run)", toolDefault: 12 * time.Hour, configValue: "0", want: 0},
+		{name: "zero baseline falls through to framework default", toolDefault: 0, configValue: "", want: setup.DefaultCheckInterval},
+		{name: "negative baseline ignored", toolDefault: -1, configValue: "", want: setup.DefaultCheckInterval},
 	}
 
-	for in, want := range cases {
-		t.Run(in, func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, want, setup.ResolveCheckInterval(in))
+			assert.Equal(t, tc.want, setup.ResolveCheckInterval(tc.toolDefault, tc.configValue))
 		})
 	}
 }

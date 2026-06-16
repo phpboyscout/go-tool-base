@@ -270,7 +270,7 @@ func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues
 		return true
 	}
 
-	interval := setup.ResolveCheckInterval(props.Config.GetString("update.check_interval"))
+	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, props.Config.GetString("update.check_interval"))
 
 	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
 }

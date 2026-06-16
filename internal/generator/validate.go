@@ -25,6 +25,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -41,6 +42,7 @@ const (
 	maxTeamsLen             = 100
 	maxTelemetryEndpointLen = 2048
 	maxCIComponentSourceLen = 255
+	maxUpdateIntervalLen    = 32
 	truncatedInputLen       = 32
 )
 
@@ -526,6 +528,39 @@ func ValidateUpdatePolicy(policy string) error {
 	}
 }
 
+// ValidateUpdateCheckInterval accepts an empty string (meaning "use the
+// framework default of 24h") and otherwise requires a valid, non-negative Go
+// duration (as understood by time.ParseDuration, e.g. "24h", "168h", "30m").
+// The value is rendered into the generated tool's props.Tool.UpdateCheckInterval
+// as a time.Duration expression, so a malformed or negative value is rejected
+// rather than silently falling back. A length cap bounds the parse input.
+func ValidateUpdateCheckInterval(interval string) error {
+	if interval == "" {
+		return nil
+	}
+
+	if len(interval) > maxUpdateIntervalLen {
+		return rejectf("UpdateCheckInterval",
+			fmt.Sprintf("update check interval must be at most %d characters", maxUpdateIntervalLen),
+			interval)
+	}
+
+	d, err := time.ParseDuration(interval)
+	if err != nil {
+		return rejectf("UpdateCheckInterval",
+			"update check interval must be a Go duration, e.g. 24h or 168h",
+			interval)
+	}
+
+	if d < 0 {
+		return rejectf("UpdateCheckInterval",
+			"update check interval must not be negative",
+			interval)
+	}
+
+	return nil
+}
+
 // ValidateSlackChannel accepts an empty string and otherwise enforces
 // Slack's own channel-name rules — lowercase, alphanumeric, hyphens,
 // 1–80 characters.
@@ -839,6 +874,10 @@ func validateManifestProperties(p *ManifestProperties) error {
 	}
 
 	if err := ValidateUpdatePolicy(p.UpdatePolicy); err != nil {
+		return err
+	}
+
+	if err := ValidateUpdateCheckInterval(p.UpdateCheckInterval); err != nil {
 		return err
 	}
 

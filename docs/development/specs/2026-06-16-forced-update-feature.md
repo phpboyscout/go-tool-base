@@ -148,18 +148,30 @@ When a check runs and finds the running version is behind the latest release:
 
 ### Configurable check interval
 
-Replace the hard-coded `defaultCheckInterval = 24 * time.Hour` with a config
-key, defaulting to 24h:
+Replace the hard-coded `defaultCheckInterval = 24 * time.Hour` as the *sole*
+source of the throttle with a two-tier model that mirrors the policy: a tool
+author baseline (`props.Tool.UpdateCheckInterval`, a `time.Duration`) plus a
+runtime config override.
 
 ```yaml
 update:
-  policy: prompt          # enabled | prompt | disabled
-  check_interval: 24h     # any Go duration; default 24h
+  policy: prompt          # enabled | prompt | disabled  (empty = tool baseline)
+  check_interval: ""      # any Go duration; empty = tool baseline; 0 = every run
 ```
 
-`SkipUpdateCheck` / `GetTimeSinceLast` read `update.check_interval` (parsed as a
-Go duration, validated > 0) instead of the constant. The constant remains as the
-default value.
+`setup.ResolveCheckInterval(toolDefault, configValue)` resolves the throttle: a
+valid `update.check_interval` (where `0`/`0s` means "every run") wins; else the
+positive `props.Tool.UpdateCheckInterval` baseline; else the framework default
+`setup.DefaultCheckInterval` (24h). A zero-value baseline is treated as "unset"
+and falls through to 24h — the every-run cadence is reachable only via config,
+never as a compiled-in baseline. `SkipUpdateCheck` takes the resolved duration.
+
+**Implemented:** the shipped `setup` default config leaves `check_interval`
+empty so the baseline is honoured. `gtb generate project` exposes the baseline
+via the `--update-check-interval` flag and the **Update Check Interval** wizard
+step (validated by `generator.ValidateUpdateCheckInterval`), persists it to the
+manifest (`update_check_interval`), and renders it into the generated
+`props.Tool` literal as a `time.Duration` expression (e.g. `168 * time.Hour`).
 
 ### Cached latest version + persistent out-of-date WARN
 

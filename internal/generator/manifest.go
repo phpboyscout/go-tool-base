@@ -328,11 +328,15 @@ type ManifestProperties struct {
 	EnvPrefix   string            `yaml:"env_prefix,omitempty"`
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty = framework default (disabled).
-	UpdatePolicy string            `yaml:"update_policy,omitempty"`
-	Help         ManifestHelp      `yaml:"help,omitempty"`
-	Telemetry    ManifestTelemetry `yaml:"telemetry,omitempty"`
-	Signing      ManifestSigning   `yaml:"signing,omitempty"`
-	CI           ManifestCI        `yaml:"ci,omitempty"`
+	UpdatePolicy string `yaml:"update_policy,omitempty"`
+	// UpdateCheckInterval is the generated tool's baseline self-update-check
+	// throttle as a Go duration string (e.g. "24h"). Empty = framework
+	// default (24h).
+	UpdateCheckInterval string            `yaml:"update_check_interval,omitempty"`
+	Help                ManifestHelp      `yaml:"help,omitempty"`
+	Telemetry           ManifestTelemetry `yaml:"telemetry,omitempty"`
+	Signing             ManifestSigning   `yaml:"signing,omitempty"`
+	CI                  ManifestCI        `yaml:"ci,omitempty"`
 	// Templates records the custom template-overlay sources applied to the
 	// project, in render (layer) order: embedded base → templates[0] →
 	// templates[1] → … (last writer wins for a shared path). Each entry is
