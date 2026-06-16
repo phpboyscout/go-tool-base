@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.19.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.19.0)
+
+### Features
+
+- **generate**: add-flag --shorthand for single-letter flag shorthands
+
+### Bug Fixes
+
+- **generator**: make regenerate non-destructive on real projects
+
 ## [v0.18.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.18.0)
 
 ### Features
