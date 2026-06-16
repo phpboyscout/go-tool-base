@@ -756,6 +756,10 @@ func ValidateManifest(m *Manifest) error {
 		return err
 	}
 
+	if err := validateManifestTemplates(m.Properties.Templates); err != nil {
+		return err
+	}
+
 	return validateManifestReleaseSource(&m.ReleaseSource)
 }
 

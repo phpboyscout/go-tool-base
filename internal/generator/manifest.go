@@ -330,6 +330,63 @@ type ManifestProperties struct {
 	Telemetry   ManifestTelemetry `yaml:"telemetry,omitempty"`
 	Signing     ManifestSigning   `yaml:"signing,omitempty"`
 	CI          ManifestCI        `yaml:"ci,omitempty"`
+	// Templates records the custom template-overlay sources applied to the
+	// project, in render (layer) order: embedded base → templates[0] →
+	// templates[1] → … (last writer wins for a shared path). Each entry is
+	// provenance + pinning only; suppression behaviour lives in the source's
+	// own gtb-template.yaml descriptor. See
+	// docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
+	Templates []TemplateSource `yaml:"templates,omitempty"`
+}
+
+// TemplateSourceType discriminates the two custom-template source backends.
+type TemplateSourceType string
+
+const (
+	// TemplateSourceLocal reads a template overlay directly from a
+	// filesystem path. No network, no cache, no SHA pin — a content
+	// fingerprint is recorded so regenerate can warn on drift.
+	TemplateSourceLocal TemplateSourceType = "local"
+	// TemplateSourceGit clones a template overlay from a forge repo (public
+	// over https/go-git, private via the configured forge auth) and pins the
+	// resolved commit SHA for byte-stable regeneration.
+	TemplateSourceGit TemplateSourceType = "git"
+)
+
+// TemplateSource is the minimal consumer-manifest record for one custom
+// template-overlay source: provenance (where it came from, what ref the
+// operator asked for) plus the pin (the resolved commit SHA for git, a
+// content fingerprint for local) and the per-source rendered-output hashes.
+//
+// The *behaviour* of a source (which embedded scaffolds it replaces, which
+// data-contract version it targets) lives with the template set in its
+// gtb-template.yaml descriptor, never here — the consumer manifest stays
+// provenance-only so consuming projects do not repeat the author's intent.
+type TemplateSource struct {
+	// Name is an optional operator-assigned handle used by
+	// `gtb template update/remove <name>`. Defaults to the repo/dir base
+	// name when unset.
+	Name string `yaml:"name,omitempty"`
+	// Type is "git" or "local".
+	Type TemplateSourceType `yaml:"type"`
+	// Location is the forge repo path (org/repo, nested GitLab groups
+	// supported) or a full clone URL for git sources, or a filesystem path
+	// for local sources.
+	Location string `yaml:"location"`
+	// Ref is the branch/tag/commit the operator specified, recorded verbatim
+	// (provenance). Empty/"" defaults to the source's default branch.
+	Ref string `yaml:"ref,omitempty"`
+	// Resolved is the commit SHA Ref resolved to at generate time — the pin
+	// regenerate reproduces from. Empty for local sources.
+	Resolved string `yaml:"resolved,omitempty"`
+	// Fingerprint is a content fingerprint of a local source's tree at
+	// generate time, so regenerate can warn when the on-disk source drifts.
+	// Empty for git sources (the resolved SHA is the pin).
+	Fingerprint string `yaml:"fingerprint,omitempty"`
+	// Hashes records each rendered overlay file's SHA256 keyed by output
+	// relative path, so a source's footprint is self-contained and can be
+	// removed cleanly (D5).
+	Hashes map[string]string `yaml:"hashes,omitempty"`
 }
 
 type ManifestHelp struct {
