@@ -21,6 +21,7 @@ type AddFlagOptions struct {
 	FlagType    string
 	Description string
 	Persistent  bool
+	Shorthand   string
 	Path        string
 }
 
@@ -50,6 +51,9 @@ Examples:
 
   # Add --force to the 'now' command nested under 'reel/create'
   gtb generate add-flag -c reel/create/now -n force -t bool -d "Skip confirmation"
+
+  # Add --output with a -o shorthand
+  gtb generate add-flag -c deploy -n output -t string -d "Output path" -s o
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.ValidateOrPrompt(p); err != nil {
@@ -65,6 +69,7 @@ Examples:
 	cmd.Flags().StringVarP(&opts.FlagType, "type", "t", "string", "Flag type (string, bool, int, float64, stringSlice, intSlice)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "", "Flag description")
 	cmd.Flags().BoolVar(&opts.Persistent, "persistent", false, "Make the flag persistent")
+	cmd.Flags().StringVarP(&opts.Shorthand, "shorthand", "s", "", "Single-letter shorthand for the flag (e.g. v for -v)")
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Filesystem project root directory (not a command path)")
 
 	return cmd
@@ -115,6 +120,10 @@ func (o *AddFlagOptions) ValidateOrPrompt(p *props.Props) error {
 			huh.NewInput().
 				Title("Flag Description").
 				Value(&o.Description),
+			huh.NewInput().
+				Title("Shorthand (single letter, optional)").
+				Value(&o.Shorthand).
+				Validate(generator.ValidateFlagShorthand),
 			huh.NewConfirm().
 				Title("Persistent?").
 				Value(&o.Persistent),
@@ -143,7 +152,11 @@ func (o *AddFlagOptions) validateNonInteractive() error {
 		return err
 	}
 
-	return generator.ValidateFlagType(o.FlagType)
+	if err := generator.ValidateFlagType(o.FlagType); err != nil {
+		return err
+	}
+
+	return generator.ValidateFlagShorthand(o.Shorthand)
 }
 
 func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {
@@ -194,6 +207,7 @@ func (o *AddFlagOptions) updateCommandFlag(cmd *generator.ManifestCommand) {
 			cmd.Flags[i].Type = o.FlagType
 			cmd.Flags[i].Description = generator.MultilineString(o.Description)
 			cmd.Flags[i].Persistent = o.Persistent
+			cmd.Flags[i].Shorthand = o.Shorthand
 			found = true
 
 			break
@@ -206,6 +220,7 @@ func (o *AddFlagOptions) updateCommandFlag(cmd *generator.ManifestCommand) {
 			Type:        o.FlagType,
 			Description: generator.MultilineString(o.Description),
 			Persistent:  o.Persistent,
+			Shorthand:   o.Shorthand,
 		})
 	}
 }

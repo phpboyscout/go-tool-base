@@ -291,8 +291,14 @@ Flags:
   -n, --name string          Flag name
   -p, --path string          Filesystem project root directory (not a command path) (default ".")
       --persistent           Make the flag persistent
+  -s, --shorthand string     Single-letter shorthand for the flag (e.g. v for -v)
   -t, --type string          Flag type (string, bool, int, float64, stringSlice, intSlice) (default "string")
 ```
+
+`--shorthand`/`-s` gives the generated flag a single-letter shorthand (the
+`-x` form). The value is validated as a single ASCII letter, recorded as the
+manifest flag's `shorthand`, and rendered as the cobra `…VarP(&opts.X, "name",
+"x", …)` registration. Leave it empty for a long-form-only flag.
 
 Both invocation paths validate their inputs. The non-interactive path
 (both `--command` and `--name` supplied on the command line) applies the

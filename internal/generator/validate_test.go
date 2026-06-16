@@ -575,6 +575,39 @@ func TestValidateFlagType(t *testing.T) {
 	}
 }
 
+func TestValidateFlagShorthand(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "empty accepted (no shorthand)", input: "", wantErr: false},
+		{name: "lowercase letter", input: "v", wantErr: false},
+		{name: "uppercase letter", input: "V", wantErr: false},
+
+		{name: "two letters rejected", input: "vv", wantErr: true},
+		{name: "digit rejected", input: "1", wantErr: true},
+		{name: "symbol rejected", input: "-", wantErr: true},
+		{name: "space rejected", input: " ", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidateFlagShorthand(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateParentPath(t *testing.T) {
 	t.Parallel()
 

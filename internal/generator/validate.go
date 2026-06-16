@@ -314,6 +314,28 @@ func ValidateFlagName(name string) error {
 	return nil
 }
 
+// ValidateFlagShorthand accepts an empty string (meaning "no shorthand") and
+// otherwise requires exactly one ASCII letter, which becomes cobra's single-rune
+// shorthand (the `-x` form). Anything longer or non-letter is rejected before it
+// reaches the StringVarP registration in the generated code.
+func ValidateFlagShorthand(shorthand string) error {
+	if shorthand == "" {
+		return nil
+	}
+
+	if len(shorthand) != 1 || !isASCIILetter(rune(shorthand[0])) {
+		return rejectf("FlagShorthand",
+			"flag shorthand must be a single ASCII letter (e.g. v for -v)",
+			shorthand)
+	}
+
+	return nil
+}
+
+func isASCIILetter(r rune) bool {
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+
 // ValidateFlagType rejects a flag type the command generator can't
 // render. The empty string and "string" are accepted (both map to a
 // string flag); every other value must be one the generator's

@@ -22,3 +22,11 @@ Feature: add-flag preserves command metadata
     And the project manifest contains "required: true"
     And the project manifest contains "name: verbose"
     And the project manifest does not contain "stalehash"
+
+  Scenario: add-flag can set a single-letter shorthand
+    Given a gtb project with a "deploy" command that has aliases, a required shorthand flag, and a pre-run hook
+    When I run gtb in the project with "generate add-flag --command deploy --name output --type string --description Output --shorthand o"
+    Then the project exit code is 0
+    And the project manifest contains "name: output"
+    And the project manifest contains "shorthand: o"
+    And the generated "pkg/cmd/deploy/cmd.go" file contains "StringVarP"
