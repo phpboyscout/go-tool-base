@@ -32,6 +32,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
+	tmplcmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd/template"
 	"gitlab.com/phpboyscout/go-tool-base/internal/version"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
@@ -118,6 +119,7 @@ func newTestRoot() (*setup.Command, *props.Props) {
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
 		keys.NewCmdKeys(p),
+		tmplcmd.NewCmdTemplate(p),
 		// config-probe is a contrived fixture for the bootstrap-traversal
 		// E2E (spec 2026-06-12): a subcommand with its own
 		// PersistentPreRunE that reads props.Config in RunE, proving the

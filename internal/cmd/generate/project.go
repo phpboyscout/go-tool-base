@@ -11,6 +11,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -63,6 +64,11 @@ type SkeletonOptions struct {
 	SigningKeyID     string
 	SigningKMSRegion string
 	SigningPublicKey string
+
+	// Templates carries the custom template-overlay specs (<src>@<ref>)
+	// supplied via --template (repeatable). Each is parsed into a manifest
+	// TemplateSource and layered over the embedded skeleton.
+	Templates []string
 }
 
 func NewCmdSkeleton(p *props.Props) *cobra.Command {
@@ -112,6 +118,7 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.NoGit, "no-git", false, "Skip the post-generation git init and initial commit (init+commit is on by default)")
 	cmd.Flags().BoolVar(&opts.Push, "push", false, "After the initial commit, add the derived remote as origin and push the default branch (push failures are non-fatal)")
 	cmd.Flags().StringVar(&opts.GitBranch, "git-branch", "main", "Default branch the initial commit lands on")
+	cmd.Flags().StringArrayVar(&opts.Templates, "template", nil, "Custom template overlay source <src>@<ref> (local path or forge repo); repeatable, layered in order")
 
 	return cmd
 }
@@ -566,6 +573,11 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		return ErrGitFlagsConflict
 	}
 
+	templates, err := o.resolveTemplateSources(p)
+	if err != nil {
+		return err
+	}
+
 	gen := generator.New(p, &generator.Config{
 		DryRun:    dryRun,
 		Path:      o.Path,
@@ -573,7 +585,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		GitInit:   !o.NoGit,
 		GitPush:   o.Push,
 		GitBranch: o.GitBranch,
-	})
+	}).EnableRealTemplateClone()
 
 	features := resolveFeatures(o.Features)
 
@@ -604,7 +616,46 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 		EnvPrefix:         o.EnvPrefix,
 		CIComponentSource: o.CIComponentSource,
 		Signing:           o.resolveSigning(),
+		Templates:         templates,
 	})
+}
+
+// isCIEnv reports whether the tool is running under CI, honouring the `ci`
+// config key (set by the global --ci persistent flag). Used to suppress the
+// interactive remote-template confirmation in CI.
+func isCIEnv(p *props.Props) bool {
+	if cfg := p.GetConfig(); cfg != nil {
+		return cfg.GetBool("ci")
+	}
+
+	return false
+}
+
+// resolveTemplateSources parses each --template spec into a manifest
+// TemplateSource and, for a remote (git) source, confirms the trust decision
+// with the operator (suppressible under --ci / non-interactive). Adding a
+// source is the trust decision; the pin records exactly what was trusted.
+func (o *SkeletonOptions) resolveTemplateSources(p *props.Props) ([]generator.TemplateSource, error) {
+	if len(o.Templates) == 0 {
+		return nil, nil
+	}
+
+	sources := make([]generator.TemplateSource, 0, len(o.Templates))
+
+	for _, spec := range o.Templates {
+		ts, err := generator.ParseTemplateSpec(p.FS, spec, "")
+		if err != nil {
+			return nil, err
+		}
+
+		if err := icmd.ConfirmRemoteTemplate(p, isCIEnv(p), ts); err != nil {
+			return nil, err
+		}
+
+		sources = append(sources, ts)
+	}
+
+	return sources, nil
 }
 
 // resolveSigning builds the manifest signing block from the options.
