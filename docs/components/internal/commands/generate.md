@@ -161,6 +161,9 @@ Examples:
   # Generate a subcommand 'list' under 'login'
   gtb generate command --name list --parent login --short "List sessions"
 
+  # Generate 'leaf' nested under the existing 'gala/mid' path (--parent takes a slash path)
+  gtb generate command --name leaf --parent gala/mid --short "Deeply nested"
+
   # Generate a command with flags and assets
   gtb generate command -n serve -f "port:int:Port to listen on" --assets
 
@@ -195,8 +198,8 @@ Flags:
   -h, --help                 help for command
       --long string          Long description
   -n, --name string          Command name (kebab-case)
-      --parent string        Parent command name (default: root) (default "root")
-  -p, --path string          Path to project root (default ".")
+      --parent string        Parent command to nest under; use a slash path (parent/child) for deep nesting (default "root")
+  -p, --path string          Filesystem project root directory (not a command path) (default ".")
       --persistent-pre-run   Generate a PersistentPreRun hook
       --pre-run              Generate a PreRun hook
       --prompt string        Natural language description or path to a file containing the description
@@ -209,20 +212,40 @@ Flags:
 
 Injects a new flag into an existing command file.
 
+**Targeting nested subcommands.** `-c/--command` accepts a **slash-delimited
+command path** (`parent/child/leaf`). To add a flag to a nested subcommand,
+pass the full path — a leaf name alone resolves only a top-level command, and
+neither a space-joined (`"reel create now"`) nor a dotted (`reel.now`) form is
+accepted. `-p/--path` is the **filesystem project root** (which project's
+`.gtb/manifest.yaml` to edit), **not** a command path — a common source of
+confusion. When `-c` does not resolve, the error now hints at the slash-path
+form (e.g. `did you mean -c parent/<name>?`).
+
+```bash
+# Flag on the top-level 'deploy' command
+gtb generate add-flag -c deploy -n verbose -t bool -d "Verbose output"
+
+# Flag on 'now' nested under 'reel/create'
+gtb generate add-flag -c reel/create/now -n force -t bool -d "Skip confirmation"
+```
+
 **Help (`generate add-flag --help`):**
 
 ```text
-Add a new flag to an existing command
+Add a new flag to an existing command in the current project.
+
+The target command is addressed by -c/--command. To target a nested
+subcommand, pass the full slash-delimited command path (parent/child/leaf).
 
 Usage:
   gtb generate add-flag [flags]
 
 Flags:
-  -c, --command string       Command name to add the flag to
+  -c, --command string       Command to add the flag to; use a slash path (parent/child/leaf) for nested subcommands
   -d, --description string   Flag description
   -h, --help                 help for add-flag
   -n, --name string          Flag name
-  -p, --path string          Path to project root (default ".")
+  -p, --path string          Filesystem project root directory (not a command path) (default ".")
       --persistent           Make the flag persistent
   -t, --type string          Flag type (string, bool, int, float64, stringSlice, intSlice) (default "string")
 ```

@@ -30,6 +30,27 @@ func NewCmdAddFlag(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-flag",
 		Short: "Add a new flag to an existing command",
+		Long: `Add a new flag to an existing command in the current project.
+
+The target command is addressed by -c/--command. To target a nested
+subcommand, pass the full slash-delimited command path (parent/child/leaf) —
+NOT just the leaf name, and NOT a space- or dot-separated form:
+
+  parent/child/leaf    a deep subcommand
+  leaf                 only when it is a top-level command
+  "reel create now"    rejected (space-joined)
+  reel.now             rejected (dotted)
+
+-p/--path is the filesystem project root (default "."), NOT a command path; it
+tells gtb which project's .gtb/manifest.yaml to edit.
+
+Examples:
+  # Add --verbose to the top-level 'deploy' command
+  gtb generate add-flag -c deploy -n verbose -t bool -d "Verbose output"
+
+  # Add --force to the 'now' command nested under 'reel/create'
+  gtb generate add-flag -c reel/create/now -n force -t bool -d "Skip confirmation"
+`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.ValidateOrPrompt(p); err != nil {
 				return err
@@ -39,12 +60,12 @@ func NewCmdAddFlag(p *props.Props) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.CommandName, "command", "c", "", "Command name to add the flag to")
+	cmd.Flags().StringVarP(&opts.CommandName, "command", "c", "", "Command to add the flag to; use a slash path (parent/child/leaf) for nested subcommands")
 	cmd.Flags().StringVarP(&opts.FlagName, "name", "n", "", "Flag name")
 	cmd.Flags().StringVarP(&opts.FlagType, "type", "t", "string", "Flag type (string, bool, int, float64, stringSlice, intSlice)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "", "Flag description")
 	cmd.Flags().BoolVar(&opts.Persistent, "persistent", false, "Make the flag persistent")
-	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
+	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Filesystem project root directory (not a command path)")
 
 	return cmd
 }
@@ -233,7 +254,12 @@ func findCommand(commands []generator.ManifestCommand, path []string, currentPat
 		}
 	}
 
-	return nil, nil, errors.Newf("%w: %s", ErrCommandNotFound, strings.Join(path, "/"))
+	return nil, nil, errors.WithHintf(
+		errors.Newf("%w: %s", ErrCommandNotFound, strings.Join(path, "/")),
+		"Target nested subcommands with the full slash-delimited path, e.g. -c parent/%s. "+
+			"A leaf name alone only resolves a top-level command (not a space- or dot-separated form).",
+		head,
+	)
 }
 
 func updateCommandMetadataRecursive(commands *[]generator.ManifestCommand, path []string, updatedCmd generator.ManifestCommand) bool {

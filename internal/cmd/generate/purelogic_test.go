@@ -224,7 +224,14 @@ func TestFindCommand_NotFound(t *testing.T) {
 	cmds := []generator.ManifestCommand{{Name: "foo"}}
 	_, _, err := findCommand(cmds, []string{"missing"}, nil)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrCommandNotFound)
+	require.ErrorIs(t, err, ErrCommandNotFound)
+
+	// The error must hint at the slash-delimited path form, suggesting the
+	// unmatched segment under a parent — the discoverability fix for nested
+	// subcommands.
+	hints := errors.FlattenHints(err)
+	assert.Contains(t, hints, "-c parent/missing")
+	assert.Contains(t, hints, "slash-delimited path")
 }
 
 func TestFindCommand_EmptyPath(t *testing.T) {

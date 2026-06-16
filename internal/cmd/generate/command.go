@@ -101,12 +101,20 @@ func NewCmdCommand(p *props.Props) *cobra.Command {
 		Short: "Generate a new command or subcommand",
 		Long: `Generate a new command or subcommand with boilerplate code.
 
+--parent names the command to nest the new command under. For deep nesting,
+pass the full slash-delimited path to the parent (parent/child); the new
+command is created as its leaf. --path is the filesystem project root (default
+"."), not a command path.
+
 Examples:
   # Generate a command named 'login' in the current project
   gtb generate command --name login --short "Login to the system"
 
   # Generate a subcommand 'list' under 'login'
   gtb generate command --name list --parent login --short "List sessions"
+
+  # Generate 'leaf' nested under the existing 'gala/mid' path
+  gtb generate command --name leaf --parent gala/mid --short "Deeply nested"
 
   # Generate a command with flags and assets
   gtb generate command -n serve -f "port:int:Port to listen on" --assets
@@ -146,9 +154,9 @@ Examples:
 	cmd.Flags().StringVarP(&opts.Name, "name", "n", "", "Command name (kebab-case)")
 	cmd.Flags().StringVarP(&opts.Short, "short", "s", "", "Short description")
 	cmd.Flags().StringVarP(&opts.Long, "long", "l", "", "Long description")
-	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
+	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Filesystem project root directory (not a command path)")
 	cmd.Flags().BoolVar(&opts.WithAssets, "assets", false, "Include assets directory support")
-	cmd.Flags().StringVar(&opts.Parent, "parent", "root", "Parent command name (default: root)")
+	cmd.Flags().StringVar(&opts.Parent, "parent", "root", "Parent command to nest under; use a slash path (parent/child) for deep nesting (default: root)")
 	cmd.Flags().StringVar(&opts.Args, "args", "", "Positional arguments (e.g. ExactArgs(1), ArbitraryArgs)")
 	cmd.Flags().StringArrayVarP(&opts.Aliases, "alias", "a", []string{}, "Aliases for the command")
 	cmd.Flags().StringArrayVarP(&opts.Flags, "flag", "f", []string{}, "Flags definition (name:type:description:persistent:shorthand:required:default:defaultIsCode)")
