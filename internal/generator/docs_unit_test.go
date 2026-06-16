@@ -348,6 +348,45 @@ func TestResolveDocsTarget(t *testing.T) {
 	})
 }
 
+// TestPrepareDocsContext_CrossParentCollision is the regression guard for keryx
+// v0.19.0 Bug 3: subcommand docs were keyed by leaf name, so two parents sharing
+// a leaf name (a/run and b/run) collided — the doc went to the first parent's
+// directory or was skipped. The doc path must reflect the command's actual
+// source location (pkg/cmd/<parent>/<leaf>), not a name lookup in the manifest.
+func TestPrepareDocsContext_CrossParentCollision(t *testing.T) {
+	fs := afero.NewMemMapFs()
+	root := "/work"
+
+	manifest := `properties:
+  name: demo
+commands:
+  - name: a
+    commands:
+      - name: run
+  - name: b
+    commands:
+      - name: run
+`
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(root, ".gtb/manifest.yaml"), []byte(manifest), 0644))
+
+	g := &Generator{
+		props:  &props.Props{FS: fs, Tool: props.Tool{Name: "demo"}},
+		config: &Config{Path: root},
+	}
+
+	// Generating 'run' under parent 'b' — its source dir is pkg/cmd/b/run.
+	full, out := g.prepareDocsContext("run", "pkg/cmd/b/run", false)
+
+	assert.Equal(t, filepath.Join(root, "docs/commands/b/run/index.md"), out,
+		"doc path must reflect the actual parent (b), not the first 'run' in the manifest (a)")
+	assert.Equal(t, "demo b run", full)
+
+	// And the sibling under 'a' resolves to its own path, not the same one.
+	_, outA := g.prepareDocsContext("run", "pkg/cmd/a/run", false)
+	assert.Equal(t, filepath.Join(root, "docs/commands/a/run/index.md"), outA)
+	assert.NotEqual(t, out, outA, "same-named subcommands under different parents must not collide")
+}
+
 func TestToTitle(t *testing.T) {
 	tests := []struct {
 		input    string

@@ -445,8 +445,16 @@ func (g *Generator) postGenerate(ctx context.Context, data templates.CommandData
 }
 
 func (g *Generator) handleDocumentationGeneration(ctx context.Context, data templates.CommandData, cmdDir string) {
-	// Check if documentation already exists
-	_, docPath := g.prepareDocsContext(data.Name, "", false)
+	// Check if documentation already exists. Pass the command's source location
+	// (pkg/cmd/<parent>/<leaf>) so the doc path reflects the real parent — a
+	// bare name resolves ambiguously when two parents share a leaf name
+	// (keryx v0.19.0 Bug 3).
+	relPath, err := filepath.Rel(g.config.Path, cmdDir)
+	if err != nil {
+		relPath = ""
+	}
+
+	_, docPath := g.prepareDocsContext(data.Name, relPath, false)
 	exists, _ := afero.Exists(g.props.FS, docPath)
 
 	switch {

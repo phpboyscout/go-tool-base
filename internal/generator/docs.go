@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -511,6 +512,37 @@ func (g *Generator) resolveDocsTarget(target string, isPackage bool) (name, relP
 	return name, relPath, absPath, nil
 }
 
+// parentPartsFromCmdRelPath extracts the parent command path from a command's
+// source location relative to the project root — e.g. "pkg/cmd/voice/gen"
+// yields ["voice"], "pkg/cmd/foo" yields [] (top-level), and "pkg/cmd/a/b/c"
+// yields ["a","b"]. A trailing source file (cmd.go/main.go) is tolerated.
+// Returns nil when relPath is empty or not under pkg/cmd, so the caller can fall
+// back to a manifest lookup.
+func parentPartsFromCmdRelPath(relPath string) []string {
+	rel := filepath.ToSlash(strings.TrimSpace(relPath))
+	if rel == "" {
+		return nil
+	}
+
+	if strings.HasSuffix(rel, ".go") {
+		rel = pathpkg.Dir(rel)
+	}
+
+	const prefix = "pkg/cmd/"
+	if !strings.HasPrefix(rel, prefix) {
+		return nil
+	}
+
+	rel = strings.Trim(strings.TrimPrefix(rel, prefix), "/")
+	if rel == "" {
+		return nil
+	}
+
+	parts := strings.Split(rel, "/")
+	// parts is [parent..., leaf]; the parent path is everything but the leaf.
+	return parts[:len(parts)-1]
+}
+
 func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fullCmdName, outputPath string) {
 	if isPackage {
 		outputPath = filepath.Join(g.config.Path, "docs", "packages", relPath, "index.md")
@@ -528,7 +560,15 @@ func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fu
 		}
 	}
 
-	promptParentParts, _ := g.FindCommandParentPath(name)
+	// Prefer the parent path encoded in the command's own source location
+	// (pkg/cmd/<parent>/<leaf>), which is unambiguous. A name lookup in the
+	// manifest collides when two parents share a leaf name (a/run vs b/run):
+	// it returns the first match, so the doc lands under the wrong parent or is
+	// skipped as already-existing (keryx v0.19.0 Bug 3).
+	promptParentParts := parentPartsFromCmdRelPath(relPath)
+	if promptParentParts == nil {
+		promptParentParts, _ = g.FindCommandParentPath(name)
+	}
 
 	fullCmdName = toolName
 	if len(promptParentParts) > 0 {
