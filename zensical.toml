@@ -2,7 +2,7 @@
 site_name = "Go Tool Base"
 site_description = "The intelligent lifecycle framework for building Go CLI tools and applications"
 site_author = "Matt Cockayne"
-site_url = "https://github.com/phpboyscout/go-tool-base"
+site_url = "https://gtb.phpboyscout.uk"
 copyright = """
 Copyright &copy; 2026 Matt Cockayne
 """

@@ -172,9 +172,9 @@ release cuts the tag and publishes the build artefacts.
 
 See the GTB release guide for the full workflow:
 {{ if eq .ReleaseProvider "github" -}}
-<https://phpboyscout.gitlab.io/go-tool-base/how-to/secure-releases/>
+<https://gtb.phpboyscout.uk/how-to/secure-releases/>
 {{- else -}}
-<https://phpboyscout.gitlab.io/go-tool-base/how-to/custom-release-source/>
+<https://gtb.phpboyscout.uk/how-to/custom-release-source/>
 {{- end }}
 
 ## Contributing
@@ -189,9 +189,9 @@ See the GTB release guide for the full workflow:
 
 GTB documentation:
 
-- Framework docs — <https://phpboyscout.gitlab.io/go-tool-base/>
-- Generating commands — <https://phpboyscout.gitlab.io/go-tool-base/cli/command/>
-- Regeneration & the manifest — <https://phpboyscout.gitlab.io/go-tool-base/concepts/regeneration/>
-- Configuration — <https://phpboyscout.gitlab.io/go-tool-base/concepts/config/>
-- Testing — <https://phpboyscout.gitlab.io/go-tool-base/how-to/testing/>
+- Framework docs — <https://gtb.phpboyscout.uk/>
+- Generating commands — <https://gtb.phpboyscout.uk/cli/command/>
+- Regeneration & the manifest — <https://gtb.phpboyscout.uk/concepts/regeneration/>
+- Configuration — <https://gtb.phpboyscout.uk/concepts/config/>
+- Testing — <https://gtb.phpboyscout.uk/how-to/testing/>
 - Repository (source & issues) — <https://gitlab.com/phpboyscout/go-tool-base>
