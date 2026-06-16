@@ -119,6 +119,18 @@ default:
 # directly).
 # ----------------------------------------------------------------------
 goreleaser:
+  # Auto-retry transient release failures. The v0.17.0 tag pipeline failed
+  # because macOS notarization could not reach Apple's RFC3161 timestamp
+  # server (dial timeout to timestamp.apple.com); goreleaser fails the whole
+  # run, so a single network blip publishes zero assets for every platform.
+  # The failure happens during signing, before any release upload, so a retry
+  # re-runs cleanly (release.mode keep-existing makes it idempotent regardless).
+  retry:
+    max: 2
+    when:
+      - script_failure
+      - runner_system_failure
+      - stuck_or_timeout_failure
   id_tokens:
     AWS_WEB_IDENTITY_TOKEN:
       # The IAM OIDC provider (terraform-aws-bootstrap's automation-iam
