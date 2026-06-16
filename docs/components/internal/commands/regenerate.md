@@ -42,6 +42,12 @@ cobra's `parent.AddCommand(child…)` and the GTB `setup.Command` wrapper's
 `parent.Register(child…)`, so **nested subcommands are preserved** in
 `commands[].commands` rather than dropped as orphans.
 
+Each command's `Short`/`Long` are read out of its generated `cmd.go` even when
+the cobra literal is wrapped in the `setup.Wrap("name", &cobra.Command{…})`
+middleware helper, so descriptions survive the rebuild. (Without this, a
+following `regenerate project` would render the blanked descriptions back into
+every `cmd.go`, wiping the help text.)
+
 `properties.features` is **preserved** from the existing manifest rather than
 re-derived from the generated root command: feature state (including the
 scaffold-only `keychain` feature and the opt-ins) is author configuration that

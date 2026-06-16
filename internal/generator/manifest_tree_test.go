@@ -16,6 +16,78 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
+// TestRegenerateManifest_PreservesDescriptionsThroughWrapper is the regression
+// guard for keryx v0.19.0 Bug 2: regenerate manifest blanked command
+// Short/Long.
+//
+// Real generated commands wrap the cobra literal in the setup.Command
+// middleware helper — `setup.Wrap("name", &cobra.Command{Use, Short, Long})` —
+// so the &cobra.Command literal is an *argument* of the Wrap call, not the bare
+// RHS the extractor looked at. The scanner therefore never read Short/Long and
+// wrote blank descriptions, which a following regenerate project then rendered
+// into every cmd.go, wiping all help text.
+func TestRegenerateManifest_PreservesDescriptionsThroughWrapper(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	var logBuf strings.Builder
+
+	l := logger.NewCharm(&logBuf)
+	workDir := "/work"
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/root"), 0755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/social"), 0755))
+
+	rootCode := `package root
+import (
+	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"test-tool/pkg/cmd/social"
+)
+func NewCmdRoot(p *props.Props) *setup.Command {
+	return gtbRoot.NewCmdRoot(p, social.NewCmdSocial(p))
+}`
+
+	// Mirrors real generated output: the cobra literal lives inside setup.Wrap.
+	socialCode := `package social
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+func NewCmdSocial(props *props.Props) *setup.Command {
+	return setup.Wrap("social", &cobra.Command{
+		Use:   "social",
+		Short: "social media tools",
+		Long:  "manage social media posts and schedules",
+	})
+}`
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/root/cmd.go"), []byte(rootCode), 0644))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/social/cmd.go"), []byte(socialCode), 0644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
+
+	p := &props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs), Tool: props.Tool{Name: "test-tool"}}
+
+	g := New(p, &Config{Path: workDir})
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	data, err := afero.ReadFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"))
+	require.NoError(t, err)
+
+	var m Manifest
+	require.NoError(t, yaml.Unmarshal(data, &m))
+
+	require.Len(t, m.Commands, 1)
+	assert.Equal(t, "social", m.Commands[0].Name)
+	assert.Equal(t, "social media tools", string(m.Commands[0].Description),
+		"Short must be recovered from the setup.Wrap-wrapped cobra literal")
+	assert.Equal(t, "manage social media posts and schedules", string(m.Commands[0].LongDescription),
+		"Long must be recovered from the setup.Wrap-wrapped cobra literal")
+}
+
 func TestRegenerateManifestRecursive(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder

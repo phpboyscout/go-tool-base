@@ -117,21 +117,52 @@ func resolveStringValue(expr dst.Expr, constants map[string]string) (string, boo
 }
 
 func (g *Generator) extractFromCobraLiteral(expr dst.Expr, cmd *ManifestCommand) {
+	// Real generated constructors wrap the cobra literal in the setup.Command
+	// middleware helper, e.g. `setup.Wrap("name", &cobra.Command{...})`. The
+	// &cobra.Command literal is then an argument of that call, not the bare
+	// expression. Dig into call arguments so Short/Long (and the rest) are still
+	// read — otherwise a regenerate manifest blanks every description and the
+	// following regenerate project wipes the help text.
+	if call, ok := expr.(*dst.CallExpr); ok {
+		for _, arg := range call.Args {
+			g.extractFromCobraLiteral(arg, cmd)
+		}
+
+		return
+	}
+
+	composite := cobraCommandComposite(expr)
+	if composite == nil {
+		return
+	}
+
+	g.applyCobraLiteralFields(composite, cmd)
+}
+
+// cobraCommandComposite returns the &cobra.Command{...} composite literal that
+// expr points at, or nil if expr is not such a literal.
+func cobraCommandComposite(expr dst.Expr) *dst.CompositeLit {
 	unary, ok := expr.(*dst.UnaryExpr)
 	if !ok || unary.Op != token.AND {
-		return
+		return nil
 	}
 
 	composite, ok := unary.X.(*dst.CompositeLit)
 	if !ok {
-		return
+		return nil
 	}
 
 	sel, ok := composite.Type.(*dst.SelectorExpr)
 	if !ok || sel.Sel.Name != "Command" {
-		return
+		return nil
 	}
 
+	return composite
+}
+
+// applyCobraLiteralFields reads each Key: value field of a cobra.Command
+// literal into the manifest command (Use, Short, Long, Aliases, …).
+func (g *Generator) applyCobraLiteralFields(composite *dst.CompositeLit, cmd *ManifestCommand) {
 	for _, elt := range composite.Elts {
 		kve, ok := elt.(*dst.KeyValueExpr)
 		if !ok {
