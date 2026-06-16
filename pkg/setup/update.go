@@ -118,32 +118,97 @@ type SelfUpdater struct {
 // `update.checksum_asset_name` config key.
 const checksumsDefaultAssetName = "checksums.txt"
 
-// GetTimeSinceLast returns the duration since the last update check or update.
-func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Duration {
-	defaultConfigDir := GetDefaultConfigDir(fs, name)
-	lastSinceFile := filepath.Join(defaultConfigDir, fmt.Sprintf("last_%s", status))
+// DefaultCheckInterval is the update-check throttle used when
+// `update.check_interval` is unset or invalid.
+const DefaultCheckInterval = defaultCheckInterval
 
-	if fi, err := fs.Stat(defaultConfigDir); err == nil && fi.IsDir() {
+// ResolveCheckInterval parses an `update.check_interval` config value as a Go
+// duration. An empty or invalid value yields [DefaultCheckInterval]; a zero
+// value ("0", "0s") means "check on every invocation" (no throttle).
+func ResolveCheckInterval(configValue string) time.Duration {
+	v := strings.TrimSpace(configValue)
+	if v == "" {
+		return DefaultCheckInterval
+	}
+
+	d, err := time.ParseDuration(v)
+	if err != nil || d < 0 {
+		return DefaultCheckInterval
+	}
+
+	return d
+}
+
+// timeSinceLast returns the age of the recorded "last <status>" timestamp and
+// whether such a record exists.
+func timeSinceLast(fs afero.Fs, name string, status timeSinceKey) (time.Duration, bool) {
+	dir := GetDefaultConfigDir(fs, name)
+	lastSinceFile := filepath.Join(dir, fmt.Sprintf("last_%s", status))
+
+	if di, err := fs.Stat(dir); err == nil && di.IsDir() {
 		if fi, err := fs.Stat(lastSinceFile); err == nil {
-			return time.Since(fi.ModTime())
+			return time.Since(fi.ModTime()), true
 		}
+	}
+
+	return 0, false
+}
+
+// GetTimeSinceLast returns the duration since the last update check or update,
+// or [DefaultCheckInterval] when no timestamp has been recorded yet.
+func GetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) time.Duration {
+	if age, ok := timeSinceLast(fs, name, status); ok {
+		return age
 	}
 
 	return defaultCheckInterval
 }
 
-// SetTimeSinceLast records the current time as the last check or update timestamp.
+// markerFilePerm restricts the last_* marker files to the owner.
+const markerFilePerm = 0o600
+
+// SetTimeSinceLast records the current time as the last check or update timestamp
+// (an empty marker file whose modtime is the timestamp).
 // When the default config directory cannot be resolved (empty/unset HOME),
 // it is a no-op: stamping a relative path would otherwise write the marker
 // into the current working directory.
 func SetTimeSinceLast(fs afero.Fs, name string, status timeSinceKey) error {
-	return setTimeSinceLastIn(fs, GetDefaultConfigDir(fs, name), status)
+	return setTimeSinceLastIn(fs, GetDefaultConfigDir(fs, name), status, "")
 }
 
-// setTimeSinceLastIn stamps the marker for status under configDir. An empty
-// configDir is a no-op (see SetTimeSinceLast) so the marker never lands in
-// the current working directory via a relative join.
-func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey) error {
+// SetCheckedVersion stamps the last-checked marker and stores the latest release
+// version that check discovered as the marker's body, so a later invocation can
+// warn that the running binary is out of date without a network call (see
+// GetCheckedVersion). The marker's modtime still drives the interval throttle —
+// one file, two jobs. A blank version clears the stored value while still
+// refreshing the check timestamp (e.g. when the tool is found up to date).
+func SetCheckedVersion(fs afero.Fs, name, version string) error {
+	return setTimeSinceLastIn(fs, GetDefaultConfigDir(fs, name), CheckedKey, strings.TrimSpace(version))
+}
+
+// GetCheckedVersion returns the latest release version recorded by the most
+// recent update check (the body of the last_checked marker), or "" when none
+// has been recorded or the tool was up to date at the last check.
+func GetCheckedVersion(fs afero.Fs, name string) string {
+	dir := GetDefaultConfigDir(fs, name)
+	if dir == "" {
+		return ""
+	}
+
+	data, err := afero.ReadFile(fs, filepath.Join(dir, fmt.Sprintf("last_%s", CheckedKey)))
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(string(data))
+}
+
+// setTimeSinceLastIn writes body to the "last_<status>" marker under configDir,
+// refreshing its modtime (the timestamp). An empty configDir is a no-op (see
+// SetTimeSinceLast) so the marker never lands in the current working directory
+// via a relative join. body is usually empty; the last_checked marker
+// additionally carries the latest known version (see SetCheckedVersion).
+func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey, body string) error {
 	if configDir == "" {
 		return nil
 	}
@@ -156,18 +221,11 @@ func setTimeSinceLastIn(fs afero.Fs, configDir string, status timeSinceKey) erro
 
 	lastSinceFile := filepath.Join(configDir, fmt.Sprintf("last_%s", status))
 
-	if _, err := fs.Stat(lastSinceFile); os.IsNotExist(err) {
-		f, err := fs.Create(lastSinceFile)
-		if err != nil {
-			return errors.Wrap(err, "failed to create timestamp file")
-		}
-
-		defer func() { _ = f.Close() }()
-
-		return nil
+	if err := afero.WriteFile(fs, lastSinceFile, []byte(body), markerFilePerm); err != nil {
+		return errors.Wrap(err, "failed to write marker file")
 	}
 
-	return fs.Chtimes(lastSinceFile, time.Now(), time.Now())
+	return nil
 }
 
 // UpdaterOption configures a SelfUpdater.
@@ -392,16 +450,24 @@ func requireReleaseToken(ctx context.Context, vcsProvider string, p props.Config
 	return nil
 }
 
-// SkipUpdateCheck returns true if the update check should be skipped for this invocation.
-func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command) bool {
+// SkipUpdateCheck reports whether the update check should be skipped this
+// invocation: always for the version/update/auth/init commands, and otherwise
+// when a prior check happened within checkInterval. A checkInterval <= 0 means
+// check on every invocation; a missing timestamp (first run) is never skipped,
+// regardless of the interval.
+func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command, checkInterval time.Duration) bool {
 	skippableCommands := []string{"update", "auth", "init", "version"}
 	if slices.Contains(skippableCommands, cmd.Use) {
 		return true
 	}
 
-	timeSinceChecked := GetTimeSinceLast(fs, name, CheckedKey)
+	if checkInterval <= 0 {
+		return false
+	}
 
-	return timeSinceChecked < 24*time.Hour
+	age, ok := timeSinceLast(fs, name, CheckedKey)
+
+	return ok && age < checkInterval
 }
 
 // IsLatestVersion checks if the current running binary is the latest version.

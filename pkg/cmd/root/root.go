@@ -28,6 +28,7 @@ import (
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
+	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
@@ -202,6 +203,16 @@ type UpdateCheckResult struct {
 func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, flags *FlagValues, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
 
+	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, props.Config.GetString("update.policy"))
+
+	// Persistent out-of-date reminder from the cached latest version: emitted
+	// every invocation (even when the network check is throttled below), so a
+	// user who declined an update — or runs a disabled-policy tool — keeps
+	// being reminded. Suppressed under --ci.
+	if !flags.CI && !props.Config.GetBool("ci") {
+		warnIfBehindCached(props)
+	}
+
 	if shouldSkipUpdateCheck(props, cmd, flags, state) {
 		return result
 	}
@@ -235,15 +246,15 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 
 	props.Logger.Debug("Version check results", "version", props.Version.GetVersion(), "latest", isLatestVersion, "message", message)
 
+	// Record the check time. When behind, the latest version is stored in the
+	// last_checked marker body so warnIfBehindCached can remind on later runs
+	// without a network call; when up to date, the body is cleared.
+	recordCheckedVersion(ctx, props, selfUpdater, isLatestVersion)
+
 	if !isLatestVersion {
-		handleOutdatedVersion(ctx, props, message, result, state)
+		handleOutdatedVersion(ctx, props, message, result, state, policy)
 	} else {
 		props.Logger.Info(message)
-	}
-
-	// Set last checked time
-	if err = setup.SetTimeSinceLast(props.FS, props.Tool.Name, setup.CheckedKey); err != nil {
-		props.Logger.Warn("unable to set last checked time", "error", err)
 	}
 
 	return result
@@ -259,7 +270,9 @@ func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues
 		return true
 	}
 
-	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd)
+	interval := setup.ResolveCheckInterval(props.Config.GetString("update.check_interval"))
+
+	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
 }
 
 func createUpdatePromptForm(runUpdate *bool) *huh.Form {
@@ -288,8 +301,16 @@ func WithForm(formCreator func(*bool) *huh.Form) OutdatedVersionOption {
 	}
 }
 
-func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, result *UpdateCheckResult, state *rootState, opts ...OutdatedVersionOption) {
+func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, result *UpdateCheckResult, state *rootState, policy p.UpdatePolicy, opts ...OutdatedVersionOption) {
 	props.Logger.Warn(message)
+
+	// disabled: log that an update is available and carry on — no prompt, no
+	// block. The persistent cached-version WARN keeps reminding on later runs.
+	if policy == p.UpdatePolicyDisabled {
+		props.Logger.Warnf("a newer version is available — run '%s update' to upgrade when ready", props.Tool.Name)
+
+		return
+	}
 
 	// Apply options
 	cfg := &outdatedVersionConfig{
@@ -302,7 +323,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 	// Default to declining: without a usable TTY (cron, CI, piped stdin) or
 	// on an aborted/timed-out prompt, form.Run returns an error and runUpdate
 	// must stay false. Defaulting to true here would silently self-update
-	// without consent and then skip the requested command while exiting 0.
+	// without consent.
 	var runUpdate = false
 
 	form := cfg.formCreator(&runUpdate)
@@ -316,28 +337,87 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 	}
 
 	if runUpdate {
-		state.redirectingToUpdate = true
+		performUpdate(ctx, props, result, state)
 
-		if _, err := update.Update(ctx, props, "", false); err != nil {
-			if errors.Is(err, context.DeadlineExceeded) {
-				result.Error = errors.WithHint(
-					errors.New("update timed out"),
-					"Check your internet connection or try again later.")
+		return
+	}
 
-				return
-			}
+	// Declined, or no usable prompt. enabled blocks: a required update that was
+	// not performed is a hard, non-zero failure (never a masked continue).
+	// prompt continues with a warning.
+	if policy == p.UpdatePolicyEnabled {
+		result.Error = errors.WithHintf(
+			errors.Newf("an update to %s is required before continuing", props.Tool.Name),
+			"Run '%s update' to upgrade.", props.Tool.Name)
 
-			result.Error = err
+		return
+	}
+
+	props.Logger.Warnf("Continuing with an out of date version, please run '%s update' ASAP", props.Tool.Name)
+}
+
+// performUpdate runs the self-update and records the outcome on result: a
+// successful update sets HasUpdated/ShouldExit (the caller exits 0 and asks the
+// user to re-run); a failed update sets result.Error so the process exits
+// non-zero rather than masking the failure.
+func performUpdate(ctx context.Context, props *p.Props, result *UpdateCheckResult, state *rootState) {
+	state.redirectingToUpdate = true
+
+	if _, err := update.Update(ctx, props, "", false); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			result.Error = errors.WithHint(
+				errors.New("update timed out"),
+				"Check your internet connection or try again later.")
 
 			return
 		}
 
-		props.Logger.Warnf("update complete please run command again to use the updated version")
+		result.Error = err
 
-		result.HasUpdated = true
-		result.ShouldExit = true
-	} else {
-		props.Logger.Warnf("Continuing with an out of date version, please run '%s update' ASAP", props.Tool.Name)
+		return
+	}
+
+	props.Logger.Warnf("update complete please run command again to use the updated version")
+
+	result.HasUpdated = true
+	result.ShouldExit = true
+}
+
+// warnIfBehindCached emits a single out-of-date warning when the cached latest
+// version (from a prior check) is newer than the running binary. It is the
+// persistent reminder for users who declined an update or run a disabled-policy
+// tool — and costs no network call. Skipped for development builds.
+func warnIfBehindCached(props *p.Props) {
+	if props.Version == nil || props.Version.IsDevelopment() {
+		return
+	}
+
+	cached := setup.GetCheckedVersion(props.FS, props.Tool.Name)
+	if cached == "" {
+		return
+	}
+
+	if ver.CompareVersions(props.Version.GetVersion(), cached) < 0 {
+		props.Logger.Warnf("a newer %s is available: %s — run '%s update' to upgrade",
+			props.Tool.Name, cached, props.Tool.Name)
+	}
+}
+
+// recordCheckedVersion stamps the last-checked marker. When the binary is out
+// of date it stores the latest release version in the marker body (so
+// warnIfBehindCached can remind on later runs without a network round-trip);
+// when up to date it clears the body. Best-effort: failures are non-fatal.
+func recordCheckedVersion(ctx context.Context, props *p.Props, updater *setup.SelfUpdater, isLatest bool) {
+	version := ""
+
+	if !isLatest {
+		if latest, err := updater.GetLatestVersionString(ctx); err == nil {
+			version = latest
+		}
+	}
+
+	if err := setup.SetCheckedVersion(props.FS, props.Tool.Name, version); err != nil {
+		props.Logger.Warn("unable to set last checked time", "error", err)
 	}
 }
 

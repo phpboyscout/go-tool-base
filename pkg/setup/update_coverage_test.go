@@ -200,26 +200,26 @@ func TestSkipUpdateCheck(t *testing.T) {
 
 	cmd := &cobra.Command{Use: "run"}
 
-	// Case 1: Fresh, no last check -> Should return TRUE (skip? wait. Logic is: return timeSinceChecked < 24h)
-	// If no file, GetTimeSinceLast returns defaultCheckInterval (24h).
-	// 24h < 24h is false. So it returns false (do not skip).
-	// Wait, SkipUpdateCheck returns bool.
-	// return timeSinceChecked < 24h.
-	// If timeSinceChecked is 24h, 24 < 24 is false. Return false (don't skip, do check).
+	const interval = 24 * time.Hour
 
-	shouldSkip := SkipUpdateCheck(memFS, toolName, cmd)
+	// Case 1: Fresh, no last-checked timestamp -> never skip (first run is due).
+	shouldSkip := SkipUpdateCheck(memFS, toolName, cmd, interval)
 	assert.False(t, shouldSkip, "Should not skip if never checked")
 
-	// Case 2: Recently checked
+	// Case 2: Recently checked -> within the interval, so skip.
 	err := SetTimeSinceLast(memFS, toolName, CheckedKey)
 	require.NoError(t, err)
 
-	shouldSkip = SkipUpdateCheck(memFS, toolName, cmd)
+	shouldSkip = SkipUpdateCheck(memFS, toolName, cmd, interval)
 	assert.True(t, shouldSkip, "Should skip if recently checked")
 
-	// Case 3: Skippable command
+	// Case 2b: interval 0 -> check on every invocation (never skip).
+	shouldSkip = SkipUpdateCheck(memFS, toolName, cmd, 0)
+	assert.False(t, shouldSkip, "interval 0 means check every invocation")
+
+	// Case 3: Skippable command -> always skip.
 	cmdSkip := &cobra.Command{Use: "version"}
-	shouldSkip = SkipUpdateCheck(memFS, toolName, cmdSkip)
+	shouldSkip = SkipUpdateCheck(memFS, toolName, cmdSkip, interval)
 	assert.True(t, shouldSkip, "Should skip for skippable command")
 }
 

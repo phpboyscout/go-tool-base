@@ -96,7 +96,7 @@ func TestSetTimeSinceLast_EmptyConfigDirIsNoOp(t *testing.T) {
 
 	rec := &recordingFs{Fs: afero.NewMemMapFs()}
 
-	err := setTimeSinceLastIn(rec, "", CheckedKey)
+	err := setTimeSinceLastIn(rec, "", CheckedKey, "")
 	require.NoError(t, err, "empty config dir must be a no-op")
 	assert.Empty(t, rec.created,
 		"no timestamp file may be created when the config dir is empty")

@@ -631,6 +631,8 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			// Create mock config
 			mockCfg := configMocks.NewMockContainable(t)
 			mockCfg.EXPECT().GetBool("ci").Return(tt.configCI).Maybe()
+			// shouldSkipUpdateCheck resolves the configurable check interval.
+			mockCfg.EXPECT().GetString("update.check_interval").Return("").Maybe()
 
 			// Create props — build features that disable the specified commands
 			var disableMutators []p.FeatureState
@@ -754,7 +756,7 @@ func TestHandleOutdatedVersion_WithMockForm(t *testing.T) {
 			result := &UpdateCheckResult{}
 
 			// Test with custom form using WithForm option
-			handleOutdatedVersion(context.Background(), props, tt.message, result, state, WithForm(mockFormCreator))
+			handleOutdatedVersion(context.Background(), props, tt.message, result, state, p.UpdatePolicyPrompt, WithForm(mockFormCreator))
 
 			// Verify results
 			assert.Equal(t, tt.expectedUpdate, result.HasUpdated)
@@ -790,11 +792,82 @@ func TestHandleOutdatedVersion_PromptFailureMustNotAutoUpdate(t *testing.T) {
 	state := newRootState()
 	result := &UpdateCheckResult{}
 
-	handleOutdatedVersion(context.Background(), props, "Version 2.0.0 is available", result, state, WithForm(failingFormCreator))
+	handleOutdatedVersion(context.Background(), props, "Version 2.0.0 is available", result, state, p.UpdatePolicyPrompt, WithForm(failingFormCreator))
 
 	assert.False(t, state.redirectingToUpdate, "a failed prompt must not redirect to update")
 	assert.False(t, result.HasUpdated, "a failed prompt must not run the update")
 	assert.NoError(t, result.Error, "a failed prompt must decline gracefully, not attempt an update")
+}
+
+// TestHandleOutdatedVersion_Policies pins the three-state ForcedUpdate
+// behaviour for the paths that do not perform a real self-update: disabled
+// (warn only), prompt-decline (continue), and enabled-decline / enabled with no
+// answerable prompt (blocked with a non-zero error — never a masked continue).
+func TestHandleOutdatedVersion_Policies(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	newProps := func() *p.Props {
+		return &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Tool: p.Tool{Name: "test-tool"}}
+	}
+
+	t.Run("disabled: warn only, no prompt, no error or exit", func(t *testing.T) {
+		t.Parallel()
+
+		formCalled := false
+		form := func(_ *bool) *huh.Form { formCalled = true; return nil }
+		result := &UpdateCheckResult{}
+
+		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyDisabled, WithForm(form))
+
+		assert.False(t, formCalled, "disabled must not prompt")
+		assert.False(t, result.HasUpdated)
+		assert.False(t, result.ShouldExit)
+		assert.NoError(t, result.Error)
+	})
+
+	t.Run("prompt + decline: continue with no error", func(t *testing.T) {
+		t.Parallel()
+
+		form := func(runUpdate *bool) *huh.Form { *runUpdate = false; return nil }
+		result := &UpdateCheckResult{}
+
+		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyPrompt, WithForm(form))
+
+		require.NoError(t, result.Error, "prompt-decline continues with the command")
+		assert.False(t, result.ShouldExit)
+		assert.False(t, result.HasUpdated)
+	})
+
+	t.Run("enabled + decline: blocked with non-zero error", func(t *testing.T) {
+		t.Parallel()
+
+		form := func(runUpdate *bool) *huh.Form { *runUpdate = false; return nil }
+		result := &UpdateCheckResult{}
+
+		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyEnabled, WithForm(form))
+
+		require.Error(t, result.Error, "enabled blocks when a required update is declined")
+		assert.False(t, result.HasUpdated)
+		assert.False(t, result.ShouldExit)
+	})
+
+	t.Run("enabled + no answerable prompt: blocked with non-zero error", func(t *testing.T) {
+		t.Parallel()
+
+		failing := func(runUpdate *bool) *huh.Form {
+			return createUpdatePromptForm(runUpdate).
+				WithInput(strings.NewReader("")).
+				WithOutput(io.Discard).
+				WithTimeout(100 * time.Millisecond)
+		}
+		result := &UpdateCheckResult{}
+
+		handleOutdatedVersion(context.Background(), newProps(), "v2 available", result, newRootState(), p.UpdatePolicyEnabled, WithForm(failing))
+
+		require.Error(t, result.Error, "enabled blocks when no prompt can be answered (cron/CI/pipe)")
+	})
 }
 
 func TestWithFormOption(t *testing.T) {
@@ -956,7 +1029,7 @@ func TestHandleOutdatedVersion_SetsStateFlag(t *testing.T) {
 	}
 
 	result := &UpdateCheckResult{}
-	handleOutdatedVersion(context.Background(), props, "new version", result, state)
+	handleOutdatedVersion(context.Background(), props, "new version", result, state, p.UpdatePolicyPrompt)
 
 	// User declined, so redirectingToUpdate should remain false
 	assert.False(t, state.redirectingToUpdate)

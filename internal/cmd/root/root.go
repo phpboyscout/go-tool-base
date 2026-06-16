@@ -70,7 +70,10 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 				props.Enable(props.AiCmd),
 				props.Enable(props.TelemetryCmd),
 			),
-			EnvPrefix: "GTB",
+			// The framework default is disabled (opt-in); the gtb CLI itself
+			// prompts so its users are nudged to upgrade without being blocked.
+			UpdatePolicy: props.UpdatePolicyPrompt,
+			EnvPrefix:    "GTB",
 			Telemetry: props.TelemetryConfig{
 				OTelEndpoint: "https://otlp-gateway-prod-gb-south-1.grafana.net/otlp",
 				OTelHeaders: map[string]string{

@@ -1,5 +1,16 @@
 log:
   level: info
+update:
+  # Self-update posture when a newer release is found:
+  #   disabled - log only (framework default)
+  #   prompt   - ask; you may decline and continue
+  #   enabled  - block every command until updated
+  # Leave empty so the tool author's baseline (props.Tool.UpdatePolicy) applies;
+  # set it to override. The gtb CLI itself defaults to prompt.
+  policy: ""
+  # How often to check for updates (any Go duration, e.g. 24h, 168h).
+  # 0 checks on every invocation; empty/invalid falls back to 24h.
+  check_interval: 24h
 github:
   url:
     api: https://api.github.com

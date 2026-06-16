@@ -1,7 +1,7 @@
 ---
 title: "Opt-in ForcedUpdate — three-state self-update gating with a configurable interval"
 description: "Replace the always-on self-update check (which hijacks unrelated commands and masks failures with exit 0) with an opt-in ForcedUpdate capability that has three states (enabled / prompt / disabled), a configurable check interval, a locally cached latest-version with a persistent out-of-date WARN, and a non-zero exit on a genuinely failed forced update. --ci continues to bypass the check entirely."
-status: APPROVED
+status: IMPLEMENTED
 date: 2026-06-16
 tags:
   - specification
@@ -23,7 +23,7 @@ Date
 :   16 June 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
@@ -256,7 +256,45 @@ this ships as a `feat` minor.)
 6. **WARN cadence** — every invocation while behind (spec's assumption) vs
    throttled (e.g. once per interval) to avoid noise in tight loops.
 
+## Resolved decisions (as built)
+
+The open questions above were resolved as follows during implementation:
+
+1. **`UpdatePolicy` lives in `pkg/props`** (`update_policy.go`); `pkg/cmd/root`
+   and `pkg/setup` consume it.
+2. **Baseline via the `Tool.UpdatePolicy` struct field** (a single value needs
+   no functional option), with `update.policy` config overriding at runtime via
+   `props.ResolveUpdatePolicy`.
+3. **`enabled` + non-interactive (or declined) → non-zero error** (blocked),
+   never a masked continue.
+4. **`prompt` accept → restart model** (update, exit 0, ask to re-run) — reuses
+   the existing `ErrUpdateComplete` path.
+5. **`update.check_interval: 0` = check every invocation**; `disabled` is how you
+   turn checking off.
+6. **Out-of-date WARN every invocation** while behind the cached version
+   (suppressed under `--ci`).
+
+Two scope refinements emerged:
+
+- **The latest version is cached in the existing `last_checked` marker's body**
+  (its modtime already drives the throttle — one file, two jobs) rather than a
+  new file, per reviewer feedback.
+- **Graceful missing-asset needs no `findReleaseAsset` change**: version
+  *discovery* (`GetLatestVersionString`) is asset-independent, so `disabled` /
+  `prompt`-decline never touch assets; an actual update that cannot resolve a
+  platform asset correctly fails non-zero (the masked-exit-0 fix).
+
+### Testing & BDD suitability
+
+The three-state branching, interval resolution, version-cache round-trip and
+policy resolution are covered by unit tests (`pkg/props`, `pkg/setup`,
+`pkg/cmd/root`). **No Gherkin e2e scenario is added**: a meaningful end-to-end
+test of the background check requires a *newer published release than the test
+binary* and live network access, which a Godog scenario cannot trigger
+deterministically without a mock release server — a poor BDD fit per the
+strategy's suitability assessment. The behaviour is instead pinned by the
+deterministic unit tests at the handler boundary.
+
 ---
 
-*Filed as the remediation spec for keryx bug-report #2 (and mitigating #3). Draft
-for review — please resolve the open questions before implementation.*
+*Remediation spec for keryx bug-report #2 (and mitigating #3). Implemented.*

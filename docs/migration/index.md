@@ -18,6 +18,7 @@ provides before/after code examples with a clear migration path.
 | v0.16 | v0.17 | [Hot-reload observer contract](v0.16-hot-reload-observer.md) |
 | v0.16 | v0.17 | [Controls supervisor & lifecycle hardening](v0.16-controls-supervisor.md) |
 | v0.16 | v0.17 | [Browser allowlist is immutable](v0.16-browser-allowed-schemes.md) |
+| v0.17 | v0.18 | [Opt-in ForcedUpdate policy](v0.17-update-policy.md) |
 | v0.x | v1.0 | [Migrating to v1.0](v0.x-to-v1.0.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |

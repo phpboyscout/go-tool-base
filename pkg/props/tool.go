@@ -130,6 +130,13 @@ type Tool struct {
 	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
 
+	// UpdatePolicy is the tool author's baseline self-update posture
+	// (disabled / prompt / enabled). The zero value normalises to
+	// UpdatePolicyDisabled — the framework default — so a tool does not
+	// force updates out of the box. Overridable at runtime by the
+	// `update.policy` config key. See ResolveUpdatePolicy.
+	UpdatePolicy UpdatePolicy `json:"update_policy,omitempty" yaml:"update_policy,omitempty"`
+
 	// Telemetry holds tool-author telemetry configuration.
 	// Zero-value is safe — tools that don't set it are unaffected.
 	Telemetry TelemetryConfig `json:"telemetry" yaml:"telemetry"`

@@ -39,7 +39,7 @@ func TestSetTimeSinceLastIn_CreatesDirectoryAtWrite(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, exists)
 
-	require.NoError(t, setTimeSinceLastIn(fs, configDir, CheckedKey))
+	require.NoError(t, setTimeSinceLastIn(fs, configDir, CheckedKey, ""))
 
 	// The write must have created the directory and the marker file.
 	dirExists, err := afero.DirExists(fs, configDir)
@@ -58,7 +58,7 @@ func TestSetTimeSinceLastIn_EmptyDirIsNoop(t *testing.T) {
 
 	fs := afero.NewMemMapFs()
 
-	require.NoError(t, setTimeSinceLastIn(fs, "", CheckedKey))
+	require.NoError(t, setTimeSinceLastIn(fs, "", CheckedKey, ""))
 
 	// Nothing should have been created.
 	exists, err := afero.Exists(fs, "last_checked")

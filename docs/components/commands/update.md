@@ -74,3 +74,47 @@ Each call site receives its own factory, so concurrent (`t.Parallel`) tests cann
 ### Error handling in `init` subcommands
 
 The `init ai`, `init github`, and `init bitbucket` subcommands use cobra `RunE` and **return** configuration errors rather than calling `logger.Fatalf`. Returning the error routes it through the framework's standard error path — user-facing hints, the configurable `ExitFunc`, and the deferred telemetry flush all apply — instead of terminating the process abruptly and bypassing them.
+
+## Background update checks — the ForcedUpdate policy
+
+On every non-`--ci` invocation the root command may run a throttled update
+check. Its behaviour is governed by a **three-state policy** so a background
+check never silently hijacks an unrelated command:
+
+| Policy | When a newer release is found |
+|---|---|
+| `disabled` | Log that an update is available and **continue**. No prompt, no block. **Framework default.** |
+| `prompt` | Ask "update now?"; **decline** continues with the command, **accept** updates then asks you to re-run. The `gtb` CLI itself uses this. |
+| `enabled` | **Block** every command until updated. A declined or unanswerable required update exits **non-zero** (never a masked exit 0). |
+
+**Resolution precedence:** `--ci` / `ci: true` bypass the check entirely → then
+the `update.policy` config key → then the tool author's baseline
+(`props.Tool.UpdatePolicy`, default `disabled`).
+
+```yaml
+update:
+  policy: prompt        # disabled | prompt | enabled   (empty = tool baseline)
+  check_interval: 24h   # any Go duration; 0 = check every invocation
+```
+
+A tool author sets the baseline on the `Tool`:
+
+```go
+props.Tool{
+    // ...
+    UpdatePolicy: props.UpdatePolicyPrompt,
+}
+```
+
+**Persistent out-of-date reminder.** The latest version discovered by a check is
+cached in the `last_checked` marker's body (its modtime still drives the
+`check_interval` throttle — one file, two jobs). While the running binary is
+behind that cached version, a single `WARN` is emitted on **every** invocation
+(even when the network check is throttled), so a user who declined — or who runs
+a `disabled`-policy tool — keeps being reminded to upgrade. `--ci` suppresses it.
+
+**Failed updates exit non-zero.** A successful update that needs a restart exits
+0 and asks you to re-run; a *failed* update (e.g. no release asset for the
+platform) propagates a non-zero exit rather than masking the failure as success.
+
+See `docs/development/specs/2026-06-16-forced-update-feature.md`.
