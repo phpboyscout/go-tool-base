@@ -10,7 +10,8 @@ Feature: Custom template overlays CLI surface
   docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
 
   Background:
-    Given a temporary init directory
+    Given the gtb generator binary is built
+    And a temporary init directory
 
   Scenario: generate project exposes the --template flag
     When I run gtb with "generate project --help"

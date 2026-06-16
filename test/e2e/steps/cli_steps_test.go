@@ -68,6 +68,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 
 	// --- Given ---
 	ctx.Step(`^the gtb binary is built$`, theGTBBinaryIsBuilt)
+	ctx.Step(`^the gtb generator binary is built$`, theGTBGeneratorBinaryIsBuilt)
 	ctx.Step(`^a temporary init directory$`, aTemporaryInitDirectory)
 	ctx.Step(`^the init directory contains a config file:$`, theInitDirContainsConfigFile)
 	ctx.Step(`^an empty config directory$`, anEmptyConfigDirectory)
@@ -109,6 +110,22 @@ func theGTBBinaryIsBuilt(ctx context.Context) (context.Context, error) {
 	path, err := support.BinaryPath()
 	if err != nil {
 		return ctx, fmt.Errorf("failed to build gtb binary: %w", err)
+	}
+	w.binaryPath = path
+	return ctx, nil
+}
+
+// theGTBGeneratorBinaryIsBuilt selects the real gtb binary (./cmd/gtb) for the
+// CLI world, rather than the feature-flag-driven e2e binary (./cmd/e2e). The
+// generate/regenerate/remove/template commands are GTB-specific commands
+// registered only on the real binary (internal/cmd/root), so scenarios that
+// exercise the generator CLI surface must drive ./cmd/gtb. The real binary
+// disables InitCmd, so it bootstraps without requiring an external config file.
+func theGTBGeneratorBinaryIsBuilt(ctx context.Context) (context.Context, error) {
+	w := getCLIWorld(ctx)
+	path, err := support.GeneratorBinaryPath()
+	if err != nil {
+		return ctx, fmt.Errorf("failed to build gtb generator binary: %w", err)
 	}
 	w.binaryPath = path
 	return ctx, nil
