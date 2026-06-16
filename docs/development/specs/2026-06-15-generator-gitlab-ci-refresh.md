@@ -44,7 +44,8 @@ hand-written, **local-job-file** pipeline: a top-level `.gitlab-ci.yml` that
 go-tool-base's **own** `.gitlab-ci.yml` has since moved on. The repo-root
 pipeline is now assembled almost entirely from **`gitlab.com/phpboyscout/cicd`
 CI/CD components** — `go-lint`, `go-test`, `go-security`, `goreleaser`,
-`zensical-pages`, and `renovate-self` — pinned to `@v0.10.1`, with the
+`zensical-pages`, and `renovate-self` — pinned to a tagged cicd release
+(currently `@v0.10.5`), with the
 `apricote/releaser-pleaser/run` component for the Release-MR machinery. The
 quality gates live exclusively at the merge-request level; the release fan-out
 (goreleaser + docs deploy) fires from the tag that releaser-pleaser cuts on

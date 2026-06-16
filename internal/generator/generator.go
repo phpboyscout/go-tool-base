@@ -40,7 +40,7 @@ const (
 	// CICDComponentVersion is the phpboyscout/cicd component version the
 	// scaffold pins (go-lint, go-test, go-security, goreleaser,
 	// zensical-pages, renovate-self). Mirror the framework's own pin.
-	CICDComponentVersion = "v0.10.1"
+	CICDComponentVersion = "v0.10.5"
 
 	// ReleaserPleaserComponentVersion is the apricote/releaser-pleaser/run
 	// component version the scaffold pins. The component does not support
