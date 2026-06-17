@@ -39,7 +39,8 @@ func NewCmdEnable(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "enable [feature...]",
 		Short: "Enable a capability on a generated project",
-		Long: `Turn on a capability of a generated project, re-rendering the generated wiring to match.
+		Long: `Turn on a capability of a generated project, re-rendering the generated
+wiring to match.
 
 Pass one or more built-in features as positional arguments to toggle them on:
   ` + strings.Join(generator.ToggleableFeatures, ", ") + `

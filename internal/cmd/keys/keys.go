@@ -76,7 +76,8 @@ func NewCmdKeys(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "keys",
 		Short: "Manage OpenPGP keys for release-binary signing",
-		Long: `Commands for the cryptographic operations a tool author runs during release-binary signing setup.
+		Long: `Commands for the cryptographic operations a tool author runs during
+release-binary signing setup.
 
 Available subcommands:
   mint      Wrap an existing signer (KMS or local PEM) in OpenPGP framing and emit the armored public half.

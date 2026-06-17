@@ -32,7 +32,8 @@ func NewCmdDocsServe(_ *props.Props, efs fs.FS) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Serve documentation as a static site",
-		Long:  "Start a local HTTP server and serve the documentation as a Material-styled static site.",
+		Long: `Start a local HTTP server and serve the documentation as a Material-styled
+static site.`,
 		// RunE (not Run) so the command flows through the recovery/timing/
 		// telemetry middleware chain wired by Command.Register, and surfaces
 		// errors via the standard ErrorHandler path like every other built-in.

@@ -35,7 +35,8 @@ func NewCmdDisable(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "disable [feature...]",
 		Short: "Disable a capability on a generated project",
-		Long: `Turn off a capability of a generated project, re-rendering the generated wiring to match.
+		Long: `Turn off a capability of a generated project, re-rendering the generated
+wiring to match.
 
 Pass one or more built-in features as positional arguments to toggle them off:
   ` + strings.Join(generator.ToggleableFeatures, ", ") + `

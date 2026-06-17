@@ -411,9 +411,13 @@ func NewCmdInitBitbucket(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bitbucket",
 		Short: "Configure Bitbucket authentication (username + app password)",
-		Long: `Configures Bitbucket credentials via the three-mode selector: environment variable references (recommended default), OS keychain (single JSON blob), or literal values in the config file.
+		Long: `Configure Bitbucket credentials via the three-mode selector: environment
+variable references (recommended default), OS keychain (single JSON blob), or
+literal values in the config file.
 
-Bitbucket's dual-credential model (username + app_password) is handled natively — env-var mode records two env-var names, keychain mode stores a single JSON blob, literal mode writes both fields to config.`,
+Bitbucket's dual-credential model (username + app_password) is handled natively:
+env-var mode records two env-var names, keychain mode stores a single JSON blob,
+and literal mode writes both fields to config.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 

@@ -22,7 +22,8 @@ func NewCmdCommand(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "command",
 		Short: "Remove a command from the project",
-		Long: `Remove a command from the project, including filesystem cleanup, manifest update, and parent de-registration.
+		Long: `Remove a command from the project: filesystem cleanup, manifest update,
+and parent de-registration.
 
 Examples:
   # Remove a command named 'test-command'

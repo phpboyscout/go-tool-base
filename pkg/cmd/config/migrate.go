@@ -731,9 +731,14 @@ func NewCmdMigrate(props *p.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "migrate-credentials",
 		Short: "Migrate literal credentials in config to env-var references or the OS keychain",
-		Long: `Find every literal credential currently stored in the loaded configuration and migrate it to the selected target storage mode.
+		Long: `Find every literal credential currently stored in the loaded configuration
+and migrate it to the selected target storage mode.
 
-Supported source credentials: AI API keys (anthropic.api.key, openai.api.key, gemini.api.key), VCS tokens (github.auth.value, gitlab.auth.value, gitea.auth.value, codeberg.auth.value, direct.auth.value), and the Bitbucket dual-credential pair (bitbucket.username + bitbucket.app_password — migrated together as one unit).
+Supported source credentials: AI API keys (anthropic.api.key, openai.api.key,
+gemini.api.key), VCS tokens (github.auth.value, gitlab.auth.value,
+gitea.auth.value, codeberg.auth.value, direct.auth.value), and the Bitbucket
+dual-credential pair (bitbucket.username + bitbucket.app_password — migrated
+together as one unit).
 
 Target modes:
 

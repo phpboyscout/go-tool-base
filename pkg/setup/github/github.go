@@ -642,7 +642,9 @@ func NewCmdInitGitHub(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "github",
 		Short: "Configure GitHub authentication and SSH keys",
-		Long:  `Configures the GitHub token for API access via the three-mode selector (env-var reference, OS keychain, or literal), and generates or selects an SSH key for Git operations.`,
+		Long: `Configure the GitHub token for API access via the three-mode selector
+(env-var reference, OS keychain, or literal), and generate or select an SSH key
+for Git operations.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
