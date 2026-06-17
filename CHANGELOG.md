@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.19.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.19.1)
+
+### Bug Fixes
+
+- **generator**: key subcommand docs by full command path
+- **generator**: preserve command descriptions on regenerate manifest
+- **generator**: remove command fully de-registers the command
+
 ## [v0.19.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.19.0)
 
 ### Features
