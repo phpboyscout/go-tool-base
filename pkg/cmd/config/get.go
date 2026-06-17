@@ -17,8 +17,11 @@ func NewCmdGet(props *p.Props, masker *Masker) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <key>",
 		Short: "Get a configuration value",
-		Long:  "Read and display a single configuration value by its dot-notation key (e.g. log.level, github.url.api).",
-		Args:  cobra.ExactArgs(1),
+		Long: `Read and display a single resolved configuration value by its dot-notation key.
+
+The value reflects the full resolution chain (flags, env vars, file, defaults).
+Sensitive values are masked unless --unmask is passed.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
 

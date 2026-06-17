@@ -23,7 +23,13 @@ func NewCmdDocsAsk(p *props.Props) *cobra.Command {
 		Use:     "ask [question]",
 		Aliases: []string{"?"},
 		Short:   "Ask a question about the documentation",
-		Args:    cobra.ExactArgs(1),
+		Long: `Ask a natural-language question and get an AI-assisted answer grounded in
+the embedded project documentation.
+
+Requires a configured AI provider; use --provider to override the default.
+Answers are derived only from the bundled docs, so a binary built without the
+documentation assets cannot answer.`,
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			question := args[0]
 			provider, _ := cmd.Flags().GetString("provider")

@@ -23,4 +23,4 @@ Feature: CLI Version Command
   Scenario: Help flag shows usage
     When I run gtb with "version --help"
     Then the exit code is 0
-    And stdout contains "Print version"
+    And stdout contains "Print the running binary's version"

@@ -20,7 +20,11 @@ func NewCmdManifest(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "manifest",
 		Short: "Regenerate manifest from source code",
-		Long:  `Scan the project for cobra.Command definitions and rebuild the manifest.yaml file.`,
+		Long: `Rebuild the project manifest from existing source code.
+
+Scans the project for cobra.Command definitions and rewrites manifest.yaml to
+match, recovering the manifest when it has drifted from or is missing for the
+current command tree.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context(), p)
 		},

@@ -9,7 +9,7 @@ Feature: CLI Update Command
   Scenario: Help flag shows usage and available flags
     When I run gtb with "update --help"
     Then the exit code is 0
-    And stdout contains "update to the latest available version"
+    And stdout contains "Update the running binary to the latest version"
     And stdout contains "--force"
     And stdout contains "--version"
 

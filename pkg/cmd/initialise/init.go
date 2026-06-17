@@ -30,8 +30,11 @@ func NewCmdInit(props *p.Props, opts ...InitOption) *setup.Command {
 
 	var initCmd = &cobra.Command{
 		Use:   "init",
-		Short: "Initialises the configuration",
-		Long:  `Initialises the default configuration`,
+		Short: "Initialise configuration and bootstrap subsystems",
+		Long: `Write the tool's configuration file and run the interactive first-run
+bootstrap. Discovered subcommands offer guided setup of optional
+subsystems such as AI providers, GitHub, and Bitbucket. Re-run it any
+time to reconfigure; use --clean to reset to defaults.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			props.Logger.Info("Initialising configuration")
 

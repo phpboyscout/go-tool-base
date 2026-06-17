@@ -1,4 +1,4 @@
-// Package telemetry provides CLI commands for managing anonymous usage telemetry.
+// Package telemetry provides CLI commands for managing pseudonymous usage telemetry.
 package telemetry
 
 import (
@@ -22,7 +22,12 @@ const resetTimeout = 10 * time.Second
 func NewCmdTelemetry(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "telemetry",
-		Short: "Manage anonymous usage telemetry",
+		Short: "Manage pseudonymous usage telemetry",
+		Long: `Manage opt-in pseudonymous usage analytics for this tool.
+
+Telemetry is off unless you opt in. Use the enable, disable, status, and reset
+subcommands to turn collection on or off, inspect the current state, and clear
+local data while requesting remote deletion.`,
 	}
 
 	telCmd := setup.Wrap(props.TelemetryCmd, cmd)
@@ -41,7 +46,11 @@ func NewCmdTelemetry(p *props.Props) *setup.Command {
 func newEnableCmd(p *props.Props) *cobra.Command {
 	return &cobra.Command{
 		Use:   "enable",
-		Short: "Enable anonymous usage telemetry",
+		Short: "Enable pseudonymous usage telemetry",
+		Long: `Opt in to pseudonymous usage telemetry for this tool.
+
+No personally identifiable information is collected. The setting is written to
+your config file and takes effect immediately.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return setTelemetryEnabled(p, true)
 		},
@@ -52,6 +61,10 @@ func newDisableCmd(p *props.Props) *cobra.Command {
 	return &cobra.Command{
 		Use:   "disable",
 		Short: "Disable usage telemetry",
+		Long: `Opt out of usage telemetry for this tool.
+
+Any buffered or spilled events are discarded immediately. Tools whose authors
+enforce telemetry by organisation policy cannot be disabled here.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if p.Tool.Telemetry.ForceEnabled {
 				p.Logger.Print("Telemetry is enforced by your organisation and cannot be disabled.")
@@ -78,6 +91,10 @@ func newStatusCmd(p *props.Props) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show current telemetry status",
+		Long: `Show whether telemetry is enabled, the hashed machine ID, and the active
+backend.
+
+Use this to confirm your opt-in state and whether collection is local-only.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			enabled := p.Config.GetBool("telemetry.enabled")
 			localOnly := p.Config.GetBool("telemetry.local_only")

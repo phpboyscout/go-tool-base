@@ -43,7 +43,10 @@ func NewCmdDoctor(props *p.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check environment and configuration health",
-		Long:  "Run diagnostic checks to validate configuration, connectivity, and runtime environment.",
+		Long: `Run diagnostic checks that validate the Go runtime, configuration,
+credentials, Git availability, and feature-specific health, then print a
+per-check pass/warn/fail/skip report. Run it when a tool misbehaves to
+pinpoint a misconfigured or missing dependency.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			format, _ := cmd.Flags().GetString("output")
 			out := output.NewWriter(os.Stdout, output.Format(format))

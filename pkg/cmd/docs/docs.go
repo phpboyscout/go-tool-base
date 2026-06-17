@@ -37,7 +37,12 @@ func NewCmdDocs(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "docs",
 		Short: "Browse documentation",
-		Long:  "Browse and read the project documentation in the terminal.",
+		Long: `Browse the embedded project documentation in an interactive terminal
+markdown browser.
+
+Use the "ask" subcommand for AI-assisted questions over the docs, or "serve"
+to host them as a static site. Requires a binary built with the embedded
+documentation assets (a plain "go install" build omits them).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			efs, err := p.Assets.Exists("assets/docs")
 			if err != nil {

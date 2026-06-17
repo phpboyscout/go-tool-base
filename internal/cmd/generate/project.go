@@ -91,6 +91,18 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 		Use:     "project",
 		Aliases: []string{"cli", "skeleton"},
 		Short:   "Generate a new project skeleton",
+		Long: `Scaffold a complete new GTB-based CLI project.
+
+Generates the full module layout: go.mod, the root command and main entry
+point, the .gtb manifest, embedded default config and assets, selected feature
+commands (init, update, mcp, docs, doctor, changelog, keychain, and optionally
+ai/config/telemetry), and the CI pipeline for the chosen Git backend (GitHub or
+GitLab). Optional release-signing and custom template overlays can be layered
+in. By default the new project is git-initialised with an initial commit; pass
+--no-git to skip that or --push to also add the remote and push.
+
+Run without --name/--repo in an interactive terminal to launch a guided wizard;
+otherwise supply the flags directly.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := opts.ValidateOrPrompt(p); err != nil {
 				return err

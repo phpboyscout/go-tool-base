@@ -25,7 +25,7 @@ func NewCmdDocs(p *props.Props) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "docs",
-		Short: "Generate documentation for a command (AI-assisted when a provider is configured)",
+		Short: "Generate Markdown documentation for a command",
 		Long: `Generate Markdown documentation for a Go command.
 
 When an AI provider is configured (via --provider or the ai.provider config

@@ -50,7 +50,7 @@ Feature: CLI Init Command
   Scenario: Help flag shows init usage and flags
     When I run gtb with "init --help"
     Then the exit code is 0
-    And stdout contains "Initialises the default configuration"
+    And stdout contains "Write the tool's configuration file"
     And stdout contains "--skip-login"
     And stdout contains "--skip-key"
     And stdout contains "--clean"

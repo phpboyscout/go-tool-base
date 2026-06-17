@@ -11,7 +11,10 @@ func NewCmdRemove(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove components from the project",
-		Long:  `Remove commands or other components from an existing gtb project.`,
+		Long: `Remove components from an existing GTB project.
+
+The "command" subcommand deletes a command's files, updates the manifest, and
+de-registers it from its parent.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return cmd.Usage()
 		},

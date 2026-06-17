@@ -178,7 +178,12 @@ func NewCmdProtect(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "protect [command-path]",
 		Short: "Protect a command from being overwritten",
-		Args:  cobra.ExactArgs(1),
+		Long: `Mark a command as protected in the project manifest.
+
+A protected command is skipped by the generator's regeneration and overwrite
+passes, preserving hand-edited implementation files. Use this once a generated
+command has been customised and should not be regenerated from the manifest.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gen := generator.New(p, &generator.Config{Path: path})
 
@@ -202,7 +207,12 @@ func NewCmdUnprotect(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unprotect [command-path]",
 		Short: "Unprotect a command to allow overwriting",
-		Args:  cobra.ExactArgs(1),
+		Long: `Clear the protected flag on a command in the project manifest.
+
+The inverse of "protect": once unprotected, the command is eligible for
+regeneration again. Removing protection only lifts the guard — an actual
+overwrite of existing files still requires --force on the generating command.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gen := generator.New(p, &generator.Config{Path: path})
 

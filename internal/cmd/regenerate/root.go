@@ -13,7 +13,11 @@ func NewCmdRegenerate(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "regenerate",
 		Short: "Regenerate project or manifest",
-		Long:  `Regenerate project components from manifest or rebuild the manifest from existing source code.`,
+		Long: `Regenerate scaffolding for an existing GTB project.
+
+"project" rewrites command registration files from the manifest, while
+"manifest" does the reverse, rebuilding the manifest by scanning the project's
+existing source code.`,
 	}
 
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without writing files")

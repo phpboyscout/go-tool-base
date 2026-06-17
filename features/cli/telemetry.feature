@@ -1,6 +1,6 @@
 @cli @smoke
 Feature: CLI Telemetry Command
-  Users can opt in or out of anonymous usage telemetry.
+  Users can opt in or out of pseudonymous usage telemetry.
 
   Background:
     Given the gtb binary is built
@@ -48,4 +48,4 @@ Feature: CLI Telemetry Command
   Scenario: Help flag shows usage
     When I run gtb with "telemetry --help"
     Then the exit code is 0
-    And stdout contains "Manage anonymous usage telemetry"
+    And stdout contains "Manage opt-in pseudonymous usage analytics"

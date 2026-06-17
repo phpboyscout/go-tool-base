@@ -33,8 +33,11 @@ type VersionInfo struct {
 func NewCmdVersion(props *p.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
-		Short: "Print version of this program",
-		Long:  `Print version of this program`,
+		Short: "Print version, commit, and build date",
+		Long: `Print the running binary's version, commit, and build date, as injected
+at build time via ldflags. Unless the update command is disabled or this
+is a development build, it also contacts the configured release source to
+report whether a newer version is available.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			format, _ := cmd.Flags().GetString("output")
 			out := output.NewWriter(os.Stdout, output.Format(format))

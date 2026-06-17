@@ -117,8 +117,13 @@ type Updater interface {
 func NewCmdUpdate(props *p.Props, opts ...UpdateConfigOption) *setup.Command {
 	var updateCmd = &cobra.Command{
 		Use:   "update",
-		Short: "update to the latest available version",
-		Long:  `update to the latest available version`,
+		Short: "Update to the latest available version",
+		Long: `Update the running binary to the latest version. Checks the configured
+release source (GitHub or GitLab) for a newer signed release, downloads
+and verifies it, then replaces the current binary in place and re-runs
+the init flow to keep config compatible. Pass a specific version to pin
+the target, or an offline release archive to install without network
+access.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fromFile, err := cmd.Flags().GetString("from-file")
 			if err != nil {

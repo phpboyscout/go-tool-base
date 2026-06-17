@@ -828,7 +828,11 @@ func NewCmdInitAI(p *props.Props, opts ...FormOption) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ai",
 		Short: "Configure AI provider integration",
-		Long:  `Configures the AI provider and API keys for AI-powered features such as documentation Q&A and code analysis.`,
+		Long: `Configure the AI provider and API key used for AI-powered features such
+as documentation Q&A and code analysis. The key is stored via the
+three-mode selector: an environment variable reference (recommended
+default), the OS keychain, or a literal value in the config file. Literal
+mode is refused when running under CI.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 

@@ -23,7 +23,10 @@ func NewCmdList(props *p.Props, masker *Masker) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all configuration values",
-		Long:  "Display all resolved configuration keys and values. Sensitive values are masked by default.",
+		Long: `Display every resolved configuration key and its value in dot-notation.
+
+Useful for inspecting the effective configuration after merging flags, env
+vars, file config, and defaults. Sensitive values are masked by default.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if props.Config == nil {
 				return errors.New("no configuration loaded")

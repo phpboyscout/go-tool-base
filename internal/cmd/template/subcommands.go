@@ -23,7 +23,16 @@ func newCmdTemplateAdd(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "add <src>@<ref>",
 		Short: "Add a custom template-overlay source",
-		Args:  cobra.ExactArgs(1),
+		Long: `Add a local folder or a git repo as a template-overlay source, record it in
+.gtb/manifest.yaml, pin it, and regenerate so its files render over the embedded
+skeleton.
+
+Pass the source as <src>@<ref>: <src> is a local path or git URL, and the
+optional @<ref> pins a git source to a branch, tag, or commit (omit it for a
+local folder). Use --name to set the handle later passed to 'template update'
+and 'template remove'. A remote (git) source prompts for a trust decision before
+cloning; that confirmation is skipped under --ci or a non-interactive session.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path = icmd.ResolveProjectPath(p, path)
 
@@ -62,7 +71,13 @@ func newCmdTemplateUpdate(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "update <name>",
 		Short: "Re-resolve a git source's ref to a new commit and regenerate",
-		Args:  cobra.ExactArgs(1),
+		Long: `Re-resolve the named git source's ref to its current commit, advance the pin in
+.gtb/manifest.yaml, and regenerate so the overlay reflects the new commit.
+
+This is the only path that advances a source's pin; a plain 'gtb regenerate'
+keeps the existing pin. Only git sources can be updated — a local-folder source
+has no ref to re-resolve.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path = icmd.ResolveProjectPath(p, path)
 
@@ -91,7 +106,13 @@ func newCmdTemplateRemove(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "remove <name>",
 		Short: "Remove a source and restore any scaffold it replaced",
-		Args:  cobra.ExactArgs(1),
+		Long: `Drop the named template source from .gtb/manifest.yaml and regenerate, restoring
+any embedded scaffold that the source's gtb-template.yaml 'replaces:' directive
+had suppressed.
+
+Use this to back out a source added with 'gtb template add'. Author-added files
+that the overlay merely overwrote are re-rendered from the skeleton.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path = icmd.ResolveProjectPath(p, path)
 
@@ -119,7 +140,14 @@ func newCmdTemplateList(p *props.Props) *setup.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Show recorded template sources",
-		Args:  cobra.NoArgs,
+		Long: `List the template-overlay sources recorded in .gtb/manifest.yaml, showing each
+source's handle, type, location, ref, and resolved commit (or a local-folder
+fingerprint).
+
+This is a read-only view; it never edits the manifest or regenerates. Use it to
+confirm what 'gtb template update' would advance or 'gtb template remove' would
+drop.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			path = icmd.ResolveProjectPath(p, path)
 
