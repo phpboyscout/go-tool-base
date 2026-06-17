@@ -13,21 +13,20 @@ import (
 // a ManifestCommand entry.  Adding a new manifest field means adding it here
 // rather than extending the function signature.
 type ManifestCommandUpdate struct {
-	Name                          string
-	Description                   string
-	LongDescription               string
-	Aliases                       []string
-	Args                          string
-	Hashes                        map[string]string
-	Flags                         []ManifestFlag
-	WithAssets                    bool
-	WithInitializer               bool
-	WithConfigValidation          bool
-	WrapSubcommandsWithMiddleware *bool
-	PersistentPreRun              bool
-	PreRun                        bool
-	Protected                     *bool
-	Hidden                        bool
+	Name                 string
+	Description          string
+	LongDescription      string
+	Aliases              []string
+	Args                 string
+	Hashes               map[string]string
+	Flags                []ManifestFlag
+	WithAssets           bool
+	WithInitializer      bool
+	WithConfigValidation bool
+	PersistentPreRun     bool
+	PreRun               bool
+	Protected            *bool
+	Hidden               bool
 }
 
 func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes map[string]string) error {
@@ -54,21 +53,20 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 	if len(pathParts) == 0 {
 		g.updateRootCommand(m, mFlags, hashes)
 	} else if !updateCommandRecursive(&m.Commands, pathParts, ManifestCommandUpdate{
-		Name:                          g.config.Name,
-		Description:                   g.config.Short,
-		LongDescription:               g.config.Long,
-		Aliases:                       g.config.Aliases,
-		Args:                          g.config.Args,
-		Hashes:                        hashes,
-		WithAssets:                    g.config.WithAssets,
-		WithInitializer:               g.config.WithInitializer,
-		WithConfigValidation:          g.config.WithConfigValidation,
-		WrapSubcommandsWithMiddleware: g.config.WrapSubcommandsWithMiddleware,
-		PersistentPreRun:              g.config.PersistentPreRun,
-		PreRun:                        g.config.PreRun,
-		Protected:                     g.config.Protected,
-		Hidden:                        g.config.Hidden,
-		Flags:                         mFlags,
+		Name:                 g.config.Name,
+		Description:          g.config.Short,
+		LongDescription:      g.config.Long,
+		Aliases:              g.config.Aliases,
+		Args:                 g.config.Args,
+		Hashes:               hashes,
+		WithAssets:           g.config.WithAssets,
+		WithInitializer:      g.config.WithInitializer,
+		WithConfigValidation: g.config.WithConfigValidation,
+		PersistentPreRun:     g.config.PersistentPreRun,
+		PreRun:               g.config.PreRun,
+		Protected:            g.config.Protected,
+		Hidden:               g.config.Hidden,
+		Flags:                mFlags,
 	}) {
 		return errors.Newf("%w: %s", ErrParentPathNotFound, g.config.Parent)
 	}
@@ -96,10 +94,6 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 
 			m.Commands[i].WithInitializer = g.config.WithInitializer
 			m.Commands[i].WithConfigValidation = g.config.WithConfigValidation
-
-			if g.config.WrapSubcommandsWithMiddleware != nil {
-				m.Commands[i].WrapSubcommandsWithMiddleware = *g.config.WrapSubcommandsWithMiddleware
-			}
 
 			m.Commands[i].PersistentPreRun = g.config.PersistentPreRun
 			m.Commands[i].PreRun = g.config.PreRun
@@ -130,15 +124,8 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 			WithAssets:           g.config.WithAssets,
 			WithInitializer:      g.config.WithInitializer,
 			WithConfigValidation: g.config.WithConfigValidation,
-			WrapSubcommandsWithMiddleware: func() bool {
-				if g.config.WrapSubcommandsWithMiddleware != nil {
-					return *g.config.WrapSubcommandsWithMiddleware
-				}
-
-				return true // Default for new commands
-			}(),
-			PersistentPreRun: g.config.PersistentPreRun,
-			PreRun:           g.config.PreRun,
+			PersistentPreRun:     g.config.PersistentPreRun,
+			PreRun:               g.config.PreRun,
 		})
 	}
 }
@@ -196,10 +183,6 @@ func updateExistingCommand(cmd *ManifestCommand, u ManifestCommandUpdate) {
 	cmd.WithInitializer = u.WithInitializer
 	cmd.WithConfigValidation = u.WithConfigValidation
 
-	if u.WrapSubcommandsWithMiddleware != nil {
-		cmd.WrapSubcommandsWithMiddleware = *u.WrapSubcommandsWithMiddleware
-	}
-
 	cmd.PersistentPreRun = u.PersistentPreRun
 	cmd.PreRun = u.PreRun
 	cmd.Hidden = u.Hidden
@@ -221,18 +204,11 @@ func createNewManifestCommand(u ManifestCommandUpdate) ManifestCommand {
 		WithAssets:           u.WithAssets,
 		WithInitializer:      u.WithInitializer,
 		WithConfigValidation: u.WithConfigValidation,
-		WrapSubcommandsWithMiddleware: func() bool {
-			if u.WrapSubcommandsWithMiddleware != nil {
-				return *u.WrapSubcommandsWithMiddleware
-			}
-
-			return true // Default for new commands
-		}(),
-		PersistentPreRun: u.PersistentPreRun,
-		PreRun:           u.PreRun,
-		Hidden:           u.Hidden,
-		Flags:            u.Flags,
-		Protected:        u.Protected,
+		PersistentPreRun:     u.PersistentPreRun,
+		PreRun:               u.PreRun,
+		Hidden:               u.Hidden,
+		Flags:                u.Flags,
+		Protected:            u.Protected,
 	}
 }
 

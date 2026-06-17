@@ -12,17 +12,14 @@ import (
 )
 
 type ProjectOptions struct {
-	Path            string
-	Force           bool
-	Overwrite       string
-	UpdateDocs      bool
-	WrapSubcommands *bool
+	Path       string
+	Force      bool
+	Overwrite  string
+	UpdateDocs bool
 }
 
 func NewCmdProject(p *props.Props) *cobra.Command {
 	opts := ProjectOptions{}
-
-	var wrapSubcommandsFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "project",
@@ -30,10 +27,6 @@ func NewCmdProject(p *props.Props) *cobra.Command {
 		Long: `Regenerate all command registration files (cmd.go) based on the manifest.yaml.
 Does not overwrite implementation files (main.go) unless --force is provided.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Flags().Changed("wrap-subcommands") {
-				opts.WrapSubcommands = &wrapSubcommandsFlag
-			}
-
 			return opts.Run(cmd.Context(), p)
 		},
 	}
@@ -42,7 +35,6 @@ Does not overwrite implementation files (main.go) unless --force is provided.`,
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing main.go implementation files")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
 	cmd.Flags().BoolVar(&opts.UpdateDocs, "update-docs", false, "Use AI to update existing documentation")
-	cmd.Flags().BoolVar(&wrapSubcommandsFlag, "wrap-subcommands", true, "Automatically wrap subcommands with middleware")
 
 	return cmd
 }
@@ -59,12 +51,11 @@ func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
 	}
 
 	cfg := &generator.Config{
-		Path:                          o.Path,
-		DryRun:                        dryRun,
-		Force:                         o.Force,
-		Overwrite:                     o.Overwrite,
-		UpdateDocs:                    o.UpdateDocs,
-		WrapSubcommandsWithMiddleware: o.WrapSubcommands,
+		Path:       o.Path,
+		DryRun:     dryRun,
+		Force:      o.Force,
+		Overwrite:  o.Overwrite,
+		UpdateDocs: o.UpdateDocs,
 	}
 
 	return generator.New(p, cfg).RegenerateProject(ctx)

@@ -71,25 +71,27 @@ type Config struct {
 	GitPush bool
 	// GitBranch is the default branch the initial commit lands on (default
 	// "main", overridable via --git-branch).
-	GitBranch                     string
-	Flags                         []string
-	Force                         bool
-	Hidden                        bool
-	Overwrite                     string // allow, deny, or ask (default ask)
-	Long                          string
-	Name                          string
-	Parent                        string
-	Path                          string
-	PersistentPreRun              bool
-	PreRun                        bool
-	Prompt                        string
-	Protected                     *bool
-	ScriptPath                    string
-	Short                         string
-	UpdateDocs                    bool
-	WithAssets                    bool
-	WithConfigValidation          bool
-	WithInitializer               bool
+	GitBranch            string
+	Flags                []string
+	Force                bool
+	Hidden               bool
+	Overwrite            string // allow, deny, or ask (default ask)
+	Long                 string
+	Name                 string
+	Parent               string
+	Path                 string
+	PersistentPreRun     bool
+	PreRun               bool
+	Prompt               string
+	Protected            *bool
+	ScriptPath           string
+	Short                string
+	UpdateDocs           bool
+	WithAssets           bool
+	WithConfigValidation bool
+	WithInitializer      bool
+	// Deprecated: no-op. Subcommands are always middleware-wrapped via the
+	// setup.Command wrapper's Register. Retained for flag compatibility only.
 	WrapSubcommandsWithMiddleware *bool
 }
 

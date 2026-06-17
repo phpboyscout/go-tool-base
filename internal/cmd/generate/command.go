@@ -45,7 +45,6 @@ type CommandOptions struct {
 	Force                bool
 	WithInitializer      bool
 	WithConfigValidation bool
-	WrapSubcommands      *bool
 	Protected            *bool
 	Options              []string // For MultiSelect
 	AddFlags             bool     // Whether to show the flag entry stage
@@ -91,10 +90,7 @@ func boolToStr(b bool) string {
 func NewCmdCommand(p *props.Props) *cobra.Command {
 	opts := CommandOptions{}
 
-	var (
-		protectedFlag       bool
-		wrapSubcommandsFlag bool
-	)
+	var protectedFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "command",
@@ -143,10 +139,6 @@ Examples:
 				opts.Protected = &protectedFlag
 			}
 
-			if cmd.Flags().Changed("wrap-subcommands") {
-				opts.WrapSubcommands = &wrapSubcommandsFlag
-			}
-
 			return opts.Run(cmd.Context(), p)
 		},
 	}
@@ -170,7 +162,6 @@ Examples:
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Overwrite existing files")
 	cmd.Flags().BoolVar(&opts.WithInitializer, "with-initializer", false, "Generate an Initializer for this command")
 	cmd.Flags().BoolVar(&opts.WithConfigValidation, "with-config-validation", false, "Generate a config validation stub for this command")
-	cmd.Flags().BoolVar(&wrapSubcommandsFlag, "wrap-subcommands", true, "Automatically wrap subcommands with middleware")
 	cmd.Flags().BoolVar(&protectedFlag, "protected", false, "Mark the command as protected (tri-state: --protected for true, --protected=false for false, omitted for nil)")
 
 	cmd.MarkFlagsMutuallyExclusive("prompt", "script")
@@ -572,30 +563,29 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 	o.Path = icmd.ResolveProjectPath(p, o.Path)
 
 	cfg := &generator.Config{
-		Name:                          o.Name,
-		Short:                         o.Short,
-		Long:                          o.Long,
-		Aliases:                       o.Aliases,
-		Path:                          o.Path,
-		WithAssets:                    o.WithAssets,
-		Parent:                        o.Parent,
-		Args:                          o.Args,
-		DryRun:                        dryRun,
-		Flags:                         o.Flags,
-		ScriptPath:                    o.ScriptPath,
-		Prompt:                        o.Prompt,
-		AIProvider:                    aiProvider,
-		AIModel:                       aiModel,
-		Agentless:                     o.Agentless,
-		MaxSteps:                      o.MaxSteps,
-		NonInteractive:                o.NonInteractive || !utils.IsInteractive(),
-		PersistentPreRun:              o.PersistentPreRun,
-		PreRun:                        o.PreRun,
-		Force:                         o.Force,
-		WithInitializer:               o.WithInitializer,
-		WithConfigValidation:          o.WithConfigValidation,
-		WrapSubcommandsWithMiddleware: o.WrapSubcommands,
-		Protected:                     o.Protected,
+		Name:                 o.Name,
+		Short:                o.Short,
+		Long:                 o.Long,
+		Aliases:              o.Aliases,
+		Path:                 o.Path,
+		WithAssets:           o.WithAssets,
+		Parent:               o.Parent,
+		Args:                 o.Args,
+		DryRun:               dryRun,
+		Flags:                o.Flags,
+		ScriptPath:           o.ScriptPath,
+		Prompt:               o.Prompt,
+		AIProvider:           aiProvider,
+		AIModel:              aiModel,
+		Agentless:            o.Agentless,
+		MaxSteps:             o.MaxSteps,
+		NonInteractive:       o.NonInteractive || !utils.IsInteractive(),
+		PersistentPreRun:     o.PersistentPreRun,
+		PreRun:               o.PreRun,
+		Force:                o.Force,
+		WithInitializer:      o.WithInitializer,
+		WithConfigValidation: o.WithConfigValidation,
+		Protected:            o.Protected,
 	}
 
 	if cfg.Long == "" {

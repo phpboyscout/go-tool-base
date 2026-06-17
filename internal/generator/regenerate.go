@@ -79,16 +79,6 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 		return err
 	}
 
-	// If the flag was provided, update all commands in the manifest. This
-	// runs before sanitisation so a skipped (invalid) command is never
-	// dropped from the on-disk manifest — skipping is an in-memory act.
-	if g.config.WrapSubcommandsWithMiddleware != nil {
-		updateWrapSubcommandsRecursive(&m.Commands, *g.config.WrapSubcommandsWithMiddleware)
-
-		// Save updated manifest (best-effort).
-		_ = g.marshalManifestFile(manifestPath, m)
-	}
-
 	// Skip-not-abort (spec D1/O3): drop invalid commands and an invalid
 	// signing block from the in-memory manifest with an ERROR log, so the
 	// valid entries still regenerate while the traversal/injection sinks
@@ -563,13 +553,4 @@ func (g *Generator) persistProjectHashesAndSources(hashes map[string]string, sou
 	}
 
 	return g.encodeManifestFile(manifestPath, m)
-}
-
-// updateWrapSubcommandsRecursive sets the WrapSubcommandsWithMiddleware flag
-// for all commands in the tree.
-func updateWrapSubcommandsRecursive(commands *[]ManifestCommand, value bool) {
-	for i := range *commands {
-		(*commands)[i].WrapSubcommandsWithMiddleware = value
-		updateWrapSubcommandsRecursive(&(*commands)[i].Commands, value)
-	}
 }
