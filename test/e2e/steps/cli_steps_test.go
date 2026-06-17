@@ -87,6 +87,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the exit code is (\d+)$`, theExitCodeIs)
 	ctx.Step(`^the exit code is not (\d+)$`, theExitCodeIsNot)
 	ctx.Step(`^stdout contains "([^"]*)"$`, stdoutContains)
+	ctx.Step(`^stdout equals "([^"]*)"$`, stdoutEquals)
 	ctx.Step(`^stdout does not contain "([^"]*)"$`, stdoutDoesNotContain)
 	ctx.Step(`^stderr contains "([^"]*)"$`, stderrContains)
 	ctx.Step(`^stderr does not contain "([^"]*)"$`, stderrDoesNotContain)
@@ -266,6 +267,14 @@ func stdoutContains(ctx context.Context, substr string) error {
 	w := getCLIWorld(ctx)
 	if !strings.Contains(w.stdout, substr) {
 		return fmt.Errorf("stdout does not contain %q\nstdout:\n%s", substr, w.stdout)
+	}
+	return nil
+}
+
+func stdoutEquals(ctx context.Context, want string) error {
+	w := getCLIWorld(ctx)
+	if got := strings.TrimSpace(w.stdout); got != want {
+		return fmt.Errorf("expected stdout to equal %q, got %q", want, got)
 	}
 	return nil
 }
