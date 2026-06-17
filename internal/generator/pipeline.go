@@ -130,7 +130,7 @@ func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDi
 	}
 }
 
-// reRegisterChildCommands re-injects AddCommand calls for any children of the
+// reRegisterChildCommands re-injects Register calls for any children of the
 // current command that are already recorded in the manifest.  This preserves
 // child registrations when cmd.go is overwritten by a regeneration.  After all
 // children are re-registered the cmd.go hash in hashes is refreshed to reflect

@@ -51,10 +51,10 @@ Applies all registered global and feature-specific middleware to the provided `R
 ## Composed Commands: `setup.Command`
 
 Since v0.5 the canonical integration surface is the composed `setup.Command`
-type rather than the legacy `AddCommandWithMiddleware` helper. A
-`setup.Command` carries its own `props.FeatureCmd` key alongside the
-underlying `*cobra.Command`, and middleware is wired exactly once at
-attach time.
+type. (The former `AddCommandWithMiddleware` helper it replaced was deprecated
+in v0.5 and removed in v0.20.) A `setup.Command` carries its own
+`props.FeatureCmd` key alongside the underlying `*cobra.Command`, and middleware
+is wired exactly once at attach time.
 
 ```go
 type Command struct {
@@ -89,13 +89,15 @@ parent.Register(
 )
 ```
 
-### Deprecated helpers
+### Removed helpers
 
-`AddCommandWithMiddleware(parent, child, feature)` and
-`ApplyMiddlewareRecursively(cmd, feature)` are retained as `// Deprecated:`
-shims for one release. The shim no longer recurses into descendants — only
-the immediate child's `RunE` is wrapped. New code should always use
-`parent.Register(child)`. Planned removal: v1.0.
+The `AddCommandWithMiddleware(parent, child, feature)` and
+`ApplyMiddlewareRecursively(cmd, feature)` helpers — both `// Deprecated:` since
+the composed `setup.Command` type landed in v0.5 — were **removed in v0.20**.
+Wrap each command with its own feature via `setup.Wrap` and attach it through
+`parent.Register(child)`; replace any `AddCommandWithMiddleware(parent, child,
+feature)` call with `parent.Register(setup.Wrap(feature, child))`. See the
+[migration note](../../migration/v0.20-deprecated-middleware-helpers-removed.md).
 
 ## Built-in Middleware
 

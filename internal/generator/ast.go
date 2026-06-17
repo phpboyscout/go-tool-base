@@ -353,24 +353,16 @@ func (g *Generator) analyzeExprStmt(es *dst.ExprStmt, ctx *subcommandContext) {
 		// parent.AddCommand(...) and parent.Register(...) both register
 		// a child against the parent — either matters for idempotency.
 		for _, arg := range call.Args {
-			if g.isAddCommandArg(arg, ctx) {
-				ctx.registered = true
-			}
-		}
-	case "AddCommandWithMiddleware":
-		// Legacy setup.AddCommandWithMiddleware(parent, child, feature)
-		// emission — still recognise it to stay idempotent against
-		// pre-migration generated parents.
-		for _, arg := range call.Args {
-			if g.isAddCommandArg(arg, ctx) {
+			if g.isRegistrationArg(arg, ctx) {
 				ctx.registered = true
 			}
 		}
 	}
 }
 
-func (g *Generator) isAddCommandArg(arg dst.Expr, ctx *subcommandContext) bool {
-	// Check for inline call: cmd.AddCommand(pkg.NewCmdSub(props))
+func (g *Generator) isRegistrationArg(arg dst.Expr, ctx *subcommandContext) bool {
+	// Inline constructor: cmd.Register(pkg.NewCmdSub(props)) — the live form —
+	// or the legacy cmd.AddCommand(pkg.NewCmdSub(props)).
 	if argCall, ok := arg.(*dst.CallExpr); ok {
 		if argSel, ok := argCall.Fun.(*dst.SelectorExpr); ok {
 			if xid, ok := argSel.X.(*dst.Ident); ok && xid.Name == ctx.pkgName && argSel.Sel.Name == ctx.funcNameToBeCalled {
@@ -379,7 +371,7 @@ func (g *Generator) isAddCommandArg(arg dst.Expr, ctx *subcommandContext) bool {
 		}
 	}
 
-	// Check for variable: cmd.AddCommand(subCmd)
+	// Variable form: cmd.Register(subCmd) / cmd.AddCommand(subCmd).
 	if id, ok := arg.(*dst.Ident); ok && id.Name == ctx.subCmdVar {
 		return true
 	}
@@ -517,8 +509,8 @@ func (g *Generator) createRegistrationStmts(ctx *subcommandContext) dst.Stmt {
 	//
 	// Each NewCmd<Name> returns *setup.Command carrying its own feature, so
 	// the parent only needs to attach the child via Register — middleware is
-	// wired once at attach time. This replaces the legacy
-	// setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd) emission
+	// wired once at attach time. This replaces the now-removed
+	// setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd) emission,
 	// which referenced a feature constant the generator never created.
 	newCmdCall := &dst.CallExpr{
 		Fun: &dst.SelectorExpr{
@@ -763,7 +755,7 @@ func (g *Generator) removeSubcommandRegistration(fn *dst.FuncDecl, ctx *subcomma
 	var newList []dst.Stmt
 
 	for _, stmt := range fn.Body.List {
-		if g.isSubcommandInit(stmt, ctx) || g.isSubcommandAddCommand(stmt, ctx) || g.isSubcommandAssetAppend(stmt, ctx) {
+		if g.isSubcommandInit(stmt, ctx) || g.isSubcommandRegistration(stmt, ctx) || g.isSubcommandAssetAppend(stmt, ctx) {
 			continue
 		}
 
@@ -847,7 +839,7 @@ func (g *Generator) isSubcommandInit(stmt dst.Stmt, ctx *subcommandContext) bool
 	return false
 }
 
-func (g *Generator) isSubcommandAddCommand(stmt dst.Stmt, ctx *subcommandContext) bool {
+func (g *Generator) isSubcommandRegistration(stmt dst.Stmt, ctx *subcommandContext) bool {
 	exprStmt, ok := stmt.(*dst.ExprStmt)
 	if !ok {
 		return false

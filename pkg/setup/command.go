@@ -70,9 +70,7 @@ func FeatureOf(cmd *cobra.Command) props.FeatureCmd {
 //
 // Each child is wrapped exactly once, at the point its parent registers
 // it. A child's own descendants are wired when the child registers them,
-// so Register never re-wraps a subtree (unlike the legacy recursive
-// ApplyMiddlewareRecursively path, which re-applied the parent's
-// feature down the tree).
+// so Register never re-wraps a subtree.
 //
 // Children with a nil RunE (pure command groups) are still attached but
 // receive no RunE-wrapping — there is nothing to wrap.

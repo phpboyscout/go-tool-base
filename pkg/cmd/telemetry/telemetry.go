@@ -31,8 +31,8 @@ local data while requesting remote deletion.`,
 	}
 
 	telCmd := setup.Wrap(props.TelemetryCmd, cmd)
-	// Subcommands share the parent's feature key, preserving the prior
-	// behaviour where ApplyMiddlewareRecursively propagated it down.
+	// Subcommands are wrapped with the parent's feature key so every
+	// telemetry command carries the same middleware.
 	telCmd.Register(
 		setup.Wrap(props.TelemetryCmd, newEnableCmd(p)),
 		setup.Wrap(props.TelemetryCmd, newDisableCmd(p)),

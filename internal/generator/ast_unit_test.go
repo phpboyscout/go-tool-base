@@ -128,7 +128,7 @@ func TestExtractArgs(t *testing.T) {
 	}
 }
 
-func TestIsAddCommandArg(t *testing.T) {
+func TestIsRegistrationArg(t *testing.T) {
 	g := &Generator{}
 
 	// Create context
@@ -182,7 +182,7 @@ func TestIsAddCommandArg(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, g.isAddCommandArg(tt.arg, ctx))
+			assert.Equal(t, tt.expected, g.isRegistrationArg(tt.arg, ctx))
 		})
 	}
 }
