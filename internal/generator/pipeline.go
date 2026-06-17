@@ -75,7 +75,11 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 	p.runRegistrationSteps(data, cmdDir, &result)
 
 	// ── Step 4: persist manifest (advisory) ──────────────────────────────────
-	p.g.props.Logger.Info("Updating manifest.yaml...")
+	if p.g.config.DryRun {
+		p.g.props.Logger.Info("Would update manifest.yaml")
+	} else {
+		p.g.props.Logger.Info("Updating manifest.yaml...")
+	}
 
 	allFlags := append([]templates.CommandFlag{}, data.Flags...)
 	allFlags = append(allFlags, data.PersistentFlags...)

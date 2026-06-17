@@ -16,6 +16,17 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
 
+// writeVerb returns the present-participle verb for a generation write
+// ("Writing"), or the conditional "Would write" during a dry run so the
+// preview's logs don't imply files were actually changed.
+func (g *Generator) writeVerb() string {
+	if g.config.DryRun {
+		return "Would write"
+	}
+
+	return "Writing"
+}
+
 func (g *Generator) generateAssetFiles(cmdDir string) error {
 	assetDir := filepath.Join(cmdDir, "assets", "init")
 
@@ -57,7 +68,7 @@ func (g *Generator) generateAssetFiles(cmdDir string) error {
 func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 	data.Hashes = make(map[string]string)
 
-	g.props.Logger.Infof("Writing registration file: %s", filepath.Join(cmdDir, "cmd.go"))
+	g.props.Logger.Infof("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go"))
 
 	hash, err := g.generateRegistrationFile(cmdDir, *data)
 	if err != nil {
@@ -79,7 +90,7 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	}
 
 	if data.TestCode != "" {
-		g.props.Logger.Infof("Writing test file: %s", filepath.Join(cmdDir, "main_test.go"))
+		g.props.Logger.Infof("%s test file: %s", g.writeVerb(), filepath.Join(cmdDir, "main_test.go"))
 
 		hash, err := g.generateTestFile(ctx, cmdDir, *data)
 		if err != nil {
@@ -139,7 +150,7 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 
 	exists, _ := afero.Exists(g.props.FS, mainFile)
 	if !exists || g.config.Force {
-		g.props.Logger.Infof("Writing execution file: %s", mainFile)
+		g.props.Logger.Infof("%s execution file: %s", g.writeVerb(), mainFile)
 
 		return g.generateExecutionFile(ctx, cmdDir, *data)
 	}
@@ -153,7 +164,7 @@ func (g *Generator) handleInitializerFile(cmdDir string, data *templates.Command
 	initFile := filepath.Join(cmdDir, "init.go")
 
 	if data.WithInitializer {
-		g.props.Logger.Infof("Writing initializer file: %s", initFile)
+		g.props.Logger.Infof("%s initializer file: %s", g.writeVerb(), initFile)
 
 		hash, err := g.generateInitializerFile(cmdDir, *data)
 		if err != nil {
@@ -196,7 +207,7 @@ func (g *Generator) handleConfigValidationFile(ctx context.Context, cmdDir strin
 		return nil
 	}
 
-	g.props.Logger.Infof("Writing config validation file: %s", configFile)
+	g.props.Logger.Infof("%s config validation file: %s", g.writeVerb(), configFile)
 
 	content := templates.CommandConfigValidation(*data)
 
