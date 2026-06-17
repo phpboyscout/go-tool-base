@@ -11,7 +11,26 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
+
+// recordingCollector captures TrackCommand calls for assertions. It embeds
+// props.NoopCollector so the other TelemetryCollector methods are satisfied as
+// no-ops; only TrackCommand is overridden.
+type recordingCollector struct {
+	props.NoopCollector
+	calls    int
+	name     string
+	duration int64
+	exitCode int
+}
+
+func (r *recordingCollector) TrackCommand(name string, durationMs int64, exitCode int, _ map[string]string) {
+	r.calls++
+	r.name = name
+	r.duration = durationMs
+	r.exitCode = exitCode
+}
 
 func TestWithTiming(t *testing.T) {
 	t.Parallel()
@@ -170,5 +189,37 @@ func TestWithAuthCheck(t *testing.T) {
 
 		err := handler(&cobra.Command{}, nil)
 		assert.NoError(t, err)
+	})
+}
+
+func TestWithTelemetry(t *testing.T) {
+	t.Run("RecordsSuccessfulCommand", func(t *testing.T) {
+		rc := &recordingCollector{}
+		p := &props.Props{Collector: rc}
+
+		handler := WithTelemetry(p)(func(_ *cobra.Command, _ []string) error { return nil })
+
+		err := handler(&cobra.Command{Use: "deploy"}, nil)
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.calls)
+		assert.Equal(t, "deploy", rc.name)
+		assert.Zero(t, rc.exitCode)
+		assert.GreaterOrEqual(t, rc.duration, int64(0))
+	})
+
+	t.Run("RecordsExitCodeOneOnError", func(t *testing.T) {
+		rc := &recordingCollector{}
+		p := &props.Props{Collector: rc}
+
+		wantErr := fmt.Errorf("boom")
+		handler := WithTelemetry(p)(func(_ *cobra.Command, _ []string) error { return wantErr })
+
+		err := handler(&cobra.Command{Use: "build"}, nil)
+
+		require.ErrorIs(t, err, wantErr)
+		assert.Equal(t, 1, rc.calls)
+		assert.Equal(t, "build", rc.name)
+		assert.Equal(t, 1, rc.exitCode)
 	})
 }

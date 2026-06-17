@@ -301,3 +301,36 @@ func TestUpdate_VersionCheckErrorPropagates(t *testing.T) {
 	_, err := updater.Update(context.Background())
 	require.Error(t, err)
 }
+
+// TestGetStructuredReleaseNotes_APIFallback covers the no-archive path: notes
+// are fetched per-release via the provider and parsed into a Changelog whose
+// From/To versions are stamped from the call arguments.
+func TestGetStructuredReleaseNotes_APIFallback(t *testing.T) {
+	mockClient := mockRelease.NewMockProvider(t)
+
+	r1 := mockRelease.NewMockRelease(t)
+	r1.EXPECT().GetTagName().Return("v1.2.0")
+	r1.On("GetBody").Return("New feature").Maybe()
+	r1.EXPECT().GetDraft().Return(false)
+
+	r2 := mockRelease.NewMockRelease(t)
+	r2.EXPECT().GetTagName().Return("v1.0.0")
+	r2.On("GetBody").Return("Initial").Maybe()
+	r2.EXPECT().GetDraft().Return(false)
+
+	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).
+		Return([]release.Release{r1, r2}, nil).Once()
+
+	updater := &SelfUpdater{
+		Tool: props.Tool{
+			ReleaseSource: props.ReleaseSource{Type: "github", Owner: "org", Repo: "repo"},
+		},
+		releaseClient: mockClient,
+	}
+
+	cl, err := updater.GetStructuredReleaseNotes(context.Background(), "v1.0.0", "v1.2.0")
+	require.NoError(t, err)
+	require.NotNil(t, cl)
+	assert.Equal(t, "v1.0.0", cl.FromVersion)
+	assert.Equal(t, "v1.2.0", cl.ToVersion)
+}

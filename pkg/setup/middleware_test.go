@@ -189,3 +189,13 @@ func TestChain_NilRunE(t *testing.T) {
 	wrapped := Chain(testFeature, nil)
 	assert.Nil(t, wrapped)
 }
+
+func TestIsSealed(t *testing.T) {
+	resetRegistry(t)
+
+	assert.False(t, IsSealed(), "registry must report unsealed after reset")
+
+	Seal()
+
+	assert.True(t, IsSealed(), "registry must report sealed after Seal")
+}
