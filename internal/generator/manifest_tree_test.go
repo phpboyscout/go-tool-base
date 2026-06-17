@@ -88,6 +88,66 @@ func NewCmdSocial(props *props.Props) *setup.Command {
 		"Long must be recovered from the setup.Wrap-wrapped cobra literal")
 }
 
+// TestRegenerateManifest_DropsUnresolvableFlagDefault is the regression guard
+// for keryx v0.19.1 BUG 2: when a flag's default is an unresolved const
+// identifier (legacy codegen, e.g. `defaultN = int(int64(0))`), the scanner
+// wrote `default: defaultN` — the identifier — back into the manifest, which a
+// later regenerate project would round-trip as code. The unresolved value must
+// not be persisted.
+func TestRegenerateManifest_DropsUnresolvableFlagDefault(t *testing.T) {
+	fs := afero.NewMemMapFs()
+
+	var logBuf strings.Builder
+
+	l := logger.NewCharm(&logBuf)
+	workDir := "/work"
+
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "go.mod"), []byte("module test-tool\n"), 0644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/root"), 0755))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, "pkg/cmd/cover"), 0755))
+
+	rootCode := `package root
+import (
+	gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"test-tool/pkg/cmd/cover"
+)
+func NewCmdRoot(p *props.Props) *setup.Command {
+	return gtbRoot.NewCmdRoot(p, cover.NewCmdCover(p))
+}`
+	// Legacy codegen: the default is a const conversion the scanner can't resolve.
+	coverCode := `package cover
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+const defaultN = int(int64(0))
+type CoverOptions struct{ N int }
+func NewCmdCover(props *props.Props) *setup.Command {
+	cmd := setup.Wrap("cover", &cobra.Command{Use: "cover", Short: "cover"})
+	opts := &CoverOptions{}
+	cmd.Flags().IntVar(&opts.N, "n", defaultN, "number of samples")
+	return cmd
+}`
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/root/cmd.go"), []byte(rootCode), 0644))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, "pkg/cmd/cover/cmd.go"), []byte(coverCode), 0644))
+	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
+
+	p := &props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs), Tool: props.Tool{Name: "test-tool"}}
+
+	g := New(p, &Config{Path: workDir})
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	data, err := afero.ReadFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"))
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(data), "defaultN",
+		"the unresolved const identifier must not be written back into the manifest")
+}
+
 func TestRegenerateManifestRecursive(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	var logBuf strings.Builder

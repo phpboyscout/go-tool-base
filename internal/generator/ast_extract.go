@@ -851,31 +851,39 @@ func (g *Generator) parseFlagArgs(call *dst.CallExpr, flag *ManifestFlag, name s
 }
 
 func (g *Generator) parseFlagExtras(call *dst.CallExpr, flag *ManifestFlag, baseIdx int, isP bool, constants map[string]string, cmdPath string) {
-	var resolved bool
-
 	if isP {
 		if len(call.Args) > baseIdx+1 {
 			flag.Shorthand, _ = resolveStringValue(call.Args[baseIdx+1], constants)
 		}
 
 		if len(call.Args) > baseIdx+2 {
-			flag.Default, resolved = resolveStringValue(call.Args[baseIdx+2], constants)
-			if !resolved {
-				g.props.Logger.Warn(fmt.Sprintf("Could not resolve default value for flag '%s' in '%s' (value: %s)", flag.Name, cmdPath, flag.Default))
-				flag.Warning = "WARNING: could not resolve default value: " + flag.Default
-			}
+			g.resolveFlagDefault(call.Args[baseIdx+2], flag, constants, cmdPath)
 		}
 
 		return
 	}
 
 	if len(call.Args) > baseIdx+1 {
-		flag.Default, resolved = resolveStringValue(call.Args[baseIdx+1], constants)
-		if !resolved {
-			g.props.Logger.Warn(fmt.Sprintf("Could not resolve default value for flag '%s' in '%s' (value: %s)", flag.Name, cmdPath, flag.Default))
-			flag.Warning = "WARNING: could not resolve default value: " + flag.Default
-		}
+		g.resolveFlagDefault(call.Args[baseIdx+1], flag, constants, cmdPath)
 	}
+}
+
+// resolveFlagDefault sets flag.Default from a default-value argument. When the
+// value is an unresolved identifier (e.g. a const the scanner can't evaluate,
+// as legacy generators emitted), it warns and leaves the default unset rather
+// than persisting the identifier — writing it back would make a later
+// regenerate project round-trip the identifier as code instead of the literal
+// (keryx v0.19.1 BUG 2).
+func (g *Generator) resolveFlagDefault(expr dst.Expr, flag *ManifestFlag, constants map[string]string, cmdPath string) {
+	raw, resolved := resolveStringValue(expr, constants)
+	if resolved {
+		flag.Default = raw
+
+		return
+	}
+
+	g.props.Logger.Warn(fmt.Sprintf("Could not resolve default value for flag '%s' in '%s' (value: %s); leaving default unset", flag.Name, cmdPath, raw))
+	flag.Warning = "WARNING: could not resolve default value: " + raw
 }
 
 // extractProjectProperties parses pkg/cmd/root/cmd.go and extracts project-level
