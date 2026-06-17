@@ -25,11 +25,6 @@ train:
     branch: main
 `
 
-const (
-	GitHubOrg  = "phpboyscout"
-	GitHubRepo = "gtb"
-)
-
 func TestNewGitHubClientInstantiation(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token")
 
