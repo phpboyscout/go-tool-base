@@ -1,5 +1,16 @@
 # Changelog
 
+## [v0.20.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.20.0)
+
+### Features
+
+- **generator**: retire the obsolete --wrap-subcommands flag
+
+### Bug Fixes
+
+- **generator**: regenerate --dry-run logs "Would write" instead of "Writing"
+- **generator**: don't persist an unresolved flag default on regenerate manifest
+
 ## [v0.19.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.19.1)
 
 ### Bug Fixes
