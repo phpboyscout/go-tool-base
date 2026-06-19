@@ -50,8 +50,12 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
 	ctx.Step(`^the generated "([^"]*)" file contains "([^"]*)"$`, theGeneratedFileContains)
 	ctx.Step(`^the generated "([^"]*)" file does not contain "([^"]*)"$`, theGeneratedFileDoesNotContain)
+	ctx.Step(`^the generated "([^"]*)" file exists$`, theGeneratedFileExists)
+	ctx.Step(`^the generated "([^"]*)" file does not exist$`, theGeneratedFileDoesNotExist)
+	ctx.Step(`^the project output contains "([^"]*)"$`, theProjectOutputContains)
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
+	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 }
 
 // aGTBProjectWithACommandWithMetadata scaffolds a minimal-but-valid gtb
@@ -255,6 +259,60 @@ func theGeneratedFileDoesNotContain(ctx context.Context, relPath, substr string)
 
 	if strings.Contains(string(content), substr) {
 		return fmt.Errorf("generated %q unexpectedly contains %q\ncontent:\n%s", relPath, substr, content)
+	}
+
+	return nil
+}
+
+func theGeneratedFileExists(ctx context.Context, relPath string) error {
+	w := getGeneratorWorld(ctx)
+
+	if _, err := os.Stat(filepath.Join(w.projectDir, relPath)); err != nil {
+		return fmt.Errorf("expected generated %q to exist: %w", relPath, err)
+	}
+
+	return nil
+}
+
+func theGeneratedFileDoesNotExist(ctx context.Context, relPath string) error {
+	w := getGeneratorWorld(ctx)
+
+	_, err := os.Stat(filepath.Join(w.projectDir, relPath))
+	if err == nil {
+		return fmt.Errorf("expected generated %q not to exist, but it does", relPath)
+	}
+
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", relPath, err)
+	}
+
+	return nil
+}
+
+func theProjectOutputContains(ctx context.Context, substr string) error {
+	w := getGeneratorWorld(ctx)
+
+	if !strings.Contains(w.stdout, substr) && !strings.Contains(w.stderr, substr) {
+		return fmt.Errorf("expected project output to contain %q\nstdout: %s\nstderr: %s", substr, w.stdout, w.stderr)
+	}
+
+	return nil
+}
+
+// aLocalTemplateOverlayDirectory writes a bare local template-overlay folder
+// (no gtb-template.yaml needed) inside the project at the given relative dir,
+// containing a single templated file. The project can then add it as a
+// local-folder source via `template add ./<dir>`.
+func aLocalTemplateOverlayDirectory(ctx context.Context, dir, file string) error {
+	w := getGeneratorWorld(ctx)
+
+	overlayDir := filepath.Join(w.projectDir, dir)
+	if err := os.MkdirAll(overlayDir, 0o755); err != nil {
+		return fmt.Errorf("mkdir overlay %s: %w", dir, err)
+	}
+
+	if err := os.WriteFile(filepath.Join(overlayDir, file), []byte("overlay for {{ .Name }}\n"), 0o644); err != nil {
+		return fmt.Errorf("write overlay file %s: %w", file, err)
 	}
 
 	return nil
