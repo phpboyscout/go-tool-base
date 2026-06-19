@@ -32,6 +32,7 @@ tmp/
 bin/*
 site/*
 /gtb
+/e2e
 internal/cmd/root/assets/docs
 tmp*
  .env*

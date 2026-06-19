@@ -212,6 +212,13 @@ func iRunGTBWith(ctx context.Context, args string) context.Context {
 	parts = append(parts, "--config", filepath.Join(w.configDir, "config.yaml"))
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 
+	// Give the child a piped (non-TTY) stdin so utils.IsInteractive() reports
+	// false deterministically. Without this the child inherits /dev/null, which
+	// is a character device and reads as "interactive", causing commands with a
+	// prompt fallback (e.g. `update`'s multi-install target selection) to open
+	// /dev/tty and fail — flakily, depending on the host's installed binaries.
+	cmd.Stdin = strings.NewReader("")
+
 	// Always isolate HOME to the scenario's temp directory so commands like
 	// `telemetry enable/disable` that persist to ~/.<tool>/ don't leak across
 	// scenarios or into the developer's real config.

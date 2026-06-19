@@ -4,9 +4,14 @@
 // Why it exists: it lets us write contrived scenarios for the framework that a
 // downstream tool inherits (init, doctor, config, update, chat, controls,
 // signals, bootstrap) WITHOUT baking test fixtures into the real, shipped
-// binary. It enables ALL feature-flagged commands and uses a stub release
-// source so update/init flows never reach the network. It is NOT shipped —
+// binary. It enables ALL feature-flagged commands. It is NOT shipped —
 // goreleaser only builds ./cmd/gtb.
+//
+// Self-update flows are network-free under test: when GTB_E2E_RELEASE_SCENARIO
+// is set, applyReleaseStub (release_stub.go) injects an in-memory stub release
+// source (pkg/vcs/release/releasetest) onto the tool and pins a deterministic
+// current version, so `gtb update` scenarios resolve releases from memory. When
+// the env var is unset the configured GitLab source is used as normal.
 //
 // IMPORTANT — when NOT to use this binary: because it ENABLES InitCmd, the
 // framework bootstrap REQUIRES a config file (init is how a tool's first config
@@ -111,6 +116,10 @@ func newTestRoot() (*setup.Command, *props.Props) {
 	}
 
 	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+
+	// When GTB_E2E_RELEASE_SCENARIO is set, swap the configured GitLab release
+	// source for an in-memory stub so `gtb update` scenarios run hermetically.
+	applyReleaseStub(p)
 
 	// Register the internal scaffolding commands so BDD scenarios
 	// can exercise the real generator entry point (e.g. input
