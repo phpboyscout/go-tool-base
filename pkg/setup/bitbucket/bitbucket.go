@@ -399,9 +399,11 @@ func writeKeychainBlob(ctx context.Context, cfg config.Containable, toolName str
 }
 
 // RunBitbucketInit executes the wizard against an existing config
-// container, typically invoked by [NewCmdInitBitbucket].
-func RunBitbucketInit(p *props.Props, cfg config.Containable) error {
-	i := NewInitialiser(p)
+// container, typically invoked by [NewCmdInitBitbucket]. Optional
+// [FormOption]s are propagated into the wizard so tests can inject
+// deterministic form creators, mirroring [pkg/setup/ai.RunAIInit].
+func RunBitbucketInit(p *props.Props, cfg config.Containable, opts ...FormOption) error {
+	i := NewInitialiser(p, WithFormOptions(opts...))
 
 	return i.Configure(p, cfg)
 }
@@ -438,7 +440,9 @@ and literal mode writes both fields to config.`,
 
 // RunInitCmd loads or creates the target config, runs the wizard,
 // and writes the updated config back to disk with 0600 permissions.
-func RunInitCmd(p *props.Props, dir string) error {
+// Optional [FormOption]s are propagated into the wizard so tests can
+// inject deterministic form creators, mirroring [pkg/setup/ai.RunAIInit].
+func RunInitCmd(p *props.Props, dir string, opts ...FormOption) error {
 	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
 
 	c, err := config.LoadFilesContainer(p.FS, config.WithConfigFiles(targetFile))
@@ -451,7 +455,7 @@ func RunInitCmd(p *props.Props, dir string) error {
 		c = config.NewContainerFromViper(nil, v)
 	}
 
-	if err := RunBitbucketInit(p, c); err != nil {
+	if err := RunBitbucketInit(p, c, opts...); err != nil {
 		return err
 	}
 
