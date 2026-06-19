@@ -117,6 +117,11 @@ var (
     // ErrVersionUnknown is returned by the direct provider when neither
     // version_url nor pinned_version is configured.
     ErrVersionUnknown = errors.New("cannot determine latest version: configure version_url or pinned_version in Params")
+
+    // ErrReleaseNotFound is returned when a requested release — by tag, or the
+    // latest — does not exist. The releasetest double returns it; aligning the
+    // built-in providers behind this sentinel is a tracked follow-up.
+    ErrReleaseNotFound = errors.New("release not found")
 )
 ```
 
@@ -347,6 +352,30 @@ props.Tool{
 updater, err := setup.NewUpdater(cmd.Context(), props, "", false)
 ```
 
+### Injecting a provider (tests and custom backends)
+
+`NewUpdater` resolves its release client in precedence order:
+
+1. an explicit `setup.WithReleaseProvider(p)` option;
+2. the `props.Tool.ReleaseProvider` field (runtime-only, `json:"-"`);
+3. the `ReleaseSource.Type` registry lookup (the default).
+
+An **injected** provider (1 or 2) is self-contained, so `NewUpdater` skips both
+the registry `Lookup` and the private-repository token gate that precedes it.
+This is a parallel-safe seam — each call site supplies its own provider, with no
+global `release.Register` mutation — and it is what lets a tool's `main` (or a
+test binary) drive self-update against an in-memory backend:
+
+```go
+// Test or custom-backend wiring — no network, no registry mutation.
+p.Tool.ReleaseProvider = myProvider           // field form (flows through the
+                                              // auto-wired update command), or:
+updater, _ := setup.NewUpdater(ctx, p, "", false, setup.WithReleaseProvider(myProvider))
+```
+
+Production tools leave `ReleaseProvider` nil and are resolved from the registry
+by `ReleaseSource.Type` as before — the seam is purely additive.
+
 ### Direct provider construction
 
 For use cases outside the update command:
@@ -425,6 +454,66 @@ func TestAutoUpdate(t *testing.T) {
 ```
 
 For HTTP-based providers (Gitea, Bitbucket, Direct), unit tests use `httptest.NewServer` to serve mock responses without any network access.
+
+### `releasetest` — in-memory double for hermetic self-update tests
+
+`pkg/vcs/release/releasetest` is a public, network-free `release.Provider`
+double for exercising the **whole** self-update pipeline (download → checksum →
+signature → extract → replace) from your own tests. It also implements
+`ChecksumProvider` and `SignatureProvider`, and its builders construct the
+GoReleaser-shaped artefacts in memory — including the security-relevant
+corrupt-checksum and bad-signature variants. The builders take no `*testing.T`,
+so the double is usable at runtime too (e.g. an env-gated stub in a test binary).
+
+Combine it with the [injection seam](#injecting-a-provider-tests-and-custom-backends)
+to point a tool's update flow at a scripted release:
+
+```go
+import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release/releasetest"
+
+func TestSelfUpdate_NoOpWhenLatest(t *testing.T) {
+    t.Parallel()
+
+    const current = "v1.0.0"
+    stub := releasetest.New(releasetest.WithRelease(current)) // latest == current
+
+    p := &props.Props{
+        Logger:  logger.NewNoop(),
+        Config:  config.NewContainerFromViper(logger.NewNoop(), viper.New()),
+        Version: version.NewInfo(current, "", ""),
+        Tool:    props.Tool{Name: "mytool", ReleaseProvider: stub},
+    }
+
+    updater, err := setup.NewUpdater(context.Background(), p, "", false)
+    require.NoError(t, err)
+
+    latest, err := updater.GetLatestVersionString(context.Background())
+    require.NoError(t, err)
+    assert.Equal(t, current, latest) // the injected stub drove the check — no network
+}
+```
+
+Key builders:
+
+| Builder | Purpose |
+|---------|---------|
+| `New(opts...)` | construct a `Source` from options |
+| `WithRelease(tag, assets...)` | register a release (first one is "latest" by default) |
+| `WithLatestTag(tag)` / `WithMissingTag(tag)` | override latest / make a tag resolve to `ErrReleaseNotFound` |
+| `TarGzAsset(tool, bin, body)` | a release-binary asset named for the current OS/arch |
+| `ChecksumsAsset(corrupt, assets...)` | a `checksums.txt`; `corrupt=true` hashes a different payload |
+| `SignatureAsset(entity, manifest, bad)` | a `checksums.txt.sig`; `bad=true` signs different bytes |
+
+**Worked references in this repo:** `pkg/setup/update_e2e_test.go` drives the
+full verified pipeline (checksum/signature happy + abort) over an in-memory
+filesystem, and `features/cli/update.feature` exercises the user-visible
+outcomes end-to-end through the e2e binary (already-latest no-op, version
+not-found, corrupt checksum, bad signature) — all hermetic.
+
+!!! note "Why a DI seam rather than `release.Register`"
+    The global registry is process-wide mutable state; mutating it from tests
+    cannot run under `t.Parallel()`. Injecting through `WithReleaseProvider` /
+    `Tool.ReleaseProvider` keeps each test's provider local and parallel-safe.
 
 ---
 

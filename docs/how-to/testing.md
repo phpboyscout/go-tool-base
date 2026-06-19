@@ -121,6 +121,8 @@ The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegi
 
 Tests that only _read_ from the registry (e.g. `setup.GetChecks()`) with distinct feature names _can_ use `t.Parallel()` safely — the mutex guarantees memory visibility.
 
+The release-provider registry (`release.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`setup.WithReleaseProvider` / `props.Tool.ReleaseProvider`) and drive it with the in-memory `pkg/vcs/release/releasetest` double — see [Release Provider › `releasetest`](../components/vcs/release.md#releasetest-in-memory-double-for-hermetic-self-update-tests).
+
 ### Avoid `cobra.OnFinalize`
 
 `cobra.OnFinalize` mutates a package-level slice inside the cobra library. Constructing multiple root commands in parallel (common in tests) races on this slice. Use `defer` in `Execute()` or middleware instead. See [the race remediation spec](../development/specs/2026-04-15-test-race-remediation.md) for the full rationale.

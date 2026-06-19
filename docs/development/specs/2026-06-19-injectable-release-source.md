@@ -2,7 +2,7 @@
 title: "Injectable Release Source — a parallel-safe DI seam and reusable test double for self-update"
 description: "Add a dependency-injected release.Provider seam (setup.WithReleaseProvider + an optional props.Tool.ReleaseProvider field preferred over the global registry), a public pkg/vcs/release/releasetest test double, and a mockery mock — so unit, integration, and E2E self-update tests share one coherent, network-free release source instead of three hand-rolled fakes and a registry-mutation footgun."
 date: 2026-06-19
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - update
@@ -27,7 +27,7 @@ Date
 :   19 June 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
@@ -279,17 +279,20 @@ change.
    `go run ./cmd/gtb generate project -p tmp && go build ./...` smoke must be
    re-run to confirm the scaffolded tree still builds against the updated
    `pkg/props`.
-2. **Adopted (the user's "update generated code" ask):** scaffold a hermetic
-   self-update test into generated tools using `releasetest`, mirroring how
-   signing scaffolds `internal/trustkeys`. Concretely, emit a `*_release_test.go`
-   (or extend the generated `main_test.go`) that constructs a
-   `releasetest.New(...)`, sets `Tool.ReleaseProvider`, and asserts an
-   already-latest no-op — proving the tool's update wiring works without network.
-   **Emission is gated on the generated tool having `UpdateCmd` enabled** (OQ2 →
-   option C): the test appears exactly when the tool actually has self-update and
-   is absent otherwise, with no new generator flag — the same pattern as
-   signing's conditional `internal/trustkeys` scaffold. This gives every
-   update-capable downstream tool a working example of the seam.
+2. **Revised during implementation → documentation, not auto-scaffold.** OQ2
+   originally resolved to "always emit a hermetic self-update test into every
+   `UpdateCmd`-enabled tool" (option C). Implementation surfaced that generated
+   tools ship **no** `*_test.go` today (no scaffold precedent), and that a test
+   robust enough to compile across every tool can lean only on framework
+   packages — making it near-static, while binding a golden template test to the
+   `releasetest`/`NewUpdater` API for *all* generated tools (the maintenance cost
+   this section flagged). The value (a worked example in-tree) is modest against
+   that ongoing cost, so the agreed deliverable was **downgraded to a docs
+   example**: a section in `docs/components/vcs/release.md` showing tool authors
+   how to test their self-update hermetically with `releasetest` +
+   `Tool.ReleaseProvider`, with the framework's own `pkg/setup/update_e2e_test.go`
+   and the `features/cli/update.feature` BDD as the worked references. No new
+   generated-code surface, no golden-template churn.
 3. **Docs:** `docs/components/` for the update/release subsystem and any
    generator docs that enumerate scaffolded files must reflect (2) if adopted.
 
@@ -407,8 +410,10 @@ A new step is needed to pass per-scenario env into the subprocess
 3. **E2E wiring + Phase 9 scenarios.** Env-gated `Tool.ReleaseProvider` in
    `cmd/e2e`, deterministic version, per-scenario env step, `update.feature`
    abort-before-replace scenarios; correct the `cmd/e2e` doc-comment.
-4. **Generator.** Compatibility re-verification; optional scaffolded self-update
-   test using `releasetest`; docs.
+4. **Generator.** Compatibility re-verification (generate a project and build it
+   against the new `pkg/props`); a `docs/components/vcs/release.md` section on
+   testing self-update hermetically with `releasetest`. (The auto-scaffolded test
+   of OQ2→C was downgraded to docs — see Generator Impact 2.)
 
 ## Open Questions
 
@@ -422,9 +427,12 @@ All resolved at approval (2026-06-19); recorded here for provenance.
    its own auth; the gate is an implementation detail of the registry path.
    Verified no downstream relies on it as a side effect.
 3. ~~Scaffolded downstream self-update test: always vs. opt-in~~ — **Resolved →
-   C**: **always emit**, but **gated on the generated tool having `UpdateCmd`
-   enabled** (no new generator flag). Absent for update-disabled tools; mirrors
-   signing's conditional `internal/trustkeys` scaffold.
+   C at approval, then revised during implementation → docs example.** C (always
+   emit, gated on `UpdateCmd`) was agreed, but implementation found generated
+   tools have no test-scaffold precedent and a portable test would be near-static
+   while adding golden-template maintenance for every tool. The deliverable was
+   downgraded to a documentation example in `docs/components/vcs/release.md`
+   (see Generator Impact 2). No auto-scaffolded test ships.
 4. ~~Unified not-found sentinel vs. local~~ — **Resolved → A**: introduce
    `release.ErrReleaseNotFound` now and require the **double** to use it; aligning
    the real github/gitlab/gitea/direct providers behind the sentinel is a tracked
