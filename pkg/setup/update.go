@@ -245,6 +245,16 @@ func WithExecLookPath(fn func(string) (string, error)) UpdaterOption {
 	return func(s *SelfUpdater) { s.execLookPath = fn }
 }
 
+// WithReleaseProvider injects the [release.Provider] the SelfUpdater uses,
+// bypassing the ReleaseSource.Type registry lookup (and, with it, the
+// private-repository token gate that precedes the lookup — an injected
+// provider is self-contained and owns its own auth). Parallel-safe: each call
+// site receives its own provider, with no global registry mutation. Takes
+// precedence over a props.Tool.ReleaseProvider field.
+func WithReleaseProvider(p release.Provider) UpdaterOption {
+	return func(s *SelfUpdater) { s.releaseClient = p }
+}
+
 // NewOfflineUpdater creates a SelfUpdater configured for file-based updates
 // that do not require a VCS client or network access.
 func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...UpdaterOption) *SelfUpdater {
@@ -274,34 +284,11 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		return nil, errors.New("configuration is not loaded")
 	}
 
-	vcsProvider, _, _ := p.Tool.GetReleaseSource()
-	if p.Config.IsSet("vcs.provider") {
-		vcsProvider = strings.ToLower(p.Config.GetString("vcs.provider"))
-	}
-
-	if p.Tool.ReleaseSource.Private {
-		if err := requireReleaseToken(ctx, vcsProvider, p); err != nil {
-			return nil, err
-		}
-	}
-
-	factory, err := release.Lookup(vcsProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	sourceCfg := release.ReleaseSourceConfig{
-		Type:    p.Tool.ReleaseSource.Type,
-		Host:    p.Tool.ReleaseSource.Host,
-		Owner:   p.Tool.ReleaseSource.Owner,
-		Repo:    p.Tool.ReleaseSource.Repo,
-		Private: p.Tool.ReleaseSource.Private,
-		Params:  p.Tool.ReleaseSource.Params,
-	}
-
-	releaseClient, err := factory(sourceCfg, p.Config)
-	if err != nil {
-		return nil, errors.WithStack(err)
+	// Version may be unset in tests that only exercise release-client
+	// resolution; guard rather than dereference a nil provider.
+	currentVersion := ""
+	if p.Version != nil {
+		currentVersion = ver.FormatVersionString(p.Version.GetVersion(), true)
 	}
 
 	s := &SelfUpdater{
@@ -309,8 +296,7 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		version:                   version,
 		logger:                    p.Logger,
 		Tool:                      p.Tool,
-		releaseClient:             releaseClient,
-		CurrentVersion:            ver.FormatVersionString(p.Version.GetVersion(), true),
+		CurrentVersion:            currentVersion,
 		Fs:                        p.FS,
 		osExecutable:              os.Executable,
 		execLookPath:              exec.LookPath,
@@ -330,8 +316,15 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		embeddedKeys: p.Tool.Signing.EmbeddedKeys,
 	}
 
+	// Options are applied before the release client is resolved so
+	// WithReleaseProvider can supply s.releaseClient and short-circuit the
+	// registry lookup (and its private-repo token gate).
 	for _, o := range opts {
 		o(s)
+	}
+
+	if err := resolveReleaseClient(ctx, p, s); err != nil {
+		return nil, err
 	}
 
 	if err := s.buildDefaultKeyResolver(); err != nil {
@@ -339,6 +332,57 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 	}
 
 	return s, nil
+}
+
+// resolveReleaseClient fills s.releaseClient using the precedence: an injected
+// provider (WithReleaseProvider, already applied) → props.Tool.ReleaseProvider
+// → the ReleaseSource.Type registry lookup. The registry path is the only one
+// that enforces the private-repository token gate; an injected provider is
+// self-contained.
+func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) error {
+	if s.releaseClient != nil {
+		return nil
+	}
+
+	if p.Tool.ReleaseProvider != nil {
+		s.releaseClient = p.Tool.ReleaseProvider
+
+		return nil
+	}
+
+	vcsProvider, _, _ := p.Tool.GetReleaseSource()
+	if p.Config.IsSet("vcs.provider") {
+		vcsProvider = strings.ToLower(p.Config.GetString("vcs.provider"))
+	}
+
+	if p.Tool.ReleaseSource.Private {
+		if err := requireReleaseToken(ctx, vcsProvider, p); err != nil {
+			return err
+		}
+	}
+
+	factory, err := release.Lookup(vcsProvider)
+	if err != nil {
+		return err
+	}
+
+	sourceCfg := release.ReleaseSourceConfig{
+		Type:    p.Tool.ReleaseSource.Type,
+		Host:    p.Tool.ReleaseSource.Host,
+		Owner:   p.Tool.ReleaseSource.Owner,
+		Repo:    p.Tool.ReleaseSource.Repo,
+		Private: p.Tool.ReleaseSource.Private,
+		Params:  p.Tool.ReleaseSource.Params,
+	}
+
+	releaseClient, err := factory(sourceCfg, p.Config)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	s.releaseClient = releaseClient
+
+	return nil
 }
 
 // buildDefaultKeyResolver constructs keyResolver from the resolved

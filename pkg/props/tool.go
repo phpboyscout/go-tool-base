@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // FeatureCmd identifies a built-in feature that can be enabled or disabled.
@@ -130,6 +131,15 @@ type Tool struct {
 
 	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
+
+	// ReleaseProvider, when non-nil, is the release backend the self-update
+	// subsystem uses, taking precedence over ReleaseSource.Type registry
+	// lookup. It is a runtime-only dependency-injection seam — for tests
+	// (see pkg/vcs/release/releasetest) and custom/embedded providers — and is
+	// never serialised. Production tools leave it nil and are resolved from the
+	// release registry by ReleaseSource.Type as before. An explicit
+	// setup.WithReleaseProvider option takes precedence over this field.
+	ReleaseProvider release.Provider `json:"-" yaml:"-"`
 
 	// UpdatePolicy is the tool author's baseline self-update posture
 	// (disabled / prompt / enabled). The zero value normalises to

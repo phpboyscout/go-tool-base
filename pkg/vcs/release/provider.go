@@ -20,6 +20,13 @@ var (
 	// version_url nor pinned_version is configured and a version check is
 	// requested.
 	ErrVersionUnknown = errors.New("cannot determine latest version: configure version_url or pinned_version in Params")
+
+	// ErrReleaseNotFound is returned when a requested release — by tag, or the
+	// latest — does not exist. The releasetest double returns it; aligning the
+	// production github/gitlab/gitea/direct providers behind this sentinel is a
+	// tracked follow-up to the injectable-release-source spec
+	// (docs/development/specs/2026-06-19-injectable-release-source.md).
+	ErrReleaseNotFound = errors.New("release not found")
 )
 
 // Release defines the common abstraction for a software release.
