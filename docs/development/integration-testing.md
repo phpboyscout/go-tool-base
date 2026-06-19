@@ -113,8 +113,8 @@ The `.env` file is loaded automatically by `just` via `dotenv-load`. You can als
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `integration_test.go` | HTTP and gRPC servers on separate ports | Local network (localhost) |
-| `shutdown_test.go` | Graceful shutdown via signals, context cancellation, and timeout | Local network, OS signals |
+| `controls_integration_test.go` | HTTP and gRPC servers on separate ports | Local network (localhost) |
+| `shutdown_integration_test.go` | Graceful shutdown via signals, context cancellation, and timeout | Local network, OS signals |
 | `server_integration_test.go` | Health endpoints, middleware bypass, custom health checks, gRPC probes, interceptors, graceful shutdown, app handlers | Local network |
 
 These tests require **no external credentials** — only local network access.
@@ -123,7 +123,7 @@ These tests require **no external credentials** — only local network access.
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `integration_test.go` | Multi-source merge, env var overrides, deep nesting, embedded config, dotenv loading, schema validation | Filesystem |
+| `config_integration_test.go` | Multi-source merge, env var overrides, deep nesting, embedded config, dotenv loading, schema validation | Filesystem |
 
 ### `pkg/errorhandling/` — Error Propagation
 
@@ -135,7 +135,7 @@ These tests require **no external credentials** — only local network access.
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `integration_test.go` | Command registration based on feature flags, tool metadata propagation | None |
+| `root_integration_test.go` | Command registration based on feature flags, tool metadata propagation | None |
 
 ### `pkg/setup/` — Init Flow
 
@@ -151,9 +151,13 @@ These tests require **no external credentials** — only local network access.
 
 ### `pkg/vcs/github/` — GitHub API
 
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `client_integration_test.go` | PR lookup by branch, label management | Network access to GitHub API, `GITHUB_TOKEN` |
+!!! warning "Not yet implemented"
+    The previous `client_integration_test.go` was removed — it hardcoded a fake
+    `GITHUB_TOKEN`, so it could never authenticate, and the archived GitHub
+    mirror rejects writes after the GitLab migration. A real GitHub (and GitLab)
+    VCS integration suite is specified as ready-to-pick-up follow-up work in
+    [`plans/2026-06-19-integration-test-followup.md`](plans/2026-06-19-integration-test-followup.md);
+    it needs a token (`repo` scope) and a throwaway test repo.
 
 ### `pkg/vcs/bitbucket/` — Bitbucket Downloads
 
