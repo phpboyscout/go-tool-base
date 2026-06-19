@@ -33,7 +33,10 @@ func TestInitialiser_Name(t *testing.T) {
 // asserts the default mode is seeded to env-var when unset, and that a
 // pre-set mode is preserved.
 func TestDefaultStorageModeForm(t *testing.T) {
-	t.Parallel()
+	// CI runners set CI=true, which drops the literal option (refused under CI)
+	// from the select; huh then resets a bound literal value off the missing
+	// option. Force non-CI so the existing-mode preservation is deterministic.
+	t.Setenv("CI", "")
 
 	cfg := &BitbucketConfig{}
 	form := defaultStorageModeForm(cfg)

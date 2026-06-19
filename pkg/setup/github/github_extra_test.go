@@ -59,7 +59,11 @@ func TestDefaultStorageModeForm(t *testing.T) {
 }
 
 func TestDefaultStorageModeForm_PreservesExistingMode(t *testing.T) {
-	t.Parallel()
+	// CI runners set CI=true, which drops the literal option (refused under CI)
+	// from the select; huh then resets the bound value off the missing option.
+	// Force non-CI so the existing-mode preservation is deterministic.
+	t.Setenv("CI", "")
+
 	cfg := &GitHubAuthConfig{StorageMode: credentials.ModeLiteral}
 	form := defaultStorageModeForm(cfg)
 	require.NotNil(t, form)
