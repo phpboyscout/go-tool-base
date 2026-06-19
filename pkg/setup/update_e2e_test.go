@@ -1,40 +1,28 @@
 package setup
 
 import (
-	"fmt"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release/releasetest"
 )
 
 // These exercise the full Update() pipeline (download → checksum →
 // signature → extract → replace) with verification ENABLED, on an in-memory
-// filesystem and the local fake release provider — no network. The constituent
-// verifiers are unit-tested elsewhere; these guard that Update() actually wires
-// them in and aborts (without replacing the binary) when verification fails.
+// filesystem and the shared release.Provider test double — no network. The
+// constituent verifiers are unit-tested elsewhere; these guard that Update()
+// actually wires them in and aborts (without replacing the binary) when
+// verification fails. They double as the worked example for driving the real
+// pipeline from pkg/vcs/release/releasetest.
 
 const e2eToolName = "testtool"
-
-// e2eAssetName mirrors findReleaseAsset's OS/arch naming so the served asset is
-// the one Update will look for.
-func e2eAssetName() string {
-	arch := runtime.GOARCH
-	if arch == "amd64" {
-		arch = "x86_64"
-	}
-
-	return fmt.Sprintf("%s_%s_%s.tar.gz", e2eToolName, cases.Title(language.Und).String(runtime.GOOS), arch)
-}
 
 // newE2EUpdater builds a SelfUpdater wired for a full Update over memfs: the
 // current binary already exists and os/exec resolution points at it.
@@ -63,18 +51,9 @@ func newE2EUpdater(t *testing.T, provider release.Provider) (*SelfUpdater, strin
 func TestUpdate_VerifiesChecksum_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	asset := e2eAssetName()
-	tarGz := createTarGz(t, e2eToolName, "new-binary")
-
-	provider := &fakeProvider{
-		rel: &fakeRelease{name: "v1.1.0", assets: []release.ReleaseAsset{
-			&fakeAsset{name: asset}, &fakeAsset{name: "checksums.txt"},
-		}},
-		assetBodies: map[string][]byte{
-			asset:           tarGz,
-			"checksums.txt": manifestFor(asset, tarGz),
-		},
-	}
+	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
+		asset, releasetest.ChecksumsAsset(false, asset)))
 
 	s, currentBin := newE2EUpdater(t, provider)
 	s.requireChecksum = true
@@ -91,19 +70,10 @@ func TestUpdate_VerifiesChecksum_HappyPath(t *testing.T) {
 func TestUpdate_AbortsOnChecksumMismatch(t *testing.T) {
 	t.Parallel()
 
-	asset := e2eAssetName()
-	tarGz := createTarGz(t, e2eToolName, "new-binary")
-
-	provider := &fakeProvider{
-		rel: &fakeRelease{name: "v1.1.0", assets: []release.ReleaseAsset{
-			&fakeAsset{name: asset}, &fakeAsset{name: "checksums.txt"},
-		}},
-		assetBodies: map[string][]byte{
-			asset: tarGz,
-			// Manifest hashes a different payload → mismatch.
-			"checksums.txt": manifestFor(asset, []byte("not-the-downloaded-binary")),
-		},
-	}
+	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	// Corrupt manifest hashes a different payload than the served asset → mismatch.
+	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
+		asset, releasetest.ChecksumsAsset(true, asset)))
 
 	s, currentBin := newE2EUpdater(t, provider)
 	s.requireChecksum = true
@@ -120,21 +90,14 @@ func TestUpdate_VerifiesSignedChecksum_HappyPath(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	asset := e2eAssetName()
-	tarGz := createTarGz(t, e2eToolName, "new-binary")
-	manifest := manifestFor(asset, tarGz)
-	sig := detachSign(t, testEd25519.entity, manifest)
+	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	manifest := releasetest.Manifest(false, asset)
 
-	provider := &fakeProvider{
-		rel: &fakeRelease{name: "v1.1.0", assets: []release.ReleaseAsset{
-			&fakeAsset{name: asset}, &fakeAsset{name: "checksums.txt"}, &fakeAsset{name: "checksums.txt.sig"},
-		}},
-		assetBodies: map[string][]byte{
-			asset:               tarGz,
-			"checksums.txt":     manifest,
-			"checksums.txt.sig": sig,
-		},
-	}
+	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
+		asset,
+		releasetest.Asset{Name: "checksums.txt", Body: manifest},
+		releasetest.SignatureAsset(testEd25519.entity, manifest, false),
+	))
 
 	s, currentBin := newE2EUpdater(t, provider)
 	s.requireChecksum = true
@@ -156,23 +119,16 @@ func TestUpdate_AbortsOnBadSignature(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	asset := e2eAssetName()
-	tarGz := createTarGz(t, e2eToolName, "new-binary")
-	manifest := manifestFor(asset, tarGz)
-	// Signature is over a DIFFERENT manifest, so it will not verify against the
-	// one actually served.
-	badSig := detachSign(t, testEd25519.entity, []byte("a different manifest entirely\n"))
+	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	manifest := releasetest.Manifest(false, asset)
 
-	provider := &fakeProvider{
-		rel: &fakeRelease{name: "v1.1.0", assets: []release.ReleaseAsset{
-			&fakeAsset{name: asset}, &fakeAsset{name: "checksums.txt"}, &fakeAsset{name: "checksums.txt.sig"},
-		}},
-		assetBodies: map[string][]byte{
-			asset:               tarGz,
-			"checksums.txt":     manifest,
-			"checksums.txt.sig": badSig,
-		},
-	}
+	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
+		asset,
+		releasetest.Asset{Name: "checksums.txt", Body: manifest},
+		// Signature over a different payload, so it will not verify against the
+		// served manifest.
+		releasetest.SignatureAsset(testEd25519.entity, manifest, true),
+	))
 
 	s, currentBin := newE2EUpdater(t, provider)
 	s.requireChecksum = true

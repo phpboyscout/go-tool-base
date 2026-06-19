@@ -43,10 +43,14 @@ dependency-injected seam to supply a provider directly. As a result:
    Tests that mutate it cannot run under `t.Parallel()`, which directly
    contradicts the project rule that bans package-level mocking hooks (see
    `docs/how-to/testing.md` and CLAUDE.md § Testing).
-2. **The same fake is hand-rolled three times.** `pkg/setup/update_e2e_test.go`,
-   `pkg/setup/update_checksum_test.go`, and `pkg/setup/update_signature_test.go`
-   each define their own `fakeProvider` / `fakeRelease` / `fakeAsset` trio. There
-   is **no** mockery mock for `release.Provider` at all.
+2. **No reusable double exists.** The `pkg/setup` tests share a single local
+   `fakeProvider` / `fakeRelease` / `fakeAsset` trio (defined in
+   `update_checksum_test.go`). It is package-private, so neither downstream tools
+   nor the e2e binary can reach it, and the full-pipeline `update_e2e_test.go`
+   builds releases by hand (`createTarGz` + `manifestFor`). *(Correction during
+   implementation: the trio is defined once and shared, not "hand-rolled three
+   times" as an earlier draft of this spec claimed — so the consolidation win is
+   smaller than first stated; see the trimmed Phase 2 below.)*
 3. **The E2E binary's "stub release source" is a lie.** `cmd/e2e/main.go`'s
    doc-comment claims it "uses a stub release source so update/init flows never
    reach the network", but it actually configures a live GitLab source. The
@@ -76,9 +80,13 @@ coherence of the already-completed Phase 6 (self-update Go-level e2e).
 - A **public, reusable** test double (`pkg/vcs/release/releasetest`) that serves
   releases and assets entirely in memory, including the security-relevant
   variants: corrupt checksum and bad/missing signature.
-- **Collapse** the three hand-rolled fakes onto the shared double. (A mockery
-  `release.Provider` mock already exists for expectation-style unit tests; no new
-  mock work is needed.)
+- **Adopt** the public double in the full-pipeline `update_e2e_test.go` (proving
+  it drives the real `Update()` end-to-end and giving Phase 3's BDD its
+  reference). The white-box checksum/signature flow tests keep their
+  purpose-built local fakes — they assert provider-internal state (a manifest
+  call-counter, injected errors) that does not belong on a clean public double,
+  and the trio is defined once, not duplicated. (A mockery `release.Provider`
+  mock already exists; no new mock work is needed.)
 - Make the **generator** and **generated tools** correct and benefit from the
   seam (downstream tools get a hermetic self-update test out of the box).
 - **Backwards compatible**: no behavioural change when nothing is injected.
@@ -317,9 +325,10 @@ from the contracts above.
   registry); injected provider skips registry `Lookup` and the
   `requireReleaseToken` gate; `WithReleaseProvider` is parallel-safe (two
   concurrent updaters with different doubles don't interfere).
-- **Refactor** `update_e2e_test.go`, `update_checksum_test.go`,
-  `update_signature_test.go` onto `releasetest`, deleting the three hand-rolled
-  fake trios. These existing tests are the regression net for the refactor — they
+- **Refactor** `update_e2e_test.go` onto `releasetest` (the clean, full-pipeline
+  cases), keeping the white-box `update_checksum_test.go` /
+  `update_signature_test.go` fakes in place (single definition; they need
+  provider-internal hooks). These existing tests are the regression net — they
   must stay green with identical assertions.
 - **Mock** smoke: a trivial expectation-style test using
   `mocks/pkg/vcs/release/Provider` to prove the generated mock is usable.
@@ -392,8 +401,9 @@ A new step is needed to pass per-scenario env into the subprocess
    `NewUpdater` precedence; `release.ErrReleaseNotFound`;
    `pkg/vcs/release/releasetest`. TDD: seam precedence tests + double self-tests
    first. (The `release.Provider` mock already exists — no mock work.)
-2. **Refactor existing fakes.** Move the three `pkg/setup` test files onto
-   `releasetest`; delete the hand-rolled trios; keep assertions identical.
+2. **Adopt the double in `update_e2e_test.go`.** Refactor the full-pipeline
+   `Update()` tests onto `releasetest`; keep the white-box checksum/signature
+   fakes (single definition, provider-internal hooks); keep assertions identical.
 3. **E2E wiring + Phase 9 scenarios.** Env-gated `Tool.ReleaseProvider` in
    `cmd/e2e`, deterministic version, per-scenario env step, `update.feature`
    abort-before-replace scenarios; correct the `cmd/e2e` doc-comment.
