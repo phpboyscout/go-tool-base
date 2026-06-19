@@ -47,6 +47,8 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_CONFIG=1` | Enables only tests tagged `"config"` |
 | `INT_TEST_CONTROLS=1` | Enables only tests tagged `"controls"` |
 | `INT_TEST_GENERATOR=1` | Enables only tests tagged `"generator"` |
+| `INT_TEST_GENERATOR_BUILD=1` | Enables only tests tagged `"generator_build"` — the toolchain-backed generator tests that scaffold a project and run `go build`/`go test`/`golangci-lint` against it (also enabled by `INT_TEST_GENERATOR`) |
+| `INT_TEST_SIGNING=1` | Enables only tests tagged `"signing"` |
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
 | `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
@@ -179,16 +181,21 @@ Gate with `testutil.SkipIfNotIntegration(t, "gitea")` and enable with `INT_TEST_
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `parallel_integration_test.go` | Parallel tool execution across providers, concurrency limits | AI provider API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) |
-| `streaming_integration_test.go` | Streaming chat responses, event callback sequencing | AI provider API keys |
+| `parallel_integration_test.go` | Parallel tool execution across providers, concurrency limits | **None** — in-process mock config + registered fake providers (no network, no API keys) |
+| `streaming_integration_test.go` | Streaming chat responses, event callback sequencing | **None** — in-process mock config + registered fake providers (no network, no API keys) |
 
-Gate with `testutil.SkipIfNotIntegration(t, "chat")` and enable with `INT_TEST_CHAT=1`.
+Gate with `testutil.SkipIfNotIntegration(t, "chat")` and enable with `INT_TEST_CHAT=1`. These tests exercise the client/ReAct orchestration against in-process fakes; live-provider SSE/auth coverage (which would need real API keys) is a separate, deferred item.
 
 ### `internal/generator/` — Code Generation Pipeline
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `pipeline_integration_test.go` | Full lifecycle, deep hierarchy, manifest consistency, protection, command options, dry-run, manifest recovery, feature flags | Filesystem (in-memory) |
+| `compile_integration_test.go` | Scaffold a project and compile it (`go build`) | **Go toolchain** — tagged `"generator_build"` |
+| `signing_integration_test.go`, `signing_enable_integration_test.go` | Generate with signing enabled, then build/verify the scaffolded tree | **Go toolchain** — tagged `"generator_build"` |
+| `verifier/verifier_integration_test.go` | The post-generation verifier runs the real `go build`/`go test`/`golangci-lint` toolchain over a scaffold | **Go toolchain** (+ `golangci-lint` on PATH) — tagged `"generator_build"` |
+
+The `"generator_build"` tag marks the project's strongest real-dependency coverage — it actually compiles and lints the generated output. These tests also run under `INT_TEST_GENERATOR=1`; use `INT_TEST_GENERATOR_BUILD=1` to run only them.
 
 ### `test/e2e/` — E2E BDD Tests (Godog)
 
@@ -202,7 +209,7 @@ E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to ex
 | `features/cli/help.feature` | Root help lists commands, unknown command error | Binary compilation |
 | `features/cli/version.feature` | Text output, JSON output, help flag | Binary compilation |
 | `features/cli/doctor.feature` | Text diagnostic output, JSON structured report | Binary compilation |
-| `features/cli/update.feature` | Help/usage, semver validation, error paths | Binary compilation |
+| `features/cli/update.feature` | Help/usage, semver validation, and hermetic self-update outcomes (already-latest no-op, version-not-found, corrupt-checksum, bad-signature) via an in-memory stub release source (`GTB_E2E_RELEASE_SCENARIO`) | Binary compilation |
 | `features/cli/init.feature` | Non-interactive init, config merge, clean reset, JSON output | Binary compilation, filesystem |
 | `features/cli/config.feature` | Get/set/list/validate, sensitive masking, JSON output | Binary compilation, filesystem |
 | `features/cli/telemetry.feature` | Enable/disable/status/reset, consent withdrawal, machine ID | Binary compilation, filesystem |
