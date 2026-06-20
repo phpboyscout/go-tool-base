@@ -118,11 +118,11 @@ not by unit tests. Their low **unit** numbers are expected.
 | `internal/cmd/{disable,regenerate,remove,root}` | 0–low | `@generator` BDD |
 | `internal/generator/verifier` | 29.7 | `verifier_integration_test.go` (`generator_build`) |
 
-**Decision (Open Question 1):** these are **acceptable as E2E-covered** and join
-the exclusion list *for the unit policy*, on the condition that the `@generator`
-suite + `generator_build` integration remain green. Optionally, a thin unit pass
+**Decision (Open Question 1 → A, resolved):** these are **accepted as E2E-covered**
+and join the exclusion list *for the unit policy*, on the condition that the
+`@generator` suite + `generator_build` integration remain green. A thin unit pass
 over the pure flag/arg-parsing and error branches of `internal/cmd/generate` and
-`internal/cmd/enable` would be cheap and is noted under Phase 3 as a nice-to-have.
+`internal/cmd/enable` is a no-cost bonus only if it falls out naturally (Phase 3).
 
 ## Bucket C — Addressable hermetic gaps (the real work)
 
@@ -166,9 +166,11 @@ targets.
 3. **Larger lifts** — `pkg/gateway` (38-pt gap), `pkg/utils`, `internal/agent`,
    and the non-AST `internal/generator` helpers. Optionally the thin
    `internal/cmd/generate`/`enable` unit pass (Bucket B nice-to-have).
-4. **Codify the policy** — add the Bucket A/B exclusion list (and the countable-
-   set definition) to `docs/about/api-stability.md` / the contributor guide and,
-   if desired, a CI advisory that flags any sub-90 package not on the list.
+4. **Codify the policy** — publish the Bucket A/B exclusion list and the
+   countable-set definition as a **machine-readable** manifest (e.g.
+   `.coverage-policy.yaml`) plus a contributor-guide reference, and add the
+   **non-blocking CI advisory** job (OQ2 → A) that flags any sub-90 package not on
+   the list, mirroring `apidiff`'s `allow_failure: true` pattern.
 
 Each phase is one or more MRs, sized like the Phase-10 slices.
 
@@ -179,14 +181,20 @@ publishing the exclusion list — a documentation/process change, not a code one
 
 ## Open Questions
 
-1. Are the Bucket B generator CLI packages **accepted as E2E-covered** for the
-   unit policy (proposed: yes, conditional on the `@generator` + `generator_build`
-   suites staying green), or do we want the cheap unit pass over their
-   flag-parsing/error branches too? *(Proposed: accept as E2E-covered; do the
-   unit pass only if it falls out cheaply.)*
-2. Should a CI job **advisory-flag** sub-90 packages not on the exclusion list
-   (like the `apidiff` advisory), or stay manual? *(Proposed: advisory,
-   non-blocking, mirroring `apidiff`.)*
-3. Is `internal/generator`'s file-emission genuinely E2E-only, or is there a
-   worthwhile seam to unit-test the manifest/merge logic in isolation?
-   *(Proposed: unit-test the pure helpers; leave emission to `generator_build`.)*
+All resolved at review (2026-06-20); recorded here for provenance.
+
+1. ~~Bucket B generator CLI: accept as E2E-covered, or add a unit pass?~~ —
+   **Resolved → A**: **accept as E2E-covered** for the unit policy (they are thin
+   wiring; the security-relevant validation/escaping lives in `internal/generator`,
+   which Bucket C covers), conditional on the `@generator` + `generator_build`
+   suites staying green. A cheap unit pass over `generate`/`enable`
+   flag-parsing/error branches is a no-cost bonus only if it falls out naturally.
+2. ~~CI advisory for sub-90 packages not on the exclusion list?~~ — **Resolved →
+   A**: **add a non-blocking advisory job** (Phase 4), mirroring the `apidiff`
+   advisory (`allow_failure: true`) so it never gates merges or flakes the
+   pipeline. Requires a machine-readable exclusion list shared by the job and this
+   spec.
+3. ~~`internal/generator`: unit-test the pure helpers or also emission?~~ —
+   **Resolved → A**: **unit-test the deterministic manifest/merge/validation
+   helpers**; leave file-emission to `generator_build` (which compiles the
+   scaffold — a stronger check than asserting emitted strings).
