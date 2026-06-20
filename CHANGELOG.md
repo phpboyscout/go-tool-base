@@ -1,5 +1,16 @@
 # Changelog
 
+## [v0.21.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.21.0)
+
+### Features
+
+- **cmd**: expose MCP gating via generate flag and enable/disable mcp
+- **generator**: thread MCP exposure through manifest, template, and regen
+- **root**: gate MCP tool surface via exposure selector
+- **setup**: add MCP exposure markers and resolver
+- **bitbucket**: thread FormOption through init entry points
+- **release**: injectable release source + releasetest double
+
 ## [v0.20.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.20.0)
 
 ### Features
