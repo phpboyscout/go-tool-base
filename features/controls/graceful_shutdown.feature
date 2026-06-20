@@ -28,6 +28,17 @@ Feature: Graceful Shutdown
     Then the controller reaches "stopped" state within 10 seconds
     And the in-flight request completed successfully
 
+  Scenario: A service that overruns the shutdown timeout is force-stopped
+    Given a controller with OS signal handling and 1 second shutdown timeout
+    And an HTTP server registered on a free port
+    And a gRPC server registered on a free port
+    And a service "slow-stop" that blocks shutdown for 5 seconds
+    When the controller starts
+    And the HTTP server is healthy
+    And the controller receives SIGINT
+    Then the controller reaches "stopped" state within 3 seconds
+    And the logs contain "Stopped"
+
   Scenario: SIGINT during startup still shuts down cleanly
     Given a controller with OS signal handling
     And an HTTP server registered on a free port

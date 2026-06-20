@@ -55,3 +55,8 @@ Feature: CLI Init Command
     And stdout contains "--skip-key"
     And stdout contains "--clean"
     And stdout contains "--dir"
+
+  Scenario: Non-interactive init skips every credential wizard including Bitbucket
+    When I run gtb with "init --skip-login --skip-key --skip-ai --skip-bitbucket --skip-telemetry --dir {init_dir}"
+    Then the exit code is 0
+    And the file "config.yaml" exists in the init directory

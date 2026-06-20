@@ -57,3 +57,4 @@ CHANGELOG.md
 
 # Cloudflare wrangler local cache
 .wrangler/
+!cmd/e2e/assets/CHANGELOG.md

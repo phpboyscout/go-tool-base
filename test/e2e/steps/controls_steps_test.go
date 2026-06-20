@@ -50,6 +50,7 @@ func initControlsSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a gRPC server registered on a free port$`, aGRPCServerRegistered)
 	ctx.Step(`^the HTTP server has a slow handler "([^"]*)" that takes (\d+) seconds$`, theHTTPServerHasSlowHandler)
 	ctx.Step(`^a service "([^"]*)" that takes (\d+)ms to start$`, aServiceThatTakesToStart)
+	ctx.Step(`^a service "([^"]*)" that blocks shutdown for (\d+) seconds$`, aServiceThatBlocksStopFor)
 	ctx.Step(`^a health check "([^"]*)" of type "([^"]*)" that returns healthy$`, aHealthCheckReturnsHealthy)
 	ctx.Step(`^a health check "([^"]*)" of type "([^"]*)" that returns unhealthy with "([^"]*)"$`, aHealthCheckReturnsUnhealthy)
 	ctx.Step(`^a health check "([^"]*)" of type "([^"]*)" that returns degraded with "([^"]*)"$`, aHealthCheckReturnsDegraded)
@@ -223,6 +224,27 @@ func aServiceThatTakesToStart(ctx context.Context, name string, millis int) cont
 			return nil
 		}),
 		controls.WithStop(func(_ context.Context) { cntrs.Stopped.Add(1) }),
+	)
+
+	return ctx
+}
+
+// aServiceThatBlocksStopFor registers a service whose Stop deliberately ignores
+// the shutdown context and blocks for the given duration. It is used to prove
+// the controller force-abandons a service that overruns the shutdown timeout
+// rather than hanging: cntrs.Stopped is incremented only AFTER the block, so a
+// controller that reaches Stopped before the block elapses did not wait for it.
+func aServiceThatBlocksStopFor(ctx context.Context, name string, seconds int) context.Context {
+	w := getWorld(ctx)
+	cntrs := &support.StateCounters{}
+	w.Counters[name] = cntrs
+
+	w.Controller.Register(name,
+		controls.WithStart(func(_ context.Context) error { cntrs.Started.Add(1); return nil }),
+		controls.WithStop(func(_ context.Context) {
+			time.Sleep(time.Duration(seconds) * time.Second)
+			cntrs.Stopped.Add(1)
+		}),
 	)
 
 	return ctx
