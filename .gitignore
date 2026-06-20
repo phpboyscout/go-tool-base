@@ -33,6 +33,7 @@ bin/*
 site/*
 /gtb
 /e2e
+/mcp-tools.json
 internal/cmd/root/assets/docs
 tmp*
  .env*

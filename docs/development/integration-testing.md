@@ -156,8 +156,8 @@ These tests require **no external credentials** — only local network access.
     `GITHUB_TOKEN`, so it could never authenticate, and the archived GitHub
     mirror rejects writes after the GitLab migration. A real GitHub (and GitLab)
     VCS integration suite is specified as ready-to-pick-up follow-up work in
-    [`plans/2026-06-19-integration-test-followup.md`](plans/2026-06-19-integration-test-followup.md);
-    it needs a token (`repo` scope) and a throwaway test repo.
+    [`specs/2026-06-20-desktop-gated-integration-tests.md`](specs/2026-06-20-desktop-gated-integration-tests.md)
+    (Work Item 1); it needs a token (`repo` scope) and a throwaway test repo.
 
 ### `pkg/vcs/bitbucket/` — Bitbucket Downloads
 
