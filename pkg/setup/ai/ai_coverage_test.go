@@ -23,14 +23,16 @@ import (
 // init() body only runs at import time; calling the closures here
 // covers the provider/subcommand/feature-flag bodies.
 func TestRegisteredProviders(t *testing.T) {
-	t.Parallel()
-
+	// NOT t.Parallel(), and the sub-tests below are serial too: the registered
+	// AI closures both READ the package-level skipAI flag (InitialiserProvider)
+	// and WRITE it (FeatureFlag binds &skipAI via pflag.BoolVarP). Running the
+	// read and write sub-tests concurrently is a data race on process-global
+	// flag state — exactly the pattern CLAUDE.md's "no package-level mocking
+	// hooks" guidance forbids under t.Parallel(). Keep them sequential.
 	props := newTestProps(t)
 	props.Assets = p.NewAssets()
 
 	t.Run("initialiser provider returns AIInitialiser when not skipped", func(t *testing.T) {
-		t.Parallel()
-
 		ips := setup.GetInitialisers()[p.AiCmd]
 		require.NotEmpty(t, ips, "AI initialiser provider must be registered")
 
@@ -48,8 +50,6 @@ func TestRegisteredProviders(t *testing.T) {
 	})
 
 	t.Run("subcommand provider yields the init ai command", func(t *testing.T) {
-		t.Parallel()
-
 		sps := setup.GetSubcommands()[p.AiCmd]
 		require.NotEmpty(t, sps, "AI subcommand provider must be registered")
 
@@ -66,8 +66,6 @@ func TestRegisteredProviders(t *testing.T) {
 	})
 
 	t.Run("feature flag registers --skip-ai", func(t *testing.T) {
-		t.Parallel()
-
 		fps := setup.GetFeatureFlags()[p.AiCmd]
 		require.NotEmpty(t, fps, "AI feature-flag provider must be registered")
 
