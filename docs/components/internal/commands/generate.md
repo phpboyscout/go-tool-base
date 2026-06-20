@@ -225,6 +225,9 @@ Examples:
   # Temporarily unprotect a command to allow overwrite
   gtb generate command -n sensible --protected=false --force
 
+  # Generate a command kept off the MCP tool surface (still runnable on the CLI)
+  gtb generate command -n post --mcp-enabled=false
+
 Usage:
   gtb generate command [flags]
   gtb generate command [command]
@@ -241,6 +244,7 @@ Flags:
       --force                Overwrite existing files
   -h, --help                 help for command
       --long string          Long description
+      --mcp-enabled          Expose this command as an MCP tool (tri-state: --mcp-enabled=false excludes it from the MCP surface, omitted for default-exposed). The command stays runnable on the CLI either way (default true)
   -n, --name string          Command name (kebab-case)
       --parent string        Parent command to nest under; use a slash path (parent/child) for deep nesting (default "root")
   -p, --path string          Filesystem project root directory (not a command path) (default ".")

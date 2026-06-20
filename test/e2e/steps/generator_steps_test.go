@@ -45,6 +45,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a gtb project with a "([^"]*)" command that has aliases, a required shorthand flag, and a pre-run hook$`,
 		aGTBProjectWithACommandWithMetadata)
 	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
+	ctx.Step(`^a gtb project with a "([^"]*)" command$`, aGTBProjectWithACommand)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
 	ctx.Step(`^the project exit code is not zero$`, theProjectExitCodeIsNotZero)
@@ -180,6 +181,74 @@ func aFreshlyGeneratedGTBProject(ctx context.Context) (context.Context, error) {
 	if err := cmd.Run(); err != nil {
 		return ctx, fmt.Errorf("generate project: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
 	}
+
+	return ctx, nil
+}
+
+// aGTBProjectWithACommand scaffolds a minimal-but-valid gtb project whose
+// manifest describes a single, plain command (no aliases/flags/hooks). It is
+// the lightweight fixture for MCP-exposure scenarios, which only need a command
+// to gate and re-render.
+func aGTBProjectWithACommand(ctx context.Context, command string) (context.Context, error) {
+	w := getGeneratorWorld(ctx)
+
+	dir, err := os.MkdirTemp("", "gtb-e2e-gen-*")
+	if err != nil {
+		return ctx, fmt.Errorf("create project dir: %w", err)
+	}
+
+	w.projectDir = dir
+
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"),
+		[]byte("module example.com/test-project\n\ngo 1.24\n"), 0o644); err != nil {
+		return ctx, fmt.Errorf("write go.mod: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(dir, "pkg", "cmd", "root"), 0o755); err != nil {
+		return ctx, fmt.Errorf("mkdir root: %w", err)
+	}
+
+	rootCmd := `package root
+
+import (
+	"github.com/spf13/cobra"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+)
+
+func NewCmdRoot(props *props.Props) *cobra.Command {
+	return &cobra.Command{Use: "test-project"}
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "pkg", "cmd", "root", "cmd.go"), []byte(rootCmd), 0o644); err != nil {
+		return ctx, fmt.Errorf("write root cmd.go: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(dir, ".gtb"), 0o755); err != nil {
+		return ctx, fmt.Errorf("mkdir .gtb: %w", err)
+	}
+
+	manifest := fmt.Sprintf(`properties:
+  name: test-project
+github:
+  org: test-org
+  repo: test-project
+version:
+  gtb: v0.0.0
+commands:
+- name: %s
+  description: Publish command
+`, command)
+
+	if err := os.WriteFile(filepath.Join(dir, ".gtb", "manifest.yaml"), []byte(manifest), 0o644); err != nil {
+		return ctx, fmt.Errorf("write manifest: %w", err)
+	}
+
+	path, err := support.GeneratorBinaryPath()
+	if err != nil {
+		return ctx, fmt.Errorf("build gtb binary: %w", err)
+	}
+
+	w.binaryPath = path
 
 	return ctx, nil
 }
