@@ -84,6 +84,7 @@ type Config struct {
 	PreRun               bool
 	Prompt               string
 	Protected            *bool
+	MCPEnabled           *bool // tri-state MCP exposure; mirrors Protected
 	ScriptPath           string
 	Short                string
 	UpdateDocs           bool
@@ -173,6 +174,52 @@ func (g *Generator) SetProtection(ctx context.Context, commandName string, prote
 	// Refactoring to use generic manifest update helpers would be ideal but for now let's implement the specific logic.
 
 	return g.updateProtectionInManifest(name, pathParts, protected)
+}
+
+// SetMCPEnabled records a command's MCP-exposure decision in the manifest and
+// re-renders that single command's cmd.go so the generated
+// setup.ExcludeFromMCP / setup.IncludeInMCP marker matches. It is the engine
+// behind `gtb enable mcp` (enabled=true) and `gtb disable mcp` (enabled=false).
+//
+// Unlike SetProtection (manifest-only), this changes generated code, so it
+// drives the targeted RegenerateCommand path. A protected command is refused
+// with ErrCommandProtected rather than silently overwritten — the operator must
+// unprotect it first.
+func (g *Generator) SetMCPEnabled(ctx context.Context, commandPath string, enabled bool) error {
+	pathParts := strings.Split(commandPath, "/")
+	name := pathParts[len(pathParts)-1]
+	parentPath := pathParts[:len(pathParts)-1]
+
+	manifestPath := ManifestPathFor(g.config.Path)
+
+	m, err := g.decodeManifestFile(manifestPath)
+	if err != nil {
+		return err
+	}
+
+	cmd := findCommandAt(m.Commands, parentPath, name)
+	if cmd == nil {
+		return errors.Newf("command %s not found in manifest", commandPath)
+	}
+
+	// Honour protection: never rewrite a protected command's cmd.go here.
+	if cmd.Protected != nil && *cmd.Protected {
+		return ErrCommandProtected
+	}
+
+	cmd.MCPEnabled = &enabled
+
+	// Persist the manifest up front, fatally: the regeneration below also
+	// re-writes the manifest (via the pipeline's updateManifest), but that
+	// write is advisory. Writing here first guarantees the decision is durable
+	// before we re-render cmd.go, so a write failure can't leave the generated
+	// code and the manifest disagreeing.
+	if err := g.marshalManifestFile(manifestPath, m); err != nil {
+		return err
+	}
+
+	// Re-render the single command so the marker reflects the new decision.
+	return g.RegenerateCommand(ctx, *cmd, parentPath)
 }
 
 func (g *Generator) updateProtectionInManifest(name string, pathParts []string, protected bool) error {

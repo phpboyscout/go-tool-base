@@ -14,6 +14,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/verifier"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // requestTimeout returns the configured per-request AI timeout override
@@ -325,6 +326,7 @@ func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.Command
 		HasSubcommands:           hasSubcommands,
 		WithInitializer:          g.config.WithInitializer,
 		WithConfigValidation:     g.config.WithConfigValidation,
+		MCPExposure:              setup.MCPExposureFromBool(g.config.MCPEnabled),
 	}
 
 	if cmd, err := g.findManifestCommand(); err == nil {

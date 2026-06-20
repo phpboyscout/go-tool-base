@@ -392,6 +392,33 @@ func (g *Generator) detectAssets(path string, f *dst.File, cmd *ManifestCommand)
 	}
 }
 
+// detectMCPMarker recognises a setup.ExcludeFromMCP(cmd) / setup.IncludeInMCP(cmd)
+// statement in the command constructor and records the corresponding mcp_enabled
+// value on cmd, so the MCP-exposure decision round-trips through
+// `regenerate manifest` (code → manifest). Returns true when call was a
+// recognised marker. Generated code always references the package as "setup".
+func detectMCPMarker(call *dst.CallExpr, cmd *ManifestCommand) bool {
+	funcName, pkgAlias := getCallInfo(call)
+	if pkgAlias != "setup" {
+		return false
+	}
+
+	switch funcName {
+	case "ExcludeFromMCP":
+		excluded := false
+		cmd.MCPEnabled = &excluded
+
+		return true
+	case "IncludeInMCP":
+		exposed := true
+		cmd.MCPEnabled = &exposed
+
+		return true
+	default:
+		return false
+	}
+}
+
 // detectInitializer sets cmd.WithInitializer if an init.go file exists in the
 // same directory as path, which is the canonical indicator that the command was
 // generated with the Config Initialiser option.
@@ -552,17 +579,36 @@ func (g *Generator) processCommandBody(targetFunc *dst.FuncDecl, cmd *ManifestCo
 		}
 
 		for _, expr := range exprs {
-			if call, ok := expr.(*dst.CallExpr); ok {
-				if flag, ok := g.extractFlagFromCall(call, constants, path); ok {
-					cmd.Flags = append(cmd.Flags, *flag)
-				} else {
-					g.extractSubcommandOrMeta(call, cmd, imports, currentPkgPath, varToConstructor, &subcommandFuncs)
-				}
-			}
+			g.classifyBodyExpr(expr, cmd, constants, path, imports, currentPkgPath, varToConstructor, &subcommandFuncs)
 		}
 	}
 
 	return subcommandFuncs
+}
+
+// classifyBodyExpr inspects a single statement expression from the command
+// constructor and routes it: an MCP-exposure marker records the decision, a
+// flag call appends a flag, and anything else is handed to subcommand/metadata
+// extraction. Non-call expressions are ignored.
+func (g *Generator) classifyBodyExpr(expr dst.Expr, cmd *ManifestCommand, constants map[string]string, path string, imports map[string]string, currentPkgPath string, varToConstructor map[string]string, subcommandFuncs *[]string) {
+	call, ok := expr.(*dst.CallExpr)
+	if !ok {
+		return
+	}
+
+	// A setup.ExcludeFromMCP / IncludeInMCP marker is neither a flag nor a
+	// subcommand; record the exposure decision and move on.
+	if detectMCPMarker(call, cmd) {
+		return
+	}
+
+	if flag, ok := g.extractFlagFromCall(call, constants, path); ok {
+		cmd.Flags = append(cmd.Flags, *flag)
+
+		return
+	}
+
+	g.extractSubcommandOrMeta(call, cmd, imports, currentPkgPath, varToConstructor, subcommandFuncs)
 }
 
 func (g *Generator) processAssignStmt(s *dst.AssignStmt, cmd *ManifestCommand, imports map[string]string, currentPkgPath string, varToConstructor map[string]string) []dst.Expr {

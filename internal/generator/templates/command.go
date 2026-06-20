@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/dave/jennifer/jen"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 type CommandFlag struct {
@@ -48,6 +50,10 @@ type CommandData struct {
 	WithInitializer          bool
 	WithConfigValidation     bool
 	Hashes                   map[string]string
+	// MCPExposure controls whether the generated command stamps a
+	// setup.ExcludeFromMCP / setup.IncludeInMCP marker. The zero value
+	// (Inherit) emits nothing.
+	MCPExposure setup.MCPExposure
 }
 
 func CommandRegistration(data CommandData) *jen.File {
@@ -290,12 +296,33 @@ func generateNewCmdFunction(f *jen.File, data CommandData) {
 		)
 		g.Line()
 
+		generateMCPExposure(g, data.MCPExposure)
+
 		addFlagsToCommand(g, data.Flags, data.PersistentFlags)
 		generateMutuallyExclusive(g, data.MutuallyExclusive)
 		generateRequiredTogether(g, data.RequiredTogether)
 
 		g.Return(jen.Id("cmd"))
 	})
+}
+
+// generateMCPExposure emits the MCP-exposure marker for the command, if any:
+// setup.ExcludeFromMCP(cmd) for an excluded command, setup.IncludeInMCP(cmd)
+// for an explicitly exposed one (which overrides an excluded ancestor), and
+// nothing for the inherit/default case.
+func generateMCPExposure(g *jen.Group, exposure setup.MCPExposure) {
+	const setupPkg = "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+
+	switch exposure {
+	case setup.MCPExposureExcluded:
+		g.Qual(setupPkg, "ExcludeFromMCP").Call(jen.Id("cmd"))
+		g.Line()
+	case setup.MCPExposureExposed:
+		g.Qual(setupPkg, "IncludeInMCP").Call(jen.Id("cmd"))
+		g.Line()
+	case setup.MCPExposureInherit:
+		// No explicit decision — emit nothing; the command inherits.
+	}
 }
 
 func CommandInitializer(data CommandData) *jen.File {

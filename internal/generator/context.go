@@ -26,6 +26,7 @@ type CommandContext struct {
 	PersistentPreRun              bool
 	PreRun                        bool
 	Protected                     *bool
+	MCPEnabled                    *bool // tri-state MCP exposure; mirrors Protected
 	Hidden                        bool
 
 	// Project-level settings (carried from the originating generator)
@@ -51,6 +52,7 @@ func buildCommandContext(projectPath string, dryRun, force, updateDocs bool, cmd
 		PersistentPreRun:     cmd.PersistentPreRun,
 		PreRun:               cmd.PreRun,
 		Protected:            cmd.Protected,
+		MCPEnabled:           cmd.MCPEnabled,
 		Hidden:               cmd.Hidden,
 		ProjectPath:          projectPath,
 		DryRun:               dryRun,
@@ -81,6 +83,7 @@ func (c CommandContext) ToConfig() *Config {
 		PersistentPreRun:     c.PersistentPreRun,
 		PreRun:               c.PreRun,
 		Protected:            c.Protected,
+		MCPEnabled:           c.MCPEnabled,
 		Hidden:               c.Hidden,
 		DryRun:               c.DryRun,
 		Force:                c.Force,

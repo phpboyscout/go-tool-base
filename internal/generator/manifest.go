@@ -163,6 +163,11 @@ type ManifestCommand struct {
 	// still unmarshal; `regenerate manifest` no longer re-derives or writes it.
 	WrapSubcommandsWithMiddleware bool  `yaml:"wrap_subcommands_with_middleware,omitempty"`
 	Protected                     *bool `yaml:"protected,omitempty"`
+	// MCPEnabled is the tri-state MCP-exposure decision for this command:
+	// nil = inherit (default exposed), true = explicitly exposed, false =
+	// excluded from the MCP tool surface. Build-time only; see
+	// docs/development/specs/2026-06-19-mcp-command-exposure-gating.md.
+	MCPEnabled *bool `yaml:"mcp_enabled,omitempty"`
 
 	PersistentPreRun  bool              `yaml:"persistent_pre_run,omitempty"`
 	PreRun            bool              `yaml:"pre_run,omitempty"`
