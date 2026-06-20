@@ -97,6 +97,10 @@ security: vuln trivy gitleaks osv-scan
 apidiff *args:
     ./scripts/apidiff.sh {{args}}
 
+# Advisory per-package ≥90% coverage check (flags sub-90 packages not excluded)
+coverage-policy *args:
+    ./scripts/coverage-policy.sh {{args}}
+
 # Find unreachable exported symbols
 deadcode:
     deadcode ./...

@@ -174,3 +174,23 @@ apidiff:
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - ./scripts/apidiff.sh
+
+# coverage-policy — advisory per-package ≥90% coverage check.
+#
+# Flags any countable package below the threshold in .coverage-policy.yaml that
+# is not on the exclusion list (Bucket A/B of the coverage-gap-closure spec).
+# Like `apidiff`, this is ADVISORY: `allow_failure: true` means a violation
+# shows as a non-blocking warning, never gating a merge — so it can never flake
+# the pipeline red. Its job is to stop packages silently slipping below 90%
+# without being deliberately excluded. To clear a flag: add tests, or add the
+# package to .coverage-policy.yaml `excluded:` with a rationale.
+coverage-policy:
+  stage: test
+  image: golang:1.26.4-bookworm
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  allow_failure: true
+  script:
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - ./scripts/coverage-policy.sh

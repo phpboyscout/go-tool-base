@@ -1,0 +1,48 @@
+# Coverage policy — the machine-readable form of the per-package ≥90% rule.
+#
+# Enforced advisorily by scripts/coverage-policy.sh (the non-blocking
+# `coverage-policy` CI job). A package must be at or above `threshold` OR appear
+# in `excluded` (with a rationale) OR match a `not_counted` prefix — otherwise it
+# is flagged. This is the enforcement half of
+# docs/development/specs/2026-06-20-coverage-gap-closure.md.
+#
+# To add an exclusion you MUST give a reason; keep this file and the spec's
+# Bucket A/B tables in sync.
+
+threshold: 90
+
+# Module-relative path prefixes that are NEVER measured: generated code, binary
+# entry points, and test-only helper packages.
+not_counted:
+  - mocks/
+  - cmd/
+  - internal/exectest
+  - internal/version
+  - pkg/credentials/credtest
+  - test/e2e/support
+
+# Packages permitted below the threshold, each with a rationale. Keep in sync
+# with the spec's Bucket A (exclude-by-design) and Bucket B (generator CLI,
+# E2E-covered) tables.
+excluded:
+  # --- Bucket A: exclude by design ---
+  - { pkg: pkg/forms, reason: "Bubble Tea TUI — interactive event loop needs a real terminal (E2E/manual)" }
+  - { pkg: pkg/docs, reason: "Bubble Tea markdown-browser TUI (E2E/manual)" }
+  - { pkg: pkg/cmd/docs, reason: "Wrapper around the docs TUI; residual lines are tea.NewProgram().Run() + live HTTP serve (covered to the TTY ceiling)" }
+  - { pkg: internal/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }
+  - { pkg: pkg/signing/kms, reason: "AWS KMS adapter; inner newSigner is 100% via a fake, the NewSigner AWS-config wrapper is untestable without real AWS" }
+  - { pkg: pkg/credentials/keychain, reason: "Real OS-keychain round-trip needs a desktop keychain (desktop-gated integration spec)" }
+  # --- Bucket B: generator CLI, covered by @generator BDD E2E + generator_build ---
+  - { pkg: internal/cmd, reason: "Generator CLI shared wiring — covered by @generator BDD E2E" }
+  - { pkg: internal/cmd/enable, reason: "Generator CLI — features/generator/feature-toggle + signing-lifecycle BDD" }
+  - { pkg: internal/cmd/disable, reason: "Generator CLI — @generator BDD" }
+  - { pkg: internal/cmd/generate, reason: "Generator CLI — features/generator/* + generator_build" }
+  - { pkg: internal/cmd/regenerate, reason: "Generator CLI — @generator BDD" }
+  - { pkg: internal/cmd/remove, reason: "Generator CLI — @generator BDD" }
+  - { pkg: internal/cmd/root, reason: "Generator CLI root wiring — @generator BDD" }
+  - { pkg: internal/cmd/template, reason: "Generator CLI — features/generator/custom-templates + template-lifecycle BDD" }
+  - { pkg: internal/cmd/sign, reason: "Sign CLI — features/cli/sign.feature" }
+  - { pkg: internal/cmd/keys, reason: "Keys CLI — features/cli/keys.feature" }
+  - { pkg: internal/generator/verifier, reason: "Post-generation verifier — verifier_integration_test.go (generator_build)" }
+  # --- OQ3 -> A: internal/generator pure helpers covered; emission excluded ---
+  - { pkg: internal/generator, reason: "Pure manifest/merge/validation/template-source helpers unit-tested (~79% ceiling); file-emission/diff-pager/AI/git-clone covered by generator_build/E2E" }
