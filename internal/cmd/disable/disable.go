@@ -51,11 +51,16 @@ check, so the tool no longer detects or applies new releases.
 Capabilities with their own configuration are scoped subcommands:
   signing   Turn off release-signing verification: drop props.Signing and the
             enforcement defaults. Keeps internal/trustkeys and any *.asc keys
-            (run 'gtb disable signing --help').`,
+            (run 'gtb disable signing --help').
+  mcp       With no argument, turn off the mcp feature. With one or more command
+            paths, withhold those commands from the MCP tool surface — records
+            mcp_enabled: false and re-renders their cmd.go; they stay runnable on
+            the CLI (run 'gtb disable mcp --help').`,
 		Example: `  gtb disable doctor                  # turn off the doctor feature
-  gtb disable mcp docs                # turn off several at once
+  gtb disable doctor docs             # turn off several at once
   gtb disable                         # pick features interactively
-  gtb disable signing`,
+  gtb disable signing
+  gtb disable mcp post                # withhold the 'post' command from MCP`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return icmd.RunFeatureToggle(cmd, p, path, args, false)
@@ -67,6 +72,7 @@ Capabilities with their own configuration are scoped subcommands:
 	disableCmd := setup.Wrap("", cmd)
 	disableCmd.Register(
 		newCmdDisableSigning(p),
+		NewCmdDisableMCP(p),
 	)
 
 	return disableCmd

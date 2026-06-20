@@ -52,11 +52,16 @@ of the currently-disabled features is shown (a name is required in CI).
 Capabilities with their own configuration are scoped subcommands:
   signing   Turn on consumer-side release-signing verification: scaffold
             internal/trustkeys, wire props.Signing, and emit the enforcement
-            defaults (run 'gtb enable signing --help').`,
+            defaults (run 'gtb enable signing --help').
+  mcp       With no argument, turn on the mcp feature. With one or more command
+            paths, put those commands back on the MCP tool surface — records
+            mcp_enabled: true and re-renders their cmd.go (run
+            'gtb enable mcp --help').`,
 		Example: `  gtb enable ai                       # turn on the AI feature
   gtb enable ai config telemetry      # turn on several at once
   gtb enable                          # pick features interactively
-  gtb enable signing --email release@example.com`,
+  gtb enable signing --email release@example.com
+  gtb enable mcp post                 # expose the 'post' command as an MCP tool`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return icmd.RunFeatureToggle(cmd, p, path, args, true)
@@ -68,6 +73,7 @@ Capabilities with their own configuration are scoped subcommands:
 	enableCmd := setup.Wrap("", cmd)
 	enableCmd.Register(
 		NewCmdEnableSigning(p),
+		NewCmdEnableMCP(p),
 	)
 
 	return enableCmd

@@ -46,6 +46,8 @@ type CommandOptions struct {
 	WithInitializer      bool
 	WithConfigValidation bool
 	Protected            *bool
+	MCPEnabled           *bool    // tri-state MCP exposure; nil = default (exposed)
+	ExposeToMCP          bool     // interactive-form value; true = exposed (default)
 	Options              []string // For MultiSelect
 	AddFlags             bool     // Whether to show the flag entry stage
 	AddPrompt            bool     // Whether to show the AI prompt stage
@@ -90,7 +92,10 @@ func boolToStr(b bool) string {
 func NewCmdCommand(p *props.Props) *cobra.Command {
 	opts := CommandOptions{}
 
-	var protectedFlag bool
+	var (
+		protectedFlag  bool
+		mcpEnabledFlag bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "command",
@@ -128,6 +133,9 @@ Examples:
 
   # Temporarily unprotect a command to allow overwrite
   gtb generate command -n sensible --protected=false --force
+
+  # Generate a command kept off the MCP tool surface (still runnable on the CLI)
+  gtb generate command -n post --mcp-enabled=false
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := opts.ValidateOrPrompt(); err != nil {
@@ -137,6 +145,11 @@ Examples:
 			// Handle tri-state protected flag
 			if cmd.Flags().Changed("protected") {
 				opts.Protected = &protectedFlag
+			}
+
+			// Handle tri-state mcp-enabled flag (omitted = nil = default exposed)
+			if cmd.Flags().Changed("mcp-enabled") {
+				opts.MCPEnabled = &mcpEnabledFlag
 			}
 
 			return opts.Run(cmd.Context(), p)
@@ -163,6 +176,7 @@ Examples:
 	cmd.Flags().BoolVar(&opts.WithInitializer, "with-initializer", false, "Generate an Initializer for this command")
 	cmd.Flags().BoolVar(&opts.WithConfigValidation, "with-config-validation", false, "Generate a config validation stub for this command")
 	cmd.Flags().BoolVar(&protectedFlag, "protected", false, "Mark the command as protected (tri-state: --protected for true, --protected=false for false, omitted for nil)")
+	cmd.Flags().BoolVar(&mcpEnabledFlag, "mcp-enabled", true, "Expose this command as an MCP tool (tri-state: --mcp-enabled=false excludes it from the MCP surface, omitted for default-exposed). The command stays runnable on the CLI either way")
 
 	cmd.MarkFlagsMutuallyExclusive("prompt", "script")
 
@@ -277,6 +291,10 @@ func (o *CommandOptions) runInteractivePrompt() error {
 		o.AliasesInput = strings.Join(o.Aliases, ", ")
 	}
 
+	// Exposed is the default; pre-set so a user who tabs past the confirm
+	// keeps today's behaviour.
+	o.ExposeToMCP = true
+
 	return forms.NewWizard(o.buildMainGroup()).
 		Step(o.runAdditionalSteps).
 		Run()
@@ -332,6 +350,14 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 				huh.NewOption("Config Validation", "config-validation"),
 			).
 			Value(&o.Options),
+		huh.NewConfirm().
+			Title("Expose to MCP?").
+			Description("If exposed, AI assistants can invoke this command as an MCP tool.\n"+
+				"Exclude publish/spend/secret commands — it stays runnable on the CLI,\n"+
+				"but is withheld from `mcp tools` / `mcp start`.").
+			Affirmative("Expose").
+			Negative("Exclude").
+			Value(&o.ExposeToMCP),
 		huh.NewConfirm().
 			Title("Add Flags").
 			Description("Define flags for this command in the next step?").
@@ -478,8 +504,20 @@ func (o *CommandOptions) runAdditionalSteps() error {
 	}
 
 	o.syncOptionsToFlags()
+	o.applyMCPExposureChoice()
 
 	return nil
+}
+
+// applyMCPExposureChoice translates the interactive ExposeToMCP confirm into the
+// tri-state MCPEnabled pointer. Only the exclude choice is recorded; expose
+// leaves nil (the default), matching the non-interactive flag's behaviour — an
+// author never needs to assert explicit "exposed" at creation time.
+func (o *CommandOptions) applyMCPExposureChoice() {
+	if !o.ExposeToMCP {
+		excluded := false
+		o.MCPEnabled = &excluded
+	}
 }
 
 // runFlagLoop presents the flag form repeatedly until the user unchecks
@@ -596,6 +634,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		WithInitializer:      o.WithInitializer,
 		WithConfigValidation: o.WithConfigValidation,
 		Protected:            o.Protected,
+		MCPEnabled:           o.MCPEnabled,
 	}
 
 	if cfg.Long == "" {
