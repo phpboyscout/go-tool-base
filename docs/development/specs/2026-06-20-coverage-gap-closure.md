@@ -2,7 +2,7 @@
 title: "Coverage gap closure — the remaining sub-90% packages"
 description: "A full-repo coverage audit (2026-06-20) classifying every package below the 90% policy into exclude-by-design, covered-by-gated-tests, and addressable-hermetic buckets, with a prioritised plan to close the addressable gaps and an explicit, justified exclusion list so the policy means something repo-wide."
 date: 2026-06-20
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - testing
@@ -24,7 +24,7 @@ Date
 :   20 June 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 ---
 
@@ -154,7 +154,13 @@ Phases 1–3 below are **complete** — every Bucket C package is ≥90% except
 - **Phase 2 (command surface):** `cmd/version` 100, `cmd/doctor` 98.7, `openapi` 92.3, `setup` 90.1.
 - **Phase 3 (larger lifts):** `gateway` 100, `utils` 92.9, `internal/agent` 92.2; `internal/generator` 79.2 (pure-helper ceiling — emission/TTY/AI/network excluded, `generator_build`-covered; the white-box tests required 7 narrow inline `//nolint:gosec // G602 false positive` directives on guarded slice indexing — comments only, no logic change).
 
-Remaining: **Phase 4** — codify the exclusion list + the non-blocking CI advisory.
+**Phase 4 (complete):** the policy is now codified and self-enforcing —
+`.coverage-policy.yaml` (threshold + not-counted prefixes + the Bucket A/B and
+`internal/generator` exclusion list, each with a rationale),
+`scripts/coverage-policy.sh` (flags any countable sub-90 package not excluded),
+the advisory `coverage-policy` CI job (`allow_failure: true`, mirroring
+`apidiff`), and a `just coverage-policy` runner. The check passes clean against
+`main`. This spec is **IMPLEMENTED**.
 
 ## Testing strategy
 
