@@ -265,6 +265,7 @@ func updateCommandHashRecursive(commands *[]ManifestCommand, path []string, hash
 	}
 
 	for i := range *commands {
+		//nolint:gosec // G602 false positive: the len(path)==0 guard above proves path is non-empty here.
 		if (*commands)[i].Name != path[0] {
 			continue
 		}
@@ -279,6 +280,7 @@ func updateCommandHashRecursive(commands *[]ManifestCommand, path []string, hash
 			return true
 		}
 
+		//nolint:gosec // G602 false positive: path has len>1 here (len==0 and len==1 both handled above).
 		return updateCommandHashRecursive(&(*commands)[i].Commands, path[1:], hash)
 	}
 

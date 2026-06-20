@@ -41,6 +41,7 @@ func findCommandAt(commands []ManifestCommand, parentPath []string, name string)
 	}
 
 	for i := range commands {
+		//nolint:gosec // G602 false positive: the len(parentPath)==0 guard above proves parentPath is non-empty here.
 		if commands[i].Name == parentPath[0] {
 			return findCommandAt(commands[i].Commands, parentPath[1:], name)
 		}
@@ -138,6 +139,7 @@ func findCommandRecursive(commands []ManifestCommand, parentPath []string, name 
 	}
 
 	for i := range commands {
+		//nolint:gosec // G602 false positive: the len(parentPath)==0 guard above proves parentPath is non-empty here.
 		if commands[i].Name == parentPath[0] {
 			if len(parentPath) == 1 {
 				for j := range commands[i].Commands {
@@ -204,6 +206,7 @@ func updateProtectionRecursive(commands *[]ManifestCommand, pathParts []string, 
 				return true
 			}
 
+			//nolint:gosec // G602 false positive: the len(pathParts)==0 guard above proves pathParts is non-empty here.
 			return updateProtectionRecursive(&(*commands)[i].Commands, pathParts[1:], protected)
 		}
 	}
@@ -252,6 +255,7 @@ func removeFromCommandRecursive(commands *[]ManifestCommand, parentPath []string
 	}
 
 	for i := range *commands {
+		//nolint:gosec // G602 false positive: the len(parentPath)==0 guard above proves parentPath is non-empty here.
 		if (*commands)[i].Name == parentPath[0] {
 			if len(parentPath) == 1 {
 				// Found the parent
@@ -265,6 +269,7 @@ func removeFromCommandRecursive(commands *[]ManifestCommand, parentPath []string
 
 				return false
 			}
+			//nolint:gosec // G602 false positive: parentPath has len>1 here (len==0 and len==1 both handled above).
 			// Descend further
 			return removeFromCommandRecursive(&(*commands)[i].Commands, parentPath[1:], name)
 		}
