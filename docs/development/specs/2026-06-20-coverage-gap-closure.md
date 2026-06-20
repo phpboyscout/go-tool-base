@@ -143,7 +143,18 @@ targets.
 | `pkg/telemetry/tracing` | 88.5 | 2 | Near-miss; a couple of error branches. |
 | `pkg/telemetry/metrics` | 88.9 | 1 | Near-miss. |
 | `pkg/setup` | 89.6 | <1 | One or two error branches over the line. |
-| `internal/generator` | 75.9 | 14 | The non-`ast_extract` generator logic (pipeline/manifest/skeleton orchestration) — partly E2E-covered; add unit coverage for the pure manifest/merge/validation helpers, accepting that file-emission stays E2E. |
+| `internal/generator` | 75.9 | n/a | Special case (OQ3 → A): unit-test the pure manifest/merge/validation helpers only; **file-emission, the interactive diff-pager, AI orchestration, and real git-clone stay `generator_build`/E2E-covered**. The pure-helper surface caps at **~79%** — that is the deliberate end state, **not** a 90% target. The emission/TTY/AI/network portion joins the exclusion rationale. |
+
+### Status (implementation, 2026-06-20)
+
+Phases 1–3 below are **complete** — every Bucket C package is ≥90% except
+`internal/generator`, which reached its OQ3→A pure-helper ceiling:
+
+- **Phase 1 (telemetry):** `telemetry` 90.6, `setup/telemetry` 100, `telemetry/logs` 100, `telemetry/tracing` 100, `telemetry/metrics` 100.
+- **Phase 2 (command surface):** `cmd/version` 100, `cmd/doctor` 98.7, `openapi` 92.3, `setup` 90.1.
+- **Phase 3 (larger lifts):** `gateway` 100, `utils` 92.9, `internal/agent` 92.2; `internal/generator` 79.2 (pure-helper ceiling — emission/TTY/AI/network excluded, `generator_build`-covered; the white-box tests required 7 narrow inline `//nolint:gosec // G602 false positive` directives on guarded slice indexing — comments only, no logic change).
+
+Remaining: **Phase 4** — codify the exclusion list + the non-blocking CI advisory.
 
 ## Testing strategy
 
