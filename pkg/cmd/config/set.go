@@ -56,22 +56,9 @@ their native types; everything else is stored as a string.`,
 // the user's default config path. Only the user's own file is rewritten, so
 // embedded defaults are never materialised into it.
 func persistConfigValue(props *p.Props, key string, val any) error {
-	fs := writableFS(props)
-
-	path := resolveWritableConfigPath(props, fs)
-	if path == "" {
-		return errors.New("could not resolve a writable config path")
-	}
-
-	settings := map[string]any{}
-	if data, err := afero.ReadFile(fs, path); err == nil {
-		if uerr := yaml.Unmarshal(data, &settings); uerr != nil {
-			return errors.Wrapf(uerr, "parsing existing config %q", path)
-		}
-
-		if settings == nil {
-			settings = map[string]any{}
-		}
+	fs, path, settings, err := loadWritableSettings(props)
+	if err != nil {
+		return err
 	}
 
 	setNestedKey(settings, key, val)
@@ -82,6 +69,33 @@ func persistConfigValue(props *p.Props, key string, val any) error {
 	}
 
 	return writeConfigAtomic(fs, path, data)
+}
+
+// loadWritableSettings resolves the writable config file and reads it into a
+// nested map ready for mutation. It returns an empty (non-nil) map when the
+// file does not yet exist, so callers can write a fresh file. Shared by
+// "config set" and "config unset", which differ only in how they mutate the
+// returned map and whether they validate/reload afterwards.
+func loadWritableSettings(props *p.Props) (afero.Fs, string, map[string]any, error) {
+	fs := writableFS(props)
+
+	path := resolveWritableConfigPath(props, fs)
+	if path == "" {
+		return nil, "", nil, errors.New("could not resolve a writable config path")
+	}
+
+	settings := map[string]any{}
+	if data, err := afero.ReadFile(fs, path); err == nil {
+		if uerr := yaml.Unmarshal(data, &settings); uerr != nil {
+			return nil, "", nil, errors.Wrapf(uerr, "parsing existing config %q", path)
+		}
+
+		if settings == nil {
+			settings = map[string]any{}
+		}
+	}
+
+	return fs, path, settings, nil
 }
 
 // resolveWritableConfigPath returns the file the loaded config is bound to, or

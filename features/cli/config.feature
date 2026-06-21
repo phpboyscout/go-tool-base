@@ -57,3 +57,34 @@ Feature: CLI Config Command
     And stdout is valid JSON
     And the JSON field "data.key" equals "log.level"
     And the JSON field "data.value" equals "info"
+
+  Scenario: Unset removes a value and get can no longer read it
+    When I run gtb with "config set feature.enabled true"
+    Then the exit code is 0
+    When I run gtb with "config unset feature.enabled"
+    Then the exit code is 0
+    And stdout contains "unset feature.enabled"
+    When I run gtb with "config get feature.enabled"
+    Then the exit code is not 0
+
+  Scenario: Unset refuses to remove a required key
+    When I run gtb with "config unset log.level"
+    Then the exit code is not 0
+    And stderr contains "invalid"
+
+  Scenario: Path prints contributing files and the writable target
+    When I run gtb with "config path"
+    Then the exit code is 0
+    And stdout contains "config.yaml"
+    And stdout contains "writable"
+
+  Scenario: Path with --writable prints only the writable target
+    When I run gtb with "config path --writable"
+    Then the exit code is 0
+    And stdout contains "config.yaml"
+    And stdout does not contain "contributing"
+
+  Scenario: Edit refuses to run without an interactive terminal
+    When I run gtb with "config edit"
+    Then the exit code is not 0
+    And stderr contains "interactive terminal"

@@ -1,7 +1,7 @@
 ---
 title: "`config edit` / `config path` / `config unset` — rounding out the config command surface (B3)"
 description: "Fill the obvious gaps in the existing `config` subcommand group with three new subcommands: `config edit` (open the active config file in $EDITOR/$VISUAL, re-validate on save, abort on invalid), `config path` (print the resolved config file path(s) across the merge precedence chain), and `config unset <key>` (remove a key from the user's config file). All three extend pkg/cmd/config/ and reuse the existing file-write helpers (writeConfigAtomic, setNestedKey/deleteNestedKey, resolveWritableConfigPath) and the schema validation pipeline (Container.Validate / ValidationResult) already established by config set/get/list/validate/migrate-credentials."
-status: DRAFT
+status: IMPLEMENTED
 date: 2026-06-21
 tags:
   - specification
@@ -22,7 +22,7 @@ Date
 :   21 June 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED (2026-06-21)
 
 ---
 
