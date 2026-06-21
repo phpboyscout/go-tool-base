@@ -544,6 +544,36 @@ they opt in.
   `EC_SIGN_*` (GCP) and `ES*` (Azure) — note the Azure raw-`R‖S` →
   ASN.1 re-encoding requirement captured above.
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+- **OQ1 — `--key-id` semantics** — RESOLVED: **full identifier, single flag** for
+  both backends (GCP CryptoKeyVersion resource name; Azure key URL), vault/project
+  derived from it — symmetric with the `aws-kms` ARN model.
+- **OQ2 — Smoke fixture** — RESOLVED: **keep and broaden `cmd/gtb-no-aws-smoke`**
+  to assert "no aws/gcp/azure symbols". One fixture across all cloud SDKs. (Now
+  framed as guarding the *downstream* elision property — see OQ4 — not `gtb`'s own
+  distribution.)
+- **OQ3 — Deps-smoke CI job** — RESOLVED: **advisory** (`allow_failure: true`, like
+  `apidiff`/`coverage-policy`); there is no link-time check today, so start
+  advisory and tighten later.
+- **OQ4 — Reference-binary weight** — RESOLVED: **the `gtb` binary links all three
+  cloud backends; accept the extra baggage.** Users must never switch binaries to
+  switch signing backend — one `gtb` serves aws/gcp/azure. This differs from the
+  keychain precedent (which gates a *local* capability). **Rejected:** splitting
+  backends into separate submodules (B — fragments the binary/module story) and a
+  download-at-init plugin (C — re-opens a rejected decision, breaks the
+  CGO-off/FIPS static build, and puts downloaded code on the highest-trust signing
+  path). The blank-import registry mechanism still allows a regulated downstream to
+  build a leaner `main`, but GTB pursues **no** minimal reference build and does not
+  treat elision as a goal for `gtb` itself.
+- **OQ5 — GCP algorithm validation** — RESOLVED: **let GCP reject server-side and
+  wrap** the error; no pre-fetch of the key algorithm — keeps one round-trip per
+  mint, matching the AWS path.
+- **OQ6 — EC/Ed25519** — RESOLVED: **separate follow-up spec.** This spec stays
+  RSA-only (current `pkg/openpgpkey` constraint). Track extending `openpgpkey` to
+  accept ECDSA/EdDSA `crypto.Signer`s — unlocking GCP `EC_SIGN_*` and Azure `ES*`
+  (incl. the Azure raw-`R‖S` → ASN.1 re-encoding) — as its own spec.
+
 ## References
 
 - [`pkg/signing/backend.go`](../../../pkg/signing/backend.go),

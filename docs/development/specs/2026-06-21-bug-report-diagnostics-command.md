@@ -392,3 +392,20 @@ Table-driven, `t.Parallel()`, `logger.NewNoop()`, per house style.
    export `telemetry.OSVersion`? — *needs sign-off*
 4. **Alias `info`**: keep both spellings, or ship `bug-report` only?
    — *needs sign-off*
+
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **Default-enabled vs disabled** — RESOLVED: **default-DISABLED.** `BugReportCmd`
+   is opt-in per tool (like `ConfigCmd`/`TelemetryCmd`): not in `DefaultFeatures`,
+   in the `false` branch of `isDefaultEnabled`. Downstream tools enable it via
+   `SetFeatures(Enable(BugReportCmd))`. (Departs from the draft's recommendation.)
+2. **Cache-directory line** — RESOLVED: **omit it.** GTB has no cache subsystem,
+   so an `os.UserCacheDir()` line would point at nothing and imply a feature that
+   doesn't exist. Revisit if a cache lands.
+3. **Shared OS-version helper (R6)** — RESOLVED: **new `pkg/osinfo`.** Promote the
+   unexported `telemetry.osVersion()` into a neutral shared package; both
+   telemetry and bug-report depend on it (avoids bug-report importing telemetry
+   internals).
+4. **`info` alias** — RESOLVED: **`bug-report` only**, no `info` alias. Single
+   canonical name. The title/description references to an `info` alias should be
+   updated to drop it. (Departs from the draft's recommendation.)

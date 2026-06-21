@@ -462,6 +462,30 @@ both `.asc` files.
   Confirm the augmented-set comparison is the intended behaviour and add an
   explicit test.
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+- **O1 — Manifest distribution** — RESOLVED: **release asset for v1.** Same-origin
+  as the binary on the already-trusted fetch path; the authority signature (not
+  the origin) is what's trusted. Revisit an uncorrelated second origin alongside
+  Phase 3 (Rekor).
+- **O2 — Compromise overlap** — RESOLVED: **serve `{v2}` only; fail closed.**
+  Un-updated binaries are meant to fail closed during a compromise — prioritise
+  distrust speed over availability; document loudly. (Scheduled, non-compromise
+  rotations still use a normal dual-sign overlap.)
+- **O3 — Authority-key custody** — RESOLVED: **support both** `--authority-key
+  <file>` and `--authority-backend <name> --authority-key-id <id>`, reusing the
+  `pkg/signing` registry that `gtb keys mint` drives, so the authority key can
+  optionally live in a second, separate KMS account.
+- **O4 — Epoch source** — RESOLVED: **operator-supplied `--epoch`**, with
+  `rotate` refusing an epoch `<=` the one in a supplied `--previous
+  rotate-keys.json` (replay guard).
+- **O5 — Authority-key succession** — RESOLVED: **out of scope for v1**; document
+  the release-gated manual procedure. Rolling the authority key re-introduces the
+  frozen-embedded-key problem and is a rare break-glass event.
+- **O6 — `require_external_crosscheck=true` semantics** — RESOLVED: **yes**,
+  embedded/WKD agreement is computed against the **manifest-augmented embedded
+  set** (`{embedded ∪ manifest-added}`); add an explicit test for this.
+
 ## Rollout
 
 Additive and opt-in: with no `WithRotationAuthority` configured, behaviour

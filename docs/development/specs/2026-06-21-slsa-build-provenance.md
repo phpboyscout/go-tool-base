@@ -488,6 +488,29 @@ needs runner isolation (L3) and is documented as the next step, not claimed.
    `https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/.gitlab-ci.yml@goreleaser`.
    **Confirm wording.**
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **OQ1 — envelope format** — RESOLVED: **DSSE envelope from the start** (in-toto/
+   cosign convention), not the detached `.sig`. **Effort implication:** this removes
+   the "zero new verifier code" shortcut — a DSSE-aware verification path must be
+   added to `pkg/setup` rather than reusing the existing detached-sig `TrustSet`
+   flow. Upside: it aligns provenance with the Sigstore/cosign direction in A4
+   (`2026-06-21-sigstore-rekor-transparency`), so the two should share the DSSE
+   verifier. (Departs from the draft's recommendation.)
+2. **OQ2 — GoReleaser signing hook** — DEFERRED to implementation: verify against
+   the pinned `goreleaser/goreleaser:v2.16.0` that the statement is signable via
+   `signs:`/`extra_files` and at what stage the digest is available.
+3. **OQ3 — in-toto Go binding** — DEFERRED to implementation: spike the transitive
+   dependency graph of `github.com/in-toto/attestation/go/v1` against the FIPS/CGO-off
+   build before committing to the binding over local structs.
+4. **OQ4 — L3 ambition** — RESOLVED: **plan SLSA Build L3 via GitLab Hosted Runners
+   as a committed later phase.** Ship L2 on shared runners first; schedule the
+   release-job migration to Hosted Runners (runner isolation) as a follow-up phase
+   of this work rather than accepting L2 indefinitely. (Departs from the draft's
+   recommendation — a CI-infra migration is now in scope.)
+5. **OQ5 — `buildType` URI** — RESOLVED: **confirm** `https://gitlab.com/phpboyscout/
+   go-tool-base/-/blob/main/.gitlab-ci.yml@goreleaser`. Stable verification key.
+
 ---
 
 ## References

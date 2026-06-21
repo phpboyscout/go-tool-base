@@ -368,6 +368,29 @@ None structural. Scaffolded tools that enable the GitHub init feature and blank-
 4. **ssh-agent loading.** Should a follow-up load the decrypted key into `ssh-agent` after retrieval, or is keychain-retrieval-then-prompt sufficient? Out of scope here; flag for a future spec.
 5. **`config migrate-credentials` awareness.** The migrate command operates on token/API literals. Should it learn to surface "SSH passphrase not yet in keychain" as an advisory? Likely a separate, optional enhancement — confirm it is out of scope.
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **Resolver placement** — RESOLVED: put `ResolveSSHPassphrase` in a **neutral
+   `pkg/credentials` helper** (transport- and wizard-agnostic), not
+   `pkg/setup/github`. The generic credentials package owns the SSH-passphrase
+   resolution so both the setup wizard and any future runtime git-transport
+   consumer use the same path. (Departs from the draft's recommendation.)
+2. **Confirm-form default** — RESOLVED: **default No (conservative).** SSH
+   passphrases protect long-lived private keys, so storage is opt-in — the user
+   actively chooses Yes. Does not inherit the OAuth convenience nudge.
+3. **Existing/selected keys** — RESOLVED: **out of scope.** Keychain storage is
+   offered only on the *generate* branch (D2), where the passphrase is already in
+   hand. Caching an existing key's passphrase is a later, separate opt-in.
+4. **ssh-agent loading (Q4)** and **`migrate-credentials` SSH advisories (Q5)** —
+   RESOLVED: **both out of scope**, flagged as future follow-ups; this spec stays
+   tight.
+
+Reminder for the approval decision: 4 of the 5 original H-1 Phase-3 items already
+shipped (OAuth device flow, display-once, `config migrate-credentials`, BDD), so
+the *implementation* scope of this spec is just the SSH-passphrase keychain
+helper plus clearing the now-stale Phase-3 deferral note in
+`docs/development/security-decisions.md`.
+
 ---
 
 ## Decision-Log Alignment

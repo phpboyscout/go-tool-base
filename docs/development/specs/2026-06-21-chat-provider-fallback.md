@@ -479,3 +479,17 @@ just test-e2e-smoke   # if the fallback feature carries the smoke BDD tag
 2. **OQ-2** — Post-tool-call failover: lossy text replay + WARN, or fail-fast? (Proposed: lossy replay, with `WithStrictToolContext` opt-out.)
 3. **OQ-3** — `ai.provider` vs `ai.fallback.providers[0]` precedence. (Proposed: list[0] wins, WARN on disagreement.)
 4. **OQ-4** — Should `Usage()` include tokens from a *failed* primary round-trip if the SDK still reported them, or only successful calls? (Proposed: include whatever the SDK reported, since they were billed.)
+
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **OQ-1 ClaudeLocal exit** — RESOLVED: **fatal, do not advance.** A non-zero
+   exit from the local Claude CLI signals misconfig/auth/missing-binary, not a
+   transient remote failure; surface it rather than masking it with a failover.
+2. **OQ-2 Post-tool-call failover** — RESOLVED: **lossy text replay + WARN**, with
+   a `WithStrictToolContext` opt-out that forces fail-fast for callers who cannot
+   tolerate a lossy tool-context handoff.
+3. **OQ-3 Precedence** — RESOLVED: **`ai.fallback.providers[0]` wins** when fallback
+   is enabled; WARN on disagreement with a stale `ai.provider`.
+4. **OQ-4 Usage accounting** — RESOLVED: **include whatever the SDK reported**,
+   including tokens from a failed primary round-trip — they were billed, so
+   `Usage()` should reflect real spend across all attempts.

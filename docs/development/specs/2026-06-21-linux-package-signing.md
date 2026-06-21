@@ -375,6 +375,33 @@ existing `escapeYAML` helper per `internal/generator/template_escape.go` and
    a separate enable command, or a flag on the existing signing enablement
    (since it shares the trust root)?
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **KMS-vs-local key** — RESOLVED: **file-based packaging subkey under the WKD
+   primary identity.** nfpm signs with an exportable disk subkey; the self-update
+   checksum path keeps its KMS-never-on-disk guarantee. One identity, two keys;
+   users' existing WKD trust resolves the subkey.
+2. **Repo-metadata signing** — RESOLVED: **follow-on**, gated on the repo-hosting
+   decision (Q3). This spec signs the `.deb`/`.rpm`/`.apk` packages (Layer 1);
+   signed `InRelease`/`repomd.xml.asc` (Layer 2) is moot without a served repo.
+3. **Served repository** — RESOLVED: **attach signed packages to the Release for
+   direct download only** (no hosted apt/yum repo for now). `apt install ./file.deb`
+   verifies the embedded signature; a served repo is deferred until there's demand.
+4. **`.apk` (Alpine)** — RESOLVED: **include `.apk` in the initial cut** alongside
+   `.deb`/`.rpm` (nfpm supports APK signing). Formats list and key-name handling
+   account for all three. (Departs from the draft's defer recommendation.)
+5. **Non-interactive updater behaviour** — RESOLVED: **warn and no-op** (exit 0),
+   mirroring the existing `resolveTargetPath` convention. Detect the dpkg/rpm-owned
+   binary, warn that updates are package-manager-managed, and don't swap — doesn't
+   break CI/cron.
+6. **Key identity** — RESOLVED: **packaging subkey under the primary by default,
+   with opt-in support for a fully separate packaging key** (own fingerprint + WKD
+   entry) in the generator's `Packaging` block, for downstreams with a compliance
+   reason to separate. Default-simple, escape hatch present.
+7. **Enable command** — RESOLVED: **separate `gtb enable packaging`.** Shares the
+   signing trust root but is a distinct capability (nfpm config, formats, packaging
+   key); a tool can sign releases without producing OS packages.
+
 ## References
 
 - `.goreleaser.yaml` — existing `signs:`, `sboms:`, `notarize:`,

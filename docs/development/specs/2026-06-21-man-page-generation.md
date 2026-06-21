@@ -313,6 +313,25 @@ provides to it:
    FIPS/CGO-disabled build and does not trip `just vuln`. (It is pure-Go; no
    expected issue, but flag it for the dependency review.)
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **Downstream tree rendering** — RESOLVED: **own-tree only.** gtb documents
+   gtb; a scaffolded `mytool` documents `mytool`. Matches how `GenManTree`
+   consumes a live `*cobra.Command`; no downstream-tree targeting.
+2. **Single-page stdout UX** — RESOLVED: runtime `man` **without `--dir` emits
+   the current command's roff to stdout** (pipe to `man -l -`). `--dir` writes
+   the tree.
+3. **Reproducibility / date stamping** — RESOLVED: **reproducible by default**
+   (`DisableAutoGenTag = true`, no date footer, byte-identical output) with an
+   opt-in `--date` to stamp the build/release date.
+4. **Output layout** — RESOLVED: **`man/man1/*.1`** (FHS-style subdir) to match
+   goreleaser/nfpm expectations and the `/usr/share/man/man1/` install contract;
+   keeps this spec aligned with `2026-06-21-linux-package-signing`.
+5. **`md2man` dependency surface** — RESOLVED: **accept** the transitive
+   `cpuguy83/go-md2man/v2` dependency (pure-Go, rides in with `cobra/doc`),
+   subject to the standard `just vuln` check during implementation. No special
+   handling expected for the FIPS/CGO-disabled build.
+
 ## Test plan
 
 Per the ≥90% `pkg/` coverage policy and the table-driven `t.Parallel()` norm:

@@ -506,6 +506,40 @@ changes behaviour.
   `rekor-monitor` / `cosign verify` runbook so a rogue entry under the project
   identity is actually noticed? (Recommend: yes, a docs deliverable.)
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+- **Q1 — Dependency isolation** — RESOLVED: **blank-import subpackage, elided by
+  default** (mirrors `pkg/credentials/keychain`), kept out of the default `cmd/gtb`
+  binary by dead-code elimination. This heavy optional *verifier* tree (TUF/in-toto/
+  protobuf) and the FIPS/CGO-off posture justify opt-in linking here — distinct from
+  the C1 decision to link all *signing backends* into `gtb`.
+- **Q2 — Integration seam** — RESOLVED: **Option A** — `SignatureVerifier` +
+  `CompositeVerifier`, behaviour-preserving refactor of the GPG path. This is also
+  the shared home for the DSSE verifier the SLSA spec (`2026-06-21-slsa-build-
+  provenance`) now requires — the two specs share this seam.
+- **Q3 — Library** — RESOLVED: **`sigstore/sigstore-go`** (bundle-native offline
+  verification API). **Must** be confirmed to build under `CGO_ENABLED=0` +
+  `GOLANG_FIPS=1` during implementation; if it cannot, that hard-forces the Q1
+  isolation/build-tag approach (and is itself a reason it lives in an elided
+  subpackage).
+- **Q4 — Trust-root distribution** — RESOLVED: **embed a TUF `trusted_root.json`
+  snapshot via `//go:embed`, refreshed per release** (offline-capable, preserves the
+  offline-update guarantee). Define a staleness window → `ErrSigstoreTrustRootStale`.
+- **Q5 — Operator command** — RESOLVED: **in-binary verifier + the `cosign` CLI is
+  enough for v1.** No `gtb verify --rekor` / `gtb attest` yet (the sign-command
+  spec's "add when there's a concrete asker" bar isn't met).
+- **Q6 — Cross-check truth table** — RESOLVED: **confirm the proposed matrix** —
+  GPG valid + Rekor absent + `require_rekor=false` → proceed on GPG with a WARNING;
+  GPG valid + Rekor **invalid** → always fatal; consistent with the Phase 2
+  three-case `verifyManifestSignature` policy.
+- **Q7 — GitLab CI cosign OIDC** — DEFERRED to implementation: confirm `cosign
+  sign-blob --oidc-provider` works with GitLab id_tokens in the goreleaser component
+  image, with `aud: sigstore` (Sigstore's convention) — cross-check against the
+  documented `aud: sts.amazonaws.com` AWS pitfall.
+- **Q8 — Monitoring** — RESOLVED: **yes** — mandate a documented `rekor-monitor` /
+  `cosign verify` runbook (docs deliverable) so a rogue entry under the project
+  identity is noticed; do not build a monitor.
+
 ---
 
 ## Testing Strategy (outline — expand after open questions resolve)

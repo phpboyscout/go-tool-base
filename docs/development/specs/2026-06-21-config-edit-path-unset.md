@@ -330,6 +330,25 @@ fake editor via an env-var-named command so the scenario is deterministic.
    type-assert? Proposed: add to the interface (pre-1.0 minor break is
    acceptable and keeps the command interface-clean). Confirm.
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **`config path` default output** — RESOLVED: print **all contributing files
+   (in merge order) plus the writable target** by default. The multi-file merge
+   is what makes the resolved path non-obvious, so the full picture is the
+   useful default.
+2. **`config edit` seeding** — RESOLVED: seed a not-yet-existing target with an
+   **empty document + header comment**, never the full effective config. `edit`
+   must not silently materialise embedded defaults into the user file.
+3. **Editor argv splitting** — RESOLVED: **handle both** — use shellwords-style
+   (shell-quoting-aware) parsing so it covers both `EDITOR="code --wait"` and
+   quoted paths containing spaces. This supersedes the draft's "whitespace split
+   for v1" proposal; the design/testing sections should specify shell-quoting-
+   aware parsing (table-driven cases: unquoted flags, quoted paths with spaces,
+   mixed).
+4. **`ConfigFiles()` on `Containable`** — RESOLVED: **add it to the interface.**
+   The pre-1.0 minor break is acceptable; regenerate mocks and add a migration
+   note. Keeps the command interface-typed.
+
 ## Decision Log
 
 | Decision | Status | Rationale |

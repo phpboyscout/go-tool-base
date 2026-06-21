@@ -572,3 +572,24 @@ coverage on new `pkg/` code, `@cli`/`@generator` Godog suites green.
 
 *Roadmap item A6. DRAFT — pending human review of the open questions above before
 implementation, per the project's spec-driven workflow.*
+
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **Auto-pin on rollback** — RESOLVED: **yes, auto-pin.** A successful `--rollback`
+   pins the rolled-back version so the next check doesn't re-upgrade into the bad
+   release; the user runs `--unpin` to resume.
+2. **`-rc.*` mapping** — RESOLVED: **fold RCs into `beta`.** Keep three channels
+   (stable/beta/canary); release candidates map to beta.
+3. **Flag precedence/composition** — RESOLVED: **confirm the proposed matrix** —
+   `--version` beats `--channel` (channel ignored, with a warn); `--force` overrides
+   a pin for a one-shot update **without** clearing the pin; `--rollback --force`
+   skips the interactive downgrade confirmation.
+4. **`ListReleases` page bound** — RESOLVED: **document the 100-release scan as a
+   known limit**; older rollback targets require explicit `--version`. No pagination
+   in v1.
+5. **Generator surface** — RESOLVED: **default-only (stable)**; no `--update-channel`
+   flag or wizard step in v1. Add the affordance later only if wanted.
+6. **"Behind?" basis on a non-stable channel** — RESOLVED (no user preference →
+   adopt the spec assumption): **compare against the channel-max.** A beta user is
+   "behind" only when a newer beta-or-stable exists; the channel-aware candidate is
+   the comparison basis.

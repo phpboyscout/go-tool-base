@@ -589,6 +589,40 @@ is answered or explicitly deferred.**
    are present, bearer-wins is proposed. Confirm, or prefer "reject ambiguous"
    (fail-closed on two credentials)?
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **JWT/OIDC scope** — RESOLVED: **ship BOTH** Phase 1 (API-key verifier +
+   HTTP/gRPC adapters + `Verifier` interface) **and** Phase 2 (JWKS-fetch+cache
+   OIDC verifier). Rationale (overrides the draft's "defer Phase 2"): GTB already
+   offers the **WKD** pattern for signing-key resolution — fetching keys from a
+   well-known HTTPS location with caching — so a JWKS verifier is the same accepted
+   shape, not the rejected general `pkg/cache`. Include the tooling to help engineers
+   do enterprise/SSO auth. The JWKS cache stays single-purpose and hard-capped, OIDC
+   *discovery* only (no login/issuance flow).
+2. **gRPC default skip set** — RESOLVED: **auto-skip health + reflection** methods
+   (safe default so probes don't silently break); `WithGRPCMethodSkipper` overrides.
+3. **`WithAuthFromConfig`** — RESOLVED: **explicit wiring only, no helper.** Auth is
+   never config-activated — consistent with "no implicit config activation" and
+   appropriate for a security boundary.
+4. **mTLS verifier** — RESOLVED: **include an mTLS / client-cert verifier in
+   `pkg/authn` now**, as a third `Verifier` alongside API-key and JWT/OIDC. (Departs
+   from the draft's "defer to a future tls spec" — broader scope accepted.)
+5. **Authorization ceiling + extension seam** — RESOLVED: **no built-in policy
+   model** (no role maps / policy engine / RBAC-ABAC DSL — that stays an application
+   concern). `AuthorizeFunc` + `RequireScopes`/`RequireClaim` is the shipped ceiling.
+   **BUT** `AuthorizeFunc` must be deliberately designed as a *policy-model-shaped
+   hole*: it receives enough context (resolved identity, scopes, claims, and request
+   metadata) for a user to implement arbitrary custom authorization externally
+   without GTB shipping the engine. Design the seam for that explicitly.
+6. **Multiple-scheme precedence** — RESOLVED: **reject ambiguous / fail closed** when
+   both a bearer token and an API-key header are present (no silent credential
+   selection). (Departs from the draft's bearer-wins proposal.)
+
+> Note: the Feasibility Verdict below predates these resolutions. Q1 deliberately
+> adopts both phases (with the WKD-precedent rationale), so the verdict's "gate/defer
+> Phase 2" recommendation is superseded; the philosophy tension is resolved in favour
+> of shipping JWKS, justified by the analogous accepted WKD pattern.
+
 ## Feasibility Verdict
 
 **FEASIBLE-WITH-CAVEATS.**

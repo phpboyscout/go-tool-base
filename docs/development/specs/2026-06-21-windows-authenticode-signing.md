@@ -526,6 +526,34 @@ do this correctly. See [D2](#d2--no-new-pkgsigning-backend-out-of-process-tool).
 
 ---
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **Eligibility & identity** — RESOLVED: **verify eligibility FIRST.** This is a
+   **blocking prerequisite** — a short operator spike to confirm which identity
+   qualifies for Azure Trusted Signing (org "PHP Boy Scout" vs individual "Matt
+   Cockayne", incl. the publisher string) before this spec can move to APPROVED or
+   be implemented. Nothing else is buildable until the identity is validated.
+2. **`binary_signs:` schema on v2.16.0** — DEFERRED to implementation: pin the exact
+   field names (`disable:`/`enabled:`, `ids:` isolation of the Windows `.exe`,
+   pre-archive ordering) against the live GoReleaser v2.16.0 schema. Not a design
+   decision.
+3. **Azure OIDC audience value** — DEFERRED to implementation: determine the
+   GitLab→Azure id_token `aud` (`api://AzureADTokenExchange` convention) and the
+   federated-credential subject for GitLab tag pipelines against the live Azure
+   config — analogous to the documented AWS `aud: sts.amazonaws.com` gotcha. Not a
+   design decision.
+4. **CI signing tool** — RESOLVED: **use the Azure Trusted Signing CLI/SDK
+   directly**, not `jsign`. This drops the Java/JRE dependency from the goreleaser
+   job entirely; the signer is driven from `before_script`/a small script like the
+   AWS OIDC token setup.
+5. **Reputation** — RESOLVED: **accept SmartScreen reputation accrual.** Early users
+   may briefly see the "unknown publisher" notice until reputation builds; no EV-cert
+   escalation for v1 (kept documented as the escalation path if friction proves
+   unacceptable).
+6. **arm64 Windows** — RESOLVED: **sign both `windows/amd64` and `windows/arm64`.**
+   Verify the toolchain handles arm64 PE during implementation, but plan to cover
+   both.
+
 ## Related
 
 - [`.goreleaser.yaml`](../../../.goreleaser.yaml) — `notarize:` (L44),

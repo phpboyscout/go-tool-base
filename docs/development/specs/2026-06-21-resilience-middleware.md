@@ -735,6 +735,33 @@ No new `nolint` directives anticipated. No new third-party dependency
    one smoke-level CLI/transport BDD scenario for the limiter; breaker covered by unit
    tests only.
 
+## Resolutions (open questions confirmed with user 2026-06-21)
+
+1. **Shared breaker package** — RESOLVED: **extract to `internal/circuitbreaker`** —
+   one tested Closed/Open/HalfOpen core with thin HTTP/gRPC adapters.
+2. **Config-prefix binding** — RESOLVED: **bind to a config prefix now** (v1).
+   Operators tune `server.http.ratelimit.*` etc. via config like port/TLS; the four
+   resilience configs are readable from the config layer, not code-only. (Departs
+   from the draft's code-first recommendation — broader scope accepted.)
+3. **gRPC streaming breaker depth** — RESOLVED: **also inspect per-message errors**
+   via a wrapped `ClientStream`, not just stream-establishment. (Departs from the
+   draft's establishment-only v1 — fuller coverage accepted.)
+4. **Default rate values** — RESOLVED: **ship a `50 rps / burst 100` default**
+   (safe-by-default for a modest management server). The limiter is still opt-in to
+   the chain; when added without params it applies this default. (Departs from the
+   draft's no-default recommendation.)
+5. **429 → breaker** — RESOLVED: **no**, a 429 does not trip the breaker (it's
+   retry's domain, not a downstream-health signal); encoded in
+   `DefaultCircuitBreakerConfig`.
+6. **`WithClientMiddleware` doc comment** — RESOLVED: **tighten it** so the
+   breaker-outside-retry ordering (retry-exhausted = one breaker failure) is
+   explicit.
+7. **Generator hint** — RESOLVED: **docs only**, no scaffold template change (no
+   commented-out `RateLimitMiddleware` line).
+8. **BDD scope** — RESOLVED: **one limiter smoke-level Godog scenario** (e.g. 2 rps
+   limiter, 5 rapid requests, 3 receive 429); the circuit breaker is covered by unit
+   tests only.
+
 ---
 
 ## Implementation phases
