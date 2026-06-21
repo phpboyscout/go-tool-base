@@ -1,7 +1,7 @@
 ---
 title: "Man-page generation from the Cobra command tree (roff via cobra/doc)"
 description: "Render roff (groff) man pages for the whole command tree from spf13/cobra/doc GenManTree, so downstream GTB-based tools and Linux packages (.deb/.rpm) can ship `man <tool>`. Delivered as a build-time generator step (`gtb generate man`) plus a hidden runtime `man` command that emits pages on demand, with a shared library entry point in pkg/docs. Complements — does not replace — the existing AI/template Markdown docs generation and feeds the Linux packaging/signing spec by writing pages goreleaser nfpm/brew can install."
-status: DRAFT
+status: APPROVED
 date: 2026-06-21
 tags:
   - specification
@@ -27,7 +27,7 @@ Date
 :   2026-06-21
 
 Status
-:   DRAFT — awaiting human review (roadmap item **B4**)
+:   APPROVED (roadmap item **B4**)
 
 Driver
 :   Roadmap item **B4** (man-page generation). Linux distribution packages
