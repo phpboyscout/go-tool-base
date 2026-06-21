@@ -17,7 +17,7 @@
 #   • Merge method: fast-forward + squash (so the tested commit is what
 #     lands on main)
 #
-# Components pinned to phpboyscout/cicd v0.10.5; Renovate (also via
+# Components pinned to phpboyscout/cicd v0.11.0; Renovate (also via
 # this pipeline) keeps the pins current via the cicd preset extended in
 # renovate.json.
 
@@ -25,15 +25,15 @@ include:
   # Quality gates — MR-only by default. Go toolchain images bumped to
   # 1.26.4 to clear stdlib advisories GO-2026-5037 / GO-2026-5039
   # (cicd component defaults are 1.26.3; override here until a cicd
-  # release bakes in the 1.26.4 bump — v0.10.2–v0.10.5 did not).
-  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.10.5
+  # release bakes in the 1.26.4 bump — up to v0.11.0 has not).
+  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.11.0
     # golangci-lint image bundles its own Go; v2.12.2 ships 1.26.x and
     # is fine — no override needed here.
-  - component: gitlab.com/phpboyscout/cicd/go-test@v0.10.5
+  - component: gitlab.com/phpboyscout/cicd/go-test@v0.11.0
     inputs:
       image: golang:1.26.4-bookworm
       enable_e2e: true
-  - component: gitlab.com/phpboyscout/cicd/go-security@v0.10.5
+  - component: gitlab.com/phpboyscout/cicd/go-security@v0.11.0
     inputs:
       govulncheck_image: golang:1.26.4-bookworm
 
@@ -45,13 +45,15 @@ include:
   # default) once a goreleaser image ships Go 1.26.4. Note: this
   # restores the sum.golang.org dependency that v0.5.0 first tripped on
   # via a transient IPv6 routing issue on a shared runner.
-  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.10.5
+  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.11.0
     inputs:
       gotoolchain: go1.26.4
-  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.10.5
+  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.11.0
 
-  # Release MR machinery (external).
-  - component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@v0.8.0
+  # Release MR machinery — our wrapper over apricote/releaser-pleaser
+  # (carries the schedule-never guard, so it no longer fires on the
+  # Renovate schedule).
+  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.11.0
     inputs:
       token: $RELEASER_PLEASER_TOKEN
       branch: main
@@ -60,7 +62,7 @@ include:
   # Scheduled Renovate run — wires its own schedule gate
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
   # carries the custom manager that auto-bumps the pins above.
-  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.10.5
+  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.11.0
     inputs:
       repositories: '["phpboyscout/go-tool-base"]'
 
