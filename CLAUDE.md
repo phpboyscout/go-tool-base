@@ -89,7 +89,9 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 
 **Do not commit without explicit user approval.** Present a summary of changes and a proposed message, then wait for confirmation.
 
-**Do not add AI attribution** — no `Co-Authored-By:` trailers naming an AI, no references to AI assistance in commit messages. The committing developer owns the change entirely.
+**Do not add AI attribution** — no `Co-Authored-By:` trailers naming an AI, no references to AI assistance in **commit messages, MR/PR descriptions, or MR/PR comments**. Responsibility for code lies with the human entity approving the commit or MR; the approving developer owns the change entirely.
+
+**Never `@`-mention anyone in content pushed or created on GitLab (or any other forge)** — MR/PR descriptions, MR/PR comments, commit messages, issue text. Raw tokens like `@cli`, `@smoke`, `@release` resolve to real usernames and ping those people on every reference. When you need to name a tag/scope/handle literally (e.g. a BDD tag), write it without the `@` (`cli`, `smoke`), wrap it in backticks (`` `@cli` ``), or otherwise neutralise it so the forge does not turn it into a notification.
 
 | Type | Release |
 |------|---------|
