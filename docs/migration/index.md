@@ -21,6 +21,7 @@ provides before/after code examples with a clear migration path.
 | v0.17 | v0.18 | [Opt-in ForcedUpdate policy](v0.17-update-policy.md) |
 | v0.19 | v0.20 | [`--wrap-subcommands` removed](v0.19-wrap-subcommands-removed.md) |
 | v0.19 | v0.20 | [Deprecated `setup` middleware helpers removed](v0.20-deprecated-middleware-helpers-removed.md) |
+| v0.21 | v0.22 | [`Containable.ConfigFiles()` added](v0.21-config-files-accessor.md) |
 | v0.x | v1.0 | [Migrating to v1.0](v0.x-to-v1.0.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |

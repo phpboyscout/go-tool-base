@@ -46,6 +46,13 @@ type Containable interface {
 	IsSet(key string) bool
 	Set(key string, value any)
 	WriteConfigAs(dest string) error
+	// ConfigFiles returns the ordered list of config files that
+	// contributed to this container's live configuration, in merge
+	// order (lowest to highest precedence among file sources). Returns
+	// an empty slice for reader/embedded containers that were not loaded
+	// from any file. The slice is a copy; mutating it does not affect
+	// the container's internal state.
+	ConfigFiles() []string
 	Sub(key string) Containable
 	AddObserver(o Observable)
 	AddObserverFunc(f func(Containable) error)
@@ -234,6 +241,28 @@ func (c *Container) qualifyKey(key string) string {
 // WriteConfigAs writes the current configuration to the given path.
 func (c *Container) WriteConfigAs(dest string) error {
 	return c.liveViper().WriteConfigAs(dest)
+}
+
+// ConfigFiles returns the ordered list of config files that contributed
+// to this container's live configuration, in merge order (lowest to
+// highest precedence among file sources). Returns an empty slice for
+// reader/embedded containers that were not loaded from any file.
+//
+// The returned slice is a copy taken under the container lock (same
+// discipline as reload), so callers may not mutate the container's
+// internal state through it and concurrent reload swaps are observed
+// safely. Sub-containers report the root container's files, since the
+// file set is a property of the loaded configuration as a whole.
+func (c *Container) ConfigFiles() []string {
+	owner := c
+	if c.root != nil {
+		owner = c.root
+	}
+
+	owner.mu.Lock()
+	defer owner.mu.Unlock()
+
+	return append([]string(nil), owner.configFiles...)
 }
 
 // Sub returns a view over a subtree of the parent configuration.

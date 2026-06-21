@@ -25,6 +25,45 @@ func (o TestObserver) Run(c config.Containable) error {
 	return o.handler(c)
 }
 
+func TestContainer_ConfigFiles(t *testing.T) {
+	t.Parallel()
+	log := logger.NewNoop()
+
+	t.Run("empty for reader containers", func(t *testing.T) {
+		t.Parallel()
+		c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(log),
+			config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
+		assert.Empty(t, c.ConfigFiles())
+	})
+
+	t.Run("returns loaded files in merge order", func(t *testing.T) {
+		t.Parallel()
+		fs := afero.NewMemMapFs()
+		require.NoError(t, afero.WriteFile(fs, "first.yaml", []byte("key: a"), 0o644))
+		require.NoError(t, afero.WriteFile(fs, "second.yaml", []byte("key: b"), 0o644))
+		c, err := config.LoadFilesContainer(fs, config.WithLogger(log),
+			config.WithConfigFiles("first.yaml", "second.yaml"))
+		require.NoError(t, err)
+
+		assert.Equal(t, []string{"first.yaml", "second.yaml"}, c.ConfigFiles())
+	})
+
+	t.Run("returns a copy callers cannot mutate", func(t *testing.T) {
+		t.Parallel()
+		fs := afero.NewMemMapFs()
+		require.NoError(t, afero.WriteFile(fs, "cfg.yaml", []byte("key: a"), 0o644))
+		c, err := config.LoadFilesContainer(fs, config.WithLogger(log),
+			config.WithConfigFiles("cfg.yaml"))
+		require.NoError(t, err)
+
+		files := c.ConfigFiles()
+		require.Len(t, files, 1)
+		files[0] = "mutated.yaml"
+
+		assert.Equal(t, []string{"cfg.yaml"}, c.ConfigFiles())
+	})
+}
+
 // TestContainer_AddObserver asserts that a single-file container actually
 // observes a change (D5: the watcher must fire for single-file containers, not
 // only multi-file ones). It uses an atomic int64 observation counter and polls
