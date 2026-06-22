@@ -1,5 +1,23 @@
 # Changelog
 
+## [v0.22.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.22.0)
+
+### Features
+
+- **repo**: expose the worktree as an afero.Fs (WorkFS/WithWorkFS)
+- **repo**: add aferobilly — a safe billy→afero filesystem adapter
+- **chat**: add cross-provider fallback ChatClient (E1)
+- **chat**: add provider-failover policy and HTTP-status classification
+- **doctor**: add 'doctor report' redacted support bundle
+- **osinfo**: promote OS-version string to a shared pkg/osinfo
+- **man**: generate roff man pages from the command tree
+- **config**: add unset, path, and edit subcommands
+- **config**: add Container.ConfigFiles() accessor
+
+### Bug Fixes
+
+- **init**: skip credential wizards when stdin is not a terminal
+
 ## [v0.21.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.21.0)
 
 ### Features
