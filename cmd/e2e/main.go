@@ -93,6 +93,7 @@ func newTestRoot() (*setup.Command, *props.Props) {
 				props.Enable(props.McpCmd),
 				props.Enable(props.ConfigCmd),
 				props.Enable(props.TelemetryCmd),
+				props.Enable(props.ManCmd), // hidden; enabled here for BDD coverage
 				// AiCmd + github + bitbucket are not enabled by
 				// default but are needed for BDD / manual testing of
 				// the credential setup wizards and the chat/VCS

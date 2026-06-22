@@ -41,6 +41,12 @@ func initializeScenario(ctx *godog.ScenarioContext) {
 }
 
 func buildTagExpression() string {
+	// An explicit tag expression always wins, e.g. INT_TEST_E2E_TAGS="@man"
+	// to run a single feature in isolation.
+	if tags := os.Getenv("INT_TEST_E2E_TAGS"); tags != "" {
+		return tags
+	}
+
 	// If a specific subsystem is requested, filter to that
 	if os.Getenv("INT_TEST_E2E_SMOKE") != "" {
 		return "@smoke"
