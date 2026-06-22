@@ -10,6 +10,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The `doctor` command runs diagnostic checks to validate configuration, connectivity, and the runtime environment. It is enabled by default via the `DoctorCmd` feature flag.
 
+`doctor` is the *health verdict* (pass/warn/fail/skip). Its [`report` subcommand](#doctor-report--support-bundle) adds the *state dump* — resolved config (redacted), paths, versions, and feature flags — around that verdict.
+
 ## Usage
 
 ```bash
@@ -64,6 +66,39 @@ func init() {
 }
 ```
 
+## `doctor report` — support bundle
+
+`doctor report` emits a single, **secret-redacted, paste-ready support bundle** a user can drop straight into a GitLab/GitHub issue. It wraps the health verdict above with a state dump, so a maintainer gets *what version*, *what config*, *what paths*, *what flags*, and *what doctor says* in one block.
+
+```bash
+mytool doctor report                       # human-readable
+mytool doctor report --output json > bug.json
+```
+
+It is available wherever `doctor` is (gated by `DoctorCmd`, default-on) — there is no separate feature flag.
+
+### What it collects
+
+| Section | Contents |
+|---------|----------|
+| **Tool** | Name, summary, version, commit, build date |
+| **Runtime** | Go version, host OS string (`pkg/osinfo`), arch |
+| **Paths** | Resolved config directory and config file in use (no cache dir — GTB has none) |
+| **Features** | Every built-in feature flag, enabled/disabled |
+| **Config** | The *effective* merged configuration, **redacted** |
+| **Doctor** | The full report above, reused verbatim |
+
+### Safe by default — redaction
+
+The entire bundle passes through [`pkg/redact`](../redact.md) before it is written, in **both** text and JSON. There is **no flag to disable redaction** — for a raw value, read the specific config key directly. Two layers protect the config:
+
+1. **Credential-shaped keys are dropped to `<redacted>`** regardless of value — keys ending in `.api.key`, `.auth.value`, `.app_password`, `.password`, `.secret`, `.token`, or whose final segment is a known credential word. Even a malformed value cannot leak.
+2. **Every other value is scrubbed through `redact.String`** (best-effort): URL userinfo, well-known token prefixes (`sk-`, `ghp_`, `glpat-`, `AKIA…`), and long opaque tokens. Map **keys are preserved** so the structure stays legible.
+
+The process environment is **never** enumerated (high leak surface, low triage value); env-derived values still appear via the resolved config under Viper precedence. See [`pkg/redact`](../redact.md) for the full pattern set.
+
 ## Implementation
 
-The doctor command is implemented in `pkg/cmd/doctor/doctor.go` with built-in checks in `pkg/cmd/doctor/checks.go`. The check registry lives in `pkg/setup/`.
+The doctor command is implemented in `pkg/cmd/doctor/doctor.go` with built-in checks in `pkg/cmd/doctor/checks.go`; the `report` subcommand (collector + redaction) lives in `pkg/cmd/doctor/report.go` and `report_redact.go`. The check registry lives in `pkg/setup/`; the shared OS-version string comes from `pkg/osinfo`.
+
+See the spec: `docs/development/specs/2026-06-21-bug-report-diagnostics-command.md`.

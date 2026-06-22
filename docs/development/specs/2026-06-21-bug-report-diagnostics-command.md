@@ -1,7 +1,7 @@
 ---
-title: "`bug-report` — redacted support-bundle diagnostics command"
-description: "Add a built-in, feature-flagged `bug-report` command (alias `info`) that prints a single, paste-ready, secret-redacted support bundle: resolved config (secrets stripped), config/cache paths, tool + Go + OS versions, enabled/disabled feature flags, and the full doctor check report. Library-first: a new `pkg/cmd/bugreport` collector that reuses `pkg/cmd/doctor` checks and routes every free-form field through `pkg/redact`. Text and JSON output honour the global `--output` flag."
-status: DRAFT
+title: "`doctor report` — redacted support-bundle subcommand"
+description: "Add `doctor report`: a subcommand of the existing `doctor` command that prints a single, paste-ready, secret-redacted support bundle — resolved config (secrets stripped), config path, tool + Go + OS versions, feature flags, and the full doctor check report. It reuses the doctor checks in-package and routes every free-form field through `pkg/redact`, plus a shared `pkg/osinfo` for the OS string. Gated by the existing default-on DoctorCmd (no separate flag). Text and JSON output honour the global `--output` flag."
+status: IMPLEMENTED
 date: 2026-06-21
 tags:
   - specification
@@ -23,7 +23,32 @@ Date
 :   2026-06-21
 
 Status
-:   DRAFT (item B2 — awaiting human review)
+:   IMPLEMENTED (item B2 — see the [Design revision](#design-revision-2026-06-22) below, which is authoritative over any contradicting earlier text)
+
+## Design revision (2026-06-22)
+
+During implementation the command was **folded into `doctor` as the `doctor
+report` subcommand**, rather than shipping as a standalone top-level command.
+The bundle (verdict + state dump) is one cohesive diagnostics feature, so this
+gives it one home and one feature flag. This supersedes the original
+"standalone `bug-report` command" design and **Resolutions 1 and 4** below:
+
+- **Command:** `doctor report` (a subcommand of `doctor`), not a top-level
+  `bug-report`. No `info` alias (Resolution 4 stands).
+- **Gating:** by the existing **`DoctorCmd`** (default-**on**). The separate
+  `BugReportCmd` feature flag is **dropped** — supersedes Resolution 1's
+  default-disabled `BugReportCmd`. The bundle is redacted-by-default, so being
+  available wherever `doctor` is poses no leak risk.
+- **Package:** the collector, redaction, and command live **in
+  `pkg/cmd/doctor`** (`report.go`, `report_redact.go`), not a separate
+  `pkg/cmd/bugreport`. This avoids an import cycle (the bundle reuses
+  `RunChecks`/`DoctorReport`/`PrintReport` directly) and keeps it one feature.
+- **Types:** `SupportBundle` (was `BugReport`), `CollectBundle`, `PrintBundle`,
+  `NewCmdReport`. `pkg/osinfo` (Resolution 3) and the redaction perimeter (R1–R4)
+  are unchanged.
+
+Everything else below — the redaction perimeter, requirements R1–R9, the
+testing strategy, and `pkg/osinfo` — applies as written.
 
 ## Summary
 
@@ -208,7 +233,7 @@ type RuntimeSection struct {
 type PathsSection struct {
     ConfigDir  string `json:"config_dir,omitempty"`
     ConfigFile string `json:"config_file,omitempty"`
-    CacheDir   string `json:"cache_dir,omitempty"` // conventional; labelled
+    // CacheDir omitted per Resolution 2 — GTB has no cache subsystem.
 }
 
 type FeatureFlag struct {
@@ -229,7 +254,7 @@ Reuses existing surfaces and applies the redaction perimeter:
 |-----------|------------------------------------------------------------------------------------------|
 | Tool      | `props.Tool.Name` / `.Summary`; `props.Version.GetVersion/GetCommit/GetDate`             |
 | Runtime   | `runtime.Version()`, `runtime.GOOS`, `runtime.GOARCH`, plus a human OS string (see R6)   |
-| Paths     | `setup.GetDefaultConfigDir(props.FS, props.Tool.Name)`; config file in use; cache dir    |
+| Paths     | `setup.GetDefaultConfigDir(props.FS, props.Tool.Name)`; config file in use (no cache dir) |
 | Features  | iterate the known `FeatureCmd` set; `props.Tool.IsEnabled(cmd)` per entry                |
 | Config    | `props.Config.GetViper().AllSettings()` → recursive redaction (see R4)                   |
 | Doctor    | `doctor.RunChecks(ctx, props)` — used verbatim, then its free-form fields re-redacted     |
@@ -268,7 +293,6 @@ A thin renderer, mirroring `doctor.NewCmdDoctor` and
 func NewCmdBugReport(props *p.Props) *setup.Command {
     cmd := &cobra.Command{
         Use:     "bug-report",
-        Aliases: []string{"info"},
         Short:   "Print a redacted, paste-ready support bundle",
         Long:    `...`,
         RunE: func(cmd *cobra.Command, _ []string) error {
@@ -304,11 +328,13 @@ if props.Tool.IsEnabled(p.BugReportCmd) {
 
 ### Feature flag
 
-In `pkg/props/tool.go`:
+In `pkg/props/tool.go` (default-DISABLED per Resolution 1):
 
 - Add `BugReportCmd = FeatureCmd("bug-report")` to the const block.
-- Add `Enable(BugReportCmd)` to `DefaultFeatures` (proposed default-on).
-- Add `BugReportCmd` to the `true` arm of `isDefaultEnabled`.
+- Do **not** add it to `DefaultFeatures`.
+- Add `BugReportCmd` to the `false` arm of `isDefaultEnabled` (alongside
+  `ConfigCmd`/`TelemetryCmd`). Downstream tools opt in via
+  `SetFeatures(Enable(BugReportCmd))`.
 
 ## Requirements
 

@@ -21,7 +21,7 @@ GTB provides a set of essential built-in commands that are automatically include
 | **[Update](update.md)** | Automated binary updates and migration. |
 | **[Docs](docs.md)** | Interactive TUI documentation browser, plus roff man-page generation. |
 | **Man** | Hidden, opt-in roff man-page emitter for packaging/preview. See [Docs › Man-page generation](docs.md#man-page-generation). (opt-in) |
-| **[Doctor](doctor.md)** | Environment and configuration health checks. |
+| **[Doctor](doctor.md)** | Environment and configuration health checks, plus `doctor report` — a redacted, paste-ready support bundle. |
 | **[Changelog](changelog.md)** | Embedded changelog display. |
 | **[MCP](mcp.md)** | AI agent integration (Model Context Protocol). |
 | **[Telemetry](telemetry.md)** | Opt-in usage telemetry status and management. (opt-in) |

@@ -63,7 +63,15 @@ pinpoint a misconfigured or missing dependency.`,
 		},
 	}
 
-	return setup.Wrap(p.DoctorCmd, cmd)
+	doctorCmd := setup.Wrap(p.DoctorCmd, cmd)
+
+	// `doctor report` — the paste-ready, redacted support bundle that wraps the
+	// health verdict with a config/paths/flags state dump. Registered (not raw
+	// AddCommand'd) so it inherits the global middleware chain — timing,
+	// telemetry, panic recovery — exactly like every other subcommand.
+	doctorCmd.Register(setup.Wrap(p.DoctorCmd, NewCmdReport(props)))
+
+	return doctorCmd
 }
 
 // RunChecks executes all diagnostic checks and returns a report.

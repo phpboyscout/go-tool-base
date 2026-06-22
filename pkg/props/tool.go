@@ -23,6 +23,15 @@ const (
 	ManCmd       = FeatureCmd("man")
 )
 
+// AllFeatures is the canonical, ordered enumeration of every built-in feature
+// flag. It is the single source of truth for "the full feature matrix" — e.g.
+// the doctor report bundle ranges over it via IsEnabled. Keep it in sync with
+// the FeatureCmd const block above (and TelemetryCmd from telemetry.go).
+var AllFeatures = []FeatureCmd{
+	UpdateCmd, InitCmd, McpCmd, DocsCmd, AiCmd, DoctorCmd,
+	ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
+}
+
 // DefaultFeatures is the list of features enabled by default.
 var DefaultFeatures = []FeatureState{
 	Enable(UpdateCmd),
