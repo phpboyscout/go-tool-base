@@ -51,6 +51,7 @@ When a generator/tooling scenario fails in CI with a config error but passes loc
 
 ## In this section
 
+- [Testing huh / charm interactive forms](huh-form-testing.md) — unit-test code that drives `charm.land/huh` forms without a TTY: huh's accessible mode (`TERM=dumb`) with scripted stdin, the injectable `WithForm` pattern, or driving the form as a Bubble Tea model. Includes copy-paste helpers and a decision guide.
 - [Manual credential testing](manual-credentials.md) — walk through the OS-keychain storage mode end-to-end using the `cmd/e2e` binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
 - [Testing the keychain on a headless host](headless-keychain-testing.md) — three ways to unblock yourself when the dev server, CI runner, or container has no registered Secret Service: install GNOME Keyring with `dbus-run-session`, run a containerised Secret Service, or swap in the in-memory backend from `credtest`.
 

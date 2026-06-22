@@ -130,3 +130,7 @@ The release-provider registry (`release.Register`) is the same kind of global mu
 ### `t.Parallel()` + `t.Setenv()` are incompatible
 
 Go's testing framework panics if a test calls both `t.Parallel()` and `t.Setenv()`. Tests that modify environment variables must remain serial. Prefer injecting values through `Props`, `Config`, or functional options instead of environment variables where possible.
+
+## Testing interactive (huh / charm) forms
+
+Code that drives a `charm.land/huh` form calls `form.Run()`, which blocks on a real TTY — a naive unit test hangs. huh's **accessible mode** (auto-enabled by `TERM=dumb`) turns the form into line-based prompts that read `os.Stdin`, so you can drive the *real* form with scripted input; alternatively inject the form (the `WithForm` pattern) or drive it as a Bubble Tea model. The full guide, with copy-paste helpers and a decision table, is in [Testing huh / charm interactive forms](../development/testing/huh-form-testing.md).
