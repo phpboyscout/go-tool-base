@@ -526,6 +526,89 @@ func robustChat(ctx context.Context, p *props.Props, prompt string) (string, err
 }
 ```
 
+## Cross-provider fallback & routing
+
+A single provider can rate-limit (HTTP 429), suffer an outage (5xx), or be
+unreachable. `chat.NewFallback` wraps an **ordered list** of clients and, on a
+*retryable* failure from the active one, transparently advances to the next. The
+composite **is** a `ChatClient` (and a `StreamingChatClient` iff every wrapped
+client streams), so callers are unchanged.
+
+```go
+// Wrap already-constructed clients (first is primary, rest are fallbacks):
+client, err := chat.NewFallback([]chat.ChatClient{primary, secondary})
+
+// Or build from configs (each provider resolves its own credentials + model):
+client, err := chat.NewFallbackFromConfigs(ctx, props, []chat.Config{
+    {Provider: chat.ProviderClaude, Model: "claude-opus-4-8"},
+    {Provider: chat.ProviderOpenAI},                          // uses OpenAI's default model
+    {Provider: chat.ProviderGemini},
+})
+```
+
+### Config surface (opt-in, default off)
+
+```yaml
+ai:
+  provider: claude          # single-provider default (unchanged)
+  fallback:
+    enabled: false          # default — single-provider behaviour is byte-for-byte preserved
+    providers: [claude, openai, gemini]   # ordered; index 0 is primary
+```
+
+When `ai.fallback.enabled` is true and `ai.fallback.providers` is non-empty,
+`chat.NewWithFallback` (used by the AI call sites) builds a composite; otherwise
+it is exactly `chat.New`. `providers[0]` is the primary and **overrides**
+`ai.provider` (a WARN is logged on disagreement). A fallback provider whose
+credentials are missing is dropped with a WARN (endpoint host only); the
+**primary's** absence is fatal.
+
+> **Known limitation — per-provider model.** On the config-driven path each
+> provider in the chain uses **its own default model**; the global `ai.model`
+> key is *not* applied per provider (a single model name rarely makes sense
+> across Claude/OpenAI/Gemini). To pin a specific model per provider, construct
+> the chain explicitly with `chat.NewFallbackFromConfigs` and set each
+> `Config.Model`.
+
+### Which errors trigger failover
+
+The default policy (`chat.DefaultFailoverPolicy`, overridable via
+`WithFailoverPolicy`) advances on transient/unavailable conditions and treats
+operator-fixable faults as fatal:
+
+| Advance (`FailoverNext`) | Fatal (`FailoverFatal`) |
+|--------------------------|-------------------------|
+| 408, 429, 500, 502, 503, 504 | 400, 401, 403, 404, 422 |
+| network errors (DNS, connection refused/reset, TLS) | caller-cancelled context |
+| per-request timeout | claude-local non-zero exit (operator-fixable) |
+
+Status is extracted via `errors.As` against the SDK error types
+(`*anthropic.Error`, `*openai.Error`, `*genai.APIError`), so the providers'
+`errors.Wrap` layers are transparent. The policy never inspects error *messages*.
+
+### Behaviour across a failover boundary — known limitations
+
+- **Lossy transcript replay.** The composite keeps a provider-neutral transcript
+  of user/assistant **text** turns and replays the *user* turns into a fallback
+  provider on first use (assistant turns and tool-call/tool-result interleaving
+  cannot be reconstructed). A conversation that did heavy tool use before
+  failover resumes with reduced context. Pass `WithStrictToolContext` to fail
+  fast instead, once a tool has executed.
+- **Tools** re-apply cleanly (handlers are provider-agnostic).
+- **Streaming** fails over **only before the first visible event**
+  (`EventTextDelta`/`EventToolCallStart`) reaches your callback — once a delta is
+  emitted it cannot be un-emitted, so a later error is terminal.
+- **Usage** is the **sum** across every provider the composite drove (so a
+  failover's combined spend is visible).
+
+### Logging & redaction
+
+Each transition logs exactly one WARN line — `chat provider failover` with
+`from`/`to` (enum names) and a coarse `reason` (`status`/`network`). The
+triggering error's message is **never** logged verbatim; any endpoint detail is
+reduced to the host only, consistent with the chat client's existing rule (see
+[`redact`](redact.md)).
+
 ## Conversation Persistence
 
 Conversation state can be saved and restored across CLI invocations using the `PersistentChatClient` interface. Discover it via type assertion (same pattern as `StreamingChatClient`):

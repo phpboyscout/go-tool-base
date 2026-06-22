@@ -643,7 +643,7 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 		RequestTimeout: g.requestTimeout(),
 	}
 
-	client, err := chat.New(ctx, g.props, chatCfg)
+	client, err := chat.NewWithFallback(ctx, g.props, chatCfg)
 	if err != nil {
 		return nil, verifier.AIResponse{}, err
 	}

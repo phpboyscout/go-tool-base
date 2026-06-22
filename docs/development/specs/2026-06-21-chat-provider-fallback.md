@@ -2,7 +2,7 @@
 title: "Cross-Provider Fallback & Routing for the Chat Client"
 description: "A composite ChatClient that automatically fails over (and optionally routes) across an ordered list of configured providers — Claude → OpenAI → Gemini — when one errors, rate-limits, or is unreachable, behind the existing ChatClient/StreamingChatClient/PersistentChatClient interfaces so callers are unchanged."
 date: 2026-06-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -12,20 +12,31 @@ tags:
 author:
   - name: Matt Cockayne
     email: matt@phpboyscout.com
-  - name: Claude (claude-opus-4-8)
-    role: AI drafting assistant
 ---
 
 # Cross-Provider Fallback & Routing for the Chat Client
 
 Authors
-:   Matt Cockayne, Claude (claude-opus-4-8) *(AI drafting assistant)*
+:   Matt Cockayne
 
 Date
 :   21 June 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED (item E1 — open questions resolved; see Resolutions)
+
+Implementation note
+:   Delivered in `pkg/chat/fallback.go` (composite + `NewFallback`/
+    `NewFallbackFromConfigs`/`NewWithFallback`), `pkg/chat/fallback_policy.go`
+    (`FailoverPolicy`/`DefaultFailoverPolicy`/`providerHTTPStatus`), and the
+    `ai.fallback.*` keys in `client.go`; the AI call sites (`pkg/docs/ask.go`,
+    the two generators) now go through `NewWithFallback`. End-to-end failover is
+    proven by a gated httptest integration test
+    (`fallback_integration_test.go`, real OpenAI-SDK 503 → advance). A Godog/
+    Gherkin scenario was **not** added: cross-provider fallback is transparent
+    library/config behaviour, not a CLI command or service-lifecycle change, so
+    the "must ship Gherkin" rule does not apply; the integration test covers the
+    e2e path.
 
 Decision-log
 :   Roadmap item **E1**. Open — chat enhancements are squarely in scope (`pkg/chat`

@@ -632,7 +632,7 @@ func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sys
 		RequestTimeout: g.requestTimeout(),
 	}
 
-	client, err := chat.New(ctx, g.props, chatCfg)
+	client, err := chat.NewWithFallback(ctx, g.props, chatCfg)
 	if err != nil {
 		return nil, errors.Newf("failed to create AI client: %w", err)
 	}
