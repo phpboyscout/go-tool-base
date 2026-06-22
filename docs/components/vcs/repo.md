@@ -207,6 +207,50 @@ err := r.WalkTree(func(f *object.File) error {
 
 This is the standard pattern for hydrating a virtual filesystem with files from any point in a repository's history.
 
+### Live worktree as `afero.Fs`
+
+`AddToFS` *copies* tree files into a **separate** `afero.Fs` — ideal for one-shot
+extraction, but it gives you two sources of truth (the copy and the worktree). For
+**continuous read/write against the live worktree**, use `WorkFS()` / `WithWorkFS()`
+(the `WorktreeFS` role). Files written through the returned `afero.Fs` *are* the
+worktree, so `go-git` stages and commits them with no materialise/sync step:
+
+```go
+fs, err := r.WorkFS()              // afero view of the active worktree
+_ = afero.WriteFile(fs, "storyboard.json", data, 0o644)
+_ = r.AddAll()                     // stages the afero-written file
+_, _ = r.Commit("save", opts)      // it's in the commit
+```
+
+This works for an in-memory repo (`memfs`) and a local one (`osfs`) alike — the
+underlying billy filesystem is bridged by `pkg/vcs/repo/aferobilly` (a reusable
+`billy.Filesystem` → `afero.Fs` adapter). `ErrNoWorktree` is returned if no
+worktree is open.
+
+**Concurrency.** On `ThreadSafeRepo`, the `WorkFS()` handle is safe for concurrent
+use: every operation re-locks the repo mutex, so the handle can never touch the
+worktree unsynchronised. Operations are individually atomic, but a *sequence* is
+not — a concurrent `Commit`/`AddAll` may interleave between two writes. When a
+sequence must be atomic (write a coherent set of files, then commit), use
+`WithWorkFS(fn)`, which holds the lock for the whole callback:
+
+```go
+err := ts.WithWorkFS(func(fs afero.Fs) error {
+    _ = afero.WriteFile(fs, "a.json", a, 0o644)
+    _ = afero.WriteFile(fs, "b.json", b, 0o644)
+    return nil
+})
+```
+
+> **Do not** use a `WorkFS()` handle (or a file it opened) from inside a
+> `WithWorkFS` / `WithTree` / `WithRepo` callback — that region already holds the
+> (non-reentrant) repo mutex, so re-locking would deadlock. The adapter exposes no
+> accessor for the underlying billy object, so the lock boundary cannot be bypassed.
+
+Semantics worth noting: `Chmod`/`Chown`/`Chtimes` are no-ops (billy ignores modes);
+`Mkdir` behaves like `MkdirAll` (billy has no plain `Mkdir`); symlinks are
+supported via afero's optional `Symlinker` interface.
+
 ---
 
 ## Authentication
@@ -314,6 +358,7 @@ the composite, so callers still pass their `*Repo` / `*ThreadSafeRepo` unchanged
 | `SourceState` | `SourceIs`, `SetSource` | Backend discriminator (memory vs local) |
 | `GitAccessor` | `WithRepo`, `WithTree` | Raw go-git escape hatches |
 | `Brancher` | `CreateBranch` | Branch creation |
+| `WorktreeFS` | `WorkFS`, `WithWorkFS` | Live worktree as an `afero.Fs` (see [Live worktree as afero.Fs](#live-worktree-as-aferofs)) |
 | `Initializer` | `InitLocal`, `AddAll` | Init-only + gitignore-aware staging (first-commit path) |
 
 `Initializer` is satisfied by both concrete types but is **not embedded in

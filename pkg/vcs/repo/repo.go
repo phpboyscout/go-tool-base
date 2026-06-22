@@ -177,6 +177,7 @@ type RepoLike interface {
 	SourceState
 	GitAccessor
 	Brancher
+	WorktreeFS
 }
 
 // Compile-time proof that both concrete repository types satisfy the full
@@ -201,6 +202,8 @@ var (
 	_ GitAccessor        = (*ThreadSafeRepo)(nil)
 	_ Brancher           = (*Repo)(nil)
 	_ Brancher           = (*ThreadSafeRepo)(nil)
+	_ WorktreeFS         = (*Repo)(nil)
+	_ WorktreeFS         = (*ThreadSafeRepo)(nil)
 )
 
 // Repo implements RepoLike using go-git for local and in-memory repositories.

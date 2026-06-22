@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo/aferobilly"
 )
 
 // ThreadSafeRepo wraps a *Repo with a mutex so that all RepoLike methods are safe
@@ -239,4 +240,28 @@ func (r *ThreadSafeRepo) WithTree(fn func(*git.Worktree) error) error {
 	}
 
 	return fn(r.repo.tree)
+}
+
+// WorkFS returns the worktree as an afero.Fs whose every operation re-locks the
+// repo mutex, so the returned handle is safe for concurrent use even though the
+// worktree filesystem reference escapes this method (see [WorktreeFS.WorkFS]).
+func (r *ThreadSafeRepo) WorkFS() (afero.Fs, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.repo.tree == nil {
+		return nil, ErrNoWorktree
+	}
+
+	return aferobilly.New(r.repo.tree.Filesystem, aferobilly.WithLocker(&r.mu)), nil
+}
+
+// WithWorkFS runs fn with an afero view of the worktree while holding the repo
+// lock for the whole callback (via WithTree). The view uses a no-op locker
+// because the lock is already held — re-locking the non-reentrant mutex would
+// deadlock.
+func (r *ThreadSafeRepo) WithWorkFS(fn func(afero.Fs) error) error {
+	return r.WithTree(func(wt *git.Worktree) error {
+		return fn(aferobilly.New(wt.Filesystem))
+	})
 }

@@ -10,9 +10,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
 )
 
 // NewMockRepoLike creates a new instance of MockRepoLike. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -1366,6 +1366,112 @@ func (_c *MockRepoLike_WithTree_Call) Return(err error) *MockRepoLike_WithTree_C
 }
 
 func (_c *MockRepoLike_WithTree_Call) RunAndReturn(run func(fn func(*git.Worktree) error) error) *MockRepoLike_WithTree_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WorkFS provides a mock function for the type MockRepoLike
+func (_mock *MockRepoLike) WorkFS() (afero.Fs, error) {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for WorkFS")
+	}
+
+	var r0 afero.Fs
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func() (afero.Fs, error)); ok {
+		return returnFunc()
+	}
+	if returnFunc, ok := ret.Get(0).(func() afero.Fs); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(afero.Fs)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func() error); ok {
+		r1 = returnFunc()
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockRepoLike_WorkFS_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WorkFS'
+type MockRepoLike_WorkFS_Call struct {
+	*mock.Call
+}
+
+// WorkFS is a helper method to define mock.On call
+func (_e *MockRepoLike_Expecter) WorkFS() *MockRepoLike_WorkFS_Call {
+	return &MockRepoLike_WorkFS_Call{Call: _e.mock.On("WorkFS")}
+}
+
+func (_c *MockRepoLike_WorkFS_Call) Run(run func()) *MockRepoLike_WorkFS_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockRepoLike_WorkFS_Call) Return(fs afero.Fs, err error) *MockRepoLike_WorkFS_Call {
+	_c.Call.Return(fs, err)
+	return _c
+}
+
+func (_c *MockRepoLike_WorkFS_Call) RunAndReturn(run func() (afero.Fs, error)) *MockRepoLike_WorkFS_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// WithWorkFS provides a mock function for the type MockRepoLike
+func (_mock *MockRepoLike) WithWorkFS(fn func(afero.Fs) error) error {
+	ret := _mock.Called(fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WithWorkFS")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(func(afero.Fs) error) error); ok {
+		r0 = returnFunc(fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepoLike_WithWorkFS_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithWorkFS'
+type MockRepoLike_WithWorkFS_Call struct {
+	*mock.Call
+}
+
+// WithWorkFS is a helper method to define mock.On call
+//   - fn func(afero.Fs) error
+func (_e *MockRepoLike_Expecter) WithWorkFS(fn interface{}) *MockRepoLike_WithWorkFS_Call {
+	return &MockRepoLike_WithWorkFS_Call{Call: _e.mock.On("WithWorkFS", fn)}
+}
+
+func (_c *MockRepoLike_WithWorkFS_Call) Run(run func(fn func(afero.Fs) error)) *MockRepoLike_WithWorkFS_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func(afero.Fs) error
+		if args[0] != nil {
+			arg0 = args[0].(func(afero.Fs) error)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepoLike_WithWorkFS_Call) Return(err error) *MockRepoLike_WithWorkFS_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepoLike_WithWorkFS_Call) RunAndReturn(run func(fn func(afero.Fs) error) error) *MockRepoLike_WithWorkFS_Call {
 	_c.Call.Return(run)
 	return _c
 }

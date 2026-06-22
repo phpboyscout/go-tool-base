@@ -76,6 +76,32 @@ If you need to move files from the in-memory Git storage to your application's p
 err := r.AddToFS(p.FS, gitFile, "/tmp/analysis/root.go")
 ```
 
+`AddToFS` *copies* into a **separate** filesystem — ideal for one-shot
+extraction. For **live** read/write against the worktree itself, use `WorkFS`
+(next).
+
+## 4a. Editing the Worktree Through afero
+
+`WorkFS()` returns the **live worktree** as an `afero.Fs`. Files written through
+it *are* the worktree, so `go-git` stages and commits them with no
+materialise/sync step — one source of truth. This makes an afero-based
+"commit-on-save" run verbatim over an in-memory repo:
+
+```go
+fs, err := r.WorkFS()                       // afero view of the worktree
+_ = afero.WriteFile(fs, "storyboard.json", data, 0o644)
+_ = r.AddAll()                              // stages the afero-written file
+_, _ = r.Commit("save", opts)               // it's in the commit
+```
+
+On a `ThreadSafeRepo`, the `WorkFS()` handle is safe for concurrent use (every
+operation re-locks the repo mutex). For a sequence that must be atomic relative
+to commits, use `WithWorkFS(func(fs afero.Fs) error { ... })`, which holds the
+lock for the whole callback. See the
+[Repo component reference](../components/vcs/repo.md#live-worktree-as-aferofs)
+and the [aferobilly adapter](../components/vcs/aferobilly.md) for the full
+contract and semantics.
+
 ## 5. Concurrent Access
 
 If multiple goroutines need to share a repository, use `ThreadSafeRepo` instead of `Repo`. It wraps every operation with a mutex:

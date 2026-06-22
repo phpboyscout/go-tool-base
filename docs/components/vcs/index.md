@@ -16,6 +16,7 @@ The `pkg/vcs/` directory is split into focused subpackages. Each has a distinct 
 |---------|-------------|---------|
 | **[Release](release.md)** | `pkg/vcs/release` | Backend-agnostic `Provider`/`Release`/`ReleaseAsset` interfaces, sentinel errors, and the provider registry |
 | **[Repo](repo.md)** | `pkg/vcs/repo` | Git repository operations (local and in-memory) via `go-git` |
+| **[aferobilly](aferobilly.md)** | `pkg/vcs/repo/aferobilly` | Adapts a `go-billy/v5` filesystem (e.g. a worktree) to an `afero.Fs`, with per-op locking for safe concurrent use |
 | **[GitHub](github.md)** | `pkg/vcs/github` | GitHub Enterprise API client and GitHub release provider |
 | **[GitLab](gitlab.md)** | `pkg/vcs/gitlab` | GitLab (and self-managed) release provider |
 | **[Bitbucket](bitbucket.md)** | `pkg/vcs/bitbucket` | Bitbucket Cloud Downloads-based release provider (filename-pattern version detection) |
