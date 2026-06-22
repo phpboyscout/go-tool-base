@@ -34,7 +34,11 @@ func NewCmdInit(props *p.Props, opts ...InitOption) *setup.Command {
 		Long: `Write the tool's configuration file and run the interactive first-run
 bootstrap. Discovered subcommands offer guided setup of optional
 subsystems such as AI providers, GitHub, and Bitbucket. Re-run it any
-time to reconfigure; use --clean to reset to defaults.`,
+time to reconfigure; use --clean to reset to defaults.
+
+Without an interactive terminal (piped stdin, CI, or a test harness) the
+credential wizards are skipped and only the base configuration is written;
+configure a provider later with "init <provider>" from a terminal.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			props.Logger.Info("Initialising configuration")
 

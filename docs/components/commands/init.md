@@ -21,6 +21,8 @@ mytool init [subcommand]
 
 Initializes the default configuration for the tool, sets up authentication with GitHub (if needed), and configures SSH keys. This command creates configuration files in the appropriate directories and prepares the tool for first use.
 
+The credential wizards (GitHub, Bitbucket, AI) are interactive. When `init` runs **without an interactive terminal** — piped/redirected stdin, CI, or a test harness — those wizards are skipped automatically and only the base configuration is written, so `init` never blocks waiting on a prompt that can't be answered. Configure a provider later by running its subcommand (e.g. `mytool init bitbucket`) from a terminal, or by setting the relevant config keys directly.
+
 ## Flags
 
 | Flag | Description | Default |
@@ -31,7 +33,7 @@ Initializes the default configuration for the tool, sets up authentication with 
 | `-k, --skip-key` | Skip SSH key configuration | `false` (or `true` in CI) |
 
 !!! info "CI Mode Detection"
-    When the `CI` environment variable is set to `true`, the `--skip-login` and `--skip-key` flags default to `true` to avoid interactive prompts in automated environments.
+    When the `CI` environment variable is set to `true`, the `--skip-login`, `--skip-key`, and `--skip-bitbucket` flags default to `true` to avoid interactive prompts in automated environments. Independently of those flags, the credential wizards are also skipped whenever stdin is not an interactive terminal — so `init` is safe to run in pipelines and scripts without hanging.
 
 ## Example
 

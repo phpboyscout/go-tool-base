@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -150,4 +151,50 @@ func TestWarnIfAPIKeysInGitRepo_NoGitRepo(t *testing.T) {
 
 	warnIfAPIKeysInGitRepo(p, configDir)
 	assert.Empty(t, buf.String())
+}
+
+// recordingInitialiser counts Configure calls so the interactivity guard can be
+// asserted without driving a real wizard.
+type recordingInitialiser struct {
+	calls int
+}
+
+func (r *recordingInitialiser) Name() string                         { return "Fake provider" }
+func (r *recordingInitialiser) IsConfigured(config.Containable) bool { return false }
+func (r *recordingInitialiser) Configure(*props.Props, config.Containable) error {
+	r.calls++
+
+	return nil
+}
+
+func TestInitialise_SkipsWizardsWhenNonInteractive(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs()}
+	rec := &recordingInitialiser{}
+	notInteractive := false
+
+	_, err := Initialise(p, InitOptions{
+		Dir:          t.TempDir(),
+		Initialisers: []Initialiser{rec},
+		Interactive:  &notInteractive,
+	})
+	require.NoError(t, err)
+	assert.Zero(t, rec.calls, "credential wizard must not run without an interactive terminal")
+}
+
+func TestInitialise_RunsWizardsWhenInteractive(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs()}
+	rec := &recordingInitialiser{}
+	interactive := true
+
+	_, err := Initialise(p, InitOptions{
+		Dir:          t.TempDir(),
+		Initialisers: []Initialiser{rec},
+		Interactive:  &interactive,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, rec.calls, "an unconfigured initialiser must run in an interactive terminal")
 }
