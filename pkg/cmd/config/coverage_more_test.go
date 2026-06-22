@@ -1,8 +1,10 @@
 package config
 
 import (
+	"context"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -101,4 +103,67 @@ func TestResolveEnvVarName_AssumeYes(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "GITHUB_TOKEN", name)
+}
+
+// TestRunEdit_BadEditorShlex — an unparseable editor command is rejected before
+// any editor launch.
+func TestRunEdit_BadEditorShlex(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	path := "/etc/tool/config.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
+
+	cmd := NewCmdEdit(fileBoundProps(fs, path),
+		WithEditorRunner(func(context.Context, []string, string) error { return nil }),
+		WithInteractiveCheck(func() bool { return true }),
+	)
+	cmd.SetArgs([]string{"--editor", "'unbalanced"})
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "could not parse editor command")
+}
+
+// TestRunEdit_ReadEditedFails — when the editor removes the temp file, reading
+// it back surfaces a descriptive error rather than a panic.
+func TestRunEdit_ReadEditedFails(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	path := "/etc/tool/config.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
+
+	runner := func(_ context.Context, _ []string, tmp string) error {
+		return fs.Remove(tmp) // editor "succeeds" but the temp file is gone
+	}
+
+	cmd := NewCmdEdit(fileBoundProps(fs, path),
+		WithEditorRunner(runner),
+		WithInteractiveCheck(func() bool { return true }),
+	)
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "reading edited file")
+}
+
+// renameFailFs is an afero.Fs whose Rename always fails, to exercise
+// writeConfigAtomic's temp-rename error branch.
+type renameFailFs struct{ afero.Fs }
+
+func (renameFailFs) Rename(string, string) error {
+	return errors.New("rename blocked")
+}
+
+// TestWriteConfigAtomic_RenameError — a Rename failure is wrapped and the temp
+// file is cleaned up.
+func TestWriteConfigAtomic_RenameError(t *testing.T) {
+	t.Parallel()
+
+	fs := renameFailFs{afero.NewMemMapFs()}
+
+	err := writeConfigAtomic(fs, "/etc/tool/config.yaml", []byte("k: v\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rename migrated config into place")
 }
