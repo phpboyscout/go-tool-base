@@ -31,6 +31,8 @@ tmp/
 /coverage*
 bin/*
 site/*
+# Generated man-page tree (output of `just man` / `gtb generate man`)
+/man/
 /gtb
 /e2e
 /mcp-tools.json

@@ -17,6 +17,10 @@ generate:
 build: tidy generate
     go build -o bin/gtb ./cmd/gtb
 
+# Generate roff man pages for gtb's command tree into ./man/man1
+man: build
+    ./bin/gtb generate man --dir man
+
 # Build a snapshot release with goreleaser
 snapshot:
     goreleaser build --snapshot --clean

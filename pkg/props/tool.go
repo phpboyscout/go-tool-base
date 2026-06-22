@@ -20,6 +20,7 @@ const (
 	DoctorCmd    = FeatureCmd("doctor")
 	ConfigCmd    = FeatureCmd("config")
 	ChangelogCmd = FeatureCmd("changelog")
+	ManCmd       = FeatureCmd("man")
 )
 
 // DefaultFeatures is the list of features enabled by default.
@@ -183,7 +184,7 @@ func isDefaultEnabled(cmd FeatureCmd) bool {
 	switch cmd {
 	case UpdateCmd, InitCmd, McpCmd, DocsCmd, DoctorCmd, ChangelogCmd:
 		return true
-	case AiCmd, ConfigCmd, TelemetryCmd:
+	case AiCmd, ConfigCmd, TelemetryCmd, ManCmd:
 		return false
 	default:
 		return false

@@ -18,6 +18,18 @@ func TestSetFeatures_DefaultsPlusOverrides(t *testing.T) {
 	assert.True(t, tool.IsEnabled(DocsCmd))
 	assert.True(t, tool.IsEnabled(DoctorCmd))
 	assert.True(t, tool.IsEnabled(AiCmd))
+	// ManCmd is default-off: absent from DefaultFeatures, opt-in only.
+	assert.False(t, tool.IsEnabled(ManCmd))
+}
+
+func TestManCmd_OptIn(t *testing.T) {
+	t.Parallel()
+
+	off := Tool{Features: SetFeatures()}
+	assert.False(t, off.IsEnabled(ManCmd), "man must be disabled by default")
+
+	on := Tool{Features: SetFeatures(Enable(ManCmd))}
+	assert.True(t, on.IsEnabled(ManCmd), "man must enable when opted in")
 }
 
 func TestEnable_NoDuplicates(t *testing.T) {
@@ -74,6 +86,8 @@ func TestIsDefaultEnabled(t *testing.T) {
 		{DocsCmd, true},
 		{DoctorCmd, true},
 		{AiCmd, false},
+		{ConfigCmd, false},
+		{ManCmd, false},
 		{FeatureCmd("custom"), false},
 	}
 	for _, tt := range tests {

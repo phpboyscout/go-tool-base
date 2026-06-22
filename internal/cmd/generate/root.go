@@ -37,6 +37,7 @@ flag to an existing command, and "docs" writes command documentation.`,
 		setup.Wrap("", NewCmdCommand(p)),
 		setup.Wrap("", NewCmdAddFlag(p)),
 		setup.Wrap("", NewCmdDocs(p)),
+		setup.Wrap("", NewCmdMan(p)),
 	)
 
 	return generateCmd

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/docs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/doctor"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/initialise"
+	cmdman "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/man"
 	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
@@ -708,12 +709,25 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 
 	rootCmd.Register(version.NewCmdVersion(props))
 
-	if props.Tool.IsEnabled(p.UpdateCmd) {
-		rootCmd.Register(update.NewCmdUpdate(props))
+	// Simple feature-gated commands: register each when its feature is enabled.
+	// Constructors with optional variadic options are wrapped in thunks so the
+	// table stays a single uniform func() type.
+	simple := []struct {
+		feature p.FeatureCmd
+		build   func() *setup.Command
+	}{
+		{p.UpdateCmd, func() *setup.Command { return update.NewCmdUpdate(props) }},
+		{p.InitCmd, func() *setup.Command { return initialise.NewCmdInit(props) }},
+		{p.DoctorCmd, func() *setup.Command { return doctor.NewCmdDoctor(props) }},
+		{p.ConfigCmd, func() *setup.Command { return cmdconfig.NewCmdConfig(props) }},
+		{p.TelemetryCmd, func() *setup.Command { return cmdtelemetry.NewCmdTelemetry(props) }},
+		{p.ChangelogCmd, func() *setup.Command { return cmdchangelog.NewCmdChangelog(props) }},
+		{p.ManCmd, func() *setup.Command { return cmdman.NewCmdMan(props) }},
 	}
-
-	if props.Tool.IsEnabled(p.InitCmd) {
-		rootCmd.Register(initialise.NewCmdInit(props))
+	for _, c := range simple {
+		if props.Tool.IsEnabled(c.feature) {
+			rootCmd.Register(c.build())
+		}
 	}
 
 	if props.Tool.IsEnabled(p.McpCmd) {
@@ -730,22 +744,6 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 		if docsCmd := docs.NewCmdDocs(props); docsCmd != nil {
 			rootCmd.Register(docsCmd)
 		}
-	}
-
-	if props.Tool.IsEnabled(p.DoctorCmd) {
-		rootCmd.Register(doctor.NewCmdDoctor(props))
-	}
-
-	if props.Tool.IsEnabled(p.ConfigCmd) {
-		rootCmd.Register(cmdconfig.NewCmdConfig(props))
-	}
-
-	if props.Tool.IsEnabled(p.TelemetryCmd) {
-		rootCmd.Register(cmdtelemetry.NewCmdTelemetry(props))
-	}
-
-	if props.Tool.IsEnabled(p.ChangelogCmd) {
-		rootCmd.Register(cmdchangelog.NewCmdChangelog(props))
 	}
 }
 
