@@ -438,15 +438,8 @@ func TestRemoveSpillFile_MissingIsNoError(t *testing.T) {
 	c.removeSpillFile(filepath.Join(dir, "telemetry-spill-does-not-exist.json"))
 }
 
-// --- machine-id / os-version helpers: drive the platform branches ---
-
-func TestOSVersion_NonEmpty(t *testing.T) {
-	t.Parallel()
-
-	if osVersion() == "" {
-		t.Error("osVersion() returned empty string")
-	}
-}
+// --- machine-id helper: drive the platform branches ---
+// (The OS-version helper moved to pkg/osinfo and is tested there.)
 
 func TestOSMachineID_DoesNotPanic(t *testing.T) {
 	t.Parallel()

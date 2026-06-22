@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/osinfo"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
@@ -105,7 +106,7 @@ func NewCollector(cfg Config, backend Backend, toolName, version string, metadat
 		version:            version,
 		machineID:          HashedMachineID(),
 		goVersion:          runtime.Version(),
-		osVersion:          osVersion(),
+		osVersion:          osinfo.Version(),
 		extendedCollection: extendedCollection,
 		metadata:           metadata,
 		log:                log,
