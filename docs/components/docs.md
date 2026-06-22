@@ -40,6 +40,47 @@ When the binary embeds a pre-built Material/Zensical static site (`assets/site`)
 - **Flags**: `--port` / `-p` (default `8080`, `0` for a random port), `--host` (default `127.0.0.1`), and `--open` (auto-open the browser; skipped when `--port 0` since the bound port is not known to the caller).
 - **Standard error path**: the command runs as `RunE` and flows through the recovery/timing/telemetry middleware chain like every other built-in, surfacing failures via the structured `ErrorHandler`.
 
+## Man-page generation
+
+In addition to Markdown docs and the TUI browser, `pkg/docs` renders
+standards-compliant **roff man pages** directly from the live Cobra command
+tree via `github.com/spf13/cobra/doc`. This is the artefact Linux packages
+(`.deb`/`.rpm`) and Homebrew formulae install under `/usr/share/man`.
+
+Pages are rendered from the live tree (never embedded in the binary), so they
+cannot drift from the actual command set. The single library seam is:
+
+```go
+// pkg/docs/man.go
+func GenerateManTree(root *cobra.Command, opts docs.ManOptions) error
+```
+
+`ManOptions` controls the output directory and `.TH` header policy:
+
+| Field | Purpose |
+| :--- | :--- |
+| `Dir` | Output base; pages are written under `Dir/man<section>/<command-path>.1` |
+| `Title` | Fixed `.TH` title; blank lets cobra derive a per-command title (recommended) |
+| `Section` | Man section (default `1`) |
+| `Source` / `Manual` | `.TH` footer (e.g. `gtb 0.21.0`, `GTB Manual`); always set so the cobra placeholder never ships |
+| `Date` | `nil` suppresses the auto-gen trailer for byte-reproducible output (honours `SOURCE_DATE_EPOCH`); set to stamp a date |
+
+Two thin command surfaces call this one seam:
+
+- **`gtb generate man [--dir ./man] [--section] [--source] [--manual] [--date]`** —
+  the build-time step for CI and packaging. Respects the generator's
+  `--dry-run` (lists intended files instead of writing). A `just man` recipe
+  wraps it.
+- **`<tool> man [--dir]`** — a hidden, opt-in runtime command (default-off
+  `props.ManCmd` feature). With `--dir` it writes the tree; without it, the
+  tool's top-level page is printed to stdout for preview
+  (`mytool man | man -l -`). Enable it with
+  `props.SetFeatures(props.Enable(props.ManCmd))`.
+
+Man-page generation is **deterministic** — there is no AI involvement, unlike
+`generate docs`. Long descriptions come from each command's existing
+`Long`/`Short`/`Example` fields.
+
 ## Integration Details
 
 ### Asset Structure
