@@ -26,23 +26,23 @@ include:
   # cicd dev-tools image baked into the components (Go 1.26.4, govulncheck,
   # golangci-lint) — no per-component image overrides needed since cicd
   # v0.14.0.
-  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.14.0
-  - component: gitlab.com/phpboyscout/cicd/go-test@v0.14.0
+  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.14.1
+  - component: gitlab.com/phpboyscout/cicd/go-test@v0.14.1
     inputs:
       enable_e2e: true
-  - component: gitlab.com/phpboyscout/cicd/go-security@v0.14.0
+  - component: gitlab.com/phpboyscout/cicd/go-security@v0.14.1
 
   # Release — tag-gated goreleaser + main-branch zensical-pages deploy.
   # goreleaser runs on the dev-tools image (Go 1.26.4), so it builds with
   # the image's Go — no gotoolchain override needed (the component's
   # `auto` default applies harmlessly).
-  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.14.0
-  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.14.0
+  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.14.1
+  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.14.1
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
   # (carries the schedule-never guard, so it no longer fires on the
   # Renovate schedule).
-  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.14.0
+  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.14.1
     inputs:
       token: $RELEASER_PLEASER_TOKEN
       branch: main
@@ -51,7 +51,7 @@ include:
   # Scheduled Renovate run — wires its own schedule gate
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
   # carries the custom manager that auto-bumps the pins above.
-  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.14.0
+  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.14.1
     inputs:
       repositories: '["phpboyscout/go-tool-base"]'
 
