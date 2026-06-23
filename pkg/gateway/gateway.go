@@ -32,8 +32,10 @@ const ConfigPrefix = "server.gateway"
 type RegisterFunc func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error
 
 type options struct {
-	muxOpts  []runtime.ServeMuxOption
-	dialOpts []grpc.DialOption
+	muxOpts       []runtime.ServeMuxOption
+	dialOpts      []grpc.DialOption
+	middleware    gtbhttp.Chain
+	hasMiddleware bool
 }
 
 // Option configures the gateway.
@@ -55,18 +57,31 @@ func WithDialOptions(opts ...grpc.DialOption) Option {
 	}
 }
 
-// New builds a grpc-gateway handler ready to mount on an existing HTTP server.
-// It dials the local gRPC server via grpc.DialLocal (so transport security
-// matches the server's own config) and applies register to wire the handlers.
+// WithMiddleware wraps the gateway's REST surface with an HTTP middleware chain
+// (logging, security headers, rate limiting, auth, …). The gateway handler is an
+// ordinary http.Handler, so the standard pkg/http Chain applies to it.
 //
-// The returned handler is a *runtime.ServeMux. The underlying gRPC connection
-// lives for the process; it is the standard pattern for an in-process gateway.
-func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
+// On the New path the chain wraps the returned handler directly. On the Register
+// path it is threaded to the managed server so health endpoints (/healthz,
+// /livez, /readyz) remain outside the chain, exactly as with http.Register.
+func WithMiddleware(chain gtbhttp.Chain) Option {
+	return func(o *options) {
+		o.middleware = chain
+		o.hasMiddleware = true
+	}
+}
+
+func newOptions(opts []Option) *options {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
 
+	return o
+}
+
+// serveMux builds the raw grpc-gateway handler (no middleware applied).
+func (o *options) serveMux(ctx context.Context, cfg config.Containable, register RegisterFunc) (http.Handler, error) {
 	mux := runtime.NewServeMux(o.muxOpts...)
 
 	// Instrument the connection so the trace context propagates from the inbound
@@ -95,16 +110,45 @@ func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opt
 	return mux, nil
 }
 
-// Register runs the gateway as its own controller-managed HTTP server on the
-// "server.gateway" config block (TLS falling back to the shared "server.tls"),
-// dialing the local gRPC server. It is the first-class form of New, a peer of
-// grpc.Register and http.Register.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
-	handler, err := New(ctx, cfg, register, opts...)
+// New builds a grpc-gateway handler ready to mount on an existing HTTP server.
+// It dials the local gRPC server via grpc.DialLocal (so transport security
+// matches the server's own config) and applies register to wire the handlers.
+//
+// The returned handler is a *runtime.ServeMux (or, with WithMiddleware, that mux
+// wrapped by the chain). The underlying gRPC connection lives for the process;
+// it is the standard pattern for an in-process gateway.
+func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
+	o := newOptions(opts)
+
+	handler, err := o.serveMux(ctx, cfg, register)
 	if err != nil {
 		return nil, err
 	}
 
-	return gtbhttp.Register(ctx, id, controller, cfg, logger, handler,
-		gtbhttp.WithConfigPrefix(ConfigPrefix))
+	if o.hasMiddleware {
+		return o.middleware.Then(handler), nil
+	}
+
+	return handler, nil
+}
+
+// Register runs the gateway as its own controller-managed HTTP server on the
+// "server.gateway" config block (TLS falling back to the shared "server.tls"),
+// dialing the local gRPC server. It is the first-class form of New, a peer of
+// grpc.Register and http.Register. Pass WithMiddleware to wrap the REST surface
+// with a middleware chain (health endpoints stay outside it).
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
+	o := newOptions(opts)
+
+	handler, err := o.serveMux(ctx, cfg, register)
+	if err != nil {
+		return nil, err
+	}
+
+	httpOpts := []any{gtbhttp.WithConfigPrefix(ConfigPrefix)}
+	if o.hasMiddleware {
+		httpOpts = append(httpOpts, gtbhttp.WithMiddleware(o.middleware))
+	}
+
+	return gtbhttp.Register(ctx, id, controller, cfg, logger, handler, httpOpts...)
 }

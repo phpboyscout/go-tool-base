@@ -35,6 +35,36 @@ register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientCo
 - **`New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error)`**: Builds a grpc-gateway handler ready to mount on an existing HTTP server. It dials the local gRPC server via `grpc.DialLocal` (so transport security matches the server's own config) and applies `register` to wire the handlers. The returned handler is a `*runtime.ServeMux`, and the underlying gRPC connection lives for the process — the standard pattern for an in-process gateway.
 - **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: Runs the gateway as its own controller-managed HTTP server. It is the first-class form of `New`, a peer of `grpc.Register` and `http.Register`. Internally it builds the handler with `New`, then registers it via `pkg/http`'s `Register` with `WithConfigPrefix(ConfigPrefix)`.
 
+## Middleware on the REST surface
+
+The gateway handler is an ordinary `http.Handler`, so the
+[HTTP server middleware chain](http.md#middleware-chaining) — logging, security
+headers, rate limiting, auth — applies to it like any other handler. Pass
+`WithMiddleware` to either entry point:
+
+```go
+chain := gtbhttp.NewChain(
+    gtbhttp.SecurityHeadersMiddleware(),
+    gtbhttp.RateLimitMiddleware(log, gtbhttp.DefaultRateLimitConfig()),
+)
+
+// Managed server (Register): the chain wraps the REST routes; health endpoints
+// (/healthz, /livez, /readyz) stay OUTSIDE it, exactly as with http.Register.
+srv, _ := gateway.Register(ctx, "gateway", controller, cfg, log, registerFn,
+    gateway.WithMiddleware(chain))
+
+// Mount-on-existing-server (New): the chain wraps the returned handler directly.
+handler, _ := gateway.New(ctx, cfg, registerFn, gateway.WithMiddleware(chain))
+```
+
+- **`WithMiddleware(chain http.Chain) Option`**: wraps the gateway's REST surface
+  with an HTTP middleware chain. On the `Register` path it is threaded to the
+  managed server so health probes remain unauthenticated/unthrottled; on the
+  `New` path it wraps the returned handler.
+
+See the [Transport Middleware & Resilience](../concepts/transport-middleware.md)
+concept for the full pattern.
+
 ## Configuration
 
 When run via `Register`, the gateway server reads its own config block:
@@ -63,6 +93,7 @@ With the shared `server.tls` keys set and no `server.gateway.tls` override, the 
 |--------|-------------|
 | `WithMuxOptions(opts ...runtime.ServeMuxOption)` | Passes `runtime.ServeMuxOption` values to the gateway mux (e.g. a custom error handler or header matcher). |
 | `WithDialOptions(opts ...grpc.DialOption)` | Passes extra `grpc.DialOption` values to the connection the gateway opens to the gRPC server. Transport security is set automatically. |
+| `WithMiddleware(chain http.Chain)` | Wraps the REST surface with an HTTP middleware chain. On `Register` the chain wraps the routes while health endpoints stay outside it; on `New` it wraps the returned handler. See [Middleware on the REST surface](#middleware-on-the-rest-surface). |
 
 ## Usage Example: mounted on an existing server
 

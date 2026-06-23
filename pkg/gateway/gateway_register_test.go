@@ -19,8 +19,20 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
+
+// headerMiddleware is a trivial Middleware that stamps a marker header, used to
+// prove a chain is (or is not) applied to a given route.
+func headerMiddleware(key, value string) gtbhttp.Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(key, value)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 
 // cfgWithGatewayPort returns a config container with the gateway HTTP port set
 // to the supplied free port. The gateway's own HTTP server reads
@@ -92,6 +104,67 @@ func TestWithDialOptions(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, h)
+}
+
+// TestWithMiddleware_New verifies WithMiddleware wraps the handler returned by
+// New, so every request through it passes through the chain.
+func TestWithMiddleware_New(t *testing.T) {
+	t.Parallel()
+
+	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
+
+	h, err := gateway.New(context.Background(), testCfg(), noopRegister, gateway.WithMiddleware(chain))
+	require.NoError(t, err)
+	require.NotNil(t, h)
+
+	req := httptest.NewRequest(http.MethodGet, "/anything", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	assert.Equal(t, "1", rec.Header().Get("X-Gateway-MW"), "the chain should wrap New's handler")
+}
+
+// TestWithMiddleware_Register verifies WithMiddleware wraps the REST routes on
+// the managed server while leaving the health endpoints outside the chain.
+func TestWithMiddleware_Register(t *testing.T) {
+	t.Parallel()
+
+	port := freePort(t)
+	cfg := cfgWithGatewayPort(t, port)
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
+
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, cfg,
+		logger.NewNoop(), noopRegister, gateway.WithMiddleware(chain))
+	require.NoError(t, err)
+
+	controller.Start()
+	t.Cleanup(func() {
+		controller.Stop()
+		controller.Wait()
+	})
+
+	// A gateway route is wrapped by the chain: the marker header is present.
+	require.Eventually(t, func() bool {
+		resp, getErr := http.Get(fmt.Sprintf("http://localhost:%d/no/such/route", port))
+		if getErr != nil {
+			return false
+		}
+
+		defer func() { _ = resp.Body.Close() }()
+
+		return resp.Header.Get("X-Gateway-MW") == "1"
+	}, 3*time.Second, 50*time.Millisecond, "gateway routes should be wrapped by the chain")
+
+	// The health endpoint is mounted outside the chain: no marker header.
+	resp, getErr := http.Get(fmt.Sprintf("http://localhost:%d/healthz", port))
+	require.NoError(t, getErr)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, resp.Header.Get("X-Gateway-MW"), "health endpoints must stay outside the middleware chain")
 }
 
 // TestNew_DialLocalError forces the in-process gRPC dial to fail by enabling TLS
