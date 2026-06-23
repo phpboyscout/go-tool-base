@@ -72,6 +72,10 @@ type ControllerWorld struct {
 	RequestFinished chan struct{}
 	ClientResult    chan error
 	StartupDelay    chan struct{}
+
+	// RateLimitStatuses collects the HTTP status codes from a burst of requests
+	// sent by the rate-limiting scenarios.
+	RateLimitStatuses []int
 }
 
 // NewControllerWorld creates a fresh scenario world.

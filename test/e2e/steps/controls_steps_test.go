@@ -47,7 +47,11 @@ func initControlsSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a service "([^"]*)" is registered$`, aServiceIsRegistered)
 	ctx.Step(`^a service "([^"]*)" is registered with a start error "([^"]*)"$`, aServiceIsRegisteredWithStartError)
 	ctx.Step(`^an HTTP server registered on a free port$`, anHTTPServerRegistered)
+	ctx.Step(`^an HTTP server with a (\d+) rps rate limiter$`, anHTTPServerWithRateLimiter)
 	ctx.Step(`^a gRPC server registered on a free port$`, aGRPCServerRegistered)
+	ctx.Step(`^(\d+) rapid GET requests are sent to "([^"]*)"$`, rapidGETRequestsAreSent)
+	ctx.Step(`^(\d+) of the requests succeed with status (\d+)$`, requestsSucceedWithStatus)
+	ctx.Step(`^(\d+) of the requests are rejected with status (\d+)$`, requestsRejectedWithStatus)
 	ctx.Step(`^the HTTP server has a slow handler "([^"]*)" that takes (\d+) seconds$`, theHTTPServerHasSlowHandler)
 	ctx.Step(`^a service "([^"]*)" that takes (\d+)ms to start$`, aServiceThatTakesToStart)
 	ctx.Step(`^a service "([^"]*)" that blocks shutdown for (\d+) seconds$`, aServiceThatBlocksStopFor)
@@ -156,6 +160,85 @@ func anHTTPServerRegistered(ctx context.Context) (context.Context, error) {
 	}
 
 	return ctx, nil
+}
+
+func anHTTPServerWithRateLimiter(ctx context.Context, rps int) (context.Context, error) {
+	w := getWorld(ctx)
+
+	port, err := support.FreePort()
+	if err != nil {
+		return ctx, err
+	}
+
+	w.HTTPPort = port
+
+	cfg := newHTTPMockConfig(port)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(rw http.ResponseWriter, _ *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+		_, _ = rw.Write([]byte("ok"))
+	})
+
+	// Burst == rps so an instantaneous burst of N>rps requests admits exactly
+	// the bucket capacity and rejects the rest before any refill.
+	chain := gtbhttp.NewChain(gtbhttp.RateLimitMiddleware(w.Logger, gtbhttp.RateLimitConfig{
+		RequestsPerSecond: float64(rps),
+		Burst:             rps,
+	}))
+
+	_, err = gtbhttp.Register(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, gtbhttp.WithMiddleware(chain))
+	if err != nil {
+		return ctx, fmt.Errorf("failed to register rate-limited HTTP server: %w", err)
+	}
+
+	return ctx, nil
+}
+
+func rapidGETRequestsAreSent(ctx context.Context, count int, path string) (context.Context, error) {
+	w := getWorld(ctx)
+	w.RateLimitStatuses = make([]int, 0, count)
+
+	for range count {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%d%s", w.HTTPPort, path))
+		if err != nil {
+			return ctx, fmt.Errorf("rate-limit request failed: %w", err)
+		}
+
+		_ = resp.Body.Close()
+		w.RateLimitStatuses = append(w.RateLimitStatuses, resp.StatusCode)
+	}
+
+	return ctx, nil
+}
+
+func countStatus(statuses []int, want int) int {
+	n := 0
+
+	for _, s := range statuses {
+		if s == want {
+			n++
+		}
+	}
+
+	return n
+}
+
+func requestsSucceedWithStatus(ctx context.Context, want, status int) error {
+	w := getWorld(ctx)
+	if got := countStatus(w.RateLimitStatuses, status); got != want {
+		return fmt.Errorf("expected %d requests with status %d, got %d (all: %v)", want, status, got, w.RateLimitStatuses)
+	}
+
+	return nil
+}
+
+func requestsRejectedWithStatus(ctx context.Context, want, status int) error {
+	w := getWorld(ctx)
+	if got := countStatus(w.RateLimitStatuses, status); got != want {
+		return fmt.Errorf("expected %d requests rejected with status %d, got %d (all: %v)", want, status, got, w.RateLimitStatuses)
+	}
+
+	return nil
 }
 
 func aGRPCServerRegistered(ctx context.Context) (context.Context, error) {
