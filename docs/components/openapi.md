@@ -31,6 +31,8 @@ The docs subtree also serves the embedded JavaScript and CSS assets beneath the 
 
 Serving both the spec and the docs site on the same server keeps the spec same-origin with the API it documents, so the "try it" console works without any extra CORS configuration.
 
+**Security headers are applied automatically.** Both built-in handlers are wrapped with [`SecurityHeadersMiddleware`](http.md#built-in-security-headers-middleware) — the try-it console benefits from `nosniff`/frame/referrer protections. This is one of the few places GTB applies transport middleware for you; customise it with `WithSecurityHeaderOptions(...)` or opt out with `WithoutSecurityHeaders()`. See the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept.
+
 ## Options
 
 `Register` accepts functional options to override the defaults.
@@ -40,6 +42,8 @@ Serving both the spec and the docs site on the same server keeps the spec same-o
 | `WithSpecPath(p string)` | `/openapi.yaml` | Path the OpenAPI document is served at. |
 | `WithDocsPath(p string)` | `/docs/` | Path prefix the Stoplight UI is served at. Must end in a slash. |
 | `WithTitle(t string)` | `API documentation` | The docs page title. |
+| `WithSecurityHeaderOptions(opts ...http.SecurityHeadersOption)` | GTB defaults | Customise the auto-applied security headers. |
+| `WithoutSecurityHeaders()` | *(on)* | Disable the auto-applied security headers. |
 
 ## Generating a Spec
 

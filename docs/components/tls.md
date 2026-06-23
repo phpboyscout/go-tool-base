@@ -98,3 +98,7 @@ clientCfg, err := gtbtls.ClientConfig("/etc/certs/server.crt")
 ## Constants
 
 - **`SharedPrefix`** (`= "server.tls"`): the config prefix for TLS settings shared across every transport. A transport-specific prefix overrides individual fields, so one certificate can serve all transports with per-transport overrides where needed.
+
+## See also
+
+TLS answers *"is the channel private?"* — the transport's confidentiality layer. The other shared, cross-cutting transport concern is request handling: logging, auth, rate limiting, and circuit breaking, configured via middleware/interceptor chains with the same shared-then-per-transport config cascade. See [Transport Middleware & Resilience](../concepts/transport-middleware.md).

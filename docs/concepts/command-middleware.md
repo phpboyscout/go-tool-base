@@ -8,6 +8,13 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 # Command Middleware System
 
+!!! note "CLI commands, not HTTP/gRPC"
+    This page covers middleware for the **cobra command tree** (wrapping command
+    `RunE` execution). For cross-cutting concerns on the **HTTP/gRPC transports**
+    — logging, auth, rate limiting, retry, circuit breaking — see
+    [Transport Middleware & Resilience](transport-middleware.md). The two share a
+    philosophy but are entirely separate systems.
+
 The Command Middleware System provides a powerful way to inject shared behavior across your CLI command tree. Instead of duplicating logic in every command's `RunE` function, you can define "middlewares" that wrap your commands to handle cross-cutting concerns.
 
 ## The Chain Pattern

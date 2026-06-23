@@ -33,6 +33,8 @@ For common server types, GTB provides specialized sub-packages that simplify int
 
 These packages provide `Start` and `Stop` functions that return the `StartFunc` and `StopFunc` types required by the `Controller.Register` method.
 
+Cross-cutting request concerns on these servers — logging, auth, rate limiting, circuit breaking — are configured as middleware/interceptor chains at registration time (`WithMiddleware`/`WithInterceptors`), not in the lifecycle hooks. See [Transport Middleware & Resilience](transport-middleware.md).
+
 ## Lifecycle Management
 
 The `Controller` manages a service's state through a clean lifecycle flow:

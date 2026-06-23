@@ -47,7 +47,7 @@ Signals whose `telemetry.<signal>.enabled` is false are skipped, so an unconfigu
 
 ## Transport instrumentation
 
-Spans and the standard server metrics come from the OTel contrib libraries, wrapped as one-line helpers that read the global providers `Setup` installed.
+Spans and the standard server metrics come from the OTel contrib libraries, wrapped as one-line helpers that read the global providers `Setup` installed. `OTelMiddleware` is just one entry in the HTTP server chain (and `OTelStatsHandler` its gRPC analogue) — it composes alongside security-headers, rate-limit, and the rest. See [Transport Middleware & Resilience](../concepts/transport-middleware.md) for the chain pattern and ordering.
 
 gRPC — a stats handler passed to `Register`:
 

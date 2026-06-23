@@ -61,6 +61,9 @@ A deeper look at the Initialiser pattern for modular, self-registering feature c
 ### [Command Middleware System](command-middleware.md)
 Understand the middleware chain pattern for cross-cutting CLI command concerns.
 
+### [Transport Middleware & Resilience](transport-middleware.md)
+Understand middleware/interceptor chains as the extension point for cross-cutting transport concerns — logging, auth, rate limiting, retry, circuit breaking — across HTTP and gRPC, server and client.
+
 ### [Auto-Update Lifecycle](auto-update.md)
 Learn how the framework manages throttled version checks and atomic binary replacement.
 
