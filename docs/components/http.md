@@ -99,6 +99,8 @@ The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_by
 
 ### Middleware Chaining
 
+> The HTTP server chain is one of four transport middleware surfaces. For the cross-cutting pattern (server/client × HTTP/gRPC), the resilience composition rules, and the config-prefix convention, see the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept.
+
 The package provides an alice-style middleware chaining API. Middleware uses the standard `func(http.Handler) http.Handler` signature.
 
 - **`NewChain(middlewares ...Middleware) Chain`**: Creates a middleware chain. The first middleware is the outermost wrapper.
@@ -156,6 +158,43 @@ The package provides an alice-style middleware chaining API. Middleware uses the
 Headers are set **before** the wrapped handler runs, so a handler that writes its own response still emits them; a handler may override any value by setting its own.
 
 **Applied to the built-in surfaces by default.** The interactive docs/OpenAPI handlers (`pkg/openapi.Register`) and the documentation server (`pkg/docs.Serve`) wrap their handlers with this middleware automatically — the docs UI serves a "try-it" console that benefits from `nosniff`/frame/referrer protections. Customise via `openapi.WithSecurityHeaderOptions(...)` or opt out with `openapi.WithoutSecurityHeaders()`. The middleware is **not** forced onto user-supplied handlers; add it to your own chain where you want it.
+
+### Built-in Rate-Limit Middleware
+
+`RateLimitMiddleware` protects a server from overload by admitting requests under a token-bucket limiter and rejecting excess traffic with **`429 Too Many Requests`** plus a `Retry-After` header (which a GTB client's retry layer honours — a pleasing closed loop). It is an ordinary `Middleware`, so it composes into any `Chain`.
+
+- **`RateLimitMiddleware(log logger.Logger, cfg RateLimitConfig) Middleware`**
+- **`DefaultRateLimitConfig() RateLimitConfig`** — 50 rps sustained, burst 100, single global bucket
+- **`ClientIPKey(r *http.Request) string`** — a ready-made per-client `KeyFunc`
+- **`RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig`** — read policy from config
+
+**`RateLimitConfig` fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `RequestsPerSecond` | 50 | Sustained token-bucket fill rate |
+| `Burst` | 100 | Bucket capacity — max instantaneous spike admitted |
+| `KeyFunc` | nil | Derives a per-client key; nil = one global bucket |
+| `MaxTrackedKeys` | 8192 | Bound on the per-key bucket store (ignored when `KeyFunc` is nil) |
+| `OnLimited` | nil | Optional callback invoked on each rejection (metrics/telemetry) |
+
+Admission is **non-blocking** (`Allow`, not `Wait`): ingress must *reject* excess, never queue it, or a flood would exhaust memory.
+
+**Scoping is composition, not configuration.** A *global* limiter is one entry in the server chain; a *per-route* limiter wraps a single handler; a *per-client* limiter sets `KeyFunc`. The per-key bucket store is **bounded and LRU-evicting** (capped at `MaxTrackedKeys`) so an attacker rotating source keys cannot exhaust memory.
+
+> **Security note on `ClientIPKey`.** It keys on the connection's `RemoteAddr` and **deliberately ignores `X-Forwarded-For`/`X-Real-IP`** — those headers are spoofable by any direct client, so keying on them would let an attacker both evade their own bucket and churn the key store. A server behind a *trusted* reverse proxy that terminates XFF should supply its own `KeyFunc` that reads the proxy-set header.
+
+Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted **outside** the `WithMiddleware` chain, so a global limiter never throttles liveness/readiness probes.
+
+**Config keys** (`RateLimitConfigFromConfig`, prefix defaults to `server.http`):
+
+| Key | Maps to |
+|-----|---------|
+| `server.http.ratelimit.requests_per_second` | `RequestsPerSecond` |
+| `server.http.ratelimit.burst` | `Burst` |
+| `server.http.ratelimit.max_tracked_keys` | `MaxTrackedKeys` |
+
+Unset keys keep their defaults; the code-only fields (`KeyFunc`, `OnLimited`) are never read from config — wiring stays explicit.
 
 ### Usage Example
 
@@ -258,7 +297,50 @@ client := gtbhttp.NewClient(
 )
 ```
 
-The middleware chain is applied after retry wrapping, so retry operates on the raw transport (not on logged/authed requests). Custom middleware can be written by implementing the `ClientMiddleware` function signature.
+The middleware chain is applied after retry wrapping, so retry operates on the raw transport (not on logged/authed requests), and a `ClientMiddleware` placed in the chain therefore sits **outside** the retry transport. Custom middleware can be written by implementing the `ClientMiddleware` function signature.
+
+### Circuit Breaker
+
+`WithCircuitBreaker` is a `ClientMiddleware` that **fails fast** while a downstream is consistently failing, avoiding wasted retry/backoff cycles against a service that will not answer. It is the partner primitive to retry: retry handles *transient* flakiness, the breaker handles a *hard* outage.
+
+- **`WithCircuitBreaker(log logger.Logger, cfg CircuitBreakerConfig) ClientMiddleware`**
+- **`DefaultCircuitBreakerConfig() CircuitBreakerConfig`** — threshold 5, cooldown 30s, half-open trial 1
+- **`ErrCircuitOpen`** — sentinel error returned (wrapped) while open; test with `errors.Is`
+- **`CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) CircuitBreakerConfig`**
+
+**States:** `StateClosed` (admit all, count failures) → `StateOpen` (reject immediately with `ErrCircuitOpen` until the cooldown elapses) → `StateHalfOpen` (admit a bounded number of trials; the first success closes the breaker, any failure re-opens it).
+
+**`CircuitBreakerConfig` fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `FailureThreshold` | 5 | Consecutive failures (in Closed) that trip the breaker open |
+| `Cooldown` | 30s | How long the breaker stays Open before a trial |
+| `HalfOpenMaxRequests` | 1 | Trial requests admitted in HalfOpen |
+| `IsFailure` | nil | Classifier; default = transport errors + 5xx are failures |
+| `OnStateChange` | nil | Optional transition callback (metrics/telemetry) |
+
+By default, **transport errors and 5xx responses count as failures; 4xx do not** — in particular a **429 does not trip the breaker** (that is the retry/backoff layer's concern, not a downstream-health signal).
+
+**Ordering (composition with retry).** Place the breaker in the `ClientChain` so it sits outside the retry transport:
+
+```
+request → [circuit breaker] → [retry (backoff)] → [base transport] → network
+```
+
+The breaker sees the **final post-retry verdict**: one logical call that exhausts its retry budget against a dead service counts as **one** breaker failure, not N. Once Open, calls are rejected **before** entering the retry layer — so no backoff sleeps are spent on a service known to be down (exactly the waste the retry design flagged). The breaker **never** serves a cached response; an open breaker returns an error, never a stored body.
+
+```go
+client := gtbhttp.NewClient(
+    gtbhttp.WithRetry(gtbhttp.DefaultRetryConfig()),
+    gtbhttp.WithClientMiddleware(gtbhttp.NewClientChain(
+        gtbhttp.WithCircuitBreaker(props.Logger, gtbhttp.DefaultCircuitBreakerConfig()),
+        gtbhttp.WithRequestLogging(props.Logger),
+    )),
+)
+```
+
+**Config keys** (`CircuitBreakerConfigFromConfig`, prefix defaults to `server.http`): `server.http.circuitbreaker.failure_threshold`, `.cooldown`, `.half_open_max_requests`.
 
 **Retry-After support**: When a 429 or 503 response includes a `Retry-After` header (seconds or HTTP-date), that value is used as the delay instead of the computed backoff. The header value is **clamped to `MaxBackoff`**, so a hostile or misconfigured server cannot stall the client beyond the configured cap.
 
