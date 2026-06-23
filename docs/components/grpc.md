@@ -41,6 +41,8 @@ conn, _ := gtbgrpc.DialLocal(props.Config, gtbgrpc.WithConfigPrefix("server.inte
 
 ## Interceptor Chaining
 
+> Interceptors are gRPC's expression of the same chain pattern used by HTTP middleware. For the unified transport story — server/client × HTTP/gRPC, the resilience composition rules, and the config-prefix convention — see the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept.
+
 The package provides an interceptor chaining API for composing gRPC unary and stream interceptors.
 
 - **`NewInterceptorChain(interceptors ...Interceptor) InterceptorChain`**: Creates a chain from paired unary/stream interceptors.
@@ -55,6 +57,28 @@ The package provides an interceptor chaining API for composing gRPC unary and st
 - **`LoggingInterceptor(logger logger.Logger, opts ...GRPCLoggingOption) Interceptor`**
 
 **Options**: `WithGRPCLogLevel`, `WithoutGRPCLatency`, `WithGRPCPathFilter`.
+
+## Built-in Rate-Limit Interceptor
+
+`RateLimitInterceptor` protects a gRPC server from overload, mirroring the HTTP server limiter. It admits RPCs under a token-bucket limiter and rejects excess with **`codes.ResourceExhausted`**. It is an `Interceptor` (unary + stream), so it composes into any `InterceptorChain`.
+
+- **`RateLimitInterceptor(log logger.Logger, cfg RateLimitConfig) Interceptor`**
+- **`DefaultRateLimitConfig() RateLimitConfig`** — 50 rps, burst 100, single global bucket
+- **`PeerKey(ctx, fullMethod) string`** — a ready-made per-peer `KeyFunc`
+- **`RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig`**
+
+Admission is **non-blocking** (`Allow`, not `Wait`). Per-method or per-client scoping is achieved with `KeyFunc` (key on `fullMethod`, or use `PeerKey`); the per-key bucket store is **bounded and LRU-evicting** (`MaxTrackedKeys`, default 8192). Config keys live under `server.grpc.ratelimit.*` (`requests_per_second`, `burst`, `max_tracked_keys`).
+
+## Built-in Circuit Breaker (client)
+
+`CircuitBreakerInterceptor` and `CircuitBreakerStreamInterceptor` are **client** interceptors that fail fast while a downstream is consistently failing, sharing the same Closed/Open/HalfOpen core as the HTTP breaker. While open they reject calls with **`codes.Unavailable`** — indistinguishable on the wire from a genuine outage.
+
+- **`CircuitBreakerInterceptor(log logger.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor`** — install via `grpc.WithChainUnaryInterceptor`
+- **`CircuitBreakerStreamInterceptor(log logger.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor`**
+- **`DefaultCircuitBreakerConfig()`** — threshold 5, cooldown 30s, half-open trial 1
+- **`CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string)`**
+
+By default only `Unavailable` and `DeadlineExceeded` count as failures. **`ResourceExhausted` does not trip the breaker** — like an HTTP 429 it is a "slow down" signal (retry's domain), not a downstream-health signal, so a server's own rate limiter cannot trip its callers' breakers. The stream breaker inspects **per-message** errors (a `RecvMsg`/`SendMsg` returning a classified failure), not just stream establishment; a clean `io.EOF` closes the stream as a success. Config keys live under `server.grpc.circuitbreaker.*`.
 
 ## TLS
 
