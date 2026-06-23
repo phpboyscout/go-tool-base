@@ -2,7 +2,7 @@
 title: "Resilience Middleware: Server-Side Rate Limiting and Client-Side Circuit Breaking"
 description: "Round out the transport resilience story by adding a server-side token-bucket rate limiter (HTTP middleware + gRPC interceptor) and a client-side closed/open/half-open circuit breaker (HTTP ClientMiddleware + gRPC dial interceptor), composing into the existing Chain / InterceptorChain / ClientChain plumbing alongside the current retry/backoff."
 date: 2026-06-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - http
@@ -28,11 +28,16 @@ Date
 :   21 June 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
-> Roadmap item **D2 (Resilience middleware)**. This spec is **DRAFT** and paused
-> for human review. Per `CLAUDE.md` Step 0, do not begin implementation until the
-> [Open Questions](#open-questions) are resolved or explicitly deferred.
+> Roadmap item **D2 (Resilience middleware)**. All [Open Questions](#open-questions)
+> were resolved with Matt on 2026-06-21 (see [Resolutions](#resolutions-open-questions-confirmed-with-user-2026-06-21)).
+> Implemented on branch `feat/resilience-middleware`: HTTP + gRPC server rate
+> limiters and client circuit breakers, shared `internal/circuitbreaker` and
+> `internal/ratelimit` cores, config-prefix binding, docs, and a limiter BDD
+> scenario. One deviation from the draft, ratified under OQ5's principle: the
+> gRPC breaker's default classifier excludes `ResourceExhausted` (the 429
+> equivalent) so a server's own rate limiter cannot trip its callers' breakers.
 
 ---
 
