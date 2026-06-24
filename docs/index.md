@@ -49,34 +49,34 @@ GTB accelerates development by providing a standardized Dependency Injection (`P
 
 <div class="features-grid">
   <div class="feature-card">
+    <div class="feature-icon">🚀</div>
+    <h3>CLI Code Scaffolding</h3>
+    <p>Generate skeleton projects, manage commands, and scaffold flags in seconds with the GTB toolchain.</p>
+  </div>
+  <div class="feature-card">
     <div class="feature-icon">🤖</div>
-    <h3>AI Agentic Workflows</h3>
-    <p>Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops against your code.</p>
+    <h3>AI Chat Provider</h3>
+    <p>Integrated support for Claude, Gemini, and OpenAI APIs to power autonomous ReAct-style loops against your code.</p>
   </div>
   <div class="feature-card">
     <div class="feature-icon">🔌</div>
     <h3>Model Context Protocol</h3>
-    <p>Expose your CLI commands automatically as MCP tools for external AI agents.</p>
+    <p>Expose your CLI commands automatically as MCP tools for external AI agents over SSE and Stdio transports.</p>
   </div>
   <div class="feature-card">
-    <div class="feature-icon">📕</div>
-    <h3>Integrated TUI Docs</h3>
-    <p>An interactive documentation browser with AI Q&A (<code>docs ask</code>) embedded directly in your tool.</p>
+    <div class="feature-icon">📊</div>
+    <h3>Telemetry & Logging</h3>
+    <p>Built-in OpenTelemetry tracing spans and beautiful structured Charm log outputs for zero-config observability.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">🔐</div>
+    <h3>Credentials Vault</h3>
+    <p>Native integration with macOS, Linux, and Windows keychains to enforce robust credential security.</p>
   </div>
   <div class="feature-card">
     <div class="feature-icon">📦</div>
-    <h3>Auto Updates & Lifecycle</h3>
-    <p>Zero-config version syncing and self-update capabilities via GitHub/GitLab releases.</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">🚀</div>
-    <h3>Scaffold & Generate</h3>
-    <p>Get a CLI tool running in seconds with the skeleton generator.</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">📝</div>
-    <h3>Structured Logging & Errors</h3>
-    <p>Unified logger abstraction and stack-traced, context-aware error handling.</p>
+    <h3>Secure Auto-Updates</h3>
+    <p>Zero-config version syncing, GPG manifest verification, and self-update capabilities via GitHub/GitLab releases.</p>
   </div>
 </div>
 
