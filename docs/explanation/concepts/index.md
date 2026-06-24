@@ -87,3 +87,9 @@ How to expose your CLI tool as an autonomous agent for LLMs to control.
 
 ### [AI-Powered Features](ai-features.md)
 How to consume AI services to build intelligent features within your tool.
+
+### [Credentials Architecture](credentials.md)
+The conceptual storage modes, trust model, and consumer architecture for user-supplied secrets.
+
+### [Telemetry Architecture & Concepts](telemetry.md)
+Architectural concepts, privacy controls, data handling, and design limitations behind GTB's telemetry framework.
