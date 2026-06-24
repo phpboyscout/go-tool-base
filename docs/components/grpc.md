@@ -80,6 +80,21 @@ Admission is **non-blocking** (`Allow`, not `Wait`). Per-method or per-client sc
 
 By default only `Unavailable` and `DeadlineExceeded` count as failures. **`ResourceExhausted` does not trip the breaker** — like an HTTP 429 it is a "slow down" signal (retry's domain), not a downstream-health signal, so a server's own rate limiter cannot trip its callers' breakers. The stream breaker inspects **per-message** errors (a `RecvMsg`/`SendMsg` returning a classified failure), not just stream establishment; a clean `io.EOF` closes the stream as a success. Config keys live under `server.grpc.circuitbreaker.*`.
 
+## Built-in Authentication Interceptor
+
+`AuthInterceptor` authenticates (and optionally authorizes) each RPC from an [`pkg/authn`](authn.md) verifier — an API key or JWT/OIDC bearer token from metadata, or an mTLS client certificate from the peer — storing the verified identity in the RPC context. It is a paired unary + stream `Interceptor`; the stream check runs once at stream open.
+
+- **`AuthInterceptor(opts ...GRPCAuthOption) (Interceptor, error)`** — fail-closed: no verifier is a construction error
+- **`IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`** — read the identity in a handler (same key as the HTTP middleware)
+
+```go
+authIC, _ := gtbgrpc.AuthInterceptor(gtbgrpc.WithGRPCBearerVerifier(jwtVerifier))
+chain := gtbgrpc.NewInterceptorChain(gtbgrpc.LoggingInterceptor(log), authIC)
+gtbgrpc.Register(ctx, "api", controller, cfg, log, gtbgrpc.WithInterceptors(chain))
+```
+
+Options: `WithGRPCBearerVerifier`, `WithGRPCAPIKeyMetadata`, `WithGRPCMTLSVerifier`, `WithGRPCAuthorize`, `WithGRPCAuthLogger`, `WithGRPCMethodSkipper`. Failures yield a generic `codes.Unauthenticated` / `codes.PermissionDenied` with the cause logged redacted. **The standard health (`/grpc.health.v1.Health/*`) and reflection (`/grpc.reflection.v1*`) services are auto-skipped** so probes keep working; a custom skipper adds to that set. **See [Authentication & Authorization](authn.md) for the full reference.**
+
 ## TLS
 
 The gRPC server supports TLS using the shared hardened configuration from [`pkg/tls`](tls.md) (TLS 1.2 minimum, curated AEAD cipher suites, X25519 curve preference). The TLS listener advertises HTTP/2 via ALPN (`h2`); without it, grpc-go 1.67+ clients — including the [gateway](gateway.md) — refuse the connection with "missing selected ALPN property". The `Register`/`Start` path sets this for you.
