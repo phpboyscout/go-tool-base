@@ -2,7 +2,7 @@
 title: "Server-Side Authentication & Authorization Middleware"
 description: "Opt-in JWT/OIDC token verification and API-key gating for the HTTP and gRPC transports, plugged into the existing middleware/interceptor chains. Composable building blocks, not a mandated auth model — GTB ships the transports and TLS; this secures them via the accepted middleware extension point."
 date: 2026-06-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - http
@@ -29,13 +29,24 @@ Date
 :   21 June 2026
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
-> **This is a DRAFT for human review.** It does not begin implementation. See
-> [Open Questions](#open-questions) and [Feasibility Verdict](#feasibility-verdict)
-> before approving. The feasibility verdict is **FEASIBLE-WITH-CAVEATS** — the
-> JWKS/OIDC surface is the part most in tension with the "foundation, not
-> application framework" principle, and one phasing option defers it.
+> All six [Open Questions](#open-questions) were resolved with Matt on 2026-06-21
+> (see [Resolutions](#resolutions-open-questions-confirmed-with-user-2026-06-21)):
+> ship both API-key and JWT/OIDC, include an mTLS verifier, auto-skip gRPC
+> health/reflection, explicit wiring only, fail-closed on ambiguous credentials,
+> and design `AuthorizeFunc` as a policy-model-shaped seam.
+>
+> **Implemented** on branch `feat/server-auth-middleware`: `pkg/authn`
+> (`Identity`, `Verifier`, constant-time API-key verifier, JWT/OIDC verifier with
+> a bounded JWKS cache + OIDC discovery, mTLS `CertVerifier`, `AuthorizeFunc` +
+> `RequireScopes`/`RequireClaim`), the HTTP `AuthMiddleware` and gRPC
+> `AuthInterceptor` adapters, and full consumer docs ([authn.md](../../components/authn.md)
+> plus http/grpc/security cross-links). One deviation, accepted: the gRPC
+> auto-skip of health/reflection is always-on with an *additive* custom skipper
+> (rather than replaceable), so probes can never be un-skipped by accident.
+> Deferred discoverability follow-up: the generator does not yet scaffold a
+> commented-out auth chain in generated server wiring (docs cover the wiring).
 
 ---
 
