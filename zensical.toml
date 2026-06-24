@@ -3,6 +3,8 @@ site_name = "Go Tool Base"
 site_description = "The intelligent lifecycle framework for building Go CLI tools and applications"
 site_author = "Matt Cockayne"
 site_url = "https://gtb.phpboyscout.uk"
+repo_url = "https://gitlab.com/phpboyscout/go-tool-base"
+repo_name = "go-tool-base"
 copyright = """
 Copyright &copy; 2026 Matt Cockayne &bull; <a href="/about/branding/">Branding Assets</a>
 """
@@ -46,11 +48,13 @@ text = "Inter"
 code = "Jetbrains Mono"
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
 scheme = "default"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
@@ -74,6 +78,10 @@ REJECTED = "Rejected"
 deprecated = "Deprecated"
 DEPRECATED = "Deprecated"
 
-#[[project.extra.social]]
-#icon = "fontawesome/brands/github"
-#link = "https://github.com/user/repo"
+[[project.extra.social]]
+icon = "fontawesome/brands/gitlab"
+link = "https://gitlab.com/phpboyscout/go-tool-base"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/mastodon"
+link = "https://phpboyscout.uk"
