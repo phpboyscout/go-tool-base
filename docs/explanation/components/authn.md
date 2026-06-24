@@ -58,14 +58,10 @@ middleware never gates liveness/readiness probes.
 
 A successful verification yields an `*authn.Identity`:
 
-```go
-type Identity struct {
-    Subject string         // "sub" claim (JWT), key label (API key), cert subject (mTLS)
-    Method  string         // "apikey" | "jwt" | "mtls"
-    Claims  map[string]any // verified JWT claims (nil for API key / mTLS)
-    Scopes  []string       // parsed "scope"/"scp" claim, for convenience
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/authn](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/authn) for the full API definition.
+
 
 Read it downstream with `IdentityFromContext(ctx)` — the **same** context key is
 used by both transports, so a handler reads identity the same way over HTTP or
@@ -81,14 +77,10 @@ id, ok := gtbhttp.IdentityFromContext(ctx) // or gtbgrpc.IdentityFromContext(ctx
 interface (a credential string in, an `Identity` out); mTLS implements
 `CertVerifier` because a client certificate is a transport property, not a string.
 
-```go
-type Verifier interface {
-    Verify(ctx context.Context, credential string) (*Identity, error)
-}
-type CertVerifier interface {
-    VerifyCert(ctx context.Context, verifiedChains [][]*x509.Certificate) (*Identity, error)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/authn](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/authn) for the full API definition.
+
 
 ### API key
 

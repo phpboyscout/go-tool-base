@@ -30,13 +30,10 @@ cfg := gtbtls.DefaultConfig()
 
 `Pair` is the typed enabled/cert/key triple used to configure TLS for any transport. It carries `mapstructure`, `yaml` and `json` struct tags so the same shape marshals consistently wherever it is used.
 
-```go
-type Pair struct {
-    Enabled bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
-    Cert    string `mapstructure:"cert"    yaml:"cert"    json:"cert"`
-    Key     string `mapstructure:"key"     yaml:"key"     json:"key"`
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/tls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/tls) for the full API definition.
+
 
 ### Methods
 

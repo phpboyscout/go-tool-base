@@ -2,7 +2,7 @@
 title: Asset Management
 description: Management of embedded assets, virtual filesystems, and configuration merging.
 date: 2026-02-16
-tags: [concepts, assets, embed, vfs]
+tags: [components, assets, embed, vfs]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
@@ -88,6 +88,36 @@ The container implements `fs.ReadDirFS` and `fs.GlobFS` as a **Union Filesystem*
 - **Generic Support (Afero)**: While we use Go's `embed` package for defaults, the system supports any `fs.FS` implementation. You can easily wrap an `afero.Fs` using `afero.NewIOFS(fs)` and register it.
 
 This architecture enables a truly modular CLI where each component is both a consumer and a contributor to a unified virtual environment.
+
+## Advanced Capabilities
+
+### 1. Multi-Filesystem Merging
+
+The `Merge` method allows you to combine multiple `embed.FS` (or any `fs.FS`) instances into a single hierarchy. If a file exists in multiple filesystems, the `Assets` layer provides intelligent conflict resolution.
+
+This is particularly useful for features that need to "drop in" default configurations or templates into the main application.
+
+```go
+// In a feature's command constructor
+p.Assets.Register("my-feature", &myFeaturedAssets)
+```
+
+### 2. Virtual File Mounting
+
+The `Mount` method allows you to attach a filesystem at a specific virtual path. This is useful for exposing external resources (like a temporary directory or a mapped network drive) as if they were part of the application's internal asset tree.
+
+### 3. Structured Data Merging
+
+The most powerful feature of the `Assets` layer is its ability to automatically merge and parse structured data. When you call `Open` on a file with a supported extension (`.json`, `.yaml`, `.yml`, `.csv`):
+
+1.  **Discovery**: The framework finds all instances of that file across all merged filesystems.
+2.  **Parsing**: It unmarshals the content of each file.
+3.  **Merging**: It performs a deep merge of the data (using `mergo`).
+4.  **Re-serialization**: It returns a single `fs.File` reader containing the combined, merged data.
+
+This allows for a "patch-like" pattern where features can contribute additional settings to a global `config.yaml` or add rows to a shared `commands.csv` without needing to edit the original source files.
+
+
 
 ## Filesystem Abstraction
 

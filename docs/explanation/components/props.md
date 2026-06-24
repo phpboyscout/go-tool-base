@@ -12,6 +12,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 Props serves as the primary data structure that carries essential information about your tool and provides access to various services and configurations. It's designed to be passed to all major components and commands in your CLI application.
 
+!!! note "What's in a Name?"
+    The name **Props** is not merely a shorthand for 'properties' (though we do shove plenty of those in there). It’s a direct reference to a **prop**, the heavy-duty timber or steel beam that prevents a structure from an embarrassing collapse. For the sports fans, it’s also a lovingly crafted nod to the rugby position: the broad-shouldered stalwarts who provide the primary structural support for the scrum. Much like its on-field namesake, our `Props` struct isn't here to score the flashy tries; it's here to do the unsung heavy lifting that keeps the entire framework from falling over.
+
 ## Design Rationale
 
 Props is intentionally designed as a concrete dependency injection container rather than using Go's `context.Context` for passing dependencies. This design choice provides several key benefits:
@@ -53,18 +56,10 @@ Props makes dependencies explicit and discoverable:
 
 ## Core Structure
 
-```go
-type Props struct {
-    Tool         Tool                       // Tool metadata and settings
-    Logger       logger.Logger              // Configured logger instance
-    Config       config.Containable         // Configuration container
-    Assets       Assets                     // Embedded assets wrapper interface
-    FS           afero.Fs                   // Filesystem abstraction
-    Version      version.Version            // Version information (pkg/version.Version interface)
-    ErrorHandler errorhandling.ErrorHandler  // Error Handler interface
-    Collector    TelemetryCollector          // Telemetry event collector (always non-nil)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/props](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/props) for the full API definition.
+
 
 !!! note "Collector is always non-nil"
     When telemetry is disabled, `Collector` is a noop implementation. Commands can safely call `p.Collector.Track(...)` without checking whether telemetry is enabled.
@@ -247,17 +242,10 @@ p.Tool.Help = errorhandling.SlackHelp{
 
 Version tracking for updates and display. The `Version` field on `Props` uses the `version.Version` interface from `pkg/version`:
 
-```go
-// pkg/version
-type Version interface {
-    GetVersion() string
-    GetCommit() string
-    GetDate() string
-    String() string
-    Compare(other string) int
-    IsDevelopment() bool
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/props](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/props) for the full API definition.
+
 
 **Example:**
 ```go

@@ -22,38 +22,22 @@ The configuration system is built around the `Containable` interface and the `Co
 
 **Multiple Source Support**: Handles configuration loading from files, embedded resources, environment variables, and command-line flags with automatic merging and type conversion.
 
+## Why use the Wrapper?
+
+Instead of industrializing Viper directly in your application code, GTB provides the `Containable` interface. This allows us to:
+
+- **Enforce Consistency**: Methods like `NewFilesContainer` ensure that every CLI tool follows the same logic for loading and merging configuration files.
+- **Abstract the Filesystem**: We integrate natively with `afero`, meaning your configuration can be loaded from the OS, an in-memory test buffer, or embedded assets through the same interface.
+- **Automate Environment Mapping**: We pre-configure environment variable replacement (e.g., `server.port` becomes `SERVER_PORT`) so you don't have to.
+
 ## Core Interface
 
 The `Containable` interface provides the primary API for configuration access:
 
-```go
-type Containable interface {
-    Get(key string) any
-    GetBool(key string) bool
-    GetInt(key string) int
-    GetFloat(key string) float64
-    GetString(key string) string
-    GetTime(key string) time.Time
-    GetDuration(key string) time.Duration
-    GetViper() *viper.Viper
-    BindPFlag(key string, flag *pflag.Flag) error
-    Has(key string) bool
-    IsSet(key string) bool
-    Set(key string, value any)
-    WriteConfigAs(dest string) error
-    Sub(key string) Containable
-    AddObserver(o Observable)
-    AddObserverFunc(f func(Containable) error)
-    // OnReloadError registers a callback invoked when a hot-reload is
-    // rejected (candidate build or schema validation failed) and the
-    // last-known-good config is retained. See "Reacting to rejected
-    // reloads" below.
-    OnReloadError(f func(error))
-    ToJSON() string
-    Dump(w io.Writer)
-    Validate(schema *Schema) *ValidationResult
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full API definition.
+
 
 ## Container Implementation
 
@@ -621,15 +605,10 @@ not abort subsequent observers and never stalls future reloads. (This replaced
 the previous `chan error` parameter — see the
 [migration guide](../../reference/migration/v0.16-hot-reload-observer.md).)
 
-```go
-type Observable interface {
-    Run(Containable) error
-}
 
-type Observer struct {
-    handler func(Containable) error
-}
-```
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full API definition.
+
 
 ### Adding Observers
 
@@ -1053,34 +1032,10 @@ func validateConfig(cfg config.Containable) error {
 
 The `Containable` interface is primarily used for testing and when working with provided mocks. In production code, use the concrete `Container` type:
 
-```go
-type Containable interface {
-    Get(key string) any
-    GetBool(key string) bool
-    GetInt(key string) int
-    GetFloat(key string) float64
-    GetString(key string) string
-    GetTime(key string) time.Time
-    GetDuration(key string) time.Duration
-    GetViper() *viper.Viper
-    BindPFlag(key string, flag *pflag.Flag) error
-    Has(key string) bool
-    IsSet(key string) bool
-    Set(key string, value any)
-    WriteConfigAs(dest string) error
-    Sub(key string) Containable
-    AddObserver(o Observable)
-    AddObserverFunc(f func(Containable) error)
-    // OnReloadError registers a callback invoked when a hot-reload is
-    // rejected (candidate build or schema validation failed) and the
-    // last-known-good config is retained. See "Reacting to rejected
-    // reloads" below.
-    OnReloadError(f func(error))
-    ToJSON() string
-    Dump(w io.Writer)
-    Validate(schema *Schema) *ValidationResult
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full API definition.
+
 
 ## Best Practices
 
@@ -1328,3 +1283,60 @@ func setupService(cfg config.Containable) (*Service, error) {
 ```
 
 The Configuration component provides a robust and flexible foundation for managing application settings in GTB applications.
+
+
+## Initialiser Integration
+
+The `config.Containable` interface is also the standard for [Tool Initialisers](initialisers.md). When creating a custom initialiser, you will use this interface to check for existing configuration (`IsConfigured`) and to write new values (`Set`), ensuring a consistent API across the entire lifecycle of the application.
+
+## Sensitive Value Masking
+
+The masking system uses two independent strategies:
+
+1. **Key-name matching** — checks the leaf segment of the dotted key path against known
+   patterns: `token`, `password`, `secret`, `key`, `apikey`, `auth`.
+2. **Value-content matching** — checks the value against known token regexps (e.g. GitHub
+   PATs: `ghp_...`, `github_pat_...`). This covers cases like `github.auth.value` where
+   the key name `value` is not sensitive but the content may be a token.
+
+### Custom patterns
+
+Tool authors can extend the masker via functional options on `NewCmdConfig`:
+
+```go
+import (
+    cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+    "regexp"
+)
+
+cmdconfig.NewCmdConfig(props,
+    cmdconfig.WithKeyPattern("credential"),
+    cmdconfig.WithValuePattern(regexp.MustCompile(`^sk-[A-Za-z0-9]{32}$`)),
+)
+```
+
+## Relationship with `init`
+
+| Workflow | Command |
+| :--- | :--- |
+| First-run bootstrap | `init` |
+| Re-configure a subsystem interactively | `init <subsystem>` (e.g. `init ai`, `init github`) |
+| Read a single value in a script or CI | `config get <key>` |
+| Write a single value in a script or CI | `config set <key> <value>` |
+| Remove a single value | `config unset <key>` |
+| Find where config actually lives | `config path` |
+| Hand-edit the file safely (re-validated) | `config edit` |
+| Inspect all resolved config | `config list` |
+| Validate config against schema | `config validate` |
+
+Both `InitCmd` and `ConfigCmd` should be disabled in containerized services where local
+YAML config is not applicable.
+
+## Implementation
+
+- **`pkg/cmd/config/`** — Command implementations (`get`, `set`, `unset`, `list`, `path`,
+  `edit`, `validate`)
+- **`pkg/cmd/config/sensitive.go`** — `Masker` type with dual-strategy detection
+- **`pkg/config` `Container.ConfigFiles()`** — ordered list of contributing files backing
+  `config path` (added in v0.22; see the [migration note](../migration/v0.21-config-files-accessor.md))
+- Feature flag: `props.ConfigCmd` (default: disabled)

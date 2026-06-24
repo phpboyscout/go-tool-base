@@ -175,12 +175,10 @@ flowchart TD
 
 The `Generator` struct is the main entry point for all generation operations. It holds the configuration context and dependencies.
 
-```go
-type Generator struct {
-    config *Config       // Command-specific configuration (Name, Parent, Flags)
-    props  *props.Props  // Global tool properties (Logger, FS)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/internal](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/internal) for the full API definition.
+
 
 Common entry points:
 
@@ -192,13 +190,10 @@ Common entry points:
 
 `CommandPipeline` owns the five ordered steps that run after every `cmd.go` is written. It is constructed via `newCommandPipeline(g, PipelineOptions{})` and its behaviour can be tuned with `PipelineOptions`:
 
-```go
-type PipelineOptions struct {
-    SkipAssets        bool
-    SkipRegistration  bool
-    SkipDocumentation bool
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/internal](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/internal) for the full API definition.
+
 
 Steps:
 
@@ -269,19 +264,10 @@ The generator ensures that filesystem changes (creating a folder) are always ref
 
 Manifest mutations use the `ManifestCommandUpdate` struct (`manifest_update.go`) rather than positional parameters, making call sites self-documenting:
 
-```go
-type ManifestCommandUpdate struct {
-    Name, Description, LongDescription string
-    Aliases    []string
-    Args       string
-    Hashes     map[string]string
-    Flags      []ManifestFlag
-    WithAssets, WithInitializer bool
-    PersistentPreRun, PreRun    bool
-    Protected  *bool
-    Hidden     bool
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/internal](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/internal) for the full API definition.
+
 
 Manifest file I/O lives in `manifest_io.go`; hash calculation in `manifest_hash.go`.
 

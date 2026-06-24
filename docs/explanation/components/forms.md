@@ -30,9 +30,10 @@ The result is a natural navigation experience:
 
 `Wizard` is the primary API for building multi-step form flows. It manages step sequencing and Escape-to-go-back navigation internally.
 
-```go
-type Wizard struct { /* unexported fields */ }
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/forms](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/forms) for the full API definition.
+
 
 #### NewWizard
 

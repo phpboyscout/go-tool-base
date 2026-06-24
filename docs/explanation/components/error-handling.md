@@ -18,19 +18,21 @@ GTB uses a custom error handling system built around the `errorhandling` package
 
 GTB commands use Cobra's `RunE` and return errors idiomatically. A central `Execute()` wrapper in `pkg/cmd/root` silences Cobra's own error output, adds a `--help` hint to flag parse errors, and routes any returned error through `ErrorHandler.Check` at `LevelFatal`. This ensures all errors — runtime, flag parse, and pre-run failures — are handled consistently.
 
+## History & Rationale
+
+The design of the `ErrorHandler` was driven by two primary requirements:
+
+1. **Observability**: We needed a way to display detailed debugging information, specifically full stack traces, whenever an error occurs in a development or troubleshooting context. This led to the adoption of `github.com/cockroachdb/errors` for error creation/wrapping — providing stack traces, user-facing hints, and structured details — alongside the unified `logger` package (with charmbracelet as the default backend) for rich, structured terminal output.
+2. **Consistent Output**: We route all errors — runtime errors, flag parse errors, and pre-run failures — through a single `Execute()` wrapper that calls `ErrorHandler.Check`. This suppresses Cobra's own error printing and ensures all output is produced by GTB's structured logger.
+
 ## The errorhandling Package
 
 ### Core Interface
 
-```go
-type ErrorHandler interface {
-    Check(err error, prefix string, level string, cmd ...*cobra.Command)
-    Fatal(err error, prefixes ...string)
-    Error(err error, prefixes ...string)
-    Warn(err error, prefixes ...string)
-    SetUsage(usage func() error)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling) for the full API definition.
+
 
 ### Creating an ErrorHandler
 
@@ -182,11 +184,10 @@ Hints are always displayed when present, regardless of log level.
 
 The `HelpConfig` interface allows plugging in a support channel message that is appended to every error output:
 
-```go
-type HelpConfig interface {
-    SupportMessage() string
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling) for the full API definition.
+
 
 Two built-in implementations are provided:
 
@@ -215,6 +216,13 @@ Pass `nil` when no help channel is configured:
 ```go
 props.ErrorHandler = errorhandling.New(logger, nil)
 ```
+
+## Special Error Types
+
+The framework defines several "sentinel" errors that trigger specific cross-cutting behaviors:
+
+- **`ErrNotImplemented`**: Automatically logs a warning indicating that the command is still under development.
+- **`ErrRunSubCommand`**: Triggered when a parent command is run without a required subcommand. The framework automatically prints the command's usage instructions.
 
 ## Best Practices
 

@@ -120,86 +120,56 @@ The controls package uses focused role-based interfaces. Prefer the narrower int
 
 Provides service lifecycle operations:
 
-```go
-type Runner interface {
-    Start()
-    Stop()
-    IsRunning() bool
-    IsStopped() bool
-    IsStopping() bool
-    Register(id string, opts ...ServiceOption)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 ### HealthReporter
 
 Provides read access to aggregated service health. Use this interface when a
 component only needs to query health — it does not need the full `Controllable`:
 
-```go
-type HealthReporter interface {
-    Status() HealthReport
-    Liveness() HealthReport
-    Readiness() HealthReport
-    GetServiceInfo(name string) (ServiceInfo, bool)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 ### StateAccessor
 
 Provides read access to controller state and context:
 
-```go
-type StateAccessor interface {
-    GetState() State
-    SetState(state State)
-    GetContext() context.Context
-    GetLogger() logger.Logger
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 ### Configurable
 
 Provides controller configuration setters:
 
-```go
-type Configurable interface {
-    SetErrorsChannel(errs chan error)
-    SetMessageChannel(control chan Message)
-    SetSignalsChannel(sigs chan os.Signal)
-    SetHealthChannel(health chan HealthMessage)
-    SetWaitGroup(wg *sync.WaitGroup)
-    SetShutdownTimeout(d time.Duration)
-    SetLogger(l logger.Logger)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 ### ChannelProvider
 
 Provides access to controller channels:
 
-```go
-type ChannelProvider interface {
-    Messages() chan Message
-    Health() chan HealthMessage
-    Errors() chan error
-    Signals() chan os.Signal
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 ### Controllable (composed)
 
 The full controller interface, composed of all role-based interfaces:
 
-```go
-type Controllable interface {
-    Runner
-    HealthReporter
-    StateAccessor
-    Configurable
-    ChannelProvider
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 `ControllerOpt` functions accept the `Configurable` interface since options only need setter methods.
 
@@ -297,16 +267,10 @@ programming error to fix, not a supported pattern.
 
 The `controls` package includes an opt-in supervisor loop that can automatically restart failing services. By default, services are not restarted. To enable self-healing for a specific service, provide a `RestartPolicy` during registration:
 
-```go
-type RestartPolicy struct {
-    MaxRestarts            int           // Maximum number of CONSECUTIVE restarts (0 = infinite)
-    InitialBackoff         time.Duration // Backoff before the first restart (default: 1s)
-    MaxBackoff             time.Duration // Maximum backoff duration (default: 30s)
-    HealthFailureThreshold int           // Number of consecutive health check failures before triggering a restart
-    HealthCheckInterval    time.Duration // Interval between health checks (default: 10s)
-    RestartResetInterval   time.Duration // Healthy run duration after which the failure counter resets (default: 30s)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 Each supervised run is classified into one of three explicit outcomes, and **only an error triggers a restart**:
 
@@ -492,14 +456,10 @@ const (
 
 ### Health Monitoring
 
-```go
-type HealthMessage struct {
-    Host    string `json:"host"`
-    Port    int    `json:"port"`
-    Status  int    `json:"status"`
-    Message string `json:"message"`
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full API definition.
+
 
 ## Basic Usage
 

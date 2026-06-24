@@ -72,17 +72,10 @@ The policy fails closed: an algorithm a future `go-crypto` release might add is 
 
 `KeyResolver` decouples *where the trust anchor comes from* from *how a signature is verified against it*. The updater depends on the interface; the concrete chain is wired per tool.
 
-```go
-type KeyResolver interface {
-    // Name returns a short identifier for logs and diagnostics
-    // (e.g. "embedded", "wkd:openpgpkey.example.com", "composite[...]").
-    Name() string
 
-    // Resolve returns the trust set for the current update attempt.
-    // Resolve may perform I/O on every call.
-    Resolve(ctx context.Context) (*TrustSet, error)
-}
-```
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup) for the full API definition.
+
 
 Three implementations ship in Phase 2.
 
@@ -159,13 +152,10 @@ In practice: **the only thing a tool author aligns across the framework, the DNS
 
 Wraps an ordered list of resolvers and requires them to **agree** on the set of key fingerprints. The production default for GTB is `CompositeResolver{EmbeddedResolver, WKDResolver}`.
 
-```go
-type CompositeResolver struct {
-    Resolvers  []KeyResolver
-    RequireAll bool
-    Logger     logger.Logger // optional; receives Warn on fail-open fallback
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup) for the full API definition.
+
 
 - Children run **concurrently**; resolve cost is `max(child latencies)`, not the sum.
 - **Fingerprint disagreement always aborts** with `ErrKeyResolverMismatch`, regardless of `RequireAll`. Tampering of a single source must never be silenced.

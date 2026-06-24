@@ -16,16 +16,10 @@ detecting development builds.
 
 ## The Version Interface
 
-```go
-type Version interface {
-    GetVersion() string      // Semver string, e.g. "v1.2.3"
-    GetCommit() string       // Git commit hash or "none"
-    GetDate() string         // Build date string
-    String() string          // "v1.2.3 (abc1234)" or "v1.2.3"
-    Compare(other string) int // -1, 0, or 1 (semver comparison)
-    IsDevelopment() bool     // true if version is a dev/dirty build
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/version](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/version) for the full API definition.
+
 
 ---
 

@@ -100,14 +100,10 @@ const (
 
 The standard envelope for all command JSON output.
 
-```go
-type Response struct {
-    Status  string `json:"status"`
-    Command string `json:"command"`
-    Data    any    `json:"data,omitempty"`
-    Error   string `json:"error,omitempty"`
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/output](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/output) for the full API definition.
+
 
 | Field | Values | Purpose |
 |-------|--------|---------|
@@ -257,13 +253,10 @@ func (t *TableWriter) WriteRows(rows any) error
 
 **Struct tag convention:**
 
-```go
-type ServiceStatus struct {
-    Name   string `json:"name"   table:"NAME,sortable"`
-    Status string `json:"status" table:"STATUS"`
-    Port   int    `json:"port"   table:"PORT,sortable"`
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/output](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/output) for the full API definition.
+
 
 Tag format: `table:"HEADER"` or `table:"HEADER,sortable"`. Use `table:"-"` to exclude a field.
 
@@ -288,15 +281,10 @@ enough.
 
 **Column struct:**
 
-```go
-type Column struct {
-    Header    string         // Display name in header row
-    Field     string         // Struct field name or map key
-    Width     int            // Fixed width (0 = auto-size)
-    Sortable  bool           // Allow sorting by this column
-    Formatter func(any) string // Custom cell formatter
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/output](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/output) for the full API definition.
+
 
 **Format constants:**
 

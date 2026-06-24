@@ -10,6 +10,14 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The `docs` component provides a terminal-based documentation browser and an AI-powered Q&A interface for your CLI tool.
 
+## The Design Philosophy
+
+The `docs` component was created with a specific vision:
+
+- **CLI-First Experience**: Documentation should be lived where the work is done - the terminal.
+- **Streamlined Discovery**: TUI-based navigation is more intuitive than searching through a single monolithic `--help` output.
+- **AI-Powered Intelligence**: Natural language Q&A provides immediate, contextual answers without requiring the user to read 100 pages of text.
+
 ## System Architecture
 
 The `docs` component is built on top of the `generator` package and `pkg/chat` to provide a seamless documentation lifecycle. It consists of two primary subsystems:
@@ -81,6 +89,20 @@ Two thin command surfaces call this one seam:
 Man-page generation is **deterministic** — there is no AI involvement, unlike
 `generate docs`. Long descriptions come from each command's existing
 `Long`/`Short`/`Example` fields.
+
+## Why this is better than Man Pages
+
+While traditional man pages are the UNIX standard, they lack the interactive and conversational features modern developers expect:
+
+| Feature | `man` Pages / `--help` | Integrated `docs` |
+| :--- | :--- | :--- |
+| **Formatting** | Plain Text / Monospaced | Rich Markdown (Colors, Tables, Lists) |
+| **Navigation** | Scrolling / Linear | Trees, Links, and Sidebars |
+| **Search** | Grep / Pattern match | Real-time TUI search + Regex |
+| **Intelligence** | Static Text | AI-powered Q&A Assistant |
+| **Discovery** | Requires Knowing Name | Structural Browsing |
+
+By embedding your project's `docs/` folder into your binary (see [Asset Management](assets.md)), your users gain a world-class documentation platform that follows them wherever they install your tool.
 
 ## Integration Details
 

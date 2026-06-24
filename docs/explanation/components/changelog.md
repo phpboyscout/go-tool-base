@@ -32,37 +32,28 @@ const (
 
 A single change within a release:
 
-```go
-type Entry struct {
-    Category    Category
-    Scope       string // e.g., "http", "chat" — may be empty
-    Description string
-    Raw         string // original unparsed line
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/changelog](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/changelog) for the full API definition.
+
 
 ### Release
 
 Parsed changelog for a single version:
 
-```go
-type Release struct {
-    Version string   // e.g., "v1.5.0"
-    Entries []Entry
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/changelog](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/changelog) for the full API definition.
+
 
 ### Changelog
 
 Parsed changelog across multiple releases:
 
-```go
-type Changelog struct {
-    FromVersion string
-    ToVersion   string
-    Releases    []Release
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/changelog](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/changelog) for the full API definition.
+
 
 ---
 

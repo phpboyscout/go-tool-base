@@ -83,6 +83,33 @@ if err != nil {
 }
 ```
 
+## Agentic vs. Legacy Workflows
+
+When building AI-powered features, it is helpful to distinguish between "Legacy" single-action patterns and the "Agentic" patterns enabled by GTB.
+
+### Legacy: The One-Way Prompt
+
+In a legacy workflow, the interaction is linear and deterministic:
+
+1. **Request**: The user sends a prompt.
+2. **Execution**: The model processes the input in a single pass.
+3. **Response**: The model returns a static response.
+
+This approach is brittle for complex tasks. If the AI needs a piece of information it doesn't have, it must either "hallucinate" a guess or fail. The developer is forced to front-load as much context as possible into the prompt (context-stuffing), which is expensive and often leads to lower-quality reasoning.
+
+### Agentic: The Iterative Loop
+
+GTB shifts the focus toward **Agentic Workflows**. Instead of trying to solve the entire problem in one shot, the AI is given a set of "senses"—your CLI commands and library functions.
+
+1. **Reasoning**: The AI analyzes the request and decides on a *first step*.
+2. **Action**: It calls a local tool (e.g., `ReadDir` or `GetConfig`).
+3. **Observation**: It receives the *actual results* from your system.
+4. **Correction**: Based on the observation, it updates its plan.
+5. **Finality**: It repeats this until it has sufficient information to provide a verified answer.
+
+!!! note "The Philosophy of Verification"
+    In an agentic workflow, the AI doesn't just *say* it fixed a bug; it uses a `Test` tool to *verify* the fix before reporting success. This transforms the AI from a creative writer into a reliable collaborator.
+
 ## Features
 
 ### Basic Chat
@@ -336,16 +363,10 @@ This pattern is used by `pkg/docs` (`AskAI`) and `internal/generator` (`writeAID
 
 Every provider surfaces token usage so a tool built on GTB can observe and cost its LLM calls. Usage is reported in a provider-neutral `Usage` struct — you never touch a provider SDK's usage type.
 
-```go
-type Usage struct {
-    InputTokens     int  // prompt / input tokens
-    OutputTokens    int  // completion / output tokens
-    TotalTokens     int  // provider total, or InputTokens+OutputTokens when not supplied
-    CachedTokens    int  // input tokens served from a prompt cache, when reported
-    ReasoningTokens int  // tokens spent on internal reasoning, when reported
-    Known           bool // false when the provider reported no token counts
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/chat](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/chat) for the full API definition.
+
 
 There are two complementary ways to read usage:
 

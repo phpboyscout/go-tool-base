@@ -327,18 +327,10 @@ sum of the embedded roles — unchanged from the previous flat declaration — s
 `*Repo`, `*ThreadSafeRepo`, and the generated `MockRepoLike` satisfy it without any
 code change.
 
-```go
-type RepoLike interface {
-    TreeReader
-    Opener
-    Authenticator
-    WorktreeController
-    Committer
-    SourceState
-    GitAccessor
-    Brancher
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 ### Role interfaces
 

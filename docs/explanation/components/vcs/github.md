@@ -51,29 +51,10 @@ Returns the resolved token or an error if none is found. Use this where a token 
 
 All operations are available through the `GitHubClient` interface. Use the interface type in function signatures for testability:
 
-```go
-type GitHubClient interface {
-    GetClient() *github.Client
 
-    // Pull requests
-    CreatePullRequest(ctx context.Context, owner, repo string, pull *github.NewPullRequest) (*github.PullRequest, error)
-    GetPullRequestByBranch(ctx context.Context, owner, repo, branch, state string) (*github.PullRequest, error)
-    AddLabelsToPullRequest(ctx context.Context, owner, repo string, number int, labels []string) error
-    UpdatePullRequest(ctx context.Context, owner, repo string, number int, pull *github.PullRequest) (*github.PullRequest, *github.Response, error)
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
 
-    // Repository management
-    CreateRepo(ctx context.Context, owner, slug string) (*github.Repository, error)
-    UploadKey(ctx context.Context, name string, key []byte) error
-    GetFileContents(ctx context.Context, owner, repo, path, ref string) (string, error)
-
-    // Releases (lower-level — prefer NewReleaseProvider for release workflows)
-    ListReleases(ctx context.Context, owner, repo string) ([]string, error)
-    GetReleaseAssets(ctx context.Context, owner, repo, tag string) ([]*github.ReleaseAsset, error)
-    GetReleaseAssetID(ctx context.Context, owner, repo, tag, assetName string) (int64, error)
-    DownloadAsset(ctx context.Context, owner, repo string, assetID int64) (io.ReadCloser, error)
-    DownloadAssetTo(ctx context.Context, fs afero.Fs, owner, repo string, assetID int64, filePath string) error
-}
-```
 
 **Sentinel errors:**
 

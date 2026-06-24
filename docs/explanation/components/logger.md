@@ -25,47 +25,31 @@ Three built-in backends are provided:
 
 ---
 
+## Why a Logger Interface?
+
+Go's `log/slog` is the standard library logger and is excellent for server-side
+code, but CLI tools have different requirements:
+
+- **Coloured, styled terminal output** — `slog` produces plain text or JSON; CLI
+  users expect styled output
+- **Dynamic level changes** — `slog.Logger` has no built-in dynamic level control
+  without careful handler wiring
+- **Printf-style convenience** — `slog` has no `Infof`, `Errorf` etc.
+- **Unlevelled output** — `slog` always attaches a level; CLI tools need to print
+  version strings, release notes, and prompts without a level prefix
+
+The `logger.Logger` interface exposes all of these without coupling any package
+to a specific implementation. Backends are swapped at the `Props` construction
+point in `main.go` — no other code changes.
+
+---
+
 ## The Logger Interface
 
-```go
-type Logger interface {
-    // Structured logging: keyvals are alternating key/value pairs.
-    Debug(msg string, keyvals ...any)
-    Info(msg string, keyvals ...any)
-    Warn(msg string, keyvals ...any)
-    Error(msg string, keyvals ...any)
-    Fatal(msg string, keyvals ...any)
 
-    // Printf-style logging.
-    Debugf(format string, args ...any)
-    Infof(format string, args ...any)
-    Warnf(format string, args ...any)
-    Errorf(format string, args ...any)
-    Fatalf(format string, args ...any)
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/logger](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/logger) for the full API definition.
 
-    // Print writes an unlevelled message (not filtered by log level).
-    // Use for direct user-facing output: version strings, release notes.
-    Print(msg any, keyvals ...any)
-
-    // With returns a new Logger with key-value pairs prepended to every call.
-    With(keyvals ...any) Logger
-
-    // WithPrefix returns a new Logger with a prefix on every message.
-    WithPrefix(prefix string) Logger
-
-    // SetLevel / GetLevel for dynamic level control.
-    SetLevel(level Level)
-    GetLevel() Level
-
-    // SetFormatter changes output format (text, json, logfmt).
-    // Backends that do not support a formatter silently ignore the call.
-    SetFormatter(f Formatter)
-
-    // Handler returns an slog.Handler for ecosystem interoperability.
-    // Use: slog.New(l.Handler())
-    Handler() slog.Handler
-}
-```
 
 ---
 

@@ -18,14 +18,10 @@ Defines the three interfaces that abstract over platform-specific release APIs, 
 
 ### Provider
 
-```go
-type Provider interface {
-    GetLatestRelease(ctx context.Context, owner, repo string) (Release, error)
-    GetReleaseByTag(ctx context.Context, owner, repo, tag string) (Release, error)
-    ListReleases(ctx context.Context, owner, repo string, limit int) ([]Release, error)
-    DownloadReleaseAsset(ctx context.Context, owner, repo string, asset ReleaseAsset) (io.ReadCloser, string, error)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 `DownloadReleaseAsset` returns `(io.ReadCloser, redirectURL string, error)`. The redirect URL is populated by the GitHub implementation when the API redirects to a CDN; all other providers return an empty string.
 
@@ -34,35 +30,26 @@ type Provider interface {
 
 ### Release
 
-```go
-type Release interface {
-    GetName() string
-    GetTagName() string
-    GetBody() string
-    GetDraft() bool
-    GetAssets() []ReleaseAsset
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 ### ReleaseAsset
 
-```go
-type ReleaseAsset interface {
-    GetID() int64
-    GetName() string
-    GetBrowserDownloadURL() string
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 ### ChecksumProvider (Optional Interface)
 
 `ChecksumProvider` is an **opt-in** interface — providers implement it when they can retrieve a checksums manifest by a route other than a standard release-asset download. The update flow does a runtime type assertion; providers that don't implement it fall back to locating `checksums.txt` by filename within the release's asset list.
 
-```go
-type ChecksumProvider interface {
-    DownloadChecksumManifest(ctx context.Context, rel Release, maxBytes int64) ([]byte, error)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 Implementations must:
 
@@ -83,11 +70,10 @@ Implementations must:
 
 `SignatureProvider` mirrors `ChecksumProvider` exactly, for the detached OpenPGP signature over the checksums manifest (`checksums.txt.sig`). It is the provider half of [Phase 2 signature verification](../setup/signature-verification.md): the updater verifies this signature against a trust set before parsing the manifest.
 
-```go
-type SignatureProvider interface {
-    DownloadSignature(ctx context.Context, rel Release, maxBytes int64) ([]byte, error)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 The same opt-in semantics apply: providers that don't implement it fall back to locating the signature asset by filename in the release's asset list. Implementations return `release.ErrNotSupported` when retrieval is not configured, and cap the response at `maxBytes`.
 
@@ -167,16 +153,10 @@ func main() {
 
 Passed to every `ProviderFactory`. Populated from `props.ReleaseSource` by `NewUpdater`.
 
-```go
-type ReleaseSourceConfig struct {
-    Type    string
-    Host    string            // provider base URL (Gitea, GitLab, direct)
-    Owner   string            // org / workspace / username
-    Repo    string            // repository slug
-    Private bool              // require authentication
-    Params  map[string]string // provider-specific key/value pairs (snake_case keys)
-}
-```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+
 
 ### Querying registered types
 
