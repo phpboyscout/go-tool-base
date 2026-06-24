@@ -1,0 +1,400 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" width="100%" height="100%">
+  <defs>
+    <!-- Background Blueprint Grid Pattern -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0, 240, 255, 0.04)" stroke-width="1" />
+    </pattern>
+    <pattern id="subgrid" width="10" height="10" patternUnits="userSpaceOnUse">
+      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(0, 240, 255, 0.015)" stroke-width="0.5" />
+    </pattern>
+
+    <!-- Linear Gradients -->
+    <linearGradient id="gradient-cyan-violet" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1200" y2="675">
+      <stop offset="0%" stop-color="#00f0ff" />
+      <stop offset="100%" stop-color="#8a2be2" />
+    </linearGradient>
+    <linearGradient id="gradient-cyan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00f3ff" />
+      <stop offset="100%" stop-color="#0088cc" />
+    </linearGradient>
+    <linearGradient id="gradient-violet" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d000ff" />
+      <stop offset="100%" stop-color="#8a2be2" />
+    </linearGradient>
+
+    <!-- Glowing Filters -->
+    <filter id="glow-heavy" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur1" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="25" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" opacity="0.5" />
+        <feMergeNode in="blur1" opacity="0.7" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+      <filter id="glow-medium" filterUnits="userSpaceOnUse" x="-1000" y="-1000" width="3000" height="3000">
+        <feGaussianBlur stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+
+    <!-- CSS Styling -->
+    <style>
+      .bg { fill: #0a0e17; }
+      .title-text {
+        font-family: 'Outfit', 'Inter', sans-serif;
+        font-weight: 800;
+        font-size: 34px;
+        fill: url(#gradient-cyan-violet);
+        text-anchor: middle;
+        filter: url(#glow-medium);
+        letter-spacing: 2px;
+      }
+      .subtitle-text {
+        font-family: 'Inter', sans-serif;
+        font-size: 13px;
+        fill: #4c5b70;
+        text-anchor: middle;
+        letter-spacing: 4px;
+      }
+      .node-card {
+        fill: rgba(13, 18, 31, 0.95);
+        stroke-width: 2.5;
+        rx: 10px;
+      }
+      .node-card-cyan {
+        stroke: url(#gradient-cyan);
+        filter: url(#glow-medium);
+      }
+      .node-card-violet {
+        stroke: url(#gradient-violet);
+        filter: url(#glow-medium);
+      }
+      .node-header {
+        font-family: 'Outfit', 'Inter', sans-serif;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+      }
+      .node-header-cyan { fill: #00f3ff; }
+      .node-header-violet { fill: #d000ff; }
+      .node-package {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        fill: #6c7d93;
+      }
+      .bullet-text {
+        font-family: 'Inter', sans-serif;
+        font-size: 11px;
+        fill: #c5d1e0;
+      }
+      .bullet-dot {
+        fill: url(#gradient-cyan-violet);
+      }
+      
+      /* Thickened Circuit Lines */
+      .connection-line {
+        fill: none;
+        stroke-width: 5.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        opacity: 0.9;
+        filter: url(#glow-medium);
+      }
+      .conn-cyan {
+        stroke: #00f3ff;
+      }
+      .conn-violet {
+        stroke: #8a2be2;
+      }
+      
+      .center-card {
+        fill: #0d121f;
+        stroke: url(#gradient-cyan-violet);
+        stroke-width: 4.5;
+        rx: 12px;
+        filter: url(#glow-heavy);
+      }
+      .center-title {
+        font-family: 'Outfit', 'Inter', sans-serif;
+        font-weight: 800;
+        font-size: 20px;
+        fill: #ffffff;
+        text-anchor: middle;
+      }
+      .center-sub {
+        font-family: 'Inter', sans-serif;
+        font-size: 12px;
+        fill: #00f3ff;
+        text-anchor: middle;
+        letter-spacing: 1.5px;
+      }
+      .connector-dot {
+        fill: #ffffff;
+        filter: url(#glow-medium);
+      }
+
+      /* Core Hex Nut Logo Styles */
+      .nut-shape {
+        fill: none;
+        stroke: url(#gradient-cyan-violet);
+        stroke-linejoin: round;
+        filter: url(#glow-medium);
+      }
+      .nut-outer { stroke-width: 3.5; }
+      .nut-frame-inner { stroke-width: 3.5; }
+      .nut-facet { stroke-width: 2.5; stroke-linecap: butt; }
+      .nut-inner { stroke-width: 3.0; }
+      .nut-underscore {
+        fill: url(#gradient-cyan-violet);
+        filter: url(#glow-medium);
+      }
+    </style>
+  </defs>
+
+  <!-- Background Layer -->
+  <rect width="1200" height="675" class="bg" />
+  <rect width="1200" height="675" fill="url(#grid)" />
+  <rect width="1200" height="675" fill="url(#subgrid)" />
+
+  <!-- Diagram Titles -->
+  <text x="600" y="45" class="title-text">GO TOOL BASE (GTB) ARCHITECTURE</text>
+  <text x="600" y="66" class="subtitle-text">SECURE LIFECYCLE, INTEGRATION &amp; AI AGENTIC FRAMEWORK</text>
+
+  <!-- ==================== ORTHOGONAL CONNECTION LINES (2, 3, Core, 3, 2 Layout) ==================== -->
+  
+  <!-- Left Side Connections (Connecting ALL left cards directly to Core x=500) -->
+  <!-- Core Left Edge Start: (500, 335). Vertical bus is at x=485. -->
+  
+  <!-- Card 1 (Outer Left Top - x=40, y=180): Center is at y=235 -->
+  <path d="M 500 335 L 485 335 L 485 235 L 240 235" class="connection-line conn-violet" />
+  
+  <!-- Card 2 (Outer Left Bottom - x=40, y=350): Center is at y=405 -->
+  <path d="M 500 335 L 485 335 L 485 405 L 240 405" class="connection-line conn-cyan" />
+  
+  <!-- Card 3 (Inner Left Top - x=270, y=110): Center is at y=165 -->
+  <path d="M 500 335 L 485 335 L 485 165 L 470 165" class="connection-line conn-violet" />
+  
+  <!-- Card 4 (Inner Left Mid - x=270, y=265): Center is at y=320 -->
+  <path d="M 500 335 L 485 335 L 485 320 L 470 320" class="connection-line conn-violet" />
+  
+  <!-- Card 5 (Inner Left Bottom - x=270, y=420): Center is at y=475 -->
+  <path d="M 500 335 L 485 335 L 485 475 L 470 475" class="connection-line conn-cyan" />
+
+  <!-- Right Side Connections (Connecting ALL right cards directly to Core x=700) -->
+  <!-- Core Right Edge Start: (700, 335). Vertical bus is at x=715. -->
+  
+  <!-- Card 9 (Outer Right Top - x=960, y=180): Center is at y=235 -->
+  <path d="M 700 335 L 715 335 L 715 235 L 960 235" class="connection-line conn-cyan" />
+  
+  <!-- Card 10 (Outer Right Bottom - x=960, y=350): Center is at y=405 -->
+  <path d="M 700 335 L 715 335 L 715 405 L 960 405" class="connection-line conn-violet" />
+  
+  <!-- Card 6 (Inner Right Top - x=730, y=110): Center is at y=165 -->
+  <path d="M 700 335 L 715 335 L 715 165 L 730 165" class="connection-line conn-cyan" />
+  
+  <!-- Card 7 (Inner Right Mid - x=730, y=265): Center is at y=320 -->
+  <path d="M 700 335 L 715 335 L 715 320 L 730 320" class="connection-line conn-cyan" />
+  
+  <!-- Card 8 (Inner Right Bottom - x=730, y=420): Center is at y=475 -->
+  <path d="M 700 335 L 715 335 L 715 475 L 730 475" class="connection-line conn-violet" />
+
+  <!-- Connector Junction / Endpoint Dots -->
+  <!-- Core left & right connection trunks -->
+  <circle cx="500" cy="335" r="5.5" class="connector-dot" />
+  <circle cx="700" cy="335" r="5.5" class="connector-dot" />
+  
+  <!-- Left Side Card Connection Dots -->
+  <circle cx="240" cy="235" r="4.5" class="connector-dot" />
+  <circle cx="240" cy="405" r="4.5" class="connector-dot" />
+  <circle cx="470" cy="165" r="4.5" class="connector-dot" />
+  <circle cx="470" cy="320" r="4.5" class="connector-dot" />
+  <circle cx="470" cy="475" r="4.5" class="connector-dot" />
+  
+  <!-- Right Side Card Connection Dots -->
+  <circle cx="960" cy="235" r="4.5" class="connector-dot" />
+  <circle cx="960" cy="405" r="4.5" class="connector-dot" />
+  <circle cx="730" cy="165" r="4.5" class="connector-dot" />
+  <circle cx="730" cy="320" r="4.5" class="connector-dot" />
+  <circle cx="730" cy="475" r="4.5" class="connector-dot" />
+
+  <!-- ==================== LEFT SIDE (AI & CLI INTERFACES) ==================== -->
+
+  <!-- COLUMN 1: Outer Left Column (2 Cards) -->
+  <!-- NODE 1: Safe OAuth & Browser -->
+  <g transform="translate(40, 180)">
+    <rect width="200" height="110" class="node-card node-card-violet" />
+    <text x="15" y="26" class="node-header node-header-violet">OAuth &amp; Browser</text>
+    <text x="15" y="42" class="node-package">pkg/authn &amp; pkg/browser</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Device authentication flows</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Safe web browser loops</text>
+  </g>
+
+  <!-- NODE 2: CLI Code Scaffolding (CRITICAL VALUE PROP OVER TUI DOCS) -->
+  <g transform="translate(40, 350)">
+    <rect width="200" height="110" class="node-card node-card-cyan" />
+    <text x="15" y="26" class="node-header node-header-cyan">CLI Code Scaffolding</text>
+    <text x="15" y="42" class="node-package">gtb CLI / pkg/workspace</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Skeleton project generator</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Manage commands &amp; flags</text>
+  </g>
+
+  <!-- COLUMN 2: Inner Left Column (3 Cards) -->
+  <!-- NODE 3: AI Chat Client -->
+  <g transform="translate(270, 110)">
+    <rect width="200" height="110" class="node-card node-card-violet" />
+    <text x="15" y="26" class="node-header node-header-violet">AI Chat Provider</text>
+    <text x="15" y="42" class="node-package">pkg/chat</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Claude/Gemini LLM APIs</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Autonomous ReAct loop code</text>
+  </g>
+
+  <!-- NODE 4: Model Context Protocol -->
+  <g transform="translate(270, 265)">
+    <rect width="200" height="110" class="node-card node-card-violet" />
+    <text x="15" y="26" class="node-header node-header-violet">Model Context Protocol</text>
+    <text x="15" y="42" class="node-package">pkg/cmd (MCP)</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Auto MCP tool exports</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">SSE &amp; Stdio transports</text>
+  </g>
+
+  <!-- NODE 5: Cobra Command Architecture -->
+  <g transform="translate(270, 420)">
+    <rect width="200" height="110" class="node-card node-card-cyan" />
+    <text x="15" y="26" class="node-header node-header-cyan">Cobra CLI Commands</text>
+    <text x="15" y="42" class="node-package">pkg/cmd &amp; pkg/output</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Subcommand routing trees</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Structured pretty formatters</text>
+  </g>
+
+  <!-- ==================== RIGHT SIDE (SECURITY & OPERATIONS) ==================== -->
+
+  <!-- COLUMN 4: Inner Right Column (3 Cards) -->
+  <!-- NODE 6: Telemetry & Logging (CRITICAL observablity USP) -->
+  <g transform="translate(730, 110)">
+    <rect width="200" height="110" class="node-card node-card-cyan" />
+    <text x="15" y="26" class="node-header node-header-cyan">Telemetry &amp; Logging</text>
+    <text x="15" y="42" class="node-package">pkg/telemetry &amp; pkg/logger</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">OpenTelemetry tracing spans</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Structured Charm log outputs</text>
+  </g>
+
+  <!-- NODE 7: Secure Credentials Store -->
+  <g transform="translate(730, 265)">
+    <rect width="200" height="110" class="node-card node-card-cyan" />
+    <text x="15" y="26" class="node-header node-header-cyan">Credentials Vault</text>
+    <text x="15" y="42" class="node-package">pkg/credentials</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">macOS, Linux &amp; Win keychains</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Enforced credential security</text>
+  </g>
+
+  <!-- NODE 8: Service Lifecycle -->
+  <g transform="translate(730, 420)">
+    <rect width="200" height="110" class="node-card node-card-violet" />
+    <text x="15" y="26" class="node-header node-header-violet">Service Controls</text>
+    <text x="15" y="42" class="node-package">pkg/controls</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">gRPC &amp; HTTP daemon runs</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Process lifecycle managers</text>
+  </g>
+
+  <!-- COLUMN 5: Outer Right Column (2 Cards) -->
+  <!-- NODE 9: Sensitive Redaction -->
+  <g transform="translate(960, 180)">
+    <rect width="200" height="110" class="node-card node-card-cyan" />
+    <text x="15" y="26" class="node-header node-header-cyan">Redaction &amp; Limits</text>
+    <text x="15" y="42" class="node-package">pkg/redact &amp; pkg/regexutil</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Active output token masking</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">ReDoS-safe regex compile runs</text>
+  </g>
+
+  <!-- NODE 10: Signed Setup & Updates -->
+  <g transform="translate(960, 350)">
+    <rect width="200" height="110" class="node-card node-card-violet" />
+    <text x="15" y="26" class="node-header node-header-violet">Secure Auto-Updates</text>
+    <text x="15" y="42" class="node-package">pkg/setup &amp; pkg/signing</text>
+    
+    <circle cx="20" cy="62" r="2.5" class="bullet-dot" />
+    <text x="32" y="66" class="bullet-text">Manifest GPG check verification</text>
+    
+    <circle cx="20" cy="82" r="2.5" class="bullet-dot" />
+    <text x="32" y="86" class="bullet-text">Self-update binary execution</text>
+  </g>
+
+  <!-- ==================== CENTRAL HUB (SQUARE BOX CORE) ==================== -->
+  
+  <g transform="translate(500, 245)">
+    <!-- Square Box Center Core Node matching styling -->
+    <rect width="200" height="180" class="center-card" />
+    
+    <!-- Blueprint grid sub-accent inside the card -->
+    <rect x="10" y="10" width="180" height="160" fill="none" stroke="rgba(0, 240, 255, 0.08)" stroke-width="1" stroke-dasharray="4 8" rx="8" />
+    
+    <!-- Vector Hex Nut Logo in Center -->
+    <g transform="translate(100, 70)">
+      <!-- 6 Facet Lines -->
+      <line x1="0" y1="-45" x2="0" y2="-36.7" class="nut-shape nut-facet" />
+      <line x1="39" y1="-22.5" x2="31.8" y2="-18.4" class="nut-shape nut-facet" />
+      <line x1="39" y1="22.5" x2="31.8" y2="18.4" class="nut-shape nut-facet" />
+      <line x1="0" y1="45" x2="0" y2="36.7" class="nut-shape nut-facet" />
+      <line x1="-39" y1="22.5" x2="-31.8" y2="18.4" class="nut-shape nut-facet" />
+      <line x1="-39" y1="-22.5" x2="-31.8" y2="-18.4" class="nut-shape nut-facet" />
+
+      <!-- Outer Hexagon -->
+      <polygon points="0,-45 39,-22.5 39,22.5 0,45 -39,22.5 -39,-22.5" class="nut-shape nut-outer" />
+      
+      <!-- Frame Inner Hexagon -->
+      <polygon points="0,-36.7 31.8,-18.4 31.8,18.4 0,36.7 -31.8,18.4 -31.8,-18.4" class="nut-shape nut-frame-inner" />
+
+      <!-- Inner Hexagon -->
+      <polygon points="0,-24.8 21.5,-12.4 21.5,12.4 0,24.8 -21.5,12.4 -21.5,-12.4" class="nut-shape nut-inner" />
+      
+      <!-- Underscores -->
+      <rect x="-12.7" y="5.9" width="9.9" height="2.8" rx="0.5" class="nut-underscore" />
+      <rect x="2.8" y="5.9" width="9.9" height="2.8" rx="0.5" class="nut-underscore" />
+    </g>
+    
+    <!-- Central Labels -->
+    <text x="100" y="142" class="center-title">Props DI &amp; Config</text>
+    <text x="100" y="160" class="center-sub">pkg/props &amp; pkg/config</text>
+  </g>
+
+</svg>

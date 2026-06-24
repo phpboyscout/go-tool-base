@@ -8,15 +8,30 @@ hide:
   - navigation
 ---
 
-# Go Tool Base (GTB)
+<div class="hero-container">
+  <div class="hero-text" style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center;">
+    <div class="hero-logo-wrapper">
+      <img src="images/logo.svg" class="hero-logo" alt="Go Tool Base Logo" />
+    </div>
+    <h1 class="hero-title">Go Tool Base</h1>
+    <p class="hero-subtitle">The Intelligent Lifecycle Framework for Go CLIs</p>
+    <p class="hero-description" style="max-width: 800px; margin-left: auto; margin-right: auto;">
+      Modern CLI tools and DevOps workflows demand more than basic flag parsing. GTB works as a "batteries-included" micro-framework, providing a standardized foundation for building mission-critical tools with built-in agentic workflows, hardware-backed credentials vaults, OpenTelemetry observability, and zero-config service management.
+    </p>
+    <div class="install-box" style="margin-left: auto; margin-right: auto;">
+      <span class="install-command">curl -sSL https://gtb.phpboyscout.uk/install.sh | bash</span>
+      <span class="install-copy" title="Copy to clipboard">📋</span>
+    </div>
+    <div class="hero-buttons">
+      <a href="getting-started.html" class="btn btn-primary">Get Started</a>
+      <a href="concepts/index.html" class="btn btn-secondary">Learn Concepts</a>
+    </div>
+  </div>
+</div>
 
-**The Intelligent Application Lifecycle Framework for Go.**
-
-Modern CLI tools and DevOps workflows demand more than basic flag parsing. GTB works as a "batteries-included" micro-framework, providing a standardized foundation for building mission-critical tools with built-in agentic workflows, embedded documentation, and zero-config service management.
-
-<video controls autoplay loop muted playsinline class="demo-video">
-  <source src="tapes/basic-demo.mp4" type="video/mp4">
-</video>
+<div class="hero-banner-diagram">
+  <img src="images/arch_diagram.svg" class="hero-arch-diagram" alt="Go Tool Base System Architecture" />
+</div>
 
 ## Why GTB?
 
@@ -32,13 +47,40 @@ GTB accelerates development by providing a standardized Dependency Injection (`P
 
 ## Key Features
 
-- **🤖 AI Agentic Workflows**: Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops against your code.
-- **🔌 Model Context Protocol (MCP)**: Expose your CLI commands automatically as MCP tools for external AI agents.
-- **📕 Integrated TUI Docs**: An interactive documentation browser with AI Q&A (`docs ask`) embedded directly in your tool.
-- **📦 Auto Updates & Lifecycle**: Zero-config version syncing and self-update capabilities via GitHub/GitLab releases.
-- **🚀 Scaffold & Generate**: Get a CLI tool running in seconds with the skeleton generator.
-- **⚙️ Configuration Management**: Seamless config merging from embedded assets, YAML, and Env vars.
-- **📝 Structured Logging & Errors**: Unified logger abstraction (with charmbracelet as the default backend) with stack-traced, context-aware error handling.
+<div class="features-grid">
+  <div class="feature-card">
+    <div class="feature-icon">🤖</div>
+    <h3>AI Agentic Workflows</h3>
+    <p>Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops against your code.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">🔌</div>
+    <h3>Model Context Protocol</h3>
+    <p>Expose your CLI commands automatically as MCP tools for external AI agents.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">📕</div>
+    <h3>Integrated TUI Docs</h3>
+    <p>An interactive documentation browser with AI Q&A (<code>docs ask</code>) embedded directly in your tool.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">📦</div>
+    <h3>Auto Updates & Lifecycle</h3>
+    <p>Zero-config version syncing and self-update capabilities via GitHub/GitLab releases.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">🚀</div>
+    <h3>Scaffold & Generate</h3>
+    <p>Get a CLI tool running in seconds with the skeleton generator.</p>
+  </div>
+  <div class="feature-card">
+    <div class="feature-icon">📝</div>
+    <h3>Structured Logging & Errors</h3>
+    <p>Unified logger abstraction and stack-traced, context-aware error handling.</p>
+  </div>
+</div>
+
+
 
 ## Built-in Commands
 
@@ -96,15 +138,21 @@ func main() {
 }
 ```
 
-## [Architecture](concepts/architecture.md)
+## CLI in Action
 
-Learn about the high-level system design, command registry, and execution flow in our **[Concepts](concepts/index.md)** section.
+See how Go Tool Base builds and executes interactive lifecycle commands in real-time:
 
-## Getting Started
+<div class="video-container">
+  <video controls autoplay loop muted playsinline class="landing-video">
+    <source src="tapes/basic-demo.mp4" type="video/mp4">
+  </video>
+</div>
 
-Ready to build your own CLI tool? We provide two clear paths:
-
-- **The Fast Track**: Use the [Generator CLI](how-to/new-cli.md) to scaffold a project in seconds.
-- **Manual Integration**: Follow the [Step-by-Step Guide](getting-started.md#route-b-manual-integration-manual-step-by-step) to integrate the library manually.
-
-Check out our **[How-to Guides](how-to/index.md)** for more practical instructions.
+<div class="cta-banner">
+  <h2>Ready to Build Next-Gen CLIs?</h2>
+  <p>Whether you want to scaffold a new project in seconds or integrate into a complex enterprise tool, Go Tool Base gives you the developer-focused lifecycle infrastructure out-of-the-box.</p>
+  <div class="cta-buttons">
+    <a href="getting-started.html" class="btn btn-primary">Get Started Now →</a>
+    <a href="how-to/index.html" class="btn btn-secondary">Explore 50+ How-to Guides</a>
+  </div>
+</div>

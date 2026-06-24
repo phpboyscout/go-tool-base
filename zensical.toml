@@ -4,7 +4,7 @@ site_description = "The intelligent lifecycle framework for building Go CLI tool
 site_author = "Matt Cockayne"
 site_url = "https://gtb.phpboyscout.uk"
 copyright = """
-Copyright &copy; 2026 Matt Cockayne
+Copyright &copy; 2026 Matt Cockayne &bull; <a href="/about/branding/">Branding Assets</a>
 """
 extra_css = ["stylesheets/extra.css"]
 extra_javascript = ["javascripts/nav-specs.js"]
