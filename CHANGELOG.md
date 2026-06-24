@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.23.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.23.0)
+
+### Features
+
+- **grpc**: add AuthInterceptor
+- **http**: add AuthMiddleware
+- **authn**: add JWT/OIDC verifier with bounded JWKS cache
+- **authn**: add credential verification core (API-key, mTLS, authorize)
+- **gateway**: add WithMiddleware option for the REST surface
+- **grpc**: add server rate limiter and client circuit breaker
+- **http**: add server rate limiter and client circuit breaker
+- **resilience**: add shared circuit-breaker and rate-limit cores
+
 ## [v0.22.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.22.0)
 
 ### Features
