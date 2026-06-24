@@ -89,6 +89,9 @@ Save and restore AI chat conversations across CLI invocations using snapshots an
 
 ## Version Control & Releases
 
+### [Use In-Memory Repositories](use-in-memory-repos.md)
+Learn how to use afero-backed in-memory git repositories for high-speed testing and isolated CI environments.
+
 ### [Configure Self-Updating](configure-self-updating.md)
 Wire up `UpdateCmd` with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct HTTP server as the release source for automatic binary updates.
 
@@ -119,7 +122,13 @@ Create pull requests, download release assets, and read file contents using `GHC
 ### [Embed and Register Custom Assets](embed-custom-assets.md)
 Ship default configs, templates, and data files with your tool using Go's `embed` package and `props.Assets`.
 
-## Services
+## Services & Lifecycle
+
+### [Register Health Checks](register-health-checks.md)
+Integrate database ping, HTTP, or custom logic checks into the controller's liveness and readiness probes.
+
+### [Manage Background Services](manage-background-services.md)
+Orchestrate long-running daemons, crons, and background workers with graceful shutdown contexts.
 
 ### [Add a gRPC Management Service](add-grpc-service.md)
 Register a gRPC server with the controller, wire the standard health protocol, and configure the port.
@@ -130,10 +139,25 @@ Put a JSON/REST surface over an existing gRPC service with the grpc-gateway — 
 ### [Serve Interactive API Docs](serve-api-docs.md)
 Generate an OpenAPI v3 spec and serve it with an embedded Stoplight Elements "try it" console using `pkg/openapi`.
 
-## Security
+## Security & Signatures
 
 ### [Add HTTP Security Headers](security-headers.md)
 Implement HSTS, CSP, and other security headers for your tool using the `pkg/http` middleware chain.
+
+### [Add a Custom Signing Backend](add-signing-backend.md)
+Implement a custom PKI or KMS integration to sign your release binaries.
+
+### [Mint a New Signing Key](mint-signing-key.md)
+Generate an Ed25519 signing keypair for securing your distributed release assets.
+
+### [Publish Keys to WKD](publish-wkd.md)
+Export and publish your public keys to a Web Key Directory for automatic client discovery.
+
+### [Sign Releases](sign-releases.md)
+Automate the cryptographic signing of your build artifacts and manifests prior to distribution.
+
+### [Generate a Rotation Key](generate-rotation-key.md)
+Securely rotate your cryptographic keys without breaking backwards compatibility for existing clients.
 
 ## Credentials
 

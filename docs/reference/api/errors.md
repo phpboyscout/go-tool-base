@@ -79,6 +79,132 @@ the link to the user-facing output.
 
 ---
 
+## `pkg/authn`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrUnauthenticated` | unauthenticated | Returned when a request lacks valid authentication credentials. Return a 401 Unauthorized response or prompt for login. |
+
+---
+
+## `pkg/browser`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrInvalidURL` | invalid URL | Returned when parsing a malformed URL for browser launch. |
+| `ErrDisallowedScheme` | disallowed scheme | Returned when the URL scheme is not HTTP or HTTPS, preventing local file/command execution vulnerabilities. |
+
+---
+
+## `pkg/chat`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrInvalidBaseURL` | invalid base url | Returned when configuring an AI provider with a malformed base URL. |
+| `ErrInvalidSnapshotID` | invalid snapshot ID | Returned by FileStore when attempting to load a conversation snapshot that doesn't exist or is corrupted. |
+
+---
+
+## `pkg/credentials`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrCredentialUnsupported` | credential unsupported | Returned when the loaded credential backend is a stub or read-only mode. |
+| `ErrCredentialNotFound` | credential not found | Returned when the requested account/service is missing from the secret store. |
+
+---
+
+## `pkg/openpgpkey`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrUnsupportedKeyType` | unsupported key type | Returned when attempting to parse an RSA or non-Ed25519 key, which are deprecated for GTB signing. |
+
+---
+
+## `pkg/regexutil`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrPatternTooLong` | pattern too long | Returned by the ReDoS defense checks when a regex string exceeds safe length limits. |
+| `ErrPatternCompileTimeout` | pattern compile timeout | Returned when compiling a complex regex takes too long. |
+| `ErrPatternInvalid` | pattern invalid | Returned when the provided regex pattern has invalid syntax. |
+
+---
+
+## `pkg/setup`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrChecksumAssetNotFound` | checksum asset not found | Returned when the release source does not provide a checksums.txt file. |
+| `ErrChecksumManifestMalformed` | checksum manifest malformed | Returned when parsing an invalid checksums.txt file. |
+| `ErrChecksumManifestDuplicate` | checksum manifest duplicate | Returned when the checksum file contains multiple entries for the same binary. |
+| `ErrChecksumTooLarge` | checksum too large | Returned when the checksums.txt file exceeds the maximum allowed size. |
+| `ErrBinaryTooLarge` | binary too large | Returned during extraction if the update binary is dangerously large. |
+| `ErrBinaryNotInArchive` | binary not in archive | Returned when extracting an update tarball/zip that doesn't contain the expected executable. |
+
+---
+
+## `pkg/signing`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrUnknownBackend` | unknown backend | Returned when attempting to instantiate an unregistered signing backend from config. |
+
+---
+
+## `pkg/signing/kms`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrUnsupportedKMSKeyType` | unsupported KMS key type | Returned when the AWS KMS key is not compatible with Ed25519 or ECDSA requirements. |
+| `ErrUnsupportedHashFunc` | unsupported hash func | Returned when configuring KMS signing with an unknown hash algorithm. |
+| `ErrPSSUnsupported` | PSS unsupported | Returned when attempting to use RSA-PSS, which is disabled for KMS backends. |
+
+---
+
+## `pkg/signing/local`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrUnsupportedKeyType` | unsupported key type | Returned when the local private key is not Ed25519 or a supported ECDSA curve. |
+| `ErrMissingPEMBlock` | missing PEM block | Returned when reading a key file that contains no valid PEM-encoded data. |
+| `ErrEncryptedPEMUnsupported` | encrypted PEM unsupported | Returned when trying to load a password-protected local key, which is currently not supported for headless signing. |
+
+---
+
+## `pkg/telemetry/otelcore`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrInvalidEndpoint` | invalid endpoint | Returned when validating the configured OTLP collector URL endpoint. |
+
+---
+
+## `pkg/vcs/repo`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrAlreadyRepository` | already repository | Returned by Init() when attempting to initialize a git repo inside an existing git repository. |
+
+---
+
+## `pkg/workspace`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrNotFound` | not found | Returned when walking up the directory tree fails to locate the project root marker. |
+
+---
+
+## `pkg/http`
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrCircuitOpen` | circuit open | Returned by the resilient HTTP client when consecutive failures trigger the circuit breaker. Fallback to cached responses or queue the request. |
+
+---
+
 ## Notes
 
 ### Internal package errors

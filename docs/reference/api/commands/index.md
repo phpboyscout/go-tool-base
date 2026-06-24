@@ -114,6 +114,8 @@ props := &props.Props{
 
 - `props.AiCmd`: Enables AI provider configuration during `init`.
 - `props.ConfigCmd`: Enables the `config get/set/list/validate` command group.
+- `props.TelemetryCmd`: Enables the opt-in usage telemetry management commands.
+- `props.ManCmd`: Enables the hidden roff man-page emitter command for packaging scripts.
 
 ---
 

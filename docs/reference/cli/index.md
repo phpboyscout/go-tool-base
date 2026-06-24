@@ -59,3 +59,6 @@ In the following sections, we'll dive into how to scaffold a new project, grow i
 - [Generating Documentation](docs.md): Instant, AI-powered docs for commands and packages.
 - [CLI Manifest](manifest.md): Understand your project structure.
 - [MCP Server](mcp.md): Expose your tools via the Model Context Protocol.
+- [Adding Flags](add-flag.md): Add custom flags to generated commands.
+- [Regenerate Components](regenerate.md): Update scaffolding configurations matching modified manifests.
+- [Remove Commands](remove.md): Cleanly delete command files and deregister routing structures.

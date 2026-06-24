@@ -69,9 +69,10 @@ coverage-full:
 bench:
     go test -bench=. -benchmem ./...
 
-# Run pre-commit checks
+# Run pre-commit checks and documentation linting
 check:
     pre-commit run --all-files
+    ./scripts/lint-docs-errors.sh
 
 # Regenerate all mocks
 mocks:
