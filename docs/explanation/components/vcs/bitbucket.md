@@ -77,7 +77,7 @@ When `Private: true` is set, missing credentials return an error instead of proc
 
 Basic-auth credentials are **host-pinned**: they are attached only to requests whose host matches the configured Bitbucket API host (`api.bitbucket.org`). Pagination `next` links, asset `self` links, and download URLs are read from API response bodies, so this defence-in-depth measure prevents a compromised or spoofed response from redirecting credentials to an attacker-chosen host.
 
-See [How to configure credentials](../../how-to/configure-credentials.md) for wizard-driven setup and [How to implement a custom credential backend](../../how-to/custom-credential-backend.md) for Vault / AWS SSM / other remote stores.
+See [How to configure credentials](../../../how-to/configure-credentials.md) for wizard-driven setup and [How to implement a custom credential backend](../../../how-to/custom-credential-backend.md) for Vault / AWS SSM / other remote stores.
 
 ### Filename Pattern
 
@@ -120,4 +120,4 @@ When asset filenames don't contain a version (no capture group match), the provi
 ## Related Documentation
 
 - [Release Provider](release.md) — the `Provider` interface and registry
-- [Configure Self-Updating](../../how-to/configure-self-updating.md) — wiring up update checks
+- [Configure Self-Updating](../../../how-to/configure-self-updating.md) — wiring up update checks

@@ -228,5 +228,5 @@ p.Assets.Register("test", testFS)
 
 ## Related Documentation
 
-- **[Universal Asset Management](../concepts/asset-management.md)** — merging strategy and design rationale
-- **[Props component](../components/props.md)** — how `Assets` fits into the Props container
+- **[Universal Asset Management](../explanation/concepts/asset-management.md)** — merging strategy and design rationale
+- **[Props component](../explanation/components/props.md)** — how `Assets` fits into the Props container

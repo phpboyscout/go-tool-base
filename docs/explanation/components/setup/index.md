@@ -218,7 +218,7 @@ Or via env var (respects the tool's env prefix): `MYTOOL_UPDATE_REQUIRE_CHECKSUM
 
 Providers that don't publish `checksums.txt` as a release asset — notably the Direct HTTP provider and Bitbucket Downloads — opt in to the optional `release.ChecksumProvider` interface, retrieving the manifest via an alternate path (a URL template for Direct, an exact-name lookup in the downloads list for Bitbucket). The `Update()` flow prefers this interface when implemented and falls back to the asset-list scan otherwise.
 
-See [Secure Releases How-To](../../how-to/secure-releases.md) for the full setup and config story.
+See [Secure Releases How-To](../../../how-to/secure-releases.md) for the full setup and config story.
 
 #### Signature Verification (Phase 2)
 
@@ -404,7 +404,7 @@ func main() {
 }
 ```
 
-See [How to add a custom release source](../../how-to/custom-release-source.md) for a step-by-step guide.
+See [How to add a custom release source](../../../how-to/custom-release-source.md) for a step-by-step guide.
 
 ---
 
@@ -450,7 +450,7 @@ Related surfaces that rely on the same taxonomy:
 - **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
 - **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
 
-See the end-user guide at [How to configure credentials](../../how-to/configure-credentials.md) for practical examples, the [Custom credential backend how-to](../../how-to/custom-credential-backend.md) for implementing a `Backend` against Vault, AWS SSM, or any other secret store, and the [Credential Storage Hardening spec](../../development/specs/2026-04-02-credential-storage-hardening.md) for the full design.
+See the end-user guide at [How to configure credentials](../../../how-to/configure-credentials.md) for practical examples, the [Custom credential backend how-to](../../../how-to/custom-credential-backend.md) for implementing a `Backend` against Vault, AWS SSM, or any other secret store, and the [Credential Storage Hardening spec](../../../development/specs/2026-04-02-credential-storage-hardening.md) for the full design.
 
 ### SSH Key Handling
 - Keys are read but never logged or transmitted

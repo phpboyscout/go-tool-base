@@ -97,7 +97,7 @@ the composed `setup.Command` type landed in v0.5 — were **removed in v0.20**.
 Wrap each command with its own feature via `setup.Wrap` and attach it through
 `parent.Register(child)`; replace any `AddCommandWithMiddleware(parent, child,
 feature)` call with `parent.Register(setup.Wrap(feature, child))`. See the
-[migration note](../../migration/v0.20-deprecated-middleware-helpers-removed.md).
+[migration note](../../../reference/migration/v0.20-deprecated-middleware-helpers-removed.md).
 
 ## Built-in Middleware
 

@@ -297,7 +297,7 @@ This function is the single source of truth for mapping manifest fields — incl
 
 Each non-root command is handled by `regenerateCommandRecursive`, which calls through `performGeneration` → `postGenerate` → `CommandPipeline.Run` with `SkipRegistration: true` (children re-register themselves in step 3 of the pipeline).
 
-The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction — so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../commands/mcp.md#gating-sensitive-commands) and the [exposure spec](../../development/specs/2026-06-19-mcp-command-exposure-gating.md).
+The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction — so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](../../../development/specs/2026-06-19-mcp-command-exposure-gating.md).
 
 ### 7. Templating (`templates/`)
 
@@ -323,7 +323,7 @@ Beyond the embedded skeleton, operators can layer **custom template overlays** f
 
 The consumer manifest's `properties.templates:` block is **provenance + pinning only** — `{name, type, location, ref, resolved, fingerprint, hashes}` per source. Suppression behaviour (`replaces:`) lives with the template set in its `gtb-template.yaml`, not in the consumer manifest. A git source records the resolved commit SHA for byte-stable `regenerate`; a local source records a content fingerprint and `regenerate` warns on drift.
 
-The overlay deliberately steps outside the escape-at-known-sites model — see the threat model in [Template Security](../../development/template-security.md#custom-template-overlays-a-different-threat-model) and the how-to [Author and Apply Custom Template Overlays](../../how-to/custom-templates.md).
+The overlay deliberately steps outside the escape-at-known-sites model — see the threat model in [Template Security](../../../development/template-security.md#custom-template-overlays-a-different-threat-model) and the how-to [Author and Apply Custom Template Overlays](../../../how-to/custom-templates.md).
 
 ## Development Workflows
 

@@ -133,6 +133,6 @@ The result: every command in the tree is wrapped exactly once with its own featu
 
 ## See also
 
-- [Command Middleware System](../concepts/command-middleware.md) — chain semantics, execution order.
+- [Command Middleware System](../explanation/concepts/command-middleware.md) — chain semantics, execution order.
 - [Adding Custom Commands](custom-commands.md) — full custom-command walkthrough.
 - [Writing Custom Middleware](custom-middleware.md) — how to build your own.

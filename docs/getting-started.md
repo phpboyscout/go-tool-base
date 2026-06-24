@@ -130,6 +130,6 @@ gitlab:
 
 Regardless of which route you choose, you now have a CLI tool powered by GTB. Explore the rest of the documentation to unlock its full potential:
 
-- **[Core Concepts](concepts/index.md)**: Deep dive into theory, props, and precedence.
+- **[Core Concepts](explanation/concepts/index.md)**: Deep dive into theory, props, and precedence.
 - **[How-to Guides](how-to/index.md)**: Practical instructions for adding commands and testing.
-- **[Component Reference](components/index.md)**: Detailed API documentation for every framework package.
+- **[Component Reference](explanation/components/index.md)**: Detailed API documentation for every framework package.

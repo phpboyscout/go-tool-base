@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # `gtb template`
 
-Manage [custom template-overlay sources](../how-to/custom-templates.md) on a generated project. Each mutating verb edits the project's `.gtb/manifest.yaml` and regenerates, so the overlay (and any `gtb-template.yaml` `replaces:` suppression) is applied or undone.
+Manage [custom template-overlay sources](../custom-templates.md) on a generated project. Each mutating verb edits the project's `.gtb/manifest.yaml` and regenerates, so the overlay (and any `gtb-template.yaml` `replaces:` suppression) is applied or undone.
 
 The manifest-edit + `gtb regenerate` path is the source of truth; these subcommands are ergonomics over it.
 
@@ -44,4 +44,4 @@ gtb template remove house
 
 ## Security
 
-Custom templates execute `text/template` content GTB did not author and are treated as **trusted input with a bounded blast radius**, not sandboxed code. Adding a source is the trust decision; the SHA pin records exactly what was trusted. Hard controls (write-path containment, a protected-path denylist, a restricted FuncMap, a metadata-only data contract, inert fetch) apply on every render. See [Template Security](../development/template-security.md#custom-template-overlays-a-different-threat-model).
+Custom templates execute `text/template` content GTB did not author and are treated as **trusted input with a bounded blast radius**, not sandboxed code. Adding a source is the trust decision; the SHA pin records exactly what was trusted. Hard controls (write-path containment, a protected-path denylist, a restricted FuncMap, a metadata-only data contract, inert fetch) apply on every render. See [Template Security](../../development/template-security.md#custom-template-overlays-a-different-threat-model).

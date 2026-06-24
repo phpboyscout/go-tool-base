@@ -98,8 +98,8 @@ On a `ThreadSafeRepo`, the `WorkFS()` handle is safe for concurrent use (every
 operation re-locks the repo mutex). For a sequence that must be atomic relative
 to commits, use `WithWorkFS(func(fs afero.Fs) error { ... })`, which holds the
 lock for the whole callback. See the
-[Repo component reference](../components/vcs/repo.md#live-worktree-as-aferofs)
-and the [aferobilly adapter](../components/vcs/aferobilly.md) for the full
+[Repo component reference](../explanation/components/vcs/repo.md#live-worktree-as-aferofs)
+and the [aferobilly adapter](../explanation/components/vcs/aferobilly.md) for the full
 contract and semantics.
 
 ## 5. Concurrent Access
@@ -130,7 +130,7 @@ for range 5 {
 wg.Wait()
 ```
 
-For single-goroutine workflows, `*Repo` is sufficient and has no locking overhead. See the [Repo component reference](../components/vcs/repo.md#thread-safety) for the full thread-safety guide.
+For single-goroutine workflows, `*Repo` is sufficient and has no locking overhead. See the [Repo component reference](../explanation/components/vcs/repo.md#thread-safety) for the full thread-safety guide.
 
 ## 6. Why use In-Memory?
 

@@ -189,7 +189,7 @@ Internally `Register` builds the handler with `New`, then hosts it through `pkg/
 
 ## Related Documentation
 
-- **[Gateway component](../components/gateway.md)** — `New`, `Register`, `RegisterFunc`, the options, and the config block
-- **[gRPC component](../components/grpc.md)** — `NewServer`, `Register`, and `DialLocal` (the in-process dial the gateway uses)
+- **[Gateway component](../explanation/components/gateway.md)** — `New`, `Register`, `RegisterFunc`, the options, and the config block
+- **[gRPC component](../explanation/components/grpc.md)** — `NewServer`, `Register`, and `DialLocal` (the in-process dial the gateway uses)
 - **[Add a gRPC Management Service](add-grpc-service.md)** — register the gRPC server this gateway sits in front of
 - **[Serve API Docs](serve-api-docs.md)** — serve an OpenAPI spec and docs site on the same mux as the gateway

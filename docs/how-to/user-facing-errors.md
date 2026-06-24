@@ -236,6 +236,6 @@ assert.Equal(t, 1, exitCode)
 
 ## Related Documentation
 
-- **[Error Handling component](../components/error-handling.md)** — `ErrorHandler` interface and `StandardErrorHandler`
-- **[Centralized Error Handling](../concepts/error-handling.md)** — architectural rationale
-- **[Sentinel errors](../components/errors.md)** — catalogue of framework sentinel errors
+- **[Error Handling component](../explanation/components/error-handling.md)** — `ErrorHandler` interface and `StandardErrorHandler`
+- **[Centralized Error Handling](../explanation/concepts/error-handling.md)** — architectural rationale
+- **[Sentinel errors](../explanation/components/errors.md)** — catalogue of framework sentinel errors

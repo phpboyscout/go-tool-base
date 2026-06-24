@@ -12,7 +12,7 @@ Practical, step-by-step instructions for common tasks and workflows in GTB. Thes
 
 ## Getting Oriented
 
-### [Migrating from Other Ecosystems](../coming-from-other-ecosystems.md)
+### [Migrating from Other Ecosystems](../about/coming-from-other-ecosystems.md)
 A conceptual translation guide if you're coming to Go from Laravel, Rails, or Django.
 
 ## Framework CLI Workflows

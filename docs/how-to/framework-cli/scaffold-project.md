@@ -151,7 +151,7 @@ keep or trim. Because the README is hash-tracked in `.gtb/manifest.yaml`, the
 README is *yours to edit*: a later `gtb regenerate` detects your edit as a
 conflict and prompts before overwriting it, so your product blurb survives
 regeneration. An organisation that wants a house-style README can supply one via
-a [template overlay](command.md), which replaces this embedded default.
+a [template overlay](generate-commands.md), which replaces this embedded default.
 
 ## How to run it
 
@@ -203,7 +203,7 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 
 ### Custom Template Overlays
 
-`--template <src>@<ref>` layers a [custom template overlay](../how-to/custom-templates.md) over the embedded skeleton — your own `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline, etc. The flag is repeatable (sources layer in order, last writer wins). Manage sources on an existing project with the [`gtb template`](template.md) command group.
+`--template <src>@<ref>` layers a [custom template overlay](../custom-templates.md) over the embedded skeleton — your own `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline, etc. The flag is repeatable (sources layer in order, last writer wins). Manage sources on an existing project with the [`gtb template`](apply-templates.md) command group.
 
 ### Dry-Run Mode
 
@@ -236,4 +236,4 @@ Both use the `errorhandling.HelpConfig` interface, so you can also provide a cus
 
 ## Next Steps
 
-Once your skeleton is generated, your project is ready to grow! Head over to the [Command Generation](command.md) guide to see how to add functionality.
+Once your skeleton is generated, your project is ready to grow! Head over to the [Command Generation](generate-commands.md) guide to see how to add functionality.

@@ -61,7 +61,7 @@ func (c *Container) WriteConfigAs(filename string) error {
 **Owner Response:** Agreed this is a concern. In non-development environments, credential management is expected to be handled externally (CSI drivers, Kubernetes Secrets, Vault). The solution must be selective — not all environments need OS keychain integration. The env-var approach already exists but isn't the default setup path.
 
 **Resolution: SPEC DRAFTED**  
-Specification: [`docs/development/specs/2026-04-02-credential-storage-hardening.md`](specs/2026-04-02-credential-storage-hardening.md)  
+Specification: [`docs/development/specs/2026-04-02-credential-storage-hardening.md`](../specs/2026-04-02-credential-storage-hardening.md)  
 Key proposals: make env-var references the default in the setup wizard, optional OS keychain integration gated behind a build tag, documented trust model across deployment contexts.
 
 ---
@@ -87,7 +87,7 @@ Key proposals: make env-var references the default in the setup wizard, optional
 **Owner Response:** Agreed, but noted that checksums hosted at the same VCS provider don't protect against full platform compromise. Needs a full spec to address trust model considerations.
 
 **Resolution: SPEC DRAFTED**  
-Specification: [`docs/development/specs/2026-04-02-remote-update-checksum-verification.md`](specs/2026-04-02-remote-update-checksum-verification.md)  
+Specification: [`docs/development/specs/2026-04-02-remote-update-checksum-verification.md`](../specs/2026-04-02-remote-update-checksum-verification.md)  
 Key proposals: download and verify `checksums.txt` alongside release assets, fail-open by default with strict mode opt-in, cosign keyless verification as a future phase for defense-in-depth.
 
 ---
@@ -103,8 +103,8 @@ Key proposals: download and verify `checksums.txt` alongside release assets, fai
 **Owner Response:** The emitting of error messages is intentional. It is the developer's responsibility to ensure sensitive information does not leak through these endpoints.
 
 **Resolution: DOCUMENTED (Accepted Risk)**  
-- Added "Security Considerations" section to [`docs/how-to/register-health-checks.md`](../how-to/register-health-checks.md)
-- Recorded in [`docs/development/security-decisions.md`](security-decisions.md) as accepted risk M-1
+- Added "Security Considerations" section to [`docs/how-to/register-health-checks.md`](../../how-to/register-health-checks.md)
+- Recorded in [`docs/development/security-decisions.md`](../security-decisions.md) as accepted risk M-1
 
 ---
 
@@ -146,7 +146,7 @@ Key proposals: download and verify `checksums.txt` alongside release assets, fai
 **Owner Response:** Agreed this is a limitation of Go's GC runtime. Document as accepted risk.
 
 **Resolution: DOCUMENTED (Accepted Risk)**  
-Recorded in [`docs/development/security-decisions.md`](security-decisions.md) as accepted risk M-4.
+Recorded in [`docs/development/security-decisions.md`](../security-decisions.md) as accepted risk M-4.
 
 ---
 
@@ -159,7 +159,7 @@ Recorded in [`docs/development/security-decisions.md`](security-decisions.md) as
 **Owner Response:** Agreed. Needs a spec.
 
 **Resolution: SPEC DRAFTED**  
-Specification: [`docs/development/specs/2026-04-02-url-scheme-validation.md`](specs/2026-04-02-url-scheme-validation.md)  
+Specification: [`docs/development/specs/2026-04-02-url-scheme-validation.md`](../specs/2026-04-02-url-scheme-validation.md)  
 Key proposal: new `pkg/browser/` package with scheme allowlist (`https`, `http`, `mailto`), replacing both existing call sites.
 
 ---
@@ -173,7 +173,7 @@ Key proposal: new `pkg/browser/` package with scheme allowlist (`https`, `http`,
 **Owner Response:** Arbitrary paths are by design. Should be documented.
 
 **Resolution: DOCUMENTED (Accepted Risk)**  
-Recorded in [`docs/development/security-decisions.md`](security-decisions.md) as accepted risk M-6.
+Recorded in [`docs/development/security-decisions.md`](../security-decisions.md) as accepted risk M-6.
 
 ---
 
@@ -186,7 +186,7 @@ Recorded in [`docs/development/security-decisions.md`](security-decisions.md) as
 **Owner Response:** Template data is intentionally not escaped for code locations. However, values passed into non-code locations should be reviewed and escaped where appropriate. Needs a spec.
 
 **Resolution: SPEC DRAFTED**  
-Specification: [`docs/development/specs/2026-04-02-generator-template-escaping.md`](specs/2026-04-02-generator-template-escaping.md)  
+Specification: [`docs/development/specs/2026-04-02-generator-template-escaping.md`](../specs/2026-04-02-generator-template-escaping.md)  
 Key proposals: context-specific escape functions (`escapeYAML`, `escapeMarkdown`, etc.), applied via pipe syntax only at non-code template locations.
 
 ---
@@ -200,7 +200,7 @@ Key proposals: context-specific escape functions (`escapeYAML`, `escapeMarkdown`
 **Owner Response:** The binding is somewhat intentional, but adding a custom prefix is the right approach. The config package should allow consumers to specify a custom prefix (GTB uses `GTB_`, other tools define their own).
 
 **Resolution: SPEC DRAFTED**  
-Specification: [`docs/development/specs/2026-04-02-config-env-prefix.md`](specs/2026-04-02-config-env-prefix.md)  
+Specification: [`docs/development/specs/2026-04-02-config-env-prefix.md`](../specs/2026-04-02-config-env-prefix.md)  
 Key proposals: `WithEnvPrefix` option leveraging Viper's `SetEnvPrefix()`, backward-compatible (no prefix = current behavior), generator scaffolds new tools with a derived prefix.
 
 ---
@@ -214,7 +214,7 @@ Key proposals: `WithEnvPrefix` option leveraging Viper's `SetEnvPrefix()`, backw
 **Owner Response:** Intentional for development. Document accordingly.
 
 **Resolution: DOCUMENTED**  
-Recorded in [`docs/development/security-decisions.md`](security-decisions.md).
+Recorded in [`docs/development/security-decisions.md`](../security-decisions.md).
 
 ---
 
@@ -225,7 +225,7 @@ Recorded in [`docs/development/security-decisions.md`](security-decisions.md).
 **Owner Response:** Acceptable for debugging. Document accordingly.
 
 **Resolution: DOCUMENTED**  
-Recorded in [`docs/development/security-decisions.md`](security-decisions.md).
+Recorded in [`docs/development/security-decisions.md`](../security-decisions.md).
 
 ---
 
@@ -236,7 +236,7 @@ Recorded in [`docs/development/security-decisions.md`](security-decisions.md).
 **Owner Response:** Intentional. Document and provide how-to guides.
 
 **Resolution: DOCUMENTED**  
-Created [`docs/how-to/security-headers.md`](../how-to/security-headers.md) with middleware examples covering HSTS, CSP, X-Content-Type-Options, and X-Frame-Options.
+Created [`docs/how-to/security-headers.md`](../../how-to/security-headers.md) with middleware examples covering HSTS, CSP, X-Content-Type-Options, and X-Frame-Options.
 
 ---
 
@@ -247,7 +247,7 @@ Created [`docs/how-to/security-headers.md`](../how-to/security-headers.md) with 
 **Owner Response:** Required for TUI initialisation. Only reads filenames, not contents.
 
 **Resolution: DOCUMENTED (Accepted Risk)**  
-Recorded in [`docs/development/security-decisions.md`](security-decisions.md).
+Recorded in [`docs/development/security-decisions.md`](../security-decisions.md).
 
 ---
 

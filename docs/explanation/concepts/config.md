@@ -38,7 +38,7 @@ Flags only participate in precedence once they are **bound** to a configuration 
 - **Convention** — `root.WithConventionBoundFlags(flagSet)` derives keys from flag names by replacing hyphens with dots (`--server-port` → `server.port`).
 - **Per-command** — a subcommand's own local flags are bound by the same hyphen-to-dot convention when that command runs, so `mytool serve --server-port 9090` overrides `server.port` for `serve`.
 
-Only flags the user **explicitly changed** are bound. A flag left at its default never overrides a configured value. See the [Binding CLI flags to config](../how-to/bind-flags-to-config.md) how-to and the [config component reference](../components/config.md#binding-cli-flags-to-config) for full detail.
+Only flags the user **explicitly changed** are bound. A flag left at its default never overrides a configured value. See the [Binding CLI flags to config](../../how-to/bind-flags-to-config.md) how-to and the [config component reference](../components/config.md#binding-cli-flags-to-config) for full detail.
 
 ### Default Asset Convention
 GTB follows a naming convention for modular default configuration. By placing a file at **`assets/init/config.yaml`** within your embedded filesystem, you register it as a "sane default" for your module.

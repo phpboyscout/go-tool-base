@@ -496,6 +496,6 @@ assert.NotEmpty(t, result)
 
 ## Related Documentation
 
-- **[Add Scriptable JSON Output to a Command](../how-to/scriptable-json-output.md)** — step-by-step guide to adding `--output json` support
-- **[Switch to Structured JSON Logging for Containers](../how-to/structured-json-logging.md)** — complement to JSON output for daemon deployments
+- **[Add Scriptable JSON Output to a Command](../../how-to/scriptable-json-output.md)** — step-by-step guide to adding `--output json` support
+- **[Switch to Structured JSON Logging for Containers](../../how-to/structured-json-logging.md)** — complement to JSON output for daemon deployments
 - **[Props](props.md)** — dependency injection container

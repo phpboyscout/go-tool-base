@@ -270,7 +270,7 @@ See the **[Integration Testing](./integration-testing.md)** guide for full detai
 
 ## Architecture Principles
 
-For a visual overview of component relationships and core workflows, see the **[Architectural Overview](../concepts/architecture.md)**.
+For a visual overview of component relationships and core workflows, see the **[Architectural Overview](../explanation/concepts/architecture.md)**.
 
 ### 1. Dependency Injection
 

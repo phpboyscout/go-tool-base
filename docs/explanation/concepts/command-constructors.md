@@ -85,7 +85,7 @@ Using a standardized pattern ensures that all commands in a project behaving sim
 
 ### 5. Seamless Generation
 
-This pattern is natively supported by the [Framework CLI](../cli/index.md) and its generation logic. When you add a new command via the manifest, the generator automatically scaffolds the `NewCmd*` constructor, ensuring your project remains aligned with framework standards.
+This pattern is natively supported by the [Framework CLI](../../reference/cli/index.md) and its generation logic. When you add a new command via the manifest, the generator automatically scaffolds the `NewCmd*` constructor, ensuring your project remains aligned with framework standards.
 
 ## Best Practices
 
@@ -103,4 +103,4 @@ Returning `*setup.Command` (rather than `*cobra.Command`) is what lets `parent.R
 - It can stay idempotent on regeneration — re-running the generator does not double-wrap.
 - It is type-checked at compile time: a caller cannot accidentally attach an unwrapped `*cobra.Command` and skip middleware.
 
-The previous API exposed this via a free function (`setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd)`) that required the parent to know the child's feature key. That coupling is removed; the child owns its own identity. See the [v0.4-to-v0.5 migration guide](../migration/v0.4-to-v0.5.md) for the before/after diff and the [command middleware concept](command-middleware.md) for how the wrapping interacts with the middleware registry.
+The previous API exposed this via a free function (`setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd)`) that required the parent to know the child's feature key. That coupling is removed; the child owns its own identity. See the [v0.4-to-v0.5 migration guide](../../reference/migration/v0.4-to-v0.5.md) for the before/after diff and the [command middleware concept](command-middleware.md) for how the wrapping interacts with the middleware registry.

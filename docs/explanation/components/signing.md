@@ -9,8 +9,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # `pkg/signing`
 
 API stability: **Beta** (per
-[`docs/about/api-stability.md`](../about/api-stability.md) and spec
-[D6](../development/specs/2026-06-08-keys-mint-command.md)).
+[`docs/about/api-stability.md`](../../reference/api-stability.md) and spec
+[D6](../../development/specs/2026-06-08-keys-mint-command.md)).
 
 ## What it does
 
@@ -196,13 +196,13 @@ from leaking across tests.
 
 ## Adding a new backend
 
-See [How-to: add a signing backend](../how-to/add-signing-backend.md).
+See [How-to: add a signing backend](../../how-to/add-signing-backend.md).
 
 ## Related
 
 - [Release-binary signing concept](../concepts/release-binary-signing.md)
 - [`pkg/openpgpkey`](openpgpkey.md) — the consumer that turns a
   `crypto.Signer` into an OpenPGP packet.
-- [Spec D6 + Resolution 8](../development/specs/2026-06-08-keys-mint-command.md)
+- [Spec D6 + Resolution 8](../../development/specs/2026-06-08-keys-mint-command.md)
   — why `aws-kms` + `local` instead of the originally-proposed
   `gpg` backend.

@@ -200,7 +200,7 @@ See the Phase 2 prep doc for the full rotation runbook.
 
 - [Spec: gtb sign](../development/specs/2026-06-09-sign-command.md)
   — design decisions, RFC details, threat model.
-- [`pkg/openpgpkey`](../components/openpgpkey.md#detached-openpgp-signing-detachsign)
+- [`pkg/openpgpkey`](../explanation/components/openpgpkey.md#detached-openpgp-signing-detachsign)
   — the `DetachSign` library function the CLI wraps.
 - [How-to: publish via WKD](publish-wkd.md) — the matching
   trust-anchor publication step.

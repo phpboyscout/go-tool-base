@@ -58,5 +58,5 @@ When a generator/tooling scenario fails in CI with a config error but passes loc
 ## Related
 
 - [Integration Testing](../integration-testing.md) — env-var-gated suites that hit real APIs (GitHub, GitLab, etc.).
-- [`docs/components/credentials.md`](../../components/credentials.md) — architecture reference for the backend that the credential walkthrough exercises.
+- [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference for the backend that the credential walkthrough exercises.
 - [`docs/how-to/configure-credentials.md`](../../how-to/configure-credentials.md) — end-user view of the same storage modes.

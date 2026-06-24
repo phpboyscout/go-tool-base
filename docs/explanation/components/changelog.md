@@ -248,5 +248,5 @@ assert.Len(t, cl.EntriesByCategory(changelog.CategoryFeature), 3)
 
 ## Related Documentation
 
-- **[Setup / Update](setup/update.md)** — self-update lifecycle that consumes the changelog parser
+- **[Setup / Update](../../reference/cli/update.md)** — self-update lifecycle that consumes the changelog parser
 - **[Version](version.md)** — version comparison utilities used alongside changelog diffing

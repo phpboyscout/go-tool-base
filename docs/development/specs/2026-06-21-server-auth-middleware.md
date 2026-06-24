@@ -41,7 +41,7 @@ Status
 > (`Identity`, `Verifier`, constant-time API-key verifier, JWT/OIDC verifier with
 > a bounded JWKS cache + OIDC discovery, mTLS `CertVerifier`, `AuthorizeFunc` +
 > `RequireScopes`/`RequireClaim`), the HTTP `AuthMiddleware` and gRPC
-> `AuthInterceptor` adapters, and full consumer docs ([authn.md](../../components/authn.md)
+> `AuthInterceptor` adapters, and full consumer docs ([authn.md](../../explanation/components/authn.md)
 > plus http/grpc/security cross-links). One deviation, accepted: the gRPC
 > auto-skip of health/reflection is always-on with an *additive* custom skipper
 > (rather than replaceable), so probes can never be un-skipped by accident.

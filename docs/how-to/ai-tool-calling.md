@@ -223,4 +223,4 @@ mockClient.EXPECT().
 
 - **[Structured AI Responses](structured-ai-responses.md)** — using `Ask` for typed output without tool calling
 - **[AI Provider Setup](ai-integration.md)** — token and provider configuration
-- **[Chat component](../components/chat.md)** — full `ChatClient` and `Tool` API reference
+- **[Chat component](../explanation/components/chat.md)** — full `ChatClient` and `Tool` API reference

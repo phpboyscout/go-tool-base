@@ -345,9 +345,9 @@ func (s *spyBackend) Close() error { return nil }
 
 ## Related Documentation
 
-- [Telemetry Command](commands/telemetry.md) — CLI commands for managing telemetry
+- [Telemetry Command](../../reference/cli/telemetry.md) — CLI commands for managing telemetry
 - [Props](props.md) — dependency injection container (`Collector` field)
-- [Create a Custom Telemetry Backend](../how-to/custom-telemetry-backend.md) — implement your own backend
-- [Create a Custom Deletion Requestor](../how-to/custom-deletion-requestor.md) — GDPR deletion for custom backends
-- [Telemetry Specification](../development/specs/2026-03-21-opt-in-telemetry.md) — full design spec
-- [Vendor Backends Specification](../development/specs/2026-03-30-telemetry-vendor-backends.md) — Datadog and PostHog backends
+- [Create a Custom Telemetry Backend](../../how-to/custom-telemetry-backend.md) — implement your own backend
+- [Create a Custom Deletion Requestor](../../how-to/custom-deletion-requestor.md) — GDPR deletion for custom backends
+- [Telemetry Specification](../../development/specs/2026-03-21-opt-in-telemetry.md) — full design spec
+- [Vendor Backends Specification](../../development/specs/2026-03-30-telemetry-vendor-backends.md) — Datadog and PostHog backends

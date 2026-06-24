@@ -70,7 +70,7 @@ The context-free form `vcs.ResolveToken(cfg, fallbackEnv)` is preserved as a com
 : All release providers implement `release.Provider`. Consuming code (e.g. the auto-update command) depends only on that interface and never imports a platform-specific package directly.
 
 **Extensibility**
-: Custom providers can be registered at startup via `release.Register`. The registry is backed by a `sync.RWMutex` and safe for concurrent use. See the [how-to guide](../../how-to/custom-release-source.md) for a full walkthrough.
+: Custom providers can be registered at startup via `release.Register`. The registry is backed by a `sync.RWMutex` and safe for concurrent use. See the [how-to guide](../../../how-to/custom-release-source.md) for a full walkthrough.
 
 **Testability**
 : All public interfaces have generated mocks in `mocks/pkg/vcs/`. In-memory git storage (`SourceMemory`) enables offline integration-style tests. HTTP-based providers use `httptest.NewServer` for network-free unit tests.
@@ -83,4 +83,4 @@ The context-free form `vcs.ResolveToken(cfg, fallbackEnv)` is preserved as a com
 - **[VCS Concepts](../../concepts/vcs-repositories.md)** — architectural rationale and usage patterns
 - **[Auto-Update Lifecycle](../../concepts/auto-update.md)** — how `release.Provider` is used for version checks
 - **[Interface Design](../../concepts/interface-design.md)** — `RepoLike` and `GitHubClient` in the interface hierarchy
-- **[Custom Release Source](../../how-to/custom-release-source.md)** — register your own provider implementation
+- **[Custom Release Source](../../../how-to/custom-release-source.md)** — register your own provider implementation

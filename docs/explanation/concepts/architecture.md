@@ -94,7 +94,7 @@ Dependencies are injected from the entry point (`main.go`) through the `Props` s
 3.  **Cleanup**: The buffered telemetry flush runs on every path — success, error, and cancellation — using a bounded background context so cancellation cannot abort the flush itself.
 4.  **Exit codes**: Errors exit `1`; signal-terminated runs exit `128 + signum` (130/143). Both are routed through the `ErrorHandler`'s exit path (`errorhandling.WithExitCode`), keeping a single `os.Exit` call site.
 
-While an interactive TUI prompt is active the terminal is in raw mode, so Ctrl-C is delivered as a keystroke that aborts the prompt — the outer signal context only reacts to real OS signals. See the [Root Command documentation](../components/commands/root.md#signal-handling) for details.
+While an interactive TUI prompt is active the terminal is in raw mode, so Ctrl-C is delivered as a keystroke that aborts the prompt — the outer signal context only reacts to real OS signals. See the [Root Command documentation](../../reference/cli/root.md#signal-handling) for details.
 
 ## Design Principles
 

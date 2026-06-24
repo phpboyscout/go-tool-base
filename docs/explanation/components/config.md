@@ -600,7 +600,7 @@ if !result.Valid() {
 
 **Hot-reload integration:** Attach a schema to a container via `container.SetSchema(schema)`. When config files change, validation runs before notifying observers. Invalid reloads are rejected and logged.
 
-For a complete walkthrough of defining config defaults AND validation for a new component, see the [Validate Component Config](../how-to/validate-component-config.md) how-to guide.
+For a complete walkthrough of defining config defaults AND validation for a new component, see the [Validate Component Config](../../how-to/validate-component-config.md) how-to guide.
 
 ## Observer Pattern for Configuration Changes
 
@@ -619,7 +619,7 @@ notified. Save bursts are coalesced behind a configurable debounce window
 `Run` returns an `error`. A returned error is logged by the framework; it does
 not abort subsequent observers and never stalls future reloads. (This replaced
 the previous `chan error` parameter — see the
-[migration guide](../migration/v0.16-hot-reload-observer.md).)
+[migration guide](../../reference/migration/v0.16-hot-reload-observer.md).)
 
 ```go
 type Observable interface {
@@ -1028,7 +1028,7 @@ viper := container.GetViper()
 allSettings := viper.AllSettings()
 ```
 
-For general runtime issues, see the [Troubleshooting Guide](../troubleshooting.md).
+For general runtime issues, see the [Troubleshooting Guide](../../development/troubleshooting.md).
 
 ### Configuration Validation
 

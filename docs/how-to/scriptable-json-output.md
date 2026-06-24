@@ -268,6 +268,6 @@ mytool deploy staging --output json | jq '.data.environment'
 
 ## Related Documentation
 
-- **[Output component](../components/output.md)** — full API reference for `Writer`, `Response`, `Emit`, `RenderMarkdown`
+- **[Output component](../explanation/components/output.md)** — full API reference for `Writer`, `Response`, `Emit`, `RenderMarkdown`
 - **[Adding Custom Commands](custom-commands.md)** — command wiring patterns
 - **[Switch to Structured JSON Logging for Containers](structured-json-logging.md)** — complement to JSON output for daemon/container deployments

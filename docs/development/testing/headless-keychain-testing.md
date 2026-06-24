@@ -187,5 +187,5 @@ Never commit the swapped version — `cmd/e2e` must ship with the real backend s
 ## Related
 
 - [Manual credential testing](manual-credentials.md) — the scenarios this guide unblocks.
-- [`docs/components/credentials.md`](../../components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, and the stub/memory/go-keyring implementations.
+- [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, and the stub/memory/go-keyring implementations.
 - [`pkg/credentials/credtest`](../../../pkg/credentials/credtest/memory.go) — source for the in-memory backend and its test helper.

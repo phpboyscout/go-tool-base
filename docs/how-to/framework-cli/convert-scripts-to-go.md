@@ -132,7 +132,7 @@ go run main.go generate command -n "my-cmd" --script "./script.sh" --agentless
     -   The logic will be commented out to prevent compilation errors.
     -   **Action**: Uncomment the code and fix the remaining syntax errors manually.
 
-For more details, consult the [Troubleshooting Guide](../troubleshooting.md).
+For more details, consult the [Troubleshooting Guide](../../development/troubleshooting.md).
 
 ## Unit Test Generation 🧪
 

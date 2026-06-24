@@ -69,7 +69,7 @@ type Observable interface { Run(Containable) error }
 cfg.AddObserverFunc(func(c config.Containable) error { return err })
 ```
 
-Migration note: [`docs/migration/v0.16-hot-reload-observer.md`](../../migration/v0.16-hot-reload-observer.md)
+Migration note: [`docs/migration/v0.16-hot-reload-observer.md`](../../reference/migration/v0.16-hot-reload-observer.md)
 (also linked from `docs/migration/index.md`). This is a breaking change; commit carries a
 `BREAKING CHANGE:` footer. Pre-1.0, so it ships as a minor bump with no shim.
 

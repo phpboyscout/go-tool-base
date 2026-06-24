@@ -60,4 +60,4 @@ All generator commands (`regenerate`, `generate command/docs/flag`, `remove`) au
 
 ## Related Documentation
 
-- [Workspace Detection Specification](../development/specs/2026-03-31-workspace-detection.md)
+- [Workspace Detection Specification](../../development/specs/2026-03-31-workspace-detection.md)

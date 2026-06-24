@@ -229,4 +229,4 @@ func TestAnalyseCode(t *testing.T) {
 
 - **[AI Tool Calling](ai-tool-calling.md)** — letting the AI call functions in a ReAct loop
 - **[AI Provider Setup](ai-integration.md)** — provider configuration and API keys
-- **[Chat component](../components/chat.md)** — full `ChatClient` interface reference
+- **[Chat component](../explanation/components/chat.md)** — full `ChatClient` interface reference

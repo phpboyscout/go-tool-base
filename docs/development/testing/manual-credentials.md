@@ -363,6 +363,6 @@ go run /tmp/probe_check.go
 
 ## Related
 
-- [`docs/components/credentials.md`](../../components/credentials.md) — architecture reference.
+- [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference.
 - [`docs/how-to/configure-credentials.md`](../../how-to/configure-credentials.md) — end-user configuration guide.
 - [`2026-04-02-credential-storage-hardening.md`](../specs/2026-04-02-credential-storage-hardening.md) — spec driving this work; each scenario maps to a requirement (R1–R6).

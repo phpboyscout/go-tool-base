@@ -118,5 +118,5 @@ docker-compose.yml
 
 ## Related Documentation
 
-- [Generator Package](../components/internal/generator.md) — full generator architecture and ignore file format
+- [Generator Package](../explanation/components/internal/generator.md) — full generator architecture and ignore file format
 - [Generator Ignore File Spec](../development/specs/2026-03-31-generator-ignore-file.md) — design specification

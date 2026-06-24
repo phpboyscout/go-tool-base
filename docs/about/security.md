@@ -93,7 +93,7 @@ Tool-author responsibility: never interpolate a credential value into a `CheckRe
 
 ## Related
 
-- [Credentials component reference](../components/credentials.md) — architecture and API
+- [Credentials component reference](../explanation/components/credentials.md) — architecture and API
 - [Configure credentials how-to](../how-to/configure-credentials.md) — end-user guide to picking a mode
 - [Migrate literal credentials how-to](../how-to/migrate-literal-credentials.md) — move off plaintext storage
 - [Custom credential backend how-to](../how-to/custom-credential-backend.md) — implement Vault / SSM / etc.

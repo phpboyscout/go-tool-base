@@ -27,7 +27,7 @@ func TestMyCommand(t *testing.T) {
 }
 ```
 
-It is hermetic (no disk, network, keychain, or `os.Exit`) and returns a fresh instance per call, so it is safe under `t.Parallel()`. See the full default table and option list in the [Props component reference](../components/props.md#testing-with-props). The manual patterns below remain available when you need finer control.
+It is hermetic (no disk, network, keychain, or `os.Exit`) and returns a fresh instance per call, so it is safe under `t.Parallel()`. See the full default table and option list in the [Props component reference](../explanation/components/props.md#testing-with-props). The manual patterns below remain available when you need finer control.
 
 ## Mocking the Filesystem
 
@@ -121,7 +121,7 @@ The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegi
 
 Tests that only _read_ from the registry (e.g. `setup.GetChecks()`) with distinct feature names _can_ use `t.Parallel()` safely — the mutex guarantees memory visibility.
 
-The release-provider registry (`release.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`setup.WithReleaseProvider` / `props.Tool.ReleaseProvider`) and drive it with the in-memory `pkg/vcs/release/releasetest` double — see [Release Provider › `releasetest`](../components/vcs/release.md#releasetest-in-memory-double-for-hermetic-self-update-tests).
+The release-provider registry (`release.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`setup.WithReleaseProvider` / `props.Tool.ReleaseProvider`) and drive it with the in-memory `pkg/vcs/release/releasetest` double — see [Release Provider › `releasetest`](../explanation/components/vcs/release.md#releasetest-in-memory-double-for-hermetic-self-update-tests).
 
 ### Avoid `cobra.OnFinalize`
 

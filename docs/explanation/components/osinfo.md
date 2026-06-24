@@ -21,7 +21,7 @@ Examples: `6.8.0-124-generic` (Linux), `darwin`, `windows`.
 
 ## Why a dedicated package
 
-The implementation was promoted out of `pkg/telemetry` (an unexported helper) so it could be shared without forcing a consumer to import telemetry internals. Both the telemetry collector (the event `OSVersion` field) and the [`doctor report`](commands/doctor.md#doctor-report--support-bundle) support bundle depend on it, guaranteeing one consistent OS string across both surfaces.
+The implementation was promoted out of `pkg/telemetry` (an unexported helper) so it could be shared without forcing a consumer to import telemetry internals. Both the telemetry collector (the event `OSVersion` field) and the [`doctor report`](../../reference/cli/doctor.md#doctor-report--support-bundle) support bundle depend on it, guaranteeing one consistent OS string across both surfaces.
 
 ## Implementation notes
 

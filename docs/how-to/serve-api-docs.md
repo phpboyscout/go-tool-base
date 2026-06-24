@@ -162,7 +162,7 @@ You should see the Stoplight Elements UI with your operations in the sidebar. Pi
 
 ## Related Documentation
 
-- **[OpenAPI component](../components/openapi.md)** — `Register`, the `WithSpecPath`/`WithDocsPath`/`WithTitle` options, and the embedded Stoplight assets
-- **[Gateway component](../components/gateway.md)** — the grpc-gateway REST mux the docs are mounted alongside
+- **[OpenAPI component](../explanation/components/openapi.md)** — `Register`, the `WithSpecPath`/`WithDocsPath`/`WithTitle` options, and the embedded Stoplight assets
+- **[Gateway component](../explanation/components/gateway.md)** — the grpc-gateway REST mux the docs are mounted alongside
 - **[Expose a gRPC Service as REST](expose-grpc-as-rest.md)** — wire the gateway routes the spec documents
 - **[Add a gRPC Management Service](add-grpc-service.md)** — register the gRPC server the gateway fronts

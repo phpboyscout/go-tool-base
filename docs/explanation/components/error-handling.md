@@ -112,7 +112,7 @@ func main() {
 }
 ```
 
-`Execute` sets `SilenceErrors` and `SilenceUsage` on the root command so Cobra never prints errors itself, and adds a `--help` hint to all flag parse errors. It also runs the command tree under a signal-aware context — see the [Root Command documentation](commands/root.md#signal-handling) for the full signal lifecycle.
+`Execute` sets `SilenceErrors` and `SilenceUsage` on the root command so Cobra never prints errors itself, and adds a `--help` hint to all flag parse errors. It also runs the command tree under a signal-aware context — see the [Root Command documentation](../../reference/cli/root.md#signal-handling) for the full signal lifecycle.
 
 #### 4. Custom Exit Codes
 

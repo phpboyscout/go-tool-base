@@ -9,8 +9,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # `pkg/openpgpkey`
 
 API stability: **Beta** (per
-[`docs/about/api-stability.md`](../about/api-stability.md) and spec
-[D4](../development/specs/2026-06-08-keys-mint-command.md)).
+[`docs/about/api-stability.md`](../../reference/api-stability.md) and spec
+[D4](../../development/specs/2026-06-08-keys-mint-command.md)).
 
 ## What it does
 
@@ -174,8 +174,8 @@ ship unverifiable signatures to consumers).
 
 `gtb sign --backend <name> --key-id <id> --public-key <path.asc>
 <input>` is the operator-facing wrapper. See
-[How-to: sign release artefacts](../how-to/sign-releases.md) and
-[Spec 2026-06-09-sign-command](../development/specs/2026-06-09-sign-command.md).
+[How-to: sign release artefacts](../../how-to/sign-releases.md) and
+[Spec 2026-06-09-sign-command](../../development/specs/2026-06-09-sign-command.md).
 
 ## Web Key Directory (WKD) tree generation
 
@@ -232,7 +232,7 @@ requiring a `gpg` install — the same property `gtb keys generate`
 provides on the key-minting side.
 
 For the operator-facing recipe (Cloudflare Pages Direct Upload), see
-[How-to: publish via WKD](../how-to/publish-wkd.md).
+[How-to: publish via WKD](../../how-to/publish-wkd.md).
 
 [wkd]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-15
 
@@ -242,8 +242,8 @@ For the operator-facing recipe (Cloudflare Pages Direct Upload), see
   — the big-picture story.
 - [`pkg/signing`](signing.md) — the backend registry that drives
   `gtb keys mint`.
-- [Spec D12](../development/specs/2026-06-08-keys-mint-command.md) —
+- [Spec D12](../../development/specs/2026-06-08-keys-mint-command.md) —
   the (revised) RSA-only design decision and why Ed25519 minting
   lives in `internal/cmd/keys/`.
-- [Spec 2026-06-09-keys-wkd-command](../development/specs/2026-06-09-keys-wkd-command.md)
+- [Spec 2026-06-09-keys-wkd-command](../../development/specs/2026-06-09-keys-wkd-command.md)
   — the WKD generator design (D1–D8) and resolved open questions.

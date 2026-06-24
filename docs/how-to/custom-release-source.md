@@ -262,7 +262,7 @@ Each source type must be unique. Calling `release.Register` with an existing key
 
 ## Related Documentation
 
-- **[Release Provider component](../components/vcs/release.md)** — full interface and registry API reference
+- **[Release Provider component](../explanation/components/vcs/release.md)** — full interface and registry API reference
 - **[Configure Self-Updating](configure-self-updating.md)** — wiring `UpdateCmd` end-to-end
-- **[Setup component](../components/setup/index.md)** — how `NewUpdater` selects and constructs providers
-- **[Auto-Update Lifecycle](../concepts/auto-update.md)** — how `release.Provider` drives version checks
+- **[Setup component](../explanation/components/setup/index.md)** — how `NewUpdater` selects and constructs providers
+- **[Auto-Update Lifecycle](../explanation/concepts/auto-update.md)** — how `release.Provider` drives version checks

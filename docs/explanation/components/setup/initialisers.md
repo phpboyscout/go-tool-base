@@ -125,4 +125,4 @@ After writing config files, the init process scans config files for common API k
 
 ## Creating Custom Initialisers
 
-For a step-by-step guide on implementing your own initialiser, referring to the [How-to Guide](../../how-to/add-initialiser.md).
+For a step-by-step guide on implementing your own initialiser, referring to the [How-to Guide](../../../how-to/add-initialiser.md).

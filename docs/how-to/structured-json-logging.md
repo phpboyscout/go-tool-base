@@ -198,5 +198,5 @@ ml.EXPECT().Info("server started", "addr", ":8080").Once()
 
 ## Related Documentation
 
-- **[Logger component](../components/logger.md)** — all backends, `CharmOption` functions, `Handler()` interop
-- **[Logging concepts](../concepts/logging.md)** — when to use each backend
+- **[Logger component](../explanation/components/logger.md)** — all backends, `CharmOption` functions, `Handler()` interop
+- **[Logging concepts](../explanation/concepts/logging.md)** — when to use each backend

@@ -96,4 +96,4 @@ RunE: func(cmd *cobra.Command, args []string) error {
 
 The root command is implemented in `cmd/root/root.go` and created via the `root.NewCmdRoot(props)` entry point.
 
-For more information on the dependency injection pattern used here, see the **[Props Documentation](../props.md)**.
+For more information on the dependency injection pattern used here, see the **[Props Documentation](../../explanation/components/props.md)**.

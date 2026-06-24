@@ -186,7 +186,7 @@ status reports to provide an overall system health view.
     The `WithStatus()` option is wired into the controls lifecycle, but the
     default HTTP and gRPC `Status()` implementations are currently no-ops
     that always return nil. See the
-    [Code Quality Hardening spec](../development/specs/2026-03-24-code-quality-hardening.md)
+    [Code Quality Hardening spec](2026-03-24-code-quality-hardening.md)
     for the plan to implement meaningful status checks.
 
 ### Usage

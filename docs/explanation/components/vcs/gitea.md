@@ -117,5 +117,5 @@ Asset downloads use the `browser_download_url` from the release API response.
 ## Related Documentation
 
 - [Release Provider](release.md) — the `Provider` interface and registry
-- [Configure Self-Updating](../../how-to/configure-self-updating.md) — wiring up update checks
-- [Add a Custom Release Source](../../how-to/custom-release-source.md) — implementing your own provider
+- [Configure Self-Updating](../../../how-to/configure-self-updating.md) — wiring up update checks
+- [Add a Custom Release Source](../../../how-to/custom-release-source.md) — implementing your own provider

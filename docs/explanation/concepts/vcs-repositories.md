@@ -255,6 +255,6 @@ Note this git-auth path is independent of the release/update subsystem's token r
 
 ## Related Documentation
 
-- **[VCS component reference](../components/vcs.md)** — full API reference for all VCS subpackages
+- **[VCS component reference](../components/vcs/index.md)** — full API reference for all VCS subpackages
 - **[Interface Design](interface-design.md)** — `RepoLike` and `GitHubClient` in the interface hierarchy
 - **[Auto-Update Lifecycle](auto-update.md)** — how `release.Provider` is used for version checks

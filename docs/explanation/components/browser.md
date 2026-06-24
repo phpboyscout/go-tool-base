@@ -103,5 +103,5 @@ go test -fuzz=FuzzOpenURL -fuzztime=60s ./pkg/browser/
 
 ## See also
 
-- Spec: [`docs/development/specs/2026-04-02-url-scheme-validation.md`](../development/specs/2026-04-02-url-scheme-validation.md)
-- Security audit: [`docs/development/reports/security-audit-2026-04-02.md`](../development/reports/security-audit-2026-04-02.md) (finding M-5)
+- Spec: [`docs/development/specs/2026-04-02-url-scheme-validation.md`](../../development/specs/2026-04-02-url-scheme-validation.md)
+- Security audit: [`docs/development/reports/security-audit-2026-04-02.md`](../../development/reports/security-audit-2026-04-02.md) (finding M-5)

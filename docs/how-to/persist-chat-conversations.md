@@ -220,7 +220,7 @@ func resumableChat(ctx context.Context, p *props.Props, conversationID string) e
 
 ## Related Documentation
 
-- [Chat Component](../components/chat.md) — full chat client documentation
+- [Chat Component](../explanation/components/chat.md) — full chat client documentation
 - [AI Integration](ai-integration.md) — setting up AI providers
 - [AI Tool Calling](ai-tool-calling.md) — configuring tools for AI
 - [Chat Persistence Specification](../development/specs/2026-03-26-chat-conversation-persistence.md) — design spec

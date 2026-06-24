@@ -148,4 +148,4 @@ The command still migrates the half you have (to env-var mode), but the keychain
 
 - [Configure credentials](configure-credentials.md) — pick the storage mode when running `init`
 - [Custom credential backend](custom-credential-backend.md) — implement a Vault / AWS SSM / 1Password backend
-- [Migration guide for v1.12](../migration/v1.12-credential-storage.md) — full version upgrade notes
+- [Migration guide for v1.12](../reference/migration/v1.12-credential-storage.md) — full version upgrade notes

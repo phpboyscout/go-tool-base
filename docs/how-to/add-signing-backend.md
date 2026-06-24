@@ -226,7 +226,7 @@ nothing else is needed.
 
 - [`gtb keys mint`](mint-signing-key.md) — the user-facing surface
   your backend plugs into.
-- [`pkg/signing`](../components/signing.md) — the registry API.
+- [`pkg/signing`](../explanation/components/signing.md) — the registry API.
 - [`pkg/signing/kms`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/signing/kms/kms.go)
   and
   [`pkg/signing/local`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/signing/local/local.go)

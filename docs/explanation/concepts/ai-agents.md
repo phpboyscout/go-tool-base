@@ -47,4 +47,4 @@ To use your tool as an agent, you simply configure your preferred AI client (lik
 ---
 
 !!! tip
-    To see how to configure specific AI clients (like Cursor or Claude Desktop) to use your tool as an agent, refer to the [MCP CLI Guide](../cli/mcp.md).
+    To see how to configure specific AI clients (like Cursor or Claude Desktop) to use your tool as an agent, refer to the [MCP CLI Guide](../../reference/cli/mcp.md).

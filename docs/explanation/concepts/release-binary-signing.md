@@ -102,7 +102,7 @@ When `mytool update` runs, it does this (sketch):
 
 If any step fails, the update is refused with an actionable error.
 Phase 2 of the
-[`remote-update-checksum-verification`](../development/specs/2026-04-02-remote-update-checksum-verification.md)
+[`remote-update-checksum-verification`](../../development/specs/2026-04-02-remote-update-checksum-verification.md)
 spec implements this flow.
 
 ## The trust boundary
@@ -190,7 +190,7 @@ The WKD cross-check closes that gap. The WKD endpoint is a static
 file on a domain you administer **independently** from your release
 registry (we recommend Cloudflare Pages on a separate account with
 its own MFA factor — see the
-[`phase2-signing-prep`](../development/phase2-signing-prep.md) doc).
+[`phase2-signing-prep`](../../development/phase2-signing-prep.md) doc).
 
 A successful poisoning attack now requires an attacker to compromise
 both the release registry **and** your WKD-hosting account. That's a
@@ -310,20 +310,20 @@ The chain in tabular form:
   administered concern; we don't presume your DNS, your TLS
   provider, or your static-host of choice. We provide the recipe
   (Cloudflare Pages Direct Upload) in the
-  [phase2-signing-prep doc](../development/phase2-signing-prep.md).
+  [phase2-signing-prep doc](../../development/phase2-signing-prep.md).
 - **Sigstore / cosign / Rekor transparency log.** Phase 3 of the
   parent spec. The architecture supports adding a Sigstore-backed
   trust path alongside OpenPGP without breaking the existing flow.
 
 ## Related
 
-- [`gtb keys mint`](../how-to/mint-signing-key.md) — the production
+- [`gtb keys mint`](../../how-to/mint-signing-key.md) — the production
   signing key recipe.
-- [`gtb keys generate-rotation`](../how-to/generate-rotation-key.md)
+- [`gtb keys generate-rotation`](../../how-to/generate-rotation-key.md)
   — the offline-storage flow.
-- [Adding a signing backend](../how-to/add-signing-backend.md) — for
+- [Adding a signing backend](../../how-to/add-signing-backend.md) — for
   GCP KMS, Vault, YubiKey, etc.
 - [pkg/openpgpkey](../components/openpgpkey.md),
   [pkg/signing](../components/signing.md) — programmatic APIs.
-- [Phase 2 spec](../development/specs/2026-04-02-remote-update-checksum-verification.md)
+- [Phase 2 spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md)
   — verifier design.

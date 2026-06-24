@@ -76,5 +76,5 @@ Run 'mytool changelog --latest' to see the full changelog.
 
 ## Related Documentation
 
-- [Changelog Package](../changelog.md) — the underlying parser
+- [Changelog Package](../../explanation/components/changelog.md) — the underlying parser
 - [Update Command](update.md) — self-update with changelog display

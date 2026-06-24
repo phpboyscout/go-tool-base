@@ -19,7 +19,7 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
     - **v0.13.0** (2026-06-09) — `setup.DefaultRequireSignature = true`. Every update now refuses to install an unsigned release.
     - **v0.13.1** (2026-06-10) — wired `setup.DefaultExternalKeyEmail = "release@phpboyscout.uk"` so the resolver chain becomes `CompositeResolver{Embedded, WKD}` by default. Before this, the verifier silently degraded to embedded-only — see [Interpreting verifier log output](#interpreting-verifier-log-output) below.
 
-    Downstream tools using `pkg/setup` get the same wiring out of the box by setting `setup.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md) cover the rollout history end-to-end.
+    Downstream tools using `pkg/setup` get the same wiring out of the box by setting `setup.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](../../../development/specs/2026-04-02-remote-update-checksum-verification.md) cover the rollout history end-to-end.
 
 ## Threat Model
 
@@ -331,6 +331,6 @@ Trust sets hold multiple keys, and verification passes if **any** key validates 
 ## See Also
 
 - [Setup Package](index.md) — the surrounding self-update system and Phase 1 checksum verification.
-- [Secure Releases How-To](../../how-to/secure-releases.md) — operator-facing setup story.
+- [Secure Releases How-To](../../../how-to/secure-releases.md) — operator-facing setup story.
 - [HTTP client](../http.md) — the hardened client `WKDResolver` expects.
-- [remote-update-checksum-verification spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md) — full design, decisions, and rollout phases.
+- [remote-update-checksum-verification spec](../../../development/specs/2026-04-02-remote-update-checksum-verification.md) — full design, decisions, and rollout phases.

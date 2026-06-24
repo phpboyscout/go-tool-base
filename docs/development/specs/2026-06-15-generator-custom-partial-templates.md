@@ -368,7 +368,7 @@ section. Rendering custom templates means the generator **parses and executes
 `text/template` content GTB did not author**, and for `git` sources that content
 arrives **over the network from a repository the framework does not control**.
 This fundamentally differs from the existing model documented in
-[template-security.md](../development/template-security.md), where GTB authors
+[template-security.md](../template-security.md), where GTB authors
 every template and escapes *its own* user-supplied **field values** at known
 sites. Here the **template author controls the output directly**, so the
 escape-at-known-sites perimeter does **not** protect the output of a custom
@@ -444,7 +444,7 @@ What a malicious or compromised template source can attempt:
   `gtb-template.yaml` is likewise validated (known `contract:` version, `replaces:`
   aliases restricted to the maintained set). Invalid entries are **skipped, not
   fatal**, on the regenerate path (consistent with
-  [template-security.md](../development/template-security.md)).
+  [template-security.md](../template-security.md)).
 - **Explicit-trust confirmation.** Adding a **remote** source for the first time
   prompts an interactive confirmation naming the host/owner/repo and the resolved
   SHA (suppressible with `--yes`/non-interactive for CI). Adding a source is the
@@ -674,7 +674,7 @@ They are retained here with their resolutions for the record.
 - [Provider-aware repository auth](2026-06-12-provider-aware-repo-auth.md) — the
   forge-aware clone/auth (`resolveForge`, `<forge>.auth`/`<forge>.ssh`,
   `vcs.ResolveToken`, non-fatal public clone) the `git` source fetch reuses.
-- [Template Security](../development/template-security.md) — the existing
+- [Template Security](../template-security.md) — the existing
   escape-at-known-sites model this feature deliberately steps *outside*; the
   custom-template threat model extends it.
 - [Generator template escaping](2026-04-02-generator-template-escaping.md) and

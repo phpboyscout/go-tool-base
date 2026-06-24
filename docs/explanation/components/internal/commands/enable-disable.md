@@ -62,7 +62,7 @@ and a name is required.
 ### The `update` ⇄ ForcedUpdate interaction
 
 `disable update` removes the self-update subsystem entirely, including the
-[ForcedUpdate](../../commands/update.md) check — the tool will no longer detect
+[ForcedUpdate](../../../../reference/cli/update.md) check — the tool will no longer detect
 or apply new releases. `enable`/`disable` warns when you turn `update` off.
 
 ## Signing

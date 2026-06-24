@@ -356,5 +356,5 @@ func (m *Model) View() string {
 
 - **[Functional Options](functional-options.md)**: Pattern used for TUI configuration
 - **[Controls Package](../components/controls.md)**: Service lifecycle for TUI applications
-- **[Docs Command](../components/commands/docs.md)**: Using the documentation browser
+- **[Docs Command](../../reference/cli/docs.md)**: Using the documentation browser
 

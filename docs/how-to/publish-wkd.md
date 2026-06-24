@@ -212,7 +212,7 @@ key ever ships, redeploy a known-good staging directory in seconds.
   — design decisions, RFC details, the threat-model rationale.
 - [Phase 2 signing prep doc][prep] — the upstream gate decisions for
   domain, email, and host.
-- [`pkg/openpgpkey`](../components/openpgpkey.md) — the library
+- [`pkg/openpgpkey`](../explanation/components/openpgpkey.md) — the library
   function `WriteWKDTree` that the CLI wraps.
 - [`pkg/setup/signing_wkd.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/setup/signing_wkd.go)
   — the client-side `WKDResolver` that pairs with this generator.

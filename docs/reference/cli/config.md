@@ -212,5 +212,5 @@ YAML config is not applicable.
   `edit`, `validate`)
 - **`pkg/cmd/config/sensitive.go`** — `Masker` type with dual-strategy detection
 - **`pkg/config` `Container.ConfigFiles()`** — ordered list of contributing files backing
-  `config path` (added in v0.22; see the [migration note](../../migration/v0.21-config-files-accessor.md))
+  `config path` (added in v0.22; see the [migration note](../migration/v0.21-config-files-accessor.md))
 - Feature flag: `props.ConfigCmd` (default: disabled)

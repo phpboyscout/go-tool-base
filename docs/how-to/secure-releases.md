@@ -113,7 +113,7 @@ setup.MaxBinaryDownloadSize = 2 << 30 // 2 GiB
 
 Phase 1 defends against accidental corruption and single-asset tampering, but a full VCS compromise can replace both the binary and `checksums.txt` on the release. Phase 2 closes that gap by signing the manifest with a project-controlled GPG key — an attacker who replaces the files on the VCS still cannot produce a valid `checksums.txt.sig` without access to the private key.
 
-> **Status**: the **verification side** (`TrustSet`, the `KeyResolver` chain, the `SelfUpdater` verify-before-parse gate) and the **build side** (a GoReleaser `signs` block + `scripts/sign-release.sh`) are **implemented**. They are **dormant by default**: signing only runs when a signing key is provisioned, and `setup.DefaultRequireSignature` stays `false` until the rollout completes. What remains is **operational provisioning** — generating the KMS-held key, publishing it via WKD, embedding the public key, and flipping the require-signature default — per the [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist. See also the [Signature Verification component](../components/setup/signature-verification.md) for the full verifier API.
+> **Status**: the **verification side** (`TrustSet`, the `KeyResolver` chain, the `SelfUpdater` verify-before-parse gate) and the **build side** (a GoReleaser `signs` block + `scripts/sign-release.sh`) are **implemented**. They are **dormant by default**: signing only runs when a signing key is provisioned, and `setup.DefaultRequireSignature` stays `false` until the rollout completes. What remains is **operational provisioning** — generating the KMS-held key, publishing it via WKD, embedding the public key, and flipping the require-signature default — per the [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist. See also the [Signature Verification component](../explanation/components/setup/signature-verification.md) for the full verifier API.
 
 ### Producing signed releases
 
@@ -279,8 +279,8 @@ go test ./pkg/setup/ -run "^$" -fuzz=FuzzParseChecksumManifest -fuzztime=30s
 
 ## Related
 
-- [Setup Package Reference](../components/setup/index.md) — `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, `DefaultRequireChecksum`.
-- [VCS Release Providers](../components/vcs/release.md) — the `ChecksumProvider` optional interface and per-provider behaviour.
+- [Setup Package Reference](../explanation/components/setup/index.md) — `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, `DefaultRequireChecksum`.
+- [VCS Release Providers](../explanation/components/vcs/release.md) — the `ChecksumProvider` optional interface and per-provider behaviour.
 - [Custom Release Source](custom-release-source.md) — implementing a custom `release.Provider` (and optionally `release.ChecksumProvider`) for a proprietary release backend.
 - [Credential Storage Hardening Spec](../development/specs/2026-04-02-credential-storage-hardening.md) — the related defence-in-depth spec that covers credential storage during update and setup.
 - [Remote Update Integrity Spec](../development/specs/2026-04-02-remote-update-checksum-verification.md) — the full design including Phase 2 (GPG) and Phase 3 (cosign).

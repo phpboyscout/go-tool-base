@@ -93,7 +93,7 @@ ReleaseSource: props.ReleaseSource{
 },
 ```
 
-See the [Release Provider component](../components/vcs/release.md) for a full `Params` reference for each provider.
+See the [Release Provider component](../explanation/components/vcs/release.md) for a full `Params` reference for each provider.
 
 ---
 
@@ -259,9 +259,9 @@ The `--from-file` flag is mutually exclusive with `--version`. The `--force` fla
 
 ## Related Documentation
 
-- **[Auto-Update Lifecycle](../concepts/auto-update.md)** — how the update loop works
-- **[Release Provider component](../components/vcs/release.md)** — all built-in providers, registry API, and `Params` reference
+- **[Auto-Update Lifecycle](../explanation/concepts/auto-update.md)** — how the update loop works
+- **[Release Provider component](../explanation/components/vcs/release.md)** — all built-in providers, registry API, and `Params` reference
 - **[Add a Custom Release Source](custom-release-source.md)** — register your own provider for any backend
-- **[GitHub component](../components/vcs/github.md)** — `NewGitHubClient` and token resolution
-- **[GitLab component](../components/vcs/gitlab.md)** — `NewReleaseProvider` for GitLab
+- **[GitHub component](../explanation/components/vcs/github.md)** — `NewGitHubClient` and token resolution
+- **[GitLab component](../explanation/components/vcs/gitlab.md)** — `NewReleaseProvider` for GitLab
 - **[Configuring Built-in Features](builtin-features.md)** — enabling and disabling UpdateCmd

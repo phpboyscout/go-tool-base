@@ -70,7 +70,7 @@ type Backend interface {
 credentials.RegisterBackend(myBackend)
 ```
 
-Every method takes a `context.Context` so remote-store backends (Hashicorp Vault, AWS SSM, 1Password Connect) honour deadlines and cancellation. OS-keychain backends accept the context for interface uniformity but don't propagate it — platform APIs (Keychain Services, Secret Service, Credential Manager) don't expose cancellation. See [docs/how-to/custom-credential-backend.md](../how-to/custom-credential-backend.md) for a worked example implementing a custom backend.
+Every method takes a `context.Context` so remote-store backends (Hashicorp Vault, AWS SSM, 1Password Connect) honour deadlines and cancellation. OS-keychain backends accept the context for interface uniformity but don't propagate it — platform APIs (Keychain Services, Secret Service, Credential Manager) don't expose cancellation. See [docs/how-to/custom-credential-backend.md](../../how-to/custom-credential-backend.md) for a worked example implementing a custom backend.
 
 The zero-dep default backend is `stubBackend`; every call returns `ErrCredentialUnsupported`. `credtest.MemoryBackend` (in `pkg/credentials/credtest`) is an in-process implementation useful for unit tests of resolvers and setup flows without touching the host keychain.
 
@@ -143,4 +143,4 @@ Note: the `go-keyring` dep chain is listed in the root module's `go.mod` as `// 
 
 ## Spec and Status
 
-Phases 1 and 2 of [`2026-04-02-credential-storage-hardening.md`](../development/specs/2026-04-02-credential-storage-hardening.md) are implemented: env-var reference as the default, keychain mode behind an opt-in subpackage import with `Probe()`-gated wizard UX, and Bitbucket JSON-blob support. Phase 3 (the `config migrate-credentials` command and the GitHub OAuth+display-once flow) is still pending.
+Phases 1 and 2 of [`2026-04-02-credential-storage-hardening.md`](../../development/specs/2026-04-02-credential-storage-hardening.md) are implemented: env-var reference as the default, keychain mode behind an opt-in subpackage import with `Probe()`-gated wizard UX, and Bitbucket JSON-blob support. Phase 3 (the `config migrate-credentials` command and the GitHub OAuth+display-once flow) is still pending.

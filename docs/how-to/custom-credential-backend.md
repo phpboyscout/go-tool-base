@@ -355,7 +355,7 @@ Worth knowing when designing a custom backend:
 
 ## Related
 
-- [`docs/components/credentials.md`](../components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, `Probe`.
+- [`docs/components/credentials.md`](../explanation/components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, `Probe`.
 - [`docs/development/testing/manual-credentials.md`](../development/testing/manual-credentials.md) — scenarios that exercise the active backend end-to-end.
 - [`pkg/credentials/credtest`](../../pkg/credentials/credtest/memory.go) — in-process backend for unit testing.
 - [`pkg/credentials/keychain`](../../pkg/credentials/keychain/keychain.go) — the canonical `go-keyring` implementation of `Backend`, useful as a reference when writing your own.

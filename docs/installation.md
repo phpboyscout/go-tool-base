@@ -175,7 +175,7 @@ Once installation is complete:
 
 1. **Read the [Getting Started Guide](getting-started.md)** for a detailed tutorial
 
-- **[Components Documentation](components/props.md)** to understand the architecture
+- **[Components Documentation](explanation/components/props.md)** to understand the architecture
 
 ## Troubleshooting
 

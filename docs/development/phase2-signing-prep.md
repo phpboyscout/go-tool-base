@@ -434,5 +434,5 @@ This is the spec's Phase 2a/2b/2c/2d condensed into a single checklist:
 
 - [Spec: Remote Update Integrity — Checksums + GPG Signatures](specs/2026-04-02-remote-update-checksum-verification.md)
 - [How-To: Secure Releases](../how-to/secure-releases.md) — end-user documentation for both phases
-- [Component: Setup Package](../components/setup/index.md#remote-checksum-verification-phase-1)
-- [Component: VCS Release Providers](../components/vcs/release.md) — `ChecksumProvider` and (planned) `SignatureProvider` interfaces
+- [Component: Setup Package](../explanation/components/setup/index.md#remote-checksum-verification-phase-1)
+- [Component: VCS Release Providers](../explanation/components/vcs/release.md) — `ChecksumProvider` and (planned) `SignatureProvider` interfaces

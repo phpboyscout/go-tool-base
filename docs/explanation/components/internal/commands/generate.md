@@ -74,7 +74,7 @@ The `--features` flag controls which subsystems and side-effect activations appe
 | `docs` | on | built-in docs browser |
 | `doctor` | on | `doctor` subsystem |
 | `changelog` | on | changelog subsystem |
-| `keychain` | on | `cmd/<name>/keychain.go` blank-importing `pkg/credentials/keychain` — activates the OS keychain backend by default. Delete the scaffolded file for a regulated build (no go-keyring / godbus / wincred linked). See [How to configure credentials](../../../how-to/configure-credentials.md) and [How to implement a custom credential backend](../../../how-to/custom-credential-backend.md). |
+| `keychain` | on | `cmd/<name>/keychain.go` blank-importing `pkg/credentials/keychain` — activates the OS keychain backend by default. Delete the scaffolded file for a regulated build (no go-keyring / godbus / wincred linked). See [How to configure credentials](../../../../how-to/configure-credentials.md) and [How to implement a custom credential backend](../../../../how-to/custom-credential-backend.md). |
 | `ai` | off (opt-in) | AI chat subsystem |
 | `config` | off (opt-in) | `config` subsystem with get/set/list |
 | `telemetry` | off (opt-in) | telemetry subsystem |
@@ -160,7 +160,7 @@ when a newer release is found. The value is persisted to the manifest so
 | `enabled` | `props.UpdatePolicyEnabled` | Blocks every command until the tool is updated. |
 
 The check is always skipped under `--ci`/`ci: true` regardless of policy. See
-[the self-update policy migration note](../../../migration/v0.17-update-policy.md)
+[the self-update policy migration note](../../../../reference/migration/v0.17-update-policy.md)
 for the full resolution order.
 
 #### Update check interval

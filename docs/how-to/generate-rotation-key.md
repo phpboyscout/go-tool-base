@@ -212,5 +212,5 @@ exists *before* you need it. The runbook can come later.
 
 - [Mint the signing key](mint-signing-key.md) — the everyday signing
   key flow, paired with this rotation key in the trust set.
-- [Release-binary signing concept](../concepts/release-binary-signing.md)
+- [Release-binary signing concept](../explanation/concepts/release-binary-signing.md)
   — why two keys, what each protects against.

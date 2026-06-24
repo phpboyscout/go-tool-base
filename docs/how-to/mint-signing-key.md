@@ -139,7 +139,7 @@ The same KMS material + same UID + same creation time = same
 fingerprint. This is also how `gtb keys generate --algorithm rsa`
 and `gtb keys mint --backend local` produce identical fingerprints
 when chained — see the
-[concept doc](../concepts/release-binary-signing.md) for the
+[concept doc](../explanation/concepts/release-binary-signing.md) for the
 end-to-end flow.
 
 ## Smoke-test the result with `gpg`
@@ -198,7 +198,7 @@ v1 file once your supported-version window has cleared.
   offline-storage flow for the break-glass key.
 - [Adding a signing backend](add-signing-backend.md) — recipes for
   GCP KMS, Vault, YubiKey.
-- [Release-binary signing concept](../concepts/release-binary-signing.md)
+- [Release-binary signing concept](../explanation/concepts/release-binary-signing.md)
   — the end-to-end trust model.
-- [`pkg/openpgpkey`](../components/openpgpkey.md) — the underlying
+- [`pkg/openpgpkey`](../explanation/components/openpgpkey.md) — the underlying
   packet-assembly API if you need it programmatically.

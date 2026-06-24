@@ -65,7 +65,7 @@ For air-gapped or restricted environments, the update system supports installing
 
 When a `.sha256` sidecar file exists alongside the archive, `VerifyChecksum` validates the file integrity before extraction. This matches the GoReleaser checksum output format.
 
-See [Configure Self-Updating: Air-Gapped Environments](../how-to/configure-self-updating.md#air-gapped--offline-environments) for the full workflow.
+See [Configure Self-Updating: Air-Gapped Environments](../../how-to/configure-self-updating.md#air-gapped--offline-environments) for the full workflow.
 
 ## Best Practices
 
