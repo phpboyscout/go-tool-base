@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Credentials Architecture
 
-`pkg/credentials` provides a shared taxonomy for how GTB — and tools built on GTB — persist user-supplied secrets. This document explains the architectural trust models and storage modes. For the API reference, see [Credentials API](../../reference/api/credentials.md).
+`pkg/credentials` provides a shared taxonomy for how GTB — and tools built on GTB — persist user-supplied secrets. This document explains the architectural trust models and storage modes. For the API reference, see [Credentials API](../components/credentials.md).
 
 ## Storage Modes
 

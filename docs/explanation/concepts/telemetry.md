@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Telemetry Architecture & Concepts
 
-This document explains the conceptual design, privacy guarantees, data lifecycle, and limitations of GTB's telemetry framework. For API references, configuration, and backend implementations, see the [Telemetry API](../../reference/api/telemetry.md).
+This document explains the conceptual design, privacy guarantees, data lifecycle, and limitations of GTB's telemetry framework. For API references, configuration, and backend implementations, see the [Telemetry API](../components/telemetry.md).
 
 ## Two-Level Gating
 
@@ -66,7 +66,7 @@ When disabled, `TrackCommandExtended` silently drops args and error messages —
 
 ### Credential Redaction
 
-Even with `ExtendedCollection` enabled, `command.args` and `command.error` values are never shipped verbatim. Every string is routed through [`pkg/redact`](../../reference/api/redact.md) before being attached to the outgoing event. The redactor strips URL userinfo, common credential query parameters (`apikey`, `token`, `access_token`, `password`, …), `Authorization` headers quoted in free text, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack `xoxb-`, etc.), and very long opaque tokens.
+Even with `ExtendedCollection` enabled, `command.args` and `command.error` values are never shipped verbatim. Every string is routed through [`pkg/redact`](../components/redact.md) before being attached to the outgoing event. The redactor strips URL userinfo, common credential query parameters (`apikey`, `token`, `access_token`, `password`, …), `Authorization` headers quoted in free text, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack `xoxb-`, etc.), and very long opaque tokens.
 
 ```go
 // A command invoked as:

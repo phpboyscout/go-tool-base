@@ -85,6 +85,9 @@ Learn about the `ErrorHandler` interface and how the framework manages logging a
 ### [AI Agents & MCP](ai-agents.md)
 How to expose your CLI tool as an autonomous agent for LLMs to control.
 
+### [Manifest Architecture](manifest.md)
+Understand how the `.gtb/manifest.yaml` acts as the source of truth for your CLI scaffolding.
+
 ### [AI-Powered Features](ai-features.md)
 How to consume AI services to build intelligent features within your tool.
 

@@ -15,10 +15,36 @@ Practical, step-by-step instructions for common tasks and workflows in GTB. Thes
 ### [Migrating from Other Ecosystems](../coming-from-other-ecosystems.md)
 A conceptual translation guide if you're coming to Go from Laravel, Rails, or Django.
 
-## Development Workflows
+## Framework CLI Workflows
 
-### [Scaffolding a New CLI](new-cli.md)
+### [Scaffolding a New Project](framework-cli/scaffold-project.md)
 Get up and running in seconds using the `gtb` CLI generator.
+
+### [Generating Commands](framework-cli/generate-commands.md)
+Add functionality and build your command tree with ease.
+
+### [Adding Flags to Commands](framework-cli/add-flags.md)
+Inject new flags into existing commands effortlessly.
+
+### [Regenerating Components](framework-cli/regenerate-components.md)
+Update your scaffolding configurations to match modified manifests.
+
+### [Removing Commands](framework-cli/remove-commands.md)
+Cleanly delete command files and deregister routing structures.
+
+### [Applying Custom Templates](framework-cli/apply-templates.md)
+Layer your own files over the skeleton with `gtb template`.
+
+### [Converting Scripts to Go](framework-cli/convert-scripts-to-go.md)
+Turn existing shell scripts into Go code with AI assistance.
+
+### [Generating AI Documentation](framework-cli/generate-docs.md)
+Generate and maintain documentation for your CLI commands and packages using AI.
+
+### [Exposing an MCP Server](framework-cli/expose-mcp-server.md)
+Expose your CLI as a Model Context Protocol server for IDE and agent integration.
+
+## Development Workflows
 
 ### [Using Command Middleware](use-middleware.md)
 Add cross-cutting concerns like logging and auth checks to your command tree.
@@ -34,9 +60,6 @@ A hands-on guide to implementing domain-specific logic and registering it with t
 
 ### [Adding Nested Subcommands](nested-subcommands.md)
 Build multi-level command trees (e.g. `tool deploy canary`) via the generator or by hand using `setup.Command.Register`.
-
-### [Author and Apply Custom Template Overlays](custom-templates.md)
-Extend the generator with your own files — org `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline — from a local folder or a git repo, layered over the embedded skeleton and pinned in the manifest.
 
 ## Advanced Guides
 

@@ -17,7 +17,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Props](props.md)** | `pkg/props` | The dependency injection container. Holds global state like configuration, logger, and filesystem interfaces. |
 | **[Config](config.md)** | `pkg/config` | Robust configuration management wrapping generic Viper usage with type safety and interface-based testability. |
 | **[Logger](logger.md)** | `pkg/logger` | Unified logging abstraction with charmbracelet, slog, and noop backends. |
-| **[Commands](commands/index.md)** | `cmd/` | Built-in Cobra commands for configuration (`init`), updates (`version`, `update`), interactive browser (`docs`), and agentic workflows (`mcp`). |
+| **[Commands](../../reference/cli/index.md)** | `cmd/` | Built-in Cobra commands for configuration (`init`), updates (`version`, `update`), interactive browser (`docs`), and agentic workflows (`mcp`). |
 | **[Error Handling](error-handling.md)** | `pkg/errorhandling` | Centralized error reporting and formatting, ensuring consistent exit codes and log output. |
 | **[Output](output.md)** | `pkg/output` | Dual-format (text/JSON) structured output for scriptable CLI commands. |
 | **[Version](version.md)** | `pkg/version` | Semantic version parsing, comparison, and development-build detection. |

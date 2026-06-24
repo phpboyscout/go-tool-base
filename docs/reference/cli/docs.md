@@ -1,103 +1,101 @@
 ---
-title: Generating Documentation
-description: How to generate and maintain documentation for your CLI commands and packages using AI.
+title: Docs Command
+description: Launch the interactive terminal documentation browser with AI-powered Q&A.
 date: 2026-02-16
-tags: [cli, documentation, generator, ai]
+tags: [components, commands, docs, tui]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
-# Generating Documentation
+# Docs Command
 
-### Intelligent Documentation with AI
+The `docs` command launches an interactive terminal-based documentation browser.
 
-The `generate docs` command is your secret weapon for maintaining world-class documentation with zero effort. By leveraging advanced AI, it analyzes your Go source code and produces comprehensive, high-quality Markdown pages that are ready to be served via MkDocs.
-
-Whether you're documenting a complex command hierarchy or a critical library package, this tool ensures your documentation is always accurate, insightful, and beautifully formatted. 📚✨
-
-## Core Features
-
-### 1. Portable Doc Generation 🚀
-
-Documentation builds are handled by a portable Go generator. When called from a nested package (like `internal/cmd/root`), use the following pattern:
-
-```go
-//go:generate go tool docs --project-root ../../.. --target-dir pkg/cmd/root/assets
-```
-
-This tool:
-- **Dual Content Sync**: Simultaneously synchronizes raw markdown for the TUI and builds a static site for `docs serve`.
-- **Auto-Detection**: Automatically uses `zensical` (preferred) or `mkdocs` if available.
-- **Configurable**:
-    - `--project-root`: Point to your project sources (e.g., where `zensical.toml` or `mkdocs.yml` lives).
-    - `--target-dir`: Specify where `assets/docs` and `assets/site` should be generated.
-    - `--config-file`: Path to the site config file relative to the project root (default: `mkdocs.yml`).
-
-### 2. Command Documentation 🕹️
-
-This command:
-
-- **Agentic Inspection**: Uses AI tools to explore subcommands and referenced types autonomously.
-- **Intelligent Formatting**: Produces structured Markdown with frontmatter, usage examples, and flag tables.
-- **Smart Indexing**: Updates `docs/commands/index.md` and your site navigation (`zensical.toml` / `mkdocs.yml`) automatically!
-
-### 2. Package Documentation 📦
-
-For developers building libraries, the `--package` flag is a game-changer:
+## Usage
 
 ```bash
-go run main.go generate docs --path . --package "pkg/utils"
+mytool docs [flags]
 ```
 
-This creates "Developer Documentation" specifically tailored for Go packages, including:
+## Description
 
-- High-level architecture overviews.
-- Exported type and function documentation.
-- Usage examples synthesized from your code.
-- Automatic inclusion in the `docs/packages/` hierarchy.
+Launches a TUI for browsing embedded project documentation. It features a split-pane layout, asynchronous background search, and an AI-powered Q&A assistant. When the AI provider supports streaming (Claude, OpenAI, Gemini), answers appear progressively in the content viewport as the model generates them.
 
-!!! warning "Required Flags"
-    The `--path` flag (path to project root) is **required**. You must also provide exactly one of `--command` or `--package` — they are mutually exclusive.
+## Flags
 
-!!! note "Deprecated Flag"
-    The `--source` flag is deprecated. Use `--command` instead.
+| Flag | Description | Default |
+| :--- | :--- | :--- |
+| `--provider` | AI provider to use (`openai`, `claude`, `gemini`) | Auto-detected |
 
-### 3. Iterative Refinement 🔄
+## TUI Keybindings
 
-The AI documentation generator isn't a one-and-done tool. It respects your manual edits!
+| Key | Action |
+| :--- | :--- |
+| `q` | Quit the browser |
+| `Tab` | Toggle sidebar visibility |
+| `s` | Open search input |
+| `?` | Open AI Q&A input |
+| `Esc` | Focus sidebar / Close search |
+| `Enter` | Select item / Focus content |
 
-If a documentation page already exists, the AI:
+## Docs Serve Subcommand
 
-1. **Reads Existing Content**: Uses your manual tweaks as context.
-2. **Preserves Customizations**: Merges new technical details with your hand-written sections.
-3. **Maintains Authorship**: Appends the AI model to the `authors` list while preserving existing human authors.
+The `docs serve` subcommand starts a local HTTP server to preview the documentation as a static site.
 
-## Advanced Usage
-
-### Persistent AI Configuration
-
-You can easily switch between AI providers or models using persistent flags:
-
+**Usage:**
 ```bash
-go run main.go generate docs --command "az/login" --provider openai --model "gpt-4"
+mytool docs serve [flags]
 ```
 
-!!! tip
-    Use the `--provider` and `--model` flags on the root `generate` command to set your preferences once for all subsequent generation tasks.
+**Description:**
+Start a local HTTP server and serve the documentation as a Material-styled static site. By default, it automatically opens the local URL in your default browser.
 
-### Hierarchical Resolving
+**Flags:**
+| Name | Description | Default |
+| :--- | :--- | :--- |
+| `-p, --port` | Port to listen on (0 for random) | `8080` |
+| `--open` | Automatically open the browser | `true` |
 
-The tool intelligently resolves command paths. You can specify a deeply nested command, and the generator will find the correct source code and place the documentation in the matching folder structure.
+> [!NOTE]
+> The `serve` command is only available if the static site assets have been pre-built and embedded into the binary.
 
+## Docs Ask Subcommand
+
+The `docs ask` subcommand allows you to query the documentation directly from the command line without launching the TUI.
+
+**Usage:**
 ```bash
-go run main.go generate docs --command "az/keyvault/get"
+mytool docs ask "How do I configure logging?"
 ```
 
-## Why Automated Documentation?
+**Aliases:** `?`
 
-Keeping documentation in sync with code is traditionally a painful, manual process. `generate docs` transforms this into a delightful experience:
+**Description:**
+Ask a question about the documentation and receive an AI-generated answer rendered in the terminal. This is useful for quick lookups or when running in non-interactive environments.
 
-- **Single Source of Truth**: Your code is the source; the docs are the reflection.
-- **Low Friction**: Generate docs as part of your development workflow.
-- **High Quality**: AI-driven summaries often provide insights that manual writing might miss.
+When `--no-style` is set and the provider supports streaming, the answer is printed to stdout as each token arrives. In styled mode (default), the full response is collected and rendered as formatted Markdown at the end.
 
-Focus on building great software, and let `gtb` handle the story of how to use it! 🚀
+**Flags:**
+
+| Flag | Description | Default |
+| :--- | :--- | :--- |
+| `-n, --no-style` | Disable markdown styling; enables live token streaming to stdout | `false` |
+| `--provider` | AI provider to use (`openai`, `claude`, `gemini`) | Inherited from parent |
+
+**Examples:**
+```bash
+# Ask a question with styled output (full response rendered at completion)
+mytool docs ask "What is the Props container?"
+
+# Ask without markdown formatting — streams tokens live as they arrive
+mytool docs ask --no-style "List all available commands"
+
+# Pipe streamed output
+mytool docs ask --no-style "List all available commands" | grep init
+
+# Use a specific AI provider
+mytool docs ask --provider claude "Explain the configuration system"
+```
+
+## Implementation
+
+The runtime docs command is implemented in `pkg/cmd/docs/docs.go` and utilizes the `pkg/docs` library for TUI rendering and search. The build-time documentation asset generator lives in `cmd/docs/main.go` and is invoked via `go:generate`.
