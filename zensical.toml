@@ -14,7 +14,7 @@ exclude_docs = "_template.md"
 
 [project.theme]
 logo = "images/branding/logo_transparent.svg"
-favicon = "images/branding/logo_transparent_64x64.png"
+favicon = "favicon.ico"
 language = "en"
 features = [
     "announce.dismiss",
