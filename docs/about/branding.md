@@ -11,13 +11,28 @@ This page outlines the visual identity of **Go Tool Base (GTB)** and provides hi
 
 ---
 
-## Brand Concept: "Aether Dark"
+## Brand Concept: "Aether Dark" & The Mascot
 
 The visual identity of Go Tool Base is built upon a developer-centric theme called **Aether Dark**. It bridges raw industrial strength with advanced AI loop intelligence:
 
-*   **The Hex Nut Motif:** Repositioning the CLI framework as a reliable, structural foundation ("the tool base").
-*   **The Double Underscores (`__`):** Inside the core, representing the terminal cursor and a gateway to shell command-line interaction.
+*   **The Hex Nut Mascot:** The core framework foundation ("the tool base") has evolved into a sentient mascot head. Complete with headset ears and a geometric widow's peak, it represents a friendly, attentive AI pairing with the developer.
+*   **The Glowing Eyes:** Evolving from the original terminal cursor double underscores (`__`), the horizontal neon eyes represent both shell command-line interaction and the mascot's steady focus.
 *   **The Neon Gradients:** A high-speed electric cyan (representing Go’s performance and speed) merging into a deep, intelligent violet (representing LLM client integrations and ReAct loop capabilities).
+
+---
+
+## Animated Mascot Ident
+
+Our mascot comes to life through short, dynamic animations that showcase its personality and the Aether Dark neon styling.
+
+*   [Mascot Animation 1 (MP4)](../images/branding/mascot_animation_1.mp4)
+*   [Mascot Animation 2 (MP4)](../images/branding/mascot_animation_2.mp4)
+*   [Mascot Animation 3 (MP4)](../images/branding/mascot_animation_3.mp4)
+
+<video width="100%" controls loop autoplay muted>
+  <source src="../images/branding/mascot_animation_1.mp4" type="video/mp4">
+Your browser does not support the video tag.
+</video>
 
 ---
 
