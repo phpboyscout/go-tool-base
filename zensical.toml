@@ -84,5 +84,21 @@ icon = "fontawesome/brands/gitlab"
 link = "https://gitlab.com/phpboyscout/go-tool-base"
 
 [[project.extra.social]]
-icon = "fontawesome/brands/mastodon"
+icon = "fontawesome/solid/globe"
 link = "https://phpboyscout.uk"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/instagram"
+link = "https://instagram.com/matt.cockayne"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/tiktok"
+link = "https://tiktok.com/@phpboyscout"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/youtube"
+link = "https://youtube.com/@phpboyscout"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://linkedin.com/in/matthewcockayne"
