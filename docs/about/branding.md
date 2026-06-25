@@ -32,7 +32,7 @@ Our mascot comes to life through short, dynamic animations that showcase its per
 *   [Mascot Animation 3 (MP4)](../images/branding/mascot_animation_3.mp4)
 
 <video width="100%" controls loop autoplay muted>
-  <source src="../images/branding/mascot_animation_1.mp4" type="video/mp4">
+  <source src="/images/branding/mascot_animation_1.mp4" type="video/mp4">
 Your browser does not support the video tag.
 </video>
 
