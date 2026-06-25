@@ -11,7 +11,7 @@ hide:
 <div class="hero-container">
   <div class="hero-text" style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center;">
     <div class="hero-logo-wrapper">
-      <video class="hero-logo" autoplay loop muted playsinline>
+      <video class="hero-logo" autoplay loop muted playsinline poster="images/logo.svg">
         <source src="images/branding/mascot_animation_1.mp4" type="video/mp4">
         <img src="images/logo.svg" class="hero-logo" alt="Go Tool Base Logo Fallback" />
       </video>
