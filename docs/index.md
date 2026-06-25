@@ -11,7 +11,10 @@ hide:
 <div class="hero-container">
   <div class="hero-text" style="flex: 1; text-align: center; display: flex; flex-direction: column; align-items: center;">
     <div class="hero-logo-wrapper">
-      <img src="images/logo.svg" class="hero-logo" alt="Go Tool Base Logo" />
+      <video class="hero-logo" autoplay loop muted playsinline style="max-width: 256px; mix-blend-mode: screen;">
+        <source src="images/branding/mascot_animation_1.mp4" type="video/mp4">
+        <img src="images/logo.svg" class="hero-logo" alt="Go Tool Base Logo Fallback" />
+      </video>
     </div>
     <h1 class="hero-title">Go Tool Base</h1>
     <p class="hero-subtitle">The Intelligent Lifecycle Framework for Go CLIs</p>
