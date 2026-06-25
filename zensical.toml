@@ -102,3 +102,7 @@ link = "https://youtube.com/@phpboyscout"
 [[project.extra.social]]
 icon = "fontawesome/brands/linkedin"
 link = "https://linkedin.com/in/matthewcockayne"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/discord"
+link = "https://discord.gg/3DM8G9wFq"
