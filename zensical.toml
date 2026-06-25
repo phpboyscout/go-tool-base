@@ -6,7 +6,13 @@ site_url = "https://gtb.phpboyscout.uk"
 repo_url = "https://gitlab.com/phpboyscout/go-tool-base"
 repo_name = "go-tool-base"
 copyright = """
-Copyright &copy; 2026 Matt Cockayne &bull; <a href="/about/branding/">Branding Assets</a>
+<div style="display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; font-size: 0.9em; font-weight: 500;">
+  <a href="/about/branding/">Branding Assets</a>
+  <a href="/about/privacy/">Privacy Policy</a>
+  <a href="/about/terms/">Terms of Service</a>
+  <a href="/about/security/">Security Policy</a>
+</div>
+Copyright &copy; 2026 Matt Cockayne.
 """
 extra_css = ["stylesheets/extra.css"]
 extra_javascript = ["javascripts/nav-specs.js"]

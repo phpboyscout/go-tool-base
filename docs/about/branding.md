@@ -3,6 +3,8 @@ title: Branding Guidelines
 description: Brand identity, logo variations, color scheme, and downloadable assets for Go Tool Base (GTB).
 date: 2026-06-24
 tags: [branding, identity, design]
+hide:
+  - navigation
 ---
 
 # Branding Guidelines

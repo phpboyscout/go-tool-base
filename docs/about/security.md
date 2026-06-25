@@ -3,6 +3,8 @@ title: Security & Trust Model
 description: GTB's security posture — what the framework protects against, what it leaves to the tool author, and the deployment contexts each storage and network-handling primitive is designed for.
 tags: [about, security, trust-model, credentials]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
+hide:
+  - navigation
 ---
 
 # Security & Trust Model
