@@ -44,41 +44,28 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 
 	m.Commands = commands
 
-	// Feature state is author configuration that lives in the manifest and
-	// cannot be losslessly recovered from the generated root command: the root
-	// only encodes non-default features as Enable()/Disable() calls, and the
-	// scaffold-only `keychain` feature never appears there at all. Preserve the
-	// existing manifest's features across the rebuild rather than replacing them
-	// with a lossy re-derivation from root cmd.go (keryx defect B).
-	existingFeatures := m.Properties.Features
-
-	// docs_layout and module_published are manifest-only author configuration that
-	// cannot be recovered from the generated root cmd.go, so preserve them across
-	// the AST-driven rebuild (same rationale as features above). Losing
-	// docs_layout would silently revert a project to the flat docs layout.
-	existingDocsLayout := m.Properties.DocsLayout
-	existingModulePublished := m.Properties.ModulePublished
-
-	// Extract project properties from the generated root cmd.go so that
-	// name, description, and release_source are always up to date.
+	// The generated root cmd.go is the source of truth ONLY for name,
+	// description, and release_source. Every other property is manifest-only
+	// author configuration the AST cannot losslessly recover: features (the root
+	// encodes only non-default Enable()/Disable() calls and never the
+	// scaffold-only `keychain` feature), update policy/interval, env prefix,
+	// help, telemetry, signing, ci, custom templates, docs_layout, and
+	// module_published. So update only the recoverable fields in place and
+	// preserve the rest — replacing the whole Properties struct silently wiped
+	// them (keryx defect B; and the diataxis docs_layout regression).
 	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
 	if mProps, rs, err := g.extractProjectProperties(rootCmdPath); err == nil {
-		m.Properties = *mProps
+		m.Properties.Name = mProps.Name
+		m.Properties.Description = mProps.Description
 		m.ReleaseSource = *rs
+
+		// Fall back to the (lossy) AST-derived feature set only when the existing
+		// manifest recorded none.
+		if len(m.Properties.Features) == 0 {
+			m.Properties.Features = mProps.Features
+		}
 	} else {
 		g.props.Logger.Warnf("Could not extract project properties from root cmd.go: %v", err)
-	}
-
-	if len(existingFeatures) > 0 {
-		m.Properties.Features = existingFeatures
-	}
-
-	if existingDocsLayout != "" {
-		m.Properties.DocsLayout = existingDocsLayout
-	}
-
-	if existingModulePublished {
-		m.Properties.ModulePublished = existingModulePublished
 	}
 
 	if g.props.Version != nil {
