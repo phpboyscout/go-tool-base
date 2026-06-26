@@ -118,9 +118,6 @@ Either form works — `Register` is what runs under the hood for both.
 !!! warning "Avoid the raw cobra `AddCommand`"
     Calling `rootCmd.Command.AddCommand(unwrappedCobraCmd)` attaches a command without wrapping its `RunE`. The command runs without timing, recovery, or feature middleware. Always go through `setup.Command.Register` (or pass `*setup.Command` to the variadic root constructor).
 
-!!! warning "Deprecated: `setup.AddCommandWithMiddleware`"
-    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is kept as a `// Deprecated:` shim that delegates to `Register`. It no longer recurses into descendants (the recursive re-wrap with the parent's feature was always wrong) and will be removed in v1.0. Migrate to `parent.Register(child)`.
-
 ## How it works under the hood
 
 `Command.Register` does three things per child:
@@ -133,6 +130,6 @@ The result: every command in the tree is wrapped exactly once with its own featu
 
 ## See also
 
-- [Command Middleware System](../explanation/concepts/command-middleware.md) — chain semantics, execution order.
+- [Command Middleware System](../explanation/components/setup/middleware.md) — chain semantics, execution order.
 - [Adding Custom Commands](custom-commands.md) — full custom-command walkthrough.
 - [Writing Custom Middleware](custom-middleware.md) — how to build your own.

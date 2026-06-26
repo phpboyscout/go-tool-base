@@ -32,7 +32,7 @@ go install gitlab.com/phpboyscout/go-tool-base/pkg/cmd/gtb@latest
 ### 2. Scaffold Your Project
 Run the skeleton generator to create your new tool:
 ```bash
-gtb generate skeleton --name my-awesome-tool --github-org your-org
+gtb generate skeleton --name my-awesome-tool --repo your-org/my-awesome-tool
 ```
 
 ### 3. Add Custom Commands

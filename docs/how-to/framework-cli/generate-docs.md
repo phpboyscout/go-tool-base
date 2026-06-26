@@ -56,7 +56,7 @@ This creates "Developer Documentation" specifically tailored for Go packages, in
 - Automatic inclusion in the `docs/packages/` hierarchy.
 
 !!! warning "Required Flags"
-    The `--path` flag (path to project root) is **required**. You must also provide exactly one of `--command` or `--package` — they are mutually exclusive.
+    You must provide exactly one of `--command` or `--package` (the deprecated `--source` is the third member of the same one-required group) — they are mutually exclusive. The `--path` flag (project root) is optional and defaults to the current directory (`.`).
 
 !!! note "Deprecated Flag"
     The `--source` flag is deprecated. Use `--command` instead.

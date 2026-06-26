@@ -100,7 +100,7 @@ func Initialise(props *props.Props, opts InitOptions) (string, error)
 
 To keep the setup process modular, GTB uses the **Initialiser Pattern**.
 
-*   **Conceptual Overview**: For a high-level understanding of the pattern, see [Initialisers Concept Documentation](../../concepts/initialisers.md).
+*   **Conceptual Overview**: For a high-level understanding of the pattern, see [Initialisers Concept Documentation](initialisers.md).
 *   **Technical Reference**: For implementation details and built-in initialisers, see [Initialisers Technical Reference](initialisers.md).
 
 ## Self-Update System
@@ -245,7 +245,7 @@ See the [Version component documentation](../version.md) for the full API.
 
 The Setup package provides a comprehensive middleware system for wrapping CLI commands with cross-cutting concerns.
 
-*   **Conceptual Overview**: For a high-level understanding of how middleware works in GTB, see [Command Middleware Concept Documentation](../../concepts/command-middleware.md).
+*   **Conceptual Overview**: For a high-level understanding of how middleware works in GTB, see [Command Middleware Concept Documentation](middleware.md).
 *   **Technical Reference**: For the full API and built-in middleware details, see [Command Middleware Technical Reference](middleware.md).
 
 ### Core Features
@@ -551,7 +551,7 @@ Using a standardized pattern ensures that all commands in a project behaving sim
 
 ### 5. Seamless Generation
 
-This pattern is natively supported by the [Framework CLI](../../reference/cli/index.md) and its generation logic. When you add a new command via the manifest, the generator automatically scaffolds the `NewCmd*` constructor, ensuring your project remains aligned with framework standards.
+This pattern is natively supported by the [Framework CLI](../../../reference/cli/index.md) and its generation logic. When you add a new command via the manifest, the generator automatically scaffolds the `NewCmd*` constructor, ensuring your project remains aligned with framework standards.
 
 ## Best Practices
 
@@ -569,7 +569,7 @@ Returning `*setup.Command` (rather than `*cobra.Command`) is what lets `parent.R
 - It can stay idempotent on regeneration — re-running the generator does not double-wrap.
 - It is type-checked at compile time: a caller cannot accidentally attach an unwrapped `*cobra.Command` and skip middleware.
 
-The previous API exposed this via a free function (`setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd)`) that required the parent to know the child's feature key. That coupling is removed; the child owns its own identity. See the [v0.4-to-v0.5 migration guide](../../reference/migration/v0.4-to-v0.5.md) for the before/after diff and the [command middleware concept](command-middleware.md) for how the wrapping interacts with the middleware registry.
+The previous API exposed this via a free function (`setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd)`) that required the parent to know the child's feature key. That coupling is removed; the child owns its own identity. See the [v0.4-to-v0.5 migration guide](../../../reference/migration/v0.4-to-v0.5.md) for the before/after diff and the [command middleware concept](middleware.md) for how the wrapping interacts with the middleware registry.
 
 
 ## Root Command Architecture
@@ -617,4 +617,4 @@ RunE: func(cmd *cobra.Command, args []string) error {
 
 The root command is implemented in `cmd/root/root.go` and created via the `root.NewCmdRoot(props)` entry point.
 
-For more information on the dependency injection pattern used here, see the **[Props Documentation](../../explanation/components/props.md)**.
+For more information on the dependency injection pattern used here, see the **[Props Documentation](../props.md)**.

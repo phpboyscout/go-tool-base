@@ -57,7 +57,7 @@ Instead of a single global `assets/` folder, GTB encourages placing assets near 
 - Assets in `pkg/cmd/root/assets/` provide global defaults.
 - Assets in `pkg/cmd/my-sub-command/assets/` allow subcommands to contribute their own domain-specific configuration or templates.
 
-The framework's [Smart VFS](assets.md) automatically merges these co-located files into a single virtual filesystem at runtime.
+The framework's [Smart VFS](../components/assets.md) automatically merges these co-located files into a single virtual filesystem at runtime.
 
 ### 4. Automated Documentation (`docs/`)
 
@@ -65,7 +65,7 @@ A core philosophy of GTB is that **code and documentation should never diverge**
 
 - **Structure Generation**: The framework automatically creates and updates the `docs/` folder to match your command hierarchy.
 - **AI-Driven Content**: For every new command, the CLI triggers a background reasoning process to analyze your intent and flesh out the documentation with high-quality descriptions and examples.
-- **TUI Readiness**: This folder is immediately consumable by the [Integrated Documentation](integrated-docs.md) system, ensuring your tool always has built-in help.
+- **TUI Readiness**: This folder is immediately consumable by the [Integrated Documentation](../components/docs.md) system, ensuring your tool always has built-in help.
 
 ### 5. Manifest as the Source of Truth
 

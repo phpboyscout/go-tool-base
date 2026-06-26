@@ -158,4 +158,4 @@ func runVersionCmd(p *props.Props) {
 
 - **[Props](props.md)** — dependency injection container
 - **[Setup](setup/index.md)** — self-updater that uses version comparison
-- **[Auto-Update Lifecycle](../concepts/auto-update.md)** — how update checks use version info
+- **[Auto-Update Lifecycle](update.md)** — how update checks use version info

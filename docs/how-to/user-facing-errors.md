@@ -178,9 +178,9 @@ If your tool has a support channel (Slack, Teams, email), configure it on the `T
 ```go
 tool := props.Tool{
     // ...
-    Help: errorhandling.SlackHelpConfig{
+    Help: errorhandling.SlackHelp{
+        Team:    "my-team",
         Channel: "#my-tool-support",
-        Message: "Need help? Reach us at",
     },
 }
 ```
@@ -188,7 +188,7 @@ tool := props.Tool{
 All errors will then include:
 
 ```
-ERROR something went wrong  error=...  help=Need help? Reach us at #my-tool-support
+ERROR something went wrong  error=...  help=For assistance, contact my-team via Slack channel #my-tool-support
 ```
 
 ---
@@ -237,5 +237,5 @@ assert.Equal(t, 1, exitCode)
 ## Related Documentation
 
 - **[Error Handling component](../explanation/components/error-handling.md)** — `ErrorHandler` interface and `StandardErrorHandler`
-- **[Centralized Error Handling](../explanation/concepts/error-handling.md)** — architectural rationale
+- **[Centralized Error Handling](../explanation/components/error-handling.md)** — architectural rationale
 - **[Sentinel errors](../explanation/components/errors.md)** — catalogue of framework sentinel errors

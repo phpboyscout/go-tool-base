@@ -107,4 +107,4 @@ For HTTP-level tests, use `net/http/httptest` and pass the test server URL as `u
 - **[Release Provider](release.md)** — `Provider`, `Release`, and `ReleaseAsset` interface reference
 - **[GitHub](github.md)** — GitHub release provider (same interface, richer API client)
 - **[VCS index](index.md)** — `ResolveToken` and package overview
-- **[Auto-Update Lifecycle](../../concepts/auto-update.md)** — how `release.Provider` drives version checks
+- **[Auto-Update Lifecycle](../update.md)** — how `release.Provider` drives version checks

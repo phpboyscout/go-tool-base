@@ -47,7 +47,7 @@ When the binary embeds a pre-built Material/Zensical static site (`assets/site`)
 - **Widening the bind**: pass `--host 0.0.0.0` (or another interface, e.g. `--host ::`) to expose the server on all interfaces. Only do this on a trusted network. The library equivalent is the additive `docs.WithHost` option to `docs.Serve`.
 - **Flags**: `--port` / `-p` (default `8080`, `0` for a random port), `--host` (default `127.0.0.1`), and `--open` (auto-open the browser; skipped when `--port 0` since the bound port is not known to the caller).
 - **Security headers**: the served site is wrapped with [`SecurityHeadersMiddleware`](http.md#built-in-security-headers-middleware) automatically — one of the few places GTB applies HTTP transport middleware for you (see the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept).
-- **Standard error path**: the command runs as `RunE` and flows through the recovery/timing/telemetry middleware chain like every other built-in, surfacing failures via the structured `ErrorHandler`. (Note this is the **CLI** [command-middleware](../concepts/command-middleware.md) chain, distinct from the HTTP server chain above.)
+- **Standard error path**: the command runs as `RunE` and flows through the recovery/timing/telemetry middleware chain like every other built-in, surfacing failures via the structured `ErrorHandler`. (Note this is the **CLI** [command-middleware](setup/middleware.md) chain, distinct from the HTTP server chain above.)
 
 ## Man-page generation
 

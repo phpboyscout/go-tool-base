@@ -137,7 +137,9 @@ This is orthogonal to the env-var-reference mode — it's automatic for every co
 
 ## Migrating from literal mode
 
-No automated migration command exists yet (it's coming in Phase 3 as `config migrate-credentials`). Manual steps for now:
+The `config migrate-credentials` command automates this — see the
+[Migrate literal credentials](migrate-literal-credentials.md) guide. The manual
+steps below remain available as a fallback:
 
 1. Identify literal credentials with the doctor:
    ```bash

@@ -168,7 +168,7 @@ Override the default model for the provider:
 ```go
 chat.Config{
     Provider: chat.ProviderClaude,
-    Model:    "claude-opus-4-6",   // default: claude-sonnet-4-6
+    Model:    "claude-opus-4-8",   // default: claude-opus-4-8
 }
 
 chat.Config{

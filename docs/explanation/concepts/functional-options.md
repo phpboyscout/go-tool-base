@@ -352,7 +352,7 @@ func TestServerWithCustomConfig(t *testing.T) {
 
 ## Related Patterns
 
-- **[Props Container](props.md)**: Dependency injection using a central struct
+- **[Props Container](../components/props.md)**: Dependency injection using a central struct
 - **[Service Orchestration](service-orchestration.md)**: Controller options for service lifecycle
-- **[VCS Repositories](vcs-repositories.md)**: Clone options for repository operations
+- **[VCS Repositories](../components/vcs/repo.md)**: Clone options for repository operations
 

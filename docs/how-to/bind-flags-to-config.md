@@ -82,5 +82,5 @@ The `RootOption`s above are preferred because they handle registration, `flag.Ch
 
 ## Related
 
-- [Configuration System](../explanation/concepts/config.md) — precedence and the observer pattern.
+- [Configuration System](../explanation/components/config.md) — precedence and the observer pattern.
 - [Config component reference](../explanation/components/config.md#binding-cli-flags-to-config) — full API.

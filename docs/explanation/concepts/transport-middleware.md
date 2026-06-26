@@ -16,8 +16,8 @@ composable middleware (HTTP) or interceptor (gRPC) added to a chain at
 registration time. Learn the pattern once and it applies to all four transport
 surfaces.
 
-!!! note "This is the transport sibling of [Command Middleware](command-middleware.md)"
-    [Command Middleware](command-middleware.md) covers the cobra **CLI** chain —
+!!! note "This is the transport sibling of [Command Middleware](../components/setup/middleware.md)"
+    [Command Middleware](../components/setup/middleware.md) covers the cobra **CLI** chain —
     cross-cutting concerns for command execution (`RunE`). *This* doc covers the
     **HTTP/gRPC transport** chains. They share a philosophy (a wrapping chain of
     composable units) but are entirely separate systems with separate types. If
@@ -145,6 +145,6 @@ the returned handler for mounting on your own server.
 - [TLS](../components/tls.md) — the *other* shared transport concern
 - [Service Orchestration](service-orchestration.md) — how these servers attach to
   the controller lifecycle
-- [Command Middleware](command-middleware.md) — the CLI sibling of this pattern
+- [Command Middleware](../components/setup/middleware.md) — the CLI sibling of this pattern
 - [Functional Options](functional-options.md) — the option pattern the `With*`
   builders are built on

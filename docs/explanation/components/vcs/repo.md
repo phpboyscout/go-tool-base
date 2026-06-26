@@ -458,4 +458,4 @@ Enable git progress output in tests by setting `GTB_GIT_ENABLE_PROGRESS=1`.
 
 - **[VCS index](index.md)** — package overview and authentication helper
 - **[GitHub](github.md)** — GitHub API client (separate from git operations)
-- **[VCS Concepts](../../concepts/vcs-repositories.md)** — bridged filesystem pattern and storage strategy rationale
+- **[VCS Concepts](repo.md)** — bridged filesystem pattern and storage strategy rationale

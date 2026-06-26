@@ -37,15 +37,23 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 ### Creating the Client
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
+import (
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+)
 
-client, err := github.NewGitHubClient(props.Config.Sub("github"))
+client, err := github.NewGitHubClient(
+    release.ReleaseSourceConfig{Type: "github", Owner: "your-org", Repo: "your-repo"},
+    props.Config.Sub("github"),
+)
 if err != nil {
     return err
 }
 ```
 
-Pass the `github` config subtree — `NewGitHubClient` reads `url.api`, `url.upload`, and resolves the token automatically.
+`NewGitHubClient` takes the release-source descriptor (owner/repo/host) plus the
+`github` config subtree — it reads the API/upload URLs from config and resolves
+the token automatically.
 
 ---
 

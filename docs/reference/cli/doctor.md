@@ -38,6 +38,7 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | **Configuration** | Config is loaded and accessible |
 | **Git** | `git` binary is available and the current directory is a repository |
 | **API keys** | At least one AI provider API key is configured |
+| **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config — warns and lists the offending key *names* (never values), pointing to env-var migration |
 | **Permissions** | Config directory exists with correct owner permissions (rwx) |
 
 ## Output Example

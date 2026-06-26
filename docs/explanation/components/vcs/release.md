@@ -502,4 +502,4 @@ not-found, corrupt checksum, bad signature) — all hermetic.
 - **[GitHub](github.md)** — `github.NewReleaseProvider` implementation
 - **[GitLab](gitlab.md)** — `gitlab.NewReleaseProvider` implementation
 - **[Setup](../setup/index.md)** — how `NewUpdater` selects and constructs providers
-- **[Auto-Update Lifecycle](../../concepts/auto-update.md)** — how `release.Provider` drives version checks
+- **[Auto-Update Lifecycle](../update.md)** — how `release.Provider` drives version checks

@@ -80,7 +80,7 @@ The context-free form `vcs.ResolveToken(cfg, fallbackEnv)` is preserved as a com
 
 ## Related Documentation
 
-- **[VCS Concepts](../../concepts/vcs-repositories.md)** — architectural rationale and usage patterns
-- **[Auto-Update Lifecycle](../../concepts/auto-update.md)** — how `release.Provider` is used for version checks
+- **[VCS Concepts](repo.md)** — architectural rationale and usage patterns
+- **[Auto-Update Lifecycle](../update.md)** — how `release.Provider` is used for version checks
 - **[Interface Design](../../concepts/interface-design.md)** — `RepoLike` and `GitHubClient` in the interface hierarchy
 - **[Custom Release Source](../../../how-to/custom-release-source.md)** — register your own provider implementation

@@ -31,6 +31,13 @@ The root command automatically registers the following subcommands:
 | `update` | Update the tool to the latest version | :material-check: Yes |
 | `docs` | Interactive documentation browser with AI Q&A | :material-check: Yes |
 | `mcp` | Expose tool as a Model Context Protocol server | :material-check: Yes |
+| `doctor` | Environment and configuration health checks, plus `doctor report` | :material-check: Yes |
+| `changelog` | Display the embedded changelog | :material-check: Yes |
+| `config` | Programmatic config access (`get`/`set`/`list`/`validate`) — opt-in, off by default | :material-check: Yes |
+| `telemetry` | Opt-in usage telemetry status and management — off by default | :material-check: Yes |
+| `man` | Hidden roff man-page emitter for packaging — opt-in, off by default | :material-check: Yes |
+
+See the [Commands Overview](index.md) for the full list and which commands are default-enabled versus opt-in.
 
 !!! tip "Disabling Built-in Commands"
     Use the `Features` property to remove optional commands from your tool:
@@ -52,3 +59,4 @@ These flags are available to every subcommand:
 | `--config stringArray` | Path(s) to configuration files (default: `~/.mytool/config.yaml` and `/etc/mytool/config.yaml`). |
 | `--debug` | Forces debug-level logging and enables detailed error stack traces. |
 | `--ci` | Indicates the tool is running in a Continuous Integration environment (disables interactive update prompts). |
+| `--output` | Output format: `text` or `json` (default: `text`). |

@@ -630,7 +630,7 @@ return interfaces rather than concrete structs.
 
 ## Related Documentation
 
-- **[Props Container](props.md)**: How interfaces compose in the central dependency container
+- **[Props Container](../components/props.md)**: How interfaces compose in the central dependency container
 - **[Mocks Package](../components/mocks.md)**: Using generated mocks for testing
-- **[Error Handling](error-handling.md)**: ErrorHandler interface patterns
-- **[Configuration](config.md)**: Containable and Observable usage
+- **[Error Handling](../components/error-handling.md)**: ErrorHandler interface patterns
+- **[Configuration](../components/config.md)**: Containable and Observable usage

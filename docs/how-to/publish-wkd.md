@@ -42,7 +42,7 @@ the round-trip with `gpg --auto-key-locate`.
     walk-through.
 
 [wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
-[concept]: ../concepts/release-binary-signing.md#how-the-verifier-finds-your-wkd-endpoint
+[concept]: ../explanation/concepts/release-binary-signing.md#how-the-verifier-finds-your-wkd-endpoint
 
 ## One-time setup
 

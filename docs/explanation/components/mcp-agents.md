@@ -142,4 +142,4 @@ GTB uses `ophis` rather than the official `modelcontextprotocol/go-sdk` for seve
 2.  **Small Footprint**: It acts as a thin translation layer, providing exactly what is needed for CLI-to-MCP bridging without the overhead of a full protocol framework.
 3.  **Transitve Compatibility**: The official MCP Go SDK is a transitive dependency of Ophis. If direct protocol access is ever needed or if Ophis is abandoned, migrating to the official SDK is straightforward as the protocol layer is already present in the dependency tree.
 
-For detailed integration instructions, see the [MCP Server CLI guide](mcp.md).
+For detailed integration instructions, see the [MCP Server CLI guide](mcp-agents.md).

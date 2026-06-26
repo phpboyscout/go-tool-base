@@ -1287,7 +1287,7 @@ The Configuration component provides a robust and flexible foundation for managi
 
 ## Initialiser Integration
 
-The `config.Containable` interface is also the standard for [Tool Initialisers](initialisers.md). When creating a custom initialiser, you will use this interface to check for existing configuration (`IsConfigured`) and to write new values (`Set`), ensuring a consistent API across the entire lifecycle of the application.
+The `config.Containable` interface is also the standard for [Tool Initialisers](setup/initialisers.md). When creating a custom initialiser, you will use this interface to check for existing configuration (`IsConfigured`) and to write new values (`Set`), ensuring a consistent API across the entire lifecycle of the application.
 
 ## Sensitive Value Masking
 
@@ -1338,5 +1338,5 @@ YAML config is not applicable.
   `edit`, `validate`)
 - **`pkg/cmd/config/sensitive.go`** — `Masker` type with dual-strategy detection
 - **`pkg/config` `Container.ConfigFiles()`** — ordered list of contributing files backing
-  `config path` (added in v0.22; see the [migration note](../migration/v0.21-config-files-accessor.md))
+  `config path` (added in v0.22; see the [migration note](../../reference/migration/v0.21-config-files-accessor.md))
 - Feature flag: `props.ConfigCmd` (default: disabled)

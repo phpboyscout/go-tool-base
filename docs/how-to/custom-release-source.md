@@ -175,7 +175,7 @@ import (
 )
 
 func init() {
-    release.Register(release.SourceType("s3"), func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
+    release.Register("s3", func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
         return NewProvider(src, cfg)
     })
 }
@@ -265,4 +265,4 @@ Each source type must be unique. Calling `release.Register` with an existing key
 - **[Release Provider component](../explanation/components/vcs/release.md)** — full interface and registry API reference
 - **[Configure Self-Updating](configure-self-updating.md)** — wiring `UpdateCmd` end-to-end
 - **[Setup component](../explanation/components/setup/index.md)** — how `NewUpdater` selects and constructs providers
-- **[Auto-Update Lifecycle](../explanation/concepts/auto-update.md)** — how `release.Provider` drives version checks
+- **[Auto-Update Lifecycle](../explanation/components/update.md)** — how `release.Provider` drives version checks

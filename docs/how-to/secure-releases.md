@@ -180,9 +180,9 @@ Three ship with GTB:
 
 | Resolver | Source | Offline? | Primary use |
 |----------|--------|----------|-------------|
-| `setup.EmbeddedResolver` | `//go:embed` of `*.asc` files in `internal/version/trustkeys/` | ✅ Yes | Always available; the fallback that keeps air-gapped updates working. |
-| `setup.WKDResolver` | `https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<z-base-32>?l=<email>` | ❌ No | The project's public key published via the GPG WKD standard; cross-checks the embedded copy. |
-| `setup.CompositeResolver{Embedded, WKD}` | Both, with fingerprint-equality enforcement | ⚠️ Partial | The production default. Offline builds still work via `update.key_source=embedded`. |
+| `setup.NewEmbeddedResolver(...)` | `//go:embed` of `*.asc` files in `internal/trustkeys/keys/` | ✅ Yes | Always available; the fallback that keeps air-gapped updates working. |
+| `setup.NewWKDResolver(cfg)` | `https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<z-base-32>?l=<email>` | ❌ No | The project's public key published via the GPG WKD standard; cross-checks the embedded copy. |
+| `setup.CompositeResolver{Resolvers: []KeyResolver{embedded, wkd}}` | Both, with fingerprint-equality enforcement | ⚠️ Partial | The production default. Offline builds still work via `update.key_source=embedded`. |
 
 ### Configuration surface
 
@@ -207,7 +207,7 @@ setup.DefaultRequireExternalCrosscheck = true
 ### Publishing a public key
 
 1. **Generate** an Ed25519 signing keypair (RSA-4096 is acceptable if your KMS doesn't support Ed25519). DSA, 1024-bit RSA, and weak curves are refused at load time.
-2. **Embed** the public half. Drop the ASCII-armored file at `internal/version/trustkeys/signing-key-v1.asc` in your repo — `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
+2. **Embed** the public half. Drop the ASCII-armored file at `internal/trustkeys/keys/signing-key-v1.asc` in your repo — `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
 3. **Publish** the same key via your chosen external source:
    - **WKD** — serve the ASCII-armored key at the WKD path under `openpgpkey.<yourdomain>`. DNS and TLS cert are your trust anchors, administered independently from your VCS.
    - **Custom HTTPS** — implement `KeyResolver` with your own endpoint (Vault, static S3, internal CA-served HTTPS). Register it via `setup.WithKeyResolver` on `SelfUpdater`.
@@ -224,7 +224,7 @@ INFO signature verified resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
 
 The `resolver=` value is the most useful single field for support triage. `composite[embedded,wkd:…]` means both trust anchors were consulted and agreed; `embedded` or `wkd:…` alone means only one anchor was consulted (cryptographically sound but lower defence-in-depth). Full interpretation table — including failure-side log shapes for active-tampering signals — lives in the [Signature Verification component reference][svdocs].
 
-[svdocs]: ../components/setup/signature-verification.md#interpreting-verifier-log-output
+[svdocs]: ../explanation/components/setup/signature-verification.md#interpreting-verifier-log-output
 
 ### Custom resolvers (third-party key source)
 
@@ -239,9 +239,9 @@ func (r *VaultResolver) Resolve(ctx context.Context) (*setup.TrustSet, error) {
 }
 
 func main() {
+    embedded := setup.NewEmbeddedResolver(/* embedded trust set */)
     resolver := setup.CompositeResolver{
-        setup.EmbeddedResolver{},
-        &VaultResolver{ /* ... */ },
+        Resolvers: []setup.KeyResolver{embedded, &VaultResolver{ /* ... */ }},
     }
     // Wire it in at SelfUpdater construction:
     //   setup.NewUpdater(ctx, props, version, force, setup.WithKeyResolver(resolver))

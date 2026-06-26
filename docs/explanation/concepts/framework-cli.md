@@ -38,7 +38,7 @@ GTB uses a **Manifest File** (`.gtb/manifest.yaml`) to track the structure of yo
 - **Sync**: Running `regenerate` synchronizes your Go source code with the manifest, ensuring that your implementation always matches your intended design.
 
 ### 4. Intelligent Documentation (`generate docs`)
-As explored in the [Integrated Documentation](integrated-docs.md) section, the CLI uses AI to analyze your source code and produce high-quality Markdown documentation that is ready for the built-in browser.
+As explored in the [Integrated Documentation](../components/docs.md) section, the CLI uses AI to analyze your source code and produce high-quality Markdown documentation that is ready for the built-in browser.
 
 ## The Problems It Solves
 

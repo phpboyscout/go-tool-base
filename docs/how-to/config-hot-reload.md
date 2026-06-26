@@ -263,5 +263,5 @@ For an end-to-end test, write to a real temp file, register an observer, and pol
 ## Related Documentation
 
 - **[Configuration component](../explanation/components/config.md)** — `Containable`, `Observable`, `AddObserver` API reference
-- **[Configuration Precedence](../explanation/concepts/config.md)** — how file watching fits into the config loading lifecycle
+- **[Configuration Precedence](../explanation/components/config.md)** — how file watching fits into the config loading lifecycle
 - **[Migration: observer signature change](../reference/migration/v0.16-hot-reload-observer.md)** — channel → returned error

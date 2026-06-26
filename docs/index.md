@@ -64,7 +64,7 @@ GTB accelerates development by providing a standardized Dependency Injection (`P
   <div class="feature-card">
     <div class="feature-icon">🔌</div>
     <h3>Model Context Protocol</h3>
-    <p>Expose your CLI commands automatically as MCP tools for external AI agents over SSE and Stdio transports.</p>
+    <p>Expose your CLI commands automatically as MCP tools for external AI agents over the stdio transport.</p>
   </div>
   <div class="feature-card">
     <div class="feature-icon">📊</div>

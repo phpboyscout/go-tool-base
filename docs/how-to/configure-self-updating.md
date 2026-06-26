@@ -172,16 +172,15 @@ var (
 func main() {
     p := &props.Props{
         Tool: tool,
-        Version: props.Version{
-            Version: version,
-            Commit:  commit,
-        },
+        // Props.Version is the version.Version interface; use the concrete
+        // version.Info (or version.NewInfo(version, commit, date)).
+        Version: version.NewInfo(version, commit, ""),
     }
     // ...
 }
 ```
 
-When `version == "dev"`, the update check is automatically skipped — no API calls are made during local development.
+For a development build (a non-semver version, or one containing `-dev`/`-dirty` — `version.IsDevelopment()`), the update check is automatically skipped, so no API calls are made during local development.
 
 ---
 
@@ -190,8 +189,8 @@ When `version == "dev"`, the update check is automatically skipped — no API ca
 Build a release binary and run:
 
 ```bash
-mytool update --check   # check without applying
-mytool update           # check and apply if newer version found
+mytool update            # check and apply if a newer version is found
+mytool update --version 1.2.3   # update to a specific version
 ```
 
 Expected output when up to date:
@@ -259,7 +258,7 @@ The `--from-file` flag is mutually exclusive with `--version`. The `--force` fla
 
 ## Related Documentation
 
-- **[Auto-Update Lifecycle](../explanation/concepts/auto-update.md)** — how the update loop works
+- **[Auto-Update Lifecycle](../explanation/components/update.md)** — how the update loop works
 - **[Release Provider component](../explanation/components/vcs/release.md)** — all built-in providers, registry API, and `Params` reference
 - **[Add a Custom Release Source](custom-release-source.md)** — register your own provider for any backend
 - **[GitHub component](../explanation/components/vcs/github.md)** — `NewGitHubClient` and token resolution

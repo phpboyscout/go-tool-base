@@ -10,7 +10,7 @@ GTB is a foundational library. Maintaining its stability and quality is critical
 
 ## AI Skills
 
-The **[gtb-dev](file://.agent/skills/gtb-dev/SKILL.md)** skill defines the standard for library and CLI contributions. It mandates:
+The **`gtb-dev`** skill (`.agent/skills/gtb-dev/SKILL.md`) defines the standard for library and CLI contributions. It mandates:
 
 - **Library-First Design**: New features must be implemented in `pkg/` as reusable components first.
 - **Generator Maintenance**: Ensuring that internal generator templates (`internal/generator/`) stay up to date.

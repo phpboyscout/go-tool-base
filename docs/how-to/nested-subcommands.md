@@ -122,7 +122,7 @@ A nested command may define its own `PersistentPreRunE` for environmental setup.
 1. The framework bootstrap (root hook) runs **first**.
 2. Your subcommand's `PersistentPreRunE` runs **after** it.
 
-So a hook on `deploy` or `canary` can rely on `props.Config`, `props.Collector`, and the resolved log level already being populated — no need to re-run any framework setup yourself. See [Command Middleware System → Hooks vs. the framework bootstrap](../explanation/concepts/command-middleware.md#hooks-vs-the-framework-bootstrap) for the full ordering guarantee.
+So a hook on `deploy` or `canary` can rely on `props.Config`, `props.Collector`, and the resolved log level already being populated — no need to re-run any framework setup yourself. See [Command Middleware System → Hooks vs. the framework bootstrap](../explanation/components/setup/middleware.md#hooks-vs-the-framework-bootstrap) for the full ordering guarantee.
 
 ---
 
@@ -163,7 +163,7 @@ If you mix generated and hand-written commands in the same project:
 ## See also
 
 - [Adding Custom Commands](custom-commands.md) — full how-to for the basic single-command pattern.
-- [Command Constructor Pattern](../explanation/concepts/command-constructors.md) — rationale for `NewCmd*` returning `*setup.Command`.
-- [Command Middleware System](../explanation/concepts/command-middleware.md) — how `Register` wraps `RunE` with middleware.
+- [Command Constructor Pattern](../explanation/concepts/functional-options.md) — rationale for `NewCmd*` returning `*setup.Command`.
+- [Command Middleware System](../explanation/components/setup/middleware.md) — how `Register` wraps `RunE` with middleware.
 - [`gtb generate command`](../explanation/components/internal/commands/generate.md) — flag reference for the generator.
 - [Migration v0.4 to v0.5](../reference/migration/v0.4-to-v0.5.md) — diff against the previous `AddCommandWithMiddleware` pattern.

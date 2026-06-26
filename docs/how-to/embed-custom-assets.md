@@ -117,24 +117,26 @@ The most common pattern is using assets as the config baseline. Wire it into `pk
 
 ```go
 // pkg/cmd/root/root.go (or wherever config is initialised)
-cfg := config.NewContainer()
-
-// Load embedded defaults first — these are the fallback values
-f, err := p.Assets.Open("config/defaults.yaml")
-if err == nil {
-    cfg.SetConfigType("yaml")
-    if err := cfg.ReadConfig(f); err != nil {
-        return err
-    }
-    f.Close()
+// Open the embedded default config and build a container from it.
+defaults, err := p.Assets.Open("config/defaults.yaml")
+if err != nil {
+    return err
 }
+defer func() { _ = defaults.Close() }()
 
-// Then load the user's config file on top (overrides embedded defaults)
-cfg.SetConfigFile(userConfigPath)
-_ = cfg.ReadInConfig()
+cfg := config.NewReaderContainer(p.FS,
+    config.WithConfigFormat("yaml"),
+    config.WithConfigReaders(defaults),
+)
 
 p.Config = cfg
 ```
+
+To layer a user config file *over* these embedded defaults, prefer the standard
+root/Props config loading (`config.LoadFilesContainer` with `WithConfigFiles`),
+which applies the full `flags > env > file > embedded > defaults` precedence — see
+[Configuration Precedence](../explanation/components/config.md). Hand-merging via
+the low-level container is rarely necessary.
 
 ---
 
@@ -228,5 +230,5 @@ p.Assets.Register("test", testFS)
 
 ## Related Documentation
 
-- **[Universal Asset Management](../explanation/concepts/asset-management.md)** — merging strategy and design rationale
+- **[Universal Asset Management](../explanation/components/assets.md)** — merging strategy and design rationale
 - **[Props component](../explanation/components/props.md)** — how `Assets` fits into the Props container

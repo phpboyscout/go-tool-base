@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 This document provides a technical deep dive into the `Initialiser` interface, the lifecycle of an initialiser, and the specific implementation details of the built-in initialisers.
 
-For a high-level conceptual overview of the Initialiser pattern, please see the [Initialisers Concept Documentation](../../concepts/initialisers.md).
+For a high-level conceptual overview of the Initialiser pattern, please see the [Initialisers Concept Documentation](initialisers.md).
 
 ## Interface Definition
 

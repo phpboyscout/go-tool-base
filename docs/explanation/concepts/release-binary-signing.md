@@ -240,7 +240,7 @@ A WKD-publishing domain can serve either or both URL forms:
   domain. The resolver falls back to it on 404, so a domain that
   hosts WKD on its main site also works.
 
-[prep]: ../development/phase2-signing-prep.md
+[prep]: ../../development/phase2-signing-prep.md
 
 ### Consequence: one variable to align
 

@@ -159,7 +159,7 @@ func WithCustomHeader(header string) setup.Middleware {
     This page covers middleware for the **cobra command tree** (wrapping command
     `RunE` execution). For cross-cutting concerns on the **HTTP/gRPC transports**
     — logging, auth, rate limiting, retry, circuit breaking — see
-    [Transport Middleware & Resilience](transport-middleware.md). The two share a
+    [Transport Middleware & Resilience](../../concepts/transport-middleware.md). The two share a
     philosophy but are entirely separate systems.
 
 The Command Middleware System provides a powerful way to inject shared behavior across your CLI command tree. Instead of duplicating logic in every command's `RunE` function, you can define "middlewares" that wrap your commands to handle cross-cutting concerns.
@@ -239,7 +239,7 @@ if pluginEnabled {
 The `Register` call is idempotent against double-attachment (the underlying cobra parent rejects duplicates) and always wires middleware correctly, regardless of when it fires relative to `setup.Seal()`.
 
 !!! warning "Deprecated: `AddCommandWithMiddleware`"
-    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)` — the [v0.4-to-v0.5 migration guide](../../reference/migration/v0.4-to-v0.5.md) has the diff.
+    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)` — the [v0.4-to-v0.5 migration guide](../../../reference/migration/v0.4-to-v0.5.md) has the diff.
 
 ## Hooks vs. the framework bootstrap
 
