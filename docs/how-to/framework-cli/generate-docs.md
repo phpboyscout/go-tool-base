@@ -8,15 +8,25 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Generating Documentation
 
-### Intelligent Documentation with AI
+The `generate docs` command is your secret weapon for maintaining world-class documentation with zero effort: it analyzes your Go source code with AI and produces comprehensive Markdown pages ready to serve. 📚✨
 
-The `generate docs` command is your secret weapon for maintaining world-class documentation with zero effort. By leveraging advanced AI, it analyzes your Go source code and produces comprehensive, high-quality Markdown pages that are ready to be served via MkDocs.
+## Generate docs
 
-Whether you're documenting a complex command hierarchy or a critical library package, this tool ensures your documentation is always accurate, insightful, and beautifully formatted. 📚✨
+Document a **command** or a **package** — exactly one of `--command` / `--package`:
+
+```bash
+# A command (by manifest path):
+go run main.go generate docs --command "az/login"
+
+# A library package:
+go run main.go generate docs --package "pkg/utils"
+```
+
+The sections below cover the generator's capabilities in detail.
 
 ## Core Features
 
-### 1. Portable Doc Generation 🚀
+### Portable Doc Generation 🚀
 
 Documentation builds are handled by a portable Go generator. When called from a nested package (like `internal/cmd/root`), use the following pattern:
 
@@ -32,7 +42,7 @@ This tool:
     - `--target-dir`: Specify where `assets/docs` and `assets/site` should be generated.
     - `--config-file`: Path to the site config file relative to the project root (default: `mkdocs.yml`).
 
-### 2. Command Documentation 🕹️
+### Command Documentation 🕹️
 
 This command:
 
@@ -40,7 +50,7 @@ This command:
 - **Intelligent Formatting**: Produces structured Markdown with frontmatter, usage examples, and flag tables.
 - **Smart Indexing**: Updates `docs/commands/index.md` and your site navigation (`zensical.toml` / `mkdocs.yml`) automatically!
 
-### 2. Package Documentation 📦
+### Package Documentation 📦
 
 For developers building libraries, the `--package` flag is a game-changer:
 
@@ -61,7 +71,7 @@ This creates "Developer Documentation" specifically tailored for Go packages, in
 !!! note "Deprecated Flag"
     The `--source` flag is deprecated. Use `--command` instead.
 
-### 3. Iterative Refinement 🔄
+### Iterative Refinement 🔄
 
 The AI documentation generator isn't a one-and-done tool. It respects your manual edits!
 
@@ -78,7 +88,7 @@ If a documentation page already exists, the AI:
 You can easily switch between AI providers or models using persistent flags:
 
 ```bash
-go run main.go generate docs --command "az/login" --provider openai --model "gpt-4"
+go run main.go generate docs --command "az/login" --provider openai --model "gpt-5.4"
 ```
 
 !!! tip
@@ -94,10 +104,6 @@ go run main.go generate docs --command "az/keyvault/get"
 
 ## Why Automated Documentation?
 
-Keeping documentation in sync with code is traditionally a painful, manual process. `generate docs` transforms this into a delightful experience:
-
-- **Single Source of Truth**: Your code is the source; the docs are the reflection.
-- **Low Friction**: Generate docs as part of your development workflow.
-- **High Quality**: AI-driven summaries often provide insights that manual writing might miss.
+Your code is the single source of truth and the docs are its reflection — generate them as part of your workflow and keep them in sync for free. For the design and how the generator fits the framework, see the [Docs component](../../explanation/components/docs.md).
 
 Focus on building great software, and let `gtb` handle the story of how to use it! 🚀

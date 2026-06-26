@@ -72,7 +72,7 @@ OpenAI offers excellent general-purpose performance. It is the fallback provider
 
 | Model | Best For | Notes |
 | :--- | :--- | :--- |
-| `gpt-4o` | General use, complex reasoning | Best overall quality |
+| `gpt-5.4` | General use, complex reasoning | Best overall quality |
 | `gpt-4o-mini` | Fast responses, cost efficiency | Good for simple queries |
 | `gpt-4-turbo` | Long context tasks | Handles large documentation |
 
@@ -85,7 +85,7 @@ ai:
 openai:
   api:
     key: "sk-..."
-  model: gpt-4o
+  model: gpt-5.4
 ```
 
 **Environment Variables:**
@@ -277,7 +277,7 @@ type ErrorAnalysis struct {
 func analyzeErrorStructured(ctx context.Context, p *props.Props, errorLog string) (*ErrorAnalysis, error) {
     client, err := chat.New(ctx, p, chat.Config{
         Provider:     chat.ProviderOpenAI,
-        Model:        "gpt-4o",
+        Model:        "gpt-5.4",
         SystemPrompt: "Analyze errors and provide structured feedback.",
     })
     if err != nil {

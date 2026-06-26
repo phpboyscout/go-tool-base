@@ -173,7 +173,7 @@ chat.Config{
 
 chat.Config{
     Provider: chat.ProviderOpenAI,
-    Model:    "gpt-4o",
+    Model:    "gpt-5.4",
 }
 
 chat.Config{

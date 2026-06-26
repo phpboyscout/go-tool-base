@@ -34,7 +34,7 @@ func robustChat(ctx context.Context, p *props.Props, prompt string) (string, err
 
         fallback, fbErr := chat.New(ctx, p, chat.Config{
             Provider: chat.ProviderOpenAI,
-            Model:    "gpt-4o",
+            Model:    "gpt-5.4",
         })
         if fbErr != nil {
             return "", errors.Newf("both providers failed: primary=%v, fallback=%w", err, fbErr)

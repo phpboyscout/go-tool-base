@@ -10,9 +10,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 Building a production-ready CLI shouldn't feel like a chore. Sometimes you have a perfectly good Python script or Bash prototype that you want to elevate into a robust, high-performance Go utility. With the `gtb` AI conversion engine, that transition is now just a single command away!
 
-### Step 3: (Optional) AI Conversion or Prompting
+## Convert a script (or generate from a prompt)
 
-Instead of manually implementing the command logic, you can have the AI do it for you in two ways:
+Instead of hand-writing the command body, point `gtb generate command` at an existing script or a natural-language prompt and let the AI implement it. Two ways:
 
 #### A. Script Conversion
 Provide an existing script (e.g., bash, python) that describes the logic:
@@ -58,6 +58,8 @@ The conversion engine supports multiple AI providers, giving you the flexibility
 | **Claude Local** | `claude-local` | uses local `claude` binary default | none required |
 | **OpenAI-Compatible** | `openai-compatible` | none — must be set explicitly | backend-specific |
 
+See [Providers](../../explanation/components/chat/providers.md#capability-comparison) for the full capability matrix and the canonical provider details.
+
 ### Configuration ⚙️
 
 You can configure the AI provider and model using CLI flags (recommended) or environment variables.
@@ -71,7 +73,7 @@ Flags allow you to switch providers on the fly for a specific command generation
 go run main.go generate command -n restore --script ./restore.sh --provider claude
 
 # Use Gemini with a specific model
-go run main.go generate command -n backup --script ./backup.sh --provider gemini --model gemini-1.5-pro
+go run main.go generate command -n backup --script ./backup.sh --provider gemini --model gemini-3.5-flash
 ```
 
 #### 2. Using Environment Variables
@@ -90,16 +92,11 @@ go run main.go generate command -n backup --script ./backup.sh
 
 We don't just generate code and hope for the best. Every AI-generated command is verified by an **Autonomous Agent** that uses a self-correcting ReAct (Reasoning and Acting) loop to ensure it meets our high standards for quality and stability.
 
-### How it Works:
-
-1.  **Drafting**: The AI generates the initial Go implementation and unit tests.
-2.  **Autonomous Verification**: A dedicated repair agent takes over. It has access to a restricted set of tools to:
-    -   `go_build`: Check for compilation errors.
-    -   `go_test`: Run unit tests for functional correctness.
-    -   `go_get`: Resolve any missing dependencies.
-    -   `golangci_lint`: Ensure best practices and formatting.
-3.  **Self-Correction**: Instead of a simple retry, the agent *analyzes* the error output, reads the relevant code files, and applies targeted fixes until the project is stable.
-4.  **Completion**: The loop finishes when the project builds and tests pass successfully, or when the agent reaches its maximum reasoning steps.
+The agent drafts the implementation and tests, then iterates — building, running
+tests, resolving dependencies, and linting, analysing each failure and applying
+targeted fixes until the project is stable or it hits its step budget. For the full
+mechanism (the tool set and the ReAct loop), see the
+[autonomous agent explanation](../../explanation/components/internal/agent.md).
 
 !!! important "Autonomous Reliability"
     The agent operates in a **secure, restricted environment**. It cannot execute arbitrary shell commands, but it has everything it needs to ensure your Go code is production-ready.

@@ -49,7 +49,7 @@ import "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 
 cfg := chat.Config{
     Provider:     chat.ProviderOpenAI, // or ProviderClaude, ProviderGemini, ProviderClaudeLocal, ProviderOpenAICompatible
-    Model:        "gpt-4o",
+    Model:        "gpt-5.4",
     // Token is optional if set via OPENAI_API_KEY environment variable
     SystemPrompt: "You are a helpful CLI assistant.",
 }
