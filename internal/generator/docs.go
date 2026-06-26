@@ -152,6 +152,10 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 
 	moduleName := g.getModuleNameSafe()
 
+	// --public-api is a durable choice: persist it so later regenerations keep
+	// linking pkg.go.dev instead of reverting to the local go doc hint.
+	g.persistModulePublished()
+
 	sysPrompt, fullCmdName, outputPath := g.getPromptAndOutput(name, relPath, moduleName, isPackage)
 
 	// AI doc-gen is opt-in: only call a provider when one is explicitly
@@ -306,17 +310,47 @@ _TODO: a short usage sketch._
 	return g.writeDocFile(outputPath, []byte(content))
 }
 
+// apiIsPublic reports whether the module's public API should be linked to
+// pkg.go.dev — true when --public-api is set (g.config.PublicAPI) or the manifest
+// records module_published. Otherwise package docs defer to a local `go doc` hint.
+func (g *Generator) apiIsPublic() bool {
+	if g.config.PublicAPI {
+		return true
+	}
+
+	m := g.readManifestQuiet()
+
+	return m != nil && m.Properties.ModulePublished
+}
+
+// persistModulePublished stamps module_published: true on the manifest when
+// --public-api was passed, so the choice survives future regenerations (package
+// API references would otherwise revert to the local go doc hint). Idempotent and
+// best-effort: a missing manifest or write failure is non-fatal.
+func (g *Generator) persistModulePublished() {
+	if !g.config.PublicAPI {
+		return
+	}
+
+	path := ManifestPathFor(g.config.Path)
+
+	m, err := g.decodeManifestFile(path)
+	if err != nil || m.Properties.ModulePublished {
+		return
+	}
+
+	m.Properties.ModulePublished = true
+	if err := g.writeManifestFile(path, *m); err != nil {
+		g.props.Logger.Warnf("could not persist module_published: %v", err)
+	}
+}
+
 // apiReferenceNote returns the package doc's "API Reference" body for no-AI
 // (boilerplate) generation: a pkg.go.dev link when the module is published
 // (--public-api / manifest module_published), else a local `go doc` hint, so a
 // private/unpublished module never gets a dead registry link.
 func (g *Generator) apiReferenceNote(pkgRel, moduleName string) string {
-	isPublic := g.config.PublicAPI
-	if m := g.readManifestQuiet(); m != nil && m.Properties.ModulePublished {
-		isPublic = true
-	}
-
-	if isPublic && moduleName != "" {
+	if g.apiIsPublic() && moduleName != "" {
 		return fmt.Sprintf("See [%s/%s](https://pkg.go.dev/%s/%s) for the full API reference.", moduleName, pkgRel, moduleName, pkgRel)
 	}
 
@@ -474,12 +508,7 @@ func (g *Generator) getPromptAndOutput(name, relPath, moduleName string, isPacka
 // flag); a private/unpublished module has no registry page, so the reference is
 // stubbed to a local `go doc` hint instead of a dead link.
 func (g *Generator) apiReferencePolicy(pkgRel, moduleName string) string {
-	isPublic := g.config.PublicAPI
-	if m := g.readManifestQuiet(); m != nil && m.Properties.ModulePublished {
-		isPublic = true
-	}
-
-	if isPublic {
+	if g.apiIsPublic() {
 		return fmt.Sprintf("link to the package's registry page (https://pkg.go.dev/%s/%s) and give a one-line purpose per major symbol, rather than pasting definitions.", moduleName, pkgRel)
 	}
 
@@ -658,19 +687,34 @@ func (g *Generator) readManifestQuiet() *Manifest {
 	return &m
 }
 
-// diataxisCommandDocPath returns the reference/cli output path for a command in
-// the Diátaxis layout: a leaf command is a flat <name>.md, while a command with
-// subcommands becomes a <name>/index.md subsection so its children sit beside it.
+// commandDocRelPath returns a command's doc path relative to its quadrant root,
+// applying the single leaf-flat / parent-subsection rule used everywhere a CLI
+// doc path is computed (generation, migration, nav, index). In the Diátaxis
+// layout a leaf command is <path>.md and a command with subcommands is
+// <path>/index.md (so its children sit beside it); the legacy flat layout always
+// uses <path>/index.md.
+func commandDocRelPath(relPath string, hasChildren, diataxis bool) string {
+	if diataxis && !hasChildren {
+		return relPath + ".md"
+	}
+
+	return filepath.Join(relPath, "index.md")
+}
+
+// diataxisCommandDocPath returns the absolute reference/cli output path for a
+// command in the Diátaxis layout.
 func (g *Generator) diataxisCommandDocPath(m *Manifest, parentParts []string, name, outRelPath string) string {
 	cliBase := filepath.Join(g.config.Path, "docs", "reference", "cli")
 
+	hasChildren := false
+
 	if m != nil {
 		if cmd := findCommandAt(m.Commands, parentParts, name); cmd != nil && len(cmd.Commands) > 0 {
-			return filepath.Join(cliBase, outRelPath, "index.md")
+			hasChildren = true
 		}
 	}
 
-	return filepath.Join(cliBase, outRelPath+".md")
+	return filepath.Join(cliBase, commandDocRelPath(outRelPath, hasChildren, true))
 }
 
 func (g *Generator) resolveAIConfig() (provider, model string) {
@@ -932,15 +976,20 @@ func (g *Generator) generatePackagesIndex() error {
 	p := g.props
 	p.Logger.Info("Updating packages index...")
 
-	packagesDir := filepath.Join(g.config.Path, "docs", "packages")
+	diataxis := false
 	if m := g.readManifestQuiet(); m != nil && m.Properties.ResolvedDocsLayout() == DocsLayoutDiataxis {
+		diataxis = true
+	}
+
+	packagesDir := filepath.Join(g.config.Path, "docs", "packages")
+	if diataxis {
 		// Component overviews are explanation-quadrant in the Diátaxis layout.
 		packagesDir = filepath.Join(g.config.Path, "docs", "explanation", "components")
 	}
 
 	indexFile := filepath.Join(packagesDir, "index.md")
 
-	packageRows := g.collectPackageIndexRows(packagesDir, indexFile)
+	packageRows := g.collectPackageIndexRows(packagesDir, indexFile, diataxis)
 
 	content := fmt.Sprintf(`---
 title: Package Reference
@@ -966,9 +1015,10 @@ description: Index of project packages.
 }
 
 // collectPackageIndexRows walks packagesDir and returns a Markdown table row for
-// each documented sub-package (a directory with its own index.md), skipping the
-// index file itself. Walk errors are logged, not fatal.
-func (g *Generator) collectPackageIndexRows(packagesDir, indexFile string) []string {
+// each documented package, skipping the index file itself. In the Diátaxis layout
+// components are flat `<name>.md` files; in the legacy flat layout each package is
+// a directory with its own index.md. Walk errors are logged, not fatal.
+func (g *Generator) collectPackageIndexRows(packagesDir, indexFile string, diataxis bool) []string {
 	packageRows := make([]string, 0)
 
 	err := afero.Walk(g.props.FS, packagesDir, func(path string, info os.FileInfo, err error) error {
@@ -976,28 +1026,20 @@ func (g *Generator) collectPackageIndexRows(packagesDir, indexFile string) []str
 			return err
 		}
 
-		if !info.IsDir() {
-			return nil
+		var (
+			row string
+			ok  bool
+		)
+
+		if diataxis {
+			row, ok = g.diataxisPackageRow(packagesDir, indexFile, path, info)
+		} else {
+			row, ok = g.flatPackageRow(packagesDir, indexFile, path, info)
 		}
 
-		packageIndexFile := filepath.Join(path, "index.md")
-		if path == packagesDir || packageIndexFile == indexFile {
-			return nil
+		if ok {
+			packageRows = append(packageRows, row)
 		}
-
-		if exists, _ := afero.Exists(g.props.FS, packageIndexFile); !exists {
-			return nil
-		}
-
-		relPath, _ := filepath.Rel(packagesDir, path)
-		frontmatter := getFrontmatter(g.props.FS, packageIndexFile)
-
-		desc := "No description"
-		if d, ok := frontmatter["description"].(string); ok {
-			desc = d
-		}
-
-		packageRows = append(packageRows, fmt.Sprintf("| [%s](%s/) | %s |", relPath, relPath, desc))
 
 		return nil
 	})
@@ -1006,6 +1048,54 @@ func (g *Generator) collectPackageIndexRows(packagesDir, indexFile string) []str
 	}
 
 	return packageRows
+}
+
+// diataxisPackageRow builds the index row for a flat component file
+// (explanation/components/<name>.md), or ok=false to skip dirs and the index.
+func (g *Generator) diataxisPackageRow(packagesDir, indexFile, path string, info os.FileInfo) (string, bool) {
+	if info.IsDir() || path == indexFile || !strings.HasSuffix(path, ".md") {
+		return "", false
+	}
+
+	rel, _ := filepath.Rel(packagesDir, path)
+	name := strings.TrimSuffix(rel, ".md")
+
+	return g.packageIndexRow(name, filepath.ToSlash(rel), path), true
+}
+
+// flatPackageRow builds the index row for a legacy package directory (one with
+// its own index.md), or ok=false to skip non-package directories.
+func (g *Generator) flatPackageRow(packagesDir, indexFile, path string, info os.FileInfo) (string, bool) {
+	if !info.IsDir() {
+		return "", false
+	}
+
+	packageIndexFile := filepath.Join(path, "index.md")
+	if path == packagesDir || packageIndexFile == indexFile {
+		return "", false
+	}
+
+	if exists, _ := afero.Exists(g.props.FS, packageIndexFile); !exists {
+		return "", false
+	}
+
+	rel, _ := filepath.Rel(packagesDir, path)
+
+	return g.packageIndexRow(rel, filepath.ToSlash(rel)+"/", packageIndexFile), true
+}
+
+// packageIndexRow formats a single Markdown table row, reading the description
+// from the doc's frontmatter.
+func (g *Generator) packageIndexRow(name, link, docFile string) string {
+	desc := "No description"
+
+	if fm := getFrontmatter(g.props.FS, docFile); fm != nil {
+		if d, ok := fm["description"].(string); ok {
+			desc = d
+		}
+	}
+
+	return fmt.Sprintf("| [%s](%s) | %s |", name, link, desc)
 }
 
 func getFrontmatter(fs afero.Fs, docPath string) map[string]any {
@@ -1036,8 +1126,10 @@ func (g *Generator) generateCommandsIndex() error {
 		return err
 	}
 
+	diataxis := m.Properties.ResolvedDocsLayout() == DocsLayoutDiataxis
+
 	indexPath := filepath.Join(g.config.Path, "docs", "commands", "index.md")
-	if m.Properties.ResolvedDocsLayout() == DocsLayoutDiataxis {
+	if diataxis {
 		// CLI commands are reference-quadrant in the Diátaxis layout; there is no
 		// docs/commands/ tree to write into.
 		indexPath = filepath.Join(g.config.Path, "docs", "reference", "cli", "index.md")
@@ -1049,18 +1141,23 @@ func (g *Generator) generateCommandsIndex() error {
 		return errors.Wrap(err, "failed to create commands index dir")
 	}
 
-	if err := afero.WriteFile(g.props.FS, indexPath, []byte(g.buildCommandsIndexContent(m.Commands)), DefaultFileMode); err != nil {
+	if err := afero.WriteFile(g.props.FS, indexPath, []byte(g.buildCommandsIndexContent(m.Commands, diataxis)), DefaultFileMode); err != nil {
 		return errors.Wrap(err, "failed to write commands index")
 	}
 
 	return nil
 }
 
-func (g *Generator) buildCommandsIndexContent(commands []ManifestCommand) string {
+func (g *Generator) buildCommandsIndexContent(commands []ManifestCommand, diataxis bool) string {
 	var content strings.Builder
 	content.WriteString("# Commands\n\n")
 	content.WriteString("| Command | Description |\n")
 	content.WriteString("| :--- | :--- |\n")
+
+	base := "commands"
+	if diataxis {
+		base = filepath.Join("reference", "cli")
+	}
 
 	var walk func(cmds []ManifestCommand, parentPath string)
 
@@ -1071,11 +1168,12 @@ func (g *Generator) buildCommandsIndexContent(commands []ManifestCommand) string
 				fullPath = parentPath + " " + cmd.Name
 			}
 
-			// Construct relative link path (e.g. "az/index.md", "az/login/index.md")
-			relPath := strings.ReplaceAll(fullPath, " ", "/") + "/index.md"
+			// One leaf-flat / parent-subsection rule for the link and the doc path.
+			joined := strings.ReplaceAll(fullPath, " ", string(filepath.Separator))
+			relPath := commandDocRelPath(joined, len(cmd.Commands) > 0, diataxis)
 
-			// Try to read description from generated doc frontmatter
-			docPath := filepath.Join(g.config.Path, "docs", "commands", strings.ReplaceAll(fullPath, " ", string(filepath.Separator)), "index.md")
+			// Try to read description from the generated doc's frontmatter.
+			docPath := filepath.Join(g.config.Path, "docs", base, relPath)
 			fileDesc := ""
 
 			if frontmatter := getFrontmatter(g.props.FS, docPath); frontmatter != nil {
@@ -1091,7 +1189,7 @@ func (g *Generator) buildCommandsIndexContent(commands []ManifestCommand) string
 				desc = string(cmd.LongDescription)
 			}
 
-			fmt.Fprintf(&content, "| [%s](%s) | %s |\n", fullPath, relPath, desc)
+			fmt.Fprintf(&content, "| [%s](%s) | %s |\n", fullPath, filepath.ToSlash(relPath), desc)
 
 			walk(cmd.Commands, fullPath)
 		}
@@ -1303,15 +1401,12 @@ func buildNavFromCommands(commands []ManifestCommand, parentPath []string, diata
 func navCommandPath(cmdPath []string, hasChildren, diataxis bool) string {
 	joined := filepath.Join(cmdPath...)
 
+	base := "commands"
 	if diataxis {
-		if hasChildren {
-			return filepath.Join("reference", "cli", joined, "index.md")
-		}
-
-		return filepath.Join("reference", "cli", joined) + ".md"
+		base = filepath.Join("reference", "cli")
 	}
 
-	return filepath.Join("commands", joined, "index.md")
+	return filepath.Join(base, commandDocRelPath(joined, hasChildren, diataxis))
 }
 
 func toTitle(s string) string {

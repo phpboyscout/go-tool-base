@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-// migrateFlatDocsToDataxis converts a project on the legacy flat docs layout
+// migrateFlatDocsToDiataxis converts a project on the legacy flat docs layout
 // (docs/commands, docs/packages) to the Diátaxis layout. It moves existing
 // command docs to docs/reference/cli and package docs to docs/explanation/
 // components — preserving content and the leaf/parent split — removes the old
@@ -17,7 +17,7 @@ import (
 // `regenerate project --force`. Moving (not regenerating) preserves any
 // hand-written content; subsequent regeneration sees the docs at their new paths
 // and leaves them intact.
-func (g *Generator) migrateFlatDocsToDataxis() error {
+func (g *Generator) migrateFlatDocsToDiataxis() error {
 	manifestPath := ManifestPathFor(g.config.Path)
 
 	m, err := g.decodeManifestFile(manifestPath)

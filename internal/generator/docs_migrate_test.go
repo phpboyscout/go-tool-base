@@ -45,7 +45,7 @@ commands:
 		config: &Config{Path: root},
 	}
 
-	require.NoError(t, g.migrateFlatDocsToDataxis())
+	require.NoError(t, g.migrateFlatDocsToDiataxis())
 
 	// Content is preserved at the new Diátaxis paths (leaf-flat / parent-subsection).
 	for path, want := range map[string]string{

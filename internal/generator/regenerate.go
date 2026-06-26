@@ -47,6 +47,20 @@ func (g *Generator) RegenerateProjectDryRun(ctx context.Context) (*DryRunResult,
 	})
 }
 
+// shouldMigrateDocsToDiataxis reports whether regenerate should migrate the docs
+// layout: only under --force, and only when the project is not already on the
+// Diátaxis layout. A plain regenerate (no --force) never moves a downstream user's
+// docs tree.
+func (g *Generator) shouldMigrateDocsToDiataxis() bool {
+	if !g.config.Force {
+		return false
+	}
+
+	m := g.readManifestQuiet()
+
+	return m != nil && m.Properties.ResolvedDocsLayout() != DocsLayoutDiataxis
+}
+
 func (g *Generator) regenerateProject(ctx context.Context) error {
 	if err := g.verifyProject(); err != nil {
 		return err
@@ -55,11 +69,9 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 	// `regenerate project --force` migrates a flat-layout project to the Diátaxis
 	// layout before regeneration, so the re-emitted docs and indexes land in the
 	// new tree rather than recreating the old one.
-	if g.config.Force {
-		if m := g.readManifestQuiet(); m != nil && m.Properties.ResolvedDocsLayout() != DocsLayoutDiataxis {
-			if err := g.migrateFlatDocsToDataxis(); err != nil {
-				return err
-			}
+	if g.shouldMigrateDocsToDiataxis() {
+		if err := g.migrateFlatDocsToDiataxis(); err != nil {
+			return err
 		}
 	}
 
