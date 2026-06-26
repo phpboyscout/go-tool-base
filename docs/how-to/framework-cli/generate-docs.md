@@ -26,7 +26,7 @@ The sections below cover the generator's capabilities in detail.
 
 ## Documentation layout (Diátaxis)
 
-New projects scaffold a [Diátaxis](https://diataxis.fr/)-structured `docs/` tree, and `generate docs` places each page in the matching quadrant:
+New projects scaffold a [Diátaxis](https://diataxis.fr/)-structured `docs/` tree, and `generate docs` places each page in the matching quadrant (for *why* GTB generates into this structure, see [Documentation Layout](../../explanation/concepts/documentation-layout.md)):
 
 | Content | Quadrant | Path |
 | :--- | :--- | :--- |

@@ -37,6 +37,9 @@ Discover why we use a specialized CLI for scaffolding, regeneration, and maintai
 ### [Regeneration & Sync](regeneration.md)
 Learn about the bi-directional synchronization between your manifest and source code.
 
+### [Documentation Layout (Diátaxis)](documentation-layout.md)
+Understand why generated docs follow the Diátaxis structure, how commands and packages map to the four quadrants, and the `docs_layout` setting.
+
 ### [Dependency Injection (Props)](../components/props.md)
 Learn about the `Props` container, the central nervous system that provides context to every command.
 

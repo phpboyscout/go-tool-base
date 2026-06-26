@@ -183,6 +183,8 @@ postGenerate(ctx, data, cmdDir)                   [commands.go]
 
 Steps 1 (asset files) is **fatal** — a failure stops the pipeline. Steps 2–5 are **advisory** — failures are logged as warnings and accumulated in `PipelineResult.Warnings` rather than aborting the run.
 
+Step 5 places each page according to the project's `docs_layout` (a manifest-only property: `diataxis` for new projects, `flat` for legacy ones) — commands under `docs/reference/cli/`, packages under `docs/explanation/components/`. The `module_published` property (set by `generate docs --public-api`) selects pkg.go.dev vs a local `go doc` hint for the package API reference. See [Documentation Layout (Diátaxis)](../explanation/concepts/documentation-layout.md).
+
 **`generate command`** calls `performGeneration` once (for the single target command) then `postGenerate`.
 
 **`regenerate project`** calls `regenerateCommandRecursive` which calls `performGeneration` then `postGenerate` for every command in the manifest tree, depth-first.

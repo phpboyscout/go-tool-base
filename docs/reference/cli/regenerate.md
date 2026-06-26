@@ -32,7 +32,7 @@ A persistent `--dry-run` previews changes without writing files.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--path, -p` | `.` | Project root. |
-| `--force` | `false` | Overwrite existing `main.go` implementation files. |
+| `--force` | `false` | Overwrite existing `main.go` implementation files. On a flat-layout project, also migrates the docs to the [Diátaxis layout](../../explanation/concepts/documentation-layout.md). |
 | `--overwrite` | `ask` | Conflict handling: `allow`, `deny`, or `ask`. |
 | `--update-docs` | `false` | Use AI to update existing documentation. |
 | `--dry-run` | `false` | Preview changes without writing. |
