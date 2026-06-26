@@ -198,7 +198,7 @@ Unset keys keep their defaults; the code-only fields (`KeyFunc`, `OnLimited`) ar
 
 ### Built-in Authentication Middleware
 
-`AuthMiddleware` authenticates (and optionally authorizes) each request from an [`pkg/authn`](authn.md) verifier — an API key, a JWT/OIDC bearer token, or an mTLS client certificate — storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
+`AuthMiddleware` authenticates (and optionally authorizes) each request from an [`pkg/authn`](authn.md) verifier — an API key, a JWT/OIDC bearer token, a session cookie, or an mTLS client certificate — storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
 
 - **`AuthMiddleware(opts ...AuthOption) (Middleware, error)`** — with no verifier configured it is a construction error (fail-closed)
 - **`IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`** — read the verified identity in a handler (same context key as the gRPC interceptor)
@@ -213,7 +213,9 @@ authMW, _ := gtbhttp.AuthMiddleware(
 chain := gtbhttp.NewChain(gtbhttp.LoggingMiddleware(props.Logger), authMW)
 ```
 
-Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithMTLSVerifier`, `WithAuthorize`, `WithAuthLogger`, `WithAuthSkipper`. On failure it writes a generic `401` (with `WWW-Authenticate`) or `403` and logs the cause with the credential redacted — never disclosing why to the client. Health endpoints are outside the chain, so a global auth middleware never gates probes. **See [Authentication & Authorization](authn.md) for the full reference**, including the verifiers, the authorization seam, credential precedence, and the security model.
+Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithCookieVerifier`, `WithMTLSVerifier`, `WithAuthorize`, `WithAuthLogger`, `WithAuthSkipper`. On failure it writes a generic `401` (with `WWW-Authenticate`) or `403` and logs the cause with the credential redacted — never disclosing why to the client. Health endpoints are outside the chain, so a global auth middleware never gates probes. **See [Authentication & Authorization](authn.md) for the full reference**, including the verifiers, the authorization seam, credential precedence, and the security model.
+
+`WithCookieVerifier(name, v)` reads the credential from a named cookie. The cookie is an **ambient** credential — the browser sends it on every request, including `<img>`/`<audio>`/`<video>` sub-resource loads that cannot set an `Authorization` header — so it sits **below** the explicit header schemes in precedence (an explicit bearer or API-key header always wins; the cookie is consulted only when no header credential is presented). This makes a browser session authenticate sub-resources while leaving explicit API clients unaffected; typically paired with a token-in-URL bootstrap that sets the cookie on first load (Jupyter-style).
 
 ### Usage Example
 

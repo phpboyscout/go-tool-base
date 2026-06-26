@@ -16,13 +16,15 @@ import (
 type AuthOption func(*authConfig)
 
 type authConfig struct {
-	bearer    authn.Verifier
-	apiKeyHdr string
-	apiKey    authn.Verifier
-	mtls      authn.CertVerifier
-	authorize authn.AuthorizeFunc
-	log       logger.Logger
-	skip      func(*http.Request) bool
+	bearer     authn.Verifier
+	apiKeyHdr  string
+	apiKey     authn.Verifier
+	cookieName string
+	cookie     authn.Verifier
+	mtls       authn.CertVerifier
+	authorize  authn.AuthorizeFunc
+	log        logger.Logger
+	skip       func(*http.Request) bool
 }
 
 // WithBearerVerifier extracts a token from "Authorization: Bearer <token>" and
@@ -35,6 +37,19 @@ func WithBearerVerifier(v authn.Verifier) AuthOption {
 // "X-API-Key") and verifies it with v.
 func WithAPIKeyHeader(header string, v authn.Verifier) AuthOption {
 	return func(c *authConfig) { c.apiKeyHdr = header; c.apiKey = v }
+}
+
+// WithCookieVerifier extracts the credential from the named cookie and verifies
+// it with v. The cookie is an AMBIENT credential — the browser sends it on every
+// request, including <img>/<audio>/<video> sub-resource loads that cannot set an
+// Authorization header — so it sits BELOW the explicit header schemes in
+// precedence: an explicit bearer or API-key header always wins, and the cookie is
+// consulted only when no header credential is presented. This lets a browser
+// session authenticate sub-resources while leaving explicit API clients
+// unaffected. Typically paired with a token-in-URL bootstrap that sets the cookie
+// on first load (Jupyter-style).
+func WithCookieVerifier(cookieName string, v authn.Verifier) AuthOption {
+	return func(c *authConfig) { c.cookieName = cookieName; c.cookie = v }
 }
 
 // WithMTLSVerifier authenticates the request from its verified client
@@ -79,7 +94,7 @@ func AuthMiddleware(opts ...AuthOption) (Middleware, error) {
 		o(cfg)
 	}
 
-	if cfg.bearer == nil && cfg.apiKey == nil && cfg.mtls == nil {
+	if cfg.bearer == nil && cfg.apiKey == nil && cfg.cookie == nil && cfg.mtls == nil {
 		return nil, errors.New("http: AuthMiddleware requires at least one verifier (fail-closed)")
 	}
 
@@ -148,11 +163,30 @@ func (cfg *authConfig) extractAPIKey(r *http.Request) (string, bool) {
 	return v, v != ""
 }
 
+// extractCookie returns the named cookie's value and whether it was presented
+// (only when a cookie verifier and name are configured).
+func (cfg *authConfig) extractCookie(r *http.Request) (string, bool) {
+	if cfg.cookie == nil || cfg.cookieName == "" {
+		return "", false
+	}
+
+	c, err := r.Cookie(cfg.cookieName)
+	if err != nil || c.Value == "" {
+		return "", false
+	}
+
+	return c.Value, true
+}
+
 // authenticate selects the presented credential scheme and verifies it, failing
-// closed on ambiguity (both bearer and API-key) and on no credential.
+// closed on ambiguity (both bearer and API-key) and on no credential. An explicit
+// header scheme (bearer / API-key) takes precedence over the ambient cookie, which
+// over mTLS — so a browser cookie authenticates sub-resource loads without
+// overriding an explicit API credential.
 func (cfg *authConfig) authenticate(r *http.Request) (*authn.Identity, error) {
 	bearerTok, bearerPresent := cfg.extractBearer(r)
 	apiKeyVal, apiKeyPresent := cfg.extractAPIKey(r)
+	cookieVal, cookiePresent := cfg.extractCookie(r)
 
 	switch {
 	case bearerPresent && apiKeyPresent:
@@ -161,6 +195,8 @@ func (cfg *authConfig) authenticate(r *http.Request) (*authn.Identity, error) {
 		return cfg.bearer.Verify(r.Context(), bearerTok)
 	case apiKeyPresent:
 		return cfg.apiKey.Verify(r.Context(), apiKeyVal)
+	case cookiePresent:
+		return cfg.cookie.Verify(r.Context(), cookieVal)
 	case cfg.mtls != nil && r.TLS != nil && len(r.TLS.VerifiedChains) > 0:
 		return cfg.mtls.VerifyCert(r.Context(), r.TLS.VerifiedChains)
 	default:

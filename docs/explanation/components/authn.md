@@ -228,8 +228,11 @@ set, it does not replace it.
 
 **Precedence (fail-closed on ambiguity).** A bearer token and an API-key header/
 metadata presented *together* are rejected as ambiguous — GTB never silently picks
-one. Otherwise the presented header/metadata scheme is used; **mTLS authenticates
-only when no header credential is presented**.
+one. Otherwise the presented header/metadata scheme is used; the **cookie**
+(`WithCookieVerifier`, HTTP only) is an *ambient* credential consulted only when no
+explicit header scheme is presented (an explicit `Authorization`/API-key header
+always wins — the auto-sent cookie never overrides it); **mTLS authenticates only
+when no header *or* cookie credential is presented**.
 
 **Non-leaky failures.** On a missing/invalid credential the request gets a generic
 `401` (HTTP, with `WWW-Authenticate`) or `codes.Unauthenticated` (gRPC); a

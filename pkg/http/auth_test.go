@@ -215,3 +215,82 @@ func TestAuthMiddleware_RedactsCredentialInLogs(t *testing.T) {
 	assert.NotContains(t, buf.String(), "sk-abcdefghijklmnopqrstuvwxyz0123456789ABCD",
 		"the presented token must never appear in logs")
 }
+
+// reqCookie builds a request cookie for tests. Secure/HttpOnly/SameSite are
+// response-only (req.AddCookie serialises just name=value), so they are a no-op
+// here — set only to satisfy gosec G124 without a nolint.
+func reqCookie(name, value string) *http.Cookie {
+	return &http.Cookie{
+		Name: name, Value: value,
+		HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode,
+	}
+}
+
+func TestAuthMiddleware_CookieSuccessAndFailure(t *testing.T) {
+	t.Parallel()
+
+	mw, err := AuthMiddleware(WithCookieVerifier("session", mustVerifier(t, "good-token", "browser")))
+	require.NoError(t, err)
+
+	var seen *authn.Identity
+	h := mw(capturingHandler(&seen))
+
+	// Success: a valid cookie authenticates (the case an <img>/<video> load needs).
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api", nil)
+	req.AddCookie(reqCookie("session", "good-token"))
+	h.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, seen)
+	assert.Equal(t, "browser", seen.Subject)
+
+	// Wrong cookie value -> 401, handler not called.
+	seen = nil
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api", nil)
+	req.AddCookie(reqCookie("session", "wrong"))
+	h.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Nil(t, seen)
+
+	// Missing / empty cookie -> 401.
+	for _, c := range []*http.Cookie{nil, reqCookie("session", ""), reqCookie("other", "good-token")} {
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest(http.MethodGet, "/api", nil)
+		if c != nil {
+			req.AddCookie(c)
+		}
+		h.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	}
+}
+
+func TestAuthMiddleware_ExplicitHeaderBeatsAmbientCookie(t *testing.T) {
+	t.Parallel()
+
+	// Same verifier for both schemes; the cookie is ambient (sent automatically),
+	// so an explicit bearer header must take precedence over it.
+	v := mustVerifier(t, "tok", "principal")
+	mw, err := AuthMiddleware(WithBearerVerifier(v), WithCookieVerifier("session", v))
+	require.NoError(t, err)
+
+	var seen *authn.Identity
+	h := mw(capturingHandler(&seen))
+
+	// A bad bearer header with a GOOD cookie: the explicit header wins and fails
+	// closed (the ambient cookie does NOT silently rescue a wrong explicit credential).
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api", nil)
+	req.Header.Set("Authorization", "Bearer wrong")
+	req.AddCookie(reqCookie("session", "tok"))
+	h.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	assert.Nil(t, seen)
+
+	// No header, just the cookie: authenticates (the browser sub-resource path).
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api", nil)
+	req.AddCookie(reqCookie("session", "tok"))
+	h.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
