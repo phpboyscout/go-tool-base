@@ -162,6 +162,9 @@ Put a JSON/REST surface over an existing gRPC service with the grpc-gateway — 
 ### [Serve Interactive API Docs](serve-api-docs.md)
 Generate an OpenAPI v3 spec and serve it with an embedded Stoplight Elements "try it" console using `pkg/openapi`.
 
+### [Verify Requests (API Keys & JWT/OIDC)](verify-requests-with-authn.md)
+Authenticate HTTP requests with `pkg/authn` verifiers and the fail-closed `AuthMiddleware` — API keys, JWT/OIDC, mTLS, and an authorization policy.
+
 ## Security & Signatures
 
 ### [Add HTTP Security Headers](security-headers.md)

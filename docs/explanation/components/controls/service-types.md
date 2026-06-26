@@ -174,40 +174,20 @@ Health checks use a three-state result model:
 | `CheckDegraded` | `"DEGRADED"` | `true` | Needs attention but still serving |
 | `CheckUnhealthy` | `"ERROR"` | `false` | Check failed |
 
-#### Registering a Sync Check
+#### Registering checks
 
-Sync checks run inline on every health request:
+A check is registered with `controller.RegisterHealthCheck(controls.HealthCheck{…})`:
+the `Check` func returns a `CheckResult`, `Timeout` bounds each run, and `Type`
+(below) controls which endpoints it appears in. With an `Interval` set the check
+runs **async** on that interval and caches its result; without one it runs **sync**,
+inline on every health request.
 
 ```go
 controller.RegisterHealthCheck(controls.HealthCheck{
-    Name: "database",
-    Check: func(ctx context.Context) controls.CheckResult {
-        if err := db.PingContext(ctx); err != nil {
-            return controls.CheckResult{Status: controls.CheckUnhealthy, Message: err.Error()}
-        }
-        return controls.CheckResult{Status: controls.CheckHealthy}
-    },
+    Name:    "database",
+    Check:   func(ctx context.Context) controls.CheckResult { /* probe; return CheckHealthy / CheckUnhealthy */ },
     Timeout: 2 * time.Second,
     Type:    controls.CheckTypeReadiness,
-})
-```
-
-#### Registering an Async Check
-
-Async checks run on a background interval and cache their result:
-
-```go
-controller.RegisterHealthCheck(controls.HealthCheck{
-    Name: "redis",
-    Check: func(ctx context.Context) controls.CheckResult {
-        if err := redisClient.Ping(ctx).Err(); err != nil {
-            return controls.CheckResult{Status: controls.CheckUnhealthy, Message: err.Error()}
-        }
-        return controls.CheckResult{Status: controls.CheckHealthy}
-    },
-    Timeout:  2 * time.Second,
-    Interval: 10 * time.Second, // Run every 10s, cache result between requests
-    Type:     controls.CheckTypeBoth,
 })
 ```
 
@@ -227,14 +207,8 @@ controller.RegisterHealthCheck(controls.HealthCheck{
 | `CheckTypeLiveness` | `/livez` and `/healthz` |
 | `CheckTypeBoth` | All endpoints |
 
-#### Querying Check Results
-
-```go
-result, ok := controller.GetCheckResult("database")
-if ok {
-    fmt.Printf("Status: %d, Message: %s\n", result.Status, result.Message)
-}
-```
+For the full sync/async recipes and querying cached results, see the
+**[Register Health Checks](../../../how-to/register-health-checks.md)** how-to.
 
 ### Controller States
 

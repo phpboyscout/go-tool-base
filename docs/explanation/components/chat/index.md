@@ -171,58 +171,9 @@ For Claude, the call also clears any `ResponseSchema` set at construction
 (structured-output `Ask` and tool calling are mutually exclusive), keeping the
 reset consistent with the other providers.
 
-#### Complete Tool Handler Example
-
-```go
-package main
-
-import (
-    "context"
-    "encoding/json"
-    "os"
-
-    "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-    "github.com/cockroachdb/errors"
-)
-
-type ReadFileParams struct {
-    Path string `json:"path" jsonschema:"description=The file path to read"`
-}
-
-type FileContents struct {
-    Content string `json:"content"`
-    Size    int    `json:"size"`
-}
-
-func readFileHandler(ctx context.Context, args json.RawMessage) (any, error) {
-    var params ReadFileParams
-    if err := json.Unmarshal(args, &params); err != nil {
-        return nil, errors.Newf("failed to parse arguments: %w", err)
-    }
-
-    content, err := os.ReadFile(params.Path)
-    if err != nil {
-        return nil, errors.Newf("failed to read file: %w", err)
-    }
-
-    return FileContents{
-        Content: string(content),
-        Size:    len(content),
-    }, nil
-}
-
-func setupTools(client chat.ChatClient) error {
-    tools := []chat.Tool{
-        {
-            Name:        "read_file",
-            Description: "Read the contents of a file from the filesystem",
-            Parameters:  chat.GenerateSchema[ReadFileParams]().(*jsonschema.Schema),
-            Handler:     readFileHandler,
-        },
-    }
-    return client.SetTools(tools)
-}
-```
+For a full, runnable tool-handler example — parsing arguments, returning a typed
+result, and wiring it with `SetTools` — see the
+[AI Tool Calling](../../../how-to/ai-tool-calling.md) how-to.
 
 #### Execution Loop
 
@@ -426,3 +377,7 @@ A freshly-constructed client, and any provider that reports nothing for a call, 
 - **[Conversation Persistence](persistence.md)** — Save and restore chat conversations across sessions.
 - **[Reliability](reliability.md)** — Error handling and thread-safety guarantees.
 - **[Best Practices](best-practices.md)** — Recommended patterns for building on the chat client.
+
+### Related how-to guides
+
+- [Add AI to your tool](../../../how-to/ai-integration.md) · [AI tool calling](../../../how-to/ai-tool-calling.md) · [Structured AI responses](../../../how-to/structured-ai-responses.md) · [Persist conversations](../../../how-to/persist-chat-conversations.md)

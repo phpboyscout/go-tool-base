@@ -139,3 +139,8 @@ container.OnReloadError(func(err error) {
   reload is safe under `-race`.
 - Callbacks run in registration order on the watcher goroutine; a slow callback
   delays subsequent reloads, so offload expensive work.
+
+## Related
+
+- [How to React to Configuration Changes](../../../how-to/config-hot-reload.md) — the step-by-step recipe for wiring observers and handling rejected reloads
+- [How to Test Code That Uses Configuration](../../../how-to/test-configuration.md) — exercising observers without file watching

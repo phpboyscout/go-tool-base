@@ -285,6 +285,7 @@ predicate — see [Authorization](#authorization).
 
 ## See also
 
+- [How to Verify Requests (API Keys & JWT/OIDC)](../../how-to/verify-requests-with-authn.md) — the task recipe for wiring verifiers into a server
 - [HTTP](http.md) — the server middleware chain `AuthMiddleware` plugs into
 - [gRPC](grpc.md) — the interceptor chain `AuthInterceptor` plugs into
 - [TLS](tls.md) — configure client-certificate verification for mTLS
