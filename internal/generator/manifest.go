@@ -354,6 +354,36 @@ type ManifestProperties struct {
 	// own gtb-template.yaml descriptor. See
 	// docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
 	Templates []TemplateSource `yaml:"templates,omitempty"`
+	// DocsLayout records the documentation tree layout: [DocsLayoutDiataxis]
+	// (the default for newly generated projects) or [DocsLayoutFlat] (the legacy
+	// docs/commands + docs/packages tree). Empty is treated as flat for backward
+	// compatibility with projects generated before this field existed.
+	DocsLayout string `yaml:"docs_layout,omitempty"`
+	// ModulePublished indicates the module is publicly published (e.g. on
+	// pkg.go.dev), allowing generated explanation docs to defer the package API
+	// reference there. Default false: the API reference is stubbed locally, since
+	// an unpublished module has no pkg.go.dev page to link.
+	ModulePublished bool `yaml:"module_published,omitempty"`
+}
+
+// Documentation tree layouts recorded in [ManifestProperties.DocsLayout].
+const (
+	// DocsLayoutDiataxis is the Diátaxis-structured docs tree (how-to /
+	// reference / explanation / tutorials). The default for new projects.
+	DocsLayoutDiataxis = "diataxis"
+	// DocsLayoutFlat is the legacy flat tree (docs/commands + docs/packages).
+	DocsLayoutFlat = "flat"
+)
+
+// ResolvedDocsLayout returns the effective documentation layout, defaulting an
+// empty or unrecognised value to [DocsLayoutFlat] for backward compatibility
+// with projects generated before the docs_layout field existed.
+func (p ManifestProperties) ResolvedDocsLayout() string {
+	if p.DocsLayout == DocsLayoutDiataxis {
+		return DocsLayoutDiataxis
+	}
+
+	return DocsLayoutFlat
 }
 
 // TemplateSourceType discriminates the two custom-template source backends.
