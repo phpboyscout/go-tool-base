@@ -802,6 +802,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 			EnvPrefix:           config.EnvPrefix,
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
+			DocsLayout:          DocsLayoutDiataxis,
 			Help: ManifestHelp{
 				Type:         config.HelpType,
 				SlackChannel: config.SlackChannel,
