@@ -2,7 +2,6 @@ package generator
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -60,10 +59,10 @@ func TestPackagePrompt_IsExplanationOriented(t *testing.T) {
 	p := packageDocumentationSystemPrompt
 	// Explanation-quadrant sections present.
 	for _, want := range []string{"explanation quadrant", "## Overview", "## Key Types", "## API Reference"} {
-		assert.Truef(t, strings.Contains(p, want), "package prompt should mention %q", want)
+		assert.Containsf(t, p, want, "package prompt should mention %q", want)
 	}
 	// The old auto-generated API-dump sections are gone.
 	for _, gone := range []string{"## Index", "## Functions", "List of exported symbols"} {
-		assert.Falsef(t, strings.Contains(p, gone), "package prompt should no longer dump the API via %q", gone)
+		assert.NotContainsf(t, p, gone, "package prompt should no longer dump the API via %q", gone)
 	}
 }

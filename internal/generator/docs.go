@@ -940,6 +940,35 @@ func (g *Generator) generatePackagesIndex() error {
 
 	indexFile := filepath.Join(packagesDir, "index.md")
 
+	packageRows := g.collectPackageIndexRows(packagesDir, indexFile)
+
+	content := fmt.Sprintf(`---
+title: Package Reference
+description: Index of project packages.
+---
+
+# Package Reference
+
+| Package | Description |
+| :--- | :--- |
+%s
+`, strings.Join(packageRows, "\n"))
+
+	if err := g.props.FS.MkdirAll(packagesDir, DefaultDirMode); err != nil {
+		return errors.Wrap(err, "failed to create packages index dir")
+	}
+
+	if err := afero.WriteFile(g.props.FS, indexFile, []byte(content), DefaultFileMode); err != nil {
+		return errors.Wrap(err, "failed to write packages index")
+	}
+
+	return nil
+}
+
+// collectPackageIndexRows walks packagesDir and returns a Markdown table row for
+// each documented sub-package (a directory with its own index.md), skipping the
+// index file itself. Walk errors are logged, not fatal.
+func (g *Generator) collectPackageIndexRows(packagesDir, indexFile string) []string {
 	packageRows := make([]string, 0)
 
 	err := afero.Walk(g.props.FS, packagesDir, func(path string, info os.FileInfo, err error) error {
@@ -968,36 +997,15 @@ func (g *Generator) generatePackagesIndex() error {
 			desc = d
 		}
 
-		row := fmt.Sprintf("| [%s](%s/) | %s |", relPath, relPath, desc)
-		packageRows = append(packageRows, row)
+		packageRows = append(packageRows, fmt.Sprintf("| [%s](%s/) | %s |", relPath, relPath, desc))
 
 		return nil
 	})
 	if err != nil {
-		p.Logger.Warn("Error walking packages dir", "error", err)
+		g.props.Logger.Warn("Error walking packages dir", "error", err)
 	}
 
-	content := fmt.Sprintf(`---
-title: Package Reference
-description: Index of project packages.
----
-
-# Package Reference
-
-| Package | Description |
-| :--- | :--- |
-%s
-`, strings.Join(packageRows, "\n"))
-
-	if err := g.props.FS.MkdirAll(packagesDir, DefaultDirMode); err != nil {
-		return errors.Wrap(err, "failed to create packages index dir")
-	}
-
-	if err := afero.WriteFile(g.props.FS, indexFile, []byte(content), DefaultFileMode); err != nil {
-		return errors.Wrap(err, "failed to write packages index")
-	}
-
-	return nil
+	return packageRows
 }
 
 func getFrontmatter(fs afero.Fs, docPath string) map[string]any {

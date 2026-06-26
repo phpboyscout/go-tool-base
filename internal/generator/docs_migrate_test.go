@@ -49,12 +49,12 @@ commands:
 
 	// Content is preserved at the new Diátaxis paths (leaf-flat / parent-subsection).
 	for path, want := range map[string]string{
-		"docs/reference/cli/index.md":               "INDEX",
-		"docs/reference/cli/deploy.md":              "DEPLOY DOC", // leaf
-		"docs/reference/cli/a/index.md":             "A DOC",      // parent (has child run)
-		"docs/reference/cli/a/run.md":               "RUN DOC",    // leaf under a
-		"docs/explanation/components/index.md":      "PKG INDEX",
-		"docs/explanation/components/config.md":     "CONFIG DOC",
+		"docs/reference/cli/index.md":           "INDEX",
+		"docs/reference/cli/deploy.md":          "DEPLOY DOC", // leaf
+		"docs/reference/cli/a/index.md":         "A DOC",      // parent (has child run)
+		"docs/reference/cli/a/run.md":           "RUN DOC",    // leaf under a
+		"docs/explanation/components/index.md":  "PKG INDEX",
+		"docs/explanation/components/config.md": "CONFIG DOC",
 	} {
 		got, err := afero.ReadFile(fs, filepath.Join(root, path))
 		require.NoErrorf(t, err, "expected migrated doc: %s", path)

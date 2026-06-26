@@ -71,23 +71,23 @@ type Config struct {
 	GitPush bool
 	// GitBranch is the default branch the initial commit lands on (default
 	// "main", overridable via --git-branch).
-	GitBranch            string
-	Flags                []string
-	Force                bool
-	Hidden               bool
-	Overwrite            string // allow, deny, or ask (default ask)
-	Long                 string
-	Name                 string
-	Parent               string
-	Path                 string
-	PersistentPreRun     bool
-	PreRun               bool
-	Prompt               string
-	Protected            *bool
-	MCPEnabled           *bool // tri-state MCP exposure; mirrors Protected
-	ScriptPath           string
-	Short                string
-	UpdateDocs           bool
+	GitBranch        string
+	Flags            []string
+	Force            bool
+	Hidden           bool
+	Overwrite        string // allow, deny, or ask (default ask)
+	Long             string
+	Name             string
+	Parent           string
+	Path             string
+	PersistentPreRun bool
+	PreRun           bool
+	Prompt           string
+	Protected        *bool
+	MCPEnabled       *bool // tri-state MCP exposure; mirrors Protected
+	ScriptPath       string
+	Short            string
+	UpdateDocs       bool
 	// PublicAPI marks the module as publicly published (the --public-api flag),
 	// so generated package docs defer their API reference to pkg.go.dev. Default
 	// false: the reference is stubbed to a local `go doc` hint (no dead links for
