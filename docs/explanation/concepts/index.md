@@ -88,11 +88,11 @@ How to expose your CLI tool as an autonomous agent for LLMs to control.
 ### [Manifest Architecture](manifest.md)
 Understand how the `.gtb/manifest.yaml` acts as the source of truth for your CLI scaffolding.
 
-### [AI-Powered Features](../components/chat.md)
+### [AI-Powered Features](../components/chat/index.md)
 How to consume AI services to build intelligent features within your tool.
 
 ### [Credentials Architecture](../components/credentials.md)
 The conceptual storage modes, trust model, and consumer architecture for user-supplied secrets.
 
-### [Telemetry Architecture & Concepts](../components/telemetry.md)
+### [Telemetry Architecture & Concepts](../components/telemetry/index.md)
 Architectural concepts, privacy controls, data handling, and design limitations behind GTB's telemetry framework.

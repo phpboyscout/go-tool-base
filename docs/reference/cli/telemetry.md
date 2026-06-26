@@ -135,5 +135,5 @@ TELEMETRY_ENABLED=true mytool init
 
 ## Related Documentation
 
-- [Telemetry Component](../../explanation/components/telemetry.md) — backends, privacy controls, event types, and architecture
+- [Telemetry Component](../../explanation/components/telemetry/index.md) — backends, privacy controls, event types, and architecture
 - [Props](../../explanation/components/props.md) — `Collector` field and `TelemetryConfig`

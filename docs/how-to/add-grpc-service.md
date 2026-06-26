@@ -246,7 +246,7 @@ controller.Register("myservice",
 ## Related Documentation
 
 - **[Managing Background Services](manage-background-services.md)** — controller setup, service registration basics
-- **[Controls component](../explanation/components/controls.md)** — `Controllable`, `Runner`, `HealthReporter` interface reference
+- **[Controls component](../explanation/components/controls/index.md)** — `Controllable`, `Runner`, `HealthReporter` interface reference
 - **[gRPC component](../explanation/components/grpc.md)** — `NewServer`, `RegisterHealthService`, `Start`/`Stop`/`Status`, `DialLocal`
 - **[TLS component](../explanation/components/tls.md)** — shared TLS config, the typed `Pair`, and per-transport resolution
 - **[Gateway component](../explanation/components/gateway.md)** — expose the gRPC service as REST via grpc-gateway

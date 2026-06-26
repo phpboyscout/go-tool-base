@@ -260,6 +260,6 @@ Local telemetry data cleared. Telemetry disabled.
 
 ## Related Documentation
 
-- [Telemetry Component](../explanation/components/telemetry.md) — architecture, GDPR deletion, privacy controls
+- [Telemetry Component](../explanation/components/telemetry/index.md) — architecture, GDPR deletion, privacy controls
 - [Create a Custom Telemetry Backend](custom-telemetry-backend.md) — the `Backend` interface
 - [Telemetry Command](../reference/cli/telemetry.md) — the `reset` command
