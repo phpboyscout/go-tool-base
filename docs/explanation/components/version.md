@@ -126,7 +126,7 @@ version.FormatVersionString("", true)        // ""         (empty string preserv
 
 ```go
 version.NewInfo("dev", "none", "unknown").IsDevelopment()   // true
-version.NewInfo("v0.0.0", "abc", "2026-01-01").IsDevelopment() // true (invalid semver)
+version.NewInfo("v0.0.0", "abc", "2026-01-01").IsDevelopment() // false (valid semver, no -dev/-dirty)
 version.NewInfo("v1.2.3", "abc", "2026-01-01").IsDevelopment() // false
 version.NewInfo("v1.2.3-dev", "abc", "2026-01-01").IsDevelopment() // true
 ```

@@ -61,8 +61,10 @@ var ErrUnsupportedKeyType
 
 ### Why RSA only
 
-AWS KMS — the production HSM in scope for v0.1 — only exposes RSA
-for asymmetric `SIGN_VERIFY` keys. Ed25519 minting flows through
+The `aws-kms` signing backend targets RSA for asymmetric `SIGN_VERIFY`
+keys in v0.1. (AWS KMS itself also offers ECC and ML-DSA `SIGN_VERIFY`
+specs — supporting those is an additive follow-up, not a KMS limitation.)
+Ed25519 minting flows through
 `internal/cmd/keys/generate.go` instead, which uses go-crypto's own
 `openpgp.NewEntity(...)` with `PubKeyAlgoEdDSA` to produce v4 EdDSA
 (algorithm 22) keys that GnuPG 2.4 imports cleanly.
@@ -116,7 +118,7 @@ re-derive an existing key after losing the `.asc` file, pin
   modern OpenPGP implementation.
 - **RSA public-key packet**: produced via
   `packet.NewRSAPublicKey(creationTime, *rsa.PublicKey)`.
-- **Self-signature**: positive cert (`SignatureTypePositiveCert`),
+- **Self-signature**: positive cert (`packet.SigTypePositiveCert`, `0x13`),
   produced by `Entity.AddUserId` which routes through
   `signer.Sign(...)`.
 - **Hash**: chosen by go-crypto/openpgp at sign time; typically

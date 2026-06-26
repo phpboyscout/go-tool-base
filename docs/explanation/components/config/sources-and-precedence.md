@@ -206,12 +206,12 @@ redisConfig := cacheConfig.Sub("redis") // Nested: cache.redis.*
 
 #### Environment-Aware `Sub()`
 
-Viper's native `Sub()` returns a fresh `*viper.Viper` that does **not** inherit the parent's `AutomaticEnv` + `SetEnvPrefix` configuration. That would quietly strip prefix-aware env binding from every sub-container — so `cfg.Sub("github").GetString("auth.value")` would miss `<TOOL>_GITHUB_AUTH_VALUE` even though the top-level `cfg.GetString("github.auth.value")` resolves it correctly.
+Viper's native `Sub()` returns a detached `*viper.Viper` holding a **snapshot** of the sub-tree's data. Later root-level `Set` calls, file reloads, and the full multi-source precedence chain don't propagate into that detached copy, and a write-back (`WriteConfigAs`) targets the snapshot rather than the live configuration. (Recent viper does propagate `AutomaticEnv` + `SetEnvPrefix` into the sub-viper, so prefixed env lookups still resolve — but the data is still a point-in-time copy.)
 
 The GTB `Container.Sub()` avoids that trap. The returned view:
 
 1. Keeps a **structural view** — Viper's own `Sub` sub-tree — used for `WriteConfigAs`, `Dump`, `ToJSON`, and `Validate` so those operations remain scoped to the sub-path.
-2. Tracks the **root container** and an accumulated dot-prefix, and routes every `Get*`, `Set`, `Has`, and `IsSet` call through the root's Viper with a qualified key path. `AutomaticEnv` + prefix binding continue to fire no matter how many `Sub()` layers a caller walks.
+2. Tracks the **root container** and an accumulated dot-prefix, and routes every `Get*`, `Set`, `Has`, and `IsSet` call through the root's Viper with a qualified key path. Root-level writes, hot reloads, and the full precedence chain — including `AutomaticEnv` + prefix binding — stay live no matter how many `Sub()` layers a caller walks.
 
 ```go
 // With env prefix "MYTOOL" and GTB_GITHUB_AUTH_VALUE=ghp_xxx in env:

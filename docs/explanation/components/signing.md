@@ -91,7 +91,7 @@ binary (`cmd/gtb-no-aws-smoke`) — see
 
 ### `aws-kms` (`pkg/signing/kms`)
 
-Wraps an AWS KMS asymmetric `SIGN_VERIFY` key (RSA-4096).
+Wraps an AWS KMS asymmetric RSA-4096 `SIGN_VERIFY` key (the spec supported in v0.1; KMS also offers ECC and ML-DSA).
 Requires `kms:GetPublicKey` and `kms:Sign` on the target key. The
 backend resolves AWS credentials through the standard SDK chain
 (env / shared config / EC2 IMDS / web-identity / OIDC). Maps the

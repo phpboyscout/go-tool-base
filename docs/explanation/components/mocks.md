@@ -26,7 +26,7 @@ The mocks package contains mock implementations for all major GTB interfaces, ma
 
 ### Configuration Mocks
 
-Located in `mocks/config/`:
+Located in `mocks/pkg/config/`:
 
 #### **Containable Mock**
 Mock implementation of `config.Containable` interface for testing configuration-dependent code:
@@ -88,7 +88,7 @@ func TestConfigObserver(t *testing.T) {
 
 ### Controls Mocks
 
-Located in `mocks/controls/`:
+Located in `mocks/pkg/controls/`:
 
 #### **Controllable Mock**
 Mock implementation of `controls.Controllable` interface for testing service lifecycle:
@@ -113,7 +113,7 @@ func TestServiceLifecycle(t *testing.T) {
 
 ### Version Control Mocks
 
-Located in `mocks/vcs/`:
+Located in `mocks/pkg/vcs/`:
 
 #### **GitHubClient Mock**
 Mock for GitHub Enterprise API operations:
@@ -254,41 +254,42 @@ func TestErrorHandling(t *testing.T) {
 
 ## Mock Generation
 
-The mocks are automatically generated using Mockery. The configuration is maintained in the project's `.mockery.yaml` file:
+The mocks are automatically generated using **Mockery v3** (pinned via the
+`tool` directive in `go.mod`). The configuration lives in the project's
+`.mockery.yml` file:
 
 ```yaml
-with-expecter: true
-dir: "mocks/{{.PackageName}}"
+# Mockery v3: `template` replaces v2's `with-expecter` (expecters are always on now).
+template: testify
+dir: "mocks/{{ .InterfaceDirRelative }}"   # e.g. pkg/config -> mocks/pkg/config
 filename: "{{.InterfaceName}}.go"
+structname: "{{.Mock}}{{.InterfaceName}}"
+formatter: goimports
+recursive: true
+all: true
 packages:
-  gitlab.com/phpboyscout/go-tool-base/pkg/config:
-    interfaces:
-      Containable:
-      Observable:
-      EmbeddedFileReader:
-  gitlab.com/phpboyscout/go-tool-base/pkg/controls:
-    interfaces:
-      Controllable:
-  gitlab.com/phpboyscout/go-tool-base/pkg/vcs:
-    interfaces:
-      GitHubClient:
-      RepoLike:
+  gitlab.com/phpboyscout/go-tool-base/pkg:
+    config:
+      all: true
 ```
+
+`dir` uses `{{ .InterfaceDirRelative }}`, so an interface in `pkg/config`
+generates into `mocks/pkg/config/` (mirroring the source tree under `mocks/`).
 
 ### Regenerating Mocks
 
 To regenerate mocks after interface changes:
 
 ```bash
-# Install mockery if not already installed
-go install github.com/vektra/mockery/v2@latest
+# Mockery is pinned as a Go tool (the go.mod `tool` directive) — no separate install.
+just mocks        # regenerate every mock (preferred)
 
-# Generate all mocks
-mockery
-
-# Or generate mocks for specific package
-mockery --dir=./pkg/config --name=Containable
+# Or invoke the pinned tool directly (reads .mockery.yml):
+go tool mockery
 ```
+
+Mockery v3 selects interfaces from `.mockery.yml`, not CLI flags — the v2
+`--dir`/`--name` selectors no longer exist.
 
 ## Best Practices
 
