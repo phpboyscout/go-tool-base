@@ -437,7 +437,7 @@ The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles
 
 Related surfaces that rely on the same taxonomy:
 
-- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Chat > Credential Resolution](../chat.md#credential-resolution).
+- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Chat > Credential Resolution](../chat/index.md#credential-resolution).
 - **`pkg/vcs/bitbucket`** — dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals.
 - **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
 - **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.

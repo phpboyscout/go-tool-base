@@ -28,11 +28,11 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 
 | Component | Package | Description |
 | :--- | :--- | :--- |
-| **[Controls](controls.md)** | `pkg/controls` | Service orchestration and lifecycle management for long-running processes (e.g., servers, watchers). |
+| **[Controls](controls/index.md)** | `pkg/controls` | Service orchestration and lifecycle management for long-running processes (e.g., servers, watchers). |
 | **[Setup](setup/index.md)** | `pkg/setup` | bootstrapping logic for tool initialization, including GitHub authentication and self-updates. |
 | **[VCS](vcs/index.md)** | `pkg/vcs/...` | Git operations, GitHub/GitLab API clients, and backend-agnostic release provider. (See also the [Version Control](version-control.md) redirect page.) |
-| **[Chat](chat.md)** | `pkg/chat` | Multi-provider AI client (OpenAI, Anthropic, Gemini) for building intelligent features. |
-| **[Telemetry](telemetry.md)** | `pkg/telemetry` | Opt-in, consent-gated product analytics with pluggable backends (OTLP, PostHog, Datadog), bounded buffering and GDPR deletion. Distinct from web-service **[Observability](observability.md)**. |
+| **[Chat](chat/index.md)** | `pkg/chat` | Multi-provider AI client (OpenAI, Anthropic, Gemini) for building intelligent features. |
+| **[Telemetry](telemetry/index.md)** | `pkg/telemetry` | Opt-in, consent-gated product analytics with pluggable backends (OTLP, PostHog, Datadog), bounded buffering and GDPR deletion. Distinct from web-service **[Observability](observability.md)**. |
 | **[Docs](docs.md)** | `pkg/docs` | Logic for the interactive TUI documentation browser. |
 | **[Forms](forms.md)** | `pkg/forms` | Multi-step interactive CLI form helpers with Escape-to-go-back navigation, built on charmbracelet/huh. |
 | **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
@@ -56,7 +56,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 
 ## Web Service
 
-Components for running a CLI as a long-lived service. See also **[Controls](controls.md)** for the lifecycle management they register against.
+Components for running a CLI as a long-lived service. See also **[Controls](controls/index.md)** for the lifecycle management they register against.
 
 | Component | Package | Description |
 | :--- | :--- | :--- |
