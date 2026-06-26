@@ -22,7 +22,7 @@ paths = [
     '''pkg/telemetry/telemetry_test\.go''',
     '''pkg/cmd/doctor/report_test\.go''',
     '''docs/explanation/components/redact\.md''',
-    '''docs/explanation/components/telemetry\.md''',
+    '''docs/explanation/components/telemetry/.*\.md''',
     '''docs/explanation/concepts/telemetry\.md''',
     '''pkg/openapi/assets/web-components\.min\.js''',
     '''pkg/openapi/assets/styles\.min\.css''',
