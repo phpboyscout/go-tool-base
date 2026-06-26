@@ -52,6 +52,17 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 		return err
 	}
 
+	// `regenerate project --force` migrates a flat-layout project to the Diátaxis
+	// layout before regeneration, so the re-emitted docs and indexes land in the
+	// new tree rather than recreating the old one.
+	if g.config.Force {
+		if m := g.readManifestQuiet(); m != nil && m.Properties.ResolvedDocsLayout() != DocsLayoutDiataxis {
+			if err := g.migrateFlatDocsToDataxis(); err != nil {
+				return err
+			}
+		}
+	}
+
 	if err := g.regenerateProjectFiles(ctx); err != nil {
 		return err
 	}
