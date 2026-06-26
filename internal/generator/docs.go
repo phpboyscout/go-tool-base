@@ -24,9 +24,6 @@ import (
 
 var ErrInvalidPackageName = errors.Newf("invalid package name")
 
-const noAIPackageDocs = "Package documentation requires an AI integration to generate meaningful content. " +
-	"Configure an AI provider and re-run `generate docs --package` to generate full documentation."
-
 var packageDocumentationSystemPrompt = `You are an expert technical writer and software engineer.
 Your goal is to generate understanding-oriented Markdown documentation for a Go package — explanation, NOT an auto-generated API dump.
 Audience: Software Engineers integrating with or maintaining this package.
@@ -164,7 +161,7 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 	if !g.aiDocsEnabled() {
 		g.props.Logger.Debugf("AI docs not enabled (no provider configured or --agentless); writing boilerplate for %q", name)
 
-		return g.handleNoAIDocs(name, fullCmdName, outputPath, isPackage)
+		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
 	}
 
 	// 2. Read Source
@@ -179,7 +176,7 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 	if err != nil {
 		g.props.Logger.Infof("AI docs unavailable for %q, writing boilerplate: %v", name, err)
 
-		return g.handleNoAIDocs(name, fullCmdName, outputPath, isPackage)
+		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
 	}
 
 	return g.writeAIDocs(ctx, client, content, outputPath, isPackage)
@@ -210,11 +207,9 @@ func (g *Generator) aiDocsEnabled() bool {
 // handleNoAIDocs writes documentation without AI assistance.
 // For commands it generates a basic template from manifest data.
 // For packages it writes a stub file with a notice that AI is required.
-func (g *Generator) handleNoAIDocs(name, fullCmdName, outputPath string, isPackage bool) error {
+func (g *Generator) handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath string, isPackage bool) error {
 	if isPackage {
-		g.props.Logger.Warn(noAIPackageDocs)
-
-		if err := g.writePackageDocStub(name, outputPath); err != nil {
+		if err := g.writePackageDocStub(name, relPath, moduleName, outputPath); err != nil {
 			return err
 		}
 
@@ -277,7 +272,7 @@ func (g *Generator) writeAIDocs(ctx context.Context, client chat.ChatClient, con
 
 // writePackageDocStub writes a minimal package doc file with a notice that AI
 // is required to generate meaningful content.
-func (g *Generator) writePackageDocStub(name, outputPath string) error {
+func (g *Generator) writePackageDocStub(name, relPath, moduleName, outputPath string) error {
 	currentDate := time.Now().Format("2006-01-02")
 
 	content := fmt.Sprintf(`---
@@ -289,13 +284,43 @@ tags: [go, package, %s]
 
 # %s
 
-!!! warning "AI Integration Required"
-    %s
-`, name, currentDate, name, name, noAIPackageDocs)
+## Overview
+
+_TODO: what this package is for and the problem it solves._
+
+## Key Types
+
+_TODO: the main exported types and their roles._
+
+## Usage
+
+_TODO: a short usage sketch._
+
+## API Reference
+
+%s
+`, name, currentDate, name, name, g.apiReferenceNote(relPath, moduleName))
 
 	g.props.Logger.Infof("Writing package documentation stub to %s", outputPath)
 
 	return g.writeDocFile(outputPath, []byte(content))
+}
+
+// apiReferenceNote returns the package doc's "API Reference" body for no-AI
+// (boilerplate) generation: a pkg.go.dev link when the module is published
+// (--public-api / manifest module_published), else a local `go doc` hint, so a
+// private/unpublished module never gets a dead registry link.
+func (g *Generator) apiReferenceNote(pkgRel, moduleName string) string {
+	isPublic := g.config.PublicAPI
+	if m := g.readManifestQuiet(); m != nil && m.Properties.ModulePublished {
+		isPublic = true
+	}
+
+	if isPublic && moduleName != "" {
+		return fmt.Sprintf("See [%s/%s](https://pkg.go.dev/%s/%s) for the full API reference.", moduleName, pkgRel, moduleName, pkgRel)
+	}
+
+	return fmt.Sprintf("Run `go doc ./%s` for the full API reference.", pkgRel)
 }
 
 // writeBasicCommandDocs generates a markdown template for a command using data
@@ -321,6 +346,7 @@ func (g *Generator) writeBasicCommandDocs(name, fullCmdName, outputPath string) 
 	fmt.Fprintf(&sb, "## Usage\n\n```\n%s [flags]\n```\n\n", fullCmdName)
 	appendFlagsTable(&sb, cmd)
 	appendSubcommandsTable(&sb, fullCmdName, cmd)
+	fmt.Fprintf(&sb, "Run `%s --help` for the authoritative, always-current flag set.\n\n", fullCmdName)
 
 	g.props.Logger.Infof("Writing basic documentation to %s", outputPath)
 
