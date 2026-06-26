@@ -12,6 +12,9 @@ The `config` command provides programmatic read/write access to individual confi
 Its primary audience is CI pipelines and tool authors automating setup — not humans doing
 interactive reconfiguration (use `init <subsystem>` for that instead).
 
+For the catalogue of keys the framework reads (types, defaults, env mapping), see the
+[Configuration Keys reference](../config/index.md).
+
 ## Usage
 
 ```bash
