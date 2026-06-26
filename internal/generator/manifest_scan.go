@@ -52,6 +52,13 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	// with a lossy re-derivation from root cmd.go (keryx defect B).
 	existingFeatures := m.Properties.Features
 
+	// docs_layout and module_published are manifest-only author configuration that
+	// cannot be recovered from the generated root cmd.go, so preserve them across
+	// the AST-driven rebuild (same rationale as features above). Losing
+	// docs_layout would silently revert a project to the flat docs layout.
+	existingDocsLayout := m.Properties.DocsLayout
+	existingModulePublished := m.Properties.ModulePublished
+
 	// Extract project properties from the generated root cmd.go so that
 	// name, description, and release_source are always up to date.
 	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
@@ -64,6 +71,14 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 
 	if len(existingFeatures) > 0 {
 		m.Properties.Features = existingFeatures
+	}
+
+	if existingDocsLayout != "" {
+		m.Properties.DocsLayout = existingDocsLayout
+	}
+
+	if existingModulePublished {
+		m.Properties.ModulePublished = existingModulePublished
 	}
 
 	if g.props.Version != nil {

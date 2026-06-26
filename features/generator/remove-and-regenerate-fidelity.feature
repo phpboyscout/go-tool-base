@@ -33,5 +33,5 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     Then the project exit code is 0
     When I run gtb in the project with "generate command --name run --parent b --agentless --short b-run"
     Then the project exit code is 0
-    And the generated "docs/commands/a/run/index.md" file contains "run"
-    And the generated "docs/commands/b/run/index.md" file contains "run"
+    And the generated "docs/reference/cli/a/run.md" file contains "run"
+    And the generated "docs/reference/cli/b/run.md" file contains "run"

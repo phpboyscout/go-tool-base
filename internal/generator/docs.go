@@ -890,6 +890,11 @@ func (g *Generator) generatePackagesIndex() error {
 	p.Logger.Info("Updating packages index...")
 
 	packagesDir := filepath.Join(g.config.Path, "docs", "packages")
+	if m := g.readManifestQuiet(); m != nil && m.Properties.ResolvedDocsLayout() == DocsLayoutDiataxis {
+		// Component overviews are explanation-quadrant in the Diátaxis layout.
+		packagesDir = filepath.Join(g.config.Path, "docs", "explanation", "components")
+	}
+
 	indexFile := filepath.Join(packagesDir, "index.md")
 
 	packageRows := make([]string, 0)
@@ -941,6 +946,10 @@ description: Index of project packages.
 %s
 `, strings.Join(packageRows, "\n"))
 
+	if err := g.props.FS.MkdirAll(packagesDir, DefaultDirMode); err != nil {
+		return errors.Wrap(err, "failed to create packages index dir")
+	}
+
 	if err := afero.WriteFile(g.props.FS, indexFile, []byte(content), DefaultFileMode); err != nil {
 		return errors.Wrap(err, "failed to write packages index")
 	}
@@ -977,7 +986,17 @@ func (g *Generator) generateCommandsIndex() error {
 	}
 
 	indexPath := filepath.Join(g.config.Path, "docs", "commands", "index.md")
+	if m.Properties.ResolvedDocsLayout() == DocsLayoutDiataxis {
+		// CLI commands are reference-quadrant in the Diátaxis layout; there is no
+		// docs/commands/ tree to write into.
+		indexPath = filepath.Join(g.config.Path, "docs", "reference", "cli", "index.md")
+	}
+
 	g.props.Logger.Infof("Updating commands index: %s", indexPath)
+
+	if err := g.props.FS.MkdirAll(filepath.Dir(indexPath), DefaultDirMode); err != nil {
+		return errors.Wrap(err, "failed to create commands index dir")
+	}
 
 	if err := afero.WriteFile(g.props.FS, indexPath, []byte(g.buildCommandsIndexContent(m.Commands)), DefaultFileMode); err != nil {
 		return errors.Wrap(err, "failed to write commands index")
