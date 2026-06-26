@@ -435,7 +435,7 @@ func TestBuildNavFromCommands(t *testing.T) {
 		},
 	}
 
-	nav := buildNavFromCommands(cmds, []string{})
+	nav := buildNavFromCommands(cmds, []string{}, false)
 	require.Len(t, nav, 1)
 
 	parentEntry := nav[0].(map[string]any)
@@ -443,6 +443,31 @@ func TestBuildNavFromCommands(t *testing.T) {
 
 	parentContent := parentEntry["Parent"].([]any)
 	assert.Len(t, parentContent, 2) // index.md + child
+}
+
+func TestNavCommandPath_LayoutAware(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		path        []string
+		hasChildren bool
+		diataxis    bool
+		want        string
+	}{
+		{"flat leaf", []string{"deploy"}, false, false, filepath.Join("commands", "deploy", "index.md")},
+		{"flat parent", []string{"a"}, true, false, filepath.Join("commands", "a", "index.md")},
+		{"diataxis leaf", []string{"deploy"}, false, true, filepath.Join("reference", "cli", "deploy.md")},
+		{"diataxis parent", []string{"a"}, true, true, filepath.Join("reference", "cli", "a", "index.md")},
+		{"diataxis nested leaf", []string{"a", "run"}, false, true, filepath.Join("reference", "cli", "a", "run.md")},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, navCommandPath(tc.path, tc.hasChildren, tc.diataxis))
+		})
+	}
 }
 
 func TestRegenerateMkdocsNav(t *testing.T) {

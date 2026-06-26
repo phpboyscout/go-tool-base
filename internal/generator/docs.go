@@ -1206,7 +1206,7 @@ func (g *Generator) updateMkdocsNavNode(rootNode *yaml.Node, m *Manifest) error 
 		nav = []any{}
 	}
 
-	cliNav := buildNavFromCommands(m.Commands, []string{})
+	cliNav := buildNavFromCommands(m.Commands, []string{}, m.Properties.ResolvedDocsLayout() == DocsLayoutDiataxis)
 	updatedNav := updateNavSection(nav, "CLI", cliNav)
 
 	newNavNode, err := g.marshalNavToNode(updatedNav)
@@ -1255,7 +1255,7 @@ func (g *Generator) marshalNavToNode(nav []any) (yaml.Node, error) {
 	return newNavNode, nil
 }
 
-func buildNavFromCommands(commands []ManifestCommand, parentPath []string) []any {
+func buildNavFromCommands(commands []ManifestCommand, parentPath []string, diataxis bool) []any {
 	nav := make([]any, 0, len(commands))
 
 	for _, cmd := range commands {
@@ -1263,13 +1263,14 @@ func buildNavFromCommands(commands []ManifestCommand, parentPath []string) []any
 		copy(currentPath, parentPath)
 		currentPath[len(parentPath)] = cmd.Name
 
-		relPath := filepath.Join("commands", filepath.Join(currentPath...), "index.md")
+		hasChildren := len(cmd.Commands) > 0
+		relPath := navCommandPath(currentPath, hasChildren, diataxis)
 
 		item := map[string]any{}
 		displayName := toTitle(cmd.Name) // Simple title case or PascalCase if available
 
-		if len(cmd.Commands) > 0 {
-			childrenNav := buildNavFromCommands(cmd.Commands, currentPath)
+		if hasChildren {
+			childrenNav := buildNavFromCommands(cmd.Commands, currentPath, diataxis)
 			sectionItems := make([]any, 0, 1+len(childrenNav))
 
 			sectionItems = append(sectionItems, relPath)
@@ -1284,6 +1285,25 @@ func buildNavFromCommands(commands []ManifestCommand, parentPath []string) []any
 	}
 
 	return nav
+}
+
+// navCommandPath returns the docs-relative path used in the generated mkdocs nav
+// for a command, honouring the docs layout: Diátaxis places CLI docs under
+// reference/cli (a leaf as <path>.md, a parent as <path>/index.md), while the
+// legacy flat layout uses commands/<path>/index.md. (zensical projects derive
+// navigation from the docs tree and never reach this code.)
+func navCommandPath(cmdPath []string, hasChildren, diataxis bool) string {
+	joined := filepath.Join(cmdPath...)
+
+	if diataxis {
+		if hasChildren {
+			return filepath.Join("reference", "cli", joined, "index.md")
+		}
+
+		return filepath.Join("reference", "cli", joined) + ".md"
+	}
+
+	return filepath.Join("commands", joined, "index.md")
 }
 
 func toTitle(s string) string {
