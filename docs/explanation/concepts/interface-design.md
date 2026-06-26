@@ -633,4 +633,4 @@ return interfaces rather than concrete structs.
 - **[Props Container](../components/props.md)**: How interfaces compose in the central dependency container
 - **[Mocks Package](../components/mocks.md)**: Using generated mocks for testing
 - **[Error Handling](../components/error-handling.md)**: ErrorHandler interface patterns
-- **[Configuration](../components/config.md)**: Containable and Observable usage
+- **[Configuration](../components/config/index.md)**: Containable and Observable usage

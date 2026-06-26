@@ -40,7 +40,7 @@ Learn about the bi-directional synchronization between your manifest and source 
 ### [Dependency Injection (Props)](../components/props.md)
 Learn about the `Props` container, the central nervous system that provides context to every command.
 
-### [Configuration Precedence](../components/config.md)
+### [Configuration Precedence](../components/config/index.md)
 Understand how defaults, files, environment variables, and flags merge to create a robust runtime configuration.
 
 ### [Universal Asset Management](../components/assets.md)

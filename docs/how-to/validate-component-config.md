@@ -310,7 +310,7 @@ myfeature:
 
 ## Related Documentation
 
-- **[Configuration component](../explanation/components/config.md)** — `Containable`, `Container`, factory functions, schema validation reference
+- **[Configuration component](../explanation/components/config/index.md)** — `Containable`, `Container`, factory functions, schema validation reference
 - **[Embed and Register Custom Assets](embed-custom-assets.md)** — how to ship config defaults with your package
 - **[React to Configuration Changes at Runtime](config-hot-reload.md)** — hot-reload and observer patterns
 - **[Add an Initialiser](add-initialiser.md)** — the full feature registration pattern including `IsConfigured` checks

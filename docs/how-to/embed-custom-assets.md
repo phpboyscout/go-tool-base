@@ -135,7 +135,7 @@ p.Config = cfg
 To layer a user config file *over* these embedded defaults, prefer the standard
 root/Props config loading (`config.LoadFilesContainer` with `WithConfigFiles`),
 which applies the full `flags > env > file > embedded > defaults` precedence — see
-[Configuration Precedence](../explanation/components/config.md). Hand-merging via
+[Configuration Precedence](../explanation/components/config/index.md). Hand-merging via
 the low-level container is rarely necessary.
 
 ---
