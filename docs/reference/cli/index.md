@@ -43,104 +43,27 @@ a CLI on GTB. They are not shipped in your generated tool.
 
 ---
 
-## Command Integration
+## Feature flags
 
-### Automatic Registration
+Built-in commands are registered automatically by `root.NewCmdRoot`. Each is gated
+by a feature-flag constant in `props`; the default-enabled set ships in every tool,
+and the opt-in set must be turned on explicitly.
 
-All built-in commands are automatically registered when you create a root command:
+| Constant | Command | Default |
+|----------|---------|---------|
+| `props.UpdateCmd` | `update` | enabled |
+| `props.InitCmd` | `init` | enabled |
+| `props.McpCmd` | `mcp` | enabled |
+| `props.DocsCmd` | `docs` | enabled |
+| `props.DoctorCmd` | `doctor` | enabled |
+| `props.ChangelogCmd` | `changelog` | enabled |
+| `props.AiCmd` | AI config in `init` | opt-in |
+| `props.ConfigCmd` | `config` | opt-in |
+| `props.TelemetryCmd` | `telemetry` | opt-in |
+| `props.ManCmd` | `man` | opt-in |
 
-```go
-package main
+The `version` command is always registered and cannot be disabled.
 
-import (
-    "embed"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-)
-
-//go:embed assets/*
-var assets embed.FS
-
-func main() {
-    props := &props.Props{
-        Tool: props.Tool{
-            Name: "mytool",
-            // ... other configuration
-        },
-        // ... other props
-    }
-
-    // Initialize props...
-    props.Assets = props.NewAssets(&assets)
-
-    // Create root command. Built-in commands (init, version, update, docs,
-    // doctor, changelog, mcp) are automatically registered unless explicitly
-    // disabled.
-    rootCmd := root.NewCmdRoot(props)
-    rootCmd.Execute()
-}
-```
-
-### Disabling Commands
-
-You can disable specific built-in commands by configuring the `Features` field in `props.Tool`:
-
-```go
-props := &props.Props{
-    Tool: props.Tool{
-        Name: "mytool",
-        Features: props.SetFeatures(
-            props.Disable(props.UpdateCmd), // Disable the update command
-            props.Disable(props.InitCmd),   // Disable the init command
-            props.Disable(props.McpCmd),    // Disable the MCP command
-        ),
-    },
-}
-```
-
-**Available disable options:**
-
-- `props.UpdateCmd`: Disables the `update` command.
-- `props.InitCmd`: Disables the `init` command.
-- `props.McpCmd`: Disables the `mcp` command.
-- `props.DocsCmd`: Disables the `docs` command.
-- `props.DoctorCmd`: Disables the `doctor` command.
-- `props.ChangelogCmd`: Disables the `changelog` command.
-- `props.ConfigCmd`: Disables the `config` command (note: already disabled by default).
-
-Note: The `version` command cannot be disabled as it's essential for troubleshooting.
-
-### Enabling Optional Commands
-
-Some commands are opt-in and disabled by default. Enable them via `props.SetFeatures`:
-
-```go
-props := &props.Props{
-    Tool: props.Tool{
-        Features: props.SetFeatures(
-            props.Enable(props.AiCmd),    // Enable AI provider configuration in 'init'
-            props.Enable(props.ConfigCmd), // Enable programmatic config access
-        ),
-    },
-}
-```
-
-**Available opt-in commands:**
-
-- `props.AiCmd`: Enables AI provider configuration during `init`.
-- `props.ConfigCmd`: Enables the `config get/set/list/validate` command group.
-- `props.TelemetryCmd`: Enables the opt-in usage telemetry management commands.
-- `props.ManCmd`: Enables the hidden roff man-page emitter command for packaging scripts.
-
----
-
-## Custom Commands
-
-You can easily add your own custom commands alongside the built-in ones by passing them to `NewCmdRoot`:
-
-```go
-customCmd := newCustomCommand(props)
-rootCmd := root.NewCmdRoot(props, customCmd)
-```
-
-See the **[Development Guide](../../development/index.md)** for more details on implementing custom commands.
+To toggle these (via `props.SetFeatures(props.Enable(…)/props.Disable(…))`) see
+[Configuring Built-in Features](../../how-to/builtin-features.md); to add your own
+commands see [Adding Custom Commands](../../how-to/custom-commands.md).
