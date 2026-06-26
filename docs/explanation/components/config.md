@@ -41,20 +41,15 @@ The `Containable` interface provides the primary API for configuration access:
 
 ## Container Implementation
 
-The `Container` struct is the primary implementation of the `Containable` interface. Engineers should use this concrete type rather than the interface directly, except for testing and dependency injection:
+The `Container` struct is the primary implementation of the `Containable` interface. Engineers should use this concrete type rather than the interface directly, except for testing and dependency injection. Its fields are internal — construct it via the options-pattern factory functions:
 
 ```go
-type Container struct {
-    ID        string
-    viper     *viper.Viper
-    logger    logger.Logger
-    observers []Observable
-}
-
-// Core factory functions (options pattern):
 func NewFilesContainer(fs afero.Fs, opts ...ContainerOption) *Container
 func NewReaderContainer(fs afero.Fs, opts ...ContainerOption) *Container
 ```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full `Container` API.
 
 ### Container Options
 

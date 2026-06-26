@@ -175,23 +175,9 @@ The full controller interface, composed of all role-based interfaces:
 
 ## Controller Implementation
 
-The `Controller` struct is the primary implementation of the `Controllable` interface. Engineers should use this concrete type rather than the interface directly, except for testing and dependency injection:
+The `Controller` struct is the primary implementation of the `Controllable` interface. Engineers should use this concrete type rather than the interface directly, except for testing and dependency injection. Its fields are internal — construct it via the options-pattern factory:
 
 ```go
-type Controller struct {
-    ctx        context.Context
-    logger     logger.Logger
-    messages   chan Message
-    health     chan HealthMessage
-    errs       chan error
-    signals    chan os.Signal
-    wg         *sync.WaitGroup
-    state      State
-    stateMutex sync.Mutex
-    services   Services
-}
-
-// Factory function with options
 func NewController(ctx context.Context, opts ...ControllerOpt) *Controller
 
 // Available controller options
@@ -200,6 +186,9 @@ func WithLogger(l logger.Logger) ControllerOpt
 func WithShutdownTimeout(d time.Duration) ControllerOpt
 func WithValidError(fn ValidErrorFunc) ControllerOpt
 ```
+
+> [!NOTE]
+> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/controls) for the full `Controller` API.
 
 OS-signal handling is registered only **after** all options are applied, so
 `WithoutSignals` genuinely leaves `SIGINT`/`SIGTERM` with their default
