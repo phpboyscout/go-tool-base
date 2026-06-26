@@ -1,5 +1,6 @@
-// Package changelog provides the changelog command for displaying version
-// history from an embedded CHANGELOG.md.
+// Package changelog provides the `changelog` command for displaying version
+// history from an embedded CHANGELOG.md, with optional version and since-tag
+// filtering. It is a no-op when no changelog asset is embedded.
 package changelog
 
 import (

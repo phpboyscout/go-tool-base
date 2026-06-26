@@ -1,4 +1,7 @@
-// Package telemetry provides CLI commands for managing pseudonymous usage telemetry.
+// Package telemetry provides the `telemetry` command group for managing
+// pseudonymous usage telemetry: enable, disable, status, and reset subcommands.
+// Telemetry is opt-in; `reset` clears local state and requests deletion of
+// previously sent data.
 package telemetry
 
 import (

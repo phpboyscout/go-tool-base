@@ -7,5 +7,5 @@
 //
 // The [Controllable] interface abstracts the controller for testing, exposing
 // Start, Stop, IsRunning, IsStopped, IsStopping, Register, and configuration
-// methods. Concrete transports are provided by the grpc and http sub-packages.
+// methods.
 package controls

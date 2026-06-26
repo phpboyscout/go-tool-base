@@ -2,7 +2,8 @@
 // crypto.Signer. It exists to bridge a KMS/HSM-held signing key (which
 // exposes only a public key plus a remote Sign operation) into the
 // OpenPGP form that the self-update verifier (pkg/setup) and Web Key
-// Directory require.
+// Directory require. It also generates the WKD tree for publishing the
+// key ([WriteWKDTree]).
 //
 // Why this is needed: the verifier rejects a bare public-key packet
 // ("v4 entity without any identities") — it needs a User ID and a
@@ -15,8 +16,8 @@
 //
 // signer.Public() must return *rsa.PublicKey. The package produces a
 // v4 RSA OpenPGP public-key packet — used by the primary
-// release-signing key path (AWS KMS exposes asymmetric SIGN_VERIFY
-// keys only as RSA) and by `gtb keys generate --algorithm rsa` for
+// release-signing key path (the aws-kms backend targets RSA in v0.1)
+// and by `gtb keys generate --algorithm rsa` for
 // the local-signing tutorial flow.
 //
 // Other key types return ErrUnsupportedKeyType. Ed25519 key

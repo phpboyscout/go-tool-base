@@ -7,7 +7,7 @@
 //
 // # Usage
 //
-//	ws, err := workspace.DetectFromCWD(afero.NewOsFs(), workspace.DefaultMarkers...)
+//	ws, err := workspace.DetectFromCWD(afero.NewOsFs(), workspace.DefaultMarkers)
 //	if err != nil {
 //	    return errors.Wrap(err, "not inside a project")
 //	}

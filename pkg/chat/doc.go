@@ -2,9 +2,11 @@
 // Claude, OpenAI, Gemini, Claude Local (via CLI binary), and OpenAI-compatible
 // endpoints.
 //
-// The [ChatClient] interface exposes four core methods: Add (append a message),
-// Chat (multi-turn conversation with tool use via a ReAct loop), Ask (structured
-// output with JSON schema validation), and SetTools (register callable tools).
+// The [ChatClient] interface exposes five methods: Add (append a message), Chat
+// (multi-turn conversation with tool use via a ReAct loop), Ask (structured output
+// with JSON schema validation), SetTools (register callable tools), and Usage
+// (token accounting). Streaming-capable providers also implement
+// [StreamingChatClient] (StreamChat).
 //
 // Tool calling follows a JSON Schema parameter definition, and the ReAct loop
 // automatically dispatches tool calls and feeds results back until the model

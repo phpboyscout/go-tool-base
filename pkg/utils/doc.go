@@ -1,4 +1,4 @@
-// Package utils provides small shared utility functions including terminal
-// interactivity detection and string manipulation helpers used across the
-// GTB framework.
+// Package utils provides small shared utility functions used across the GTB
+// framework: PATH/executable resolution with install-instruction hints
+// ([GracefulGetPath]) and terminal-interactivity detection ([IsInteractive]).
 package utils

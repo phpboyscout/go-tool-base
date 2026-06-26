@@ -1,5 +1,5 @@
 // Package posthog provides a telemetry backend that sends events to PostHog's
-// Capture API using the batch endpoint. It supports US/EU cloud instances and
+// Capture API (batch payload form). It supports US/EU cloud instances and
 // self-hosted deployments.
 package posthog
 
