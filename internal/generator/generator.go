@@ -88,6 +88,12 @@ type Config struct {
 	ScriptPath           string
 	Short                string
 	UpdateDocs           bool
+	// PublicAPI marks the module as publicly published (the --public-api flag),
+	// so generated package docs defer their API reference to pkg.go.dev. Default
+	// false: the reference is stubbed to a local `go doc` hint (no dead links for
+	// a private/unpublished module). The manifest module_published property is the
+	// persistent equivalent.
+	PublicAPI            bool
 	WithAssets           bool
 	WithConfigValidation bool
 	WithInitializer      bool

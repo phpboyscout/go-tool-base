@@ -18,6 +18,7 @@ type DocsOptions struct {
 	PackagePath string
 	LegacySrc   string
 	Agentless   bool
+	PublicAPI   bool
 }
 
 func NewCmdDocs(p *props.Props) *cobra.Command {
@@ -56,6 +57,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.CommandName, "command", "", "Name/Path of command to document")
 	cmd.Flags().StringVar(&opts.PackagePath, "package", "", "Path to package to document (relative to project root)")
 	cmd.Flags().BoolVar(&opts.Agentless, "agentless", false, "Skip AI doc-generation and write boilerplate docs only")
+	cmd.Flags().BoolVar(&opts.PublicAPI, "public-api", false, "Module is publicly published: defer package API reference to pkg.go.dev (default: stub to a local 'go doc' hint)")
 
 	// --source is a deprecated alias for --command (Run() falls back to it
 	// when --command is empty). It must therefore participate in the
@@ -81,6 +83,7 @@ func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
 		AIProvider: aiProvider,
 		AIModel:    aiModel,
 		Agentless:  o.Agentless,
+		PublicAPI:  o.PublicAPI,
 	}
 
 	gen := generator.New(p, cfg)

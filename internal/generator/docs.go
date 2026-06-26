@@ -28,7 +28,7 @@ const noAIPackageDocs = "Package documentation requires an AI integration to gen
 	"Configure an AI provider and re-run `generate docs --package` to generate full documentation."
 
 var packageDocumentationSystemPrompt = `You are an expert technical writer and software engineer.
-Your goal is to generate comprehensive, professional Markdown documentation for a Go package (Developer Documentation).
+Your goal is to generate understanding-oriented Markdown documentation for a Go package — explanation, NOT an auto-generated API dump.
 Audience: Software Engineers integrating with or maintaining this package.
 Tone: Technical, Precise, and Resourceful.
 
@@ -40,7 +40,9 @@ STYLE GUIDELINES (CRITICAL):
    - tags: [go, package, %s]
    - authors: A list of authors. Append "%s" to existing.
 
-1. **Format**: Use Standard Markdown.
+1. **Format**: Use Standard Markdown. Leave a blank line before and after every heading, paragraph, list, and code block.
+
+2. **Diátaxis — explanation quadrant**: Explain WHAT the package is for and HOW it fits together: its purpose, the main exported types/interfaces and their roles, and a short, realistic usage sketch. Do NOT paste large interface/struct definitions or an exhaustive symbol list — that is reference material and does not belong here.
 
 CONTEXT:
 Existing Documentation (content below separator):
@@ -49,21 +51,18 @@ Existing Documentation (content below separator):
 ================================================================================
 
 INSTRUCTIONS:
-- Preserve manual edits/tags/authors.
-- Merge authors with current AI model.
-- Document Exported Types, Interfaces, Functions.
-- Provide Usage Examples.
+- Preserve manual edits/tags/authors; merge existing authors with the current AI model.
+- For the full, exhaustive API reference: %s
 
 IMPORT MAPPING:
 Module: "%s".
 
-Sections:
+Provide these explanation-oriented sections:
 * "# Package {Name}"
-* "## Overview"
-* "## Index" (List of exported symbols)
-* "## types"
-* "## Functions"
-* "## Usage"
+* "## Overview" — what it is and the problem it solves.
+* "## Key Types" — the main exported types/interfaces and their roles, described narratively (no full definitions).
+* "## Usage" — a short, realistic usage sketch.
+* "## API Reference" — follow the API-reference instruction above.
 
 IMPORTANT: Return ONLY raw Markdown. Do NOT include any "auto-generated" notices, machine-generated disclaimers, or generation timestamps in the output.
 `
@@ -435,12 +434,30 @@ func (g *Generator) getPromptAndOutput(name, relPath, moduleName string, isPacka
 	aiAuthor := fmt.Sprintf("%s (%s)", g.capitalize(provider), model)
 
 	if isPackage {
-		sysPrompt = fmt.Sprintf(packageDocumentationSystemPrompt, name, currentDate, name, aiAuthor, existingDocsContent, moduleName)
+		sysPrompt = fmt.Sprintf(packageDocumentationSystemPrompt, name, currentDate, name, aiAuthor, existingDocsContent, g.apiReferencePolicy(relPath, moduleName), moduleName)
 	} else {
 		sysPrompt = fmt.Sprintf(commandDocumentationSystemPrompt, fullCmdName, currentDate, name, aiAuthor, currentDate, existingDocsContent, moduleName, moduleName, moduleName, fullCmdName, fullCmdName)
 	}
 
 	return sysPrompt, fullCmdName, outputPath
+}
+
+// apiReferencePolicy returns the instruction the package-doc prompt uses for its
+// "API Reference" section. Code APIs are deferred to pkg.go.dev only when the
+// module is published (the manifest module_published property or the --public-api
+// flag); a private/unpublished module has no registry page, so the reference is
+// stubbed to a local `go doc` hint instead of a dead link.
+func (g *Generator) apiReferencePolicy(pkgRel, moduleName string) string {
+	isPublic := g.config.PublicAPI
+	if m := g.readManifestQuiet(); m != nil && m.Properties.ModulePublished {
+		isPublic = true
+	}
+
+	if isPublic {
+		return fmt.Sprintf("link to the package's registry page (https://pkg.go.dev/%s/%s) and give a one-line purpose per major symbol, rather than pasting definitions.", moduleName, pkgRel)
+	}
+
+	return fmt.Sprintf("do NOT link pkg.go.dev (this module may be private/unpublished); state that the full API is available locally via 'go doc ./%s', and do not paste large type/function definitions or invent a registry URL.", pkgRel)
 }
 
 func (g *Generator) readExistingDocs(path string) string {
