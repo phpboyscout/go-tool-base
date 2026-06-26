@@ -274,6 +274,43 @@ func ValidateSigningPublicKey(publicKey string) error {
 	return nil
 }
 
+// ValidatePackagePath validates the `--package` argument to `generate docs`: it
+// must be a clean, `/`-separated path relative to the project root, with no
+// absolute prefix and no `..` traversal. This forecloses writing the generated
+// doc outside docs/ (the value flows verbatim into filepath.Join for both the
+// source dir and the output path). Segments share the public-key character class.
+func ValidatePackagePath(pkgPath string) error {
+	if pkgPath == "" {
+		return rejectf("PackagePath", "package path must not be empty", "")
+	}
+
+	p := norm.NFC.String(pkgPath)
+	if strings.HasPrefix(p, "/") || strings.Contains(p, `\`) {
+		return rejectf("PackagePath",
+			"package path must be a `/`-separated path relative to the project root",
+			p)
+	}
+
+	// Accept a single friendly leading `./`; anything beyond it stays unclean.
+	p = strings.TrimPrefix(p, "./")
+
+	if p == "" || path.Clean(p) != p {
+		return rejectf("PackagePath",
+			"package path must be a clean relative path (no `.`, `..`, doubled, or trailing slashes)",
+			p)
+	}
+
+	for _, seg := range strings.Split(p, "/") {
+		if !publicKeySegmentRe.MatchString(seg) {
+			return rejectf("PackagePath",
+				fmt.Sprintf("package path segment %q must match ^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$", seg),
+				p)
+		}
+	}
+
+	return nil
+}
+
 // ValidateName enforces the naming rule for the scaffolded tool —
 // lowercase alphanumeric with optional hyphens, a letter first, and
 // at most 64 characters. This tight rule simultaneously forecloses

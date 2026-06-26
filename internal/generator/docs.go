@@ -551,6 +551,10 @@ func (g *Generator) resolveDocsTarget(target string, isPackage bool) (name, relP
 	}
 
 	if isPackage {
+		if err := ValidatePackagePath(target); err != nil {
+			return "", "", "", err
+		}
+
 		relPath = target
 		name = filepath.Base(target)
 		absPath = filepath.Join(configPath, relPath)
@@ -674,17 +678,14 @@ func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fu
 // safe for path-resolution code (and minimal test fixtures) that hold a Generator
 // with a nil Logger. Returns nil when the manifest is absent or unparseable.
 func (g *Generator) readManifestQuiet() *Manifest {
-	data, err := afero.ReadFile(g.props.FS, ManifestPathFor(g.config.Path))
+	// Reuse the canonical decoder (DecodeManifestFile is log-free, so this stays
+	// nil-Logger safe) and swallow errors to a nil manifest.
+	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
 	if err != nil {
 		return nil
 	}
 
-	var m Manifest
-	if err := yaml.Unmarshal(data, &m); err != nil {
-		return nil
-	}
-
-	return &m
+	return m
 }
 
 // commandDocRelPath returns a command's doc path relative to its quadrant root,

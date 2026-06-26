@@ -793,6 +793,45 @@ func TestValidateSigningPublicKey(t *testing.T) {
 	}
 }
 
+func TestValidatePackagePath(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{name: "single segment", input: "pkg", wantErr: false},
+		{name: "nested package", input: "pkg/utils", wantErr: false},
+		{name: "deep package", input: "internal/cmd/root", wantErr: false},
+		{name: "leading dot-slash", input: "./pkg/config", wantErr: false},
+		{name: "underscore and dash", input: "pkg/go-tool_base", wantErr: false},
+
+		{name: "empty", input: "", wantErr: true},
+		{name: "absolute", input: "/etc/passwd", wantErr: true},
+		{name: "traversal", input: "../../etc", wantErr: true},
+		{name: "interior traversal", input: "pkg/../../escape", wantErr: true},
+		{name: "dot-slash escape", input: "./../escape", wantErr: true},
+		{name: "backslash separator", input: `pkg\win`, wantErr: true},
+		{name: "trailing slash", input: "pkg/utils/", wantErr: true},
+		{name: "doubled slash", input: "pkg//utils", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := generator.ValidatePackagePath(tc.input)
+			if tc.wantErr {
+				require.Error(t, err)
+				require.ErrorIs(t, err, generator.ErrInvalidInput)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 // validTestManifest returns a minimal manifest that passes ValidateManifest,
 // for the walk tests to mutate.
 func validTestManifest() *generator.Manifest {

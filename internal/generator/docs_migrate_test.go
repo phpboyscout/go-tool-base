@@ -72,3 +72,69 @@ commands:
 	require.NoError(t, err)
 	assert.Contains(t, string(man), "docs_layout: diataxis")
 }
+
+// TestMigrateFlatDocsToDiataxis_PartialTrees covers projects that have only a
+// command tree or only a package tree — the moveFlatDocTree early-return when a
+// flat tree is absent must not fail or spuriously create the other quadrant.
+func TestMigrateFlatDocsToDiataxis_PartialTrees(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		files       map[string]string
+		wantPresent string
+		wantAbsent  []string
+	}{
+		{
+			name: "command-only project (no docs/packages)",
+			files: map[string]string{
+				".gtb/manifest.yaml":            "properties:\n  name: t\n  docs_layout: flat\ncommands:\n  - name: deploy\n",
+				"docs/commands/deploy/index.md": "DEPLOY",
+			},
+			wantPresent: "docs/reference/cli/deploy.md",
+			wantAbsent:  []string{"docs/commands", "docs/explanation/components"},
+		},
+		{
+			name: "package-only project (no docs/commands)",
+			files: map[string]string{
+				".gtb/manifest.yaml":            "properties:\n  name: t\n  docs_layout: flat\n",
+				"docs/packages/config/index.md": "CONFIG",
+			},
+			wantPresent: "docs/explanation/components/config.md",
+			wantAbsent:  []string{"docs/packages", "docs/reference/cli"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			const root = "/work"
+			fs := afero.NewMemMapFs()
+
+			for rel, content := range tc.files {
+				require.NoError(t, fs.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0o755))
+				require.NoError(t, afero.WriteFile(fs, filepath.Join(root, rel), []byte(content), 0o644))
+			}
+
+			g := &Generator{
+				props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: config.NewFilesContainer(fs)},
+				config: &Config{Path: root},
+			}
+
+			require.NoError(t, g.migrateFlatDocsToDiataxis())
+
+			present, _ := afero.Exists(fs, filepath.Join(root, tc.wantPresent))
+			assert.Truef(t, present, "expected migrated doc: %s", tc.wantPresent)
+
+			for _, p := range tc.wantAbsent {
+				exists, _ := afero.DirExists(fs, filepath.Join(root, p))
+				assert.Falsef(t, exists, "%s must be absent", p)
+			}
+
+			man, err := afero.ReadFile(fs, filepath.Join(root, ".gtb/manifest.yaml"))
+			require.NoError(t, err)
+			assert.Contains(t, string(man), "docs_layout: diataxis")
+		})
+	}
+}
