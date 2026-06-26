@@ -544,20 +544,27 @@ func parentPartsFromCmdRelPath(relPath string) []string {
 }
 
 func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fullCmdName, outputPath string) {
+	m := g.readManifestQuiet()
+
+	layout := DocsLayoutFlat
+	if m != nil {
+		layout = m.Properties.ResolvedDocsLayout()
+	}
+
 	if isPackage {
-		outputPath = filepath.Join(g.config.Path, "docs", "packages", relPath, "index.md")
+		if layout == DocsLayoutDiataxis {
+			// Component overviews are explanation-quadrant; one file per package.
+			outputPath = filepath.Join(g.config.Path, "docs", "explanation", "components", relPath+".md")
+		} else {
+			outputPath = filepath.Join(g.config.Path, "docs", "packages", relPath, "index.md")
+		}
 
 		return name, outputPath
 	}
 
 	toolName := g.props.Tool.Name
-
-	manifestPath := filepath.Join(g.config.Path, ".gtb", "manifest.yaml")
-	if manifestData, err := afero.ReadFile(g.props.FS, manifestPath); err == nil {
-		var m Manifest
-		if err := yaml.Unmarshal(manifestData, &m); err == nil && m.Properties.Name != "" {
-			toolName = m.Properties.Name
-		}
+	if m != nil && m.Properties.Name != "" {
+		toolName = m.Properties.Name
 	}
 
 	// Prefer the parent path encoded in the command's own source location
@@ -582,9 +589,45 @@ func (g *Generator) prepareDocsContext(name, relPath string, isPackage bool) (fu
 		outRelPath = filepath.Join(filepath.Join(promptParentParts...), name)
 	}
 
-	outputPath = filepath.Join(g.config.Path, "docs", "commands", outRelPath, "index.md")
+	if layout == DocsLayoutDiataxis {
+		outputPath = g.diataxisCommandDocPath(m, promptParentParts, name, outRelPath)
+	} else {
+		outputPath = filepath.Join(g.config.Path, "docs", "commands", outRelPath, "index.md")
+	}
 
 	return fullCmdName, outputPath
+}
+
+// readManifestQuiet loads the manifest without logging or side effects, so it is
+// safe for path-resolution code (and minimal test fixtures) that hold a Generator
+// with a nil Logger. Returns nil when the manifest is absent or unparseable.
+func (g *Generator) readManifestQuiet() *Manifest {
+	data, err := afero.ReadFile(g.props.FS, ManifestPathFor(g.config.Path))
+	if err != nil {
+		return nil
+	}
+
+	var m Manifest
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return nil
+	}
+
+	return &m
+}
+
+// diataxisCommandDocPath returns the reference/cli output path for a command in
+// the Diátaxis layout: a leaf command is a flat <name>.md, while a command with
+// subcommands becomes a <name>/index.md subsection so its children sit beside it.
+func (g *Generator) diataxisCommandDocPath(m *Manifest, parentParts []string, name, outRelPath string) string {
+	cliBase := filepath.Join(g.config.Path, "docs", "reference", "cli")
+
+	if m != nil {
+		if cmd := findCommandAt(m.Commands, parentParts, name); cmd != nil && len(cmd.Commands) > 0 {
+			return filepath.Join(cliBase, outRelPath, "index.md")
+		}
+	}
+
+	return filepath.Join(cliBase, outRelPath+".md")
 }
 
 func (g *Generator) resolveAIConfig() (provider, model string) {
