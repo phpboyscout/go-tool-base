@@ -24,17 +24,26 @@ When you build a CLI with GTB, the framework automatically maps your **Cobra com
 
 ## Exposing your Tool
 
-Every GTB application includes a built-in `mcp` command. This command starts a JSON-RPC server over standard I/O:
+Every GTB application includes a built-in `mcp` command group. `mcp start` runs a
+JSON-RPC server over standard I/O — the default transport for editor and desktop
+integrations such as Claude Desktop:
 
 ```bash
-mytool mcp
+mytool mcp start
+```
+
+For networked clients, `mcp stream` serves the same tools over a streamable-HTTP
+endpoint (configurable via `--host` and `--port`):
+
+```bash
+mytool mcp stream
 ```
 
 ### Integration with AI Assistants
 
 To use your tool as an agent, you simply configure your preferred AI client (like Claude Desktop) to run your tool in MCP mode. The assistant will:
 
-1.  **Call `mytool mcp`** on startup.
+1.  **Call `mytool mcp start`** on startup.
 2.  **Discover** all available commands as tools.
 3.  **Contextually call** your commands when a user's prompt requires it.
 

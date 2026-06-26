@@ -12,7 +12,7 @@ The `forms` package provides reusable helpers for building multi-step interactiv
 
 ## Overview
 
-When building CLI tools with `huh`, multi-step wizards (e.g. select an item, then configure its details) require calling `huh.NewForm().Run()` multiple times in sequence. This works well, but provides no way for the user to go back to a previous step if they make a mistake.
+When building CLI tools with `huh`, multi-step wizards (e.g. select an item, then configure its details) require calling `huh.NewForm().Run()` multiple times in sequence. `huh` supports `shift+tab` back-navigation between groups *within* a single form, but once a form's `Run()` returns there is no built-in way to step back into the previous form — so a user who makes a mistake on an earlier step cannot return to it.
 
 The `forms` package solves this by:
 

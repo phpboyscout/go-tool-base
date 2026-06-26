@@ -32,8 +32,10 @@ code, but CLI tools have different requirements:
 
 - **Coloured, styled terminal output** — `slog` produces plain text or JSON; CLI
   users expect styled output
-- **Dynamic level changes** — `slog.Logger` has no built-in dynamic level control
-  without careful handler wiring
+- **Testable by construction** — `slog` ships no first-class test double; CLI
+  tests need to silence logs or capture them for assertions. `logger.NewNoop()`
+  discards output, and `NewCharm(w, …)` writes to any `io.Writer` you inject
+  (e.g. a `bytes.Buffer`)
 - **Printf-style convenience** — `slog` has no `Infof`, `Errorf` etc.
 - **Unlevelled output** — `slog` always attaches a level; CLI tools need to print
   version strings, release notes, and prompts without a level prefix

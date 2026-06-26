@@ -121,8 +121,9 @@ re-derive an existing key after losing the `.asc` file, pin
 - **Self-signature**: positive cert (`packet.SigTypePositiveCert`, `0x13`),
   produced by `Entity.AddUserId` which routes through
   `signer.Sign(...)`.
-- **Hash**: chosen by go-crypto/openpgp at sign time; typically
-  SHA-256 for RSA-2048/3072 and SHA-384/512 for larger keys.
+- **Hash**: chosen by go-crypto/openpgp at sign time from
+  `packet.Config.Hash()` (defaults to SHA-256 regardless of key size);
+  your signer should support SHA-256/384/512 to stay robust.
 
 ## Detached OpenPGP signing (`DetachSign`)
 

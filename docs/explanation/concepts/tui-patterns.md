@@ -141,7 +141,7 @@ const (
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     switch msg := msg.(type) {
-    case tea.KeyMsg:
+    case tea.KeyPressMsg: // bubbletea v2: KeyMsg is the interface; match the concrete press
         // Route input based on current focus
         switch m.focus {
         case focusSidebar:
@@ -238,7 +238,7 @@ Bubble Tea encourages composing smaller components. The documentation browser in
 
 | Component | Purpose |
 | :--- | :--- |
-| `viewport.Model` | Scrollable content area with momentum |
+| `viewport.Model` | Scrollable content area |
 | `textinput.Model` | Search and AI query input fields |
 | `glamour.TermRenderer` | Markdown to terminal rendering |
 

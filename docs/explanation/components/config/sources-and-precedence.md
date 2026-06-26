@@ -101,12 +101,12 @@ The library searches all provided assets for the `assets/init/config.yaml` path 
 
 ### 3. Environment Variable Integration
 
-The Container automatically handles environment variables using viper's built-in functionality:
+The Container automatically handles environment variables: viper's `AutomaticEnv` is enabled and GTB installs an env-key replacer so the `.` separator maps to `_`:
 
 ```go
 // Environment variables are automatically mapped
 // For config key "database.host", environment variable "DATABASE_HOST" is checked
-// Key separator "." is replaced with "_" in environment variable names
+// GTB's env-key replacer maps the "." separator to "_" (viper has no default replacer)
 
 container := config.NewFilesContainer(fs,
     config.WithLogger(l),
@@ -286,7 +286,7 @@ Both options register the supplied flags on the root command's persistent flag s
 
 **Per-command flags** are bound automatically: a subcommand's own *local* flags are mapped by the same hyphen-to-dot convention when that command runs, so `mytool serve --server-port 9090` overrides `server.port` for the `serve` command's `RunE`.
 
-**Only changed flags are bound.** A flag the user did *not* set on the command line is filtered out (`flag.Changed == false`) and never overrides config — this avoids viper's classic default-clobber footgun where binding a defaulted flag silently masks file/env values.
+**Only changed flags are bound.** A flag the user did *not* set on the command line is filtered out (`flag.Changed == false`) and never overrides config, so an unset flag's default never masks file or env values.
 
 The built-in `--debug` and `--ci` flags are folded through the same binding path, so `Config.GetBool("ci")` reflects `--ci`. `--debug` additionally retains its immediate effect on the log level.
 
