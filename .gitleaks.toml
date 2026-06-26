@@ -22,6 +22,7 @@ paths = [
     '''pkg/telemetry/telemetry_test\.go''',
     '''pkg/cmd/doctor/report_test\.go''',
     '''docs/explanation/components/redact\.md''',
+    '''docs/explanation/components/telemetry\.md''',
     '''docs/explanation/components/telemetry/.*\.md''',
     '''docs/explanation/concepts/telemetry\.md''',
     '''pkg/openapi/assets/web-components\.min\.js''',
@@ -31,4 +32,14 @@ paths = [
     '''features/cli/keys\.feature''',
     '''features/cli/doctor-report\.feature''',
     '''internal/agent/tools_security_test\.go''',
+]
+
+# The telemetry/redact docs carry a deliberately realistic example token in a
+# redaction demo (shown being stripped). gitleaks scans full git history, so the
+# example trips generic-api-key across every historical path it has lived at
+# (telemetry.md, the telemetry/ subsection, the reference/api/concepts variants).
+# Allowlist the fake token itself — a real key would never be "abc123def456" — so
+# the suppression is precise and path-independent.
+regexes = [
+    '''sk-proj-abc123def456''',
 ]
