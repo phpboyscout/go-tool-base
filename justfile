@@ -114,9 +114,9 @@ deadcode:
 install:
     go install ./cmd/gtb
 
-# Serve documentation locally
-docs-serve:
-    mkdocs serve
+# Serve documentation locally (pass ARGS, e.g. `just docs-serve "-a 0.0.0.0:8000"`)
+docs-serve ARGS="":
+    zensical serve {{ARGS}}
 
 # Run the full local CI suite (mirrors GitHub Actions)
 ci: tidy generate test test-race lint test-e2e
