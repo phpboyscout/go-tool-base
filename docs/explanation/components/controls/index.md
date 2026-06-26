@@ -197,7 +197,8 @@ shutdown.
 ## In this section
 
 - **[Service Types & States](service-types.md)** — Service definitions, status, and the lifecycle states a service moves through.
-- **[Usage](usage.md)** — Registering and running services — basic and advanced patterns.
 - **[Testing](testing.md)** — Testing controllers and services, and the Controllable interface for mocking.
 - **[Built-in Server Controls](server-controls.md)** — The HTTP and gRPC server controls that register against the controller.
 - **[Best Practices & Integration](best-practices.md)** — Recommended patterns and how controls integrates with the GTB lifecycle.
+
+For step-by-step registration and run recipes, see the **[Manage Background Services](../../../how-to/manage-background-services.md)** how-to guide.

@@ -60,6 +60,9 @@ cfg := config.NewReaderContainer(fs,
 props.Config = cfg
 ```
 
+For the config-specific recipes — the generated `Containable`/`Observable` mocks
+and testing observer behaviour — see [How to Test Code That Uses Configuration](test-configuration.md).
+
 ## Best Practices for Tests
 
 - **Avoid Global State**: Do not rely on environment variables or global `os` calls. Use the abstractions provided in `Props`.

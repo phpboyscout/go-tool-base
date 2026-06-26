@@ -72,5 +72,6 @@ config.WithSchema(schema *Schema)              // Validation schema
 - **[Sources & Precedence](sources-and-precedence.md)** — file, embedded, environment, dotenv, and how they merge
 - **[Schema Validation](validation.md)** — validate configuration against a schema
 - **[Hot-Reload & Observers](hot-reload.md)** — react to live configuration changes
-- **[Testing & Mocking](testing.md)** — test containers, generated mocks, and observers
 - **[Best Practices & Integration](best-practices.md)** — patterns, GTB integration, sensitive-value masking
+
+For test recipes (in-memory containers, the generated mocks, testing observers), see the **[Test Code That Uses Configuration](../../../how-to/test-configuration.md)** how-to guide.
