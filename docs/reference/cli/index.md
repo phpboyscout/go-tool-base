@@ -26,6 +26,21 @@ GTB provides a set of essential built-in commands that are automatically include
 | **[MCP](mcp.md)** | AI agent integration (Model Context Protocol). |
 | **[Telemetry](telemetry.md)** | Opt-in usage telemetry status and management. (opt-in) |
 
+## Framework-developer commands (`gtb`)
+
+These commands are part of the `gtb` binary itself — the tooling you use to *build*
+a CLI on GTB. They are not shipped in your generated tool.
+
+| Command | Purpose |
+| :--- | :--- |
+| **[generate](generate.md)** | Scaffold projects, commands, flags, docs, and man pages. |
+| **[regenerate](regenerate.md)** | Rebuild a project from its manifest, or the manifest from source. |
+| **[remove](remove.md)** | Remove a generated command from a project. |
+| **[keys](keys.md)** | Generate, mint, and publish OpenPGP signing keys. |
+| **[sign](sign.md)** | Produce an OpenPGP detached signature for a file. |
+| **[enable / disable](enable-disable.md)** | Toggle capabilities (signing, MCP, features) on a project. |
+| **[template](template.md)** | Manage custom template-overlay sources. |
+
 ---
 
 ## Command Integration
