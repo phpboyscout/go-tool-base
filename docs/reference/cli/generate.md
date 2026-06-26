@@ -84,9 +84,12 @@ Generate Markdown docs for a command or package.
 | `--package` | — | Package to document (relative to project root). |
 | `--parent` | — | Parent command name (if not in the manifest). |
 | `--agentless` | `false` | Skip AI generation; write boilerplate only. |
+| `--public-api` | `false` | Module is publicly published: defer package API reference to pkg.go.dev (otherwise a local `go doc` hint). Equivalent to `module_published: true` in the manifest. |
 | `--path` | `.` | Project root. |
 
 One of `--command`/`--package`/`--source` is required. (`--source` is deprecated; use `--command`.)
+
+Docs are emitted in the project's layout (`docs_layout` in `.gtb/manifest.yaml`): the Diátaxis quadrant tree (`docs/reference/cli/`, `docs/explanation/components/`) for new projects, or the legacy flat tree (`docs/commands/`, `docs/packages/`). See [Generating Documentation](../../how-to/framework-cli/generate-docs.md) → "Documentation layout".
 
 ### `generate man`
 

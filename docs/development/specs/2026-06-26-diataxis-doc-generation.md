@@ -2,7 +2,7 @@
 title: "Diátaxis-Structured Documentation Generation"
 description: "Make the gtb doc generator scaffold and emit documentation in the Diátaxis structure (tutorials / how-to / reference / explanation) by default — quadrant-aware output paths, prompts, skeleton tree, and nav — so tools built on GTB get well-structured docs the way go-tool-base's own docs now are. Neutral by default: no off-site, public-module, or marketing assumptions."
 date: 2026-06-26
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - generator

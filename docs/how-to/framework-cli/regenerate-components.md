@@ -31,7 +31,7 @@ go run main.go regenerate project
 ### Flags
 
 - `--path`, `-p`: Path to the project root (default: current directory).
-- `--force`: **Danger Zone!** Overwrites existing `main.go` implementation files. Use this only if you want to reset a command's logic to the default starter code.
+- `--force`: **Danger Zone!** Overwrites existing `main.go` implementation files. Use this only if you want to reset a command's logic to the default starter code. On a project still using the legacy flat docs layout, `--force` also **migrates the docs to the Diátaxis layout** (see below).
 - `--dry-run`: Preview all changes without writing to disk (see below).
 
 ### What it does
@@ -42,6 +42,17 @@ go run main.go regenerate project
 - **Manages Lifecycle Files**: Creates or removes `init.go` based on the `withInitializer` value in the manifest for each command. If `withInitializer` is enabled but the `Init<Name>` stub is missing from `main.go`, it is appended automatically.
 - **Runs Linting**: Automatically executes `golangci-lint run --fix` to ensure the generated code is squeaky clean.
 - **Conflict Detection**: Checks if `cmd.go` files have been manually modified and prompts for confirmation before overwriting (unless `--force` is used).
+
+### Migrating docs to the Diátaxis layout
+
+If the project still uses the legacy flat docs layout (`docs/commands/`, `docs/packages/`), `regenerate project --force` migrates it to the [Diátaxis](https://diataxis.fr/) quadrant layout:
+
+- **Moves** existing command pages into `docs/reference/cli/` and package pages into `docs/explanation/components/`, preserving your hand-written content (pages are moved, not regenerated).
+- **Stamps** `docs_layout: diataxis` on `.gtb/manifest.yaml` so future generation targets the new tree.
+- **Removes** the old `docs/commands/` and `docs/packages/` trees.
+
+!!! tip "Commit first"
+    The migration deletes the old trees once content has moved. Commit (or stash) your work before running it so the move is easy to review and revert.
 
 ### Dry-Run Mode
 

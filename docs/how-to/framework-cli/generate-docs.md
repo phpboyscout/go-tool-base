@@ -24,6 +24,20 @@ go run main.go generate docs --package "pkg/utils"
 
 The sections below cover the generator's capabilities in detail.
 
+## Documentation layout (Diátaxis)
+
+New projects scaffold a [Diátaxis](https://diataxis.fr/)-structured `docs/` tree, and `generate docs` places each page in the matching quadrant:
+
+| Content | Quadrant | Path |
+| :--- | :--- | :--- |
+| CLI commands | Reference | `docs/reference/cli/<command>.md` (a leaf), or `docs/reference/cli/<command>/index.md` (a command with subcommands) |
+| Library packages | Explanation | `docs/explanation/components/<package>.md` |
+
+The layout is recorded as `docs_layout: diataxis` in `.gtb/manifest.yaml`. Projects generated before this feature default to the legacy **flat** layout (`docs/commands/`, `docs/packages/`); run `regenerate project --force` to migrate them — it moves existing pages into the quadrant tree (preserving your content), updates the manifest, and removes the old trees.
+
+!!! note "No AI? Still structured"
+    With `--agentless` (or no AI provider configured), `generate docs` writes deterministic boilerplate — a reference-shaped command page (description, usage, flags/subcommands tables, `--help` pointer) or an explanation skeleton for packages — so the docset is coherent without an API call.
+
 ## Core Features
 
 ### Portable Doc Generation 🚀
@@ -48,22 +62,25 @@ This command:
 
 - **Agentic Inspection**: Uses AI tools to explore subcommands and referenced types autonomously.
 - **Intelligent Formatting**: Produces structured Markdown with frontmatter, usage examples, and flag tables.
-- **Smart Indexing**: Updates `docs/commands/index.md` and your site navigation (`zensical.toml` / `mkdocs.yml`) automatically!
+- **Smart Indexing**: Updates the CLI reference index (`docs/reference/cli/index.md`) automatically. zensical projects derive site navigation from the docs tree; legacy `mkdocs.yml` projects get their nav list rewritten.
 
 ### Package Documentation 📦
 
-For developers building libraries, the `--package` flag is a game-changer:
+For developers building libraries, the `--package` flag generates **explanation-oriented** package docs (the Diátaxis explanation quadrant) — understanding, not an exhaustive API dump:
 
 ```bash
 go run main.go generate docs --path . --package "pkg/utils"
 ```
 
-This creates "Developer Documentation" specifically tailored for Go packages, including:
+The page lands in the `docs/explanation/components/` hierarchy and includes:
 
-- High-level architecture overviews.
-- Exported type and function documentation.
-- Usage examples synthesized from your code.
-- Automatic inclusion in the `docs/packages/` hierarchy.
+- A high-level overview of what the package is for and the problem it solves.
+- The main exported types and their roles, described narratively.
+- A short usage sketch synthesized from your code.
+- An **API Reference** pointer — by default a local `go doc ./pkg/utils` hint, so a private or unpublished module never gets a dead link.
+
+!!! tip "Published modules: link pkg.go.dev"
+    Pass `--public-api` (or set `module_published: true` in `.gtb/manifest.yaml`) when your module is published. The API reference then links the package's `pkg.go.dev` page — the canonical home for the full Go API reference — instead of the `go doc` hint.
 
 !!! warning "Required Flags"
     You must provide exactly one of `--command` or `--package` (the deprecated `--source` is the third member of the same one-required group) — they are mutually exclusive. The `--path` flag (project root) is optional and defaults to the current directory (`.`).

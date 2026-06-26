@@ -44,7 +44,11 @@ my-awesome-tool/
 ├── .gtb/manifest.yaml          # The Brain: Tracks your command hierarchy
 ├── cmd/my-awesome-tool/main.go # Entry Point: The main function of your tool
 ├── pkg/cmd/root/cmd.go         # The Root: Setup and registration of all commands
-├── docs/                       # Documentation: Your project's documentation site
+├── docs/                       # Documentation: a Diátaxis-structured site
+│   ├── tutorials/              #   Learning-oriented (neutral; off-site/blog by default)
+│   ├── how-to/                 #   Task-oriented guides
+│   ├── reference/cli/          #   Generated CLI command reference
+│   └── explanation/components/ #   Generated package/architecture docs
 ├── go.mod                      # Dependencies: Uses Go 1.24+ tool directives
 └── README.md                   # Onboarding: install, build, develop, and links into GTB docs
 ```

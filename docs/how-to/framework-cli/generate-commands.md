@@ -37,7 +37,7 @@ This creates:
 
 - `pkg/cmd/my-command/cmd.go`: The **read-only** command registration and boilerplate.
 - `pkg/cmd/my-command/main.go`: The **editable** implementation file where your logic lives.
-- `docs/commands/my-command/index.md`: AI-generated documentation for the command.
+- `docs/reference/cli/my-command.md`: AI-generated reference documentation for the command (a command with subcommands becomes `docs/reference/cli/my-command/index.md`).
 - An entry in `.gtb/manifest.yaml`.
 
 !!! note "Separation of Concerns"
@@ -262,7 +262,7 @@ Common validators include:
 
 Every time you generate a command, the CLI automatically attempts to generate comprehensive documentation using AI.
 
-- **AI Generation**: The generator reads your `main.go` and uses AI to create an `index.md` file in `docs/commands/your-command/`.
+- **AI Generation**: The generator reads your `main.go` and uses AI to create a reference page at `docs/reference/cli/your-command.md` (Diátaxis layout).
 - **Fallback**: If AI generation fails (e.g., due to API issues), it falls back to a clean boilerplate.
 - **Updates**: Use the `--update-docs` flag to force a refresh of the documentation using AI.
 
