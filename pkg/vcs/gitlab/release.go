@@ -7,7 +7,7 @@ import (
 	neturl "net/url"
 
 	"github.com/cockroachdb/errors"
-	gitlab "gitlab.com/gitlab-org/api/client-go"
+	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"

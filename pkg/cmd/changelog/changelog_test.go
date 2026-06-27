@@ -5,6 +5,7 @@ import (
 	"testing"
 	"testing/fstest"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -183,9 +184,12 @@ func TestRenderOutput(t *testing.T) {
 		cmd, _ := cmdWithOutput("")
 
 		require.NoError(t, renderOutput(cmd, &props.Props{Logger: buf}, releases))
-		assert.True(t, buf.Contains("v1.2.0"))
-		assert.True(t, buf.Contains("add server"))
-		assert.True(t, buf.Contains("tidy up"))
+		// glamour v2 emits each word as a separately-styled ANSI span, so strip
+		// escapes before matching the rendered text.
+		plain := ansi.Strip(buf.String())
+		assert.Contains(t, plain, "v1.2.0")
+		assert.Contains(t, plain, "add server")
+		assert.Contains(t, plain, "tidy up")
 	})
 }
 

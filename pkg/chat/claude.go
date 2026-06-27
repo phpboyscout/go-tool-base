@@ -154,7 +154,7 @@ func (c *Claude) buildAskParams() anthropic.MessageNewParams {
 	}
 
 	params := anthropic.MessageNewParams{
-		Model:     anthropic.Model(model),
+		Model:     model,
 		MaxTokens: int64(maxTokens),
 		Messages:  c.messages,
 		System:    c.system,
@@ -281,7 +281,7 @@ func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
 		c.logHistory()
 
 		params := anthropic.MessageNewParams{
-			Model:     anthropic.Model(c.cfg.Model),
+			Model:     c.cfg.Model,
 			MaxTokens: int64(maxTokens),
 			Messages:  c.messages,
 			System:    c.system,
@@ -393,7 +393,7 @@ func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamC
 		c.props.Logger.Debug("Claude streaming step", "step", step)
 
 		params := anthropic.MessageNewParams{
-			Model:     anthropic.Model(c.cfg.Model),
+			Model:     c.cfg.Model,
 			MaxTokens: int64(maxTokens),
 			Messages:  c.messages,
 			System:    c.system,

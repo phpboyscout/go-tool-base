@@ -10,7 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/glamour"
+	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/term"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
@@ -91,7 +92,7 @@ func RenderMarkdown(content string) string {
 	}
 
 	r, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStylePath(autoStylePath()),
 		glamour.WithWordWrap(width),
 	)
 	if err != nil {
@@ -104,6 +105,19 @@ func RenderMarkdown(content string) string {
 	}
 
 	return strings.TrimSpace(out)
+}
+
+// autoStylePath replicates glamour v1's WithAutoStyle (removed in v2): it
+// selects the built-in "dark" or "light" style based on the detected terminal
+// background. It defaults to "dark" — glamour v2's own default — when the
+// terminal cannot be queried, e.g. non-interactive or piped output, where
+// lipgloss.HasDarkBackground returns true.
+func autoStylePath() string {
+	if lipgloss.HasDarkBackground(os.Stdin, os.Stdout) {
+		return "dark"
+	}
+
+	return "light"
 }
 
 // Render writes markdown to the Writer using glamour styling in text mode.

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/go-github/v80/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
 )

@@ -5,7 +5,7 @@ import (
 	"io"
 
 	"github.com/cockroachdb/errors"
-	"github.com/google/go-github/v80/github"
+	"github.com/google/go-github/v88/github"
 
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/charmbracelet/log"
+	"charm.land/log/v2"
 )
 
 // charmLogger wraps charmbracelet/log to implement the Logger interface.

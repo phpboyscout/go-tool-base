@@ -10,8 +10,8 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/charmbracelet/glamour"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
@@ -99,6 +99,12 @@ const (
 	verticalBorderWidth = 2
 	searchInputWidth    = 40
 	askInputWidth       = 60
+
+	// defaultGlamourStyle is glamour v2's default built-in style, used until
+	// the terminal background is detected at runtime.
+	defaultGlamourStyle = "dark"
+	// lightGlamourStyle is the built-in style for light terminal backgrounds.
+	lightGlamourStyle = "light"
 )
 
 // Model is the Bubble Tea model for the interactive documentation browser.
@@ -155,11 +161,16 @@ type Model struct {
 
 	// App state
 	content     string
+	currentPath string // Path of the currently loaded file, for re-rendering
 	frontmatter string // Raw frontmatter content
-	showInfo    bool   // Toggle to show frontmatter footer
-	ready       bool
-	width       int
-	height      int
+	// styleName is the glamour built-in style ("dark"/"light"). glamour v2
+	// removed WithAutoStyle, so the background is detected at runtime via
+	// Bubble Tea's BackgroundColorMsg and the renderer rebuilt to match.
+	styleName string
+	showInfo  bool // Toggle to show frontmatter footer
+	ready     bool
+	width     int
+	height    int
 
 	mkdocsLoaded bool
 }
@@ -175,8 +186,15 @@ func (m *Model) ensureRenderer(width int) *glamour.TermRenderer {
 		return m.renderer
 	}
 
+	// A zero-value Model (e.g. in tests) has no style set; fall back to the
+	// default rather than passing an empty style path, which glamour rejects.
+	style := m.styleName
+	if style == "" {
+		style = defaultGlamourStyle
+	}
+
 	r, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStylePath(style),
 		glamour.WithWordWrap(width),
 	)
 	if err != nil {
@@ -218,10 +236,37 @@ func renderMarkdownWith(renderer *glamour.TermRenderer, content string) string {
 	return rendered
 }
 
+// applyBackground updates the glamour style to match the detected terminal
+// background and re-renders the current page when the style changes. glamour
+// v2 removed auto style detection, so this is driven by Bubble Tea's
+// BackgroundColorMsg (requested in Init).
+func (m *Model) applyBackground(isDark bool) {
+	style := lightGlamourStyle
+	if isDark {
+		style = defaultGlamourStyle
+	}
+
+	if style == m.styleName {
+		return
+	}
+
+	m.styleName = style
+	// Drop the cached renderer so ensureRenderer rebuilds it with the new
+	// style, then re-render the current page so the change is visible.
+	m.renderer = nil
+
+	if m.currentPath != "" {
+		m.loadFile(m.currentPath)
+	}
+}
+
 // NewModel creates a documentation browser Model backed by the given filesystem.
 func NewModel(fsys fs.FS, opts ...Option) *Model {
+	// "dark" is glamour v2's default; the actual terminal background is
+	// detected once the Bubble Tea program starts (see Init/Update) and the
+	// renderer is rebuilt to match.
 	r, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStylePath(defaultGlamourStyle),
 		glamour.WithWordWrap(defaultWordWrap),
 	)
 
@@ -239,6 +284,7 @@ func NewModel(fsys fs.FS, opts ...Option) *Model {
 		fs:             fsys,
 		renderer:       r,
 		rendererWidth:  defaultWordWrap,
+		styleName:      defaultGlamourStyle,
 		sidebarOpen:    true,
 		sidebarRatio:   defaultSidebarRatio,
 		focus:          focusSidebar,
@@ -305,7 +351,9 @@ func (m *Model) nodesToListItems(nodes []NavNode) []ListItem {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return textinput.Blink
+	// RequestBackgroundColor lets us replicate glamour v1's auto style: the
+	// reply arrives as a tea.BackgroundColorMsg handled in Update.
+	return tea.Batch(textinput.Blink, tea.RequestBackgroundColor)
 }
 
 // SearchResultMessage is a Bubble Tea message carrying search results.
@@ -458,6 +506,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ready = true
 		m.updateViewportSize()
+
+	case tea.BackgroundColorMsg:
+		m.applyBackground(msg.IsDark())
 
 	case AskResultMsg:
 		m.handleAskResult(msg)
@@ -829,6 +880,8 @@ func (m *Model) loadFile(path string) {
 	if err != nil {
 		return
 	}
+
+	m.currentPath = path
 
 	// Strip frontmatter if present (robust regex)
 	textContent := string(content)

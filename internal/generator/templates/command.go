@@ -851,7 +851,9 @@ func isRedundantImport(imp string) bool {
 	}
 
 	// Skip hallucinated logger
-	if imp == "github.com/phpboyscout/logger" || imp == "github.com/charmbracelet/log" {
+	if imp == "github.com/phpboyscout/logger" ||
+		imp == "github.com/charmbracelet/log" ||
+		imp == "charm.land/log/v2" {
 		return true
 	}
 

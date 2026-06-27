@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	"github.com/cockroachdb/errors"
-	"github.com/google/go-github/v80/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
@@ -234,22 +234,22 @@ func (c *GHClient) DownloadAssetTo(ctx context.Context, fs afero.Fs, owner, repo
 // (for private repos) and explicit `url.api`/`url.upload` overrides that
 // take precedence over the host-derived Enterprise URLs.
 func NewGitHubClient(src release.ReleaseSourceConfig, cfg config.Containable) (*GHClient, error) {
-	client := github.NewClient(gtbhttp.NewClient())
+	opts := []github.ClientOptionsFunc{github.WithHTTPClient(gtbhttp.NewClient())}
 
 	if apiURL, uploadURL := enterpriseURLs(src, cfg); apiURL != "" {
-		var err error
-
-		client, err = client.WithEnterpriseURLs(apiURL, uploadURL)
-		if err != nil {
-			return nil, err
-		}
+		opts = append(opts, github.WithEnterpriseURLs(apiURL, uploadURL))
 	}
 
 	// Token is optional: public repositories work without authentication.
 	// Private repositories will receive a 401 from the API if no token is
 	// set. A nil cfg resolves the token from the GITHUB_TOKEN env var only.
 	if token := vcs.ResolveToken(cfg, "GITHUB_TOKEN"); token != "" {
-		client = client.WithAuthToken(token)
+		opts = append(opts, github.WithAuthToken(token))
+	}
+
+	client, err := github.NewClient(opts...)
+	if err != nil {
+		return nil, err
 	}
 
 	return &GHClient{Client: client}, nil

@@ -8,13 +8,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	nurl "net/url"
 	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
 
-	"github.com/google/go-github/v80/github"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +22,6 @@ import (
 	"golang.org/x/text/language"
 
 	mockRelease "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -71,11 +68,6 @@ func TestUpdate_Success(t *testing.T) {
 	mux := http.NewServeMux()
 	server := httptest.NewServer(mux)
 	defer server.Close()
-
-	client := github.NewClient(gtbhttp.NewClient())
-	baseURL, _ := nurl.Parse(server.URL + "/")
-	client.BaseURL = baseURL
-	client.UploadURL = baseURL
 
 	// Mock endpoints
 	// Latest Release
