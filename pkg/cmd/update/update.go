@@ -33,27 +33,6 @@ type NewUpdaterFunc func(ctx context.Context, props *p.Props, version string, fo
 // file-based updates.
 type NewOfflineUpdaterFunc func(props *p.Props) Updater
 
-// Deprecated: ExportNewUpdater is a package-level test seam that races
-// under parallel tests. Inject a factory with [WithUpdater] instead.
-// Retained for one minor release for backward compatibility; it is
-// consulted only as the default when no [WithUpdater] option is given.
-//
-//nolint:gochecknoglobals // deprecated test seam, retained for compatibility
-var ExportNewUpdater NewUpdaterFunc = func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error) {
-	return setup.NewUpdater(ctx, props, version, force)
-}
-
-// Deprecated: ExportNewOfflineUpdater is a package-level test seam that
-// races under parallel tests. Inject a factory with [WithOfflineUpdater]
-// instead. Retained for one minor release for backward compatibility;
-// it is consulted only as the default when no [WithOfflineUpdater]
-// option is given.
-//
-//nolint:gochecknoglobals // deprecated test seam, retained for compatibility
-var ExportNewOfflineUpdater NewOfflineUpdaterFunc = func(props *p.Props) Updater {
-	return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
-}
-
 // UpdateConfigOption configures the UpdateConfig function.
 type UpdateConfigOption func(*updateConfigOptions)
 
@@ -68,35 +47,34 @@ func WithExecCommand(fn func(context.Context, string, ...string) *exec.Cmd) Upda
 	return func(o *updateConfigOptions) { o.execCommand = fn }
 }
 
-// WithUpdater injects the online [Updater] factory, replacing the
-// default that builds a real [setup.NewUpdater]. This is the
-// parallel-safe replacement for mutating the deprecated
-// [ExportNewUpdater] package var: each call site receives its own
+// WithUpdater injects the online [Updater] factory, replacing the default
+// that builds a real [setup.NewUpdater]. Each call site receives its own
 // factory, so concurrent tests cannot clobber one another.
 func WithUpdater(fn NewUpdaterFunc) UpdateConfigOption {
 	return func(o *updateConfigOptions) { o.newUpdater = fn }
 }
 
-// WithOfflineUpdater injects the offline [Updater] factory, replacing
-// the default that builds a real [setup.NewOfflineUpdater]. The
-// parallel-safe replacement for mutating the deprecated
-// [ExportNewOfflineUpdater] package var.
+// WithOfflineUpdater injects the offline [Updater] factory, replacing the
+// default that builds a real [setup.NewOfflineUpdater].
 func WithOfflineUpdater(fn NewOfflineUpdaterFunc) UpdateConfigOption {
 	return func(o *updateConfigOptions) { o.newOfflineUpdater = fn }
 }
 
-// resolveUpdaterFactories fills in the updater factories from the
-// supplied options, falling back to the deprecated package-level vars
-// (which themselves default to the real constructors) when an option
-// is not given. Centralising this keeps the deprecated seam working
-// for one more minor release without scattering the fallback.
+// resolveUpdaterFactories fills in the updater factories from the supplied
+// options, falling back to the real constructors when an option is not given.
+// Tests inject their own factories with WithUpdater / WithOfflineUpdater (the
+// parallel-safe replacement for the removed package-level test seams).
 func (o *updateConfigOptions) resolveUpdaterFactories() {
 	if o.newUpdater == nil {
-		o.newUpdater = ExportNewUpdater
+		o.newUpdater = func(ctx context.Context, props *p.Props, version string, force bool) (Updater, error) {
+			return setup.NewUpdater(ctx, props, version, force)
+		}
 	}
 
 	if o.newOfflineUpdater == nil {
-		o.newOfflineUpdater = ExportNewOfflineUpdater
+		o.newOfflineUpdater = func(props *p.Props) Updater {
+			return setup.NewOfflineUpdater(props.Tool, props.Logger, props.FS)
+		}
 	}
 }
 

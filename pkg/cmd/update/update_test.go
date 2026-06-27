@@ -18,17 +18,11 @@ import (
 )
 
 func TestUpdate_SemVerValidation(t *testing.T) {
-	oldNewUpdater := update.ExportNewUpdater
-	t.Cleanup(func() {
-		update.ExportNewUpdater = oldNewUpdater
-	})
+	t.Parallel()
 
 	mu := &mockUpdater{
 		latestVersion: "v1.2.3",
 		binPath:       "/tmp/new-bin",
-	}
-	update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
-		return mu, nil
 	}
 
 	props := &p.Props{
@@ -37,7 +31,11 @@ func TestUpdate_SemVerValidation(t *testing.T) {
 		Version: &mockVersion{version: "v1.0.0"},
 	}
 
-	cmd := update.NewCmdUpdate(props)
+	cmd := update.NewCmdUpdate(props, update.WithUpdater(
+		func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
+			return mu, nil
+		},
+	))
 	cmd.SetContext(context.Background())
 
 	tests := []struct {
@@ -178,10 +176,7 @@ func (m *mockUpdater) GetCurrentVersion() string {
 }
 
 func TestUpdate(t *testing.T) {
-	oldNewUpdater := update.ExportNewUpdater
-	t.Cleanup(func() {
-		update.ExportNewUpdater = oldNewUpdater
-	})
+	t.Parallel()
 
 	props := &p.Props{
 		FS:     afero.NewMemMapFs(),
@@ -193,16 +188,19 @@ func TestUpdate(t *testing.T) {
 	}
 
 	t.Run("successful_update", func(t *testing.T) {
+		t.Parallel()
+
 		mu := &mockUpdater{
 			latestVersion: "v1.1.0",
 			binPath:       "/tmp/new-bin",
 			releaseNotes:  "New features!",
 		}
-		update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
-			return mu, nil
-		}
 
-		result, err := update.Update(context.Background(), props, "", false)
+		result, err := update.Update(context.Background(), props, "", false, update.WithUpdater(
+			func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
+				return mu, nil
+			},
+		))
 		require.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.True(t, result.Updated)
@@ -211,32 +209,37 @@ func TestUpdate(t *testing.T) {
 	})
 
 	t.Run("updater_creation_failure", func(t *testing.T) {
-		update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
-			return nil, fmt.Errorf("failed to create updater")
-		}
+		t.Parallel()
 
-		_, err := update.Update(context.Background(), props, "", false)
+		_, err := update.Update(context.Background(), props, "", false, update.WithUpdater(
+			func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
+				return nil, fmt.Errorf("failed to create updater")
+			},
+		))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create updater")
 	})
 
 	t.Run("update_execution_failure", func(t *testing.T) {
+		t.Parallel()
+
 		mu := &mockUpdater{
 			updateErr: fmt.Errorf("download failed"),
 		}
-		update.ExportNewUpdater = func(_ context.Context, p *p.Props, version string, force bool) (update.Updater, error) {
-			return mu, nil
-		}
 
-		_, err := update.Update(context.Background(), props, "", false)
+		_, err := update.Update(context.Background(), props, "", false, update.WithUpdater(
+			func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
+				return mu, nil
+			},
+		))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "download failed")
 	})
 }
 
 // TestUpdate_WithUpdaterOption proves the parallel-safe injection path:
-// WithUpdater supplies the factory directly, so the test does NOT mutate
-// the deprecated ExportNewUpdater package var and is safe under t.Parallel.
+// WithUpdater supplies the factory directly per call site, so concurrent
+// tests cannot clobber one another and the test is safe under t.Parallel.
 func TestUpdate_WithUpdaterOption(t *testing.T) {
 	t.Parallel()
 
@@ -316,16 +319,10 @@ func TestNewCmdUpdate_MutualExclusion(t *testing.T) {
 }
 
 func TestUpdateFromFile_ViaCommand(t *testing.T) {
-	oldOfflineUpdater := update.ExportNewOfflineUpdater
-	t.Cleanup(func() {
-		update.ExportNewOfflineUpdater = oldOfflineUpdater
-	})
+	t.Parallel()
 
 	mu := &mockUpdater{
 		fromFileBinPath: "/usr/local/bin/test-tool",
-	}
-	update.ExportNewOfflineUpdater = func(props *p.Props) update.Updater {
-		return mu
 	}
 
 	props := &p.Props{
@@ -334,7 +331,11 @@ func TestUpdateFromFile_ViaCommand(t *testing.T) {
 		Logger: logger.NewNoop(),
 	}
 
-	cmd := update.NewCmdUpdate(props)
+	cmd := update.NewCmdUpdate(props, update.WithOfflineUpdater(
+		func(_ *p.Props) update.Updater {
+			return mu
+		},
+	))
 	cmd.SetArgs([]string{"--from-file", "/tmp/release.tar.gz"})
 
 	err := cmd.Execute()
