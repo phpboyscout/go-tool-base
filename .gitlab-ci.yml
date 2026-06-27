@@ -41,7 +41,15 @@ include:
   # goreleaser runs on the dev-tools image (Go 1.26.4), so it builds with
   # the image's Go — no gotoolchain override needed (the component's
   # `auto` default applies harmlessly).
+  #
+  # --parallelism=1 serialises the 6 cross-compile targets. The default
+  # (one build per CPU) compiles the large anthropic-sdk-go across several
+  # targets at once, which OOM-kills the compiler on the shared runner
+  # ("compile: signal: killed") and publishes zero assets. Sequential builds
+  # cap peak memory at the cost of a longer release job.
   - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.18.1
+    inputs:
+      args: "release --clean --parallelism=1"
   - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.18.1
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
