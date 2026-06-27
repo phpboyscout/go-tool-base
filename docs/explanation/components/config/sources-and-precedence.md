@@ -99,6 +99,25 @@ func NewCmdRoot(props *props.Props) *cobra.Command {
 
 The library searches all provided assets for the `assets/init/config.yaml` path and merges them together during both application startup and the `init` command process.
 
+### Project-local config layer (`.<tool>.yaml`)
+
+At startup the root command also looks for a **project-local** config file named
+`.<tool>.yaml` (e.g. `.myapp.yaml`), discovered by **walking up from the working
+directory** to the filesystem root — a repo-root convention like `.editorconfig`. When
+found, it is merged **last among the config files**, so it **deep-merges over and
+overrides the global** `~/.<tool>/config.yaml`:
+
+```
+~/.myapp/config.yaml          # global, per-user
+/path/to/repo/.myapp.yaml     # project — overrides the global (committed with the repo)
+```
+
+This lets a project keep its own config (themes, providers, non-secret settings) in its
+repo — "config lives in the owning project". A tool **opts out simply by not having the
+file**; it never errors when absent. Environment variables and flags still override the
+project layer (it sits in the *file* tier of the precedence below). The filename derives
+from `Props.Tool.Name`, so it is automatic and tool-specific.
+
 ### 3. Environment Variable Integration
 
 The Container automatically handles environment variables: viper's `AutomaticEnv` is enabled and GTB installs an env-key replacer so the `.` separator maps to `_`:

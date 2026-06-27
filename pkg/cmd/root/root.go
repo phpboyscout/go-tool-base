@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/njayp/ophis"
+	"github.com/spf13/afero"
 
 	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
 	cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
@@ -105,6 +106,54 @@ func configOpts(props *p.Props) []config.ContainerOption {
 }
 
 // loadAndMergeConfig loads the main configuration and merges it with embedded config if present.
+// projectConfigPaths returns base with any discovered project-local ".<tool>.yaml"
+// (a repo-root config layer, found by walking up from the working directory) appended
+// last, so it deep-merges OVER the global config (env + flags still override it). A
+// convention like .editorconfig — a tool opts out by not having the file.
+func projectConfigPaths(props *p.Props, base []string) []string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return base
+	}
+
+	pc := discoverProjectConfig(props.FS, props.Tool.Name, cwd)
+	if pc == "" {
+		return base
+	}
+
+	props.Logger.Debug("project config layer found", "file", pc)
+
+	return append(slices.Clone(base), pc)
+}
+
+// discoverProjectConfig walks up from the working directory looking for a project
+// config file named ".<tool>.yaml" (e.g. .keryx.yaml), returning its path or "" if
+// none is found before the filesystem root. This is a repo-root project-config layer
+// — a convention like .editorconfig — that the caller appends last so it deep-merges
+// over (and overrides) the global ~/.<tool>/config.yaml. Generic across tools; a tool
+// opts out simply by not having the file.
+func discoverProjectConfig(fs afero.Fs, toolName, startDir string) string {
+	if toolName == "" || startDir == "" {
+		return ""
+	}
+
+	name := "." + toolName + ".yaml"
+
+	for dir := startDir; ; {
+		candidate := filepath.Join(dir, name)
+		if _, serr := fs.Stat(candidate); serr == nil {
+			return candidate
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir { // reached the filesystem root
+			return ""
+		}
+
+		dir = parent
+	}
+}
+
 func loadAndMergeConfig(opts ConfigLoadOptions) (config.Containable, error) {
 	cfgOpts := configOpts(opts.Props)
 
@@ -567,7 +616,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		}
 
 		cfg, err := loadAndMergeConfig(ConfigLoadOptions{
-			CfgPaths:    state.cfgPaths,
+			CfgPaths:    projectConfigPaths(props, state.cfgPaths),
 			ConfigPaths: paths,
 			Props:       props,
 			AllowEmpty:  allowEmpty,
