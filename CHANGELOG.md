@@ -1,5 +1,25 @@
 # Changelog
 
+## [v0.24.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.24.0)
+
+### Features
+
+- **http**: cookie credential source for AuthMiddleware
+- **generator**: layout-aware nav generation
+- **generator**: quadrant-appropriate agentless boilerplate
+- **generator**: quadrant-aware, public-conditional doc prompts
+- **generator**: regenerate project --force migrates flat docs to Diátaxis
+- **generator**: Godog coverage + fix layout-aware index generation
+- **generator**: scaffold the neutral Diátaxis docs tree (skeleton)
+- **generator**: quadrant-aware doc output paths (diataxis layout)
+- **generator**: add manifest docs_layout + module_published fields
+
+### Bug Fixes
+
+- **generator**: validate --package path + review follow-ups
+- **generator**: correct Diátaxis index links + persist --public-api
+- **generator**: preserve all manifest-only properties on rebuild
+
 ## [v0.23.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.23.0)
 
 ### Features
