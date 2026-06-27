@@ -553,6 +553,8 @@ func TestValidateFlagType(t *testing.T) {
 		{name: "float64", input: "float64", wantErr: false},
 		{name: "duration", input: "duration", wantErr: false},
 		{name: "stringSlice", input: "stringSlice", wantErr: false},
+		{name: "stringArray", input: "stringArray", wantErr: false},
+		{name: "stringarray lowercase", input: "stringarray", wantErr: false},
 		{name: "intSlice", input: "intSlice", wantErr: false},
 
 		{name: "unknown", input: "notatype", wantErr: true},

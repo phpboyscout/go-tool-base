@@ -42,7 +42,9 @@ You can use any of the following types for your flags:
 - `bool`
 - `int`
 - `float64`
-- `stringSlice`
+- `stringSlice` — repeatable; **comma-splits** each value (`--tag a,b` → `[a b]`)
+- `stringArray` — repeatable; does **not** split (`--set 'k=a, b'` stays one value).
+  Use this for values that may contain commas (prose, key=value, JSON fragments).
 - `intSlice`
 
 ## Examples

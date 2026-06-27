@@ -60,3 +60,22 @@ func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {
 	assert.NotContains(t, src, "AddCommandWithMiddleware",
 		"generator must no longer emit AddCommandWithMiddleware")
 }
+
+// stringArray is a non-splitting repeatable string flag (cobra StringArrayVar) for
+// values that contain commas (e.g. a prose `--set prompt=a, b`), distinct from
+// stringSlice's comma-splitting StringSliceVar.
+func TestGetFlagFuncName_StringArray(t *testing.T) {
+	cases := map[string]string{
+		"stringArray": "StringArrayVar",
+		"stringarray": "StringArrayVar",
+		"stringSlice": "StringSliceVar",
+		"bool":        "BoolVar",
+		"":            "StringVar", // default
+	}
+
+	for in, want := range cases {
+		if got := getFlagFuncName(in); got != want {
+			t.Errorf("getFlagFuncName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

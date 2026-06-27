@@ -236,7 +236,7 @@ func addFlagToStruct(g *jen.Group, flag CommandFlag) {
 	// Map manifest types to Go types
 	goType := typeName
 	switch typeName {
-	case "stringSlice", "stringslice":
+	case "stringSlice", "stringslice", "stringArray", "stringarray":
 		goType = "[]string"
 	case "intSlice", "intslice":
 		goType = "[]int"
@@ -597,6 +597,8 @@ func pullFlag(g *jen.Group, flag CommandFlag) {
 		funcSuffix = "Float64"
 	case "stringSlice", "stringslice":
 		funcSuffix = "StringSlice"
+	case "stringArray", "stringarray":
+		funcSuffix = "StringArray"
 	case "intSlice", "intslice":
 		funcSuffix = "IntSlice"
 	case "int64":
@@ -634,6 +636,8 @@ var flagFuncMap = map[string]string{
 	"float64":     "Float64Var",
 	"stringSlice": "StringSliceVar",
 	"stringslice": "StringSliceVar",
+	"stringArray": "StringArrayVar",
+	"stringarray": "StringArrayVar",
 	"intSlice":    "IntSliceVar",
 	"intslice":    "IntSliceVar",
 	"int32":       "Int32Var",
@@ -660,7 +664,7 @@ func getFlagDefaultValue(flag CommandFlag) jen.Code {
 		}
 
 		return jen.False()
-	case "stringSlice", "stringslice":
+	case "stringSlice", "stringslice", "stringArray", "stringarray":
 		return getStringSliceDefault(flag.Default)
 	case "intSlice", "intslice":
 		return getIntSliceDefault(flag.Default)
@@ -680,7 +684,7 @@ func getZeroValue(flagType string) jen.Code {
 		return jen.Lit(0)
 	case "float64":
 		return jen.Lit(0.0)
-	case "stringSlice", "stringslice":
+	case "stringSlice", "stringslice", "stringArray", "stringarray":
 		return jen.Index().String().Values()
 	case "intSlice", "intslice":
 		return jen.Index().Int().Values()

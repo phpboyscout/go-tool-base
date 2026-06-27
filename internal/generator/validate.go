@@ -107,6 +107,8 @@ var validFlagTypes = map[string]bool{
 	"duration":    true,
 	"stringSlice": true,
 	"stringslice": true,
+	"stringArray": true,
+	"stringarray": true,
 	"intSlice":    true,
 	"intslice":    true,
 }
@@ -382,7 +384,7 @@ func ValidateFlagType(flagType string) error {
 	t := norm.NFC.String(flagType)
 	if !validFlagTypes[t] {
 		return rejectf("FlagType",
-			"flag type must be one of: string, bool, int, int32, int64, uint, uint32, uint64, float64, duration, stringSlice, intSlice",
+			"flag type must be one of: string, bool, int, int32, int64, uint, uint32, uint64, float64, duration, stringSlice, stringArray, intSlice",
 			t)
 	}
 
