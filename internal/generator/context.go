@@ -20,14 +20,11 @@ type CommandContext struct {
 	WithAssets           bool
 	WithInitializer      bool
 	WithConfigValidation bool
-	// Deprecated: no-op. Subcommands are always middleware-wrapped via the
-	// setup.Command wrapper's Register; no template consumes this field.
-	WrapSubcommandsWithMiddleware bool
-	PersistentPreRun              bool
-	PreRun                        bool
-	Protected                     *bool
-	MCPEnabled                    *bool // tri-state MCP exposure; mirrors Protected
-	Hidden                        bool
+	PersistentPreRun     bool
+	PreRun               bool
+	Protected            *bool
+	MCPEnabled           *bool // tri-state MCP exposure; mirrors Protected
+	Hidden               bool
 
 	// Project-level settings (carried from the originating generator)
 	ProjectPath string

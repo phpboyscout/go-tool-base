@@ -156,13 +156,7 @@ type ManifestCommand struct {
 	WithAssets           bool              `yaml:"with_assets,omitempty"`
 	WithInitializer      bool              `yaml:"with_initializer,omitempty"`
 	WithConfigValidation bool              `yaml:"with_config_validation,omitempty"`
-	// Deprecated: no longer has any effect. Subcommands are always wrapped with
-	// middleware now that generated commands register children through the
-	// setup.Command wrapper's Register (which chains middleware unconditionally),
-	// so this directive is a no-op. It is retained only so existing manifests
-	// still unmarshal; `regenerate manifest` no longer re-derives or writes it.
-	WrapSubcommandsWithMiddleware bool  `yaml:"wrap_subcommands_with_middleware,omitempty"`
-	Protected                     *bool `yaml:"protected,omitempty"`
+	Protected            *bool             `yaml:"protected,omitempty"`
 	// MCPEnabled is the tri-state MCP-exposure decision for this command:
 	// nil = inherit (default exposed), true = explicitly exposed, false =
 	// excluded from the MCP tool surface. Build-time only; see

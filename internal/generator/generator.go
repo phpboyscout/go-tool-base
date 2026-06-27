@@ -97,9 +97,6 @@ type Config struct {
 	WithAssets           bool
 	WithConfigValidation bool
 	WithInitializer      bool
-	// Deprecated: no-op. Subcommands are always middleware-wrapped via the
-	// setup.Command wrapper's Register. Retained for flag compatibility only.
-	WrapSubcommandsWithMiddleware *bool
 }
 
 type CommandFlag struct {
