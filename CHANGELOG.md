@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.27.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.27.0)
+
+### Features
+
+- **config**: project-local .<tool>.yaml config layer (repo-root, overrides global)
+- **generator**: add stringArray flag type (non-splitting repeatable string)
+
 ## [v0.26.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.26.0)
 
 ### Features
