@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.25.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.25.0)
+
+### Features
+
+- **props**: remove .hcl/.tf asset format support
+
 ## [v0.24.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.24.0)
 
 ### Features
