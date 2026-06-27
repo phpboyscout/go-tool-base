@@ -47,9 +47,15 @@ include:
   # targets at once, which OOM-kills the compiler on the shared runner
   # ("compile: signal: killed") and publishes zero assets. Sequential builds
   # cap peak memory at the cost of a longer release job.
+  #
+  # image: pinned to dev-tools v0.2.0, the first tag that bakes `syft` —
+  # goreleaser's sboms: stanza shells out to it. The component's default
+  # (v0.1.2) lacks syft, so the release failed at the SBOM step ("exec:
+  # syft: not found") after the binaries built.
   - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.18.1
     inputs:
       args: "release --clean --parallelism=1"
+      image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.2.0"
   - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.18.1
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
