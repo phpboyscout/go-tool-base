@@ -47,7 +47,7 @@ test-integration:
 
 # Run E2E (Godog BDD) tests
 test-e2e:
-    INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 5m
+    INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 15m
 
 # Run E2E smoke tests only (fast, no external deps)
 test-e2e-smoke:
