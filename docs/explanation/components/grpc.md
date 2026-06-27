@@ -171,9 +171,6 @@ if err != nil {
 |----------|-----|-------|
 | `DefaultConfigPrefix` | `server.grpc` | Default prefix; override with `WithConfigPrefix`. |
 | `ConfigKeySharedPort` | `server.port` | Fallback when the per-server port is unset. |
-| `ConfigKeyPort` | `server.grpc.port` | Deprecated — prefer `WithConfigPrefix` / `<prefix>.port`. |
-| `ConfigKeyReflection` | `server.grpc.reflection` | Deprecated — prefer `WithConfigPrefix`. |
-| `ConfigTLSPrefix` | `server.grpc.tls` | Deprecated — the TLS prefix is `<prefix>.tls`. |
 
 ## Usage Example
 

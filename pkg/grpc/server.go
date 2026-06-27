@@ -39,20 +39,9 @@ const DefaultConfigPrefix = "server.grpc"
 // maxPort is the highest valid TCP port number.
 const maxPort = 65535
 
-// Config keys read by the gRPC server at the default prefix.
-const (
-	// ConfigKeySharedPort is the shared fallback port used when the
-	// per-server port key is unset.
-	ConfigKeySharedPort = "server.port"
-
-	// Deprecated: use DefaultConfigPrefix with WithConfigPrefix, or read
-	// <prefix>.port. Retained as the default-prefix value for compatibility.
-	ConfigKeyPort = DefaultConfigPrefix + ".port"
-	// Deprecated: use WithConfigPrefix; reads <prefix>.reflection.
-	ConfigKeyReflection = DefaultConfigPrefix + ".reflection"
-	// Deprecated: use WithConfigPrefix; the TLS prefix is <prefix>.tls.
-	ConfigTLSPrefix = DefaultConfigPrefix + ".tls"
-)
+// ConfigKeySharedPort is the shared fallback port used when the per-server
+// port key (<prefix>.port) is unset.
+const ConfigKeySharedPort = "server.port"
 
 // serverConfig carries the construction settings consumed by NewServer, Start
 // and DialLocal. A zero field falls back to config or the built-in default.

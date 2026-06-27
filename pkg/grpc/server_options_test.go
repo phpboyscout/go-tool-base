@@ -39,14 +39,9 @@ func (b *safeBuffer) String() string {
 	return b.buf.String()
 }
 
-func TestDeprecatedConfigKeyConstants(t *testing.T) {
+func TestConfigKeyConstants(t *testing.T) {
 	t.Parallel()
 
-	// The legacy constants must keep resolving the default-prefix keys so
-	// existing callers and config files are unaffected.
-	assert.Equal(t, "server.grpc.port", ConfigKeyPort)
-	assert.Equal(t, "server.grpc.reflection", ConfigKeyReflection)
-	assert.Equal(t, "server.grpc.tls", ConfigTLSPrefix)
 	assert.Equal(t, "server.port", ConfigKeySharedPort)
 	assert.Equal(t, "server.grpc", DefaultConfigPrefix)
 }
