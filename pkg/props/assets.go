@@ -15,7 +15,6 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/cockroachdb/errors"
-	"github.com/hashicorp/hcl"
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
@@ -109,7 +108,7 @@ func (a *embeddedAssets) Open(name string) (fs.File, error) {
 
 	ext := strings.ToLower(path.Ext(name))
 	switch ext {
-	case ".yaml", ".yml", ".json", ".toml", ".xml", ".properties", ".env", ".hcl", ".tf":
+	case ".yaml", ".yml", ".json", ".toml", ".xml", ".properties", ".env":
 		return a.openMergedStructured(name, ext)
 	case ".csv":
 		return a.openMergedCSV(name)
@@ -182,10 +181,6 @@ func marshalStructuredData(merged map[string]any, ext string) ([]byte, error) {
 		output, err = xml.Marshal(merged)
 	case ".properties", ".env":
 		output = []byte(formatFlatKV(merged))
-	case ".hcl", ".tf":
-		// Note: HCL marshaling isn't as standard in generic map form
-		// for now we'll convert to JSON which HCL can often consume or vice-versa
-		output, err = json.Marshal(merged)
 	default: // yaml
 		output, err = yaml.Marshal(merged)
 	}
@@ -231,8 +226,6 @@ func unmarshalStructuredData(data []byte, ext string) (map[string]any, error) {
 		err = xml.Unmarshal(data, &current)
 	case ".properties", ".env":
 		current = parseFlatKV(string(data))
-	case ".hcl", ".tf":
-		err = hcl.Unmarshal(data, &current)
 	default:
 		return nil, errors.Newf("unsupported extension: %s", ext)
 	}

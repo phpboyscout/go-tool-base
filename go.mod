@@ -31,7 +31,6 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
-	github.com/hashicorp/hcl v1.0.0
 	github.com/invopop/jsonschema v0.14.0
 	github.com/leodido/go-conventionalcommits v0.12.0
 	github.com/njayp/ophis v1.1.4

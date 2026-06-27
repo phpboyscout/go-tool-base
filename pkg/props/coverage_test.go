@@ -217,8 +217,6 @@ func TestEmbeddedAssets_StructuredFormats(t *testing.T) {
 	}{
 		{"json", "config.json", `{"app":{"name":"root"}}`},
 		{"properties", "config.properties", "a=1\nb=2"},
-		{"hcl", "config.hcl", `name = "x"`},
-		{"tf", "config.tf", `name = "y"`},
 		{"yml", "config.yml", "k: v"},
 	}
 

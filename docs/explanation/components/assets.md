@@ -71,7 +71,7 @@ The `props.Assets` container doesn't just find files; it understands them. When 
 
 - **Static Assets (Shadowing)**: For binary files, images, or raw text, we use **Reverse Search (Last-Registered wins)**. If multiple filesystems contain the same file, the one registered latest is returned.
 - **Structured Data (Automatic Merging)**: For all structured formats, we perform a **Forward Merge (Aggregate)**. The framework collects every instance of the file across all registered modules (in registration order) and merges them into a single virtual file.
-    - **Deep Merge (Maps)**: `.yaml`, `.yml`, `.json`, `.toml`, `.hcl`, `.tf`, and `.xml`.
+    - **Deep Merge (Maps)**: `.yaml`, `.yml`, `.json`, `.toml`, and `.xml`.
     - **Key-Value Merge**: `.properties` and `.env`.
     - **Header-Aware Append**: `.csv` (collects and appends all rows).
 
