@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.26.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.26.0)
+
+### Features
+
+- **update**: remove deprecated ExportNew* test seams
+- **grpc**: remove deprecated ConfigKey* constants
+
 ## [v0.25.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.25.0)
 
 ### Features
