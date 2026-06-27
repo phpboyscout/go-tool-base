@@ -1,5 +1,11 @@
 # Changelog
 
+## [v0.27.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.27.1)
+
+### Bug Fixes
+
+- **release**: restore binary assets via syft-enabled build image
+
 ## [v0.27.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.27.0)
 
 ### Features
