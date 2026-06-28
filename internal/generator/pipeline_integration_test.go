@@ -713,3 +713,52 @@ func TestKeryxRoundTrip_RegenerateManifestThenProjectPreservesProject(t *testing
 		assert.Truef(t, exists, "regenerate project must not remove pkg/cmd/%s/cmd.go", n)
 	}
 }
+
+// TestKeryxFollowup_LeafToParentReshape asserts that giving a boilerplate leaf
+// command its first child reshapes the parent to canonical parent form up front
+// (no leftover boilerplate RunE), so a subsequent regenerate project does not
+// rewrite the parent's cmd.go. Custom Run<Name> logic is preserved (handled by
+// shouldOmitRun); this covers the boilerplate case.
+func TestKeryxFollowup_LeafToParentReshape(t *testing.T) {
+	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
+
+	p, path := newIntegrationProject(t)
+
+	// theme starts as a boilerplate leaf — it has a RunE.
+	addCmd(t, p, path, "theme", "root")
+
+	themeCmd := filepath.Join(path, "pkg", "cmd", "theme", "cmd.go")
+	before, err := afero.ReadFile(p.FS, themeCmd)
+	require.NoError(t, err)
+	// A boilerplate leaf has a RunE that calls its Run<Name> impl. (Match
+	// "RunTheme", not "RunE" — the latter is a substring of "PreRunE".)
+	require.Contains(t, string(before), "RunTheme", "a fresh boilerplate leaf should call RunTheme")
+
+	// Adding the first child transitions theme leaf -> parent.
+	addCmd(t, p, path, "add", "theme")
+
+	after, err := afero.ReadFile(p.FS, themeCmd)
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(after), "RunTheme",
+		"a boilerplate parent's RunE/RunTheme should be stripped on the leaf->parent transition")
+	assert.Contains(t, string(after), "add.NewCmdAdd",
+		"the parent must still register its new child")
+	assert.Contains(t, string(after), `add "github.com/test/test-project/pkg/cmd/theme/add"`,
+		"the incremental child import must carry the alias jennifer emits (Issue 1)")
+
+	// Convergence: regenerate project must not rewrite theme/cmd.go.
+	g := New(p, &Config{Path: path})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {
+		return []byte("done"), nil
+	}
+
+	result, err := g.RegenerateProjectDryRun(context.Background())
+	require.NoError(t, err)
+
+	for _, f := range result.Modified {
+		assert.NotContainsf(t, f.Path, filepath.Join("cmd", "theme", "cmd.go"),
+			"regenerate project should not rewrite the reshaped parent theme/cmd.go; diff:\n%s", f.Diff)
+	}
+}

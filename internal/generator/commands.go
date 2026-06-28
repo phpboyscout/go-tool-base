@@ -127,7 +127,48 @@ func (g *Generator) generate(ctx context.Context) error {
 		}
 	}
 
-	return g.finalizeProject(ctx, data, cmdDir)
+	if err := g.finalizeProject(ctx, data, cmdDir); err != nil {
+		return err
+	}
+
+	return g.reshapeParentIfTransitioned(ctx)
+}
+
+// reshapeParentIfTransitioned re-renders the parent command canonically when it
+// has just gained its FIRST child (a leaf -> parent transition). The incremental
+// registration path leaves the parent's leaf-shaped cmd.go (boilerplate
+// RunE/opts) in place, which a later `regenerate project` would strip; applying
+// the canonical render here via RegenerateCommand makes the two paths converge.
+// RegenerateCommand applies shouldOmitRun, so a custom Run<Name> is preserved
+// and only boilerplate is dropped. No-op for root, dry-run, or non-transition
+// adds. It is invoked from generate() (not the shared pipeline) so the parent's
+// own regeneration does not re-trigger it.
+func (g *Generator) reshapeParentIfTransitioned(ctx context.Context) error {
+	if g.config.DryRun {
+		return nil
+	}
+
+	parentParts := g.getParentPathParts()
+	if len(parentParts) == 0 {
+		return nil // root is never a runnable leaf
+	}
+
+	m, err := g.loadManifest()
+	if err != nil {
+		return nil //nolint:nilerr // no manifest yet — nothing to reshape
+	}
+
+	grandparent := parentParts[:len(parentParts)-1]
+	parentName := parentParts[len(parentParts)-1]
+
+	parent := findCommandAt(m.Commands, grandparent, parentName)
+	if parent == nil || len(parent.Commands) != 1 {
+		return nil // not the first-child (leaf -> parent) transition
+	}
+
+	g.props.Logger.Debugf("Parent %q gained its first child; reshaping to canonical parent form", parentName)
+
+	return g.RegenerateCommand(ctx, *parent, grandparent)
 }
 
 // GenerateDryRun previews what Generate would do without writing to disk.

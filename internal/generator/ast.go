@@ -57,7 +57,7 @@ func (g *Generator) registerSubcommand() error {
 	}
 
 	g.props.Logger.Debugf("Adding import for %s", ctx.importPath)
-	g.addSubcommandImport(f, ctx.importPath)
+	g.addSubcommandImport(f, ctx.importPath, ctx.pkgName)
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)
 	if err != nil {
@@ -161,18 +161,25 @@ func (g *Generator) fallbackParentFile(relPath, name string, isRoot bool) string
 	return filepath.Join(g.config.Path, relPath, name+".go")
 }
 
-func (g *Generator) addSubcommandImport(f *dst.File, path string) {
-	g.ensureImport(f, fmt.Sprintf("\"%s\"", path))
+func (g *Generator) addSubcommandImport(f *dst.File, path, alias string) {
+	g.ensureImport(f, alias, fmt.Sprintf("\"%s\"", path))
 }
 
 // ensureImport adds quotedPath (a double-quoted import path) to f's imports if it
-// is not already present, appending to the last import block or creating one.
-func (g *Generator) ensureImport(f *dst.File, quotedPath string) {
+// is not already present, appending to the last import block or creating one. The
+// import is given an explicit alias so the dst-incremental form matches the
+// alias-everything style the jennifer renderer emits on a full regenerate —
+// otherwise a freshly-generated subcommand import gains an alias on the first
+// `regenerate project` (cosmetic round-trip churn).
+func (g *Generator) ensureImport(f *dst.File, alias, quotedPath string) {
 	if g.hasImport(f, quotedPath) {
 		return
 	}
 
 	spec := &dst.ImportSpec{Path: &dst.BasicLit{Kind: token.STRING, Value: quotedPath}}
+	if alias != "" {
+		spec.Name = dst.NewIdent(alias)
+	}
 
 	if decl := g.findLastImportDecl(f); decl != nil {
 		decl.Specs = append(decl.Specs, spec)
