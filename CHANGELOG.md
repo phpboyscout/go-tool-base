@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.27.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.27.2)
+
+### Bug Fixes
+
+- **generator**: converge incremental command rendering with regenerate (keryx follow-ups)
+- **generator**: resolve keryx manifest/regen defects (dry-run, const defaults, round-trip)
+
 ## [v0.27.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.27.1)
 
 ### Bug Fixes
