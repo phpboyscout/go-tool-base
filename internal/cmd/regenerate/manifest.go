@@ -39,7 +39,8 @@ func (o *ManifestOptions) Run(ctx context.Context, p *props.Props) error {
 	o.Path = icmd.ResolveProjectPath(p, o.Path)
 
 	cfg := &generator.Config{
-		Path: o.Path,
+		Path:   o.Path,
+		DryRun: dryRun,
 	}
 
 	return generator.New(p, cfg).RegenerateManifest(ctx)

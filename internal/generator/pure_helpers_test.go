@@ -109,12 +109,14 @@ func TestEncodeAndMarshalManifestFile_RoundTrip(t *testing.T) {
 func TestEncodeManifestFile_CreateError(t *testing.T) {
 	t.Parallel()
 
-	// A read-only filesystem makes Create fail, exercising the error branch.
+	// A read-only filesystem makes the write fail, exercising the error branch.
+	// EncodeManifestFile now shares the single marshal+WriteFile path with
+	// MarshalManifestFile, so the failure surfaces as a write error.
 	ro := afero.NewReadOnlyFs(afero.NewMemMapFs())
 
 	err := EncodeManifestFile(ro, "/x/manifest.yaml", &Manifest{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to open manifest for writing")
+	assert.Contains(t, err.Error(), "failed to write manifest")
 }
 
 func TestMarshalManifestFile_WriteError(t *testing.T) {

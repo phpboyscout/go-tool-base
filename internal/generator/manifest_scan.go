@@ -72,7 +72,38 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 		m.Version.GoToolBase = g.props.Version.GetVersion()
 	}
 
+	if g.config.DryRun {
+		return g.previewManifest(manifestPath, m)
+	}
+
 	return g.writeManifestFile(manifestPath, m)
+}
+
+// previewManifest renders the rebuilt manifest and shows what would change
+// WITHOUT writing to disk, honouring --dry-run (keryx Bug 3). It mirrors the
+// marshaller used by the real write path so the preview matches the bytes that
+// would be written.
+func (g *Generator) previewManifest(manifestPath string, m Manifest) error {
+	incoming, err := marshalManifestBytes(&m)
+	if err != nil {
+		return err
+	}
+
+	existing, _ := afero.ReadFile(g.props.FS, manifestPath)
+
+	diff, diffErr := generateUnifiedDiff(manifestPath, existing, incoming)
+
+	switch {
+	case diffErr != nil:
+		// Diff rendering is best-effort; the contract is simply "do not write".
+		g.props.Logger.Warnf("Dry run: manifest.yaml would be updated (diff unavailable: %v); not written.", diffErr)
+	case strings.TrimSpace(diff) == "":
+		g.props.Logger.Info("Dry run: manifest.yaml is already up to date; no changes.")
+	default:
+		g.props.Logger.Infof("Dry run: manifest.yaml would change (not written):\n%s", diff)
+	}
+
+	return nil
 }
 
 func (g *Generator) writeManifestFile(manifestPath string, m Manifest) error {

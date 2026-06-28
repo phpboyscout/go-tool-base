@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,17 +49,12 @@ func DecodeManifestFile(fs afero.Fs, manifestPath string) (*Manifest, error) {
 // (writeManifest, persistProjectHashes, the skeleton hash refresh), so
 // the Create+SetIndent+Encode boilerplate cannot drift.
 func EncodeManifestFile(fs afero.Fs, manifestPath string, m *Manifest) error {
-	f, err := fs.Create(manifestPath)
+	out, err := marshalManifestBytes(m)
 	if err != nil {
-		return errors.Newf("failed to open manifest for writing: %w", err)
+		return err
 	}
 
-	defer func() { _ = f.Close() }()
-
-	enc := yaml.NewEncoder(f)
-	enc.SetIndent(manifestIndent)
-
-	if err := enc.Encode(m); err != nil {
+	if err := afero.WriteFile(fs, manifestPath, out, os.FileMode(DefaultFileMode)); err != nil {
 		return errors.Newf("failed to write manifest: %w", err)
 	}
 
@@ -72,9 +68,9 @@ func EncodeManifestFile(fs afero.Fs, manifestPath string, m *Manifest) error {
 // in that it produces the yaml.Marshal default indentation, preserving
 // each site's existing on-disk output.
 func MarshalManifestFile(fs afero.Fs, manifestPath string, m *Manifest, mode os.FileMode) error {
-	updated, err := yaml.Marshal(m)
+	updated, err := marshalManifestBytes(m)
 	if err != nil {
-		return errors.Newf("failed to marshal manifest: %w", err)
+		return err
 	}
 
 	if err := afero.WriteFile(fs, manifestPath, updated, mode); err != nil {
@@ -82,6 +78,32 @@ func MarshalManifestFile(fs afero.Fs, manifestPath string, m *Manifest, mode os.
 	}
 
 	return nil
+}
+
+// marshalManifestBytes renders a manifest to its canonical YAML bytes at the
+// two-space manifestIndent. It is the SINGLE serialisation point for every
+// manifest write site (scaffold, generate command, regenerate manifest) and the
+// dry-run preview, so all sites round-trip byte-stably — previously the encoder
+// path used 2-space and the yaml.Marshal path used 4-space, so the first
+// generate/regenerate reformatted a freshly scaffolded manifest (keryx
+// round-trip churn).
+func marshalManifestBytes(m *Manifest) ([]byte, error) {
+	var buf bytes.Buffer
+
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(manifestIndent)
+
+	if err := enc.Encode(m); err != nil {
+		_ = enc.Close()
+
+		return nil, errors.Newf("failed to marshal manifest: %w", err)
+	}
+
+	if err := enc.Close(); err != nil {
+		return nil, errors.Newf("failed to flush manifest: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 // decodeManifestFile reads and decodes the manifest from the generator's

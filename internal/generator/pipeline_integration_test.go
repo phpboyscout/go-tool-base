@@ -646,3 +646,70 @@ func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
 		})
 	}
 }
+
+// TestKeryxRoundTrip_RegenerateManifestThenProjectPreservesProject asserts the
+// keryx round-trip property at the level that matters: `regenerate manifest` is
+// byte-idempotent (the indentation fix — no 4<->2 space reformat churn), and a
+// following `regenerate project` neither drops the manifest's top-level commands
+// nor deletes any subcommand registration from source (the keryx Bug 1 danger).
+//
+// Note: a strict byte-for-byte no-op does NOT hold even for an unchanged
+// project, but for reasons OUTSIDE the keryx report's three defects — the
+// scaffold and regenerate templates differ only cosmetically (explicit import
+// aliases and call line-wrapping that gofmt normalises). Those, and the
+// separate leaf->parent reshape, are tracked as follow-ups rather than asserted
+// here.
+func TestKeryxRoundTrip_RegenerateManifestThenProjectPreservesProject(t *testing.T) {
+	t.Setenv("GTB_NON_INTERACTIVE", "true")
+	testutil.SkipIfNotIntegration(t, "generator")
+
+	p, path := newIntegrationProject(t)
+
+	addCmd(t, p, path, "build", "root")
+	addCmd(t, p, path, "deploy", "root")
+	addCmd(t, p, path, "status", "root")
+
+	manifestPath := filepath.Join(path, ".gtb", "manifest.yaml")
+
+	g := New(p, &Config{Path: path})
+	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {
+		return []byte("done"), nil
+	}
+
+	// regenerate manifest must be byte-idempotent across runs.
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	first, err := afero.ReadFile(p.FS, manifestPath)
+	require.NoError(t, err)
+
+	require.NoError(t, g.RegenerateManifest(context.Background()))
+
+	second, err := afero.ReadFile(p.FS, manifestPath)
+	require.NoError(t, err)
+
+	assert.Equal(t, string(first), string(second),
+		"regenerate manifest must be byte-idempotent (no reformat churn)")
+
+	// The rescan must capture every top-level command.
+	m := loadManifestFrom(t, p.FS, path)
+	for _, n := range []string{"build", "deploy", "status"} {
+		require.NotNilf(t, findCommand(m.Commands, n), "manifest must retain top-level %q", n)
+	}
+
+	// regenerate project must preserve every subcommand registration in
+	// root/cmd.go (no source deletion) and leave each command package in place.
+	require.NoError(t, g.RegenerateProject(context.Background()))
+
+	rootCmd, err := afero.ReadFile(p.FS, filepath.Join(path, "pkg", "cmd", "root", "cmd.go"))
+	require.NoError(t, err)
+
+	for _, ctor := range []string{"build.NewCmdBuild", "deploy.NewCmdDeploy", "status.NewCmdStatus"} {
+		assert.Containsf(t, string(rootCmd), ctor,
+			"regenerate project must not delete the %s registration from root/cmd.go", ctor)
+	}
+
+	for _, n := range []string{"build", "deploy", "status"} {
+		exists, _ := afero.Exists(p.FS, filepath.Join(path, "pkg", "cmd", n, "cmd.go"))
+		assert.Truef(t, exists, "regenerate project must not remove pkg/cmd/%s/cmd.go", n)
+	}
+}

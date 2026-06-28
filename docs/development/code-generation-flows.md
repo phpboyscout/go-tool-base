@@ -119,6 +119,15 @@ flowchart TD
 | `regenerate project` | `internal/cmd/regenerate/project.go` | `ProjectOptions.Run()` | `RegenerateProject()` |
 | `regenerate manifest` | `internal/cmd/regenerate/manifest.go` | `ManifestOptions.Run()` | `RegenerateManifest()` |
 
+### Dry run
+
+`--dry-run` is a persistent flag on `regenerate` and is honoured by **both**
+subcommands:
+
+- `regenerate project --dry-run` previews the file operations it would perform.
+- `regenerate manifest --dry-run` rebuilds the manifest in memory and prints a
+  unified diff of `.gtb/manifest.yaml` **without writing it** (`previewManifest`).
+
 ---
 
 ## Shared Intersections

@@ -113,6 +113,14 @@ func resolveStringValue(expr dst.Expr, constants map[string]string) (string, boo
 		return "[]", true
 	}
 
+	// Unwrap an inline conversion default like int(int64(0)), recursing to the
+	// inner value (keryx Bug 2). A conversion has exactly one argument.
+	if call, ok := expr.(*dst.CallExpr); ok {
+		if len(call.Args) == 1 {
+			return resolveStringValue(call.Args[0], constants)
+		}
+	}
+
 	return "", false
 }
 
@@ -474,11 +482,13 @@ func resolveConstantValue(expr dst.Expr) (string, bool) {
 		return strings.Trim(lit.Value, "`\""), true
 	}
 
+	// Unwrap a conversion like int(0) or the nested int(int64(0)) the
+	// generator's own templates emit, recursing to the inner literal
+	// (keryx Bug 2 — a nested conversion was previously left unresolved,
+	// silently dropping a non-zero code-constant flag default).
 	if call, ok := expr.(*dst.CallExpr); ok {
-		if len(call.Args) > 0 {
-			if lit, ok := call.Args[0].(*dst.BasicLit); ok {
-				return strings.Trim(lit.Value, "`\""), true
-			}
+		if len(call.Args) == 1 {
+			return resolveConstantValue(call.Args[0])
 		}
 	}
 
