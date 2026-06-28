@@ -100,3 +100,30 @@ A clean round-trip property worth asserting in tests:
 `regenerate manifest` → `regenerate project --dry-run` should be a **no-op** for an
 unchanged project (currently it isn't: the manifest's tool block re-indents 4-space ↔
 2-space, and flag defaults flip between an inline literal and a `defaultX` const).
+
+---
+
+## Resolution (go-tool-base)
+
+Each item below has a test under `internal/generator/keryx_bug_validation_test.go`
+or `pipeline_integration_test.go`.
+
+- **Bug 1 — could not reproduce.** `generate command`'s manifest writer
+  (`updateOrAppendCommand`) already merges in place; re-registering a subcommand
+  preserves untouched siblings, and `regenerate project` preserves every
+  subcommand registration (no source deletion). A regression test guards this.
+  Likely an older binary or a symptom misattributed from a separate operation.
+- **Bug 2 — fixed.** Nested-conversion constant defaults such as `int(int64(0))`
+  now resolve (the resolvers recurse through single-arg conversions) instead of
+  being warned-and-unset.
+- **Bug 3 — fixed.** `regenerate manifest --dry-run` is honoured: it prints a
+  unified diff of `.gtb/manifest.yaml` and writes nothing.
+- **Round-trip — fixed.** A single 2-space serialiser is now used by every
+  manifest write site, so `regenerate manifest` is byte-idempotent. Two related
+  cosmetic divergences between the incremental and canonical command renderers
+  were also closed: child imports now carry the same alias on both paths, and a
+  boilerplate leaf is reshaped to canonical parent form on its first child.
+  - *Known residual:* a root-level `NewCmdRoot(...)` call's argument
+    line-wrapping can still differ between the two paths. It drops no
+    registrations and is gofmt-stable; full convergence is deferred to a
+    manifest-driven re-render of the root on `generate command`.
