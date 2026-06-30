@@ -10,8 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/signing/verify"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/trustkeys"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // expectedFingerprints lists the keys that must be embedded in this
@@ -48,7 +49,7 @@ func TestKeys_AllParseViaProductionVerifier(t *testing.T) {
 
 	// NewEmbeddedResolver panics on malformed or weak keys; if this
 	// returns we know every key passed both parse and policy gates.
-	r := setup.NewEmbeddedResolver(keys...)
+	r := verify.NewEmbeddedResolver(keys...)
 	require.NotNil(t, r)
 }
 

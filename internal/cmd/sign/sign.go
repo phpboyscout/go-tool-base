@@ -22,11 +22,13 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/openpgpkey"
+	"gitlab.com/phpboyscout/signing"
+	"gitlab.com/phpboyscout/signing/openpgpkey"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
 )
 
 // signatureFilePerm is the on-disk mode for the produced .sig file.
@@ -121,7 +123,12 @@ Examples:
 			panic(err) // unreachable
 		}
 
-		b.RegisterFlags(cmd.Flags())
+		// The signing.Backend contract is CLI-agnostic; a backend that needs
+		// per-backend flags (e.g. aws-kms's --kms-region) implements this
+		// optional interface, which we type-assert for here.
+		if fr, ok := b.(interface{ RegisterFlags(*pflag.FlagSet) }); ok {
+			fr.RegisterFlags(cmd.Flags())
+		}
 	}
 
 	return setup.Wrap("", cmd)

@@ -1,6 +1,8 @@
 package root
 
 import (
+	"gitlab.com/phpboyscout/signing/verify"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
@@ -39,7 +41,7 @@ func init() {
 	// externally-served WKD copy at openpgpkey.phpboyscout.uk will
 	// refuse to install an update that wasn't signed by the trusted
 	// release key.
-	setup.DefaultRequireSignature = true
+	verify.DefaultRequireSignature = true
 
 	// Phase 2 (v0.13.1): without this, the verifier silently degrades
 	// to embedded-only (logs `resolver=embedded`) because the default
@@ -50,5 +52,5 @@ func init() {
 	// externally-served copy at openpgpkey.phpboyscout.uk — exactly
 	// the two-of-three trust-anchor independence the Phase 2 design
 	// promises.
-	setup.DefaultExternalKeyEmail = "release@phpboyscout.uk"
+	verify.DefaultExternalKeyEmail = "release@phpboyscout.uk"
 }

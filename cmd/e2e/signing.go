@@ -9,6 +9,6 @@ package main
 // prove the AWS SDK can be left out of regulated builds; e2e is the
 // opposite — full feature surface, all backends linked in.
 import (
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/kms"
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/local"
+	_ "gitlab.com/phpboyscout/signing-aws-kms"
+	_ "gitlab.com/phpboyscout/signing/local"
 )

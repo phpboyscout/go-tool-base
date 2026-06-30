@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/signing/verify"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
@@ -18,7 +19,7 @@ const signatureDefaultAssetName = "checksums.txt.sig"
 // verification. When set, the config-driven default (built from
 // WithEmbeddedKeys and the update.key_source family) is bypassed
 // entirely — the tool author owns the resolver chain.
-func WithKeyResolver(r KeyResolver) UpdaterOption {
+func WithKeyResolver(r verify.KeyResolver) UpdaterOption {
 	return func(s *SelfUpdater) { s.keyResolver = r }
 }
 
@@ -51,38 +52,38 @@ type stringConfig interface {
 
 // resolveRequireSignature mirrors [resolveRequireChecksum]: explicit
 // config (which Viper AutomaticEnv also pulls from a prefixed env var)
-// first, otherwise the compile-time [DefaultRequireSignature].
+// first, otherwise the compile-time [verify.DefaultRequireSignature].
 func resolveRequireSignature(cfg boolConfig) bool {
 	if cfg == nil || reflectIsNil(cfg) {
-		return DefaultRequireSignature
+		return verify.DefaultRequireSignature
 	}
 
 	if cfg.IsSet("update.require_signature") {
 		return cfg.GetBool("update.require_signature")
 	}
 
-	return DefaultRequireSignature
+	return verify.DefaultRequireSignature
 }
 
 // resolveRequireExternalCrosscheck applies the same precedence for the
 // WKD cross-check enforcement flag.
 func resolveRequireExternalCrosscheck(cfg boolConfig) bool {
 	if cfg == nil || reflectIsNil(cfg) {
-		return DefaultRequireExternalCrosscheck
+		return verify.DefaultRequireExternalCrosscheck
 	}
 
 	if cfg.IsSet("update.require_external_crosscheck") {
 		return cfg.GetBool("update.require_external_crosscheck")
 	}
 
-	return DefaultRequireExternalCrosscheck
+	return verify.DefaultRequireExternalCrosscheck
 }
 
 // resolveKeySource resolves update.key_source, defaulting to
-// [DefaultKeySource].
+// [verify.DefaultKeySource].
 func resolveKeySource(cfg stringConfig) string {
 	if cfg == nil || reflectIsNil(cfg) {
-		return DefaultKeySource
+		return verify.DefaultKeySource
 	}
 
 	if cfg.IsSet("update.key_source") {
@@ -91,14 +92,14 @@ func resolveKeySource(cfg stringConfig) string {
 		}
 	}
 
-	return DefaultKeySource
+	return verify.DefaultKeySource
 }
 
 // resolveExternalKeyEmail resolves update.external_key_email, defaulting
-// to [DefaultExternalKeyEmail].
+// to [verify.DefaultExternalKeyEmail].
 func resolveExternalKeyEmail(cfg stringConfig) string {
 	if cfg == nil || reflectIsNil(cfg) {
-		return DefaultExternalKeyEmail
+		return verify.DefaultExternalKeyEmail
 	}
 
 	if cfg.IsSet("update.external_key_email") {
@@ -107,7 +108,7 @@ func resolveExternalKeyEmail(cfg stringConfig) string {
 		}
 	}
 
-	return DefaultExternalKeyEmail
+	return verify.DefaultExternalKeyEmail
 }
 
 // verifyManifestSignature resolves the trust set, fetches the detached
@@ -115,7 +116,7 @@ func resolveExternalKeyEmail(cfg stringConfig) string {
 // before the manifest is parsed (spec decision 17).
 //
 // Failure handling distinguishes three cases:
-//   - A fingerprint mismatch between trust anchors (ErrKeyResolverMismatch)
+//   - A fingerprint mismatch between trust anchors (verify.ErrKeyResolverMismatch)
 //     is an active-tampering signal and is ALWAYS fatal.
 //   - A present-but-invalid signature is ALWAYS fatal — a forged or
 //     corrupted signature must never be accepted.
@@ -147,7 +148,7 @@ func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel release.R
 // fingerprint mismatch is always fatal; any other resolver error is
 // gated by requireSignature.
 func (s *SelfUpdater) handleResolveError(err error) error {
-	if errors.Is(err, ErrKeyResolverMismatch) {
+	if errors.Is(err, verify.ErrKeyResolverMismatch) {
 		return err
 	}
 
@@ -164,7 +165,7 @@ func (s *SelfUpdater) handleResolveError(err error) error {
 // verifyAgainstTrustSet fetches the detached signature and verifies it
 // against the resolved trust set. A present-but-invalid signature is
 // always fatal; an absent signature is gated by requireSignature.
-func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Release, manifest []byte, trustSet *TrustSet) error {
+func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Release, manifest []byte, trustSet *verify.TrustSet) error {
 	sig, err := s.fetchSignature(ctx, rel)
 	if err != nil {
 		if s.requireSignature {
@@ -179,7 +180,7 @@ func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Rel
 
 	if sig == nil {
 		if s.requireSignature {
-			return errors.WithHintf(ErrSignatureMissing,
+			return errors.WithHintf(verify.ErrSignatureMissing,
 				"No %q was found in release %q and update.require_signature is enabled.",
 				s.SignatureAssetName(), rel.GetName())
 		}
@@ -209,7 +210,7 @@ func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Rel
 // signature is available by either route.
 func (s *SelfUpdater) fetchSignature(ctx context.Context, rel release.Release) ([]byte, error) {
 	if sp, ok := s.releaseClient.(release.SignatureProvider); ok {
-		sig, err := sp.DownloadSignature(ctx, rel, MaxSignatureSize)
+		sig, err := sp.DownloadSignature(ctx, rel, verify.MaxSignatureSize)
 		if err == nil {
 			return sig, nil
 		}
@@ -225,7 +226,7 @@ func (s *SelfUpdater) fetchSignature(ctx context.Context, rel release.Release) (
 		return nil, nil
 	}
 
-	return s.downloadBoundedAsset(ctx, sigAsset, MaxSignatureSize, ErrSignatureTooLarge, "signature")
+	return s.downloadBoundedAsset(ctx, sigAsset, verify.MaxSignatureSize, verify.ErrSignatureTooLarge, "signature")
 }
 
 // findSignatureAsset returns the release asset whose name matches the

@@ -9,8 +9,8 @@ import (
 	// Register the compiled-in signing backends so signing.Names() (used by
 	// validateSigningFields) resolves aws-kms and local in the test binary,
 	// mirroring cmd/gtb.
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/kms"
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/local"
+	_ "gitlab.com/phpboyscout/signing-aws-kms"
+	_ "gitlab.com/phpboyscout/signing/local"
 )
 
 // TestValidateSigningFields_Backend covers the --signing-backend guard: an

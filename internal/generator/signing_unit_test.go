@@ -100,7 +100,7 @@ func TestGenerateSkeleton_SigningEnabled(t *testing.T) {
 
 	signingGo, err := os.ReadFile(filepath.Join(path, "pkg", "cmd", "root", "signing.go"))
 	require.NoError(t, err)
-	assert.Contains(t, string(signingGo), `setup.DefaultExternalKeyEmail = "release@example.test"`)
+	assert.Contains(t, string(signingGo), `verify.DefaultExternalKeyEmail = "release@example.test"`)
 }
 
 // TestGenerateSkeleton_SigningDisabled asserts the default (disabled)

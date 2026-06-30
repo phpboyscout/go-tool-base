@@ -17,10 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/signing"
+	"gitlab.com/phpboyscout/signing/openpgpkey"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/openpgpkey"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
 )
 
 // fixtureKeyTime returns a pinned UTC instant for test reproducibility

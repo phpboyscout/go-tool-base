@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/signing/verify"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -45,7 +47,7 @@ func TestUpdaterOptions_SetFields(t *testing.T) {
 // TestEmbeddedKeys_BuildResolverAndVerify exercises the path that
 // props.Tool.Signing.EmbeddedKeys feeds: NewUpdater seeds s.embeddedKeys
 // from the tool's compile-time keys (e.g. internal/trustkeys), and
-// buildDefaultKeyResolver turns them into a TrustSet that verifies a
+// buildDefaultKeyResolver turns them into a verify.TrustSet that verifies a
 // real detached signature. This is the consume side of the
 // embed -> sign -> verify loop.
 func TestEmbeddedKeys_BuildResolverAndVerify(t *testing.T) {
@@ -58,7 +60,7 @@ func TestEmbeddedKeys_BuildResolverAndVerify(t *testing.T) {
 	s := &SelfUpdater{
 		logger:       logger.NewNoop(),
 		embeddedKeys: [][]byte{testEd25519.armoredPub},
-		keySource:    DefaultKeySource,
+		keySource:    verify.DefaultKeySource,
 	}
 
 	require.NoError(t, s.buildDefaultKeyResolver())
@@ -108,7 +110,7 @@ func TestVerifyManifestSignature_FetchError(t *testing.T) {
 		&fakeAsset{name: "checksums.txt.sig"},
 	}}
 	provider := &fakeProvider{rel: rel, downloadErr: errors.New("network down")}
-	resolver := NewEmbeddedResolver(testEd25519.armoredPub)
+	resolver := verify.NewEmbeddedResolver(testEd25519.armoredPub)
 
 	// Required: download failure aborts.
 	err := newSigningUpdater(provider, resolver, true).
@@ -134,69 +136,69 @@ func TestBuildKeyResolver(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		cfg      KeyResolverConfig
+		cfg      verify.KeyResolverConfig
 		keys     [][]byte
 		wantName string
 		wantErr  bool
 	}{
 		{
 			name:     "embedded",
-			cfg:      KeyResolverConfig{KeySource: "embedded"},
+			cfg:      verify.KeyResolverConfig{KeySource: "embedded"},
 			keys:     [][]byte{testEd25519.armoredPub},
 			wantName: "embedded",
 		},
 		{
 			name:    "embedded-without-keys-errors",
-			cfg:     KeyResolverConfig{KeySource: "embedded"},
+			cfg:     verify.KeyResolverConfig{KeySource: "embedded"},
 			wantErr: true,
 		},
 		{
 			name:     "external",
-			cfg:      KeyResolverConfig{KeySource: "external", ExternalKeyEmail: "release@phpboyscout.uk"},
+			cfg:      verify.KeyResolverConfig{KeySource: "external", ExternalKeyEmail: "release@phpboyscout.uk"},
 			wantName: "wkd:openpgpkey.phpboyscout.uk",
 		},
 		{
 			name:    "external-without-email-errors",
-			cfg:     KeyResolverConfig{KeySource: "external"},
+			cfg:     verify.KeyResolverConfig{KeySource: "external"},
 			wantErr: true,
 		},
 		{
 			name:     "both-keys-and-email-composite",
-			cfg:      KeyResolverConfig{KeySource: "both", ExternalKeyEmail: "release@phpboyscout.uk"},
+			cfg:      verify.KeyResolverConfig{KeySource: "both", ExternalKeyEmail: "release@phpboyscout.uk"},
 			keys:     [][]byte{testEd25519.armoredPub},
 			wantName: "composite[embedded,wkd:openpgpkey.phpboyscout.uk]",
 		},
 		{
 			name:     "both-keys-only-degrades-to-embedded",
-			cfg:      KeyResolverConfig{KeySource: "both"},
+			cfg:      verify.KeyResolverConfig{KeySource: "both"},
 			keys:     [][]byte{testEd25519.armoredPub},
 			wantName: "embedded",
 		},
 		{
 			name:     "both-email-only-degrades-to-wkd",
-			cfg:      KeyResolverConfig{KeySource: "both", ExternalKeyEmail: "release@phpboyscout.uk"},
+			cfg:      verify.KeyResolverConfig{KeySource: "both", ExternalKeyEmail: "release@phpboyscout.uk"},
 			wantName: "wkd:openpgpkey.phpboyscout.uk",
 		},
 		{
 			name:    "both-neither-errors",
-			cfg:     KeyResolverConfig{KeySource: "both"},
+			cfg:     verify.KeyResolverConfig{KeySource: "both"},
 			wantErr: true,
 		},
 		{
 			name:     "empty-source-defaults-to-both",
-			cfg:      KeyResolverConfig{},
+			cfg:      verify.KeyResolverConfig{},
 			keys:     [][]byte{testEd25519.armoredPub},
 			wantName: "embedded",
 		},
 		{
 			name:    "unknown-source-errors",
-			cfg:     KeyResolverConfig{KeySource: "carrier-pigeon"},
+			cfg:     verify.KeyResolverConfig{KeySource: "carrier-pigeon"},
 			keys:    [][]byte{testEd25519.armoredPub},
 			wantErr: true,
 		},
 		{
 			name:    "weak-embedded-key-errors-not-panics",
-			cfg:     KeyResolverConfig{KeySource: "embedded"},
+			cfg:     verify.KeyResolverConfig{KeySource: "embedded"},
 			keys:    [][]byte{testRSA1024.armoredPub},
 			wantErr: true,
 		},
@@ -207,7 +209,7 @@ func TestBuildKeyResolver(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			r, err := BuildKeyResolver(tc.cfg, tc.keys...)
+			r, err := verify.BuildKeyResolver(tc.cfg, tc.keys...)
 			if tc.wantErr {
 				require.Error(t, err)
 
@@ -224,38 +226,38 @@ func TestBuildKeyResolver_CompositeHonoursRequireAll(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	r, err := BuildKeyResolver(KeyResolverConfig{
+	r, err := verify.BuildKeyResolver(verify.KeyResolverConfig{
 		KeySource:                 "both",
 		ExternalKeyEmail:          "release@phpboyscout.uk",
 		RequireExternalCrosscheck: true,
 	}, testEd25519.armoredPub)
 	require.NoError(t, err)
 
-	composite, ok := r.(*CompositeResolver)
-	require.True(t, ok, "both with keys+email must yield a CompositeResolver")
+	composite, ok := r.(*verify.CompositeResolver)
+	require.True(t, ok, "both with keys+email must yield a verify.CompositeResolver")
 	assert.True(t, composite.RequireAll, "RequireExternalCrosscheck must map to RequireAll")
 }
 
 func TestResolveSigningConfig_Precedence(t *testing.T) {
 	// Mutates package-level Default* sentinels — must not run in parallel.
-	oldSig, oldSrc, oldEmail, oldCross := DefaultRequireSignature, DefaultKeySource, DefaultExternalKeyEmail, DefaultRequireExternalCrosscheck
+	oldSig, oldSrc, oldEmail, oldCross := verify.DefaultRequireSignature, verify.DefaultKeySource, verify.DefaultExternalKeyEmail, verify.DefaultRequireExternalCrosscheck
 	t.Cleanup(func() {
-		DefaultRequireSignature = oldSig
-		DefaultKeySource = oldSrc
-		DefaultExternalKeyEmail = oldEmail
-		DefaultRequireExternalCrosscheck = oldCross
+		verify.DefaultRequireSignature = oldSig
+		verify.DefaultKeySource = oldSrc
+		verify.DefaultExternalKeyEmail = oldEmail
+		verify.DefaultRequireExternalCrosscheck = oldCross
 	})
 
 	t.Run("require_signature_falls_back_to_default", func(t *testing.T) {
-		DefaultRequireSignature = true
+		verify.DefaultRequireSignature = true
 		assert.True(t, resolveRequireSignature(nil))
 
-		DefaultRequireSignature = false
+		verify.DefaultRequireSignature = false
 		assert.False(t, resolveRequireSignature(&fakeBoolConfig{}))
 	})
 
 	t.Run("require_signature_explicit_wins", func(t *testing.T) {
-		DefaultRequireSignature = false
+		verify.DefaultRequireSignature = false
 		cfg := &fakeBoolConfig{
 			set:  map[string]bool{"update.require_signature": true},
 			vals: map[string]bool{"update.require_signature": true},
@@ -264,7 +266,7 @@ func TestResolveSigningConfig_Precedence(t *testing.T) {
 	})
 
 	t.Run("key_source_default_and_explicit", func(t *testing.T) {
-		DefaultKeySource = "both"
+		verify.DefaultKeySource = "both"
 		assert.Equal(t, "both", resolveKeySource(&fakeStringConfig{}))
 
 		cfg := &fakeStringConfig{
@@ -275,7 +277,7 @@ func TestResolveSigningConfig_Precedence(t *testing.T) {
 	})
 
 	t.Run("external_key_email_default_and_explicit", func(t *testing.T) {
-		DefaultExternalKeyEmail = "fallback@example.com"
+		verify.DefaultExternalKeyEmail = "fallback@example.com"
 		assert.Equal(t, "fallback@example.com", resolveExternalKeyEmail(&fakeStringConfig{}))
 
 		cfg := &fakeStringConfig{
@@ -286,7 +288,7 @@ func TestResolveSigningConfig_Precedence(t *testing.T) {
 	})
 
 	t.Run("require_external_crosscheck_default_and_explicit", func(t *testing.T) {
-		DefaultRequireExternalCrosscheck = true
+		verify.DefaultRequireExternalCrosscheck = true
 		assert.True(t, resolveRequireExternalCrosscheck(&fakeBoolConfig{}))
 
 		cfg := &fakeBoolConfig{
@@ -305,7 +307,7 @@ func TestSignatureAssetName(t *testing.T) {
 }
 
 // newSigningUpdater builds a minimal SelfUpdater for signature-gate tests.
-func newSigningUpdater(p release.Provider, resolver KeyResolver, require bool) *SelfUpdater {
+func newSigningUpdater(p release.Provider, resolver verify.KeyResolver, require bool) *SelfUpdater {
 	return &SelfUpdater{
 		Tool:             props.Tool{Name: "testtool"},
 		logger:           logger.NewNoop(),
@@ -357,7 +359,7 @@ func TestVerifyManifestSignature_ValidPasses(t *testing.T) {
 	sig := detachSign(t, testEd25519.entity, manifest)
 	rel, provider := relWithSig(sig)
 
-	s := newSigningUpdater(provider, NewEmbeddedResolver(testEd25519.armoredPub), true)
+	s := newSigningUpdater(provider, verify.NewEmbeddedResolver(testEd25519.armoredPub), true)
 	require.NoError(t, s.verifyManifestSignature(context.Background(), rel, manifest))
 }
 
@@ -386,13 +388,13 @@ func TestVerifyManifestSignature_LogsVerifyingFingerprint(t *testing.T) {
 	rel, provider := relWithSig(sig)
 
 	spy := &infoSpyLogger{Logger: logger.NewNoop()}
-	s := newSigningUpdater(provider, NewEmbeddedResolver(testEd25519.armoredPub), true)
+	s := newSigningUpdater(provider, verify.NewEmbeddedResolver(testEd25519.armoredPub), true)
 	s.logger = spy
 
 	require.NoError(t, s.verifyManifestSignature(context.Background(), rel, manifest))
 
 	// Expected fingerprint comes from the trust set of the verifying key.
-	ts, err := LoadTrustSet(testEd25519.armoredPub)
+	ts, err := verify.LoadTrustSet(testEd25519.armoredPub)
 	require.NoError(t, err)
 	require.Len(t, ts.Fingerprints(), 1)
 	wantFP := ts.Fingerprints()[0]
@@ -424,12 +426,12 @@ func TestVerifyManifestSignature_InvalidAlwaysFatal(t *testing.T) {
 
 	// requireSignature=false, but a present signature that does not
 	// verify against the (tampered) manifest is still fatal.
-	s := newSigningUpdater(provider, NewEmbeddedResolver(testEd25519.armoredPub), false)
+	s := newSigningUpdater(provider, verify.NewEmbeddedResolver(testEd25519.armoredPub), false)
 	tampered := []byte("beefdead  testtool_Linux_x86_64.tar.gz\n")
 
 	err := s.verifyManifestSignature(context.Background(), rel, tampered)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrSignatureInvalid)
+	assert.ErrorIs(t, err, verify.ErrSignatureInvalid)
 }
 
 func TestVerifyManifestSignature_MissingSignature(t *testing.T) {
@@ -443,17 +445,17 @@ func TestVerifyManifestSignature_MissingSignature(t *testing.T) {
 		&fakeAsset{name: "checksums.txt"},
 	}}
 	provider := &fakeProvider{rel: rel, assetBodies: map[string][]byte{}}
-	resolver := NewEmbeddedResolver(testEd25519.armoredPub)
+	resolver := verify.NewEmbeddedResolver(testEd25519.armoredPub)
 
 	// Not required: skip.
 	require.NoError(t, newSigningUpdater(provider, resolver, false).
 		verifyManifestSignature(context.Background(), rel, manifest))
 
-	// Required: ErrSignatureMissing.
+	// Required: verify.ErrSignatureMissing.
 	err := newSigningUpdater(provider, resolver, true).
 		verifyManifestSignature(context.Background(), rel, manifest)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrSignatureMissing)
+	assert.ErrorIs(t, err, verify.ErrSignatureMissing)
 }
 
 func TestVerifyManifestSignature_ResolverUnavailable(t *testing.T) {
@@ -461,7 +463,7 @@ func TestVerifyManifestSignature_ResolverUnavailable(t *testing.T) {
 
 	manifest := []byte("aa  f\n")
 	rel, provider := relWithSig([]byte("sig"))
-	resolver := &fakeResolver{name: "wkd", err: ErrKeyResolverUnavailable}
+	resolver := &fakeResolver{name: "wkd", err: verify.ErrKeyResolverUnavailable}
 
 	// Not required: warn + proceed.
 	require.NoError(t, newSigningUpdater(provider, resolver, false).
@@ -471,7 +473,7 @@ func TestVerifyManifestSignature_ResolverUnavailable(t *testing.T) {
 	err := newSigningUpdater(provider, resolver, true).
 		verifyManifestSignature(context.Background(), rel, manifest)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrKeyResolverUnavailable)
+	assert.ErrorIs(t, err, verify.ErrKeyResolverUnavailable)
 }
 
 func TestVerifyManifestSignature_MismatchAlwaysFatal(t *testing.T) {
@@ -479,13 +481,13 @@ func TestVerifyManifestSignature_MismatchAlwaysFatal(t *testing.T) {
 
 	manifest := []byte("aa  f\n")
 	rel, provider := relWithSig([]byte("sig"))
-	resolver := &fakeResolver{name: "composite", err: ErrKeyResolverMismatch}
+	resolver := &fakeResolver{name: "composite", err: verify.ErrKeyResolverMismatch}
 
 	// Even with requireSignature=false, a trust-anchor mismatch aborts.
 	err := newSigningUpdater(provider, resolver, false).
 		verifyManifestSignature(context.Background(), rel, manifest)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrKeyResolverMismatch)
+	assert.ErrorIs(t, err, verify.ErrKeyResolverMismatch)
 }
 
 func TestVerifyAssetChecksum_SignatureGate_Integration(t *testing.T) {
@@ -509,7 +511,7 @@ func TestVerifyAssetChecksum_SignatureGate_Integration(t *testing.T) {
 		"checksums.txt.sig": sig,
 	}}
 
-	s := newSigningUpdater(provider, NewEmbeddedResolver(testEd25519.armoredPub), true)
+	s := newSigningUpdater(provider, verify.NewEmbeddedResolver(testEd25519.armoredPub), true)
 	s.requireChecksum = true
 
 	asset := &fakeAsset{name: "testtool_Linux_x86_64.tar.gz"}
@@ -538,11 +540,11 @@ func TestVerifyAssetChecksum_BadSignatureBlocksBeforeChecksum(t *testing.T) {
 		"checksums.txt.sig": sig,
 	}}
 
-	s := newSigningUpdater(provider, NewEmbeddedResolver(testEd25519.armoredPub), true)
+	s := newSigningUpdater(provider, verify.NewEmbeddedResolver(testEd25519.armoredPub), true)
 
 	asset := &fakeAsset{name: "testtool_Linux_x86_64.tar.gz"}
 	err := s.verifyAssetChecksum(context.Background(), rel, asset, binary)
-	require.ErrorIs(t, err, ErrSignatureInvalid,
+	require.ErrorIs(t, err, verify.ErrSignatureInvalid,
 		"a bad signature must abort before the checksum is even parsed")
 	assert.NotContains(t, err.Error(), "checksum mismatch",
 		"failure must be the signature, not the checksum")

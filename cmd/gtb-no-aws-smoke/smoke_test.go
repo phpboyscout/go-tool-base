@@ -5,11 +5,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
+	"gitlab.com/phpboyscout/signing"
 
 	// Mirror the production blank-imports of this binary so the test
 	// observes the same registry state the running binary would.
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/local"
+	_ "gitlab.com/phpboyscout/signing/local"
 )
 
 // TestNoAWSSmoke verifies the regulated-build slice: when the kms

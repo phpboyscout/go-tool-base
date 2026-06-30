@@ -8,11 +8,13 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/openpgpkey"
+	"gitlab.com/phpboyscout/signing"
+	"gitlab.com/phpboyscout/signing/openpgpkey"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
 )
 
 // NewCmdKeysMint returns the `gtb keys mint` subcommand. Wraps an
@@ -84,7 +86,11 @@ pkg/signing. See docs/how-to/add-signing-backend.md.`,
 			panic(err) // unreachable — Names() returned this entry
 		}
 
-		b.RegisterFlags(cmd.Flags())
+		// Backends that need per-backend flags implement this optional
+		// interface (the signing.Backend contract is CLI-agnostic).
+		if fr, ok := b.(interface{ RegisterFlags(*pflag.FlagSet) }); ok {
+			fr.RegisterFlags(cmd.Flags())
+		}
 	}
 
 	return setup.Wrap("", cmd)

@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/signing/verify"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -103,7 +105,7 @@ func TestUpdate_VerifiesSignedChecksum_HappyPath(t *testing.T) {
 	s.requireChecksum = true
 	s.requireSignature = true
 	s.embeddedKeys = [][]byte{testEd25519.armoredPub}
-	s.keySource = DefaultKeySource
+	s.keySource = verify.DefaultKeySource
 	require.NoError(t, s.buildDefaultKeyResolver())
 
 	path, err := s.Update(t.Context())
@@ -134,7 +136,7 @@ func TestUpdate_AbortsOnBadSignature(t *testing.T) {
 	s.requireChecksum = true
 	s.requireSignature = true
 	s.embeddedKeys = [][]byte{testEd25519.armoredPub}
-	s.keySource = DefaultKeySource
+	s.keySource = verify.DefaultKeySource
 	require.NoError(t, s.buildDefaultKeyResolver())
 
 	_, err := s.Update(t.Context())

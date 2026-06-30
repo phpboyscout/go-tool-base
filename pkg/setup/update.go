@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"golang.org/x/text/language"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -33,6 +35,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+
+	"gitlab.com/phpboyscout/signing/verify"
 )
 
 const (
@@ -85,7 +89,7 @@ type SelfUpdater struct {
 	checksumAssetName string
 
 	// requireSignature resolved from config (update.require_signature →
-	// env-prefixed env var → DefaultRequireSignature). When true, a
+	// env-prefixed env var → verify.DefaultRequireSignature). When true, a
 	// missing/unverifiable signature over the checksums manifest aborts
 	// the update.
 	requireSignature bool
@@ -95,7 +99,7 @@ type SelfUpdater struct {
 	signatureAssetName string
 	// keyResolver resolves the trust set used to verify the manifest
 	// signature. nil when signature verification is not configured.
-	keyResolver KeyResolver
+	keyResolver verify.KeyResolver
 	// embeddedKeys are armored public keys supplied via WithEmbeddedKeys;
 	// consumed in NewUpdater to build keyResolver when one was not
 	// supplied explicitly via WithKeyResolver.
@@ -400,11 +404,15 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 		return nil
 	}
 
-	r, err := BuildKeyResolver(KeyResolverConfig{
+	r, err := verify.BuildKeyResolver(verify.KeyResolverConfig{
 		KeySource:                 s.keySource,
 		ExternalKeyEmail:          s.externalKeyEmail,
 		RequireExternalCrosscheck: s.requireExternalCrosscheck,
-		Logger:                    s.logger,
+		// Bridge gtb's logger to the verify package's stdlib *slog.Logger seam,
+		// and inject gtb's hardened HTTP client for WKD fetches (the module's
+		// nil-default is a plain stdlib client).
+		Logger:     slog.New(s.logger.Handler()),
+		HTTPClient: gtbhttp.NewClient(),
 	}, s.embeddedKeys...)
 	if err != nil {
 		return errors.Wrap(err, "configuring update signature verification")

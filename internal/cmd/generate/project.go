@@ -11,11 +11,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/signing"
+
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/signing"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 

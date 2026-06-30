@@ -15,6 +15,6 @@ package main
 // kms import to prove that the AWS SDK is not pulled in transitively
 // by anything inside internal/cmd/keys or internal/cmd/root.
 import (
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/kms"
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/signing/local"
+	_ "gitlab.com/phpboyscout/signing-aws-kms"
+	_ "gitlab.com/phpboyscout/signing/local"
 )

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/openpgpkey"
+	"gitlab.com/phpboyscout/signing/openpgpkey"
 )
 
 // writeArmoredKey is a test helper that mints an armored OpenPGP
