@@ -1,6 +1,6 @@
 ---
-title: "Standalone release-signature verification module (reusable by non-GTB projects)"
-description: "Extract the OpenPGP/WKD release-signature VERIFICATION primitives currently in pkg/setup into a standalone, dependency-light Go module so non-go-tool-base projects (afmpeg verifying ffmpeg-wasi's signed wasm releases) can verify signatures without dragging in the go-tool-base module dependency tree. Driven by work item #1."
+title: "Standalone signing & verification module (dependency-inverted, reusable by non-GTB projects)"
+description: "Extract the OpenPGP/WKD release signing + verification primitives from pkg/signing and pkg/setup into one light, standalone Go module. The module owns the contract (a crypto.Signer-producing Backend interface), the signing mechanics, and the verification trust model; heavy cloud backends (AWS KMS, GCP, Azure) are NOT implemented in the module — consumers implement the interface and inject. Lets afmpeg verify ffmpeg-wasi's signed wasm releases, and lets any project sign without the go-tool-base framework. Driven by work item #1."
 date: 2026-06-30
 status: DRAFT
 tags:
@@ -10,6 +10,7 @@ tags:
   - openpgp
   - wkd
   - module-extraction
+  - dependency-inversion
   - reuse
 author:
   - name: Matt Cockayne
@@ -18,7 +19,7 @@ author:
     role: AI drafting assistant
 ---
 
-# Standalone release-signature verification module
+# Standalone signing & verification module
 
 Authors
 :   Matt Cockayne, Claude Opus 4.8 *(AI drafting assistant)*
@@ -30,200 +31,199 @@ Status
 :   DRAFT
 
 Tracking
-:   work item #1 (issue: "Extract release-signature verification from pkg/setup
-    into a dependency-light package")
+:   work item #1
 
 ---
 
 ## 1. Context & motivation
 
-`phpboyscout/afmpeg` needs to verify `phpboyscout/ffmpeg-wasi`'s signed releases —
-the wasm assets afmpeg depends on are essential and must be authenticated. The
-exact verification model afmpeg wants (**embedded keys + WKD fingerprint
-cross-check + detached OpenPGP signature over the checksums manifest**) already
-exists and is proven in go-tool-base, powering `gtb update`'s signed self-update.
+`phpboyscout/afmpeg` must authenticate the `phpboyscout/ffmpeg-wasi` wasm release
+assets it depends on, using the org's existing **embedded-keys + WKD
+fingerprint cross-check + detached-OpenPGP-signature** model — the same model
+that powers `gtb update`. We want **one signing/verification model across the
+org**, reused rather than reimplemented, and usable by projects that are **not**
+built on the go-tool-base framework.
 
-The goal is **reuse, not reimplementation** — one signing/verification model
-across the org. The verification API is already designed for reuse (`KeyResolverConfig`
-is deliberately Viper-decoupled with injectable `HTTPClient`/`Logger`).
+Consumer roles (agreed):
 
-### Scope clarification: verify vs sign
+- **afmpeg** — uses the **verification** mechanics to verify ffmpeg-wasi assets.
+- **ffmpeg-wasi** — **signs** its assets via the **`gtb sign` CLI** (no library
+  work needed on its side).
+- **GTB CLI** — consumes the module for both `gtb sign` (signing) and `gtb
+  update` (verification); provides the AWS KMS backend.
+- **Any other consumer** — can build its own signing tool on the module's
+  mechanics (no GTB framework weight), and can implement its own backend.
 
-- **Verification** (consuming a signature) is a Go library surface → this is what
-  we extract for afmpeg to `import`.
-- **Signing** (producing a signature) is **not** a Go API in go-tool-base. It is
-  release-pipeline config: GoReleaser's `signs:` block calls
-  `scripts/sign-release.sh` → `gtb sign --backend aws-kms`. A project that wants
-  to *sign* its releases (e.g. `ffmpeg-wasi`) adopts that pipeline pattern + a
-  signing key; it does not import a "signing library". **This spec covers the
-  verification module only.** Signing-pipeline adoption for ffmpeg-wasi is a
-  separate, small pipeline task (noted in §8).
+## 2. Validity assessment (confirmed against the code)
 
-## 2. Validity assessment
+- **Verification surface** (`pkg/setup/signing*.go`) references only `pkg/http`,
+  `pkg/logger`, `pkg/openpgpkey` from gtb — no config/vcs/updater/AWS. Light.
+- **Signing is already dependency-inverted.** `pkg/signing` is a `crypto.Signer`
+  **`Backend` registry** (`backend.go`, `registry.go`) with **zero heavy deps**;
+  the signing mechanic (`openpgpkey.Sign`) operates on a stdlib `crypto.Signer`
+  and has no knowledge of any provider. Backends self-register via blank-import:
+  `pkg/signing/local` (PEM, light) and `pkg/signing/kms` (**57 AWS SDK
+  modules** — heavy).
+- **`openpgpkey`** (sign + verify) depends only on `go-crypto`.
+- **Logger is slog-compatible** — `logger.NewSlog(slog.Handler)` and
+  `(*slogLogger).Handler()` give bidirectional interop, so stdlib `slog` is the
+  injection seam.
 
-Confirmed against the code:
+**Why a standalone module (not an in-module package).** Under Go 1.17+
+module-graph pruning, any module that *provides an imported package* contributes
+its **entire `go.mod` require list** to the consumer's module graph. An in-module
+`pkg/signing/verify` would still force afmpeg to `require go-tool-base` and
+inherit its full requires (AWS, Viper, OTel, charm) in `go.mod`/`go.sum`. Only a
+separate module keeps go-tool-base out of consumers' module graphs.
 
-- The verification surface lives in five files (`pkg/setup/signing.go`,
-  `signing_resolver.go`, `signing_wkd.go`, `signing_composite.go`,
-  `signing_embedded.go`) and references **only three** gtb packages —
-  `pkg/http`, `pkg/logger`, `pkg/openpgpkey` — and otherwise stdlib +
-  `ProtonMail/go-crypto` + `cockroachdb/errors`. No `pkg/config`, `pkg/vcs`,
-  `SelfUpdater`, `pkg/changelog`, or AWS SDK. The surface is self-contained.
-- `pkg/openpgpkey` is itself clean (only `go-crypto` + `golang.org/x/crypto`).
-
-**The work item's premise needs one correction.** It proposes an *in-module*
-package (`pkg/signing/verify`). That yields a light **compile** graph for the
-consumer, but does **not** meet the stated goal, because of Go module-graph
-rules:
-
-> Under Go 1.17+ module-graph pruning, any module that **provides an imported
-> package** contributes its **entire `go.mod` require list** to the consumer's
-> module graph. If afmpeg imports any package from go-tool-base, go-tool-base
-> "provides an imported package", so its full requires — AWS SDK, Viper,
-> OpenTelemetry, charmbracelet, etc. — land in **afmpeg's `go.mod`/`go.sum` and
-> module graph**, even though none of it compiles into the binary.
-
-Two of the three gtb deps are also transitively heavy on their own: `pkg/logger`
-pulls the charmbracelet terminal stack, and `pkg/http` pulls Viper +
-OpenTelemetry + `pkg/config`/`pkg/authn`/`pkg/tls`.
-
-**Conclusion:** the request is valid and worthwhile, but an in-module extraction
-does not achieve "no go-tool-base weight for consumers". Only a **separate
-module** keeps go-tool-base out of a consumer's `go.mod` entirely. We therefore
-target a standalone module.
+**Why dependency-inverted backends (not bundled cloud backends).** The same
+module-graph rule applies one level down: if the module's own `go.mod` required
+the AWS SDK (because it shipped a `kms` package), **every** consumer — including
+verify-only afmpeg — would inherit 57 AWS modules. So the module must **not**
+implement cloud backends at all. It defines the `Backend` interface; heavy
+implementations live at the point of use and are injected.
 
 ## 3. Goals / non-goals
 
 **Goals**
 
-- A standalone, independently-versioned Go module exposing the release-signature
-  **verification** surface, depending only on `go-crypto` (+ `x/crypto`) and
-  `cockroachdb/errors`.
-- A consumer (`afmpeg`) can `import` it and its `go.mod`/module graph contains
-  **no go-tool-base**, no `pkg/config`/`pkg/vcs`, no OpenTelemetry/Viper/AWS.
-- go-tool-base consumes the new module and behaves identically (`gtb update`
-  unchanged); source compatibility preserved via re-export aliases in `pkg/setup`.
+- One light, independently-versioned module exposing: the `Backend` contract +
+  registry, the signing mechanics (`crypto.Signer` → armored detached
+  signature), the verification trust model, and `openpgpkey`.
+- Module `go.mod` carries **no cloud SDK, ever** — only `go-crypto` (+
+  `x/crypto`) and `cockroachdb/errors`.
+- A consumer's module graph contains **no go-tool-base and no AWS/GCP/Azure**
+  unless it explicitly imports a backend that needs them.
+- go-tool-base consumes the module and behaves identically (`gtb sign` / `gtb
+  update` unchanged), via re-export aliases for source compatibility.
 
 **Non-goals**
 
-- New signing/verification *logic* — this is a packaging/decoupling change.
-- A signing (signature-producing) library API (signing stays pipeline-side).
-- Changing the trust model, WKD endpoint, or key material.
+- New signing/verification *logic* (packaging + decoupling only).
+- A second CLI (the GTB CLI is the CLI; the module is mechanics).
+- Implementing AWS/GCP/Azure backends in the module (they are injected).
 
 ## 4. Design
 
-### 4.1 New module
+### 4.1 The module (proposed `gitlab.com/phpboyscout/signing`)
 
-A new repository/module — proposed `gitlab.com/phpboyscout/releasetrust` (name is
-an open question, §7). Contents:
+A single light module containing:
 
-- The verification surface, moved verbatim where possible:
-  `KeyResolver`, `KeyResolverConfig`, `BuildKeyResolver`,
-  `TrustSet`, `LoadTrustSet`, `VerifyManifestSignature` / `VerifyManifestSigner`,
-  `NewEmbeddedResolver`, `CompositeResolver{RequireAll}`, the WKD resolver, and the
-  sentinel errors (`ErrKeyResolverMismatch`, …).
-- **`openpgpkey` moved into the new module** (e.g. `releasetrust/openpgpkey`). The
-  verifier imports it, so it must live here — otherwise the new module would
-  re-require go-tool-base and defeat the purpose. It is self-contained, so the
-  move is clean.
-
-### 4.2 Decoupling from `pkg/http` and `pkg/logger`
-
-- **HTTP:** `KeyResolverConfig.HTTPClient *http.Client` already exists and WKD
-  uses it. The only `pkg/http` use is the nil-default `gtbhttp.NewClient()` in
-  `BuildKeyResolver`. Replace the default with a stdlib `*http.Client` (sane
-  timeout). Consumers that want gtb's hardened client still inject it. Drops the
-  `pkg/http` dependency.
-- **Logging:** `logger.Logger` is used for exactly one fail-open `Warn` in the
-  composite resolver. Replace with a **minimal local interface** in the new
-  module, e.g.:
+- **`Backend` contract + registry** — minimal interface so a backend is trivial
+  to implement:
 
   ```go
-  // Logger is the tiny sink the composite resolver uses for fail-open
-  // warnings. gtb's logger.Logger satisfies it; nil is allowed (no-op).
-  type Logger interface { Warn(msg string, keyvals ...any) }
+  type Backend interface {
+      Name() string
+      NewSigner(ctx context.Context, keyID string) (crypto.Signer, error)
+  }
   ```
 
-  Drops the `pkg/logger` (charmbracelet) dependency. gtb's `logger.Logger`
-  structurally satisfies this interface, so go-tool-base passes its logger
-  through unchanged.
+  `keyID` carries the backend-specific identifier (KMS ARN/alias, PEM path, …),
+  so CLI flag wiring stays a consumer concern and the contract needs no `pflag`
+  (refinement vs today's `RegisterFlags`; see §4.4). A global `Register`/`Get`/
+  `Names` registry (a plain map, no heavy deps) supports `--backend <name>`
+  selection via blank-import.
 
-### 4.3 Resulting dependency footprint
+- **Signing mechanics** — produce an ASCII-armored OpenPGP detached signature
+  from a `crypto.Signer` + an armored public identity (`openpgpkey.Sign`). It
+  never references a provider.
 
-New module `go.mod`: `github.com/ProtonMail/go-crypto`,
-`github.com/cockroachdb/errors` (+ `golang.org/x/crypto` transitively). Nothing
-else. (Open question §7: drop `cockroachdb/errors` for stdlib `errors` to make
-the module fully crypto-only.)
+- **`local` backend** — the PEM-on-disk backend, **included** as a light
+  (stdlib-crypto) default and reference implementation of the contract.
 
-### 4.4 go-tool-base integration
+- **Verification** — the resolvers (`NewEmbeddedResolver`, the WKD resolver,
+  `CompositeResolver{RequireAll}`), `BuildKeyResolver`, `KeyResolverConfig`,
+  `TrustSet`, `LoadTrustSet`, `VerifyManifestSignature[Signer]`, sentinel errors.
 
-- go-tool-base adds the new module as a dependency.
-- The five `pkg/setup/signing*.go` files are removed; `pkg/setup` re-exports the
-  surface via **type aliases + function wrappers** for source compatibility
-  (existing imports of `setup.BuildKeyResolver`, `setup.TrustSet`, etc. keep
-  compiling). The `SelfUpdater` is unchanged; it constructs the resolver with
-  gtb's hardened `*http.Client` and `logger.Logger` as today.
-- All in-gtb importers of `pkg/openpgpkey` switch to the new module's path
-  (audit: verify which packages import openpgpkey before the move).
-- `gtb update` behaviour and the signed-release verification path are unchanged
-  (covered by the existing tests, which move with the code).
+- **`openpgpkey`** — sign + verify primitives, shared by both halves.
 
-### 4.5 New module CI/repo
+### 4.2 Backends are injected, not bundled (cloud backends excluded)
 
-Mirror the established org pattern (`images/dev-tools`): releaser-pleaser for
-versioning, the `cicd/go-*` components on the dev-tools image, govulncheck. The
-module is small and pure-Go (no goreleaser/binaries needed). Open question §7:
-whether the module's own releases should be signed (dogfooding) — likely yes,
-later, but not blocking.
+The module ships **only** the `Backend` contract + the light `local` backend. Any
+heavy/remote backend is implemented by the consumer and supplied by either:
 
-## 5. Migration & compatibility
+- **explicit injection** — pass the `crypto.Signer` (or a `Backend`) directly to
+  the signing call (best for "build your own tool"); or
+- **the named registry** — blank-import a backend package so it self-registers,
+  then select `--backend <name>` (what the GTB CLI uses).
 
-- **Source compat for go-tool-base:** re-export aliases mean no churn for
-  existing `pkg/setup` callers. (Optional: mark the aliases `// Deprecated:` to
-  nudge internal callers to the new import over time.)
-- **Pre-1.0:** both modules are v0.x; the new module starts at v0.1.0.
-- A migration note in `docs/reference/migration/` documents the new import path
-  for any downstream already using `setup.*` verification symbols directly.
+GTB keeps `pkg/signing/kms` (AWS) and any future Azure/GCP backends in its own
+tree, implementing the module's `Backend`. The AWS weight therefore stays in the
+GTB binary, exactly as today. **The org library never implements or maintains a
+cloud SDK**, and the backlog Azure/GCP KMS specs reduce to "implement the
+`Backend` interface", not library work.
 
-## 6. Testing strategy
+### 4.3 Seams (decoupled, GTB-consistent)
 
-- Move the existing `signing_*_test.go` suite into the new module (it already
-  covers embedded/WKD/composite/subkey/script-integration paths) — strong
-  inherited coverage; target ≥90%.
-- **Dependency-footprint guard:** a CI check in the new module asserting
-  `go list -deps ./...` contains no `go-tool-base`, `opentelemetry`, `viper`,
-  `aws`, or `charmbracelet` — locking the "stays light" acceptance criterion so a
-  future careless import can't regress it.
-- go-tool-base: existing `pkg/setup` signing tests pass against the re-exported
-  surface; `gtb update` e2e unchanged.
-- A consumer smoke (in afmpeg, or a tiny example) proving `BuildKeyResolver →
-  Resolve → VerifyManifestSignature` works with a minimal `go.mod`.
+- **Signing key:** stdlib `crypto.Signer` (via `Backend`).
+- **Logging:** stdlib `*slog.Logger` (nil → discard). GTB injects
+  `slog.New(<gtb logger handler>)`; any consumer passes `slog.Default()` or its
+  own. Replaces the `pkg/logger` (charmbracelet) dependency.
+- **HTTP (WKD):** stdlib `*http.Client` (already on `KeyResolverConfig`; the
+  `gtbhttp.NewClient()` nil-default becomes a stdlib client). Replaces the
+  `pkg/http` (Viper/OTel/config) dependency.
 
-## 7. Open questions
+### 4.4 Refinements vs current code
 
-1. **Module name.** `gitlab.com/phpboyscout/releasetrust`? Alternatives:
-   `sigverify`, `opgpverify`, `release-verify`. (Proposed: `releasetrust`.)
-2. **Drop `cockroachdb/errors`?** Using stdlib `errors`/`fmt.Errorf` would make
-   the module dependency-free beyond crypto. Trade-off: lose the org's standard
-   error wrapping/hints. (Proposed: keep `cockroachdb/errors` — it's light and
-   keeps error style consistent; revisit if a consumer objects.)
-3. **openpgpkey placement.** Sub-package of the new module
-   (`releasetrust/openpgpkey`) vs a third tiny module. (Proposed: sub-package.)
-4. **Re-export vs hard break in `pkg/setup`.** Keep deprecated aliases for a
-   transition window, or cut over internal callers immediately and drop them?
-   (Proposed: aliases now, deprecate, remove later.)
-5. **Sign the new module's own releases?** (Proposed: defer; not blocking afmpeg.)
+- **CLI-agnostic contract.** Today `Backend.RegisterFlags(*pflag.FlagSet)`
+  couples the contract to `pflag`. Drop it from the core interface; backends
+  needing extra CLI flags implement an **optional** `FlagRegistrar` interface the
+  *CLI* checks for. Keeps `pflag` out of the module core.
+- **Two wiring styles** offered (injection + registry), per above.
 
-## 8. Work items (once approved)
+### 4.5 Resulting footprint
 
-1. Create the `releasetrust` repo + module + CI (releaser-pleaser, go-* cicd
-   components, govulncheck, the dependency-footprint guard test).
-2. Move `openpgpkey` + the five verification files into it; decouple HTTP
-   (stdlib default client) and logging (minimal `Logger` interface).
-3. Cut `releasetrust v0.1.0`.
-4. In go-tool-base: depend on it, delete the moved files, add re-export aliases
-   in `pkg/setup`, repoint openpgpkey importers; verify `gtb update` + tests.
-5. afmpeg: import `releasetrust`, verify `ffmpeg-wasi` manifests; confirm its
-   module graph excludes go-tool-base.
-6. *(Separate, pipeline-side)* ffmpeg-wasi: adopt the GoReleaser `signs:` block +
-   a signing key so its wasm releases carry the detached signature afmpeg verifies.
+Module `go.mod`: `github.com/ProtonMail/go-crypto`,
+`github.com/cockroachdb/errors` (+ `golang.org/x/crypto` transitively). No cloud
+SDK, no `pkg/http`/`pkg/logger`, no `pflag` in core. (Open question §6: drop
+`cockroachdb/errors` for stdlib to make it crypto-only.)
+
+## 5. go-tool-base integration & migration
+
+- go-tool-base depends on the new module.
+- The moved surfaces (`pkg/signing` interface+registry+`local`, the `pkg/setup`
+  verification files, `pkg/openpgpkey`) are deleted from gtb; `pkg/signing` and
+  `pkg/setup` **re-export** the symbols via type aliases + wrappers for source
+  compatibility. `SelfUpdater` and `gtb sign`/`gtb update` are unchanged.
+- GTB's `pkg/signing/kms` is repointed to implement the module's `Backend`; the
+  `cmd/gtb` blank-imports wire `kms` (GTB-owned) + `local` (from the module).
+- GTB injects its logger via `slog.New(...)` and its hardened `*http.Client`.
+- Migration note in `docs/reference/migration/` for any downstream importing the
+  old `setup.*` / `signing.*` paths directly.
+
+## 6. Open questions
+
+1. **Module name.** `gitlab.com/phpboyscout/signing` (clean, canonical) vs
+   `releasetrust` / `sigkit` / `opgpsign`. (Proposed: `signing`.)
+2. **Drop `cockroachdb/errors`?** stdlib `errors`/`fmt.Errorf` → crypto-only
+   module, but loses the org's error-hint style. (Proposed: keep; revisit if a
+   consumer objects.)
+3. **Keep the global registry, or injection-only?** Registry adds the
+   `--backend <name>` ergonomics GTB relies on; it's light. (Proposed: keep
+   both.)
+4. **`RegisterFlags` removal.** Confirm no GTB backend needs per-backend CLI
+   flags beyond `keyID`; if one does, define the optional `FlagRegistrar`.
+   (Proposed: minimal contract + optional interface.)
+5. **Re-export window in gtb.** Deprecated aliases now, remove later — vs cut
+   internal callers over immediately. (Proposed: aliases, deprecate, remove.)
+6. **Self-sign the module's own releases?** (Proposed: defer; not blocking.)
+
+## 7. Work items (once approved)
+
+1. Create the `signing` repo + module + CI (releaser-pleaser, go-* cicd
+   components, govulncheck) + a **dependency-footprint guard test** asserting
+   `go list -deps ./...` contains no `go-tool-base`, `aws`, `gcp`, `azure`,
+   `opentelemetry`, `viper`, `charmbracelet`, or `pflag` (core).
+2. Move into it: `openpgpkey`; the `Backend` contract + registry; the signing
+   mechanics; the `local` backend; the verification surface. Decouple HTTP
+   (stdlib client) and logging (`*slog.Logger`); apply the CLI-agnostic contract
+   refinement.
+3. Cut `signing v0.1.0`.
+4. go-tool-base: depend on it; delete moved files; add re-export aliases; repoint
+   `pkg/signing/kms` to the module's `Backend`; fix blank-imports; verify
+   `gtb sign` + `gtb update` + tests.
+5. afmpeg: import the module's verification; confirm its module graph excludes
+   go-tool-base and AWS.
+6. *(Pipeline-side)* ffmpeg-wasi: adopt the GoReleaser `signs:` block + a key so
+   its wasm releases carry the signature afmpeg verifies (uses `gtb sign`).
