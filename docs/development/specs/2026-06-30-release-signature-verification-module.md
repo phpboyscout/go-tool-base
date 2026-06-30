@@ -192,7 +192,77 @@ SDK, no `pkg/http`/`pkg/logger`, no `pflag` in core. (Open question §6: drop
 - Migration note in `docs/reference/migration/` for any downstream importing the
   old `setup.*` / `signing.*` paths directly.
 
-## 6. Open questions
+## 6. Development model (TDD / BDD)
+
+The module follows the same workflow as go-tool-base.
+
+- **TDD, test-first.** Derive failing tests from the public contract, error
+  cases, and edge cases before implementing. Table-driven tests with
+  `t.Parallel()`; `github.com/cockroachdb/errors` for error creation/wrapping;
+  **≥90% coverage** (the `pkg/` policy applies to the whole module).
+- **No package-level mocking hooks** (they race under `t.Parallel`). Inject seams
+  via interfaces / struct fields / functional options. The `Backend` seam (and a
+  test `crypto.Signer`/`Backend` fake) are the primary injection points;
+  **mockery** generates the interface mocks under `mocks/`.
+- **Logging in tests** uses a discard `*slog.Logger` (`slog.New(slog.DiscardHandler)`),
+  not a gtb logger — the module must not depend on `pkg/logger`.
+- **BDD (Godog/Gherkin).** Although this is a library (no CLI), its *observable
+  security contract* is exactly the kind of behaviour BDD expresses well, so a
+  Godog suite is **in scope** as the executable behaviour spec. Feature files in
+  `features/`, steps in `test/e2e/steps/`, mirroring go-tool-base's Godog setup
+  (env-var-gated). Candidate scenarios:
+  - sign → verify round-trip succeeds for a matching key;
+  - a tampered manifest / signature is **rejected**;
+  - WKD fingerprint mismatch is **rejected** (`ErrKeyResolverMismatch`);
+  - embedded-only, WKD-only, and composite (`RequireAll` true/false) resolution;
+  - the `local` backend signs a payload the verifier accepts end-to-end.
+
+## 7. Documentation (Diátaxis)
+
+Docs follow the org's Diátaxis layout and its standing concessions
+(API reference → pkg.go.dev; the hand-maintained `reference/` tree is
+CLI/config/migration only; site served via zensical):
+
+- **Reference → pkg.go.dev.** Thorough, example-bearing godoc on every exported
+  symbol is the API reference; no hand-duplicated API tables.
+- **How-to** (the bulk for a library): *verify a signed release*; *sign with the
+  `local` backend*; *implement and inject a custom `Backend`*; *configure
+  embedded + WKD trust*.
+- **Explanation**: the trust model (embedded keys + WKD fingerprint cross-check +
+  detached OpenPGP signature), the dependency-inversion design (why no cloud
+  backends in the module), and a **threat model / security boundaries** page in
+  the style of the existing `pkg/components/*` threat-model docs.
+- **Tutorial**: a short getting-started ("verify your first signed release").
+- A README is the entry point; runnable `Example` tests double as docs and are
+  surfaced on pkg.go.dev.
+
+## 8. Repository & project framework
+
+New repo `gitlab.com/phpboyscout/signing` bootstrapped with the same framework as
+the other org Go projects (it is a *library*, so no `cmd/`, no goreleaser/binaries):
+
+- **CI** via the shared cicd components on the dev-tools image: `go-lint`,
+  `go-test` (with the Godog e2e enabled), `go-security` (govulncheck + scanners).
+  **releaser-pleaser** for versioning + changelog; **renovate-self** for dep
+  bumps. `zensical-pages` only if a docs site is published (else README +
+  pkg.go.dev). No `goreleaser` component.
+- **`.golangci.yaml`** (v2) mirroring go-tool-base's linter set, with local
+  import prefix `gitlab.com/phpboyscout/signing`.
+- **`justfile`** with the standard recipes (`test`, `test-race`, `lint`,
+  `lint-fix`, `mocks`, `ci`, `coverage`, `bench`, `vuln`, `deadcode`).
+- **`.mockery.yml`** for the `Backend` (and any seam) mocks.
+- **Conventional Commits** + the **spec-driven workflow** (the repo carries its
+  own `docs/development/specs/` for future changes; this foundational spec stays
+  in go-tool-base as the extraction record).
+- **Dependency-footprint guard** (the §10 test) promoted to a first-class CI
+  check so the "stays light" invariant is enforced, not just documented.
+- `go` directive matching the org toolchain (currently `1.26.x`).
+
+Note: gtb's generator scaffolds *CLI tools*, not libraries, so this repo is
+hand-bootstrapped from the conventions above (a future "library skeleton" for the
+generator is out of scope here).
+
+## 9. Open questions
 
 1. **Module name.** `gitlab.com/phpboyscout/signing` (clean, canonical) vs
    `releasetrust` / `sigkit` / `opgpsign`. (Proposed: `signing`.)
@@ -208,22 +278,35 @@ SDK, no `pkg/http`/`pkg/logger`, no `pflag` in core. (Open question §6: drop
 5. **Re-export window in gtb.** Deprecated aliases now, remove later — vs cut
    internal callers over immediately. (Proposed: aliases, deprecate, remove.)
 6. **Self-sign the module's own releases?** (Proposed: defer; not blocking.)
+7. **Godog/BDD scope.** Full feature suite from day one vs unit-tests-first with
+   the Godog suite as a fast follow. (Proposed: ship the core security scenarios
+   in §6 with v0.1.0; expand later.)
+8. **Docs site or README + pkg.go.dev only?** A zensical-pages site (how-to /
+   explanation / threat-model) vs a strong README + godoc examples for v0.1.0.
+   (Proposed: README + godoc for v0.1.0, add the site once the API settles.)
 
-## 7. Work items (once approved)
+## 10. Work items (once approved)
 
-1. Create the `signing` repo + module + CI (releaser-pleaser, go-* cicd
-   components, govulncheck) + a **dependency-footprint guard test** asserting
+1. **Bootstrap the repo to the standard framework (§8):** `gitlab.com/phpboyscout/signing`
+   module (`go 1.26.x`); cicd `go-lint`/`go-test`(+Godog)/`go-security` on the
+   dev-tools image; releaser-pleaser; renovate-self; `.golangci.yaml` (v2, local
+   prefix); `justfile`; `.mockery.yml`; Conventional Commits; `docs/development/specs/`.
+2. **Move the code:** `openpgpkey`; the `Backend` contract + registry; the signing
+   mechanics; the `local` backend; the verification surface. Decouple HTTP (stdlib
+   client) and logging (`*slog.Logger`); apply the CLI-agnostic contract refinement.
+3. **TDD/BDD + guard:** carry the existing signing/verification unit tests over
+   (test-first for any new seams), keep **≥90% coverage**, generate mocks via
+   mockery, and add the **dependency-footprint guard test** asserting
    `go list -deps ./...` contains no `go-tool-base`, `aws`, `gcp`, `azure`,
-   `opentelemetry`, `viper`, `charmbracelet`, or `pflag` (core).
-2. Move into it: `openpgpkey`; the `Backend` contract + registry; the signing
-   mechanics; the `local` backend; the verification surface. Decouple HTTP
-   (stdlib client) and logging (`*slog.Logger`); apply the CLI-agnostic contract
-   refinement.
-3. Cut `signing v0.1.0`.
-4. go-tool-base: depend on it; delete moved files; add re-export aliases; repoint
-   `pkg/signing/kms` to the module's `Backend`; fix blank-imports; verify
-   `gtb sign` + `gtb update` + tests.
-5. afmpeg: import the module's verification; confirm its module graph excludes
+   `opentelemetry`, `viper`, `charmbracelet`, or `pflag` (core) — wired as a CI gate.
+   Add the Godog security scenarios (§6).
+4. **Docs (Diátaxis, §7):** godoc + `Example` tests on the exported surface;
+   README; how-to + explanation + threat-model pages (site optional per Q8).
+5. Cut `signing v0.1.0`.
+6. **go-tool-base:** depend on it; delete moved files; add re-export aliases;
+   repoint `pkg/signing/kms` to the module's `Backend`; fix blank-imports; verify
+   `gtb sign` + `gtb update` + the full suite; add a migration note.
+7. **afmpeg:** import the module's verification; confirm its module graph excludes
    go-tool-base and AWS.
-6. *(Pipeline-side)* ffmpeg-wasi: adopt the GoReleaser `signs:` block + a key so
-   its wasm releases carry the signature afmpeg verifies (uses `gtb sign`).
+8. *(Pipeline-side)* **ffmpeg-wasi:** adopt the GoReleaser `signs:` block + a key
+   so its wasm releases carry the signature afmpeg verifies (uses `gtb sign`).
