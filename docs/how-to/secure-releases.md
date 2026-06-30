@@ -113,6 +113,21 @@ setup.MaxBinaryDownloadSize = 2 << 30 // 2 GiB
 
 Phase 1 defends against accidental corruption and single-asset tampering, but a full VCS compromise can replace both the binary and `checksums.txt` on the release. Phase 2 closes that gap by signing the manifest with a project-controlled GPG key — an attacker who replaces the files on the VCS still cannot produce a valid `checksums.txt.sig` without access to the private key.
 
+!!! info "Verifier API extracted into the signing module"
+    The verification primitives — `TrustSet`, the `KeyResolver` chain
+    (embedded, WKD, composite), `LoadTrustSet`, the minimum-strength
+    policy, and the `DefaultRequireSignature` / `DefaultKeySource` /
+    `DefaultExternalKeyEmail` / `DefaultRequireExternalCrosscheck`
+    variables — now live in the standalone **signing** module at
+    **`gitlab.com/phpboyscout/signing/verify`** (v0.1.0). go-tool-base's
+    `SelfUpdater` (still in `pkg/setup`) consumes them, injecting an
+    `*slog.Logger` and a hardened `*http.Client`. Where the snippets
+    below show these symbols with a `setup.` prefix, read them as
+    `verify.` — `setup.NewUpdater` / `setup.WithKeyResolver` remain in
+    `pkg/setup`, and `DefaultRequireChecksum` (Phase 1) stays there too.
+    See the [Signature Verification component reference][svdocs] and the
+    [signing module docs](https://signing.phpboyscout.uk).
+
 > **Status**: the **verification side** (`TrustSet`, the `KeyResolver` chain, the `SelfUpdater` verify-before-parse gate) and the **build side** (a GoReleaser `signs` block + `scripts/sign-release.sh`) are **implemented**. They are **dormant by default**: signing only runs when a signing key is provisioned, and `setup.DefaultRequireSignature` stays `false` until the rollout completes. What remains is **operational provisioning** — generating the KMS-held key, publishing it via WKD, embedding the public key, and flipping the require-signature default — per the [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist. See also the [Signature Verification component](../explanation/components/setup/signature-verification.md) for the full verifier API.
 
 ### Producing signed releases
@@ -195,13 +210,14 @@ update:
   signature_asset_name: ""               # override default "checksums.txt.sig"
 ```
 
-Compile-time overrides (tool authors in `main`):
+Compile-time overrides (tool authors in `main`), set on the
+`gitlab.com/phpboyscout/signing/verify` package:
 
 ```go
-setup.DefaultRequireSignature = true
-setup.DefaultKeySource = "both"
-setup.DefaultExternalKeyEmail = "release@example.com"
-setup.DefaultRequireExternalCrosscheck = true
+verify.DefaultRequireSignature = true
+verify.DefaultKeySource = "both"
+verify.DefaultExternalKeyEmail = "release@example.com"
+verify.DefaultRequireExternalCrosscheck = true
 ```
 
 ### Publishing a public key

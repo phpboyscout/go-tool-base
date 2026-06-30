@@ -213,7 +213,7 @@ See [Secure Releases How-To](../../../how-to/secure-releases.md) for the full se
 
 #### Signature Verification (Phase 2)
 
-Phase 1 proves a download matches its manifest, but not that the manifest itself is authentic. Phase 2 adds OpenPGP signature verification of `checksums.txt` against a trust set whose anchor is diffused away from the VCS — an embedded key cross-checked against a Web Key Directory key. See [Signature Verification — Trust Anchors & Key Resolvers](signature-verification.md) for the `TrustSet` primitive, the minimum-strength policy, and the pluggable `KeyResolver` chain (embedded, WKD, composite).
+Phase 1 proves a download matches its manifest, but not that the manifest itself is authentic. Phase 2 adds OpenPGP signature verification of `checksums.txt` against a trust set whose anchor is diffused away from the VCS — an embedded key cross-checked against a Web Key Directory key. The verification primitives (`TrustSet`, the `KeyResolver` chain, `BuildKeyResolver`, the `DefaultRequireSignature` family) now live in the standalone [`gitlab.com/phpboyscout/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) module; `SelfUpdater` consumes them, injecting an `*slog.Logger` and a hardened `*http.Client`. (`DefaultRequireChecksum` for Phase 1 stays in `pkg/setup`.) See [Signature Verification — Trust Anchors & Key Resolvers](signature-verification.md) for the minimum-strength policy and the pluggable `KeyResolver` chain (embedded, WKD, composite).
 
 #### Release Information
 ```go

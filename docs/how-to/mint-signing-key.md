@@ -200,5 +200,6 @@ v1 file once your supported-version window has cleared.
   GCP KMS, Vault, YubiKey.
 - [Release-binary signing concept](../explanation/concepts/release-binary-signing.md)
   — the end-to-end trust model.
-- [`pkg/openpgpkey`](../explanation/components/openpgpkey.md) — the underlying
-  packet-assembly API if you need it programmatically.
+- [`openpgpkey`](../explanation/components/openpgpkey.md) — the underlying
+  packet-assembly API if you need it programmatically (now the standalone
+  `gitlab.com/phpboyscout/signing/openpgpkey` module).

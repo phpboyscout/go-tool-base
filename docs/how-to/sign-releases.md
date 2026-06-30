@@ -1,6 +1,6 @@
 ---
 title: Sign release artefacts with `gtb sign`
-description: Produce an ASCII-armored OpenPGP detached signature over a release file using a KMS-held key (or any other backend in pkg/signing), then verify with gpg or the in-tool verifier.
+description: Produce an ASCII-armored OpenPGP detached signature over a release file using a KMS-held key (or any other backend registered with the signing module, `gitlab.com/phpboyscout/signing`), then verify with gpg or the in-tool verifier.
 date: 2026-06-09
 tags: [how-to, signing, kms, openpgp, release]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
@@ -94,8 +94,9 @@ encryption like LUKS or `age` until that lands).
 ## Verify
 
 `gtb sign` produces what `gpg --verify` consumes — and what the
-in-tool verifier (`TrustSet.VerifyManifestSignature` in
-`pkg/setup/signing.go`) consumes during a self-update.
+in-tool verifier (`TrustSet.VerifyManifestSignature`, now in the
+`gitlab.com/phpboyscout/signing/verify` module that gtb consumes)
+checks during a self-update.
 
 ```sh
 # Import the published public key into a clean keyring + verify.
@@ -160,11 +161,11 @@ The setup is split into two layers:
 
 - **`gpg --verify`** (any modern OpenPGP implementation accepting v4
   RSA-PKCS1v15 signatures)
-- **`pkg/setup` in-tool verifier** during `gtb update`
+- **the in-tool verifier** (`gitlab.com/phpboyscout/signing/verify`, consumed by gtb) during `gtb update`
 - **`openpgp.CheckArmoredDetachedSignature` from
   `ProtonMail/go-crypto`** (the library used by both)
 
-The unit test suite in `pkg/openpgpkey/sign_test.go` exercises the
+The unit test suite in the `signing/openpgpkey` module exercises the
 `go-crypto` path; the integration test gated by `INT_TEST_SIGN=1`
 additionally invokes `gpg --verify` to catch any drift between our
 framing and the reference implementation.
@@ -200,8 +201,9 @@ See the Phase 2 prep doc for the full rotation runbook.
 
 - [Spec: gtb sign](../development/specs/2026-06-09-sign-command.md)
   — design decisions, RFC details, threat model.
-- [`pkg/openpgpkey`](../explanation/components/openpgpkey.md#detached-openpgp-signing-detachsign)
-  — the `DetachSign` library function the CLI wraps.
+- [`openpgpkey`](../explanation/components/openpgpkey.md)
+  — the `DetachSign` library function the CLI wraps (now the standalone
+  `gitlab.com/phpboyscout/signing/openpgpkey` module).
 - [How-to: publish via WKD](publish-wkd.md) — the matching
   trust-anchor publication step.
 - [How-to: add a signing backend](add-signing-backend.md) — for

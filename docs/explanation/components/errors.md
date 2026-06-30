@@ -116,7 +116,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/openpgpkey`
+## `gitlab.com/phpboyscout/signing/openpgpkey`
+
+Extracted into the standalone [signing module](https://signing.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -144,6 +146,11 @@ the link to the user-facing output.
 | `ErrChecksumTooLarge` | checksum too large | Returned when the checksums.txt file exceeds the maximum allowed size. |
 | `ErrBinaryTooLarge` | binary too large | Returned during extraction if the update binary is dangerously large. |
 | `ErrBinaryNotInArchive` | binary not in archive | Returned when extracting an update tarball/zip that doesn't contain the expected executable. |
+
+The signature-verification sentinels below were extracted into `gitlab.com/phpboyscout/signing/verify`; gtb's `SelfUpdater` re-surfaces them during `Update()`.
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
 | `ErrSignatureInvalid` | signature verification failed | Returned when no key in the trust set verifies the release signature. The failure path does not name the keys involved. |
 | `ErrSignatureMissing` | signature asset not found in release | Returned when `require_signature` is true and the release provides no signature asset. |
 | `ErrSignatureTooLarge` | signature download exceeds maximum size | Returned when the signature download exceeds the maximum allowed size. |
@@ -154,7 +161,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/signing`
+## `gitlab.com/phpboyscout/signing`
+
+Extracted into the standalone [signing module](https://signing.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -162,7 +171,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/signing/kms`
+## `gitlab.com/phpboyscout/signing-aws-kms`
+
+The `awskms` backend — a separate module consumed by the standard gtb binary.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -172,7 +183,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/signing/local`
+## `gitlab.com/phpboyscout/signing/local`
+
+The `local` PEM backend, part of the standalone signing module.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|

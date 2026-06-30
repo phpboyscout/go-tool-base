@@ -247,7 +247,7 @@ A WKD-publishing domain can serve either or both URL forms:
 If you're consuming GTB as a framework and adopting this signing
 chain in your own tool, **the only thing you align across the
 framework, the DNS, and the hosting account is the email.** Set
-`setup.DefaultExternalKeyEmail` in your tool's init (or pass it via
+`verify.DefaultExternalKeyEmail` in your tool's init (or pass it via
 `update.external_key_email` config), mint your key with that email
 on the UID, stand up the WKD endpoint at `openpgpkey.<yourdomain>`,
 publish the key. The framework derives the URL; the verifier knows
@@ -323,7 +323,10 @@ The chain in tabular form:
   — the offline-storage flow.
 - [Adding a signing backend](../../how-to/add-signing-backend.md) — for
   GCP KMS, Vault, YubiKey, etc.
-- [pkg/openpgpkey](../components/openpgpkey.md),
-  [pkg/signing](../components/signing.md) — programmatic APIs.
+- [openpgpkey](../components/openpgpkey.md) and
+  [signing](../components/signing.md) — the programmatic APIs, now
+  extracted into the standalone
+  [signing module](https://signing.phpboyscout.uk)
+  (`gitlab.com/phpboyscout/signing`).
 - [Phase 2 spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md)
   — verifier design.

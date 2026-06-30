@@ -49,10 +49,12 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 
 ## Release Signing
 
-| Component | Package | Description |
+These packages were extracted into the standalone, independently-versioned [signing module](https://signing.phpboyscout.uk) (v0.1.0); go-tool-base now consumes them as dependencies. The `gtb` CLI behaviour is unchanged — only the Go import paths moved.
+
+| Component | Module | Description |
 | :--- | :--- | :--- |
-| **[Signing](signing.md)** | `pkg/signing` | Backend registry letting `gtb keys mint` and downstream tools target arbitrary HSM/KMS/keyring back-ends through a single `Backend` interface. |
-| **[OpenPGP Key](openpgpkey.md)** | `pkg/openpgpkey` | OpenPGP packet assembly from a `crypto.Signer`, wrapping an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. |
+| **[Signing](signing.md)** | `gitlab.com/phpboyscout/signing` | Backend registry letting `gtb keys mint` and downstream tools target arbitrary HSM/KMS/keyring back-ends through a single CLI-agnostic `Backend` interface. |
+| **[OpenPGP Key](openpgpkey.md)** | `gitlab.com/phpboyscout/signing/openpgpkey` | OpenPGP packet assembly from a `crypto.Signer`, wrapping an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. |
 
 ## Web Service
 

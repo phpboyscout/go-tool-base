@@ -1,6 +1,6 @@
 ---
 title: "Signature Verification — Trust Anchors & Key Resolvers"
-description: "pkg/setup signing primitives for Phase 2 self-update signature verification: an immutable TrustSet with a minimum-strength policy, a detached-signature verifier, and a pluggable KeyResolver chain (embedded, WKD, composite cross-check) that diffuses the signing trust anchor away from the VCS."
+description: "Phase 2 self-update signature verification: an immutable TrustSet with a minimum-strength policy, a detached-signature verifier, and a pluggable KeyResolver chain (embedded, WKD, composite cross-check) that diffuses the signing trust anchor away from the VCS. The verification primitives now live in the standalone signing/verify module; gtb consumes them."
 date: 2026-05-21
 tags: [component, security, signing, self-update, openpgp, wkd]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -16,10 +16,36 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
     Both the verification primitives and the production wiring are live:
 
     - **v0.12.2** (2026-06-09) — first signed release. `checksums.txt.sig` attached to every release going forward; signature produced by an AWS-KMS-held RSA-4096 key via OIDC-federated CI.
-    - **v0.13.0** (2026-06-09) — `setup.DefaultRequireSignature = true`. Every update now refuses to install an unsigned release.
-    - **v0.13.1** (2026-06-10) — wired `setup.DefaultExternalKeyEmail = "release@phpboyscout.uk"` so the resolver chain becomes `CompositeResolver{Embedded, WKD}` by default. Before this, the verifier silently degraded to embedded-only — see [Interpreting verifier log output](#interpreting-verifier-log-output) below.
+    - **v0.13.0** (2026-06-09) — `verify.DefaultRequireSignature = true`. Every update now refuses to install an unsigned release.
+    - **v0.13.1** (2026-06-10) — wired `verify.DefaultExternalKeyEmail = "release@phpboyscout.uk"` so the resolver chain becomes `CompositeResolver{Embedded, WKD}` by default. Before this, the verifier silently degraded to embedded-only — see [Interpreting verifier log output](#interpreting-verifier-log-output) below.
 
-    Downstream tools using `pkg/setup` get the same wiring out of the box by setting `setup.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](../../../development/specs/2026-04-02-remote-update-checksum-verification.md) cover the rollout history end-to-end.
+    Downstream tools using `pkg/setup` get the same wiring out of the box by setting `verify.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](../../../development/specs/2026-04-02-remote-update-checksum-verification.md) cover the rollout history end-to-end.
+
+!!! info "Verification primitives extracted into the signing module"
+    The verification implementation — `TrustSet`, the `KeyResolver` chain
+    (embedded, WKD, composite), `BuildKeyResolver`, the minimum-strength
+    policy, the sentinel errors, the `Max*` bounds, and the
+    `DefaultRequireSignature` / `DefaultKeySource` / `DefaultExternalKeyEmail`
+    / `DefaultRequireExternalCrosscheck` package variables — now lives in the
+    standalone, independently-versioned **signing** module at
+    **`gitlab.com/phpboyscout/signing/verify`** (v0.1.0). Those symbols are
+    shown below with the `verify.` prefix; the `SelfUpdater` constructor and
+    options (`setup.NewUpdater`, `setup.WithEmbeddedKeys`,
+    `setup.WithKeyResolver`) remain in `pkg/setup`.
+
+    go-tool-base's `SelfUpdater` (still in `pkg/setup`) **consumes**
+    `signing/verify`, injecting its own dependencies through the module's
+    stdlib seams: an `*slog.Logger` built via `slog.New(logger.Handler())`
+    and the hardened `*http.Client` from [`pkg/http`](../http.md) for WKD
+    fetches. `DefaultRequireChecksum` (the Phase 1 checksum gate) stays in
+    `pkg/setup` — only the signature-verification `Default*` variables moved.
+
+    The `gtb` CLI behaviour is unchanged. The canonical reference for the
+    verifier API is the
+    [signing module documentation](https://signing.phpboyscout.uk) and
+    [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify);
+    this page keeps the gtb-specific operator guidance (config keys, env
+    vars, posture/rollout) and how the framework wires the module in.
 
 ## Threat Model
 
@@ -74,7 +100,7 @@ The policy fails closed: an algorithm a future `go-crypto` release might add is 
 
 
 > [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup) for the full API definition.
+> See [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) for the full API definition.
 
 
 Three implementations ship in Phase 2.
@@ -93,9 +119,9 @@ Keys are parsed and strength-checked **at construction**, so a weak, malformed, 
 //go:embed keys/*.asc
 var keyFS embed.FS
 
-func Resolver() setup.KeyResolver {
+func Resolver() verify.KeyResolver {
     primary, _ := keyFS.ReadFile("keys/release.asc")
-    return setup.NewEmbeddedResolver(primary)
+    return verify.NewEmbeddedResolver(primary)
 }
 ```
 
@@ -130,9 +156,9 @@ URL derivation follows [draft-koch-openpgp-webkey-service §3.1][wkd-draft]. Giv
 
 The `openpgpkey.` subdomain prefix is **not configurable** — it is part of the WKD wire format. Every WKD client (GnuPG, our `WKDResolver`, Sequoia, etc.) hardcodes this prefix when constructing the advanced URL, so a WKD-publishing domain serves the key under that fixed pattern.
 
-Before deriving any URL, `WKDURLs` validates the email domain with the same hostname rules the publish side (`pkg/openpgpkey.WriteWKDTree`) applies: the domain must be a plain DNS hostname (letters, digits, hyphens, dot separators) with no path separator, no `..`, and no leading/trailing dot. A domain that fails this check is rejected with an error rather than spliced into an `https://<domain>/…` URL — so an operator-supplied email cannot reshape the request target or escape the WKD path.
+Before deriving any URL, `WKDURLs` validates the email domain with the same hostname rules the publish side (`signing/openpgpkey.WriteWKDTree`) applies: the domain must be a plain DNS hostname (letters, digits, hyphens, dot separators) with no path separator, no `..`, and no leading/trailing dot. A domain that fails this check is rejected with an error rather than spliced into an `https://<domain>/…` URL — so an operator-supplied email cannot reshape the request target or escape the WKD path.
 
-In practice: **the only thing a tool author aligns across the framework, the DNS, and the hosting account is the release email.** Setting `setup.DefaultExternalKeyEmail` (or `update.external_key_email` via config) is sufficient — the verifier derives the URLs, the operator stands up the matching `openpgpkey.<domain>` endpoint, the keys flow.
+In practice: **the only thing a tool author aligns across the framework, the DNS, and the hosting account is the release email.** Setting `verify.DefaultExternalKeyEmail` (or `update.external_key_email` via config) is sufficient — the verifier derives the URLs, the operator stands up the matching `openpgpkey.<domain>` endpoint, the keys flow.
 
 [wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
 
@@ -154,7 +180,7 @@ Wraps an ordered list of resolvers and requires them to **agree** on the set of 
 
 
 > [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup) for the full API definition.
+> See [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) for the full API definition.
 
 
 - Children run **concurrently**; resolve cost is `max(child latencies)`, not the sum.
@@ -241,7 +267,7 @@ Match on these with `errors.Is`; the underlying cause is wrapped for diagnostics
 
 ## Tunable Bounds & Defaults
 
-All exported as package variables so a downstream tool author can override them in `main()`:
+All exported as package variables on `gitlab.com/phpboyscout/signing/verify` (the `verify.` prefix) so a downstream tool author can override them in `main()`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -267,11 +293,12 @@ updater, err := setup.NewUpdater(ctx, props, version, force,
 )
 ```
 
-`WithEmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`BuildKeyResolver`](#buildkeyresolver) with the resolved `update.key_source` family to produce the resolver. For full control — a custom resolver chain, a DNS resolver, or Sigstore in a later phase — build it yourself and pass `setup.WithKeyResolver(r)`, which bypasses the config-driven default entirely.
+`WithEmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`verify.BuildKeyResolver`](#buildkeyresolver) (in `signing/verify`) with the resolved `update.key_source` family to produce the resolver. For full control — a custom resolver chain, a DNS resolver, or Sigstore in a later phase — build it yourself and pass `setup.WithKeyResolver(r)`, which bypasses the config-driven default entirely.
 
 ### BuildKeyResolver
 
 ```go
+// gitlab.com/phpboyscout/signing/verify
 func BuildKeyResolver(cfg KeyResolverConfig, embeddedKeys ...[]byte) (KeyResolver, error)
 ```
 
@@ -320,6 +347,7 @@ Trust sets hold multiple keys, and verification passes if **any** key validates 
 
 ## See Also
 
+- [signing module documentation](https://signing.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) — the canonical reference for the extracted verifier API.
 - [Setup Package](index.md) — the surrounding self-update system and Phase 1 checksum verification.
 - [Secure Releases How-To](../../../how-to/secure-releases.md) — operator-facing setup story.
 - [HTTP client](../http.md) — the hardened client `WKDResolver` expects.
