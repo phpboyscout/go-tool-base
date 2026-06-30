@@ -11,7 +11,7 @@ require (
 	charm.land/log/v2 v2.0.0
 	dario.cat/mergo v1.0.2
 	github.com/ProtonMail/go-crypto v1.4.1
-	github.com/anthropics/anthropic-sdk-go v1.51.1
+	github.com/anthropics/anthropic-sdk-go v1.52.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.25
 	github.com/aws/aws-sdk-go-v2/service/kms v1.53.4
 	github.com/charmbracelet/keygen v0.5.4
@@ -35,7 +35,7 @@ require (
 	github.com/leodido/go-conventionalcommits v0.12.0
 	github.com/njayp/ophis v1.1.4
 	github.com/openai/openai-go/v3 v3.41.0
-	github.com/pelletier/go-toml/v2 v2.4.1
+	github.com/pelletier/go-toml/v2 v2.4.2
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
@@ -46,7 +46,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/tiktoken-go/tokenizer v0.8.0
 	github.com/zalando/go-keyring v0.2.8
-	gitlab.com/gitlab-org/api/client-go/v2 v2.40.1
+	gitlab.com/gitlab-org/api/client-go/v2 v2.43.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
@@ -64,7 +64,7 @@ require (
 	golang.org/x/net v0.56.0
 	golang.org/x/text v0.38.0
 	golang.org/x/time v0.15.0
-	google.golang.org/genai v1.61.0
+	google.golang.org/genai v1.62.0
 	google.golang.org/grpc v1.81.1
 	gopkg.in/yaml.v3 v3.0.1
 )
