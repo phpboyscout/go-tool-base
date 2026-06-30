@@ -2,7 +2,7 @@
 title: "Per-provider signing backend modules (signing-aws-kms first; GCP/Azure/Vault to follow)"
 description: "Extract the AWS KMS signing backend out of go-tool-base into its own standalone module gitlab.com/phpboyscout/signing-aws-kms, implementing the gitlab.com/phpboyscout/signing Backend contract. Establishes the per-provider backend-module pattern so consumers selectively include only the backend(s) they need (afmpeg: none; a KMS signer: aws-kms; gtb: all), and keeps each cloud SDK out of every graph that doesn't opt in. Integrated into go-tool-base alongside the signing module in one cut-over. Extends work item #1."
 date: 2026-06-30
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - signing
@@ -27,7 +27,7 @@ Date
 :   30 June 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 Tracking
 :   work item #1 (extends)
@@ -113,7 +113,8 @@ all. afmpeg (verification only) pulls neither go-tool-base nor any cloud SDK.
 
 ### 4.1 Contents
 
-Move `pkg/signing/kms/{kms.go,signer.go,kms_test.go}` into the new module,
+Move `pkg/signing/kms/{kms.go,signer.go,kms_test.go}` into the new module
+(module path `gitlab.com/phpboyscout/signing-aws-kms`, **package `awskms`**),
 repointing the `signing` import to `gitlab.com/phpboyscout/signing`:
 
 - `backend` implements `signing.Backend`: `Name() == "aws-kms"`; `NewSigner(ctx,
@@ -140,9 +141,10 @@ defines its own optional flag interface and type-asserts**:
 ### 4.3 Seams & credentials
 
 Credentials/region resolve through the AWS SDK Go v2 default chain (env, profile,
-web-identity/OIDC) — unchanged; the module owns no credential logic. If the
-backend logs, it accepts an optional `*slog.Logger` (consistent with `signing`);
-otherwise no logging seam is needed.
+web-identity/OIDC) — unchanged; the module owns no credential logic. The backend
+accepts an **optional `*slog.Logger`** (nil-safe), consistent with `signing`'s
+seam conventions — for diagnostics now and forward-consistency as more backends
+land.
 
 ### 4.4 Footprint
 
@@ -194,17 +196,21 @@ Mirrors `signing` and go-tool-base:
 
 ## 7. Documentation (Diátaxis)
 
-Proportionate to a backend adapter:
+Light for the adapter, with the **parent `signing` repo as the canonical home**
+for documenting available backends:
 
-- **Reference → pkg.go.dev** (godoc + an `Example` showing
-  `signing.Get("aws-kms")` → sign).
-- **How-to:** *sign a release with AWS KMS* (key setup, IAM/OIDC, `keyID` ARN,
-  region, wiring into a CLI); *add another provider backend* (points back to the
-  pattern).
-- **Explanation:** a short page on the per-provider module pattern + the AWS IAM
-  trust/credentials model.
-- README as entry point. A full zensical site is optional (open question 5) — a
-  strong README + pkg.go.dev may suffice for an adapter.
+- **In `signing-aws-kms` (light):** README entry point; godoc + an `Example`
+  showing `signing.Get("aws-kms")` → sign (pkg.go.dev); and **two in-repo pages**
+  — a how-to *sign a release with AWS KMS* (key setup, IAM/OIDC, `keyID` ARN,
+  region) and a short explanation (the per-provider module pattern + AWS
+  credentials model). **No separate zensical site** for the adapter.
+- **In the `signing` repo's Diátaxis site (canonical):** add an "available
+  backends" reference/how-to documenting `signing-aws-kms` (and the pattern for
+  future GCP/Azure/Vault modules), extending the existing
+  `how-to/implement-a-custom-backend` page. This is where users discover which
+  backends exist.
+- **Cross-link the READMEs both ways:** `signing` README → `signing-aws-kms` (and
+  future backends); `signing-aws-kms` README → `signing`.
 
 ## 8. Repository & project framework
 
@@ -227,38 +233,43 @@ New repo `gitlab.com/phpboyscout/signing-aws-kms`, bootstrapped exactly like
   `Backend` contract; per-backend CLI flags via the CLI's optional interface.
   Hard cut-over in gtb (no aliases, pre-1.0) + migration note. FF merges.
 
-## 10. Open questions
+## 10. Resolved decisions
 
-1. **Module name / package name.** Module `gitlab.com/phpboyscout/signing-aws-kms`
-   (proposed); package `awskms` vs `kms`. (Proposed: package `awskms` for an
-   unambiguous import; backend name string stays `"aws-kms"` for `gtb sign`
-   compatibility.)
-2. **Backend name string.** Keep `"aws-kms"` (no change to `gtb sign --backend`).
-   (Proposed: yes.)
-3. **Future backends in this spec?** Keep this spec aws-kms-only and let GCP/Azure/
-   Vault be drop-in repeats of the pattern, or enumerate stubs now. (Proposed:
-   aws-kms only; pattern documented for the rest.)
-4. **Godog for the adapter?** Full suite vs unit + gated integration only.
-   (Proposed: unit + gated AWS integration; skip Godog — contract is covered in
-   `signing`.)
-5. **Docs site vs README + pkg.go.dev.** (Proposed: README + pkg.go.dev + the
-   two how-to/explanation pages in-repo; full zensical site optional.)
-6. **Optional logging seam.** Does the KMS backend log enough to warrant an
-   injectable `*slog.Logger`? (Proposed: add only if it currently logs.)
-7. **Release ordering.** Cut `signing-aws-kms v0.1.0` before the gtb cut-over so
-   gtb depends on a tag, not a pseudo-version. (Proposed: yes.)
+1. **Naming** → module `gitlab.com/phpboyscout/signing-aws-kms`, package
+   **`awskms`** (unambiguous vs a future GCP `kms`), backend name string
+   **`"aws-kms"`**.
+2. **Backend string** → keep **`"aws-kms"`** (no change to `gtb sign --backend`
+   or existing scripts/pipeline).
+3. **Scope** → **aws-kms only**; the per-provider pattern is documented so
+   GCP/Azure/Vault are drop-in repeats, specced when actually built.
+4. **Testing** → **unit (≥90%, AWS faked at the SDK seam) + a gated real-AWS
+   integration test** (`INT_TEST_SIGNING_AWS`); **no Godog** (the sign/verify
+   contract is already BDD-covered in `signing`).
+5. **Docs** → **light in-repo** (README + pkg.go.dev `Example` + a how-to and an
+   explanation page); **no separate zensical site**. The **parent `signing` repo's
+   Diátaxis site is the canonical place** documenting available backends
+   (`signing-aws-kms` + the pattern); **READMEs cross-link both ways**.
+6. **Logging** → **always** expose an optional nil-safe `*slog.Logger` seam, for
+   forward-consistency with `signing`.
+7. **Release ordering** → **cut `signing-aws-kms v0.1.0` first**, then do the
+   go-tool-base cut-over so gtb depends on a released tag (not a pseudo-version).
 
 ## 11. Work items (once approved)
 
-1. Bootstrap `signing-aws-kms` repo to the standard framework (§8).
+1. Bootstrap `signing-aws-kms` repo (package `awskms`) to the standard framework
+   (§8) — no zensical site.
 2. Move `kms.go`/`signer.go`/tests; repoint the `signing` import; implement the
-   optional `RegisterFlags`; add the dependency-footprint guard (no go-tool-base,
-   no non-AWS cloud SDK).
-3. Unit tests (≥90%) + re-home the gated AWS integration test; docs + `Example`.
-4. Cut `signing-aws-kms v0.1.0`.
-5. **Combined gtb cut-over (§5):** depend on `signing` + `signing-aws-kms`; delete
+   optional `RegisterFlags`; add the optional `*slog.Logger` seam; add the
+   dependency-footprint guard (no go-tool-base, no non-AWS cloud SDK).
+3. Unit tests (≥90%) + re-home the gated AWS integration test; light docs (README,
+   `Example`, how-to + explanation pages).
+4. **Docs cross-wiring:** add an "available backends" page to the **`signing`
+   repo's Diátaxis site** documenting `signing-aws-kms` + the pattern; cross-link
+   `signing` ↔ `signing-aws-kms` READMEs.
+5. Cut `signing-aws-kms v0.1.0` (before the gtb cut-over).
+6. **Combined gtb cut-over (§5):** depend on `signing` + `signing-aws-kms`; delete
    the four in-tree trees incl. `pkg/signing/kms`; repoint callers + blank-imports
    + the sign command's flag type-assert; verify `gtb sign`/`gtb update` + suite;
    migration note.
-6. afmpeg + ffmpeg-wasi (the original Stage 9): afmpeg → `signing/verify`;
+7. afmpeg + ffmpeg-wasi (the original Stage 9): afmpeg → `signing/verify`;
    ffmpeg-wasi → `gtb sign`.
