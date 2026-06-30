@@ -549,3 +549,22 @@ func TestVerifyAssetChecksum_BadSignatureBlocksBeforeChecksum(t *testing.T) {
 	assert.NotContains(t, err.Error(), "checksum mismatch",
 		"failure must be the signature, not the checksum")
 }
+
+// TestBuildDefaultKeyResolver_ConfigError covers the verification-config error
+// path: key_source=external with no external email is an invalid posture, so
+// verify.BuildKeyResolver rejects it and buildDefaultKeyResolver wraps the error
+// (and leaves no resolver set).
+func TestBuildDefaultKeyResolver_ConfigError(t *testing.T) {
+	mustInitTestSigningKeys(t)
+
+	s := &SelfUpdater{
+		logger:       logger.NewNoop(),
+		embeddedKeys: [][]byte{testEd25519.armoredPub},
+		keySource:    "external", // external requires an email; none set → error
+	}
+
+	err := s.buildDefaultKeyResolver()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "configuring update signature verification")
+	assert.Nil(t, s.keyResolver, "no resolver should be set when configuration fails")
+}
