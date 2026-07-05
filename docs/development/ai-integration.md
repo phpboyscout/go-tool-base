@@ -50,6 +50,32 @@ All five built-in providers implement this interface:
 
 The `chat` package supports structured output via JSON schemas. When adding new providers or improving existing ones, ensure that schema validation remains consistent across all backends. The `GenerateSchema[T]()` helper generates a `*jsonschema.Schema` from any Go type.
 
+### Multimodal Input
+
+`Add`, `Ask`, `Chat` and `StreamChat` take a trailing variadic of `Media` — images (and, on Gemini, PDF and A/V) sent alongside the text prompt. Text-only calls pass no media and are unchanged.
+
+```go
+img, _ := os.ReadFile("frame.jpg")
+
+var out struct{ Description string `json:"description"` }
+err := client.Ask(ctx,
+    "Describe this photo as JSON {\"description\": string}", &out,
+    chat.Media{Data: img}) // MIMEType optional — sniffed from the bytes
+```
+
+**Safety.** Every attachment is validated before any network call: its type is sniffed from the bytes (never a filename) with `net/http.DetectContentType`, cross-checked against any declared `MIMEType` (a disguised type — e.g. a ZIP labelled `image/png` — is rejected), allowlisted, and checked against the selected provider's support. Failures return `ErrMediaRejected` or `ErrMediaUnsupported`; nothing is uploaded.
+
+**Provider support matrix:**
+
+| Provider | Images | PDF | Audio/Video |
+| :--- | :---: | :---: | :---: |
+| Gemini | ✅ | ✅ | ✅ |
+| Claude | ✅ | — | — |
+| OpenAI (+ compatible) | ✅ | — | — |
+| Claude Local | — | — | — |
+
+The v1 accepted range is what stdlib detection can positively identify (common images, PDF, and mp4/webm/avi + mp3/wav/ogg/aiff); long-tail formats (mov, flv, wmv, flac, m4a) await a richer sniffer. PDF/document support for Claude and OpenAI is a fast-follow. **Media is not yet persisted in `PersistentChatClient` snapshots** — a restored conversation keeps its text history but not its attachments (tracked follow-up; see the multimodal spec §4.1).
+
 ## Developing for the AI Layer
 
 ### Adding a New Provider

@@ -138,6 +138,16 @@ encryption/size design). Instead:
 - Cache lifecycle (pruning blobs no snapshot references) is a follow-up; v1 keeps
   blobs for the filestore's lifetime.
 
+> **Implementation note (2026-07-05).** Steps 1–5 (input across Gemini/Claude/
+> OpenAI) shipped and are verified. Persistence is **deferred to a follow-up**: each
+> provider's `Save()` marshals its *opaque, provider-specific* native history to
+> `Snapshot.Messages`, while the media cache lives at the FileStore layer — so
+> cache+pointer needs per-provider blob externalisation **and** the store threaded
+> into `Save`/`Restore`, a design the driver (krites' one-shot `Ask`) does not need.
+> Until then, media is simply **not persisted** in snapshots (a restored chat keeps
+> its text history, not its attachments) — documented in `ai-integration.md`. The
+> cache+pointer design above stands as the follow-up's blueprint.
+
 ## 5. MIME detection & safety filtering
 
 A single choke point validates every attachment before it reaches a provider:

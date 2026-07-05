@@ -15,4 +15,16 @@
 //
 // New providers can be registered at runtime via [RegisterProvider]. Structured
 // output helpers such as GenerateSchema simplify schema generation for Ask calls.
+//
+// # Multimodal input
+//
+// Add, Ask, Chat and StreamChat accept a trailing variadic of [Media] — images
+// (and, on Gemini, PDF and A/V) sent alongside the text prompt. A text-only call
+// passes no media and is unchanged. Each attachment's type is sniffed from its
+// bytes (never a caller-supplied filename), cross-checked against any declared
+// MIMEType, allowlisted, and checked against the selected provider's support
+// before any network call; disguised or unsupported content is rejected with
+// [ErrMediaRejected] or [ErrMediaUnsupported]. Vision support is per provider:
+// Gemini (images, PDF, A/V), Claude and OpenAI (images); ProviderClaudeLocal
+// accepts no media.
 package chat
