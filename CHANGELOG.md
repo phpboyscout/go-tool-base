@@ -1,5 +1,16 @@
 # Changelog
 
+## [v0.28.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.28.0)
+
+### Features
+
+- **chat**: persist media across snapshots (content-addressed cache)
+- **chat**: PDF input for Claude and OpenAI
+- **chat**: wire OpenAI media (images)
+- **chat**: wire Claude media (images)
+- **chat**: extend ChatClient with media input; wire Gemini
+- **chat**: media detect + safety-filter core
+
 ## [v0.27.2](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.27.2)
 
 ### Bug Fixes
