@@ -1,6 +1,6 @@
 ---
 title: "Multimodal Input for pkg/chat Specification"
-description: "Add image/media input to the chat client across Gemini, Claude, and OpenAI via an additive, backward-compatible MultimodalChatClient interface."
+description: "Add media (image/document/audio/video) input to the core chat client across Gemini, Claude, and OpenAI, with MIME auto-detection and safety filtering."
 date: 2026-07-05
 status: DRAFT
 tags:
@@ -29,190 +29,188 @@ Status
 ## 1. Motivation
 
 `pkg/chat` is a unified multi-provider chat client, but its surface is **text-only**:
-`ChatClient` exposes `Add(ctx, prompt string)`, `Ask(ctx, question string, target)`,
-and `Chat(ctx, prompt string)`. None accept images or other media.
+`Add(ctx, prompt string)`, `Ask(ctx, question string, target)`, and
+`Chat(ctx, prompt string)` accept no media.
 
-Downstream tools increasingly need **multimodal input** — sending one or more
-images to a vision-capable model alongside a text prompt. The immediate driver is
-**krites' AI image review** (krites spec `0009`): it critiques wedding photographs
-against a rubric, which requires uploading the image to a multimodal model. Today
-krites cannot use `pkg/chat` for this and must hand-roll a provider HTTP client,
-duplicating exactly the credential handling, provider abstraction, usage
-accounting, and structured-output machinery `pkg/chat` already provides.
+Downstream tools need **multimodal input** — sending one or more images (and, where
+a provider supports it, documents/audio/video) to a model alongside a text prompt.
+The immediate driver is **krites' AI image review** (krites spec `0009`), which
+critiques photographs against a rubric and must upload the image. Without this,
+krites hand-rolls a provider HTTP client, duplicating the credential handling,
+provider abstraction, usage accounting, and structured-output machinery `pkg/chat`
+already provides.
 
-The good news: **every cloud provider SDK `pkg/chat` already uses supports image
-input**:
+Every cloud provider SDK `pkg/chat` already uses supports media input:
 
 - **Gemini** — `google.golang.org/genai` `Part` carries inline blobs
-  (`genai.NewPartFromBytes(data, mimeType)`).
-- **Claude** — `github.com/anthropics/anthropic-sdk-go` has base64 image content
-  blocks (`anthropic.NewImageBlockBase64(mediaType, data)`).
+  (`genai.NewPartFromBytes(data, mimeType)`); supports images, PDF, audio, video.
+- **Claude** — `github.com/anthropics/anthropic-sdk-go` has base64 image and
+  document (PDF) content blocks.
 - **OpenAI** — `github.com/openai/openai-go/v3` supports image content parts
-  (`image_url` with a `data:` URI) on a user message.
+  (`image_url` with a `data:` URI), and file/audio parts on capable models.
 
-So the capability exists at the SDK layer; only the **interface is the
-bottleneck**. This spec adds multimodal input as an **additive, backward-compatible**
-extension.
+So the capability exists at the SDK layer; the **interface is the bottleneck**.
 
-## 2. Non-goals
+## 2. Design principles (from review, 2026-07-05)
 
-- **Image *generation* / output.** This is input only — sending media to the
-  model. Models that return images are out of scope.
-- **Audio / video / documents.** The design is media-typed and extensible, but
-  this spec ships **images** only (the concrete need). PDFs/audio are a later,
-  additive step behind the same `Media` type.
-- **Changing the text-only path.** `Add`/`Ask`/`Chat` are unchanged; existing
-  callers are unaffected.
-- **Claude Local (CLI binary) multimodal.** `ProviderClaudeLocal` shells out to a
-  CLI and does not support media here; it simply does not implement the new
-  interface.
+- **Upgrade the core client, don't fork it.** go-tool-base is **pre-1.0**, so we
+  are free to change signatures. Rather than a parallel `MultimodalChatClient`, we
+  **extend the existing `ChatClient` methods** with a variadic media parameter.
+  This keeps one client, one code path, and — because the parameter is variadic —
+  every existing text-only call compiles and behaves unchanged.
+- **Open up to the providers' full media range.** Not an images-only intersection:
+  accept whatever the *selected provider* supports (images, PDF documents, and
+  audio/video on Gemini), enforced per provider.
+- **Detect the type, don't trust the caller.** When the caller doesn't set a MIME
+  type, **sniff it from the bytes** ("mime magic"). Never infer from a filename.
+- **Safety-filter every attachment.** The sniffed type must be on an **allowlist**
+  of genuine media types the providers accept; anything else — executables,
+  scripts, archives, HTML, unknown/`application/octet-stream` — is **rejected
+  before any network call**, so a caller cannot accidentally (or maliciously)
+  upload dangerous content.
 
-## 3. Design
-
-### 3.1 The `Media` type
-
-A provider-neutral attachment:
+## 3. The `Media` type
 
 ```go
-// Media is a single input attachment (currently an image) sent alongside a text
-// prompt to a multimodal model. Data holds the raw bytes; MIMEType names the
-// format (e.g. "image/jpeg"). Providers transcode to their own wire format.
+// Media is one input attachment sent alongside a text prompt. Data is the raw
+// bytes. MIMEType is optional: when empty it is detected from Data by content
+// sniffing (§5). The detected/declared type is then validated against the media
+// allowlist and the selected provider's support (§5, §6).
 type Media struct {
+    // MIMEType optionally declares the media type (e.g. "image/jpeg"). Empty means
+    // "detect from Data". A declared type is still verified against the sniffed
+    // type — a mismatch is rejected (a declared image/jpeg that sniffs as a ZIP is
+    // not sent).
     MIMEType string
-    Data     []byte
+    // Data is the raw attachment bytes.
+    Data []byte
 }
 ```
 
-Bytes-only (not URLs) in v1: it is the lowest common denominator (Gemini and Claude
-take inline bytes; OpenAI takes a `data:` URI we build from the bytes), keeps the
-caller from depending on provider-specific remote-fetch semantics, and avoids an
-SSRF surface. A `URL` field is a possible additive extension (OpenAI-native) later.
+Bytes-only (not URLs) in v1: the lowest common denominator across providers,
+sniffable, and free of an SSRF surface. A `URL` field is a possible additive
+extension later (OpenAI-native remote images).
 
-Supported MIME types in v1: `image/jpeg`, `image/png`, `image/webp`, `image/gif`
-(the intersection the three providers accept). Validation rejects others early with
-a clear error.
+## 4. Extending `ChatClient`
 
-### 3.2 The `MultimodalChatClient` interface (additive)
-
-Mirroring the existing optional-extension pattern (`StreamingChatClient` embeds
-`ChatClient` and adds `StreamChat`), multimodal is an **optional** interface a
-vision-capable provider implements. Callers type-assert for it, exactly as they do
-for streaming today.
+The three text methods gain a trailing variadic `media ...Media`. The interface is
+otherwise unchanged; existing callers are source-compatible.
 
 ```go
-// MultimodalChatClient is a ChatClient that also accepts media (images) on the
-// user turn. Providers implement it only when the configured model supports
-// vision; callers type-assert to detect support.
-type MultimodalChatClient interface {
-    ChatClient
-
-    // AddMedia appends a user message carrying the prompt text and the media,
-    // without triggering a completion (the multimodal analogue of Add).
-    AddMedia(ctx context.Context, prompt string, media []Media) error
-
-    // AskWithMedia sends a question plus media and unmarshals the structured
-    // response into target, honouring Config.ResponseSchema exactly as Ask does.
-    AskWithMedia(ctx context.Context, question string, media []Media, target any) error
-
-    // ChatWithMedia sends a message plus media and returns the response text,
-    // running the tool ReAct loop as Chat does.
-    ChatWithMedia(ctx context.Context, prompt string, media []Media) (string, error)
+type ChatClient interface {
+    Add(ctx context.Context, prompt string, media ...Media) error
+    Ask(ctx context.Context, question string, target any, media ...Media) error
+    Chat(ctx context.Context, prompt string, media ...Media) (string, error)
+    SetTools(tools []Tool) error
+    Usage() Usage
 }
 ```
 
-*(Open question §7-Q1 weighs this three-method shape against a smaller
-`AddMedia` + reuse of the existing `Ask`/`Chat` for the follow-up call.)*
+`StreamChat` on `StreamingChatClient` gains the same variadic tail.
 
-### 3.3 Capability discovery
+- **Ordering.** Media parts are appended **after** the prompt text in the same user
+  turn, in caller order — the `[text, media, media, …]` shape each provider expects.
+- **Capability guard.** A provider/model that cannot accept media returns
+  `ErrMediaUnsupported` **when media is passed** (e.g. `ProviderClaudeLocal`, or a
+  text-only model). A call with **no** media is unaffected — the guard never fires
+  on the text path.
 
-Not every model behind a provider is vision-capable. Two layers:
+## 5. MIME detection & safety filtering
 
-1. **Interface presence** — a provider that *can* do vision returns a client that
-   implements `MultimodalChatClient`; one that structurally cannot (Claude Local)
-   does not. Callers `if mm, ok := client.(MultimodalChatClient); ok { … }`.
-2. **Model capability** — within a vision-capable provider, a non-vision model
-   (e.g. a text-only OpenAI model) will reject media. The provider guards this and
-   returns a typed `ErrMediaUnsupported` **before** the network call where the
-   model is known not to support vision, or surfaces the provider's own error
-   otherwise. A conservative static allowlist per provider is the pragmatic v1
-   (documented, easily updated), revisited in §7-Q2.
+A single choke point validates every attachment before it reaches a provider:
 
-### 3.4 Per-provider mapping
+1. **Sniff.** If `MIMEType` is empty, detect it from the first bytes with a
+   magic-number sniffer — **`github.com/gabriel-vasile/mimetype`** (robust,
+   widely used, few deps), with stdlib `net/http.DetectContentType` as the
+   floor. Detection never trusts a caller-supplied filename.
+2. **Reconcile.** If the caller declared a `MIMEType`, it must match the sniffed
+   family; a mismatch (declared `image/png`, sniffs as `application/zip`) is
+   rejected — this is the core anti-smuggling check.
+3. **Allowlist.** The reconciled type must be on the **media allowlist** — the
+   union of types any supported provider accepts (images: jpeg, png, webp, gif,
+   heic; documents: pdf; audio/video: the Gemini-supported set). Anything else —
+   `application/x-*executable*`, `text/html`, `application/zip`, scripts,
+   `application/octet-stream`, unknown — is refused with `ErrMediaRejected`.
+4. **Provider support.** The type must be supported by the **selected** provider
+   (an audio clip to a provider that takes only images → `ErrMediaUnsupported`),
+   per the §6 matrix.
+5. **Limits.** Per-attachment size and per-request count are checked against
+   conservative, documented per-provider caps; over-limit fails early with a clear
+   error rather than an opaque API rejection.
 
-| Provider | Media as | SDK construct |
-| :--- | :--- | :--- |
-| Gemini | inline blob part | `genai.NewPartFromBytes(m.Data, m.MIMEType)` appended to the user `Content.Parts` |
-| Claude | base64 image block | `anthropic.NewImageBlockBase64(m.MIMEType, base64(m.Data))` in the user message's content blocks |
-| OpenAI | image content part | a `data:<mime>;base64,<data>` URI as an `image_url` part on the user message |
-| Claude Local | — | not supported (does not implement the interface) |
+All of this happens **before** the network call, so a bad attachment costs nothing
+and leaks nothing.
 
-Media parts are appended **after** the prompt text in the same user turn, in caller
-order, matching how each provider expects `[text, image, image, …]`.
+## 6. Per-provider mapping & support matrix
 
-### 3.5 Provider limits
+| Provider | Images | PDF | Audio/Video | Wire construct |
+| :--- | :---: | :---: | :---: | :--- |
+| Gemini | ✅ | ✅ | ✅ | `genai.NewPartFromBytes(data, mime)` appended to the user `Content.Parts` |
+| Claude | ✅ | ✅ | — | `anthropic.NewImageBlockBase64` / document block in the user message |
+| OpenAI | ✅ | model-dependent | model-dependent | `data:<mime>;base64,<data>` `image_url`/file part on the user message |
+| Claude Local | — | — | — | not supported → `ErrMediaUnsupported` when media is passed |
 
-Providers cap image count and size (e.g. Claude ~100 images/request and a per-image
-size ceiling; OpenAI and Gemini similar). v1 validates against a conservative,
-documented per-provider limit and returns a clear error rather than letting a large
-request fail opaquely at the API.
+The exact accepted-type set per provider is a documented, easily-updated table in
+code (the allowlist), not scattered magic strings.
 
-## 4. Backward compatibility
+## 7. Backward compatibility
 
-Fully additive. `ChatClient` is unchanged, so every existing caller compiles and
-behaves identically. `New(...)` returns the same concrete clients; they simply now
-*also* satisfy `MultimodalChatClient` when vision-capable. No config migration.
+Source-compatible: the variadic parameter means every existing `Add`/`Ask`/`Chat`
+call compiles and behaves identically, and the text path never triggers the media
+guard. No config migration. (Being pre-1.0, we accept the interface *signature*
+change; the compile-time impact on callers is nil.)
 
-## 5. Testing
+## 8. Testing
 
-- **Unit (per provider)** — with the SDK pointed at a mock/`httptest` transport,
-  assert the outbound request carries the image in the provider's correct shape
-  (Gemini inline blob, Claude base64 block, OpenAI `image_url` data URI) and that
-  text-only calls are byte-for-byte unchanged (no regression).
-- **Validation** — unsupported MIME type, empty data, over-limit count → typed
-  errors, no network call.
-- **Capability** — a non-vision model rejects media with `ErrMediaUnsupported`;
-  Claude Local does not implement the interface.
+- **Detection & safety (pure)** — table tests: real image/PDF bytes sniff
+  correctly; a declared/sniffed mismatch, a disguised executable, an archive, HTML,
+  empty data, and over-limit all reject with the right typed error and **no**
+  network call.
+- **Unit (per provider)** — SDK pointed at a mock/`httptest` transport: the
+  outbound request carries the media in the provider's correct shape, and text-only
+  requests are byte-for-byte unchanged (no regression).
+- **Capability** — a non-vision model / Claude Local rejects media with the typed
+  error.
 - **Integration (env-gated, `INT_TEST=1`)** — one real round-trip per provider
-  with a small synthetic image and a structured-output schema, asserting a parseable
-  response and non-zero usage. Keyed by the provider env vars already used by the
-  chat integration tests.
+  with a small synthetic image + a structured schema, asserting a parseable
+  response and non-zero usage.
 
-## 6. Documentation
+## 9. Documentation
 
-- `pkg/chat` package doc + the living docs: a "Multimodal input" section with the
-  `Media` type, the `MultimodalChatClient` interface, the per-provider support
-  matrix, and a worked example (attach an image, `AskWithMedia` into a struct).
-- A note in the provider table marking vision support.
+`pkg/chat` package doc + living docs: a "Multimodal input" section with the `Media`
+type, the extended methods, the support matrix, the safety-filtering behaviour, and
+a worked example (attach an image, `Ask` into a struct). The provider table marks
+media support.
 
-## 7. Open questions
+## 10. Open questions
 
-- **Q1 — interface shape.** The three-method `MultimodalChatClient`
-  (`AddMedia`/`AskWithMedia`/`ChatWithMedia`) is explicit but wide. Alternative: a
-  single `AddMedia` that *stages* media consumed by the next existing `Ask`/`Chat`
-  call — smaller surface, but stateful and less obvious. **Lean: the explicit
-  three-method interface** (stateless, symmetric with `Ask`/`Chat`), but confirm.
-- **Q2 — capability discovery.** Static per-provider vision allowlist (simple,
-  needs upkeep) vs. trusting the provider to error (zero upkeep, worse UX) vs. a
-  dynamic capability probe (a `models.get`-style call; more work). **Lean: static
-  allowlist in v1**, documented, with the provider error as the backstop.
-- **Q3 — media source.** Bytes-only in v1 (chosen), or also accept a `URL` for
-  OpenAI-native remote images? A URL is additive later; bytes cover every provider
-  now.
-- **Q4 — streaming multimodal.** Should `StreamingChatClient` gain a
-  `StreamChatWithMedia`? Additive and later; not required by the driving use case.
-- **Q5 — persistence.** The `PersistentChatClient` snapshot format would need to
-  serialize media in history (or deliberately drop it). v1 can exclude media from
-  snapshots (documented) and revisit.
+- **Q1 — interface shape.** ✅ **Resolved (review 2026-07-05): extend the core
+  `ChatClient` with variadic `media ...Media`** (pre-1.0, no parallel client).
+- **Q2 — media breadth in v1.** Ship images + PDF everywhere they're supported,
+  and Gemini audio/video? Or images + PDF first and audio/video as a fast-follow?
+  **Lean: images + PDF across the board in v1; Gemini audio/video behind the same
+  `Media` type as a fast-follow** (the sniffer/allowlist already generalise).
+- **Q3 — sniffer dependency.** `gabriel-vasile/mimetype` (best detection, a new
+  dep) vs. stdlib `http.DetectContentType` (no dep, coarser). **Lean: mimetype**,
+  given the safety filtering leans on accurate detection; confirm the dep is
+  acceptable.
+- **Q4 — declared-type reconciliation strictness.** Reject on any family mismatch
+  (strict, chosen) vs. warn-and-trust-sniff. Strict is the safe default.
+- **Q5 — streaming & persistence.** `StreamChat` gains the variadic tail (in
+  scope). `PersistentChatClient` snapshots **exclude** media from history in v1
+  (documented) and revisit — serializing large blobs into snapshots needs its own
+  design.
 
-## 8. Implementation plan (layered)
+## 11. Implementation plan (layered)
 
-1. **The `Media` type + `MultimodalChatClient` interface + validation** (pure, no
-   provider) — plus the typed errors and the capability allowlist scaffold.
-2. **Gemini** — the first backend (krites' default), with unit + env-gated
-   integration tests.
-3. **Claude** — same seam.
-4. **OpenAI** — same seam.
-5. **Docs + the provider support matrix.**
+1. **`Media` + the detection/safety choke point + typed errors + the allowlist**
+   (pure, no provider) — the most valuable, most testable core.
+2. **Extend the `ChatClient` interface + wire the guard**; update all providers'
+   signatures (text path unchanged).
+3. **Gemini** media mapping (krites' default) — unit + env-gated integration.
+4. **Claude** media mapping.
+5. **OpenAI** media mapping.
+6. **Docs + support matrix.**
 
-Each backend is additive and independently testable, the same discipline the
-existing provider adapters follow.
+Each step is additive and independently testable, matching the existing provider
+adapters' discipline.
