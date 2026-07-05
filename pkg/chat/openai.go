@@ -2,7 +2,9 @@ package chat
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -135,13 +137,39 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 }
 
 // Add appends a new user message to the chat session.
+// openaiUserMessage builds a user turn from the prompt text and any validated
+// media, mapping each attachment to an image_url content part with a base64 data
+// URI (spec §6; OpenAI v1 accepts images).
+func openaiUserMessage(prompt string, media []resolvedMedia) openai.ChatCompletionMessageParamUnion {
+	parts := make([]openai.ChatCompletionContentPartUnionParam, 0, len(media)+1)
+
+	if prompt != "" {
+		parts = append(parts, openai.TextContentPart(prompt))
+	}
+
+	for _, m := range media {
+		uri := fmt.Sprintf("data:%s;base64,%s", m.MIMEType, base64.StdEncoding.EncodeToString(m.Data))
+		parts = append(parts, openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{URL: uri}))
+	}
+
+	return openai.UserMessage(parts)
+}
+
 func (a *OpenAI) Add(_ context.Context, prompt string, media ...Media) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
 	}
 
-	if _, err := validateMediaSet(ProviderOpenAI, media); err != nil {
+	resolved, err := validateMediaSet(ProviderOpenAI, media)
+	if err != nil {
 		return err
+	}
+
+	// A media turn is a single multi-part message — bypass the text chunker.
+	if len(resolved) > 0 {
+		a.params.Messages = append(a.params.Messages, openaiUserMessage(prompt, resolved))
+
+		return nil
 	}
 
 	msgs, err := chunkByTokens(prompt, DefaultMaxTokensOpenAI, a.params.Model)
@@ -172,11 +200,16 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any, media ...
 		return errors.New("question cannot be empty")
 	}
 
-	if _, err := validateMediaSet(ProviderOpenAI, media); err != nil {
+	resolved, err := validateMediaSet(ProviderOpenAI, media)
+	if err != nil {
 		return err
 	}
 
-	a.params.Messages = append(a.params.Messages, openai.UserMessage(question))
+	if len(resolved) > 0 {
+		a.params.Messages = append(a.params.Messages, openaiUserMessage(question, resolved))
+	} else {
+		a.params.Messages = append(a.params.Messages, openai.UserMessage(question))
+	}
 
 	res, err := a.oai.Chat.Completions.New(ctx, a.params)
 	if err != nil {
