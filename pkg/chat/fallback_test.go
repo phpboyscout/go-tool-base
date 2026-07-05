@@ -30,13 +30,13 @@ type fakeClient struct {
 	chatCalls int
 }
 
-func (f *fakeClient) Add(_ context.Context, prompt string) error {
+func (f *fakeClient) Add(_ context.Context, prompt string, _ ...Media) error {
 	f.added = append(f.added, prompt)
 
 	return nil
 }
 
-func (f *fakeClient) Ask(_ context.Context, _ string, _ any) error {
+func (f *fakeClient) Ask(_ context.Context, _ string, _ any, _ ...Media) error {
 	if f.chatErr != nil {
 		return f.chatErr
 	}
@@ -50,7 +50,7 @@ func (f *fakeClient) SetTools(tools []Tool) error {
 	return nil
 }
 
-func (f *fakeClient) Chat(_ context.Context, _ string) (string, error) {
+func (f *fakeClient) Chat(_ context.Context, _ string, _ ...Media) (string, error) {
 	f.chatCalls++
 
 	if f.chatErr != nil {
@@ -70,7 +70,7 @@ type fakeStreamingClient struct {
 	emitBeforeErr bool
 }
 
-func (f *fakeStreamingClient) StreamChat(_ context.Context, _ string, cb StreamCallback) (string, error) {
+func (f *fakeStreamingClient) StreamChat(_ context.Context, _ string, cb StreamCallback, _ ...Media) (string, error) {
 	if f.emitBeforeErr {
 		if err := cb(StreamEvent{Type: EventTextDelta, Delta: "partial"}); err != nil {
 			return "", err
@@ -356,7 +356,7 @@ func TestFallback_ReplayErrorIsSurfaced(t *testing.T) {
 // addFailsClient errors on Add (used to exercise the replay-failure path).
 type addFailsClient struct{ fakeClient }
 
-func (a *addFailsClient) Add(context.Context, string) error {
+func (a *addFailsClient) Add(context.Context, string, ...Media) error {
 	return errors.New("add boom")
 }
 

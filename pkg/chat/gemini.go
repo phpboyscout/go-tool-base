@@ -157,24 +157,48 @@ func (g *Gemini) persistSessionHistory(chat *genai.Chat) {
 	g.history = hist
 }
 
-// Add appends a user message to the conversation history.
-func (g *Gemini) Add(_ context.Context, prompt string) error {
+// geminiParts builds a turn's parts: the prompt text (when non-empty) followed by
+// each validated attachment as an inline blob part (spec §6). genai carries any
+// media type uniformly, so images, PDF and A/V all map the same way.
+func geminiParts(text string, media []resolvedMedia) []*genai.Part {
+	parts := make([]*genai.Part, 0, len(media)+1)
+
+	if text != "" {
+		parts = append(parts, genai.NewPartFromText(text))
+	}
+
+	for _, m := range media {
+		parts = append(parts, genai.NewPartFromBytes(m.Data, m.MIMEType))
+	}
+
+	return parts
+}
+
+// Add appends a user message (with any media) to the conversation history.
+func (g *Gemini) Add(_ context.Context, prompt string, media ...Media) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
 	}
 
-	g.history = append(g.history, &genai.Content{
-		Role:  genai.RoleUser,
-		Parts: []*genai.Part{{Text: prompt}},
-	})
+	resolved, err := validateMediaSet(ProviderGemini, media)
+	if err != nil {
+		return err
+	}
+
+	g.history = append(g.history, &genai.Content{Role: genai.RoleUser, Parts: geminiParts(prompt, resolved)})
 
 	return nil
 }
 
 // Ask sends a question to the Gemini chat client and expects a structured response.
-func (g *Gemini) Ask(ctx context.Context, question string, target any) error {
+func (g *Gemini) Ask(ctx context.Context, question string, target any, media ...Media) error {
 	if question == "" {
 		return errors.New("question cannot be empty")
+	}
+
+	resolved, err := validateMediaSet(ProviderGemini, media)
+	if err != nil {
+		return err
 	}
 
 	askCfg := g.cloneConfig()
@@ -185,7 +209,7 @@ func (g *Gemini) Ask(ctx context.Context, question string, target any) error {
 		return errors.Newf("failed to create gemini chat session: %w", err)
 	}
 
-	resp, err := chat.Send(ctx, genai.NewPartFromText(question))
+	resp, err := chat.Send(ctx, geminiParts(question, resolved)...)
 	if err != nil {
 		return errors.Newf("gemini send message failed: %w", err)
 	}
@@ -230,9 +254,14 @@ func (g *Gemini) SetTools(tools []Tool) error {
 }
 
 // Chat sends a message and returns the response content, handling tool calls internally.
-func (g *Gemini) Chat(ctx context.Context, prompt string) (string, error) {
+func (g *Gemini) Chat(ctx context.Context, prompt string, media ...Media) (string, error) {
 	if prompt == "" {
 		return "", errors.New("prompt cannot be empty")
+	}
+
+	resolved, err := validateMediaSet(ProviderGemini, media)
+	if err != nil {
+		return "", err
 	}
 
 	chatCfg := g.cloneConfig()
@@ -244,7 +273,7 @@ func (g *Gemini) Chat(ctx context.Context, prompt string) (string, error) {
 		return "", errors.Newf("failed to create gemini chat session: %w", err)
 	}
 
-	return g.chatNonStreaming(ctx, chat, []*genai.Part{genai.NewPartFromText(prompt)})
+	return g.chatNonStreaming(ctx, chat, geminiParts(prompt, resolved))
 }
 
 func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts []*genai.Part) (string, error) {
@@ -378,9 +407,14 @@ func (g *Gemini) executeFuncCallsSequential(ctx context.Context, mCalls []gemini
 }
 
 // StreamChat implements StreamingChatClient.
-func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
+func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamCallback, media ...Media) (string, error) {
 	if prompt == "" {
 		return "", errors.New("prompt cannot be empty")
+	}
+
+	resolved, err := validateMediaSet(ProviderGemini, media)
+	if err != nil {
+		return "", err
 	}
 
 	chatCfg := g.cloneConfig()
@@ -399,7 +433,7 @@ func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamC
 
 	var fullText strings.Builder
 
-	currentParts := []*genai.Part{genai.NewPartFromText(prompt)}
+	currentParts := geminiParts(prompt, resolved)
 
 	for step := range maxSteps {
 		g.props.Logger.Debug("Gemini streaming step", "step", step)

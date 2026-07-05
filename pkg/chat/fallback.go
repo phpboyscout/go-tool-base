@@ -280,8 +280,8 @@ func (f *fallbackClient) name(idx int) Provider {
 }
 
 // Add forwards a user turn to the active client and records it in the transcript.
-func (f *fallbackClient) Add(ctx context.Context, prompt string) error {
-	if err := f.attempt(ctx, func(c ChatClient) error { return c.Add(ctx, prompt) }); err != nil {
+func (f *fallbackClient) Add(ctx context.Context, prompt string, media ...Media) error {
+	if err := f.attempt(ctx, func(c ChatClient) error { return c.Add(ctx, prompt, media...) }); err != nil {
 		return err
 	}
 
@@ -292,8 +292,8 @@ func (f *fallbackClient) Add(ctx context.Context, prompt string) error {
 
 // Ask forwards a structured question to the active client and records the user
 // turn.
-func (f *fallbackClient) Ask(ctx context.Context, question string, target any) error {
-	if err := f.attempt(ctx, func(c ChatClient) error { return c.Ask(ctx, question, target) }); err != nil {
+func (f *fallbackClient) Ask(ctx context.Context, question string, target any, media ...Media) error {
+	if err := f.attempt(ctx, func(c ChatClient) error { return c.Ask(ctx, question, target, media...) }); err != nil {
 		return err
 	}
 
@@ -304,11 +304,11 @@ func (f *fallbackClient) Ask(ctx context.Context, question string, target any) e
 
 // Chat forwards a prompt to the active client and records the user prompt in the
 // transcript (only user turns are replayed on failover).
-func (f *fallbackClient) Chat(ctx context.Context, prompt string) (string, error) {
+func (f *fallbackClient) Chat(ctx context.Context, prompt string, media ...Media) (string, error) {
 	var reply string
 
 	err := f.attempt(ctx, func(c ChatClient) error {
-		r, e := c.Chat(ctx, prompt)
+		r, e := c.Chat(ctx, prompt, media...)
 		if e != nil {
 			return e
 		}
@@ -504,7 +504,7 @@ type streamingFallbackClient struct {
 // a retryable error — but only before the first externally-visible event
 // (EventTextDelta / EventToolCallStart) has reached the caller's callback. Once
 // a delta has been emitted it cannot be un-emitted, so a later error is terminal.
-func (s *streamingFallbackClient) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
+func (s *streamingFallbackClient) StreamChat(ctx context.Context, prompt string, callback StreamCallback, media ...Media) (string, error) {
 	var errs []error
 
 	for {
@@ -522,7 +522,7 @@ func (s *streamingFallbackClient) StreamChat(ctx context.Context, prompt string,
 			return callback(ev)
 		}
 
-		reply, err := sc.StreamChat(ctx, prompt, wrapped)
+		reply, err := sc.StreamChat(ctx, prompt, wrapped, media...)
 		if err == nil {
 			s.transcript = append(s.transcript, prompt)
 

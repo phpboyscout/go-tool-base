@@ -107,28 +107,19 @@ func TestValidateMediaSet_providerCapability(t *testing.T) {
 
 	img := Media{Data: pngBytes}
 
-	// a provider that accepts no media
-	if _, err := validateMediaSet(ProviderClaudeLocal, []Media{img}); !errors.Is(err, ErrMediaUnsupported) {
-		t.Fatalf("claude-local should reject media: %v", err)
+	// Gemini is wired first and accepts images, PDF, and A/V uniformly.
+	for _, m := range []Media{img, {Data: pdfBytes}, {Data: mp4Bytes}} {
+		if _, err := validateMediaSet(ProviderGemini, []Media{m}); err != nil {
+			t.Fatalf("gemini should accept %v: %v", detectMIME(m.Data), err)
+		}
 	}
 
-	// gemini accepts images
-	if _, err := validateMediaSet(ProviderGemini, []Media{img}); err != nil {
-		t.Fatalf("gemini should accept an image: %v", err)
-	}
-
-	// openai does not accept PDF in v1
-	if _, err := validateMediaSet(ProviderOpenAI, []Media{{Data: pdfBytes}}); !errors.Is(err, ErrMediaUnsupported) {
-		t.Fatalf("openai should not accept pdf: %v", err)
-	}
-
-	// claude accepts pdf, not video
-	if _, err := validateMediaSet(ProviderClaude, []Media{{Data: pdfBytes}}); err != nil {
-		t.Fatalf("claude should accept pdf: %v", err)
-	}
-
-	if _, err := validateMediaSet(ProviderClaude, []Media{{Data: mp4Bytes}}); !errors.Is(err, ErrMediaUnsupported) {
-		t.Fatalf("claude should not accept video: %v", err)
+	// Providers not yet wired (or that never accept media) reject it rather than
+	// silently dropping — they join mediaSupport when their mapping lands.
+	for _, p := range []Provider{ProviderClaude, ProviderOpenAI, ProviderClaudeLocal} {
+		if _, err := validateMediaSet(p, []Media{img}); !errors.Is(err, ErrMediaUnsupported) {
+			t.Fatalf("%s should reject media until wired: %v", p, err)
+		}
 	}
 }
 

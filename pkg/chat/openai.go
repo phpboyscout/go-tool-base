@@ -135,9 +135,13 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 }
 
 // Add appends a new user message to the chat session.
-func (a *OpenAI) Add(_ context.Context, prompt string) error {
+func (a *OpenAI) Add(_ context.Context, prompt string, media ...Media) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderOpenAI, media); err != nil {
+		return err
 	}
 
 	msgs, err := chunkByTokens(prompt, DefaultMaxTokensOpenAI, a.params.Model)
@@ -163,9 +167,13 @@ func (a *OpenAI) Add(_ context.Context, prompt string) error {
 
 // Ask sends a question to the OpenAI chat client and expects a structured response
 // which is unmarshalled into the target interface.
-func (a *OpenAI) Ask(ctx context.Context, question string, target any) error {
+func (a *OpenAI) Ask(ctx context.Context, question string, target any, media ...Media) error {
 	if question == "" {
 		return errors.New("question cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderOpenAI, media); err != nil {
+		return err
 	}
 
 	a.params.Messages = append(a.params.Messages, openai.UserMessage(question))
@@ -313,8 +321,8 @@ func (a *OpenAI) SetTools(tools []Tool) error {
 }
 
 // StreamChat implements StreamingChatClient.
-func (a *OpenAI) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
-	if err := a.Add(ctx, prompt); err != nil {
+func (a *OpenAI) StreamChat(ctx context.Context, prompt string, callback StreamCallback, media ...Media) (string, error) {
+	if err := a.Add(ctx, prompt, media...); err != nil {
 		return "", err
 	}
 
@@ -520,8 +528,8 @@ func (a *OpenAI) execOpenAIStreamTools(ctx context.Context, tools []*openaiPendi
 
 // Chat sends a message and returns the response content.
 // It handles tool calls internally.
-func (a *OpenAI) Chat(ctx context.Context, prompt string) (string, error) {
-	if err := a.Add(ctx, prompt); err != nil {
+func (a *OpenAI) Chat(ctx context.Context, prompt string, media ...Media) (string, error) {
+	if err := a.Add(ctx, prompt, media...); err != nil {
 		return "", err
 	}
 

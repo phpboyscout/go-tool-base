@@ -104,20 +104,20 @@ type ChatClient interface {
 	// Add appends a user message to the conversation history without
 	// triggering a completion. The message persists for subsequent
 	// Chat() or Ask() calls.
-	Add(ctx context.Context, prompt string) error
+	Add(ctx context.Context, prompt string, media ...Media) error
 	// Ask sends a question and unmarshals the structured response into
 	// target. If Config.ResponseSchema was set during construction, the
 	// provider enforces that schema. If no schema is set, the provider
 	// returns the raw text content unmarshalled into target (which must
 	// be a *string or implement json.Unmarshaler).
-	Ask(ctx context.Context, question string, target any) error
+	Ask(ctx context.Context, question string, target any, media ...Media) error
 	// SetTools configures the tools available to the AI. This replaces
 	// (not appends to) any previously set tools.
 	SetTools(tools []Tool) error
 	// Chat sends a message and returns the response content. If tools
 	// are configured, the provider handles tool calls internally via a
 	// ReAct loop bounded by Config.MaxSteps (default 20).
-	Chat(ctx context.Context, prompt string) (string, error)
+	Chat(ctx context.Context, prompt string, media ...Media) (string, error)
 	// Usage returns the cumulative token usage across every provider
 	// round-trip made by this client instance since construction. A single
 	// Chat/Ask/StreamChat call may make multiple round-trips (one per ReAct

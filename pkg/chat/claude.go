@@ -107,9 +107,13 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 }
 
 // Add appends a new user message to the chat session.
-func (c *Claude) Add(_ context.Context, prompt string) error {
+func (c *Claude) Add(_ context.Context, prompt string, media ...Media) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderClaude, media); err != nil {
+		return err
 	}
 
 	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)))
@@ -118,9 +122,13 @@ func (c *Claude) Add(_ context.Context, prompt string) error {
 }
 
 // Ask sends a question to the Claude chat client and expects a structured response.
-func (c *Claude) Ask(ctx context.Context, question string, target any) error {
+func (c *Claude) Ask(ctx context.Context, question string, target any, media ...Media) error {
 	if question == "" {
 		return errors.New("question cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderClaude, media); err != nil {
+		return err
 	}
 
 	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(question)))
@@ -261,8 +269,8 @@ func (c *Claude) SetTools(tools []Tool) error {
 }
 
 // Chat sends a message and returns the response content.
-func (c *Claude) Chat(ctx context.Context, prompt string) (string, error) {
-	if err := c.Add(ctx, prompt); err != nil {
+func (c *Claude) Chat(ctx context.Context, prompt string, media ...Media) (string, error) {
+	if err := c.Add(ctx, prompt, media...); err != nil {
 		return "", err
 	}
 
@@ -370,9 +378,13 @@ func (c *Claude) logContent(content []anthropic.ContentBlockUnion) {
 }
 
 // StreamChat implements StreamingChatClient.
-func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error) {
+func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamCallback, media ...Media) (string, error) {
 	if prompt == "" {
 		return "", errors.New("prompt cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderClaude, media); err != nil {
+		return "", err
 	}
 
 	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)))

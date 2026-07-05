@@ -65,5 +65,5 @@ type StreamingChatClient interface {
 	// all EventTextDelta fragments) or an error if streaming failed.
 	// Tool calls are handled internally via the same ReAct loop as Chat(). If
 	// Config.ParallelTools is enabled, multiple tool calls are executed concurrently.
-	StreamChat(ctx context.Context, prompt string, callback StreamCallback) (string, error)
+	StreamChat(ctx context.Context, prompt string, callback StreamCallback, media ...Media) (string, error)
 }

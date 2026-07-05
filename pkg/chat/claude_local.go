@@ -59,9 +59,13 @@ func newClaudeLocal(_ context.Context, p *props.Props, cfg Config) (ChatClient, 
 }
 
 // Add buffers a user message to be prepended to the next Chat or Ask call.
-func (c *ClaudeLocal) Add(_ context.Context, prompt string) error {
+func (c *ClaudeLocal) Add(_ context.Context, prompt string, media ...Media) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderClaudeLocal, media); err != nil {
+		return err
 	}
 
 	c.pending = append(c.pending, prompt)
@@ -71,9 +75,13 @@ func (c *ClaudeLocal) Add(_ context.Context, prompt string) error {
 
 // Ask sends a question to the local claude binary and unmarshals the structured response
 // into the target using --json-schema for schema-enforced output.
-func (c *ClaudeLocal) Ask(ctx context.Context, question string, target any) error {
+func (c *ClaudeLocal) Ask(ctx context.Context, question string, target any, media ...Media) error {
 	if question == "" {
 		return errors.New("question cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderClaudeLocal, media); err != nil {
+		return err
 	}
 
 	combined := c.buildPrompt(question)
@@ -115,9 +123,13 @@ func (c *ClaudeLocal) SetTools(_ []Tool) error {
 }
 
 // Chat sends a message to the local claude binary and returns the text response.
-func (c *ClaudeLocal) Chat(ctx context.Context, prompt string) (string, error) {
+func (c *ClaudeLocal) Chat(ctx context.Context, prompt string, media ...Media) (string, error) {
 	if prompt == "" {
 		return "", errors.New("prompt cannot be empty")
+	}
+
+	if _, err := validateMediaSet(ProviderClaudeLocal, media); err != nil {
+		return "", err
 	}
 
 	combined := c.buildPrompt(prompt)

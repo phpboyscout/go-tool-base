@@ -48,12 +48,12 @@ var (
 )
 
 // mediaSupport maps a provider to the media types it accepts (spec §6). A provider
-// absent from the map (e.g. ProviderClaudeLocal) accepts no media.
+// absent from the map (e.g. ProviderClaudeLocal) accepts no media. Entries are
+// added as each provider's media mapping lands, so a provider is only listed once
+// its attachments are actually wired — never a silent drop. Gemini's genai Part
+// carries any media type uniformly; Claude and OpenAI (images) join in their steps.
 var mediaSupport = map[Provider]map[string]bool{
-	ProviderGemini:           set(imageMediaTypes, docMediaTypes, videoMediaTypes, audioMediaTypes),
-	ProviderClaude:           set(imageMediaTypes, docMediaTypes),
-	ProviderOpenAI:           set(imageMediaTypes),
-	ProviderOpenAICompatible: set(imageMediaTypes),
+	ProviderGemini: set(imageMediaTypes, docMediaTypes, videoMediaTypes, audioMediaTypes),
 }
 
 // allowedMediaTypes is the union of every provider's accepted types — the v1
