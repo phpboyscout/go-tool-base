@@ -119,6 +119,25 @@ type ChatClient interface {
   text-only model). A call with **no** media is unaffected — the guard never fires
   on the text path.
 
+### 4.1 Media persistence — local cache + pointer (Q5b, decision 2026-07-05)
+
+`PersistentChatClient` snapshots the conversation history. Media is persisted, but
+**not inlined as base64** (which would bloat every snapshot and fight the
+encryption/size design). Instead:
+
+- On attach, the media bytes are written **once** to a local, content-addressed
+  cache under the client's filestore dir — `media/<sha256>.<ext>` — deduplicated by
+  hash, so the same image referenced across turns is stored once.
+- The transcript/snapshot stores a **pointer**, not the bytes: `{ ref: <sha256>,
+  mimeType, size }`. Snapshots stay small and diff-friendly.
+- On restore, each pointer is resolved back to its cached file and re-loaded into
+  history, so a persisted multimodal chat **retains its images** across restarts.
+- Encryption (`WithEncryption`) applies to the cached blobs as it does to
+  snapshots; a missing/mismatched cache entry surfaces a clear error rather than a
+  silent drop.
+- Cache lifecycle (pruning blobs no snapshot references) is a follow-up; v1 keeps
+  blobs for the filestore's lifetime.
+
 ## 5. MIME detection & safety filtering
 
 A single choke point validates every attachment before it reaches a provider:
@@ -206,23 +225,30 @@ media support.
   no new dependency.** It covers the v1 range above. Swapping in a fuller sniffer
   (e.g. `gabriel-vasile/mimetype`) later to widen coverage is an isolated change
   behind the single detection choke point.
-- **Q4 — declared-type reconciliation strictness.** Reject on any family mismatch
-  (strict, chosen) vs. warn-and-trust-sniff. Strict is the safe default.
-- **Q5 — streaming & persistence.** `StreamChat` gains the variadic tail (in
-  scope). `PersistentChatClient` snapshots **exclude** media from history in v1
-  (documented) and revisit — serializing large blobs into snapshots needs its own
-  design.
+- **Q4 — declared-type reconciliation.** ✅ **Resolved (review 2026-07-05):
+  `MIMEType` stays as an *optional cross-check*.** The sniffed type is authoritative
+  and is what is sent; if the caller declares a type it must match the sniffed
+  family or the attachment is rejected (anti-smuggling + catches caller bugs).
+  Declaring a type never overrides the sniff or bypasses the allowlist.
+- **Q5a — streaming.** ✅ **Resolved: `StreamChat` gains the variadic media tail**
+  (uniformly multimodal; shares provider request assembly).
+- **Q5b — persistence.** ✅ **Resolved: persist media via a local content-addressed
+  cache + a pointer in the transcript** (not inline base64) — see §4.1. Restored
+  chats retain their images; snapshots stay small.
 
 ## 11. Implementation plan (layered)
 
 1. **`Media` + the detection/safety choke point + typed errors + the allowlist**
    (pure, no provider) — the most valuable, most testable core.
-2. **Extend the `ChatClient` interface + wire the guard**; update all providers'
-   signatures (text path unchanged).
+2. **Extend the `ChatClient` + `StreamingChatClient` signatures + wire the guard**;
+   update all providers' signatures (text path unchanged).
 3. **Gemini** media mapping (krites' default) — unit + env-gated integration.
 4. **Claude** media mapping.
 5. **OpenAI** media mapping.
-6. **Docs + support matrix.**
+6. **Media persistence** — the content-addressed cache + transcript pointer in
+   `PersistentChatClient` (§4.1), with round-trip tests (attach → snapshot →
+   restore retains the image).
+7. **Docs + support matrix.**
 
 Each step is additive and independently testable, matching the existing provider
 adapters' discipline.
