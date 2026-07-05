@@ -110,3 +110,47 @@ func TestOpenAIUserMessage_textOnly(t *testing.T) {
 		t.Fatalf("text-only openai message should carry no image part: %s", s)
 	}
 }
+
+// Claude: a PDF maps to a base64 document block (not an image block).
+func TestClaudeUserMessage_carriesPDFDocumentBlock(t *testing.T) {
+	t.Parallel()
+
+	data := []byte("%PDF-1.7 pdf-bytes")
+
+	raw, err := json.Marshal(claudeUserMessage("summarise", []resolvedMedia{rm("application/pdf", data)}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	s := string(raw)
+	for _, want := range []string{"summarise", "document", "application/pdf", base64.StdEncoding.EncodeToString(data)} {
+		if !strings.Contains(s, want) {
+			t.Errorf("claude PDF message missing %q\n%s", want, s)
+		}
+	}
+
+	if strings.Contains(s, "\"image\"") {
+		t.Errorf("a PDF should not map to an image block: %s", s)
+	}
+}
+
+// OpenAI: a PDF maps to a file content part with a base64 data URI.
+func TestOpenAIUserMessage_carriesPDFFilePart(t *testing.T) {
+	t.Parallel()
+
+	data := []byte("%PDF-1.7 pdf-bytes")
+
+	raw, err := json.Marshal(openaiUserMessage("summarise", []resolvedMedia{rm("application/pdf", data)}))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	s := string(raw)
+	dataURI := "data:application/pdf;base64," + base64.StdEncoding.EncodeToString(data)
+
+	for _, want := range []string{"summarise", "file", dataURI} {
+		if !strings.Contains(s, want) {
+			t.Errorf("openai PDF message missing %q\n%s", want, s)
+		}
+	}
+}

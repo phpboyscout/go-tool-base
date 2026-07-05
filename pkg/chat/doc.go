@@ -24,7 +24,7 @@
 // bytes (never a caller-supplied filename), cross-checked against any declared
 // MIMEType, allowlisted, and checked against the selected provider's support
 // before any network call; disguised or unsupported content is rejected with
-// [ErrMediaRejected] or [ErrMediaUnsupported]. Vision support is per provider:
-// Gemini (images, PDF, A/V), Claude and OpenAI (images); ProviderClaudeLocal
+// [ErrMediaRejected] or [ErrMediaUnsupported]. Media support is per provider:
+// Gemini (images, PDF, A/V), Claude and OpenAI (images, PDF); ProviderClaudeLocal
 // accepts no media.
 package chat

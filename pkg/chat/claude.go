@@ -119,7 +119,21 @@ func claudeUserMessage(prompt string, media []resolvedMedia) anthropic.MessagePa
 	}
 
 	for _, m := range media {
-		blocks = append(blocks, anthropic.NewImageBlockBase64(m.MIMEType, base64.StdEncoding.EncodeToString(m.Data)))
+		b64 := base64.StdEncoding.EncodeToString(m.Data)
+
+		if m.MIMEType == mimePDF {
+			blocks = append(blocks, anthropic.ContentBlockParamUnion{
+				OfDocument: &anthropic.DocumentBlockParam{
+					Source: anthropic.DocumentBlockParamSourceUnion{
+						OfBase64: &anthropic.Base64PDFSourceParam{Data: b64},
+					},
+				},
+			})
+
+			continue
+		}
+
+		blocks = append(blocks, anthropic.NewImageBlockBase64(m.MIMEType, b64))
 	}
 
 	return anthropic.NewUserMessage(blocks...)

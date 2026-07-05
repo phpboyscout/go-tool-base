@@ -54,9 +54,13 @@ var (
 // carries any media type uniformly; Claude and OpenAI (images) join in their steps.
 var mediaSupport = map[Provider]map[string]bool{
 	ProviderGemini: set(imageMediaTypes, docMediaTypes, videoMediaTypes, audioMediaTypes),
-	ProviderClaude: set(imageMediaTypes),
-	ProviderOpenAI: set(imageMediaTypes),
+	ProviderClaude: set(imageMediaTypes, docMediaTypes),
+	ProviderOpenAI: set(imageMediaTypes, docMediaTypes),
 }
+
+// mimePDF is the one document type in the v1 allowlist; it maps to a provider's
+// document/file block rather than an image block.
+const mimePDF = "application/pdf"
 
 // allowedMediaTypes is the union of every provider's accepted types — the v1
 // allowlist a sniffed type must be on to be sendable to anyone.

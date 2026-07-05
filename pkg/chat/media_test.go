@@ -114,22 +114,17 @@ func TestValidateMediaSet_providerCapability(t *testing.T) {
 		}
 	}
 
-	// Claude accepts images but not video/PDF in v1.
-	if _, err := validateMediaSet(ProviderClaude, []Media{img}); err != nil {
-		t.Fatalf("claude should accept an image: %v", err)
-	}
+	// Claude and OpenAI accept images and PDF, but not video/audio in v1.
+	for _, p := range []Provider{ProviderClaude, ProviderOpenAI} {
+		for _, m := range []Media{img, {Data: pdfBytes}} {
+			if _, err := validateMediaSet(p, []Media{m}); err != nil {
+				t.Fatalf("%s should accept %v: %v", p, detectMIME(m.Data), err)
+			}
+		}
 
-	if _, err := validateMediaSet(ProviderClaude, []Media{{Data: mp4Bytes}}); !errors.Is(err, ErrMediaUnsupported) {
-		t.Fatalf("claude should not accept video in v1: %v", err)
-	}
-
-	// OpenAI accepts images but not PDF in v1.
-	if _, err := validateMediaSet(ProviderOpenAI, []Media{img}); err != nil {
-		t.Fatalf("openai should accept an image: %v", err)
-	}
-
-	if _, err := validateMediaSet(ProviderOpenAI, []Media{{Data: pdfBytes}}); !errors.Is(err, ErrMediaUnsupported) {
-		t.Fatalf("openai should not accept pdf in v1: %v", err)
+		if _, err := validateMediaSet(p, []Media{{Data: mp4Bytes}}); !errors.Is(err, ErrMediaUnsupported) {
+			t.Fatalf("%s should not accept video in v1: %v", p, err)
+		}
 	}
 
 	// claude-local never accepts media.

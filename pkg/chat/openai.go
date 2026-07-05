@@ -149,6 +149,16 @@ func openaiUserMessage(prompt string, media []resolvedMedia) openai.ChatCompleti
 
 	for _, m := range media {
 		uri := fmt.Sprintf("data:%s;base64,%s", m.MIMEType, base64.StdEncoding.EncodeToString(m.Data))
+
+		if m.MIMEType == mimePDF {
+			parts = append(parts, openai.FileContentPart(openai.ChatCompletionContentPartFileFileParam{
+				FileData: openai.String(uri),
+				Filename: openai.String("document.pdf"),
+			}))
+
+			continue
+		}
+
 		parts = append(parts, openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{URL: uri}))
 	}
 

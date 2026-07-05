@@ -104,17 +104,17 @@ Nothing is uploaded on failure. Two error sentinels distinguish the causes (test
 | Provider | Images | PDF | Audio/Video |
 | :--- | :---: | :---: | :---: |
 | Gemini | ✅ | ✅ | ✅ |
-| Claude | ✅ | — | — |
-| OpenAI (+ compatible) | ✅ | — | — |
+| Claude | ✅ | ✅ | — |
+| OpenAI (+ compatible) | ✅ | ✅ | — |
 | Claude Local | — | — | — |
 
-Images map to each provider's native shape (Gemini inline blob, Claude base64 image block, OpenAI `image_url` data URI). The v1 accepted range is what stdlib detection can positively identify — common images, PDF, and the common A/V containers (`mp4`/`webm`/`avi`; `mp3`/`wav`/`ogg`/`aiff`). Long-tail formats stdlib cannot name (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer lands.
+Each type maps to the provider's native shape: images to a Gemini inline blob / Claude base64 image block / OpenAI `image_url` data URI, and PDF to a Gemini inline blob / Claude base64 document block / OpenAI file part. The v1 accepted range is what stdlib detection can positively identify — common images, PDF, and the common A/V containers (`mp4`/`webm`/`avi`; `mp3`/`wav`/`ogg`/`aiff`). Long-tail formats stdlib cannot name (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer lands.
 
 #### Known limitations (v1)
 
-- **PDF/document input for Claude and OpenAI** is a fast-follow (Gemini has it now).
-- **Media is not persisted in `PersistentChatClient` snapshots** — a restored conversation keeps its text history but not its attachments. See the multimodal spec §4.1 for the planned content-addressed-cache design.
-- **Streaming** carries media (`StreamChat`), but the long-tail A/V formats and non-image types for Claude/OpenAI are out of v1 scope.
+- **Audio/video is Gemini-only.** Claude and OpenAI take images and PDF.
+- **Long-tail A/V formats** stdlib cannot sniff (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer is swapped in behind the detection choke point.
+- **Media is not yet persisted in `PersistentChatClient` snapshots** — a restored conversation keeps its text history but not its attachments (in progress).
 
 ## Developing for the AI Layer
 
