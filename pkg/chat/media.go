@@ -54,6 +54,7 @@ var (
 // carries any media type uniformly; Claude and OpenAI (images) join in their steps.
 var mediaSupport = map[Provider]map[string]bool{
 	ProviderGemini: set(imageMediaTypes, docMediaTypes, videoMediaTypes, audioMediaTypes),
+	ProviderClaude: set(imageMediaTypes),
 }
 
 // allowedMediaTypes is the union of every provider's accepted types — the v1

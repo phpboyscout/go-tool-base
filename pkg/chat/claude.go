@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 
@@ -107,16 +108,34 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 }
 
 // Add appends a new user message to the chat session.
+// claudeUserMessage builds a user turn from the prompt text and any validated
+// media, mapping each attachment to a base64 image block (spec §6; Claude v1
+// accepts images).
+func claudeUserMessage(prompt string, media []resolvedMedia) anthropic.MessageParam {
+	blocks := make([]anthropic.ContentBlockParamUnion, 0, len(media)+1)
+
+	if prompt != "" {
+		blocks = append(blocks, anthropic.NewTextBlock(prompt))
+	}
+
+	for _, m := range media {
+		blocks = append(blocks, anthropic.NewImageBlockBase64(m.MIMEType, base64.StdEncoding.EncodeToString(m.Data)))
+	}
+
+	return anthropic.NewUserMessage(blocks...)
+}
+
 func (c *Claude) Add(_ context.Context, prompt string, media ...Media) error {
 	if prompt == "" {
 		return errors.New("prompt cannot be empty")
 	}
 
-	if _, err := validateMediaSet(ProviderClaude, media); err != nil {
+	resolved, err := validateMediaSet(ProviderClaude, media)
+	if err != nil {
 		return err
 	}
 
-	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)))
+	c.messages = append(c.messages, claudeUserMessage(prompt, resolved))
 
 	return nil
 }
@@ -127,11 +146,12 @@ func (c *Claude) Ask(ctx context.Context, question string, target any, media ...
 		return errors.New("question cannot be empty")
 	}
 
-	if _, err := validateMediaSet(ProviderClaude, media); err != nil {
+	resolved, err := validateMediaSet(ProviderClaude, media)
+	if err != nil {
 		return err
 	}
 
-	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(question)))
+	c.messages = append(c.messages, claudeUserMessage(question, resolved))
 
 	params := c.buildAskParams()
 
@@ -383,11 +403,12 @@ func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamC
 		return "", errors.New("prompt cannot be empty")
 	}
 
-	if _, err := validateMediaSet(ProviderClaude, media); err != nil {
+	resolved, err := validateMediaSet(ProviderClaude, media)
+	if err != nil {
 		return "", err
 	}
 
-	c.messages = append(c.messages, anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)))
+	c.messages = append(c.messages, claudeUserMessage(prompt, resolved))
 
 	maxSteps := c.cfg.MaxSteps
 	if maxSteps <= 0 {
