@@ -110,11 +110,14 @@ Nothing is uploaded on failure. Two error sentinels distinguish the causes (test
 
 Each type maps to the provider's native shape: images to a Gemini inline blob / Claude base64 image block / OpenAI `image_url` data URI, and PDF to a Gemini inline blob / Claude base64 document block / OpenAI file part. The v1 accepted range is what stdlib detection can positively identify — common images, PDF, and the common A/V containers (`mp4`/`webm`/`avi`; `mp3`/`wav`/`ogg`/`aiff`). Long-tail formats stdlib cannot name (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer lands.
 
+#### Persistence
+
+Media survives snapshots. When a `ConversationStore` (e.g. `FileStore`) saves a snapshot, large media in the messages is **externalised to a content-addressed cache** (`<store>/media/<sha256>`, deduplicated, and encrypted with the store key when one is set) and replaced with a short reference; `Load` resolves the references back, so a restored conversation keeps its attachments and the snapshot file itself stays small. This is generic (provider-agnostic) and fully reversible — a provider's `Restore` sees byte-identical messages.
+
 #### Known limitations (v1)
 
 - **Audio/video is Gemini-only.** Claude and OpenAI take images and PDF.
 - **Long-tail A/V formats** stdlib cannot sniff (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer is swapped in behind the detection choke point.
-- **Media is not yet persisted in `PersistentChatClient` snapshots** — a restored conversation keeps its text history but not its attachments (in progress).
 
 ## Developing for the AI Layer
 

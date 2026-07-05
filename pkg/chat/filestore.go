@@ -219,7 +219,18 @@ func (s *fileStore) Save(_ context.Context, snapshot *Snapshot) error {
 		return errors.Wrap(err, "creating snapshot directory")
 	}
 
-	data, err := json.MarshalIndent(snapshot, "", "  ")
+	// Externalise large media in the messages to the content-addressed cache so
+	// the snapshot file stays small; Load resolves the references back before a
+	// provider restores (spec §4.1). Operates on a copy — the caller's snapshot
+	// is unchanged.
+	stored := *snapshot
+
+	stored.Messages, err = externalizeSnapshotMedia(snapshot.Messages, s.putMedia)
+	if err != nil {
+		return errors.Wrap(err, "externalising snapshot media")
+	}
+
+	data, err := json.MarshalIndent(&stored, "", "  ")
 	if err != nil {
 		return errors.Wrap(err, "marshalling snapshot")
 	}
@@ -257,7 +268,64 @@ func (s *fileStore) Load(_ context.Context, id string) (*Snapshot, error) {
 		return nil, errors.Wrap(err, "unmarshalling snapshot")
 	}
 
+	// Resolve externalised media references back into the messages so the
+	// snapshot a provider restores is byte-identical to the one it saved.
+	snapshot.Messages, err = internalizeSnapshotMedia(snapshot.Messages, s.getMedia)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolving snapshot media")
+	}
+
 	return &snapshot, nil
+}
+
+// mediaDir is the content-addressed media cache — a subdirectory of the store
+// (List skips it: it is a directory, not a *.json file).
+func (s *fileStore) mediaDir() string { return filepath.Join(s.dir, "media") }
+
+// putMedia caches an externalised media string under its content hash, encrypting
+// it with the store key when set. Content-addressed, so identical attachments are
+// stored once (dedup); an already-cached blob is a no-op.
+func (s *fileStore) putMedia(hash, value string) error {
+	if err := s.fs.MkdirAll(s.mediaDir(), dirPermissions); err != nil {
+		return errors.Wrap(err, "creating media cache directory")
+	}
+
+	path := filepath.Join(s.mediaDir(), hash)
+	if ok, _ := afero.Exists(s.fs, path); ok {
+		return nil
+	}
+
+	data := []byte(value)
+
+	if len(s.key) > 0 {
+		enc, err := encrypt(s.key, data)
+		if err != nil {
+			return errors.Wrap(err, "encrypting media")
+		}
+
+		data = enc
+	}
+
+	return errors.Wrap(afero.WriteFile(s.fs, path, data, filePermissions), "writing media cache")
+}
+
+// getMedia resolves a cached media string by its content hash.
+func (s *fileStore) getMedia(hash string) (string, error) {
+	data, err := afero.ReadFile(s.fs, filepath.Join(s.mediaDir(), hash))
+	if err != nil {
+		return "", errors.Wrapf(err, "reading cached media %s", hash)
+	}
+
+	if len(s.key) > 0 {
+		dec, decErr := decrypt(s.key, data)
+		if decErr != nil {
+			return "", errors.Wrap(decErr, "decrypting media")
+		}
+
+		data = dec
+	}
+
+	return string(data), nil
 }
 
 func (s *fileStore) List(_ context.Context) ([]SnapshotSummary, error) {

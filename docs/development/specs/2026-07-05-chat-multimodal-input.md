@@ -138,15 +138,18 @@ encryption/size design). Instead:
 - Cache lifecycle (pruning blobs no snapshot references) is a follow-up; v1 keeps
   blobs for the filestore's lifetime.
 
-> **Implementation note (2026-07-05).** Steps 1–5 (input across Gemini/Claude/
-> OpenAI) shipped and are verified. Persistence is **deferred to a follow-up**: each
-> provider's `Save()` marshals its *opaque, provider-specific* native history to
-> `Snapshot.Messages`, while the media cache lives at the FileStore layer — so
-> cache+pointer needs per-provider blob externalisation **and** the store threaded
-> into `Save`/`Restore`, a design the driver (krites' one-shot `Ask`) does not need.
-> Until then, media is simply **not persisted** in snapshots (a restored chat keeps
-> its text history, not its attachments) — documented in `ai-integration.md`. The
-> cache+pointer design above stands as the follow-up's blueprint.
+> **Implementation note (2026-07-05).** Implemented, but at the **store layer,
+> generically**, rather than per-provider. Providers marshal their opaque native
+> history into `Snapshot.Messages`, so instead of walking each provider's structs,
+> the `FileStore` runs a **reversible transform** over the messages JSON on Save:
+> any large base64 / data-URI string is written to a content-addressed cache
+> (`<store>/media/<sha256>`, deduped, encrypted with the store key when set) and
+> replaced with a `chatmedia+sha256:<hash>` reference; `Load` reverses it before
+> the snapshot reaches a provider's `Restore`. This keeps the cache+pointer intent
+> (small snapshots, media retained on restore) with **zero provider changes**, and
+> is safe by construction — a heuristic miss only affects snapshot *size*, never
+> correctness, because the transform is fully reversed on Load. A path-traversal
+> guard validates every hash read from a snapshot.
 
 ## 5. MIME detection & safety filtering
 
