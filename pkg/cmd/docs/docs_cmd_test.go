@@ -26,13 +26,15 @@ type fakeChatClient struct {
 	answer string
 }
 
-func (f *fakeChatClient) Add(context.Context, string) error            { return nil }
-func (f *fakeChatClient) Ask(context.Context, string, any) error       { return nil }
-func (f *fakeChatClient) SetTools([]chat.Tool) error                   { return nil }
-func (f *fakeChatClient) Chat(context.Context, string) (string, error) { return f.answer, nil }
-func (f *fakeChatClient) Usage() chat.Usage                            { return chat.Usage{} }
+func (f *fakeChatClient) Add(context.Context, string, ...chat.Media) error      { return nil }
+func (f *fakeChatClient) Ask(context.Context, string, any, ...chat.Media) error { return nil }
+func (f *fakeChatClient) SetTools([]chat.Tool) error                            { return nil }
+func (f *fakeChatClient) Chat(context.Context, string, ...chat.Media) (string, error) {
+	return f.answer, nil
+}
+func (f *fakeChatClient) Usage() chat.Usage { return chat.Usage{} }
 
-func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb chat.StreamCallback) (string, error) {
+func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb chat.StreamCallback, _ ...chat.Media) (string, error) {
 	if err := cb(chat.StreamEvent{Type: chat.EventTextDelta, Delta: f.answer}); err != nil {
 		return "", err
 	}
@@ -45,11 +47,13 @@ func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb chat.StreamC
 // branch take the didStream==false sub-branch.
 type plainChatClient struct{ answer string }
 
-func (p *plainChatClient) Add(context.Context, string) error            { return nil }
-func (p *plainChatClient) Ask(context.Context, string, any) error       { return nil }
-func (p *plainChatClient) SetTools([]chat.Tool) error                   { return nil }
-func (p *plainChatClient) Chat(context.Context, string) (string, error) { return p.answer, nil }
-func (p *plainChatClient) Usage() chat.Usage                            { return chat.Usage{} }
+func (p *plainChatClient) Add(context.Context, string, ...chat.Media) error      { return nil }
+func (p *plainChatClient) Ask(context.Context, string, any, ...chat.Media) error { return nil }
+func (p *plainChatClient) SetTools([]chat.Tool) error                            { return nil }
+func (p *plainChatClient) Chat(context.Context, string, ...chat.Media) (string, error) {
+	return p.answer, nil
+}
+func (p *plainChatClient) Usage() chat.Usage { return chat.Usage{} }
 
 // registerFakeProvider registers a uniquely-named fake provider for the
 // duration of the test. The chat provider registry is a process-global, so

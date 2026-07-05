@@ -21,12 +21,12 @@ type MockChatClient struct {
 	mock.Mock
 }
 
-func (m *MockChatClient) Add(ctx context.Context, prompt string) error {
+func (m *MockChatClient) Add(ctx context.Context, prompt string, _ ...chat.Media) error {
 	args := m.Called(ctx, prompt)
 	return args.Error(0)
 }
 
-func (m *MockChatClient) Ask(ctx context.Context, question string, target any) error {
+func (m *MockChatClient) Ask(ctx context.Context, question string, target any, _ ...chat.Media) error {
 	args := m.Called(ctx, question, target)
 	return args.Error(0)
 }
@@ -36,7 +36,7 @@ func (m *MockChatClient) SetTools(tools []chat.Tool) error {
 	return args.Error(0)
 }
 
-func (m *MockChatClient) Chat(ctx context.Context, prompt string) (string, error) {
+func (m *MockChatClient) Chat(ctx context.Context, prompt string, _ ...chat.Media) (string, error) {
 	args := m.Called(ctx, prompt)
 	return args.String(0), args.Error(1)
 }
