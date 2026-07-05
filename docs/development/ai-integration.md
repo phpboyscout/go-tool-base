@@ -32,10 +32,11 @@ The `ChatClient` interface is the primary entry point. It abstracts the differen
 
 ```go
 type ChatClient interface {
-    Add(prompt string) error
-    Chat(ctx context.Context, prompt string) (string, error)
-    Ask(question string, target any) error
+    Add(ctx context.Context, prompt string, media ...Media) error
+    Ask(ctx context.Context, question string, target any, media ...Media) error
+    Chat(ctx context.Context, prompt string, media ...Media) (string, error)
     SetTools(tools []Tool) error
+    Usage() Usage
 }
 ```
 
@@ -52,20 +53,53 @@ The `chat` package supports structured output via JSON schemas. When adding new 
 
 ### Multimodal Input
 
-`Add`, `Ask`, `Chat` and `StreamChat` take a trailing variadic of `Media` — images (and, on Gemini, PDF and A/V) sent alongside the text prompt. Text-only calls pass no media and are unchanged.
+`Add`, `Ask`, `Chat` and `StreamChat` take a trailing variadic of `Media` — images (and, on Gemini, PDF and A/V) sent alongside the text prompt. The parameter is variadic, so **text-only calls are unchanged** and the media path never affects them.
 
 ```go
 img, _ := os.ReadFile("frame.jpg")
 
+// Structured output over an image.
 var out struct{ Description string `json:"description"` }
 err := client.Ask(ctx,
     "Describe this photo as JSON {\"description\": string}", &out,
     chat.Media{Data: img}) // MIMEType optional — sniffed from the bytes
+
+// Or free-form, with more than one attachment.
+answer, err := client.Chat(ctx, "Which of these is better lit?",
+    chat.Media{Data: imgA}, chat.Media{Data: imgB})
 ```
 
-**Safety.** Every attachment is validated before any network call: its type is sniffed from the bytes (never a filename) with `net/http.DetectContentType`, cross-checked against any declared `MIMEType` (a disguised type — e.g. a ZIP labelled `image/png` — is rejected), allowlisted, and checked against the selected provider's support. Failures return `ErrMediaRejected` or `ErrMediaUnsupported`; nothing is uploaded.
+Attachments are placed **after** the prompt text in the same user turn, in the order given.
 
-**Provider support matrix:**
+#### The `Media` type
+
+```go
+type Media struct {
+    MIMEType string // OPTIONAL — see below
+    Data     []byte // the raw attachment bytes
+}
+```
+
+`MIMEType` is an **optional cross-check**, not an override. The type is always sniffed from `Data`, and the sniffed type is what gets sent. If you set `MIMEType`, it must match the sniffed family (e.g. `image/*`) or the attachment is rejected — this catches disguised content (a ZIP labelled `image/png`) and your own bugs. Leave it empty to let detection do the work.
+
+#### Safety filtering
+
+Every attachment is validated **before any network call**:
+
+1. **Sniff** the type from the bytes with `net/http.DetectContentType` (never from a filename).
+2. **Reconcile** against a declared `MIMEType` (family mismatch → rejected).
+3. **Allowlist** — the sniffed type must be a recognised media type; anything else (executables, scripts, archives, HTML, `application/octet-stream`) is refused.
+4. **Provider support** — the type must be accepted by the selected provider (matrix below).
+5. **Limits** — at most **16 attachments** per request, **20 MiB** each.
+
+Nothing is uploaded on failure. Two error sentinels distinguish the causes (test with `errors.Is`):
+
+| Error | Meaning |
+| :--- | :--- |
+| `ErrMediaRejected` | Failed the safety filter: empty, oversize, over-count, an unidentifiable/disallowed type, or a declared-vs-sniffed mismatch. |
+| `ErrMediaUnsupported` | The type is valid but the selected provider (or model) doesn't accept it — including any media sent to `ProviderClaudeLocal`. |
+
+#### Provider support matrix
 
 | Provider | Images | PDF | Audio/Video |
 | :--- | :---: | :---: | :---: |
@@ -74,7 +108,13 @@ err := client.Ask(ctx,
 | OpenAI (+ compatible) | ✅ | — | — |
 | Claude Local | — | — | — |
 
-The v1 accepted range is what stdlib detection can positively identify (common images, PDF, and mp4/webm/avi + mp3/wav/ogg/aiff); long-tail formats (mov, flv, wmv, flac, m4a) await a richer sniffer. PDF/document support for Claude and OpenAI is a fast-follow. **Media is not yet persisted in `PersistentChatClient` snapshots** — a restored conversation keeps its text history but not its attachments (tracked follow-up; see the multimodal spec §4.1).
+Images map to each provider's native shape (Gemini inline blob, Claude base64 image block, OpenAI `image_url` data URI). The v1 accepted range is what stdlib detection can positively identify — common images, PDF, and the common A/V containers (`mp4`/`webm`/`avi`; `mp3`/`wav`/`ogg`/`aiff`). Long-tail formats stdlib cannot name (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer lands.
+
+#### Known limitations (v1)
+
+- **PDF/document input for Claude and OpenAI** is a fast-follow (Gemini has it now).
+- **Media is not persisted in `PersistentChatClient` snapshots** — a restored conversation keeps its text history but not its attachments. See the multimodal spec §4.1 for the planned content-addressed-cache design.
+- **Streaming** carries media (`StreamChat`), but the long-tail A/V formats and non-image types for Claude/OpenAI are out of v1 scope.
 
 ## Developing for the AI Layer
 
