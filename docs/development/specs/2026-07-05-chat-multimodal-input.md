@@ -62,7 +62,11 @@ So the capability exists at the SDK layer; the **interface is the bottleneck**.
   accept whatever the *selected provider* supports (images, PDF documents, and
   audio/video on Gemini), enforced per provider.
 - **Detect the type, don't trust the caller.** When the caller doesn't set a MIME
-  type, **sniff it from the bytes** ("mime magic"). Never infer from a filename.
+  type, **sniff it from the bytes** with the stdlib **`net/http.DetectContentType`**
+  ("mime magic"), never from a filename. Its coverage sets the v1 accepted range
+  (§5): a type the sniffer cannot positively identify is **rejected**, not sent —
+  the safe default. A richer sniffer to widen the range is a later, isolated swap
+  behind the same choke point.
 - **Safety-filter every attachment.** The sniffed type must be on an **allowlist**
   of genuine media types the providers accept; anything else — executables,
   scripts, archives, HTML, unknown/`application/octet-stream` — is **rejected
@@ -119,10 +123,13 @@ type ChatClient interface {
 
 A single choke point validates every attachment before it reaches a provider:
 
-1. **Sniff.** If `MIMEType` is empty, detect it from the first bytes with a
-   magic-number sniffer — **`github.com/gabriel-vasile/mimetype`** (robust,
-   widely used, few deps), with stdlib `net/http.DetectContentType` as the
-   floor. Detection never trusts a caller-supplied filename.
+1. **Sniff.** If `MIMEType` is empty, detect it from the first 512 bytes with
+   stdlib **`net/http.DetectContentType`** (decision, review 2026-07-05: no new
+   dependency). It positively identifies the common images (jpeg, png, gif, webp),
+   **PDF**, and the common A/V containers (mp4, webm, avi; mp3, wav, ogg, aiff).
+   Detection never trusts a caller-supplied filename. **A type it returns as
+   `application/octet-stream` (unidentifiable) is rejected** — so bytes the sniffer
+   cannot vouch for never reach a provider.
 2. **Reconcile.** If the caller declared a `MIMEType`, it must match the sniffed
    family; a mismatch (declared `image/png`, sniffs as `application/zip`) is
    rejected — this is the core anti-smuggling check.
@@ -151,7 +158,10 @@ and leaks nothing.
 | Claude Local | — | — | — | not supported → `ErrMediaUnsupported` when media is passed |
 
 The exact accepted-type set per provider is a documented, easily-updated table in
-code (the allowlist), not scattered magic strings.
+code (the allowlist), not scattered magic strings. In v1 the effective set is the
+**intersection of the allowlist and what stdlib detection can identify** (§5, Q2):
+a provider may accept `.mov`, but v1 rejects it because the sniffer cannot yet name
+it — widened when a richer sniffer lands, with no call-site change.
 
 ## 7. Backward compatibility
 
@@ -186,14 +196,16 @@ media support.
 
 - **Q1 — interface shape.** ✅ **Resolved (review 2026-07-05): extend the core
   `ChatClient` with variadic `media ...Media`** (pre-1.0, no parallel client).
-- **Q2 — media breadth in v1.** Ship images + PDF everywhere they're supported,
-  and Gemini audio/video? Or images + PDF first and audio/video as a fast-follow?
-  **Lean: images + PDF across the board in v1; Gemini audio/video behind the same
-  `Media` type as a fast-follow** (the sniffer/allowlist already generalise).
-- **Q3 — sniffer dependency.** `gabriel-vasile/mimetype` (best detection, a new
-  dep) vs. stdlib `http.DetectContentType` (no dep, coarser). **Lean: mimetype**,
-  given the safety filtering leans on accurate detection; confirm the dep is
-  acceptable.
+- **Q2 — media breadth in v1.** ✅ **Resolved (review 2026-07-05): the v1 range is
+  what stdlib detection can positively identify** — images (jpeg/png/gif/webp), PDF,
+  and the common A/V containers (mp4/webm/avi; mp3/wav/ogg/aiff). The long-tail
+  formats stdlib cannot name (mov/quicktime, flv, wmv, 3gpp, flac, m4a/aac) are a
+  **fast-follow gated on a richer sniffer**; until then they are rejected rather
+  than trusted, keeping the anti-smuggling guarantee intact.
+- **Q3 — sniffer dependency.** ✅ **Resolved: stdlib `net/http.DetectContentType`,
+  no new dependency.** It covers the v1 range above. Swapping in a fuller sniffer
+  (e.g. `gabriel-vasile/mimetype`) later to widen coverage is an isolated change
+  behind the single detection choke point.
 - **Q4 — declared-type reconciliation strictness.** Reject on any family mismatch
   (strict, chosen) vs. warn-and-trust-sniff. Strict is the safe default.
 - **Q5 — streaming & persistence.** `StreamChat` gains the variadic tail (in
