@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.29.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.29.0)
+
+### Features
+
+- **generator**: scaffold and round-trip Tool.Bootstrap policy
+- **cmd/root**: honour Tool.Bootstrap policy in the root pre-run
+- **props**: add BootstrapPolicy and Tool.Bootstrap field
+
 ## [v0.28.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.28.0)
 
 ### Features
