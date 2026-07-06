@@ -129,6 +129,51 @@ type SigningConfig struct {
 	EmbeddedKeys [][]byte `json:"-" yaml:"-"`
 }
 
+// BootstrapPolicy governs how the framework treats configuration bootstrap and
+// the missing-config gate in the root pre-run. The zero value reproduces the
+// historical behaviour: a missing config file is a hard error when the init
+// feature is enabled.
+//
+// Neither knob skips the framework bootstrap itself (config load, telemetry,
+// update check) — they only relax the missing-config *outcome*, preserving the
+// "bootstrap always runs" invariant established by the
+// 2026-06-12-bootstrap-prerun-traversal spec.
+type BootstrapPolicy struct {
+	// AutoInitialise, when true and the init feature is enabled, runs a
+	// non-interactive init (writing the default config) instead of failing when
+	// no config file is found, then continues with the freshly written config.
+	AutoInitialise bool `json:"auto_initialise,omitempty" yaml:"auto_initialise,omitempty"`
+
+	// SkipConfigCheck lists commands whose missing-config hard-fail is relaxed
+	// to a tolerant load: the pre-run falls back to the embedded default config
+	// rather than erroring, so the command's own PreRunE can manage bootstrap.
+	// An entry matches a command when it equals either the command's Name() or
+	// its full CommandPath() (e.g. "studio" or "krites studio") — the latter
+	// disambiguates same-named commands at different tree levels. A command may
+	// also be marked via the setup.SkipConfigCheck annotation; either mechanism
+	// relaxes the check.
+	SkipConfigCheck []string `json:"skip_config_check,omitempty" yaml:"skip_config_check,omitempty"`
+}
+
+// MatchesSkipList reports whether a command identified by name and path is
+// listed in SkipConfigCheck. An entry may be a bare Name() or a full
+// CommandPath(); either equality relaxes the missing-config check. Empty
+// entries never match. The annotation half (setup.SkipConfigCheck) is evaluated
+// separately by the root pre-run to avoid a props->setup import cycle.
+func (b BootstrapPolicy) MatchesSkipList(name, path string) bool {
+	for _, entry := range b.SkipConfigCheck {
+		if entry == "" {
+			continue
+		}
+
+		if entry == name || entry == path {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Tool holds metadata about the CLI tool: its identity, feature flags,
 // release source for self-updates, help channel configuration, and
 // telemetry settings. It is embedded in Props and passed to all commands.
@@ -138,6 +183,11 @@ type Tool struct {
 	Description string                   `json:"description" yaml:"description"`
 	Features    []Feature                `json:"features" yaml:"features"`
 	Help        errorhandling.HelpConfig `json:"-" yaml:"-"`
+
+	// Bootstrap groups config-bootstrap lifecycle policy — auto-initialisation
+	// and per-command relaxation of the missing-config gate. Zero value is
+	// safe and reproduces historical behaviour. See BootstrapPolicy.
+	Bootstrap BootstrapPolicy `json:"bootstrap,omitempty" yaml:"bootstrap,omitempty"`
 
 	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
