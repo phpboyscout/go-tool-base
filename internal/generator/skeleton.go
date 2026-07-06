@@ -46,10 +46,11 @@ type SkeletonConfig struct {
 	SlackTeam             string
 	TeamsChannel          string
 	TeamsTeam             string
-	TelemetryEndpoint     string          // populated from manifest telemetry.endpoint
-	TelemetryOTelEndpoint string          // populated from manifest telemetry.otel_endpoint
-	EnvPrefix             string          // environment variable prefix for config overrides
-	Signing               ManifestSigning // self-update signature-verification posture (disabled by default)
+	TelemetryEndpoint     string            // populated from manifest telemetry.endpoint
+	TelemetryOTelEndpoint string            // populated from manifest telemetry.otel_endpoint
+	EnvPrefix             string            // environment variable prefix for config overrides
+	Signing               ManifestSigning   // self-update signature-verification posture (disabled by default)
+	Bootstrap             ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
 	// default (disabled) applies; wired into the generated root command's
@@ -307,6 +308,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TelemetryOTelEndpoint:  config.TelemetryOTelEndpoint,
 		EnvPrefix:              config.EnvPrefix,
 		Signing:                config.Signing,
+		Bootstrap:              config.Bootstrap,
 		UpdatePolicy:           config.UpdatePolicy,
 		UpdateCheckInterval:    config.UpdateCheckInterval,
 		CIComponentSource:      resolveCIComponentSource(config.CIComponentSource),
@@ -425,6 +427,8 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			SigningEnabled:        data.Signing.Enabled,
 			ModulePath:            data.ModulePath,
+			AutoInitialise:        data.Bootstrap.AutoInitialise,
+			SkipConfigCheck:       data.Bootstrap.SkipConfigCheck,
 		}),
 	}
 
@@ -810,7 +814,8 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 				TeamsChannel: config.TeamsChannel,
 				TeamsTeam:    config.TeamsTeam,
 			},
-			Signing: config.Signing,
+			Signing:   config.Signing,
+			Bootstrap: config.Bootstrap,
 			CI: ManifestCI{
 				// Persist only an explicit non-default source so the manifest
 				// stays minimal; an absent ci block defaults on render.

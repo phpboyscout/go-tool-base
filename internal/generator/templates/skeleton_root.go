@@ -45,7 +45,13 @@ type SkeletonRootData struct {
 	// trust anchor; ModulePath supplies the import path for that package.
 	SigningEnabled bool
 	ModulePath     string
-	Subcommands    []SkeletonSubcommand
+	// AutoInitialise wires props.Tool.Bootstrap.AutoInitialise. When true the
+	// generated tool auto-runs a non-interactive init if config is missing.
+	AutoInitialise bool
+	// SkipConfigCheck wires props.Tool.Bootstrap.SkipConfigCheck — commands
+	// (by Name() or full CommandPath()) whose missing-config gate is relaxed.
+	SkipConfigCheck []string
+	Subcommands     []SkeletonSubcommand
 }
 
 func SkeletonRoot(data SkeletonRootData) *jen.File {
@@ -226,6 +232,38 @@ func applyOptionalToolConfig(toolDict jen.Dict, data SkeletonRootData) {
 			jen.Id("EmbeddedKeys"): jen.Qual(data.ModulePath+"/internal/trustkeys", "Keys").Call(),
 		})
 	}
+
+	// Bootstrap policy: emit a props.BootstrapPolicy{...} literal only when a
+	// non-default value is set, keeping the generated Tool minimal.
+	if bootstrap, ok := bootstrapPolicyValue(data); ok {
+		toolDict[jen.Id("Bootstrap")] = bootstrap
+	}
+}
+
+// bootstrapPolicyValue builds the props.BootstrapPolicy value from the manifest
+// bootstrap settings, reporting whether any were set (so the caller omits the
+// field when both are zero).
+func bootstrapPolicyValue(data SkeletonRootData) (jen.Code, bool) {
+	bootstrapDict := jen.Dict{}
+
+	if data.AutoInitialise {
+		bootstrapDict[jen.Id("AutoInitialise")] = jen.True()
+	}
+
+	if len(data.SkipConfigCheck) > 0 {
+		entries := make([]jen.Code, 0, len(data.SkipConfigCheck))
+		for _, cmd := range data.SkipConfigCheck {
+			entries = append(entries, jen.Lit(cmd))
+		}
+
+		bootstrapDict[jen.Id("SkipConfigCheck")] = jen.Index().String().Values(entries...)
+	}
+
+	if len(bootstrapDict) == 0 {
+		return nil, false
+	}
+
+	return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "BootstrapPolicy").Values(bootstrapDict), true
 }
 
 // telemetryConfigValue builds the props.TelemetryConfig value from the

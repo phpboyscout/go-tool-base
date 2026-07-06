@@ -285,6 +285,19 @@ type ManifestTelemetry struct {
 	OTelEndpoint string `yaml:"otel_endpoint,omitempty"`
 }
 
+// ManifestBootstrap holds config-bootstrap lifecycle policy for generated
+// tools — the manifest representation of props.Tool.Bootstrap. Empty scaffolds
+// nothing (framework default: a missing config is a hard error when init is
+// enabled). See docs/development/specs/2026-07-06-bootstrap-auto-initialise-skip-config-check.md.
+type ManifestBootstrap struct {
+	// AutoInitialise runs a non-interactive init to write the default config
+	// when it is missing, instead of failing. Defaults to false.
+	AutoInitialise bool `yaml:"auto_initialise,omitempty"`
+	// SkipConfigCheck lists commands (by Name() or full CommandPath()) whose
+	// missing-config gate is relaxed to a tolerant load so they own bootstrap.
+	SkipConfigCheck []string `yaml:"skip_config_check,omitempty"`
+}
+
 // ManifestSigning holds self-update signature-verification configuration
 // for generated tools. It is the manifest representation of the generated
 // internal/trustkeys package, the props.Tool.Signing wiring, and the
@@ -362,6 +375,7 @@ type ManifestProperties struct {
 	Help                ManifestHelp      `yaml:"help,omitempty"`
 	Telemetry           ManifestTelemetry `yaml:"telemetry,omitempty"`
 	Signing             ManifestSigning   `yaml:"signing,omitempty"`
+	Bootstrap           ManifestBootstrap `yaml:"bootstrap,omitempty"`
 	CI                  ManifestCI        `yaml:"ci,omitempty"`
 	// Templates records the custom template-overlay sources applied to the
 	// project, in render (layer) order: embedded base → templates[0] →
