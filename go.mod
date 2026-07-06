@@ -4,14 +4,14 @@ go 1.26.4
 
 require (
 	charm.land/bubbles/v2 v2.1.0
-	charm.land/bubbletea/v2 v2.0.7
+	charm.land/bubbletea/v2 v2.0.8
 	charm.land/glamour/v2 v2.0.1
 	charm.land/huh/v2 v2.0.3
-	charm.land/lipgloss/v2 v2.0.4
+	charm.land/lipgloss/v2 v2.0.5
 	charm.land/log/v2 v2.0.0
 	dario.cat/mergo v1.0.2
 	github.com/ProtonMail/go-crypto v1.4.1
-	github.com/anthropics/anthropic-sdk-go v1.52.0
+	github.com/anthropics/anthropic-sdk-go v1.56.0
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/charmbracelet/x/term v0.2.2
@@ -44,7 +44,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/tiktoken-go/tokenizer v0.8.0
 	github.com/zalando/go-keyring v0.2.8
-	gitlab.com/gitlab-org/api/client-go/v2 v2.43.0
+	gitlab.com/gitlab-org/api/client-go/v2 v2.44.0
 	gitlab.com/phpboyscout/signing v0.1.0
 	gitlab.com/phpboyscout/signing-aws-kms v0.1.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
@@ -65,7 +65,7 @@ require (
 	golang.org/x/text v0.38.0
 	golang.org/x/time v0.15.0
 	google.golang.org/genai v1.62.0
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.82.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -101,7 +101,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260525132238-948f4557a654 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260703014108-f5a850f9c2b7 // indirect
 	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
