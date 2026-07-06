@@ -47,7 +47,7 @@ New features must be implemented in `pkg/` as a reusable component before being 
 
 1. Run `/gtb-verify` (tests, race detector, lint, mocks).
 2. If generator output was affected: `just build && go run ./cmd/gtb generate <command> -p tmp`, verify `tmp/`, delete it.
-3. Update `docs/components/` and `docs/concepts/` — any functional change **must** include a doc update, cross-referenced with the code for accuracy.
+3. Update `docs/explanation/components/` and `docs/explanation/concepts/` — any functional change **must** include a doc update, cross-referenced with the code for accuracy.
 4. Run `/simplify` on changed files before raising a PR.
 
 ## Commands
@@ -74,7 +74,7 @@ just deadcode     # Find unreachable exported symbols
 just fix          # Apply go fix for deprecated API usage
 just install      # Install gtb binary to $GOPATH/bin
 just snapshot     # Local goreleaser snapshot build (output to dist/)
-just docs-serve   # Serve documentation locally via mkdocs
+just docs-serve   # Serve documentation locally via zensical
 just cleanup      # Remove build artifacts
 ```
 
@@ -136,17 +136,17 @@ Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`, `Chan
 
 ### API Stability (pre-1.0)
 
-GTB is currently **pre-1.0** (`v0.x`). During this phase the public `pkg/` API is **not** frozen: breaking changes are permitted and ship as a **minor** bump (the project has made several deliberate ones). The stability tiers and "no breaking changes without a major bump" guarantees described in `docs/about/api-stability.md` are **aspirational and take effect from v1.0** — do not treat them as binding while the module is `v0.x`.
+GTB is currently **pre-1.0** (`v0.x`). During this phase the public `pkg/` API is **not** frozen: breaking changes are permitted and ship as a **minor** bump (the project has made several deliberate ones). The stability tiers and "no breaking changes without a major bump" guarantees described in `docs/reference/api-stability.md` are **aspirational and take effect from v1.0** — do not treat them as binding while the module is `v0.x`.
 
 What this means in practice today:
 
 - A breaking change to a `pkg/` type, interface, signature, or exported constant is allowed; it ships as a `feat`/`fix` minor/patch (no `BREAKING CHANGE:` footer is used on the v0 line — a major bump is not desired yet).
 - Still prefer backward-compatible changes where the cost is low, and reach for a clean break over a long-lived shim when a break is warranted.
-- When you do break a public API, note it in the commit body and add a migration note in `docs/migration/` so the v1.0 migration guide stays accurate.
+- When you do break a public API, note it in the commit body and add a migration note in `docs/reference/migration/` so the v1.0 migration guide stays accurate.
 - Deprecations should still be annotated with `// Deprecated:` so downstreams get a transition window.
 - `internal/` packages are unstable and never subject to this policy.
 
-For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/about/api-stability.md` applies.
+For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/reference/api-stability.md` applies.
 
 The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
 
@@ -210,19 +210,19 @@ Every user-influenced field flowing into a skeleton template is validated by `in
 
 ### URL Opening
 
-All URL-opening in GTB — and in tools built on GTB — must route through `pkg/browser.OpenURL`. Do not call `github.com/cli/browser.OpenURL` or `exec.Command("open"|"xdg-open"|"rundll32")` directly. `pkg/browser` enforces a scheme allowlist (`https`, `http`, `mailto`), a URL-length bound, and control-character rejection before invoking the OS handler. Callers constructing `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value — see `pkg/telemetry.EmailDeletionRequestor` for the canonical pattern and `pkg/components/browser.md` for the threat model.
+All URL-opening in GTB — and in tools built on GTB — must route through `pkg/browser.OpenURL`. Do not call `github.com/cli/browser.OpenURL` or `exec.Command("open"|"xdg-open"|"rundll32")` directly. `pkg/browser` enforces a scheme allowlist (`https`, `http`, `mailto`), a URL-length bound, and control-character rejection before invoking the OS handler. Callers constructing `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value — see `pkg/telemetry.EmailDeletionRequestor` for the canonical pattern and `docs/explanation/components/browser.md` for the threat model.
 
 ### Regex Compilation
 
-Any `regexp.Compile` call whose pattern originates outside the binary (config file, CLI flag, TUI input, HTTP payload, message queue) must route through `pkg/regexutil.CompileBounded` or `CompileBoundedTimeout`. The helper enforces a 1 KiB length cap and a 100 ms compile timeout to mitigate ReDoS. Literal patterns known at build time may continue to use `regexp.MustCompile`. See `docs/components/regexutil.md` for the full threat model and call-site guidance.
+Any `regexp.Compile` call whose pattern originates outside the binary (config file, CLI flag, TUI input, HTTP payload, message queue) must route through `pkg/regexutil.CompileBounded` or `CompileBoundedTimeout`. The helper enforces a 1 KiB length cap and a 100 ms compile timeout to mitigate ReDoS. Literal patterns known at build time may continue to use `regexp.MustCompile`. See `docs/explanation/components/regexutil.md` for the full threat model and call-site guidance.
 
 ### Chat Provider Endpoints
 
-`chat.Config.BaseURL` values must pass `chat.ValidateBaseURL`. The validator rejects non-HTTPS schemes, URLs containing userinfo (`user:pass@host`), and placeholder hosts (`example.com` and subdomains). Tests targeting an `httptest.Server` set `Config.AllowInsecureBaseURL: true`; that field is `json:"-"` so config files cannot downgrade HTTPS enforcement. Every successful `chat.New` call logs the endpoint hostname at INFO — never the path or query. See `docs/components/chat.md` § Provider endpoint security.
+`chat.Config.BaseURL` values must pass `chat.ValidateBaseURL`. The validator rejects non-HTTPS schemes, URLs containing userinfo (`user:pass@host`), and placeholder hosts (`example.com` and subdomains). Tests targeting an `httptest.Server` set `Config.AllowInsecureBaseURL: true`; that field is `json:"-"` so config files cannot downgrade HTTPS enforcement. Every successful `chat.New` call logs the endpoint hostname at INFO — never the path or query. See `docs/explanation/components/chat/persistence.md` § Provider endpoint security.
 
 ### Credential Redaction
 
-Use `pkg/redact` for any free-form string written to telemetry, distributed logs, or a third-party observability surface. `redact.String` strips URL userinfo, common credential query parameters, Authorization headers, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack), and very long opaque tokens. `TrackCommandExtended` already applies it automatically to `args` and `errMsg`; HTTP middleware uses `redact.SensitiveHeaderKeys` to redact headers at DEBUG. See `docs/components/redact.md`.
+Use `pkg/redact` for any free-form string written to telemetry, distributed logs, or a third-party observability surface. `redact.String` strips URL userinfo, common credential query parameters, Authorization headers, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack), and very long opaque tokens. `TrackCommandExtended` already applies it automatically to `args` and `errMsg`; HTTP middleware uses `redact.SensitiveHeaderKeys` to redact headers at DEBUG. See `docs/explanation/components/redact.md`.
 
 ### Credential Storage
 
