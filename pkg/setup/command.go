@@ -65,6 +65,45 @@ func FeatureOf(cmd *cobra.Command) props.FeatureCmd {
 	return props.FeatureCmd(cmd.Annotations[FeatureAnnotation])
 }
 
+// SkipConfigCheckAnnotation is the cobra.Command.Annotations key under which
+// [SkipConfigCheck] records that a command's missing-config gate should be
+// relaxed to a tolerant load by the root pre-run. It is the rename-safe
+// counterpart to the string list in [props.BootstrapPolicy.SkipConfigCheck].
+const SkipConfigCheckAnnotation = "gtb.skip_config_check"
+
+// SkipConfigCheck stamps cmd so the root pre-run relaxes its missing-config
+// gate: when no config file exists, the framework falls back to the embedded
+// default config rather than erroring, letting cmd's own PreRunE own bootstrap.
+// It returns cmd for chaining, mirroring [Wrap]. A nil cmd is returned
+// unchanged.
+//
+// Bootstrap itself still runs — only the missing-config outcome is relaxed —
+// so props.Config is always populated (see the
+// 2026-06-12-bootstrap-prerun-traversal invariant).
+func SkipConfigCheck(cmd *cobra.Command) *cobra.Command {
+	if cmd == nil {
+		return cmd
+	}
+
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+
+	cmd.Annotations[SkipConfigCheckAnnotation] = "true"
+
+	return cmd
+}
+
+// SkipsConfigCheck reports whether cmd carries the [SkipConfigCheck] annotation.
+// It works on the raw *cobra.Command so it is usable from the root pre-run hook.
+func SkipsConfigCheck(cmd *cobra.Command) bool {
+	if cmd == nil || cmd.Annotations == nil {
+		return false
+	}
+
+	return cmd.Annotations[SkipConfigCheckAnnotation] == "true"
+}
+
 // Register adds each child as a subcommand and wraps the child's RunE
 // with the middleware [Chain] for the child's own feature.
 //

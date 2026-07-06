@@ -196,6 +196,89 @@ func loadAndMergeConfig(opts ConfigLoadOptions) (config.Containable, error) {
 	return cfg, nil
 }
 
+// resolveBootstrapConfig loads configuration for cmd, applying the tool's
+// bootstrap policy. It relaxes the missing-config gate for commands that opt out
+// (Tool.Bootstrap.SkipConfigCheck or the setup.SkipConfigCheck annotation) and
+// heals a missing config via a non-interactive init when Tool.Bootstrap.
+// AutoInitialise is set and the init feature is enabled. SkipConfigCheck takes
+// precedence over AutoInitialise: a command that declared it owns bootstrap is
+// never auto-initialised for. Neither branch skips the framework bootstrap
+// itself — only the missing-config outcome changes, preserving the
+// "bootstrap always runs" invariant (2026-06-12-bootstrap-prerun-traversal).
+func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string) (config.Containable, error) {
+	initEnabled := props.Tool.IsEnabled(p.InitCmd)
+	skipConfigCheck := setup.SkipsConfigCheck(cmd) ||
+		props.Tool.Bootstrap.MatchesSkipList(cmd.Name(), cmd.CommandPath())
+	autoInitialise := props.Tool.Bootstrap.AutoInitialise && initEnabled && !skipConfigCheck
+
+	// Clone the captured slice per invocation so the append below never
+	// accumulates across repeated PersistentPreRunE runs and never mutates the
+	// caller's backing array.
+	allowEmpty := !initEnabled || skipConfigCheck
+	paths := slices.Clone(configPaths)
+
+	if allowEmpty {
+		paths = append(paths, "assets/init/config.yaml")
+	}
+
+	loadOpts := ConfigLoadOptions{
+		CfgPaths:    cfgPaths,
+		ConfigPaths: paths,
+		Props:       props,
+		AllowEmpty:  allowEmpty,
+	}
+
+	cfg, err := loadAndMergeConfig(loadOpts)
+	if err != nil {
+		// Auto-initialise heals a genuinely missing config: run a
+		// non-interactive init (no credential wizards) to write the default
+		// localised config, then load it for real.
+		if autoInitialise && errors.Is(err, config.ErrNoFilesFound) {
+			return autoInitialiseConfig(props, loadOpts)
+		}
+
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// autoInitialiseConfig heals a missing configuration by running a
+// non-interactive init (credential wizards suppressed) to write the default
+// localised config, then reloads it. It is invoked by the root pre-run only
+// when Tool.Bootstrap.AutoInitialise is set, the init feature is enabled, and
+// the initial load failed with config.ErrNoFilesFound. The reload uses
+// AllowEmpty:false so a genuinely broken init surfaces an error rather than
+// silently masking it with embedded defaults.
+func autoInitialiseConfig(props *p.Props, opts ConfigLoadOptions) (config.Containable, error) {
+	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
+	if dir == "" {
+		return nil, errors.New("auto-initialise: cannot resolve config directory (is HOME set?)")
+	}
+
+	props.Logger.Debug("No config file found; auto-initialising default configuration")
+
+	noInteractive := false
+	if _, err := setup.Initialise(props, setup.InitOptions{
+		Dir:         dir,
+		SkipLogin:   true,
+		SkipKey:     true,
+		SkipAI:      true,
+		Interactive: &noInteractive,
+	}); err != nil {
+		return nil, errors.Wrap(err, "auto-initialise failed")
+	}
+
+	opts.AllowEmpty = false
+
+	cfg, err := loadAndMergeConfig(opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "auto-initialise: reload after init failed")
+	}
+
+	return cfg, nil
+}
+
 // mergeEmbeddedConfigs loads and merges all found embedded configurations.
 // It leverages the Assets layer's built-in merging for structured config files.
 func mergeEmbeddedConfigs(opts ConfigLoadOptions) (config.Containable, error) {
@@ -605,22 +688,12 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 			return nil
 		}
 
-		// Load and merge configuration. Clone the captured slice per
-		// invocation so the append below never accumulates across repeated
-		// PersistentPreRunE runs and never mutates the caller's backing array.
-		allowEmpty := props.Tool.IsDisabled(p.InitCmd)
-		paths := slices.Clone(configPaths)
-
-		if allowEmpty {
-			paths = append(paths, "assets/init/config.yaml")
-		}
-
-		cfg, err := loadAndMergeConfig(ConfigLoadOptions{
-			CfgPaths:    projectConfigPaths(props, state.cfgPaths),
-			ConfigPaths: paths,
-			Props:       props,
-			AllowEmpty:  allowEmpty,
-		})
+		// Load configuration, applying the tool's bootstrap policy (skip-config
+		// check / auto-initialise). Bootstrap itself always runs — only the
+		// missing-config outcome is relaxed. The project-local config layer
+		// (projectConfigPaths) is resolved here so it is honoured on both the
+		// initial load and any auto-initialise reload.
+		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, state.cfgPaths))
 		if err != nil {
 			return errors.Wrap(err, "failed to load configuration")
 		}

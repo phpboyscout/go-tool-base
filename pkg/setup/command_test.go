@@ -16,6 +16,33 @@ const (
 	grandFeature  = props.FeatureCmd("grand")
 )
 
+func TestSkipConfigCheck_AnnotatesAndReads(t *testing.T) {
+	t.Parallel()
+
+	cmd := &cobra.Command{Use: "studio"}
+	assert.False(t, SkipsConfigCheck(cmd), "unannotated command must not skip")
+
+	got := SkipConfigCheck(cmd)
+	assert.Same(t, cmd, got, "SkipConfigCheck returns the same command for chaining")
+	assert.True(t, SkipsConfigCheck(cmd), "annotated command must skip")
+	assert.Equal(t, "true", cmd.Annotations[SkipConfigCheckAnnotation])
+}
+
+func TestSkipConfigCheck_NilSafe(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, SkipConfigCheck(nil))
+	assert.False(t, SkipsConfigCheck(nil))
+}
+
+func TestSkipsConfigCheck_UnrelatedAnnotations(t *testing.T) {
+	t.Parallel()
+
+	cmd := &cobra.Command{Use: "studio", Annotations: map[string]string{"other": "x"}}
+	assert.False(t, SkipsConfigCheck(cmd),
+		"a command with unrelated annotations must not skip")
+}
+
 func TestWrap_AssignsFeatureAndEmbedsCommand(t *testing.T) {
 	t.Parallel()
 
