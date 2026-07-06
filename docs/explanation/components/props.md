@@ -181,6 +181,7 @@ type Tool struct {
     Summary       string                   `json:"summary" yaml:"summary"`
     Description   string                   `json:"description" yaml:"description"`
     Features      []Feature                `json:"features" yaml:"features"`
+    Bootstrap     BootstrapPolicy          `json:"bootstrap,omitempty" yaml:"bootstrap,omitempty"`
     ReleaseSource ReleaseSource            `json:"release_source" yaml:"release_source"`
     Help          errorhandling.HelpConfig `json:"-" yaml:"-"`
     // InstallHint is shown when a feature needs a full release binary the
@@ -211,6 +212,26 @@ type FeatureState func([]Feature) []Feature
 
 !!! info "Help Configuration"
     `Tool.Help` accepts any value that implements the `errorhandling.HelpConfig` interface (`SupportMessage() string`). Use `errorhandling.SlackHelp` or `errorhandling.TeamsHelp` for built-in support channel messages, or pass `nil` for no help message. The field is set programmatically — it is not read from YAML/JSON config files.
+
+#### Bootstrap Policy
+
+`Tool.Bootstrap` groups config-bootstrap lifecycle policy. Its zero value reproduces the historical behaviour: when the `init` feature is enabled, a missing configuration file is a hard error ("please run init"). Because the root bootstrap always runs first (see [command bootstrap ordering](../concepts/feature-setup.md)), that error aborts the invocation before any subcommand's own `PreRunE` can run — so these two opt-ins let a tool control first-run behaviour instead.
+
+```go
+type BootstrapPolicy struct {
+    // AutoInitialise runs a non-interactive init (writing the default config)
+    // when no config file is found, then continues — instead of erroring.
+    AutoInitialise bool `json:"auto_initialise,omitempty" yaml:"auto_initialise,omitempty"`
+
+    // SkipConfigCheck lists commands whose missing-config hard-fail is relaxed
+    // to a tolerant load (embedded defaults), so the command's own PreRunE can
+    // manage bootstrap. An entry matches a command by its Name() or full
+    // CommandPath() ("studio" or "app studio").
+    SkipConfigCheck []string `json:"skip_config_check,omitempty" yaml:"skip_config_check,omitempty"`
+}
+```
+
+Neither knob skips the framework bootstrap itself (config load, telemetry, update check) — they relax only the missing-config *outcome*, so `props.Config` is always populated. A command may alternatively be marked robustly (rename-safe) with the `setup.SkipConfigCheck(cmd)` annotation instead of naming it in the list; either mechanism relaxes the gate. `SkipConfigCheck` takes precedence over `AutoInitialise` for a given command. See [Auto-initialise configuration on first run](../../how-to/auto-initialise-config.md).
 
 **Example:**
 ```go

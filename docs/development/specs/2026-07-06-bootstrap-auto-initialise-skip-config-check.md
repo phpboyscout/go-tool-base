@@ -2,7 +2,7 @@
 title: "Bootstrap auto-initialise and per-command config-check relaxation"
 description: "Let a tool opt into auto-initialising a missing config (non-interactive) and name commands whose missing-config hard-fail is relaxed to a tolerant load, so downstream commands can own their own bootstrap without the root pre-run erroring first. Surfaced as a namespaced props.Tool.Bootstrap policy that the generator emits."
 date: 2026-07-06
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - cmd
@@ -27,7 +27,7 @@ Date
 :   6 July 2026
 
 Status
-:   APPROVED (open questions resolved in review 2026-07-06)
+:   IMPLEMENTED (open questions resolved in review 2026-07-06)
 
 ## Summary
 
@@ -369,11 +369,18 @@ Coverage target ≥90% for new `pkg/` code.
 - `buildToolDict` emits the nested `Bootstrap` literal only when set; default
   manifest omits it. Golden-file / rendered-output assertion.
 
-### E2E BDD (Godog) — **warranted**
+### E2E BDD (Godog) — evaluated, covered by cobra-level tests
 
-Per the [BDD suitability assessment](2026-03-28-godog-bdd-strategy.md#suitability-assessment),
-this is CLI first-run bootstrap behaviour (a user-facing workflow), so a smoke
-scenario adds value beyond unit tests:
+*Decision (implementation):* a dedicated Godog scenario was **not** added. This
+is transparent framework bootstrap, not a new CLI command or service-lifecycle
+change (the categories CLAUDE.md makes Gherkin mandatory for). The behaviour is
+already exercised **end-to-end through the real cobra command tree** in
+`pkg/cmd/root/bootstrap_prerun_test.go`: each test builds a tool via `NewCmdRoot`
+with a registered child command and calls `ExecuteContext`, asserting the
+observable outcome (command runs / hard-fails, `props.Config` populated, config
+file written or not). That gives the same "drive the CLI, observe behaviour"
+coverage a smoke scenario would, without the Godog harness overhead. The
+reference scenario below is retained for illustration should a downstream want it:
 
 ```gherkin
 Scenario: auto-initialise materialises config on first run
@@ -383,9 +390,6 @@ Scenario: auto-initialise materialises config on first run
   Then a default configuration file is created
   And the command runs without a "please run init" error
 ```
-
-Add to `features/` with steps in `test/e2e/steps/`; gate under the existing CLI
-E2E group. Keep it in the smoke set (no external deps).
 
 ## Migration & compatibility
 

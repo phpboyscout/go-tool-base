@@ -85,6 +85,9 @@ Replace the charmbracelet terminal logger with a `slog` JSON backend for daemon 
 
 ## Configuration
 
+### [Auto-initialise Configuration on First Run](auto-initialise-config.md)
+Write the default config automatically when it is missing, or hand config bootstrap to a specific command, via `props.Tool.Bootstrap`.
+
 ### [Bind CLI Flags to Config](bind-flags-to-config.md)
 Make `--server-port` override `server.port` by binding flags into the configuration precedence (flags > env > file).
 
