@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 var fixedTime = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -26,12 +25,12 @@ var _ RepoLike = (*ThreadSafeRepo)(nil)
 func newTestThreadSafeRepo(t *testing.T) *ThreadSafeRepo {
 	t.Helper()
 
-	p := &props.Props{
+	settings := Settings{
 		FS:     afero.NewMemMapFs(),
 		Logger: logger.NewNoop(),
 	}
 
-	ts, err := NewThreadSafeRepoFromProps(p)
+	ts, err := NewThreadSafeRepo(settings)
 	require.NoError(t, err)
 
 	return ts
@@ -40,7 +39,7 @@ func newTestThreadSafeRepo(t *testing.T) *ThreadSafeRepo {
 func TestNewThreadSafeRepo_OptError(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{
+	settings := Settings{
 		FS:     afero.NewMemMapFs(),
 		Logger: logger.NewNoop(),
 	}
@@ -49,7 +48,7 @@ func TestNewThreadSafeRepo_OptError(t *testing.T) {
 		return errors.New("opt failed")
 	}
 
-	ts, err := NewThreadSafeRepoFromProps(p, errOpt)
+	ts, err := NewThreadSafeRepo(settings, errOpt)
 	assert.Nil(t, ts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opt failed")

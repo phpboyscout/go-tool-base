@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -22,9 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -36,13 +33,12 @@ func (cfg tokenConfig) GetString(key string) string {
 
 func TestRepo_Unit_OpenLocal(t *testing.T) {
 	tmpDir := t.TempDir()
-	p := &props.Props{
+	settings := Settings{
 		FS:     afero.NewOsFs(),
 		Logger: logger.NewNoop(),
-		Config: nil,
 	}
 
-	r, err := NewRepoFromProps(p)
+	r, err := NewRepo(settings)
 	require.NoError(t, err)
 
 	t.Run("init_new_repo", func(t *testing.T) {
@@ -62,13 +58,12 @@ func TestRepo_Unit_OpenLocal(t *testing.T) {
 
 func TestRepo_Unit_GitOperations(t *testing.T) {
 	tmpDir := t.TempDir()
-	p := &props.Props{
+	settings := Settings{
 		FS:     afero.NewOsFs(),
 		Logger: logger.NewNoop(),
-		Config: nil,
 	}
 
-	r, _ := NewRepoFromProps(p)
+	r, _ := NewRepo(settings)
 	_, wt, _ := r.OpenLocal(tmpDir, "main")
 
 	// Create a dummy file for initial commit to ensure HEAD exists
@@ -165,27 +160,25 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	t.Run("token_auth", func(t *testing.T) {
-		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {auth: {env: "G"}}`)))
 		t.Setenv("G", "test-token")
-		p := &props.Props{
-			FS:     fs,
-			Logger: logger.NewNoop(),
-			Config: cfg,
-		}
-		r, err := NewRepoFromProps(p)
+		r, err := NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			Auth:          tokenConfig{"auth.env": "G"},
+			FS:            fs,
+			Logger:        logger.NewNoop(),
+		})
 		require.NoError(t, err)
 		assert.NotNil(t, r.GetAuth())
 	})
 
 	t.Run("ssh_auth_agent", func(t *testing.T) {
-		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {ssh: {key: {type: "agent"}}}`)))
-		p := &props.Props{
-			FS:     fs,
-			Logger: logger.NewNoop(),
-			Config: cfg,
-		}
 		// This might fail if no agent is running, but let's see
-		_, _ = NewRepoFromProps(p)
+		_, _ = NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			SSH:           SSHSettings{Configured: true, HasKey: true, Type: "agent"},
+			FS:            fs,
+			Logger:        logger.NewNoop(),
+		})
 	})
 }
 
@@ -338,9 +331,8 @@ func TestRepo_Unit_Open(t *testing.T) {
 
 func TestRepo_Unit_CreateBranch_Existing(t *testing.T) {
 	tmpDir := t.TempDir()
-	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
 
-	r, err := NewRepoFromProps(p)
+	r, err := NewRepo(Settings{FS: afero.NewOsFs(), Logger: logger.NewNoop()})
 	require.NoError(t, err)
 	_, wt, err := r.OpenLocal(tmpDir, "main")
 	require.NoError(t, err)
@@ -528,8 +520,7 @@ func TestRepo_Unit_CheckoutCommit(t *testing.T) {
 
 func TestRepo_Unit_Commit_NilOpts(t *testing.T) {
 	tmpDir := t.TempDir()
-	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
-	r, err := NewRepoFromProps(p)
+	r, err := NewRepo(Settings{FS: afero.NewOsFs(), Logger: logger.NewNoop()})
 	require.NoError(t, err)
 
 	_, wt, err := r.OpenLocal(tmpDir, "main")
@@ -544,8 +535,7 @@ func TestRepo_Unit_Commit_NilOpts(t *testing.T) {
 
 func TestRepo_Unit_AddToFS_AlreadyExists(t *testing.T) {
 	tmpDir := t.TempDir()
-	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
-	r, err := NewRepoFromProps(p)
+	r, err := NewRepo(Settings{FS: afero.NewOsFs(), Logger: logger.NewNoop()})
 	require.NoError(t, err)
 
 	_, wt, err := r.OpenLocal(tmpDir, "main")
@@ -575,8 +565,7 @@ func TestRepo_Unit_AddToFS_AlreadyExists(t *testing.T) {
 
 func TestRepo_Unit_GetFile_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
-	r, err := NewRepoFromProps(p)
+	r, err := NewRepo(Settings{FS: afero.NewOsFs(), Logger: logger.NewNoop()})
 	require.NoError(t, err)
 
 	_, wt, err := r.OpenLocal(tmpDir, "main")
@@ -594,11 +583,10 @@ func TestRepo_Unit_GetFile_NotFound(t *testing.T) {
 
 func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
 	t.Parallel()
-	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop()}
 	errOpt := func(r *Repo) error {
 		return errors.New("opt failed")
 	}
-	_, err := NewRepoFromProps(p, errOpt)
+	_, err := NewRepo(Settings{FS: afero.NewMemMapFs(), Logger: logger.NewNoop()}, errOpt)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opt failed")
 }
@@ -619,76 +607,65 @@ func TestRepo_Unit_NewRepo_TypedSettingsTokenAuth(t *testing.T) {
 }
 
 func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
-	// Config has no github.ssh and no auth token. A private release source
+	// Settings have no SSH and no auth token. A private release source
 	// requires a token, so configureTokenAuth fails.
 	t.Setenv("GITHUB_TOKEN", "")
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`github: {}`)))
-	p := &props.Props{
-		FS:     afero.NewMemMapFs(),
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github", Private: true}},
-	}
-	_, err := NewRepoFromProps(p)
+	_, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github", Private: true},
+		AuthEnabled:   true,
+		FS:            afero.NewMemMapFs(),
+		Logger:        logger.NewNoop(),
+	})
 	assert.Error(t, err)
 }
 
 func TestRepo_Unit_configureSSHAuth_Paths(t *testing.T) {
 	t.Run("path_key_not_found", func(t *testing.T) {
-		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
-github:
-  ssh:
-    key:
-      path: /nonexistent/id_rsa
-`)))
 		fs := afero.NewOsFs()
-		p := &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfg}
-		_, err := NewRepoFromProps(p)
+		_, err := NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			SSH:           SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_rsa"},
+			FS:            fs,
+			Logger:        logger.NewNoop(),
+		})
 		assert.Error(t, err)
 	})
 
 	t.Run("env_empty_falls_back_to_agent", func(t *testing.T) {
-		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
-github:
-  ssh:
-    key:
-      env: GTB_TEST_SSH_KEY_EMPTY_XYZ
-`)))
 		t.Setenv("GTB_TEST_SSH_KEY_EMPTY_XYZ", "")
-		p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
 		// Falls back to ssh-agent; will fail if no agent running, but path is covered.
-		_, _ = NewRepoFromProps(p)
+		_, _ = NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			SSH:           SSHSettings{Configured: true, HasKey: true, Env: "GTB_TEST_SSH_KEY_EMPTY_XYZ"},
+			FS:            afero.NewMemMapFs(),
+			Logger:        logger.NewNoop(),
+		})
 	})
 
 	t.Run("env_key_not_found", func(t *testing.T) {
-		cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
-github:
-  ssh:
-    key:
-      env: GTB_TEST_SSH_KEY_XYZ
-`)))
 		t.Setenv("GTB_TEST_SSH_KEY_XYZ", "/nonexistent/key")
-		p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: cfg}
-		_, err := NewRepoFromProps(p)
+		_, err := NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			SSH:           SSHSettings{Configured: true, HasKey: true, Env: "GTB_TEST_SSH_KEY_XYZ"},
+			FS:            afero.NewOsFs(),
+			Logger:        logger.NewNoop(),
+		})
 		assert.Error(t, err)
 	})
 }
 
 // TestRepo_Unit_configureSSHAuth_ScalarSSH proves that a scalar github.ssh
-// value (e.g. `github.ssh: true`) — which passes the Has("github.ssh") gate
-// but has no github.ssh.key subtree — does not panic. Config.Sub returns a
-// nil Containable for the absent subtree, and configureSSHAuth dereferenced
-// it unguarded.
+// value (e.g. `github.ssh: true`) maps to configured SSH with no key details
+// and does not panic.
 func TestRepo_Unit_configureSSHAuth_ScalarSSH(t *testing.T) {
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
-github:
-  ssh: true
-`)))
-	p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
-
 	assert.NotPanics(t, func() {
 		// Falls back to ssh-agent when no key details are present; may error
 		// if no agent is running, but must never panic on the nil subtree.
-		_, _ = NewRepoFromProps(p)
+		_, _ = NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			SSH:           SSHSettings{Configured: true},
+			FS:            afero.NewMemMapFs(),
+			Logger:        logger.NewNoop(),
+		})
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
-	"strings"
 	"testing"
 
 	"github.com/cockroachdb/errors"
@@ -18,31 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 	gossh "golang.org/x/crypto/ssh"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
-
-// newAuthTestProps builds a Props with an optional YAML config and tool metadata.
-func newAuthTestProps(t *testing.T, yamlCfg string, tool props.Tool) *props.Props {
-	t.Helper()
-
-	var cfg config.Containable
-	if yamlCfg != "" {
-		cfg = config.NewReaderContainer(
-			afero.NewOsFs(),
-			config.WithConfigFormat("yaml"),
-			config.WithConfigReaders(strings.NewReader(yamlCfg)),
-		)
-	}
-
-	return &props.Props{
-		FS:     afero.NewMemMapFs(),
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		Tool:   tool,
-	}
-}
 
 // TestRepo_Unit_ForgeTokenAuth proves NewRepo resolves clone/push credentials
 // from the configured forge's subtree (D1) and that missing credentials are
@@ -50,26 +27,29 @@ func newAuthTestProps(t *testing.T, yamlCfg string, tool props.Tool) *props.Prop
 func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 	tests := []struct {
 		name     string
-		yamlCfg  string
-		tool     props.Tool
+		settings Settings
 		env      map[string]string
 		wantErr  string
 		wantAuth transport.AuthMethod
 	}{
 		{
-			name:    "gitlab type resolves from gitlab subtree",
-			yamlCfg: `gitlab: {auth: {env: GTB_TEST_GL_TOKEN}}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "gitlab"}},
-			env:     map[string]string{"GTB_TEST_GL_TOKEN": "glpat-secret"},
+			name: "gitlab type resolves from gitlab settings",
+			settings: Settings{
+				ReleaseSource: release.ReleaseSourceConfig{Type: "gitlab"},
+				Auth:          tokenConfig{"auth.env": "GTB_TEST_GL_TOKEN"},
+			},
+			env: map[string]string{"GTB_TEST_GL_TOKEN": "glpat-secret"},
 			wantAuth: &http.BasicAuth{
 				Username: "oauth2",
 				Password: "glpat-secret",
 			},
 		},
 		{
-			name:    "gitlab type does not read github subtree",
-			yamlCfg: `github: {auth: {env: GTB_TEST_GH_TOKEN}}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "gitlab"}},
+			name: "gitlab type with no gitlab auth ignores github env",
+			settings: Settings{
+				ReleaseSource: release.ReleaseSourceConfig{Type: "gitlab"},
+				AuthEnabled:   true,
+			},
 			env: map[string]string{
 				"GTB_TEST_GH_TOKEN": "ghp_secret",
 				"GITLAB_TOKEN":      "",
@@ -77,86 +57,84 @@ func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 			wantAuth: nil, // public repo, no gitlab credential: unauthenticated
 		},
 		{
-			name:    "vcs.provider overrides release source type",
-			yamlCfg: "vcs: {provider: gitlab}\ngitlab: {auth: {env: GTB_TEST_GL_TOKEN}}",
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
-			env:     map[string]string{"GTB_TEST_GL_TOKEN": "glpat-override"},
+			name: "explicit forge overrides release source type",
+			settings: Settings{
+				ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+				Forge:         "gitlab",
+				Auth:          tokenConfig{"auth.env": "GTB_TEST_GL_TOKEN"},
+			},
+			env: map[string]string{"GTB_TEST_GL_TOKEN": "glpat-override"},
 			wantAuth: &http.BasicAuth{
 				Username: "oauth2",
 				Password: "glpat-override",
 			},
 		},
 		{
-			name:    "github back-compat unchanged",
-			yamlCfg: `github: {auth: {env: GTB_TEST_GH_TOKEN}}`,
-			tool:    props.Tool{},
-			env:     map[string]string{"GTB_TEST_GH_TOKEN": "ghp_secret"},
+			name:     "github default unchanged",
+			settings: Settings{Auth: tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"}},
+			env:      map[string]string{"GTB_TEST_GH_TOKEN": "ghp_secret"},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "ghp_secret",
 			},
 		},
 		{
-			name:    "public repo with no token does not error",
-			yamlCfg: `github: {}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
-			env:     map[string]string{"GITHUB_TOKEN": ""},
+			name:     "public repo with no token does not error",
+			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: "github"}, AuthEnabled: true},
+			env:      map[string]string{"GITHUB_TOKEN": ""},
 		},
 		{
-			name:    "private repo with no token errors",
-			yamlCfg: `github: {}`,
-			tool: props.Tool{ReleaseSource: props.ReleaseSource{
+			name: "private repo with no token errors",
+			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{
 				Type:    "github",
 				Private: true,
-			}},
+			}, AuthEnabled: true},
 			env:     map[string]string{"GITHUB_TOKEN": ""},
 			wantErr: "no GITHUB token available for private repository",
 		},
 		{
-			name:    "private gitlab repo with no token errors",
-			yamlCfg: `gitlab: {}`,
-			tool: props.Tool{ReleaseSource: props.ReleaseSource{
+			name: "private gitlab repo with no token errors",
+			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{
 				Type:    "gitlab",
 				Private: true,
-			}},
+			}, AuthEnabled: true},
 			env:     map[string]string{"GITLAB_TOKEN": ""},
 			wantErr: "no GITLAB token available for private repository",
 		},
 		{
-			name:    "gitea fallback env token",
-			yamlCfg: `gitea: {}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "gitea"}},
-			env:     map[string]string{"GITEA_TOKEN": "gta_secret"},
+			name:     "gitea fallback env token",
+			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: "gitea"}, AuthEnabled: true},
+			env:      map[string]string{"GITEA_TOKEN": "gta_secret"},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "gta_secret",
 			},
 		},
 		{
-			name:    "bitbucket uses x-token-auth username",
-			yamlCfg: `bitbucket: {auth: {env: GTB_TEST_BB_TOKEN}}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "bitbucket"}},
-			env:     map[string]string{"GTB_TEST_BB_TOKEN": "bb_secret"},
+			name: "bitbucket uses x-token-auth username",
+			settings: Settings{
+				ReleaseSource: release.ReleaseSourceConfig{Type: "bitbucket"},
+				Auth:          tokenConfig{"auth.env": "GTB_TEST_BB_TOKEN"},
+			},
+			env: map[string]string{"GTB_TEST_BB_TOKEN": "bb_secret"},
 			wantAuth: &http.BasicAuth{
 				Username: "x-token-auth",
 				Password: "bb_secret",
 			},
 		},
 		{
-			name:    "empty type defaults to github",
-			yamlCfg: `github: {auth: {env: GTB_TEST_GH_TOKEN}}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: ""}},
-			env:     map[string]string{"GTB_TEST_GH_TOKEN": "ghp_default"},
+			name:     "empty type defaults to github",
+			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: ""}, Auth: tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"}},
+			env:      map[string]string{"GTB_TEST_GH_TOKEN": "ghp_default"},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "ghp_default",
 			},
 		},
 		{
-			name:    "direct type falls back to github subtree",
-			yamlCfg: `github: {auth: {env: GTB_TEST_GH_TOKEN}}`,
-			tool:    props.Tool{ReleaseSource: props.ReleaseSource{Type: "direct"}},
-			env:     map[string]string{"GTB_TEST_GH_TOKEN": "ghp_direct"},
+			name:     "direct type falls back to github",
+			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: "direct"}, Auth: tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"}},
+			env:      map[string]string{"GTB_TEST_GH_TOKEN": "ghp_direct"},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "ghp_direct",
@@ -170,9 +148,10 @@ func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 				t.Setenv(k, v)
 			}
 
-			p := newAuthTestProps(t, tt.yamlCfg, tt.tool)
+			tt.settings.FS = afero.NewMemMapFs()
+			tt.settings.Logger = logger.NewNoop()
 
-			r, err := NewRepoFromProps(p)
+			r, err := NewRepo(tt.settings)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -189,14 +168,12 @@ func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 // TestRepo_Unit_ForgeSSHAuth proves the SSH subtree is selected per forge (D3).
 func TestRepo_Unit_ForgeSSHAuth(t *testing.T) {
 	t.Run("gitlab ssh subtree selected for gitlab tool", func(t *testing.T) {
-		p := newAuthTestProps(t, `
-gitlab:
-  ssh:
-    key:
-      path: /nonexistent/id_ed25519
-`, props.Tool{ReleaseSource: props.ReleaseSource{Type: "gitlab"}})
-
-		_, err := NewRepoFromProps(p)
+		_, err := NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "gitlab"},
+			SSH:           SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_ed25519"},
+			FS:            afero.NewMemMapFs(),
+			Logger:        logger.NewNoop(),
+		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get SSH key")
 	})
@@ -204,15 +181,12 @@ gitlab:
 	t.Run("gitlab ssh subtree ignored for github tool", func(t *testing.T) {
 		t.Setenv("GTB_TEST_GH_TOKEN", "ghp_secret")
 
-		p := newAuthTestProps(t, `
-github: {auth: {env: GTB_TEST_GH_TOKEN}}
-gitlab:
-  ssh:
-    key:
-      path: /nonexistent/id_ed25519
-`, props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}})
-
-		r, err := NewRepoFromProps(p)
+		r, err := NewRepo(Settings{
+			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+			Auth:          tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"},
+			FS:            afero.NewMemMapFs(),
+			Logger:        logger.NewNoop(),
+		})
 		require.NoError(t, err)
 		assert.Equal(t, &http.BasicAuth{Username: "x-access-token", Password: "ghp_secret"}, r.GetAuth())
 	})
@@ -275,15 +249,15 @@ func TestRepo_Unit_GetSSHKey_PassphraseProtected(t *testing.T) {
 func TestRepo_Unit_NewRepo_EncryptedSSHKey(t *testing.T) {
 	t.Parallel()
 
-	p := newAuthTestProps(t, `
-github:
-  ssh:
-    key:
-      path: /id_ed25519
-`, props.Tool{})
-	encryptedTestKey(t, p.FS, "/id_ed25519", "testpass")
+	fs := afero.NewMemMapFs()
+	encryptedTestKey(t, fs, "/id_ed25519", "testpass")
 
-	_, err := NewRepoFromProps(p)
+	_, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		SSH:           SSHSettings{Configured: true, HasKey: true, Path: "/id_ed25519"},
+		FS:            fs,
+		Logger:        logger.NewNoop(),
+	})
 	require.Error(t, err)
 
 	var missing *gossh.PassphraseMissingError

@@ -4,11 +4,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"embed"
 	"encoding/pem"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -22,39 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 var (
 	// testRepo defaults to a developer-local path; overridden by GITHUB_WORKSPACE in CI.
-	testRepo   = "/home/mcockayne/workspace/phpboyscout/gtb"
-	testConfig = `github:
-  url:
-    api: https://api.github.com
-    upload: https://uploads.github.com
-  auth:
-    env: GITHUB_TOKEN
-  ssh:
-    key:
-      env: GITHUB_KEY
-train:
-  memory:
-    enabled: true
-    repo: "/home/mcockayne/workspace/phpboyscout/gtb"
-  source:
-    org: phpboyscout
-    repo: gtb
-    branch: main
-`
-	testConfigNoSSH = `github:
-  url:
-    api: https://api.github.com
-    upload: https://uploads.github.com
-  auth:
-    env: GITHUB_TOKEN
-`
+	testRepo = "/home/mcockayne/workspace/phpboyscout/gtb"
 )
 
 func init() {
@@ -73,22 +45,16 @@ func genTestSSHKey() []byte {
 }
 
 func newTestRepo() (*Repo, error) {
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfig)))
-
 	localfs := afero.NewMemMapFs()
 	_ = afero.WriteFile(localfs, "id_rsa", genTestSSHKey(), 0600)
 	_ = os.Setenv("GITHUB_KEY", "id_rsa")
 
-	var assets embed.FS
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		FS:     localfs,
-		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
-	}
-
-	return NewRepoFromProps(p)
+	return NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		SSH:           SSHSettings{Configured: true, HasKey: true, Env: "GITHUB_KEY"},
+		Logger:        logger.NewNoop(),
+		FS:            localfs,
+	})
 }
 
 func TestCreateBranch(t *testing.T) {
@@ -201,23 +167,16 @@ func TestInMemoryRepo(t *testing.T) {
 
 func TestOpenRemoteHTTP(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "vcs")
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
-
-	localfs := afero.NewMemMapFs()
-
-	var assets embed.FS
-
-	props := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		FS:     localfs,
-		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
-	}
 
 	// Ensure we have a token for NewRepo to succeed/init
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepoFromProps(props)
+	repo, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		AuthEnabled:   true,
+		Logger:        logger.NewNoop(),
+		FS:            afero.NewMemMapFs(),
+	})
 	if assert.NoError(t, err) {
 		// Clear auth for public repo
 		repo.auth = nil
@@ -228,23 +187,16 @@ func TestOpenRemoteHTTP(t *testing.T) {
 
 func TestCheckoutRemoteBranch(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "vcs")
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
-
-	localfs := afero.NewMemMapFs()
-
-	var assets embed.FS
-
-	props := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		FS:     localfs,
-		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
-	}
 
 	// Ensure we have a token for NewRepo to succeed/init
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepoFromProps(props)
+	repo, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		AuthEnabled:   true,
+		Logger:        logger.NewNoop(),
+		FS:            afero.NewMemMapFs(),
+	})
 	require.NoError(t, err, "unable to open test repo")
 
 	// Clear auth for public repo
@@ -266,18 +218,15 @@ func TestClone(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Create test props
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
-	propsConfig := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		FS:     afero.NewMemMapFs(),
-	}
-
 	// Ensure we have a token for NewRepo to succeed
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepoFromProps(propsConfig)
+	repo, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		AuthEnabled:   true,
+		Logger:        logger.NewNoop(),
+		FS:            afero.NewMemMapFs(),
+	})
 	if err != nil {
 		t.Fatalf("Failed to create repo: %v", err)
 	}
@@ -350,18 +299,15 @@ func TestFileOperations(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Clone a repo that we know has content (using Hello-World for stability)
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(testConfigNoSSH)))
-	propsConfig := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		FS:     afero.NewMemMapFs(),
-	}
-
 	// Ensure we have a token for NewRepo to succeed
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepoFromProps(propsConfig)
+	repo, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		AuthEnabled:   true,
+		Logger:        logger.NewNoop(),
+		FS:            afero.NewMemMapFs(),
+	})
 	require.NoError(t, err)
 	// Clear auth for public repo clone
 	repo.auth = nil
@@ -426,21 +372,18 @@ func TestForgeAuthClonePush(t *testing.T) {
 
 	forges := []struct {
 		forge    string
-		yamlCfg  string
 		envName  string
 		dummy    string
 		username string
 	}{
 		{
 			forge:    "github",
-			yamlCfg:  `github: {auth: {env: GTB_INT_GH_TOKEN}}`,
 			envName:  "GTB_INT_GH_TOKEN",
 			dummy:    "ghp_integration",
 			username: "x-access-token",
 		},
 		{
 			forge:    "gitlab",
-			yamlCfg:  `gitlab: {auth: {env: GTB_INT_GL_TOKEN}}`,
 			envName:  "GTB_INT_GL_TOKEN",
 			dummy:    "glpat-integration",
 			username: "oauth2",
@@ -476,15 +419,12 @@ func TestForgeAuthClonePush(t *testing.T) {
 			require.NoError(t, seedRepo.Push(&git.PushOptions{RemoteName: "origin"}))
 
 			// Forge-configured Repo: clone, commit, push.
-			cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(tc.yamlCfg)))
-			p := &props.Props{
-				Logger: logger.NewNoop(),
-				Config: cfg,
-				FS:     afero.NewOsFs(),
-				Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: tc.forge}},
-			}
-
-			r, err := NewRepoFromProps(p)
+			r, err := NewRepo(Settings{
+				ReleaseSource: release.ReleaseSourceConfig{Type: tc.forge},
+				Auth:          tokenConfig{"auth.env": tc.envName},
+				Logger:        logger.NewNoop(),
+				FS:            afero.NewOsFs(),
+			})
 			require.NoError(t, err)
 
 			auth, ok := r.GetAuth().(*githttp.BasicAuth)
@@ -534,16 +474,12 @@ func TestInitAddPushForgeAuth(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(workDir, "main.go"), []byte("package main\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(workDir, "build.log"), []byte("noise\n"), 0o644))
 
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(`github: {auth: {env: GTB_INT_GH_TOKEN}}`)))
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfg,
-		FS:     afero.NewOsFs(),
-		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
-	}
-
-	r, err := NewRepoFromProps(p)
+	r, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		Auth:          tokenConfig{"auth.env": "GTB_INT_GH_TOKEN"},
+		Logger:        logger.NewNoop(),
+		FS:            afero.NewOsFs(),
+	})
 	require.NoError(t, err)
 
 	auth, ok := r.GetAuth().(*githttp.BasicAuth)
