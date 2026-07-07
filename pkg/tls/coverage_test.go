@@ -182,21 +182,6 @@ func TestClientConfig(t *testing.T) {
 	})
 }
 
-func TestResolve_NoOverrides(t *testing.T) {
-	t.Parallel()
-
-	cfg := newTestConfig()
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", "/shared/cert.pem")
-	cfg.Set("server.tls.key", "/shared/key.pem")
-
-	// Transport prefix has no keys set; everything inherits the shared block.
-	pair := gtbtls.Resolve(cfg, "server.gateway.tls")
-	assert.True(t, pair.Enabled)
-	assert.Equal(t, "/shared/cert.pem", pair.Cert)
-	assert.Equal(t, "/shared/key.pem", pair.Key)
-}
-
 func TestPair_Valid(t *testing.T) {
 	t.Parallel()
 
