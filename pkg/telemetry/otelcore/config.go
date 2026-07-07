@@ -1,7 +1,5 @@
 package otelcore
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
-
 // Root is the config key prefix shared by the analytics pipeline and the
 // observability signals.
 const Root = "telemetry"
@@ -22,35 +20,63 @@ type Settings struct {
 	Insecure bool
 }
 
-// Resolve reads telemetry.<signal>.* overlaid on the shared telemetry.* keys, in
-// the same shared-plus-override style as pkg/tls. A per-signal key, when set,
-// overrides the shared value for that one field. Enabled is per-signal only.
-//
-// An empty Endpoint is intentional and not an error: it lets the OTel SDK fall
-// back to the standard OTEL_EXPORTER_OTLP_* environment variables, so operators
-// who configure the ecosystem's env vars need set nothing in GTB config beyond
-// telemetry.<signal>.enabled.
-func Resolve(cfg config.Containable, signal string) Settings {
-	sig := Root + "." + signal
+// Config holds shared OTLP settings that can be overlaid by each signal.
+type Config struct {
+	Endpoint string            `mapstructure:"endpoint" yaml:"endpoint" json:"endpoint"`
+	Headers  map[string]string `mapstructure:"headers" yaml:"headers" json:"headers"`
+	Insecure bool              `mapstructure:"insecure" yaml:"insecure" json:"insecure"`
+}
 
-	s := Settings{
-		Enabled:  cfg.GetBool(sig + ".enabled"),
-		Endpoint: cfg.GetString(Root + ".endpoint"),
-		Insecure: cfg.GetBool(Root + ".insecure"),
-		Headers:  cfg.GetViper().GetStringMapString(Root + ".headers"),
+// SignalConfig holds per-signal OTLP settings.
+type SignalConfig struct {
+	Enabled  bool              `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+	Endpoint string            `mapstructure:"endpoint" yaml:"endpoint" json:"endpoint"`
+	Headers  map[string]string `mapstructure:"headers" yaml:"headers" json:"headers"`
+	Insecure bool              `mapstructure:"insecure" yaml:"insecure" json:"insecure"`
+}
+
+// SignalOverrides records which per-signal fields were explicitly supplied by
+// an adapter and should override shared config.
+type SignalOverrides struct {
+	Endpoint bool
+	Headers  bool
+	Insecure bool
+}
+
+// ResolveSettings overlays per-signal settings on shared telemetry settings.
+// Enabled is always per-signal only.
+func ResolveSettings(shared Config, signal SignalConfig, overrides SignalOverrides) Settings {
+	settings := Settings{
+		Enabled:  signal.Enabled,
+		Endpoint: shared.Endpoint,
+		Headers:  cloneHeaders(shared.Headers),
+		Insecure: shared.Insecure,
 	}
 
-	if cfg.IsSet(sig + ".endpoint") {
-		s.Endpoint = cfg.GetString(sig + ".endpoint")
+	if overrides.Endpoint {
+		settings.Endpoint = signal.Endpoint
 	}
 
-	if cfg.IsSet(sig + ".insecure") {
-		s.Insecure = cfg.GetBool(sig + ".insecure")
+	if overrides.Headers {
+		settings.Headers = cloneHeaders(signal.Headers)
 	}
 
-	if cfg.IsSet(sig + ".headers") {
-		s.Headers = cfg.GetViper().GetStringMapString(sig + ".headers")
+	if overrides.Insecure {
+		settings.Insecure = signal.Insecure
 	}
 
-	return s
+	return settings
+}
+
+func cloneHeaders(headers map[string]string) map[string]string {
+	if len(headers) == 0 {
+		return nil
+	}
+
+	out := make(map[string]string, len(headers))
+	for key, value := range headers {
+		out[key] = value
+	}
+
+	return out
 }

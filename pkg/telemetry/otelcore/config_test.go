@@ -1,8 +1,10 @@
 package otelcore
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 
@@ -33,6 +35,32 @@ func TestResolveSharedDefaults(t *testing.T) {
 	assert.True(t, s.Insecure)
 }
 
+func TestResolveSettings_OverlaysExplicitSignalValues(t *testing.T) {
+	t.Parallel()
+
+	shared := Config{
+		Endpoint: "https://shared:4318",
+		Headers:  map[string]string{"authorization": "Bearer shared"},
+		Insecure: false,
+	}
+	signal := SignalConfig{
+		Enabled:  true,
+		Endpoint: "https://signal:4318",
+		Headers:  map[string]string{"authorization": "Bearer signal"},
+		Insecure: true,
+	}
+
+	got := ResolveSettings(shared, signal, SignalOverrides{
+		Endpoint: true,
+		Insecure: true,
+	})
+
+	assert.True(t, got.Enabled)
+	assert.Equal(t, "https://signal:4318", got.Endpoint)
+	assert.Equal(t, "Bearer shared", got.Headers["authorization"])
+	assert.True(t, got.Insecure)
+}
+
 func TestResolvePerSignalEndpointOverride(t *testing.T) {
 	cfg := cfgFrom(map[string]any{
 		"telemetry.endpoint":         "https://shared:4318",
@@ -43,6 +71,26 @@ func TestResolvePerSignalEndpointOverride(t *testing.T) {
 	s := Resolve(cfg, SignalMetrics)
 
 	assert.Equal(t, "https://metrics:4318", s.Endpoint)
+}
+
+func TestResolvePreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_TELEMETRY_ENDPOINT", "https://env-shared:4318")
+	t.Setenv("GTB_TELEMETRY_TRACING_ENDPOINT", "https://env-tracing:4318")
+	t.Setenv("GTB_TELEMETRY_TRACING_INSECURE", "true")
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithEnvPrefix("GTB"),
+		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://file-shared:4318\n  tracing:\n    enabled: true\n    endpoint: https://file-tracing:4318\n    insecure: false\n")),
+	)
+
+	s := Resolve(cfg, SignalTracing)
+
+	assert.True(t, s.Enabled)
+	assert.Equal(t, "https://env-tracing:4318", s.Endpoint)
+	assert.True(t, s.Insecure)
 }
 
 func TestResolvePerSignalInsecureOverride(t *testing.T) {
