@@ -11,10 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 type staleArgs struct {
@@ -36,11 +33,6 @@ func writeJSON(w http.ResponseWriter, payload map[string]any) {
 func claudeAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) chat.ChatClient {
 	t.Helper()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderClaude,
 		Token:                "test-key",
@@ -51,9 +43,7 @@ func claudeAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) cha
 		o(&cfg)
 	}
 
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := chat.New(context.Background(), testProps(), cfg)
 	require.NoError(t, err)
 
 	return client
@@ -61,11 +51,6 @@ func claudeAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) cha
 
 func openaiAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) chat.ChatClient {
 	t.Helper()
-
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderOpenAI,
@@ -77,9 +62,7 @@ func openaiAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) cha
 		o(&cfg)
 	}
 
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := chat.New(context.Background(), testProps(), cfg)
 	require.NoError(t, err)
 
 	return client

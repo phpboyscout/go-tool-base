@@ -12,22 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genai"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestGeminiProvider_New(t *testing.T) {
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	t.Run("missing_api_key", func(t *testing.T) {
 		t.Setenv(chat.EnvGeminiKey, "")
@@ -102,15 +91,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
@@ -215,15 +196,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
@@ -324,16 +297,6 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		maxStepsServer := NewMockServer()
 		defer maxStepsServer.Close()
 
-		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-		maxStepsProps := &props.Props{
-			Logger: logger.NewNoop(),
-			Config: maxStepsCfgMock,
-		}
-
 		maxStepsCfg := chat.Config{
 			Provider:             chat.ProviderGemini,
 			Token:                "test-key",
@@ -342,7 +305,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 			MaxSteps:             2,
 		}
 
-		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
+		maxStepsClient, err := chat.New(context.Background(), testProps(), maxStepsCfg)
 		require.NoError(t, err)
 
 		// Always respond with a function call, never a final text answer.
@@ -395,15 +358,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 func TestGeminiProvider_Add(t *testing.T) {
 	t.Parallel()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider: chat.ProviderGemini,
@@ -431,15 +386,7 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
@@ -511,12 +458,7 @@ func TestGeminiProvider_MaxTokensWired(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+	p := testProps()
 
 	client, err := chat.New(context.Background(), p, chat.Config{
 		Provider:             chat.ProviderGemini,
@@ -563,12 +505,7 @@ func TestGeminiProvider_ChatPersistsHistoryAcrossCalls(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,

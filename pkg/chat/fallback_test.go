@@ -11,10 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/spf13/viper"
 	"google.golang.org/genai"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -433,28 +431,6 @@ func TestNewWithFallback_DisabledIsSingleProvider(t *testing.T) {
 	p := &props.Props{Logger: logger.NewNoop()}
 
 	client, err := NewWithFallback(context.Background(), p, Config{Provider: "fbt-ok"})
-	require.NoError(t, err)
-
-	got, err := client.Chat(context.Background(), "hi")
-	require.NoError(t, err)
-	assert.Equal(t, "ok", got)
-}
-
-func TestNewWithFallback_EnabledBuildsChain(t *testing.T) {
-	registerTestProviders(t)
-
-	v := viper.New()
-	v.Set(ConfigKeyAIFallbackEnabled, true)
-	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok", "fbt-ok2"})
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(nil, v),
-	}
-
-	// cfg.Provider deliberately disagrees with providers[0] → exercises the
-	// override WARN; providers[0] (fbt-ok) is the effective primary.
-	client, err := NewWithFallback(context.Background(), p, Config{Provider: ProviderClaude})
 	require.NoError(t, err)
 
 	got, err := client.Chat(context.Background(), "hi")

@@ -10,22 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestOpenAIProvider_New(t *testing.T) {
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	t.Run("missing_api_key", func(t *testing.T) {
 		t.Setenv(chat.EnvOpenAIKey, "")
@@ -61,17 +50,12 @@ func TestOpenAIProvider_New(t *testing.T) {
 		require.ErrorIs(t, err, chat.ErrInvalidBaseURL)
 	})
 
-	t.Run("success_from_props", func(t *testing.T) {
-		cfgMockInternal := mockConfig.NewMockContainable(t)
-		cfgMockInternal.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("")
-		cfgMockInternal.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("")
-		cfgMockInternal.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key")
-		pWithKey := &props.Props{
-			Logger: logger.NewNoop(),
-			Config: cfgMockInternal,
+	t.Run("success_from_credentials", func(t *testing.T) {
+		cfg := chat.Config{
+			Provider:    chat.ProviderOpenAI,
+			Credentials: chat.CredentialConfig{Key: "test-key"},
 		}
-		cfg := chat.Config{Provider: chat.ProviderOpenAI}
-		client, err := chat.New(context.Background(), pWithKey, cfg)
+		client, err := chat.New(context.Background(), p, cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -91,15 +75,7 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderOpenAI,
@@ -173,12 +149,7 @@ func TestOpenAIProvider_MaxTokensWired(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
+	p := testProps()
 
 	client, err := chat.New(context.Background(), p, chat.Config{
 		Provider:             chat.ProviderOpenAI,
@@ -214,15 +185,7 @@ func TestOpenAIProvider_MaxTokensWired(t *testing.T) {
 func TestOpenAIProvider_Add(t *testing.T) {
 	t.Parallel()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider: chat.ProviderOpenAI,
@@ -243,11 +206,15 @@ func TestOpenAIProvider_Add(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("success_with_config", func(t *testing.T) {
-		// New client with nil token but valid config
-		cfgNoToken := chat.Config{Provider: chat.ProviderOpenAI}
-		clientWithConfig, _ := chat.New(context.Background(), p, cfgNoToken)
-		err := clientWithConfig.Add(context.Background(), "Hello")
+	t.Run("success_with_credentials", func(t *testing.T) {
+		cfgNoToken := chat.Config{
+			Provider:    chat.ProviderOpenAI,
+			Credentials: chat.CredentialConfig{Key: "test-key"},
+		}
+		clientWithConfig, err := chat.New(context.Background(), p, cfgNoToken)
+		require.NoError(t, err)
+
+		err = clientWithConfig.Add(context.Background(), "Hello")
 		assert.NoError(t, err)
 	})
 
@@ -278,15 +245,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-		Config: cfgMock,
-	}
+	p := testProps()
 
 	cfg := chat.Config{
 		Provider:             chat.ProviderOpenAI,
@@ -393,16 +352,6 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 		maxStepsServer := NewMockServer()
 		defer maxStepsServer.Close()
 
-		maxStepsCfgMock := mockConfig.NewMockContainable(t)
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-		maxStepsProps := &props.Props{
-			Logger: logger.NewNoop(),
-			Config: maxStepsCfgMock,
-		}
-
 		maxStepsCfg := chat.Config{
 			Provider:             chat.ProviderOpenAI,
 			Token:                "test-key",
@@ -411,7 +360,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 			MaxSteps:             2,
 		}
 
-		maxStepsClient, err := chat.New(context.Background(), maxStepsProps, maxStepsCfg)
+		maxStepsClient, err := chat.New(context.Background(), testProps(), maxStepsCfg)
 		require.NoError(t, err)
 
 		// Always respond with a tool call, never a final text answer.

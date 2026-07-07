@@ -11,10 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/exectest"
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // TestUsage_Add verifies element-wise accumulation and Known propagation.
@@ -40,19 +37,12 @@ func TestUsage_Add(t *testing.T) {
 func newClaudeUsageClient(t *testing.T, server *MockServer, cfg chat.Config) chat.ChatClient {
 	t.Helper()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
 	cfg.Provider = chat.ProviderClaude
 	cfg.Token = "test-key"
 	cfg.BaseURL = server.URL + "/"
 	cfg.AllowInsecureBaseURL = true
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := chat.New(context.Background(), testProps(), cfg)
 	require.NoError(t, err)
 
 	return client
@@ -233,14 +223,7 @@ func TestUsage_OpenAIChat(t *testing.T) {
 		},
 	})
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := chat.New(context.Background(), testProps(), chat.Config{
 		Provider:             chat.ProviderOpenAI,
 		Token:                "test-key",
 		Model:                "gpt-test",
@@ -282,14 +265,7 @@ func TestUsage_GeminiChat(t *testing.T) {
 		},
 	})
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := chat.New(context.Background(), testProps(), chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
 		BaseURL:              server.URL,
@@ -314,9 +290,7 @@ func TestUsage_GeminiChat(t *testing.T) {
 func TestUsage_ClaudeLocalUnknown(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{Logger: logger.NewNoop()}
-
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := chat.New(context.Background(), testProps(), chat.Config{
 		Provider:     chat.ProviderClaudeLocal,
 		ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		ExecCommand:  exectest.EchoCommand(`{"type":"message","result":"ok","session_id":"s1","is_error":false}`),
@@ -337,11 +311,9 @@ func TestUsage_ClaudeLocalUnknown(t *testing.T) {
 func TestUsage_ClaudeLocalReported(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{Logger: logger.NewNoop()}
-
 	var observed chat.Usage
 
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := chat.New(context.Background(), testProps(), chat.Config{
 		Provider:     chat.ProviderClaudeLocal,
 		ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		ExecCommand: exectest.EchoCommand(
@@ -367,14 +339,7 @@ func TestUsage_ClaudeLocalReported(t *testing.T) {
 func TestUsage_InitialZero(t *testing.T) {
 	t.Parallel()
 
-	cfgMock := mockConfig.NewMockContainable(t)
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
-	cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
-
-	p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := chat.New(context.Background(), testProps(), chat.Config{
 		Provider: chat.ProviderClaude,
 		Token:    "test-key",
 	})

@@ -11,10 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 type parallelToolArgs struct {
@@ -30,14 +27,7 @@ func TestClaudeProvider_Chat_ParallelTools(t *testing.T) {
 		server := NewMockServer()
 		defer server.Close()
 
-		cfgMock := mockConfig.NewMockContainable(t)
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
-
-		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-		client, err := chat.New(context.Background(), p, chat.Config{
+		client, err := chat.New(context.Background(), testProps(), chat.Config{
 			Provider:             chat.ProviderClaude,
 			Token:                "test-key",
 			BaseURL:              server.URL + "/",
@@ -119,14 +109,7 @@ func TestOpenAIProvider_Chat_ParallelTools(t *testing.T) {
 		server := NewMockServer()
 		defer server.Close()
 
-		cfgMock := mockConfig.NewMockContainable(t)
-		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIEnv).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKeychain).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("test-key").Maybe()
-
-		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-		client, err := chat.New(context.Background(), p, chat.Config{
+		client, err := chat.New(context.Background(), testProps(), chat.Config{
 			Provider:             chat.ProviderOpenAI,
 			Token:                "test-key",
 			BaseURL:              server.URL + "/",
@@ -216,14 +199,7 @@ func TestGeminiProvider_Chat_ParallelTools(t *testing.T) {
 		server := NewMockServer()
 		defer server.Close()
 
-		cfgMock := mockConfig.NewMockContainable(t)
-		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
-
-		p := &props.Props{Logger: logger.NewNoop(), Config: cfgMock}
-
-		client, err := chat.New(context.Background(), p, chat.Config{
+		client, err := chat.New(context.Background(), testProps(), chat.Config{
 			Provider:             chat.ProviderGemini,
 			Token:                "test-key",
 			BaseURL:              server.URL,

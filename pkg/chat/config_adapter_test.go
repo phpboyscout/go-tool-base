@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/afero"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -54,6 +55,28 @@ openai:
 	assert.Equal(t, "CUSTOM_OPENAI_TOKEN", credentials.Env)
 	assert.Equal(t, "service/account", credentials.Keychain)
 	assert.Equal(t, "env-literal-key", credentials.Key)
+}
+
+func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
+	registerTestProviders(t)
+
+	v := viper.New()
+	v.Set(ConfigKeyAIFallbackEnabled, true)
+	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok", "fbt-ok2"})
+
+	p := &props.Props{
+		Logger: logger.NewNoop(),
+		Config: config.NewContainerFromViper(nil, v),
+	}
+
+	// cfg.Provider deliberately disagrees with providers[0], exercising the
+	// override WARN; providers[0] (fbt-ok) is the effective primary.
+	client, err := NewWithFallback(context.Background(), p, Config{Provider: ProviderClaude})
+	require.NoError(t, err)
+
+	got, err := client.Chat(context.Background(), "hi")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", got)
 }
 
 func TestNew_AppliesTypedConfigBeforeProviderFactory(t *testing.T) {

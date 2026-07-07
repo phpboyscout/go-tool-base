@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // MockServer represents a mock AI provider server.
@@ -21,6 +24,10 @@ func NewMockServer() *MockServer {
 		}
 	}))
 	return m
+}
+
+func testProps() *props.Props {
+	return &props.Props{Logger: logger.NewNoop()}
 }
 
 // RespondWithJSON sets the handler to respond with the given JSON.
