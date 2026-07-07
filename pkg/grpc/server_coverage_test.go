@@ -254,7 +254,7 @@ func TestDialLocal_AcceptsDialOption(t *testing.T) {
 	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
 	cfg.Set("server.grpc.port", 50052)
 
-	conn, err := DialLocal(cfg, grpc.WithUserAgent("coverage-test"))
+	conn, err := DialLocalFromContainable(cfg, grpc.WithUserAgent("coverage-test"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	assert.NotNil(t, conn)
@@ -300,7 +300,7 @@ func TestRegister_NewServerError(t *testing.T) {
 	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := Register(context.Background(), "bad", controller, cfg, logger.NewNoop(),
+	_, err := RegisterFromContainable(context.Background(), "bad", controller, cfg, logger.NewNoop(),
 		WithConfigPrefix(""))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "config prefix must not be empty")

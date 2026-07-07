@@ -48,7 +48,7 @@ func TestGRPCServer_ReflectionDefaultOff(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
 	services := srv.GetServiceInfo()
@@ -64,7 +64,7 @@ func TestNewServer_ReflectionDisabled(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 
@@ -79,7 +79,7 @@ func TestNewServer_ReflectionEnabled(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(true)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 
@@ -104,10 +104,10 @@ func TestStart_ListenAndServe(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	mockGRPCTLSDisabled(cfg)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
-	startFn := Start(cfg, testLogger(), srv)
+	startFn := StartFromContainable(cfg, testLogger(), srv)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -129,7 +129,7 @@ func TestStop_GracefulStop(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
 	stopFn := Stop(testLogger(), srv)
@@ -149,7 +149,7 @@ func TestRegister(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := Register(context.Background(), "test-grpc", controller, cfg, testLogger())
+	_, err := RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger())
 	assert.NoError(t, err)
 }
 
@@ -198,7 +198,7 @@ func TestGRPCHealth(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger())
+	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -247,7 +247,7 @@ func TestGRPCProbes(t *testing.T) {
 		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
 	)
 
-	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger())
+	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -289,8 +289,8 @@ func TestGRPCPortConfig_Specific(t *testing.T) {
 	cfg.EXPECT().GetInt("server.grpc.port").Return(9090)
 	mockGRPCTLSDisabled(cfg)
 
-	srv, _ := NewServer(cfg)
-	startFn := Start(cfg, testLogger(), srv)
+	srv, _ := NewServerFromContainable(cfg)
+	startFn := StartFromContainable(cfg, testLogger(), srv)
 	assert.NotNil(t, startFn)
 }
 
@@ -302,8 +302,8 @@ func TestGRPCPortConfig_Fallback(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(8080)
 	mockGRPCTLSDisabled(cfg)
 
-	srv, _ := NewServer(cfg)
-	startFn := Start(cfg, testLogger(), srv)
+	srv, _ := NewServerFromContainable(cfg)
+	startFn := StartFromContainable(cfg, testLogger(), srv)
 	assert.NotNil(t, startFn)
 }
 
@@ -328,7 +328,7 @@ func TestRegister_WithInterceptors(t *testing.T) {
 		},
 	})
 
-	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger(),
+	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger(),
 		WithInterceptors(chain),
 	)
 	require.NoError(t, err)
@@ -352,7 +352,7 @@ func TestRegister_MixedOptions(t *testing.T) {
 	chain := NewInterceptorChain(LoggingInterceptor(testLogger()))
 
 	// Mix RegisterOption and grpc.ServerOption
-	_, err = Register(context.Background(), "test-grpc", controller, cfg, testLogger(),
+	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger(),
 		WithInterceptors(chain),
 		grpc.MaxRecvMsgSize(4*1024*1024),
 	)

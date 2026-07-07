@@ -72,7 +72,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
-	grpcSrv, err := gtbgrpc.Register(ctx, "grpc", controller, grpcCfg, l)
+	grpcSrv, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, l)
 	require.NoError(t, err)
 
 	// --- Register HTTP server (simulating gRPC-Gateway) ---
@@ -221,7 +221,7 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
-	_, err := gtbgrpc.Register(ctx, "grpc", controller, grpcCfg, l)
+	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, l)
 	require.NoError(t, err)
 
 	// --- Register HTTP server with a slow handler ---
@@ -348,7 +348,7 @@ func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
-	_, err := gtbgrpc.Register(ctx, "grpc", controller, grpcCfg, l)
+	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, l)
 	require.NoError(t, err)
 
 	// --- Register HTTP server with a slow-starting handler ---

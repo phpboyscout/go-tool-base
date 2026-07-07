@@ -19,7 +19,7 @@ import (
 func TestOTelStatsHandlerBuildsServer(t *testing.T) {
 	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
 
-	srv, err := NewServer(cfg, OTelStatsHandler())
+	srv, err := NewServerFromContainable(cfg, OTelStatsHandler())
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 }

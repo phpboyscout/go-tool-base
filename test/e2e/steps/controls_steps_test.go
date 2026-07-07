@@ -253,7 +253,7 @@ func aGRPCServerRegistered(ctx context.Context) (context.Context, error) {
 
 	cfg := newGRPCMockConfig(port)
 
-	_, err = gtbgrpc.Register(w.Ctx, "grpc", w.Controller, cfg, w.Logger)
+	_, err = gtbgrpc.RegisterFromContainable(w.Ctx, "grpc", w.Controller, cfg, w.Logger)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register gRPC server: %w", err)
 	}

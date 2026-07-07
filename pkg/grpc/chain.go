@@ -64,7 +64,7 @@ func (c InterceptorChain) Append(interceptors ...Interceptor) InterceptorChain {
 // or to NewServer's variadic options.
 //
 //	chain := NewInterceptorChain(logging, recovery)
-//	srv, _ := NewServer(cfg, chain.ServerOptions()...)
+//	srv, _ := NewServerFromContainable(cfg, chain.ServerOptions()...)
 func (c InterceptorChain) ServerOptions() []grpc.ServerOption {
 	var opts []grpc.ServerOption
 

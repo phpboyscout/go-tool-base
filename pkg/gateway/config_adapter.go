@@ -33,7 +33,7 @@ func (o *options) dialOptions() []any {
 func NewFromContainable(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
 	o := newOptions(opts)
 
-	conn, err := gtbgrpc.DialLocal(cfg, o.dialOptions()...)
+	conn, err := gtbgrpc.DialLocalFromContainable(cfg, o.dialOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func NewFromContainable(ctx context.Context, cfg config.Containable, register Re
 func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
 	o := newOptions(opts)
 
-	conn, err := gtbgrpc.DialLocal(cfg, o.dialOptions()...)
+	conn, err := gtbgrpc.DialLocalFromContainable(cfg, o.dialOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func RegisterFromContainable(ctx context.Context, id string, controller controls
 func RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
 	o := newOptions(opts)
 
-	conn, err := gtbgrpc.DialLocal(cfg, o.dialOptions()...)
+	conn, err := gtbgrpc.DialLocalFromContainable(cfg, o.dialOptions()...)
 	if err != nil {
 		return nil, err
 	}

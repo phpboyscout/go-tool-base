@@ -140,7 +140,7 @@ func TestInterceptorChain_MultipleInterceptors_Ordering(t *testing.T) {
 	assert.Len(t, chain.unary, 3)
 
 	// Verify actual execution order via a real gRPC health-check RPC.
-	// The health service is registered automatically by Register(), giving
+	// The health service is registered automatically by RegisterFromContainable(), giving
 	// us a unary endpoint to call without defining a custom proto service.
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestInterceptorChain_MultipleInterceptors_Ordering(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = Register(context.Background(), "chain-order-test", controller, cfg, logger.NewNoop(),
+	_, err = RegisterFromContainable(context.Background(), "chain-order-test", controller, cfg, logger.NewNoop(),
 		WithInterceptors(chain),
 	)
 	require.NoError(t, err)

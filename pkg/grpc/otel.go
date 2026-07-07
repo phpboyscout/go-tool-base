@@ -15,7 +15,7 @@ import (
 //
 // Pass it to Register alongside any other server options:
 //
-//	grpc.Register(ctx, "grpc", controller, cfg, log, grpc.OTelStatsHandler())
+//	grpc.RegisterFromContainable(ctx, "grpc", controller, cfg, log, grpc.OTelStatsHandler())
 func OTelStatsHandler(opts ...otelgrpc.Option) grpc.ServerOption {
 	return grpc.StatsHandler(otelgrpc.NewServerHandler(opts...))
 }

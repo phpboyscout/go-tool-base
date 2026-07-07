@@ -46,7 +46,7 @@ func TestTLSListener_ALPNAllowsModernClient(t *testing.T) {
 	ctx := context.Background()
 	controller := controls.NewController(ctx, controls.WithoutSignals())
 
-	_, err := gtbgrpc.Register(ctx, "grpc", controller, cfg, logger.NewCharm(io.Discard))
+	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, cfg, logger.NewCharm(io.Discard))
 	require.NoError(t, err)
 
 	controller.Start()
@@ -55,7 +55,7 @@ func TestTLSListener_ALPNAllowsModernClient(t *testing.T) {
 		controller.Wait()
 	})
 
-	conn, err := gtbgrpc.DialLocal(cfg)
+	conn, err := gtbgrpc.DialLocalFromContainable(cfg)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 

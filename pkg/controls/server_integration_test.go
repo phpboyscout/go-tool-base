@@ -254,7 +254,7 @@ func TestGRPC_HealthProbes(t *testing.T) {
 
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(noop))
 
-	_, err := gtbgrpc.Register(ctx, "grpc", controller, newGRPCCfg(t, port), noop)
+	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, newGRPCCfg(t, port), noop)
 	require.NoError(t, err)
 
 	controller.Start()
@@ -308,7 +308,7 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 		},
 	})
 
-	_, err := gtbgrpc.Register(ctx, "grpc", controller, newGRPCCfg(t, port), noop,
+	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, newGRPCCfg(t, port), noop,
 		gtbgrpc.WithInterceptors(chain))
 	require.NoError(t, err)
 

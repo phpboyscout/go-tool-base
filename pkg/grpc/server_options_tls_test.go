@@ -37,7 +37,7 @@ func TestServerOptions_CustomPrefixWithTLS(t *testing.T) {
 	ctx := context.Background()
 	controller := controls.NewController(ctx, controls.WithoutSignals())
 
-	_, err := gtbgrpc.Register(ctx, "grpc", controller, cfg, logger.NewCharm(io.Discard),
+	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, cfg, logger.NewCharm(io.Discard),
 		gtbgrpc.WithConfigPrefix("server.internal"))
 	require.NoError(t, err)
 
@@ -47,7 +47,7 @@ func TestServerOptions_CustomPrefixWithTLS(t *testing.T) {
 		controller.Wait()
 	})
 
-	conn, err := gtbgrpc.DialLocal(cfg, gtbgrpc.WithConfigPrefix("server.internal"))
+	conn, err := gtbgrpc.DialLocalFromContainable(cfg, gtbgrpc.WithConfigPrefix("server.internal"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 

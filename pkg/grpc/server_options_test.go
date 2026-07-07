@@ -54,7 +54,7 @@ func TestNewServer_WithConfigPrefix_Reflection(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetBool("server.admin.reflection").Return(true)
 
-	srv, err := NewServer(cfg, WithConfigPrefix("server.admin"))
+	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 
 	services := srv.GetServiceInfo()
@@ -88,10 +88,10 @@ func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T
 	assert.True(t, got.Reflection)
 }
 
-func TestNewServerWithSettings_Reflection(t *testing.T) {
+func TestNewServer_WithSettingsReflection(t *testing.T) {
 	t.Parallel()
 
-	srv, err := NewServerWithSettings(ServerSettings{Reflection: true})
+	srv, err := NewServer(ServerSettings{Reflection: true})
 	require.NoError(t, err)
 
 	services := srv.GetServiceInfo()
@@ -114,7 +114,7 @@ func TestNewServer_AcceptsServerOptionAndGRPCOption(t *testing.T) {
 	cfg.EXPECT().GetBool("server.admin.reflection").Return(false)
 
 	// A ServerOption and a grpc.ServerOption can be mixed in the same call.
-	srv, err := NewServer(cfg, WithConfigPrefix("server.admin"), grpc.MaxConcurrentStreams(10))
+	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.admin"), grpc.MaxConcurrentStreams(10))
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 }
@@ -124,7 +124,7 @@ func TestNewServer_EmptyPrefix(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 
-	_, err := NewServer(cfg, WithConfigPrefix(""))
+	_, err := NewServerFromContainable(cfg, WithConfigPrefix(""))
 	require.Error(t, err)
 }
 
@@ -143,10 +143,10 @@ func TestStart_WithConfigPrefix(t *testing.T) {
 	cfg.EXPECT().IsSet("server.admin.tls.cert").Return(false).Maybe()
 	cfg.EXPECT().IsSet("server.admin.tls.key").Return(false).Maybe()
 
-	srv, err := NewServer(cfg, WithConfigPrefix("server.admin"))
+	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 
-	startFn := Start(cfg, testLogger(), srv, WithConfigPrefix("server.admin"))
+	startFn := StartFromContainable(cfg, testLogger(), srv, WithConfigPrefix("server.admin"))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 }
@@ -163,10 +163,10 @@ func TestStart_WithPort_BindsExplicitPort(t *testing.T) {
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	mockGRPCTLSDisabled(cfg)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
-	startFn := Start(cfg, testLogger(), srv, WithPort(port))
+	startFn := StartFromContainable(cfg, testLogger(), srv, WithPort(port))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 
@@ -188,10 +188,10 @@ func TestStart_InvalidPort(t *testing.T) {
 	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
 	mockGRPCTLSDisabled(cfg)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
-	startFn := Start(cfg, testLogger(), srv, WithPort(70000))
+	startFn := StartFromContainable(cfg, testLogger(), srv, WithPort(70000))
 	require.Error(t, startFn(context.Background()))
 }
 
@@ -206,10 +206,10 @@ func TestStart_LogsBoundEphemeralPort(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	mockGRPCTLSDisabled(cfg)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
-	startFn := Start(cfg, logger.NewCharm(&buf), srv)
+	startFn := StartFromContainable(cfg, logger.NewCharm(&buf), srv)
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 
@@ -231,7 +231,7 @@ func TestDialLocal_WithConfigPrefix(t *testing.T) {
 	cfg.EXPECT().IsSet("server.admin.tls.cert").Return(false).Maybe()
 	cfg.EXPECT().IsSet("server.admin.tls.key").Return(false).Maybe()
 
-	conn, err := DialLocal(cfg, WithConfigPrefix("server.admin"))
+	conn, err := DialLocalFromContainable(cfg, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	assert.Equal(t, "localhost:19090", conn.Target())
@@ -248,10 +248,10 @@ func TestStart_EmptyPrefixDefaultsToGRPC(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	mockGRPCTLSDisabled(cfg)
 
-	srv, err := NewServer(cfg)
+	srv, err := NewServerFromContainable(cfg)
 	require.NoError(t, err)
 
-	startFn := Start(cfg, testLogger(), srv, WithConfigPrefix(""))
+	startFn := StartFromContainable(cfg, testLogger(), srv, WithConfigPrefix(""))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 }
@@ -269,7 +269,7 @@ func TestDialLocal_DefaultPrefix(t *testing.T) {
 	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
 	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
-	conn, err := DialLocal(cfg)
+	conn, err := DialLocalFromContainable(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	assert.Equal(t, "localhost:18099", conn.Target())
@@ -292,7 +292,7 @@ func TestRegister_WithServerOption(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := Register(context.Background(), "admin-grpc", controller, cfg, testLogger(),
+	srv, err := RegisterFromContainable(context.Background(), "admin-grpc", controller, cfg, testLogger(),
 		WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, srv)

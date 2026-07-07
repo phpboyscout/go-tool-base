@@ -67,7 +67,7 @@ func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, inclu
 	return settings
 }
 
-// NewServer returns a new preconfigured grpc.Server.
+// NewServerFromContainable returns a new preconfigured grpc.Server from config.
 //
 // Default gRPC options applied (before caller-supplied opts):
 //   - grpc.MaxRecvMsgSize(DefaultMaxGRPCMessageBytes)
@@ -79,7 +79,7 @@ func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, inclu
 // The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix,
 // which selects the config block the reflection flag is read from) and
 // grpc.ServerOption values; other types are ignored.
-func NewServer(cfg config.Containable, opts ...any) (*grpc.Server, error) {
+func NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error) {
 	sc := defaultServerConfig()
 
 	var serverOpts []grpc.ServerOption
@@ -100,11 +100,11 @@ func NewServer(cfg config.Containable, opts ...any) (*grpc.Server, error) {
 	return newServer(serverSettingsFromConfig(cfg, sc.prefix, false, true), sc, serverOpts...)
 }
 
-// Start returns a curried function suitable for use with the controls package.
+// StartFromContainable returns a curried function suitable for use with the controls package.
 // With no options it reads its port and TLS from the default "server.grpc"
 // config block; pass WithConfigPrefix/WithPort to target a custom server.
 // TLS configuration cascades: <prefix>.tls.* overrides server.tls.* shared defaults.
-func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc {
+func StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -120,7 +120,7 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts 
 	return start(logger, srv, settings, tlsPair, sc, nil)
 }
 
-// DialLocal dials the gRPC server described by cfg over the loopback interface,
+// DialLocalFromContainable dials the gRPC server described by cfg over the loopback interface,
 // using transport security that matches the server's own TLS config
 // (server.grpc.tls -> server.tls). Intended for in-process callers such as the
 // grpc-gateway, so they connect to the local server without re-deriving the
@@ -128,7 +128,7 @@ func Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts 
 // The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix to
 // dial a non-default gRPC server) and grpc.DialOption values; other types are
 // ignored.
-func DialLocal(cfg config.Containable, opts ...any) (*grpc.ClientConn, error) {
+func DialLocalFromContainable(cfg config.Containable, opts ...any) (*grpc.ClientConn, error) {
 	sc := defaultServerConfig()
 
 	var dialOpts []grpc.DialOption
@@ -148,10 +148,11 @@ func DialLocal(cfg config.Containable, opts ...any) (*grpc.ClientConn, error) {
 	return dialLocal(settings, tlsPair, sc, dialOpts...)
 }
 
-// Register creates a new gRPC server and registers it with the controller under
-// the given id. The opts variadic accepts ServerOption values (port, prefix),
-// RegisterOption values (interceptors) and grpc.ServerOption values.
-func Register(_ context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error) {
+// RegisterFromContainable creates a new gRPC server from config and registers it
+// with the controller under the given id. The opts variadic accepts ServerOption
+// values (port, prefix), RegisterOption values (interceptors) and
+// grpc.ServerOption values.
+func RegisterFromContainable(_ context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error) {
 	sc := defaultServerConfig()
 
 	var rc registerConfig

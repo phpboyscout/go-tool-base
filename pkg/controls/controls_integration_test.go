@@ -76,7 +76,7 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
 	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
 
-	_, err = gtbgrpc.Register(ctx, "grpc", controller, grpcCfg, noop)
+	_, err = gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, noop)
 	require.NoError(t, err)
 
 	controller.Start()

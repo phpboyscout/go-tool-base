@@ -106,7 +106,7 @@ func resolvePort(settings ServerSettings, sc serverConfig) (int, error) {
 // grpc.MaxRecvMsgSize / grpc.MaxSendMsgSize options passed to NewServer.
 const DefaultMaxGRPCMessageBytes = 1 << 20 // 1 MiB
 
-// NewServerWithSettings returns a new preconfigured grpc.Server from explicit
+// NewServer returns a new preconfigured grpc.Server from explicit
 // typed settings.
 //
 // Default gRPC options applied (before caller-supplied opts):
@@ -119,7 +119,7 @@ const DefaultMaxGRPCMessageBytes = 1 << 20 // 1 MiB
 // The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix,
 // retained for compatibility with adapter call sites) and grpc.ServerOption
 // values; other types are ignored.
-func NewServerWithSettings(settings ServerSettings, opts ...any) (*grpc.Server, error) {
+func NewServer(settings ServerSettings, opts ...any) (*grpc.Server, error) {
 	sc := defaultServerConfig()
 
 	var serverOpts []grpc.ServerOption
@@ -215,9 +215,9 @@ func RegisterHealthService(srv *grpc.Server, controller healthSource) {
 	}()
 }
 
-// StartWithSettings returns a curried function suitable for use with the
+// Start returns a curried function suitable for use with the
 // controls package from explicit typed server and TLS settings.
-func StartWithSettings(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc {
+func Start(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -341,9 +341,9 @@ func TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, 
 	return credentials.NewTLS(tlsCfg), nil
 }
 
-// DialLocalWithSettings dials a local gRPC server using explicit typed server
+// DialLocal dials a local gRPC server using explicit typed server
 // and TLS settings.
-func DialLocalWithSettings(settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.ClientConn, error) {
+func DialLocal(settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.ClientConn, error) {
 	sc := defaultServerConfig()
 
 	var dialOpts []grpc.DialOption
@@ -477,9 +477,9 @@ func register(
 	return srv, nil
 }
 
-// RegisterWithSettings creates a new gRPC server from explicit typed settings
+// Register creates a new gRPC server from explicit typed settings
 // and registers it with the controller under the given id.
-func RegisterWithSettings(id string, controller controls.Controllable, logger logger.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error) {
+func Register(id string, controller controls.Controllable, logger logger.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error) {
 	sc := defaultServerConfig()
 
 	var rc registerConfig
