@@ -62,7 +62,7 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
 	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
-	_, err := gtbhttp.Register(ctx, "http", controller, httpCfg, noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, httpCfg, noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	// Register gRPC server.

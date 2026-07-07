@@ -29,7 +29,7 @@ func TestNew_ReturnsHandler(t *testing.T) {
 
 	var called bool
 
-	h, err := gateway.New(context.Background(), testCfg(),
+	h, err := gateway.NewFromContainable(context.Background(), testCfg(),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			called = true
 
@@ -44,7 +44,7 @@ func TestNew_ReturnsHandler(t *testing.T) {
 func TestNew_PropagatesRegisterError(t *testing.T) {
 	t.Parallel()
 
-	_, err := gateway.New(context.Background(), testCfg(),
+	_, err := gateway.NewFromContainable(context.Background(), testCfg(),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			return errors.New("boom")
 		})

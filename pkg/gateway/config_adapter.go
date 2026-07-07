@@ -30,7 +30,7 @@ func (o *options) dialOptions() []any {
 // The returned handler is a *runtime.ServeMux (or, with WithMiddleware, that mux
 // wrapped by the chain). The underlying gRPC connection lives for the process;
 // it is the standard pattern for an in-process gateway.
-func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
+func NewFromContainable(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
 	o := newOptions(opts)
 
 	conn, err := gtbgrpc.DialLocal(cfg, o.dialOptions()...)
@@ -53,7 +53,7 @@ func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opt
 // dialing the local gRPC server. It is the first-class form of New, a peer of
 // grpc.Register and http.Register. Pass WithMiddleware to wrap the REST surface
 // with a middleware chain (health endpoints stay outside it).
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
+func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
 	o := newOptions(opts)
 
 	conn, err := gtbgrpc.DialLocal(cfg, o.dialOptions()...)
@@ -73,7 +73,7 @@ func Register(ctx context.Context, id string, controller controls.Controllable, 
 		httpOpts = append(httpOpts, gtbhttp.WithMiddleware(o.middleware))
 	}
 
-	return gtbhttp.Register(ctx, id, controller, cfg, logger, handler, httpOpts...)
+	return gtbhttp.RegisterFromContainable(ctx, id, controller, cfg, logger, handler, httpOpts...)
 }
 
 // RegisterFromConfig runs the gateway with GTB config resolved into typed
@@ -98,7 +98,7 @@ func RegisterFromConfig(ctx context.Context, id string, controller controls.Cont
 		httpOpts = append(httpOpts, gtbhttp.WithMiddleware(o.middleware))
 	}
 
-	return gtbhttp.RegisterWithSettings(
+	return gtbhttp.Register(
 		ctx,
 		id,
 		controller,

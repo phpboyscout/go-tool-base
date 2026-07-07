@@ -70,7 +70,7 @@ func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, inclu
 // NewServer returns a new preconfigured http.Server. With no options it reads
 // from the default "server.http" config prefix; pass ServerOption values such
 // as WithConfigPrefix or WithPort to run multiple independent servers.
-func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error) {
+func NewServerFromContainable(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error) {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -90,7 +90,7 @@ func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler
 // Start returns a curried function suitable for use with the controls package.
 // With no options it reads TLS from the default "server.http" config prefix;
 // pass WithConfigPrefix to match a server constructed on a custom prefix.
-func Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc {
+func StartFromContainable(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -107,7 +107,7 @@ func Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts 
 // the given id. The opts variadic accepts both ServerOption values (port,
 // prefix, timeouts) and RegisterOption values (middleware, body limit) — other
 // types are ignored. This mirrors the pkg/grpc Register signature.
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
+func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
 	rc := registerConfig{
 		serverConfig:        defaultServerConfig(),
 		maxRequestBodyBytes: DefaultMaxRequestBodyBytes,

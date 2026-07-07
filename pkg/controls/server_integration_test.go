@@ -86,7 +86,7 @@ func TestHTTP_AllHealthEndpoints(t *testing.T) {
 
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(noop))
 
-	_, err := gtbhttp.Register(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -144,7 +144,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 		_, _ = fmt.Fprint(w, "ok")
 	})
 
-	_, err := gtbhttp.Register(ctx, "http", controller, newHTTPCfg(t, port), noop, mux,
+	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, mux,
 		gtbhttp.WithMiddleware(mw))
 	require.NoError(t, err)
 
@@ -194,7 +194,7 @@ func TestHTTP_CustomHealthCheck_AffectsEndpoints(t *testing.T) {
 
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(noop))
 
-	_, err := gtbhttp.Register(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	// Register a readiness check that starts unhealthy
@@ -345,7 +345,7 @@ func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
 		controls.WithLogger(noop),
 		controls.WithShutdownTimeout(5*time.Second))
 
-	_, err := gtbhttp.Register(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -391,7 +391,7 @@ func TestHTTP_AppHandlerServesRequests(t *testing.T) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	})
 
-	_, err := gtbhttp.Register(ctx, "http", controller, newHTTPCfg(t, port), noop, mux)
+	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, mux)
 	require.NoError(t, err)
 
 	controller.Start()

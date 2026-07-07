@@ -180,9 +180,9 @@ func WithServerTLSConfig(c *tls.Config) ServerOption {
 	}
 }
 
-// NewServerWithSettings returns a new preconfigured http.Server from explicit
+// NewServer returns a new preconfigured http.Server from explicit
 // typed settings.
-func NewServerWithSettings(ctx context.Context, settings ServerSettings, handler http.Handler, opts ...ServerOption) (*http.Server, error) {
+func NewServer(ctx context.Context, settings ServerSettings, handler http.Handler, opts ...ServerOption) (*http.Server, error) {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -464,9 +464,9 @@ func register(
 	return srv, nil
 }
 
-// RegisterWithSettings creates a new HTTP server from explicit typed settings
+// Register creates a new HTTP server from explicit typed settings
 // and registers it with the controller under the given id.
-func RegisterWithSettings(
+func Register(
 	ctx context.Context,
 	id string,
 	controller controls.Controllable,

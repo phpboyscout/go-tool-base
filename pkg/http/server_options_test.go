@@ -48,7 +48,7 @@ func TestNewServer_WithConfigPrefix(t *testing.T) {
 	cfg.EXPECT().GetInt("server.admin.port").Return(18081)
 	cfg.EXPECT().GetInt("server.admin.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix("server.admin"))
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	assert.Equal(t, ":18081", srv.Addr)
 }
@@ -71,10 +71,10 @@ func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T
 	assert.Equal(t, 4096, got.MaxHeaderBytes)
 }
 
-func TestNewServerWithSettings(t *testing.T) {
+func TestNewServer_WithSettings(t *testing.T) {
 	t.Parallel()
 
-	srv, err := NewServerWithSettings(context.Background(), ServerSettings{
+	srv, err := NewServer(context.Background(), ServerSettings{
 		Port:           18083,
 		MaxHeaderBytes: 8192,
 	}, http.DefaultServeMux)
@@ -91,7 +91,7 @@ func TestNewServer_WithPort_BypassesConfig(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithPort(9090))
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithPort(9090))
 	require.NoError(t, err)
 	assert.Equal(t, ":9090", srv.Addr)
 }
@@ -104,7 +104,7 @@ func TestNewServer_WithPort_OverridesConfiguredPort(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithPort(7000))
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithPort(7000))
 	require.NoError(t, err)
 	assert.Equal(t, ":7000", srv.Addr)
 }
@@ -118,10 +118,10 @@ func TestNewServer_TwoServers_DistinctAddr(t *testing.T) {
 	cfg.EXPECT().GetInt("server.admin.port").Return(9091)
 	cfg.EXPECT().GetInt("server.admin.max_header_bytes").Return(0)
 
-	pub, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	pub, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 
-	adm, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix("server.admin"))
+	adm, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 
 	assert.Equal(t, ":8080", pub.Addr)
@@ -136,7 +136,7 @@ func TestNewServer_WithMaxHeaderBytes_OverridesConfig(t *testing.T) {
 	cfg.EXPECT().GetInt("server.http.port").Return(0)
 	cfg.EXPECT().GetInt("server.port").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithMaxHeaderBytes(4096))
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithMaxHeaderBytes(4096))
 	require.NoError(t, err)
 	assert.Equal(t, 4096, srv.MaxHeaderBytes)
 }
@@ -149,7 +149,7 @@ func TestNewServer_WithTimeouts(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux,
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux,
 		WithReadTimeout(3*time.Second),
 		WithWriteTimeout(7*time.Second),
 		WithIdleTimeout(42*time.Second),
@@ -168,7 +168,7 @@ func TestNewServer_DefaultTimeoutsPreserved(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	assert.Equal(t, readTimeout, srv.ReadTimeout)
 	assert.Equal(t, writeTimeout, srv.WriteTimeout)
@@ -185,7 +185,7 @@ func TestNewServer_WithServerTLSConfig(t *testing.T) {
 
 	custom := &tls.Config{MinVersion: tls.VersionTLS13}
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithServerTLSConfig(custom))
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithServerTLSConfig(custom))
 	require.NoError(t, err)
 	assert.Same(t, custom, srv.TLSConfig)
 }
@@ -195,7 +195,7 @@ func TestNewServer_InvalidPort(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 
-	_, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithPort(70000))
+	_, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithPort(70000))
 	require.Error(t, err)
 }
 
@@ -204,7 +204,7 @@ func TestNewServer_EmptyPrefix(t *testing.T) {
 
 	cfg := mockConfig.NewMockContainable(t)
 
-	_, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix(""))
+	_, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix(""))
 	require.Error(t, err)
 }
 
@@ -225,7 +225,7 @@ func TestRegister_WithConfigPrefix_RoutesServerOption(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := Register(context.Background(), "admin", controller, cfg, testLogger(), http.DefaultServeMux,
+	srv, err := RegisterFromContainable(context.Background(), "admin", controller, cfg, testLogger(), http.DefaultServeMux,
 		WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, srv)
@@ -242,7 +242,7 @@ func TestStart_EmptyPrefixDefaultsToHTTP(t *testing.T) {
 	srv := &http.Server{Addr: ":0", Handler: http.NewServeMux()}
 
 	// An empty prefix falls back to the default "server.http" block.
-	startFn := Start(cfg, logger.NewCharm(&buf), srv, WithConfigPrefix(""))
+	startFn := StartFromContainable(cfg, logger.NewCharm(&buf), srv, WithConfigPrefix(""))
 	require.NoError(t, startFn(context.Background()))
 
 	t.Cleanup(func() {
@@ -270,7 +270,7 @@ func TestStart_LogsBoundEphemeralPort(t *testing.T) {
 		Handler: http.NewServeMux(),
 	}
 
-	startFn := Start(cfg, logger.NewCharm(&buf), srv)
+	startFn := StartFromContainable(cfg, logger.NewCharm(&buf), srv)
 	require.NoError(t, startFn(context.Background()))
 
 	t.Cleanup(func() {
@@ -306,7 +306,7 @@ func TestStart_WithConfigPrefix_ResolvesPrefixedTLS(t *testing.T) {
 
 	srv := &http.Server{Addr: ":0", Handler: http.NewServeMux()}
 
-	startFn := Start(cfg, logger.NewCharm(&buf), srv, WithConfigPrefix("server.gateway"))
+	startFn := StartFromContainable(cfg, logger.NewCharm(&buf), srv, WithConfigPrefix("server.gateway"))
 	require.NoError(t, startFn(context.Background()))
 
 	t.Cleanup(func() {

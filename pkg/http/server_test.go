@@ -115,7 +115,7 @@ func TestNewServer(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	require.NotNil(t, srv)
 
@@ -138,7 +138,7 @@ func TestNewServer_BaseContext(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(ctx, cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(ctx, cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	require.NotNil(t, srv.BaseContext)
 
@@ -154,7 +154,7 @@ func TestHTTPPortConfig_Specific(t *testing.T) {
 	cfg.EXPECT().GetInt("server.http.port").Return(19876)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	assert.Equal(t, ":19876", srv.Addr)
 }
@@ -167,7 +167,7 @@ func TestHTTPPortConfig_Fallback(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(19877)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	assert.Equal(t, ":19877", srv.Addr)
 }
@@ -180,7 +180,7 @@ func TestNewServer_MaxHeaderBytes_Configured(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(2048)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	require.NotNil(t, srv)
 
@@ -195,7 +195,7 @@ func TestHTTPServer_MaxHeaderBytes_Zero(t *testing.T) {
 	cfg.EXPECT().GetInt("server.port").Return(0)
 	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
 
-	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 	assert.Equal(t, 1<<20, srv.MaxHeaderBytes, "zero config value should default to 1MB")
 }
@@ -217,7 +217,7 @@ func TestHTTPServer_RejectsOversizedHeaders(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -266,7 +266,7 @@ func TestStart_HTTP(t *testing.T) {
 		Handler: mux,
 	}
 
-	startFn := Start(cfg, testLogger(), srv)
+	startFn := StartFromContainable(cfg, testLogger(), srv)
 
 	// Start in goroutine
 	errCh := make(chan error, 1)
@@ -332,7 +332,7 @@ func TestNewServer_BaseContextNotCancelledByParent(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	srv, err := NewServer(ctx, cfg, http.DefaultServeMux)
+	srv, err := NewServerFromContainable(ctx, cfg, http.DefaultServeMux)
 	require.NoError(t, err)
 
 	baseCtx := srv.BaseContext(nil)
@@ -415,7 +415,7 @@ func TestRegister(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := Register(context.Background(), "test-http", controller, cfg, testLogger(), http.DefaultServeMux)
+	_, err := RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.DefaultServeMux)
 	assert.NoError(t, err)
 }
 
@@ -462,7 +462,7 @@ func TestStart_TLSBadCertFailsSynchronously(t *testing.T) {
 	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
 	srv := &http.Server{Addr: ":0"}
-	startFn := Start(cfg, testLogger(), srv)
+	startFn := StartFromContainable(cfg, testLogger(), srv)
 
 	// A missing/invalid certificate must fail the start synchronously, not in
 	// a detached serve goroutine while the controller reports healthy.
@@ -494,7 +494,7 @@ func TestHealthz(t *testing.T) {
 		controls.WithStatus(func() error { return fmt.Errorf("failed") }),
 	)
 
-	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -536,7 +536,7 @@ func TestProbes(t *testing.T) {
 		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
 	)
 
-	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -594,7 +594,7 @@ func TestRegister_WithMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), mux,
+	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), mux,
 		WithMiddleware(chain),
 	)
 	require.NoError(t, err)
@@ -640,7 +640,7 @@ func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
 		})
 	})
 
-	_, err = Register(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux(),
+	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux(),
 		WithMiddleware(chain),
 	)
 	require.NoError(t, err)

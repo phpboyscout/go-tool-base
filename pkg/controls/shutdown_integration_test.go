@@ -112,7 +112,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
 	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
-	_, err = gtbhttp.Register(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	_, err = gtbhttp.RegisterFromContainable(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
 	require.NoError(t, err)
 
 	// --- Start the controller ---
@@ -248,7 +248,7 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
 	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
-	_, err = gtbhttp.Register(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	_, err = gtbhttp.RegisterFromContainable(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
 	require.NoError(t, err)
 
 	// --- Start the controller ---
@@ -369,7 +369,7 @@ func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
 	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
 	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
 
-	_, err = gtbhttp.Register(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	_, err = gtbhttp.RegisterFromContainable(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
 	require.NoError(t, err)
 
 	// Register a slow-starting service that delays startup completion.

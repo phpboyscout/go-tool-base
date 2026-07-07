@@ -81,7 +81,7 @@ func TestWithMuxOptions(t *testing.T) {
 		},
 	))
 
-	h, err := gateway.New(context.Background(), testCfg(), noopRegister, opt)
+	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister, opt)
 	require.NoError(t, err)
 	require.NotNil(t, h)
 
@@ -99,7 +99,7 @@ func TestWithMuxOptions(t *testing.T) {
 func TestWithDialOptions(t *testing.T) {
 	t.Parallel()
 
-	h, err := gateway.New(context.Background(), testCfg(), noopRegister,
+	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
 		gateway.WithDialOptions(grpc.WithUserAgent("gtb-gateway-test")),
 	)
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestWithMiddleware_New(t *testing.T) {
 
 	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	h, err := gateway.New(context.Background(), testCfg(), noopRegister, gateway.WithMiddleware(chain))
+	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister, gateway.WithMiddleware(chain))
 	require.NoError(t, err)
 	require.NotNil(t, h)
 
@@ -135,7 +135,7 @@ func TestWithMiddleware_Register(t *testing.T) {
 
 	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, cfg,
+	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
 		logger.NewNoop(), noopRegister, gateway.WithMiddleware(chain))
 	require.NoError(t, err)
 
@@ -177,7 +177,7 @@ func TestNew_DialLocalError(t *testing.T) {
 	c.Set("server.grpc.tls.enabled", true)
 	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
 
-	_, err := gateway.New(context.Background(), c, noopRegister)
+	_, err := gateway.NewFromContainable(context.Background(), c, noopRegister)
 	require.Error(t, err)
 }
 
@@ -194,7 +194,7 @@ func TestRegister(t *testing.T) {
 
 	var registerCalled bool
 
-	srv, err := gateway.Register(context.Background(), "test-gateway", controller, cfg,
+	srv, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
 		logger.NewNoop(),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			registerCalled = true
@@ -235,7 +235,7 @@ func TestRegister_ServesGatewayMux(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, cfg,
+	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
 		logger.NewNoop(), noopRegister)
 	require.NoError(t, err)
 
@@ -269,7 +269,7 @@ func TestRegister_PropagatesNewError(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, c,
+	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, c,
 		logger.NewNoop(), noopRegister)
 	require.Error(t, err)
 }
@@ -283,7 +283,7 @@ func TestRegister_PropagatesRegisterError(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, cfg,
+	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
 		logger.NewNoop(),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			return errors.New("register boom")

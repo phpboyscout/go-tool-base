@@ -103,18 +103,18 @@ func newWithOptions(ctx context.Context, conn *grpc.ClientConn, register Registe
 	return handler, nil
 }
 
-// NewWithConn builds a grpc-gateway handler from an already prepared gRPC
+// New builds a grpc-gateway handler from an already prepared gRPC
 // client connection.
-func NewWithConn(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, opts ...Option) (http.Handler, error) {
+func New(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, opts ...Option) (http.Handler, error) {
 	o := newOptions(opts)
 
 	return newWithOptions(ctx, conn, register, o)
 }
 
-// RegisterWithSettings runs the gateway as its own controller-managed HTTP
+// Register runs the gateway as its own controller-managed HTTP
 // server from explicit typed HTTP settings and a prepared gRPC client
 // connection.
-func RegisterWithSettings(
+func Register(
 	ctx context.Context,
 	id string,
 	controller controls.Controllable,
@@ -137,5 +137,5 @@ func RegisterWithSettings(
 		httpOpts = append(httpOpts, gtbhttp.WithMiddleware(o.middleware))
 	}
 
-	return gtbhttp.RegisterWithSettings(ctx, id, controller, logger, handler, httpSettings, httpTLS, httpOpts...)
+	return gtbhttp.Register(ctx, id, controller, logger, handler, httpSettings, httpTLS, httpOpts...)
 }

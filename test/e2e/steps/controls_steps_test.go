@@ -154,7 +154,7 @@ func anHTTPServerRegistered(ctx context.Context) (context.Context, error) {
 	cfg := newHTTPMockConfig(port)
 	mux := http.NewServeMux()
 
-	_, err = gtbhttp.Register(w.Ctx, "http", w.Controller, cfg, w.Logger, mux)
+	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http", w.Controller, cfg, w.Logger, mux)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register HTTP server: %w", err)
 	}
@@ -186,7 +186,7 @@ func anHTTPServerWithRateLimiter(ctx context.Context, rps int) (context.Context,
 		Burst:             rps,
 	}))
 
-	_, err = gtbhttp.Register(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, gtbhttp.WithMiddleware(chain))
+	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, gtbhttp.WithMiddleware(chain))
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register rate-limited HTTP server: %w", err)
 	}
@@ -284,7 +284,7 @@ func theHTTPServerHasSlowHandler(ctx context.Context, path string, seconds int) 
 	})
 
 	cfg := newHTTPMockConfig(port)
-	_, err = gtbhttp.Register(w.Ctx, "http-slow", w.Controller, cfg, w.Logger, mux)
+	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http-slow", w.Controller, cfg, w.Logger, mux)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register slow HTTP server: %w", err)
 	}
