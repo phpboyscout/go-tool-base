@@ -23,6 +23,38 @@ func cfgFromYAML(t *testing.T, yaml string) config.Containable {
 	)
 }
 
+func prefixedCfgFromYAML(t *testing.T, prefix, yaml string) config.Containable {
+	t.Helper()
+
+	return config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithEnvPrefix(prefix),
+		config.WithConfigReaders(strings.NewReader(yaml)),
+	)
+}
+
+func TestMergeRateLimitConfig(t *testing.T) {
+	t.Parallel()
+
+	base := DefaultRateLimitConfig()
+	override := RateLimitConfig{
+		RequestsPerSecond: 12,
+		Burst:             34,
+		MaxTrackedKeys:    56,
+	}
+
+	got := MergeRateLimitConfig(base, override, RateLimitConfigOverrides{
+		RequestsPerSecond: true,
+		MaxTrackedKeys:    true,
+	})
+
+	assert.InDelta(t, 12.0, got.RequestsPerSecond, 0)
+	assert.Equal(t, base.Burst, got.Burst)
+	assert.Equal(t, 56, got.MaxTrackedKeys)
+}
+
 func TestRateLimitConfigFromConfig_ReadsValues(t *testing.T) {
 	t.Parallel()
 
@@ -35,12 +67,45 @@ func TestRateLimitConfigFromConfig_ReadsValues(t *testing.T) {
 	assert.Equal(t, 512, got.MaxTrackedKeys)
 }
 
+func TestRateLimitConfigFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_SERVER_GRPC_RATELIMIT_REQUESTS_PER_SECOND", "25")
+	t.Setenv("GTB_SERVER_GRPC_RATELIMIT_MAX_TRACKED_KEYS", "1024")
+
+	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  grpc:\n    ratelimit:\n      requests_per_second: 12\n      burst: 24\n      max_tracked_keys: 512\n")
+
+	got := RateLimitConfigFromConfig(cfg, "")
+
+	assert.InDelta(t, 25.0, got.RequestsPerSecond, 0)
+	assert.Equal(t, 24, got.Burst)
+	assert.Equal(t, 1024, got.MaxTrackedKeys)
+}
+
 func TestRateLimitConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "name: x\n")
 
 	assert.Equal(t, DefaultRateLimitConfig(), RateLimitConfigFromConfig(cfg, "server.grpc"))
+}
+
+func TestMergeCircuitBreakerConfig(t *testing.T) {
+	t.Parallel()
+
+	base := DefaultCircuitBreakerConfig()
+	override := CircuitBreakerConfig{
+		FailureThreshold:    4,
+		Cooldown:            5 * time.Second,
+		HalfOpenMaxRequests: 2,
+	}
+
+	got := MergeCircuitBreakerConfig(base, override, CircuitBreakerConfigOverrides{
+		FailureThreshold: true,
+		Cooldown:         true,
+	})
+
+	assert.Equal(t, 4, got.FailureThreshold)
+	assert.Equal(t, 5*time.Second, got.Cooldown)
+	assert.Equal(t, base.HalfOpenMaxRequests, got.HalfOpenMaxRequests)
 }
 
 func TestCircuitBreakerConfigFromConfig_ReadsValues(t *testing.T) {
@@ -53,6 +118,19 @@ func TestCircuitBreakerConfigFromConfig_ReadsValues(t *testing.T) {
 	assert.Equal(t, 4, got.FailureThreshold)
 	assert.Equal(t, 5*time.Second, got.Cooldown)
 	assert.Equal(t, 2, got.HalfOpenMaxRequests)
+}
+
+func TestCircuitBreakerConfigFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_SERVER_GRPC_CIRCUITBREAKER_COOLDOWN", "45s")
+	t.Setenv("GTB_SERVER_GRPC_CIRCUITBREAKER_HALF_OPEN_MAX_REQUESTS", "9")
+
+	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  grpc:\n    circuitbreaker:\n      failure_threshold: 4\n      cooldown: 5s\n      half_open_max_requests: 2\n")
+
+	got := CircuitBreakerConfigFromConfig(cfg, "")
+
+	assert.Equal(t, 4, got.FailureThreshold)
+	assert.Equal(t, 45*time.Second, got.Cooldown)
+	assert.Equal(t, 9, got.HalfOpenMaxRequests)
 }
 
 func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {

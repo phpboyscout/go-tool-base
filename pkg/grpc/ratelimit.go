@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/ratelimit"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -23,18 +22,26 @@ const (
 // ingress, mirroring the HTTP server limiter.
 type RateLimitConfig struct {
 	// RequestsPerSecond is the sustained fill rate. Must be > 0. Default: 50.
-	RequestsPerSecond float64
+	RequestsPerSecond float64 `mapstructure:"requests_per_second" yaml:"requests_per_second" json:"requests_per_second"`
 	// Burst is the bucket capacity. Must be >= 1. Default: 100.
-	Burst int
+	Burst int `mapstructure:"burst" yaml:"burst" json:"burst"`
 	// MaxTrackedKeys bounds the per-key bucket store (ignored when KeyFunc is
 	// nil). Must be >= 1. Default: 8192.
-	MaxTrackedKeys int
+	MaxTrackedKeys int `mapstructure:"max_tracked_keys" yaml:"max_tracked_keys" json:"max_tracked_keys"`
 	// KeyFunc derives the limiter key from the RPC context and full method name,
 	// enabling per-client or per-method limiting. When nil, a single global
 	// bucket is used. See PeerKey.
-	KeyFunc func(ctx context.Context, fullMethod string) string
+	KeyFunc func(ctx context.Context, fullMethod string) string `mapstructure:"-" yaml:"-" json:"-"`
 	// OnLimited is invoked when an RPC is rejected. Optional.
-	OnLimited func(ctx context.Context, fullMethod string)
+	OnLimited func(ctx context.Context, fullMethod string) `mapstructure:"-" yaml:"-" json:"-"`
+}
+
+// RateLimitConfigOverrides records which typed rate limit config fields were
+// explicitly supplied by an adapter.
+type RateLimitConfigOverrides struct {
+	RequestsPerSecond bool
+	Burst             bool
+	MaxTrackedKeys    bool
 }
 
 // DefaultRateLimitConfig returns a limiter suitable for a modest management
@@ -47,32 +54,22 @@ func DefaultRateLimitConfig() RateLimitConfig {
 	}
 }
 
-// RateLimitConfigFromConfig builds a RateLimitConfig from the config layer under
-// "<prefix>.ratelimit.*" (prefix defaults to "server.grpc"), mirroring the HTTP
-// helper. Recognised keys: requests_per_second (float), burst (int),
-// max_tracked_keys (int). Unset keys keep their defaults; KeyFunc/OnLimited are
-// never read from config.
-func RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig {
-	if prefix == "" {
-		prefix = DefaultConfigPrefix
+// MergeRateLimitConfig applies explicitly supplied typed override values to
+// base while leaving code-only function fields under caller control.
+func MergeRateLimitConfig(base, override RateLimitConfig, fields RateLimitConfigOverrides) RateLimitConfig {
+	if fields.RequestsPerSecond {
+		base.RequestsPerSecond = override.RequestsPerSecond
 	}
 
-	base := prefix + ".ratelimit"
-	c := DefaultRateLimitConfig()
-
-	if cfg.IsSet(base + ".requests_per_second") {
-		c.RequestsPerSecond = cfg.GetFloat(base + ".requests_per_second")
+	if fields.Burst {
+		base.Burst = override.Burst
 	}
 
-	if cfg.IsSet(base + ".burst") {
-		c.Burst = cfg.GetInt(base + ".burst")
+	if fields.MaxTrackedKeys {
+		base.MaxTrackedKeys = override.MaxTrackedKeys
 	}
 
-	if cfg.IsSet(base + ".max_tracked_keys") {
-		c.MaxTrackedKeys = cfg.GetInt(base + ".max_tracked_keys")
-	}
-
-	return c
+	return base
 }
 
 func (c RateLimitConfig) normalized() RateLimitConfig {
