@@ -47,7 +47,7 @@ func geminiUsage(m *genai.GenerateContentResponseUsageMetadata) Usage {
 
 // newGemini initializes a new Gemini chat client.
 func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	token := getGeminiToken(ctx, p, cfg)
+	token := getGeminiToken(ctx, cfg)
 	if token == "" {
 		return nil, errors.New("Gemini API key is required but not provided")
 	}
@@ -94,14 +94,11 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	return g, nil
 }
 
-func getGeminiToken(ctx context.Context, p props.ConfigProvider, cfg Config) string {
+func getGeminiToken(ctx context.Context, cfg Config) string {
 	return resolveAPIKey(
 		ctx,
 		cfg.Token,
-		p.GetConfig(),
-		ConfigKeyGeminiEnv,
-		ConfigKeyGeminiKeychain,
-		ConfigKeyGeminiKey,
+		cfg.Credentials,
 		EnvGeminiKey,
 	)
 }

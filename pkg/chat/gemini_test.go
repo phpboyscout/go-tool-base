@@ -326,8 +326,8 @@ func TestGeminiProvider_Chat(t *testing.T) {
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
 		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiEnv).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKeychain).Return("").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),

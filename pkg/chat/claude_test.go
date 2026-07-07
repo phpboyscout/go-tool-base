@@ -371,8 +371,8 @@ func TestClaudeProvider_Chat(t *testing.T) {
 
 		maxStepsCfgMock := mockConfig.NewMockContainable(t)
 		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
+		maxStepsCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		maxStepsProps := &props.Props{
 			Logger: logger.NewNoop(),
@@ -441,8 +441,8 @@ func TestClaudeProvider_Chat(t *testing.T) {
 
 		multiCfgMock := mockConfig.NewMockContainable(t)
 		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeEnv).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
-		cfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
+		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKeychain).Return("").Maybe()
+		multiCfgMock.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("test-key").Maybe()
 
 		multiProps := &props.Props{
 			Logger: logger.NewNoop(),

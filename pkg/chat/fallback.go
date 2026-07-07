@@ -171,27 +171,49 @@ func logDroppedProvider(p *props.Props, cfg Config) {
 // it is byte-for-byte [New]. Per the resolved OQ-3, ai.fallback.providers[0]
 // is the primary and overrides ai.provider (with a WARN on disagreement).
 func NewWithFallback(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	if p == nil || p.Config == nil || !p.Config.GetBool(ConfigKeyAIFallbackEnabled) {
+	if err := applyRuntimeConfig(p, &cfg); err != nil {
+		return nil, err
+	}
+
+	fallback, err := fallbackConfigFromProps(p)
+	if err != nil {
+		return nil, err
+	}
+
+	if !fallback.Enabled || len(fallback.Providers) == 0 {
 		return New(ctx, p, cfg)
 	}
 
-	providers := p.Config.GetViper().GetStringSlice(ConfigKeyAIFallbackProviders)
-	if len(providers) == 0 {
-		return New(ctx, p, cfg)
+	warnFallbackPrimaryOverride(p, cfg, fallback.Providers[0])
+
+	return NewFallbackFromConfigs(ctx, p, fallbackProviderConfigs(cfg, fallback.Providers))
+}
+
+func fallbackConfigFromProps(p *props.Props) (FallbackConfig, error) {
+	if p == nil || p.Config == nil {
+		return FallbackConfig{}, nil
 	}
 
-	if cfg.Provider != "" && string(cfg.Provider) != providers[0] && p.Logger != nil {
-		p.Logger.Warn("ai.fallback.providers[0] overrides ai.provider",
-			"ai_provider", string(cfg.Provider),
-			"fallback_primary", providers[0])
+	return loadFallbackConfig(p.Config)
+}
+
+func warnFallbackPrimaryOverride(p *props.Props, cfg Config, primary Provider) {
+	if p == nil || cfg.Provider == "" || cfg.Provider == primary || p.Logger == nil {
+		return
 	}
 
+	p.Logger.Warn("ai.fallback.providers[0] overrides ai.provider",
+		"ai_provider", string(cfg.Provider),
+		"fallback_primary", string(primary))
+}
+
+func fallbackProviderConfigs(base Config, providers []Provider) []Config {
 	cfgs := make([]Config, 0, len(providers))
 	for _, name := range providers {
-		cfgs = append(cfgs, perProviderConfig(cfg, Provider(name)))
+		cfgs = append(cfgs, perProviderConfig(base, name))
 	}
 
-	return NewFallbackFromConfigs(ctx, p, cfgs)
+	return cfgs
 }
 
 // perProviderConfig clones base for a specific provider, clearing the

@@ -135,6 +135,9 @@ type Config struct {
 	Model string
 	// Token is the API key or token for the service.
 	Token string
+	// Credentials carries provider-specific credential config resolved by the
+	// host application. Token still wins when both are set.
+	Credentials CredentialConfig `json:"-"`
 	// BaseURL overrides the API endpoint. Required when using ProviderOpenAICompatible.
 	// Example: "http://localhost:11434/v1" for Ollama, "https://api.groq.com/openai/v1" for Groq.
 	BaseURL string
@@ -220,38 +223,23 @@ func RegisterProvider(name Provider, factory ProviderFactory) {
 
 // New creates a ChatClient for the configured provider.
 func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	if cfg.Provider == "" {
-		if cfgProvider := p.Config.GetString(ConfigKeyAIProvider); cfgProvider != "" {
-			cfg.Provider = Provider(cfgProvider)
-			p.Logger.Debugf("Provider not specified in config, using %s=%s", ConfigKeyAIProvider, cfg.Provider)
-		} else if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
-			cfg.Provider = Provider(envProvider)
-			p.Logger.Debugf("Provider not specified in config, using environment variable %s=%s", EnvAIProvider, cfg.Provider)
-		} else {
-			cfg.Provider = ProviderClaude // default provider
-			p.Logger.Debugf("No provider specified, defaulting to %s", cfg.Provider)
-		}
-	}
-
-	// M-3 from the 2026-04-17 security audit: validate the provider
-	// endpoint before any credentials hit the wire. See pkg/chat/baseurl.go.
-	if err := ValidateBaseURL(cfg.BaseURL, cfg.AllowInsecureBaseURL); err != nil {
+	if err := applyRuntimeConfig(p, &cfg); err != nil {
 		return nil, err
 	}
 
-	if cfg.Provider == ProviderOpenAICompatible && cfg.BaseURL == "" {
-		return nil, errors.WithHint(ErrInvalidBaseURL,
-			"ProviderOpenAICompatible requires Config.BaseURL to be set")
+	applyDefaultProvider(p, &cfg)
+
+	if err := applyCredentialConfig(p, &cfg); err != nil {
+		return nil, err
 	}
 
-	registryMu.RLock()
+	if err := validateProviderConfig(cfg); err != nil {
+		return nil, err
+	}
 
-	factory, ok := providerRegistry[cfg.Provider]
-
-	registryMu.RUnlock()
-
-	if !ok {
-		return nil, errors.Newf("unsupported provider: %s", cfg.Provider)
+	factory, err := lookupProviderFactory(cfg.Provider)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := factory(ctx, p, cfg)
@@ -259,6 +247,57 @@ func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 		return nil, err
 	}
 
+	logProviderEndpoint(p, cfg)
+
+	return client, nil
+}
+
+func applyDefaultProvider(p *props.Props, cfg *Config) {
+	if cfg.Provider != "" {
+		return
+	}
+
+	if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
+		cfg.Provider = Provider(envProvider)
+		p.Logger.Debugf("Provider not specified in config, using environment variable %s=%s", EnvAIProvider, cfg.Provider)
+
+		return
+	}
+
+	cfg.Provider = ProviderClaude
+	p.Logger.Debugf("No provider specified, defaulting to %s", cfg.Provider)
+}
+
+func validateProviderConfig(cfg Config) error {
+	// M-3 from the 2026-04-17 security audit: validate the provider
+	// endpoint before any credentials hit the wire. See pkg/chat/baseurl.go.
+	if err := ValidateBaseURL(cfg.BaseURL, cfg.AllowInsecureBaseURL); err != nil {
+		return err
+	}
+
+	if cfg.Provider == ProviderOpenAICompatible && cfg.BaseURL == "" {
+		return errors.WithHint(ErrInvalidBaseURL,
+			"ProviderOpenAICompatible requires Config.BaseURL to be set")
+	}
+
+	return nil
+}
+
+func lookupProviderFactory(provider Provider) (ProviderFactory, error) {
+	registryMu.RLock()
+
+	factory, ok := providerRegistry[provider]
+
+	registryMu.RUnlock()
+
+	if !ok {
+		return nil, errors.Newf("unsupported provider: %s", provider)
+	}
+
+	return factory, nil
+}
+
+func logProviderEndpoint(p *props.Props, cfg Config) {
 	// Audit-log the endpoint host (never the full URL) so operators can
 	// see which host each tool instance targets. Hostname only — the
 	// path/query may carry provider-specific identifiers.
@@ -270,6 +309,4 @@ func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 		p.Logger.Info("chat provider initialised",
 			"provider", string(cfg.Provider))
 	}
-
-	return client, nil
 }

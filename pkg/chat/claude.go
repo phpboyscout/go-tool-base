@@ -61,10 +61,7 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	token := resolveAPIKey(
 		ctx,
 		cfg.Token,
-		p.Config,
-		ConfigKeyClaudeEnv,
-		ConfigKeyClaudeKeychain,
-		ConfigKeyClaudeKey,
+		cfg.Credentials,
 		EnvClaudeKey,
 	)
 	if token == "" {

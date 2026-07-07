@@ -39,7 +39,6 @@ import (
 	"os"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
@@ -49,25 +48,22 @@ import (
 // priority.
 //
 // direct is the caller-supplied value (typically Config.Token); pass
-// "" to skip it. cfg is the loaded config; pass nil to skip the
-// config-lookup steps. envKey/keychainKey/literalKey identify the
-// provider-specific config paths (e.g. ConfigKeyClaude{Env,Keychain,Key}).
+// "" to skip it. credential is the already-adapted provider config, owned by
+// this package rather than the host application's config system.
 // envFallback is the well-known unprefixed environment variable
 // name for the provider (e.g. EnvClaudeKey).
 func resolveAPIKey(
 	ctx context.Context,
 	direct string,
-	cfg config.Containable,
-	envKey, keychainKey, literalKey, envFallback string,
+	credential CredentialConfig,
+	envFallback string,
 ) string {
 	if v := strings.TrimSpace(direct); v != "" {
 		return v
 	}
 
-	if cfg != nil {
-		if v := resolveFromConfig(ctx, cfg, envKey, keychainKey, literalKey); v != "" {
-			return v
-		}
+	if v := resolveFromCredentialConfig(ctx, credential); v != "" {
+		return v
 	}
 
 	if envFallback != "" {
@@ -79,23 +75,23 @@ func resolveAPIKey(
 	return ""
 }
 
-// resolveFromConfig walks the three config-based resolution steps.
+// resolveFromCredentialConfig walks the three config-based resolution steps.
 // Extracted from resolveAPIKey to keep the top-level function under
 // the cyclomatic-complexity budget now that keychain adds a step.
-func resolveFromConfig(ctx context.Context, cfg config.Containable, envKey, keychainKey, literalKey string) string {
-	if name := strings.TrimSpace(cfg.GetString(envKey)); name != "" {
+func resolveFromCredentialConfig(ctx context.Context, credential CredentialConfig) string {
+	if name := strings.TrimSpace(credential.Env); name != "" {
 		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
 			return v
 		}
 	}
 
-	if ref := strings.TrimSpace(cfg.GetString(keychainKey)); ref != "" {
+	if ref := strings.TrimSpace(credential.Keychain); ref != "" {
 		if v := retrieveFromKeychainRef(ctx, ref); v != "" {
 			return v
 		}
 	}
 
-	return strings.TrimSpace(cfg.GetString(literalKey))
+	return strings.TrimSpace(credential.Key)
 }
 
 // retrieveFromKeychainRef fetches a secret named by a

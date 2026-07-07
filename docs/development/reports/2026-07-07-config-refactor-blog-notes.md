@@ -48,6 +48,10 @@ Add dated notes here as the work progresses:
 - 2026-07-07: Commit and MR text for this work must follow the repository
   release constraints: no assistant attribution in forge-facing metadata, and no
   conventional-commit breaking syntax while GTB remains on the v0 release line.
+- 2026-07-07: Applied the pattern first to `pkg/chat`: `chat.New` became the
+  GTB adapter that loads runtime, fallback, and credential sections into
+  package-owned structs. Provider constructors now receive typed credential data
+  rather than reading `config.Containable` directly.
 
 ## Questions For Matt Before Drafting
 

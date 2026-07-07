@@ -12,7 +12,6 @@ import (
 	"github.com/openai/openai-go/v3/option"
 	"github.com/tiktoken-go/tokenizer"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -30,7 +29,6 @@ type OpenAI struct {
 	oai    openai.Client
 	params openai.ChatCompletionNewParams
 	logger logger.Logger
-	config config.Containable
 	cfg    Config
 	tools  map[string]Tool
 }
@@ -61,7 +59,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 		return nil, errors.New("Model is required for ProviderOpenAICompatible: specify the model name for your backend (e.g. \"llama3.2\" for Ollama)")
 	}
 
-	token, err := getOpenAICredentials(ctx, cfg.Token, props.Config)
+	token, err := getOpenAICredentials(ctx, cfg.Token, cfg.Credentials)
 	if err != nil {
 		return nil, errors.Newf("failed to get OpenAI credentials: %w", err)
 	}
@@ -125,7 +123,6 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 	}
 
 	c := &OpenAI{
-		config: props.Config,
 		logger: props.Logger,
 		oai:    client,
 		cfg:    cfg,
@@ -242,14 +239,11 @@ func (a *OpenAI) Ask(ctx context.Context, question string, target any, media ...
 	return nil
 }
 
-func getOpenAICredentials(ctx context.Context, token string, cfg config.Containable) (string, error) {
+func getOpenAICredentials(ctx context.Context, token string, credentials CredentialConfig) (string, error) {
 	if resolved := resolveAPIKey(
 		ctx,
 		token,
-		cfg,
-		ConfigKeyOpenAIEnv,
-		ConfigKeyOpenAIKeychain,
-		ConfigKeyOpenAIKey,
+		credentials,
 		EnvOpenAIKey,
 	); resolved != "" {
 		return resolved, nil
