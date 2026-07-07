@@ -36,7 +36,9 @@ var GitHubHost = "github.com"
 func defaultGitHubClientFactory(cfg config.Containable) (githubvcs.GitHubClient, error) {
 	// SSH key management targets github.com (or the Enterprise host
 	// carried in cfg.url.api); release-source host is not relevant here.
-	return githubvcs.NewGitHubClient(release.ReleaseSourceConfig{}, rootvcs.ConfigFromContainable(cfg))
+	return githubvcs.NewGitHubClient(
+		githubvcs.ClientSettingsFromConfig(release.ReleaseSourceConfig{}, rootvcs.ConfigFromContainable(cfg)),
+	)
 }
 
 type configureSSHKeyConfig struct {

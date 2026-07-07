@@ -15,29 +15,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
-
-var apiConfigGithub = `
-url:
-  api: %s
-  upload: %s
-auth:
-  env: GITHUB_TOKEN
-  value: mock-token
-`
 
 // setupMockGitHubServer creates a mock HTTP server and returns a client configured to use it.
 func setupMockGitHubServer(t *testing.T, handler http.HandlerFunc) (*httptest.Server, *GHClient) {
 	server := httptest.NewServer(handler)
 
-	cfg := fmt.Sprintf(apiConfigGithub, server.URL, server.URL)
-
-	// Configure container with mock server URL
-	containable := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(cfg)))
-
-	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, containable)
+	client, err := NewGitHubClient(ClientSettings{
+		APIURL:    server.URL,
+		UploadURL: server.URL,
+		Auth:      vcs.AuthConfig{Value: "mock-token"},
+	})
 	require.NoError(t, err)
 
 	return server, client
@@ -361,12 +350,7 @@ func TestGetFileContents_Error(t *testing.T) {
 func TestGetGitHubToken_Present(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token-abc")
 
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
-auth:
-  env: GITHUB_TOKEN
-`)))
-
-	token, err := GetGitHubToken(cfg)
+	token, err := GetGitHubToken(vcs.AuthConfig{Env: "GITHUB_TOKEN"})
 	require.NoError(t, err)
 	assert.Equal(t, "test-token-abc", token)
 }
@@ -374,11 +358,7 @@ auth:
 func TestGetGitHubToken_Missing(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
-	cfg := config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(`
-auth: {}
-`)))
-
-	_, err := GetGitHubToken(cfg)
+	_, err := GetGitHubToken(vcs.AuthConfig{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GITHUB_TOKEN")
 }
@@ -386,10 +366,10 @@ auth: {}
 func TestNewGitHubClient_ConfiglessPublic(t *testing.T) {
 	t.Parallel()
 
-	// Config-less: a public repo needs no github config section. An empty
-	// ReleaseSource + nil config must yield a working public github.com
+	// Config-less: a public repo needs no github config section. Empty
+	// settings must yield a working public github.com
 	// client (token resolved from GITHUB_TOKEN env only).
-	client, err := NewGitHubClient(release.ReleaseSourceConfig{}, nil)
+	client, err := NewGitHubClient(ClientSettings{})
 	require.NoError(t, err)
 	assert.NotNil(t, client)
 }

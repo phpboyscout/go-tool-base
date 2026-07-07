@@ -1,13 +1,10 @@
 package github
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -41,58 +38,45 @@ func TestDeriveUploadURL(t *testing.T) {
 	}
 }
 
-func subFromYAML(t *testing.T, yaml string) config.Containable {
-	t.Helper()
-
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
-
-	return cfg.Sub("github")
-}
-
 func TestEnterpriseURLs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name             string
-		src              release.ReleaseSourceConfig
-		cfgYAML          string
+		settings         ClientSettings
 		wantAPIURL       string
 		wantUploadURL    string
 		wantNoEnterprise bool
 	}{
 		{
 			name:             "public github.com uses defaults",
-			src:              release.ReleaseSourceConfig{Host: "github.com"},
+			settings:         ClientSettings{ReleaseSource: release.ReleaseSourceConfig{Host: "github.com"}},
 			wantNoEnterprise: true,
 		},
 		{
 			name:             "empty host uses defaults",
-			src:              release.ReleaseSourceConfig{},
 			wantNoEnterprise: true,
 		},
 		{
-			name:          "host-derived enterprise URLs",
-			src:           release.ReleaseSourceConfig{Host: "ghe.example.com"},
+			name: "host-derived enterprise URLs",
+			settings: ClientSettings{
+				ReleaseSource: release.ReleaseSourceConfig{Host: "ghe.example.com"},
+			},
 			wantAPIURL:    "https://ghe.example.com/api/v3/",
 			wantUploadURL: "https://ghe.example.com/api/uploads/",
 		},
 		{
-			name: "config api override derives upload when unset",
-			src:  release.ReleaseSourceConfig{},
-			cfgYAML: "github:\n  url:\n    api: https://ghe.example.com/api/v3/\n" +
-				"  placeholder: x\n",
+			name:          "settings api override derives upload when unset",
+			settings:      ClientSettings{APIURL: "https://ghe.example.com/api/v3/"},
 			wantAPIURL:    "https://ghe.example.com/api/v3/",
 			wantUploadURL: "https://ghe.example.com/api/uploads/",
 		},
 		{
-			name: "config api and upload both honoured",
-			src:  release.ReleaseSourceConfig{},
-			cfgYAML: "github:\n  url:\n    api: https://ghe.example.com/api/v3/\n" +
-				"    upload: https://uploads.ghe.example.com/\n",
+			name: "settings api and upload both honoured",
+			settings: ClientSettings{
+				APIURL:    "https://ghe.example.com/api/v3/",
+				UploadURL: "https://uploads.ghe.example.com/",
+			},
 			wantAPIURL:    "https://ghe.example.com/api/v3/",
 			wantUploadURL: "https://uploads.ghe.example.com/",
 		},
@@ -102,12 +86,7 @@ func TestEnterpriseURLs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			var cfg config.Containable
-			if tt.cfgYAML != "" {
-				cfg = subFromYAML(t, tt.cfgYAML)
-			}
-
-			apiURL, uploadURL := enterpriseURLs(tt.src, cfg)
+			apiURL, uploadURL := enterpriseURLs(tt.settings)
 
 			if tt.wantNoEnterprise {
 				assert.Empty(t, apiURL)
