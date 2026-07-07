@@ -646,12 +646,12 @@ func (_c *MockRepoLike_GetFile_Call) RunAndReturn(run func(s string) (*object.Fi
 }
 
 // Open provides a mock function for the type MockRepoLike
-func (_mock *MockRepoLike) Open(v repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption) (*git.Repository, *git.Worktree, error) {
+func (_mock *MockRepoLike) Open(repoType repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption) (*git.Repository, *git.Worktree, error) {
 	var tmpRet mock.Arguments
 	if len(cloneOptions) > 0 {
-		tmpRet = _mock.Called(v, s, s1, cloneOptions)
+		tmpRet = _mock.Called(repoType, s, s1, cloneOptions)
 	} else {
-		tmpRet = _mock.Called(v, s, s1)
+		tmpRet = _mock.Called(repoType, s, s1)
 	}
 	ret := tmpRet
 
@@ -663,24 +663,24 @@ func (_mock *MockRepoLike) Open(v repo.RepoType, s string, s1 string, cloneOptio
 	var r1 *git.Worktree
 	var r2 error
 	if returnFunc, ok := ret.Get(0).(func(repo.RepoType, string, string, ...repo.CloneOption) (*git.Repository, *git.Worktree, error)); ok {
-		return returnFunc(v, s, s1, cloneOptions...)
+		return returnFunc(repoType, s, s1, cloneOptions...)
 	}
 	if returnFunc, ok := ret.Get(0).(func(repo.RepoType, string, string, ...repo.CloneOption) *git.Repository); ok {
-		r0 = returnFunc(v, s, s1, cloneOptions...)
+		r0 = returnFunc(repoType, s, s1, cloneOptions...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*git.Repository)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(repo.RepoType, string, string, ...repo.CloneOption) *git.Worktree); ok {
-		r1 = returnFunc(v, s, s1, cloneOptions...)
+		r1 = returnFunc(repoType, s, s1, cloneOptions...)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).(*git.Worktree)
 		}
 	}
 	if returnFunc, ok := ret.Get(2).(func(repo.RepoType, string, string, ...repo.CloneOption) error); ok {
-		r2 = returnFunc(v, s, s1, cloneOptions...)
+		r2 = returnFunc(repoType, s, s1, cloneOptions...)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -693,16 +693,16 @@ type MockRepoLike_Open_Call struct {
 }
 
 // Open is a helper method to define mock.On call
-//   - v repo.RepoType
+//   - repoType repo.RepoType
 //   - s string
 //   - s1 string
 //   - cloneOptions ...repo.CloneOption
-func (_e *MockRepoLike_Expecter) Open(v interface{}, s interface{}, s1 interface{}, cloneOptions ...interface{}) *MockRepoLike_Open_Call {
+func (_e *MockRepoLike_Expecter) Open(repoType interface{}, s interface{}, s1 interface{}, cloneOptions ...interface{}) *MockRepoLike_Open_Call {
 	return &MockRepoLike_Open_Call{Call: _e.mock.On("Open",
-		append([]interface{}{v, s, s1}, cloneOptions...)...)}
+		append([]interface{}{repoType, s, s1}, cloneOptions...)...)}
 }
 
-func (_c *MockRepoLike_Open_Call) Run(run func(v repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption)) *MockRepoLike_Open_Call {
+func (_c *MockRepoLike_Open_Call) Run(run func(repoType repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption)) *MockRepoLike_Open_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 repo.RepoType
 		if args[0] != nil {
@@ -737,7 +737,7 @@ func (_c *MockRepoLike_Open_Call) Return(repository *git.Repository, worktree *g
 	return _c
 }
 
-func (_c *MockRepoLike_Open_Call) RunAndReturn(run func(v repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption) (*git.Repository, *git.Worktree, error)) *MockRepoLike_Open_Call {
+func (_c *MockRepoLike_Open_Call) RunAndReturn(run func(repoType repo.RepoType, s string, s1 string, cloneOptions ...repo.CloneOption) (*git.Repository, *git.Worktree, error)) *MockRepoLike_Open_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1370,6 +1370,57 @@ func (_c *MockRepoLike_WithTree_Call) RunAndReturn(run func(fn func(*git.Worktre
 	return _c
 }
 
+// WithWorkFS provides a mock function for the type MockRepoLike
+func (_mock *MockRepoLike) WithWorkFS(fn func(afero.Fs) error) error {
+	ret := _mock.Called(fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WithWorkFS")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(func(afero.Fs) error) error); ok {
+		r0 = returnFunc(fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepoLike_WithWorkFS_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithWorkFS'
+type MockRepoLike_WithWorkFS_Call struct {
+	*mock.Call
+}
+
+// WithWorkFS is a helper method to define mock.On call
+//   - fn func(afero.Fs) error
+func (_e *MockRepoLike_Expecter) WithWorkFS(fn interface{}) *MockRepoLike_WithWorkFS_Call {
+	return &MockRepoLike_WithWorkFS_Call{Call: _e.mock.On("WithWorkFS", fn)}
+}
+
+func (_c *MockRepoLike_WithWorkFS_Call) Run(run func(fn func(afero.Fs) error)) *MockRepoLike_WithWorkFS_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 func(afero.Fs) error
+		if args[0] != nil {
+			arg0 = args[0].(func(afero.Fs) error)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepoLike_WithWorkFS_Call) Return(err error) *MockRepoLike_WithWorkFS_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepoLike_WithWorkFS_Call) RunAndReturn(run func(fn func(afero.Fs) error) error) *MockRepoLike_WithWorkFS_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // WorkFS provides a mock function for the type MockRepoLike
 func (_mock *MockRepoLike) WorkFS() (afero.Fs, error) {
 	ret := _mock.Called()
@@ -1421,57 +1472,6 @@ func (_c *MockRepoLike_WorkFS_Call) Return(fs afero.Fs, err error) *MockRepoLike
 }
 
 func (_c *MockRepoLike_WorkFS_Call) RunAndReturn(run func() (afero.Fs, error)) *MockRepoLike_WorkFS_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// WithWorkFS provides a mock function for the type MockRepoLike
-func (_mock *MockRepoLike) WithWorkFS(fn func(afero.Fs) error) error {
-	ret := _mock.Called(fn)
-
-	if len(ret) == 0 {
-		panic("no return value specified for WithWorkFS")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(func(afero.Fs) error) error); ok {
-		r0 = returnFunc(fn)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockRepoLike_WithWorkFS_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithWorkFS'
-type MockRepoLike_WithWorkFS_Call struct {
-	*mock.Call
-}
-
-// WithWorkFS is a helper method to define mock.On call
-//   - fn func(afero.Fs) error
-func (_e *MockRepoLike_Expecter) WithWorkFS(fn interface{}) *MockRepoLike_WithWorkFS_Call {
-	return &MockRepoLike_WithWorkFS_Call{Call: _e.mock.On("WithWorkFS", fn)}
-}
-
-func (_c *MockRepoLike_WithWorkFS_Call) Run(run func(fn func(afero.Fs) error)) *MockRepoLike_WithWorkFS_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 func(afero.Fs) error
-		if args[0] != nil {
-			arg0 = args[0].(func(afero.Fs) error)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockRepoLike_WithWorkFS_Call) Return(err error) *MockRepoLike_WithWorkFS_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockRepoLike_WithWorkFS_Call) RunAndReturn(run func(fn func(afero.Fs) error) error) *MockRepoLike_WithWorkFS_Call {
 	_c.Call.Return(run)
 	return _c
 }

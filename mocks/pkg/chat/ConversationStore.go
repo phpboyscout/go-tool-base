@@ -7,8 +7,8 @@ package chat
 import (
 	"context"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
 // NewMockConversationStore creates a new instance of MockConversationStore. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

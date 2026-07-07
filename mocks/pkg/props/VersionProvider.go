@@ -5,8 +5,8 @@
 package props
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // NewMockVersionProvider creates a new instance of MockVersionProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

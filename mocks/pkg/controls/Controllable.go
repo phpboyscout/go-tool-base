@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	mock "github.com/stretchr/testify/mock"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	mock "github.com/stretchr/testify/mock"
 )
 
 // NewMockControllable creates a new instance of MockControllable. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

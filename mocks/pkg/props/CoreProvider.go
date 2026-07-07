@@ -5,10 +5,10 @@
 package props
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // NewMockCoreProvider creates a new instance of MockCoreProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

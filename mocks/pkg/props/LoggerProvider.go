@@ -5,8 +5,8 @@
 package props
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // NewMockLoggerProvider creates a new instance of MockLoggerProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

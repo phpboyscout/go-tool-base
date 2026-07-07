@@ -7,8 +7,8 @@ package props
 import (
 	"context"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // NewMockTelemetryCollector creates a new instance of MockTelemetryCollector. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -78,50 +78,6 @@ func (_c *MockTelemetryCollector_BackendInfo_Call) Return(s string) *MockTelemet
 }
 
 func (_c *MockTelemetryCollector_BackendInfo_Call) RunAndReturn(run func() string) *MockTelemetryCollector_BackendInfo_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Enabled provides a mock function for the type MockTelemetryCollector
-func (_mock *MockTelemetryCollector) Enabled() bool {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for Enabled")
-	}
-
-	var r0 bool
-	if returnFunc, ok := ret.Get(0).(func() bool); ok {
-		r0 = returnFunc()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	return r0
-}
-
-// MockTelemetryCollector_Enabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Enabled'
-type MockTelemetryCollector_Enabled_Call struct {
-	*mock.Call
-}
-
-// Enabled is a helper method to define mock.On call
-func (_e *MockTelemetryCollector_Expecter) Enabled() *MockTelemetryCollector_Enabled_Call {
-	return &MockTelemetryCollector_Enabled_Call{Call: _e.mock.On("Enabled")}
-}
-
-func (_c *MockTelemetryCollector_Enabled_Call) Run(run func()) *MockTelemetryCollector_Enabled_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockTelemetryCollector_Enabled_Call) Return(b bool) *MockTelemetryCollector_Enabled_Call {
-	_c.Call.Return(b)
-	return _c
-}
-
-func (_c *MockTelemetryCollector_Enabled_Call) RunAndReturn(run func() bool) *MockTelemetryCollector_Enabled_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -217,6 +173,50 @@ func (_c *MockTelemetryCollector_Drop_Call) Return(err error) *MockTelemetryColl
 }
 
 func (_c *MockTelemetryCollector_Drop_Call) RunAndReturn(run func() error) *MockTelemetryCollector_Drop_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Enabled provides a mock function for the type MockTelemetryCollector
+func (_mock *MockTelemetryCollector) Enabled() bool {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Enabled")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func() bool); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockTelemetryCollector_Enabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Enabled'
+type MockTelemetryCollector_Enabled_Call struct {
+	*mock.Call
+}
+
+// Enabled is a helper method to define mock.On call
+func (_e *MockTelemetryCollector_Expecter) Enabled() *MockTelemetryCollector_Enabled_Call {
+	return &MockTelemetryCollector_Enabled_Call{Call: _e.mock.On("Enabled")}
+}
+
+func (_c *MockTelemetryCollector_Enabled_Call) Run(run func()) *MockTelemetryCollector_Enabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockTelemetryCollector_Enabled_Call) Return(b bool) *MockTelemetryCollector_Enabled_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockTelemetryCollector_Enabled_Call) RunAndReturn(run func() bool) *MockTelemetryCollector_Enabled_Call {
 	_c.Call.Return(run)
 	return _c
 }

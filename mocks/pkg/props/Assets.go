@@ -7,8 +7,8 @@ package props
 import (
 	"io/fs"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // NewMockAssets creates a new instance of MockAssets. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -5,8 +5,8 @@
 package controls
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 )
 
 // NewMockRunner creates a new instance of MockRunner. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

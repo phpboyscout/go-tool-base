@@ -8,8 +8,8 @@ import (
 	"context"
 	"io"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // NewMockProvider creates a new instance of MockProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

@@ -7,8 +7,8 @@ package telemetry
 import (
 	"context"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
 // NewMockBackend creates a new instance of MockBackend. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
