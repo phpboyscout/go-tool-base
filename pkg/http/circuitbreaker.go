@@ -7,7 +7,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/circuitbreaker"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -42,27 +41,35 @@ var ErrCircuitOpen = errors.New("http: circuit breaker is open")
 type CircuitBreakerConfig struct {
 	// FailureThreshold is the number of consecutive failures (within Closed)
 	// that trips the breaker open. Must be >= 1. Default: 5.
-	FailureThreshold int
+	FailureThreshold int `mapstructure:"failure_threshold" yaml:"failure_threshold" json:"failure_threshold"`
 
 	// Cooldown is how long the breaker stays Open before allowing a trial.
 	// Default: 30s.
-	Cooldown time.Duration
+	Cooldown time.Duration `mapstructure:"cooldown" yaml:"cooldown" json:"cooldown"`
 
 	// HalfOpenMaxRequests is the number of trial requests allowed in HalfOpen.
 	// The first success closes the breaker; any failure re-opens it.
 	// Must be >= 1. Default: 1.
-	HalfOpenMaxRequests int
+	HalfOpenMaxRequests int `mapstructure:"half_open_max_requests" yaml:"half_open_max_requests" json:"half_open_max_requests"`
 
 	// IsFailure classifies a round-trip outcome as a failure for breaker
 	// accounting. When nil, the default treats transport errors and 5xx
 	// responses (>=500) as failures; 4xx and 2xx/3xx are successes. A 429
 	// (client rate-limited) therefore does NOT trip the breaker — that is
 	// retry's job, not the breaker's.
-	IsFailure func(resp *http.Response, err error) bool
+	IsFailure func(resp *http.Response, err error) bool `mapstructure:"-" yaml:"-" json:"-"`
 
 	// OnStateChange is invoked on every state transition. Optional; transitions
 	// are also logged via the constructor's logger.
-	OnStateChange func(from, to CircuitState)
+	OnStateChange func(from, to CircuitState) `mapstructure:"-" yaml:"-" json:"-"`
+}
+
+// CircuitBreakerConfigOverrides records which typed circuit breaker config
+// fields were explicitly supplied by an adapter.
+type CircuitBreakerConfigOverrides struct {
+	FailureThreshold    bool
+	Cooldown            bool
+	HalfOpenMaxRequests bool
 }
 
 // DefaultCircuitBreakerConfig returns: threshold 5, cooldown 30s, half-open
@@ -75,37 +82,22 @@ func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 	}
 }
 
-// CircuitBreakerConfigFromConfig builds a CircuitBreakerConfig from the config
-// layer under "<prefix>.circuitbreaker.*" (prefix defaults to "server.http").
-// Recognised keys:
-//
-//	<prefix>.circuitbreaker.failure_threshold       (int)
-//	<prefix>.circuitbreaker.cooldown                (duration, e.g. "30s")
-//	<prefix>.circuitbreaker.half_open_max_requests  (int)
-//
-// Unset keys keep their DefaultCircuitBreakerConfig values. The code-only fields
-// (IsFailure, OnStateChange) are never read from config.
-func CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) CircuitBreakerConfig {
-	if prefix == "" {
-		prefix = DefaultConfigPrefix
+// MergeCircuitBreakerConfig applies explicitly supplied typed override values
+// to base while leaving code-only function fields under caller control.
+func MergeCircuitBreakerConfig(base, override CircuitBreakerConfig, fields CircuitBreakerConfigOverrides) CircuitBreakerConfig {
+	if fields.FailureThreshold {
+		base.FailureThreshold = override.FailureThreshold
 	}
 
-	base := prefix + ".circuitbreaker"
-	c := DefaultCircuitBreakerConfig()
-
-	if cfg.IsSet(base + ".failure_threshold") {
-		c.FailureThreshold = cfg.GetInt(base + ".failure_threshold")
+	if fields.Cooldown {
+		base.Cooldown = override.Cooldown
 	}
 
-	if cfg.IsSet(base + ".cooldown") {
-		c.Cooldown = cfg.GetDuration(base + ".cooldown")
+	if fields.HalfOpenMaxRequests {
+		base.HalfOpenMaxRequests = override.HalfOpenMaxRequests
 	}
 
-	if cfg.IsSet(base + ".half_open_max_requests") {
-		c.HalfOpenMaxRequests = cfg.GetInt(base + ".half_open_max_requests")
-	}
-
-	return c
+	return base
 }
 
 // defaultHTTPIsFailure counts transport errors and 5xx responses as failures.

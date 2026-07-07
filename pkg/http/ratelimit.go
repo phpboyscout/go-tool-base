@@ -6,7 +6,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/ratelimit"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -23,25 +22,33 @@ const (
 type RateLimitConfig struct {
 	// RequestsPerSecond is the sustained fill rate of the token bucket.
 	// Must be > 0. Default: 50.
-	RequestsPerSecond float64
+	RequestsPerSecond float64 `mapstructure:"requests_per_second" yaml:"requests_per_second" json:"requests_per_second"`
 
 	// Burst is the bucket capacity — the maximum number of requests that may
 	// be admitted in an instantaneous spike. Must be >= 1. Default: 100.
-	Burst int
+	Burst int `mapstructure:"burst" yaml:"burst" json:"burst"`
 
 	// KeyFunc derives the limiter key for a request, enabling per-client
 	// limiting. When nil, a single global bucket is used for all requests.
 	// A common choice is to key on the client IP (see ClientIPKey).
-	KeyFunc func(*http.Request) string
+	KeyFunc func(*http.Request) string `mapstructure:"-" yaml:"-" json:"-"`
 
 	// MaxTrackedKeys bounds the per-client bucket store. Ignored when KeyFunc
 	// is nil. Must be >= 1. Default: 8192.
-	MaxTrackedKeys int
+	MaxTrackedKeys int `mapstructure:"max_tracked_keys" yaml:"max_tracked_keys" json:"max_tracked_keys"`
 
 	// OnLimited is invoked when a request is rejected, before the 429 is
 	// written. Optional; useful for metrics/telemetry. A structured debug log
 	// is emitted via the constructor's logger regardless.
-	OnLimited func(*http.Request)
+	OnLimited func(*http.Request) `mapstructure:"-" yaml:"-" json:"-"`
+}
+
+// RateLimitConfigOverrides records which typed rate limit config fields were
+// explicitly supplied by an adapter.
+type RateLimitConfigOverrides struct {
+	RequestsPerSecond bool
+	Burst             bool
+	MaxTrackedKeys    bool
 }
 
 // DefaultRateLimitConfig returns a RateLimitConfig suitable for a modest
@@ -54,38 +61,22 @@ func DefaultRateLimitConfig() RateLimitConfig {
 	}
 }
 
-// RateLimitConfigFromConfig builds a RateLimitConfig from the config layer under
-// "<prefix>.ratelimit.*" (prefix defaults to "server.http"), so operators tune
-// the limiter via config like they tune the port or TLS. Recognised keys:
-//
-//	<prefix>.ratelimit.requests_per_second  (float)
-//	<prefix>.ratelimit.burst                (int)
-//	<prefix>.ratelimit.max_tracked_keys     (int)
-//
-// Unset keys keep their DefaultRateLimitConfig values. The code-only fields
-// (KeyFunc, OnLimited) are never read from config — wiring stays explicit; this
-// only supplies the policy numbers.
-func RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig {
-	if prefix == "" {
-		prefix = DefaultConfigPrefix
+// MergeRateLimitConfig applies explicitly supplied typed override values to
+// base while leaving code-only function fields under caller control.
+func MergeRateLimitConfig(base, override RateLimitConfig, fields RateLimitConfigOverrides) RateLimitConfig {
+	if fields.RequestsPerSecond {
+		base.RequestsPerSecond = override.RequestsPerSecond
 	}
 
-	base := prefix + ".ratelimit"
-	c := DefaultRateLimitConfig()
-
-	if cfg.IsSet(base + ".requests_per_second") {
-		c.RequestsPerSecond = cfg.GetFloat(base + ".requests_per_second")
+	if fields.Burst {
+		base.Burst = override.Burst
 	}
 
-	if cfg.IsSet(base + ".burst") {
-		c.Burst = cfg.GetInt(base + ".burst")
+	if fields.MaxTrackedKeys {
+		base.MaxTrackedKeys = override.MaxTrackedKeys
 	}
 
-	if cfg.IsSet(base + ".max_tracked_keys") {
-		c.MaxTrackedKeys = cfg.GetInt(base + ".max_tracked_keys")
-	}
-
-	return c
+	return base
 }
 
 // normalized returns a copy with invalid values clamped to safe defaults, so a
