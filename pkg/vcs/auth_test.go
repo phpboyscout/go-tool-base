@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 )
 
 // ResolveToken precedence:
@@ -22,53 +20,32 @@ import (
 func TestResolveToken_FromConfigEnv(t *testing.T) {
 	t.Setenv("MY_CUSTOM_TOKEN", "token-from-env")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("MY_CUSTOM_TOKEN")
-
-	assert.Equal(t, "token-from-env", ResolveToken(mock, ""))
+	assert.Equal(t, "token-from-env", ResolveToken(AuthConfig{Env: "MY_CUSTOM_TOKEN"}, ""))
 }
 
 func TestResolveToken_FromConfigValue(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("")
-	mock.EXPECT().GetString("auth.keychain").Return("")
-	mock.EXPECT().GetString("auth.value").Return("literal-token")
-
-	assert.Equal(t, "literal-token", ResolveToken(mock, ""))
+	assert.Equal(t, "literal-token", ResolveToken(AuthConfig{Value: "literal-token"}, ""))
 }
 
 func TestResolveToken_FromFallbackEnv(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "fallback-token")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("")
-	mock.EXPECT().GetString("auth.keychain").Return("")
-	mock.EXPECT().GetString("auth.value").Return("")
-
-	assert.Equal(t, "fallback-token", ResolveToken(mock, "GITHUB_TOKEN"))
+	assert.Equal(t, "fallback-token", ResolveToken(AuthConfig{}, "GITHUB_TOKEN"))
 }
 
 func TestResolveToken_PrecedenceConfigEnvOverValue(t *testing.T) {
 	t.Setenv("PRIORITY_TOKEN", "env-wins")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("PRIORITY_TOKEN")
-
-	assert.Equal(t, "env-wins", ResolveToken(mock, ""),
+	assert.Equal(t, "env-wins", ResolveToken(AuthConfig{Env: "PRIORITY_TOKEN"}, ""),
 		"auth.env should short-circuit before auth.value is consulted")
 }
 
 func TestResolveToken_PrecedenceConfigOverFallback(t *testing.T) {
 	t.Setenv("FALLBACK_TOKEN", "fallback-loses")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("")
-	mock.EXPECT().GetString("auth.keychain").Return("")
-	mock.EXPECT().GetString("auth.value").Return("config-wins")
-
-	assert.Equal(t, "config-wins", ResolveToken(mock, "FALLBACK_TOKEN"),
+	assert.Equal(t, "config-wins", ResolveToken(AuthConfig{Value: "config-wins"}, "FALLBACK_TOKEN"),
 		"config auth.value should take precedence over fallback env")
 }
 
@@ -86,26 +63,19 @@ func TestResolveToken_NilConfigNoFallback(t *testing.T) {
 func TestResolveToken_EmptyEnvVarFallsThrough(t *testing.T) {
 	t.Setenv("EMPTY_TOKEN", "")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("EMPTY_TOKEN")
-	mock.EXPECT().GetString("auth.keychain").Return("")
-	mock.EXPECT().GetString("auth.value").Return("literal-fallback")
-
 	// A referenced env var set to empty must fall through to the
 	// keychain/literal steps — otherwise a stale reference could
 	// permanently mask a usable literal.
-	assert.Equal(t, "literal-fallback", ResolveToken(mock, ""))
+	assert.Equal(t, "literal-fallback", ResolveToken(AuthConfig{
+		Env:   "EMPTY_TOKEN",
+		Value: "literal-fallback",
+	}, ""))
 }
 
 func TestResolveToken_NoTokenFound(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("")
-	mock.EXPECT().GetString("auth.keychain").Return("")
-	mock.EXPECT().GetString("auth.value").Return("")
-
-	assert.Empty(t, ResolveToken(mock, ""))
+	assert.Empty(t, ResolveToken(AuthConfig{}, ""))
 }
 
 // TestResolveToken_KeychainReferenceUnsupportedBuild verifies that a
@@ -116,12 +86,10 @@ func TestResolveToken_NoTokenFound(t *testing.T) {
 func TestResolveToken_KeychainReferenceUnsupportedBuild(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetString("auth.env").Return("")
-	mock.EXPECT().GetString("auth.keychain").Return("mytool/github.auth")
-	mock.EXPECT().GetString("auth.value").Return("literal-wins")
-
-	assert.Equal(t, "literal-wins", ResolveToken(mock, ""),
+	assert.Equal(t, "literal-wins", ResolveToken(AuthConfig{
+		Keychain: "mytool/github.auth",
+		Value:    "literal-wins",
+	}, ""),
 		"unavailable keychain should fall through to literal")
 }
 
