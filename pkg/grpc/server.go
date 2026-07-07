@@ -56,13 +56,6 @@ func defaultServerConfig() serverConfig {
 
 func (c serverConfig) tlsPrefix() string { return c.prefix + ".tls" }
 
-// ServerSettings contains the data needed to construct and start a gRPC server
-// without binding the core transport path to any particular config system.
-type ServerSettings struct {
-	Port       int  `mapstructure:"port" yaml:"port" json:"port"`
-	Reflection bool `mapstructure:"reflection" yaml:"reflection" json:"reflection"`
-}
-
 // ServerOption configures the config prefix and port a gRPC server reads.
 // ServerOption values are accepted by NewServer, Start, DialLocal and Register
 // (alongside grpc.ServerOption / grpc.DialOption values).

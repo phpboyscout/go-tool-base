@@ -13,19 +13,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
-
-func mockGRPCTLSDisabled(cfg *mockConfig.MockContainable) {
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
-}
 
 func testLogger() logger.Logger {
 	return logger.NewNoop()
@@ -44,11 +35,7 @@ func TestDefaultMaxGRPCMessageBytes(t *testing.T) {
 func TestGRPCServer_ReflectionDefaultOff(t *testing.T) {
 	t.Parallel()
 
-	// GetBool returns false for a missing / zero-value key, which is the default.
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
 	services := srv.GetServiceInfo()
@@ -61,10 +48,7 @@ func TestGRPCServer_ReflectionDefaultOff(t *testing.T) {
 func TestNewServer_ReflectionDisabled(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{Reflection: false})
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 
@@ -76,10 +60,7 @@ func TestNewServer_ReflectionDisabled(t *testing.T) {
 func TestNewServer_ReflectionEnabled(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(true)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{Reflection: true})
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 
@@ -98,16 +79,10 @@ func TestNewServer_ReflectionEnabled(t *testing.T) {
 func TestStart_ListenAndServe(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	mockGRPCTLSDisabled(cfg)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := StartFromContainable(cfg, testLogger(), srv)
+	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{})
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -126,10 +101,7 @@ func TestStart_ListenAndServe(t *testing.T) {
 func TestStop_GracefulStop(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
 	stopFn := Stop(testLogger(), srv)
@@ -141,15 +113,9 @@ func TestStop_GracefulStop(t *testing.T) {
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	mockGRPCTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger())
+	_, err := Register("test-grpc", controller, testLogger(), ServerSettings{}, gtbtls.Pair{})
 	assert.NoError(t, err)
 }
 
@@ -191,14 +157,9 @@ func TestGRPCHealth(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	mockGRPCTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger())
+	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -233,11 +194,6 @@ func TestGRPCProbes(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	mockGRPCTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	controller.Register("test-service",
@@ -247,7 +203,7 @@ func TestGRPCProbes(t *testing.T) {
 		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
 	)
 
-	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger())
+	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -282,28 +238,19 @@ func TestGRPCProbes(t *testing.T) {
 	controller.Wait()
 }
 
-func TestGRPCPortConfig_Specific(t *testing.T) {
+func TestStart_UsesSettingsPort(t *testing.T) {
 	t.Parallel()
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(9090)
-	mockGRPCTLSDisabled(cfg)
 
-	srv, _ := NewServerFromContainable(cfg)
-	startFn := StartFromContainable(cfg, testLogger(), srv)
+	srv, _ := NewServer(ServerSettings{})
+	startFn := Start(testLogger(), srv, ServerSettings{Port: 9090}, gtbtls.Pair{})
 	assert.NotNil(t, startFn)
 }
 
-func TestGRPCPortConfig_Fallback(t *testing.T) {
+func TestStart_UsesEphemeralPortByDefault(t *testing.T) {
 	t.Parallel()
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(8080)
-	mockGRPCTLSDisabled(cfg)
 
-	srv, _ := NewServerFromContainable(cfg)
-	startFn := StartFromContainable(cfg, testLogger(), srv)
+	srv, _ := NewServer(ServerSettings{})
+	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{})
 	assert.NotNil(t, startFn)
 }
 
@@ -315,11 +262,6 @@ func TestRegister_WithInterceptors(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	mockGRPCTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	chain := NewInterceptorChain(Interceptor{
@@ -328,7 +270,7 @@ func TestRegister_WithInterceptors(t *testing.T) {
 		},
 	})
 
-	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger(),
+	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithInterceptors(chain),
 	)
 	require.NoError(t, err)
@@ -342,17 +284,12 @@ func TestRegister_MixedOptions(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	mockGRPCTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	chain := NewInterceptorChain(LoggingInterceptor(testLogger()))
 
 	// Mix RegisterOption and grpc.ServerOption
-	_, err = RegisterFromContainable(context.Background(), "test-grpc", controller, cfg, testLogger(),
+	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithInterceptors(chain),
 		grpc.MaxRecvMsgSize(4*1024*1024),
 	)

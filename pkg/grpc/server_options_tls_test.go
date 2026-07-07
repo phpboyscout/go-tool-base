@@ -2,18 +2,16 @@ package grpc_test
 
 import (
 	"context"
-	"io"
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 // TestServerOptions_CustomPrefixWithTLS proves the new WithConfigPrefix option
@@ -27,17 +25,12 @@ func TestServerOptions_CustomPrefixWithTLS(t *testing.T) {
 	certPath, keyPath := writeSelfSignedCert(t)
 	port := freePort(t)
 
-	cfg := config.NewContainerFromViper(logger.NewCharm(io.Discard), viper.New())
-	cfg.Set("server.internal.port", port)
-	// TLS settings are shared (server.tls.*) and cascade to every prefix.
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", certPath)
-	cfg.Set("server.tls.key", keyPath)
-
 	ctx := context.Background()
 	controller := controls.NewController(ctx, controls.WithoutSignals())
+	settings := gtbgrpc.ServerSettings{Port: port}
+	tlsPair := gtbtls.Pair{Enabled: true, Cert: certPath, Key: keyPath}
 
-	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, cfg, logger.NewCharm(io.Discard),
+	_, err := gtbgrpc.Register("grpc", controller, logger.NewNoop(), settings, tlsPair,
 		gtbgrpc.WithConfigPrefix("server.internal"))
 	require.NoError(t, err)
 
@@ -47,7 +40,7 @@ func TestServerOptions_CustomPrefixWithTLS(t *testing.T) {
 		controller.Wait()
 	})
 
-	conn, err := gtbgrpc.DialLocalFromContainable(cfg, gtbgrpc.WithConfigPrefix("server.internal"))
+	conn, err := gtbgrpc.DialLocal(settings, tlsPair, gtbgrpc.WithConfigPrefix("server.internal"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 

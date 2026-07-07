@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -23,7 +22,6 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/test/bufconn"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
@@ -251,10 +249,7 @@ func TestDialLocal_TLSCredsError(t *testing.T) {
 func TestDialLocal_AcceptsDialOption(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	cfg.Set("server.grpc.port", 50052)
-
-	conn, err := DialLocalFromContainable(cfg, grpc.WithUserAgent("coverage-test"))
+	conn, err := DialLocal(ServerSettings{Port: 50052}, gtbtls.Pair{}, grpc.WithUserAgent("coverage-test"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	assert.NotNil(t, conn)
@@ -297,10 +292,9 @@ func TestStop_ForceStopOnTimeout(t *testing.T) {
 func TestRegister_NewServerError(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := RegisterFromContainable(context.Background(), "bad", controller, cfg, logger.NewNoop(),
+	_, err := Register("bad", controller, logger.NewNoop(), ServerSettings{}, gtbtls.Pair{},
 		WithConfigPrefix(""))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "config prefix must not be empty")

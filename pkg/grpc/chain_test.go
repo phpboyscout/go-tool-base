@@ -13,9 +13,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 func TestNewInterceptorChain_Empty(t *testing.T) {
@@ -140,21 +140,16 @@ func TestInterceptorChain_MultipleInterceptors_Ordering(t *testing.T) {
 	assert.Len(t, chain.unary, 3)
 
 	// Verify actual execution order via a real gRPC health-check RPC.
-	// The health service is registered automatically by RegisterFromContainable(), giving
-	// us a unary endpoint to call without defining a custom proto service.
+	// The health service is registered automatically by Register(), giving us a
+	// unary endpoint to call without defining a custom proto service.
 	listener, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	mockGRPCTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = RegisterFromContainable(context.Background(), "chain-order-test", controller, cfg, logger.NewNoop(),
+	_, err = Register("chain-order-test", controller, logger.NewNoop(), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithInterceptors(chain),
 	)
 	require.NoError(t, err)

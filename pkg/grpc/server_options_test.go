@@ -10,15 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 // safeBuffer is a goroutine-safe writer for capturing log output.
@@ -51,10 +49,7 @@ func TestConfigKeyConstants(t *testing.T) {
 func TestNewServer_WithConfigPrefix_Reflection(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.admin.reflection").Return(true)
-
-	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.admin"))
+	srv, err := NewServer(ServerSettings{Reflection: true}, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 
 	services := srv.GetServiceInfo()
@@ -68,24 +63,6 @@ func TestNewServer_WithConfigPrefix_Reflection(t *testing.T) {
 	}
 
 	assert.True(t, hasReflection, "reflection must honour the custom prefix")
-}
-
-func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
-	t.Setenv("GTB_SERVER_GRPC_PORT", "19082")
-	t.Setenv("GTB_SERVER_GRPC_REFLECTION", "true")
-
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix("GTB"),
-		config.WithConfigReaders(strings.NewReader("server:\n  grpc:\n    port: 19081\n    reflection: false\n")),
-	)
-
-	got := ServerSettingsFromConfig(cfg, "")
-
-	assert.Equal(t, 19082, got.Port)
-	assert.True(t, got.Reflection)
 }
 
 func TestNewServer_WithSettingsReflection(t *testing.T) {
@@ -110,11 +87,8 @@ func TestNewServer_WithSettingsReflection(t *testing.T) {
 func TestNewServer_AcceptsServerOptionAndGRPCOption(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.admin.reflection").Return(false)
-
 	// A ServerOption and a grpc.ServerOption can be mixed in the same call.
-	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.admin"), grpc.MaxConcurrentStreams(10))
+	srv, err := NewServer(ServerSettings{}, WithConfigPrefix("server.admin"), grpc.MaxConcurrentStreams(10))
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
 }
@@ -122,31 +96,17 @@ func TestNewServer_AcceptsServerOptionAndGRPCOption(t *testing.T) {
 func TestNewServer_EmptyPrefix(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-
-	_, err := NewServerFromContainable(cfg, WithConfigPrefix(""))
+	_, err := NewServer(ServerSettings{}, WithConfigPrefix(""))
 	require.Error(t, err)
 }
 
 func TestStart_WithConfigPrefix(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.admin.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.admin.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	// TLS resolution must target the custom prefix block.
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.key").Return(false).Maybe()
-
-	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.admin"))
+	srv, err := NewServer(ServerSettings{}, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 
-	startFn := StartFromContainable(cfg, testLogger(), srv, WithConfigPrefix("server.admin"))
+	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithConfigPrefix("server.admin"))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 }
@@ -159,14 +119,10 @@ func TestStart_WithPort_BindsExplicitPort(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	mockGRPCTLSDisabled(cfg)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := StartFromContainable(cfg, testLogger(), srv, WithPort(port))
+	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithPort(port))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 
@@ -184,14 +140,10 @@ func TestStart_WithPort_BindsExplicitPort(t *testing.T) {
 func TestStart_InvalidPort(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	mockGRPCTLSDisabled(cfg)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := StartFromContainable(cfg, testLogger(), srv, WithPort(70000))
+	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithPort(70000))
 	require.Error(t, startFn(context.Background()))
 }
 
@@ -200,16 +152,10 @@ func TestStart_LogsBoundEphemeralPort(t *testing.T) {
 
 	var buf safeBuffer
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	mockGRPCTLSDisabled(cfg)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := StartFromContainable(cfg, logger.NewCharm(&buf), srv)
+	startFn := Start(logger.NewCharm(&buf), srv, ServerSettings{}, gtbtls.Pair{})
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 
@@ -221,17 +167,7 @@ func TestStart_LogsBoundEphemeralPort(t *testing.T) {
 func TestDialLocal_WithConfigPrefix(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.admin.port").Return(19090)
-	// grpc.NewClient is lazy, so no real connection is made.
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.key").Return(false).Maybe()
-
-	conn, err := DialLocalFromContainable(cfg, WithConfigPrefix("server.admin"))
+	conn, err := DialLocal(ServerSettings{Port: 19090}, gtbtls.Pair{}, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	assert.Equal(t, "localhost:19090", conn.Target())
@@ -241,17 +177,10 @@ func TestDialLocal_WithConfigPrefix(t *testing.T) {
 func TestStart_EmptyPrefixDefaultsToGRPC(t *testing.T) {
 	t.Parallel()
 
-	// An empty prefix falls back to the default "server.grpc" block.
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	mockGRPCTLSDisabled(cfg)
-
-	srv, err := NewServerFromContainable(cfg)
+	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := StartFromContainable(cfg, testLogger(), srv, WithConfigPrefix(""))
+	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithConfigPrefix(""))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 }
@@ -259,17 +188,7 @@ func TestStart_EmptyPrefixDefaultsToGRPC(t *testing.T) {
 func TestDialLocal_DefaultPrefix(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.grpc.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(18099)
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
-
-	conn, err := DialLocalFromContainable(cfg)
+	conn, err := DialLocal(ServerSettings{Port: 18099}, gtbtls.Pair{})
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 	assert.Equal(t, "localhost:18099", conn.Target())
@@ -279,20 +198,9 @@ func TestDialLocal_DefaultPrefix(t *testing.T) {
 func TestRegister_WithServerOption(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.admin.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.admin.port").Return(0).Maybe()
-	cfg.EXPECT().GetInt("server.port").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.admin.tls.key").Return(false).Maybe()
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := RegisterFromContainable(context.Background(), "admin-grpc", controller, cfg, testLogger(),
+	srv, err := Register("admin-grpc", controller, testLogger(), ServerSettings{}, gtbtls.Pair{},
 		WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, srv)

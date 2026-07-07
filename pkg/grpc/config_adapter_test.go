@@ -35,6 +35,40 @@ func prefixedCfgFromYAML(t *testing.T, prefix, yaml string) config.Containable {
 	)
 }
 
+func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_SERVER_GRPC_PORT", "19082")
+	t.Setenv("GTB_SERVER_GRPC_REFLECTION", "true")
+
+	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  grpc:\n    port: 19081\n    reflection: false\n")
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 19082, got.Port)
+	assert.True(t, got.Reflection)
+}
+
+func TestServerSettingsFromConfig_ReadsValues(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n    reflection: true\n")
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 19081, got.Port)
+	assert.True(t, got.Reflection)
+}
+
+func TestServerSettingsFromConfig_FallsBackToSharedPort(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  port: 18080\n  grpc:\n    reflection: false\n")
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 18080, got.Port)
+	assert.False(t, got.Reflection)
+}
+
 func TestMergeRateLimitConfig(t *testing.T) {
 	t.Parallel()
 

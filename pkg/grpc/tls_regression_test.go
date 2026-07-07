@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"io"
 	"math/big"
 	"net"
 	"os"
@@ -16,14 +15,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 // TestTLSListener_ALPNAllowsModernClient is a regression test for the gRPC
@@ -37,16 +35,11 @@ func TestTLSListener_ALPNAllowsModernClient(t *testing.T) {
 	certPath, keyPath := writeSelfSignedCert(t)
 	port := freePort(t)
 
-	cfg := config.NewContainerFromViper(logger.NewCharm(io.Discard), viper.New())
-	cfg.Set("server.grpc.port", port)
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", certPath)
-	cfg.Set("server.tls.key", keyPath)
-
 	ctx := context.Background()
 	controller := controls.NewController(ctx, controls.WithoutSignals())
+	tlsPair := gtbtls.Pair{Enabled: true, Cert: certPath, Key: keyPath}
 
-	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, cfg, logger.NewCharm(io.Discard))
+	_, err := gtbgrpc.Register("grpc", controller, logger.NewNoop(), gtbgrpc.ServerSettings{Port: port}, tlsPair)
 	require.NoError(t, err)
 
 	controller.Start()
@@ -55,7 +48,7 @@ func TestTLSListener_ALPNAllowsModernClient(t *testing.T) {
 		controller.Wait()
 	})
 
-	conn, err := gtbgrpc.DialLocalFromContainable(cfg)
+	conn, err := gtbgrpc.DialLocal(gtbgrpc.ServerSettings{Port: port}, tlsPair)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
