@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	mock "github.com/stretchr/testify/mock"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // NewMockContainable creates a new instance of MockContainable. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -174,6 +174,52 @@ func (_c *MockContainable_BindPFlag_Call) Return(err error) *MockContainable_Bin
 }
 
 func (_c *MockContainable_BindPFlag_Call) RunAndReturn(run func(key string, flag *pflag.Flag) error) *MockContainable_BindPFlag_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ConfigFiles provides a mock function for the type MockContainable
+func (_mock *MockContainable) ConfigFiles() []string {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ConfigFiles")
+	}
+
+	var r0 []string
+	if returnFunc, ok := ret.Get(0).(func() []string); ok {
+		r0 = returnFunc()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	return r0
+}
+
+// MockContainable_ConfigFiles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfigFiles'
+type MockContainable_ConfigFiles_Call struct {
+	*mock.Call
+}
+
+// ConfigFiles is a helper method to define mock.On call
+func (_e *MockContainable_Expecter) ConfigFiles() *MockContainable_ConfigFiles_Call {
+	return &MockContainable_ConfigFiles_Call{Call: _e.mock.On("ConfigFiles")}
+}
+
+func (_c *MockContainable_ConfigFiles_Call) Run(run func()) *MockContainable_ConfigFiles_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockContainable_ConfigFiles_Call) Return(strings []string) *MockContainable_ConfigFiles_Call {
+	_c.Call.Return(strings)
+	return _c
+}
+
+func (_c *MockContainable_ConfigFiles_Call) RunAndReturn(run func() []string) *MockContainable_ConfigFiles_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -765,6 +811,57 @@ func (_c *MockContainable_OnReloadError_Call) RunAndReturn(run func(f func(error
 	return _c
 }
 
+// SectionExists provides a mock function for the type MockContainable
+func (_mock *MockContainable) SectionExists(key string) bool {
+	ret := _mock.Called(key)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SectionExists")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = returnFunc(key)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockContainable_SectionExists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SectionExists'
+type MockContainable_SectionExists_Call struct {
+	*mock.Call
+}
+
+// SectionExists is a helper method to define mock.On call
+//   - key string
+func (_e *MockContainable_Expecter) SectionExists(key interface{}) *MockContainable_SectionExists_Call {
+	return &MockContainable_SectionExists_Call{Call: _e.mock.On("SectionExists", key)}
+}
+
+func (_c *MockContainable_SectionExists_Call) Run(run func(key string)) *MockContainable_SectionExists_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_SectionExists_Call) Return(b bool) *MockContainable_SectionExists_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockContainable_SectionExists_Call) RunAndReturn(run func(key string) bool) *MockContainable_SectionExists_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Set provides a mock function for the type MockContainable
 func (_mock *MockContainable) Set(key string, value any) {
 	_mock.Called(key, value)
@@ -908,6 +1005,114 @@ func (_c *MockContainable_ToJSON_Call) RunAndReturn(run func() string) *MockCont
 	return _c
 }
 
+// Unmarshal provides a mock function for the type MockContainable
+func (_mock *MockContainable) Unmarshal(target any) error {
+	ret := _mock.Called(target)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Unmarshal")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(any) error); ok {
+		r0 = returnFunc(target)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockContainable_Unmarshal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Unmarshal'
+type MockContainable_Unmarshal_Call struct {
+	*mock.Call
+}
+
+// Unmarshal is a helper method to define mock.On call
+//   - target any
+func (_e *MockContainable_Expecter) Unmarshal(target interface{}) *MockContainable_Unmarshal_Call {
+	return &MockContainable_Unmarshal_Call{Call: _e.mock.On("Unmarshal", target)}
+}
+
+func (_c *MockContainable_Unmarshal_Call) Run(run func(target any)) *MockContainable_Unmarshal_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 any
+		if args[0] != nil {
+			arg0 = args[0].(any)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_Unmarshal_Call) Return(err error) *MockContainable_Unmarshal_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockContainable_Unmarshal_Call) RunAndReturn(run func(target any) error) *MockContainable_Unmarshal_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnmarshalKey provides a mock function for the type MockContainable
+func (_mock *MockContainable) UnmarshalKey(key string, target any) error {
+	ret := _mock.Called(key, target)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnmarshalKey")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, any) error); ok {
+		r0 = returnFunc(key, target)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockContainable_UnmarshalKey_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnmarshalKey'
+type MockContainable_UnmarshalKey_Call struct {
+	*mock.Call
+}
+
+// UnmarshalKey is a helper method to define mock.On call
+//   - key string
+//   - target any
+func (_e *MockContainable_Expecter) UnmarshalKey(key interface{}, target interface{}) *MockContainable_UnmarshalKey_Call {
+	return &MockContainable_UnmarshalKey_Call{Call: _e.mock.On("UnmarshalKey", key, target)}
+}
+
+func (_c *MockContainable_UnmarshalKey_Call) Run(run func(key string, target any)) *MockContainable_UnmarshalKey_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 any
+		if args[1] != nil {
+			arg1 = args[1].(any)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockContainable_UnmarshalKey_Call) Return(err error) *MockContainable_UnmarshalKey_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockContainable_UnmarshalKey_Call) RunAndReturn(run func(key string, target any) error) *MockContainable_UnmarshalKey_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Validate provides a mock function for the type MockContainable
 func (_mock *MockContainable) Validate(schema *config.Schema) *config.ValidationResult {
 	ret := _mock.Called(schema)
@@ -1008,52 +1213,6 @@ func (_c *MockContainable_WriteConfigAs_Call) Return(err error) *MockContainable
 }
 
 func (_c *MockContainable_WriteConfigAs_Call) RunAndReturn(run func(dest string) error) *MockContainable_WriteConfigAs_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ConfigFiles provides a mock function for the type MockContainable
-func (_mock *MockContainable) ConfigFiles() []string {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ConfigFiles")
-	}
-
-	var r0 []string
-	if returnFunc, ok := ret.Get(0).(func() []string); ok {
-		r0 = returnFunc()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]string)
-		}
-	}
-	return r0
-}
-
-// MockContainable_ConfigFiles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ConfigFiles'
-type MockContainable_ConfigFiles_Call struct {
-	*mock.Call
-}
-
-// ConfigFiles is a helper method to define mock.On call
-func (_e *MockContainable_Expecter) ConfigFiles() *MockContainable_ConfigFiles_Call {
-	return &MockContainable_ConfigFiles_Call{Call: _e.mock.On("ConfigFiles")}
-}
-
-func (_c *MockContainable_ConfigFiles_Call) Run(run func()) *MockContainable_ConfigFiles_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockContainable_ConfigFiles_Call) Return(strings []string) *MockContainable_ConfigFiles_Call {
-	_c.Call.Return(strings)
-	return _c
-}
-
-func (_c *MockContainable_ConfigFiles_Call) RunAndReturn(run func() []string) *MockContainable_ConfigFiles_Call {
 	_c.Call.Return(run)
 	return _c
 }

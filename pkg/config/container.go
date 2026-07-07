@@ -27,6 +27,8 @@ type Containable interface {
 	GetString(key string) string
 	GetTime(key string) time.Time
 	GetDuration(key string) time.Duration
+	Unmarshal(target any) error
+	UnmarshalKey(key string, target any) error
 	// GetViper returns the underlying Viper instance for advanced operations
 	// not exposed by the Containable interface. This is an intentional escape
 	// hatch for power users who need Viper's full API (e.g., MergeConfig,
@@ -44,6 +46,7 @@ type Containable interface {
 	BindPFlag(key string, flag *pflag.Flag) error
 	Has(key string) bool
 	IsSet(key string) bool
+	SectionExists(key string) bool
 	Set(key string, value any)
 	WriteConfigAs(dest string) error
 	// ConfigFiles returns the ordered list of config files that

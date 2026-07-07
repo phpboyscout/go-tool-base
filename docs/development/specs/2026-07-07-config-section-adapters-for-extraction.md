@@ -2,7 +2,7 @@
 title: "Typed config section adapters for module extraction"
 description: "Introduce a config decoupling pattern where reusable and extracted packages own typed configuration structs, while GTB's config.Container unmarshals resolved sections into those structs at framework adapter boundaries. This avoids coupling standalone modules to GTB's Viper-based config stack while preserving GTB's precedence, env binding, hot reload, and validation behaviour."
 date: 2026-07-07
-status: DRAFT
+status: IN PROGRESS
 tags:
   - specification
   - config
@@ -26,7 +26,7 @@ Date
 :   7 July 2026
 
 Status
-:   DRAFT
+:   IN PROGRESS
 
 Builds on
 :   [`2026-07-07-slog-first-extraction-seams.md`](2026-07-07-slog-first-extraction-seams.md)
@@ -1206,4 +1206,3 @@ Docs must explain:
 - New extraction specs use typed config structs as the primary config boundary.
 - Extracted modules are not required to import `pkg/config`.
 - Existing GTB config keys and precedence semantics remain intact.
-
