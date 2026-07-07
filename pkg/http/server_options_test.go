@@ -10,10 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -49,6 +51,36 @@ func TestNewServer_WithConfigPrefix(t *testing.T) {
 	srv, err := NewServer(context.Background(), cfg, http.DefaultServeMux, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	assert.Equal(t, ":18081", srv.Addr)
+}
+
+func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_SERVER_HTTP_PORT", "18082")
+	t.Setenv("GTB_SERVER_HTTP_MAX_HEADER_BYTES", "4096")
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithEnvPrefix("GTB"),
+		config.WithConfigReaders(strings.NewReader("server:\n  http:\n    port: 18081\n    max_header_bytes: 2048\n")),
+	)
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 18082, got.Port)
+	assert.Equal(t, 4096, got.MaxHeaderBytes)
+}
+
+func TestNewServerWithSettings(t *testing.T) {
+	t.Parallel()
+
+	srv, err := NewServerWithSettings(context.Background(), ServerSettings{
+		Port:           18083,
+		MaxHeaderBytes: 8192,
+	}, http.DefaultServeMux)
+	require.NoError(t, err)
+	assert.Equal(t, ":18083", srv.Addr)
+	assert.Equal(t, 8192, srv.MaxHeaderBytes)
 }
 
 func TestNewServer_WithPort_BypassesConfig(t *testing.T) {

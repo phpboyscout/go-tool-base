@@ -1,6 +1,140 @@
 package http
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+import (
+	"context"
+	"net/http"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
+)
+
+// ServerSettingsFromConfig resolves HTTP server settings from GTB config. It
+// preserves the existing fallback from <prefix>.port to server.port and keeps
+// max_header_bytes scoped to the selected prefix.
+func ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings {
+	return serverSettingsFromConfig(cfg, prefix, true, true)
+}
+
+func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort, includeMaxHeaderBytes bool) ServerSettings {
+	if prefix == "" {
+		prefix = DefaultConfigPrefix
+	}
+
+	if cfg == nil {
+		return ServerSettings{}
+	}
+
+	if _, ok := cfg.(*config.Container); !ok {
+		return serverSettingsFromLegacyConfig(cfg, prefix, includePort, includeMaxHeaderBytes)
+	}
+
+	section, err := config.UnmarshalSection[ServerSettings](cfg, prefix)
+	if err != nil {
+		return serverSettingsFromLegacyConfig(cfg, prefix, includePort, includeMaxHeaderBytes)
+	}
+
+	settings := section.Value
+	if !includePort {
+		settings.Port = 0
+	} else if settings.Port == 0 {
+		settings.Port = cfg.GetInt("server.port")
+	}
+
+	if !includeMaxHeaderBytes {
+		settings.MaxHeaderBytes = 0
+	}
+
+	return settings
+}
+
+func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, includePort, includeMaxHeaderBytes bool) ServerSettings {
+	var settings ServerSettings
+
+	if includePort {
+		settings.Port = cfg.GetInt(prefix + ".port")
+	}
+
+	if includeMaxHeaderBytes {
+		settings.MaxHeaderBytes = cfg.GetInt(prefix + ".max_header_bytes")
+	}
+
+	if includePort && settings.Port == 0 {
+		settings.Port = cfg.GetInt("server.port")
+	}
+
+	return settings
+}
+
+// NewServer returns a new preconfigured http.Server. With no options it reads
+// from the default "server.http" config prefix; pass ServerOption values such
+// as WithConfigPrefix or WithPort to run multiple independent servers.
+func NewServer(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error) {
+	sc := defaultServerConfig()
+	for _, o := range opts {
+		o(&sc)
+	}
+
+	if sc.prefix == "" {
+		return newServer(ctx, ServerSettings{}, handler, sc)
+	}
+
+	if sc.port != nil && (*sc.port < 0 || *sc.port > maxPort) {
+		return newServer(ctx, ServerSettings{}, handler, sc)
+	}
+
+	return newServer(ctx, serverSettingsFromConfig(cfg, sc.prefix, sc.port == nil, sc.maxHeaderBytes == 0), handler, sc)
+}
+
+// Start returns a curried function suitable for use with the controls package.
+// With no options it reads TLS from the default "server.http" config prefix;
+// pass WithConfigPrefix to match a server constructed on a custom prefix.
+func Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc {
+	sc := defaultServerConfig()
+	for _, o := range opts {
+		o(&sc)
+	}
+
+	if sc.prefix == "" {
+		sc.prefix = DefaultConfigPrefix
+	}
+
+	return start(logger, srv, gtbtls.Resolve(cfg, sc.prefix+".tls"), nil)
+}
+
+// Register creates a new HTTP server and registers it with the controller under
+// the given id. The opts variadic accepts both ServerOption values (port,
+// prefix, timeouts) and RegisterOption values (middleware, body limit) — other
+// types are ignored. This mirrors the pkg/grpc Register signature.
+func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
+	rc := registerConfig{
+		serverConfig:        defaultServerConfig(),
+		maxRequestBodyBytes: DefaultMaxRequestBodyBytes,
+	}
+
+	for _, o := range opts {
+		switch v := o.(type) {
+		case ServerOption:
+			v(&rc.serverConfig)
+		case RegisterOption:
+			v(&rc)
+		}
+	}
+
+	if rc.prefix == "" {
+		return register(ctx, id, controller, logger, handler, ServerSettings{}, gtbtls.Pair{}, rc)
+	}
+
+	if rc.port != nil && (*rc.port < 0 || *rc.port > maxPort) {
+		return register(ctx, id, controller, logger, handler, ServerSettings{}, gtbtls.Pair{}, rc)
+	}
+
+	settings := serverSettingsFromConfig(cfg, rc.prefix, rc.port == nil, rc.maxHeaderBytes == 0)
+	tlsPair := gtbtls.Resolve(cfg, rc.prefix+".tls")
+
+	return register(ctx, id, controller, logger, handler, settings, tlsPair, rc)
+}
 
 // RateLimitConfigFromConfig builds a RateLimitConfig from the config layer
 // under "<prefix>.ratelimit.*" (prefix defaults to "server.http"), so
