@@ -16,6 +16,7 @@ import (
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,14 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
+
+type tokenConfig map[string]string
+
+func (cfg tokenConfig) GetString(key string) string {
+	return cfg[key]
+}
 
 func TestRepo_Unit_OpenLocal(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -34,7 +42,7 @@ func TestRepo_Unit_OpenLocal(t *testing.T) {
 		Config: nil,
 	}
 
-	r, err := NewRepo(p)
+	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 
 	t.Run("init_new_repo", func(t *testing.T) {
@@ -60,7 +68,7 @@ func TestRepo_Unit_GitOperations(t *testing.T) {
 		Config: nil,
 	}
 
-	r, _ := NewRepo(p)
+	r, _ := NewRepoFromProps(p)
 	_, wt, _ := r.OpenLocal(tmpDir, "main")
 
 	// Create a dummy file for initial commit to ensure HEAD exists
@@ -164,7 +172,7 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 			Logger: logger.NewNoop(),
 			Config: cfg,
 		}
-		r, err := NewRepo(p)
+		r, err := NewRepoFromProps(p)
 		require.NoError(t, err)
 		assert.NotNil(t, r.GetAuth())
 	})
@@ -177,7 +185,7 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 			Config: cfg,
 		}
 		// This might fail if no agent is running, but let's see
-		_, _ = NewRepo(p)
+		_, _ = NewRepoFromProps(p)
 	})
 }
 
@@ -332,7 +340,7 @@ func TestRepo_Unit_CreateBranch_Existing(t *testing.T) {
 	tmpDir := t.TempDir()
 	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
 
-	r, err := NewRepo(p)
+	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 	_, wt, err := r.OpenLocal(tmpDir, "main")
 	require.NoError(t, err)
@@ -521,7 +529,7 @@ func TestRepo_Unit_CheckoutCommit(t *testing.T) {
 func TestRepo_Unit_Commit_NilOpts(t *testing.T) {
 	tmpDir := t.TempDir()
 	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
-	r, err := NewRepo(p)
+	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 
 	_, wt, err := r.OpenLocal(tmpDir, "main")
@@ -537,7 +545,7 @@ func TestRepo_Unit_Commit_NilOpts(t *testing.T) {
 func TestRepo_Unit_AddToFS_AlreadyExists(t *testing.T) {
 	tmpDir := t.TempDir()
 	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
-	r, err := NewRepo(p)
+	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 
 	_, wt, err := r.OpenLocal(tmpDir, "main")
@@ -568,7 +576,7 @@ func TestRepo_Unit_AddToFS_AlreadyExists(t *testing.T) {
 func TestRepo_Unit_GetFile_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop()}
-	r, err := NewRepo(p)
+	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 
 	_, wt, err := r.OpenLocal(tmpDir, "main")
@@ -590,9 +598,24 @@ func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
 	errOpt := func(r *Repo) error {
 		return errors.New("opt failed")
 	}
-	_, err := NewRepo(p, errOpt)
+	_, err := NewRepoFromProps(p, errOpt)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opt failed")
+}
+
+func TestRepo_Unit_NewRepo_TypedSettingsTokenAuth(t *testing.T) {
+	t.Setenv("GTB_TYPED_REPO_TOKEN", "typed-token")
+
+	r, err := NewRepo(Settings{
+		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
+		Auth:          tokenConfig{"auth.env": "GTB_TYPED_REPO_TOKEN"},
+	})
+	require.NoError(t, err)
+
+	auth, ok := r.GetAuth().(*githttp.BasicAuth)
+	require.True(t, ok)
+	assert.Equal(t, "x-access-token", auth.Username)
+	assert.Equal(t, "typed-token", auth.Password)
 }
 
 func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
@@ -606,7 +629,7 @@ func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
 		Config: cfg,
 		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github", Private: true}},
 	}
-	_, err := NewRepo(p)
+	_, err := NewRepoFromProps(p)
 	assert.Error(t, err)
 }
 
@@ -620,7 +643,7 @@ github:
 `)))
 		fs := afero.NewOsFs()
 		p := &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfg}
-		_, err := NewRepo(p)
+		_, err := NewRepoFromProps(p)
 		assert.Error(t, err)
 	})
 
@@ -634,7 +657,7 @@ github:
 		t.Setenv("GTB_TEST_SSH_KEY_EMPTY_XYZ", "")
 		p := &props.Props{FS: afero.NewMemMapFs(), Logger: logger.NewNoop(), Config: cfg}
 		// Falls back to ssh-agent; will fail if no agent running, but path is covered.
-		_, _ = NewRepo(p)
+		_, _ = NewRepoFromProps(p)
 	})
 
 	t.Run("env_key_not_found", func(t *testing.T) {
@@ -646,7 +669,7 @@ github:
 `)))
 		t.Setenv("GTB_TEST_SSH_KEY_XYZ", "/nonexistent/key")
 		p := &props.Props{FS: afero.NewOsFs(), Logger: logger.NewNoop(), Config: cfg}
-		_, err := NewRepo(p)
+		_, err := NewRepoFromProps(p)
 		assert.Error(t, err)
 	})
 }
@@ -666,6 +689,6 @@ github:
 	assert.NotPanics(t, func() {
 		// Falls back to ssh-agent when no key details are present; may error
 		// if no agent is running, but must never panic on the nil subtree.
-		_, _ = NewRepo(p)
+		_, _ = NewRepoFromProps(p)
 	})
 }

@@ -172,7 +172,7 @@ func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 
 			p := newAuthTestProps(t, tt.yamlCfg, tt.tool)
 
-			r, err := NewRepo(p)
+			r, err := NewRepoFromProps(p)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -196,7 +196,7 @@ gitlab:
       path: /nonexistent/id_ed25519
 `, props.Tool{ReleaseSource: props.ReleaseSource{Type: "gitlab"}})
 
-		_, err := NewRepo(p)
+		_, err := NewRepoFromProps(p)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get SSH key")
 	})
@@ -212,7 +212,7 @@ gitlab:
       path: /nonexistent/id_ed25519
 `, props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}})
 
-		r, err := NewRepo(p)
+		r, err := NewRepoFromProps(p)
 		require.NoError(t, err)
 		assert.Equal(t, &http.BasicAuth{Username: "x-access-token", Password: "ghp_secret"}, r.GetAuth())
 	})
@@ -283,7 +283,7 @@ github:
 `, props.Tool{})
 	encryptedTestKey(t, p.FS, "/id_ed25519", "testpass")
 
-	_, err := NewRepo(p)
+	_, err := NewRepoFromProps(p)
 	require.Error(t, err)
 
 	var missing *gossh.PassphraseMissingError

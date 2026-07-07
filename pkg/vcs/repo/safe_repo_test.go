@@ -31,7 +31,7 @@ func newTestThreadSafeRepo(t *testing.T) *ThreadSafeRepo {
 		Logger: logger.NewNoop(),
 	}
 
-	ts, err := NewThreadSafeRepo(p)
+	ts, err := NewThreadSafeRepoFromProps(p)
 	require.NoError(t, err)
 
 	return ts
@@ -49,7 +49,7 @@ func TestNewThreadSafeRepo_OptError(t *testing.T) {
 		return errors.New("opt failed")
 	}
 
-	ts, err := NewThreadSafeRepo(p, errOpt)
+	ts, err := NewThreadSafeRepoFromProps(p, errOpt)
 	assert.Nil(t, ts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "opt failed")

@@ -29,7 +29,7 @@ func (g *Generator) EnableRealTemplateClone() *Generator {
 // using the provider-aware auth resolved from the tool's forge config, then
 // resolves and checks out the concrete commit, returning the resolved SHA.
 func (g *Generator) realCloneTemplate(req cloneRequest) (cloneResult, error) {
-	r, err := repo.NewRepo(g.props)
+	r, err := repo.NewRepoFromProps(g.props)
 	if err != nil {
 		return cloneResult{}, errors.Wrap(err, "failed to initialise template repo auth")
 	}

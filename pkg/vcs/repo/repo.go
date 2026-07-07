@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 
@@ -45,6 +44,34 @@ const (
 	LocalRepo    RepoType = "local"
 	InMemoryRepo RepoType = "inmemory"
 )
+
+type diagnosticLogger interface {
+	Debug(msg string, keyvals ...any)
+	Warn(msg string, keyvals ...any)
+}
+
+// Settings contains the typed configuration NewRepo needs to resolve git
+// authentication without depending on GTB props or config containers.
+type Settings struct {
+	ReleaseSource release.ReleaseSourceConfig
+	Forge         string
+	AuthEnabled   bool
+	Auth          vcs.TokenConfig
+	SSH           SSHSettings
+	Logger        diagnosticLogger
+	FS            afero.Fs
+}
+
+// SSHSettings describes the forge SSH key configuration resolved by adapter
+// code. Configured tracks whether the forge's SSH block exists at all; HasKey
+// distinguishes a present-but-scalar SSH block from a structured ssh.key block.
+type SSHSettings struct {
+	Configured bool
+	HasKey     bool
+	Type       string
+	Env        string
+	Path       string
+}
 
 // CloneOption represents a function that configures clone options.
 type CloneOption func(*git.CloneOptions)
@@ -735,18 +762,15 @@ func setSSHAgent(repo *Repo) error {
 	return nil
 }
 
-// resolveForge determines which forge config subtree NewRepo reads clone/push
-// credentials from. The forge comes from ReleaseSource.Type, overridable by
-// the `vcs.provider` config key. An empty or "direct" type falls back to
-// "github" — the `direct` release source is a download URL with no git
-// remote, so the repo layer has no forge of its own to read.
-func resolveForge(p *props.Props) string {
-	forge := strings.ToLower(strings.TrimSpace(p.Tool.ReleaseSource.Type))
-
-	if p.Config != nil && p.Config.IsSet("vcs.provider") {
-		if override := strings.ToLower(strings.TrimSpace(p.Config.GetString("vcs.provider"))); override != "" {
-			forge = override
-		}
+// resolveForge determines which forge settings NewRepo reads clone/push
+// credentials from. The forge comes from Settings.Forge, falling back to
+// ReleaseSource.Type. An empty or "direct" type falls back to "github" — the
+// `direct` release source is a download URL with no git remote, so the repo
+// layer has no forge of its own to read.
+func resolveForge(settings Settings) string {
+	forge := strings.ToLower(strings.TrimSpace(settings.Forge))
+	if forge == "" {
+		forge = strings.ToLower(strings.TrimSpace(settings.ReleaseSource.Type))
 	}
 
 	if forge == "" || forge == release.SourceTypeDirect {
@@ -769,32 +793,31 @@ func basicAuthUsername(forge string) string {
 	}
 }
 
-func configureSSHAuth(repo *Repo, p *props.Props, forge string) error {
-	sshCfg := p.Config.Sub(forge + ".ssh.key")
-	if sshCfg == nil {
+func configureSSHAuth(repo *Repo, settings Settings, forge string) error {
+	if !settings.SSH.HasKey {
 		// <forge>.ssh is present but has no key subtree (e.g. a scalar
 		// `github.ssh: true`); fall back to ssh-agent.
-		p.Logger.Warn("No ssh.key subtree configured for forge, defaulting to ssh-agent", "forge", forge)
+		warn(settings.Logger, "No ssh.key subtree configured for forge, defaulting to ssh-agent", "forge", forge)
 
 		return setSSHAgent(repo)
 	}
 
-	if sshCfg.GetString("type") == "agent" {
+	if settings.SSH.Type == "agent" {
 		return setSSHAgent(repo)
 	}
 
-	sshPath := filepath.Clean(os.Getenv(sshCfg.GetString("env")))
-	if sshCfg.Has("path") {
-		sshPath = filepath.Clean(sshCfg.GetString("path"))
+	sshPath := filepath.Clean(os.Getenv(settings.SSH.Env))
+	if settings.SSH.Path != "" {
+		sshPath = filepath.Clean(settings.SSH.Path)
 	}
 
 	if sshPath == "" || sshPath == "." {
-		p.Logger.Warn("No SSH key path resolved from forge ssh.key config, defaulting to ssh-agent", "forge", forge)
+		warn(settings.Logger, "No SSH key path resolved from forge ssh.key config, defaulting to ssh-agent", "forge", forge)
 
 		return setSSHAgent(repo)
 	}
 
-	publicKey, err := GetSSHKey(sshPath, p.FS)
+	publicKey, err := GetSSHKey(sshPath, settings.fs())
 	if err != nil {
 		return errors.Wrap(err, "failed to get SSH key")
 	}
@@ -809,19 +832,19 @@ func configureSSHAuth(repo *Repo, p *props.Props, forge string) error {
 // <FORGE>_TOKEN env var). Missing credentials are non-fatal for public
 // repositories: the repo proceeds unauthenticated. Private repositories
 // require a token and fail fast with a hint.
-func configureTokenAuth(repo *Repo, p *props.Props, forge string) error {
+func configureTokenAuth(repo *Repo, settings Settings, forge string) error {
 	fallbackEnv := strings.ToUpper(forge) + "_TOKEN"
 
-	token := vcs.ResolveToken(p.Config.Sub(forge), fallbackEnv)
+	token := vcs.ResolveToken(settings.Auth, fallbackEnv)
 	if token == "" {
-		if p.Tool.ReleaseSource.Private {
+		if settings.ReleaseSource.Private {
 			return errors.WithHint(
 				errors.Newf("no %s token available for private repository", strings.ToUpper(forge)),
 				fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable git operations", fallbackEnv, forge),
 			)
 		}
 
-		p.Logger.Debug("No credential configured for forge; using unauthenticated git access", "forge", forge)
+		debug(settings.Logger, "No credential configured for forge; using unauthenticated git access", "forge", forge)
 
 		return nil
 	}
@@ -843,14 +866,13 @@ func WithConfig(cfg *config.Config) RepoOpt {
 	}
 }
 
-// NewRepo creates a Repo with the given options.
+// NewRepo creates a Repo with the given typed settings and options.
 //
-// Clone/push authentication is resolved from the config subtree of the
-// tool's forge (github, gitlab, bitbucket, gitea, codeberg) — see
-// resolveForge. When `<forge>.ssh` is configured, SSH auth is used;
-// otherwise token auth is resolved via vcs.ResolveToken. Missing
+// Clone/push authentication is resolved from the selected forge (github,
+// gitlab, bitbucket, gitea, codeberg). When SSH settings are configured, SSH
+// auth is used; otherwise token auth is resolved via vcs.ResolveToken. Missing
 // credentials are only an error when ReleaseSource.Private is true.
-func NewRepo(p *props.Props, ops ...RepoOpt) (*Repo, error) {
+func NewRepo(settings Settings, ops ...RepoOpt) (*Repo, error) {
 	repo := &Repo{}
 
 	for _, opt := range ops {
@@ -860,19 +882,37 @@ func NewRepo(p *props.Props, ops ...RepoOpt) (*Repo, error) {
 		}
 	}
 
-	if p.Config == nil {
-		return repo, nil
-	}
+	forge := resolveForge(settings)
 
-	forge := resolveForge(p)
-
-	if p.Config.Has(forge + ".ssh") {
-		if err := configureSSHAuth(repo, p, forge); err != nil {
+	if settings.SSH.Configured {
+		if err := configureSSHAuth(repo, settings, forge); err != nil {
 			return nil, err
 		}
-	} else if err := configureTokenAuth(repo, p, forge); err != nil {
-		return nil, err
+	} else if settings.AuthEnabled || settings.Auth != nil {
+		if err := configureTokenAuth(repo, settings, forge); err != nil {
+			return nil, err
+		}
 	}
 
 	return repo, nil
+}
+
+func (settings Settings) fs() afero.Fs {
+	if settings.FS != nil {
+		return settings.FS
+	}
+
+	return afero.NewOsFs()
+}
+
+func debug(log diagnosticLogger, msg string, keyvals ...any) {
+	if log != nil {
+		log.Debug(msg, keyvals...)
+	}
+}
+
+func warn(log diagnosticLogger, msg string, keyvals ...any) {
+	if log != nil {
+		log.Warn(msg, keyvals...)
+	}
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/spf13/afero"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo/aferobilly"
 )
 
@@ -41,9 +40,9 @@ type ThreadSafeRepo struct {
 }
 
 // NewThreadSafeRepo creates a ThreadSafeRepo backed by a freshly constructed *Repo.
-// The props and opts arguments have the same semantics as NewRepo.
-func NewThreadSafeRepo(p *props.Props, opts ...RepoOpt) (*ThreadSafeRepo, error) {
-	r, err := NewRepo(p, opts...)
+// The settings and opts arguments have the same semantics as NewRepo.
+func NewThreadSafeRepo(settings Settings, opts ...RepoOpt) (*ThreadSafeRepo, error) {
+	r, err := NewRepo(settings, opts...)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

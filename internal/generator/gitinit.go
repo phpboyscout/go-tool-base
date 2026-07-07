@@ -68,7 +68,7 @@ func (g *Generator) runSkeletonGitInit(config SkeletonConfig) {
 
 	g.props.Logger.Infof("Initialising git repository on branch %s...", branch)
 
-	r, err := repo.NewRepo(g.props)
+	r, err := repo.NewRepoFromProps(g.props)
 	if err != nil {
 		g.props.Logger.Warn("Failed to construct repository; skipping git initialisation", "error", err)
 

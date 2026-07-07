@@ -88,7 +88,7 @@ func newTestRepo() (*Repo, error) {
 		Assets: props.NewAssets(props.AssetMap{"test": &assets}),
 	}
 
-	return NewRepo(p)
+	return NewRepoFromProps(p)
 }
 
 func TestCreateBranch(t *testing.T) {
@@ -217,7 +217,7 @@ func TestOpenRemoteHTTP(t *testing.T) {
 	// Ensure we have a token for NewRepo to succeed/init
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepo(props)
+	repo, err := NewRepoFromProps(props)
 	if assert.NoError(t, err) {
 		// Clear auth for public repo
 		repo.auth = nil
@@ -244,7 +244,7 @@ func TestCheckoutRemoteBranch(t *testing.T) {
 	// Ensure we have a token for NewRepo to succeed/init
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepo(props)
+	repo, err := NewRepoFromProps(props)
 	require.NoError(t, err, "unable to open test repo")
 
 	// Clear auth for public repo
@@ -277,7 +277,7 @@ func TestClone(t *testing.T) {
 	// Ensure we have a token for NewRepo to succeed
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepo(propsConfig)
+	repo, err := NewRepoFromProps(propsConfig)
 	if err != nil {
 		t.Fatalf("Failed to create repo: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestFileOperations(t *testing.T) {
 	// Ensure we have a token for NewRepo to succeed
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
-	repo, err := NewRepo(propsConfig)
+	repo, err := NewRepoFromProps(propsConfig)
 	require.NoError(t, err)
 	// Clear auth for public repo clone
 	repo.auth = nil
@@ -484,7 +484,7 @@ func TestForgeAuthClonePush(t *testing.T) {
 				Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: tc.forge}},
 			}
 
-			r, err := NewRepo(p)
+			r, err := NewRepoFromProps(p)
 			require.NoError(t, err)
 
 			auth, ok := r.GetAuth().(*githttp.BasicAuth)
@@ -543,7 +543,7 @@ func TestInitAddPushForgeAuth(t *testing.T) {
 		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
 	}
 
-	r, err := NewRepo(p)
+	r, err := NewRepoFromProps(p)
 	require.NoError(t, err)
 
 	auth, ok := r.GetAuth().(*githttp.BasicAuth)
