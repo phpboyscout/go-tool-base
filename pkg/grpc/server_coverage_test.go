@@ -88,14 +88,11 @@ func TestStart_ListenFailure(t *testing.T) {
 
 	port := held.Addr().(*net.TCPAddr).Port
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	cfg.Set("server.grpc.port", port)
-
 	sc := defaultServerConfig()
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
-	startFn := start(cfg, logger.NewNoop(), srv, sc, nil)
+	startFn := start(logger.NewNoop(), srv, ServerSettings{Port: port}, gtbtls.Pair{}, sc, nil)
 
 	err = startFn(context.Background())
 	require.Error(t, err)
@@ -107,15 +104,13 @@ func TestStart_ListenFailure(t *testing.T) {
 func TestStart_PortError(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-
 	sc := defaultServerConfig()
 	sc.port = ptr(maxPort + 1)
 
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
-	startFn := start(cfg, logger.NewNoop(), srv, sc, nil)
+	startFn := start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{}, sc, nil)
 	err := startFn(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid port")
@@ -126,17 +121,15 @@ func TestStart_PortError(t *testing.T) {
 func TestStart_TLSWrapFailure(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	cfg.Set("server.grpc.port", 0)
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", filepath.Join(t.TempDir(), "missing-cert.pem"))
-	cfg.Set("server.tls.key", filepath.Join(t.TempDir(), "missing-key.pem"))
-
 	sc := defaultServerConfig()
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
-	startFn := start(cfg, logger.NewNoop(), srv, sc, nil)
+	startFn := start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{
+		Enabled: true,
+		Cert:    filepath.Join(t.TempDir(), "missing-cert.pem"),
+		Key:     filepath.Join(t.TempDir(), "missing-key.pem"),
+	}, sc, nil)
 	err := startFn(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "configuring gRPC TLS")
@@ -149,15 +142,12 @@ func TestStart_TLSWrapFailure(t *testing.T) {
 func TestStart_ServeExitRecorded(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	cfg.Set("server.grpc.port", 0)
-
 	sc := defaultServerConfig()
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
 	state := &serveState{}
-	startFn := start(cfg, logger.NewNoop(), srv, sc, state)
+	startFn := start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{}, sc, state)
 
 	require.NoError(t, startFn(context.Background()))
 
@@ -234,12 +224,10 @@ func TestTLSClientCredentials(t *testing.T) {
 func TestDialLocal_PortError(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-
 	sc := defaultServerConfig()
 	sc.port = ptr(maxPort + 1)
 
-	_, err := dialLocal(cfg, sc)
+	_, err := dialLocal(ServerSettings{}, gtbtls.Pair{}, sc)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid port")
 }
@@ -249,14 +237,12 @@ func TestDialLocal_PortError(t *testing.T) {
 func TestDialLocal_TLSCredsError(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	cfg.Set("server.grpc.port", 50051)
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", filepath.Join(t.TempDir(), "missing-ca.pem"))
-
 	sc := defaultServerConfig()
 
-	_, err := dialLocal(cfg, sc)
+	_, err := dialLocal(ServerSettings{Port: 50051}, gtbtls.Pair{
+		Enabled: true,
+		Cert:    filepath.Join(t.TempDir(), "missing-ca.pem"),
+	}, sc)
 	require.Error(t, err)
 }
 
@@ -281,14 +267,11 @@ func TestDialLocal_AcceptsDialOption(t *testing.T) {
 func TestStop_ForceStopOnTimeout(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	cfg.Set("server.grpc.port", 0)
-
 	sc := defaultServerConfig()
 	srv := grpc.NewServer()
 
 	state := &serveState{}
-	require.NoError(t, start(cfg, logger.NewNoop(), srv, sc, state)(context.Background()))
+	require.NoError(t, start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{}, sc, state)(context.Background()))
 
 	// Hold an open connection with an in-flight blocking stream so GracefulStop
 	// cannot complete promptly; an already-cancelled context forces srv.Stop().

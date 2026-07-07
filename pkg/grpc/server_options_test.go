@@ -10,11 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -66,6 +68,43 @@ func TestNewServer_WithConfigPrefix_Reflection(t *testing.T) {
 	}
 
 	assert.True(t, hasReflection, "reflection must honour the custom prefix")
+}
+
+func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_SERVER_GRPC_PORT", "19082")
+	t.Setenv("GTB_SERVER_GRPC_REFLECTION", "true")
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithEnvPrefix("GTB"),
+		config.WithConfigReaders(strings.NewReader("server:\n  grpc:\n    port: 19081\n    reflection: false\n")),
+	)
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 19082, got.Port)
+	assert.True(t, got.Reflection)
+}
+
+func TestNewServerWithSettings_Reflection(t *testing.T) {
+	t.Parallel()
+
+	srv, err := NewServerWithSettings(ServerSettings{Reflection: true})
+	require.NoError(t, err)
+
+	services := srv.GetServiceInfo()
+	hasReflection := false
+
+	for name := range services {
+		if strings.Contains(name, "ServerReflection") {
+			hasReflection = true
+			break
+		}
+	}
+
+	assert.True(t, hasReflection)
 }
 
 func TestNewServer_AcceptsServerOptionAndGRPCOption(t *testing.T) {
