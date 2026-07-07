@@ -35,6 +35,18 @@ func prefixedCfgFromYAML(t *testing.T, prefix, yaml string) config.Containable {
 	)
 }
 
+func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
+	t.Setenv("GTB_SERVER_HTTP_PORT", "18082")
+	t.Setenv("GTB_SERVER_HTTP_MAX_HEADER_BYTES", "4096")
+
+	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  http:\n    port: 18081\n    max_header_bytes: 2048\n")
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 18082, got.Port)
+	assert.Equal(t, 4096, got.MaxHeaderBytes)
+}
+
 func TestMergeRateLimitConfig(t *testing.T) {
 	t.Parallel()
 

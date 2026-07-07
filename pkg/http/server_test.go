@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 func testLogger() logger.Logger {
@@ -98,24 +98,10 @@ func TestMaxBytesMiddleware_NonPositiveLimitDisablesCap(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("read=%d", 1<<15), string(got))
 }
 
-func mockTLSDisabled(cfg *mockConfig.MockContainable) {
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
-}
-
 func TestNewServer(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
-
-	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServer(context.Background(), ServerSettings{}, http.DefaultServeMux)
 	require.NoError(t, err)
 	require.NotNil(t, srv)
 
@@ -133,12 +119,7 @@ func TestNewServer_BaseContext(t *testing.T) {
 	type ctxKey struct{}
 	ctx := context.WithValue(context.Background(), ctxKey{}, "sentinel")
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
-
-	srv, err := NewServerFromContainable(ctx, cfg, http.DefaultServeMux)
+	srv, err := NewServer(ctx, ServerSettings{}, http.DefaultServeMux)
 	require.NoError(t, err)
 	require.NotNil(t, srv.BaseContext)
 
@@ -147,40 +128,26 @@ func TestNewServer_BaseContext(t *testing.T) {
 	assert.Equal(t, "sentinel", baseCtx.Value(ctxKey{}))
 }
 
-func TestHTTPPortConfig_Specific(t *testing.T) {
+func TestHTTPPortSettings_Specific(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(19876)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
-
-	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServer(context.Background(), ServerSettings{Port: 19876}, http.DefaultServeMux)
 	require.NoError(t, err)
 	assert.Equal(t, ":19876", srv.Addr)
 }
 
-func TestHTTPPortConfig_Fallback(t *testing.T) {
+func TestHTTPPortSettings_Zero(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(19877)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
-
-	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServer(context.Background(), ServerSettings{}, http.DefaultServeMux)
 	require.NoError(t, err)
-	assert.Equal(t, ":19877", srv.Addr)
+	assert.Equal(t, ":0", srv.Addr)
 }
 
 func TestNewServer_MaxHeaderBytes_Configured(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(2048)
-
-	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServer(context.Background(), ServerSettings{MaxHeaderBytes: 2048}, http.DefaultServeMux)
 	require.NoError(t, err)
 	require.NotNil(t, srv)
 
@@ -190,12 +157,7 @@ func TestNewServer_MaxHeaderBytes_Configured(t *testing.T) {
 func TestHTTPServer_MaxHeaderBytes_Zero(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
-
-	srv, err := NewServerFromContainable(context.Background(), cfg, http.DefaultServeMux)
+	srv, err := NewServer(context.Background(), ServerSettings{}, http.DefaultServeMux)
 	require.NoError(t, err)
 	assert.Equal(t, 1<<20, srv.MaxHeaderBytes, "zero config value should default to 1MB")
 }
@@ -209,15 +171,12 @@ func TestHTTPServer_RejectsOversizedHeaders(t *testing.T) {
 	_ = listener.Close()
 
 	// Use a small MaxHeaderBytes limit so the test does not need to send 1 MB of data.
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.port").Return(0).Maybe()
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(100)
-	mockTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{
+		Port:           port,
+		MaxHeaderBytes: 100,
+	}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -253,9 +212,6 @@ func TestStart_HTTP(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	mockTLSDisabled(cfg)
-
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -266,7 +222,7 @@ func TestStart_HTTP(t *testing.T) {
 		Handler: mux,
 	}
 
-	startFn := StartFromContainable(cfg, testLogger(), srv)
+	startFn := StartWithTLSPair(testLogger(), srv, gtbtls.Pair{})
 
 	// Start in goroutine
 	errCh := make(chan error, 1)
@@ -325,14 +281,9 @@ func TestStop(t *testing.T) {
 func TestNewServer_BaseContextNotCancelledByParent(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0)
-
 	ctx, cancel := context.WithCancel(context.Background())
 
-	srv, err := NewServerFromContainable(ctx, cfg, http.DefaultServeMux)
+	srv, err := NewServer(ctx, ServerSettings{}, http.DefaultServeMux)
 	require.NoError(t, err)
 
 	baseCtx := srv.BaseContext(nil)
@@ -407,15 +358,9 @@ func TestStop_ForceClosesAfterShutdownTimeout(t *testing.T) {
 func TestRegister(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(0)
-	cfg.EXPECT().GetInt("server.port").Return(0)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	mockTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.DefaultServeMux)
+	_, err := Register(context.Background(), "test-http", controller, testLogger(), http.DefaultServeMux, ServerSettings{}, gtbtls.Pair{})
 	assert.NoError(t, err)
 }
 
@@ -452,17 +397,12 @@ func TestStatus_ReportsServeExitError(t *testing.T) {
 func TestStart_TLSBadCertFailsSynchronously(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	// TLS enabled with cert/key paths that do not exist.
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(true).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("/nonexistent/cert.pem").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("/nonexistent/key.pem").Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
-
 	srv := &http.Server{Addr: ":0"}
-	startFn := StartFromContainable(cfg, testLogger(), srv)
+	startFn := StartWithTLSPair(testLogger(), srv, gtbtls.Pair{
+		Enabled: true,
+		Cert:    "/nonexistent/cert.pem",
+		Key:     "/nonexistent/key.pem",
+	})
 
 	// A missing/invalid certificate must fail the start synchronously, not in
 	// a detached serve goroutine while the controller reports healthy.
@@ -480,11 +420,6 @@ func TestHealthz(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	mockTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	// Register a service that reports unhealthy
@@ -494,7 +429,7 @@ func TestHealthz(t *testing.T) {
 		controls.WithStatus(func() error { return fmt.Errorf("failed") }),
 	)
 
-	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -522,11 +457,6 @@ func TestProbes(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	mockTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	controller.Register("test-service",
@@ -536,7 +466,7 @@ func TestProbes(t *testing.T) {
 		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
 	)
 
-	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux())
+	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -573,11 +503,6 @@ func TestRegister_WithMiddleware(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	mockTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	var middlewareCalled bool
@@ -594,7 +519,7 @@ func TestRegister_WithMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), mux,
+	_, err = Register(context.Background(), "test-http", controller, testLogger(), mux, ServerSettings{Port: port}, gtbtls.Pair{},
 		WithMiddleware(chain),
 	)
 	require.NoError(t, err)
@@ -626,11 +551,6 @@ func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	_ = listener.Close()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	mockTLSDisabled(cfg)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	// Middleware that blocks all requests
@@ -640,7 +560,7 @@ func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
 		})
 	})
 
-	_, err = RegisterFromContainable(context.Background(), "test-http", controller, cfg, testLogger(), http.NewServeMux(),
+	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithMiddleware(chain),
 	)
 	require.NoError(t, err)
