@@ -11,16 +11,15 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 // headerMiddleware is a trivial Middleware that stamps a marker header, used to
@@ -32,19 +31,6 @@ func headerMiddleware(key, value string) gtbhttp.Middleware {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-// cfgWithGatewayPort returns a config container with the gateway HTTP port set
-// to the supplied free port. The gateway's own HTTP server reads
-// "server.gateway.port"; the in-process gRPC dial reads "server.grpc.port".
-func cfgWithGatewayPort(t *testing.T, port int) config.Containable {
-	t.Helper()
-
-	c := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	c.Set("server.gateway.port", port)
-	c.Set("server.grpc.port", 50099)
-
-	return c
 }
 
 // freePort reserves and immediately releases an ephemeral port, returning the
@@ -81,7 +67,7 @@ func TestWithMuxOptions(t *testing.T) {
 		},
 	))
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister, opt)
+	h, err := gateway.New(context.Background(), testConn(t), noopRegister, opt)
 	require.NoError(t, err)
 	require.NotNil(t, h)
 
@@ -94,18 +80,6 @@ func TestWithMuxOptions(t *testing.T) {
 	assert.True(t, matcherCalled, "WithMuxOptions header matcher should be invoked")
 }
 
-// TestWithDialOptions verifies a caller-supplied dial option is accepted and the
-// handler is still constructed successfully.
-func TestWithDialOptions(t *testing.T) {
-	t.Parallel()
-
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
-		gateway.WithDialOptions(grpc.WithUserAgent("gtb-gateway-test")),
-	)
-	require.NoError(t, err)
-	assert.NotNil(t, h)
-}
-
 // TestWithMiddleware_New verifies WithMiddleware wraps the handler returned by
 // New, so every request through it passes through the chain.
 func TestWithMiddleware_New(t *testing.T) {
@@ -113,7 +87,7 @@ func TestWithMiddleware_New(t *testing.T) {
 
 	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister, gateway.WithMiddleware(chain))
+	h, err := gateway.New(context.Background(), testConn(t), noopRegister, gateway.WithMiddleware(chain))
 	require.NoError(t, err)
 	require.NotNil(t, h)
 
@@ -130,13 +104,12 @@ func TestWithMiddleware_Register(t *testing.T) {
 	t.Parallel()
 
 	port := freePort(t)
-	cfg := cfgWithGatewayPort(t, port)
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
-		logger.NewNoop(), noopRegister, gateway.WithMiddleware(chain))
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+		gtbhttp.ServerSettings{Port: port}, gtbtls.Pair{}, noopRegister, gateway.WithMiddleware(chain))
 	require.NoError(t, err)
 
 	controller.Start()
@@ -167,20 +140,6 @@ func TestWithMiddleware_Register(t *testing.T) {
 	assert.Empty(t, resp.Header.Get("X-Gateway-MW"), "health endpoints must stay outside the middleware chain")
 }
 
-// TestNew_DialLocalError forces the in-process gRPC dial to fail by enabling TLS
-// with a certificate path that does not exist, so TLSClientCredentials cannot
-// build a transport — exercising New's DialLocal error branch.
-func TestNew_DialLocalError(t *testing.T) {
-	t.Parallel()
-
-	c := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	c.Set("server.grpc.tls.enabled", true)
-	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
-
-	_, err := gateway.NewFromContainable(context.Background(), c, noopRegister)
-	require.Error(t, err)
-}
-
 // TestRegister wires the gateway as its own controller-managed HTTP server and
 // drives the controls lifecycle: the health endpoints come up and graceful
 // shutdown completes.
@@ -188,14 +147,12 @@ func TestRegister(t *testing.T) {
 	t.Parallel()
 
 	port := freePort(t)
-	cfg := cfgWithGatewayPort(t, port)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
 	var registerCalled bool
 
-	srv, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
-		logger.NewNoop(),
+	srv, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+		gtbhttp.ServerSettings{Port: port}, gtbtls.Pair{},
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			registerCalled = true
 
@@ -231,12 +188,10 @@ func TestRegister_ServesGatewayMux(t *testing.T) {
 	t.Parallel()
 
 	port := freePort(t)
-	cfg := cfgWithGatewayPort(t, port)
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
-		logger.NewNoop(), noopRegister)
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+		gtbhttp.ServerSettings{Port: port}, gtbtls.Pair{}, noopRegister)
 	require.NoError(t, err)
 
 	controller.Start()
@@ -258,33 +213,15 @@ func TestRegister_ServesGatewayMux(t *testing.T) {
 	}, 3*time.Second, 50*time.Millisecond, "gateway mux should handle the root route")
 }
 
-// TestRegister_PropagatesNewError verifies Register surfaces a failure from the
-// underlying New call (here, the DialLocal TLS error) rather than masking it.
-func TestRegister_PropagatesNewError(t *testing.T) {
-	t.Parallel()
-
-	c := config.NewContainerFromViper(logger.NewNoop(), viper.New())
-	c.Set("server.grpc.tls.enabled", true)
-	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
-
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-
-	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, c,
-		logger.NewNoop(), noopRegister)
-	require.Error(t, err)
-}
-
 // TestRegister_PropagatesRegisterError verifies a register-func error aborts
 // Register (via New) without leaving a server registered.
 func TestRegister_PropagatesRegisterError(t *testing.T) {
 	t.Parallel()
 
-	cfg := cfgWithGatewayPort(t, freePort(t))
-
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, cfg,
-		logger.NewNoop(),
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+		gtbhttp.ServerSettings{Port: freePort(t)}, gtbtls.Pair{},
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			return errors.New("register boom")
 		})

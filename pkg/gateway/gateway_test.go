@@ -3,25 +3,25 @@ package gateway_test
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func testCfg() config.Containable {
-	c := config.NewContainerFromViper(logger.NewCharm(io.Discard), viper.New())
-	c.Set("server.grpc.port", 50099)
+func testConn(t *testing.T) *grpc.ClientConn {
+	t.Helper()
 
-	return c
+	conn, err := grpc.NewClient("passthrough:///gateway-test", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	return conn
 }
 
 func TestNew_ReturnsHandler(t *testing.T) {
@@ -29,7 +29,7 @@ func TestNew_ReturnsHandler(t *testing.T) {
 
 	var called bool
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(),
+	h, err := gateway.New(context.Background(), testConn(t),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			called = true
 
@@ -44,7 +44,7 @@ func TestNew_ReturnsHandler(t *testing.T) {
 func TestNew_PropagatesRegisterError(t *testing.T) {
 	t.Parallel()
 
-	_, err := gateway.NewFromContainable(context.Background(), testCfg(),
+	_, err := gateway.New(context.Background(), testConn(t),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			return errors.New("boom")
 		})
