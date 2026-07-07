@@ -11,11 +11,10 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
-	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
 // ConfigPrefix is the config block a gateway server reads (port, TLS) when run
@@ -81,46 +80,18 @@ func newOptions(opts []Option) *options {
 }
 
 // serveMux builds the raw grpc-gateway handler (no middleware applied).
-func (o *options) serveMux(ctx context.Context, cfg config.Containable, register RegisterFunc) (http.Handler, error) {
+func (o *options) serveMux(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc) (http.Handler, error) {
 	mux := runtime.NewServeMux(o.muxOpts...)
 
-	// Instrument the connection so the trace context propagates from the inbound
-	// REST request into the gRPC call: the request and its proxied RPC share one
-	// trace. A noop until telemetry.Setup installs the providers. Caller dial
-	// options follow, so they can override or add to it. DialLocal takes the
-	// option-typed variadic (...any), so the dial options are passed as such.
-	dialOpts := make([]any, 0, len(o.dialOpts)+1)
-	dialOpts = append(dialOpts, gtbgrpc.OTelClientHandler())
-
-	for _, d := range o.dialOpts {
-		dialOpts = append(dialOpts, d)
-	}
-
-	conn, err := gtbgrpc.DialLocal(cfg, dialOpts...)
-	if err != nil {
-		return nil, err
-	}
-
 	if err := register(ctx, mux, conn); err != nil {
-		_ = conn.Close()
-
 		return nil, err
 	}
 
 	return mux, nil
 }
 
-// New builds a grpc-gateway handler ready to mount on an existing HTTP server.
-// It dials the local gRPC server via grpc.DialLocal (so transport security
-// matches the server's own config) and applies register to wire the handlers.
-//
-// The returned handler is a *runtime.ServeMux (or, with WithMiddleware, that mux
-// wrapped by the chain). The underlying gRPC connection lives for the process;
-// it is the standard pattern for an in-process gateway.
-func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
-	o := newOptions(opts)
-
-	handler, err := o.serveMux(ctx, cfg, register)
+func newWithOptions(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, o *options) (http.Handler, error) {
+	handler, err := o.serveMux(ctx, conn, register)
 	if err != nil {
 		return nil, err
 	}
@@ -132,23 +103,39 @@ func New(ctx context.Context, cfg config.Containable, register RegisterFunc, opt
 	return handler, nil
 }
 
-// Register runs the gateway as its own controller-managed HTTP server on the
-// "server.gateway" config block (TLS falling back to the shared "server.tls"),
-// dialing the local gRPC server. It is the first-class form of New, a peer of
-// grpc.Register and http.Register. Pass WithMiddleware to wrap the REST surface
-// with a middleware chain (health endpoints stay outside it).
-func Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
+// NewWithConn builds a grpc-gateway handler from an already prepared gRPC
+// client connection.
+func NewWithConn(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, opts ...Option) (http.Handler, error) {
 	o := newOptions(opts)
 
-	handler, err := o.serveMux(ctx, cfg, register)
+	return newWithOptions(ctx, conn, register, o)
+}
+
+// RegisterWithSettings runs the gateway as its own controller-managed HTTP
+// server from explicit typed HTTP settings and a prepared gRPC client
+// connection.
+func RegisterWithSettings(
+	ctx context.Context,
+	id string,
+	controller controls.Controllable,
+	logger logger.Logger,
+	conn *grpc.ClientConn,
+	httpSettings gtbhttp.ServerSettings,
+	httpTLS gtbtls.Pair,
+	register RegisterFunc,
+	opts ...Option,
+) (*http.Server, error) {
+	o := newOptions(opts)
+
+	handler, err := newWithOptions(ctx, conn, register, o)
 	if err != nil {
 		return nil, err
 	}
 
-	httpOpts := []any{gtbhttp.WithConfigPrefix(ConfigPrefix)}
+	httpOpts := []any{}
 	if o.hasMiddleware {
 		httpOpts = append(httpOpts, gtbhttp.WithMiddleware(o.middleware))
 	}
 
-	return gtbhttp.Register(ctx, id, controller, cfg, logger, handler, httpOpts...)
+	return gtbhttp.RegisterWithSettings(ctx, id, controller, logger, handler, httpSettings, httpTLS, httpOpts...)
 }
