@@ -11,8 +11,6 @@ import (
 	"os"
 
 	"github.com/cockroachdb/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // SharedPrefix is the config prefix for TLS settings shared across every
@@ -51,6 +49,15 @@ type Pair struct {
 	Key     string `mapstructure:"key"     yaml:"key"     json:"key"`
 }
 
+// PairOverrides records which fields a transport-specific TLS section set.
+// ResolvePair uses it to merge per-transport config without requiring a config
+// lookup interface.
+type PairOverrides struct {
+	Enabled bool
+	Cert    bool
+	Key     bool
+}
+
 // Valid reports whether TLS is enabled and both certificate paths are present.
 func (p Pair) Valid() bool {
 	return p.Enabled && p.Cert != "" && p.Key != ""
@@ -85,28 +92,22 @@ func (p Pair) ServerConfig(nextProtos ...string) (*cryptotls.Config, error) {
 	return cfg, nil
 }
 
-// Resolve resolves the TLS settings for a transport. It starts from the shared
-// SharedPrefix ("server.tls") and overrides each field individually from the
-// transport-specific prefix (e.g. "server.grpc.tls", "server.http.tls",
-// "server.gateway.tls") whenever that key is set. This lets a single
-// certificate serve every transport, with per-transport overrides where needed.
-func Resolve(cfg config.Containable, transportPrefix string) Pair {
-	pair := Pair{
-		Enabled: cfg.GetBool(SharedPrefix + ".enabled"),
-		Cert:    cfg.GetString(SharedPrefix + ".cert"),
-		Key:     cfg.GetString(SharedPrefix + ".key"),
+// ResolvePair resolves TLS settings from already-materialised typed values. It
+// starts from the shared pair and overrides individual fields when the
+// transport section explicitly supplied them.
+func ResolvePair(shared Pair, transport Pair, overrides PairOverrides) Pair {
+	pair := shared
+
+	if overrides.Enabled {
+		pair.Enabled = transport.Enabled
 	}
 
-	if cfg.IsSet(transportPrefix + ".enabled") {
-		pair.Enabled = cfg.GetBool(transportPrefix + ".enabled")
+	if overrides.Cert {
+		pair.Cert = transport.Cert
 	}
 
-	if cfg.IsSet(transportPrefix + ".cert") {
-		pair.Cert = cfg.GetString(transportPrefix + ".cert")
-	}
-
-	if cfg.IsSet(transportPrefix + ".key") {
-		pair.Key = cfg.GetString(transportPrefix + ".key")
+	if overrides.Key {
+		pair.Key = transport.Key
 	}
 
 	return pair
