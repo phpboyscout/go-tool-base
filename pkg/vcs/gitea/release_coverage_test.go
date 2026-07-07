@@ -14,6 +14,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -59,7 +60,7 @@ func TestNewReleaseProvider_ConfigURLAPIOverride(t *testing.T) {
 	// src.Host points elsewhere; the cfg override must win.
 	src := release.ReleaseSourceConfig{Host: "http://should-be-ignored.invalid"}
 
-	p, err := NewReleaseProvider(src, cfg, "")
+	p, err := NewReleaseProvider(src, vcs.ConfigFromContainable(cfg), "")
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 5)
@@ -87,7 +88,7 @@ func TestNewReleaseProvider_TokenFromConfigSubtree(t *testing.T) {
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
 
-	p, err := NewReleaseProvider(src, cfg, "")
+	p, err := NewReleaseProvider(src, vcs.ConfigFromContainable(cfg), "")
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "owner", "repo")

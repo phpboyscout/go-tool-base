@@ -19,7 +19,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
@@ -107,7 +106,7 @@ type BitbucketReleaseProvider struct {
 // rather than silently falling through to the legacy literal step.
 //
 // The filename regex can be overridden via src.Params["filename_pattern"].
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*BitbucketReleaseProvider, error) {
+func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config) (*BitbucketReleaseProvider, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), bitbucketKeychainTimeout)
 	defer cancel()
 
@@ -510,7 +509,7 @@ type bitbucketKeychainBlob struct {
 // supported and occasionally useful during rotation.
 //
 // See docs/development/specs/2026-04-02-credential-storage-hardening.md.
-func resolveCredentials(ctx context.Context, cfg config.Containable) (username, appPassword string, err error) {
+func resolveCredentials(ctx context.Context, cfg release.Config) (username, appPassword string, err error) {
 	blob, err := loadBitbucketKeychain(ctx, cfg)
 	if err != nil {
 		return "", "", err
@@ -527,7 +526,7 @@ func resolveCredentials(ctx context.Context, cfg config.Containable) (username, 
 // decoded from the shared keychain blob (already loaded once per
 // [resolveCredentials] invocation); pass "" when the blob is absent
 // or the field was empty in it.
-func resolveBitbucketField(cfg config.Containable, field, fallbackEnv, keychainValue string) string {
+func resolveBitbucketField(cfg release.Config, field, fallbackEnv, keychainValue string) string {
 	if v := bitbucketFieldFromConfig(cfg, field, keychainValue); v != "" {
 		return v
 	}
@@ -542,12 +541,12 @@ func resolveBitbucketField(cfg config.Containable, field, fallbackEnv, keychainV
 // <TOOL>_BITBUCKET_USERNAME without a round-trip through the full
 // dot-path. keychainValue is consulted between the env-ref step and
 // the literal step. Returns empty string when nothing is configured.
-func bitbucketFieldFromConfig(cfg config.Containable, field, keychainValue string) string {
+func bitbucketFieldFromConfig(cfg release.Config, field, keychainValue string) string {
 	if cfg == nil {
 		return strings.TrimSpace(keychainValue)
 	}
 
-	sub := cfg.Sub("bitbucket")
+	sub := release.SubConfig(cfg, "bitbucket")
 	if sub == nil {
 		return strings.TrimSpace(keychainValue)
 	}
@@ -573,14 +572,14 @@ func bitbucketFieldFromConfig(cfg config.Containable, field, keychainValue strin
 // retrieval errors (unavailable backend, missing entry) fall through
 // silently so a configured-but-unreachable keychain cannot mask a
 // valid literal or env-var fallback further down the chain.
-func loadBitbucketKeychain(ctx context.Context, cfg config.Containable) (bitbucketKeychainBlob, error) {
+func loadBitbucketKeychain(ctx context.Context, cfg release.Config) (bitbucketKeychainBlob, error) {
 	var blob bitbucketKeychainBlob
 
 	if cfg == nil {
 		return blob, nil
 	}
 
-	sub := cfg.Sub("bitbucket")
+	sub := release.SubConfig(cfg, "bitbucket")
 	if sub == nil {
 		return blob, nil
 	}

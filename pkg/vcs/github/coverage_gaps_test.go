@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -280,7 +281,7 @@ func TestRegisteredGitHubFactory(t *testing.T) {
 	// An empty config subtree is valid: a public repo needs no github section.
 	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithConfigFormat("yaml"))
 
-	provider, err := factory(release.ReleaseSourceConfig{Host: "github.com"}, cfg)
+	provider, err := factory(release.ReleaseSourceConfig{Host: "github.com"}, vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }
@@ -295,7 +296,7 @@ func TestRegisteredGitHubFactory_Error(t *testing.T) {
 
 	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithConfigFormat("yaml"))
 
-	provider, err := factory(release.ReleaseSourceConfig{Host: "ghe.example.com\x7f"}, cfg)
+	provider, err := factory(release.ReleaseSourceConfig{Host: "ghe.example.com\x7f"}, vcs.ConfigFromContainable(cfg))
 	require.Error(t, err)
 	assert.Nil(t, provider)
 }

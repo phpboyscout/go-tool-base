@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-github/v88/github"
 	"github.com/spf13/afero"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -233,7 +232,7 @@ func (c *GHClient) DownloadAssetTo(ctx context.Context, fs afero.Fs, owner, repo
 // config subtree (nil when no such section exists); it supplies a token
 // (for private repos) and explicit `url.api`/`url.upload` overrides that
 // take precedence over the host-derived Enterprise URLs.
-func NewGitHubClient(src release.ReleaseSourceConfig, cfg config.Containable) (*GHClient, error) {
+func NewGitHubClient(src release.ReleaseSourceConfig, cfg vcs.TokenConfig) (*GHClient, error) {
 	opts := []github.ClientOptionsFunc{github.WithHTTPClient(gtbhttp.NewClient())}
 
 	if apiURL, uploadURL := enterpriseURLs(src, cfg); apiURL != "" {
@@ -259,7 +258,7 @@ func NewGitHubClient(src release.ReleaseSourceConfig, cfg config.Containable) (*
 // `github` config subtree (url.api/url.upload) when present, falling back
 // to URLs derived from a non-github.com ReleaseSource host. Empty results
 // mean "use the public github.com defaults".
-func enterpriseURLs(src release.ReleaseSourceConfig, cfg config.Containable) (apiURL, uploadURL string) {
+func enterpriseURLs(src release.ReleaseSourceConfig, cfg vcs.TokenConfig) (apiURL, uploadURL string) {
 	if cfg != nil {
 		apiURL = cfg.GetString("url.api")
 		uploadURL = cfg.GetString("url.upload")
@@ -298,7 +297,7 @@ func deriveUploadURL(apiURL string) string {
 // GetGitHubToken returns the GitHub token from config, erroring when none is
 // available. Use this where a token is strictly required (e.g. git operations).
 // For release/update operations on public repos, prefer vcs.ResolveToken directly.
-func GetGitHubToken(cfg config.Containable) (string, error) {
+func GetGitHubToken(cfg vcs.TokenConfig) (string, error) {
 	token := vcs.ResolveToken(cfg, "GITHUB_TOKEN")
 	if token == "" {
 		return "", errors.New("could not find a valid GITHUB_TOKEN, please check your configuration")

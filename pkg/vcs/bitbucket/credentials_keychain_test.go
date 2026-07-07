@@ -10,6 +10,7 @@ import (
 	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -43,7 +44,7 @@ func TestResolveCredentials_KeychainBlobPopulatesBothFields(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	user, pass, err := resolveCredentials(t.Context(), cfg)
+	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.Equal(t, "kcuser", user)
 	assert.Equal(t, "kcpass", pass)
@@ -62,7 +63,7 @@ func TestResolveCredentials_CorruptKeychainAborts(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	_, _, err := resolveCredentials(t.Context(), cfg)
+	_, _, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not valid JSON")
 }
@@ -80,7 +81,7 @@ func TestResolveCredentials_IncompleteKeychainAborts(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	_, _, err := resolveCredentials(t.Context(), cfg)
+	_, _, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing username or app_password")
 }
@@ -102,7 +103,7 @@ func TestResolveCredentials_EnvVarOverridesKeychainPerField(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	user, pass, err := resolveCredentials(t.Context(), cfg)
+	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.Equal(t, "env-user", user, "env-var reference wins over keychain")
 	assert.Equal(t, "kcpass", pass, "other field still resolved from keychain")
@@ -126,7 +127,7 @@ func TestResolveCredentials_KeychainBeatsLiteral(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	user, pass, err := resolveCredentials(t.Context(), cfg)
+	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.Equal(t, "kcuser", user)
 	assert.Equal(t, "kcpass", pass)
@@ -145,7 +146,7 @@ func TestNewReleaseProvider_CorruptKeychainAborts(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	_, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
+	_, err := NewReleaseProvider(release.ReleaseSourceConfig{}, vcs.ConfigFromContainable(cfg))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not valid JSON")
 }
@@ -167,7 +168,7 @@ func TestResolveCredentials_KeychainMissingFallsThrough(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	user, pass, err := resolveCredentials(t.Context(), cfg)
+	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.Equal(t, "literal-user", user)
 	assert.Equal(t, "literal-pass", pass)

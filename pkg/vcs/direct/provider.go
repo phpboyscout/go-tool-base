@@ -17,7 +17,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
@@ -75,7 +74,7 @@ type DirectReleaseProvider struct {
 // pinned_version, checksum_url_template, signature_url_template.
 //
 // Token resolution: cfg key "direct.token", then DIRECT_TOKEN env var.
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*DirectReleaseProvider, error) {
+func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config) (*DirectReleaseProvider, error) {
 	urlTemplate := src.Params["url_template"]
 	if urlTemplate == "" {
 		return nil, errors.WithHint(
@@ -291,9 +290,9 @@ func (p *DirectReleaseProvider) expandTemplate(tmpl, version string) string {
 	return r.Replace(tmpl)
 }
 
-func resolveToken(cfg config.Containable) string {
+func resolveToken(cfg release.Config) string {
 	if cfg != nil {
-		sub := cfg.Sub("direct")
+		sub := release.SubConfig(cfg, "direct")
 		if sub != nil {
 			if t := sub.GetString("token"); t != "" {
 				return t

@@ -12,7 +12,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -85,7 +84,7 @@ type GiteaReleaseProvider struct {
 //
 // tokenFallbackEnv is the well-known environment variable for this instance
 // type (e.g. GITEA_TOKEN or CODEBERG_TOKEN).
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable, tokenFallbackEnv string) (*GiteaReleaseProvider, error) {
+func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config, tokenFallbackEnv string) (*GiteaReleaseProvider, error) {
 	host := src.Host
 	if cfg != nil && cfg.GetString("url.api") != "" {
 		host = cfg.GetString("url.api")
@@ -106,12 +105,7 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable,
 	baseURL := fmt.Sprintf("%s/api/%s", host, apiVersion)
 
 	// Token resolution: config subtree first, then well-known env var.
-	var cfgSub config.Containable
-	if cfg != nil {
-		cfgSub = cfg.Sub("gitea")
-	}
-
-	token := vcs.ResolveToken(cfgSub, tokenFallbackEnv)
+	token := vcs.ResolveToken(release.SubConfig(cfg, "gitea"), tokenFallbackEnv)
 
 	return &GiteaReleaseProvider{
 		baseURL:    baseURL,

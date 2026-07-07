@@ -5,9 +5,14 @@ import (
 	"os"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
+
+// TokenConfig is the minimal string lookup surface needed for VCS token
+// resolution.
+type TokenConfig interface {
+	GetString(key string) string
+}
 
 // ResolveToken resolves an authentication token from a config subtree.
 //
@@ -38,7 +43,7 @@ import (
 // command, chat provider) SHOULD use [ResolveTokenContext] instead
 // so a slow remote backend (Vault, SSM) cannot stall the caller
 // beyond its own deadline.
-func ResolveToken(cfg config.Containable, fallbackEnv string) string {
+func ResolveToken(cfg TokenConfig, fallbackEnv string) string {
 	return ResolveTokenContext(context.Background(), cfg, fallbackEnv)
 }
 
@@ -46,7 +51,7 @@ func ResolveToken(cfg config.Containable, fallbackEnv string) string {
 // The context is propagated to the credentials backend so remote
 // stores honour deadlines and cancellation. Recommended for any
 // call path that already has a context in scope.
-func ResolveTokenContext(ctx context.Context, cfg config.Containable, fallbackEnv string) string {
+func ResolveTokenContext(ctx context.Context, cfg TokenConfig, fallbackEnv string) string {
 	if token := tokenFromConfig(ctx, cfg); token != "" {
 		return token
 	}
@@ -62,7 +67,7 @@ func ResolveTokenContext(ctx context.Context, cfg config.Containable, fallbackEn
 // chain. Each step short-circuits on a non-empty value; empty or
 // whitespace-only results fall through so a partially-populated entry
 // cannot mask a fully-populated one at a lower priority.
-func tokenFromConfig(ctx context.Context, cfg config.Containable) string {
+func tokenFromConfig(ctx context.Context, cfg TokenConfig) string {
 	if cfg == nil {
 		return ""
 	}
@@ -80,7 +85,7 @@ func tokenFromConfig(ctx context.Context, cfg config.Containable) string {
 
 // tokenFromEnvRef reads the env-var NAME recorded in auth.env and
 // returns the value of that env var, or empty string.
-func tokenFromEnvRef(cfg config.Containable) string {
+func tokenFromEnvRef(cfg TokenConfig) string {
 	name := strings.TrimSpace(cfg.GetString("auth.env"))
 	if name == "" {
 		return ""
@@ -102,7 +107,7 @@ func tokenFromEnvRef(cfg config.Containable) string {
 // Corrupted-entry errors (JSON unmarshal for Bitbucket blob) are
 // handled by the caller, not here — this function is for single-
 // value secrets only.
-func tokenFromKeychain(ctx context.Context, cfg config.Containable) string {
+func tokenFromKeychain(ctx context.Context, cfg TokenConfig) string {
 	ref := strings.TrimSpace(cfg.GetString("auth.keychain"))
 	if ref == "" {
 		return ""

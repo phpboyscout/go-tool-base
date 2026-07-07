@@ -9,7 +9,6 @@ import (
 	"github.com/cockroachdb/errors"
 	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -90,7 +89,7 @@ const defaultGitLabAPI = "https://gitlab.com/api/v4"
 // a token (for private repos) and an explicit `url.api` override. When
 // absent, the token falls back to the GITLAB_TOKEN env var and the base
 // URL is derived from src.Host.
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
+func NewReleaseProvider(src release.ReleaseSourceConfig, cfg vcs.TokenConfig) (release.Provider, error) {
 	baseURL := defaultGitLabAPI
 	if src.Host != "" {
 		baseURL = "https://" + src.Host + "/api/v4"

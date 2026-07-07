@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -33,7 +32,7 @@ func (s *stubProvider) DownloadReleaseAsset(_ context.Context, _, _ string, _ re
 	return nil, "", nil
 }
 
-func stubFactory(_ release.ReleaseSourceConfig, _ config.Containable) (release.Provider, error) {
+func stubFactory(_ release.ReleaseSourceConfig, _ release.Config) (release.Provider, error) {
 	return &stubProvider{}, nil
 }
 
@@ -88,11 +87,11 @@ func TestRegistry_Overwrite(t *testing.T) {
 
 	var called int
 
-	release.Register(testType, func(_ release.ReleaseSourceConfig, _ config.Containable) (release.Provider, error) {
+	release.Register(testType, func(_ release.ReleaseSourceConfig, _ release.Config) (release.Provider, error) {
 		called = 1
 		return &stubProvider{}, nil
 	})
-	release.Register(testType, func(_ release.ReleaseSourceConfig, _ config.Containable) (release.Provider, error) {
+	release.Register(testType, func(_ release.ReleaseSourceConfig, _ release.Config) (release.Provider, error) {
 		called = 2
 		return &stubProvider{}, nil
 	})

@@ -5,13 +5,28 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
+// Config is the minimal configuration reader needed by release provider
+// factories.
+type Config interface {
+	GetString(key string) string
+	Sub(key string) Config
+}
+
+// SubConfig returns cfg.Sub(key), guarding nil callers for provider factories
+// that support config-free public release lookups.
+func SubConfig(cfg Config, key string) Config {
+	if cfg == nil {
+		return nil
+	}
+
+	return cfg.Sub(key)
+}
+
 // ProviderFactory is a function that constructs a release.Provider from a
-// ReleaseSourceConfig and a Viper configuration subtree.
-type ProviderFactory func(source ReleaseSourceConfig, cfg config.Containable) (Provider, error)
+// ReleaseSourceConfig and an optional configuration reader.
+type ProviderFactory func(source ReleaseSourceConfig, cfg Config) (Provider, error)
 
 var (
 	registryMu sync.RWMutex

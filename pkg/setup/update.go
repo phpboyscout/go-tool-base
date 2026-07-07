@@ -379,7 +379,7 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		Params:  p.Tool.ReleaseSource.Params,
 	}
 
-	releaseClient, err := factory(sourceCfg, p.Config)
+	releaseClient, err := factory(sourceCfg, vcs.ConfigFromContainable(p.Config))
 	if err != nil {
 		return errors.WithStack(err)
 	}

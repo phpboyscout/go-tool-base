@@ -8,6 +8,7 @@ import (
 
 	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
 // Build-tag-agnostic resolver behaviour. The "keychain entry missing
@@ -34,7 +35,7 @@ func TestResolveCredentials_MalformedKeychainRefFallsThrough(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(sub)
 
-	user, pass, err := resolveCredentials(t.Context(), cfg)
+	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.Equal(t, "u", user)
 	assert.Equal(t, "p", pass)
@@ -55,7 +56,7 @@ func TestResolveCredentials_NilSubReturn(t *testing.T) {
 	cfg := mockcfg.NewMockContainable(t)
 	cfg.EXPECT().Sub("bitbucket").Return(nil)
 
-	user, pass, err := resolveCredentials(t.Context(), cfg)
+	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 	assert.Empty(t, user)
 	assert.Empty(t, pass)

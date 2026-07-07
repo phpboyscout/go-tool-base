@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/direct"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
@@ -22,7 +23,7 @@ import (
 func newProvider(t *testing.T, params map[string]string, cfg config.Containable) *direct.DirectReleaseProvider {
 	t.Helper()
 
-	p, err := direct.NewReleaseProvider(release.ReleaseSourceConfig{Params: params}, cfg)
+	p, err := direct.NewReleaseProvider(release.ReleaseSourceConfig{Params: params}, vcs.ConfigFromContainable(cfg))
 	require.NoError(t, err)
 
 	return p
