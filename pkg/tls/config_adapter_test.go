@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 
+	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
@@ -83,4 +84,29 @@ server:
 	assert.True(t, pair.Enabled)
 	assert.Equal(t, "/file/http-cert.pem", pair.Cert)
 	assert.Equal(t, "/env/http-key.pem", pair.Key)
+}
+
+func TestResolve_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, gtbtls.Pair{}, gtbtls.Resolve(nil, "server.http.tls"))
+}
+
+func TestResolve_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	cfg := configmocks.NewMockContainable(t)
+	cfg.EXPECT().GetBool("server.tls.enabled").Return(true).Once()
+	cfg.EXPECT().GetString("server.tls.cert").Return("/shared/cert.pem").Once()
+	cfg.EXPECT().GetString("server.tls.key").Return("/shared/key.pem").Once()
+	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Once()
+	cfg.EXPECT().IsSet("server.http.tls.cert").Return(true).Once()
+	cfg.EXPECT().GetString("server.http.tls.cert").Return("/http/cert.pem").Once()
+	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Once()
+
+	pair := gtbtls.Resolve(cfg, "server.http.tls")
+
+	assert.True(t, pair.Enabled)
+	assert.Equal(t, "/http/cert.pem", pair.Cert)
+	assert.Equal(t, "/shared/key.pem", pair.Key)
 }

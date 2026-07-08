@@ -36,6 +36,33 @@ func stubFactory(_ release.ReleaseSourceConfig, _ release.Config) (release.Provi
 	return &stubProvider{}, nil
 }
 
+type stubReleaseConfig struct {
+	values map[string]string
+	subs   map[string]release.Config
+}
+
+func (s stubReleaseConfig) GetString(key string) string {
+	return s.values[key]
+}
+
+func (s stubReleaseConfig) Sub(key string) release.Config {
+	return s.subs[key]
+}
+
+func TestSubConfig(t *testing.T) {
+	t.Parallel()
+
+	child := stubReleaseConfig{values: map[string]string{"token": "child-token"}}
+	parent := stubReleaseConfig{
+		values: map[string]string{"token": "parent-token"},
+		subs:   map[string]release.Config{"gitlab": child},
+	}
+
+	assert.Nil(t, release.SubConfig(nil, "gitlab"))
+	assert.Equal(t, child, release.SubConfig(parent, "gitlab"))
+	assert.Nil(t, release.SubConfig(parent, "github"))
+}
+
 func TestRegistry_Register_And_Lookup(t *testing.T) {
 	t.Parallel()
 

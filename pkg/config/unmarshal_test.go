@@ -20,6 +20,49 @@ type typedProviderConfig struct {
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
+type typedFullConfig struct {
+	OpenAI typedProviderConfig `mapstructure:"openai"`
+}
+
+type complexSectionConfig struct {
+	APIKey   string               `json:"api_key"`
+	YAMLName string               `yaml:"yaml_name"`
+	Count    uint                 `mapstructure:"count"`
+	Ratio    float64              `mapstructure:"ratio"`
+	Skipped  string               `mapstructure:"-"`
+	Inline   complexInlineConfig  `mapstructure:",squash"`
+	Pointer  *complexPointerValue `mapstructure:"pointer"`
+}
+
+type complexInlineConfig struct {
+	InlineName string `mapstructure:"inline_name"`
+}
+
+type complexPointerValue struct {
+	Value string `mapstructure:"value"`
+}
+
+func TestContainer_Unmarshal(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+openai:
+  key: file-key
+  enabled: true
+`)),
+	)
+
+	var out typedFullConfig
+	require.NoError(t, c.Unmarshal(&out))
+
+	assert.Equal(t, "file-key", out.OpenAI.Key)
+	assert.True(t, out.OpenAI.Enabled)
+}
+
 func TestContainer_UnmarshalKey(t *testing.T) {
 	t.Parallel()
 
@@ -43,6 +86,25 @@ openai:
 	assert.Equal(t, "OPENAI_API_KEY", out.Env)
 	assert.True(t, out.Enabled)
 	assert.Equal(t, 5*time.Second, out.Timeout)
+}
+
+func TestContainer_UnmarshalKey_RejectsInvalidTargets(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+openai:
+  key: file-key
+`)),
+	)
+
+	require.ErrorContains(t, c.UnmarshalKey("openai", nil), "nil target")
+
+	var out *typedProviderConfig
+	require.ErrorContains(t, c.UnmarshalKey("openai", out), "result must be addressable")
 }
 
 func TestContainer_UnmarshalKey_PreservesEnvBinding(t *testing.T) {
@@ -91,6 +153,57 @@ providers:
 	assert.Equal(t, "nested-env-key", out.Key)
 }
 
+func TestContainer_UnmarshalKey_OverlaysResolvedComplexFields(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+section:
+  api_key: file-api-key
+  yaml_name: file-yaml-name
+  count: 7
+  ratio: 1.5
+  skipped: should-not-map
+  inline_name: inline-value
+  pointer:
+    value: pointer-value
+`)),
+	)
+
+	var out complexSectionConfig
+	require.NoError(t, c.UnmarshalKey("section", &out))
+
+	assert.Equal(t, "file-api-key", out.APIKey)
+	assert.Equal(t, "file-yaml-name", out.YAMLName)
+	assert.Equal(t, uint(7), out.Count)
+	assert.InDelta(t, 1.5, out.Ratio, 0.001)
+	assert.Empty(t, out.Skipped)
+	assert.Equal(t, "inline-value", out.Inline.InlineName)
+	require.NotNil(t, out.Pointer)
+	assert.Equal(t, "pointer-value", out.Pointer.Value)
+}
+
+func TestContainer_SectionExists(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+openai:
+  key: file-key
+`)),
+	)
+
+	assert.True(t, c.SectionExists(""))
+	assert.True(t, c.SectionExists("openai"))
+	assert.False(t, c.SectionExists("missing"))
+}
+
 func TestUnmarshalSection(t *testing.T) {
 	t.Parallel()
 
@@ -115,6 +228,16 @@ openai:
 
 	assert.False(t, missing.Exists)
 	assert.Zero(t, missing.Value)
+}
+
+func TestUnmarshalSection_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	section, err := config.UnmarshalSection[typedProviderConfig](nil, "openai")
+	require.NoError(t, err)
+
+	assert.False(t, section.Exists)
+	assert.Zero(t, section.Value)
 }
 
 func TestUnmarshalSection_EnvOnlyNestedValueExists(t *testing.T) {
@@ -200,6 +323,39 @@ openai:
 	assert.Equal(t, binding.Value(), *binding.Current())
 	assert.Equal(t, uint64(1), binding.Version())
 	assert.Len(t, c.GetObservers(), 1)
+}
+
+func TestObservedSection_ZeroValue(t *testing.T) {
+	t.Parallel()
+
+	var binding config.ObservedSection[typedProviderConfig]
+
+	assert.False(t, binding.Exists())
+	assert.Zero(t, binding.Value())
+	assert.Nil(t, binding.Current())
+	assert.Equal(t, uint64(0), binding.Version())
+}
+
+func TestObserveSection_DefaultsRequireMergeForExistingSection(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+openai:
+  key: file-key
+`)),
+	)
+
+	_, err := config.ObserveSection[typedProviderConfig](
+		c,
+		"openai",
+		config.WithSectionDefaults(typedProviderConfig{Timeout: time.Second}, nil),
+	)
+
+	require.ErrorContains(t, err, "section defaults require a merge function")
 }
 
 func TestObserveSection_DynamicDefaultsRehydrateOnReload(t *testing.T) {
