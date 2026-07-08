@@ -17,10 +17,11 @@
 // clone/checkout consumer never needs, so a scaffold-time caller (the generator
 // git step) depends on [Initializer] directly.
 //
-// Clone/push authentication is forge-aware: [NewRepo] reads credentials from
-// the config subtree of the tool's forge (github, gitlab, bitbucket, gitea,
-// codeberg) — `<forge>.ssh` for SSH auth, `<forge>.auth` plus the
-// `<FORGE>_TOKEN` fallback environment variable for token auth. Missing
-// credentials are non-fatal for public repositories; private repositories
-// require a token.
+// Clone/push authentication is forge-aware: [NewRepo] takes package-owned
+// [Settings], including release-source metadata, typed SSH settings, and a
+// narrow token config. GTB config integration is isolated to adapter helpers
+// such as [SettingsFromProps] and [SettingsFromContainable], which preserve the
+// existing `<forge>.ssh`, `<forge>.auth`, and fallback environment-variable
+// layout. Missing credentials are non-fatal for public repositories; private
+// repositories require a token.
 package repo

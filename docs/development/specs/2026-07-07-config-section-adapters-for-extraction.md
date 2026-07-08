@@ -783,24 +783,33 @@ Current config coupling:
 Extracted module shape:
 
 ```go
-type AuthConfig struct {
-    Provider string                `mapstructure:"provider"`
-    Token    credentials.Reference `mapstructure:"token"`
-    SSH      SSHConfig             `mapstructure:"ssh"`
+type Settings struct {
+    ReleaseSource release.ReleaseSourceConfig
+    Forge         string
+    AuthEnabled   bool
+    Auth          vcs.TokenConfig
+    SSH           SSHSettings
+    Logger        diagnosticLogger
+    FS            afero.Fs
 }
 
-type SSHConfig struct {
-    Type string `mapstructure:"type"`
-    Path string `mapstructure:"path"`
-    Env  string `mapstructure:"env"`
+type SSHSettings struct {
+    Configured bool
+    HasKey     bool
+    Type       string
+    Env        string
+    Path       string
 }
 ```
 
 GTB adapter responsibilities:
 
-- Map `github.ssh`, `gitlab.ssh`, etc. into `repo.AuthConfig`.
-- Resolve env/keychain values.
-- Pass explicit clone/auth options to repo constructors.
+- Map `props.Tool.ReleaseSource`, `vcs.provider`, `github.ssh`,
+  `gitlab.ssh`, etc. into `repo.Settings`.
+- Preserve token resolution through the narrow `vcs.TokenConfig` surface so
+  env, keychain, literal, and fallback environment behaviour remains unchanged.
+- Keep `NewRepoFromProps` and `SettingsFromContainable` as GTB compatibility
+  adapters while `NewRepo` consumes typed settings.
 
 Existence checks:
 
@@ -1222,32 +1231,35 @@ Extracted module shape:
 
 ```go
 type GitHubSettings struct {
-    APIURL    string     `mapstructure:"url.api"`
-    UploadURL string     `mapstructure:"url.upload"`
-    Auth      vcs.AuthConfig `mapstructure:"auth"`
+    ReleaseSource release.ReleaseSourceConfig
+    APIURL        string         `mapstructure:"url.api"`
+    UploadURL     string         `mapstructure:"url.upload"`
+    Auth          vcs.AuthConfig `mapstructure:"auth"`
 }
 
 type GitLabSettings struct {
-    APIURL string         `mapstructure:"url.api"`
-    Auth   vcs.AuthConfig `mapstructure:"auth"`
+    ReleaseSource release.ReleaseSourceConfig
+    APIURL        string         `mapstructure:"url.api"`
+    Auth          vcs.AuthConfig `mapstructure:"auth"`
 }
 
 type GiteaSettings struct {
-    APIURL string         `mapstructure:"url.api"`
-    Auth   vcs.AuthConfig `mapstructure:"auth"`
+    ReleaseSource    release.ReleaseSourceConfig
+    APIURL           string         `mapstructure:"url.api"`
+    Auth             vcs.AuthConfig `mapstructure:"auth"`
+    TokenFallbackEnv string
 }
 
 type BitbucketSettings struct {
+    ReleaseSource  release.ReleaseSourceConfig
     Username        string `mapstructure:"username"`
     AppPassword     string `mapstructure:"app_password"`
     FilenamePattern string `mapstructure:"filename_pattern"`
 }
 
 type DirectSettings struct {
-    VersionURL string            `mapstructure:"version_url"`
-    AssetURL   string            `mapstructure:"asset_url"`
-    Headers    map[string]string `mapstructure:"headers"`
-    Token      string            `mapstructure:"token"`
+    ReleaseSource release.ReleaseSourceConfig
+    Token         string `mapstructure:"token"`
 }
 ```
 

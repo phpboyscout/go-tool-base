@@ -42,18 +42,19 @@ import (
     "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
-client, err := github.NewGitHubClient(
+settings := github.ClientSettingsFromConfig(
     release.ReleaseSourceConfig{Type: "github", Owner: "your-org", Repo: "your-repo"},
     props.Config.Sub("github"),
 )
+client, err := github.NewGitHubClient(settings)
 if err != nil {
     return err
 }
 ```
 
-`NewGitHubClient` takes the release-source descriptor (owner/repo/host) plus the
-`github` config subtree — it reads the API/upload URLs from config and resolves
-the token automatically.
+`ClientSettingsFromConfig` adapts the release-source descriptor
+(owner/repo/host) plus the `github` config subtree into the typed settings that
+`NewGitHubClient` expects.
 
 ---
 

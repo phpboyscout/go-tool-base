@@ -17,10 +17,13 @@ Provides the GitHub Enterprise API client (`GHClient`) and a `release.Provider` 
 ## Constructor
 
 ```go
-func NewGitHubClient(cfg config.Containable) (*GHClient, error)
+func NewGitHubClient(settings ClientSettings) (*GHClient, error)
 ```
 
-`cfg` should be a `props.Config.Sub("github")` subtree. Reads `url.api`, `url.upload`, and authentication via `vcs.ResolveToken`.
+`ClientSettings` contains the release-source descriptor, optional Enterprise API
+URLs, and typed auth settings. GTB config integration is handled by
+`ClientSettingsFromConfig(src, cfg)`, which maps the existing `github.url.*` and
+`github.auth.*` keys into the typed settings before construction.
 
 Token is optional — public repositories work without one. Private repositories will receive a `401` from the API if no token is set.
 
@@ -32,15 +35,16 @@ Token is optional — public repositories work without one. Private repositories
 | `url.upload` | `""` | GitHub Enterprise upload URL. When `url.api` is set (or host-derived) and this is left empty, the upload URL is derived from the API host as `https://<api-host>/api/uploads/`. |
 | `auth.env` | — | Name of the environment variable holding the token |
 | `auth.value` | — | Literal token value (use `auth.env` in preference) |
+| `auth.keychain` | — | Keychain reference resolved by the shared VCS token helper |
 
-If neither `auth.env` nor `auth.value` is present, `NewGitHubClient` falls back to the `GITHUB_TOKEN` environment variable.
+If no configured auth source resolves a token, `NewGitHubClient` falls back to the `GITHUB_TOKEN` environment variable.
 
 ---
 
 ## Token Helper
 
 ```go
-func GetGitHubToken(cfg config.Containable) (string, error)
+func GetGitHubToken(cfg vcs.TokenConfig) (string, error)
 ```
 
 Returns the resolved token or an error if none is found. Use this where a token is strictly required (e.g. authenticated git operations). For release/update operations on public repos, `vcs.ResolveToken` directly is sufficient.
@@ -70,7 +74,10 @@ All operations are available through the `GitHubClient` interface. Use the inter
 ### Pull Request Workflow
 
 ```go
-client, err := github.NewGitHubClient(props.Config.Sub("github"))
+client, err := github.NewGitHubClient(github.ClientSettings{
+    ReleaseSource: release.ReleaseSourceConfig{Owner: "my-org", Repo: "my-repo"},
+    Auth:          vcs.AuthConfig{Env: "GITHUB_TOKEN"},
+})
 if err != nil {
     return err
 }
@@ -117,7 +124,10 @@ func NewReleaseProvider(client GitHubClient) release.Provider
 Wraps a `GitHubClient` and returns a `release.Provider`. This is the preferred way to work with releases — it keeps consuming code (e.g. the auto-update command) decoupled from GitHub specifics.
 
 ```go
-client, err := github.NewGitHubClient(props.Config.Sub("github"))
+client, err := github.NewGitHubClient(github.ClientSettings{
+    ReleaseSource: release.ReleaseSourceConfig{Owner: "my-org", Repo: "my-repo"},
+    Auth:          vcs.AuthConfig{Env: "GITHUB_TOKEN"},
+})
 if err != nil {
     return err
 }

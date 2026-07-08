@@ -12,7 +12,7 @@ For tasks like transient analysis, code generation, or CI verification, you may 
 
 ## 1. Initialize a Memory Repository
 
-Use `NewRepo` and `OpenInMemory` to clone a repository into RAM using `memfs`.
+Use the GTB props adapter and `OpenInMemory` to clone a repository into RAM using `memfs`.
 
 ```go
 import (
@@ -21,7 +21,7 @@ import (
 )
 
 func analyzeRepo(p *props.Props, url string) error {
-    r, err := repo.NewRepo(p)
+    r, err := repo.NewRepoFromProps(p)
     if err != nil {
         return err
     }

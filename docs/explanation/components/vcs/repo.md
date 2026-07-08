@@ -17,10 +17,19 @@ Provides git repository operations backed by `go-git`. Supports both local files
 ## Constructor
 
 ```go
-func NewRepo(props *props.Props, ops ...RepoOpt) (*Repo, error)
+func NewRepo(settings Settings, ops ...RepoOpt) (*Repo, error)
+func NewRepoFromProps(p *props.Props, ops ...RepoOpt) (*Repo, error)
 ```
 
-`NewRepo` reads authentication from `props.Config` and returns a configured `*Repo`. Authentication is resolved automatically per forge (see [Authentication](#authentication)) — you rarely need to call `SetKey` or `SetBasicAuth` directly.
+`NewRepo` takes package-owned `Settings` and returns a configured `*Repo`.
+Authentication is resolved from those typed settings automatically per forge
+(see [Authentication](#authentication)) — you rarely need to call `SetKey` or
+`SetBasicAuth` directly.
+
+`NewRepoFromProps` is the GTB framework adapter. It maps `props.Tool`,
+`props.Config`, `props.Logger`, and `props.FS` into `Settings` through
+`SettingsFromProps`, preserving the existing config layout without making the
+core constructor depend on the framework container.
 
 **Options:**
 
@@ -255,7 +264,12 @@ supported via afero's optional `Symlinker` interface.
 
 ## Authentication
 
-`NewRepo` configures authentication from `props.Config` automatically, reading the config subtree of the tool's **forge**. The forge is derived from `Tool.ReleaseSource.Type` (`github`, `gitlab`, `bitbucket`, `gitea`, `codeberg`), overridable with the `vcs.provider` config key. An empty or `direct` type falls back to `github` — the `direct` release source is a download URL with no git remote, so it has no forge of its own.
+`NewRepo` configures authentication from package-owned `Settings`. The GTB
+adapter derives those settings from the tool's **forge** config subtree. The
+forge is derived from `Tool.ReleaseSource.Type` (`github`, `gitlab`,
+`bitbucket`, `gitea`, `codeberg`), overridable with the `vcs.provider` config
+key. An empty or `direct` type falls back to `github` — the `direct` release
+source is a download URL with no git remote, so it has no forge of its own.
 
 | Priority | Condition | Auth method |
 |----------|-----------|-------------|
@@ -267,7 +281,7 @@ Token auth uses HTTP basic auth with a forge-appropriate username: `x-access-tok
 
 **Missing credentials are non-fatal for public repositories.** When no token resolves and `ReleaseSource.Private` is false, `NewRepo` proceeds with unauthenticated access (clones of public repos need no token). Only `Private: true` enforces a token, failing fast with a hint naming the fallback env var.
 
-Existing `github.*` configs keep working unchanged — `github` was always the GitHub forge subtree; the other forges' subtrees are simply read alongside. No migration is required.
+Existing `github.*` configs keep working unchanged — `github` was always the GitHub forge subtree; the other forges' subtrees are simply read alongside by `SettingsFromProps`/`SettingsFromContainable`. No migration is required.
 
 You can override auth manually after construction:
 
