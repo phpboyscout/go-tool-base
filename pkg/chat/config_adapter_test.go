@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -55,6 +56,150 @@ openai:
 	assert.Equal(t, "CUSTOM_OPENAI_TOKEN", credentials.Env)
 	assert.Equal(t, "service/account", credentials.Keychain)
 	assert.Equal(t, "env-literal-key", credentials.Key)
+}
+
+func TestApplyRuntimeConfig_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	cfg := configmocks.NewMockContainable(t)
+	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(ProviderGemini)).Once()
+
+	chatConfig := Config{}
+	err := applyRuntimeConfig(&props.Props{Config: cfg}, &chatConfig)
+	require.NoError(t, err)
+
+	assert.Equal(t, ProviderGemini, chatConfig.Provider)
+}
+
+func TestLoadRuntimeConfig_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	cfg := configmocks.NewMockContainable(t)
+	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(ProviderClaude)).Once()
+	cfg.EXPECT().GetBool(ConfigKeyAIFallbackEnabled).Return(true).Once()
+
+	runtime, err := loadRuntimeConfig(cfg)
+	require.NoError(t, err)
+
+	assert.Equal(t, ProviderClaude, runtime.Provider)
+	assert.True(t, runtime.Fallback.Enabled)
+}
+
+func TestLoadFallbackConfig_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	v := viper.New()
+	v.Set(ConfigKeyAIFallbackProviders, []string{"openai", "gemini"})
+
+	cfg := configmocks.NewMockContainable(t)
+	cfg.EXPECT().GetBool(ConfigKeyAIFallbackEnabled).Return(true).Once()
+	cfg.EXPECT().GetViper().Return(v).Once()
+
+	fallback, err := loadFallbackConfig(cfg)
+	require.NoError(t, err)
+
+	assert.True(t, fallback.Enabled)
+	assert.Equal(t, []Provider{ProviderOpenAI, ProviderGemini}, fallback.Providers)
+}
+
+func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		provider Provider
+		envKey   string
+		kcKey    string
+		keyKey   string
+	}{
+		{
+			name:     "openai",
+			provider: ProviderOpenAI,
+			envKey:   ConfigKeyOpenAIEnv,
+			kcKey:    ConfigKeyOpenAIKeychain,
+			keyKey:   ConfigKeyOpenAIKey,
+		},
+		{
+			name:     "claude",
+			provider: ProviderClaude,
+			envKey:   ConfigKeyClaudeEnv,
+			kcKey:    ConfigKeyClaudeKeychain,
+			keyKey:   ConfigKeyClaudeKey,
+		},
+		{
+			name:     "gemini",
+			provider: ProviderGemini,
+			envKey:   ConfigKeyGeminiEnv,
+			kcKey:    ConfigKeyGeminiKeychain,
+			keyKey:   ConfigKeyGeminiKey,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := configmocks.NewMockContainable(t)
+			cfg.EXPECT().GetString(tt.envKey).Return("TOKEN_ENV").Once()
+			cfg.EXPECT().GetString(tt.kcKey).Return("service/account").Once()
+			cfg.EXPECT().GetString(tt.keyKey).Return("literal-key").Once()
+
+			credentials, err := loadCredentialConfig(cfg, tt.provider)
+			require.NoError(t, err)
+
+			assert.Equal(t, CredentialConfig{
+				Env:      "TOKEN_ENV",
+				Keychain: "service/account",
+				Key:      "literal-key",
+			}, credentials)
+		})
+	}
+}
+
+func TestLoadCredentialConfig_UnknownProvider(t *testing.T) {
+	t.Parallel()
+
+	credentials, err := loadCredentialConfig(configmocks.NewMockContainable(t), Provider("unknown"))
+	require.NoError(t, err)
+
+	assert.True(t, credentials.IsZero())
+}
+
+func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, applyRuntimeConfig(nil, nil))
+	require.NoError(t, applyCredentialConfig(nil, nil))
+
+	runtime, err := loadRuntimeConfig(nil)
+	require.NoError(t, err)
+	assert.Zero(t, runtime)
+
+	fallback, err := loadFallbackConfig(nil)
+	require.NoError(t, err)
+	assert.Zero(t, fallback)
+
+	credentials, err := loadCredentialConfig(nil, ProviderOpenAI)
+	require.NoError(t, err)
+	assert.True(t, credentials.IsZero())
+
+	cfg := Config{
+		Provider:    ProviderOpenAI,
+		Credentials: CredentialConfig{Key: "already-set"},
+	}
+	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &cfg))
+	assert.Equal(t, CredentialConfig{Key: "already-set"}, cfg.Credentials)
+
+	local := Config{Provider: ProviderClaudeLocal}
+	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &local))
+}
+
+func TestClaudeLocal_SetToolsUnsupported(t *testing.T) {
+	t.Parallel()
+
+	err := (&ClaudeLocal{}).SetTools([]Tool{{Name: "tool"}})
+
+	require.ErrorContains(t, err, "does not support SetTools")
 }
 
 func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {

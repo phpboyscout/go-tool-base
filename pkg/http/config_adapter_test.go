@@ -1,14 +1,19 @@
 package http
 
 import (
+	"context"
+	stdhttp "net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -45,6 +50,67 @@ func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T
 
 	assert.Equal(t, 18082, got.Port)
 	assert.Equal(t, 4096, got.MaxHeaderBytes)
+}
+
+func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, ServerSettings{}, ServerSettingsFromConfig(nil, ""))
+}
+
+func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	cfg := configmocks.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.http.port").Return(18081).Once()
+	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(4096).Once()
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 18081, got.Port)
+	assert.Equal(t, 4096, got.MaxHeaderBytes)
+}
+
+func TestNewServerFromContainable_ReturnsConfiguredServer(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n    max_header_bytes: 4096\n")
+
+	srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(), WithConfigPrefix("server.http"))
+	require.NoError(t, err)
+
+	assert.NotNil(t, srv)
+}
+
+func TestStartFromContainable_ReturnsStartFunc(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+	srv := &stdhttp.Server{Handler: stdhttp.NewServeMux()}
+
+	start := StartFromContainable(cfg, logger.NewNoop(), srv, WithConfigPrefix("server.http"))
+
+	assert.NotNil(t, start)
+}
+
+func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	srv, err := RegisterFromContainable(
+		context.Background(),
+		"test-http",
+		controller,
+		cfg,
+		logger.NewNoop(),
+		stdhttp.NewServeMux(),
+		WithConfigPrefix("server.http"),
+	)
+	require.NoError(t, err)
+
+	assert.NotNil(t, srv)
 }
 
 func TestMergeRateLimitConfig(t *testing.T) {

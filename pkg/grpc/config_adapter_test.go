@@ -1,14 +1,19 @@
 package grpc
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	googlegrpc "google.golang.org/grpc"
 
+	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -67,6 +72,78 @@ func TestServerSettingsFromConfig_FallsBackToSharedPort(t *testing.T) {
 
 	assert.Equal(t, 18080, got.Port)
 	assert.False(t, got.Reflection)
+}
+
+func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, ServerSettings{}, ServerSettingsFromConfig(nil, ""))
+}
+
+func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
+	t.Parallel()
+
+	cfg := configmocks.NewMockContainable(t)
+	cfg.EXPECT().GetInt("server.grpc.port").Return(19081).Once()
+	cfg.EXPECT().GetBool("server.grpc.reflection").Return(true).Once()
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, 19081, got.Port)
+	assert.True(t, got.Reflection)
+}
+
+func TestNewServerFromContainable_ReturnsConfiguredServer(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    reflection: true\n")
+
+	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.grpc"), googlegrpc.MaxRecvMsgSize(1024))
+	require.NoError(t, err)
+
+	assert.NotNil(t, srv)
+}
+
+func TestStartFromContainable_ReturnsStartFunc(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
+
+	start := StartFromContainable(cfg, logger.NewNoop(), googlegrpc.NewServer(), WithConfigPrefix("server.grpc"))
+
+	assert.NotNil(t, start)
+}
+
+func TestDialLocalFromContainable_ReturnsConnection(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
+
+	conn, err := DialLocalFromContainable(cfg, WithConfigPrefix("server.grpc"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	assert.NotNil(t, conn)
+}
+
+func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    reflection: true\n")
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	srv, err := RegisterFromContainable(
+		context.Background(),
+		"test-grpc",
+		controller,
+		cfg,
+		logger.NewNoop(),
+		WithConfigPrefix("server.grpc"),
+		googlegrpc.MaxRecvMsgSize(1024),
+	)
+	require.NoError(t, err)
+
+	assert.NotNil(t, srv)
 }
 
 func TestMergeRateLimitConfig(t *testing.T) {

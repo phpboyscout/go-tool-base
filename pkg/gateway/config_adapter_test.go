@@ -3,6 +3,7 @@ package gateway_test
 import (
 	"context"
 	"io"
+	"net/http"
 	"testing"
 
 	"github.com/cockroachdb/errors"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -95,6 +97,26 @@ func TestRegisterFromContainable_PropagatesNewError(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestRegisterFromContainable_ReturnsManagedServer(t *testing.T) {
+	t.Parallel()
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
+
+	srv, err := gateway.RegisterFromContainable(
+		context.Background(),
+		"test-gateway",
+		controller,
+		cfgWithGatewayPort(t, freePort(t)),
+		logger.NewNoop(),
+		noopRegister,
+		gateway.WithMiddleware(chain),
+	)
+	require.NoError(t, err)
+
+	assert.NotNil(t, srv)
+}
+
 func TestRegisterFromConfig_PropagatesRegisterError(t *testing.T) {
 	t.Parallel()
 
@@ -106,4 +128,24 @@ func TestRegisterFromConfig_PropagatesRegisterError(t *testing.T) {
 			return errors.New("register boom")
 		})
 	require.Error(t, err)
+}
+
+func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
+	t.Parallel()
+
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	chain := gtbhttp.NewChain(func(next http.Handler) http.Handler { return next })
+
+	srv, err := gateway.RegisterFromConfig(
+		context.Background(),
+		"test-gateway",
+		controller,
+		cfgWithGatewayPort(t, freePort(t)),
+		logger.NewNoop(),
+		noopRegister,
+		gateway.WithMiddleware(chain),
+	)
+	require.NoError(t, err)
+
+	assert.NotNil(t, srv)
 }
