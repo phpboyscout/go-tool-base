@@ -699,21 +699,27 @@ Current config coupling:
 Extracted module shape:
 
 ```go
-type Config struct {
-    Enabled  bool   `mapstructure:"enabled"`
-    CertFile string `mapstructure:"cert"`
-    KeyFile  string `mapstructure:"key"`
-    CAFile   string `mapstructure:"ca"`
+type Pair struct {
+    Enabled bool   `mapstructure:"enabled" yaml:"enabled" json:"enabled"`
+    Cert    string `mapstructure:"cert"    yaml:"cert"    json:"cert"`
+    Key     string `mapstructure:"key"     yaml:"key"     json:"key"`
 }
 
-func NewServerConfig(cfg Config) (*tls.Config, error)
-func NewClientConfig(cfg Config) (*tls.Config, error)
+type PairOverrides struct {
+    Enabled bool
+    Cert    bool
+    Key     bool
+}
+
+func ResolvePair(shared Pair, transport Pair, overrides PairOverrides) Pair
+func (p Pair) ServerConfig(nextProtos ...string) (*tls.Config, error)
+func ClientConfig(caFiles ...string) (*tls.Config, error)
 ```
 
 GTB adapter responsibilities:
 
 - Unmarshal `server.tls`, `server.http.tls`, `server.grpc.tls`, or custom
-  prefix sections into `tls.Config`.
+  prefix sections into typed `Pair` values.
 - Preserve fallback behaviour between shared and transport-specific TLS config.
 - Resolve paths relative to GTB config/project conventions if needed.
 
