@@ -11,17 +11,10 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/exectest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestClaudeLocal_New(t *testing.T) {
 	t.Parallel()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-	}
-
 	t.Run("binary_not_found", func(t *testing.T) {
 		t.Parallel()
 
@@ -29,7 +22,7 @@ func TestClaudeLocal_New(t *testing.T) {
 			Provider:     chat.ProviderClaudeLocal,
 			ExecLookPath: exectest.MissingLookPath(),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "claude binary not found in PATH")
@@ -42,7 +35,7 @@ func TestClaudeLocal_New(t *testing.T) {
 			Provider:     chat.ProviderClaudeLocal,
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -51,12 +44,11 @@ func TestClaudeLocal_New(t *testing.T) {
 func TestClaudeLocal_Add(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{Logger: logger.NewNoop()}
 	cfg := chat.Config{
 		Provider:     chat.ProviderClaudeLocal,
 		ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 	}
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("empty_prompt", func(t *testing.T) {
@@ -77,11 +69,6 @@ func TestClaudeLocal_Add(t *testing.T) {
 
 func TestClaudeLocal_Chat(t *testing.T) {
 	t.Parallel()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-	}
-
 	t.Run("success", func(t *testing.T) {
 		t.Parallel()
 
@@ -90,7 +77,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 			ExecCommand:  exectest.EchoCommand(`{"type": "message", "result": "Local response", "session_id": "session_123", "is_error": false}`),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "Hello")
@@ -106,7 +93,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 			ExecCommand:  exectest.EchoCommand(`{"type": "error", "result": "something went wrong", "is_error": true}`),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "Hello")
@@ -123,7 +110,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 			ExecCommand:  exectest.FailCommand(),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "Hello")
@@ -140,7 +127,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 			ExecCommand:  exectest.EchoCommand(`invalid json`),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "Hello")
@@ -165,7 +152,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 				return exec.Command("echo", `{"type": "message", "result": "Buffered response", "is_error": false}`)
 			},
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		err = client.Add(context.Background(), "Buffered message")
@@ -183,7 +170,7 @@ func TestClaudeLocal_Chat(t *testing.T) {
 			Provider:     chat.ProviderClaudeLocal,
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		resp, err := client.Chat(context.Background(), "")
@@ -195,11 +182,6 @@ func TestClaudeLocal_Chat(t *testing.T) {
 
 func TestClaudeLocal_Ask(t *testing.T) {
 	t.Parallel()
-
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-	}
-
 	t.Run("success_structured", func(t *testing.T) {
 		t.Parallel()
 
@@ -208,7 +190,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 			ExecCommand:  exectest.EchoCommand(`{"type": "message", "result": "{\"answer\": \"42\"}", "session_id": "session_123", "is_error": false}`),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		type response struct {
@@ -233,7 +215,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 				return exec.Command("echo", `{"type": "message", "result": "{}", "is_error": false}`)
 			},
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		var target map[string]interface{}
@@ -248,7 +230,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 			Provider:     chat.ProviderClaudeLocal,
 			ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		var target map[string]interface{}
@@ -273,7 +255,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 				return exec.Command("echo", `{"type": "message", "result": "{}", "is_error": false}`)
 			},
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		err = client.Add(context.Background(), "Buffered message")
@@ -311,7 +293,7 @@ func TestClaudeLocal_Ask(t *testing.T) {
 				return exec.Command("echo", `{"type": "message", "result": "{}", "session_id": "session_123", "is_error": false}`)
 			},
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 
 		var target map[string]interface{}

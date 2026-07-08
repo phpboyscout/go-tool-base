@@ -93,7 +93,7 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 
 	logFn("Starting Chat...", logger.DebugLevel)
 
-	client, err := chat.NewWithFallback(ctx, p, cfg)
+	client, err := chat.NewWithFallbackFromProps(ctx, p, cfg)
 	if err != nil {
 		return "", err
 	}

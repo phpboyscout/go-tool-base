@@ -13,7 +13,6 @@ import (
 	"github.com/tiktoken-go/tokenizer"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func init() {
@@ -52,8 +51,10 @@ func openAIUsage(u openai.CompletionUsage) Usage {
 }
 
 // newOpenAI initializes a new OpenAI (or OpenAI-compatible) chat client.
-func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient, error) {
-	props.Logger.Info("Initialising OpenAI")
+func newOpenAI(ctx context.Context, settings Settings) (ChatClient, error) {
+	cfg := settings.Config
+	log := settings.logger()
+	log.Info("Initialising OpenAI")
 
 	if cfg.Provider == ProviderOpenAICompatible && cfg.Model == "" {
 		return nil, errors.New("Model is required for ProviderOpenAICompatible: specify the model name for your backend (e.g. \"llama3.2\" for Ollama)")
@@ -68,7 +69,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 		return nil, errors.New("OpenAI token is required but not provided")
 	}
 
-	props.Logger.Debug("Initialising OpenAI client")
+	log.Debug("Initialising OpenAI client")
 
 	clientOpts := []option.RequestOption{
 		option.WithAPIKey(token),
@@ -80,7 +81,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 
 	client := openai.NewClient(clientOpts...)
 
-	props.Logger.Debug("Using setup prompt", "prompt", cfg.SystemPrompt)
+	log.Debug("Using setup prompt", "prompt", cfg.SystemPrompt)
 
 	setup := []openai.ChatCompletionMessageParamUnion{
 		openai.SystemMessage(cfg.SystemPrompt),
@@ -123,7 +124,7 @@ func newOpenAI(ctx context.Context, props *props.Props, cfg Config) (ChatClient,
 	}
 
 	c := &OpenAI{
-		logger: props.Logger,
+		logger: log,
 		oai:    client,
 		cfg:    cfg,
 		params: params,

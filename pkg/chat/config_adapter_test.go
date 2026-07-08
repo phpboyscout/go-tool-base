@@ -216,7 +216,7 @@ func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 
 	// cfg.Provider deliberately disagrees with providers[0], exercising the
 	// override WARN; providers[0] (fbt-ok) is the effective primary.
-	client, err := NewWithFallback(context.Background(), p, Config{Provider: ProviderClaude})
+	client, err := NewWithFallbackFromProps(context.Background(), p, Config{Provider: ProviderClaude})
 	require.NoError(t, err)
 
 	got, err := client.Chat(context.Background(), "hi")
@@ -246,8 +246,8 @@ openai:
 	registryMu.RLock()
 	original := providerRegistry[ProviderOpenAI]
 	registryMu.RUnlock()
-	RegisterProvider(ProviderOpenAI, func(_ context.Context, _ *props.Props, cfg Config) (ChatClient, error) {
-		got = cfg
+	RegisterProvider(ProviderOpenAI, func(_ context.Context, settings Settings) (ChatClient, error) {
+		got = settings.Config
 
 		return &fakeClient{chatReply: "ok"}, nil
 	})
@@ -261,10 +261,11 @@ openai:
 		registryMu.Unlock()
 	})
 
-	client, err := New(context.Background(), &props.Props{
+	client, err := NewFromProps(context.Background(), &props.Props{
 		Logger: logger.NewNoop(),
 		Config: c,
 	}, Config{})
+
 	require.NoError(t, err)
 	require.NotNil(t, client)
 

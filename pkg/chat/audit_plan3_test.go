@@ -43,7 +43,7 @@ func claudeAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) cha
 		o(&cfg)
 	}
 
-	client, err := chat.New(context.Background(), testProps(), cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	return client
@@ -62,7 +62,7 @@ func openaiAuditClient(t *testing.T, url string, opts ...func(*chat.Config)) cha
 		o(&cfg)
 	}
 
-	client, err := chat.New(context.Background(), testProps(), cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	return client

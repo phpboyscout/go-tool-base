@@ -1,9 +1,97 @@
 package chat
 
 import (
+	"context"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
+
+// SettingsFromProps adapts GTB props and framework config into package-owned
+// chat settings while preserving the existing config key layout and precedence.
+func SettingsFromProps(p *props.Props, cfg Config) (Settings, error) {
+	if err := applyRuntimeConfig(p, &cfg); err != nil {
+		return Settings{}, err
+	}
+
+	log := loggerFromProps(p)
+	applyDefaultProvider(log, &cfg)
+
+	if err := applyCredentialConfig(p, &cfg); err != nil {
+		return Settings{}, err
+	}
+
+	return Settings{Config: cfg, Logger: log}, nil
+}
+
+// NewFromProps adapts GTB props into typed chat settings, then constructs a
+// provider client with the reusable package constructor.
+func NewFromProps(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+	settings, err := SettingsFromProps(p, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return New(ctx, settings)
+}
+
+// NewWithFallbackFromProps adapts GTB props into package-owned chat settings,
+// then constructs either a single provider client or a fallback composite.
+func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, opts ...FallbackOption) (ChatClient, error) {
+	settings, err := SettingsFromProps(p, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	fallback, err := fallbackConfigFromProps(p)
+	if err != nil {
+		return nil, err
+	}
+
+	if !fallback.Enabled || len(fallback.Providers) == 0 {
+		return New(ctx, settings)
+	}
+
+	log := settings.logger()
+	warnFallbackPrimaryOverride(log, settings.Config, fallback.Providers[0])
+
+	providerSettings := make([]Settings, 0, len(fallback.Providers))
+	for _, providerConfig := range fallbackProviderConfigs(settings.Config, fallback.Providers) {
+		next, err := SettingsFromProps(p, providerConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		providerSettings = append(providerSettings, next)
+	}
+
+	opts = append([]FallbackOption{WithFallbackLogger(log)}, opts...)
+
+	return NewFallbackFromSettings(ctx, providerSettings, opts...)
+}
+
+// NewWithFallback adapts GTB props and framework config before constructing a
+// chat client with optional provider failover.
+func NewWithFallback(ctx context.Context, p *props.Props, cfg Config, opts ...FallbackOption) (ChatClient, error) {
+	return NewWithFallbackFromProps(ctx, p, cfg, opts...)
+}
+
+func fallbackConfigFromProps(p *props.Props) (FallbackConfig, error) {
+	if p == nil || p.Config == nil {
+		return FallbackConfig{}, nil
+	}
+
+	return loadFallbackConfig(p.Config)
+}
+
+func loggerFromProps(p *props.Props) logger.Logger {
+	if p != nil && p.Logger != nil {
+		return p.Logger
+	}
+
+	return logger.NewNoop()
+}
 
 func applyRuntimeConfig(p *props.Props, cfg *Config) error {
 	if p == nil || p.Config == nil || cfg == nil {

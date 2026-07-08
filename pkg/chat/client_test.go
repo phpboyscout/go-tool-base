@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 func TestNew(t *testing.T) {
@@ -19,14 +18,12 @@ func TestNew(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
 
 	ctx := context.Background()
-	p := &props.Props{
-		Logger: logger.NewNoop(),
-	}
+	log := logger.NewNoop()
 
 	t.Run("default provider is Claude", func(t *testing.T) {
 		t.Setenv("AI_PROVIDER", "")
 		cfg := Config{}
-		client, err := New(ctx, p, cfg)
+		client, err := New(ctx, Settings{Config: cfg, Logger: log})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "Anthropic")
 		}
@@ -35,7 +32,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("Claude provider", func(t *testing.T) {
 		cfg := Config{Provider: ProviderClaude}
-		client, err := New(ctx, p, cfg)
+		client, err := New(ctx, Settings{Config: cfg, Logger: log})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "Anthropic API key is required")
 		}
@@ -44,7 +41,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("Gemini provider", func(t *testing.T) {
 		cfg := Config{Provider: ProviderGemini}
-		client, err := New(ctx, p, cfg)
+		client, err := New(ctx, Settings{Config: cfg, Logger: log})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "Gemini API key is required")
 		}
@@ -58,7 +55,7 @@ func TestNew(t *testing.T) {
 			BaseURL:              "http://localhost:11434/v1",
 			AllowInsecureBaseURL: true,
 		}
-		client, err := New(ctx, p, cfg)
+		client, err := New(ctx, Settings{Config: cfg, Logger: log})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "Model is required for ProviderOpenAICompatible")
 		}
@@ -71,7 +68,7 @@ func TestNew(t *testing.T) {
 			t.Skip("claude binary found in PATH; skipping not-found test")
 		}
 		cfg := Config{Provider: ProviderClaudeLocal}
-		client, err := New(ctx, p, cfg)
+		client, err := New(ctx, Settings{Config: cfg, Logger: log})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "claude binary not found")
 		}
@@ -80,7 +77,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("unsupported provider", func(t *testing.T) {
 		cfg := Config{Provider: "invalid"}
-		client, err := New(ctx, p, cfg)
+		client, err := New(ctx, Settings{Config: cfg, Logger: log})
 		if assert.Error(t, err) {
 			assert.Contains(t, err.Error(), "unsupported provider")
 		}
@@ -89,7 +86,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("registry dispatch", func(t *testing.T) {
 		called := false
-		mockFactory := func(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+		mockFactory := func(context.Context, Settings) (ChatClient, error) {
 			called = true
 			return nil, nil
 		}
@@ -102,7 +99,7 @@ func TestNew(t *testing.T) {
 		})
 
 		cfg := Config{Provider: "mock-provider"}
-		_, err := New(ctx, p, cfg)
+		_, err := New(ctx, Settings{Config: cfg, Logger: log})
 		require.NoError(t, err)
 		assert.True(t, called, "expected mock factory to be called")
 	})

@@ -42,7 +42,7 @@ func newClaudeUsageClient(t *testing.T, server *MockServer, cfg chat.Config) cha
 	cfg.BaseURL = server.URL + "/"
 	cfg.AllowInsecureBaseURL = true
 
-	client, err := chat.New(context.Background(), testProps(), cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	return client
@@ -223,7 +223,7 @@ func TestUsage_OpenAIChat(t *testing.T) {
 		},
 	})
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderOpenAI,
 		Token:                "test-key",
 		Model:                "gpt-test",
@@ -265,7 +265,7 @@ func TestUsage_GeminiChat(t *testing.T) {
 		},
 	})
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
 		BaseURL:              server.URL,
@@ -290,7 +290,7 @@ func TestUsage_GeminiChat(t *testing.T) {
 func TestUsage_ClaudeLocalUnknown(t *testing.T) {
 	t.Parallel()
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:     chat.ProviderClaudeLocal,
 		ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		ExecCommand:  exectest.EchoCommand(`{"type":"message","result":"ok","session_id":"s1","is_error":false}`),
@@ -313,7 +313,7 @@ func TestUsage_ClaudeLocalReported(t *testing.T) {
 
 	var observed chat.Usage
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:     chat.ProviderClaudeLocal,
 		ExecLookPath: exectest.FakeLookPath("/usr/local/bin/claude"),
 		ExecCommand: exectest.EchoCommand(
@@ -339,7 +339,7 @@ func TestUsage_ClaudeLocalReported(t *testing.T) {
 func TestUsage_InitialZero(t *testing.T) {
 	t.Parallel()
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider: chat.ProviderClaude,
 		Token:    "test-key",
 	})

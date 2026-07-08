@@ -11,7 +11,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Provider defines the AI service provider.
@@ -202,10 +202,26 @@ type Config struct {
 	AllowInsecureBaseURL bool `json:"-"`
 }
 
+// Settings contains the package-owned construction dependencies for a chat
+// client. Config carries provider behaviour; Logger is optional and defaults to
+// a no-op logger.
+type Settings struct {
+	Config Config
+	Logger logger.Logger
+}
+
+func (s Settings) logger() logger.Logger {
+	if s.Logger != nil {
+		return s.Logger
+	}
+
+	return logger.NewNoop()
+}
+
 // ProviderFactory creates a ChatClient for a named provider.
 // Register implementations via RegisterProvider in an init() function to allow
 // external packages to add providers without modifying this file.
-type ProviderFactory func(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error)
+type ProviderFactory func(ctx context.Context, settings Settings) (ChatClient, error)
 
 var (
 	providerRegistry = map[Provider]ProviderFactory{}
@@ -222,16 +238,11 @@ func RegisterProvider(name Provider, factory ProviderFactory) {
 }
 
 // New creates a ChatClient for the configured provider.
-func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	if err := applyRuntimeConfig(p, &cfg); err != nil {
-		return nil, err
-	}
+func New(ctx context.Context, settings Settings) (ChatClient, error) {
+	cfg := settings.Config
+	log := settings.logger()
 
-	applyDefaultProvider(p, &cfg)
-
-	if err := applyCredentialConfig(p, &cfg); err != nil {
-		return nil, err
-	}
+	applyDefaultProvider(log, &cfg)
 
 	if err := validateProviderConfig(cfg); err != nil {
 		return nil, err
@@ -242,30 +253,32 @@ func New(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
 		return nil, err
 	}
 
-	client, err := factory(ctx, p, cfg)
+	settings.Config = cfg
+
+	client, err := factory(ctx, settings)
 	if err != nil {
 		return nil, err
 	}
 
-	logProviderEndpoint(p, cfg)
+	logProviderEndpoint(log, cfg)
 
 	return client, nil
 }
 
-func applyDefaultProvider(p *props.Props, cfg *Config) {
+func applyDefaultProvider(log logger.Logger, cfg *Config) {
 	if cfg.Provider != "" {
 		return
 	}
 
 	if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
 		cfg.Provider = Provider(envProvider)
-		p.Logger.Debugf("Provider not specified in config, using environment variable %s=%s", EnvAIProvider, cfg.Provider)
+		log.Debugf("Provider not specified in config, using environment variable %s=%s", EnvAIProvider, cfg.Provider)
 
 		return
 	}
 
 	cfg.Provider = ProviderClaude
-	p.Logger.Debugf("No provider specified, defaulting to %s", cfg.Provider)
+	log.Debugf("No provider specified, defaulting to %s", cfg.Provider)
 }
 
 func validateProviderConfig(cfg Config) error {
@@ -297,16 +310,16 @@ func lookupProviderFactory(provider Provider) (ProviderFactory, error) {
 	return factory, nil
 }
 
-func logProviderEndpoint(p *props.Props, cfg Config) {
+func logProviderEndpoint(log logger.Logger, cfg Config) {
 	// Audit-log the endpoint host (never the full URL) so operators can
 	// see which host each tool instance targets. Hostname only — the
 	// path/query may carry provider-specific identifiers.
 	if host := baseURLHost(cfg.BaseURL); host != "" {
-		p.Logger.Info("chat provider initialised",
+		log.Info("chat provider initialised",
 			"provider", string(cfg.Provider),
 			"endpoint_host", host)
 	} else {
-		p.Logger.Info("chat provider initialised",
+		log.Info("chat provider initialised",
 			"provider", string(cfg.Provider))
 	}
 }

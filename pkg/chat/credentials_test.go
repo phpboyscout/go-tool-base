@@ -6,8 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // resolveAPIKey precedence: direct > {provider}.api.env var ref >
@@ -98,7 +96,7 @@ func TestGetOpenAICredentials(t *testing.T) {
 
 func TestRegisterProvider_CustomProvider(t *testing.T) {
 	called := false
-	RegisterProvider("test-custom", func(_ context.Context, _ *props.Props, _ Config) (ChatClient, error) {
+	RegisterProvider("test-custom", func(_ context.Context, _ Settings) (ChatClient, error) {
 		called = true
 		return nil, nil
 	})

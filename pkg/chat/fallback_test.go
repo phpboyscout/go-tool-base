@@ -14,7 +14,6 @@ import (
 	"google.golang.org/genai"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // fakeClient is a scriptable ChatClient for composite tests.
@@ -379,13 +378,13 @@ func TestFallback_NameUsesConfiguredProvider(t *testing.T) {
 func registerTestProviders(t *testing.T) {
 	t.Helper()
 
-	RegisterProvider(Provider("fbt-ok"), func(context.Context, *props.Props, Config) (ChatClient, error) {
+	RegisterProvider(Provider("fbt-ok"), func(context.Context, Settings) (ChatClient, error) {
 		return &fakeClient{chatReply: "ok"}, nil
 	})
-	RegisterProvider(Provider("fbt-ok2"), func(context.Context, *props.Props, Config) (ChatClient, error) {
+	RegisterProvider(Provider("fbt-ok2"), func(context.Context, Settings) (ChatClient, error) {
 		return &fakeClient{chatReply: "ok2"}, nil
 	})
-	RegisterProvider(Provider("fbt-bad"), func(context.Context, *props.Props, Config) (ChatClient, error) {
+	RegisterProvider(Provider("fbt-bad"), func(context.Context, Settings) (ChatClient, error) {
 		return nil, errors.New("no credentials")
 	})
 }
@@ -393,11 +392,12 @@ func registerTestProviders(t *testing.T) {
 func TestNewFallbackFromConfigs_DropsMissingFallbackCred(t *testing.T) {
 	registerTestProviders(t)
 
-	p := &props.Props{Logger: logger.NewNoop()}
-
 	// Non-primary construction failure → dropped, composite still built.
-	fb, err := NewFallbackFromConfigs(context.Background(), p,
-		[]Config{{Provider: "fbt-ok"}, {Provider: "fbt-bad"}})
+	fb, err := NewFallbackFromConfigs(
+		context.Background(),
+		[]Config{{Provider: "fbt-ok"}, {Provider: "fbt-bad"}},
+		WithFallbackLogger(logger.NewNoop()),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, fb)
 
@@ -409,10 +409,11 @@ func TestNewFallbackFromConfigs_DropsMissingFallbackCred(t *testing.T) {
 func TestNewFallbackFromConfigs_PrimaryFailureIsFatal(t *testing.T) {
 	registerTestProviders(t)
 
-	p := &props.Props{Logger: logger.NewNoop()}
-
-	_, err := NewFallbackFromConfigs(context.Background(), p,
-		[]Config{{Provider: "fbt-bad"}, {Provider: "fbt-ok"}})
+	_, err := NewFallbackFromConfigs(
+		context.Background(),
+		[]Config{{Provider: "fbt-bad"}, {Provider: "fbt-ok"}},
+		WithFallbackLogger(logger.NewNoop()),
+	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "primary")
 }
@@ -420,17 +421,19 @@ func TestNewFallbackFromConfigs_PrimaryFailureIsFatal(t *testing.T) {
 func TestNewFallbackFromConfigs_Empty(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewFallbackFromConfigs(context.Background(), &props.Props{Logger: logger.NewNoop()}, nil)
+	_, err := NewFallbackFromConfigs(context.Background(), nil)
 	require.Error(t, err)
 }
 
 func TestNewWithFallback_DisabledIsSingleProvider(t *testing.T) {
 	registerTestProviders(t)
 
-	// No Config → fallback disabled → behaves as New for the given provider.
-	p := &props.Props{Logger: logger.NewNoop()}
-
-	client, err := NewWithFallback(context.Background(), p, Config{Provider: "fbt-ok"})
+	// No fallback config → behaves as New for the given provider.
+	client, err := NewWithFallbackSettings(
+		context.Background(),
+		Settings{Config: Config{Provider: "fbt-ok"}, Logger: logger.NewNoop()},
+		FallbackConfig{},
+	)
 	require.NoError(t, err)
 
 	got, err := client.Chat(context.Background(), "hi")

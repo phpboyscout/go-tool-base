@@ -9,7 +9,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"google.golang.org/genai"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -26,7 +26,7 @@ type Gemini struct {
 	cfg     Config
 	history []*genai.Content
 	tools   map[string]Tool
-	props   *props.Props
+	logger  logger.Logger
 }
 
 // geminiUsage maps Gemini's UsageMetadata into the provider-neutral Usage.
@@ -46,7 +46,10 @@ func geminiUsage(m *genai.GenerateContentResponseUsageMetadata) Usage {
 }
 
 // newGemini initializes a new Gemini chat client.
-func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+func newGemini(ctx context.Context, settings Settings) (ChatClient, error) {
+	cfg := settings.Config
+	log := settings.logger()
+
 	token := getGeminiToken(ctx, cfg)
 	if token == "" {
 		return nil, errors.New("Gemini API key is required but not provided")
@@ -87,7 +90,7 @@ func newGemini(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 		cfg:     cfg,
 		history: make([]*genai.Content, 0),
 		tools:   make(map[string]Tool),
-		props:   p,
+		logger:  log,
 	}
 	g.observer = cfg.UsageObserver
 
@@ -284,7 +287,7 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 	currentParts := parts
 
 	for step := range maxSteps {
-		g.props.Logger.Debug("Gemini step", "step", step, "parts", len(currentParts))
+		g.logger.Debug("Gemini step", "step", step, "parts", len(currentParts))
 
 		resp, err := chat.Send(ctx, currentParts...)
 		if err != nil {
@@ -295,7 +298,7 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 
 		if text := resp.Text(); text != "" {
 			textResponse.WriteString(text)
-			g.props.Logger.Debug("Gemini Reasoning", "text", text)
+			g.logger.Debug("Gemini Reasoning", "text", text)
 		}
 
 		funcCalls := resp.FunctionCalls()
@@ -305,7 +308,7 @@ func (g *Gemini) chatNonStreaming(ctx context.Context, chat *genai.Chat, parts [
 			return textResponse.String(), nil
 		}
 
-		g.props.Logger.Info("Gemini tool calls", "count", len(funcCalls))
+		g.logger.Info("Gemini tool calls", "count", len(funcCalls))
 
 		currentParts = g.executeFuncCalls(ctx, funcCalls)
 	}
@@ -335,7 +338,7 @@ func (g *Gemini) marshalFuncCalls(funcCalls []*genai.FunctionCall) []geminiMarsh
 	for i, fc := range funcCalls {
 		argsB, err := json.Marshal(fc.Args)
 		if err != nil {
-			g.props.Logger.Error("Failed to marshal tool arguments", "tool", fc.Name, "error", err)
+			g.logger.Error("Failed to marshal tool arguments", "tool", fc.Name, "error", err)
 			out[i] = geminiMarshaledCall{name: fc.Name, hasErr: true}
 		} else {
 			out[i] = geminiMarshaledCall{name: fc.Name, input: argsB}
@@ -371,7 +374,7 @@ func (g *Gemini) executeFuncCallsParallel(ctx context.Context, mCalls []geminiMa
 		}
 	}
 
-	for j, r := range executeToolsParallel(ctx, g.props.Logger, g.tools, calls, g.cfg.MaxParallelTools) {
+	for j, r := range executeToolsParallel(ctx, g.logger, g.tools, calls, g.cfg.MaxParallelTools) {
 		allParts[indices[j]] = genai.NewPartFromFunctionResponse(r.Name, map[string]any{"result": r.Result})
 	}
 
@@ -396,7 +399,7 @@ func (g *Gemini) executeFuncCallsSequential(ctx context.Context, mCalls []gemini
 			continue
 		}
 
-		result := executeTool(ctx, g.props.Logger, g.tools, mc.name, mc.input)
+		result := executeTool(ctx, g.logger, g.tools, mc.name, mc.input)
 		parts = append(parts, genai.NewPartFromFunctionResponse(mc.name, map[string]any{"result": result}))
 	}
 
@@ -433,7 +436,7 @@ func (g *Gemini) StreamChat(ctx context.Context, prompt string, callback StreamC
 	currentParts := geminiParts(prompt, resolved)
 
 	for step := range maxSteps {
-		g.props.Logger.Debug("Gemini streaming step", "step", step)
+		g.logger.Debug("Gemini streaming step", "step", step)
 
 		funcCalls, stepErr := g.streamGeminiStep(ctx, chat, currentParts, callback, &fullText)
 		if stepErr != nil {
@@ -546,7 +549,7 @@ func (g *Gemini) runGeminiStreamTools(ctx context.Context, mCalls []geminiMarsha
 		}
 	}
 
-	for j, r := range dispatchToolExecution(ctx, g.props.Logger, g.tools, validCalls, g.cfg.ParallelTools, g.cfg.MaxParallelTools) {
+	for j, r := range dispatchToolExecution(ctx, g.logger, g.tools, validCalls, g.cfg.ParallelTools, g.cfg.MaxParallelTools) {
 		results[validIndices[j]] = r.Result
 	}
 

@@ -11,7 +11,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -23,7 +23,7 @@ type Claude struct {
 	usageTracker
 
 	client     anthropic.Client
-	props      *props.Props
+	logger     logger.Logger
 	messages   []anthropic.MessageParam
 	cfg        Config
 	system     []anthropic.TextBlockParam
@@ -55,8 +55,10 @@ func claudeDeltaUsage(u anthropic.MessageDeltaUsage) Usage {
 }
 
 // newClaude initializes a new Claude chat client.
-func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	p.Logger.Info("Initialising Claude Chat")
+func newClaude(ctx context.Context, settings Settings) (ChatClient, error) {
+	cfg := settings.Config
+	log := settings.logger()
+	log.Info("Initialising Claude Chat")
 
 	token := resolveAPIKey(
 		ctx,
@@ -87,7 +89,7 @@ func newClaude(ctx context.Context, p *props.Props, cfg Config) (ChatClient, err
 	}
 
 	c := &Claude{
-		props:  p,
+		logger: log,
 		client: client,
 		cfg:    cfg,
 	}
@@ -316,7 +318,7 @@ func (c *Claude) Chat(ctx context.Context, prompt string, media ...Media) (strin
 	}
 
 	for step := range maxSteps {
-		c.props.Logger.Debug("Claude History State", "step", step)
+		c.logger.Debug("Claude History State", "step", step)
 		c.logHistory()
 
 		params := anthropic.MessageNewParams{
@@ -369,7 +371,7 @@ func (c *Claude) processToolUses(ctx context.Context, toolUses []anthropic.Conte
 		calls[i] = ToolCall{Name: tu.Name, Input: tu.Input}
 	}
 
-	toolResults := dispatchToolExecution(ctx, c.props.Logger, c.tools, calls, c.cfg.ParallelTools, c.cfg.MaxParallelTools)
+	toolResults := dispatchToolExecution(ctx, c.logger, c.tools, calls, c.cfg.ParallelTools, c.cfg.MaxParallelTools)
 	results := make([]anthropic.ContentBlockParamUnion, len(toolUses))
 
 	for i, r := range toolResults {
@@ -396,14 +398,14 @@ func resContentToBlocks(content []anthropic.ContentBlockUnion) []anthropic.Conte
 
 func (c *Claude) logHistory() {
 	for i, m := range c.messages {
-		c.props.Logger.Debug("Turn", "idx", i, "role", m.Role)
+		c.logger.Debug("Turn", "idx", i, "role", m.Role)
 	}
 }
 
 func (c *Claude) logContent(content []anthropic.ContentBlockUnion) {
 	for _, b := range content {
 		if b.Type == "text" {
-			c.props.Logger.Debug("Claude Reasoning", "text", b.Text)
+			c.logger.Debug("Claude Reasoning", "text", b.Text)
 		}
 	}
 }
@@ -434,7 +436,7 @@ func (c *Claude) StreamChat(ctx context.Context, prompt string, callback StreamC
 	var fullText strings.Builder
 
 	for step := range maxSteps {
-		c.props.Logger.Debug("Claude streaming step", "step", step)
+		c.logger.Debug("Claude streaming step", "step", step)
 
 		params := anthropic.MessageNewParams{
 			Model:     c.cfg.Model,
@@ -620,7 +622,7 @@ func (c *Claude) execClaudeStreamTools(
 		toolCalls[i] = ToolCall{Name: t.name, Input: json.RawMessage(argStrings[i])}
 	}
 
-	results := dispatchToolExecution(ctx, c.props.Logger, c.tools, toolCalls, c.cfg.ParallelTools, c.cfg.MaxParallelTools)
+	results := dispatchToolExecution(ctx, c.logger, c.tools, toolCalls, c.cfg.ParallelTools, c.cfg.MaxParallelTools)
 	resultBlocks := make([]anthropic.ContentBlockParamUnion, len(tools))
 
 	for i, r := range results {
@@ -676,9 +678,9 @@ func (c *Claude) applyResponseSchema(params *anthropic.MessageNewParams, toolNam
 
 	schemaBytes, err := json.Marshal(inputSchema)
 	if err != nil {
-		c.props.Logger.Warn("Failed to marshal schema", "error", err)
+		c.logger.Warn("Failed to marshal schema", "error", err)
 	} else {
-		c.props.Logger.Debug("Claude Tool Schema", "schema", string(schemaBytes))
+		c.logger.Debug("Claude Tool Schema", "schema", string(schemaBytes))
 	}
 }
 

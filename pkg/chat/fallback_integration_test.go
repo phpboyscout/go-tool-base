@@ -11,7 +11,6 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // TestFallback_RealHTTPFailover proves end-to-end that a real provider SDK error
@@ -37,12 +36,15 @@ func TestFallback_RealHTTPFailover(t *testing.T) {
 	})
 
 	buf := logger.NewBuffer()
-	p := &props.Props{Logger: buf}
 
-	client, err := chat.NewFallbackFromConfigs(context.Background(), p, []chat.Config{
-		{Provider: chat.ProviderOpenAI, Token: "test", BaseURL: primary.URL + "/", AllowInsecureBaseURL: true},
-		{Provider: chat.ProviderOpenAI, Token: "test", BaseURL: fallback.URL + "/", AllowInsecureBaseURL: true},
-	})
+	client, err := chat.NewFallbackFromConfigs(
+		context.Background(),
+		[]chat.Config{
+			{Provider: chat.ProviderOpenAI, Token: "test", BaseURL: primary.URL + "/", AllowInsecureBaseURL: true},
+			{Provider: chat.ProviderOpenAI, Token: "test", BaseURL: fallback.URL + "/", AllowInsecureBaseURL: true},
+		},
+		chat.WithFallbackLogger(buf),
+	)
 	require.NoError(t, err)
 
 	reply, err := client.Chat(context.Background(), "hello")

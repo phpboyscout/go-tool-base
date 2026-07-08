@@ -16,15 +16,13 @@ import (
 )
 
 func TestGeminiProvider_New(t *testing.T) {
-	p := testProps()
-
 	t.Run("missing_api_key", func(t *testing.T) {
 		t.Setenv(chat.EnvGeminiKey, "")
 		cfg := chat.Config{
 			Provider: chat.ProviderGemini,
 			Token:    "",
 		}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Gemini API key is required")
 	})
@@ -34,14 +32,14 @@ func TestGeminiProvider_New(t *testing.T) {
 			Provider: chat.ProviderGemini,
 			Token:    "test-key",
 		}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		assert.NoError(t, err)
 	})
 
 	t.Run("success_from_env", func(t *testing.T) {
 		t.Setenv(chat.EnvGeminiKey, "env-key")
 		cfg := chat.Config{Provider: chat.ProviderGemini}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		assert.NoError(t, err)
 	})
 
@@ -55,7 +53,7 @@ func TestGeminiProvider_New(t *testing.T) {
 				return nil, fmt.Errorf("simulated error")
 			},
 		}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to create gemini client")
 	})
@@ -77,7 +75,7 @@ func TestGeminiProvider_New(t *testing.T) {
 			err    error
 		)
 		require.NotPanics(t, func() {
-			client, err = chat.New(context.Background(), p, cfg)
+			client, err = newTestClient(context.Background(), cfg)
 		})
 		require.Error(t, err)
 		assert.Nil(t, client)
@@ -90,9 +88,6 @@ func TestGeminiProvider_Ask(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
@@ -100,7 +95,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("success_structured", func(t *testing.T) {
@@ -143,7 +138,7 @@ func TestGeminiProvider_Ask(t *testing.T) {
 			ResponseSchema:       chat.GenerateSchema[response](),
 			MaxTokens:            100,
 		}
-		clientOptions, err := chat.New(context.Background(), p, cfgOptions)
+		clientOptions, err := newTestClient(context.Background(), cfgOptions)
 		require.NoError(t, err)
 
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
@@ -195,9 +190,6 @@ func TestGeminiProvider_Chat(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
@@ -205,7 +197,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("react_loop", func(t *testing.T) {
@@ -305,7 +297,7 @@ func TestGeminiProvider_Chat(t *testing.T) {
 			MaxSteps:             2,
 		}
 
-		maxStepsClient, err := chat.New(context.Background(), testProps(), maxStepsCfg)
+		maxStepsClient, err := newTestClient(context.Background(), maxStepsCfg)
 		require.NoError(t, err)
 
 		// Always respond with a function call, never a final text answer.
@@ -357,15 +349,12 @@ func TestGeminiProvider_Chat(t *testing.T) {
 
 func TestGeminiProvider_Add(t *testing.T) {
 	t.Parallel()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider: chat.ProviderGemini,
 		Token:    "test-key",
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
@@ -385,9 +374,6 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
@@ -395,7 +381,7 @@ func TestGeminiProvider_AddThenChat(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("history_preserved_across_add_and_chat", func(t *testing.T) {
@@ -457,10 +443,7 @@ func TestGeminiProvider_MaxTokensWired(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
 		BaseURL:              server.URL,
@@ -504,9 +487,6 @@ func TestGeminiProvider_ChatPersistsHistoryAcrossCalls(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
@@ -514,7 +494,7 @@ func TestGeminiProvider_ChatPersistsHistoryAcrossCalls(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	call := 0

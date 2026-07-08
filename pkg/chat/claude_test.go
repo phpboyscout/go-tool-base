@@ -14,15 +14,13 @@ import (
 )
 
 func TestClaudeProvider_New(t *testing.T) {
-	p := testProps()
-
 	t.Run("missing_api_key", func(t *testing.T) {
 		t.Setenv(chat.EnvClaudeKey, "")
 		cfg := chat.Config{
 			Provider: chat.ProviderClaude,
 			Token:    "",
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Nil(t, client)
 		assert.Contains(t, err.Error(), "Anthropic API key is required")
@@ -33,7 +31,7 @@ func TestClaudeProvider_New(t *testing.T) {
 			Provider: chat.ProviderClaude,
 			Token:    "test-key",
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -43,7 +41,7 @@ func TestClaudeProvider_New(t *testing.T) {
 			Provider:    chat.ProviderClaude,
 			Credentials: chat.CredentialConfig{Key: "test-key"},
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -51,7 +49,7 @@ func TestClaudeProvider_New(t *testing.T) {
 	t.Run("success_from_env", func(t *testing.T) {
 		t.Setenv(chat.EnvClaudeKey, "env-key")
 		cfg := chat.Config{Provider: chat.ProviderClaude}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -62,9 +60,6 @@ func TestClaudeProvider_Ask(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderClaude,
 		Token:                "test-key",
@@ -72,7 +67,7 @@ func TestClaudeProvider_Ask(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("success_structured", func(t *testing.T) {
@@ -117,7 +112,7 @@ func TestClaudeProvider_Ask(t *testing.T) {
 			AllowInsecureBaseURL: true,
 			ResponseSchema:       map[string]interface{}{"type": "object"},
 		}
-		clientWithSchema, err := chat.New(context.Background(), p, cfgWithSchema)
+		clientWithSchema, err := newTestClient(context.Background(), cfgWithSchema)
 		require.NoError(t, err)
 
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +150,7 @@ func TestClaudeProvider_Ask(t *testing.T) {
 			AllowInsecureBaseURL: true,
 			ResponseSchema:       chat.GenerateSchema[response](),
 		}
-		clientWithSchema, err := chat.New(context.Background(), p, cfgWithSchema)
+		clientWithSchema, err := newTestClient(context.Background(), cfgWithSchema)
 		require.NoError(t, err)
 
 		server.Handler = func(w http.ResponseWriter, r *http.Request) {
@@ -225,9 +220,6 @@ func TestClaudeProvider_Chat(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderClaude,
 		Token:                "test-key",
@@ -235,7 +227,7 @@ func TestClaudeProvider_Chat(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("success_text", func(t *testing.T) {
@@ -345,7 +337,7 @@ func TestClaudeProvider_Chat(t *testing.T) {
 			MaxSteps:             2,
 		}
 
-		maxStepsClient, err := chat.New(context.Background(), testProps(), maxStepsCfg)
+		maxStepsClient, err := newTestClient(context.Background(), maxStepsCfg)
 		require.NoError(t, err)
 
 		// Always respond with a tool call, never a final text answer.
@@ -404,7 +396,7 @@ func TestClaudeProvider_Chat(t *testing.T) {
 			AllowInsecureBaseURL: true,
 		}
 
-		freshClient, err := chat.New(context.Background(), testProps(), multiCfg)
+		freshClient, err := newTestClient(context.Background(), multiCfg)
 		require.NoError(t, err)
 
 		step := 0
@@ -519,12 +511,9 @@ func TestClaudeProvider_ContractFixes(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	newClient := func(t *testing.T) chat.ChatClient {
 		t.Helper()
-		c, err := chat.New(context.Background(), p, chat.Config{
+		c, err := newTestClient(context.Background(), chat.Config{
 			Provider:             chat.ProviderClaude,
 			Token:                "test-key",
 			BaseURL:              server.URL + "/",

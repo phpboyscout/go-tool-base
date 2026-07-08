@@ -11,8 +11,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // TestClaudeMediaIntegration_seesTheImage sends an image through the extended
@@ -29,7 +27,7 @@ func TestClaudeMediaIntegration_seesTheImage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client, err := chat.New(ctx, &props.Props{Logger: logger.NewNoop()}, chat.Config{
+	client, err := newTestClient(ctx, chat.Config{
 		Provider: chat.ProviderClaude,
 		Model:    "claude-haiku-4-5-20251001",
 		Token:    key,

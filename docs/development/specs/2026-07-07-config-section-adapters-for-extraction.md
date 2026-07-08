@@ -525,6 +525,11 @@ type Config struct {
     Model    string   `mapstructure:"model"`
 }
 
+type Settings struct {
+    Config Config
+    Logger logger.Logger
+}
+
 type FallbackConfig struct {
     Enabled   bool       `mapstructure:"enabled"`
     Providers []Provider `mapstructure:"providers"`
@@ -543,7 +548,11 @@ GTB adapter responsibilities:
 - Preserve existing GTB config keys and credential cascade.
 - Convert env/keychain/literal credential references into a `CredentialResolver`.
 - Inject GTB's hardened HTTP client if desired.
-- Pass `*slog.Logger` from the slog-first logger work.
+- Keep `New`, `NewWithFallbackSettings`, and `NewFallbackFromSettings` on
+  package-owned settings; keep GTB config and props integration in
+  `SettingsFromProps`, `NewFromProps`, `NewWithFallback`, and
+  `NewWithFallbackFromProps`.
+- Pass the logger through `Settings` while the slog-first logger work continues.
 
 Existence checks:
 

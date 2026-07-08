@@ -14,15 +14,13 @@ import (
 )
 
 func TestOpenAIProvider_New(t *testing.T) {
-	p := testProps()
-
 	t.Run("missing_api_key", func(t *testing.T) {
 		t.Setenv(chat.EnvOpenAIKey, "")
 		cfg := chat.Config{
 			Provider: chat.ProviderOpenAI,
 			Token:    "",
 		}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "OpenAI token is required")
 	})
@@ -34,7 +32,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 			Model:    "",
 			BaseURL:  "https://api.openai.com/v1", // required for ProviderOpenAICompatible — without it we'd hit the BaseURL-required check first
 		}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "Model is required for ProviderOpenAICompatible")
 	})
@@ -45,7 +43,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 			Token:    "test-key",
 			Model:    "llama-3.1",
 		}
-		_, err := chat.New(context.Background(), p, cfg)
+		_, err := newTestClient(context.Background(), cfg)
 		require.Error(t, err)
 		require.ErrorIs(t, err, chat.ErrInvalidBaseURL)
 	})
@@ -55,7 +53,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 			Provider:    chat.ProviderOpenAI,
 			Credentials: chat.CredentialConfig{Key: "test-key"},
 		}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -63,7 +61,7 @@ func TestOpenAIProvider_New(t *testing.T) {
 	t.Run("success_from_env", func(t *testing.T) {
 		t.Setenv(chat.EnvOpenAIKey, "env-key")
 		cfg := chat.Config{Provider: chat.ProviderOpenAI}
-		client, err := chat.New(context.Background(), p, cfg)
+		client, err := newTestClient(context.Background(), cfg)
 		require.NoError(t, err)
 		assert.NotNil(t, client)
 	})
@@ -74,9 +72,6 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderOpenAI,
 		Token:                "test-key",
@@ -84,7 +79,7 @@ func TestOpenAIProvider_Ask(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("success_structured", func(t *testing.T) {
@@ -148,10 +143,7 @@ func TestOpenAIProvider_MaxTokensWired(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
-	client, err := chat.New(context.Background(), p, chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderOpenAI,
 		Token:                "test-key",
 		BaseURL:              server.URL + "/",
@@ -184,15 +176,12 @@ func TestOpenAIProvider_MaxTokensWired(t *testing.T) {
 
 func TestOpenAIProvider_Add(t *testing.T) {
 	t.Parallel()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider: chat.ProviderOpenAI,
 		Token:    "test-key",
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("empty_prompt", func(t *testing.T) {
@@ -211,7 +200,7 @@ func TestOpenAIProvider_Add(t *testing.T) {
 			Provider:    chat.ProviderOpenAI,
 			Credentials: chat.CredentialConfig{Key: "test-key"},
 		}
-		clientWithConfig, err := chat.New(context.Background(), p, cfgNoToken)
+		clientWithConfig, err := newTestClient(context.Background(), cfgNoToken)
 		require.NoError(t, err)
 
 		err = clientWithConfig.Add(context.Background(), "Hello")
@@ -244,9 +233,6 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 
 	server := NewMockServer()
 	defer server.Close()
-
-	p := testProps()
-
 	cfg := chat.Config{
 		Provider:             chat.ProviderOpenAI,
 		Token:                "test-key",
@@ -254,7 +240,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 		AllowInsecureBaseURL: true,
 	}
 
-	client, err := chat.New(context.Background(), p, cfg)
+	client, err := newTestClient(context.Background(), cfg)
 	require.NoError(t, err)
 
 	t.Run("success_text_no_tools", func(t *testing.T) {
@@ -360,7 +346,7 @@ func TestOpenAIProvider_Chat(t *testing.T) {
 			MaxSteps:             2,
 		}
 
-		maxStepsClient, err := chat.New(context.Background(), testProps(), maxStepsCfg)
+		maxStepsClient, err := newTestClient(context.Background(), maxStepsCfg)
 		require.NoError(t, err)
 
 		// Always respond with a tool call, never a final text answer.

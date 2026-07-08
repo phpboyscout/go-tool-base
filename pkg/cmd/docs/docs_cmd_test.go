@@ -63,7 +63,7 @@ func registerFakeProvider(t *testing.T, name string, client chat.ChatClient) cha
 	t.Helper()
 
 	provider := chat.Provider(name)
-	chat.RegisterProvider(provider, func(context.Context, *props.Props, chat.Config) (chat.ChatClient, error) {
+	chat.RegisterProvider(provider, func(context.Context, chat.Settings) (chat.ChatClient, error) {
 		return client, nil
 	})
 

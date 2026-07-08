@@ -8,7 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -21,7 +21,7 @@ func init() {
 type ClaudeLocal struct {
 	usageTracker
 
-	props     *props.Props
+	logger    logger.Logger
 	cfg       Config
 	sessionID string   // captured after first Chat/Ask call; used for --resume
 	pending   []string // buffered Add() messages, prepended to next prompt
@@ -30,7 +30,9 @@ type ClaudeLocal struct {
 
 // newClaudeLocal initializes a new ClaudeLocal chat client.
 // No API key is required — authentication is handled by the claude binary itself.
-func newClaudeLocal(_ context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+func newClaudeLocal(_ context.Context, settings Settings) (ChatClient, error) {
+	cfg := settings.Config
+
 	lookPath := cfg.ExecLookPath
 	if lookPath == nil {
 		lookPath = exec.LookPath
@@ -49,7 +51,7 @@ func newClaudeLocal(_ context.Context, p *props.Props, cfg Config) (ChatClient, 
 	}
 
 	c := &ClaudeLocal{
-		props:   p,
+		logger:  settings.logger(),
 		cfg:     cfg,
 		command: command,
 	}
@@ -217,7 +219,7 @@ func (r claudeResult) usage() Usage {
 
 // runClaude executes the claude subprocess and returns the result text and session ID.
 func (c *ClaudeLocal) runClaude(ctx context.Context, args []string) (result string, sessionID string, err error) {
-	c.props.Logger.Debug("ClaudeLocal subprocess", "args", args)
+	c.logger.Debug("ClaudeLocal subprocess", "args", args)
 
 	cmd := c.command(ctx, "claude", args...)
 
@@ -243,7 +245,7 @@ func (c *ClaudeLocal) runClaude(ctx context.Context, args []string) (result stri
 
 	c.recordUsage(res.usage())
 
-	c.props.Logger.Debug("ClaudeLocal response received", "session_id", res.SessionID)
+	c.logger.Debug("ClaudeLocal response received", "session_id", res.SessionID)
 
 	return res.Result, res.SessionID, nil
 }

@@ -16,12 +16,13 @@
 // New providers can be registered at runtime via [RegisterProvider]. Structured
 // output helpers such as GenerateSchema simplify schema generation for Ask calls.
 //
-// GTB config integration is isolated in the package adapter layer. Reusable
-// chat code owns typed config shapes such as [RuntimeConfig], [FallbackConfig],
-// and [CredentialConfig]; GTB adapters populate them from ai.*, ai.fallback.*,
-// and provider api sections. Existing chat clients do not mutate provider
-// settings live on config reload; construct a new client to pick up rehydrated
-// settings.
+// New constructs clients from package-owned [Settings]. GTB config integration
+// is isolated in adapter helpers such as [SettingsFromProps], [NewFromProps],
+// and [NewWithFallbackFromProps]. Reusable chat code owns typed config shapes
+// such as [RuntimeConfig], [FallbackConfig], and [CredentialConfig]; GTB
+// adapters populate them from ai.*, ai.fallback.*, and provider api sections.
+// Existing chat clients do not mutate provider settings live on config reload;
+// construct a new client to pick up rehydrated settings.
 //
 // # Multimodal input
 //

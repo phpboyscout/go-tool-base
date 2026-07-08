@@ -83,7 +83,7 @@ The interactive `gtb init ai` wizard defaults to env-var mode — it prompts for
 ### Initialization
 
 ```go
-client, err := chat.New(ctx, props, cfg)
+client, err := chat.New(ctx, chat.Settings{Config: cfg, Logger: log})
 if err != nil {
     return errors.Newf("failed to initialize chat client: %w", err)
 }
@@ -91,8 +91,9 @@ if err != nil {
 
 ### GTB Adapter Config
 
-When constructed through GTB props, `chat.New` and `chat.NewWithFallback` adapt
-the framework config into package-owned structs before provider construction:
+When constructed through GTB props, `chat.NewFromProps` and
+`chat.NewWithFallbackFromProps` adapt the framework config into package-owned
+structs before provider construction:
 
 | Config section | Typed struct | Purpose |
 | :--- | :--- | :--- |
@@ -273,10 +274,10 @@ Providers that support streaming implement the `StreamingChatClient` interface i
 Discover streaming support via a type assertion:
 
 ```go
-client, err := chat.New(ctx, p, chat.Config{
+client, err := chat.New(ctx, chat.Settings{Config: chat.Config{
     Provider: chat.ProviderClaude,
     Model:    "claude-sonnet-4-6",
-})
+}, Logger: log})
 if err != nil {
     return err
 }
@@ -353,7 +354,7 @@ There are two complementary ways to read usage:
 `ChatClient.Usage()` returns the **cumulative** usage across every provider round-trip made by that client instance since construction:
 
 ```go
-client, _ := chat.New(ctx, p, cfg)
+client, _ := chat.New(ctx, chat.Settings{Config: cfg, Logger: log})
 _, _ = client.Chat(ctx, "Summarise this changelog…")
 
 u := client.Usage()

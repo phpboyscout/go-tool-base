@@ -15,8 +15,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // redJPEG is a solid-red image — recognisable enough that a model which actually
@@ -51,7 +49,7 @@ func TestGeminiMediaIntegration_seesTheImage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client, err := chat.New(ctx, &props.Props{Logger: logger.NewNoop()}, chat.Config{
+	client, err := newTestClient(ctx, chat.Config{
 		Provider: chat.ProviderGemini,
 		Model:    "gemini-3.5-flash",
 		Token:    key,

@@ -25,7 +25,7 @@ func TestStreamingIntegration_LiveSSERoundTrip(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderClaude,
 		Token:                "test-key",
 		BaseURL:              server.URL + "/",
@@ -89,7 +89,7 @@ func TestStreamingIntegration_ContextCancellation(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderOpenAI,
 		Token:                "test-key",
 		BaseURL:              server.URL + "/",
@@ -153,7 +153,7 @@ func TestStreamingIntegration_ToolCallDuringStream(t *testing.T) {
 	server := NewMockServer()
 	defer server.Close()
 
-	client, err := chat.New(context.Background(), testProps(), chat.Config{
+	client, err := newTestClient(context.Background(), chat.Config{
 		Provider:             chat.ProviderGemini,
 		Token:                "test-key",
 		BaseURL:              server.URL,

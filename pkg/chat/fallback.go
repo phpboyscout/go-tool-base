@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // Compile-time interface assertions.
@@ -94,24 +93,20 @@ func NewFallback(clients []ChatClient, opts ...FallbackOption) (ChatClient, erro
 	return base.asInterface(), nil
 }
 
-// NewFallbackFromConfigs constructs each provider via [New] and wraps the result
-// in a composite. The first Config is the primary. A construction failure for a
-// non-primary provider (e.g. a missing credential) is downgraded to a logged
-// WARN and that provider is dropped, so one missing fallback credential does not
-// break the whole client; if the primary fails to construct, the error is
-// returned. The tool's logger is wired automatically.
-func NewFallbackFromConfigs(ctx context.Context, p *props.Props, cfgs []Config, opts ...FallbackOption) (ChatClient, error) {
-	if len(cfgs) == 0 {
+// NewFallbackFromSettings constructs each provider via [New] and wraps the
+// result in a composite. The first Settings value is the primary. A construction
+// failure for a non-primary provider (e.g. a missing credential) is downgraded
+// to a logged WARN and that provider is dropped, so one missing fallback
+// credential does not break the whole client; if the primary fails to construct,
+// the error is returned.
+func NewFallbackFromSettings(ctx context.Context, settings []Settings, opts ...FallbackOption) (ChatClient, error) {
+	if len(settings) == 0 {
 		return nil, errors.New("fallback: at least one provider config is required")
 	}
 
-	// Default the logger to the tool's; a user-supplied WithFallbackLogger
-	// (later in opts) still takes precedence.
-	if p != nil && p.Logger != nil {
-		opts = append([]FallbackOption{WithFallbackLogger(p.Logger)}, opts...)
-	}
+	cfg := fallbackOptions(opts...)
 
-	clients, names, err := buildFallbackClients(ctx, p, cfgs)
+	clients, names, err := buildFallbackClients(ctx, cfg.log, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -128,26 +123,44 @@ func NewFallbackFromConfigs(ctx context.Context, p *props.Props, cfgs []Config, 
 	return base.asInterface(), nil
 }
 
+// NewFallbackFromConfigs constructs each provider from Config values and wraps
+// the result in a composite. Use [NewFallbackFromSettings] when each provider
+// needs distinct construction dependencies.
+func NewFallbackFromConfigs(ctx context.Context, cfgs []Config, opts ...FallbackOption) (ChatClient, error) {
+	if len(cfgs) == 0 {
+		return nil, errors.New("fallback: at least one provider config is required")
+	}
+
+	fallback := fallbackOptions(opts...)
+
+	settings := make([]Settings, 0, len(cfgs))
+	for _, cfg := range cfgs {
+		settings = append(settings, Settings{Config: cfg, Logger: fallback.log})
+	}
+
+	return NewFallbackFromSettings(ctx, settings, opts...)
+}
+
 // buildFallbackClients constructs each provider via [New]. A non-primary
 // construction failure is logged and dropped; a primary failure is fatal.
-func buildFallbackClients(ctx context.Context, p *props.Props, cfgs []Config) ([]ChatClient, []Provider, error) {
-	clients := make([]ChatClient, 0, len(cfgs))
-	names := make([]Provider, 0, len(cfgs))
+func buildFallbackClients(ctx context.Context, log logger.Logger, settings []Settings) ([]ChatClient, []Provider, error) {
+	clients := make([]ChatClient, 0, len(settings))
+	names := make([]Provider, 0, len(settings))
 
-	for i, cfg := range cfgs {
-		client, err := New(ctx, p, cfg)
+	for i, setting := range settings {
+		client, err := New(ctx, setting)
 		if err != nil {
 			if i == 0 {
-				return nil, nil, errors.Wrapf(err, "fallback: primary provider %q failed to construct", cfg.Provider)
+				return nil, nil, errors.Wrapf(err, "fallback: primary provider %q failed to construct", setting.Config.Provider)
 			}
 
-			logDroppedProvider(p, cfg)
+			logDroppedProvider(log, setting.Config)
 
 			continue
 		}
 
 		clients = append(clients, client)
-		names = append(names, cfg.Provider)
+		names = append(names, setting.Config.Provider)
 	}
 
 	return clients, names, nil
@@ -155,54 +168,40 @@ func buildFallbackClients(ctx context.Context, p *props.Props, cfgs []Config) ([
 
 // logDroppedProvider warns that a non-primary provider was dropped — host only,
 // never the underlying error detail.
-func logDroppedProvider(p *props.Props, cfg Config) {
-	if p == nil || p.Logger == nil {
-		return
-	}
-
-	p.Logger.Warn("chat fallback provider dropped",
+func logDroppedProvider(log logger.Logger, cfg Config) {
+	log.Warn("chat fallback provider dropped",
 		"provider", string(cfg.Provider),
 		"endpoint_host", baseURLHost(cfg.BaseURL))
 }
 
-// NewWithFallback is the single-entry resolver call sites use instead of [New]:
-// it reads ai.fallback.* and, when failover is enabled with a non-empty provider
-// list, builds a per-provider Config for each and returns a composite; otherwise
-// it is byte-for-byte [New]. Per the resolved OQ-3, ai.fallback.providers[0]
-// is the primary and overrides ai.provider (with a WARN on disagreement).
-func NewWithFallback(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
-	if err := applyRuntimeConfig(p, &cfg); err != nil {
-		return nil, err
-	}
-
-	fallback, err := fallbackConfigFromProps(p)
-	if err != nil {
-		return nil, err
-	}
-
+// NewWithFallbackSettings builds a single provider client or fallback composite
+// from package-owned settings and fallback config. Per the resolved OQ-3,
+// fallback.Providers[0] is the primary and overrides Settings.Config.Provider.
+func NewWithFallbackSettings(ctx context.Context, settings Settings, fallback FallbackConfig, opts ...FallbackOption) (ChatClient, error) {
 	if !fallback.Enabled || len(fallback.Providers) == 0 {
-		return New(ctx, p, cfg)
+		return New(ctx, settings)
 	}
 
-	warnFallbackPrimaryOverride(p, cfg, fallback.Providers[0])
+	log := settings.logger()
+	cfg := settings.Config
+	warnFallbackPrimaryOverride(log, cfg, fallback.Providers[0])
 
-	return NewFallbackFromConfigs(ctx, p, fallbackProviderConfigs(cfg, fallback.Providers))
-}
+	opts = append([]FallbackOption{WithFallbackLogger(log)}, opts...)
 
-func fallbackConfigFromProps(p *props.Props) (FallbackConfig, error) {
-	if p == nil || p.Config == nil {
-		return FallbackConfig{}, nil
+	perProviderSettings := make([]Settings, 0, len(fallback.Providers))
+	for _, providerConfig := range fallbackProviderConfigs(cfg, fallback.Providers) {
+		perProviderSettings = append(perProviderSettings, Settings{Config: providerConfig, Logger: log})
 	}
 
-	return loadFallbackConfig(p.Config)
+	return NewFallbackFromSettings(ctx, perProviderSettings, opts...)
 }
 
-func warnFallbackPrimaryOverride(p *props.Props, cfg Config, primary Provider) {
-	if p == nil || cfg.Provider == "" || cfg.Provider == primary || p.Logger == nil {
+func warnFallbackPrimaryOverride(log logger.Logger, cfg Config, primary Provider) {
+	if cfg.Provider == "" || cfg.Provider == primary {
 		return
 	}
 
-	p.Logger.Warn("ai.fallback.providers[0] overrides ai.provider",
+	log.Warn("ai.fallback.providers[0] overrides ai.provider",
 		"ai_provider", string(cfg.Provider),
 		"fallback_primary", string(primary))
 }
@@ -230,10 +229,24 @@ func perProviderConfig(base Config, provider Provider) Config {
 	pc := base
 	pc.Provider = provider
 	pc.Token = ""
+	pc.Credentials = CredentialConfig{}
 	pc.Model = ""
 	pc.BaseURL = ""
 
 	return pc
+}
+
+func fallbackOptions(opts ...FallbackOption) fallbackConfig {
+	var cfg fallbackConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	if cfg.log == nil {
+		cfg.log = logger.NewNoop()
+	}
+
+	return cfg
 }
 
 func newFallbackBase(clients []ChatClient, names []Provider, opts ...FallbackOption) (*fallbackClient, error) {
@@ -241,10 +254,7 @@ func newFallbackBase(clients []ChatClient, names []Provider, opts ...FallbackOpt
 		return nil, errors.New("fallback: at least one client is required")
 	}
 
-	var cfg fallbackConfig
-	for _, o := range opts {
-		o(&cfg)
-	}
+	cfg := fallbackOptions(opts...)
 
 	// Default after applying options, so WithFailoverPolicy(nil)/WithFallbackLogger(nil)
 	// also resolve to the defaults (one source of truth per default).

@@ -1,12 +1,13 @@
 package chat_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // MockServer represents a mock AI provider server.
@@ -26,8 +27,12 @@ func NewMockServer() *MockServer {
 	return m
 }
 
-func testProps() *props.Props {
-	return &props.Props{Logger: logger.NewNoop()}
+func testSettings(cfg chat.Config) chat.Settings {
+	return chat.Settings{Config: cfg, Logger: logger.NewNoop()}
+}
+
+func newTestClient(ctx context.Context, cfg chat.Config) (chat.ChatClient, error) {
+	return chat.New(ctx, testSettings(cfg))
 }
 
 // RespondWithJSON sets the handler to respond with the given JSON.

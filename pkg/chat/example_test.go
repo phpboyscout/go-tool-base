@@ -51,7 +51,7 @@ func ExampleNewSnapshot() {
 func ExamplePersistentChatClient() {
 	// Discover persistence support via type assertion:
 	//
-	//   client, _ := chat.New(ctx, props, cfg)
+	//   client, _ := chat.New(ctx, chat.Settings{Config: cfg, Logger: log})
 	//   if pc, ok := client.(chat.PersistentChatClient); ok {
 	//       snapshot, _ := pc.Save()
 	//       // ... store snapshot ...
