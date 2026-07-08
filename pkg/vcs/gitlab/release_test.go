@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
 type testConfig map[string]string
@@ -93,7 +93,7 @@ func TestNewReleaseProvider_ConfiglessPublic(t *testing.T) {
 	// Config-less: a public repo needs no gitlab config section. An empty
 	// ReleaseSource + nil config must yield a working public gitlab.com
 	// provider (token resolved from GITLAB_TOKEN env only).
-	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, nil)
+	provider, err := NewReleaseProvider(Settings{})
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }
@@ -101,7 +101,7 @@ func TestNewReleaseProvider_ConfiglessPublic(t *testing.T) {
 func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, testConfig{})
+	provider, err := NewReleaseProvider(Settings{})
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }
@@ -109,9 +109,11 @@ func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
 func TestNewReleaseProvider_WithToken(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, testConfig{
-		"auth.value": "test-token",
-		"url.api":    "https://custom.gitlab.com/api/v4",
+	provider, err := NewReleaseProvider(Settings{
+		APIURL: "https://custom.gitlab.com/api/v4",
+		Auth: vcs.AuthConfig{
+			Value: "test-token",
+		},
 	})
 	require.NoError(t, err)
 	assert.NotNil(t, provider)

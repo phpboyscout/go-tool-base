@@ -1203,10 +1203,15 @@ Current config coupling:
 Extracted module shape:
 
 ```go
-type GitHubConfig struct {
+type GitHubSettings struct {
     APIURL    string     `mapstructure:"url.api"`
     UploadURL string     `mapstructure:"url.upload"`
     Auth      vcs.AuthConfig `mapstructure:"auth"`
+}
+
+type GitLabSettings struct {
+    APIURL string         `mapstructure:"url.api"`
+    Auth   vcs.AuthConfig `mapstructure:"auth"`
 }
 
 type BitbucketConfig struct {

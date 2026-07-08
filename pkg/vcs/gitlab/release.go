@@ -82,28 +82,24 @@ type GitLabReleaseProvider struct {
 // defaultGitLabAPI is the API base URL for the public gitlab.com host.
 const defaultGitLabAPI = "https://gitlab.com/api/v4"
 
-// NewReleaseProvider builds a GitLab release provider. It is config-less
-// by design: a public repository needs only the ReleaseSource (Host
-// selects the instance; empty means gitlab.com). cfg is the optional
-// `gitlab` config subtree (nil when no such section exists); it supplies
-// a token (for private repos) and an explicit `url.api` override. When
-// absent, the token falls back to the GITLAB_TOKEN env var and the base
-// URL is derived from src.Host.
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg vcs.TokenConfig) (release.Provider, error) {
+// NewReleaseProvider builds a GitLab release provider from explicit typed
+// settings. A public repository needs no auth settings; Host selects the
+// instance, empty means gitlab.com, and APIURL can override the derived API
+// endpoint. When auth is absent, the token falls back to GITLAB_TOKEN.
+func NewReleaseProvider(settings Settings) (release.Provider, error) {
 	baseURL := defaultGitLabAPI
+
+	src := settings.ReleaseSource
 	if src.Host != "" {
 		baseURL = "https://" + src.Host + "/api/v4"
 	}
 
-	if cfg != nil {
-		if override := cfg.GetString("url.api"); override != "" {
-			baseURL = override
-		}
+	if settings.APIURL != "" {
+		baseURL = settings.APIURL
 	}
 
-	// Token is optional: public repositories work unauthenticated. A nil
-	// cfg resolves the token from the GITLAB_TOKEN env var only.
-	token := vcs.ResolveToken(cfg, "GITLAB_TOKEN")
+	// Token is optional: public repositories work unauthenticated.
+	token := vcs.ResolveToken(settings.Auth, "GITLAB_TOKEN")
 
 	client, err := gitlab.NewClient(token,
 		gitlab.WithBaseURL(baseURL),
