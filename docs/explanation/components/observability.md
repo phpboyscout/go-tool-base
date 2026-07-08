@@ -95,6 +95,14 @@ All under the `telemetry.*` root, resolved shared-then-per-signal (the same shar
 
 Per-signal `endpoint`, `headers` and `insecure` override the shared values individually.
 
+Long-lived code that needs to react to reloads should bind a resolved signal
+snapshot through `otelcore.ObserveSettingsFromConfig`. The returned value
+satisfies `otelcore.SettingsSource`, exposing `Current()` and `Version()` without
+coupling the signal package to GTB's config container. A version change means
+the full resolved settings snapshot changed; existing exporters are not rebuilt
+automatically, so the owning package must explicitly rebuild or restart a
+provider when that is the desired behaviour.
+
 ## The two consent models
 
 The defining distinction of this package:

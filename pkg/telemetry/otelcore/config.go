@@ -20,6 +20,13 @@ type Settings struct {
 	Insecure bool
 }
 
+// SettingsSource exposes the latest resolved signal settings without requiring
+// packages to import GTB's config adapter package.
+type SettingsSource interface {
+	Current() *Settings
+	Version() uint64
+}
+
 // Config holds shared OTLP settings that can be overlaid by each signal.
 type Config struct {
 	Endpoint string            `mapstructure:"endpoint" yaml:"endpoint" json:"endpoint"`

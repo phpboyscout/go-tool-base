@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -103,4 +104,118 @@ func TestResolveHeaders(t *testing.T) {
 	s := Resolve(cfg, SignalTracing)
 
 	assert.Equal(t, "Bearer token", s.Headers["authorization"])
+}
+
+func TestObserveSettingsFromConfigInitialSnapshot(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  insecure: true\n  tracing:\n    enabled: true\n")),
+	)
+
+	settings, err := ObserveSettingsFromConfig(cfg, SignalTracing)
+	require.NoError(t, err)
+
+	assert.Equal(t, Settings{Enabled: true, Endpoint: "https://shared:4318", Insecure: true}, settings.Value())
+	assert.True(t, settings.Exists())
+	assert.Equal(t, uint64(1), settings.Version())
+}
+
+func TestObserveSettingsFromConfigRehydratesSharedDefaults(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  tracing:\n    enabled: true\n")),
+	)
+
+	changes := make([]config.SectionChange[Settings], 0, 1)
+	settings, err := ObserveSettingsFromConfig(
+		cfg,
+		SignalTracing,
+		config.WithSectionApply(func(change config.SectionChange[Settings]) error {
+			changes = append(changes, change)
+
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+
+	cfg.Set("telemetry.endpoint", "https://changed:4318")
+	require.NoError(t, runOTelCoreConfigObservers(cfg))
+
+	assert.Equal(t, "https://changed:4318", settings.Value().Endpoint)
+	assert.Equal(t, uint64(2), settings.Version())
+	require.Len(t, changes, 1)
+	assert.Equal(t, "https://shared:4318", changes[0].Previous.Value.Endpoint)
+	assert.Equal(t, "https://changed:4318", changes[0].Current.Value.Endpoint)
+}
+
+func TestObserveSettingsFromConfigRehydratesSignalOverrides(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  metrics:\n    enabled: true\n")),
+	)
+
+	settings, err := ObserveSettingsFromConfig(cfg, SignalMetrics)
+	require.NoError(t, err)
+
+	cfg.Set("telemetry.metrics.endpoint", "https://metrics:4318")
+	require.NoError(t, runOTelCoreConfigObservers(cfg))
+
+	assert.Equal(t, Settings{Enabled: true, Endpoint: "https://metrics:4318"}, settings.Value())
+	assert.Equal(t, uint64(2), settings.Version())
+}
+
+func TestObserveSettingsFromConfigUnchangedReloadDoesNotIncrementVersion(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  logs:\n    enabled: true\n")),
+	)
+
+	settings, err := ObserveSettingsFromConfig(cfg, SignalLogs)
+	require.NoError(t, err)
+
+	cfg.Set("unrelated.value", "changed")
+	require.NoError(t, runOTelCoreConfigObservers(cfg))
+
+	assert.Equal(t, Settings{Enabled: true, Endpoint: "https://shared:4318"}, settings.Value())
+	assert.Equal(t, uint64(1), settings.Version())
+}
+
+func TestObservedSettingsSatisfiesSource(t *testing.T) {
+	t.Parallel()
+
+	settings, err := ObserveSettingsFromConfig(cfgFrom(map[string]any{
+		"telemetry.logs.enabled": true,
+	}), SignalLogs)
+	require.NoError(t, err)
+
+	var source SettingsSource = settings
+	require.NotNil(t, source.Current())
+	assert.True(t, source.Current().Enabled)
+	assert.Equal(t, uint64(1), source.Version())
+}
+
+func runOTelCoreConfigObservers(c *config.Container) error {
+	for _, observer := range c.GetObservers() {
+		if err := observer.Run(c); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

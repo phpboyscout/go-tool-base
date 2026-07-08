@@ -26,3 +26,26 @@ func Resolve(cfg gtbconfig.Containable, signal string) Settings {
 		Insecure: cfg.IsSet(sig + ".insecure"),
 	})
 }
+
+// ObserveSettingsFromConfig binds a single telemetry signal's resolved OTLP
+// settings to cfg and keeps the typed snapshot rehydrated after successful
+// config reloads.
+func ObserveSettingsFromConfig(
+	cfg gtbconfig.Containable,
+	signal string,
+	opts ...gtbconfig.SectionBindingOption[Settings],
+) (*gtbconfig.ObservedSection[Settings], error) {
+	key := Root + "." + signal
+
+	bindingOpts := make([]gtbconfig.SectionBindingOption[Settings], 0, 1+len(opts))
+	bindingOpts = append(bindingOpts, gtbconfig.WithSectionDefaultFunc(func(next gtbconfig.Containable) Settings {
+		return Resolve(next, signal)
+	}, mergeResolvedSettings))
+	bindingOpts = append(bindingOpts, opts...)
+
+	return gtbconfig.ObserveSection[Settings](cfg, key, bindingOpts...)
+}
+
+func mergeResolvedSettings(defaults, _ Settings) Settings {
+	return defaults
+}

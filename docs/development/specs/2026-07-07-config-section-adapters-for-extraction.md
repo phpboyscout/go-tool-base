@@ -1077,8 +1077,8 @@ Existence checks:
 
 Current config coupling:
 
-- `otelcore` reads `otel.*` endpoint, headers, insecure flags, and signal-specific
-  overrides from `config.Containable`.
+- `otelcore` reads `telemetry.*` endpoint, headers, insecure flags, and
+  signal-specific overrides from `config.Containable`.
 
 Extracted module shape:
 
@@ -1091,11 +1091,20 @@ type OTelConfig struct {
     Metrics  SignalConfig      `mapstructure:"metrics"`
     Logs     SignalConfig      `mapstructure:"logs"`
 }
+
+type SettingsSource interface {
+    Current() *Settings
+    Version() uint64
+}
 ```
 
 GTB adapter responsibilities:
 
-- Unmarshal `otel` into observability config.
+- Resolve shared `telemetry.*` config plus `telemetry.<signal>.*` overrides into
+  a package-owned `Settings` value.
+- Bind long-lived signal setup with `ObserveSettingsFromConfig` so reloads
+  rehydrate the full resolved signal snapshot and expose `Version()` for change
+  detection.
 - Apply GTB service name/version/resource attributes from `props.Tool` and
   version metadata.
 
@@ -1103,6 +1112,9 @@ Existence checks:
 
 - Section absence means observability disabled unless enabled by env or code.
 - Signal-specific sections override root OTel config.
+- Existing exporters do not rebuild automatically on observer changes; tracing,
+  metrics, and logs packages need explicit rebuild/restart logic if live reload
+  should affect already constructed providers.
 
 ### `pkg/telemetry`
 

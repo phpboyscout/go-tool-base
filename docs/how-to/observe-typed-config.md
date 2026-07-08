@@ -191,6 +191,36 @@ The helper composes `server.gateway.*` and `server.gateway.tls.*` with
 connections still need explicit restart or redial logic before changed ports or
 TLS paths affect live traffic.
 
+## OTel Signal Settings
+
+`pkg/telemetry/otelcore` observes resolved settings for one OTel signal at a
+time:
+
+```go
+settings, err := otelcore.ObserveSettingsFromConfig(
+    cfg,
+    otelcore.SignalTracing,
+    config.WithSectionApply(func(change config.SectionChange[otelcore.Settings]) error {
+        log.Info("otel tracing settings changed", "version", change.Version)
+
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source otelcore.SettingsSource = settings
+_ = source.Current()
+```
+
+The helper preserves the existing `telemetry.*` shape. Shared keys such as
+`telemetry.endpoint`, `telemetry.headers` and `telemetry.insecure` are resolved
+first, then `telemetry.<signal>.*` overrides are applied. On reload, a version
+change means the full resolved signal snapshot changed. Existing exporters do
+not rebuild automatically; the owning package must decide whether to rebuild,
+restart, or keep using the current provider.
+
 ## Failure Behaviour
 
 If a reload cannot be decoded or validation fails, the binding keeps the last
