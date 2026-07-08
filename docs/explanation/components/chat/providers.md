@@ -20,7 +20,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 | `chat.ProviderClaudeLocal` | `"claude-local"` | No — uses local `claude` binary |
 | `chat.ProviderOpenAICompatible` | `"openai-compatible"` | Backend-dependent (set via `Token`) |
 
-The default provider when `Config.Provider` is empty (and `AI_PROVIDER` env var is not set) is `ProviderOpenAI`.
+The default provider when `Config.Provider` is empty and `AI_PROVIDER` is not
+set is `ProviderClaude`.
 
 ### Capability Comparison
 

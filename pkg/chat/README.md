@@ -7,4 +7,4 @@ Supports:
 - Claude (Anthropic)
 - Gemini (Google)
 
-For detailed documentation, usage examples, and configuration guides, see the **[Chat Component Documentation](../../docs/components/chat.md)**.
+For detailed documentation, usage examples, and configuration guides, see the **[Chat Component Documentation](../../docs/explanation/components/chat/index.md)**.

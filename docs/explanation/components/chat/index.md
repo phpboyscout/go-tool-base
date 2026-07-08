@@ -23,15 +23,20 @@ Whether you're generating code, analyzing errors, or creating interactive assist
 
 ### Configuration
 
-The `chat` package integrates with the application's configuration system, picking up authentication tokens from environment variables automatically.
+The `chat` package can be configured directly with `chat.Config` or through
+GTB's framework config adapter. The reusable package owns typed config shapes
+(`RuntimeConfig`, `FallbackConfig`, and `CredentialConfig`); GTB adapter code
+loads those from `ai.*`, `ai.fallback.*`, and provider API sections. This keeps
+the package usable outside GTB without importing the framework config container.
 
 The `Config` struct accepts the following fields:
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `Provider` | `Provider` | The provider constant. Defaults to `ProviderOpenAI` if unset. |
+| `Provider` | `Provider` | The provider constant. Defaults to `ProviderClaude` if unset and `AI_PROVIDER` is not set. |
 | `Model` | `string` | Model name. Falls back to a sensible default per provider if empty. Required for `ProviderOpenAICompatible`. |
 | `Token` | `string` | API key. Optional if set via environment variable. |
+| `Credentials` | `CredentialConfig` | Provider credential references supplied by the host application. `Token` wins when both are set. |
 | `BaseURL` | `string` | API endpoint override. Required for `ProviderOpenAICompatible`. |
 | `SystemPrompt` | `string` | Initial system prompt for the conversation. For Claude it is sent in the API's dedicated `system` field (not as a user turn); OpenAI sends it as the first system message; Gemini restores it to both config and history. |
 | `ResponseSchema` | `any` | JSON schema for enforcing structured output (used by `Ask`). |
@@ -39,6 +44,7 @@ The `Config` struct accepts the following fields:
 | `SchemaDescription` | `string` | Description for the response schema tool. |
 | `MaxSteps` | `int` | Maximum ReAct loop iterations in `Chat()`. Zero uses the default (20). |
 | `MaxTokens` | `int` | Maximum tokens per response. Zero uses the provider default (OpenAI: 4096, Claude: 8192, Gemini: 8192). |
+| `RequestTimeout` | `time.Duration` | Per-request timeout. Zero falls back to `ai.request_timeout`, then `DefaultChatRequestTimeout`. |
 | `ParallelTools` | `bool` | Enables concurrent execution of multiple tool calls within a single ReAct step. Disabled by default. |
 | `MaxParallelTools` | `int` | Maximum number of tool calls executing concurrently. Zero uses the default (5). Only effective when `ParallelTools` is true. |
 | `Seed` | `*int64` | Optional sampling seed for OpenAI / OpenAI-compatible providers. `nil` (the default) omits the seed entirely so the model samples normally; set a value only for reproducible-ish completions. (Earlier builds hardcoded `seed=0`.) |
@@ -82,6 +88,27 @@ if err != nil {
     return errors.Newf("failed to initialize chat client: %w", err)
 }
 ```
+
+### GTB Adapter Config
+
+When constructed through GTB props, `chat.New` and `chat.NewWithFallback` adapt
+the framework config into package-owned structs before provider construction:
+
+| Config section | Typed struct | Purpose |
+| :--- | :--- | :--- |
+| `ai` | `RuntimeConfig` | Provider and request timeout defaults. |
+| `ai.fallback` | `FallbackConfig` | Cross-provider failover toggle and provider order. |
+| `openai.api`, `anthropic.api`, `gemini.api` | `CredentialConfig` | Env-var reference, keychain reference, and literal fallback for provider credentials. |
+
+The config keys and precedence remain the GTB defaults: explicit `chat.Config`
+fields win where set, GTB's resolved config fills unset fields, provider
+ecosystem env vars are still fallback credential sources, and `AI_PROVIDER`
+still overrides the provider when no provider is otherwise configured.
+
+Existing chat clients do not live-reconfigure themselves when GTB config reloads.
+To use changed provider, fallback, timeout, or credential settings, construct a
+new client after reload. This keeps provider clients independent of GTB's config
+observer system and avoids mutating conversation state mid-session.
 
 ## Agentic vs. Legacy Workflows
 
