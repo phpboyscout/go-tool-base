@@ -19,6 +19,8 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 ## Functions
 
 - **`NewServer(settings ServerSettings, opts ...any) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered from typed settings. The variadic accepts both `ServerOption` values and `grpc.ServerOption` values.
+- **`ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.grpc`.
+- **`ObserveServerSettingsFromConfig(cfg config.Containable, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
 - **`NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `NewServer`.
 - **`Start(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
 - **`StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config.
@@ -41,6 +43,36 @@ srv, _ := gtbgrpc.RegisterFromContainable(ctx, "internal", controller, props.Con
 // ...and a gateway/in-process client dialling that same server:
 conn, _ := gtbgrpc.DialLocalFromContainable(props.Config, gtbgrpc.WithConfigPrefix("server.internal"))
 ```
+
+### Observing Server Settings
+
+For long-lived GTB composition, bind the config section once and pass the
+observed snapshot through a package-owned settings source:
+
+```go
+settings, err := gtbgrpc.ObserveServerSettingsFromConfig(
+    props.Config,
+    "server.grpc",
+    config.WithSectionApply(func(change config.SectionChange[gtbgrpc.ServerSettings]) error {
+        props.Logger.Info("grpc server settings changed", "version", change.Version)
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source gtbgrpc.ServerSettingsSource = settings
+_ = source.Current()
+```
+
+`ObserveServerSettingsFromConfig` uses the same resolved config semantics as
+`ServerSettingsFromConfig`, including the shared `server.port` fallback. The
+binding rehydrates on successful config reloads, increments `Version()` only
+when the typed `ServerSettings` snapshot changes, and exposes the latest
+immutable value through `Current()`. Existing gRPC servers do not automatically
+restart when the port changes; use the observed source for newly constructed
+servers or explicit package-level reconfiguration logic.
 
 ## Interceptor Chaining
 
@@ -93,7 +125,7 @@ By default only `Unavailable` and `DeadlineExceeded` count as failures. **`Resou
 ```go
 authIC, _ := gtbgrpc.AuthInterceptor(gtbgrpc.WithGRPCBearerVerifier(jwtVerifier))
 chain := gtbgrpc.NewInterceptorChain(gtbgrpc.LoggingInterceptor(log), authIC)
-gtbgrpc.Register(ctx, "api", controller, cfg, log, gtbgrpc.WithInterceptors(chain))
+gtbgrpc.RegisterFromContainable(ctx, "api", controller, cfg, log, gtbgrpc.WithInterceptors(chain))
 ```
 
 Options: `WithGRPCBearerVerifier`, `WithGRPCAPIKeyMetadata`, `WithGRPCMTLSVerifier`, `WithGRPCAuthorize`, `WithGRPCAuthLogger`, `WithGRPCMethodSkipper`. Failures yield a generic `codes.Unauthenticated` / `codes.PermissionDenied` with the cause logged redacted. **The standard health (`/grpc.health.v1.Health/*`) and reflection (`/grpc.reflection.v1*`) services are auto-skipped** so probes keep working; a custom skipper adds to that set. **See [Authentication & Authorization](authn.md) for the full reference.**

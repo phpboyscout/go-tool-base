@@ -17,6 +17,30 @@ func ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSetti
 	return serverSettingsFromConfig(cfg, prefix, true, true)
 }
 
+// ObserveServerSettingsFromConfig binds gRPC server settings to cfg and keeps a
+// typed snapshot rehydrated after successful config reloads.
+func ObserveServerSettingsFromConfig(
+	cfg config.Containable,
+	prefix string,
+	opts ...config.SectionBindingOption[ServerSettings],
+) (*config.ObservedSection[ServerSettings], error) {
+	if prefix == "" {
+		prefix = DefaultConfigPrefix
+	}
+
+	bindingOpts := make([]config.SectionBindingOption[ServerSettings], 0, 1+len(opts))
+	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(func(next config.Containable) ServerSettings {
+		if next == nil {
+			return ServerSettings{}
+		}
+
+		return ServerSettings{Port: next.GetInt(ConfigKeySharedPort)}
+	}, mergeServerSettings))
+	bindingOpts = append(bindingOpts, opts...)
+
+	return config.ObserveSection[ServerSettings](cfg, prefix, bindingOpts...)
+}
+
 func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort, includeReflection bool) ServerSettings {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
@@ -47,6 +71,16 @@ func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort
 	}
 
 	return settings
+}
+
+func mergeServerSettings(defaults, overlay ServerSettings) ServerSettings {
+	if overlay.Port != 0 {
+		defaults.Port = overlay.Port
+	}
+
+	defaults.Reflection = overlay.Reflection
+
+	return defaults
 }
 
 func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, includePort, includeReflection bool) ServerSettings {

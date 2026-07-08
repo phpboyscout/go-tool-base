@@ -137,6 +137,33 @@ The helper keeps the existing GTB config shape intact. It reads
 that fallback on reload. The returned source exposes `Version()` so code can
 quickly tell whether the whole typed settings snapshot has changed.
 
+## gRPC Server Settings
+
+`pkg/grpc` provides the same observer pattern for its server settings:
+
+```go
+settings, err := gtbgrpc.ObserveServerSettingsFromConfig(
+    cfg,
+    "server.grpc",
+    config.WithSectionApply(func(change config.SectionChange[gtbgrpc.ServerSettings]) error {
+        log.Info("grpc settings changed", "version", change.Version)
+
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source gtbgrpc.ServerSettingsSource = settings
+_ = source.Current()
+```
+
+The helper reads `server.grpc.*`, keeps `server.port` as the shared port
+fallback, and rehydrates that fallback on reload. A version change tells the
+owning package that the full typed snapshot changed; existing listeners still
+need explicit restart or reconfigure logic before a port change takes effect.
+
 ## Failure Behaviour
 
 If a reload cannot be decoded or validation fails, the binding keeps the last

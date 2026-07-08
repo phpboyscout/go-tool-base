@@ -93,6 +93,84 @@ func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
 	assert.True(t, got.Reflection)
 }
 
+func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  port: 18080\n  grpc:\n    reflection: true\n")
+
+	settings, err := ObserveServerSettingsFromConfig(cfg, "")
+	require.NoError(t, err)
+
+	assert.Equal(t, ServerSettings{Port: 18080, Reflection: true}, settings.Value())
+	assert.True(t, settings.Exists())
+	assert.Equal(t, uint64(1), settings.Version())
+}
+
+func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("server:\n  port: 19081\n  grpc: {}\n")),
+	)
+
+	changes := make([]config.SectionChange[ServerSettings], 0, 1)
+	settings, err := ObserveServerSettingsFromConfig(
+		cfg,
+		"",
+		config.WithSectionApply(func(change config.SectionChange[ServerSettings]) error {
+			changes = append(changes, change)
+
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, 19081, settings.Value().Port)
+
+	cfg.Set("server.port", 19082)
+	require.NoError(t, runGRPCConfigObservers(cfg))
+
+	assert.Equal(t, 19082, settings.Value().Port)
+	assert.Equal(t, uint64(2), settings.Version())
+	require.Len(t, changes, 1)
+	assert.Equal(t, 19081, changes[0].Previous.Value.Port)
+	assert.Equal(t, 19082, changes[0].Current.Value.Port)
+}
+
+func TestObserveServerSettingsFromConfig_UnchangedReloadDoesNotIncrementVersion(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("server:\n  port: 19081\n  grpc: {}\n")),
+	)
+
+	settings, err := ObserveServerSettingsFromConfig(cfg, "")
+	require.NoError(t, err)
+
+	cfg.Set("unrelated.value", "changed")
+	require.NoError(t, runGRPCConfigObservers(cfg))
+
+	assert.Equal(t, 19081, settings.Value().Port)
+	assert.Equal(t, uint64(1), settings.Version())
+}
+
+func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
+	t.Parallel()
+
+	settings, err := ObserveServerSettingsFromConfig(cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n"), "")
+	require.NoError(t, err)
+
+	var source ServerSettingsSource = settings
+	require.NotNil(t, source.Current())
+	assert.Equal(t, 19081, source.Current().Port)
+	assert.Equal(t, uint64(1), source.Version())
+}
+
 func TestNewServerFromContainable_ReturnsConfiguredServer(t *testing.T) {
 	t.Parallel()
 
@@ -250,4 +328,14 @@ func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 	cfg := cfgFromYAML(t, "name: x\n")
 
 	assert.Equal(t, DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.grpc"))
+}
+
+func runGRPCConfigObservers(c *config.Container) error {
+	for _, observer := range c.GetObservers() {
+		if err := observer.Run(c); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

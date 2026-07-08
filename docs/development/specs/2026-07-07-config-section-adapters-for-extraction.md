@@ -949,7 +949,7 @@ GTB adapter responsibilities:
 - Bind long-lived HTTP composition with `ObserveServerSettingsFromConfig`,
   which wraps `config.ObserveSection` and exposes `Current()` / `Version()`.
 - Preserve fallback from `server.http.*` to shared `server.*` where currently
-- supported. The first implemented fallback is `server.port` to
+  supported. The first implemented fallback is `server.port` to
   `server.http.port`, rehydrated on config reload via dynamic defaults.
 - Resolve TLS through typed TLS config structs.
 - Keep controller registration and health endpoint wiring in GTB/transport
@@ -968,19 +968,23 @@ Existence checks:
 
 Current config coupling:
 
-- Reads port, reflection, TLS, auth, rate limit, circuit breaker, logging, and
-  dial options from `config.Containable`.
+- Adapters read port, reflection, TLS, rate limit, circuit breaker, and dial
+  options from `config.Containable`.
+- Core server construction, start, dial, and registration now accept typed
+  `ServerSettings` and explicit TLS pairs; compatibility adapters keep existing
+  GTB config call sites working.
 
 Extracted module shape:
 
 ```go
-type ServerConfig struct {
-    Port           int                 `mapstructure:"port"`
-    Reflection     bool                `mapstructure:"reflection"`
-    TLS            tls.Config          `mapstructure:"tls"`
-    Auth           authn.Config        `mapstructure:"auth"`
-    RateLimit      RateLimitConfig     `mapstructure:"rate_limit"`
-    CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker"`
+type ServerSettings struct {
+    Port       int  `mapstructure:"port" yaml:"port" json:"port"`
+    Reflection bool `mapstructure:"reflection" yaml:"reflection" json:"reflection"`
+}
+
+type ServerSettingsSource interface {
+    Current() *ServerSettings
+    Version() uint64
 }
 
 type ClientConfig struct {
@@ -991,14 +995,22 @@ type ClientConfig struct {
 
 GTB adapter responsibilities:
 
-- Unmarshal `server.grpc`.
-- Preserve fallback to shared server config where currently supported.
+- Unmarshal `server.grpc` into `grpc.ServerSettings`.
+- Bind long-lived gRPC composition with `ObserveServerSettingsFromConfig`,
+  which wraps `config.ObserveSection` and exposes `Current()` / `Version()`.
+- Preserve fallback to shared server config where currently supported. The
+  first implemented fallback is `server.port` to `server.grpc.port`,
+  rehydrated on config reload via dynamic defaults.
 - Build `grpc.ServerOption` / dial options from typed config.
+- Resolve TLS through typed TLS config structs.
 
 Existence checks:
 
 - Reflection default must preserve existing generated-tool behaviour.
 - TLS/auth sections should be optional unless enabled.
+- Existing servers do not auto-restart when an observed port changes; the
+  observed source is for newly constructed servers or explicit package-level
+  reconfiguration logic.
 
 ### `pkg/gateway`
 
