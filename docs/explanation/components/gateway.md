@@ -33,8 +33,12 @@ register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientCo
 ## Functions
 
 - **`New(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, opts ...Option) (http.Handler, error)`**: Builds a grpc-gateway handler ready to mount on an existing HTTP server from an already prepared gRPC client connection.
+- **`SettingsFromConfig(cfg config.Containable) Settings`**: GTB adapter helper that composes typed HTTP settings/TLS from `server.gateway.*` and typed gRPC dial settings/TLS from `server.grpc.*`.
+- **`ObserveSettingsFromConfig(cfg config.Containable, opts ...config.SectionBindingOption[Settings]) (*config.ObservedSection[Settings], error)`**: GTB adapter helper for reload-aware typed gateway transport settings.
+- **`NewFromConfig(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error)`**: GTB adapter that resolves typed gRPC dial settings from existing config, then delegates to `New`.
 - **`NewFromContainable(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error)`**: GTB adapter that dials the local gRPC server from existing config, then delegates to `New`.
 - **`Register(ctx context.Context, id string, controller controls.Controllable, logger logger.Logger, conn *grpc.ClientConn, httpSettings gtbhttp.ServerSettings, httpTLS gtbtls.Pair, register RegisterFunc, opts ...Option) (*http.Server, error)`**: Runs the gateway as its own controller-managed HTTP server from explicit typed HTTP settings and a prepared gRPC connection.
+- **`RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: GTB adapter that resolves typed HTTP/gRPC transport settings from existing config, then delegates to the typed registration path.
 - **`RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: GTB adapter that reads the existing `server.gateway` config block and delegates to the typed HTTP registration path.
 
 ## Middleware on the REST surface
@@ -69,7 +73,8 @@ concept for the full pattern.
 
 ## Configuration
 
-When run via `Register`, the gateway server reads its own config block:
+When run via `RegisterFromConfig` or `RegisterFromContainable`, the gateway
+server reads its own config block:
 
 ```go
 const ConfigPrefix = "server.gateway"
@@ -88,6 +93,34 @@ server:
 ```
 
 With the shared `server.tls` keys set and no `server.gateway.tls` override, the gateway server uses the same certificate as the rest of the stack.
+
+### Observing Gateway Settings
+
+Gateway settings are a composition of the HTTP server it owns and the gRPC
+server it dials. Bind that composition once when GTB code needs a reload-aware
+source:
+
+```go
+settings, err := gateway.ObserveSettingsFromConfig(
+    props.Config,
+    config.WithSectionApply(func(change config.SectionChange[gateway.Settings]) error {
+        props.Logger.Info("gateway settings changed", "version", change.Version)
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source gateway.SettingsSource = settings
+_ = source.Current()
+```
+
+The source rehydrates `server.gateway.*`, `server.gateway.tls.*`,
+`server.grpc.*`, and `server.grpc.tls.*` on successful config reloads. Existing
+gateway servers and gRPC client connections do not automatically restart or
+redial; use the observed source for new construction or explicit package-level
+reconfiguration logic.
 
 ## Options
 

@@ -1016,25 +1016,40 @@ Existence checks:
 
 Current config coupling:
 
-- Reads HTTP/gRPC config through transport packages.
+- Adapters compose HTTP/gRPC settings through transport packages.
+- Core gateway construction accepts a prepared gRPC client connection and typed
+  HTTP server settings; compatibility adapters keep existing GTB config call
+  sites working.
 
 Extracted module shape:
 
 ```go
-type Config struct {
-    HTTP http.ServerSettings `mapstructure:"http"`
-    GRPC grpc.ClientConfig `mapstructure:"grpc"`
+type Settings struct {
+    HTTP    http.ServerSettings `mapstructure:"http" yaml:"http" json:"http"`
+    HTTPTLS tls.Pair            `mapstructure:"http_tls" yaml:"http_tls" json:"http_tls"`
+    GRPC    grpc.ServerSettings `mapstructure:"grpc" yaml:"grpc" json:"grpc"`
+    GRPCTLS tls.Pair            `mapstructure:"grpc_tls" yaml:"grpc_tls" json:"grpc_tls"`
+}
+
+type SettingsSource interface {
+    Current() *Settings
+    Version() uint64
 }
 ```
 
 GTB adapter responsibilities:
 
-- Compose already-typed HTTP and gRPC configs.
+- Compose already-typed HTTP and gRPC settings with `SettingsFromConfig`.
+- Bind long-lived gateway composition with `ObserveSettingsFromConfig`, which
+  wraps `config.ObserveSection` and exposes `Current()` / `Version()`.
 - Register generated gateway handlers.
 
 Existence checks:
 
 - Gateway absence means not registered.
+- Existing gateway servers and gRPC client connections do not auto-restart or
+  redial when observed settings change; the observed source is for newly
+  constructed gateways or explicit package-level reconfiguration logic.
 
 ### `pkg/openapi`
 

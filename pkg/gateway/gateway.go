@@ -1,7 +1,3 @@
-// Package gateway makes a grpc-gateway a first-class transport: it dials the
-// local gRPC server (matching its transport security) and serves the generated
-// REST handlers, either mounted on an existing HTTP server (New) or as its own
-// controller-managed HTTP server on the "server.gateway" config block (Register).
 package gateway
 
 import (

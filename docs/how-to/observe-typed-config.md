@@ -164,6 +164,33 @@ fallback, and rehydrates that fallback on reload. A version change tells the
 owning package that the full typed snapshot changed; existing listeners still
 need explicit restart or reconfigure logic before a port change takes effect.
 
+## Gateway Settings
+
+`pkg/gateway` observes a composed settings shape because it owns an HTTP server
+and dials the local gRPC server:
+
+```go
+settings, err := gateway.ObserveSettingsFromConfig(
+    cfg,
+    config.WithSectionApply(func(change config.SectionChange[gateway.Settings]) error {
+        log.Info("gateway settings changed", "version", change.Version)
+
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source gateway.SettingsSource = settings
+_ = source.Current()
+```
+
+The helper composes `server.gateway.*` and `server.gateway.tls.*` with
+`server.grpc.*` and `server.grpc.tls.*`. Existing gateway servers and client
+connections still need explicit restart or redial logic before changed ports or
+TLS paths affect live traffic.
+
 ## Failure Behaviour
 
 If a reload cannot be decoded or validation fails, the binding keeps the last

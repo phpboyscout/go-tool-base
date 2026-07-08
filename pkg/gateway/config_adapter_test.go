@@ -4,10 +4,12 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/cockroachdb/errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,6 +18,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
+	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -38,6 +41,74 @@ func cfgWithGatewayPort(t *testing.T, port int) config.Containable {
 	c.Set("server.grpc.port", 50099)
 
 	return c
+}
+
+func gatewayCfgFromYAML(t *testing.T, yaml string) *config.Container {
+	t.Helper()
+
+	return config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(yaml)),
+	)
+}
+
+func TestSettingsFromConfig_ComposesTransportSettings(t *testing.T) {
+	t.Parallel()
+
+	cfg := gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n    reflection: true\n")
+
+	settings := gateway.SettingsFromConfig(cfg)
+
+	assert.Equal(t, gtbhttp.ServerSettings{Port: 18081}, settings.HTTP)
+	assert.Equal(t, gtbgrpc.ServerSettings{Port: 19081, Reflection: true}, settings.GRPC)
+}
+
+func TestObserveSettingsFromConfig_RehydratesTransportSettings(t *testing.T) {
+	t.Parallel()
+
+	cfg := gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n")
+
+	changes := make([]config.SectionChange[gateway.Settings], 0, 2)
+	settings, err := gateway.ObserveSettingsFromConfig(
+		cfg,
+		config.WithSectionApply(func(change config.SectionChange[gateway.Settings]) error {
+			changes = append(changes, change)
+
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, 18081, settings.Value().HTTP.Port)
+	assert.Equal(t, 19081, settings.Value().GRPC.Port)
+
+	cfg.Set("server.gateway.port", 18082)
+	require.NoError(t, runGatewayConfigObservers(cfg))
+
+	cfg.Set("server.grpc.port", 19082)
+	require.NoError(t, runGatewayConfigObservers(cfg))
+
+	assert.Equal(t, 18082, settings.Value().HTTP.Port)
+	assert.Equal(t, 19082, settings.Value().GRPC.Port)
+	assert.Equal(t, uint64(3), settings.Version())
+	require.Len(t, changes, 2)
+	assert.Equal(t, 18081, changes[0].Previous.Value.HTTP.Port)
+	assert.Equal(t, 18082, changes[0].Current.Value.HTTP.Port)
+	assert.Equal(t, 19081, changes[1].Previous.Value.GRPC.Port)
+	assert.Equal(t, 19082, changes[1].Current.Value.GRPC.Port)
+}
+
+func TestObservedSettingsSatisfiesSource(t *testing.T) {
+	t.Parallel()
+
+	settings, err := gateway.ObserveSettingsFromConfig(gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n"))
+	require.NoError(t, err)
+
+	var source gateway.SettingsSource = settings
+	require.NotNil(t, source.Current())
+	assert.Equal(t, 18081, source.Current().HTTP.Port)
+	assert.Equal(t, uint64(1), source.Version())
 }
 
 func TestNewFromContainable_ReturnsHandler(t *testing.T) {
@@ -148,4 +219,14 @@ func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, srv)
+}
+
+func runGatewayConfigObservers(c *config.Container) error {
+	for _, observer := range c.GetObservers() {
+		if err := observer.Run(c); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
