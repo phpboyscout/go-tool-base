@@ -1322,6 +1322,9 @@ Required documentation updates:
 - `docs/explanation/components/config/validation.md`
 - `docs/components/<package>.md` or the package's existing component page for
   every migrated package.
+- The package-level `doc.go` file for every migrated package, so pkg.go.dev
+  describes the typed settings boundary, GTB adapter helpers, and reload
+  behaviour accurately.
 - `docs/concepts/` pages that describe framework composition, dependency
   injection, service lifecycle, credentials, telemetry, or provider setup when
   those concepts change.
@@ -1359,6 +1362,8 @@ Per-package documentation checklist:
 - Document the GTB adapter function names and the config sections they read.
 - Document whether the package supports live reconfiguration, restart-only
   reconfiguration, or no reload semantics.
+- Update package-level `doc.go` comments so generated API documentation matches
+  the component docs.
 - Include at least one config-backed GTB example and one config-free typed
   settings example where the package is likely to be consumed outside GTB.
 - Update examples after generator changes by scaffolding a project and checking

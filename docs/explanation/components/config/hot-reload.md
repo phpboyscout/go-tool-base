@@ -67,6 +67,53 @@ container.AddObserverFunc(func(cfg config.Containable) error {
 })
 ```
 
+### Observing Typed Sections
+
+When a long-lived service, transport, client, or health check needs typed
+settings, prefer `ObserveSection` over a hand-written `AddObserverFunc`.
+`ObserveSection` performs the initial `UnmarshalSection`, registers a reload
+observer, validates each fresh snapshot, preserves the last valid snapshot if a
+reload cannot be decoded or validated, and optionally invokes an apply callback
+after a successful rehydrate.
+
+```go
+type HTTPSettings struct {
+    Port int `mapstructure:"port"`
+}
+
+settings, err := config.ObserveSection[HTTPSettings](
+    container,
+    "server.http",
+    config.WithSectionValidator(func(next HTTPSettings) error {
+        if next.Port <= 0 {
+            return fmt.Errorf("port must be positive")
+        }
+
+        return nil
+    }),
+    config.WithSectionApply(func(section config.Section[HTTPSettings]) error {
+        return server.Reconfigure(&section.Value)
+    }),
+)
+if err != nil {
+    return err
+}
+
+server.SetSettingsSource(settings)
+```
+
+Packages that should remain extractable can define their own local settings
+source interface:
+
+```go
+type SettingsSource interface {
+    Current() *HTTPSettings
+}
+```
+
+`*config.ObservedSection[HTTPSettings]` satisfies that shape, but the package
+itself does not need to import `pkg/config`.
+
 ### Automatic File Watching
 
 Every file-backed container is watched — single-file as well as multi-file —

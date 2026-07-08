@@ -18,6 +18,10 @@ The configuration system is built around the `Containable` interface and the `Co
 
 **Observer Pattern**: Adds filesystem watching with an observer pattern for configuration changes, allowing your application to react to configuration updates automatically.
 
+**Typed Section Boundaries**: Decodes resolved config sections into package-owned structs with `UnmarshalSection`, so reusable packages can receive ordinary Go data instead of depending on GTB's config container.
+
+**Observed Settings Snapshots**: Binds long-lived components to typed settings with `ObserveSection`, which performs the initial decode, registers a reload observer, validates new snapshots, and publishes the latest immutable settings through `ObservedSection`.
+
 **Simplified API**: Provides convenience methods for common configuration tasks while maintaining access to the underlying viper instance when needed.
 
 **Multiple Source Support**: Handles configuration loading from files, embedded resources, environment variables, and command-line flags with automatic merging and type conversion.
@@ -50,6 +54,52 @@ func NewReaderContainer(fs afero.Fs, opts ...ContainerOption) *Container
 
 > [!NOTE]
 > See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full `Container` API.
+
+## Typed Sections for Package Boundaries
+
+Reusable packages should define the settings struct they need and accept that
+struct in their constructors. GTB adapter code is responsible for loading and
+observing the framework config:
+
+```go
+type ServerSettings struct {
+    Port int           `mapstructure:"port"`
+    ReadTimeout time.Duration `mapstructure:"read_timeout"`
+}
+
+section, err := config.UnmarshalSection[ServerSettings](cfg, "server.http")
+if err != nil {
+    return err
+}
+
+server, err := http.NewServer(ctx, section.Value, handler)
+```
+
+For long-lived components, prefer `ObserveSection` so reloads rehydrate typed
+settings automatically:
+
+```go
+settings, err := config.ObserveSection[ServerSettings](
+    cfg,
+    "server.http",
+    config.WithSectionValidator(func(next ServerSettings) error {
+        return next.Validate()
+    }),
+    config.WithSectionApply(func(section config.Section[ServerSettings]) error {
+        return server.Reconfigure(&section.Value)
+    }),
+)
+if err != nil {
+    return err
+}
+
+server.SetSettingsSource(settings)
+```
+
+Packages that may be extracted should depend on a tiny local interface such as
+`interface { Current() *ServerSettings }` when they need reload-aware access.
+That lets `*config.ObservedSection[ServerSettings]` satisfy the package
+contract without the extracted module importing `pkg/config`.
 
 ### Container Options
 

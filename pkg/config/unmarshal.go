@@ -74,6 +74,16 @@ func UnmarshalSection[T any](cfg Containable, key string) (Section[T], error) {
 	return Section[T]{Value: out, Exists: true}, nil
 }
 
+// MustUnmarshalSection decodes key into T and panics if decoding fails.
+func MustUnmarshalSection[T any](cfg Containable, key string) Section[T] {
+	section, err := UnmarshalSection[T](cfg, key)
+	if err != nil {
+		panic(err)
+	}
+
+	return section
+}
+
 func targetHasResolvedFields(cfg Containable, prefix string, typ reflect.Type) bool {
 	if typ == nil {
 		return false

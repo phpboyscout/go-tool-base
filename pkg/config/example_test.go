@@ -67,3 +67,26 @@ func ExampleContainer_Validate() {
 		fmt.Println(result.Error())
 	}
 }
+
+func ExampleObserveSection() {
+	type ServerSettings struct {
+		Port int `mapstructure:"port"`
+	}
+
+	cfg := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader("server:\n  port: 8080\n")),
+	)
+
+	settings, err := config.ObserveSection[ServerSettings](cfg, "server")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println("Port:", settings.Current().Port)
+	// Output:
+	// Port: 8080
+}
