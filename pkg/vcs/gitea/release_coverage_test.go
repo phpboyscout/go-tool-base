@@ -8,13 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -28,15 +24,22 @@ func jsonHandler(status int, body string) http.HandlerFunc {
 	}
 }
 
-func newCfgFromViper(t *testing.T, set map[string]any) config.Containable {
-	t.Helper()
+type testReleaseConfig struct {
+	values map[string]string
+	subs   map[string]testReleaseConfig
+}
 
-	v := viper.New()
-	for k, val := range set {
-		v.Set(k, val)
+func (c testReleaseConfig) GetString(key string) string {
+	return c.values[key]
+}
+
+func (c testReleaseConfig) Sub(key string) release.Config {
+	sub, ok := c.subs[key]
+	if !ok {
+		return nil
 	}
 
-	return config.NewContainerFromViper(logger.NewNoop(), v)
+	return sub
 }
 
 // TestNewReleaseProvider_ConfigURLAPIOverride covers the cfg "url.api" override
@@ -55,12 +58,12 @@ func TestNewReleaseProvider_ConfigURLAPIOverride(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cfg := newCfgFromViper(t, map[string]any{"url.api": srv.URL})
+	cfg := testReleaseConfig{values: map[string]string{"url.api": srv.URL}}
 
 	// src.Host points elsewhere; the cfg override must win.
 	src := release.ReleaseSourceConfig{Host: "http://should-be-ignored.invalid"}
 
-	p, err := NewReleaseProvider(src, vcs.ConfigFromContainable(cfg), "")
+	p, err := NewReleaseProvider(src, cfg, "")
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 5)
@@ -84,11 +87,13 @@ func TestNewReleaseProvider_TokenFromConfigSubtree(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cfg := newCfgFromViper(t, map[string]any{"gitea.auth.value": "subtree-token"})
+	cfg := testReleaseConfig{subs: map[string]testReleaseConfig{
+		"gitea": {values: map[string]string{"auth.value": "subtree-token"}},
+	}}
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
 
-	p, err := NewReleaseProvider(src, vcs.ConfigFromContainable(cfg), "")
+	p, err := NewReleaseProvider(src, cfg, "")
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "owner", "repo")

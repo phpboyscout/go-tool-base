@@ -12,9 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 
-	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
+
+type testConfig map[string]string
+
+func (c testConfig) GetString(key string) string {
+	return c[key]
+}
 
 func TestGitlabRelease_Accessors(t *testing.T) {
 	t.Parallel()
@@ -96,13 +101,7 @@ func TestNewReleaseProvider_ConfiglessPublic(t *testing.T) {
 func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetString("auth.env").Return("")
-	cfg.EXPECT().GetString("auth.keychain").Return("")
-	cfg.EXPECT().GetString("auth.value").Return("")
-	cfg.EXPECT().GetString("url.api").Return("")
-
-	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
+	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, testConfig{})
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }
@@ -110,13 +109,10 @@ func TestNewReleaseProvider_DefaultBaseURL(t *testing.T) {
 func TestNewReleaseProvider_WithToken(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetString("auth.env").Return("")
-	cfg.EXPECT().GetString("auth.keychain").Return("")
-	cfg.EXPECT().GetString("auth.value").Return("test-token")
-	cfg.EXPECT().GetString("url.api").Return("https://custom.gitlab.com/api/v4")
-
-	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
+	provider, err := NewReleaseProvider(release.ReleaseSourceConfig{}, testConfig{
+		"auth.value": "test-token",
+		"url.api":    "https://custom.gitlab.com/api/v4",
+	})
 	require.NoError(t, err)
 	assert.NotNil(t, provider)
 }

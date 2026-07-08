@@ -5,10 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
 // Build-tag-agnostic resolver behaviour. The "keychain entry missing
@@ -25,17 +21,13 @@ func TestResolveCredentials_MalformedKeychainRefFallsThrough(t *testing.T) {
 
 	// A keychain reference without a slash must not crash resolution —
 	// it's treated as absent and the chain continues.
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("no-slash-here")
-	sub.EXPECT().GetString("username.env").Return("")
-	sub.EXPECT().GetString("username").Return("u")
-	sub.EXPECT().GetString("app_password.env").Return("")
-	sub.EXPECT().GetString("app_password").Return("p")
+	cfg := bitbucketConfig(map[string]string{
+		"keychain":     "no-slash-here",
+		"username":     "u",
+		"app_password": "p",
+	})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "u", user)
 	assert.Equal(t, "p", pass)
@@ -53,16 +45,8 @@ func TestResolveCredentials_NilConfig(t *testing.T) {
 func TestResolveCredentials_NilSubReturn(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(nil)
-
-	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	user, pass, err := resolveCredentials(t.Context(), testReleaseConfig{})
 	require.NoError(t, err)
 	assert.Empty(t, user)
 	assert.Empty(t, pass)
 }
-
-// Ensures we surface the config.Containable type so the test package
-// can assert on it without importing unused symbols — guards against
-// the internal type drifting out of the public interface.
-var _ config.Containable = (*mockcfg.MockContainable)(nil)

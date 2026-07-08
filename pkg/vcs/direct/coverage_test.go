@@ -7,23 +7,37 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/direct"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
+type testReleaseConfig struct {
+	values map[string]string
+	subs   map[string]testReleaseConfig
+}
+
+func (c testReleaseConfig) GetString(key string) string {
+	return c.values[key]
+}
+
+func (c testReleaseConfig) Sub(key string) release.Config {
+	sub, ok := c.subs[key]
+	if !ok {
+		return nil
+	}
+
+	return sub
+}
+
 // newProvider is a small helper that builds a DirectReleaseProvider and fails
 // the test if construction errors.
-func newProvider(t *testing.T, params map[string]string, cfg config.Containable) *direct.DirectReleaseProvider {
+func newProvider(t *testing.T, params map[string]string, cfg release.Config) *direct.DirectReleaseProvider {
 	t.Helper()
 
-	p, err := direct.NewReleaseProvider(release.ReleaseSourceConfig{Params: params}, vcs.ConfigFromContainable(cfg))
+	p, err := direct.NewReleaseProvider(release.ReleaseSourceConfig{Params: params}, cfg)
 	require.NoError(t, err)
 
 	return p
@@ -103,9 +117,9 @@ func TestResolveToken_FromConfig(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	v := viper.New()
-	v.Set("direct.token", "config-token")
-	cfg := config.NewContainerFromViper(logger.NewNoop(), v)
+	cfg := testReleaseConfig{subs: map[string]testReleaseConfig{
+		"direct": {values: map[string]string{"token": "config-token"}},
+	}}
 
 	p := newProvider(t, map[string]string{
 		"url_template": "https://example.com/{version}.tar.gz",
@@ -133,12 +147,9 @@ func TestResolveToken_ConfigEmptyFallsBack(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	v := viper.New() // no direct.token set
-	cfg := config.NewContainerFromViper(logger.NewNoop(), v)
-
 	p := newProvider(t, map[string]string{
 		"url_template": "https://example.com/{version}.tar.gz",
-	}, cfg)
+	}, testReleaseConfig{})
 
 	asset := &stubAsset{url: srv.URL + "/asset"}
 	rc, _, err := p.DownloadReleaseAsset(context.Background(), "", "", asset)

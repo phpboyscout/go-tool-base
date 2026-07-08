@@ -7,10 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -36,15 +34,9 @@ func TestResolveCredentials_KeychainBlobPopulatesBothFields(t *testing.T) {
 	credtest.Install(t)
 	storeBlob(t, "mytool", "bitbucket.auth", "kcuser", "kcpass")
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
-	sub.EXPECT().GetString("username.env").Return("")
-	sub.EXPECT().GetString("app_password.env").Return("")
+	cfg := bitbucketConfig(map[string]string{"keychain": "mytool/bitbucket.auth"})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "kcuser", user)
 	assert.Equal(t, "kcpass", pass)
@@ -57,13 +49,9 @@ func TestResolveCredentials_CorruptKeychainAborts(t *testing.T) {
 	credtest.Install(t)
 	require.NoError(t, credentials.Store(t.Context(), "mytool", "bitbucket.auth", "{not json"))
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
+	cfg := bitbucketConfig(map[string]string{"keychain": "mytool/bitbucket.auth"})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	_, _, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	_, _, err := resolveCredentials(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not valid JSON")
 }
@@ -75,13 +63,9 @@ func TestResolveCredentials_IncompleteKeychainAborts(t *testing.T) {
 	credtest.Install(t)
 	require.NoError(t, credentials.Store(t.Context(), "mytool", "bitbucket.auth", `{"username":"only"}`))
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
+	cfg := bitbucketConfig(map[string]string{"keychain": "mytool/bitbucket.auth"})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	_, _, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	_, _, err := resolveCredentials(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing username or app_password")
 }
@@ -95,15 +79,12 @@ func TestResolveCredentials_EnvVarOverridesKeychainPerField(t *testing.T) {
 
 	t.Setenv("ROTATED_USER", "env-user")
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
-	sub.EXPECT().GetString("username.env").Return("ROTATED_USER")
-	sub.EXPECT().GetString("app_password.env").Return("")
+	cfg := bitbucketConfig(map[string]string{
+		"keychain":     "mytool/bitbucket.auth",
+		"username.env": "ROTATED_USER",
+	})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "env-user", user, "env-var reference wins over keychain")
 	assert.Equal(t, "kcpass", pass, "other field still resolved from keychain")
@@ -116,18 +97,13 @@ func TestResolveCredentials_KeychainBeatsLiteral(t *testing.T) {
 	credtest.Install(t)
 	storeBlob(t, "mytool", "bitbucket.auth", "kcuser", "kcpass")
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
-	sub.EXPECT().GetString("username.env").Return("")
-	sub.EXPECT().GetString("app_password.env").Return("")
-	// Literals are available but must not be returned.
-	sub.EXPECT().GetString("username").Return("stale-literal-user").Maybe()
-	sub.EXPECT().GetString("app_password").Return("stale-literal-pass").Maybe()
+	cfg := bitbucketConfig(map[string]string{
+		"keychain":     "mytool/bitbucket.auth",
+		"username":     "stale-literal-user",
+		"app_password": "stale-literal-pass",
+	})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "kcuser", user)
 	assert.Equal(t, "kcpass", pass)
@@ -140,13 +116,9 @@ func TestNewReleaseProvider_CorruptKeychainAborts(t *testing.T) {
 	credtest.Install(t)
 	require.NoError(t, credentials.Store(t.Context(), "mytool", "bitbucket.auth", "{not json"))
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
+	cfg := bitbucketConfig(map[string]string{"keychain": "mytool/bitbucket.auth"})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	_, err := NewReleaseProvider(release.ReleaseSourceConfig{}, vcs.ConfigFromContainable(cfg))
+	_, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not valid JSON")
 }
@@ -158,17 +130,13 @@ func TestResolveCredentials_KeychainMissingFallsThrough(t *testing.T) {
 	credtest.Install(t)
 	// Intentionally no Store — the entry does not exist.
 
-	sub := mockcfg.NewMockContainable(t)
-	sub.EXPECT().GetString("keychain").Return("mytool/bitbucket.auth")
-	sub.EXPECT().GetString("username.env").Return("")
-	sub.EXPECT().GetString("username").Return("literal-user")
-	sub.EXPECT().GetString("app_password.env").Return("")
-	sub.EXPECT().GetString("app_password").Return("literal-pass")
+	cfg := bitbucketConfig(map[string]string{
+		"keychain":     "mytool/bitbucket.auth",
+		"username":     "literal-user",
+		"app_password": "literal-pass",
+	})
 
-	cfg := mockcfg.NewMockContainable(t)
-	cfg.EXPECT().Sub("bitbucket").Return(sub)
-
-	user, pass, err := resolveCredentials(t.Context(), vcs.ConfigFromContainable(cfg))
+	user, pass, err := resolveCredentials(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.Equal(t, "literal-user", user)
 	assert.Equal(t, "literal-pass", pass)
