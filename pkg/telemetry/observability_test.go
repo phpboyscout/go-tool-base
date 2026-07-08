@@ -3,33 +3,48 @@ package telemetry
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/resource"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
-func testProps(kv map[string]any) *props.Props {
-	v := viper.New()
-	for k, val := range kv {
-		v.Set(k, val)
+func testObservabilitySettings(mutators ...func(*ObservabilitySettings)) ObservabilitySettings {
+	settings := ObservabilitySettings{
+		ServiceName: "macguffinsvc",
+		Version:     "v1.2.3",
+		Logger:      logger.NewNoop(),
+	}
+	for _, mutate := range mutators {
+		mutate(&settings)
 	}
 
-	return &props.Props{
-		Tool:    props.Tool{Name: "macguffinsvc"},
-		Version: version.NewInfo("v1.2.3", "abc123", "2026-06-01"),
-		Config:  config.NewContainerFromViper(logger.NewNoop(), v),
-		Logger:  logger.NewNoop(),
+	return settings
+}
+
+func withTracing(settings otelcore.Settings) func(*ObservabilitySettings) {
+	return func(s *ObservabilitySettings) { s.Tracing.OTLP = settings }
+}
+
+func withMetrics(settings otelcore.Settings, interval time.Duration) func(*ObservabilitySettings) {
+	return func(s *ObservabilitySettings) {
+		s.Metrics.OTLP = settings
+		if interval > 0 {
+			s.Metrics.Interval = interval
+			s.Metrics.IntervalSet = true
+		}
 	}
+}
+
+func withLogs(settings otelcore.Settings) func(*ObservabilitySettings) {
+	return func(s *ObservabilitySettings) { s.Logs.OTLP = settings }
 }
 
 // restoreGlobals snapshots the OTel globals so a Setup call that installs
@@ -60,7 +75,7 @@ func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
 	// third fails — the first two shutdowns must run, newest-first. The first
 	// shutdown returns an error to exercise the best-effort logging branch.
 	makeOK := func(id int, shutdownErr error) signalBuilder {
-		return func(_ context.Context, _ props.ConfigProvider, _ *resource.Resource) (func(context.Context) error, bool, error) {
+		return func(_ context.Context, _ ObservabilitySettings, _ *resource.Resource) (func(context.Context) error, bool, error) {
 			return func(context.Context) error {
 				order = append(order, id)
 
@@ -69,11 +84,11 @@ func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
 		}
 	}
 
-	failing := func(_ context.Context, _ props.ConfigProvider, _ *resource.Resource) (func(context.Context) error, bool, error) {
+	failing := func(_ context.Context, _ ObservabilitySettings, _ *resource.Resource) (func(context.Context) error, bool, error) {
 		return nil, false, errors.New("signal install failed")
 	}
 
-	shutdowns, err := buildSignals(context.Background(), testProps(map[string]any{}), nil,
+	shutdowns, err := buildSignals(context.Background(), testObservabilitySettings(), nil,
 		[]signalBuilder{makeOK(1, errors.New("shutdown boom")), makeOK(2, nil), failing})
 
 	require.Error(t, err)
@@ -84,7 +99,7 @@ func TestBuildSignalsRollsBackOnPartialFailure(t *testing.T) {
 func TestSetupAllSignalsDisabled(t *testing.T) {
 	restoreGlobals(t)
 
-	sh, err := Setup(context.Background(), testProps(map[string]any{}), nil)
+	sh, err := Setup(context.Background(), testObservabilitySettings(), nil)
 	require.NoError(t, err)
 	require.NotNil(t, sh)
 	assert.NoError(t, sh(context.Background()), "no providers, nothing to flush")
@@ -93,26 +108,13 @@ func TestSetupAllSignalsDisabled(t *testing.T) {
 func TestSetupTracingEnabled(t *testing.T) {
 	restoreGlobals(t)
 
-	sh, err := Setup(context.Background(), testProps(map[string]any{
-		"telemetry.tracing.enabled":  true,
-		"telemetry.tracing.endpoint": "http://localhost:4318",
-		"telemetry.tracing.insecure": true,
-	}), nil)
-	require.NoError(t, err)
-	assert.NoError(t, sh(context.Background()))
-}
-
-// Observability must run on implied consent: enabling a signal does not require
-// the analytics opt-in (telemetry.enabled), and vice versa.
-func TestSetupObservabilityIndependentOfAnalyticsConsent(t *testing.T) {
-	restoreGlobals(t)
-
-	sh, err := Setup(context.Background(), testProps(map[string]any{
-		"telemetry.enabled":          false, // analytics opt-in OFF
-		"telemetry.tracing.enabled":  true,  // observability ON
-		"telemetry.tracing.endpoint": "http://localhost:4318",
-		"telemetry.tracing.insecure": true,
-	}), nil)
+	sh, err := Setup(context.Background(), testObservabilitySettings(
+		withTracing(otelcore.Settings{
+			Enabled:  true,
+			Endpoint: "http://localhost:4318",
+			Insecure: true,
+		}),
+	), nil)
 	require.NoError(t, err)
 	assert.NoError(t, sh(context.Background()))
 }
@@ -120,12 +122,13 @@ func TestSetupObservabilityIndependentOfAnalyticsConsent(t *testing.T) {
 func TestSetupMetricsEnabled(t *testing.T) {
 	restoreGlobals(t)
 
-	sh, err := Setup(context.Background(), testProps(map[string]any{
-		"telemetry.metrics.enabled":  true,
-		"telemetry.metrics.endpoint": "http://localhost:4318",
-		"telemetry.metrics.insecure": true,
-		"telemetry.metrics.interval": "1s",
-	}), nil)
+	sh, err := Setup(context.Background(), testObservabilitySettings(
+		withMetrics(otelcore.Settings{
+			Enabled:  true,
+			Endpoint: "http://localhost:4318",
+			Insecure: true,
+		}, time.Second),
+	), nil)
 	require.NoError(t, err)
 	_ = sh(context.Background()) // no collector here; the flush export error is expected
 }
@@ -133,11 +136,13 @@ func TestSetupMetricsEnabled(t *testing.T) {
 func TestSetupLogsEnabled(t *testing.T) {
 	restoreGlobals(t)
 
-	sh, err := Setup(context.Background(), testProps(map[string]any{
-		"telemetry.logs.enabled":  true,
-		"telemetry.logs.endpoint": "http://localhost:4318",
-		"telemetry.logs.insecure": true,
-	}), nil)
+	sh, err := Setup(context.Background(), testObservabilitySettings(
+		withLogs(otelcore.Settings{
+			Enabled:  true,
+			Endpoint: "http://localhost:4318",
+			Insecure: true,
+		}),
+	), nil)
 	require.NoError(t, err)
 	_ = sh(context.Background())
 }
@@ -148,13 +153,12 @@ func TestSetupAllEnabledRegistersControllerShutdown(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithLogger(logger.NewNoop()))
 
-	sh, err := Setup(context.Background(), testProps(map[string]any{
-		"telemetry.endpoint":        "http://localhost:4318",
-		"telemetry.insecure":        true,
-		"telemetry.tracing.enabled": true,
-		"telemetry.metrics.enabled": true,
-		"telemetry.logs.enabled":    true,
-	}), controller)
+	otlp := otelcore.Settings{Enabled: true, Endpoint: "http://localhost:4318", Insecure: true}
+	sh, err := Setup(context.Background(), testObservabilitySettings(
+		withTracing(otlp),
+		withMetrics(otlp, 0),
+		withLogs(otlp),
+	), controller)
 	require.NoError(t, err)
 	require.NotNil(t, sh)
 }
@@ -170,9 +174,9 @@ func TestSetupTelemetryServiceRunsUnderController(t *testing.T) {
 	controller := controls.NewController(context.Background(),
 		controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
 
-	_, err := Setup(context.Background(), testProps(map[string]any{
-		"telemetry.tracing.enabled": true, // no endpoint: nothing exported, fully hermetic
-	}), controller)
+	_, err := Setup(context.Background(), testObservabilitySettings(
+		withTracing(otelcore.Settings{Enabled: true}), // no endpoint: nothing exported, fully hermetic
+	), controller)
 	require.NoError(t, err)
 
 	controller.Start()

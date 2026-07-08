@@ -12,19 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 
-	gtbconfig "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
 // collectorImage pins the OTel collector used by the e2e. The debug exporter and
@@ -95,23 +91,22 @@ func TestObservabilityE2E(t *testing.T) {
 	endpoint := fmt.Sprintf("http://%s:%s", host, port.Port())
 
 	// Enable all three signals, pointed at the collector, sampling everything.
-	v := viper.New()
-	v.Set("telemetry.endpoint", endpoint)
-	v.Set("telemetry.insecure", true)
-	v.Set("telemetry.tracing.enabled", true)
-	v.Set("telemetry.tracing.sampling", 1.0)
-	v.Set("telemetry.metrics.enabled", true)
-	v.Set("telemetry.metrics.interval", "1s")
-	v.Set("telemetry.logs.enabled", true)
-
-	p := &props.Props{
-		Tool:    props.Tool{Name: "macguffinsvc"},
-		Version: version.NewInfo("v1.2.3", "abc123", "2026-06-01"),
-		Config:  gtbconfig.NewContainerFromViper(logger.NewNoop(), v),
-		Logger:  logger.NewNoop(),
-	}
-
-	shutdown, err := telemetry.Setup(ctx, p, nil)
+	otlp := otelcore.Settings{Enabled: true, Endpoint: endpoint, Insecure: true}
+	shutdown, err := telemetry.Setup(ctx, telemetry.ObservabilitySettings{
+		ServiceName: "macguffinsvc",
+		Version:     "v1.2.3",
+		Tracing: telemetry.ObservabilitySignalSettings{
+			OTLP:        otlp,
+			Sampling:    1,
+			SamplingSet: true,
+		},
+		Metrics: telemetry.ObservabilitySignalSettings{
+			OTLP:        otlp,
+			Interval:    time.Second,
+			IntervalSet: true,
+		},
+		Logs: telemetry.ObservabilitySignalSettings{OTLP: otlp},
+	}, nil)
 	require.NoError(t, err)
 
 	// A real server span via the transport middleware (reads the global provider).

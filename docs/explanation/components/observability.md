@@ -20,23 +20,29 @@ This is distinct from the product **analytics** in the same package. Analytics i
 | `pkg/telemetry/tracing` | `TracerProvider` over an OTLP trace exporter; parent-based ratio sampler. |
 | `pkg/telemetry/metrics` | `MeterProvider` over an OTLP metric exporter; periodic push. |
 | `pkg/telemetry/logs` | `LoggerProvider` over an OTLP log exporter, plus an `otelslog` bridge handler. |
-| `pkg/telemetry` (`Setup`) | Builds the enabled providers, installs the OTel globals, registers shutdown on the controller. |
+| `pkg/telemetry` (`Setup`) | Builds the enabled providers from typed settings, installs the OTel globals, registers shutdown on the controller. |
 | `pkg/http`, `pkg/grpc` | `OTelMiddleware` / `OTelStatsHandler`: per-request spans + server metrics, reading the global providers. |
 
 ## Setup
 
-`telemetry.Setup` is the one call that wires everything from `props.Props`:
+`telemetry.Setup` wires providers from package-owned typed settings:
 
 ```go
-func Setup(ctx context.Context, p *props.Props, controller controls.Controllable) (Shutdown, error)
+func Setup(ctx context.Context, settings telemetry.ObservabilitySettings, controller controls.Controllable) (Shutdown, error)
 ```
 
-It resolves each signal from config, builds only the enabled providers, installs them as the OTel globals, sets the W3C trace-context + baggage propagators, and — when a controller is supplied — registers a `telemetry` service so the providers flush on graceful stop. Call it in `serve`, after the controller exists:
+GTB framework callers can keep using the adapter:
+
+```go
+func SetupFromProps(ctx context.Context, p *props.Props, controller controls.Controllable) (Shutdown, error)
+```
+
+The adapter resolves each signal from config into `ObservabilitySettings`; `Setup` builds only the enabled providers, installs them as the OTel globals, sets the W3C trace-context + baggage propagators, and — when a controller is supplied — registers a `telemetry` service so the providers flush on graceful stop. Call it in `serve`, after the controller exists:
 
 ```go
 controller := controls.NewController(ctx, controls.WithLogger(p.Logger))
 
-if _, err := telemetry.Setup(ctx, p, controller); err != nil {
+if _, err := telemetry.SetupFromProps(ctx, p, controller); err != nil {
 	return err
 }
 ```
@@ -102,6 +108,11 @@ coupling the signal package to GTB's config container. A version change means
 the full resolved settings snapshot changed; existing exporters are not rebuilt
 automatically, so the owning package must explicitly rebuild or restart a
 provider when that is the desired behaviour.
+
+`telemetry.ObservabilitySettingsFromProps` is the GTB adapter that preserves the
+existing `telemetry.*` config keys. Code that does not use GTB config can build
+`ObservabilitySettings` directly from flags, environment variables, Kubernetes
+config, or static values.
 
 ## The two consent models
 

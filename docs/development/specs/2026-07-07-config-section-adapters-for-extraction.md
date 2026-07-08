@@ -1165,6 +1165,9 @@ GTB adapter responsibilities:
 
 - Map `telemetry` config, org policy, tool metadata, version, machine ID, and
   data directory into telemetry config/options.
+- Keep operational observability provider setup on package-owned
+  `ObservabilitySettings`, with `ObservabilitySettingsFromProps` and
+  `SetupFromProps` as GTB adapters for existing `telemetry.*` keys.
 - Keep consent prompts and config persistence in GTB command/setup layers.
 
 Existence checks:

@@ -10,17 +10,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/logs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/metrics"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/tracing"
-)
-
-// Per-signal tuning keys, layered on the shared telemetry.* keys otelcore resolves.
-const (
-	configKeySampling = otelcore.Root + ".tracing.sampling"
-	configKeyInterval = otelcore.Root + ".metrics.interval"
 )
 
 // Shutdown flushes and stops the observability providers that Setup installed.
@@ -29,23 +22,23 @@ type Shutdown func(context.Context) error
 // signalBuilder builds one observability signal. It returns the provider's
 // shutdown and true when the signal is enabled, or (nil, false, nil) when the
 // operator has not enabled it.
-type signalBuilder func(context.Context, props.ConfigProvider, *resource.Resource) (func(context.Context) error, bool, error)
+type signalBuilder func(context.Context, ObservabilitySettings, *resource.Resource) (func(context.Context) error, bool, error)
 
 // Setup builds every enabled observability provider (traces, metrics, logs) from
-// p.Config, installs them as the OTel globals, sets the W3C propagators so traces
-// join across services, and — when a controller is supplied — registers a service
-// so the providers flush on graceful stop. A signal whose telemetry.<signal>.enabled
-// is false is skipped.
+// typed settings, installs them as the OTel globals, sets the W3C propagators so
+// traces join across services, and — when a controller is supplied — registers a
+// service so the providers flush on graceful stop. A disabled signal is skipped.
 //
 // This is the implied-consent path: it is gated only by the operator's
-// telemetry.<signal>.enabled configuration, never by the analytics opt-in
+// per-signal observability settings, never by the analytics opt-in
 // (telemetry.enabled). The two are independent — operational telemetry the
 // operator configures is not personal usage data a user must consent to.
 //
 // The returned Shutdown is for callers without a controller; when a controller is
 // supplied it owns shutdown and the return value can be ignored.
-func Setup(ctx context.Context, p *props.Props, controller controls.Controllable) (Shutdown, error) {
-	res := otelcore.Resource(p.Tool.Name, p.Version.GetVersion())
+func Setup(ctx context.Context, settings ObservabilitySettings, controller controls.Controllable) (Shutdown, error) {
+	log := settings.logger()
+	res := otelcore.Resource(settings.ServiceName, settings.Version)
 
 	// Cross-service trace propagation: W3C trace context + baggage.
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
@@ -53,7 +46,7 @@ func Setup(ctx context.Context, p *props.Props, controller controls.Controllable
 		propagation.Baggage{},
 	))
 
-	shutdowns, err := buildSignals(ctx, p, res, []signalBuilder{setupTracing, setupMetrics, setupLogs})
+	shutdowns, err := buildSignals(ctx, settings, res, []signalBuilder{setupTracing, setupMetrics, setupLogs})
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +74,7 @@ func Setup(ctx context.Context, p *props.Props, controller controls.Controllable
 			}),
 			controls.WithStop(func(ctx context.Context) {
 				if err := shutdown(ctx); err != nil {
-					p.Logger.Warn("telemetry shutdown error", "error", err)
+					log.Warn("telemetry shutdown error", "error", err)
 				}
 			}),
 			controls.WithStatus(func() error { return nil }),
@@ -95,17 +88,17 @@ func Setup(ctx context.Context, p *props.Props, controller controls.Controllable
 // of every provider that successfully installed. If a builder fails, the
 // already-installed providers are torn down (reverse order, best-effort) before
 // the error is returned, so a partial failure never strands a global provider.
-func buildSignals(ctx context.Context, p *props.Props, res *resource.Resource, builders []signalBuilder) ([]func(context.Context) error, error) {
+func buildSignals(ctx context.Context, settings ObservabilitySettings, res *resource.Resource, builders []signalBuilder) ([]func(context.Context) error, error) {
 	var shutdowns []func(context.Context) error
 
 	for _, build := range builders {
-		sh, enabled, err := build(ctx, p, res)
+		sh, enabled, err := build(ctx, settings, res)
 		if err != nil {
 			// A later builder failed after earlier signals already installed
 			// their global providers (tracer/meter/logger). Tear those down,
 			// best-effort and in reverse install order, so we don't strand
 			// providers and their background batch goroutines.
-			teardownInstalled(ctx, p, shutdowns)
+			teardownInstalled(ctx, settings, shutdowns)
 
 			return nil, err
 		}
@@ -123,25 +116,25 @@ func buildSignals(ctx context.Context, p *props.Props, res *resource.Resource, b
 // partial Setup failure does not strand global providers (and their background
 // batch goroutines). Shutdown errors are logged, not returned: the caller is
 // already returning the original setup error.
-func teardownInstalled(ctx context.Context, p props.LoggerProvider, shutdowns []func(context.Context) error) {
+func teardownInstalled(ctx context.Context, settings ObservabilitySettings, shutdowns []func(context.Context) error) {
+	log := settings.logger()
+
 	for i := len(shutdowns) - 1; i >= 0; i-- {
 		if err := shutdowns[i](ctx); err != nil {
-			p.GetLogger().Warn("telemetry setup rollback: provider shutdown error", "error", err)
+			log.Warn("telemetry setup rollback: provider shutdown error", "error", err)
 		}
 	}
 }
 
-func setupTracing(ctx context.Context, p props.ConfigProvider, res *resource.Resource) (func(context.Context) error, bool, error) {
-	cfg := p.GetConfig()
-
-	s := otelcore.Resolve(cfg, otelcore.SignalTracing)
+func setupTracing(ctx context.Context, settings ObservabilitySettings, res *resource.Resource) (func(context.Context) error, bool, error) {
+	s := settings.Tracing.OTLP
 	if !s.Enabled {
 		return nil, false, nil
 	}
 
 	var opts []tracing.Option
-	if cfg.IsSet(configKeySampling) {
-		opts = append(opts, tracing.WithSampling(cfg.GetFloat(configKeySampling)))
+	if settings.Tracing.SamplingSet {
+		opts = append(opts, tracing.WithSampling(settings.Tracing.Sampling))
 	}
 
 	tp, err := tracing.NewProvider(ctx, res, s, opts...)
@@ -154,17 +147,15 @@ func setupTracing(ctx context.Context, p props.ConfigProvider, res *resource.Res
 	return tp.Shutdown, true, nil
 }
 
-func setupMetrics(ctx context.Context, p props.ConfigProvider, res *resource.Resource) (func(context.Context) error, bool, error) {
-	cfg := p.GetConfig()
-
-	s := otelcore.Resolve(cfg, otelcore.SignalMetrics)
+func setupMetrics(ctx context.Context, settings ObservabilitySettings, res *resource.Resource) (func(context.Context) error, bool, error) {
+	s := settings.Metrics.OTLP
 	if !s.Enabled {
 		return nil, false, nil
 	}
 
 	var opts []metrics.Option
-	if cfg.IsSet(configKeyInterval) {
-		opts = append(opts, metrics.WithInterval(cfg.GetDuration(configKeyInterval)))
+	if settings.Metrics.IntervalSet {
+		opts = append(opts, metrics.WithInterval(settings.Metrics.Interval))
 	}
 
 	mp, err := metrics.NewProvider(ctx, res, s, opts...)
@@ -177,8 +168,8 @@ func setupMetrics(ctx context.Context, p props.ConfigProvider, res *resource.Res
 	return mp.Shutdown, true, nil
 }
 
-func setupLogs(ctx context.Context, p props.ConfigProvider, res *resource.Resource) (func(context.Context) error, bool, error) {
-	s := otelcore.Resolve(p.GetConfig(), otelcore.SignalLogs)
+func setupLogs(ctx context.Context, settings ObservabilitySettings, res *resource.Resource) (func(context.Context) error, bool, error) {
+	s := settings.Logs.OTLP
 	if !s.Enabled {
 		return nil, false, nil
 	}

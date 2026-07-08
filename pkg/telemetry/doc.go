@@ -26,6 +26,13 @@
 //
 // Vendor-specific backends for Datadog and PostHog are in subpackages.
 //
+// # Observability Setup
+//
+// Operational OpenTelemetry setup uses package-owned [ObservabilitySettings].
+// GTB config integration is isolated in [ObservabilitySettingsFromProps] and
+// [SetupFromProps], which preserve the existing telemetry.* key layout while
+// keeping reusable provider setup independent of the framework config container.
+//
 // # Privacy
 //
 // No personally identifiable information is collected. Machine IDs are
