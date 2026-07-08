@@ -63,7 +63,7 @@ func TestNewReleaseProvider_ConfigURLAPIOverride(t *testing.T) {
 	// src.Host points elsewhere; the cfg override must win.
 	src := release.ReleaseSourceConfig{Host: "http://should-be-ignored.invalid"}
 
-	p, err := NewReleaseProvider(src, cfg, "")
+	p, err := NewReleaseProvider(SettingsFromConfig(src, cfg, ""))
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 5)
@@ -93,7 +93,7 @@ func TestNewReleaseProvider_TokenFromConfigSubtree(t *testing.T) {
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
 
-	p, err := NewReleaseProvider(src, cfg, "")
+	p, err := NewReleaseProvider(SettingsFromConfig(src, cfg, ""))
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "owner", "repo")
@@ -109,7 +109,7 @@ func TestGetLatestRelease_ServerError(t *testing.T) {
 	srv := httptest.NewServer(jsonHandler(http.StatusInternalServerError, "boom"))
 	defer srv.Close()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: srv.URL}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: srv.URL}})
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "owner", "repo")
@@ -124,7 +124,7 @@ func TestListReleases_ServerError(t *testing.T) {
 	srv := httptest.NewServer(jsonHandler(http.StatusBadGateway, "nope"))
 	defer srv.Close()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: srv.URL}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: srv.URL}})
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 10)
@@ -139,7 +139,7 @@ func TestGetReleaseByTag_NotFound(t *testing.T) {
 	srv := httptest.NewServer(jsonHandler(http.StatusNotFound, ""))
 	defer srv.Close()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: srv.URL}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: srv.URL}})
 	require.NoError(t, err)
 
 	_, err = p.GetReleaseByTag(context.Background(), "owner", "repo", "v9.9.9")
@@ -154,7 +154,7 @@ func TestGetJSON_MalformedJSON(t *testing.T) {
 	srv := httptest.NewServer(jsonHandler(http.StatusOK, "{not valid json"))
 	defer srv.Close()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: srv.URL}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: srv.URL}})
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 10)
@@ -169,7 +169,7 @@ func TestGetJSON_RequestError(t *testing.T) {
 
 	// A control character in the host makes NewRequestWithContext fail when
 	// building the request URL.
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: "http://exa\x7fmple"}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: "http://exa\x7fmple"}})
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 1)
@@ -185,7 +185,7 @@ func TestGetJSON_TransportError(t *testing.T) {
 	url := srv.URL
 	srv.Close() // close immediately so the connection is refused.
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: url}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: url}})
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "owner", "repo", 1)
@@ -200,7 +200,7 @@ func TestDownloadReleaseAsset_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(jsonHandler(http.StatusForbidden, "denied"))
 	defer srv.Close()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: srv.URL}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: srv.URL}})
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(
@@ -216,7 +216,7 @@ func TestDownloadReleaseAsset_HTTPError(t *testing.T) {
 func TestDownloadReleaseAsset_RequestError(t *testing.T) {
 	t.Parallel()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: "http://unused"}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: "http://unused"}})
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(
@@ -234,7 +234,7 @@ func TestDownloadReleaseAsset_TransportError(t *testing.T) {
 	assetURL := srv.URL + "/asset"
 	srv.Close()
 
-	p, err := NewReleaseProvider(release.ReleaseSourceConfig{Host: "http://unused"}, nil, "")
+	p, err := NewReleaseProvider(Settings{ReleaseSource: release.ReleaseSourceConfig{Host: "http://unused"}})
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(

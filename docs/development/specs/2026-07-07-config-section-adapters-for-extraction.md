@@ -1214,6 +1214,11 @@ type GitLabSettings struct {
     Auth   vcs.AuthConfig `mapstructure:"auth"`
 }
 
+type GiteaSettings struct {
+    APIURL string         `mapstructure:"url.api"`
+    Auth   vcs.AuthConfig `mapstructure:"auth"`
+}
+
 type BitbucketConfig struct {
     Username    credentials.Reference `mapstructure:"username"`
     AppPassword credentials.Reference `mapstructure:"app_password"`

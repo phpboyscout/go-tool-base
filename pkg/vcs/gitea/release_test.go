@@ -67,7 +67,7 @@ func TestGiteaProvider_GetLatestRelease(t *testing.T) {
 	defer srv.Close()
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "owner", "repo")
@@ -87,7 +87,7 @@ func TestGiteaProvider_GetLatestRelease_NoReleases(t *testing.T) {
 	defer srv.Close()
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "owner", "repo")
@@ -106,7 +106,7 @@ func TestGiteaProvider_GetReleaseByTag(t *testing.T) {
 	defer srv.Close()
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetReleaseByTag(context.Background(), "owner", "repo", "v1.0.0")
@@ -121,7 +121,7 @@ func TestGiteaProvider_GetReleaseByTag_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, err = p.GetReleaseByTag(context.Background(), "owner", "repo", "v9.9.9")
@@ -140,7 +140,7 @@ func TestGiteaProvider_ListReleases(t *testing.T) {
 	defer srv.Close()
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rels, err := p.ListReleases(context.Background(), "owner", "repo", 10)
@@ -159,7 +159,7 @@ func TestGiteaProvider_DownloadReleaseAsset(t *testing.T) {
 	defer srv.Close()
 
 	src := release.ReleaseSourceConfig{Host: "http://unused"}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	asset := &stubAsset{url: srv.URL + "/asset"}
@@ -176,7 +176,7 @@ func TestGiteaProvider_DownloadReleaseAsset_EmptyURL(t *testing.T) {
 	t.Parallel()
 
 	src := release.ReleaseSourceConfig{Host: "http://unused"}
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(context.Background(), "owner", "repo", &stubAsset{url: ""})
@@ -198,7 +198,7 @@ func TestGiteaProvider_Auth_TokenSentInHeader(t *testing.T) {
 	t.Setenv("GITEA_TOKEN", "my-secret-token")
 
 	src := release.ReleaseSourceConfig{Host: srv.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "GITEA_TOKEN")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src, TokenFallbackEnv: "GITEA_TOKEN"})
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "owner", "repo")
@@ -233,7 +233,7 @@ func TestGiteaProvider_DownloadAsset_DoesNotLeakTokenToForeignHost(t *testing.T)
 	t.Setenv("GITEA_TOKEN", "my-secret-token")
 
 	src := release.ReleaseSourceConfig{Host: instance.URL}
-	p, err := gitea.NewReleaseProvider(src, nil, "GITEA_TOKEN")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src, TokenFallbackEnv: "GITEA_TOKEN"})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "owner", "repo")
@@ -262,7 +262,7 @@ func TestGiteaProvider_Codeberg_DefaultHost(t *testing.T) {
 	// calling NewReleaseProvider. Simulate that here.
 	src.Host = gitea.CodebergHost
 
-	p, err := gitea.NewReleaseProvider(src, nil, "CODEBERG_TOKEN")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src, TokenFallbackEnv: "CODEBERG_TOKEN"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -271,7 +271,7 @@ func TestGiteaProvider_MissingHost_ReturnsError(t *testing.T) {
 	t.Parallel()
 
 	src := release.ReleaseSourceConfig{Host: ""}
-	_, err := gitea.NewReleaseProvider(src, nil, "")
+	_, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "gitea host is required")
 }
@@ -293,7 +293,7 @@ func TestGiteaProvider_CustomAPIVersion(t *testing.T) {
 		Params: map[string]string{"api_version": "v2"},
 	}
 
-	p, err := gitea.NewReleaseProvider(src, nil, "")
+	p, err := gitea.NewReleaseProvider(gitea.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, _ = p.ListReleases(context.Background(), "owner", "repo", 5)

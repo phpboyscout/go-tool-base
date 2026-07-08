@@ -1,5 +1,3 @@
-// Package gitea provides a release.Provider implementation for Gitea and
-// Forgejo instances, including Codeberg (codeberg.org).
 package gitea
 
 import (
@@ -76,18 +74,18 @@ type GiteaReleaseProvider struct {
 	httpClient *http.Client
 }
 
-// NewReleaseProvider constructs a GiteaReleaseProvider.
+// NewReleaseProvider constructs a GiteaReleaseProvider from explicit typed
+// settings.
 //
 // The host is resolved in order:
-//  1. cfg key "url.api" (allows runtime override)
-//  2. src.Host
-//
-// tokenFallbackEnv is the well-known environment variable for this instance
-// type (e.g. GITEA_TOKEN or CODEBERG_TOKEN).
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config, tokenFallbackEnv string) (*GiteaReleaseProvider, error) {
+//  1. settings.APIURL (allows runtime override)
+//  2. settings.ReleaseSource.Host
+func NewReleaseProvider(settings Settings) (*GiteaReleaseProvider, error) {
+	src := settings.ReleaseSource
+
 	host := src.Host
-	if cfg != nil && cfg.GetString("url.api") != "" {
-		host = cfg.GetString("url.api")
+	if settings.APIURL != "" {
+		host = settings.APIURL
 	}
 
 	if host == "" {
@@ -104,8 +102,8 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config, tok
 
 	baseURL := fmt.Sprintf("%s/api/%s", host, apiVersion)
 
-	// Token resolution: config subtree first, then well-known env var.
-	token := vcs.ResolveToken(release.SubConfig(cfg, "gitea"), tokenFallbackEnv)
+	// Token resolution: typed settings first, then well-known env var.
+	token := vcs.ResolveToken(settings.Auth, settings.TokenFallbackEnv)
 
 	return &GiteaReleaseProvider{
 		baseURL:    baseURL,

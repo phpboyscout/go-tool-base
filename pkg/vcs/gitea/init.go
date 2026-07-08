@@ -4,7 +4,7 @@ import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 
 func init() {
 	release.Register(release.SourceTypeGitea, func(src release.ReleaseSourceConfig, cfg release.Config) (release.Provider, error) {
-		return NewReleaseProvider(src, cfg, giteaTokenEnv)
+		return NewReleaseProvider(SettingsFromConfig(src, cfg, giteaTokenEnv))
 	})
 
 	release.Register(release.SourceTypeCodeberg, func(src release.ReleaseSourceConfig, cfg release.Config) (release.Provider, error) {
@@ -13,6 +13,6 @@ func init() {
 			src.Host = CodebergHost
 		}
 
-		return NewReleaseProvider(src, cfg, codebergTokenEnv)
+		return NewReleaseProvider(SettingsFromConfig(src, cfg, codebergTokenEnv))
 	})
 }
