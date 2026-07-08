@@ -111,6 +111,9 @@ behaviour.
   present-but-empty config, and invalid config.
 - Avoid requiring extracted modules to import `pkg/config`.
 - Provide a package-by-package migration plan for extraction candidates.
+- Treat documentation as a first-class deliverable for every migrated package,
+  including component docs, concept docs, migration notes, and generated-project
+  guidance where applicable.
 - Keep `pkg/config` extractable later as its own optional CLI config module, but
   not as a prerequisite or universal abstraction for other modules.
 
@@ -1233,6 +1236,9 @@ Existence checks:
   `vcs/release`, `vcs` providers, `telemetry/otelcore`.
 - Keep constructors additive and backwards compatible where public APIs already
   exist.
+- Update the component documentation for each package in the same package
+  commit, showing the new typed settings structs, default behaviour, validation
+  rules, and adapter boundary.
 
 ### Phase 4: Move GTB config reads into adapters
 
@@ -1243,13 +1249,35 @@ Existence checks:
 - Keep existing command/setup config keys.
 - Add migration notes only if any public constructor names or config semantics
   change.
+- Update concept and how-to documentation in the same package commit when the
+  user-facing construction or configuration story changes.
 
-### Phase 5: Extraction readiness checks
+### Phase 5: Documentation consolidation
+
+- Add or update concept docs explaining config as a framework adapter boundary,
+  including why extracted modules own typed settings instead of importing
+  `pkg/config`.
+- Add or update component docs for `pkg/config` to cover `UnmarshalSection`,
+  `ObserveSection`, existence checks, defaults, validation, and reload
+  semantics.
+- Update generator documentation and generated-project docs whenever
+  scaffolded code changes to use typed settings or config adapters.
+- Add migration notes under `docs/migration/` for every public API change,
+  including pre-1.0 intentional breaks, so the eventual v1 migration guide has a
+  complete audit trail.
+- Update the active extraction specs to reference the typed settings and
+  observer-backed adapter pattern instead of `config.Containable`.
+- Cross-check examples against compiling code before marking a package phase
+  complete.
+
+### Phase 6: Extraction readiness checks
 
 - Add import-boundary tests or CI checks for packages that should no longer
   import `pkg/config`.
 - Update extraction specs to reference typed config structs rather than
   `ConfigLookup` as the primary seam.
+- Treat missing or stale docs as an extraction-readiness failure even when code
+  and tests pass.
 
 ## 10. TDD / BDD Strategy
 
@@ -1282,23 +1310,71 @@ BDD requirements:
 
 ## 11. Documentation
 
-Update:
+Documentation is part of the implementation contract for this refactor. A
+package migration is not complete until its documentation has been updated,
+reviewed against the code, and included in the same package commit or a clearly
+paired documentation commit.
+
+Required documentation updates:
 
 - `docs/explanation/components/config/index.md`
 - `docs/explanation/components/config/sources-and-precedence.md`
 - `docs/explanation/components/config/validation.md`
+- `docs/components/<package>.md` or the package's existing component page for
+  every migrated package.
+- `docs/concepts/` pages that describe framework composition, dependency
+  injection, service lifecycle, credentials, telemetry, or provider setup when
+  those concepts change.
+- `docs/how-to/` guides when downstream users need to change construction,
+  configuration, testing, or generated-code patterns.
+- `docs/migration/` notes for every public constructor/signature/config
+  semantic change, including intentional pre-1.0 breaks.
+- Generator templates and generated-project docs when scaffolded projects need
+  to use typed settings or `*FromContainable` adapters.
 - `docs/development/dependency-management.md`
 - `docs/development/specs/2026-07-05-chat-module-extraction.md`
 - `docs/development/specs/2026-07-07-slog-first-extraction-seams.md`
-- Migration notes if public constructors or config semantics change.
 
-Docs must explain:
+Documentation must explain:
 
 - config loading remains a GTB framework concern,
 - extracted modules define typed config structs,
 - GTB adapters unmarshal resolved config sections into those structs,
+- long-lived GTB adapters use observer-backed rehydration through
+  `ObserveSection` or package-specific wrappers,
 - `Exists` controls optional sections and setup/configured checks,
-- non-GTB consumers can populate structs with any config system.
+- non-GTB consumers can populate structs with any config system,
+- which config keys remain unchanged for GTB users,
+- which constructors are the long-term typed settings API,
+- which `*FromContainable` helpers are framework adapters,
+- how reload behaves for packages that apply changes live versus packages that
+  require restart,
+- how tests should stay on typed settings and keep config-container coverage in
+  adapter tests.
+
+Per-package documentation checklist:
+
+- Document the package-owned settings structs and defaults.
+- Document validation errors and required fields.
+- Document the GTB adapter function names and the config sections they read.
+- Document whether the package supports live reconfiguration, restart-only
+  reconfiguration, or no reload semantics.
+- Include at least one config-backed GTB example and one config-free typed
+  settings example where the package is likely to be consumed outside GTB.
+- Update examples after generator changes by scaffolding a project and checking
+  generated code against the docs.
+
+Documentation review requirements:
+
+- Every package commit must state which docs were updated or why no docs changed.
+- Examples must use current exported names and compile where practical.
+- Stale references to `config.Containable` as the primary package boundary must
+  be removed or explicitly marked as GTB adapter compatibility.
+- The extraction report and active extraction specs must stay aligned with the
+  implemented package boundaries.
+- Missing documentation blocks progression to the next extraction-candidate
+  package unless the gap is explicitly recorded as deferred in this spec or a
+  follow-up issue.
 
 ## 12. Open Questions
 
