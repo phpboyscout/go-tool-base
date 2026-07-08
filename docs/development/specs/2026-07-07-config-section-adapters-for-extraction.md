@@ -264,6 +264,17 @@ func (s *ObservedSection[T]) Current() *T
 // Exists reports whether the latest snapshot came from an explicit section.
 func (s *ObservedSection[T]) Exists() bool
 
+// Version increments only when a successful reload changes the typed section.
+func (s *ObservedSection[T]) Version() uint64
+
+type SectionChange[T any] struct {
+    Previous Section[T]
+    Current  Section[T]
+    Initial  bool
+    Changed  bool
+    Version  uint64
+}
+
 type SectionBindingOption[T any] func(*SectionBindingConfig[T])
 
 func ObserveSection[T any](
@@ -281,17 +292,22 @@ components. It must:
 3. validate the typed settings when configured by an option,
 4. store a complete immutable settings snapshot,
 5. register an observer with `AddObserverFunc`,
-6. rehydrate, validate, and atomically replace the snapshot after each
-   successful reload, and
-7. invoke an optional apply callback so components with live reload support can
-   reconfigure immediately.
+6. rehydrate and validate a fresh snapshot after each successful reload,
+7. compare the previous and current typed snapshots as complete structs,
+8. atomically replace the published snapshot and increment the version only when
+   the typed section changed, and
+9. invoke an optional apply callback with `SectionChange[T]` so components with
+   live reload support can reconfigure immediately without hand-checking
+   individual fields.
 
 Recommended options:
 
 ```go
 func WithSectionDefaults[T any](defaults T, merge func(defaults, overlay T) T) SectionBindingOption[T]
+func WithSectionDefaultFunc[T any](defaultFunc func(Containable) T, merge func(defaults, overlay T) T) SectionBindingOption[T]
 func WithSectionValidator[T any](validate func(T) error) SectionBindingOption[T]
-func WithSectionApply[T any](apply func(Section[T]) error) SectionBindingOption[T]
+func WithSectionEqual[T any](equal func(previous, current Section[T]) bool) SectionBindingOption[T]
+func WithSectionApply[T any](apply func(SectionChange[T]) error) SectionBindingOption[T]
 ```
 
 Adapters for short-lived one-shot commands may still call `UnmarshalSection`
@@ -470,8 +486,8 @@ binding, err := config.ObserveSection[http.Settings](
     config.WithSectionValidator(func(settings http.Settings) error {
         return settings.Validate()
     }),
-    config.WithSectionApply(func(section config.Section[http.Settings]) error {
-        return server.Reconfigure(&section.Value)
+    config.WithSectionApply(func(change config.SectionChange[http.Settings]) error {
+        return server.Reconfigure(&change.Current.Value)
     }),
 )
 if err != nil {

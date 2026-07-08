@@ -20,7 +20,7 @@ The configuration system is built around the `Containable` interface and the `Co
 
 **Typed Section Boundaries**: Decodes resolved config sections into package-owned structs with `UnmarshalSection`, so reusable packages can receive ordinary Go data instead of depending on GTB's config container.
 
-**Observed Settings Snapshots**: Binds long-lived components to typed settings with `ObserveSection`, which performs the initial decode, registers a reload observer, validates new snapshots, and publishes the latest immutable settings through `ObservedSection`.
+**Observed Settings Snapshots**: Binds long-lived components to typed settings with `ObserveSection`, which performs the initial decode, registers a reload observer, validates new snapshots, detects whole-struct changes, and publishes the latest immutable settings through `ObservedSection`.
 
 **Simplified API**: Provides convenience methods for common configuration tasks while maintaining access to the underlying viper instance when needed.
 
@@ -85,8 +85,8 @@ settings, err := config.ObserveSection[ServerSettings](
     config.WithSectionValidator(func(next ServerSettings) error {
         return next.Validate()
     }),
-    config.WithSectionApply(func(section config.Section[ServerSettings]) error {
-        return server.Reconfigure(&section.Value)
+    config.WithSectionApply(func(change config.SectionChange[ServerSettings]) error {
+        return server.Reconfigure(&change.Current.Value)
     }),
 )
 if err != nil {
@@ -100,6 +100,11 @@ Packages that may be extracted should depend on a tiny local interface such as
 `interface { Current() *ServerSettings }` when they need reload-aware access.
 That lets `*config.ObservedSection[ServerSettings]` satisfy the package
 contract without the extracted module importing `pkg/config`.
+
+`ObservedSection.Version()` increments only when the typed section changes after
+a successful reload. `WithSectionApply` receives a `SectionChange[T]` with the
+previous and current snapshots, so packages can reconfigure from whole settings
+objects instead of watching individual config keys.
 
 ### Container Options
 

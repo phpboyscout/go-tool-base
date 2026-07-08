@@ -74,7 +74,7 @@ settings, prefer `ObserveSection` over a hand-written `AddObserverFunc`.
 `ObserveSection` performs the initial `UnmarshalSection`, registers a reload
 observer, validates each fresh snapshot, preserves the last valid snapshot if a
 reload cannot be decoded or validated, and optionally invokes an apply callback
-after a successful rehydrate.
+after a successful rehydrate changes the typed section.
 
 ```go
 type HTTPSettings struct {
@@ -91,8 +91,8 @@ settings, err := config.ObserveSection[HTTPSettings](
 
         return nil
     }),
-    config.WithSectionApply(func(section config.Section[HTTPSettings]) error {
-        return server.Reconfigure(&section.Value)
+    config.WithSectionApply(func(change config.SectionChange[HTTPSettings]) error {
+        return server.Reconfigure(&change.Current.Value)
     }),
 )
 if err != nil {
@@ -113,6 +113,12 @@ type SettingsSource interface {
 
 `*config.ObservedSection[HTTPSettings]` satisfies that shape, but the package
 itself does not need to import `pkg/config`.
+
+The binding compares complete typed snapshots. Unrelated config reloads do not
+increment `ObservedSection.Version()` and do not invoke the apply callback. When
+the section does change, the callback receives `SectionChange[T]` with both
+`Previous` and `Current`, so the component can reconfigure from whole settings
+objects rather than tracking individual keys.
 
 ### Automatic File Watching
 
@@ -190,4 +196,5 @@ container.OnReloadError(func(err error) {
 ## Related
 
 - [How to React to Configuration Changes](../../../how-to/config-hot-reload.md) — the step-by-step recipe for wiring observers and handling rejected reloads
+- [Observe Typed Config Sections](../../../how-to/observe-typed-config.md) — bind typed settings, detect whole-struct changes, and reconfigure from `SectionChange`
 - [How to Test Code That Uses Configuration](../../../how-to/test-configuration.md) — exercising observers without file watching

@@ -198,7 +198,40 @@ openai:
 	assert.Equal(t, 5*time.Second, binding.Value().Timeout)
 	require.NotNil(t, binding.Current())
 	assert.Equal(t, binding.Value(), *binding.Current())
+	assert.Equal(t, uint64(1), binding.Version())
 	assert.Len(t, c.GetObservers(), 1)
+}
+
+func TestObserveSection_DynamicDefaultsRehydrateOnReload(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+defaults:
+  timeout: 5s
+openai:
+  key: file-key
+`)),
+	)
+
+	binding, err := config.ObserveSection[typedProviderConfig](
+		c,
+		"openai",
+		config.WithSectionDefaultFunc(func(cfg config.Containable) typedProviderConfig {
+			return typedProviderConfig{Timeout: cfg.GetDuration("defaults.timeout")}
+		}, mergeTypedProviderConfig),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, 5*time.Second, binding.Value().Timeout)
+
+	c.Set("defaults.timeout", "9s")
+	require.NoError(t, runConfigObservers(c))
+
+	assert.Equal(t, 9*time.Second, binding.Value().Timeout)
+	assert.Equal(t, uint64(2), binding.Version())
 }
 
 func TestObserveSection_RehydratesOnObserver(t *testing.T) {
@@ -214,12 +247,12 @@ openai:
 `)),
 	)
 
-	applied := make([]config.Section[typedProviderConfig], 0, 1)
+	applied := make([]config.SectionChange[typedProviderConfig], 0, 1)
 	binding, err := config.ObserveSection[typedProviderConfig](
 		c,
 		"openai",
-		config.WithSectionApply(func(section config.Section[typedProviderConfig]) error {
-			applied = append(applied, section)
+		config.WithSectionApply(func(change config.SectionChange[typedProviderConfig]) error {
+			applied = append(applied, change)
 
 			return nil
 		}),
@@ -234,9 +267,96 @@ openai:
 
 	assert.Equal(t, "reload-key", binding.Value().Key)
 	assert.NotSame(t, initial, binding.Current())
+	assert.Equal(t, uint64(2), binding.Version())
 	require.Len(t, applied, 1)
-	assert.True(t, applied[0].Exists)
-	assert.Equal(t, "reload-key", applied[0].Value.Key)
+	assert.True(t, applied[0].Changed)
+	assert.False(t, applied[0].Initial)
+	assert.Equal(t, uint64(2), applied[0].Version)
+	assert.Equal(t, "initial-key", applied[0].Previous.Value.Key)
+	assert.True(t, applied[0].Current.Exists)
+	assert.Equal(t, "reload-key", applied[0].Current.Value.Key)
+}
+
+func TestObserveSection_UnchangedReloadDoesNotApply(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+openai:
+  key: initial-key
+`)),
+	)
+
+	applyCalls := 0
+	binding, err := config.ObserveSection[typedProviderConfig](
+		c,
+		"openai",
+		config.WithSectionApply(func(config.SectionChange[typedProviderConfig]) error {
+			applyCalls++
+
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+
+	initial := binding.Current()
+	require.NotNil(t, initial)
+
+	c.Set("unrelated.value", "changed")
+	require.NoError(t, runConfigObservers(c))
+
+	assert.Equal(t, "initial-key", binding.Value().Key)
+	assert.Same(t, initial, binding.Current())
+	assert.Equal(t, uint64(1), binding.Version())
+	assert.Zero(t, applyCalls)
+}
+
+func TestObserveSection_CustomEqualityControlsChangeDetection(t *testing.T) {
+	t.Parallel()
+
+	c := config.NewReaderContainer(
+		afero.NewMemMapFs(),
+		config.WithLogger(logger.NewNoop()),
+		config.WithConfigFormat("yaml"),
+		config.WithConfigReaders(strings.NewReader(`
+openai:
+  key: initial-key
+  env: INITIAL_ENV
+`)),
+	)
+
+	applyCalls := 0
+	binding, err := config.ObserveSection[typedProviderConfig](
+		c,
+		"openai",
+		config.WithSectionEqual(func(previous, current config.Section[typedProviderConfig]) bool {
+			return previous.Exists == current.Exists && previous.Value.Key == current.Value.Key
+		}),
+		config.WithSectionApply(func(config.SectionChange[typedProviderConfig]) error {
+			applyCalls++
+
+			return nil
+		}),
+	)
+	require.NoError(t, err)
+
+	c.Set("openai.env", "ROTATED_ENV_NAME")
+	require.NoError(t, runConfigObservers(c))
+
+	assert.Equal(t, "INITIAL_ENV", binding.Value().Env)
+	assert.Equal(t, uint64(1), binding.Version())
+	assert.Zero(t, applyCalls)
+
+	c.Set("openai.key", "rotated-key")
+	require.NoError(t, runConfigObservers(c))
+
+	assert.Equal(t, "rotated-key", binding.Value().Key)
+	assert.Equal(t, "ROTATED_ENV_NAME", binding.Value().Env)
+	assert.Equal(t, uint64(2), binding.Version())
+	assert.Equal(t, 1, applyCalls)
 }
 
 func TestObserveSection_InvalidReloadPreservesPriorSnapshot(t *testing.T) {
@@ -263,7 +383,7 @@ openai:
 
 			return nil
 		}),
-		config.WithSectionApply(func(config.Section[typedProviderConfig]) error {
+		config.WithSectionApply(func(config.SectionChange[typedProviderConfig]) error {
 			applyCalls++
 
 			return nil
@@ -279,6 +399,7 @@ openai:
 
 	assert.Equal(t, "initial-key", binding.Value().Key)
 	assert.Same(t, previous, binding.Current())
+	assert.Equal(t, uint64(1), binding.Version())
 	assert.Zero(t, applyCalls)
 }
 
@@ -299,7 +420,7 @@ openai:
 	binding, err := config.ObserveSection[typedProviderConfig](
 		c,
 		"openai",
-		config.WithSectionApply(func(config.Section[typedProviderConfig]) error {
+		config.WithSectionApply(func(config.SectionChange[typedProviderConfig]) error {
 			applyCalls++
 
 			return nil
@@ -315,6 +436,7 @@ openai:
 
 	assert.Equal(t, 5*time.Second, binding.Value().Timeout)
 	assert.Same(t, previous, binding.Current())
+	assert.Equal(t, uint64(1), binding.Version())
 	assert.Zero(t, applyCalls)
 }
 

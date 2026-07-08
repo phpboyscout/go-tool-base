@@ -14,7 +14,10 @@
 // Typed section decoding is available through [UnmarshalSection]. Long-lived
 // components that need reload-aware typed settings should use [ObserveSection],
 // which performs the initial decode, registers a config observer, and publishes
-// validated immutable snapshots through [ObservedSection].
+// validated immutable snapshots through [ObservedSection]. Observed sections
+// compare whole typed snapshots, expose a monotonically increasing version, and
+// deliver [SectionChange] values to apply callbacks only when the struct
+// changes.
 //
 // Hot-reload is supported on file-backed containers via the [Observable]
 // interface. The container owns an fsnotify watcher over every configured file;

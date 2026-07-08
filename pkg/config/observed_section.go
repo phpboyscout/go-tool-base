@@ -1,6 +1,7 @@
 package config
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -11,6 +12,7 @@ import (
 type ObservedSection[T any] struct {
 	mu      sync.RWMutex
 	current *Section[T]
+	version uint64
 }
 
 // Value returns the latest complete settings snapshot.
@@ -49,12 +51,44 @@ func (s *ObservedSection[T]) Exists() bool {
 	return s.current != nil && s.current.Exists
 }
 
-func (s *ObservedSection[T]) store(section Section[T]) {
+// Version returns the latest settings version. It starts at 1 after the initial
+// snapshot and increments only when a later reload changes the observed section.
+func (s *ObservedSection[T]) Version() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.version
+}
+
+func (s *ObservedSection[T]) snapshot() (Section[T], bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.current == nil {
+		return Section[T]{}, false
+	}
+
+	return *s.current, true
+}
+
+func (s *ObservedSection[T]) store(section Section[T]) uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	next := section
 	s.current = &next
+	s.version++
+
+	return s.version
+}
+
+// SectionChange describes an observed typed section change.
+type SectionChange[T any] struct {
+	Previous Section[T]
+	Current  Section[T]
+	Initial  bool
+	Changed  bool
+	Version  uint64
 }
 
 // SectionBindingOption customises ObserveSection behaviour.
@@ -64,9 +98,11 @@ type SectionBindingOption[T any] func(*SectionBindingConfig[T])
 type SectionBindingConfig[T any] struct {
 	defaults    T
 	hasDefaults bool
+	defaultFunc func(Containable) T
 	merge       func(defaults, overlay T) T
 	validate    func(T) error
-	apply       func(Section[T]) error
+	equal       func(previous, current Section[T]) bool
+	apply       func(SectionChange[T]) error
 }
 
 // WithSectionDefaults starts each observed section from defaults and merges the
@@ -79,6 +115,17 @@ func WithSectionDefaults[T any](defaults T, merge func(defaults, overlay T) T) S
 	}
 }
 
+// WithSectionDefaultFunc starts each observed section from defaults derived
+// from the current config snapshot and merges the decoded section over it when
+// the section exists.
+func WithSectionDefaultFunc[T any](defaultFunc func(Containable) T, merge func(defaults, overlay T) T) SectionBindingOption[T] {
+	return func(cfg *SectionBindingConfig[T]) {
+		cfg.defaultFunc = defaultFunc
+		cfg.hasDefaults = true
+		cfg.merge = merge
+	}
+}
+
 // WithSectionValidator validates each settings snapshot before it is published.
 func WithSectionValidator[T any](validate func(T) error) SectionBindingOption[T] {
 	return func(cfg *SectionBindingConfig[T]) {
@@ -86,8 +133,17 @@ func WithSectionValidator[T any](validate func(T) error) SectionBindingOption[T]
 	}
 }
 
-// WithSectionApply registers a callback that runs after a successful rehydrate.
-func WithSectionApply[T any](apply func(Section[T]) error) SectionBindingOption[T] {
+// WithSectionEqual sets the equality function used to decide whether a
+// successful rehydrate changed the observed section.
+func WithSectionEqual[T any](equal func(previous, current Section[T]) bool) SectionBindingOption[T] {
+	return func(cfg *SectionBindingConfig[T]) {
+		cfg.equal = equal
+	}
+}
+
+// WithSectionApply registers a callback that runs after a successful rehydrate
+// changes the observed typed section.
+func WithSectionApply[T any](apply func(SectionChange[T]) error) SectionBindingOption[T] {
 	return func(cfg *SectionBindingConfig[T]) {
 		cfg.apply = apply
 	}
@@ -124,10 +180,21 @@ func ObserveSection[T any](
 				return err
 			}
 
-			observed.store(section)
+			previous, ok := observed.snapshot()
+			if ok && settings.sectionsEqual(previous, section) {
+				return nil
+			}
+
+			version := observed.store(section)
 
 			if settings.apply != nil {
-				return settings.apply(section)
+				return settings.apply(SectionChange[T]{
+					Previous: previous,
+					Current:  section,
+					Initial:  !ok,
+					Changed:  true,
+					Version:  version,
+				})
 			}
 
 			return nil
@@ -147,16 +214,9 @@ func loadObservedSection[T any](
 		return Section[T]{}, err
 	}
 
-	if settings.hasDefaults {
-		if section.Exists {
-			if settings.merge == nil {
-				return Section[T]{}, errors.New("section defaults require a merge function")
-			}
-
-			section.Value = settings.merge(settings.defaults, section.Value)
-		} else {
-			section.Value = settings.defaults
-		}
+	section, err = applyObservedSectionDefaults(cfg, section, settings)
+	if err != nil {
+		return Section[T]{}, err
 	}
 
 	if settings.validate != nil {
@@ -166,4 +226,41 @@ func loadObservedSection[T any](
 	}
 
 	return section, nil
+}
+
+func applyObservedSectionDefaults[T any](
+	cfg Containable,
+	section Section[T],
+	settings SectionBindingConfig[T],
+) (Section[T], error) {
+	if !settings.hasDefaults {
+		return section, nil
+	}
+
+	defaults := settings.defaults
+	if settings.defaultFunc != nil {
+		defaults = settings.defaultFunc(cfg)
+	}
+
+	if !section.Exists {
+		section.Value = defaults
+
+		return section, nil
+	}
+
+	if settings.merge == nil {
+		return Section[T]{}, errors.New("section defaults require a merge function")
+	}
+
+	section.Value = settings.merge(defaults, section.Value)
+
+	return section, nil
+}
+
+func (settings SectionBindingConfig[T]) sectionsEqual(previous, current Section[T]) bool {
+	if settings.equal != nil {
+		return settings.equal(previous, current)
+	}
+
+	return reflect.DeepEqual(previous, current)
 }

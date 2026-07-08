@@ -94,6 +94,9 @@ Make `--server-port` override `server.port` by binding flags into the configurat
 ### [React to Configuration Changes at Runtime](config-hot-reload.md)
 Use `config.Observable` and `AddObserver` to reconfigure long-running services without restarting.
 
+### [Observe Typed Config Sections](observe-typed-config.md)
+Use `config.ObserveSection` to rehydrate typed settings and react only when a config struct changes.
+
 ### [Define and Validate Config for a Component](validate-component-config.md)
 Define config defaults via embedded assets and validate them at runtime using per-package schema validation.
 
