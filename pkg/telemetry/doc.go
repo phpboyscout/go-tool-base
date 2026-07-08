@@ -32,6 +32,8 @@
 // GTB config integration is isolated in [ObservabilitySettingsFromProps] and
 // [SetupFromProps], which preserve the existing telemetry.* key layout while
 // keeping reusable provider setup independent of the framework config container.
+// Data-directory resolution follows the same rule: [ResolveDataDir] accepts a
+// config-file path, while [ResolveDataDirFromProps] adapts GTB props.
 //
 // # Privacy
 //

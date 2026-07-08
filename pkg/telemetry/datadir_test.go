@@ -5,10 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/viper"
-
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
@@ -21,19 +17,7 @@ func TestResolveDataDir_ConfigDir(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	v := viper.New()
-	v.SetConfigFile(cfgFile)
-
-	if err := v.ReadInConfig(); err != nil {
-		t.Fatalf("read config: %v", err)
-	}
-
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	p := &props.Props{Config: mock}
-
-	result := telemetry.ResolveDataDir(p)
+	result := telemetry.ResolveDataDir(cfgFile)
 	if result != dir {
 		t.Errorf("expected %q, got %q", dir, result)
 	}
@@ -42,20 +26,16 @@ func TestResolveDataDir_ConfigDir(t *testing.T) {
 func TestResolveDataDir_Fallback(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{}
-
-	result := telemetry.ResolveDataDir(p)
+	result := telemetry.ResolveDataDir("")
 	if result != os.TempDir() {
 		t.Errorf("expected %q, got %q", os.TempDir(), result)
 	}
 }
 
-func TestResolveDataDir_NilConfig(t *testing.T) {
+func TestResolveDataDir_MissingConfigDir(t *testing.T) {
 	t.Parallel()
 
-	p := &props.Props{Config: nil}
-
-	result := telemetry.ResolveDataDir(p)
+	result := telemetry.ResolveDataDir(filepath.Join(t.TempDir(), "missing", "config.yaml"))
 	if result != os.TempDir() {
 		t.Errorf("expected %q, got %q", os.TempDir(), result)
 	}

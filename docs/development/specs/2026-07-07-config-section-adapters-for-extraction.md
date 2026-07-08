@@ -1168,6 +1168,8 @@ GTB adapter responsibilities:
 - Keep operational observability provider setup on package-owned
   `ObservabilitySettings`, with `ObservabilitySettingsFromProps` and
   `SetupFromProps` as GTB adapters for existing `telemetry.*` keys.
+- Keep telemetry data-directory resolution on a package-owned config-file path,
+  with `ResolveDataDirFromProps` as the GTB adapter.
 - Keep consent prompts and config persistence in GTB command/setup layers.
 
 Existence checks:

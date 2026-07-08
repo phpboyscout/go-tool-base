@@ -3,33 +3,25 @@ package telemetry
 import (
 	"os"
 	"path/filepath"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // ResolveDataDir determines the directory for telemetry data files (spill files,
-// local-only logs). Uses the config directory if it exists and is writable,
-// otherwise falls back to os.TempDir().
-func ResolveDataDir(p props.ConfigProvider) string {
-	if dir, ok := configDataDir(p); ok {
+// local-only logs). Uses configFile's directory if it exists and is writable,
+// otherwise falls back to [os.TempDir].
+func ResolveDataDir(configFile string) string {
+	if dir, ok := configDataDir(configFile); ok {
 		return dir
 	}
 
 	return os.TempDir()
 }
 
-func configDataDir(p props.ConfigProvider) (string, bool) {
-	cfg := p.GetConfig()
-	if cfg == nil {
+func configDataDir(configFile string) (string, bool) {
+	if configFile == "" {
 		return "", false
 	}
 
-	cfgFile := cfg.GetViper().ConfigFileUsed()
-	if cfgFile == "" {
-		return "", false
-	}
-
-	dir := filepath.Dir(cfgFile)
+	dir := filepath.Dir(configFile)
 
 	info, err := os.Stat(dir)
 	if err != nil || !info.IsDir() {

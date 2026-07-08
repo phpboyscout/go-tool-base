@@ -134,7 +134,7 @@ func newResetCmd(p *props.Props) *cobra.Command {
 			_ = p.Collector.Drop()
 
 			// Clear local-only log if it exists
-			dataDir := telemetry.ResolveDataDir(p)
+			dataDir := telemetry.ResolveDataDirFromProps(p)
 			logFile := filepath.Join(dataDir, "telemetry.log")
 
 			if _, err := os.Stat(logFile); err == nil {

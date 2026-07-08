@@ -986,7 +986,7 @@ func resolveVersionString(props *p.Props) string {
 }
 
 func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Collector {
-	dataDir := telemetry.ResolveDataDir(props)
+	dataDir := telemetry.ResolveDataDirFromProps(props)
 
 	// Version is an interface and may be nil on a hand-constructed Props (the
 	// scaffold always sets it, but downstream tools need not). Resolve it once

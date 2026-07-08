@@ -227,4 +227,4 @@ When the buffer is full, events are spilled to disk:
 - **File count cap**: 10 files — oldest deleted when exceeded
 - **Recovery**: every `Flush` checks for spill files first, sends them before the current buffer
 
-The shared `telemetry.ResolveDataDir(p)` helper determines the data directory for both spill files and local-only logs.
+The shared `telemetry.ResolveDataDir(configFile)` helper determines the data directory for both spill files and local-only logs. GTB callers that already have `props` use `telemetry.ResolveDataDirFromProps(p)`.
