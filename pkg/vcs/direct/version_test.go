@@ -35,7 +35,7 @@ func TestDirectProvider_VersionURL_PlainText(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -56,7 +56,7 @@ func TestDirectProvider_VersionURL_JSON_TagName(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -78,7 +78,7 @@ func TestDirectProvider_VersionURL_JSON_CustomKey(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -100,7 +100,7 @@ func TestDirectProvider_VersionURL_YAML(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -122,7 +122,7 @@ func TestDirectProvider_VersionURL_XML(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -146,7 +146,7 @@ func TestDirectProvider_VersionURL_FormatOverride(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -169,7 +169,7 @@ func TestDirectProvider_VersionURL_FallbackKey(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -206,7 +206,7 @@ func TestDirectProvider_VersionURL_BoundedRead(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "", "")

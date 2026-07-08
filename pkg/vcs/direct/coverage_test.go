@@ -37,7 +37,7 @@ func (c testReleaseConfig) Sub(key string) release.Config {
 func newProvider(t *testing.T, params map[string]string, cfg release.Config) *direct.DirectReleaseProvider {
 	t.Helper()
 
-	p, err := direct.NewReleaseProvider(release.ReleaseSourceConfig{Params: params}, cfg)
+	p, err := direct.NewReleaseProvider(direct.SettingsFromConfig(release.ReleaseSourceConfig{Params: params}, cfg))
 	require.NoError(t, err)
 
 	return p

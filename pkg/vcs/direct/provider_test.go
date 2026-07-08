@@ -28,7 +28,7 @@ func TestDirectProvider_GetReleaseByTag(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.2.3")
@@ -60,7 +60,7 @@ func TestDirectProvider_URLTemplate_AllPlaceholders(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -92,7 +92,7 @@ func TestDirectProvider_Pinned_NoNetworkCall(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetLatestRelease(context.Background(), "", "")
@@ -111,7 +111,7 @@ func TestDirectProvider_VersionUnknown(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, err = p.GetLatestRelease(context.Background(), "", "")
@@ -125,7 +125,7 @@ func TestDirectProvider_ListReleases_NotSupported(t *testing.T) {
 		Params: map[string]string{"url_template": "https://example.com/{version}.tar.gz"},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "", "", 10)
@@ -145,7 +145,7 @@ func TestDirectProvider_DownloadReleaseAsset(t *testing.T) {
 		Params: map[string]string{"url_template": "https://example.com/{version}.tar.gz"},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	asset := &stubAsset{url: srv.URL + "/download"}
@@ -165,7 +165,7 @@ func TestDirectProvider_DownloadReleaseAsset_EmptyURL(t *testing.T) {
 		Params: map[string]string{"url_template": "https://example.com/{version}.tar.gz"},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(context.Background(), "", "", &stubAsset{url: ""})
@@ -176,7 +176,7 @@ func TestDirectProvider_MissingURLTemplate_Error(t *testing.T) {
 	t.Parallel()
 
 	src := release.ReleaseSourceConfig{Params: map[string]string{}}
-	_, err := direct.NewReleaseProvider(src, nil)
+	_, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "url_template is required")
 }
@@ -196,7 +196,7 @@ func TestDirectProvider_Auth_BearerTokenSent(t *testing.T) {
 		Params: map[string]string{"url_template": "https://example.com/{version}.tar.gz"},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	asset := &stubAsset{url: srv.URL + "/asset"}
@@ -227,7 +227,7 @@ func TestDirectProvider_DownloadSignature(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.2.3")
@@ -246,7 +246,7 @@ func TestDirectProvider_DownloadSignature_NotSupported(t *testing.T) {
 		Params: map[string]string{"url_template": "https://example.com/{version}.tar.gz"},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.2.3")
@@ -272,7 +272,7 @@ func TestDirectProvider_DownloadSignature_SizeCap(t *testing.T) {
 		},
 	}
 
-	p, err := direct.NewReleaseProvider(src, nil)
+	p, err := direct.NewReleaseProvider(direct.Settings{ReleaseSource: src})
 	require.NoError(t, err)
 
 	rel, err := p.GetReleaseByTag(context.Background(), "", "", "v1.0.0")

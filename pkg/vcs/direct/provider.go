@@ -1,7 +1,3 @@
-// Package direct provides a release.Provider implementation for tools
-// distributed via arbitrary HTTP servers. Asset URLs are constructed from a
-// configurable template; version detection is optional and supports plain text,
-// JSON, YAML, and XML endpoints.
 package direct
 
 import (
@@ -67,14 +63,16 @@ type DirectReleaseProvider struct {
 	httpClient           *http.Client
 }
 
-// NewReleaseProvider constructs a DirectReleaseProvider from a ReleaseSourceConfig.
+// NewReleaseProvider constructs a DirectReleaseProvider from explicit typed
+// settings.
 //
 // Required Params key: url_template.
 // Optional Params keys: version_url, version_format, version_key,
 // pinned_version, checksum_url_template, signature_url_template.
-//
-// Token resolution: cfg key "direct.token", then DIRECT_TOKEN env var.
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config) (*DirectReleaseProvider, error) {
+// Token resolution: settings.Token, then DIRECT_TOKEN env var.
+func NewReleaseProvider(settings Settings) (*DirectReleaseProvider, error) {
+	src := settings.ReleaseSource
+
 	urlTemplate := src.Params["url_template"]
 	if urlTemplate == "" {
 		return nil, errors.WithHint(
@@ -84,7 +82,10 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config) (*D
 		)
 	}
 
-	token := resolveToken(cfg)
+	token := settings.Token
+	if token == "" {
+		token = os.Getenv(directTokenEnv)
+	}
 
 	return &DirectReleaseProvider{
 		urlTemplate:          urlTemplate,
@@ -288,17 +289,4 @@ func (p *DirectReleaseProvider) expandTemplate(tmpl, version string) string {
 	)
 
 	return r.Replace(tmpl)
-}
-
-func resolveToken(cfg release.Config) string {
-	if cfg != nil {
-		sub := release.SubConfig(cfg, "direct")
-		if sub != nil {
-			if t := sub.GetString("token"); t != "" {
-				return t
-			}
-		}
-	}
-
-	return os.Getenv(directTokenEnv)
 }

@@ -1220,10 +1220,11 @@ type BitbucketConfig struct {
     Pattern     string                `mapstructure:"filename_pattern"`
 }
 
-type DirectConfig struct {
+type DirectSettings struct {
     VersionURL string            `mapstructure:"version_url"`
     AssetURL   string            `mapstructure:"asset_url"`
     Headers    map[string]string `mapstructure:"headers"`
+    Token      string            `mapstructure:"token"`
 }
 ```
 
