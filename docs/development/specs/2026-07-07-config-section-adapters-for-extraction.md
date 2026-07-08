@@ -104,6 +104,8 @@ behaviour.
   reusable and extracted packages.
 - Add first-class config-container APIs for unmarshalling resolved config
   sections into typed structs.
+- Add first-class observer-backed binding APIs so GTB adapters can rehydrate
+  typed settings automatically on successful config reloads.
 - Preserve GTB's config precedence and env-prefix semantics in adapter code.
 - Make section existence explicit so adapters can distinguish absent config,
   present-but-empty config, and invalid config.
@@ -192,6 +194,7 @@ responsible for:
 - environment variable precedence,
 - pflag binding,
 - config hot reload,
+- observer-backed rehydration of typed settings,
 - config file writes,
 - user-facing migration commands,
 - config schema validation at application startup.
@@ -236,7 +239,76 @@ func MustUnmarshalSection[T any](cfg Containable, key string) Section[T]
 defaults where panics are acceptable. Most production code should use
 `UnmarshalSection`.
 
-### 6.3 Existence policy
+### 6.3 Observer-backed section binding
+
+Long-lived GTB adapters must not perform a one-shot unmarshal and then leave
+runtime components with stale settings. Add a shared helper that performs the
+initial unmarshal and registers a config observer for future successful reloads:
+
+```go
+type ObservedSection[T any] struct {
+    // unexported snapshot/observer state
+}
+
+// Value returns the latest complete settings snapshot.
+func (s *ObservedSection[T]) Value() T
+
+// Current returns a pointer to the latest immutable settings snapshot.
+// Callers must treat the returned value as read-only and must call Current
+// again when they need to observe a later reload.
+func (s *ObservedSection[T]) Current() *T
+
+// Exists reports whether the latest snapshot came from an explicit section.
+func (s *ObservedSection[T]) Exists() bool
+
+type SectionBindingOption[T any] func(*SectionBindingConfig[T])
+
+func ObserveSection[T any](
+    cfg Containable,
+    key string,
+    opts ...SectionBindingOption[T],
+) (*ObservedSection[T], error)
+```
+
+`ObserveSection` is the default GTB adapter API for config-backed long-lived
+components. It must:
+
+1. unmarshal the initial resolved section,
+2. merge package defaults when configured by an option,
+3. validate the typed settings when configured by an option,
+4. store a complete immutable settings snapshot,
+5. register an observer with `AddObserverFunc`,
+6. rehydrate, validate, and atomically replace the snapshot after each
+   successful reload, and
+7. invoke an optional apply callback so components with live reload support can
+   reconfigure immediately.
+
+Recommended options:
+
+```go
+func WithSectionDefaults[T any](defaults T, merge func(defaults, overlay T) T) SectionBindingOption[T]
+func WithSectionValidator[T any](validate func(T) error) SectionBindingOption[T]
+func WithSectionApply[T any](apply func(Section[T]) error) SectionBindingOption[T]
+```
+
+Adapters for short-lived one-shot commands may still call `UnmarshalSection`
+directly, but service constructors, clients, transports, health checks, and any
+component that survives config reload must use `ObserveSection` or a package
+specific wrapper built on top of it.
+
+Reload-aware extracted packages should define their own tiny settings-source
+interfaces when they need to read the latest snapshot directly:
+
+```go
+type SettingsSource interface {
+    Current() *Settings
+}
+```
+
+`*config.ObservedSection[package.Settings]` can satisfy that interface without
+the extracted package importing `pkg/config`.
+
+### 6.4 Existence policy
 
 `SectionExists(key)` should answer "is there meaningful configuration for this
 section?" without requiring callers to inspect Viper directly.
@@ -260,7 +332,7 @@ SectionInConfig(key string) bool     // persisted file/config-source view
 
 Open question: whether both should ship in the first implementation.
 
-### 6.4 Unmarshal source
+### 6.5 Unmarshal source
 
 `UnmarshalKey` must preserve GTB's env-aware resolution. Viper's native `Sub`
 can drop AutomaticEnv behaviour; GTB's `Sub` deliberately works around this for
@@ -277,7 +349,7 @@ Implementation options:
 This is the highest-risk implementation detail. The tests must prove env-prefix
 values override file values during section unmarshal.
 
-### 6.5 Tags
+### 6.6 Tags
 
 Package config structs should use `mapstructure` tags as the primary decode
 tags, with `json`/`yaml` tags where useful for docs and examples:
@@ -293,7 +365,7 @@ type TLSConfig struct {
 Adapters should avoid exposing Viper-specific tags in public documentation; they
 are an implementation detail of GTB's adapter.
 
-### 6.6 Defaults and validation
+### 6.7 Defaults and validation
 
 Each extracted module should expose either:
 
@@ -359,19 +431,27 @@ Configuration values are data. Dependencies are options.
 Hot reload should remain a GTB concern. Extracted modules should not import
 GTB's observer system.
 
-GTB adapters must use config observers to rehydrate typed settings whenever a
-reload succeeds. The adapter is responsible for unmarshalling a fresh settings
-snapshot from the updated `config.Containable`, validating it, and then
-propagating it to the runtime component.
+GTB adapters for long-lived components must use config observers to rehydrate
+typed settings whenever a reload succeeds. This is an adapter contract, not an
+optional enhancement. The preferred implementation is `config.ObserveSection`,
+or a package-specific helper that wraps `ObserveSection` with package defaults,
+validation, and apply behaviour.
+
+The adapter is responsible for unmarshalling a fresh settings snapshot from the
+updated `config.Containable`, validating it, and then propagating it to the
+runtime component. Direct one-shot calls to `config.UnmarshalSection` are only
+appropriate for short-lived command paths, tests, or the implementation of the
+observer-backed helper itself.
 
 For components that support live reconfiguration, adapters should propagate the
 latest settings through pointers rather than copying values into long-lived
 closures. The preferred pattern is either:
 
-- a package-owned `*Settings` or settings holder passed to the component, where
-  the package documents its concurrency guarantees, or
-- a GTB-owned pointer/holder that the adapter swaps on reload before invoking a
-  package-specific `Reconfigure` method.
+- a package-owned settings-source interface, such as `Current() *Settings`,
+  backed by `config.ObserveSection`, where the package documents its
+  concurrency guarantees, or
+- a GTB-owned pointer/holder that the adapter updates on reload before invoking
+  a package-specific `Reconfigure` method.
 
 Avoid mutating shared structs in place without synchronization. If the settings
 may be read concurrently by request handlers, health checks, transports, or
@@ -380,27 +460,29 @@ package-owned concurrency boundary so readers always observe a consistent
 settings snapshot.
 
 ```go
-var current atomic.Pointer[http.Settings]
-
-initial, _, err := httpConfigFromGTB(cfg)
+binding, err := config.ObserveSection[http.Settings](
+    cfg,
+    "server.http",
+    config.WithSectionDefaults(http.DefaultSettings(), http.MergeSettings),
+    config.WithSectionValidator(func(settings http.Settings) error {
+        return settings.Validate()
+    }),
+    config.WithSectionApply(func(section config.Section[http.Settings]) error {
+        return server.Reconfigure(&section.Value)
+    }),
+)
 if err != nil {
     return err
 }
-current.Store(&initial)
 
-cfg.AddObserverFunc(func(next config.Containable) error {
-    transportCfg, _, err := httpConfigFromGTB(next)
-    if err != nil {
-        return err
-    }
-    current.Store(&transportCfg)
-    return server.Reconfigure(&transportCfg)
-})
+server.SetSettingsSource(binding)
 ```
 
 Only packages that genuinely support live reconfiguration should expose reload
 methods. Otherwise GTB should document that changes require restart and the
-adapter should not pretend that pointer propagation is live.
+adapter should still use `ObserveSection` to keep a rehydrated snapshot
+available for newly constructed components, but must not pretend that an
+already-running component applies those changes live.
 
 ## 8. Package-by-Package Boundary Plan
 
@@ -1128,6 +1210,8 @@ Existence checks:
 - Add `Unmarshal`, `UnmarshalKey`, and `SectionExists` to `Containable`.
 - Implement those methods on `Container` and sub-containers.
 - Add generic `Section[T]` and `UnmarshalSection[T]`.
+- Add `ObservedSection[T]`, `ObserveSection[T]`, and binding options for
+  defaults, validation, and apply callbacks.
 - Decide whether `SectionInConfig` is needed in phase 1.
 
 ### Phase 2: Prove env-aware unmarshalling
@@ -1137,6 +1221,10 @@ Existence checks:
 - Add tests for sub-container unmarshalling retaining env binding.
 - Add tests for absent section, present empty section, present invalid section,
   and default-only section behaviour.
+- Add tests proving `ObserveSection` performs the initial unmarshal, registers
+  an observer, rehydrates fresh typed settings after reload, preserves the prior
+  valid snapshot when validation fails, and invokes apply callbacks only after a
+  successful rehydrate.
 
 ### Phase 3: Introduce package config structs
 
@@ -1150,6 +1238,8 @@ Existence checks:
 
 - Replace direct package-internal `cfg.GetString` / `cfg.GetBool` reads with
   adapter code that unmarshals typed structs.
+- Use `ObserveSection` in adapters for long-lived services, clients,
+  transports, health checks, and reload-aware runtime components.
 - Keep existing command/setup config keys.
 - Add migration notes only if any public constructor names or config semantics
   change.
@@ -1168,7 +1258,8 @@ Implementation must be test-first.
 TDD requirements:
 
 - Write config package tests for `UnmarshalKey`, `UnmarshalSection`, existence
-  semantics, env-prefix precedence, sub-container behaviour, and error handling
+  semantics, env-prefix precedence, sub-container behaviour, observer-backed
+  rehydration, invalid-reload preservation, apply callbacks, and error handling
   before implementation.
 - For each migrated package, write tests for typed config defaults, validation,
   and GTB adapter mapping before replacing direct config reads.
