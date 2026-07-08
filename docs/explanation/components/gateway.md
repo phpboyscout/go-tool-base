@@ -32,8 +32,10 @@ register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientCo
 
 ## Functions
 
-- **`New(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error)`**: Builds a grpc-gateway handler ready to mount on an existing HTTP server. It dials the local gRPC server via `grpc.DialLocal` (so transport security matches the server's own config) and applies `register` to wire the handlers. The returned handler is a `*runtime.ServeMux`, and the underlying gRPC connection lives for the process — the standard pattern for an in-process gateway.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: Runs the gateway as its own controller-managed HTTP server. It is the first-class form of `New`, a peer of `grpc.Register` and `http.Register`. Internally it builds the handler with `New`, then registers it via `pkg/http`'s `Register` with `WithConfigPrefix(ConfigPrefix)`.
+- **`New(ctx context.Context, conn *grpc.ClientConn, register RegisterFunc, opts ...Option) (http.Handler, error)`**: Builds a grpc-gateway handler ready to mount on an existing HTTP server from an already prepared gRPC client connection.
+- **`NewFromContainable(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error)`**: GTB adapter that dials the local gRPC server from existing config, then delegates to `New`.
+- **`Register(ctx context.Context, id string, controller controls.Controllable, logger logger.Logger, conn *grpc.ClientConn, httpSettings gtbhttp.ServerSettings, httpTLS gtbtls.Pair, register RegisterFunc, opts ...Option) (*http.Server, error)`**: Runs the gateway as its own controller-managed HTTP server from explicit typed HTTP settings and a prepared gRPC connection.
+- **`RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error)`**: GTB adapter that reads the existing `server.gateway` config block and delegates to the typed HTTP registration path.
 
 ## Middleware on the REST surface
 
@@ -48,19 +50,19 @@ chain := gtbhttp.NewChain(
     gtbhttp.RateLimitMiddleware(log, gtbhttp.DefaultRateLimitConfig()),
 )
 
-// Managed server (Register): the chain wraps the REST routes; health endpoints
+// Managed server (RegisterFromContainable): the chain wraps the REST routes; health endpoints
 // (/healthz, /livez, /readyz) stay OUTSIDE it, exactly as with http.Register.
-srv, _ := gateway.Register(ctx, "gateway", controller, cfg, log, registerFn,
+srv, _ := gateway.RegisterFromContainable(ctx, "gateway", controller, cfg, log, registerFn,
     gateway.WithMiddleware(chain))
 
-// Mount-on-existing-server (New): the chain wraps the returned handler directly.
-handler, _ := gateway.New(ctx, cfg, registerFn, gateway.WithMiddleware(chain))
+// Mount-on-existing-server (NewFromContainable): the chain wraps the returned handler directly.
+handler, _ := gateway.NewFromContainable(ctx, cfg, registerFn, gateway.WithMiddleware(chain))
 ```
 
 - **`WithMiddleware(chain http.Chain) Option`**: wraps the gateway's REST surface
-  with an HTTP middleware chain. On the `Register` path it is threaded to the
+  with an HTTP middleware chain. On the `RegisterFromContainable` path it is threaded to the
   managed server so health probes remain unauthenticated/unthrottled; on the
-  `New` path it wraps the returned handler.
+  `NewFromContainable` path it wraps the returned handler.
 
 See the [Transport Middleware & Resilience](../concepts/transport-middleware.md)
 concept for the full pattern.
@@ -97,14 +99,14 @@ With the shared `server.tls` keys set and no `server.gateway.tls` override, the 
 
 ## Usage Example: mounted on an existing server
 
-Use `New` when the REST handlers should share an origin with other routes — for example, serving the API alongside the OpenAPI docs on a single mux.
+Use `NewFromContainable` when the REST handlers should share an origin with other routes and GTB config should prepare the local gRPC connection for you — for example, serving the API alongside the OpenAPI docs on a single mux.
 
 ```go
 register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
     return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
 }
 
-gw, err := gateway.New(ctx, props.Config, register)
+gw, err := gateway.NewFromContainable(ctx, props.Config, register)
 if err != nil {
     return err
 }
@@ -113,7 +115,7 @@ mux := http.NewServeMux()
 mux.Handle("/v1/", gw)            // REST handlers (annotations are /v1/...; do not strip the prefix)
 mux.Handle("/docs/", docsHandler) // OpenAPI docs, same origin
 
-srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Config, props.Logger, mux)
+srv, err := gtbhttp.RegisterFromContainable(ctx, "http-api", controller, props.Config, props.Logger, mux)
 if err != nil {
     return err
 }
@@ -121,14 +123,14 @@ if err != nil {
 
 ## Usage Example: as its own server
 
-Use `Register` to stand the gateway up as a controller-managed HTTP server on the `server.gateway` config block, peer to the gRPC and HTTP servers.
+Use `RegisterFromContainable` to stand the gateway up as a controller-managed HTTP server on the `server.gateway` config block, peer to the gRPC and HTTP servers.
 
 ```go
 register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
     return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
 }
 
-srv, err := gateway.Register(ctx, "gateway", controller, props.Config, props.Logger, register)
+srv, err := gateway.RegisterFromContainable(ctx, "gateway", controller, props.Config, props.Logger, register)
 if err != nil {
     return err
 }

@@ -917,22 +917,22 @@ Existence checks:
 
 Current config coupling:
 
-- Reads server port, TLS, timeout/header limits, auth, rate limit, circuit
-  breaker, logging, and middleware options from `config.Containable`.
+- Adapters read server port, max header bytes, rate limit, circuit breaker, and
+  TLS paths from `config.Containable`.
+- Core server construction now accepts typed `ServerSettings`; compatibility
+  adapters keep existing GTB config call sites working.
 
 Extracted module shape:
 
 ```go
-type ServerConfig struct {
-    Addr           string        `mapstructure:"addr"`
-    Port           int           `mapstructure:"port"`
-    ReadTimeout    time.Duration `mapstructure:"read_timeout"`
-    WriteTimeout   time.Duration `mapstructure:"write_timeout"`
-    MaxHeaderBytes int           `mapstructure:"max_header_bytes"`
-    TLS            tls.Config    `mapstructure:"tls"`
-    Auth           authn.Config  `mapstructure:"auth"`
-    RateLimit      RateLimitConfig `mapstructure:"rate_limit"`
-    CircuitBreaker CircuitBreakerConfig `mapstructure:"circuit_breaker"`
+type ServerSettings struct {
+    Port           int `mapstructure:"port" yaml:"port" json:"port"`
+    MaxHeaderBytes int `mapstructure:"max_header_bytes" yaml:"max_header_bytes" json:"max_header_bytes"`
+}
+
+type ServerSettingsSource interface {
+    Current() *ServerSettings
+    Version() uint64
 }
 
 type ClientConfig struct {
@@ -945,9 +945,12 @@ type ClientConfig struct {
 
 GTB adapter responsibilities:
 
-- Unmarshal `server.http` into `http.ServerConfig`.
+- Unmarshal `server.http` into `http.ServerSettings`.
+- Bind long-lived HTTP composition with `ObserveServerSettingsFromConfig`,
+  which wraps `config.ObserveSection` and exposes `Current()` / `Version()`.
 - Preserve fallback from `server.http.*` to shared `server.*` where currently
-  supported.
+- supported. The first implemented fallback is `server.port` to
+  `server.http.port`, rehydrated on config reload via dynamic defaults.
 - Resolve TLS through typed TLS config structs.
 - Keep controller registration and health endpoint wiring in GTB/transport
   integration code.
@@ -957,6 +960,9 @@ Existence checks:
 - Section absence means use built-in server defaults.
 - Explicit `port: 0` should remain distinguishable from absent port if current
   behaviour allows ephemeral ports.
+- Existing servers do not auto-restart when an observed port changes; the
+  observed source is for newly constructed servers or explicit package-level
+  reconfiguration logic.
 
 ### `pkg/grpc`
 
@@ -1004,7 +1010,7 @@ Extracted module shape:
 
 ```go
 type Config struct {
-    HTTP http.ServerConfig `mapstructure:"http"`
+    HTTP http.ServerSettings `mapstructure:"http"`
     GRPC grpc.ClientConfig `mapstructure:"grpc"`
 }
 ```

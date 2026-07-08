@@ -110,6 +110,33 @@ config.WithSectionDefaultFunc(func(cfg config.Containable) ServerSettings {
 The default function runs during the initial bind and on every successful
 reload before equality is checked.
 
+## HTTP Server Settings
+
+`pkg/http` provides a package-specific helper for its server settings:
+
+```go
+settings, err := gtbhttp.ObserveServerSettingsFromConfig(
+    cfg,
+    "server.http",
+    config.WithSectionApply(func(change config.SectionChange[gtbhttp.ServerSettings]) error {
+        log.Info("http settings changed", "version", change.Version)
+
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source gtbhttp.ServerSettingsSource = settings
+_ = source.Current()
+```
+
+The helper keeps the existing GTB config shape intact. It reads
+`server.http.*`, keeps `server.port` as the shared port fallback, and rehydrates
+that fallback on reload. The returned source exposes `Version()` so code can
+quickly tell whether the whole typed settings snapshot has changed.
+
 ## Failure Behaviour
 
 If a reload cannot be decoded or validation fails, the binding keeps the last

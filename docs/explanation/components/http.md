@@ -46,13 +46,28 @@ TLS configuration and resolution live in [`pkg/tls`](tls.md) (`gtbtls.DefaultCon
 
 ### Running a Second HTTP Server
 
-By default a server reads its port and TLS from the `server.http` config prefix. To run more than one HTTP server in the same process — for example a public API server plus an internal/admin server — pass a `ServerOption` so each server reads its own config block or binds an explicit port.
+The core server constructors take package-owned typed settings. GTB config is
+adapted at the framework boundary with `ServerSettingsFromConfig` for one-shot
+construction or `ObserveServerSettingsFromConfig` for reload-aware snapshots.
+
+By default the GTB adapters read server settings from the `server.http` config prefix. To run more than one HTTP server in the same process — for example a public API server plus an internal/admin server — pass a `ServerOption` so each server reads its own config block or binds an explicit port.
 
 Through the controller-integrated `Register` (a single `WithConfigPrefix` threads the prefix to both construction and start):
 
 ```go
-// Reads server.gateway.port and server.gateway.tls.* (falling back to server.tls.*)
-srv, err := gtbhttp.Register(ctx, "gateway", controller, props.Config, props.Logger, handler,
+// Explicit typed settings, config-free.
+srv, err := gtbhttp.Register(ctx, "gateway", controller, props.Logger, handler,
+    gtbhttp.ServerSettings{Port: 8080},
+    gtbtls.Pair{},
+)
+```
+
+When composing inside GTB, use the compatibility adapter to read the existing
+config structure:
+
+```go
+// Reads server.gateway.port and server.gateway.tls.* (falling back to server.tls.*).
+srv, err := gtbhttp.RegisterFromContainable(ctx, "gateway", controller, props.Config, props.Logger, handler,
     gtbhttp.WithConfigPrefix("server.gateway"),
 )
 ```
@@ -61,22 +76,54 @@ Or constructing standalone with `NewServer` + `Start` — pass the **same** pref
 
 ```go
 // Public API server on server.http.*
-pub, _ := gtbhttp.NewServer(ctx, props.Config, pubHandler)
+settings := gtbhttp.ServerSettingsFromConfig(props.Config, "server.http")
+pub, _ := gtbhttp.NewServer(ctx, settings, pubHandler)
 controller.Register("public",
-    controls.WithStart(gtbhttp.Start(props.Config, props.Logger, pub)),
+    controls.WithStart(gtbhttp.Start(props.Logger, pub, gtbtls.Resolve(props.Config, "server.http.tls"))),
     controls.WithStop(gtbhttp.Stop(props.Logger, pub)))
 
 // Internal admin server on its own config block (server.admin.*)
-adm, _ := gtbhttp.NewServer(ctx, props.Config, admHandler, gtbhttp.WithConfigPrefix("server.admin"))
+adminSettings := gtbhttp.ServerSettingsFromConfig(props.Config, "server.admin")
+adm, _ := gtbhttp.NewServer(ctx, adminSettings, admHandler, gtbhttp.WithConfigPrefix("server.admin"))
 controller.Register("admin",
-    controls.WithStart(gtbhttp.Start(props.Config, props.Logger, adm, gtbhttp.WithConfigPrefix("server.admin"))),
+    controls.WithStart(gtbhttp.Start(props.Logger, adm, gtbtls.Resolve(props.Config, "server.admin.tls"), gtbhttp.WithConfigPrefix("server.admin"))),
     controls.WithStop(gtbhttp.Stop(props.Logger, adm)))
 
 // ...or a fixed port with no config block at all:
-dbg, _ := gtbhttp.NewServer(ctx, props.Config, dbgHandler, gtbhttp.WithPort(9090))
+dbg, _ := gtbhttp.NewServer(ctx, gtbhttp.ServerSettings{}, dbgHandler, gtbhttp.WithPort(9090))
 ```
 
 The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_bytes`; the shared `server.port` remains the fallback. `WithPort` overrides config entirely. When the resolved port is `0`, the OS assigns an ephemeral port and `Start` logs the actually-bound address.
+
+### Observing Server Settings
+
+For long-lived GTB composition, bind the config section once and pass the
+observed snapshot through a package-owned settings source:
+
+```go
+settings, err := gtbhttp.ObserveServerSettingsFromConfig(
+    props.Config,
+    "server.http",
+    config.WithSectionApply(func(change config.SectionChange[gtbhttp.ServerSettings]) error {
+        props.Logger.Info("http server settings changed", "version", change.Version)
+        return nil
+    }),
+)
+if err != nil {
+    return err
+}
+
+var source gtbhttp.ServerSettingsSource = settings
+_ = source.Current()
+```
+
+`ObserveServerSettingsFromConfig` uses the same resolved config semantics as
+`ServerSettingsFromConfig`, including the shared `server.port` fallback. The
+binding rehydrates on successful config reloads, increments `Version()` only
+when the typed `ServerSettings` snapshot changes, and exposes the latest
+immutable value through `Current()`. Existing HTTP servers do not automatically
+restart when the port changes; use the observed source for newly constructed
+servers or explicit package-level reconfiguration logic.
 
 ### Server Options
 
@@ -90,9 +137,12 @@ The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_by
 
 ### Functions
 
-- **`NewServer(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...ServerOption) (*http.Server, error)`**: Returns a pre-configured `*http.Server`. With no options it reads the `server.http` prefix.
-- **`Start(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix` to match a server built on a custom prefix; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. The variadic accepts both `ServerOption` and `RegisterOption` values (mirroring `pkg/grpc.Register`). Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
+- **`NewServer(ctx context.Context, settings ServerSettings, handler http.Handler, opts ...ServerOption) (*http.Server, error)`**: Returns a pre-configured `*http.Server` from typed settings.
+- **`ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.http`.
+- **`ObserveServerSettingsFromConfig(cfg config.Containable, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
+- **`Start(logger logger.Logger, srv *http.Server, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix` to match a server built on a custom prefix; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
+- **`Register(ctx context.Context, id string, controller controls.Controllable, logger logger.Logger, handler http.Handler, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. The variadic accepts both `ServerOption` and `RegisterOption` values (mirroring `pkg/grpc.Register`). Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
+- **`NewServerFromContainable`, `StartFromContainable`, `RegisterFromContainable`**: GTB compatibility adapters that read the existing `config.Containable` structure and delegate to the typed constructors.
 - **`Stop(logger logger.Logger, srv *http.Server) controls.StopFunc`**: Returns a controller stop function. It calls `srv.Shutdown(ctx)` to drain in-flight requests; if the shutdown context deadline expires (a handler outlives it), the server is **force-closed** via `srv.Close()` so a hung handler cannot leave the listener and connections open. This mirrors the gRPC transport's graceful-then-force-stop behaviour.
 
 **Drain semantics**: the server's per-request `BaseContext` is detached from the construction context with `context.WithoutCancel`. Cancelling the construction context (typically at shutdown) therefore does **not** cancel already-accepted requests mid-drain — `Shutdown` is left to drain them within its deadline. Context *values* on the construction context are still propagated to each request.
@@ -231,8 +281,10 @@ chain := gtbhttp.NewChain(
     ),
 )
 
-// Register with middleware — health endpoints stay outside the chain
-srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Config, props.Logger, mux,
+// Register with middleware — health endpoints stay outside the chain.
+settings := gtbhttp.ServerSettingsFromConfig(props.Config, "server.http")
+tlsPair := gtbtls.Resolve(props.Config, "server.http.tls")
+srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Logger, mux, settings, tlsPair,
     gtbhttp.WithMiddleware(chain),
 )
 ```

@@ -69,7 +69,7 @@ func registerHTTPServer(ctx context.Context, controller controls.Controllable, c
         gtbhttp.LoggingMiddleware(l),
     )
 
-    _, err := gtbhttp.Register(ctx, "http", controller, cfg, l, handler,
+    _, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, cfg, l, handler,
         gtbhttp.WithMiddleware(chain),
     )
 

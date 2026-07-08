@@ -18,10 +18,13 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 
 ## Functions
 
-- **`NewServer(cfg config.Containable, opts ...any) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered. The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix`, which selects the config block the reflection flag is read from) and `grpc.ServerOption` values.
-- **`Start(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
+- **`NewServer(settings ServerSettings, opts ...any) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered from typed settings. The variadic accepts both `ServerOption` values and `grpc.ServerOption` values.
+- **`NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `NewServer`.
+- **`Start(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
+- **`StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config.
 - **`RegisterHealthService(srv *grpc.Server, controller controls.Controllable)`**: Wires the gRPC health service to the controller status.
-- **`Register(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
+- **`Register(id string, controller controls.Controllable, logger logger.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
+- **`RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: GTB adapter that reads the existing config structure and delegates to typed registration.
 
 ### Server Options
 
@@ -32,11 +35,11 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 
 ```go
 // A second gRPC server on its own config block (server.internal.*):
-srv, _ := gtbgrpc.Register(ctx, "internal", controller, props.Config, props.Logger,
+srv, _ := gtbgrpc.RegisterFromContainable(ctx, "internal", controller, props.Config, props.Logger,
     gtbgrpc.WithConfigPrefix("server.internal"))
 
 // ...and a gateway/in-process client dialling that same server:
-conn, _ := gtbgrpc.DialLocal(props.Config, gtbgrpc.WithConfigPrefix("server.internal"))
+conn, _ := gtbgrpc.DialLocalFromContainable(props.Config, gtbgrpc.WithConfigPrefix("server.internal"))
 ```
 
 ## Interceptor Chaining
@@ -153,11 +156,12 @@ This uses the same shared hardened TLS config from [`pkg/tls`](tls.md) as the au
 The package also provides the client side, used for example by the [gateway](gateway.md) when it dials the gRPC server over a self-signed or private-CA certificate:
 
 - **`TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, error)`**: client transport credentials trusting the given CA/cert files — the mirror of `TLSServerCredentials`. With no files it trusts the system roots.
-- **`DialLocal(cfg config.Containable, opts ...any) (*grpc.ClientConn, error)`**: dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`<prefix>.tls` cascading to `server.tls`). The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix` to dial a non-default server) and `grpc.DialOption` values. Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
+- **`DialLocal(settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.ClientConn, error)`**: dials the local gRPC server from explicit typed settings and TLS information.
+- **`DialLocalFromContainable(cfg config.Containable, opts ...any) (*grpc.ClientConn, error)`**: GTB adapter that dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`<prefix>.tls` cascading to `server.tls`). The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix` to dial a non-default server) and `grpc.DialOption` values. Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
 
 ```go
 // Connect to the local gRPC server with matching transport security in one call.
-conn, err := gtbgrpc.DialLocal(props.Config)
+conn, err := gtbgrpc.DialLocalFromContainable(props.Config)
 if err != nil {
     return err
 }
@@ -183,7 +187,7 @@ chain := gtbgrpc.NewInterceptorChain(
 )
 
 // Register with interceptors
-srv, err := gtbgrpc.Register(ctx, "grpc-api", controller, props.Config, props.Logger,
+srv, err := gtbgrpc.RegisterFromContainable(ctx, "grpc-api", controller, props.Config, props.Logger,
     gtbgrpc.WithInterceptors(chain),
 )
 if err != nil {

@@ -44,7 +44,7 @@ chain := gtbhttp.NewChain(
     gtbhttp.LoggingMiddleware(props.Logger),
     authMW, // after logging, so failures are logged; before the handler
 )
-gtbhttp.Register(ctx, "api", controller, props.Config, props.Logger, mux,
+gtbhttp.RegisterFromContainable(ctx, "api", controller, props.Config, props.Logger, mux,
     gtbhttp.WithMiddleware(chain))
 
 // 3. Read the verified identity in a handler.
