@@ -1219,10 +1219,10 @@ type GiteaSettings struct {
     Auth   vcs.AuthConfig `mapstructure:"auth"`
 }
 
-type BitbucketConfig struct {
-    Username    credentials.Reference `mapstructure:"username"`
-    AppPassword credentials.Reference `mapstructure:"app_password"`
-    Pattern     string                `mapstructure:"filename_pattern"`
+type BitbucketSettings struct {
+    Username        string `mapstructure:"username"`
+    AppPassword     string `mapstructure:"app_password"`
+    FilenamePattern string `mapstructure:"filename_pattern"`
 }
 
 type DirectSettings struct {

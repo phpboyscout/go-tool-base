@@ -342,7 +342,7 @@ func TestBitbucketProvider_DownloadReleaseAsset_HTTPError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	p, err := bitbucket.NewReleaseProvider(release.ReleaseSourceConfig{}, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, release.ReleaseSourceConfig{}))
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(
@@ -357,7 +357,7 @@ func TestBitbucketProvider_DownloadReleaseAsset_HTTPError(t *testing.T) {
 func TestBitbucketProvider_DownloadReleaseAsset_BadURL(t *testing.T) {
 	t.Parallel()
 
-	p, err := bitbucket.NewReleaseProvider(release.ReleaseSourceConfig{}, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, release.ReleaseSourceConfig{}))
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(
@@ -375,7 +375,7 @@ func TestBitbucketProvider_DownloadReleaseAsset_TransportError(t *testing.T) {
 	closedURL := srv.URL
 	srv.Close()
 
-	p, err := bitbucket.NewReleaseProvider(release.ReleaseSourceConfig{}, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, release.ReleaseSourceConfig{}))
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(

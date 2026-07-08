@@ -142,7 +142,7 @@ func TestBitbucketProvider_GetReleaseByTag_NotSupported(t *testing.T) {
 
 	src := release.ReleaseSourceConfig{}
 
-	p, err := bitbucket.NewReleaseProvider(src, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	require.NoError(t, err)
 
 	_, err = p.GetReleaseByTag(context.Background(), "workspace", "repo", "v1.0.0")
@@ -154,7 +154,7 @@ func TestBitbucketProvider_ListReleases_NotSupported(t *testing.T) {
 
 	src := release.ReleaseSourceConfig{}
 
-	p, err := bitbucket.NewReleaseProvider(src, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	require.NoError(t, err)
 
 	_, err = p.ListReleases(context.Background(), "workspace", "repo", 10)
@@ -172,7 +172,7 @@ func TestBitbucketProvider_DownloadReleaseAsset(t *testing.T) {
 
 	src := release.ReleaseSourceConfig{}
 
-	p, err := bitbucket.NewReleaseProvider(src, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	require.NoError(t, err)
 
 	asset := &stubAsset{url: srv.URL + "/asset"}
@@ -190,7 +190,7 @@ func TestBitbucketProvider_DownloadReleaseAsset_EmptyURL(t *testing.T) {
 
 	src := release.ReleaseSourceConfig{}
 
-	p, err := bitbucket.NewReleaseProvider(src, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	require.NoError(t, err)
 
 	_, _, err = p.DownloadReleaseAsset(context.Background(), "", "", &stubAsset{url: ""})
@@ -307,7 +307,7 @@ func TestBitbucketProvider_Private_MissingCredentials_Error(t *testing.T) {
 	t.Parallel()
 
 	src := release.ReleaseSourceConfig{Private: true}
-	_, err := bitbucket.NewReleaseProvider(src, nil)
+	_, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "credentials required")
 }
@@ -318,7 +318,7 @@ func TestBitbucketProvider_InvalidPattern_Error(t *testing.T) {
 	src := release.ReleaseSourceConfig{
 		Params: map[string]string{"filename_pattern": "[invalid"},
 	}
-	_, err := bitbucket.NewReleaseProvider(src, nil)
+	_, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	require.Error(t, err)
 	require.ErrorIs(t, err, regexutil.ErrPatternInvalid)
 }
@@ -335,7 +335,7 @@ func TestBitbucketProvider_OversizePattern_Error(t *testing.T) {
 	}
 
 	start := time.Now()
-	_, err := bitbucket.NewReleaseProvider(src, nil)
+	_, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	elapsed := time.Since(start)
 
 	require.Error(t, err)
@@ -419,7 +419,7 @@ func (r *stubRelease) GetAssets() []release.ReleaseAsset { return r.assets }
 func newProviderWithBase(t *testing.T, src release.ReleaseSourceConfig, serverURL string) (*bitbucket.BitbucketReleaseProvider, error) {
 	t.Helper()
 
-	p, err := bitbucket.NewReleaseProvider(src, nil)
+	p, err := bitbucket.NewReleaseProvider(bitbucketSettings(t, src))
 	if err != nil {
 		return nil, err
 	}
@@ -427,6 +427,15 @@ func newProviderWithBase(t *testing.T, src release.ReleaseSourceConfig, serverUR
 	p.SetAPIBase(serverURL)
 
 	return p, nil
+}
+
+func bitbucketSettings(t *testing.T, src release.ReleaseSourceConfig) bitbucket.Settings {
+	t.Helper()
+
+	settings, err := bitbucket.SettingsFromConfig(src, nil)
+	require.NoError(t, err)
+
+	return settings
 }
 
 type stubAsset struct{ url string }

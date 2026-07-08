@@ -118,7 +118,7 @@ func TestNewReleaseProvider_CorruptKeychainAborts(t *testing.T) {
 
 	cfg := bitbucketConfig(map[string]string{"keychain": "mytool/bitbucket.auth"})
 
-	_, err := NewReleaseProvider(release.ReleaseSourceConfig{}, cfg)
+	_, err := SettingsFromConfig(release.ReleaseSourceConfig{}, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not valid JSON")
 }

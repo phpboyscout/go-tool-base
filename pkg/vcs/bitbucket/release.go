@@ -1,7 +1,3 @@
-// Package bitbucket provides a release.Provider implementation for Bitbucket
-// Cloud using the Downloads API. Bitbucket has no native "Releases" concept;
-// version information is inferred from asset filenames using a configurable
-// regular expression.
 package bitbucket
 
 import (
@@ -99,22 +95,13 @@ type BitbucketReleaseProvider struct {
 	httpClient      *http.Client
 }
 
-// NewReleaseProvider constructs a BitbucketReleaseProvider.
-//
-// Credentials are resolved by [resolveCredentials]; see its doc for the
-// full precedence chain. A corrupt keychain blob aborts construction
-// rather than silently falling through to the legacy literal step.
-//
-// The filename regex can be overridden via src.Params["filename_pattern"].
-func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config) (*BitbucketReleaseProvider, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), bitbucketKeychainTimeout)
-	defer cancel()
+// NewReleaseProvider constructs a BitbucketReleaseProvider from explicit typed
+// settings. Credentials are resolved before construction by GTB adapter code.
+func NewReleaseProvider(settings Settings) (*BitbucketReleaseProvider, error) {
+	src := settings.ReleaseSource
+	username := settings.Username
 
-	username, appPassword, err := resolveCredentials(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-
+	appPassword := settings.AppPassword
 	if src.Private && (username == "" || appPassword == "") {
 		return nil, errors.WithHint(
 			errors.New("bitbucket credentials required for private repository"),
@@ -124,8 +111,8 @@ func NewReleaseProvider(src release.ReleaseSourceConfig, cfg release.Config) (*B
 	}
 
 	patternStr := defaultFilenamePattern
-	if p, ok := src.Params["filename_pattern"]; ok && p != "" {
-		patternStr = p
+	if settings.FilenamePattern != "" {
+		patternStr = settings.FilenamePattern
 	}
 
 	// Config-supplied pattern — bound compile time against ReDoS. Closes
