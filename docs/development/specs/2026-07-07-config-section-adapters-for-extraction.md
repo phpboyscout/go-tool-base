@@ -359,21 +359,48 @@ Configuration values are data. Dependencies are options.
 Hot reload should remain a GTB concern. Extracted modules should not import
 GTB's observer system.
 
-GTB can use config observers to rebuild typed structs and call package-specific
-reload hooks:
+GTB adapters must use config observers to rehydrate typed settings whenever a
+reload succeeds. The adapter is responsible for unmarshalling a fresh settings
+snapshot from the updated `config.Containable`, validating it, and then
+propagating it to the runtime component.
+
+For components that support live reconfiguration, adapters should propagate the
+latest settings through pointers rather than copying values into long-lived
+closures. The preferred pattern is either:
+
+- a package-owned `*Settings` or settings holder passed to the component, where
+  the package documents its concurrency guarantees, or
+- a GTB-owned pointer/holder that the adapter swaps on reload before invoking a
+  package-specific `Reconfigure` method.
+
+Avoid mutating shared structs in place without synchronization. If the settings
+may be read concurrently by request handlers, health checks, transports, or
+background goroutines, use a mutex, `atomic.Pointer[T]`, or an equivalent
+package-owned concurrency boundary so readers always observe a consistent
+settings snapshot.
 
 ```go
+var current atomic.Pointer[http.Settings]
+
+initial, _, err := httpConfigFromGTB(cfg)
+if err != nil {
+    return err
+}
+current.Store(&initial)
+
 cfg.AddObserverFunc(func(next config.Containable) error {
     transportCfg, _, err := httpConfigFromGTB(next)
     if err != nil {
         return err
     }
-    return server.Reconfigure(transportCfg)
+    current.Store(&transportCfg)
+    return server.Reconfigure(&transportCfg)
 })
 ```
 
 Only packages that genuinely support live reconfiguration should expose reload
-methods. Otherwise GTB should document that changes require restart.
+methods. Otherwise GTB should document that changes require restart and the
+adapter should not pretend that pointer propagation is live.
 
 ## 8. Package-by-Package Boundary Plan
 
