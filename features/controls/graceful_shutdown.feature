@@ -37,7 +37,7 @@ Feature: Graceful Shutdown
     And the HTTP server is healthy
     And the controller receives SIGINT
     Then the controller reaches "stopped" state within 3 seconds
-    And the logs contain "Stopped"
+    And the logs contain "Stopped" within 2 seconds
 
   Scenario: SIGINT during startup still shuts down cleanly
     Given a controller with OS signal handling
