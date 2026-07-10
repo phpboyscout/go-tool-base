@@ -173,7 +173,7 @@ func TestHTTPServer_RejectsOversizedHeaders(t *testing.T) {
 	// Use a small MaxHeaderBytes limit so the test does not need to send 1 MB of data.
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{
+	_, err = Register(context.Background(), "test-http", controller, logger.ToSlog(testLogger()), http.NewServeMux(), ServerSettings{
 		Port:           port,
 		MaxHeaderBytes: 100,
 	}, gtbtls.Pair{})
@@ -222,7 +222,7 @@ func TestStart_HTTP(t *testing.T) {
 		Handler: mux,
 	}
 
-	startFn := StartWithTLSPair(testLogger(), srv, gtbtls.Pair{})
+	startFn := StartWithTLSPair(logger.ToSlog(testLogger()), srv, gtbtls.Pair{})
 
 	// Start in goroutine
 	errCh := make(chan error, 1)
@@ -267,7 +267,7 @@ func TestStop(t *testing.T) {
 	// Wait for it to start
 	time.Sleep(50 * time.Millisecond)
 
-	stopFn := Stop(testLogger(), srv)
+	stopFn := Stop(logger.ToSlog(testLogger()), srv)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -334,7 +334,7 @@ func TestStop_ForceClosesAfterShutdownTimeout(t *testing.T) {
 		t.Fatal("handler did not start")
 	}
 
-	stopFn := Stop(testLogger(), srv)
+	stopFn := Stop(logger.ToSlog(testLogger()), srv)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
@@ -360,7 +360,7 @@ func TestRegister(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := Register(context.Background(), "test-http", controller, testLogger(), http.DefaultServeMux, ServerSettings{}, gtbtls.Pair{})
+	_, err := Register(context.Background(), "test-http", controller, logger.ToSlog(testLogger()), http.DefaultServeMux, ServerSettings{}, gtbtls.Pair{})
 	assert.NoError(t, err)
 }
 
@@ -398,7 +398,7 @@ func TestStart_TLSBadCertFailsSynchronously(t *testing.T) {
 	t.Parallel()
 
 	srv := &http.Server{Addr: ":0"}
-	startFn := StartWithTLSPair(testLogger(), srv, gtbtls.Pair{
+	startFn := StartWithTLSPair(logger.ToSlog(testLogger()), srv, gtbtls.Pair{
 		Enabled: true,
 		Cert:    "/nonexistent/cert.pem",
 		Key:     "/nonexistent/key.pem",
@@ -429,7 +429,7 @@ func TestHealthz(t *testing.T) {
 		controls.WithStatus(func() error { return fmt.Errorf("failed") }),
 	)
 
-	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{})
+	_, err = Register(context.Background(), "test-http", controller, logger.ToSlog(testLogger()), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -466,7 +466,7 @@ func TestProbes(t *testing.T) {
 		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
 	)
 
-	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{})
+	_, err = Register(context.Background(), "test-http", controller, logger.ToSlog(testLogger()), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -519,7 +519,7 @@ func TestRegister_WithMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	_, err = Register(context.Background(), "test-http", controller, testLogger(), mux, ServerSettings{Port: port}, gtbtls.Pair{},
+	_, err = Register(context.Background(), "test-http", controller, logger.ToSlog(testLogger()), mux, ServerSettings{Port: port}, gtbtls.Pair{},
 		WithMiddleware(chain),
 	)
 	require.NoError(t, err)
@@ -560,7 +560,7 @@ func TestRegister_WithMiddleware_HealthEndpointsUnaffected(t *testing.T) {
 		})
 	})
 
-	_, err = Register(context.Background(), "test-http", controller, testLogger(), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{},
+	_, err = Register(context.Background(), "test-http", controller, logger.ToSlog(testLogger()), http.NewServeMux(), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithMiddleware(chain),
 	)
 	require.NoError(t, err)

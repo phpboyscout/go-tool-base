@@ -50,7 +50,7 @@ func TestRateLimitConfig_Normalized(t *testing.T) {
 func TestRateLimitInterceptor_UnaryAdmitsThenRejects(t *testing.T) {
 	t.Parallel()
 
-	ic := RateLimitInterceptor(logger.NewNoop(), RateLimitConfig{RequestsPerSecond: 1, Burst: 1})
+	ic := RateLimitInterceptor(logger.ToSlog(logger.NewNoop()), RateLimitConfig{RequestsPerSecond: 1, Burst: 1})
 	info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
 
 	resp, err := ic.Unary(context.Background(), nil, info, okUnaryHandler)
@@ -65,7 +65,7 @@ func TestRateLimitInterceptor_UnaryAdmitsThenRejects(t *testing.T) {
 func TestRateLimitInterceptor_StreamAdmitsThenRejects(t *testing.T) {
 	t.Parallel()
 
-	ic := RateLimitInterceptor(logger.NewNoop(), RateLimitConfig{RequestsPerSecond: 1, Burst: 1})
+	ic := RateLimitInterceptor(logger.ToSlog(logger.NewNoop()), RateLimitConfig{RequestsPerSecond: 1, Burst: 1})
 	info := &grpc.StreamServerInfo{FullMethod: "/test.Service/Stream"}
 	ss := &fakeServerStream{ctx: context.Background()}
 
@@ -86,7 +86,7 @@ func TestRateLimitInterceptor_OnLimitedCallback(t *testing.T) {
 		Burst:             1,
 		OnLimited:         func(_ context.Context, fullMethod string) { got = fullMethod },
 	}
-	ic := RateLimitInterceptor(logger.NewNoop(), cfg)
+	ic := RateLimitInterceptor(logger.ToSlog(logger.NewNoop()), cfg)
 	info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
 
 	_, _ = ic.Unary(context.Background(), nil, info, okUnaryHandler)
@@ -99,7 +99,7 @@ func TestRateLimitInterceptor_PerPeerKey(t *testing.T) {
 	t.Parallel()
 
 	cfg := RateLimitConfig{RequestsPerSecond: 1, Burst: 1, KeyFunc: PeerKey}
-	ic := RateLimitInterceptor(logger.NewNoop(), cfg)
+	ic := RateLimitInterceptor(logger.ToSlog(logger.NewNoop()), cfg)
 	info := &grpc.UnaryServerInfo{FullMethod: "/test.Service/Method"}
 
 	ctxFor := func(ip string) context.Context {

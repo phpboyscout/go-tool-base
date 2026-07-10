@@ -138,7 +138,7 @@ func NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server
 // With no options it reads its port and TLS from the default "server.grpc"
 // config block; pass WithConfigPrefix/WithPort to target a custom server.
 // TLS configuration cascades: <prefix>.tls.* overrides server.tls.* shared defaults.
-func StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc {
+func StartFromContainable(cfg config.Containable, log logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -151,7 +151,7 @@ func StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grp
 	settings := serverSettingsFromConfig(cfg, sc.prefix, sc.port == nil, false)
 	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
 
-	return start(logger, srv, settings, tlsPair, sc, nil)
+	return start(logger.ToSlog(log), srv, settings, tlsPair, sc, nil)
 }
 
 // DialLocalFromContainable dials the gRPC server described by cfg over the loopback interface,
@@ -186,7 +186,7 @@ func DialLocalFromContainable(cfg config.Containable, opts ...any) (*grpc.Client
 // with the controller under the given id. The opts variadic accepts ServerOption
 // values (port, prefix), RegisterOption values (interceptors) and
 // grpc.ServerOption values.
-func RegisterFromContainable(_ context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error) {
+func RegisterFromContainable(_ context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, opts ...any) (*grpc.Server, error) {
 	sc := defaultServerConfig()
 
 	var rc registerConfig
@@ -205,13 +205,13 @@ func RegisterFromContainable(_ context.Context, id string, controller controls.C
 	}
 
 	if sc.prefix == "" {
-		return register(id, controller, logger, ServerSettings{}, gtbtls.Pair{}, sc, rc, serverOpts)
+		return register(id, controller, logger.ToSlog(log), ServerSettings{}, gtbtls.Pair{}, sc, rc, serverOpts)
 	}
 
 	settings := serverSettingsFromConfig(cfg, sc.prefix, sc.port == nil, true)
 	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
 
-	return register(id, controller, logger, settings, tlsPair, sc, rc, serverOpts)
+	return register(id, controller, logger.ToSlog(log), settings, tlsPair, sc, rc, serverOpts)
 }
 
 // RateLimitConfigFromConfig builds a RateLimitConfig from the config layer

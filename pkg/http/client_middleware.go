@@ -2,14 +2,13 @@ package http
 
 import (
 	"encoding/base64"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"golang.org/x/time/rate"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // ClientMiddleware wraps an http.RoundTripper with additional behaviour.
@@ -61,7 +60,7 @@ func WithClientMiddleware(chain ClientChain) ClientOption {
 // WithRequestLogging returns middleware that logs each outbound request and
 // response at debug level. Logs method, URL, status code, and duration.
 // Headers and body are NOT logged for security.
-func WithRequestLogging(log logger.Logger) ClientMiddleware {
+func WithRequestLogging(log *slog.Logger) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
 			start := time.Now()

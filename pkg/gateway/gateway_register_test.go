@@ -108,7 +108,7 @@ func TestWithMiddleware_Register(t *testing.T) {
 
 	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.ToSlog(logger.NewNoop()), testConn(t),
 		gtbhttp.ServerSettings{Port: port}, gtbtls.Pair{}, noopRegister, gateway.WithMiddleware(chain))
 	require.NoError(t, err)
 
@@ -151,7 +151,7 @@ func TestRegister(t *testing.T) {
 
 	var registerCalled bool
 
-	srv, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+	srv, err := gateway.Register(context.Background(), "test-gateway", controller, logger.ToSlog(logger.NewNoop()), testConn(t),
 		gtbhttp.ServerSettings{Port: port}, gtbtls.Pair{},
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			registerCalled = true
@@ -190,7 +190,7 @@ func TestRegister_ServesGatewayMux(t *testing.T) {
 	port := freePort(t)
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.ToSlog(logger.NewNoop()), testConn(t),
 		gtbhttp.ServerSettings{Port: port}, gtbtls.Pair{}, noopRegister)
 	require.NoError(t, err)
 
@@ -220,7 +220,7 @@ func TestRegister_PropagatesRegisterError(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.NewNoop(), testConn(t),
+	_, err := gateway.Register(context.Background(), "test-gateway", controller, logger.ToSlog(logger.NewNoop()), testConn(t),
 		gtbhttp.ServerSettings{Port: freePort(t)}, gtbtls.Pair{},
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			return errors.New("register boom")

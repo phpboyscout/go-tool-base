@@ -95,13 +95,13 @@ func NewFromConfig(ctx context.Context, cfg config.Containable, register Registe
 // dialing the local gRPC server. It is the first-class form of New, a peer of
 // grpc.Register and http.Register. Pass WithMiddleware to wrap the REST surface
 // with a middleware chain (health endpoints stay outside it).
-func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
-	return RegisterFromConfig(ctx, id, controller, cfg, logger, register, opts...)
+func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
+	return RegisterFromConfig(ctx, id, controller, cfg, log, register, opts...)
 }
 
 // RegisterFromConfig runs the gateway with GTB config resolved into typed
 // transport settings before delegating to the config-free constructor.
-func RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
+func RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
 	o := newOptions(opts)
 	settings := SettingsFromConfig(cfg)
 
@@ -126,7 +126,7 @@ func RegisterFromConfig(ctx context.Context, id string, controller controls.Cont
 		ctx,
 		id,
 		controller,
-		logger,
+		logger.ToSlog(log),
 		handler,
 		settings.HTTP,
 		settings.HTTPTLS,

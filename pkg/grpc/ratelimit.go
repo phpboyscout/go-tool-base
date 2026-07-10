@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"log/slog"
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
@@ -10,7 +11,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/ratelimit"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -95,7 +95,7 @@ func (c RateLimitConfig) normalized() RateLimitConfig {
 //
 // Like the HTTP limiter, admission is non-blocking (Allow, not Wait): ingress
 // must reject excess, never queue it, or a flood would exhaust memory.
-func RateLimitInterceptor(log logger.Logger, cfg RateLimitConfig) Interceptor {
+func RateLimitInterceptor(log *slog.Logger, cfg RateLimitConfig) Interceptor {
 	cfg = cfg.normalized()
 
 	limit := rate.Limit(cfg.RequestsPerSecond)

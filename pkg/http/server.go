@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
@@ -267,7 +267,7 @@ func (s *serveState) status() error {
 	return s.exitErr
 }
 
-func start(logger logger.Logger, srv *http.Server, tlsPair gtbtls.Pair, state *serveState) controls.StartFunc {
+func start(logger *slog.Logger, srv *http.Server, tlsPair gtbtls.Pair, state *serveState) controls.StartFunc {
 	return func(ctx context.Context) error {
 		// Load the TLS material synchronously before serving so a misconfigured
 		// or missing certificate fails the start (and the controller) loudly,
@@ -322,7 +322,7 @@ func start(logger logger.Logger, srv *http.Server, tlsPair gtbtls.Pair, state *s
 
 // StartWithTLSPair returns a curried function suitable for use with the
 // controls package from explicit TLS settings.
-func StartWithTLSPair(logger logger.Logger, srv *http.Server, tlsPair gtbtls.Pair) controls.StartFunc {
+func StartWithTLSPair(logger *slog.Logger, srv *http.Server, tlsPair gtbtls.Pair) controls.StartFunc {
 	return start(logger, srv, tlsPair, nil)
 }
 
@@ -331,7 +331,7 @@ func StartWithTLSPair(logger logger.Logger, srv *http.Server, tlsPair gtbtls.Pai
 // context expires (or Shutdown otherwise errors) the server is force-closed via
 // Close so a hung handler cannot leave the listener and connections open,
 // mirroring the gRPC transport's graceful-then-force-stop behaviour.
-func Stop(logger logger.Logger, srv *http.Server) controls.StopFunc {
+func Stop(logger *slog.Logger, srv *http.Server) controls.StopFunc {
 	return func(ctx context.Context) {
 		logger.Info("stopping http server", "addr", srv.Addr)
 
@@ -423,7 +423,7 @@ func register(
 	ctx context.Context,
 	id string,
 	controller controls.Controllable,
-	logger logger.Logger,
+	logger *slog.Logger,
 	handler http.Handler,
 	settings ServerSettings,
 	tlsPair gtbtls.Pair,
@@ -463,7 +463,7 @@ func Register(
 	ctx context.Context,
 	id string,
 	controller controls.Controllable,
-	logger logger.Logger,
+	logger *slog.Logger,
 	handler http.Handler,
 	settings ServerSettings,
 	tlsPair gtbtls.Pair,

@@ -149,7 +149,7 @@ func TestRegister_WithConfigPrefix_RoutesServerOption(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := Register(context.Background(), "admin", controller, testLogger(), http.DefaultServeMux, ServerSettings{}, gtbtls.Pair{},
+	srv, err := Register(context.Background(), "admin", controller, logger.ToSlog(testLogger()), http.DefaultServeMux, ServerSettings{}, gtbtls.Pair{},
 		WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, srv)
@@ -162,7 +162,7 @@ func TestStart_EmptyPrefixDefaultsToHTTP(t *testing.T) {
 
 	srv := &http.Server{Addr: ":0", Handler: http.NewServeMux()}
 
-	startFn := StartWithTLSPair(logger.NewCharm(&buf), srv, gtbtls.Pair{})
+	startFn := StartWithTLSPair(logger.ToSlog(logger.NewCharm(&buf)), srv, gtbtls.Pair{})
 	require.NoError(t, startFn(context.Background()))
 
 	t.Cleanup(func() {
@@ -187,7 +187,7 @@ func TestStart_LogsBoundEphemeralPort(t *testing.T) {
 		Handler: http.NewServeMux(),
 	}
 
-	startFn := StartWithTLSPair(logger.NewCharm(&buf), srv, gtbtls.Pair{})
+	startFn := StartWithTLSPair(logger.ToSlog(logger.NewCharm(&buf)), srv, gtbtls.Pair{})
 	require.NoError(t, startFn(context.Background()))
 
 	t.Cleanup(func() {
@@ -213,7 +213,7 @@ func TestStart_WithExplicitTLSPair(t *testing.T) {
 
 	srv := &http.Server{Addr: ":0", Handler: http.NewServeMux()}
 
-	startFn := StartWithTLSPair(logger.NewCharm(&buf), srv, gtbtls.Pair{})
+	startFn := StartWithTLSPair(logger.ToSlog(logger.NewCharm(&buf)), srv, gtbtls.Pair{})
 	require.NoError(t, startFn(context.Background()))
 
 	t.Cleanup(func() {

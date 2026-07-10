@@ -2,13 +2,13 @@ package http
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/cockroachdb/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
@@ -23,7 +23,7 @@ type authConfig struct {
 	cookie     authn.Verifier
 	mtls       authn.CertVerifier
 	authorize  authn.AuthorizeFunc
-	log        logger.Logger
+	log        *slog.Logger
 	skip       func(*http.Request) bool
 }
 
@@ -65,7 +65,7 @@ func WithAuthorize(fn authn.AuthorizeFunc) AuthOption {
 }
 
 // WithAuthLogger sets the logger for redacted server-side auth failure logging.
-func WithAuthLogger(l logger.Logger) AuthOption {
+func WithAuthLogger(l *slog.Logger) AuthOption {
 	return func(c *authConfig) { c.log = l }
 }
 
@@ -99,7 +99,7 @@ func AuthMiddleware(opts ...AuthOption) (Middleware, error) {
 	}
 
 	if cfg.log == nil {
-		cfg.log = logger.NewNoop()
+		cfg.log = slog.New(slog.DiscardHandler)
 	}
 
 	return func(next http.Handler) http.Handler {

@@ -116,7 +116,7 @@ func TestUnaryBreaker_OpensAndRejects(t *testing.T) {
 
 	var calls atomic.Int64
 
-	ic := CircuitBreakerInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 2, Cooldown: time.Minute})
+	ic := CircuitBreakerInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 2, Cooldown: time.Minute})
 	invoker := unaryInvoker(status.Error(codes.Unavailable, "down"), &calls)
 
 	for range 2 {
@@ -137,7 +137,7 @@ func TestUnaryBreaker_ResourceExhaustedDoesNotTrip(t *testing.T) {
 
 	var calls atomic.Int64
 
-	ic := CircuitBreakerInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 2, Cooldown: time.Minute})
+	ic := CircuitBreakerInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 2, Cooldown: time.Minute})
 	invoker := unaryInvoker(status.Error(codes.ResourceExhausted, "slow down"), &calls)
 
 	for range 5 {
@@ -156,7 +156,7 @@ func TestUnaryBreaker_HalfOpenRecovery(t *testing.T) {
 	var down atomic.Bool
 	down.Store(true)
 
-	ic := newCircuitBreakerInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: 30 * time.Second}, clock.now)
+	ic := newCircuitBreakerInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: 30 * time.Second}, clock.now)
 	invoker := func(_ context.Context, _ string, _, _ any, _ *grpc.ClientConn, _ ...grpc.CallOption) error {
 		if down.Load() {
 			return status.Error(codes.Unavailable, "down")
@@ -182,7 +182,7 @@ func TestStreamBreaker_EstablishmentFailureCounts(t *testing.T) {
 
 	var calls atomic.Int64
 
-	ic := CircuitBreakerStreamInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
+	ic := CircuitBreakerStreamInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
 	streamer := streamerReturning(nil, status.Error(codes.Unavailable, "down"), &calls)
 
 	_, err := ic(context.Background(), &grpc.StreamDesc{}, nil, "/m", streamer)
@@ -200,7 +200,7 @@ func TestStreamBreaker_PerMessageFailureCounts(t *testing.T) {
 	// Stream establishes fine, but RecvMsg returns Unavailable: that per-message
 	// failure must count against the breaker (OQ3 — not establishment-only).
 	stream := &fakeClientStream{recvErr: status.Error(codes.Unavailable, "mid-stream")}
-	ic := CircuitBreakerStreamInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
+	ic := CircuitBreakerStreamInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
 	streamer := streamerReturning(stream, nil, nil)
 
 	cs, err := ic(context.Background(), &grpc.StreamDesc{}, nil, "/m", streamer)
@@ -218,7 +218,7 @@ func TestStreamBreaker_EOFIsSuccess(t *testing.T) {
 	t.Parallel()
 
 	stream := &fakeClientStream{recvErr: io.EOF}
-	ic := CircuitBreakerStreamInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
+	ic := CircuitBreakerStreamInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
 	streamer := streamerReturning(stream, nil, nil)
 
 	cs, err := ic(context.Background(), &grpc.StreamDesc{}, nil, "/m", streamer)
@@ -238,7 +238,7 @@ func TestStreamBreaker_SendMsgFailureCounts(t *testing.T) {
 
 	// A SendMsg error (non-EOF) is a per-message failure and must count.
 	stream := &fakeClientStream{sendErr: status.Error(codes.Unavailable, "send broke")}
-	ic := CircuitBreakerStreamInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
+	ic := CircuitBreakerStreamInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
 	streamer := streamerReturning(stream, nil, nil)
 
 	cs, err := ic(context.Background(), &grpc.StreamDesc{}, nil, "/m", streamer)
@@ -256,7 +256,7 @@ func TestStreamBreaker_SendMsgEOFNotCounted(t *testing.T) {
 	// io.EOF from SendMsg means the RPC completed; the real status comes via
 	// RecvMsg, so SendMsg's EOF is not itself a breaker failure.
 	stream := &fakeClientStream{sendErr: io.EOF}
-	ic := CircuitBreakerStreamInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
+	ic := CircuitBreakerStreamInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 1, Cooldown: time.Minute})
 	streamer := streamerReturning(stream, nil, nil)
 
 	cs, err := ic(context.Background(), &grpc.StreamDesc{}, nil, "/m", streamer)
@@ -288,7 +288,7 @@ func TestUnaryBreaker_OnStateChangeFires(t *testing.T) {
 			transitions = append(transitions, from.String()+"->"+to.String())
 		},
 	}
-	ic := CircuitBreakerInterceptor(logger.NewNoop(), cfg)
+	ic := CircuitBreakerInterceptor(logger.ToSlog(logger.NewNoop()), cfg)
 	var calls atomic.Int64
 	_ = ic(context.Background(), "/m", nil, nil, nil, unaryInvoker(status.Error(codes.Unavailable, ""), &calls))
 
@@ -302,7 +302,7 @@ func TestUnaryBreaker_ConcurrentRace(t *testing.T) {
 
 	var calls atomic.Int64
 
-	ic := CircuitBreakerInterceptor(logger.NewNoop(), CircuitBreakerConfig{FailureThreshold: 3, Cooldown: time.Millisecond})
+	ic := CircuitBreakerInterceptor(logger.ToSlog(logger.NewNoop()), CircuitBreakerConfig{FailureThreshold: 3, Cooldown: time.Millisecond})
 	invoker := unaryInvoker(status.Error(codes.Unavailable, "down"), &calls)
 
 	var wg sync.WaitGroup

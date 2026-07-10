@@ -2,14 +2,13 @@ package grpc
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const rpcKeyvalCapacity = 10
@@ -18,21 +17,21 @@ const rpcKeyvalCapacity = 10
 type GRPCLoggingOption func(*grpcLoggingConfig)
 
 type grpcLoggingConfig struct {
-	level      logger.Level
+	level      slog.Level
 	logLatency bool
 	pathFilter map[string]struct{}
 }
 
 func defaultGRPCLoggingConfig() grpcLoggingConfig {
 	return grpcLoggingConfig{
-		level:      logger.InfoLevel,
+		level:      slog.LevelInfo,
 		logLatency: true,
 	}
 }
 
 // WithGRPCLogLevel sets the log level for successful RPCs.
-// Errors always log at logger.ErrorLevel.
-func WithGRPCLogLevel(level logger.Level) GRPCLoggingOption {
+// Errors always log at slog.LevelError.
+func WithGRPCLogLevel(level slog.Level) GRPCLoggingOption {
 	return func(c *grpcLoggingConfig) {
 		c.level = level
 	}
@@ -60,7 +59,7 @@ func WithGRPCPathFilter(methods ...string) GRPCLoggingOption {
 
 // LoggingInterceptor returns an Interceptor (unary + stream) that logs
 // each completed RPC.
-func LoggingInterceptor(l logger.Logger, opts ...GRPCLoggingOption) Interceptor {
+func LoggingInterceptor(l *slog.Logger, opts ...GRPCLoggingOption) Interceptor {
 	cfg := defaultGRPCLoggingConfig()
 	for _, o := range opts {
 		o(&cfg)
@@ -72,7 +71,7 @@ func LoggingInterceptor(l logger.Logger, opts ...GRPCLoggingOption) Interceptor 
 	}
 }
 
-func unaryLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.UnaryServerInterceptor {
+func unaryLoggingInterceptor(l *slog.Logger, cfg grpcLoggingConfig) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if _, filtered := cfg.pathFilter[info.FullMethod]; filtered {
 			return handler(ctx, req)
@@ -87,7 +86,7 @@ func unaryLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.UnaryS
 	}
 }
 
-func streamLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.StreamServerInterceptor {
+func streamLoggingInterceptor(l *slog.Logger, cfg grpcLoggingConfig) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		if _, filtered := cfg.pathFilter[info.FullMethod]; filtered {
 			return handler(srv, ss)
@@ -109,7 +108,7 @@ func streamLoggingInterceptor(l logger.Logger, cfg grpcLoggingConfig) grpc.Strea
 
 func emitRPCLog(
 	ctx context.Context,
-	l logger.Logger,
+	l *slog.Logger,
 	cfg grpcLoggingConfig,
 	method, rpcType string,
 	start time.Time,
@@ -127,7 +126,7 @@ func emitRPCLog(
 
 	level := cfg.level
 	if code != codes.OK {
-		level = logger.ErrorLevel
+		level = slog.LevelError
 	}
 
 	keyvals := make([]any, 0, rpcKeyvalCapacity)
@@ -141,20 +140,11 @@ func emitRPCLog(
 		keyvals = append(keyvals, "trace_id", sc.TraceID().String(), "span_id", sc.SpanID().String())
 	}
 
-	grpcLogAtLevel(l.With(keyvals...), level, "rpc completed")
+	grpcLogAtLevel(ctx, l.With(keyvals...), level, "rpc completed")
 }
 
-func grpcLogAtLevel(l logger.Logger, level logger.Level, msg string) {
-	switch level {
-	case logger.DebugLevel:
-		l.Debug(msg)
-	case logger.InfoLevel:
-		l.Info(msg)
-	case logger.WarnLevel:
-		l.Warn(msg)
-	case logger.ErrorLevel, logger.FatalLevel:
-		// Request logging must never terminate the process; a fatal-level
-		// request log is emitted at error level.
-		l.Error(msg)
-	}
+func grpcLogAtLevel(ctx context.Context, l *slog.Logger, level slog.Level, msg string) {
+	// slog emits at a dynamic level directly; request logging never terminates
+	// the process, so there is no fatal level to special-case.
+	l.Log(ctx, level, msg)
 }

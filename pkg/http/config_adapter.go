@@ -126,7 +126,7 @@ func NewServerFromContainable(ctx context.Context, cfg config.Containable, handl
 // Start returns a curried function suitable for use with the controls package.
 // With no options it reads TLS from the default "server.http" config prefix;
 // pass WithConfigPrefix to match a server constructed on a custom prefix.
-func StartFromContainable(cfg config.Containable, logger logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc {
+func StartFromContainable(cfg config.Containable, log logger.Logger, srv *http.Server, opts ...ServerOption) controls.StartFunc {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -136,14 +136,14 @@ func StartFromContainable(cfg config.Containable, logger logger.Logger, srv *htt
 		sc.prefix = DefaultConfigPrefix
 	}
 
-	return start(logger, srv, gtbtls.Resolve(cfg, sc.prefix+".tls"), nil)
+	return start(logger.ToSlog(log), srv, gtbtls.Resolve(cfg, sc.prefix+".tls"), nil)
 }
 
 // Register creates a new HTTP server and registers it with the controller under
 // the given id. The opts variadic accepts both ServerOption values (port,
 // prefix, timeouts) and RegisterOption values (middleware, body limit) — other
 // types are ignored. This mirrors the pkg/grpc Register signature.
-func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
+func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
 	rc := registerConfig{
 		serverConfig:        defaultServerConfig(),
 		maxRequestBodyBytes: DefaultMaxRequestBodyBytes,
@@ -159,17 +159,17 @@ func RegisterFromContainable(ctx context.Context, id string, controller controls
 	}
 
 	if rc.prefix == "" {
-		return register(ctx, id, controller, logger, handler, ServerSettings{}, gtbtls.Pair{}, rc)
+		return register(ctx, id, controller, logger.ToSlog(log), handler, ServerSettings{}, gtbtls.Pair{}, rc)
 	}
 
 	if rc.port != nil && (*rc.port < 0 || *rc.port > maxPort) {
-		return register(ctx, id, controller, logger, handler, ServerSettings{}, gtbtls.Pair{}, rc)
+		return register(ctx, id, controller, logger.ToSlog(log), handler, ServerSettings{}, gtbtls.Pair{}, rc)
 	}
 
 	settings := serverSettingsFromConfig(cfg, rc.prefix, rc.port == nil, rc.maxHeaderBytes == 0)
 	tlsPair := gtbtls.Resolve(cfg, rc.prefix+".tls")
 
-	return register(ctx, id, controller, logger, handler, settings, tlsPair, rc)
+	return register(ctx, id, controller, logger.ToSlog(log), handler, settings, tlsPair, rc)
 }
 
 // RateLimitConfigFromConfig builds a RateLimitConfig from the config layer

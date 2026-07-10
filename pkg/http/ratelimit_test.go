@@ -53,7 +53,7 @@ func TestRateLimit_AdmitsUnderRate(t *testing.T) {
 	t.Parallel()
 
 	// Burst of 5 admits 5 instantaneous requests at a low fill rate.
-	mw := RateLimitMiddleware(logger.NewNoop(), RateLimitConfig{RequestsPerSecond: 1, Burst: 5})
+	mw := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), RateLimitConfig{RequestsPerSecond: 1, Burst: 5})
 	handler := mw(okHandler())
 
 	for i := range 5 {
@@ -67,7 +67,7 @@ func TestRateLimit_Rejects429(t *testing.T) {
 	t.Parallel()
 
 	// Burst of 1: the first request passes, the second is rejected.
-	mw := RateLimitMiddleware(logger.NewNoop(), RateLimitConfig{RequestsPerSecond: 1, Burst: 1})
+	mw := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), RateLimitConfig{RequestsPerSecond: 1, Burst: 1})
 	handler := mw(okHandler())
 
 	first := httptest.NewRecorder()
@@ -91,7 +91,7 @@ func TestRateLimit_OnLimitedCallback(t *testing.T) {
 		Burst:             1,
 		OnLimited:         func(*http.Request) { called.Add(1) },
 	}
-	handler := RateLimitMiddleware(logger.NewNoop(), cfg)(okHandler())
+	handler := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), cfg)(okHandler())
 
 	for range 2 {
 		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
@@ -106,7 +106,7 @@ func TestRateLimit_PerClientKey(t *testing.T) {
 	// Burst 1 per key: each distinct client IP gets its own bucket, so two
 	// different IPs each get one admitted request.
 	cfg := RateLimitConfig{RequestsPerSecond: 1, Burst: 1, KeyFunc: ClientIPKey}
-	handler := RateLimitMiddleware(logger.NewNoop(), cfg)(okHandler())
+	handler := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), cfg)(okHandler())
 
 	serve := func(remoteAddr string) int {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -127,7 +127,7 @@ func TestRateLimit_GlobalNilKeyFunc(t *testing.T) {
 
 	// With KeyFunc nil, all clients share one bucket regardless of source IP.
 	cfg := RateLimitConfig{RequestsPerSecond: 1, Burst: 1}
-	handler := RateLimitMiddleware(logger.NewNoop(), cfg)(okHandler())
+	handler := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), cfg)(okHandler())
 
 	req1 := httptest.NewRequest(http.MethodGet, "/", nil)
 	req1.RemoteAddr = "10.0.0.1:1111"
@@ -151,7 +151,7 @@ func TestRateLimit_NonBlocking(t *testing.T) {
 	// under Allow it returns immediately with 429. The test simply asserts the
 	// call returns without hanging the test deadline.
 	cfg := RateLimitConfig{RequestsPerSecond: 1, Burst: 1}
-	handler := RateLimitMiddleware(logger.NewNoop(), cfg)(okHandler())
+	handler := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), cfg)(okHandler())
 
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 
@@ -201,7 +201,7 @@ func TestRateLimit_ConcurrentRace(t *testing.T) {
 	// Race-detector exercise: concurrent requests across many keys must be
 	// race-clean with no package-level mutable state.
 	cfg := RateLimitConfig{RequestsPerSecond: 1000, Burst: 1000, KeyFunc: ClientIPKey, MaxTrackedKeys: 64}
-	handler := RateLimitMiddleware(logger.NewNoop(), cfg)(okHandler())
+	handler := RateLimitMiddleware(logger.ToSlog(logger.NewNoop()), cfg)(okHandler())
 
 	var wg sync.WaitGroup
 	for i := range 200 {

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/cockroachdb/errors"
@@ -18,7 +19,7 @@ func TestLoggingInterceptor_Unary_DefaultFields(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf)
+	interceptor := LoggingInterceptor(logger.ToSlog(buf))
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/pkg.Service/DoThing"}
 	handler := func(_ context.Context, _ any) (any, error) {
@@ -45,7 +46,7 @@ func TestLoggingInterceptor_Unary_ErrorLogsAtErrorLevel(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf)
+	interceptor := LoggingInterceptor(logger.ToSlog(buf))
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/pkg.Service/Fail"}
 	handler := func(_ context.Context, _ any) (any, error) {
@@ -67,7 +68,7 @@ func TestLoggingInterceptor_Unary_NonGRPCError(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf)
+	interceptor := LoggingInterceptor(logger.ToSlog(buf))
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/pkg.Service/Fail"}
 	handler := func(_ context.Context, _ any) (any, error) {
@@ -85,7 +86,7 @@ func TestLoggingInterceptor_Unary_WithLogLevel(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf, WithGRPCLogLevel(logger.DebugLevel))
+	interceptor := LoggingInterceptor(logger.ToSlog(buf), WithGRPCLogLevel(slog.LevelDebug))
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/pkg.Service/Do"}
 	handler := func(_ context.Context, _ any) (any, error) { return "ok", nil }
@@ -99,7 +100,7 @@ func TestLoggingInterceptor_Unary_WithoutLatency(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf, WithoutGRPCLatency())
+	interceptor := LoggingInterceptor(logger.ToSlog(buf), WithoutGRPCLatency())
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/pkg.Service/Do"}
 	handler := func(_ context.Context, _ any) (any, error) { return "ok", nil }
@@ -114,7 +115,7 @@ func TestLoggingInterceptor_Unary_WithPathFilter(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf, WithGRPCPathFilter("/grpc.health.v1.Health/Check"))
+	interceptor := LoggingInterceptor(logger.ToSlog(buf), WithGRPCPathFilter("/grpc.health.v1.Health/Check"))
 
 	info := &grpc.UnaryServerInfo{FullMethod: "/grpc.health.v1.Health/Check"}
 	handler := func(_ context.Context, _ any) (any, error) { return "ok", nil }
@@ -132,7 +133,7 @@ func TestLoggingInterceptor_Stream_DefaultFields(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf)
+	interceptor := LoggingInterceptor(logger.ToSlog(buf))
 
 	info := &grpc.StreamServerInfo{FullMethod: "/pkg.Service/StreamThings"}
 	handler := func(_ any, _ grpc.ServerStream) error { return nil }
@@ -154,7 +155,7 @@ func TestLoggingInterceptor_Stream_Error(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf)
+	interceptor := LoggingInterceptor(logger.ToSlog(buf))
 
 	info := &grpc.StreamServerInfo{FullMethod: "/pkg.Service/StreamFail"}
 	handler := func(_ any, _ grpc.ServerStream) error {
@@ -175,7 +176,7 @@ func TestLoggingInterceptor_Stream_PathFilter(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	interceptor := LoggingInterceptor(buf, WithGRPCPathFilter("/grpc.health.v1.Health/Watch"))
+	interceptor := LoggingInterceptor(logger.ToSlog(buf), WithGRPCPathFilter("/grpc.health.v1.Health/Watch"))
 
 	info := &grpc.StreamServerInfo{FullMethod: "/grpc.health.v1.Health/Watch"}
 	handler := func(_ any, _ grpc.ServerStream) error { return nil }
@@ -187,7 +188,7 @@ func TestLoggingInterceptor_Stream_PathFilter(t *testing.T) {
 func TestLoggingInterceptor_ReturnsUnaryAndStream(t *testing.T) {
 	t.Parallel()
 
-	interceptor := LoggingInterceptor(logger.NewNoop())
+	interceptor := LoggingInterceptor(logger.ToSlog(logger.NewNoop()))
 	assert.NotNil(t, interceptor.Unary)
 	assert.NotNil(t, interceptor.Stream)
 }

@@ -102,7 +102,7 @@ func TestBreaker_OpensAtThresholdAndRejectsFast(t *testing.T) {
 
 	base := &countingTransport{status: http.StatusInternalServerError}
 	cfg := CircuitBreakerConfig{FailureThreshold: 3, Cooldown: time.Minute}
-	rt := WithCircuitBreaker(logger.NewNoop(), cfg)(base)
+	rt := WithCircuitBreaker(logger.ToSlog(logger.NewNoop()), cfg)(base)
 
 	// Three 5xx responses trip the breaker.
 	for range 3 {
@@ -124,7 +124,7 @@ func TestBreaker_4xxDoesNotTrip(t *testing.T) {
 
 	base := &countingTransport{status: http.StatusTooManyRequests} // 429
 	cfg := CircuitBreakerConfig{FailureThreshold: 2, Cooldown: time.Minute}
-	rt := WithCircuitBreaker(logger.NewNoop(), cfg)(base)
+	rt := WithCircuitBreaker(logger.ToSlog(logger.NewNoop()), cfg)(base)
 
 	for range 5 {
 		status, err := roundtrip(rt)
@@ -144,7 +144,7 @@ func TestBreaker_HalfOpenRecovery(t *testing.T) {
 
 	base := &countingTransport{status: http.StatusInternalServerError}
 	cfg := CircuitBreakerConfig{FailureThreshold: 1, Cooldown: 30 * time.Second}
-	rt := newCircuitBreakerMiddleware(logger.NewNoop(), cfg, clock.now)(base)
+	rt := newCircuitBreakerMiddleware(logger.ToSlog(logger.NewNoop()), cfg, clock.now)(base)
 
 	// Trip it.
 	_, _ = roundtrip(rt)
@@ -174,7 +174,7 @@ func TestBreaker_HalfOpenFailureReopens(t *testing.T) {
 
 	base := &countingTransport{status: http.StatusInternalServerError}
 	cfg := CircuitBreakerConfig{FailureThreshold: 1, Cooldown: 30 * time.Second}
-	rt := newCircuitBreakerMiddleware(logger.NewNoop(), cfg, clock.now)(base)
+	rt := newCircuitBreakerMiddleware(logger.ToSlog(logger.NewNoop()), cfg, clock.now)(base)
 
 	_, _ = roundtrip(rt) // trip
 	clock.add(31 * time.Second)
@@ -205,7 +205,7 @@ func TestBreaker_ComposesWithRetry_OneCallOneFailure(t *testing.T) {
 	}
 
 	cfg := CircuitBreakerConfig{FailureThreshold: 2, Cooldown: time.Minute}
-	rt := WithCircuitBreaker(logger.NewNoop(), cfg)(retry)
+	rt := WithCircuitBreaker(logger.ToSlog(logger.NewNoop()), cfg)(retry)
 
 	// First logical call: 1 + 2 retries = 3 base hits, counts as 1 breaker failure.
 	_, _ = roundtrip(rt)
@@ -239,7 +239,7 @@ func TestBreaker_OnStateChangeFires(t *testing.T) {
 		},
 	}
 	base := &countingTransport{status: http.StatusInternalServerError}
-	rt := WithCircuitBreaker(logger.NewNoop(), cfg)(base)
+	rt := WithCircuitBreaker(logger.ToSlog(logger.NewNoop()), cfg)(base)
 
 	_, _ = roundtrip(rt) // closed -> open
 
@@ -253,7 +253,7 @@ func TestBreaker_ConcurrentRace(t *testing.T) {
 
 	base := &countingTransport{status: http.StatusInternalServerError}
 	cfg := CircuitBreakerConfig{FailureThreshold: 3, Cooldown: time.Millisecond}
-	rt := WithCircuitBreaker(logger.NewNoop(), cfg)(base)
+	rt := WithCircuitBreaker(logger.ToSlog(logger.NewNoop()), cfg)(base)
 
 	var wg sync.WaitGroup
 	for range 200 {

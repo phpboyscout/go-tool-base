@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/circuitbreaker"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // CircuitState is the client circuit breaker's state.
@@ -119,7 +119,7 @@ func defaultGRPCIsFailure(err error) bool {
 
 // newBreaker builds the shared core from a public config, wiring logging and the
 // optional caller callback into OnStateChange. now is injected for tests.
-func newBreaker(log logger.Logger, cfg CircuitBreakerConfig, now func() time.Time) (*circuitbreaker.Breaker, func(error) bool) {
+func newBreaker(log *slog.Logger, cfg CircuitBreakerConfig, now func() time.Time) (*circuitbreaker.Breaker, func(error) bool) {
 	isFailure := cfg.IsFailure
 	if isFailure == nil {
 		isFailure = defaultGRPCIsFailure
@@ -146,11 +146,11 @@ func newBreaker(log logger.Logger, cfg CircuitBreakerConfig, now func() time.Tim
 // downstream is consistently failing and rejects calls with codes.Unavailable
 // while open, avoiding wasted calls against a service known to be down. Install
 // it via grpc.WithChainUnaryInterceptor.
-func CircuitBreakerInterceptor(log logger.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor {
+func CircuitBreakerInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor {
 	return newCircuitBreakerInterceptor(log, cfg, nil)
 }
 
-func newCircuitBreakerInterceptor(log logger.Logger, cfg CircuitBreakerConfig, now func() time.Time) grpc.UnaryClientInterceptor {
+func newCircuitBreakerInterceptor(log *slog.Logger, cfg CircuitBreakerConfig, now func() time.Time) grpc.UnaryClientInterceptor {
 	br, isFailure := newBreaker(log, cfg, now)
 
 	return func(
@@ -178,11 +178,11 @@ func newCircuitBreakerInterceptor(log logger.Logger, cfg CircuitBreakerConfig, n
 // the ClientStream so per-message errors (a RecvMsg/SendMsg that returns a
 // classified failure) also count against the breaker; a clean io.EOF closes the
 // stream as a success.
-func CircuitBreakerStreamInterceptor(log logger.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor {
+func CircuitBreakerStreamInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor {
 	return newCircuitBreakerStreamInterceptor(log, cfg, nil)
 }
 
-func newCircuitBreakerStreamInterceptor(log logger.Logger, cfg CircuitBreakerConfig, now func() time.Time) grpc.StreamClientInterceptor {
+func newCircuitBreakerStreamInterceptor(log *slog.Logger, cfg CircuitBreakerConfig, now func() time.Time) grpc.StreamClientInterceptor {
 	br, isFailure := newBreaker(log, cfg, now)
 
 	return func(

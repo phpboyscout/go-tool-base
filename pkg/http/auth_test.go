@@ -200,7 +200,7 @@ func TestAuthMiddleware_RedactsCredentialInLogs(t *testing.T) {
 
 	mw, err := AuthMiddleware(
 		WithBearerVerifier(mustVerifier(t, "good", "a")),
-		WithAuthLogger(log),
+		WithAuthLogger(logger.ToSlog(log)),
 	)
 	require.NoError(t, err)
 	h := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))

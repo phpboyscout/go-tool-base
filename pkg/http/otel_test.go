@@ -58,7 +58,7 @@ func TestLoggingMiddlewareCorrelatesWithActiveTrace(t *testing.T) {
 	// read the active span from the request context.
 	handler := NewChain(
 		OTelMiddleware("macguffin"),
-		LoggingMiddleware(buf),
+		LoggingMiddleware(logger.ToSlog(buf)),
 	).Then(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -75,7 +75,7 @@ func TestLoggingMiddlewareCorrelatesWithActiveTrace(t *testing.T) {
 func TestLoggingMiddlewareOmitsTraceWhenNoSpan(t *testing.T) {
 	buf := logger.NewBuffer()
 
-	handler := NewChain(LoggingMiddleware(buf)).Then(
+	handler := NewChain(LoggingMiddleware(logger.ToSlog(buf))).Then(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
 		}),

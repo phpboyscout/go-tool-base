@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
@@ -210,7 +210,7 @@ func RegisterHealthService(srv *grpc.Server, controller healthSource) {
 
 // Start returns a curried function suitable for use with the
 // controls package from explicit typed server and TLS settings.
-func Start(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc {
+func Start(logger *slog.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc {
 	sc := defaultServerConfig()
 	for _, o := range opts {
 		o(&sc)
@@ -245,7 +245,7 @@ func (s *serveState) status() error {
 	return s.exitErr
 }
 
-func start(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, sc serverConfig, state *serveState) controls.StartFunc {
+func start(logger *slog.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, sc serverConfig, state *serveState) controls.StartFunc {
 	portNum, portErr := resolvePort(settings, sc)
 
 	return func(ctx context.Context) error {
@@ -379,7 +379,7 @@ func dialLocal(settings ServerSettings, tlsPair gtbtls.Pair, sc serverConfig, op
 // GracefulStop is attempted first to allow in-flight RPCs to finish. If the
 // shutdown context expires (or if Serve has not been called yet, which would
 // cause GracefulStop to block indefinitely), the server is force-stopped.
-func Stop(logger logger.Logger, srv *grpc.Server) controls.StopFunc {
+func Stop(logger *slog.Logger, srv *grpc.Server) controls.StopFunc {
 	return func(ctx context.Context) {
 		logger.Info("Stopping gRPC server")
 
@@ -441,7 +441,7 @@ func WithInterceptors(chain InterceptorChain) RegisterOption {
 func register(
 	id string,
 	controller controls.Controllable,
-	logger logger.Logger,
+	logger *slog.Logger,
 	settings ServerSettings,
 	tlsPair gtbtls.Pair,
 	sc serverConfig,
@@ -472,7 +472,7 @@ func register(
 
 // Register creates a new gRPC server from explicit typed settings
 // and registers it with the controller under the given id.
-func Register(id string, controller controls.Controllable, logger logger.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error) {
+func Register(id string, controller controls.Controllable, logger *slog.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error) {
 	sc := defaultServerConfig()
 
 	var rc registerConfig

@@ -82,7 +82,7 @@ func TestStart_ListenAndServe(t *testing.T) {
 	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{})
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{}, gtbtls.Pair{})
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -104,7 +104,7 @@ func TestStop_GracefulStop(t *testing.T) {
 	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	stopFn := Stop(testLogger(), srv)
+	stopFn := Stop(logger.ToSlog(testLogger()), srv)
 
 	// Should not panic even without a listener
 	stopFn(context.Background())
@@ -115,7 +115,7 @@ func TestRegister(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := Register("test-grpc", controller, testLogger(), ServerSettings{}, gtbtls.Pair{})
+	_, err := Register("test-grpc", controller, logger.ToSlog(testLogger()), ServerSettings{}, gtbtls.Pair{})
 	assert.NoError(t, err)
 }
 
@@ -159,7 +159,7 @@ func TestGRPCHealth(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{})
+	_, err = Register("test-grpc", controller, logger.ToSlog(testLogger()), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -203,7 +203,7 @@ func TestGRPCProbes(t *testing.T) {
 		controls.WithReadiness(func() error { return fmt.Errorf("not ready") }),
 	)
 
-	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{})
+	_, err = Register("test-grpc", controller, logger.ToSlog(testLogger()), ServerSettings{Port: port}, gtbtls.Pair{})
 	require.NoError(t, err)
 
 	controller.Start()
@@ -242,7 +242,7 @@ func TestStart_UsesSettingsPort(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := NewServer(ServerSettings{})
-	startFn := Start(testLogger(), srv, ServerSettings{Port: 9090}, gtbtls.Pair{})
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{Port: 9090}, gtbtls.Pair{})
 	assert.NotNil(t, startFn)
 }
 
@@ -250,7 +250,7 @@ func TestStart_UsesEphemeralPortByDefault(t *testing.T) {
 	t.Parallel()
 
 	srv, _ := NewServer(ServerSettings{})
-	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{})
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{}, gtbtls.Pair{})
 	assert.NotNil(t, startFn)
 }
 
@@ -270,7 +270,7 @@ func TestRegister_WithInterceptors(t *testing.T) {
 		},
 	})
 
-	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{},
+	_, err = Register("test-grpc", controller, logger.ToSlog(testLogger()), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithInterceptors(chain),
 	)
 	require.NoError(t, err)
@@ -286,10 +286,10 @@ func TestRegister_MixedOptions(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	chain := NewInterceptorChain(LoggingInterceptor(testLogger()))
+	chain := NewInterceptorChain(LoggingInterceptor(logger.ToSlog(testLogger())))
 
 	// Mix RegisterOption and grpc.ServerOption
-	_, err = Register("test-grpc", controller, testLogger(), ServerSettings{Port: port}, gtbtls.Pair{},
+	_, err = Register("test-grpc", controller, logger.ToSlog(testLogger()), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithInterceptors(chain),
 		grpc.MaxRecvMsgSize(4*1024*1024),
 	)

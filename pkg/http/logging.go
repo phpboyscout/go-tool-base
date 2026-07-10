@@ -2,8 +2,10 @@ package http
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -12,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"go.opentelemetry.io/otel/trace"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
@@ -26,7 +27,7 @@ var errNotHijacker = errors.New("http: response writer does not implement http.H
 type LogFormat int
 
 const (
-	// FormatStructured emits structured key-value fields via logger.Logger.
+	// FormatStructured emits structured key-value fields via *slog.Logger.
 	FormatStructured LogFormat = iota
 
 	// FormatCommon emits NCSA Common Log Format (CLF).
@@ -44,7 +45,7 @@ type LoggingOption func(*loggingConfig)
 
 type loggingConfig struct {
 	format       LogFormat
-	level        logger.Level
+	level        slog.Level
 	logLatency   bool
 	logUserAgent bool
 	pathFilter   map[string]struct{}
@@ -55,7 +56,7 @@ type loggingConfig struct {
 func defaultLoggingConfig() loggingConfig {
 	return loggingConfig{
 		format:       FormatStructured,
-		level:        logger.InfoLevel,
+		level:        slog.LevelInfo,
 		logLatency:   true,
 		logUserAgent: true,
 	}
@@ -69,8 +70,8 @@ func WithFormat(format LogFormat) LoggingOption {
 }
 
 // WithLogLevel sets the log level for successful requests.
-// Defaults to logger.InfoLevel. Errors always log at logger.ErrorLevel.
-func WithLogLevel(level logger.Level) LoggingOption {
+// Defaults to slog.LevelInfo. Errors always log at slog.LevelError.
+func WithLogLevel(level slog.Level) LoggingOption {
 	return func(c *loggingConfig) {
 		c.level = level
 	}
@@ -131,7 +132,7 @@ func WithHeaderFields(headers ...string) LoggingOption {
 }
 
 // LoggingMiddleware returns an HTTP Middleware that logs each completed request.
-func LoggingMiddleware(l logger.Logger, opts ...LoggingOption) Middleware {
+func LoggingMiddleware(l *slog.Logger, opts ...LoggingOption) Middleware {
 	cfg := defaultLoggingConfig()
 	for _, o := range opts {
 		o(&cfg)
@@ -174,18 +175,18 @@ func LoggingMiddleware(l logger.Logger, opts ...LoggingOption) Middleware {
 
 			level := cfg.level
 			if data.status >= http.StatusInternalServerError {
-				level = logger.ErrorLevel
+				level = slog.LevelError
 			}
 
 			switch cfg.format {
 			case FormatCommon:
-				emitCommon(l, level, data)
+				emitCommon(r.Context(), l, level, data)
 			case FormatCombined:
-				emitCombined(l, level, cfg, data)
+				emitCombined(r.Context(), l, level, cfg, data)
 			case FormatJSON:
-				emitJSON(l, level, cfg, data)
+				emitJSON(r.Context(), l, level, cfg, data)
 			case FormatStructured:
-				emitStructured(l, level, cfg, data)
+				emitStructured(r.Context(), l, level, cfg, data)
 			}
 		})
 	}
@@ -207,7 +208,7 @@ type requestData struct {
 	spanID    string
 }
 
-func emitStructured(l logger.Logger, level logger.Level, cfg loggingConfig, d requestData) {
+func emitStructured(ctx context.Context, l *slog.Logger, level slog.Level, cfg loggingConfig, d requestData) {
 	keyvals := make([]any, 0, structuredKeyvalCapacity)
 	keyvals = append(keyvals, "method", d.method, "path", d.path, "status", d.status, "bytes", d.bytes)
 
@@ -229,7 +230,7 @@ func emitStructured(l logger.Logger, level logger.Level, cfg loggingConfig, d re
 		keyvals = append(keyvals, k, v)
 	}
 
-	logAtLevel(l.With(keyvals...), level, "request completed")
+	logAtLevel(ctx, l.With(keyvals...), level, "request completed")
 }
 
 const (
@@ -244,7 +245,7 @@ const (
 // treatment automatically. See
 // docs/development/specs/2026-04-17-telemetry-redaction.md (M-5/M-6).
 
-func emitCommon(l logger.Logger, level logger.Level, d requestData) {
+func emitCommon(ctx context.Context, l *slog.Logger, level slog.Level, d requestData) {
 	line := fmt.Sprintf(`%s - - [%s] "%s %s %s" %d %d`,
 		d.clientIP,
 		d.timestamp.Format(clfTimeFmt),
@@ -252,10 +253,10 @@ func emitCommon(l logger.Logger, level logger.Level, d requestData) {
 		d.status, d.bytes,
 	)
 
-	logAtLevel(l, level, line)
+	logAtLevel(ctx, l, level, line)
 }
 
-func emitCombined(l logger.Logger, level logger.Level, cfg loggingConfig, d requestData) {
+func emitCombined(ctx context.Context, l *slog.Logger, level slog.Level, cfg loggingConfig, d requestData) {
 	ua := d.userAgent
 	if !cfg.logUserAgent {
 		ua = "-"
@@ -274,10 +275,10 @@ func emitCombined(l logger.Logger, level logger.Level, cfg loggingConfig, d requ
 		referer, ua,
 	)
 
-	logAtLevel(l, level, line)
+	logAtLevel(ctx, l, level, line)
 }
 
-func emitJSON(l logger.Logger, level logger.Level, cfg loggingConfig, d requestData) {
+func emitJSON(ctx context.Context, l *slog.Logger, level slog.Level, cfg loggingConfig, d requestData) {
 	m := map[string]any{
 		"timestamp": d.timestamp.UTC().Format(time.RFC3339Nano),
 		"method":    d.method,
@@ -311,22 +312,13 @@ func emitJSON(l logger.Logger, level logger.Level, cfg loggingConfig, d requestD
 		return
 	}
 
-	logAtLevel(l, level, string(b))
+	logAtLevel(ctx, l, level, string(b))
 }
 
-func logAtLevel(l logger.Logger, level logger.Level, msg string) {
-	switch level {
-	case logger.DebugLevel:
-		l.Debug(msg)
-	case logger.InfoLevel:
-		l.Info(msg)
-	case logger.WarnLevel:
-		l.Warn(msg)
-	case logger.ErrorLevel, logger.FatalLevel:
-		// Request logging must never terminate the process; a fatal-level
-		// request log is emitted at error level.
-		l.Error(msg)
-	}
+func logAtLevel(ctx context.Context, l *slog.Logger, level slog.Level, msg string) {
+	// slog emits at a dynamic level directly. Request logging never terminates
+	// the process, so there is no fatal level to special-case.
+	l.Log(ctx, level, msg)
 }
 
 func extractHeaders(r *http.Request, fields []string) map[string]string {

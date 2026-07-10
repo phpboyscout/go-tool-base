@@ -78,7 +78,7 @@ func TestWithRequestLogging(t *testing.T) {
 
 	buf := logger.NewBuffer()
 
-	chain := NewClientChain(WithRequestLogging(buf))
+	chain := NewClientChain(WithRequestLogging(logger.ToSlog(buf)))
 	client := &http.Client{Transport: chain.Then(http.DefaultTransport)}
 
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/test", nil)
@@ -253,7 +253,7 @@ func TestWithClientMiddleware_Integration(t *testing.T) {
 	defer srv.Close()
 
 	chain := NewClientChain(
-		WithRequestLogging(logger.NewNoop()),
+		WithRequestLogging(logger.ToSlog(logger.NewNoop())),
 		WithBearerToken("integration-test"),
 	)
 

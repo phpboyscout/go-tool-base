@@ -39,7 +39,7 @@ func TestTLSListener_ALPNAllowsModernClient(t *testing.T) {
 	controller := controls.NewController(ctx, controls.WithoutSignals())
 	tlsPair := gtbtls.Pair{Enabled: true, Cert: certPath, Key: keyPath}
 
-	_, err := gtbgrpc.Register("grpc", controller, logger.NewNoop(), gtbgrpc.ServerSettings{Port: port}, tlsPair)
+	_, err := gtbgrpc.Register("grpc", controller, logger.ToSlog(logger.NewNoop()), gtbgrpc.ServerSettings{Port: port}, tlsPair)
 	require.NoError(t, err)
 
 	controller.Start()

@@ -3,6 +3,7 @@ package http
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,7 +40,7 @@ func TestLoggingMiddleware_DefaultStructuredFields(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf)
+	mw := LoggingMiddleware(logger.ToSlog(buf))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -74,7 +75,7 @@ func TestLoggingMiddleware_5xxLogsAtErrorLevel(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf)
+	mw := LoggingMiddleware(logger.ToSlog(buf))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -93,7 +94,7 @@ func TestLoggingMiddleware_WithLogLevel(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithLogLevel(logger.DebugLevel))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithLogLevel(slog.LevelDebug))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -110,7 +111,7 @@ func TestLoggingMiddleware_WithPathFilter(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithPathFilter("/healthz", "/livez"))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithPathFilter("/healthz", "/livez"))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -131,7 +132,7 @@ func TestLoggingMiddleware_WithoutLatency(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithoutLatency())
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithoutLatency())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -148,7 +149,7 @@ func TestLoggingMiddleware_WithoutUserAgent(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithoutUserAgent())
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithoutUserAgent())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -168,7 +169,7 @@ func TestLoggingMiddleware_WithHeaderFields(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithHeaderFields("x-request-id", "x-custom"))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithHeaderFields("x-request-id", "x-custom"))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -208,7 +209,7 @@ func TestLoggingMiddleware_WithHeaderFields_RedactsSensitive(t *testing.T) {
 			t.Parallel()
 
 			buf := logger.NewBuffer()
-			mw := LoggingMiddleware(buf, WithHeaderFields(header))
+			mw := LoggingMiddleware(logger.ToSlog(buf), WithHeaderFields(header))
 
 			handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
@@ -233,7 +234,7 @@ func TestLoggingMiddleware_ClientIP_XForwardedFor_TrustedProxy(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithTrustedProxy())
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithTrustedProxy())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -254,7 +255,7 @@ func TestLoggingMiddleware_ClientIP_XRealIP_TrustedProxy(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithTrustedProxy())
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithTrustedProxy())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -278,7 +279,7 @@ func TestLoggingMiddleware_ClientIP_IgnoresSpoofedHeadersByDefault(t *testing.T)
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf)
+	mw := LoggingMiddleware(logger.ToSlog(buf))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -301,7 +302,7 @@ func TestLoggingMiddleware_DefaultStatusCode(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf)
+	mw := LoggingMiddleware(logger.ToSlog(buf))
 
 	// Handler that writes body without explicit WriteHeader — defaults to 200
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -321,7 +322,7 @@ func TestLoggingMiddleware_FormatCommon(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatCommon))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatCommon))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -349,7 +350,7 @@ func TestLoggingMiddleware_FormatCombined(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatCombined))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatCombined))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -372,7 +373,7 @@ func TestLoggingMiddleware_FormatCombined_WithoutUserAgent(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatCombined), WithoutUserAgent())
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatCombined), WithoutUserAgent())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -395,7 +396,7 @@ func TestLoggingMiddleware_FormatJSON(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatJSON))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatJSON))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
@@ -429,7 +430,7 @@ func TestLoggingMiddleware_FormatJSON_WithoutLatency(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatJSON), WithoutLatency())
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatJSON), WithoutLatency())
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -449,7 +450,7 @@ func TestLoggingMiddleware_FormatJSON_WithHeaderFields(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatJSON), WithHeaderFields("x-request-id"))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatJSON), WithHeaderFields("x-request-id"))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -472,7 +473,7 @@ func TestLoggingMiddleware_FormatCommon_PathFilter(t *testing.T) {
 	t.Parallel()
 
 	buf := logger.NewBuffer()
-	mw := LoggingMiddleware(buf, WithFormat(FormatCommon), WithPathFilter("/healthz"))
+	mw := LoggingMiddleware(logger.ToSlog(buf), WithFormat(FormatCommon), WithPathFilter("/healthz"))
 
 	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)

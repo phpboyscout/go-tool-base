@@ -149,7 +149,7 @@ func TestInterceptorChain_MultipleInterceptors_Ordering(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err = Register("chain-order-test", controller, logger.NewNoop(), ServerSettings{Port: port}, gtbtls.Pair{},
+	_, err = Register("chain-order-test", controller, logger.ToSlog(logger.NewNoop()), ServerSettings{Port: port}, gtbtls.Pair{},
 		WithInterceptors(chain),
 	)
 	require.NoError(t, err)

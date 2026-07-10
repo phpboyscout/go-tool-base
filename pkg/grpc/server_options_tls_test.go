@@ -30,7 +30,7 @@ func TestServerOptions_CustomPrefixWithTLS(t *testing.T) {
 	settings := gtbgrpc.ServerSettings{Port: port}
 	tlsPair := gtbtls.Pair{Enabled: true, Cert: certPath, Key: keyPath}
 
-	_, err := gtbgrpc.Register("grpc", controller, logger.NewNoop(), settings, tlsPair,
+	_, err := gtbgrpc.Register("grpc", controller, logger.ToSlog(logger.NewNoop()), settings, tlsPair,
 		gtbgrpc.WithConfigPrefix("server.internal"))
 	require.NoError(t, err)
 

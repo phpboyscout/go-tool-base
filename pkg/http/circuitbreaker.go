@@ -1,13 +1,13 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/cockroachdb/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/circuitbreaker"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // CircuitState is the client circuit breaker's state.
@@ -120,13 +120,13 @@ func defaultHTTPIsFailure(resp *http.Response, err error) bool {
 // a single breaker failure, not one per attempt. Once Open, calls are rejected
 // before entering the retry layer, so no backoff sleeps are spent on a service
 // known to be down.
-func WithCircuitBreaker(log logger.Logger, cfg CircuitBreakerConfig) ClientMiddleware {
+func WithCircuitBreaker(log *slog.Logger, cfg CircuitBreakerConfig) ClientMiddleware {
 	return newCircuitBreakerMiddleware(log, cfg, nil)
 }
 
 // newCircuitBreakerMiddleware is the testable constructor; now is injected so
 // cooldown transitions are deterministic in tests (nil → time.Now).
-func newCircuitBreakerMiddleware(log logger.Logger, cfg CircuitBreakerConfig, now func() time.Time) ClientMiddleware {
+func newCircuitBreakerMiddleware(log *slog.Logger, cfg CircuitBreakerConfig, now func() time.Time) ClientMiddleware {
 	isFailure := cfg.IsFailure
 	if isFailure == nil {
 		isFailure = defaultHTTPIsFailure

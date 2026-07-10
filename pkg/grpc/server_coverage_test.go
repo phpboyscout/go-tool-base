@@ -90,7 +90,7 @@ func TestStart_ListenFailure(t *testing.T) {
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
-	startFn := start(logger.NewNoop(), srv, ServerSettings{Port: port}, gtbtls.Pair{}, sc, nil)
+	startFn := start(logger.ToSlog(logger.NewNoop()), srv, ServerSettings{Port: port}, gtbtls.Pair{}, sc, nil)
 
 	err = startFn(context.Background())
 	require.Error(t, err)
@@ -108,7 +108,7 @@ func TestStart_PortError(t *testing.T) {
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
-	startFn := start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{}, sc, nil)
+	startFn := start(logger.ToSlog(logger.NewNoop()), srv, ServerSettings{}, gtbtls.Pair{}, sc, nil)
 	err := startFn(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid port")
@@ -123,7 +123,7 @@ func TestStart_TLSWrapFailure(t *testing.T) {
 	srv := grpc.NewServer()
 	t.Cleanup(srv.Stop)
 
-	startFn := start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{
+	startFn := start(logger.ToSlog(logger.NewNoop()), srv, ServerSettings{}, gtbtls.Pair{
 		Enabled: true,
 		Cert:    filepath.Join(t.TempDir(), "missing-cert.pem"),
 		Key:     filepath.Join(t.TempDir(), "missing-key.pem"),
@@ -145,7 +145,7 @@ func TestStart_ServeExitRecorded(t *testing.T) {
 	t.Cleanup(srv.Stop)
 
 	state := &serveState{}
-	startFn := start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{}, sc, state)
+	startFn := start(logger.ToSlog(logger.NewNoop()), srv, ServerSettings{}, gtbtls.Pair{}, sc, state)
 
 	require.NoError(t, startFn(context.Background()))
 
@@ -266,7 +266,7 @@ func TestStop_ForceStopOnTimeout(t *testing.T) {
 	srv := grpc.NewServer()
 
 	state := &serveState{}
-	require.NoError(t, start(logger.NewNoop(), srv, ServerSettings{}, gtbtls.Pair{}, sc, state)(context.Background()))
+	require.NoError(t, start(logger.ToSlog(logger.NewNoop()), srv, ServerSettings{}, gtbtls.Pair{}, sc, state)(context.Background()))
 
 	// Hold an open connection with an in-flight blocking stream so GracefulStop
 	// cannot complete promptly; an already-cancelled context forces srv.Stop().
@@ -275,7 +275,7 @@ func TestStop_ForceStopOnTimeout(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		Stop(logger.NewNoop(), srv)(ctx)
+		Stop(logger.ToSlog(logger.NewNoop()), srv)(ctx)
 		close(done)
 	}()
 
@@ -294,7 +294,7 @@ func TestRegister_NewServerError(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := Register("bad", controller, logger.NewNoop(), ServerSettings{}, gtbtls.Pair{},
+	_, err := Register("bad", controller, logger.ToSlog(logger.NewNoop()), ServerSettings{}, gtbtls.Pair{},
 		WithConfigPrefix(""))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "config prefix must not be empty")

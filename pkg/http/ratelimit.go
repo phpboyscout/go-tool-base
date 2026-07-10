@@ -1,12 +1,12 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 
 	"golang.org/x/time/rate"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/ratelimit"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -110,7 +110,7 @@ func (c RateLimitConfig) normalized() RateLimitConfig {
 //
 // Health endpoints (/healthz, /livez, /readyz) are mounted outside the
 // WithMiddleware chain by Register, so a global limiter never throttles probes.
-func RateLimitMiddleware(log logger.Logger, cfg RateLimitConfig) Middleware {
+func RateLimitMiddleware(log *slog.Logger, cfg RateLimitConfig) Middleware {
 	cfg = cfg.normalized()
 
 	limit := rate.Limit(cfg.RequestsPerSecond)

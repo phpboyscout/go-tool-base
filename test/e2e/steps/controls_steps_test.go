@@ -18,6 +18,7 @@ import (
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/test/e2e/support"
 )
@@ -181,7 +182,7 @@ func anHTTPServerWithRateLimiter(ctx context.Context, rps int) (context.Context,
 
 	// Burst == rps so an instantaneous burst of N>rps requests admits exactly
 	// the bucket capacity and rejects the rest before any refill.
-	chain := gtbhttp.NewChain(gtbhttp.RateLimitMiddleware(w.Logger, gtbhttp.RateLimitConfig{
+	chain := gtbhttp.NewChain(gtbhttp.RateLimitMiddleware(logger.ToSlog(w.Logger), gtbhttp.RateLimitConfig{
 		RequestsPerSecond: float64(rps),
 		Burst:             rps,
 	}))

@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"crypto/x509"
+	"log/slog"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -14,7 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
@@ -27,7 +27,7 @@ type grpcAuthConfig struct {
 	apiKey    authn.Verifier
 	mtls      authn.CertVerifier
 	authorize authn.AuthorizeFunc
-	log       logger.Logger
+	log       *slog.Logger
 	skip      func(fullMethod string) bool
 }
 
@@ -54,7 +54,7 @@ func WithGRPCAuthorize(fn authn.AuthorizeFunc) GRPCAuthOption {
 }
 
 // WithGRPCAuthLogger sets the logger for redacted server-side failure logging.
-func WithGRPCAuthLogger(l logger.Logger) GRPCAuthOption {
+func WithGRPCAuthLogger(l *slog.Logger) GRPCAuthOption {
 	return func(c *grpcAuthConfig) { c.log = l }
 }
 
@@ -87,7 +87,7 @@ func AuthInterceptor(opts ...GRPCAuthOption) (Interceptor, error) {
 	}
 
 	if cfg.log == nil {
-		cfg.log = logger.NewNoop()
+		cfg.log = slog.New(slog.DiscardHandler)
 	}
 
 	return Interceptor{

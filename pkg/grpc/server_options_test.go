@@ -106,7 +106,7 @@ func TestStart_WithConfigPrefix(t *testing.T) {
 	srv, err := NewServer(ServerSettings{}, WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 
-	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithConfigPrefix("server.admin"))
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{}, gtbtls.Pair{}, WithConfigPrefix("server.admin"))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 }
@@ -122,7 +122,7 @@ func TestStart_WithPort_BindsExplicitPort(t *testing.T) {
 	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithPort(port))
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{}, gtbtls.Pair{}, WithPort(port))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 
@@ -143,7 +143,7 @@ func TestStart_InvalidPort(t *testing.T) {
 	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithPort(70000))
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{}, gtbtls.Pair{}, WithPort(70000))
 	require.Error(t, startFn(context.Background()))
 }
 
@@ -155,7 +155,7 @@ func TestStart_LogsBoundEphemeralPort(t *testing.T) {
 	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := Start(logger.NewCharm(&buf), srv, ServerSettings{}, gtbtls.Pair{})
+	startFn := Start(logger.ToSlog(logger.NewCharm(&buf)), srv, ServerSettings{}, gtbtls.Pair{})
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 
@@ -180,7 +180,7 @@ func TestStart_EmptyPrefixDefaultsToGRPC(t *testing.T) {
 	srv, err := NewServer(ServerSettings{})
 	require.NoError(t, err)
 
-	startFn := Start(testLogger(), srv, ServerSettings{}, gtbtls.Pair{}, WithConfigPrefix(""))
+	startFn := Start(logger.ToSlog(testLogger()), srv, ServerSettings{}, gtbtls.Pair{}, WithConfigPrefix(""))
 	require.NoError(t, startFn(context.Background()))
 	t.Cleanup(srv.GracefulStop)
 }
@@ -200,7 +200,7 @@ func TestRegister_WithServerOption(t *testing.T) {
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := Register("admin-grpc", controller, testLogger(), ServerSettings{}, gtbtls.Pair{},
+	srv, err := Register("admin-grpc", controller, logger.ToSlog(testLogger()), ServerSettings{}, gtbtls.Pair{},
 		WithConfigPrefix("server.admin"))
 	require.NoError(t, err)
 	require.NotNil(t, srv)

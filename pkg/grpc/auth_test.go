@@ -274,7 +274,7 @@ func TestAuthInterceptor_RedactsCredentialInLogs(t *testing.T) {
 	var buf bytes.Buffer
 	log := logger.NewCharm(&buf, logger.WithLevel(logger.DebugLevel))
 
-	ic, err := AuthInterceptor(WithGRPCBearerVerifier(keyVerifier(t, "good", "a")), WithGRPCAuthLogger(log))
+	ic, err := AuthInterceptor(WithGRPCBearerVerifier(keyVerifier(t, "good", "a")), WithGRPCAuthLogger(logger.ToSlog(log)))
 	require.NoError(t, err)
 
 	_, _ = ic.Unary(bearerCtx("sk-abcdefghijklmnopqrstuvwxyz0123456789ABCD"), nil, unaryInfo("/svc/M"),

@@ -35,7 +35,7 @@ func ExampleNewClient_withRetry() {
 func ExampleNewClientChain() {
 	// Compose client middleware for auth, logging, and rate limiting.
 	chain := gtbhttp.NewClientChain(
-		gtbhttp.WithRequestLogging(logger.NewNoop()),
+		gtbhttp.WithRequestLogging(logger.ToSlog(logger.NewNoop())),
 		gtbhttp.WithBearerToken(os.Getenv("API_TOKEN")),
 		gtbhttp.WithRateLimit(10), // 10 requests per second
 	)

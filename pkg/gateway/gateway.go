@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -9,7 +10,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
@@ -114,7 +114,7 @@ func Register(
 	ctx context.Context,
 	id string,
 	controller controls.Controllable,
-	logger logger.Logger,
+	logger *slog.Logger,
 	conn *grpc.ClientConn,
 	httpSettings gtbhttp.ServerSettings,
 	httpTLS gtbtls.Pair,
