@@ -89,7 +89,7 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 
 	if err != nil {
 		if errors.Is(err, ErrUpdateComplete) {
-			props.Logger.Warnf("update complete — please run the command again")
+			props.Logger.Warn("update complete — please run the command again")
 
 			return
 		}
@@ -136,7 +136,7 @@ func signalAwareContext(props *p.Props, opts executeOptions) (context.Context, f
 			received = sig
 			mu.Unlock()
 
-			props.Logger.Warnf("received %v — shutting down gracefully (press again to force quit)", sig)
+			props.Logger.Warn("received signal — shutting down gracefully (press again to force quit)", "signal", sig)
 			cancel()
 		case <-done:
 			return

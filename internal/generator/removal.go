@@ -18,7 +18,7 @@ func (g *Generator) Remove(ctx context.Context) error {
 		return err
 	}
 
-	g.props.Logger.Infof("Removing command %s in %s...", g.config.Name, cmdDir)
+	g.props.Logger.Info("removing command", "name", g.config.Name, "path", cmdDir)
 
 	if err := g.performRemoval(cmdDir); err != nil {
 		return err
@@ -28,14 +28,14 @@ func (g *Generator) Remove(ctx context.Context) error {
 
 	// Also regenerate indices
 	if err := g.generateCommandsIndex(); err != nil {
-		g.props.Logger.Warnf("Failed to regenerate commands index: %v", err)
+		g.props.Logger.Warn("failed to regenerate commands index", "error", err)
 	}
 
 	if err := g.regenerateMkdocsNav(); err != nil {
-		g.props.Logger.Warnf("Failed to regenerate mkdocs navigation: %v", err)
+		g.props.Logger.Warn("failed to regenerate mkdocs navigation", "error", err)
 	}
 
-	g.props.Logger.Infof("Successfully removed command %s.", g.config.Name)
+	g.props.Logger.Info("successfully removed command", "name", g.config.Name)
 
 	return nil
 }
@@ -43,9 +43,9 @@ func (g *Generator) Remove(ctx context.Context) error {
 func (g *Generator) performRemoval(cmdDir string) error {
 	// 1. Deregister from parent
 	if err := g.deregisterSubcommand(); err != nil {
-		g.props.Logger.Warnf("Failed to deregister subcommand: %v", err)
+		g.props.Logger.Warn("failed to deregister subcommand", "error", err)
 	} else if err := g.updateParentCmdHash(); err != nil {
-		g.props.Logger.Warnf("Failed to update parent command hash after deregistration: %v", err)
+		g.props.Logger.Warn("failed to update parent command hash after deregistration", "error", err)
 	}
 
 	// 2. Remove from manifest
@@ -73,7 +73,7 @@ func (g *Generator) cleanupDocumentation() {
 	docDir := filepath.Join(g.config.Path, "docs", "commands", outRelPath)
 	if exists, _ := afero.Exists(g.props.FS, docDir); exists {
 		if err := g.props.FS.RemoveAll(docDir); err != nil {
-			g.props.Logger.Warnf("Failed to remove documentation directory: %v", err)
+			g.props.Logger.Warn("failed to remove documentation directory", "error", err)
 		}
 	}
 }

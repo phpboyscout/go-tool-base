@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
@@ -36,7 +38,7 @@ func RunMCPCommand(cmd *cobra.Command, p *props.Props, path string, commandPaths
 		surface = "exposed on"
 	}
 
-	p.Logger.Infof("%d command(s) %s the MCP tool surface (still runnable on the CLI).", len(commandPaths), surface)
+	p.Logger.Info(fmt.Sprintf("%d command(s) %s the MCP tool surface (still runnable on the CLI).", len(commandPaths), surface))
 
 	return nil
 }

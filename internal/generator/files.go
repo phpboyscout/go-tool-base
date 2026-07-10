@@ -42,7 +42,7 @@ func (g *Generator) generateAssetFiles(cmdDir string) error {
 	}
 
 	if exists {
-		g.props.Logger.Warnf("Config file %s already exists, skipping creation", configPath)
+		g.props.Logger.Warn("config file already exists, skipping creation", "path", configPath)
 
 		return nil
 	}
@@ -68,7 +68,7 @@ func (g *Generator) generateAssetFiles(cmdDir string) error {
 func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 	data.Hashes = make(map[string]string)
 
-	g.props.Logger.Infof("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go"))
+	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go")))
 
 	hash, err := g.generateRegistrationFile(cmdDir, *data)
 	if err != nil {
@@ -90,7 +90,7 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	}
 
 	if data.TestCode != "" {
-		g.props.Logger.Infof("%s test file: %s", g.writeVerb(), filepath.Join(cmdDir, "main_test.go"))
+		g.props.Logger.Info(fmt.Sprintf("%s test file: %s", g.writeVerb(), filepath.Join(cmdDir, "main_test.go")))
 
 		hash, err := g.generateTestFile(ctx, cmdDir, *data)
 		if err != nil {
@@ -106,7 +106,7 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 func (g *Generator) generateRegistrationFile(cmdDir string, data templates.CommandData) (string, error) {
 	cmdPath := filepath.Join(cmdDir, "cmd.go")
 
-	g.props.Logger.Debugf("Rendering registration template for %s", cmdPath)
+	g.props.Logger.Debug("rendering registration template", "path", cmdPath)
 
 	regFile := templates.CommandRegistration(data)
 
@@ -120,14 +120,14 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 
 	// Check if file exists to perform hash verification
 	if exists, _ := afero.Exists(g.props.FS, cmdPath); exists {
-		g.props.Logger.Debugf("Verifying hash for existing file %s", cmdPath)
+		g.props.Logger.Debug("verifying hash for existing file", "path", cmdPath)
 
 		if err := g.verifyHash(cmdPath); err != nil {
 			return "", err
 		}
 	}
 
-	g.props.Logger.Debugf("Writing registration file: %s (%d bytes, hash=%s)", cmdPath, len(content), newHash)
+	g.props.Logger.Debug("writing registration file", "path", cmdPath, "bytes", len(content), "hash", newHash)
 
 	out, err := g.props.FS.Create(cmdPath)
 	if err != nil {
@@ -150,7 +150,7 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 
 	exists, _ := afero.Exists(g.props.FS, mainFile)
 	if !exists || g.config.Force {
-		g.props.Logger.Infof("%s execution file: %s", g.writeVerb(), mainFile)
+		g.props.Logger.Info(fmt.Sprintf("%s execution file: %s", g.writeVerb(), mainFile))
 
 		return g.generateExecutionFile(ctx, cmdDir, *data)
 	}
@@ -164,7 +164,7 @@ func (g *Generator) handleInitializerFile(cmdDir string, data *templates.Command
 	initFile := filepath.Join(cmdDir, "init.go")
 
 	if data.WithInitializer {
-		g.props.Logger.Infof("%s initializer file: %s", g.writeVerb(), initFile)
+		g.props.Logger.Info(fmt.Sprintf("%s initializer file: %s", g.writeVerb(), initFile))
 
 		hash, err := g.generateInitializerFile(cmdDir, *data)
 		if err != nil {
@@ -177,7 +177,7 @@ func (g *Generator) handleInitializerFile(cmdDir string, data *templates.Command
 	}
 
 	if exists, _ := afero.Exists(g.props.FS, initFile); exists {
-		g.props.Logger.Infof("Removing initializer file: %s", initFile)
+		g.props.Logger.Info("removing initializer file", "path", initFile)
 
 		if err := g.props.FS.Remove(initFile); err != nil {
 			return errors.Newf("failed to remove initializer file: %w", err)
@@ -194,7 +194,7 @@ func (g *Generator) handleConfigValidationFile(ctx context.Context, cmdDir strin
 
 	if !data.WithConfigValidation {
 		if exists, _ := afero.Exists(g.props.FS, configFile); exists {
-			g.props.Logger.Warnf("Config validation file %s exists but with_config_validation is disabled — consider removing it or re-enabling the flag", configFile)
+			g.props.Logger.Warn(fmt.Sprintf("Config validation file %s exists but with_config_validation is disabled — consider removing it or re-enabling the flag", configFile))
 		}
 
 		return nil
@@ -202,12 +202,12 @@ func (g *Generator) handleConfigValidationFile(ctx context.Context, cmdDir strin
 
 	exists, _ := afero.Exists(g.props.FS, configFile)
 	if exists {
-		g.props.Logger.Debugf("Config validation file %s already exists, preserving user customisations", configFile)
+		g.props.Logger.Debug("config validation file already exists, preserving user customisations", "path", configFile)
 
 		return nil
 	}
 
-	g.props.Logger.Infof("%s config validation file: %s", g.writeVerb(), configFile)
+	g.props.Logger.Info(fmt.Sprintf("%s config validation file: %s", g.writeVerb(), configFile))
 
 	content := templates.CommandConfigValidation(*data)
 
@@ -235,7 +235,7 @@ func (g *Generator) handleConfigValidationFile(ctx context.Context, cmdDir strin
 func (g *Generator) generateExecutionFile(ctx context.Context, cmdDir string, data templates.CommandData) error {
 	mainPath := filepath.Join(cmdDir, "main.go")
 
-	g.props.Logger.Debugf("Rendering execution template for %s", mainPath)
+	g.props.Logger.Debug("rendering execution template", "path", mainPath)
 
 	mainContent := templates.CommandExecution(data)
 
@@ -252,11 +252,11 @@ func (g *Generator) generateExecutionFile(ctx context.Context, cmdDir string, da
 		return errors.Newf("failed to write execution file: %w", err)
 	}
 
-	g.props.Logger.Debugf("Wrote execution file: %s (%d bytes)", mainPath, len(mainContent))
+	g.props.Logger.Debug("wrote execution file", "path", mainPath, "bytes", len(mainContent))
 
 	// Run go fmt on main.go if using OS filesystem
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
-		g.props.Logger.Debugf("Running go fmt on %s", mainPath)
+		g.props.Logger.Debug("running go fmt", "path", mainPath)
 
 		cmd := exec.CommandContext(ctx, "go", "fmt", mainPath)
 		_ = cmd.Run()
@@ -268,7 +268,7 @@ func (g *Generator) generateExecutionFile(ctx context.Context, cmdDir string, da
 func (g *Generator) generateInitializerFile(cmdDir string, data templates.CommandData) (string, error) {
 	cmdPath := filepath.Join(cmdDir, "init.go")
 
-	g.props.Logger.Debugf("Rendering initializer template for %s", cmdPath)
+	g.props.Logger.Debug("rendering initializer template", "path", cmdPath)
 
 	initFile := templates.CommandInitializer(data)
 
@@ -281,7 +281,7 @@ func (g *Generator) generateInitializerFile(cmdDir string, data templates.Comman
 
 	// Check if file exists to perform hash verification
 	if exists, _ := afero.Exists(g.props.FS, cmdPath); exists {
-		g.props.Logger.Debugf("Verifying hash for existing file %s", cmdPath)
+		g.props.Logger.Debug("verifying hash for existing file", "path", cmdPath)
 
 		if err := g.verifyHash(cmdPath); err != nil {
 			return "", err
@@ -301,7 +301,7 @@ func (g *Generator) generateInitializerFile(cmdDir string, data templates.Comman
 
 	hash := calculateHash(content)
 
-	g.props.Logger.Debugf("Wrote initializer file: %s (%d bytes, hash=%s)", cmdPath, len(content), hash)
+	g.props.Logger.Debug("wrote initializer file", "path", cmdPath, "bytes", len(content), "hash", hash)
 
 	return hash, nil
 }
@@ -315,11 +315,11 @@ func (g *Generator) generateTestFile(ctx context.Context, cmdDir string, data te
 
 	testPath := filepath.Join(cmdDir, "main_test.go")
 
-	g.props.Logger.Debugf("Generating test file: %s", testPath)
+	g.props.Logger.Debug("generating test file", "path", testPath)
 
 	// Check if file exists to perform hash verification
 	if exists, _ := afero.Exists(g.props.FS, testPath); exists {
-		g.props.Logger.Debugf("Verifying hash for existing file %s", testPath)
+		g.props.Logger.Debug("verifying hash for existing file", "path", testPath)
 
 		if err := g.verifyHash(testPath); err != nil {
 			return "", err
@@ -339,11 +339,11 @@ func (g *Generator) generateTestFile(ctx context.Context, cmdDir string, data te
 		return "", errors.Newf("failed to write test file: %w", err)
 	}
 
-	g.props.Logger.Debugf("Wrote test file: %s (%d bytes)", testPath, len(data.TestCode))
+	g.props.Logger.Debug("wrote test file", "path", testPath, "bytes", len(data.TestCode))
 
 	// Run go fmt on main_test.go if using OS filesystem
 	if _, ok := g.props.FS.(*afero.OsFs); ok {
-		g.props.Logger.Debugf("Running go fmt on %s", testPath)
+		g.props.Logger.Debug("running go fmt", "path", testPath)
 
 		cmd := exec.CommandContext(ctx, "go", "fmt", testPath)
 		_ = cmd.Run()

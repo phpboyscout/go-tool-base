@@ -50,7 +50,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 				return errors.Wrap(err, "failed to initialise configuration")
 			}
 
-			props.Logger.Infof("Configuration initialised in %s", location)
+			props.Logger.Info("configuration initialised", "path", location)
 
 			return output.Emit(cmd, output.Response{
 				Status:  output.StatusSuccess,

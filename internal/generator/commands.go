@@ -106,7 +106,7 @@ func (g *Generator) generate(ctx context.Context) error {
 		return err
 	}
 
-	g.props.Logger.Infof("Generating command %s in %s...", g.config.Name, cmdDir)
+	g.props.Logger.Info("generating command", "command", g.config.Name, "path", cmdDir)
 
 	flags := g.resolveGenerationFlags()
 	data := g.prepareGenerationData(flags)
@@ -166,7 +166,7 @@ func (g *Generator) reshapeParentIfTransitioned(ctx context.Context) error {
 		return nil // not the first-child (leaf -> parent) transition
 	}
 
-	g.props.Logger.Debugf("Parent %q gained its first child; reshaping to canonical parent form", parentName)
+	g.props.Logger.Debug(fmt.Sprintf("Parent %q gained its first child; reshaping to canonical parent form", parentName))
 
 	return g.RegenerateCommand(ctx, *parent, grandparent)
 }
@@ -186,7 +186,7 @@ func (g *Generator) GenerateDryRun(ctx context.Context) (*DryRunResult, error) {
 		return nil, err
 	}
 
-	g.props.Logger.Infof("Dry run: previewing command %s in %s...", g.config.Name, cmdDir)
+	g.props.Logger.Info("dry run: previewing command", "command", g.config.Name, "path", cmdDir)
 
 	return g.withDryRunOverlay(ctx, g.config.Path, func() error {
 		flags := g.resolveGenerationFlags()
@@ -230,7 +230,7 @@ func (g *Generator) finalizeProject(ctx context.Context, data templates.CommandD
 		return err
 	}
 
-	g.props.Logger.Infof("Successfully generated command %s in %s.", g.config.Name, cmdDir)
+	g.props.Logger.Info("successfully generated command", "command", g.config.Name, "path", cmdDir)
 
 	return nil
 }
@@ -278,12 +278,12 @@ func (g *Generator) resolveGenerationFlags() []CommandFlag {
 
 		manifestFlags, err := g.loadFlagsFromManifest()
 		if err == nil && len(manifestFlags) > 0 {
-			g.props.Logger.Debugf("Loaded %d flags from manifest", len(manifestFlags))
+			g.props.Logger.Debug("loaded flags from manifest", "flags", len(manifestFlags))
 
 			return manifestFlags
 		}
 	} else {
-		g.props.Logger.Debugf("Resolved %d flags from CLI input", len(flags))
+		g.props.Logger.Debug("resolved flags from CLI input", "flags", len(flags))
 	}
 
 	return flags
@@ -298,7 +298,7 @@ func (g *Generator) checkExistingMain(cmdDir string) error {
 	}
 
 	if exists && !g.config.Force {
-		g.props.Logger.Warnf("%s already exists and will not be overwritten. Use --force to overwrite.", mainFile)
+		g.props.Logger.Warn(fmt.Sprintf("%s already exists and will not be overwritten. Use --force to overwrite.", mainFile))
 	}
 
 	return nil
@@ -311,7 +311,7 @@ func (g *Generator) processAIGeneration(ctx context.Context, data *templates.Com
 
 	aiClient, err := g.handleAIGeneration(ctx, data, flags)
 	if err != nil {
-		g.props.Logger.Warnf("AI generation failed: %v. Using best effort placeholder.", err)
+		g.props.Logger.Warn(fmt.Sprintf("AI generation failed: %v. Using best effort placeholder.", err))
 		data.Logic = "// AI generation failed: " + err.Error() + "\nreturn nil"
 	}
 
@@ -319,7 +319,7 @@ func (g *Generator) processAIGeneration(ctx context.Context, data *templates.Com
 }
 
 func (g *Generator) prepareGenerationData(flags []CommandFlag) templates.CommandData {
-	g.props.Logger.Debugf("Preparing generation data for %q (%d flags)", g.config.Name, len(flags))
+	g.props.Logger.Debug("preparing generation data", "command", g.config.Name, "flags", len(flags))
 
 	hasSubcommands := false
 
@@ -459,7 +459,7 @@ func (g *Generator) convertManifestFlagsToTemplate(mFlags []ManifestFlag) []temp
 }
 
 func (g *Generator) performGeneration(ctx context.Context, cmdDir string, data *templates.CommandData) error {
-	g.props.Logger.Debugf("Creating command directory: %s", cmdDir)
+	g.props.Logger.Debug("creating command directory", "path", cmdDir)
 
 	if err := g.props.FS.MkdirAll(cmdDir, os.ModePerm); err != nil {
 		return errors.Newf("failed to create directory %s: %w", cmdDir, err)
@@ -467,8 +467,12 @@ func (g *Generator) performGeneration(ctx context.Context, cmdDir string, data *
 
 	data.OmitRun = g.shouldOmitRun(*data, cmdDir)
 
-	g.props.Logger.Debugf("Command %q: OmitRun=%v, WithAssets=%v, WithInitializer=%v, HasSubcommands=%v",
-		data.Name, data.OmitRun, data.WithAssets, data.WithInitializer, data.HasSubcommands)
+	g.props.Logger.Debug("command generation settings",
+		"command", data.Name,
+		"omit_run", data.OmitRun,
+		"with_assets", data.WithAssets,
+		"with_initializer", data.WithInitializer,
+		"has_subcommands", data.HasSubcommands)
 
 	g.props.Logger.Info("Generating command boilerplate...")
 
@@ -480,7 +484,7 @@ func (g *Generator) postGenerate(ctx context.Context, data templates.CommandData
 		SkipDocumentation: g.config.DryRun,
 	}
 
-	g.props.Logger.Debugf("Running post-generation pipeline for %q (SkipDocumentation=%v)", data.Name, opts.SkipDocumentation)
+	g.props.Logger.Debug("running post-generation pipeline", "command", data.Name, "skip_documentation", opts.SkipDocumentation)
 
 	_, err := newCommandPipeline(g, opts).Run(ctx, data, cmdDir)
 
@@ -503,23 +507,23 @@ func (g *Generator) handleDocumentationGeneration(ctx context.Context, data temp
 	switch {
 	case g.config.UpdateDocs || !exists:
 		if g.aiDocsEnabled() {
-			g.props.Logger.Infof("Generating documentation for %q with AI...", data.Name)
+			g.props.Logger.Info("generating documentation with AI", "command", data.Name)
 		} else {
-			g.props.Logger.Debugf("Generating boilerplate documentation for %q...", data.Name)
+			g.props.Logger.Debug("generating boilerplate documentation", "command", data.Name)
 		}
 
 		// GenerateDocs is opt-in: it writes boilerplate (no API call) unless a
 		// provider is configured. If an enabled AI call fails mid-flight, fall
 		// back to boilerplate quietly rather than failing the generation.
 		if err := g.GenerateDocs(ctx, cmdDir, false); err != nil {
-			g.props.Logger.Infof("Documentation for %q fell back to boilerplate: %v", data.Name, err)
+			g.props.Logger.Info("documentation fell back to boilerplate", "command", data.Name, "error", err)
 
 			if err := g.generateDocs(); err != nil {
-				g.props.Logger.Warnf("Failed to generate documentation for %q: %v", data.Name, err)
+				g.props.Logger.Warn("failed to generate documentation", "command", data.Name, "error", err)
 			}
 		}
 	default:
-		g.props.Logger.Infof("Documentation for %q already exists, skipping. Use --update-docs to regenerate.", data.Name)
+		g.props.Logger.Info(fmt.Sprintf("Documentation for %q already exists, skipping. Use --update-docs to regenerate.", data.Name))
 	}
 }
 
@@ -722,7 +726,7 @@ func (g *Generator) handleAIGeneration(ctx context.Context, data *templates.Comm
 		g.props.Logger.Info("AI Recommendations:")
 
 		for _, rec := range resp.Recommendations {
-			g.props.Logger.Infof("- %s", rec)
+			g.props.Logger.Info(fmt.Sprintf("- %s", rec))
 		}
 	}
 

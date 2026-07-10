@@ -84,7 +84,7 @@ report whether a newer version is available.`,
 			info.Current = info.Version == latest
 
 			if !info.Current {
-				props.Logger.Warnf("A new version is available: %s", latest)
+				props.Logger.Warn("a new version is available", "version", latest)
 			}
 
 			return out.Write(output.Response{

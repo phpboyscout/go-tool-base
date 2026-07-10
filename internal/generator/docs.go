@@ -163,7 +163,7 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 	// boilerplate with no API call (quietly), so `generate command` never
 	// reaches out to Anthropic by default.
 	if !g.aiDocsEnabled() {
-		g.props.Logger.Debugf("AI docs not enabled (no provider configured or --agentless); writing boilerplate for %q", name)
+		g.props.Logger.Debug("AI docs not enabled (no provider configured or --agentless); writing boilerplate", "name", name)
 
 		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
 	}
@@ -178,7 +178,7 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 
 	client, err := g.createAIDocsClient(ctx, provider, model, sysPrompt)
 	if err != nil {
-		g.props.Logger.Infof("AI docs unavailable for %q, writing boilerplate: %v", name, err)
+		g.props.Logger.Info("AI docs unavailable, writing boilerplate", "name", name, "error", err)
 
 		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
 	}
@@ -261,7 +261,7 @@ func (g *Generator) writeAIDocs(ctx context.Context, client chat.ChatClient, con
 		return errors.Wrap(err, "failed to create docs directory")
 	}
 
-	g.props.Logger.Infof("Writing documentation to %s", outputPath)
+	g.props.Logger.Info("writing documentation", "path", outputPath)
 
 	if err := afero.WriteFile(g.props.FS, outputPath, []byte(docsContent), DefaultFileMode); err != nil {
 		return errors.Wrap(err, "failed to write documentation file")
@@ -305,7 +305,7 @@ _TODO: a short usage sketch._
 %s
 `, name, currentDate, name, name, g.apiReferenceNote(relPath, moduleName))
 
-	g.props.Logger.Infof("Writing package documentation stub to %s", outputPath)
+	g.props.Logger.Info("writing package documentation stub", "path", outputPath)
 
 	return g.writeDocFile(outputPath, []byte(content))
 }
@@ -341,7 +341,7 @@ func (g *Generator) persistModulePublished() {
 
 	m.Properties.ModulePublished = true
 	if err := g.writeManifestFile(path, *m); err != nil {
-		g.props.Logger.Warnf("could not persist module_published: %v", err)
+		g.props.Logger.Warn("could not persist module_published", "error", err)
 	}
 }
 
@@ -382,7 +382,7 @@ func (g *Generator) writeBasicCommandDocs(name, fullCmdName, outputPath string) 
 	appendSubcommandsTable(&sb, fullCmdName, cmd)
 	fmt.Fprintf(&sb, "Run `%s --help` for the authoritative, always-current flag set.\n\n", fullCmdName)
 
-	g.props.Logger.Infof("Writing basic documentation to %s", outputPath)
+	g.props.Logger.Info("writing basic documentation", "path", outputPath)
 
 	return g.writeDocFile(outputPath, []byte(sb.String()))
 }
@@ -1136,7 +1136,7 @@ func (g *Generator) generateCommandsIndex() error {
 		indexPath = filepath.Join(g.config.Path, "docs", "reference", "cli", "index.md")
 	}
 
-	g.props.Logger.Infof("Updating commands index: %s", indexPath)
+	g.props.Logger.Info("updating commands index", "path", indexPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(indexPath), DefaultDirMode); err != nil {
 		return errors.Wrap(err, "failed to create commands index dir")

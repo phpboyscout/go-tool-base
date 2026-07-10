@@ -80,7 +80,7 @@ func (g *Generator) moveFlatDocTree(m *Manifest, root string, isPackage bool) er
 			return err
 		}
 
-		g.props.Logger.Debugf("migrate doc: %s -> %s", path, dest)
+		g.props.Logger.Debug("migrate doc", "from", path, "to", dest)
 
 		return g.props.FS.Rename(path, dest)
 	})

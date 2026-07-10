@@ -126,7 +126,7 @@ func (g *Generator) marshalManifestFile(manifestPath string, m *Manifest) error 
 func (g *Generator) loadManifest() (*Manifest, error) {
 	manifestPath := ManifestPathFor(g.config.Path)
 
-	g.props.Logger.Debugf("Loading manifest from %s", manifestPath)
+	g.props.Logger.Debug("loading manifest", "path", manifestPath)
 
 	if exists, _ := afero.Exists(g.props.FS, manifestPath); !exists {
 		g.props.Logger.Debug("Manifest not found")
@@ -139,7 +139,7 @@ func (g *Generator) loadManifest() (*Manifest, error) {
 		return nil, err
 	}
 
-	g.props.Logger.Debugf("Manifest loaded: %s (%d commands)", m.Properties.Name, len(m.Commands))
+	g.props.Logger.Debug("manifest loaded", "name", m.Properties.Name, "commands", len(m.Commands))
 
 	return m, nil
 }

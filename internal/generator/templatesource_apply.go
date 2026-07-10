@@ -76,7 +76,7 @@ func (g *Generator) applyOverlays(destPath string, data any, storedHashes, colle
 
 		for _, f := range files {
 			if rules.IsIgnored(f.relPath) {
-				g.props.Logger.Debugf("Ignored by .gtb/ignore: %s", f.relPath)
+				g.props.Logger.Debug("ignored by .gtb/ignore", "path", f.relPath)
 
 				continue
 			}
@@ -85,7 +85,7 @@ func (g *Generator) applyOverlays(destPath string, data any, storedHashes, colle
 
 			hash, writeErr := g.writeOverlayFile(destPath, f, storedHashes)
 			if writeErr != nil {
-				g.props.Logger.Warnf("Skipped overlay %s: %v", f.relPath, writeErr)
+				g.props.Logger.Warn("skipped overlay", "path", f.relPath, "error", writeErr)
 
 				continue
 			}
@@ -115,13 +115,13 @@ func (g *Generator) applyOverlays(destPath string, data any, storedHashes, colle
 // embedded file or an earlier source's output, naming the path and winner.
 func (g *Generator) logOverlayOverride(relPath string, src TemplateSource, lastWriter, collectedHashes map[string]string) {
 	if prev, ok := lastWriter[relPath]; ok {
-		g.props.Logger.Infof("Overlay %s: source %q overrides earlier source %q", relPath, sourceLabel(src), prev)
+		g.props.Logger.Info("overlay source overrides earlier source", "path", relPath, "source", sourceLabel(src), "overrides", prev)
 
 		return
 	}
 
 	if _, embedded := collectedHashes[relPath]; embedded {
-		g.props.Logger.Infof("Overlay %s: source %q overrides the embedded skeleton (user wins)", relPath, sourceLabel(src))
+		g.props.Logger.Info("overlay source overrides the embedded skeleton (user wins)", "path", relPath, "source", sourceLabel(src))
 	}
 }
 
@@ -133,9 +133,9 @@ func (g *Generator) warnLocalDrift(incoming TemplateSource, rs *resolvedSource) 
 	}
 
 	if incoming.Fingerprint != rs.fingerprint {
-		g.props.Logger.Warnf(
-			"Local template source %q has drifted since last generation (fingerprint changed); regenerated output reflects the current on-disk tree",
-			sourceLabel(incoming),
+		g.props.Logger.Warn(
+			"local template source has drifted since last generation (fingerprint changed); regenerated output reflects the current on-disk tree",
+			"source", sourceLabel(incoming),
 		)
 	}
 }
@@ -167,13 +167,13 @@ func (g *Generator) removeStrandedSuppressed(destPath string, suppressed []strin
 
 		full := joinProjectPath(destPath, relPath)
 		if err := g.props.FS.Remove(full); err != nil {
-			g.props.Logger.Debugf("Could not remove suppressed file %s: %v", relPath, err)
+			g.props.Logger.Debug("could not remove suppressed file", "path", relPath, "error", err)
 
 			continue
 		}
 
 		delete(storedHashes, relPath)
-		g.props.Logger.Debugf("Removed suppressed embedded file: %s", relPath)
+		g.props.Logger.Debug("removed suppressed embedded file", "path", relPath)
 	}
 }
 

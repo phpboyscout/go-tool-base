@@ -576,7 +576,7 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 		return targetPath, errors.WithStack(err)
 	}
 
-	s.logger.Infof("targetting version %s", latestVersion.GetName())
+	s.logger.Info("targeting version", "version", latestVersion.GetName())
 
 	asset, err := s.findReleaseAsset(latestVersion)
 	if err != nil {
@@ -983,7 +983,7 @@ func (s *SelfUpdater) extract(file bytes.Buffer, targetPath string) error {
 		// inner Windows binary "<name>.exe". The archive is platform-
 		// specific, so only one of these is ever present.
 		if header.Name == s.Tool.Name || header.Name == s.Tool.Name+".exe" {
-			s.logger.Infof("writing updated %s to %s", header.Name, targetPath)
+			s.logger.Info("writing updated binary", "name", header.Name, "path", targetPath)
 
 			return s.extractAndInstallBinary(tarReader, targetPath)
 		}

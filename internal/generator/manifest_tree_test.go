@@ -548,7 +548,7 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 	logs := logBuf.String()
 
 	// Check for orphan warning
-	assert.Contains(t, logs, "Skipping orphaned command orphan")
+	assert.Contains(t, logs, "skipping orphaned command not linked in command hierarchy command=orphan")
 
 	// Check for duplicate warning
 	// "Duplicate command name detected: dup. Renamed to dup-1"

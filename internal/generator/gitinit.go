@@ -56,7 +56,7 @@ func (g *Generator) runSkeletonGitInit(config SkeletonConfig) {
 	}
 
 	if found {
-		g.props.Logger.Infof("Destination %s is already inside a git repository; skipping git initialisation", config.Path)
+		g.props.Logger.Info("destination is already inside a git repository; skipping git initialisation", "path", config.Path)
 
 		return
 	}
@@ -66,7 +66,7 @@ func (g *Generator) runSkeletonGitInit(config SkeletonConfig) {
 		branch = defaultGitBranch
 	}
 
-	g.props.Logger.Infof("Initialising git repository on branch %s...", branch)
+	g.props.Logger.Info("initialising git repository", "branch", branch)
 
 	r, err := repo.NewRepoFromProps(g.props)
 	if err != nil {
@@ -110,7 +110,7 @@ func (g *Generator) makeInitialCommit(r *repo.Repo, config SkeletonConfig, branc
 		return false
 	}
 
-	g.props.Logger.Infof("Created initial commit %s on branch %s", hash.String()[:7], branch)
+	g.props.Logger.Info("created initial commit", "commit", hash.String()[:7], "branch", branch)
 
 	return true
 }
@@ -133,7 +133,7 @@ func (g *Generator) pushInitialCommit(r *repo.Repo, config SkeletonConfig, branc
 		return
 	}
 
-	g.props.Logger.Infof("Pushing branch %s to %s...", branch, remoteURL)
+	g.props.Logger.Info("pushing branch", "branch", branch, "remote", remoteURL)
 
 	refspec := gitconfig.RefSpec(fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
 
@@ -141,15 +141,15 @@ func (g *Generator) pushInitialCommit(r *repo.Repo, config SkeletonConfig, branc
 		RemoteName: "origin",
 		RefSpecs:   []gitconfig.RefSpec{refspec},
 	}); err != nil {
-		g.props.Logger.Warnf(
+		g.props.Logger.Warn(fmt.Sprintf(
 			"Failed to push to %s: %v. Create the repository on the forge, then run: git push -u origin %s",
 			remoteURL, err, branch,
-		)
+		))
 
 		return
 	}
 
-	g.props.Logger.Infof("Pushed branch %s to %s", branch, remoteURL)
+	g.props.Logger.Info("pushed branch", "branch", branch, "remote", remoteURL)
 }
 
 // resolveGitAuthor resolves the initial-commit identity, in order:

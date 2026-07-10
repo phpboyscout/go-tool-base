@@ -158,7 +158,7 @@ func (g *Generator) materialiseAndDiff(ctx context.Context, overlayFS afero.Fs, 
 		return nil, err
 	}
 
-	g.props.Logger.Debugf("Dry run result: %d file(s) to create, %d file(s) to modify", len(result.Created), len(result.Modified))
+	g.props.Logger.Debug("dry run result", "created", len(result.Created), "modified", len(result.Modified))
 
 	return result, nil
 }
@@ -191,7 +191,7 @@ func (g *Generator) materialiseOverlay(overlay afero.Fs, projectPath, targetDir 
 			return errors.Wrapf(err, "failed to create directory for %s", destPath)
 		}
 
-		g.props.Logger.Debugf("Materialising %s", relPath)
+		g.props.Logger.Debug("materialising file", "path", relPath)
 
 		return os.WriteFile(destPath, content, DefaultFileMode)
 	})
@@ -205,13 +205,13 @@ func (g *Generator) runDryRunPostProcessing(ctx context.Context, dir string, pp 
 			continue
 		}
 
-		g.props.Logger.Infof("Dry run post-processing: %s", strings.Join(cmdArgs, " "))
+		g.props.Logger.Info(fmt.Sprintf("Dry run post-processing: %s", strings.Join(cmdArgs, " ")))
 
 		cmd := exec.CommandContext(ctx, cmdArgs[0], cmdArgs[1:]...) //nolint:gosec // commands are hardcoded by callers, not user input
 		cmd.Dir = dir
 
 		if err := cmd.Run(); err != nil {
-			g.props.Logger.Warnf("Dry run post-processing failed (%s): %v", cmdArgs[0], err)
+			g.props.Logger.Warn("dry run post-processing failed", "command", cmdArgs[0], "error", err)
 		}
 	}
 }

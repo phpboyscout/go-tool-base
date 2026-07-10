@@ -267,7 +267,7 @@ func (g *Generator) regenerateGoreleaserAsset(m *Manifest) error {
 	)
 	if err != nil {
 		// Non-fatal: a customised .goreleaser.yaml is left untouched.
-		g.props.Logger.Warnf("Skipped %s: %v", goreleaserAssetRelPath, err)
+		g.props.Logger.Warn("skipped", "path", goreleaserAssetRelPath, "error", err)
 
 		return nil
 	}

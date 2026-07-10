@@ -30,7 +30,7 @@ func ConfirmRemoteTemplate(p *props.Props, ci bool, ts generator.TemplateSource)
 	}
 
 	if ci || !utils.IsInteractive() || os.Getenv("GTB_NON_INTERACTIVE") == "true" {
-		p.Logger.Warnf("Trusting remote template source %q at ref %q (non-interactive)", ts.Location, refOrDefault(ts.Ref))
+		p.Logger.Warn("trusting remote template source (non-interactive)", "location", ts.Location, "ref", refOrDefault(ts.Ref))
 
 		return nil
 	}

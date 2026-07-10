@@ -42,7 +42,7 @@ func (g *Generator) registerSubcommand() error {
 		return err
 	}
 
-	g.props.Logger.Debugf("Reading parent command file: %s", ctx.parentFile)
+	g.props.Logger.Debug("reading parent command file", "path", ctx.parentFile)
 
 	fsrc, err := afero.ReadFile(g.props.FS, ctx.parentFile)
 	if err != nil {
@@ -56,7 +56,7 @@ func (g *Generator) registerSubcommand() error {
 		return errors.Wrap(err, "failed to parse parent command file")
 	}
 
-	g.props.Logger.Debugf("Adding import for %s", ctx.importPath)
+	g.props.Logger.Debug("adding import", "import", ctx.importPath)
 	g.addSubcommandImport(f, ctx.importPath, ctx.pkgName)
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)
@@ -64,7 +64,7 @@ func (g *Generator) registerSubcommand() error {
 		return err
 	}
 
-	g.props.Logger.Debugf("Analyzing target function NewCmd%s for existing registrations", PascalCase(ctx.parentName))
+	g.props.Logger.Debug(fmt.Sprintf("Analyzing target function NewCmd%s for existing registrations", PascalCase(ctx.parentName)))
 	g.analyzeTargetFunction(f, targetFunc, ctx)
 
 	return g.applySubcommandRegistration(f, targetFunc, ctx)
@@ -493,16 +493,16 @@ func (g *Generator) handleAllAssetsAssignment(as *dst.AssignStmt, expr dst.Expr,
 
 func (g *Generator) applySubcommandRegistration(f *dst.File, fn *dst.FuncDecl, ctx *subcommandContext) error {
 	if ctx.registered {
-		g.props.Logger.Debugf("Subcommand %q already registered in parent, saving AST", g.config.Name)
+		g.props.Logger.Debug("subcommand already registered in parent, saving AST", "command", g.config.Name)
 
 		return g.saveAstFile(f, ctx.parentFile)
 	}
 
 	if ctx.isRoot && ctx.rootCmdInitIdx != -1 {
-		g.props.Logger.Debugf("Inserting subcommand %q into root NewCmdRoot call", g.config.Name)
+		g.props.Logger.Debug("inserting subcommand into root NewCmdRoot call", "command", g.config.Name)
 		g.insertIntoRoot(fn, ctx)
 	} else {
-		g.props.Logger.Debugf("Inserting Register call for %q before return statement", g.config.Name)
+		g.props.Logger.Debug("inserting Register call before return statement", "command", g.config.Name)
 
 		stmt := g.createRegistrationStmts(ctx)
 		g.insertGeneric(fn, stmt)
@@ -595,7 +595,7 @@ func (g *Generator) insertGeneric(fn *dst.FuncDecl, stmt dst.Stmt) {
 }
 
 func (g *Generator) saveAstFile(f *dst.File, path string) error {
-	g.props.Logger.Debugf("Writing modified AST to %s", path)
+	g.props.Logger.Debug("writing modified AST", "path", path)
 
 	fout, err := g.props.FS.Create(path)
 	if err != nil {
@@ -691,14 +691,14 @@ func joinContained(root, rel string) (target, contained string, err error) {
 }
 
 func (g *Generator) deregisterSubcommand() error {
-	g.props.Logger.Debugf("Deregistering subcommand %q...", g.config.Name)
+	g.props.Logger.Debug("deregistering subcommand", "command", g.config.Name)
 
 	ctx, err := g.prepareSubcommandContext()
 	if err != nil {
 		return err
 	}
 
-	g.props.Logger.Debugf("Reading parent command file for deregistration: %s", ctx.parentFile)
+	g.props.Logger.Debug("reading parent command file for deregistration", "path", ctx.parentFile)
 
 	fsrc, err := afero.ReadFile(g.props.FS, ctx.parentFile)
 	if err != nil {
@@ -710,7 +710,7 @@ func (g *Generator) deregisterSubcommand() error {
 		return errors.Wrap(err, "failed to parse parent command file")
 	}
 
-	g.props.Logger.Debugf("Removing import %s", ctx.importPath)
+	g.props.Logger.Debug("removing import", "import", ctx.importPath)
 	g.removeSubcommandImport(f, ctx.importPath)
 
 	targetFunc, err := g.findSubcommandTargetFunction(f, ctx.parentName, ctx.parentFile)

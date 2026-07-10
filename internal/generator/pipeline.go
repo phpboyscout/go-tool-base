@@ -85,7 +85,7 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 	allFlags = append(allFlags, data.PersistentFlags...)
 
 	if err := p.g.updateManifest(allFlags, data.Hashes); err != nil {
-		p.g.props.Logger.Warnf("Failed to update manifest: %v", err)
+		p.g.props.Logger.Warn("failed to update manifest", "error", err)
 		result.warn("persistManifest", err)
 	}
 
@@ -97,7 +97,7 @@ func (p *CommandPipeline) Run(ctx context.Context, data templates.CommandData, c
 		p.g.props.Logger.Debug("Skipping documentation generation (SkipDocumentation=true)")
 	}
 
-	p.g.props.Logger.Debugf("Pipeline complete: %d warnings", len(result.Warnings))
+	p.g.props.Logger.Debug("pipeline complete", "warnings", len(result.Warnings))
 
 	return result, nil
 }
@@ -111,21 +111,21 @@ func (p *CommandPipeline) runRegistrationSteps(data templates.CommandData, cmdDi
 	}
 
 	if !p.opts.SkipRegistration {
-		p.g.props.Logger.Infof("Registering subcommand %q...", data.Name)
+		p.g.props.Logger.Info("registering subcommand", "name", data.Name)
 
 		if err := p.g.registerSubcommand(); err != nil {
-			p.g.props.Logger.Warnf("Failed to register subcommand %q: %v", data.Name, err)
+			p.g.props.Logger.Warn("failed to register subcommand", "name", data.Name, "error", err)
 			result.warn("registerInParent", err)
 		} else if err := p.g.updateParentCmdHash(); err != nil {
-			p.g.props.Logger.Warnf("Failed to update parent command hash: %v", err)
+			p.g.props.Logger.Warn("failed to update parent command hash", "error", err)
 			result.warn("updateParentCmdHash", err)
 		}
 	}
 
-	p.g.props.Logger.Infof("Re-registering child commands for %q...", data.Name)
+	p.g.props.Logger.Info("re-registering child commands", "name", data.Name)
 
 	if err := p.g.reRegisterChildCommands(cmdDir, data.Hashes); err != nil {
-		p.g.props.Logger.Warnf("Failed to re-register child commands for %q: %v", data.Name, err)
+		p.g.props.Logger.Warn("failed to re-register child commands", "name", data.Name, "error", err)
 		result.warn("reRegisterChildren", err)
 	}
 }
@@ -158,7 +158,7 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 		childGen := New(g.props, childCtx.ToConfig())
 
 		if err := childGen.registerSubcommand(); err != nil {
-			g.props.Logger.Warnf("Failed to re-register child %q under %q: %v", child.Name, g.config.Name, err)
+			g.props.Logger.Warn("failed to re-register child command", "child", child.Name, "parent", g.config.Name, "error", err)
 		}
 	}
 

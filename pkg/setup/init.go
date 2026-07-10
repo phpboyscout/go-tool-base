@@ -117,7 +117,7 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 
 	for _, init := range opts.Initialisers {
 		if init.IsConfigured(c) {
-			props.Logger.Infof("%s is already configured", init.Name())
+			props.Logger.Info("already configured", "component", init.Name())
 
 			continue
 		}
@@ -127,20 +127,20 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 		// still written, and the user can run the dedicated "init <provider>"
 		// subcommand interactively later.
 		if !interactive {
-			props.Logger.Infof("%s setup skipped: no interactive terminal", init.Name())
+			props.Logger.Info("setup skipped: no interactive terminal", "component", init.Name())
 
 			continue
 		}
 
-		props.Logger.Infof("%s is enabled but not yet configured", init.Name())
+		props.Logger.Info("enabled but not yet configured", "component", init.Name())
 
 		if err := init.Configure(props, c); err != nil {
-			props.Logger.Warnf("%s configuration skipped: %s", init.Name(), err)
+			props.Logger.Warn("configuration skipped", "component", init.Name(), "error", err)
 		}
 	}
 
 	if err := writeGitignore(props.FS, opts.Dir); err != nil {
-		props.Logger.Warnf("failed to write .gitignore: %s", err)
+		props.Logger.Warn("failed to write .gitignore", "error", err)
 	}
 
 	warnIfAPIKeysInGitRepo(props, opts.Dir)
@@ -152,7 +152,7 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 	// Restrict config file permissions — the file may contain credentials.
 	const configFilePerm = 0o600
 	if chmodErr := props.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
-		props.Logger.Warnf("failed to set config file permissions: %s", chmodErr)
+		props.Logger.Warn("failed to set config file permissions", "error", chmodErr)
 	}
 
 	return targetFile, nil
@@ -260,7 +260,7 @@ func warnIfAPIKeysInGitRepo(p *props.Props, configDir string) {
 		content := string(data)
 		for _, pattern := range patterns {
 			if strings.Contains(content, pattern) {
-				p.Logger.Warnf("config file may contain API keys — ensure it is gitignored: %s", path)
+				p.Logger.Warn("config file may contain API keys — ensure it is gitignored", "path", path)
 
 				return filepath.SkipDir
 			}

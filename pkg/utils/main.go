@@ -43,12 +43,12 @@ func GracefulGetPath(name string, l logger.Logger, instructions ...string) (stri
 			l.Warn(i)
 		}
 
-		l.Errorf("the '%s' command is not available, please make sure it is installed and configured in your PATH", name)
+		l.Error("command is not available; ensure it is installed and configured in your PATH", "command", name)
 
 		return "", err
 	}
 
-	l.Debugf("using '%s' command at '%s'", name, p)
+	l.Debug("using command", "command", name, "path", p)
 
 	return p, nil
 }

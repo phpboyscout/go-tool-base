@@ -87,7 +87,7 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			continue
 		}
 
-		g.props.Logger.Infof("Appending missing stub %s to %s", h.funcName, mainPath)
+		g.props.Logger.Info("appending missing stub", "func", h.funcName, "path", mainPath)
 
 		for _, imp := range h.requiredImports {
 			content = ensureImport(content, imp)

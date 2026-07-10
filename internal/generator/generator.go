@@ -297,7 +297,7 @@ func (g *Generator) checkBreakingChanges(manifestVer, cliVer string) {
 		// If version is newer than manifest AND older than or equal to current CLI
 		// using > and <= comparisons
 		if version.CompareVersions(ver, manifestVer) > 0 && version.CompareVersions(ver, cliVer) <= 0 {
-			g.props.Logger.Warnf("Project update required for %s: %s", ver, msg)
+			g.props.Logger.Warn("project update required", "version", ver, "message", msg)
 		}
 	}
 }

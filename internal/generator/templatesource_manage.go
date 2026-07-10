@@ -57,7 +57,7 @@ func (g *Generator) AddTemplateSource(ctx context.Context, ts TemplateSource) er
 	// source does not linger in the manifest.
 	if err := g.RegenerateProject(ctx); err != nil {
 		if rbErr := g.saveManifestTemplates(prior); rbErr != nil {
-			g.props.Logger.Warnf("Failed to roll back manifest after a rejected template add: %v", rbErr)
+			g.props.Logger.Warn("failed to roll back manifest after a rejected template add", "error", rbErr)
 		}
 
 		return err

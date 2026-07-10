@@ -194,7 +194,7 @@ func Update(ctx context.Context, props *p.Props, version string, force bool, opt
 	props.Logger.Info("Update complete")
 
 	if props.Tool.IsEnabled(p.ChangelogCmd) {
-		props.Logger.Infof("Run '%s changelog --latest' to see the full changelog.", props.Tool.Name)
+		props.Logger.Info(fmt.Sprintf("Run '%s changelog --latest' to see the full changelog.", props.Tool.Name))
 	}
 
 	return &UpdateResult{
@@ -239,7 +239,7 @@ func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ..
 
 	UpdateConfig(cmd.Context(), props, targetPath, opts...)
 
-	props.Logger.Infof("successfully installed from %s to %s", filePath, targetPath)
+	props.Logger.Info("successfully installed", "from", filePath, "to", targetPath)
 
 	return output.Emit(cmd, output.Response{
 		Status:  output.StatusSuccess,
@@ -276,7 +276,7 @@ func UpdateConfig(ctx context.Context, props *p.Props, binPath string, opts ...U
 
 				initErr := cmd.Run()
 				if initErr != nil {
-					props.Logger.Warnf("could not update config in dir '%s': %s", path, initErr)
+					props.Logger.Warn("could not update config", "dir", path, "error", initErr)
 				}
 			}
 		}

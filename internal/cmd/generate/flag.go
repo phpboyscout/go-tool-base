@@ -184,7 +184,7 @@ func (o *AddFlagOptions) Run(ctx context.Context, p *props.Props) error {
 		return err
 	}
 
-	p.Logger.Infof("Successfully added flag %s to command %s", o.FlagName, o.CommandName)
+	p.Logger.Info("added flag to command", "flag", o.FlagName, "command", o.CommandName)
 
 	return nil
 }

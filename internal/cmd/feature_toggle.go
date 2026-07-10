@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -156,13 +157,13 @@ func reportFeatureChanges(p *props.Props, changed []string, enable bool) {
 	}
 
 	if len(changed) == 0 {
-		p.Logger.Infof("Already %s; nothing changed.", verb)
+		p.Logger.Info(fmt.Sprintf("Already %s; nothing changed.", verb))
 
 		return
 	}
 
 	for _, name := range changed {
-		p.Logger.Infof("Feature %q %s.", name, verb)
+		p.Logger.Info(fmt.Sprintf("Feature %q %s.", name, verb))
 	}
 
 	if !enable && slices.Contains(changed, "update") {

@@ -51,7 +51,7 @@ cloning; that confirmation is skipped under --ci or a non-interactive session.`,
 				return err
 			}
 
-			p.Logger.Infof("Added template source %q (%s).", labelOf(ts), ts.Type)
+			p.Logger.Info("added template source", "source", labelOf(ts), "type", ts.Type)
 
 			return nil
 		},
@@ -87,7 +87,7 @@ has no ref to re-resolve.`,
 				return err
 			}
 
-			p.Logger.Infof("Updated template source %q.", args[0])
+			p.Logger.Info("updated template source", "source", args[0])
 
 			return nil
 		},
@@ -122,7 +122,7 @@ that the overlay merely overwrote are re-rendered from the skeleton.`,
 				return err
 			}
 
-			p.Logger.Infof("Removed template source %q.", args[0])
+			p.Logger.Info("removed template source", "source", args[0])
 
 			return nil
 		},

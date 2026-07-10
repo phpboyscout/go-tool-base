@@ -95,7 +95,7 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	manifestPath := ManifestPathFor(g.config.Path)
 
-	g.props.Logger.Debugf("Reading manifest from %s", manifestPath)
+	g.props.Logger.Debug("reading manifest", "path", manifestPath)
 
 	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
@@ -113,14 +113,14 @@ func (g *Generator) regenerateProjectFiles(ctx context.Context) error {
 	}
 
 	g.props.Logger.Info("Regenerating project from manifest...")
-	g.props.Logger.Debugf("Manifest: %s, %d top-level commands", m.Properties.Name, len(m.Commands))
+	g.props.Logger.Debug("manifest loaded", "name", m.Properties.Name, "commands", len(m.Commands))
 
 	if err := g.regenerateRootCommand(*m); err != nil {
 		return err
 	}
 
 	for _, cmd := range m.Commands {
-		g.props.Logger.Debugf("Processing top-level command: %s", cmd.Name)
+		g.props.Logger.Debug("processing top-level command", "name", cmd.Name)
 
 		if err := g.regenerateCommandRecursive(ctx, cmd, []string{}); err != nil {
 			return err
@@ -270,7 +270,7 @@ func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, 
 }
 
 func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
-	g.props.Logger.Debugf("Building command context for %q (parent=%v)", cmd.Name, parentPath)
+	g.props.Logger.Debug("building command context", "name", cmd.Name, "parent", parentPath)
 
 	// Build an immutable CommandContext for this command — no shared-state mutation.
 	cmdCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
@@ -289,7 +289,7 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 		return err
 	}
 
-	g.props.Logger.Infof("Regenerating command %s in %s...", cmd.Name, cmdDir)
+	g.props.Logger.Info("regenerating command", "name", cmd.Name, "path", cmdDir)
 
 	if err := g.props.FS.MkdirAll(cmdDir, DefaultDirMode); err != nil {
 		return errors.Newf("failed to create command directory: %w", err)
@@ -310,7 +310,7 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 	childPath := append(append([]string{}, parentPath...), cmd.Name)
 
 	if len(cmd.Commands) > 0 {
-		g.props.Logger.Debugf("Recursing into %d subcommands of %q", len(cmd.Commands), cmd.Name)
+		g.props.Logger.Debug("recursing into subcommands", "count", len(cmd.Commands), "name", cmd.Name)
 	}
 
 	for _, subCmd := range cmd.Commands {
@@ -372,7 +372,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 
 func (g *Generator) regenerateRootCommand(m Manifest) error {
 	g.props.Logger.Info("Regenerating root command...")
-	g.props.Logger.Debugf("Building skeleton subcommands for %d top-level commands", len(m.Commands))
+	g.props.Logger.Debug("building skeleton subcommands", "commands", len(m.Commands))
 
 	subcommands, err := g.buildSkeletonSubcommands(m.Commands)
 	if err != nil {
@@ -385,7 +385,7 @@ func (g *Generator) regenerateRootCommand(m Manifest) error {
 
 	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
 
-	g.props.Logger.Debugf("Writing root command to %s", rootCmdPath)
+	g.props.Logger.Debug("writing root command", "path", rootCmdPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(rootCmdPath), DefaultDirMode); err != nil {
 		return errors.Newf("failed to create root command directory: %w", err)
@@ -526,7 +526,7 @@ func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 // manifest so subsequent runs can detect further modifications.
 func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, error) {
 	g.props.Logger.Info("Regenerating project skeleton files...")
-	g.props.Logger.Debugf("Existing hashes: %d entries", len(m.Hashes))
+	g.props.Logger.Debug("existing hashes", "entries", len(m.Hashes))
 
 	// Reconstruct template data from the manifest. GoVersion is not persisted
 	// so we fall back to the current runtime version.
@@ -555,7 +555,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		finalHashes[k] = v
 	}
 
-	g.props.Logger.Debugf("Skeleton regeneration complete: %d files written, %d total hashes", len(writtenHashes), len(finalHashes))
+	g.props.Logger.Debug("skeleton regeneration complete", "written", len(writtenHashes), "hashes", len(finalHashes))
 
 	return writtenHashes, g.persistProjectHashesAndSources(finalHashes, updatedSources)
 }
@@ -566,7 +566,7 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 func (g *Generator) persistProjectHashesAndSources(hashes map[string]string, sources []TemplateSource) error {
 	manifestPath := ManifestPathFor(g.config.Path)
 
-	g.props.Logger.Debugf("Persisting %d project hashes to manifest", len(hashes))
+	g.props.Logger.Debug("persisting project hashes", "hashes", len(hashes))
 
 	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {

@@ -65,7 +65,7 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 			m.Properties.Features = mProps.Features
 		}
 	} else {
-		g.props.Logger.Warnf("Could not extract project properties from root cmd.go: %v", err)
+		g.props.Logger.Warn("could not extract project properties from root cmd.go", "error", err)
 	}
 
 	if g.props.Version != nil {
@@ -96,11 +96,11 @@ func (g *Generator) previewManifest(manifestPath string, m Manifest) error {
 	switch {
 	case diffErr != nil:
 		// Diff rendering is best-effort; the contract is simply "do not write".
-		g.props.Logger.Warnf("Dry run: manifest.yaml would be updated (diff unavailable: %v); not written.", diffErr)
+		g.props.Logger.Warn("dry run: manifest.yaml would be updated (diff unavailable); not written", "error", diffErr)
 	case strings.TrimSpace(diff) == "":
 		g.props.Logger.Info("Dry run: manifest.yaml is already up to date; no changes.")
 	default:
-		g.props.Logger.Infof("Dry run: manifest.yaml would change (not written):\n%s", diff)
+		g.props.Logger.Info(fmt.Sprintf("Dry run: manifest.yaml would change (not written):\n%s", diff))
 	}
 
 	return nil
@@ -164,7 +164,7 @@ func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
 			continue
 		}
 		// Skip orphaned commands
-		g.props.Logger.Warnf("Skipping orphaned command %s (found in filesystem but not linked in command hierarchy). Package: %s", root.cmd.Name, root.constructorName)
+		g.props.Logger.Warn("skipping orphaned command not linked in command hierarchy", "command", root.cmd.Name, "package", root.constructorName)
 	}
 
 	// Sort the final list of commands

@@ -49,23 +49,23 @@ func (v *LegacyVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir s
 		}
 
 		if len(verificationErrors) == 0 {
-			v.props.Logger.Infof("Successfully generated command %s and passed all verifications", data.Name)
+			v.props.Logger.Info("successfully generated command and passed all verifications", "command", data.Name)
 
 			return nil
 		}
 
 		lastVerificationErrors = strings.Join(verificationErrors, "\n\n")
-		v.props.Logger.Warnf("Verification failed:\n%s", lastVerificationErrors)
+		v.props.Logger.Warn(fmt.Sprintf("Verification failed:\n%s", lastVerificationErrors))
 
 		if i < maxRetries && aiClient != nil {
-			v.props.Logger.Infof("Attempting to fix code with AI (Draft %d/%d)...", i+1, maxRetries)
+			v.props.Logger.Info("attempting to fix code with AI", "draft", i+1, "max", maxRetries)
 
 			var resp AIResponse
 
 			fixPrompt := fmt.Sprintf("The code you generated failed verification with the following errors:\n%s\n\nPlease fix the code.", lastVerificationErrors)
 
 			if err := aiClient.Ask(ctx, fixPrompt, &resp); err != nil {
-				v.props.Logger.Warnf("AI fix failed: %v", err)
+				v.props.Logger.Warn("AI fix failed", "error", err)
 
 				break
 			}
@@ -81,7 +81,7 @@ func (v *LegacyVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir s
 	}
 
 	if lastVerificationErrors != "" {
-		v.props.Logger.Warnf("CAUTION: Command %s was generated but failed one or more verification steps (Linter, Unit Tests, or Compilation). Please review the errors above and manually correct the code.", data.Name)
+		v.props.Logger.Warn(fmt.Sprintf("CAUTION: Command %s was generated but failed one or more verification steps (Linter, Unit Tests, or Compilation). Please review the errors above and manually correct the code.", data.Name))
 	}
 
 	return nil
@@ -98,7 +98,7 @@ func (v *LegacyVerifier) verifyGeneratedCode(ctx context.Context) []string {
 	_ = mc.Run()
 
 	// 1. go build
-	v.props.Logger.Infof("Verifying compilation with go build ./...")
+	v.props.Logger.Info("Verifying compilation with go build ./...")
 
 	bc := exec.CommandContext(ctx, "go", "build", "./...")
 	bc.Dir = v.projectPath
@@ -108,7 +108,7 @@ func (v *LegacyVerifier) verifyGeneratedCode(ctx context.Context) []string {
 	}
 
 	// 2. go test
-	v.props.Logger.Infof("Verifying tests with go test ./...")
+	v.props.Logger.Info("Verifying tests with go test ./...")
 
 	tc := exec.CommandContext(ctx, "go", "test", "./...")
 	tc.Dir = v.projectPath
@@ -118,7 +118,7 @@ func (v *LegacyVerifier) verifyGeneratedCode(ctx context.Context) []string {
 	}
 
 	// 3. golangci-lint
-	v.props.Logger.Infof("Running golangci-lint run --fix...")
+	v.props.Logger.Info("Running golangci-lint run --fix...")
 
 	lc := exec.CommandContext(ctx, "golangci-lint", "run", "--fix")
 	lc.Dir = v.projectPath

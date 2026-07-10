@@ -205,7 +205,7 @@ command has been customised and should not be regenerated from the manifest.`,
 				return err
 			}
 
-			p.Logger.Infof("Command '%s' is now protected", args[0])
+			p.Logger.Info("command is now protected", "command", args[0])
 
 			return nil
 		},
@@ -234,7 +234,7 @@ overwrite of existing files still requires --force on the generating command.`,
 				return err
 			}
 
-			p.Logger.Warnf("Command '%s' is now unprotected", args[0])
+			p.Logger.Warn("command is now unprotected", "command", args[0])
 
 			return nil
 		},

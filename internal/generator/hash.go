@@ -3,6 +3,7 @@ package generator
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -55,16 +56,16 @@ func (g *Generator) verifyHash(path string) error {
 
 	// If hashes differ and we are not forcing, prompt the user
 	if storedHash != "" && storedHash != currentHash && !g.config.Force {
-		g.props.Logger.Warnf("Conflict detected for %s: File has been manually modified.", path)
+		g.props.Logger.Warn("conflict detected: file has been manually modified", "path", path)
 
 		confirm := g.promptOverwrite(path, nil, nil)
 		if !confirm {
-			g.props.Logger.Warnf("Skipping overwrite of %s", path)
+			g.props.Logger.Warn("skipping overwrite", "path", path)
 
 			return errors.Newf("overwrite skipped by user")
 		}
 
-		g.props.Logger.Warnf("Overwriting modified file %s", path)
+		g.props.Logger.Warn("overwriting modified file", "path", path)
 	}
 
 	return nil
@@ -114,7 +115,7 @@ func (g *Generator) askOverwriteAction(path string, existing, newContent []byte)
 			Value(&action).
 			Run()
 		if err != nil {
-			g.props.Logger.Warnf("Prompt failed (non-interactive?): %v. Skipping overwrite.", err)
+			g.props.Logger.Warn(fmt.Sprintf("Prompt failed (non-interactive?): %v. Skipping overwrite.", err))
 
 			return false
 		}

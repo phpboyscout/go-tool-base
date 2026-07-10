@@ -440,7 +440,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 	// disabled: log that an update is available and carry on — no prompt, no
 	// block. The persistent cached-version WARN keeps reminding on later runs.
 	if policy == p.UpdatePolicyDisabled {
-		props.Logger.Warnf("a newer version is available — run '%s update' to upgrade when ready", props.Tool.Name)
+		props.Logger.Warn(fmt.Sprintf("a newer version is available — run '%s update' to upgrade when ready", props.Tool.Name))
 
 		return
 	}
@@ -465,7 +465,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 		if err := form.Run(); err != nil {
 			runUpdate = false
 
-			props.Logger.Debugf("update prompt unavailable (%v); declining update", err)
+			props.Logger.Debug("update prompt unavailable; declining update", "error", err)
 		}
 	}
 
@@ -486,7 +486,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 		return
 	}
 
-	props.Logger.Warnf("Continuing with an out of date version, please run '%s update' ASAP", props.Tool.Name)
+	props.Logger.Warn(fmt.Sprintf("Continuing with an out of date version, please run '%s update' ASAP", props.Tool.Name))
 }
 
 // performUpdate runs the self-update and records the outcome on result: a
@@ -510,7 +510,7 @@ func performUpdate(ctx context.Context, props *p.Props, result *UpdateCheckResul
 		return
 	}
 
-	props.Logger.Warnf("update complete please run command again to use the updated version")
+	props.Logger.Warn("update complete please run command again to use the updated version")
 
 	result.HasUpdated = true
 	result.ShouldExit = true
@@ -531,8 +531,8 @@ func warnIfBehindCached(props *p.Props) {
 	}
 
 	if ver.CompareVersions(props.Version.GetVersion(), cached) < 0 {
-		props.Logger.Warnf("a newer %s is available: %s — run '%s update' to upgrade",
-			props.Tool.Name, cached, props.Tool.Name)
+		props.Logger.Warn(fmt.Sprintf("a newer %s is available: %s — run '%s update' to upgrade",
+			props.Tool.Name, cached, props.Tool.Name))
 	}
 }
 

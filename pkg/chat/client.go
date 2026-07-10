@@ -272,13 +272,14 @@ func applyDefaultProvider(log logger.Logger, cfg *Config) {
 
 	if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
 		cfg.Provider = Provider(envProvider)
-		log.Debugf("Provider not specified in config, using environment variable %s=%s", EnvAIProvider, cfg.Provider)
+		log.Debug("provider not specified in config, using environment variable",
+			"env", EnvAIProvider, "provider", cfg.Provider)
 
 		return
 	}
 
 	cfg.Provider = ProviderClaude
-	log.Debugf("No provider specified, defaulting to %s", cfg.Provider)
+	log.Debug("no provider specified, using default", "provider", cfg.Provider)
 }
 
 func validateProviderConfig(cfg Config) error {

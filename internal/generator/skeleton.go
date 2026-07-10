@@ -194,7 +194,7 @@ func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig)
 
 // GenerateSkeletonDryRun previews what GenerateSkeleton would do without writing to disk.
 func (g *Generator) GenerateSkeletonDryRun(ctx context.Context, config SkeletonConfig) (*DryRunResult, error) {
-	g.props.Logger.Infof("Dry run: previewing skeleton for %s in %s...", config.Name, config.Path)
+	g.props.Logger.Info("dry run: previewing skeleton", "name", config.Name, "path", config.Path)
 
 	result, err := g.withDryRunOverlay(ctx, config.Path, func() error {
 		return g.generateSkeletonFiles(config)
@@ -241,7 +241,7 @@ func (g *Generator) describeGitInit(config SkeletonConfig) []string {
 }
 
 func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig) error {
-	g.props.Logger.Infof("Generating skeleton for %s in %s...", config.Name, config.Path)
+	g.props.Logger.Info("generating skeleton", "name", config.Name, "path", config.Path)
 
 	if err := g.generateSkeletonFiles(config); err != nil {
 		return err
@@ -264,7 +264,7 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 		g.runSkeletonGitInit(config)
 	}
 
-	g.props.Logger.Infof("Successfully generated skeleton in %s", config.Path)
+	g.props.Logger.Info("successfully generated skeleton", "path", config.Path)
 
 	return nil
 }
@@ -353,7 +353,7 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 		return nil
 	}
 
-	g.props.Logger.Debugf("Refreshing hashes for %d project files after post-processing", len(writtenKeys))
+	g.props.Logger.Debug("refreshing hashes for project files after post-processing", "files", len(writtenKeys))
 
 	manifestPath := ManifestPathFor(projectPath)
 
@@ -458,7 +458,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	for path, f := range goFiles {
 		fullPath := filepath.Join(destPath, path)
 
-		g.props.Logger.Debugf("Generating Go file: %s", path)
+		g.props.Logger.Debug("generating Go file", "path", path)
 
 		if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 			return errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
@@ -479,7 +479,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			return errors.Newf("failed to close file %s: %w", fullPath, err)
 		}
 
-		g.props.Logger.Debugf("Wrote Go file: %s", fullPath)
+		g.props.Logger.Debug("wrote Go file", "path", fullPath)
 	}
 
 	// When signing is enabled, ensure internal/trustkeys/keys/.gitkeep
@@ -557,7 +557,7 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 
 		hash, err := g.renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr, data, storedHashes)
 		if err != nil {
-			g.props.Logger.Warnf("Skipped %s: %v", relPath, err)
+			g.props.Logger.Warn("skipped file", "path", relPath, "error", err)
 
 			continue
 		}
@@ -615,14 +615,14 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 		// A `replaces:` descriptor suppresses this embedded scaffold path
 		// before the overlay renders — skip it entirely.
 		if isSuppressed(relPath, suppressed) {
-			g.props.Logger.Debugf("Suppressed by template replaces: %s", relPath)
+			g.props.Logger.Debug("suppressed by template replaces", "path", relPath)
 
 			return nil
 		}
 
 		// Check ignore rules — skip generation but hash on-disk content
 		if rules.IsIgnored(relPath) {
-			g.props.Logger.Debugf("Ignored by .gtb/ignore: %s", relPath)
+			g.props.Logger.Debug("ignored by .gtb/ignore", "path", relPath)
 			g.hashIgnoredFile(destPath, relPath, collectedHashes)
 
 			return nil
@@ -635,7 +635,7 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 
 		hash, err := g.renderAndHashSkeletonTemplate(filepath.Join(destPath, relPath), relPath, string(content), data, storedHashes)
 		if err != nil {
-			g.props.Logger.Warnf("Skipped %s: %v", relPath, err)
+			g.props.Logger.Warn("skipped file", "path", relPath, "error", err)
 
 			return nil // non-fatal, continue walk
 		}
@@ -663,7 +663,7 @@ func (g *Generator) hashIgnoredFile(destPath, relPath string, collectedHashes ma
 // stored hash first so customised files are not silently overwritten.
 // It returns the SHA256 hash of the content that was written.
 func (g *Generator) renderAndHashSkeletonTemplate(fullPath, relPath, tmplStr string, data any, storedHashes map[string]string) (string, error) {
-	g.props.Logger.Debugf("Rendering skeleton template: %s", relPath)
+	g.props.Logger.Debug("rendering skeleton template", "path", relPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 		return "", errors.Newf("failed to create directory %s: %w", filepath.Dir(fullPath), err)
@@ -707,7 +707,7 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 	// modified file — so regenerate never destroys developer content (keryx
 	// defect C). The stored hash is kept in sync with what is actually on disk.
 	if exists && isUserOwnedSeedFile(relPath) {
-		g.props.Logger.Debugf("Preserving operator-owned file (not overwritten on regenerate): %s", relPath)
+		g.props.Logger.Debug("preserving operator-owned file (not overwritten on regenerate)", "path", relPath)
 
 		existing, err := afero.ReadFile(g.props.FS, fullPath)
 		if err != nil {
@@ -719,7 +719,7 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 
 	// If the file already exists, verify the user has not customised it.
 	if exists {
-		g.props.Logger.Debugf("Checking for conflicts on existing file: %s", relPath)
+		g.props.Logger.Debug("checking for conflicts on existing file", "path", relPath)
 
 		if err := g.checkSkeletonConflict(fullPath, relPath, newContent, storedHashes); err != nil {
 			return "", err
@@ -732,7 +732,7 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 
 	hash := calculateHash(newContent)
 
-	g.props.Logger.Debugf("Wrote skeleton file: %s (%d bytes, hash=%s)", relPath, len(newContent), hash)
+	g.props.Logger.Debug("wrote skeleton file", "path", relPath, "bytes", len(newContent), "hash", hash)
 
 	return hash, nil
 }
@@ -777,21 +777,21 @@ func (g *Generator) checkSkeletonConflict(fullPath, relPath string, newContent [
 		return nil
 	}
 
-	g.props.Logger.Warnf("Conflict detected for %s: File has been manually modified.", fullPath)
+	g.props.Logger.Warn("conflict detected: file has been manually modified", "path", fullPath)
 
 	if !g.promptOverwrite(fullPath, existingContent, newContent) {
-		g.props.Logger.Warnf("Skipping overwrite of %s", fullPath)
+		g.props.Logger.Warn("skipping overwrite", "path", fullPath)
 
 		return errors.Newf("overwrite skipped by user")
 	}
 
-	g.props.Logger.Warnf("Overwriting modified file %s", fullPath)
+	g.props.Logger.Warn("overwriting modified file", "path", fullPath)
 
 	return nil
 }
 
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {
-	g.props.Logger.Debugf("Writing skeleton manifest (%d file hashes)", len(fileHashes))
+	g.props.Logger.Debug("writing skeleton manifest", "hashes", len(fileHashes))
 
 	org, repoName, err := splitRepoPath(config.Repo)
 	if err != nil {
