@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
@@ -82,12 +82,12 @@ type backend struct {
 	apiKey   string
 	source   string
 	client   *http.Client
-	log      logger.Logger
+	log      *slog.Logger
 }
 
 // NewBackend creates a Datadog telemetry backend.
 // apiKey is the Datadog API key (not an application key).
-func NewBackend(apiKey string, log logger.Logger, opts ...Option) telemetry.Backend {
+func NewBackend(apiKey string, log *slog.Logger, opts ...Option) telemetry.Backend {
 	cfg := &config{
 		region: RegionUS1,
 		source: "gtb",

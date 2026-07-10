@@ -8,13 +8,13 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/cockroachdb/errors"
 
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
@@ -62,12 +62,12 @@ type backend struct {
 	endpoint   string
 	projectKey string
 	client     *http.Client
-	log        logger.Logger
+	log        *slog.Logger
 }
 
 // NewBackend creates a PostHog telemetry backend.
 // projectKey is the PostHog project API key (starts with "phc_").
-func NewBackend(projectKey string, log logger.Logger, opts ...Option) telemetry.Backend {
+func NewBackend(projectKey string, log *slog.Logger, opts ...Option) telemetry.Backend {
 	cfg := &config{
 		instance: InstanceUS,
 	}

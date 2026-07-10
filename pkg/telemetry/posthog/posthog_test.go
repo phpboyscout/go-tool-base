@@ -51,7 +51,7 @@ func TestBackend_Send_Payload(t *testing.T) {
 	t.Parallel()
 
 	srv, received := newTestServer(t)
-	b := NewBackend("phc_test123", logger.NewNoop(), WithEndpoint(srv.URL))
+	b := NewBackend("phc_test123", logger.ToSlog(logger.NewNoop()), WithEndpoint(srv.URL))
 
 	if err := b.Send(context.Background(), []telemetry.Event{testEvent()}); err != nil {
 		t.Fatalf("send: %v", err)
@@ -78,7 +78,7 @@ func TestBackend_Send_EventMapping(t *testing.T) {
 	t.Parallel()
 
 	srv, received := newTestServer(t)
-	b := NewBackend("key", logger.NewNoop(), WithEndpoint(srv.URL))
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()), WithEndpoint(srv.URL))
 
 	if err := b.Send(context.Background(), []telemetry.Event{testEvent()}); err != nil {
 		t.Fatalf("send: %v", err)
@@ -123,7 +123,7 @@ func TestBackend_Send_OsProperty(t *testing.T) {
 	t.Parallel()
 
 	srv, received := newTestServer(t)
-	b := NewBackend("key", logger.NewNoop(), WithEndpoint(srv.URL))
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()), WithEndpoint(srv.URL))
 
 	if err := b.Send(context.Background(), []telemetry.Event{{OS: "darwin"}}); err != nil {
 		t.Fatalf("send: %v", err)
@@ -170,7 +170,7 @@ func TestBackend_Instances(t *testing.T) {
 func TestBackend_InvalidInstance(t *testing.T) {
 	t.Parallel()
 
-	b := NewBackend("key", logger.NewNoop(), WithInstance("invalid")).(*backend)
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()), WithInstance("invalid")).(*backend)
 
 	if !contains(b.endpoint, "us.i.posthog.com") {
 		t.Errorf("invalid instance should fall back to US, got %q", b.endpoint)
@@ -180,7 +180,7 @@ func TestBackend_InvalidInstance(t *testing.T) {
 func TestBackend_CustomEndpoint(t *testing.T) {
 	t.Parallel()
 
-	b := NewBackend("key", logger.NewNoop(),
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()),
 		WithInstance(InstanceEU),
 		WithEndpoint("https://posthog.internal.example.com/capture/"),
 	).(*backend)
@@ -198,7 +198,7 @@ func TestBackend_Non2xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	b := NewBackend("key", logger.NewNoop(), WithEndpoint(srv.URL))
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()), WithEndpoint(srv.URL))
 
 	err := b.Send(context.Background(), []telemetry.Event{{Name: "test"}})
 	if err != nil {
@@ -209,7 +209,7 @@ func TestBackend_Non2xx(t *testing.T) {
 func TestBackend_NetworkError(t *testing.T) {
 	t.Parallel()
 
-	b := NewBackend("key", logger.NewNoop(), WithEndpoint("http://127.0.0.1:1"))
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()), WithEndpoint("http://127.0.0.1:1"))
 
 	err := b.Send(context.Background(), []telemetry.Event{{Name: "test"}})
 	if err != nil {
@@ -220,7 +220,7 @@ func TestBackend_NetworkError(t *testing.T) {
 func TestBackend_Close(t *testing.T) {
 	t.Parallel()
 
-	b := NewBackend("key", logger.NewNoop())
+	b := NewBackend("key", logger.ToSlog(logger.NewNoop()))
 
 	if err := b.Close(); err != nil {
 		t.Errorf("close: %v", err)
