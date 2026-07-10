@@ -3,12 +3,11 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os/exec"
 	"strings"
 
 	"github.com/cockroachdb/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -21,7 +20,7 @@ func init() {
 type ClaudeLocal struct {
 	usageTracker
 
-	logger    logger.Logger
+	logger    *slog.Logger
 	cfg       Config
 	sessionID string   // captured after first Chat/Ask call; used for --resume
 	pending   []string // buffered Add() messages, prepended to next prompt

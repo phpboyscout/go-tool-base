@@ -5,14 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cockroachdb/errors"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/tiktoken-go/tokenizer"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -27,7 +26,7 @@ type OpenAI struct {
 
 	oai    openai.Client
 	params openai.ChatCompletionNewParams
-	logger logger.Logger
+	logger *slog.Logger
 	cfg    Config
 	tools  map[string]Tool
 }

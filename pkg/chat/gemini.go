@@ -3,13 +3,12 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 	"google.golang.org/genai"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -26,7 +25,7 @@ type Gemini struct {
 	cfg     Config
 	history []*genai.Content
 	tools   map[string]Tool
-	logger  logger.Logger
+	logger  *slog.Logger
 }
 
 // geminiUsage maps Gemini's UsageMetadata into the provider-neutral Usage.

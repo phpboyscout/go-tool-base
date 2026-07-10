@@ -301,7 +301,7 @@ func TestFallback_OptionsApplied(t *testing.T) {
 
 	fb, err := NewFallback([]ChatClient{primary, second},
 		WithFailoverPolicy(DefaultFailoverPolicy),
-		WithFallbackLogger(buf),
+		WithFallbackLogger(logger.ToSlog(buf)),
 		WithOnFailover(func(from, to Provider) { transitions = append(transitions, [2]Provider{from, to}) }),
 	)
 	require.NoError(t, err)
@@ -396,7 +396,7 @@ func TestNewFallbackFromConfigs_DropsMissingFallbackCred(t *testing.T) {
 	fb, err := NewFallbackFromConfigs(
 		context.Background(),
 		[]Config{{Provider: "fbt-ok"}, {Provider: "fbt-bad"}},
-		WithFallbackLogger(logger.NewNoop()),
+		WithFallbackLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, fb)
@@ -412,7 +412,7 @@ func TestNewFallbackFromConfigs_PrimaryFailureIsFatal(t *testing.T) {
 	_, err := NewFallbackFromConfigs(
 		context.Background(),
 		[]Config{{Provider: "fbt-bad"}, {Provider: "fbt-ok"}},
-		WithFallbackLogger(logger.NewNoop()),
+		WithFallbackLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "primary")
@@ -431,7 +431,7 @@ func TestNewWithFallback_DisabledIsSingleProvider(t *testing.T) {
 	// No fallback config → behaves as New for the given provider.
 	client, err := NewWithFallbackSettings(
 		context.Background(),
-		Settings{Config: Config{Provider: "fbt-ok"}, Logger: logger.NewNoop()},
+		Settings{Config: Config{Provider: "fbt-ok"}, Logger: logger.ToSlog(logger.NewNoop())},
 		FallbackConfig{},
 	)
 	require.NoError(t, err)

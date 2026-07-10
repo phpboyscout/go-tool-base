@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,8 +14,8 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func testLogger() logger.Logger {
-	return logger.NewNoop()
+func testLogger() *slog.Logger {
+	return logger.ToSlog(logger.NewNoop())
 }
 
 func TestExecuteTool_Found(t *testing.T) {

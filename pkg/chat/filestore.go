@@ -36,14 +36,13 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -111,7 +110,7 @@ type FileStoreOption func(*fileStoreConfig)
 
 type fileStoreConfig struct {
 	key []byte
-	log logger.Logger
+	log *slog.Logger
 }
 
 // WithEncryption enables AES-256-GCM encryption for stored snapshots.
@@ -124,7 +123,7 @@ func WithEncryption(key []byte) FileStoreOption {
 // WithLogger attaches a logger used for diagnostic DEBUG-level events
 // (e.g. when [FileStore.List] skips a file whose name is not a canonical
 // snapshot identifier). Defaults to a noop logger.
-func WithLogger(log logger.Logger) FileStoreOption {
+func WithLogger(log *slog.Logger) FileStoreOption {
 	return func(c *fileStoreConfig) { c.log = log }
 }
 
@@ -151,7 +150,7 @@ type fileStore struct {
 	fs  afero.Fs
 	dir string
 	key []byte
-	log logger.Logger
+	log *slog.Logger
 }
 
 // NewFileStore creates a ConversationStore that persists snapshots as JSON files.
@@ -169,7 +168,7 @@ func NewFileStore(fs afero.Fs, dir string, opts ...FileStoreOption) (Conversatio
 
 	log := cfg.log
 	if log == nil {
-		log = logger.NewNoop()
+		log = slog.New(slog.DiscardHandler)
 	}
 
 	return &fileStore{fs: fs, dir: dir, key: cfg.key, log: log}, nil

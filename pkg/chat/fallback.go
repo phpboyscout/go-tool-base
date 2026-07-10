@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/cockroachdb/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Compile-time interface assertions.
@@ -21,7 +20,7 @@ type fallbackConfig struct {
 	policy            FailoverPolicy
 	strictToolContext bool
 	onFailover        func(from, to Provider)
-	log               logger.Logger
+	log               *slog.Logger
 }
 
 // FallbackOption configures a composite fallback client.
@@ -49,7 +48,7 @@ func WithOnFailover(fn func(from, to Provider)) FallbackOption {
 // WithFallbackLogger sets the logger used for the single WARN line per failover
 // transition. Defaults to a no-op logger; [NewFallbackFromConfigs] wires the
 // tool's logger automatically.
-func WithFallbackLogger(log logger.Logger) FallbackOption {
+func WithFallbackLogger(log *slog.Logger) FallbackOption {
 	return func(c *fallbackConfig) { c.log = log }
 }
 
@@ -60,7 +59,7 @@ type fallbackClient struct {
 	clients []ChatClient
 	names   []Provider // parallel to clients; for logging / the onFailover hook
 	policy  FailoverPolicy
-	log     logger.Logger
+	log     *slog.Logger
 
 	// transcript holds the user turns the composite has seen, replayed into a
 	// fallback provider on first activation (assistant turns cannot be injected
@@ -143,7 +142,7 @@ func NewFallbackFromConfigs(ctx context.Context, cfgs []Config, opts ...Fallback
 
 // buildFallbackClients constructs each provider via [New]. A non-primary
 // construction failure is logged and dropped; a primary failure is fatal.
-func buildFallbackClients(ctx context.Context, log logger.Logger, settings []Settings) ([]ChatClient, []Provider, error) {
+func buildFallbackClients(ctx context.Context, log *slog.Logger, settings []Settings) ([]ChatClient, []Provider, error) {
 	clients := make([]ChatClient, 0, len(settings))
 	names := make([]Provider, 0, len(settings))
 
@@ -168,7 +167,7 @@ func buildFallbackClients(ctx context.Context, log logger.Logger, settings []Set
 
 // logDroppedProvider warns that a non-primary provider was dropped — host only,
 // never the underlying error detail.
-func logDroppedProvider(log logger.Logger, cfg Config) {
+func logDroppedProvider(log *slog.Logger, cfg Config) {
 	log.Warn("chat fallback provider dropped",
 		"provider", string(cfg.Provider),
 		"endpoint_host", baseURLHost(cfg.BaseURL))
@@ -196,7 +195,7 @@ func NewWithFallbackSettings(ctx context.Context, settings Settings, fallback Fa
 	return NewFallbackFromSettings(ctx, perProviderSettings, opts...)
 }
 
-func warnFallbackPrimaryOverride(log logger.Logger, cfg Config, primary Provider) {
+func warnFallbackPrimaryOverride(log *slog.Logger, cfg Config, primary Provider) {
 	if cfg.Provider == "" || cfg.Provider == primary {
 		return
 	}
@@ -243,7 +242,7 @@ func fallbackOptions(opts ...FallbackOption) fallbackConfig {
 	}
 
 	if cfg.log == nil {
-		cfg.log = logger.NewNoop()
+		cfg.log = slog.New(slog.DiscardHandler)
 	}
 
 	return cfg
@@ -263,7 +262,7 @@ func newFallbackBase(clients []ChatClient, names []Provider, opts ...FallbackOpt
 	}
 
 	if cfg.log == nil {
-		cfg.log = logger.NewNoop()
+		cfg.log = slog.New(slog.DiscardHandler)
 	}
 
 	return &fallbackClient{

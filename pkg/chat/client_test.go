@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 	t.Setenv("OPENAI_API_KEY", "")
 
 	ctx := context.Background()
-	log := logger.NewNoop()
+	log := logger.ToSlog(logger.NewNoop())
 
 	t.Run("default provider is Claude", func(t *testing.T) {
 		t.Setenv("AI_PROVIDER", "")

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"log/slog"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -101,12 +102,12 @@ func fallbackConfigFromProps(p *props.Props) (FallbackConfig, error) {
 	return loadFallbackConfig(p.Config)
 }
 
-func loggerFromProps(p *props.Props) logger.Logger {
-	if p != nil && p.Logger != nil {
-		return p.Logger
+func loggerFromProps(p *props.Props) *slog.Logger {
+	if p != nil {
+		return logger.ToSlog(p.Logger)
 	}
 
-	return logger.NewNoop()
+	return slog.New(slog.DiscardHandler)
 }
 
 func applyRuntimeConfig(p *props.Props, cfg *Config) error {

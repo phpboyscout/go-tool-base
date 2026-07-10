@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"os/exec"
 	"sync"
@@ -10,8 +11,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Provider defines the AI service provider.
@@ -207,15 +206,15 @@ type Config struct {
 // a no-op logger.
 type Settings struct {
 	Config Config
-	Logger logger.Logger
+	Logger *slog.Logger
 }
 
-func (s Settings) logger() logger.Logger {
+func (s Settings) logger() *slog.Logger {
 	if s.Logger != nil {
 		return s.Logger
 	}
 
-	return logger.NewNoop()
+	return slog.New(slog.DiscardHandler)
 }
 
 // ProviderFactory creates a ChatClient for a named provider.
@@ -265,7 +264,7 @@ func New(ctx context.Context, settings Settings) (ChatClient, error) {
 	return client, nil
 }
 
-func applyDefaultProvider(log logger.Logger, cfg *Config) {
+func applyDefaultProvider(log *slog.Logger, cfg *Config) {
 	if cfg.Provider != "" {
 		return
 	}
@@ -311,7 +310,7 @@ func lookupProviderFactory(provider Provider) (ProviderFactory, error) {
 	return factory, nil
 }
 
-func logProviderEndpoint(log logger.Logger, cfg Config) {
+func logProviderEndpoint(log *slog.Logger, cfg Config) {
 	// Audit-log the endpoint host (never the full URL) so operators can
 	// see which host each tool instance targets. Hostname only — the
 	// path/query may carry provider-specific identifiers.

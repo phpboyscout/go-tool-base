@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -409,25 +410,13 @@ func TestFileStore_ListSkipsNonCanonical(t *testing.T) {
 	assert.Equal(t, testSnapshotID, summaries[0].ID)
 }
 
-// recordingLogger captures log calls for assertions in tests.
-type recordingLogger struct {
-	logger.Logger
-	debugCalls int
-	lastMsg    string
-}
-
-func (r *recordingLogger) Debug(msg string, _ ...any) {
-	r.debugCalls++
-	r.lastMsg = msg
-}
-
 func TestFileStore_WithLogger_LogsSkippedFiles(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
-	rec := &recordingLogger{Logger: logger.NewNoop()}
+	capture := logger.NewCaptureHandler()
 
-	store, err := NewFileStore(fs, "/snapshots", WithLogger(rec))
+	store, err := NewFileStore(fs, "/snapshots", WithLogger(slog.New(capture)))
 	require.NoError(t, err)
 
 	// Populate with one valid snapshot plus one non-canonical filename.
@@ -438,8 +427,27 @@ func TestFileStore_WithLogger_LogsSkippedFiles(t *testing.T) {
 	_, err = store.List(context.Background())
 	require.NoError(t, err)
 
-	assert.GreaterOrEqual(t, rec.debugCalls, 1, "skipped files should produce a DEBUG log")
-	assert.Contains(t, rec.lastMsg, "skipping", "log message should describe the skip")
+	// Collect DEBUG-level messages only, mirroring the original assertion that
+	// skipped files produce a DEBUG log describing the skip.
+	var debugMsgs []string
+	for _, rec := range capture.Records() {
+		if rec.Level == slog.LevelDebug {
+			debugMsgs = append(debugMsgs, rec.Message)
+		}
+	}
+
+	require.GreaterOrEqual(t, len(debugMsgs), 1, "skipped files should produce a DEBUG log")
+
+	var describedSkip bool
+	for _, msg := range debugMsgs {
+		if strings.Contains(msg, "skipping") {
+			describedSkip = true
+
+			break
+		}
+	}
+
+	assert.True(t, describedSkip, "log message should describe the skip")
 }
 
 // TestFileStore_ResolveStorePathContainment is a white-box check that

@@ -28,7 +28,7 @@ func NewMockServer() *MockServer {
 }
 
 func testSettings(cfg chat.Config) chat.Settings {
-	return chat.Settings{Config: cfg, Logger: logger.NewNoop()}
+	return chat.Settings{Config: cfg, Logger: logger.ToSlog(logger.NewNoop())}
 }
 
 func newTestClient(ctx context.Context, cfg chat.Config) (chat.ChatClient, error) {

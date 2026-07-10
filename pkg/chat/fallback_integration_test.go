@@ -43,7 +43,7 @@ func TestFallback_RealHTTPFailover(t *testing.T) {
 			{Provider: chat.ProviderOpenAI, Token: "test", BaseURL: primary.URL + "/", AllowInsecureBaseURL: true},
 			{Provider: chat.ProviderOpenAI, Token: "test", BaseURL: fallback.URL + "/", AllowInsecureBaseURL: true},
 		},
-		chat.WithFallbackLogger(buf),
+		chat.WithFallbackLogger(logger.ToSlog(buf)),
 	)
 	require.NoError(t, err)
 

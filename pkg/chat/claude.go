@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func init() {
@@ -23,7 +22,7 @@ type Claude struct {
 	usageTracker
 
 	client     anthropic.Client
-	logger     logger.Logger
+	logger     *slog.Logger
 	messages   []anthropic.MessageParam
 	cfg        Config
 	system     []anthropic.TextBlockParam

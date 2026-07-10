@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/cockroachdb/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // ToolCall represents a single tool invocation request.
@@ -28,7 +27,7 @@ const defaultMaxParallelTools = 5
 // executeToolsParallel executes multiple tool calls concurrently, bounded by
 // maxConcurrency. Results are returned in the same order as the input calls.
 // If maxConcurrency is zero or negative, it defaults to 5.
-func executeToolsParallel(ctx context.Context, l logger.Logger, tools map[string]Tool, calls []ToolCall, maxConcurrency int) []ToolResult {
+func executeToolsParallel(ctx context.Context, l *slog.Logger, tools map[string]Tool, calls []ToolCall, maxConcurrency int) []ToolResult {
 	if maxConcurrency <= 0 {
 		maxConcurrency = defaultMaxParallelTools
 	}
@@ -59,7 +58,7 @@ func executeToolsParallel(ctx context.Context, l logger.Logger, tools map[string
 // dispatchToolExecution runs tool calls sequentially or in parallel depending on
 // parallelTools and the number of calls. It is the shared dispatch entry point
 // for all provider ReAct loops.
-func dispatchToolExecution(ctx context.Context, l logger.Logger, tools map[string]Tool, calls []ToolCall, parallelTools bool, maxParallelTools int) []ToolResult {
+func dispatchToolExecution(ctx context.Context, l *slog.Logger, tools map[string]Tool, calls []ToolCall, parallelTools bool, maxParallelTools int) []ToolResult {
 	if parallelTools && len(calls) > 1 {
 		return executeToolsParallel(ctx, l, tools, calls, maxParallelTools)
 	}
@@ -83,7 +82,7 @@ func dispatchToolExecution(ctx context.Context, l logger.Logger, tools map[strin
 // is recovered and converted to a tool-error string rather than crashing the
 // process. This holds for both the serial and the parallel dispatch paths, since
 // both route through executeTool.
-func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, name string, input json.RawMessage) string {
+func executeTool(ctx context.Context, l *slog.Logger, tools map[string]Tool, name string, input json.RawMessage) string {
 	l.Info("Tool Call", "tool", name)
 	l.Debug("Tool Parameters", "tool", name, "args", input)
 
@@ -130,7 +129,7 @@ func executeTool(ctx context.Context, l logger.Logger, tools map[string]Tool, na
 // content, matching the documented "errors become conversation content"
 // behaviour, rather than unwinding the stack and crashing the process — which
 // in the parallel path runs in a bare goroutine and would be fatal.
-func callToolHandler(ctx context.Context, l logger.Logger, tool Tool, name string, input json.RawMessage) (out any, err error) {
+func callToolHandler(ctx context.Context, l *slog.Logger, tool Tool, name string, input json.RawMessage) (out any, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			l.Error("Tool handler panicked", "tool", name, "panic", r)
