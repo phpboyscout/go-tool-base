@@ -54,7 +54,7 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, o
 	}
 
 	log := settings.logger()
-	warnFallbackPrimaryOverride(log, settings.Config, fallback.Providers[0])
+	warnFallbackPrimaryOverride(log, explicitProviderConfig(p, cfg), fallback.Providers[0])
 
 	providerSettings := make([]Settings, 0, len(fallback.Providers))
 	for _, providerConfig := range fallbackProviderConfigs(settings.Config, fallback.Providers) {
@@ -75,6 +75,22 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, o
 // chat client with optional provider failover.
 func NewWithFallback(ctx context.Context, p *props.Props, cfg Config, opts ...FallbackOption) (ChatClient, error) {
 	return NewWithFallbackFromProps(ctx, p, cfg, opts...)
+}
+
+// explicitProviderConfig resolves the provider the operator actually configured
+// — the caller-supplied Config.Provider or, failing that, ai.provider — without
+// applying the package default. The fallback-override warning must fire only
+// when an explicit provider is overridden by fallback.providers[0]; defaulting
+// to claude first (as SettingsFromProps does) would warn spuriously when no
+// provider was configured at all.
+func explicitProviderConfig(p *props.Props, cfg Config) Config {
+	explicit := Config{Provider: cfg.Provider}
+	// applyRuntimeConfig only fills Provider from ai.provider when it is empty
+	// and never defaults; the error here was already surfaced by the successful
+	// SettingsFromProps call above, so it is safe to ignore.
+	_ = applyRuntimeConfig(p, &explicit)
+
+	return explicit
 }
 
 func fallbackConfigFromProps(p *props.Props) (FallbackConfig, error) {

@@ -224,6 +224,56 @@ func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 	assert.Equal(t, "ok", got)
 }
 
+func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *testing.T) {
+	registerTestProviders(t)
+
+	v := viper.New()
+	v.Set(ConfigKeyAIFallbackEnabled, true)
+	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok"})
+
+	buf := logger.NewBuffer()
+	p := &props.Props{
+		Logger: buf,
+		Config: config.NewContainerFromViper(nil, v),
+	}
+
+	// No ai.provider is configured and the caller passes an empty Config, so the
+	// provider is only defaulted internally (to claude). The override warning
+	// must NOT fire — nothing the operator configured was overridden.
+	client, err := NewWithFallbackFromProps(context.Background(), p, Config{})
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	assert.False(t, buf.Contains("overrides ai.provider"),
+		"override warning must not fire when no provider was configured")
+}
+
+func TestNewWithFallbackFromProps_WarnsWhenConfiguredProviderOverridden(t *testing.T) {
+	registerTestProviders(t)
+
+	v := viper.New()
+	v.Set(ConfigKeyAIProvider, "fbt-ok2")
+	v.Set(ConfigKeyAIFallbackEnabled, true)
+	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok"})
+
+	buf := logger.NewBuffer()
+	p := &props.Props{
+		Logger: buf,
+		Config: config.NewContainerFromViper(nil, v),
+	}
+
+	// ai.provider=fbt-ok2 is explicitly configured but fallback.providers[0]
+	// (fbt-ok) becomes the effective primary, so the override warning MUST fire
+	// even though the caller passed an empty Config (the provider is resolved
+	// from ai.provider, not defaulted).
+	client, err := NewWithFallbackFromProps(context.Background(), p, Config{})
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	require.True(t, buf.ContainsLevel(logger.WarnLevel, "overrides ai.provider"),
+		"override warning must fire when a configured provider is overridden")
+}
+
 func TestNew_AppliesTypedConfigBeforeProviderFactory(t *testing.T) {
 	t.Setenv("GTB_OPENAI_API_KEY", "env-literal-key")
 
