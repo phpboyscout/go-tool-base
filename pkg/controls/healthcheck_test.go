@@ -19,7 +19,7 @@ func newTestController(t *testing.T) *controls.Controller {
 
 	c := controls.NewController(context.Background(),
 		controls.WithoutSignals(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	t.Cleanup(func() {
 		c.Stop()
@@ -356,7 +356,7 @@ func TestAsyncCheck_StopsOnShutdown(t *testing.T) {
 
 	c := controls.NewController(context.Background(),
 		controls.WithoutSignals(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	)
 
 	require.NoError(t, c.RegisterHealthCheck(controls.HealthCheck{
@@ -400,7 +400,7 @@ func TestAsyncCheck_ContextCancelledOnStop(t *testing.T) {
 
 	c := controls.NewController(context.Background(),
 		controls.WithoutSignals(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	)
 
 	require.NoError(t, c.RegisterHealthCheck(controls.HealthCheck{

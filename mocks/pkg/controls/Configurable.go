@@ -5,13 +5,13 @@
 package controls
 
 import (
+	"log/slog"
 	"os"
 	"sync"
 	"time"
 
 	mock "github.com/stretchr/testify/mock"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // NewMockConfigurable creates a new instance of MockConfigurable. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -122,7 +122,7 @@ func (_c *MockConfigurable_SetHealthChannel_Call) RunAndReturn(run func(health c
 }
 
 // SetLogger provides a mock function for the type MockConfigurable
-func (_mock *MockConfigurable) SetLogger(l logger.Logger) {
+func (_mock *MockConfigurable) SetLogger(l *slog.Logger) {
 	_mock.Called(l)
 	return
 }
@@ -133,16 +133,16 @@ type MockConfigurable_SetLogger_Call struct {
 }
 
 // SetLogger is a helper method to define mock.On call
-//   - l logger.Logger
+//   - l *slog.Logger
 func (_e *MockConfigurable_Expecter) SetLogger(l interface{}) *MockConfigurable_SetLogger_Call {
 	return &MockConfigurable_SetLogger_Call{Call: _e.mock.On("SetLogger", l)}
 }
 
-func (_c *MockConfigurable_SetLogger_Call) Run(run func(l logger.Logger)) *MockConfigurable_SetLogger_Call {
+func (_c *MockConfigurable_SetLogger_Call) Run(run func(l *slog.Logger)) *MockConfigurable_SetLogger_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 logger.Logger
+		var arg0 *slog.Logger
 		if args[0] != nil {
-			arg0 = args[0].(logger.Logger)
+			arg0 = args[0].(*slog.Logger)
 		}
 		run(
 			arg0,
@@ -156,7 +156,7 @@ func (_c *MockConfigurable_SetLogger_Call) Return() *MockConfigurable_SetLogger_
 	return _c
 }
 
-func (_c *MockConfigurable_SetLogger_Call) RunAndReturn(run func(l logger.Logger)) *MockConfigurable_SetLogger_Call {
+func (_c *MockConfigurable_SetLogger_Call) RunAndReturn(run func(l *slog.Logger)) *MockConfigurable_SetLogger_Call {
 	_c.Run(run)
 	return _c
 }

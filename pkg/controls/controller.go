@@ -2,6 +2,7 @@ package controls
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -9,8 +10,6 @@ import (
 	"time"
 
 	errors "github.com/cockroachdb/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // ErrShutdown is the cause attached to the controller context when a graceful
@@ -27,7 +26,7 @@ const DefaultShutdownTimeout = 5 * time.Second
 type Controller struct {
 	ctx             context.Context
 	cancel          context.CancelCauseFunc
-	logger          logger.Logger
+	logger          *slog.Logger
 	messages        chan Message
 	health          chan HealthMessage
 	errs            chan error
@@ -114,11 +113,11 @@ func (c *Controller) GetState() State {
 	return c.state
 }
 
-func (c *Controller) SetLogger(l logger.Logger) {
+func (c *Controller) SetLogger(l *slog.Logger) {
 	c.logger = l
 }
 
-func (c *Controller) GetLogger() logger.Logger {
+func (c *Controller) GetLogger() *slog.Logger {
 	return c.logger
 }
 
@@ -579,7 +578,7 @@ func WithShutdownTimeout(d time.Duration) ControllerOpt {
 }
 
 // WithLogger sets the controller logger.
-func WithLogger(l logger.Logger) ControllerOpt {
+func WithLogger(l *slog.Logger) ControllerOpt {
 	return func(c Configurable) {
 		c.SetLogger(l.With("component", "controller"))
 	}
@@ -617,7 +616,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 	c := &Controller{
 		ctx:              ctx,
 		cancel:           cancel,
-		logger:           logger.NewCharm(os.Stdout),
+		logger:           slog.New(slog.DiscardHandler),
 		messages:         make(chan Message),
 		health:           make(chan HealthMessage),
 		errs:             make(chan error),

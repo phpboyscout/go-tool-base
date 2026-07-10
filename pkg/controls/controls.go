@@ -2,11 +2,10 @@ package controls
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // CheckStatus represents the health state of a check.
@@ -235,7 +234,7 @@ type StateAccessor interface {
 	GetState() State
 	SetState(state State)
 	GetContext() context.Context
-	GetLogger() logger.Logger
+	GetLogger() *slog.Logger
 }
 
 // Configurable provides controller configuration setters.
@@ -253,7 +252,7 @@ type Configurable interface {
 	SetHealthChannel(health chan HealthMessage)
 	SetWaitGroup(wg *sync.WaitGroup)
 	SetShutdownTimeout(d time.Duration)
-	SetLogger(l logger.Logger)
+	SetLogger(l *slog.Logger)
 }
 
 // ChannelProvider provides access to controller channels.

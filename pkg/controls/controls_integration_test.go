@@ -49,7 +49,7 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(noop))
+	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
 
 	// Register HTTP server.
 	httpCfg := mockConfig.NewMockContainable(t)

@@ -27,7 +27,7 @@ func newQuietController(t *testing.T, opts ...controls.ControllerOpt) *controls.
 
 	base := []controls.ControllerOpt{
 		controls.WithoutSignals(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	}
 	base = append(base, opts...)
 
@@ -46,7 +46,7 @@ func TestErrorHandler_NoBusySpinAfterStop(t *testing.T) {
 
 	c := controls.NewController(ctx,
 		controls.WithoutSignals(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	c.Register("svc",
 		controls.WithStart(func(_ context.Context) error { return nil }),
@@ -235,7 +235,7 @@ func TestSignals_WithoutSignals(t *testing.T) {
 
 	c := controls.NewController(context.Background(),
 		controls.WithoutSignals(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	assert.Nil(t, c.Signals(), "WithoutSignals must leave the signal channel nil")
 }
@@ -248,7 +248,7 @@ func TestSignals_CustomChannelReceives(t *testing.T) {
 	sigs := make(chan os.Signal, 1)
 
 	c := controls.NewController(context.Background(),
-		controls.WithLogger(logger.NewNoop()),
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	c.SetSignalsChannel(sigs)
 
@@ -472,7 +472,7 @@ func TestSignals_SecondSignalForcesHandlerExit(t *testing.T) {
 
 	sigs := make(chan os.Signal, 2)
 
-	c := controls.NewController(context.Background(), controls.WithLogger(logger.NewNoop()))
+	c := controls.NewController(context.Background(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 	c.SetSignalsChannel(sigs)
 
 	// A stop that lingers so the second signal lands during shutdown.

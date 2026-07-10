@@ -102,7 +102,7 @@ func (w *ControllerWorld) EnsureController(opts ...controls.ControllerOpt) {
 	}
 
 	defaults := make([]controls.ControllerOpt, defaultOptsCap, defaultOptsCap+len(opts))
-	defaults[0] = controls.WithLogger(w.Logger)
+	defaults[0] = controls.WithLogger(logger.ToSlog(w.Logger))
 	opts = append(defaults, opts...)
 	w.Controller = controls.NewController(w.Ctx, opts...)
 }

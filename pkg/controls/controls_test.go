@@ -52,7 +52,7 @@ func getNewController(ctx context.Context) (*controls.Controller, *StateCounters
 	buf := &syncBuffer{}
 	l := logger.NewCharm(buf)
 
-	c := controls.NewController(ctx, controls.WithLogger(l))
+	c := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(l)))
 	c.Register("test",
 		controls.WithStart(startFunc),
 		controls.WithStop(stopFunc),
@@ -495,7 +495,7 @@ func TestControllerErrorHandler_ExitsOnClose(t *testing.T) {
 	// Use a buffered channel so we can enqueue errors before the goroutine starts.
 	errs := make(chan error, 4)
 
-	c := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
+	c := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 	c.SetErrorsChannel(errs)
 
 	c.Start()
@@ -517,7 +517,7 @@ func TestControllerErrorHandler_ExitsOnCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	c := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
+	c := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 	c.Start()
 
 	// Cancelling the parent context triggers the ctx.Done() branch in the error
@@ -543,7 +543,7 @@ func TestRegister_AfterStart_WarnsUnsupervised(t *testing.T) {
 
 	c := controls.NewController(context.Background(),
 		controls.WithoutSignals(),
-		controls.WithLogger(l),
+		controls.WithLogger(logger.ToSlog(l)),
 	)
 	c.Start()
 
@@ -572,7 +572,7 @@ func TestRegister_BeforeStart_NoWarning(t *testing.T) {
 
 	c := controls.NewController(context.Background(),
 		controls.WithoutSignals(),
-		controls.WithLogger(l),
+		controls.WithLogger(logger.ToSlog(l)),
 	)
 
 	c.Register("early-service",

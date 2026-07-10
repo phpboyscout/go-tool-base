@@ -21,6 +21,26 @@ func NewSlog(handler slog.Handler) Logger {
 	return slog.New(handler)
 }
 
+// ToSlog adapts a Logger to a *slog.Logger for packages that accept the standard
+// library type directly. A nil logger yields a discarding logger; a value that
+// is already a *slog.Logger is returned unchanged; otherwise a *slog.Logger is
+// built over the logger's Handler.
+//
+// This is a GTB adapter-boundary helper: framework code converts props.Logger
+// here before handing it to a package that has adopted *slog.Logger. Extracted
+// packages accept *slog.Logger directly and never need this package.
+func ToSlog(log Logger) *slog.Logger {
+	if log == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+
+	if sl, ok := log.(*slog.Logger); ok {
+		return sl
+	}
+
+	return slog.New(log.Handler())
+}
+
 // toSlogLevel converts a logger.Level to an slog.Level.
 func toSlogLevel(l Level) slog.Level {
 	switch l {

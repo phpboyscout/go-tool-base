@@ -151,7 +151,7 @@ func TestSetupLogsEnabled(t *testing.T) {
 func TestSetupAllEnabledRegistersControllerShutdown(t *testing.T) {
 	restoreGlobals(t)
 
-	controller := controls.NewController(context.Background(), controls.WithLogger(logger.NewNoop()))
+	controller := controls.NewController(context.Background(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 
 	otlp := otelcore.Settings{Enabled: true, Endpoint: "http://localhost:4318", Insecure: true}
 	sh, err := Setup(context.Background(), testObservabilitySettings(
@@ -172,7 +172,7 @@ func TestSetupTelemetryServiceRunsUnderController(t *testing.T) {
 	restoreGlobals(t)
 
 	controller := controls.NewController(context.Background(),
-		controls.WithoutSignals(), controls.WithLogger(logger.NewNoop()))
+		controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 
 	_, err := Setup(context.Background(), testObservabilitySettings(
 		withTracing(otelcore.Settings{Enabled: true}), // no endpoint: nothing exported, fully hermetic

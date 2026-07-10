@@ -57,7 +57,7 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 
 	ctx := context.Background()
 	controller := controls.NewController(ctx,
-		controls.WithLogger(l),
+		controls.WithLogger(logger.ToSlog(l)),
 		controls.WithShutdownTimeout(3*time.Second),
 	)
 
@@ -206,7 +206,7 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 
 	ctx := context.Background()
 	controller := controls.NewController(ctx,
-		controls.WithLogger(l),
+		controls.WithLogger(logger.ToSlog(l)),
 		controls.WithShutdownTimeout(5*time.Second),
 	)
 
@@ -333,7 +333,7 @@ func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
 
 	ctx := context.Background()
 	controller := controls.NewController(ctx,
-		controls.WithLogger(l),
+		controls.WithLogger(logger.ToSlog(l)),
 		controls.WithShutdownTimeout(3*time.Second),
 	)
 
