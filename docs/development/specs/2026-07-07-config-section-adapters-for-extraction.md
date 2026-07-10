@@ -1553,9 +1553,23 @@ full typed adapter, since its providers own the typed settings.
 
 Deferred to later waves (spec remains IN PROGRESS): the remaining §8 packages
 that currently need no config or belong to a later extraction wave (`authn`,
-`credentials`, `logger`, `output`, `browser`, `workspace`, `forms`,
-`changelog`, `redact`, `openapi`, `errorhandling`, root `pkg/telemetry`, and
-the telemetry backends), and the automated CI import-boundary check.
+`credentials`, `output`, `browser`, `workspace`, `forms`, `changelog`,
+`redact`, `openapi`, `errorhandling`, root `pkg/telemetry`, and the telemetry
+backends), and the automated CI import-boundary check.
+
+### Joint delivery with the slog-first spec (2026-07-10)
+
+The [`2026-07-07-slog-first-extraction-seams.md`](2026-07-07-slog-first-extraction-seams.md)
+spec was approved on 2026-07-10 and is delivered **on this same branch** so the
+logging and config seams land as one cut-over. Consequences for this spec:
+
+- `logger` gains its typed `Config` (this spec, §8) **and** its logging boundary
+  is redefined to mirror `*slog.Logger` (slog-first, D1). The two are
+  complementary: `logger.Config.CharmOptions()` feeds the slog-first
+  `NewCharmHandler` construction.
+- The slog-first spec's config strategy (its §7) explicitly **defers to this
+  spec**: typed `UnmarshalSection` structs are the primary boundary and
+  `pkg/config` is an acceptable lightweight dependency (D6).
 
 ## 13. Acceptance Criteria
 

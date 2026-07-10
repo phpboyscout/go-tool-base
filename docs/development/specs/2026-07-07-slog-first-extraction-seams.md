@@ -2,7 +2,7 @@
 title: "Slog-first logging and config adapter seams for module extraction"
 description: "Refactor GTB's logging boundary so reusable packages and future extracted modules can depend on log/slog or package-local narrow seams instead of pkg/logger. Define the companion config strategy: extracted modules accept typed options or local lookup interfaces, while GTB keeps pkg/config as the framework runtime configuration adapter."
 date: 2026-07-07
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - logging
@@ -27,13 +27,111 @@ Date
 :   7 July 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 Builds on
 :   [`2026-07-05-chat-module-extraction.md`](2026-07-05-chat-module-extraction.md)
 
 Related
-:   [`2026-07-07-package-extraction-report.md`](../reports/2026-07-07-package-extraction-report.md)
+:   [`2026-07-07-package-extraction-report.md`](../reports/2026-07-07-package-extraction-report.md),
+    [`2026-07-07-config-section-adapters-for-extraction.md`](2026-07-07-config-section-adapters-for-extraction.md)
+
+---
+
+## 0. Approved design decisions (2026-07-10 review)
+
+This spec was reviewed and approved on 2026-07-10. It is delivered **jointly with
+the config-section-adapters spec** on a single large branch, so the logging and
+config seams land as one coherent cut-over. The decisions below are authoritative
+and override any earlier wording in the body sections; the body is retained as
+design context.
+
+### D1 — `Props.Logger` becomes a GTB-owned interface that mirrors `*slog.Logger`
+
+There is **no new `Props.Slog` field**. Instead, `pkg/logger.Logger` is
+**redefined** as an interface whose method set mirrors `*slog.Logger` exactly, and
+`Props.Logger` keeps its name but takes that interface as its type. A real
+`*slog.Logger` therefore satisfies `Props.Logger` and can be passed in directly,
+with no concrete dependency and room for consumers to supply their own
+implementation later.
+
+```go
+// Logger mirrors *slog.Logger's method set so a *slog.Logger satisfies it
+// directly. Full mirror: With/WithGroup return *slog.Logger by design.
+type Logger interface {
+    Debug(msg string, args ...any)
+    Info(msg string, args ...any)
+    Warn(msg string, args ...any)
+    Error(msg string, args ...any)
+    DebugContext(ctx context.Context, msg string, args ...any)
+    InfoContext(ctx context.Context, msg string, args ...any)
+    WarnContext(ctx context.Context, msg string, args ...any)
+    ErrorContext(ctx context.Context, msg string, args ...any)
+    Log(ctx context.Context, level slog.Level, msg string, args ...any)
+    LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr)
+    With(args ...any) *slog.Logger
+    WithGroup(name string) *slog.Logger
+    Enabled(ctx context.Context, level slog.Level) bool
+    Handler() slog.Handler
+}
+```
+
+GTB's default `Props.Logger` is simply `slog.New(logger.NewCharmHandler(...))`.
+This is a **breaking change** to the `Logger` interface and to `Props.Logger`'s
+type. That is acceptable pre-1.0 (see `AGENTS.md`), ships as a minor bump, and
+must **not** carry a `BREAKING CHANGE:` footer (that would wrongly cut v1.0.0 via
+releaser-pleaser). A migration note is required.
+
+Consequences (drop-outs from the interface, since `*slog.Logger` lacks them):
+
+- `Debugf`/`Infof`/`Warnf`/`Errorf` — migrate call sites to structured logging
+  (hybrid: structured key/values where the format maps cleanly, otherwise
+  `Debug(fmt.Sprintf(...))`). ~191 production call sites.
+- `Fatal`/`Fatalf` — move to command/`pkg/errorhandling` exit paths (~7 sites).
+- `Print` — move to Cobra writers / `pkg/output` (~25 sites).
+- `SetLevel`/`GetLevel`/`SetFormatter` — become root-only concerns driven through
+  a shared `slog.LevelVar` and the Charm handler (~10 sites); packages branch on
+  `log.Enabled(ctx, slog.LevelDebug)`.
+
+### D2 — Charm stays the default via a `slog.LevelVar`-gated handler
+
+`NewCharmHandler(w, opts...) slog.Handler` and `NewCharmSlog(w, opts...) *slog.Logger`
+are added. Runtime `--debug`/`log.level` changes are driven by a shared
+`*slog.LevelVar` via a `WithSlogLevel(*slog.LevelVar)` option. Implementation
+note: the existing `slogLevelHandler` in `pkg/logger/slog.go` already gates an
+inner handler on a `LevelVar`, so `NewCharmHandler` wraps the Charm handler in
+that gate (Charm's own level set permissive). The typed `logger.Config` from the
+config-adapters spec supplies format/timestamp/caller via `CharmOptions()`.
+
+### D3 — Capturing slog handler for tests
+
+`ToSlog(bufferLogger)` would discard records because `bufferLogger.Handler()`
+returns a no-op. A **capturing `slog.Handler`** (e.g. `logger.NewBufferHandler()`
+exposing recorded records, or a real capturing `Handler()` on the buffer logger)
+must be added in Phase 1 so migrated packages can assert on emitted records.
+
+### D4 — Deprecate legacy surface immediately
+
+Once the slog-first constructors and compatibility helpers exist, the legacy
+facade methods that leave the interface (`Debugf`, `Fatal`, `Print`, `SetLevel`,
+etc., and `NewCharm`) are annotated `// Deprecated:` immediately, pointing at the
+slog-first replacements. (Deprecation is advisory; it does not break builds.)
+
+### D5 — Generator auto-migrates existing projects
+
+Regeneration **rewrites** existing scaffolded projects' root logger construction
+to the slog-first pattern, not just new scaffolds. This requires idempotency
+tests (regenerating twice produces no second diff) alongside the new-scaffold
+tests.
+
+### D6 — Config seam defers to the config-adapters spec
+
+The config strategy in §7 below is **superseded** by
+`2026-07-07-config-section-adapters-for-extraction.md`: typed `UnmarshalSection`
+structs are the primary boundary, and `pkg/config` is an acceptable lightweight
+dependency (it is itself an early planned extraction). The binding extraction
+constraint is severing GTB **main-module/`props`** weight, not `pkg/config`. Read
+§7 as historical context; follow the config-adapters spec for the config seam.
 
 ---
 
@@ -701,22 +799,26 @@ Documentation should clearly distinguish:
 
 ## 15. Open Questions
 
-1. Should GTB's `Props` gain a new `Slog *slog.Logger` field during the
-   transition, or should `Props.Logger` remain the only stored logger with
-   `logger.ToSlog(props.Logger)` used at adapter boundaries?
-2. Should `pkg/logger.Logger` be formally deprecated immediately after slog
-   alternatives are added, or only after first-wave packages have migrated?
-3. Should extracted modules accept `*slog.Logger` directly, or should they accept
-   a narrower local interface for easier test doubles? This spec recommends
-   `*slog.Logger` unless a package has a concrete reason not to.
-4. Should `pkg/config` eventually become its own module? This spec recommends
-   "not as a dependency abstraction", but it may still have standalone value as
-   an opinionated CLI config package.
-5. Should `logger.Print` remain indefinitely for command convenience, or should
-   command packages be moved fully to Cobra writers and `pkg/output`?
-6. Should generator regeneration automatically migrate existing root logger
-   construction, or should the new pattern apply only to newly generated
-   projects until a dedicated migration command is approved?
+_All resolved in the 2026-07-10 review; see §0 for the authoritative decisions._
+
+1. **Props.Logger vs Props.Slog** — **Resolved (D1):** no `Props.Slog`. Redefine
+   `logger.Logger` as an interface mirroring `*slog.Logger` and keep `Props.Logger`
+   typed as it, so a `*slog.Logger` passes in directly. Breaking, pre-1.0
+   acceptable.
+2. **Deprecation timing** — **Resolved (D4):** deprecate the legacy facade
+   immediately once slog-first replacements exist.
+3. **`*slog.Logger` vs narrow interface for extracted modules** — **Resolved:**
+   `*slog.Logger` by default; a narrow package-local interface only when a module
+   needs ≤2 methods and no slog features.
+4. **`pkg/config` as its own module** — **Resolved:** yes, an early standalone
+   extraction and an acceptable lightweight dependency, gated on `pkg/config`
+   first dropping its `pkg/logger` dependency (accepting `*slog.Logger`). Aligns
+   with the config-adapters spec reframe.
+5. **`logger.Print`** — **Resolved:** keep on the compatibility surface for
+   command convenience; forbidden in reusable packages; command migration to
+   Cobra writers / `pkg/output` is opportunistic, not blocking.
+6. **Generator auto-migration** — **Resolved (D5):** regeneration auto-migrates
+   existing projects' root logger construction, with idempotency tests.
 
 ## 16. Acceptance Criteria
 
