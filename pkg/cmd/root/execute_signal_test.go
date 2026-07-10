@@ -221,7 +221,7 @@ func TestExecute_FlushRunsOnCancellationPath(t *testing.T) {
 
 	backend := &spyTelemetryBackend{}
 	props.Collector = telemetry.NewCollector(telemetry.Config{Enabled: true}, backend,
-		"tool", "1.0.0", nil, logger.NewNoop(), "", p.DeliveryAtLeastOnce, false)
+		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
 	started := make(chan struct{})
 	rootCmd := newBlockingCommand(started)
@@ -248,7 +248,7 @@ func TestExecute_FlushRunsBeforeFatalErrorExit(t *testing.T) {
 
 	backend := &spyTelemetryBackend{}
 	props.Collector = telemetry.NewCollector(telemetry.Config{Enabled: true}, backend,
-		"tool", "1.0.0", nil, logger.NewNoop(), "", p.DeliveryAtLeastOnce, false)
+		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
 	flushedAtExit := false
 	props.ErrorHandler = errorhandling.New(logger.NewNoop(), nil,

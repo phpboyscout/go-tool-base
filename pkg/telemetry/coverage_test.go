@@ -25,13 +25,13 @@ func TestCollector_Enabled(t *testing.T) {
 	t.Parallel()
 
 	enabled := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 	if !enabled.Enabled() {
 		t.Error("Enabled() = false for an enabled collector")
 	}
 
 	disabled := NewCollector(Config{Enabled: false}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 	if disabled.Enabled() {
 		t.Error("Enabled() = true for a disabled collector")
 	}
@@ -55,7 +55,7 @@ func TestCollector_Close_FlushesAndClosesBackend(t *testing.T) {
 
 	spy := &closeSpyBackend{}
 	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "evt", nil)
 
@@ -86,7 +86,7 @@ func TestCollector_Close_FlushErrorStillCloses(t *testing.T) {
 	spy.sendErr = errBackend
 	// No data dir → flush cannot spill, so the failed send surfaces an error.
 	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "evt", nil)
 
@@ -107,7 +107,7 @@ func TestBackend_CloseIsNoop(t *testing.T) {
 	backends := []Backend{
 		NewStdoutBackend(&strings.Builder{}),
 		NewFileBackend(filepath.Join(t.TempDir(), "t.log")),
-		NewHTTPBackend("https://example.invalid", logger.NewNoop()),
+		NewHTTPBackend("https://example.invalid", logger.ToSlog(logger.NewNoop())),
 	}
 
 	for _, b := range backends {
@@ -152,7 +152,7 @@ func TestHTTPBackend_Send_DrainsLargeResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	b := NewHTTPBackend(srv.URL, logger.NewNoop())
+	b := NewHTTPBackend(srv.URL, logger.ToSlog(logger.NewNoop()))
 	if err := b.Send(context.Background(), []Event{{Name: "x"}}); err != nil {
 		t.Fatalf("send: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestHTTPBackend_Send_DrainsLargeResponse(t *testing.T) {
 func TestHTTPDeletionRequestor_NetworkError(t *testing.T) {
 	t.Parallel()
 
-	r := NewHTTPDeletionRequestor("http://127.0.0.1:1", logger.NewNoop())
+	r := NewHTTPDeletionRequestor("http://127.0.0.1:1", logger.ToSlog(logger.NewNoop()))
 
 	if err := r.RequestDeletion(context.Background(), "id"); err == nil {
 		t.Error("expected a transport error for a refused connection")
@@ -175,7 +175,7 @@ func TestHTTPDeletionRequestor_BadEndpoint(t *testing.T) {
 
 	// A control character in the URL makes http.NewRequestWithContext fail,
 	// exercising the "creating deletion request" branch.
-	r := NewHTTPDeletionRequestor("http://exa\x7fmple.com", logger.NewNoop())
+	r := NewHTTPDeletionRequestor("http://exa\x7fmple.com", logger.ToSlog(logger.NewNoop()))
 
 	if err := r.RequestDeletion(context.Background(), "id"); err == nil {
 		t.Error("expected an error constructing a request for a malformed URL")
@@ -217,7 +217,7 @@ func TestOTelBackend_SendAndClose(t *testing.T) {
 	backend, err := NewOTelBackend(context.Background(), srv.URL,
 		WithOTelInsecure(),
 		WithOTelService("svc", "9.9.9"),
-		WithOTelLogger(logger.NewNoop()),
+		WithOTelLogger(logger.ToSlog(logger.NewNoop())),
 	)
 	require.NoError(t, err)
 
@@ -328,7 +328,7 @@ func TestSpillToDisk_SplitsAcrossFiles(t *testing.T) {
 	dir := t.TempDir()
 	spy := &spyBackend{}
 	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
-		logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
 	names := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
 	c.maxBuffer = len(names)
 
@@ -373,7 +373,7 @@ func TestFlushSpillFiles_RemovesCorruptFile(t *testing.T) {
 
 	spy := &spyBackend{}
 	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
-		logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
 
 	require.NoError(t, c.flushSpillFiles(context.Background()))
 
@@ -405,7 +405,7 @@ func TestFlushSpillFiles_SendErrorRetainsFile(t *testing.T) {
 
 	spy := &spyBackend{sendErr: errBackend}
 	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
-		logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
 
 	require.NoError(t, c.flushSpillFiles(context.Background()))
 
@@ -419,7 +419,7 @@ func TestDeleteSpillFiles_NoDataDir(t *testing.T) {
 	t.Parallel()
 
 	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	if err := c.deleteSpillFiles(); err != nil {
 		t.Errorf("deleteSpillFiles with no data dir = %v, want nil", err)
@@ -433,7 +433,7 @@ func TestRemoveSpillFile_MissingIsNoError(t *testing.T) {
 
 	dir := t.TempDir()
 	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
 
 	c.removeSpillFile(filepath.Join(dir, "telemetry-spill-does-not-exist.json"))
 }

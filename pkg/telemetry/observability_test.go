@@ -20,7 +20,7 @@ func testObservabilitySettings(mutators ...func(*ObservabilitySettings)) Observa
 	settings := ObservabilitySettings{
 		ServiceName: "macguffinsvc",
 		Version:     "v1.2.3",
-		Logger:      logger.NewNoop(),
+		Logger:      logger.ToSlog(logger.NewNoop()),
 	}
 	for _, mutate := range mutators {
 		mutate(&settings)

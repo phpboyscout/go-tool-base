@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -103,7 +103,7 @@ func (f *fileBackend) Close() error { return nil }
 type httpBackend struct {
 	endpoint string
 	client   *http.Client
-	log      logger.Logger
+	log      *slog.Logger
 }
 
 // NewHTTPBackend returns a backend that POSTs events as JSON to the given endpoint.
@@ -116,7 +116,7 @@ type httpBackend struct {
 // debug/warn and continue; the error only informs the retain-vs-delete
 // decision. Non-2xx responses are additionally logged at debug level via the
 // provided logger.
-func NewHTTPBackend(endpoint string, log logger.Logger) Backend {
+func NewHTTPBackend(endpoint string, log *slog.Logger) Backend {
 	return &httpBackend{
 		endpoint: endpoint,
 		client:   gtbhttp.NewClient(gtbhttp.WithTimeout(httpTimeout)),

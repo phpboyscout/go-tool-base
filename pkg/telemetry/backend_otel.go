@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
@@ -22,7 +22,7 @@ type OTelOption func(*otelConfig)
 type otelConfig struct {
 	headers     map[string]string
 	insecure    bool
-	log         logger.Logger
+	log         *slog.Logger
 	serviceName string
 	serviceVer  string
 	// pendingWarnings captures diagnostics raised during option
@@ -64,7 +64,7 @@ func WithOTelInsecure() OTelOption {
 }
 
 // WithOTelLogger sets the logger for routing OTel SDK errors.
-func WithOTelLogger(l logger.Logger) OTelOption {
+func WithOTelLogger(l *slog.Logger) OTelOption {
 	return func(c *otelConfig) { c.log = l }
 }
 

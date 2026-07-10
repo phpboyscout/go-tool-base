@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -18,7 +19,7 @@ const (
 // ObservabilitySettingsFromProps adapts GTB props/config into package-owned
 // observability settings while preserving the existing telemetry.* key layout.
 func ObservabilitySettingsFromProps(p *props.Props) ObservabilitySettings {
-	settings := ObservabilitySettings{Logger: logger.NewNoop()}
+	settings := ObservabilitySettings{Logger: slog.New(slog.DiscardHandler)}
 	if p == nil {
 		return settings
 	}
@@ -54,10 +55,10 @@ func SetupFromProps(ctx context.Context, p *props.Props, controller controls.Con
 	return Setup(ctx, ObservabilitySettingsFromProps(p), controller)
 }
 
-func loggerFromProps(p *props.Props) logger.Logger {
-	if p != nil && p.Logger != nil {
-		return p.Logger
+func loggerFromProps(p *props.Props) *slog.Logger {
+	if p != nil {
+		return logger.ToSlog(p.Logger)
 	}
 
-	return logger.NewNoop()
+	return slog.New(slog.DiscardHandler)
 }

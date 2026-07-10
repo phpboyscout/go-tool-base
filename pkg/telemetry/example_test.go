@@ -15,7 +15,7 @@ func ExampleNewCollector() {
 
 	c := telemetry.NewCollector(cfg, backend, "mytool", "1.0.0",
 		map[string]string{"env": "production"},
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "generate", nil)
 	c.TrackCommand("build", 1500, 0, map[string]string{"target": "linux"})

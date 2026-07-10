@@ -2,8 +2,8 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,40 +12,18 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-// spyLogger captures log calls so tests can assert on them. All calls
-// are serialised through mu so the test can read fields safely even
-// if the code under test logs from multiple goroutines.
-type spyLogger struct {
-	logger.Logger
+// recordsAtLevel returns the messages of every captured record emitted at the
+// given slog level, preserving order.
+func recordsAtLevel(records []slog.Record, level slog.Level) []string {
+	var msgs []string
 
-	mu     sync.Mutex
-	warns  []warnEntry
-	debugs []warnEntry
-}
+	for _, r := range records {
+		if r.Level == level {
+			msgs = append(msgs, r.Message)
+		}
+	}
 
-type warnEntry struct {
-	msg     string
-	keyvals []any
-}
-
-func (s *spyLogger) Warn(msg string, keyvals ...any) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.warns = append(s.warns, warnEntry{msg: msg, keyvals: keyvals})
-}
-
-func (s *spyLogger) Debug(msg string, keyvals ...any) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.debugs = append(s.debugs, warnEntry{msg: msg, keyvals: keyvals})
-}
-
-// newSpyLogger wraps a noop logger with Warn/Debug interception. Other
-// logger methods delegate to noop so unexercised paths do not panic.
-func newSpyLogger() *spyLogger {
-	return &spyLogger{Logger: logger.NewNoop()}
+	return msgs
 }
 
 func TestWithOTelHeaders_DebugsOnSensitiveKeys(t *testing.T) {
@@ -56,7 +34,7 @@ func TestWithOTelHeaders_DebugsOnSensitiveKeys(t *testing.T) {
 	// event is actually shipped.
 	const endpoint = "https://otel-collector.example.internal/"
 
-	spy := newSpyLogger()
+	capture := logger.NewCaptureHandler()
 
 	_, err := NewOTelBackend(context.Background(), endpoint,
 		WithOTelHeaders(map[string]string{
@@ -64,20 +42,20 @@ func TestWithOTelHeaders_DebugsOnSensitiveKeys(t *testing.T) {
 			"X-API-Key":     "deadbeefcafebabe",
 			"Content-Type":  "application/json",
 		}),
-		WithOTelLogger(spy),
+		WithOTelLogger(slog.New(capture)),
 	)
 	require.NoError(t, err)
 
-	spy.mu.Lock()
-	defer spy.mu.Unlock()
+	records := capture.Records()
+	warns := recordsAtLevel(records, slog.LevelWarn)
+	debugs := recordsAtLevel(records, slog.LevelDebug)
 
 	// Exactly two DEBUG diagnostics — one per sensitive-looking key. The
 	// advisory is DEBUG (not WARN) so it doesn't spam every command.
-	assert.Empty(t, spy.warns, "sensitive-header advisory must not be WARN")
-	require.Len(t, spy.debugs, 2, "expected a DEBUG diagnostic per sensitive header")
+	assert.Empty(t, warns, "sensitive-header advisory must not be WARN")
+	require.Len(t, debugs, 2, "expected a DEBUG diagnostic per sensitive header")
 
-	msgs := []string{spy.debugs[0].msg, spy.debugs[1].msg}
-	combined := strings.Join(msgs, "\n")
+	combined := strings.Join(debugs, "\n")
 
 	assert.Contains(t, combined, "Authorization",
 		"diagnostic should name the sensitive header key")
@@ -98,19 +76,17 @@ func TestWithOTelHeaders_DebugsOnSensitiveKeys(t *testing.T) {
 func TestWithOTelHeaders_NoWarnForPlainHeaders(t *testing.T) {
 	t.Parallel()
 
-	spy := newSpyLogger()
+	capture := logger.NewCaptureHandler()
 
 	_, err := NewOTelBackend(context.Background(), "https://otel-collector.example.internal/",
 		WithOTelHeaders(map[string]string{
 			"Content-Type": "application/json",
 			"User-Agent":   "gtb/1.0",
 		}),
-		WithOTelLogger(spy),
+		WithOTelLogger(slog.New(capture)),
 	)
 	require.NoError(t, err)
 
-	spy.mu.Lock()
-	defer spy.mu.Unlock()
-
-	assert.Empty(t, spy.warns, "plain headers should not trigger advisories")
+	warns := recordsAtLevel(capture.Records(), slog.LevelWarn)
+	assert.Empty(t, warns, "plain headers should not trigger advisories")
 }

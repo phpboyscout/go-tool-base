@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -13,7 +14,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -34,12 +34,12 @@ type DeletionRequestor interface {
 type HTTPDeletionRequestor struct {
 	endpoint string
 	client   *http.Client
-	log      logger.Logger
+	log      *slog.Logger
 }
 
 // NewHTTPDeletionRequestor creates a requestor that POSTs a JSON deletion
 // request to the given endpoint.
-func NewHTTPDeletionRequestor(endpoint string, log logger.Logger) DeletionRequestor {
+func NewHTTPDeletionRequestor(endpoint string, log *slog.Logger) DeletionRequestor {
 	return &HTTPDeletionRequestor{
 		endpoint: endpoint,
 		client:   gtbhttp.NewClient(gtbhttp.WithTimeout(deletionTimeout)),

@@ -123,7 +123,7 @@ func TestHTTPBackend_Success(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	b := NewHTTPBackend(srv.URL, logger.NewNoop())
+	b := NewHTTPBackend(srv.URL, logger.ToSlog(logger.NewNoop()))
 
 	events := []Event{{Type: EventCommandInvocation, Name: "test"}}
 	if err := b.Send(context.Background(), events); err != nil {
@@ -148,7 +148,7 @@ func TestHTTPBackend_Non2xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	b := NewHTTPBackend(srv.URL, logger.NewNoop())
+	b := NewHTTPBackend(srv.URL, logger.ToSlog(logger.NewNoop()))
 
 	// A non-2xx response is a delivery failure: it must surface so the
 	// at-least-once spill layer retains the batch rather than dropping it.
@@ -162,7 +162,7 @@ func TestHTTPBackend_NetworkError(t *testing.T) {
 	t.Parallel()
 
 	// Closed server — connection refused
-	b := NewHTTPBackend("http://127.0.0.1:1", logger.NewNoop())
+	b := NewHTTPBackend("http://127.0.0.1:1", logger.ToSlog(logger.NewNoop()))
 
 	// A transport failure must surface (not be swallowed) so the spill/retry
 	// layer can honour at-least-once delivery.

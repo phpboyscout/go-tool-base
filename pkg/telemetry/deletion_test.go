@@ -33,7 +33,7 @@ func TestHTTPDeletionRequestor_Success(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	r := NewHTTPDeletionRequestor(srv.URL, logger.NewNoop())
+	r := NewHTTPDeletionRequestor(srv.URL, logger.ToSlog(logger.NewNoop()))
 
 	if err := r.RequestDeletion(context.Background(), "abc123"); err != nil {
 		t.Fatalf("deletion error: %v", err)
@@ -52,7 +52,7 @@ func TestHTTPDeletionRequestor_Non2xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	r := NewHTTPDeletionRequestor(srv.URL, logger.NewNoop())
+	r := NewHTTPDeletionRequestor(srv.URL, logger.ToSlog(logger.NewNoop()))
 
 	err := r.RequestDeletion(context.Background(), "abc123")
 	if err == nil {

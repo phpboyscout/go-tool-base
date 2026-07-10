@@ -1,9 +1,9 @@
 package telemetry
 
 import (
+	"log/slog"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
@@ -12,18 +12,18 @@ import (
 type ObservabilitySettings struct {
 	ServiceName string
 	Version     string
-	Logger      logger.Logger
+	Logger      *slog.Logger
 	Tracing     ObservabilitySignalSettings
 	Metrics     ObservabilitySignalSettings
 	Logs        ObservabilitySignalSettings
 }
 
-func (s ObservabilitySettings) logger() logger.Logger {
+func (s ObservabilitySettings) logger() *slog.Logger {
 	if s.Logger != nil {
 		return s.Logger
 	}
 
-	return logger.NewNoop()
+	return slog.New(slog.DiscardHandler)
 }
 
 // ObservabilitySignalSettings contains the resolved OTLP target for one signal

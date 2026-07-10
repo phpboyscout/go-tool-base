@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
@@ -264,7 +265,7 @@ func buildDeletionRequestor(p *props.Props) telemetry.DeletionRequestor {
 
 	switch {
 	case p.Tool.Telemetry.Endpoint != "":
-		backend = telemetry.NewHTTPBackend(p.Tool.Telemetry.Endpoint, p.Logger)
+		backend = telemetry.NewHTTPBackend(p.Tool.Telemetry.Endpoint, logger.ToSlog(p.Logger))
 	default:
 		backend = telemetry.NewNoopBackend()
 	}

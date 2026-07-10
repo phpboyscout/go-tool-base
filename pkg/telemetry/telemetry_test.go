@@ -19,7 +19,7 @@ func TestCollector_Disabled(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: false}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: false}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -37,7 +37,7 @@ func TestCollector_Track(t *testing.T) {
 
 	spy := &spyBackend{}
 	meta := map[string]string{"env": "test"}
-	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", meta, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", meta, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "generate", map[string]string{"flag": "verbose"})
 
@@ -84,7 +84,7 @@ func TestCollector_TrackCommand(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "mytool", "2.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.TrackCommand("build", 1234, 2, map[string]string{"flag": "v"})
 
@@ -130,7 +130,7 @@ func TestCollector_RedactsMetadataValues(t *testing.T) {
 	// A credential supplied via collector metadata must be scrubbed at ingest,
 	// just like args/errMsg are — metadata values were shipped verbatim.
 	meta := map[string]string{"base_url": "https://user:" + "s3cret@api.example.co/v1"}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", meta, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", meta, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "op", map[string]string{"token_arg": "token=" + "glpat-abcdef1234567890abcdef"})
 
@@ -152,7 +152,7 @@ func TestCollector_FlushEmpty(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	if err := c.Flush(context.Background()); err != nil {
 		t.Fatalf("flush error: %v", err)
@@ -167,7 +167,7 @@ func TestCollector_FlushError(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{sendErr: errBackend}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -187,7 +187,7 @@ func TestCollector_FlushFailureSpillsForRetry(t *testing.T) {
 
 	dir := t.TempDir()
 	spy := &spyBackend{sendErr: errBackend}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -229,7 +229,7 @@ func TestCollector_ConcurrentTrack(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	var wg sync.WaitGroup
 
@@ -259,7 +259,7 @@ func TestCollector_BackendInfo(t *testing.T) {
 	t.Parallel()
 
 	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	assert := func(got, want string) {
 		t.Helper()
@@ -276,7 +276,7 @@ func TestCollector_BackendInfo(t *testing.T) {
 
 	// A disabled collector reports the noop description.
 	d := NewCollector(Config{Enabled: false}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 	assert(d.BackendInfo(), "noop (disabled)")
 }
 
@@ -287,7 +287,7 @@ func TestCollector_BackendInfoConcurrent(t *testing.T) {
 	t.Parallel()
 
 	c := NewCollector(Config{Enabled: true}, &spyBackend{}, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	var wg sync.WaitGroup
 
@@ -312,7 +312,7 @@ func TestCollector_NoPII(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", nil)
 
@@ -340,7 +340,7 @@ func TestCollector_Drop(t *testing.T) {
 
 	dir := t.TempDir()
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), dir, props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), dir, props.DeliveryAtLeastOnce, false)
 
 	// Track some events and spill
 	c.maxBuffer = 2
@@ -380,7 +380,7 @@ func TestCollector_MetadataExtraOverridesBase(t *testing.T) {
 
 	spy := &spyBackend{}
 	base := map[string]string{"key": "base"}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", base, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", base, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.Track(props.EventCommandInvocation, "test", map[string]string{"key": "override"})
 
@@ -397,7 +397,7 @@ func TestTrackCommandExtended_Enabled(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, true)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, true)
 
 	c.TrackCommandExtended("generate", []string{"--name", "myapp"}, 500, 1, "missing template", nil)
 
@@ -428,7 +428,7 @@ func TestTrackCommandExtended_RedactsSensitiveContent(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, true)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, true)
 
 	// args carries a credential as a flag value; errMsg quotes a URL
 	// with userinfo. Both must be scrubbed before shipping to the
@@ -469,7 +469,7 @@ func TestTrackCommandExtended_Disabled(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyBackend{}
-	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	c.TrackCommandExtended("generate", []string{"--name", "myapp"}, 500, 1, "missing template", nil)
 
@@ -564,7 +564,7 @@ func TestCollector_DisabledDoesNotBuffer(t *testing.T) {
 	t.Parallel()
 
 	c := NewCollector(Config{Enabled: false}, NewNoopBackend(), "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false)
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 
 	for range 50 {
 		c.Track(props.EventFeatureUsed, "evt", nil)
@@ -587,7 +587,7 @@ func TestCollector_BufferBoundedWhenSpillUnavailable(t *testing.T) {
 
 	spy := &spyBackend{}
 	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil,
-		logger.NewNoop(), "", props.DeliveryAtLeastOnce, false) // empty dataDir → spill unavailable
+		logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false) // empty dataDir → spill unavailable
 	c.maxBuffer = 10
 
 	for range 100 {

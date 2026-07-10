@@ -4,13 +4,13 @@ package telemetry
 
 import (
 	"context"
+	"log/slog"
 	"maps"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/osinfo"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
@@ -79,7 +79,7 @@ type Collector struct {
 	metadata     map[string]string
 	buffer       []Event
 	mu           sync.Mutex
-	log          logger.Logger
+	log          *slog.Logger
 	dataDir      string
 	deliveryMode props.DeliveryMode
 	maxBuffer    int
@@ -87,7 +87,7 @@ type Collector struct {
 
 // NewCollector creates a Collector. When cfg.Enabled is false, returns a noop
 // collector so callers never need to nil-check.
-func NewCollector(cfg Config, backend Backend, toolName, version string, metadata map[string]string, log logger.Logger, dataDir string, deliveryMode props.DeliveryMode, extendedCollection bool) *Collector {
+func NewCollector(cfg Config, backend Backend, toolName, version string, metadata map[string]string, log *slog.Logger, dataDir string, deliveryMode props.DeliveryMode, extendedCollection bool) *Collector {
 	if !cfg.Enabled {
 		c := &Collector{backend: NewNoopBackend(), log: log, maxBuffer: defaultMaxBuffer}
 		c.SetBackendInfo("noop (disabled)")

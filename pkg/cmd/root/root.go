@@ -997,7 +997,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	if props.Tool.IsDisabled(p.TelemetryCmd) {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-			props.Tool.Name, version, nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
+			props.Tool.Name, version, nil, logger.ToSlog(props.Logger), dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
 	cfg := telemetry.Config{
@@ -1022,7 +1022,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 
 	if !cfg.Enabled {
 		return telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-			props.Tool.Name, version, nil, props.Logger, dataDir, p.DeliveryAtLeastOnce, false)
+			props.Tool.Name, version, nil, logger.ToSlog(props.Logger), dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
 	deliveryMode := props.Tool.Telemetry.DeliveryMode
@@ -1033,7 +1033,7 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 	backend, backendInfo := selectTelemetryBackend(ctx, props, cfg, dataDir)
 
 	collector := telemetry.NewCollector(cfg, backend, props.Tool.Name, version,
-		props.Tool.Telemetry.Metadata, props.Logger, dataDir, deliveryMode, props.Tool.Telemetry.ExtendedCollection)
+		props.Tool.Telemetry.Metadata, logger.ToSlog(props.Logger), dataDir, deliveryMode, props.Tool.Telemetry.ExtendedCollection)
 	collector.SetBackendInfo(backendInfo)
 
 	return collector
@@ -1056,7 +1056,7 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 		return telemetry.NewFileBackend(filepath.Join(dataDir, "telemetry.log")), "file (" + filepath.Join(dataDir, "telemetry.log") + ")"
 	case props.Tool.Telemetry.OTelEndpoint != "":
 		opts := []telemetry.OTelOption{
-			telemetry.WithOTelLogger(props.Logger),
+			telemetry.WithOTelLogger(logger.ToSlog(props.Logger)),
 			telemetry.WithOTelService(props.Tool.Name, resolveVersionString(props)),
 		}
 
@@ -1077,7 +1077,7 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 
 		return b, "otlp (" + props.Tool.Telemetry.OTelEndpoint + ")"
 	case props.Tool.Telemetry.Endpoint != "":
-		return telemetry.NewHTTPBackend(props.Tool.Telemetry.Endpoint, props.Logger), "http (" + props.Tool.Telemetry.Endpoint + ")"
+		return telemetry.NewHTTPBackend(props.Tool.Telemetry.Endpoint, logger.ToSlog(props.Logger)), "http (" + props.Tool.Telemetry.Endpoint + ")"
 	default:
 		return telemetry.NewNoopBackend(), "noop (no endpoint configured)"
 	}

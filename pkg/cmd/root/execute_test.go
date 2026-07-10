@@ -52,7 +52,7 @@ func TestFlushTelemetry_FlushesEnabledCollectorDespiteConfigKey(t *testing.T) {
 
 	spy := &spyTelemetryBackend{}
 	collector := telemetry.NewCollector(telemetry.Config{Enabled: true}, spy,
-		"tool", "1.0.0", nil, logger.NewNoop(), "", p.DeliveryAtLeastOnce, false)
+		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
 	cfg := configMocks.NewMockContainable(t)
 	cfg.EXPECT().GetBool("telemetry.enabled").Return(false).Maybe()
@@ -71,7 +71,7 @@ func TestFlushTelemetry_SkipsDisabledCollector(t *testing.T) {
 
 	spy := &spyTelemetryBackend{}
 	collector := telemetry.NewCollector(telemetry.Config{Enabled: false}, spy,
-		"tool", "1.0.0", nil, logger.NewNoop(), "", p.DeliveryAtLeastOnce, false)
+		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
 	props := &p.Props{Logger: logger.NewNoop(), Collector: collector}
 
