@@ -176,7 +176,7 @@ goreleaser:
 # and the baseline tag's tree are available for the worktree comparison.
 apidiff:
   stage: test
-  image: golang:1.26.4-bookworm
+  image: golang:1.26.5-bookworm
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -196,7 +196,7 @@ apidiff:
 # package to .coverage-policy.yaml `excluded:` with a rationale.
 coverage-policy:
   stage: test
-  image: golang:1.26.4-bookworm
+  image: golang:1.26.5-bookworm
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

@@ -1,0 +1,26 @@
+# osv-scanner waivers.
+#
+# osv-scanner matches advisories against the module graph in go.mod, not against
+# the packages this module actually imports. That makes it strictly noisier than
+# govulncheck, which resolves real call paths. Anything waived here must be
+# justified against the *call graph*, carry an expiry, and be re-examined when
+# that expiry passes. A waiver is a decision to revisit, not a decision to forget.
+
+[[IgnoredVulns]]
+id = "GO-2026-5932"
+ignoreUntil = 2026-10-10
+reason = """
+Not reachable. GO-2026-5932 covers golang.org/x/crypto/openpgp and its
+sub-packages (packet, armor, clearsign), which are unmaintained and have no fixed
+version: the advisory will never be resolved upstream by a version bump.
+
+go-tool-base does not import x/crypto/openpgp anywhere. OpenPGP work goes through
+github.com/ProtonMail/go-crypto (see pkg/openpgpkey and the extracted `signing`
+module). x/crypto enters the module graph solely via golang.org/x/crypto/ssh,
+pulled in by pkg/setup/github (`go mod why -m golang.org/x/crypto`).
+
+govulncheck, which resolves actual call paths rather than the module graph,
+does not report this advisory against this codebase.
+
+Revisit on expiry: confirm x/crypto/openpgp is still unimported before renewing.
+"""
