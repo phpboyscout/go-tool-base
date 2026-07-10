@@ -2,7 +2,7 @@
 title: "Slog-first logging and config adapter seams for module extraction"
 description: "Refactor GTB's logging boundary so reusable packages and future extracted modules can depend on log/slog or package-local narrow seams instead of pkg/logger. Define the companion config strategy: extracted modules accept typed options or local lookup interfaces, while GTB keeps pkg/config as the framework runtime configuration adapter."
 date: 2026-07-07
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - logging
@@ -27,7 +27,7 @@ Date
 :   7 July 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 Builds on
 :   [`2026-07-05-chat-module-extraction.md`](2026-07-05-chat-module-extraction.md)
@@ -40,11 +40,21 @@ Related
 
 ## 0. Approved design decisions (2026-07-10 review)
 
-This spec was reviewed and approved on 2026-07-10. It is delivered **jointly with
-the config-section-adapters spec** on a single large branch, so the logging and
-config seams land as one coherent cut-over. The decisions below are authoritative
-and override any earlier wording in the body sections; the body is retained as
-design context.
+This spec was reviewed and approved on 2026-07-10, then **implemented** the same
+day. It is delivered **jointly with the config-section-adapters spec** on a
+single large branch, so the logging and config seams land as one coherent
+cut-over. The decisions below are authoritative and override any earlier wording
+in the body sections; the body is retained as design context.
+
+**Implementation complete (2026-07-10):** `logger.Logger` is now a `*slog.Logger`
+mirror (D1), and every extraction-candidate package core — `chat`, `controls`,
+`config`, `http`, `grpc`, `gateway`, `telemetry` (+ `datadog`/`posthog`), `vcs`,
+and `errorhandling` — has been migrated off `pkg/logger` to `*slog.Logger`. Only
+GTB adapter files (`*config_adapter.go`, `*FromProps`) and the composition layer
+(`pkg/cmd`, `pkg/setup`, `pkg/props`, `pkg/docs`, `pkg/utils`) still import
+`pkg/logger`, converting `props.Logger` via `logger.ToSlog` at the boundary. See
+`docs/development/handover-config-migration.md` for the remaining
+config-migration (not logging) work.
 
 ### D1 — `Props.Logger` becomes a GTB-owned interface that mirrors `*slog.Logger`
 
