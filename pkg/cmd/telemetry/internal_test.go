@@ -1,6 +1,7 @@
 package telemetry
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -163,17 +164,18 @@ func TestSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T) {
 	v := viper.New()
 	v.SetFs(memfs)
 
-	buf := logger.NewBuffer()
 	p := &props.Props{
 		Tool:   props.Tool{Name: "tool"},
-		Logger: buf,
+		Logger: logger.NewNoop(),
 		Config: config.NewContainerFromViper(logger.NewNoop(), v),
 		FS:     memfs,
 	}
 
 	// No config file is set on the viper → WriteConfig fails → ensureConfigFile.
-	require.NoError(t, setTelemetryEnabled(p, true))
-	assert.True(t, buf.Contains("Telemetry enabled"))
+	var out bytes.Buffer
+
+	require.NoError(t, setTelemetryEnabled(p, true, &out))
+	assert.Contains(t, out.String(), "Telemetry enabled")
 
 	dir := setup.GetDefaultConfigDir(memfs, "tool")
 	exists, _ := afero.Exists(memfs, filepath.Join(dir, setup.DefaultConfigFilename))
@@ -240,34 +242,46 @@ func TestNewResetCmd(t *testing.T) {
 	t.Run("clears data, requests deletion, disables", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		cmd := newResetCmd(makeResetProps(buf, nil, false))
+		cmd := newResetCmd(makeResetProps(logger.NewNoop(), nil, false))
 		cmd.SetContext(context.Background())
+
+		var out bytes.Buffer
+
+		cmd.SetOut(&out)
+
 		require.NoError(t, cmd.RunE(cmd, nil))
-		assert.True(t, buf.Contains("Deletion request sent"))
-		assert.True(t, buf.Contains("Telemetry disabled"))
+		assert.Contains(t, out.String(), "Deletion request sent")
+		assert.Contains(t, out.String(), "Telemetry disabled")
 	})
 
 	t.Run("force-enabled keeps telemetry on", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		cmd := newResetCmd(makeResetProps(buf, nil, true))
+		cmd := newResetCmd(makeResetProps(logger.NewNoop(), nil, true))
 		cmd.SetContext(context.Background())
+
+		var out bytes.Buffer
+
+		cmd.SetOut(&out)
+
 		require.NoError(t, cmd.RunE(cmd, nil))
-		assert.True(t, buf.Contains("remains enabled"))
+		assert.Contains(t, out.String(), "remains enabled")
 	})
 
 	t.Run("deletion failure is reported but not fatal", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		p := makeResetProps(buf, errors.New("network down"), false)
+		p := makeResetProps(logger.NewNoop(), errors.New("network down"), false)
 		p.Tool.Help = errorhandling.SlackHelp{Team: "team", Channel: "ops"}
 		cmd := newResetCmd(p)
 		cmd.SetContext(context.Background())
+
+		var out bytes.Buffer
+
+		cmd.SetOut(&out)
+
 		require.NoError(t, cmd.RunE(cmd, nil))
-		assert.True(t, buf.Contains("could not be sent"))
-		assert.True(t, buf.Contains("For manual deletion"), "support message must be shown on failure")
+		assert.Contains(t, out.String(), "could not be sent")
+		assert.Contains(t, out.String(), "For manual deletion", "support message must be shown on failure")
 	})
 }

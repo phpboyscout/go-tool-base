@@ -4,6 +4,7 @@
 package changelog
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
@@ -45,7 +46,7 @@ By default, shows the full changelog. Use flags to filter by version.`,
 
 			releases := filterReleases(cl, version, since, latest)
 
-			return renderOutput(cmd, p, releases)
+			return renderOutput(cmd, releases)
 		},
 	}
 
@@ -120,9 +121,9 @@ func filterReleases(cl *changelog.Changelog, version, since string, latest bool)
 	return cl.Releases
 }
 
-func renderOutput(cmd *cobra.Command, p props.LoggerProvider, releases []changelog.Release) error {
+func renderOutput(cmd *cobra.Command, releases []changelog.Release) error {
 	if len(releases) == 0 {
-		p.GetLogger().Print("No matching changelog entries found.")
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No matching changelog entries found.")
 
 		return nil
 	}
@@ -153,7 +154,7 @@ func renderOutput(cmd *cobra.Command, p props.LoggerProvider, releases []changel
 	}
 
 	rendered := output.RenderMarkdown(sb.String())
-	p.GetLogger().Print(rendered)
+	_, _ = fmt.Fprintln(cmd.OutOrStdout(), rendered)
 
 	return nil
 }

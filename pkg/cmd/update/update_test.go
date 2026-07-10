@@ -3,6 +3,7 @@ package update_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -196,7 +197,7 @@ func TestUpdate(t *testing.T) {
 			releaseNotes:  "New features!",
 		}
 
-		result, err := update.Update(context.Background(), props, "", false, update.WithUpdater(
+		result, err := update.Update(context.Background(), props, "", false, io.Discard, update.WithUpdater(
 			func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
 				return mu, nil
 			},
@@ -211,7 +212,7 @@ func TestUpdate(t *testing.T) {
 	t.Run("updater_creation_failure", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := update.Update(context.Background(), props, "", false, update.WithUpdater(
+		_, err := update.Update(context.Background(), props, "", false, io.Discard, update.WithUpdater(
 			func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
 				return nil, fmt.Errorf("failed to create updater")
 			},
@@ -227,7 +228,7 @@ func TestUpdate(t *testing.T) {
 			updateErr: fmt.Errorf("download failed"),
 		}
 
-		_, err := update.Update(context.Background(), props, "", false, update.WithUpdater(
+		_, err := update.Update(context.Background(), props, "", false, io.Discard, update.WithUpdater(
 			func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
 				return mu, nil
 			},
@@ -252,7 +253,7 @@ func TestUpdate_WithUpdaterOption(t *testing.T) {
 
 	mu := &mockUpdater{latestVersion: "v1.2.0", binPath: "/tmp/new-bin"}
 
-	result, err := update.Update(context.Background(), props, "", false,
+	result, err := update.Update(context.Background(), props, "", false, io.Discard,
 		update.WithUpdater(func(_ context.Context, _ *p.Props, _ string, _ bool) (update.Updater, error) {
 			return mu, nil
 		}),

@@ -6,6 +6,8 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -54,8 +56,8 @@ func newEnableCmd(p *props.Props) *cobra.Command {
 
 No personally identifiable information is collected. The setting is written to
 your config file and takes effect immediately.`,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return setTelemetryEnabled(p, true)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return setTelemetryEnabled(p, true, cmd.OutOrStdout())
 		},
 	}
 }
@@ -68,14 +70,14 @@ func newDisableCmd(p *props.Props) *cobra.Command {
 
 Any buffered or spilled events are discarded immediately. Tools whose authors
 enforce telemetry by organisation policy cannot be disabled here.`,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if p.Tool.Telemetry.ForceEnabled {
-				p.Logger.Print("Telemetry is enforced by your organisation and cannot be disabled.")
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Telemetry is enforced by your organisation and cannot be disabled.")
 
 				return nil
 			}
 
-			if err := setTelemetryEnabled(p, false); err != nil {
+			if err := setTelemetryEnabled(p, false, cmd.OutOrStdout()); err != nil {
 				return err
 			}
 
@@ -83,7 +85,7 @@ enforce telemetry by organisation policy cannot be disabled here.`,
 			// withdrawal of consent is immediate and total.
 			_ = p.Collector.Drop()
 
-			p.Logger.Print("All pending events have been discarded.")
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "All pending events have been discarded.")
 
 			return nil
 		},
@@ -98,22 +100,24 @@ func newStatusCmd(p *props.Props) *cobra.Command {
 backend.
 
 Use this to confirm your opt-in state and whether collection is local-only.`,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			enabled := p.Config.GetBool("telemetry.enabled")
 			localOnly := p.Config.GetBool("telemetry.local_only")
 
+			out := cmd.OutOrStdout()
+
 			switch {
 			case !enabled:
-				p.Logger.Print("Telemetry: disabled")
+				_, _ = fmt.Fprintln(out, "Telemetry: disabled")
 			case localOnly:
-				p.Logger.Print("Telemetry: enabled (local-only)")
+				_, _ = fmt.Fprintln(out, "Telemetry: enabled (local-only)")
 			default:
-				p.Logger.Print("Telemetry: enabled")
+				_, _ = fmt.Fprintln(out, "Telemetry: enabled")
 			}
 
-			p.Logger.Print("Machine ID: " + telemetry.HashedMachineID())
+			_, _ = fmt.Fprintln(out, "Machine ID: "+telemetry.HashedMachineID())
 
-			p.Logger.Print("Backend: " + p.Collector.BackendInfo())
+			_, _ = fmt.Fprintln(out, "Backend: "+p.Collector.BackendInfo())
 
 			return nil
 		},
@@ -147,27 +151,29 @@ func newResetCmd(p *props.Props) *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), resetTimeout)
 			defer cancel()
 
+			out := cmd.OutOrStdout()
+
 			if err := requestor.RequestDeletion(ctx, machineID); err != nil {
-				p.Logger.Print("Deletion request could not be sent: " + err.Error())
+				_, _ = fmt.Fprintln(out, "Deletion request could not be sent: "+err.Error())
 
 				if p.Tool.Help != nil {
 					if msg := p.Tool.Help.SupportMessage(); msg != "" {
-						p.Logger.Print("For manual deletion: " + msg)
+						_, _ = fmt.Fprintln(out, "For manual deletion: "+msg)
 					}
 				}
 			} else {
-				p.Logger.Print("Deletion request sent for machine ID: " + machineID)
+				_, _ = fmt.Fprintln(out, "Deletion request sent for machine ID: "+machineID)
 			}
 
 			// 3. Disable telemetry (unless force-enabled by the tool author)
 			if p.Tool.Telemetry.ForceEnabled {
-				p.Logger.Print("Local telemetry data cleared. Telemetry remains enabled per organisation policy.")
+				_, _ = fmt.Fprintln(out, "Local telemetry data cleared. Telemetry remains enabled per organisation policy.")
 			} else {
-				if err := setTelemetryEnabled(p, false); err != nil {
+				if err := setTelemetryEnabled(p, false, out); err != nil {
 					return err
 				}
 
-				p.Logger.Print("Local telemetry data cleared. Telemetry disabled.")
+				_, _ = fmt.Fprintln(out, "Local telemetry data cleared. Telemetry disabled.")
 			}
 
 			return nil
@@ -178,7 +184,7 @@ func newResetCmd(p *props.Props) *cobra.Command {
 // setTelemetryEnabled writes the telemetry.enabled config value and persists to disk.
 // If no config file exists (e.g. tools that disable InitCmd), the default config
 // directory and file are created automatically.
-func setTelemetryEnabled(p *props.Props, enabled bool) error {
+func setTelemetryEnabled(p *props.Props, enabled bool, out io.Writer) error {
 	p.Config.Set("telemetry.enabled", enabled)
 
 	v := p.Config.GetViper()
@@ -191,10 +197,10 @@ func setTelemetryEnabled(p *props.Props, enabled bool) error {
 	}
 
 	if enabled {
-		p.Logger.Print("Telemetry enabled. Thank you for helping improve " + p.Tool.Name + "!")
-		p.Logger.Print("No personally identifiable information is collected.")
+		_, _ = fmt.Fprintln(out, "Telemetry enabled. Thank you for helping improve "+p.Tool.Name+"!")
+		_, _ = fmt.Fprintln(out, "No personally identifiable information is collected.")
 	} else {
-		p.Logger.Print("Telemetry disabled.")
+		_, _ = fmt.Fprintln(out, "Telemetry disabled.")
 	}
 
 	return nil

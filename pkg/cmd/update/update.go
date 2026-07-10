@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -126,7 +127,7 @@ access.`,
 				return errors.Newf("invalid version format %q, expected semVer pattern v0.0.0", version)
 			}
 
-			result, err := Update(cmd.Context(), props, version, force, opts...)
+			result, err := Update(cmd.Context(), props, version, force, cmd.OutOrStdout(), opts...)
 			if err != nil {
 				return err
 			}
@@ -155,7 +156,7 @@ type UpdateResult struct {
 }
 
 // Update downloads and installs the specified version (or latest) of the tool.
-func Update(ctx context.Context, props *p.Props, version string, force bool, opts ...UpdateConfigOption) (*UpdateResult, error) {
+func Update(ctx context.Context, props *p.Props, version string, force bool, out io.Writer, opts ...UpdateConfigOption) (*UpdateResult, error) {
 	o := &updateConfigOptions{execCommand: exec.CommandContext}
 	for _, opt := range opts {
 		opt(o)
@@ -188,7 +189,7 @@ func Update(ctx context.Context, props *p.Props, version string, force bool, opt
 	UpdateConfig(ctx, props, binPath, opts...)
 
 	if version == "" {
-		showUpdateChangelog(ctx, props, updater, previousVersion)
+		showUpdateChangelog(ctx, updater, previousVersion, out)
 	}
 
 	props.Logger.Info("Update complete")
@@ -206,7 +207,7 @@ func Update(ctx context.Context, props *p.Props, version string, force bool, opt
 
 // showUpdateChangelog displays release notes after an update using the
 // release source API.
-func showUpdateChangelog(ctx context.Context, props *p.Props, updater Updater, previousVersion string) {
+func showUpdateChangelog(ctx context.Context, updater Updater, previousVersion string, out io.Writer) {
 	// Try release source API
 	latestVersion, latestErr := updater.GetLatestVersionString(ctx)
 	if latestErr != nil {
@@ -219,7 +220,7 @@ func showUpdateChangelog(ctx context.Context, props *p.Props, updater Updater, p
 	}
 
 	styledNotes := output.RenderMarkdown(releaseNotes)
-	props.Logger.Print(styledNotes)
+	_, _ = fmt.Fprintln(out, styledNotes)
 }
 
 func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ...UpdateConfigOption) error {

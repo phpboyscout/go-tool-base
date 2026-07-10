@@ -81,10 +81,12 @@ func TestStatusCmd_Disabled(t *testing.T) {
 	t.Parallel()
 
 	p, _ := setupTestProps(t)
-	buf := logger.NewBuffer()
-	p.Logger = buf
 
 	cmd := cmdtelemetry.NewCmdTelemetry(p)
+
+	var buf bytes.Buffer
+
+	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{"status"})
 
 	require.NoError(t, cmd.Execute())
@@ -102,10 +104,11 @@ func TestStatusCmd_Enabled(t *testing.T) {
 	mock.On("GetBool", "telemetry.local_only").Return(false)
 	p.Config = mock
 
-	buf := logger.NewBuffer()
-	p.Logger = buf
-
 	cmd := cmdtelemetry.NewCmdTelemetry(p)
+
+	var buf bytes.Buffer
+
+	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{"status"})
 
 	require.NoError(t, cmd.Execute())
@@ -122,10 +125,11 @@ func TestStatusCmd_LocalOnly(t *testing.T) {
 	mock.On("GetBool", "telemetry.local_only").Return(true)
 	p.Config = mock
 
-	buf := logger.NewBuffer()
-	p.Logger = buf
-
 	cmd := cmdtelemetry.NewCmdTelemetry(p)
+
+	var buf bytes.Buffer
+
+	cmd.SetOut(&buf)
 	cmd.SetArgs([]string{"status"})
 
 	require.NoError(t, cmd.Execute())

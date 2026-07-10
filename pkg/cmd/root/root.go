@@ -496,7 +496,7 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 func performUpdate(ctx context.Context, props *p.Props, result *UpdateCheckResult, state *rootState) {
 	state.redirectingToUpdate = true
 
-	if _, err := update.Update(ctx, props, "", false); err != nil {
+	if _, err := update.Update(ctx, props, "", false, os.Stdout); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			result.Error = errors.WithHint(
 				errors.New("update timed out"),

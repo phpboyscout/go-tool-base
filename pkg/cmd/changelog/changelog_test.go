@@ -160,11 +160,10 @@ func TestRenderOutput(t *testing.T) {
 	t.Run("no releases prints a friendly message", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		cmd, _ := cmdWithOutput("")
+		cmd, out := cmdWithOutput("")
 
-		require.NoError(t, renderOutput(cmd, &props.Props{Logger: buf}, nil))
-		assert.True(t, buf.Contains("No matching changelog entries"))
+		require.NoError(t, renderOutput(cmd, nil))
+		assert.Contains(t, out.String(), "No matching changelog entries")
 	})
 
 	t.Run("json output emits a structured response", func(t *testing.T) {
@@ -172,7 +171,7 @@ func TestRenderOutput(t *testing.T) {
 
 		cmd, out := cmdWithOutput("json")
 
-		require.NoError(t, renderOutput(cmd, &props.Props{Logger: logger.NewBuffer()}, releases))
+		require.NoError(t, renderOutput(cmd, releases))
 		assert.Contains(t, out.String(), "v1.2.0")
 		assert.Contains(t, out.String(), "\"status\"")
 	})
@@ -180,13 +179,12 @@ func TestRenderOutput(t *testing.T) {
 	t.Run("text output renders entries with and without scope", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		cmd, _ := cmdWithOutput("")
+		cmd, out := cmdWithOutput("")
 
-		require.NoError(t, renderOutput(cmd, &props.Props{Logger: buf}, releases))
+		require.NoError(t, renderOutput(cmd, releases))
 		// glamour v2 emits each word as a separately-styled ANSI span, so strip
 		// escapes before matching the rendered text.
-		plain := ansi.Strip(buf.String())
+		plain := ansi.Strip(out.String())
 		assert.Contains(t, plain, "v1.2.0")
 		assert.Contains(t, plain, "add server")
 		assert.Contains(t, plain, "tidy up")
@@ -211,12 +209,16 @@ func TestNewCmdChangelog(t *testing.T) {
 	t.Run("RunE renders the embedded changelog", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		p := &props.Props{Logger: buf, Assets: assetsWith(sampleChangelog)}
+		p := &props.Props{Assets: assetsWith(sampleChangelog)}
 
 		cmd := NewCmdChangelog(p)
+
+		var buf bytes.Buffer
+
+		cmd.SetOut(&buf)
+
 		require.NoError(t, cmd.RunE(cmd.Command, nil))
-		assert.True(t, buf.Contains("v1.2.0"))
+		assert.Contains(t, buf.String(), "v1.2.0")
 	})
 
 	t.Run("RunE surfaces a missing changelog", func(t *testing.T) {
@@ -229,11 +231,15 @@ func TestNewCmdChangelog(t *testing.T) {
 	t.Run("RunE with --latest shows the most recent release only", func(t *testing.T) {
 		t.Parallel()
 
-		buf := logger.NewBuffer()
-		cmd := NewCmdChangelog(&props.Props{Logger: buf, Assets: assetsWith(sampleChangelog)})
+		cmd := NewCmdChangelog(&props.Props{Assets: assetsWith(sampleChangelog)})
+
+		var buf bytes.Buffer
+
+		cmd.SetOut(&buf)
+
 		require.NoError(t, cmd.Flags().Set("latest", "true"))
 		require.NoError(t, cmd.RunE(cmd.Command, nil))
-		assert.True(t, buf.Contains("v1.2.0"))
-		assert.False(t, buf.Contains("v1.1.0"), "--latest must exclude older releases")
+		assert.Contains(t, buf.String(), "v1.2.0")
+		assert.NotContains(t, buf.String(), "v1.1.0", "--latest must exclude older releases")
 	})
 }
