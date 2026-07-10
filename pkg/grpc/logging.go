@@ -152,9 +152,9 @@ func grpcLogAtLevel(l logger.Logger, level logger.Level, msg string) {
 		l.Info(msg)
 	case logger.WarnLevel:
 		l.Warn(msg)
-	case logger.ErrorLevel:
+	case logger.ErrorLevel, logger.FatalLevel:
+		// Request logging must never terminate the process; a fatal-level
+		// request log is emitted at error level.
 		l.Error(msg)
-	case logger.FatalLevel:
-		l.Fatal(msg)
 	}
 }
