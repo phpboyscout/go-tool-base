@@ -103,6 +103,10 @@ func performBackgroundTasks(props *props.Props) {
 }
 ```
 
+The prefix is not prepended to the message text; the handler attaches it as a
+structured `prefix` attribute via `logger.With("prefix", …)`, so it shows up as
+`prefix=cache-update` in the log output rather than being baked into the message.
+
 #### 3. The Execute Wrapper
 
 Your generated `main.go` uses `pkgRoot.Execute` which routes all `RunE` errors through `ErrorHandler`:
@@ -142,7 +146,7 @@ When debug logging is enabled, the errorhandling package automatically includes 
 
 ```go
 // Enable debug logging to see stack traces
-props.Logger.SetLevel(logger.DebugLevel)
+logger.SetLevel(props.Logger, slog.LevelDebug)
 
 // This error will include a clean stack trace in debug mode
 props.ErrorHandler.Error(errors.New("something went wrong"))
@@ -152,7 +156,9 @@ fmt.Sprintf("%+v", err)
 ```
 
 - Stack captured automatically on error creation and wrapping
-- Only shown in the structured log when debug logging is enabled
+- Only shown in the structured log when debug logging is enabled — the handler
+  branches on `props.Logger.Enabled(ctx, slog.LevelDebug)` rather than reading a
+  level off the logger
 - Rich `%+v` formatting includes hints, details, and issue links
 
 ### User-Facing Hints
@@ -336,7 +342,7 @@ RunE: func(cmd *cobra.Command, _ []string) error {
     if err != nil {
         return errors.Wrap(err, "failed to initialise configuration")
     }
-    props.Logger.Infof("Configuration initialised in %s", location)
+    props.Logger.Info("Configuration initialised", "location", location)
     return nil
 },
 ```

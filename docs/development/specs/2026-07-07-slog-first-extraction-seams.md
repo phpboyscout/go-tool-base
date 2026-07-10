@@ -124,6 +124,17 @@ to the slog-first pattern, not just new scaffolds. This requires idempotency
 tests (regenerating twice produces no second diff) alongside the new-scaffold
 tests.
 
+**Implementation reconciliation (2026-07-10):** D5 is moot as implemented. It
+assumed §9's `NewCharmSlog`/`FromSlog`/`compatLogger` construction, which existed
+only because the pre-D1 design kept `Props.Logger` as a fat facade. Under D1,
+`logger.NewCharm` already returns a `*slog.Logger`-backed logger that satisfies
+the slog-mirror `Logger` interface **and** implements `Leveller`/`Reformatter`
+(so `--debug`/`log.level`/`log.format` still work). The scaffolded root already
+constructs `Props.Logger` with `logger.NewCharm(...)`, so it is already
+slog-first-correct — there is nothing to migrate, no template change, and no
+auto-migration/idempotency machinery is required. The generator's own code
+carries no removed logger methods.
+
 ### D6 — Config seam defers to the config-adapters spec
 
 The config strategy in §7 below is **superseded** by

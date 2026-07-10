@@ -62,23 +62,28 @@ func isTerminal(f *os.File) bool {
 
 ## Step 2: Configure the Log Level
 
-`SetLevel` works on all backends:
+A plain `*slog.Logger` from `NewSlog` owns its level through its handler, so set
+the level at construction (`slog.HandlerOptions{Level: …}` above). To keep the
+level adjustable at runtime, build the handler at its most permissive level and
+wrap it with `logger.NewLevelGate`, then mutate the shared `*slog.LevelVar`:
 
 ```go
-level, err := logger.ParseLevel(os.Getenv("LOG_LEVEL"))
-if err == nil {
-    l.SetLevel(level)
+levelVar := new(slog.LevelVar)
+levelVar.Set(slog.LevelInfo)
+
+base := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})
+l := logger.NewSlog(logger.NewLevelGate(base, levelVar))
+
+// Later — e.g. after config loads in PersistentPreRunE:
+if lvl, err := logger.ParseLevel(os.Getenv("LOG_LEVEL")); err == nil {
+    levelVar.Set(mapToSlogLevel(lvl)) // debug/info/warn/error → slog.Level*
 }
 ```
 
-Or wire it through config (after the config is loaded in `PersistentPreRunE`):
-
-```go
-levelStr := p.Config.GetString("log.level")
-if level, err := logger.ParseLevel(levelStr); err == nil {
-    p.Logger.SetLevel(level)
-}
-```
+GTB's own root command drives this for `Props.Logger` via the
+`logger.SetLevel(log, slog.Level)` helper — it takes effect on the default
+Charm-backed logger (which implements `Leveller`) and is a harmless no-op on a
+plain `*slog.Logger`.
 
 Valid level strings: `debug`, `info`, `warn`, `error`.
 
@@ -166,11 +171,14 @@ reqLogger.Warn("validation failed", "field", "email")
 
 ## Differences from the Charm Backend
 
+Both constructors produce a `logger.Logger` with the same `*slog.Logger` method
+set — the differences are in construction and runtime capabilities:
+
 | Behaviour | `NewCharm` | `NewSlog` |
 |-----------|-----------|-----------|
-| `SetFormatter(JSONFormatter)` | Switches to JSON | No-op (format set at construction) |
-| `Print(msg)` | Unlevelled output (no level prefix) | Emits at `INFO` level |
-| `WithPrefix(prefix)` | Adds `[prefix]` visually | Adds `"prefix": "..."` JSON field |
+| `logger.SetFormatter(l, JSONFormatter)` | Switches to JSON (implements `Reformatter`) | No-op, returns `false` (format set by handler) |
+| `logger.SetLevel(l, slog.LevelDebug)` | Applied (implements `Leveller`) | No-op, returns `false` (wrap with `NewLevelGate` for runtime control) |
+| `With("component", "svc")` | Styled `component=svc` | `"component": "svc"` JSON field |
 | Timestamp | Configurable via `WithTimestamp` | Controlled by `slog.HandlerOptions` |
 
 ---

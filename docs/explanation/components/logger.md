@@ -15,38 +15,59 @@ framework backend-agnostic and fully testable.
 ## Overview
 
 All GTB packages receive a `logger.Logger` through the `Props` container.
-Three built-in backends are provided:
+`logger.Logger`'s method set mirrors the standard library's `*slog.Logger`
+exactly, so a `*slog.Logger` satisfies it directly — you can assign one straight
+to `Props.Logger`. Several constructors are provided:
 
-| Backend | Factory | Best For |
-|---------|---------|----------|
-| charmbracelet | `NewCharm(w, opts...)` | CLI applications — coloured, styled terminal output |
-| slog | `NewSlog(handler)` | Observability stacks — OpenTelemetry, Datadog, Zap, Zerolog |
-| noop | `NewNoop()` | Tests — discards all output |
+| Constructor | Returns | Best For |
+|-------------|---------|----------|
+| `NewCharm(w, opts...)` | slog-mirror Logger (also `Leveller`/`Reformatter`) | CLI applications — coloured, styled terminal output; GTB's default |
+| `NewCharmSlog(w, opts...)` / `NewCharmHandler(w, opts...)` | `*slog.Logger` / `slog.Handler` | slog-native construction over GTB's Charm output |
+| `NewSlog(handler)` | `*slog.Logger` | Observability stacks — OpenTelemetry, Datadog, Zap, Zerolog |
+| `NewNoop()` | discarding `*slog.Logger` | Tests — discards all output |
+| `NewBuffer()` / `NewCaptureHandler()` | in-memory capture | Tests — assert on captured records |
 
 ---
 
 ## Why a Logger Interface?
 
-Go's `log/slog` is the standard library logger and is excellent for server-side
-code, but CLI tools have different requirements:
+Go's `log/slog` is the standard library logging boundary, and GTB embraces it:
+`logger.Logger` mirrors `*slog.Logger` exactly, so any slog-compatible logger
+drops in and structured, levelled logging is the norm across the framework. What
+`pkg/logger` adds on top is CLI-shaped construction and testing:
 
-- **Coloured, styled terminal output** — `slog` produces plain text or JSON; CLI
-  users expect styled output
-- **Testable by construction** — `slog` ships no first-class test double; CLI
-  tests need to silence logs or capture them for assertions. `logger.NewNoop()`
-  discards output, and `NewCharm(w, …)` writes to any `io.Writer` you inject
-  (e.g. a `bytes.Buffer`)
-- **Printf-style convenience** — `slog` has no `Infof`, `Errorf` etc.
-- **Unlevelled output** — `slog` always attaches a level; CLI tools need to print
-  version strings, release notes, and prompts without a level prefix
+- **Coloured, styled terminal output** — `slog` produces plain text or JSON;
+  `NewCharm` gives CLI users the styled output they expect while still being a
+  `*slog.Logger` under the hood
+- **Testable by construction** — `slog` ships no first-class test double.
+  `logger.NewNoop()` discards output, `NewBuffer()` / `NewCaptureHandler()`
+  capture records for assertions, and `NewCharm(w, …)` writes to any `io.Writer`
+  you inject (e.g. a `bytes.Buffer`)
+- **Runtime level/format control** — a bare `*slog.Logger` owns its level via its
+  handler, but GTB's default logger also implements `Leveller`/`Reformatter` so
+  `--debug`, `log.level`, and `log.format` can take effect after construction
 
-The `logger.Logger` interface exposes all of these without coupling any package
-to a specific implementation. Backends are swapped at the `Props` construction
-point in `main.go` — no other code changes.
+Because the interface is just the `*slog.Logger` method set, backends are swapped
+at the `Props` construction point in `main.go` — no other code changes, and you
+can inject a plain `*slog.Logger` from anywhere in the ecosystem.
 
 ---
 
 ## The Logger Interface
+
+`logger.Logger` mirrors the `*slog.Logger` method set exactly — the levelled
+methods (`Debug`/`Info`/`Warn`/`Error` and their `…Context` variants), `Log` /
+`LogAttrs`, `With` / `WithGroup`, `Enabled`, and `Handler`. Nothing else is on
+the interface, which is precisely why a `*slog.Logger` satisfies it:
+
+```go
+var _ logger.Logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+```
+
+Runtime level/format control is *not* on the interface (see
+[Dynamic Level Control](#dynamic-level-control) below); process termination and
+unlevelled user output are the command / `pkg/output` layers' job, not the
+logging boundary's.
 
 
 > [!NOTE]
@@ -88,9 +109,10 @@ const (
 )
 ```
 
-`SetFormatter` is fully supported by the charmbracelet backend.
-The slog backend ignores it — the format is set by the `slog.Handler`
-at construction time.
+Reformatting at runtime goes through the `logger.SetFormatter(log, f)` helper.
+It succeeds (returning `true`) on GTB's Charm-backed logger, which implements
+`Reformatter`; for a plain `*slog.Logger` it is a no-op returning `false`, since
+the format is fixed by the `slog.Handler` at construction time.
 
 ---
 
@@ -124,13 +146,17 @@ l := logger.NewCharm(os.Stderr,
 | `WithCaller(bool)` | Show/hide caller file:line |
 | `WithPrefix(string)` | Prepend a prefix to all messages |
 
-The underlying `charmbracelet/log.Logger` can be accessed via the `Handler()`
-method if you need charm-specific features (e.g., custom styles). Since the
-charm implementation is unexported, use the slog handler bridge:
+`NewCharm` returns a `logger.Logger`; its `Handler()` method exposes the
+backing `slog.Handler`, which you can wrap in `slog.New` for any library that
+wants a `*slog.Logger`:
 
 ```go
 slogLogger := slog.New(l.Handler())
 ```
+
+If you need slog-native construction over the same Charm output — for example to
+hand a `*slog.Logger` or `slog.Handler` directly to another component — use
+`NewCharmSlog(w, opts...)` or `NewCharmHandler(w, opts...)` instead.
 
 ### slog (observability integration)
 
@@ -154,8 +180,12 @@ l := logger.NewSlog(jsonHandler)
 // l := logger.NewSlog(otelslog.NewHandler(exporter))
 ```
 
-`SetLevel` is supported on the slog backend via an internal `slog.LevelVar`.
-`SetFormatter` is a no-op — the format is determined by the handler.
+`NewSlog` returns a plain `*slog.Logger`, which owns its level and format through
+its handler. It does not implement `Leveller`/`Reformatter`, so
+`logger.SetLevel` and `logger.SetFormatter` are no-ops (returning `false`) for
+it. For runtime level control, build the handler at its most permissive level
+and wrap it with `NewLevelGate(handler, levelVar)`; mutate the shared
+`*slog.LevelVar` to raise or lower the threshold at runtime.
 
 ### noop (tests)
 
@@ -213,20 +243,40 @@ func doWork(p logProvider) {
 
 ## Dynamic Level Control
 
-The log level can be changed at runtime, useful for toggling debug output
-in response to a signal or config change:
+`SetLevel`/`SetFormatter` are not interface methods — they are package helpers
+that apply only when the logger implements the optional `Leveller`/`Reformatter`
+capabilities. GTB's default `NewCharm` logger implements both:
 
 ```go
-l.SetLevel(logger.DebugLevel)  // enable verbose output
+type Leveller interface{ SetLevel(level slog.Level) }
+type Reformatter interface{ SetFormatter(f logger.Formatter) }
+```
+
+Use the helpers to change the level at runtime, useful for toggling debug output
+in response to a signal or config change. They report whether the change was
+applied:
+
+```go
+logger.SetLevel(l, slog.LevelDebug)  // true on NewCharm; false (no-op) on a plain *slog.Logger
 // ... do work
-l.SetLevel(logger.InfoLevel)   // restore default
+logger.SetLevel(l, slog.LevelInfo)   // restore default
+```
+
+To branch on whether a level is active — for example to skip expensive
+diagnostics — call `Enabled` on the interface itself:
+
+```go
+if l.Enabled(ctx, slog.LevelDebug) {
+    l.Debug("expensive dump", "state", buildExpensiveState())
+}
 ```
 
 ---
 
 ## Contextual Logging
 
-Add fields that appear on every subsequent log call:
+Add fields that appear on every subsequent log call with `With` (which returns a
+`*slog.Logger`, itself a `logger.Logger`):
 
 ```go
 // Structured key-value fields
@@ -234,11 +284,15 @@ reqLogger := l.With("request_id", reqID, "user", userID)
 reqLogger.Info("processing request")
 // → INFO processing request request_id=abc123 user=matt
 
-// Message prefix
-subLogger := l.WithPrefix("db")
+// A component/prefix is just another structured attribute
+subLogger := l.With("component", "db")
 subLogger.Error("connection failed", "host", host)
-// → ERROR [db] connection failed host=postgres:5432
+// → ERROR connection failed component=db host=postgres:5432
 ```
+
+There is no `WithPrefix` on the interface — a prefix is carried as a structured
+attribute via `With`. (A construction-time `logger.WithPrefix(...)` `CharmOption`
+still exists to set a fixed prefix on a `NewCharm` logger.)
 
 ---
 

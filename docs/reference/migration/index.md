@@ -27,6 +27,7 @@ provides before/after code examples with a clear migration path.
 | v0.27 | v0.28 | [Signing & verification extracted to standalone modules](v0.28-signing-modules-extracted.md) |
 | v0.x | v0.x | [Chat settings constructors](v0.x-chat-settings.md) |
 | v0.x | v0.x | [Telemetry observability settings](v0.x-telemetry-observability-settings.md) |
+| v0.x | v0.x | [Logger slog-first boundary](v0.x-logger-slog-first.md) |
 | v0.x | v1.0 | [Migrating to v1.0](v0.x-to-v1.0.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
