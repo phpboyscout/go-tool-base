@@ -22,7 +22,10 @@ func TestErrorHandler_Check(t *testing.T) {
 		entries := log.Entries()
 		require.NotEmpty(t, entries)
 		assert.Contains(t, entries[0].Message, "simple error")
-		assert.Contains(t, entries[0].Message, "Prefix:")
+		// The prefix is now carried as a structured attribute rather than
+		// prepended to the message (slog-first migration).
+		assert.Contains(t, entries[0].Keyvals, "prefix")
+		assert.Contains(t, entries[0].Keyvals, "Prefix: ")
 	})
 
 	t.Run("Warn_logs_warning", func(t *testing.T) {

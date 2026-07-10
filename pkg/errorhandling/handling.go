@@ -163,7 +163,7 @@ func (h *StandardErrorHandler) buildLogKVPairs(err error) []any {
 func (h *StandardErrorHandler) logError(err error, prefix, level string) {
 	l := h.Logger
 	if len(prefix) > 0 {
-		l = l.WithPrefix(prefix)
+		l = l.With("prefix", prefix)
 	}
 
 	kvPairs := h.buildLogKVPairs(err)

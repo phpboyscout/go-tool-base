@@ -581,7 +581,7 @@ func WithShutdownTimeout(d time.Duration) ControllerOpt {
 // WithLogger sets the controller logger.
 func WithLogger(l logger.Logger) ControllerOpt {
 	return func(c Configurable) {
-		c.SetLogger(l.WithPrefix("[Controller] "))
+		c.SetLogger(l.With("component", "controller"))
 	}
 }
 
