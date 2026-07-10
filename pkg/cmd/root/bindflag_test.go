@@ -1,6 +1,9 @@
 package root_test
 
 import (
+	"context"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -33,7 +36,10 @@ func bindTestProps(t *testing.T, fs afero.Fs) *p.Props {
 				p.Disable(p.TelemetryCmd),
 			),
 		},
-		Logger:       logger.NewNoop(),
+		// A Charm logger (discarded) rather than NewNoop: it implements Leveller,
+		// so TestBindBuiltins can observe --debug taking effect via Enabled. A
+		// plain *slog.Logger from NewNoop owns its own level and ignores SetLevel.
+		Logger:       logger.NewCharm(io.Discard),
 		FS:           fs,
 		Assets:       p.NewAssets(),
 		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
@@ -215,15 +221,15 @@ func TestBindBuiltins(t *testing.T) {
 	props := bindTestProps(t, fs)
 
 	var (
-		gotCI    bool
-		gotLevel logger.Level
+		gotCI           bool
+		gotDebugEnabled bool
 	)
 
 	probe := &cobra.Command{
 		Use: "probe",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			gotCI = props.Config.GetBool("ci")
-			gotLevel = props.Logger.GetLevel()
+			gotDebugEnabled = props.Logger.Enabled(context.Background(), slog.LevelDebug)
 
 			return nil
 		},
@@ -234,7 +240,7 @@ func TestBindBuiltins(t *testing.T) {
 	require.NoError(t, rootCmd.Execute())
 
 	assert.True(t, gotCI, "--ci should be visible in config after binding")
-	assert.Equal(t, logger.DebugLevel, gotLevel, "--debug should still set the log level")
+	assert.True(t, gotDebugEnabled, "--debug should still enable debug logging")
 }
 
 // TestBindPerCommandFlags proves a command's own local flag overrides config for

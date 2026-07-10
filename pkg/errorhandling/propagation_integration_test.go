@@ -2,6 +2,7 @@ package errorhandling_test
 
 import (
 	"bytes"
+	"log/slog"
 	"testing"
 
 	cberrors "github.com/cockroachdb/errors"
@@ -61,7 +62,7 @@ func TestDebugModeAddsStacktrace(t *testing.T) {
 	err := cberrors.New("something broke")
 
 	debugLog := logger.NewBuffer()
-	debugLog.SetLevel(logger.DebugLevel)
+	debugLog.SetLevel(slog.LevelDebug)
 	debugHandler := errorhandling.New(debugLog, nil)
 	debugHandler.Error(err)
 
@@ -71,7 +72,7 @@ func TestDebugModeAddsStacktrace(t *testing.T) {
 
 	// Non-debug mode: no stacktrace
 	infoLog := logger.NewBuffer()
-	infoLog.SetLevel(logger.InfoLevel)
+	infoLog.SetLevel(slog.LevelInfo)
 	infoHandler := errorhandling.New(infoLog, nil)
 	infoHandler.Error(err)
 
@@ -231,9 +232,16 @@ func TestPrefixPropagation(t *testing.T) {
 
 	entries := log.Entries()
 	require.NotEmpty(t, entries)
-	// Multiple prefixes are concatenated
-	assert.Contains(t, entries[0].Message, "HTTP:")
-	assert.Contains(t, entries[0].Message, "GET /api:")
+	// Multiple prefixes are concatenated and carried as a structured "prefix"
+	// attribute (slog-first) rather than prepended to the message.
+	var prefix string
+	for i, kv := range entries[0].Keyvals {
+		if kv == "prefix" && i+1 < len(entries[0].Keyvals) {
+			prefix, _ = entries[0].Keyvals[i+1].(string)
+		}
+	}
+	assert.Contains(t, prefix, "HTTP:")
+	assert.Contains(t, prefix, "GET /api:")
 }
 
 func TestWarnLevel(t *testing.T) {
@@ -262,7 +270,7 @@ func TestCrossPackageErrorChain(t *testing.T) {
 	cliErr := cberrors.Wrap(setupErr, "initialisation failed")
 
 	log := logger.NewBuffer()
-	log.SetLevel(logger.DebugLevel)
+	log.SetLevel(slog.LevelDebug)
 
 	var exitCode int
 	h := errorhandling.New(log, errorhandling.SlackHelp{

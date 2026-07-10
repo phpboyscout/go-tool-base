@@ -1,8 +1,10 @@
 package errorhandling
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -123,7 +125,7 @@ func (h *StandardErrorHandler) handleSpecialErrors(err error, cmd ...*cobra.Comm
 	if errors.HasAssertionFailure(err) {
 		h.Logger.Error("Internal error (assertion failure)", "error", err)
 
-		if h.Logger.GetLevel() == logger.DebugLevel {
+		if h.Logger.Enabled(context.Background(), slog.LevelDebug) {
 			h.Logger.Debug("Assertion detail", KeyStacktrace, fmt.Sprintf("%+v", err))
 		}
 
@@ -135,7 +137,7 @@ func (h *StandardErrorHandler) handleSpecialErrors(err error, cmd ...*cobra.Comm
 
 func (h *StandardErrorHandler) buildLogKVPairs(err error) []any {
 	kvPairs := []any{}
-	isDebug := h.Logger.GetLevel() == logger.DebugLevel
+	isDebug := h.Logger.Enabled(context.Background(), slog.LevelDebug)
 
 	if isDebug {
 		kvPairs = append(kvPairs, KeyStacktrace, extractStackTrace(err))

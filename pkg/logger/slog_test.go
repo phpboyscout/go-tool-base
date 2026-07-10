@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -12,10 +13,13 @@ import (
 func newTestSlog() (*bytes.Buffer, Logger) {
 	var buf bytes.Buffer
 	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+
 	return &buf, NewSlog(handler)
 }
 
 func TestSlogBackend_StructuredOutput(t *testing.T) {
+	t.Parallel()
+
 	buf, l := newTestSlog()
 
 	l.Info("hello", "key", "value")
@@ -25,14 +29,17 @@ func TestSlogBackend_StructuredOutput(t *testing.T) {
 	assert.Contains(t, output, "key=value")
 }
 
-func TestSlogBackend_PrintfMethods(t *testing.T) {
-	buf, l := newTestSlog()
-	l.SetLevel(DebugLevel) // enable debug output
+// TestSlogBackend_FormattedMessages replaces the removed Infof/... family: the
+// caller pre-formats and the message reaches the handler.
+func TestSlogBackend_FormattedMessages(t *testing.T) {
+	t.Parallel()
 
-	l.Infof("count: %d", 42)
-	l.Warnf("file: %s", "test.go")
-	l.Errorf("err: %v", "bad")
-	l.Debugf("debug: %t", true)
+	buf, l := newTestSlog()
+
+	l.Info(fmt.Sprintf("count: %d", 42))
+	l.Warn(fmt.Sprintf("file: %s", "test.go"))
+	l.Error(fmt.Sprintf("err: %v", "bad"))
+	l.Debug(fmt.Sprintf("debug: %t", true))
 
 	output := buf.String()
 	assert.Contains(t, output, "count: 42")
@@ -41,20 +48,13 @@ func TestSlogBackend_PrintfMethods(t *testing.T) {
 	assert.Contains(t, output, "debug: true")
 }
 
-func TestSlogBackend_Print(t *testing.T) {
-	buf, l := newTestSlog()
-
-	l.Print("unlevelled output")
-
-	// slog backend emits Print at Info level
-	output := buf.String()
-	assert.Contains(t, output, "unlevelled output")
-	assert.Contains(t, output, "level=INFO")
-}
-
 func TestSlogBackend_LevelFiltering(t *testing.T) {
-	buf, l := newTestSlog()
-	l.SetLevel(WarnLevel)
+	t.Parallel()
+
+	// A plain slog logger owns its level via its handler options.
+	var buf bytes.Buffer
+	handler := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})
+	l := NewSlog(handler)
 
 	l.Debug("debug hidden")
 	l.Info("info hidden")
@@ -68,31 +68,43 @@ func TestSlogBackend_LevelFiltering(t *testing.T) {
 	assert.Contains(t, output, "error visible")
 }
 
-func TestSlogBackend_SetLevel(t *testing.T) {
-	buf, l := newTestSlog()
-	l.SetLevel(ErrorLevel)
+// TestSlogBackend_LevelVarControl shows the slog-first way to control level at
+// runtime: gate the handler with a shared *slog.LevelVar.
+func TestSlogBackend_LevelVarControl(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	levelVar := new(slog.LevelVar)
+	levelVar.Set(slog.LevelError)
+	l := NewSlog(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: levelVar}))
 
 	l.Info("hidden")
 	assert.NotContains(t, buf.String(), "hidden")
 
-	l.SetLevel(DebugLevel)
+	levelVar.Set(slog.LevelDebug)
 	l.Info("visible")
 	assert.Contains(t, buf.String(), "visible")
 }
 
-func TestSlogBackend_GetLevel(t *testing.T) {
-	_, l := newTestSlog()
+// TestSlogBackend_HelpersAreNoOps proves the no-op path of SetLevel/SetFormatter:
+// a plain *slog.Logger implements neither Leveller nor Reformatter, so the
+// helpers report that nothing was applied and leave the logger untouched.
+func TestSlogBackend_HelpersAreNoOps(t *testing.T) {
+	t.Parallel()
 
-	assert.Equal(t, InfoLevel, l.GetLevel())
+	buf, l := newTestSlog()
 
-	l.SetLevel(WarnLevel)
-	assert.Equal(t, WarnLevel, l.GetLevel())
+	assert.False(t, SetLevel(l, slog.LevelError), "plain slog must not implement Leveller")
+	assert.False(t, SetFormatter(l, JSONFormatter), "plain slog must not implement Reformatter")
 
-	l.SetLevel(DebugLevel)
-	assert.Equal(t, DebugLevel, l.GetLevel())
+	// The handler's own level (debug) is unchanged, so info still emits.
+	l.Info("still here")
+	assert.Contains(t, buf.String(), "still here")
 }
 
 func TestSlogBackend_Handler(t *testing.T) {
+	t.Parallel()
+
 	_, l := newTestSlog()
 
 	handler := l.Handler()
@@ -102,16 +114,9 @@ func TestSlogBackend_Handler(t *testing.T) {
 	require.NotNil(t, slogLogger)
 }
 
-func TestSlogBackend_SetFormatter_NoOp(t *testing.T) {
-	_, l := newTestSlog()
-
-	// Should not panic
-	l.SetFormatter(JSONFormatter)
-	l.SetFormatter(LogfmtFormatter)
-	l.SetFormatter(TextFormatter)
-}
-
 func TestSlogBackend_With(t *testing.T) {
+	t.Parallel()
+
 	buf, l := newTestSlog()
 
 	child := l.With("component", "test")
@@ -122,23 +127,52 @@ func TestSlogBackend_With(t *testing.T) {
 	assert.Contains(t, output, "hello")
 }
 
-func TestSlogBackend_WithPrefix(t *testing.T) {
+func TestSlogBackend_WithGroup(t *testing.T) {
+	t.Parallel()
+
 	buf, l := newTestSlog()
 
-	child := l.WithPrefix("myprefix")
-	child.Info("hello")
+	child := l.WithGroup("http")
+	child.Info("hello", "status", 200)
 
 	output := buf.String()
-	assert.Contains(t, output, "prefix=myprefix")
+	assert.Contains(t, output, "http.status=200")
 	assert.Contains(t, output, "hello")
 }
 
+// TestLevelGate_DerivedHandlers exercises the slogLevelHandler's WithAttrs and
+// WithGroup: attributes and groups added to a gated logger must survive and the
+// gate must keep filtering.
+func TestLevelGate_DerivedHandlers(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	levelVar := new(slog.LevelVar)
+	levelVar.Set(slog.LevelInfo)
+	base := slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})
+	l := slog.New(NewLevelGate(base, levelVar))
+
+	derived := l.With("component", "gate").WithGroup("http")
+	derived.Debug("suppressed")
+	assert.NotContains(t, buf.String(), "suppressed", "gate must filter debug at info level")
+
+	derived.Info("kept", "status", 200)
+	output := buf.String()
+	assert.Contains(t, output, "kept")
+	assert.Contains(t, output, "component=gate")
+	assert.Contains(t, output, "http.status=200")
+}
+
 func TestSlogBackend_InterfaceSatisfaction(t *testing.T) {
+	t.Parallel()
+
 	handler := slog.NewTextHandler(&bytes.Buffer{}, nil)
 	_ = NewSlog(handler)
 }
 
 func TestSlogBackend_LevelConversion_RoundTrip(t *testing.T) {
+	t.Parallel()
+
 	levels := []Level{DebugLevel, InfoLevel, WarnLevel, ErrorLevel}
 	for _, l := range levels {
 		sl := toSlogLevel(l)
@@ -148,7 +182,16 @@ func TestSlogBackend_LevelConversion_RoundTrip(t *testing.T) {
 }
 
 func TestSlogBackend_FatalLevel_MapsToError(t *testing.T) {
-	// Fatal maps to slog.LevelError since slog has no Fatal
+	t.Parallel()
+
+	// Fatal maps to slog.LevelError since slog has no Fatal.
 	sl := toSlogLevel(FatalLevel)
 	assert.Equal(t, slog.LevelError, sl)
+}
+
+func TestSlogBackend_UnknownLevelConversion(t *testing.T) {
+	t.Parallel()
+
+	// Unknown levels fall back to info in both directions.
+	assert.Equal(t, slog.LevelInfo, toSlogLevel(Level(99)))
 }

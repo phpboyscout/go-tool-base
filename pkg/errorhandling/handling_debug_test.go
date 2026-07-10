@@ -1,6 +1,7 @@
 package errorhandling
 
 import (
+	"log/slog"
 	"testing"
 
 	"github.com/cockroachdb/errors"
@@ -12,7 +13,7 @@ import (
 
 func TestCheckDebug(t *testing.T) {
 	log := logger.NewBuffer()
-	log.SetLevel(logger.DebugLevel)
+	log.SetLevel(slog.LevelDebug)
 
 	h := New(log, nil)
 
@@ -27,7 +28,7 @@ func TestCheckDebug(t *testing.T) {
 
 func TestCheckStacktrace(t *testing.T) {
 	log := logger.NewBuffer()
-	log.SetLevel(logger.InfoLevel)
+	log.SetLevel(slog.LevelInfo)
 
 	h := New(log, nil)
 

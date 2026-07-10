@@ -291,22 +291,24 @@ func mergeEmbeddedConfigs(opts ConfigLoadOptions) (config.Containable, error) {
 
 // configureLogging sets up logging based on debug flag and config values.
 func configureLogging(props *p.Props, flags *FlagValues, cfg config.Containable, mcpLogLevel *slog.LevelVar) {
-	// Apply debug flag first
+	// Apply debug flag first. SetLevel/SetFormatter are no-ops for an injected
+	// plain *slog.Logger (which owns its own level); they take effect on GTB's
+	// default Charm-backed logger, which implements Leveller/Reformatter.
 	if flags.Debug {
-		props.Logger.SetLevel(logger.DebugLevel)
+		logger.SetLevel(props.Logger, slog.LevelDebug)
 		mcpLogLevel.Set(slog.LevelDebug)
 	} else if level, err := logger.ParseLevel(cfg.GetString("log.level")); err == nil {
 		// Apply config-based log level if debug flag is not set
-		props.Logger.SetLevel(level)
+		logger.SetLevel(props.Logger, mapLogLevel(level))
 		mcpLogLevel.Set(mapLogLevel(level))
 	}
 
 	// Apply log format from config
 	switch cfg.GetString("log.format") {
 	case "json":
-		props.Logger.SetFormatter(logger.JSONFormatter)
+		logger.SetFormatter(props.Logger, logger.JSONFormatter)
 	case "logfmt":
-		props.Logger.SetFormatter(logger.LogfmtFormatter)
+		logger.SetFormatter(props.Logger, logger.LogfmtFormatter)
 	}
 }
 
@@ -681,7 +683,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// command literally named "init" and breaks if Use carries an arg suffix.
 		if setup.FeatureOf(cmd) == p.InitCmd {
 			if flags.Debug {
-				props.Logger.SetLevel(logger.DebugLevel)
+				logger.SetLevel(props.Logger, slog.LevelDebug)
 				mcpLogLevel.Set(slog.LevelDebug)
 			}
 

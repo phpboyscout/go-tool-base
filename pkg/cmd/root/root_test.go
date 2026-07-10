@@ -542,10 +542,7 @@ func TestConfigureLogging(t *testing.T) {
 			// Configure logging
 			configureLogging(props, flags, mockCfg, mcpLogLevel)
 
-			// Verify the logger level was configured correctly
-			assert.Equal(t, tt.expectedLevel, props.Logger.GetLevel())
-
-			// Verify MCP log level matches (mapping charm level to slog level)
+			// Map the expected charm level to slog for the assertions below.
 			var expectedSlogLevel slog.Level
 			switch tt.expectedLevel {
 			case logger.DebugLevel:
@@ -561,6 +558,18 @@ func TestConfigureLogging(t *testing.T) {
 			default:
 				expectedSlogLevel = slog.LevelInfo
 			}
+
+			// Verify the application logger's level was configured correctly.
+			// GetLevel left the Logger interface; assert via Enabled instead.
+			assert.True(t, props.Logger.Enabled(context.Background(), expectedSlogLevel),
+				"logger should be enabled at the configured level")
+
+			if expectedSlogLevel > slog.LevelDebug {
+				assert.False(t, props.Logger.Enabled(context.Background(), expectedSlogLevel-1),
+					"logger should be disabled below the configured level")
+			}
+
+			// Verify MCP log level matches.
 			assert.Equal(t, expectedSlogLevel, mcpLogLevel.Level())
 		})
 	}

@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"fmt"
+	"log/slog"
 	"sync"
 	"testing"
 
@@ -9,6 +11,8 @@ import (
 )
 
 func TestBufferBackend_CapturesMessages(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 
 	buf.Info("hello world")
@@ -21,6 +25,8 @@ func TestBufferBackend_CapturesMessages(t *testing.T) {
 }
 
 func TestBufferBackend_Contains(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	buf.Info("hello world")
 
@@ -30,6 +36,8 @@ func TestBufferBackend_Contains(t *testing.T) {
 }
 
 func TestBufferBackend_ContainsLevel(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	buf.Info("info message")
 	buf.Warn("warn message")
@@ -40,13 +48,18 @@ func TestBufferBackend_ContainsLevel(t *testing.T) {
 	assert.True(t, buf.ContainsLevel(ErrorLevel, "error"))
 }
 
-func TestBufferBackend_PrintfMethods(t *testing.T) {
+// TestBufferBackend_FormattedMessages replaces the removed Debugf/Infof/... family:
+// callers now pre-format with fmt.Sprintf (or, preferably, log structured
+// key/value pairs) and the buffer still captures the rendered message.
+func TestBufferBackend_FormattedMessages(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 
-	buf.Infof("count: %d", 42)
-	buf.Warnf("file: %s", "test.go")
-	buf.Errorf("err: %v", "bad")
-	buf.Debugf("debug: %t", true)
+	buf.Info(fmt.Sprintf("count: %d", 42))
+	buf.Warn(fmt.Sprintf("file: %s", "test.go"))
+	buf.Error(fmt.Sprintf("err: %v", "bad"))
+	buf.Debug(fmt.Sprintf("debug: %t", true))
 
 	assert.True(t, buf.Contains("count: 42"))
 	assert.True(t, buf.Contains("file: test.go"))
@@ -54,18 +67,25 @@ func TestBufferBackend_PrintfMethods(t *testing.T) {
 	assert.True(t, buf.Contains("debug: true"))
 }
 
-func TestBufferBackend_Print(t *testing.T) {
-	buf := NewBuffer()
-	buf.Print("unlevelled")
+// TestBufferBackend_StructuredMessage shows the preferred slog-first form: a
+// stable message plus typed key/value attributes, asserted via Entries().
+func TestBufferBackend_StructuredMessage(t *testing.T) {
+	t.Parallel()
 
-	require.Equal(t, 1, buf.Len())
-	assert.Equal(t, InfoLevel, buf.Entries()[0].Level)
-	assert.Equal(t, "unlevelled", buf.Entries()[0].Message)
+	buf := NewBuffer()
+	buf.Info("event", "component", "auth", "outcome", "denied")
+
+	entries := buf.Entries()
+	require.Len(t, entries, 1)
+	assert.Equal(t, "event", entries[0].Message)
+	assert.Equal(t, []any{"component", "auth", "outcome", "denied"}, entries[0].Keyvals)
 }
 
 func TestBufferBackend_LevelFiltering(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
-	buf.SetLevel(WarnLevel)
+	buf.SetLevel(slog.LevelWarn)
 
 	buf.Debug("hidden debug")
 	buf.Info("hidden info")
@@ -79,8 +99,12 @@ func TestBufferBackend_LevelFiltering(t *testing.T) {
 }
 
 func TestBufferBackend_With(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 
+	// With now returns *slog.Logger; the derived logger shares the buffer's
+	// capture store, so its records land back in the parent buffer.
 	child := buf.With("component", "test")
 	child.Info("hello")
 
@@ -90,16 +114,21 @@ func TestBufferBackend_With(t *testing.T) {
 	assert.Contains(t, entries[0].Keyvals, "test")
 }
 
-func TestBufferBackend_WithPrefix(t *testing.T) {
+func TestBufferBackend_WithGroup(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 
-	child := buf.WithPrefix("myprefix")
-	child.Info("hello")
+	// WithGroup also returns *slog.Logger over the shared store.
+	child := buf.WithGroup("http")
+	child.Info("grouped")
 
-	assert.True(t, buf.Contains("myprefix: hello"))
+	assert.True(t, buf.Contains("grouped"))
 }
 
 func TestBufferBackend_Reset(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	buf.Info("before reset")
 	assert.Equal(t, 1, buf.Len())
@@ -110,6 +139,8 @@ func TestBufferBackend_Reset(t *testing.T) {
 }
 
 func TestBufferBackend_String(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	buf.Info("first")
 	buf.Warn("second")
@@ -120,6 +151,8 @@ func TestBufferBackend_String(t *testing.T) {
 }
 
 func TestBufferBackend_Entries(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	buf.Info("msg", "key", "value")
 
@@ -130,15 +163,59 @@ func TestBufferBackend_Entries(t *testing.T) {
 	assert.Equal(t, []any{"key", "value"}, entries[0].Keyvals)
 }
 
-func TestBufferBackend_GetLevel(t *testing.T) {
-	buf := NewBuffer()
-	assert.Equal(t, DebugLevel, buf.GetLevel())
+// TestBufferBackend_SetLevelGates replaces the removed GetLevel accessor: there
+// is no level getter any more, so level state is asserted by observing what the
+// buffer does and does not capture after SetLevel.
+func TestBufferBackend_SetLevelGates(t *testing.T) {
+	t.Parallel()
 
-	buf.SetLevel(ErrorLevel)
-	assert.Equal(t, ErrorLevel, buf.GetLevel())
+	buf := NewBuffer()
+
+	// Default captures debug and above.
+	buf.Debug("debug default")
+	assert.True(t, buf.Contains("debug default"))
+
+	buf.Reset()
+	buf.SetLevel(slog.LevelError)
+
+	buf.Debug("debug gated")
+	buf.Info("info gated")
+	buf.Warn("warn gated")
+	buf.Error("error visible")
+
+	assert.Equal(t, 1, buf.Len())
+	assert.False(t, buf.Contains("gated"))
+	assert.True(t, buf.Contains("error visible"))
+}
+
+// TestBufferBackend_LevellerHelper proves the buffer satisfies the optional
+// Leveller interface so the package-level SetLevel helper drives it.
+func TestBufferBackend_LevellerHelper(t *testing.T) {
+	t.Parallel()
+
+	buf := NewBuffer()
+
+	require.True(t, SetLevel(buf, slog.LevelWarn), "buffer must implement Leveller")
+
+	buf.Info("suppressed")
+	buf.Warn("kept")
+
+	assert.False(t, buf.Contains("suppressed"))
+	assert.True(t, buf.Contains("kept"))
+}
+
+// TestBufferBackend_SetFormatterNoOp documents that the buffer does not
+// implement Reformatter, so the SetFormatter helper is a no-op for it.
+func TestBufferBackend_SetFormatterNoOp(t *testing.T) {
+	t.Parallel()
+
+	buf := NewBuffer()
+	assert.False(t, SetFormatter(buf, JSONFormatter), "buffer must not implement Reformatter")
 }
 
 func TestBufferBackend_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	var wg sync.WaitGroup
 
@@ -146,7 +223,7 @@ func TestBufferBackend_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			buf.Infof("goroutine %d", n)
+			buf.Info(fmt.Sprintf("goroutine %d", n))
 		}(i)
 	}
 
@@ -155,8 +232,10 @@ func TestBufferBackend_ConcurrentAccess(t *testing.T) {
 }
 
 func TestBufferBackend_ConcurrentLevelAccess(t *testing.T) {
-	// Run under -race: concurrent SetLevel / GetLevel / record on the same
-	// logger must be data-race clean now that level is atomic.
+	t.Parallel()
+
+	// Run under -race: concurrent SetLevel / record / read on the same logger
+	// must be data-race clean now that the level is an atomic slog.LevelVar.
 	buf := NewBuffer()
 
 	var wg sync.WaitGroup
@@ -166,12 +245,12 @@ func TestBufferBackend_ConcurrentLevelAccess(t *testing.T) {
 
 		go func() {
 			defer wg.Done()
-			buf.SetLevel(WarnLevel)
+			buf.SetLevel(slog.LevelWarn)
 		}()
 
 		go func() {
 			defer wg.Done()
-			_ = buf.GetLevel()
+			_ = buf.Len()
 		}()
 
 		go func() {
@@ -184,28 +263,15 @@ func TestBufferBackend_ConcurrentLevelAccess(t *testing.T) {
 }
 
 func TestBufferBackend_InterfaceSatisfaction(t *testing.T) {
+	t.Parallel()
+
 	var _ Logger = NewBuffer()
 }
 
 func TestBufferBackend_Handler(t *testing.T) {
+	t.Parallel()
+
 	buf := NewBuffer()
 	h := buf.Handler()
 	assert.NotNil(t, h)
-}
-
-func TestBufferBackend_SetFormatter_NoOp(t *testing.T) {
-	buf := NewBuffer()
-	// Should not panic
-	buf.SetFormatter(JSONFormatter)
-	buf.SetFormatter(LogfmtFormatter)
-	buf.SetFormatter(TextFormatter)
-}
-
-func TestBufferBackend_Fatal(t *testing.T) {
-	buf := NewBuffer()
-	buf.Fatal("fatal msg")
-	buf.Fatalf("fatal %s", "formatted")
-
-	assert.True(t, buf.ContainsLevel(FatalLevel, "fatal msg"))
-	assert.True(t, buf.ContainsLevel(FatalLevel, "fatal formatted"))
 }

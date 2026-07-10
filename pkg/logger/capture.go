@@ -17,7 +17,7 @@ type CaptureHandler struct {
 	store  *captureStore
 	attrs  []slog.Attr
 	groups []string
-	level  slog.Leveler
+	level  *slog.LevelVar
 }
 
 type captureStore struct {
@@ -26,14 +26,24 @@ type captureStore struct {
 }
 
 // NewCaptureHandler returns a CaptureHandler that records everything at
-// DebugLevel and above.
+// DebugLevel and above. Use SetLevel to raise the threshold (e.g. to exercise
+// level-gated code paths in tests).
 func NewCaptureHandler() *CaptureHandler {
-	return &CaptureHandler{store: &captureStore{}, level: slog.LevelDebug}
+	level := new(slog.LevelVar)
+	level.Set(slog.LevelDebug)
+
+	return &CaptureHandler{store: &captureStore{}, level: level}
 }
 
 // Enabled reports whether level is at or above the handler's minimum level.
 func (h *CaptureHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level.Level()
+}
+
+// SetLevel raises or lowers the minimum level at which records are captured.
+// The level is shared with handlers derived via WithAttrs/WithGroup.
+func (h *CaptureHandler) SetLevel(level slog.Level) {
+	h.level.Set(level)
 }
 
 // Handle records a clone of r, decorated with any attributes accumulated
@@ -104,6 +114,14 @@ func (h *CaptureHandler) Messages() []string {
 	}
 
 	return out
+}
+
+// Reset clears every captured record from the shared store.
+func (h *CaptureHandler) Reset() {
+	h.store.mu.Lock()
+	defer h.store.mu.Unlock()
+
+	h.store.records = nil
 }
 
 // Contains reports whether any captured record's message contains substr.

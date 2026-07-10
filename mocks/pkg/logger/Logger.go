@@ -5,10 +5,10 @@
 package logger
 
 import (
+	"context"
 	"log/slog"
 
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // NewMockLogger creates a new instance of MockLogger. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -39,9 +39,9 @@ func (_m *MockLogger) EXPECT() *MockLogger_Expecter {
 }
 
 // Debug provides a mock function for the type MockLogger
-func (_mock *MockLogger) Debug(msg string, keyvals ...any) {
-	if len(keyvals) > 0 {
-		_mock.Called(msg, keyvals)
+func (_mock *MockLogger) Debug(msg string, args ...any) {
+	if len(args) > 0 {
+		_mock.Called(msg, args)
 	} else {
 		_mock.Called(msg)
 	}
@@ -56,13 +56,13 @@ type MockLogger_Debug_Call struct {
 
 // Debug is a helper method to define mock.On call
 //   - msg string
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) Debug(msg interface{}, keyvals ...interface{}) *MockLogger_Debug_Call {
+//   - args ...any
+func (_e *MockLogger_Expecter) Debug(msg interface{}, args ...interface{}) *MockLogger_Debug_Call {
 	return &MockLogger_Debug_Call{Call: _e.mock.On("Debug",
-		append([]interface{}{msg}, keyvals...)...)}
+		append([]interface{}{msg}, args...)...)}
 }
 
-func (_c *MockLogger_Debug_Call) Run(run func(msg string, keyvals ...any)) *MockLogger_Debug_Call {
+func (_c *MockLogger_Debug_Call) Run(run func(msg string, args ...any)) *MockLogger_Debug_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -87,69 +87,132 @@ func (_c *MockLogger_Debug_Call) Return() *MockLogger_Debug_Call {
 	return _c
 }
 
-func (_c *MockLogger_Debug_Call) RunAndReturn(run func(msg string, keyvals ...any)) *MockLogger_Debug_Call {
+func (_c *MockLogger_Debug_Call) RunAndReturn(run func(msg string, args ...any)) *MockLogger_Debug_Call {
 	_c.Run(run)
 	return _c
 }
 
-// Debugf provides a mock function for the type MockLogger
-func (_mock *MockLogger) Debugf(format string, args ...any) {
+// DebugContext provides a mock function for the type MockLogger
+func (_mock *MockLogger) DebugContext(ctx context.Context, msg string, args ...any) {
 	if len(args) > 0 {
-		_mock.Called(format, args)
+		_mock.Called(ctx, msg, args)
 	} else {
-		_mock.Called(format)
+		_mock.Called(ctx, msg)
 	}
 
 	return
 }
 
-// MockLogger_Debugf_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Debugf'
-type MockLogger_Debugf_Call struct {
+// MockLogger_DebugContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DebugContext'
+type MockLogger_DebugContext_Call struct {
 	*mock.Call
 }
 
-// Debugf is a helper method to define mock.On call
-//   - format string
+// DebugContext is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg string
 //   - args ...any
-func (_e *MockLogger_Expecter) Debugf(format interface{}, args ...interface{}) *MockLogger_Debugf_Call {
-	return &MockLogger_Debugf_Call{Call: _e.mock.On("Debugf",
-		append([]interface{}{format}, args...)...)}
+func (_e *MockLogger_Expecter) DebugContext(ctx interface{}, msg interface{}, args ...interface{}) *MockLogger_DebugContext_Call {
+	return &MockLogger_DebugContext_Call{Call: _e.mock.On("DebugContext",
+		append([]interface{}{ctx, msg}, args...)...)}
 }
 
-func (_c *MockLogger_Debugf_Call) Run(run func(format string, args ...any)) *MockLogger_Debugf_Call {
+func (_c *MockLogger_DebugContext_Call) Run(run func(ctx context.Context, msg string, args ...any)) *MockLogger_DebugContext_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
 		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
+		if len(args) > 2 {
+			variadicArgs = args[2].([]any)
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
 }
 
-func (_c *MockLogger_Debugf_Call) Return() *MockLogger_Debugf_Call {
+func (_c *MockLogger_DebugContext_Call) Return() *MockLogger_DebugContext_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockLogger_Debugf_Call) RunAndReturn(run func(format string, args ...any)) *MockLogger_Debugf_Call {
+func (_c *MockLogger_DebugContext_Call) RunAndReturn(run func(ctx context.Context, msg string, args ...any)) *MockLogger_DebugContext_Call {
 	_c.Run(run)
 	return _c
 }
 
+// Enabled provides a mock function for the type MockLogger
+func (_mock *MockLogger) Enabled(ctx context.Context, level slog.Level) bool {
+	ret := _mock.Called(ctx, level)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Enabled")
+	}
+
+	var r0 bool
+	if returnFunc, ok := ret.Get(0).(func(context.Context, slog.Level) bool); ok {
+		r0 = returnFunc(ctx, level)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	return r0
+}
+
+// MockLogger_Enabled_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Enabled'
+type MockLogger_Enabled_Call struct {
+	*mock.Call
+}
+
+// Enabled is a helper method to define mock.On call
+//   - ctx context.Context
+//   - level slog.Level
+func (_e *MockLogger_Expecter) Enabled(ctx interface{}, level interface{}) *MockLogger_Enabled_Call {
+	return &MockLogger_Enabled_Call{Call: _e.mock.On("Enabled", ctx, level)}
+}
+
+func (_c *MockLogger_Enabled_Call) Run(run func(ctx context.Context, level slog.Level)) *MockLogger_Enabled_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 slog.Level
+		if args[1] != nil {
+			arg1 = args[1].(slog.Level)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockLogger_Enabled_Call) Return(b bool) *MockLogger_Enabled_Call {
+	_c.Call.Return(b)
+	return _c
+}
+
+func (_c *MockLogger_Enabled_Call) RunAndReturn(run func(ctx context.Context, level slog.Level) bool) *MockLogger_Enabled_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Error provides a mock function for the type MockLogger
-func (_mock *MockLogger) Error(msg string, keyvals ...any) {
-	if len(keyvals) > 0 {
-		_mock.Called(msg, keyvals)
+func (_mock *MockLogger) Error(msg string, args ...any) {
+	if len(args) > 0 {
+		_mock.Called(msg, args)
 	} else {
 		_mock.Called(msg)
 	}
@@ -164,13 +227,13 @@ type MockLogger_Error_Call struct {
 
 // Error is a helper method to define mock.On call
 //   - msg string
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) Error(msg interface{}, keyvals ...interface{}) *MockLogger_Error_Call {
+//   - args ...any
+func (_e *MockLogger_Expecter) Error(msg interface{}, args ...interface{}) *MockLogger_Error_Call {
 	return &MockLogger_Error_Call{Call: _e.mock.On("Error",
-		append([]interface{}{msg}, keyvals...)...)}
+		append([]interface{}{msg}, args...)...)}
 }
 
-func (_c *MockLogger_Error_Call) Run(run func(msg string, keyvals ...any)) *MockLogger_Error_Call {
+func (_c *MockLogger_Error_Call) Run(run func(msg string, args ...any)) *MockLogger_Error_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -195,214 +258,68 @@ func (_c *MockLogger_Error_Call) Return() *MockLogger_Error_Call {
 	return _c
 }
 
-func (_c *MockLogger_Error_Call) RunAndReturn(run func(msg string, keyvals ...any)) *MockLogger_Error_Call {
+func (_c *MockLogger_Error_Call) RunAndReturn(run func(msg string, args ...any)) *MockLogger_Error_Call {
 	_c.Run(run)
 	return _c
 }
 
-// Errorf provides a mock function for the type MockLogger
-func (_mock *MockLogger) Errorf(format string, args ...any) {
+// ErrorContext provides a mock function for the type MockLogger
+func (_mock *MockLogger) ErrorContext(ctx context.Context, msg string, args ...any) {
 	if len(args) > 0 {
-		_mock.Called(format, args)
+		_mock.Called(ctx, msg, args)
 	} else {
-		_mock.Called(format)
+		_mock.Called(ctx, msg)
 	}
 
 	return
 }
 
-// MockLogger_Errorf_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Errorf'
-type MockLogger_Errorf_Call struct {
+// MockLogger_ErrorContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ErrorContext'
+type MockLogger_ErrorContext_Call struct {
 	*mock.Call
 }
 
-// Errorf is a helper method to define mock.On call
-//   - format string
-//   - args ...any
-func (_e *MockLogger_Expecter) Errorf(format interface{}, args ...interface{}) *MockLogger_Errorf_Call {
-	return &MockLogger_Errorf_Call{Call: _e.mock.On("Errorf",
-		append([]interface{}{format}, args...)...)}
-}
-
-func (_c *MockLogger_Errorf_Call) Run(run func(format string, args ...any)) *MockLogger_Errorf_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 []any
-		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
-		}
-		arg1 = variadicArgs
-		run(
-			arg0,
-			arg1...,
-		)
-	})
-	return _c
-}
-
-func (_c *MockLogger_Errorf_Call) Return() *MockLogger_Errorf_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockLogger_Errorf_Call) RunAndReturn(run func(format string, args ...any)) *MockLogger_Errorf_Call {
-	_c.Run(run)
-	return _c
-}
-
-// Fatal provides a mock function for the type MockLogger
-func (_mock *MockLogger) Fatal(msg string, keyvals ...any) {
-	if len(keyvals) > 0 {
-		_mock.Called(msg, keyvals)
-	} else {
-		_mock.Called(msg)
-	}
-
-	return
-}
-
-// MockLogger_Fatal_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Fatal'
-type MockLogger_Fatal_Call struct {
-	*mock.Call
-}
-
-// Fatal is a helper method to define mock.On call
+// ErrorContext is a helper method to define mock.On call
+//   - ctx context.Context
 //   - msg string
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) Fatal(msg interface{}, keyvals ...interface{}) *MockLogger_Fatal_Call {
-	return &MockLogger_Fatal_Call{Call: _e.mock.On("Fatal",
-		append([]interface{}{msg}, keyvals...)...)}
-}
-
-func (_c *MockLogger_Fatal_Call) Run(run func(msg string, keyvals ...any)) *MockLogger_Fatal_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		var arg1 []any
-		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
-		}
-		arg1 = variadicArgs
-		run(
-			arg0,
-			arg1...,
-		)
-	})
-	return _c
-}
-
-func (_c *MockLogger_Fatal_Call) Return() *MockLogger_Fatal_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockLogger_Fatal_Call) RunAndReturn(run func(msg string, keyvals ...any)) *MockLogger_Fatal_Call {
-	_c.Run(run)
-	return _c
-}
-
-// Fatalf provides a mock function for the type MockLogger
-func (_mock *MockLogger) Fatalf(format string, args ...any) {
-	if len(args) > 0 {
-		_mock.Called(format, args)
-	} else {
-		_mock.Called(format)
-	}
-
-	return
-}
-
-// MockLogger_Fatalf_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Fatalf'
-type MockLogger_Fatalf_Call struct {
-	*mock.Call
-}
-
-// Fatalf is a helper method to define mock.On call
-//   - format string
 //   - args ...any
-func (_e *MockLogger_Expecter) Fatalf(format interface{}, args ...interface{}) *MockLogger_Fatalf_Call {
-	return &MockLogger_Fatalf_Call{Call: _e.mock.On("Fatalf",
-		append([]interface{}{format}, args...)...)}
+func (_e *MockLogger_Expecter) ErrorContext(ctx interface{}, msg interface{}, args ...interface{}) *MockLogger_ErrorContext_Call {
+	return &MockLogger_ErrorContext_Call{Call: _e.mock.On("ErrorContext",
+		append([]interface{}{ctx, msg}, args...)...)}
 }
 
-func (_c *MockLogger_Fatalf_Call) Run(run func(format string, args ...any)) *MockLogger_Fatalf_Call {
+func (_c *MockLogger_ErrorContext_Call) Run(run func(ctx context.Context, msg string, args ...any)) *MockLogger_ErrorContext_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
 		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
+		if len(args) > 2 {
+			variadicArgs = args[2].([]any)
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
 }
 
-func (_c *MockLogger_Fatalf_Call) Return() *MockLogger_Fatalf_Call {
+func (_c *MockLogger_ErrorContext_Call) Return() *MockLogger_ErrorContext_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockLogger_Fatalf_Call) RunAndReturn(run func(format string, args ...any)) *MockLogger_Fatalf_Call {
+func (_c *MockLogger_ErrorContext_Call) RunAndReturn(run func(ctx context.Context, msg string, args ...any)) *MockLogger_ErrorContext_Call {
 	_c.Run(run)
-	return _c
-}
-
-// GetLevel provides a mock function for the type MockLogger
-func (_mock *MockLogger) GetLevel() logger.Level {
-	ret := _mock.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetLevel")
-	}
-
-	var r0 logger.Level
-	if returnFunc, ok := ret.Get(0).(func() logger.Level); ok {
-		r0 = returnFunc()
-	} else {
-		r0 = ret.Get(0).(logger.Level)
-	}
-	return r0
-}
-
-// MockLogger_GetLevel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLevel'
-type MockLogger_GetLevel_Call struct {
-	*mock.Call
-}
-
-// GetLevel is a helper method to define mock.On call
-func (_e *MockLogger_Expecter) GetLevel() *MockLogger_GetLevel_Call {
-	return &MockLogger_GetLevel_Call{Call: _e.mock.On("GetLevel")}
-}
-
-func (_c *MockLogger_GetLevel_Call) Run(run func()) *MockLogger_GetLevel_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *MockLogger_GetLevel_Call) Return(level logger.Level) *MockLogger_GetLevel_Call {
-	_c.Call.Return(level)
-	return _c
-}
-
-func (_c *MockLogger_GetLevel_Call) RunAndReturn(run func() logger.Level) *MockLogger_GetLevel_Call {
-	_c.Call.Return(run)
 	return _c
 }
 
@@ -453,9 +370,9 @@ func (_c *MockLogger_Handler_Call) RunAndReturn(run func() slog.Handler) *MockLo
 }
 
 // Info provides a mock function for the type MockLogger
-func (_mock *MockLogger) Info(msg string, keyvals ...any) {
-	if len(keyvals) > 0 {
-		_mock.Called(msg, keyvals)
+func (_mock *MockLogger) Info(msg string, args ...any) {
+	if len(args) > 0 {
+		_mock.Called(msg, args)
 	} else {
 		_mock.Called(msg)
 	}
@@ -470,13 +387,13 @@ type MockLogger_Info_Call struct {
 
 // Info is a helper method to define mock.On call
 //   - msg string
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) Info(msg interface{}, keyvals ...interface{}) *MockLogger_Info_Call {
+//   - args ...any
+func (_e *MockLogger_Expecter) Info(msg interface{}, args ...interface{}) *MockLogger_Info_Call {
 	return &MockLogger_Info_Call{Call: _e.mock.On("Info",
-		append([]interface{}{msg}, keyvals...)...)}
+		append([]interface{}{msg}, args...)...)}
 }
 
-func (_c *MockLogger_Info_Call) Run(run func(msg string, keyvals ...any)) *MockLogger_Info_Call {
+func (_c *MockLogger_Info_Call) Run(run func(msg string, args ...any)) *MockLogger_Info_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -501,203 +418,207 @@ func (_c *MockLogger_Info_Call) Return() *MockLogger_Info_Call {
 	return _c
 }
 
-func (_c *MockLogger_Info_Call) RunAndReturn(run func(msg string, keyvals ...any)) *MockLogger_Info_Call {
+func (_c *MockLogger_Info_Call) RunAndReturn(run func(msg string, args ...any)) *MockLogger_Info_Call {
 	_c.Run(run)
 	return _c
 }
 
-// Infof provides a mock function for the type MockLogger
-func (_mock *MockLogger) Infof(format string, args ...any) {
+// InfoContext provides a mock function for the type MockLogger
+func (_mock *MockLogger) InfoContext(ctx context.Context, msg string, args ...any) {
 	if len(args) > 0 {
-		_mock.Called(format, args)
+		_mock.Called(ctx, msg, args)
 	} else {
-		_mock.Called(format)
+		_mock.Called(ctx, msg)
 	}
 
 	return
 }
 
-// MockLogger_Infof_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Infof'
-type MockLogger_Infof_Call struct {
+// MockLogger_InfoContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InfoContext'
+type MockLogger_InfoContext_Call struct {
 	*mock.Call
 }
 
-// Infof is a helper method to define mock.On call
-//   - format string
+// InfoContext is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg string
 //   - args ...any
-func (_e *MockLogger_Expecter) Infof(format interface{}, args ...interface{}) *MockLogger_Infof_Call {
-	return &MockLogger_Infof_Call{Call: _e.mock.On("Infof",
-		append([]interface{}{format}, args...)...)}
+func (_e *MockLogger_Expecter) InfoContext(ctx interface{}, msg interface{}, args ...interface{}) *MockLogger_InfoContext_Call {
+	return &MockLogger_InfoContext_Call{Call: _e.mock.On("InfoContext",
+		append([]interface{}{ctx, msg}, args...)...)}
 }
 
-func (_c *MockLogger_Infof_Call) Run(run func(format string, args ...any)) *MockLogger_Infof_Call {
+func (_c *MockLogger_InfoContext_Call) Run(run func(ctx context.Context, msg string, args ...any)) *MockLogger_InfoContext_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
 		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
+		if len(args) > 2 {
+			variadicArgs = args[2].([]any)
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
 }
 
-func (_c *MockLogger_Infof_Call) Return() *MockLogger_Infof_Call {
+func (_c *MockLogger_InfoContext_Call) Return() *MockLogger_InfoContext_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockLogger_Infof_Call) RunAndReturn(run func(format string, args ...any)) *MockLogger_Infof_Call {
+func (_c *MockLogger_InfoContext_Call) RunAndReturn(run func(ctx context.Context, msg string, args ...any)) *MockLogger_InfoContext_Call {
 	_c.Run(run)
 	return _c
 }
 
-// Print provides a mock function for the type MockLogger
-func (_mock *MockLogger) Print(msg any, keyvals ...any) {
-	if len(keyvals) > 0 {
-		_mock.Called(msg, keyvals)
+// Log provides a mock function for the type MockLogger
+func (_mock *MockLogger) Log(ctx context.Context, level slog.Level, msg string, args ...any) {
+	if len(args) > 0 {
+		_mock.Called(ctx, level, msg, args)
 	} else {
-		_mock.Called(msg)
+		_mock.Called(ctx, level, msg)
 	}
 
 	return
 }
 
-// MockLogger_Print_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Print'
-type MockLogger_Print_Call struct {
+// MockLogger_Log_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Log'
+type MockLogger_Log_Call struct {
 	*mock.Call
 }
 
-// Print is a helper method to define mock.On call
-//   - msg any
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) Print(msg interface{}, keyvals ...interface{}) *MockLogger_Print_Call {
-	return &MockLogger_Print_Call{Call: _e.mock.On("Print",
-		append([]interface{}{msg}, keyvals...)...)}
+// Log is a helper method to define mock.On call
+//   - ctx context.Context
+//   - level slog.Level
+//   - msg string
+//   - args ...any
+func (_e *MockLogger_Expecter) Log(ctx interface{}, level interface{}, msg interface{}, args ...interface{}) *MockLogger_Log_Call {
+	return &MockLogger_Log_Call{Call: _e.mock.On("Log",
+		append([]interface{}{ctx, level, msg}, args...)...)}
 }
 
-func (_c *MockLogger_Print_Call) Run(run func(msg any, keyvals ...any)) *MockLogger_Print_Call {
+func (_c *MockLogger_Log_Call) Run(run func(ctx context.Context, level slog.Level, msg string, args ...any)) *MockLogger_Log_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 any
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(any)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
+		var arg1 slog.Level
+		if args[1] != nil {
+			arg1 = args[1].(slog.Level)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []any
 		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
+		if len(args) > 3 {
+			variadicArgs = args[3].([]any)
 		}
-		arg1 = variadicArgs
+		arg3 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2,
+			arg3...,
 		)
 	})
 	return _c
 }
 
-func (_c *MockLogger_Print_Call) Return() *MockLogger_Print_Call {
+func (_c *MockLogger_Log_Call) Return() *MockLogger_Log_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockLogger_Print_Call) RunAndReturn(run func(msg any, keyvals ...any)) *MockLogger_Print_Call {
+func (_c *MockLogger_Log_Call) RunAndReturn(run func(ctx context.Context, level slog.Level, msg string, args ...any)) *MockLogger_Log_Call {
 	_c.Run(run)
 	return _c
 }
 
-// SetFormatter provides a mock function for the type MockLogger
-func (_mock *MockLogger) SetFormatter(f logger.Formatter) {
-	_mock.Called(f)
+// LogAttrs provides a mock function for the type MockLogger
+func (_mock *MockLogger) LogAttrs(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr) {
+	if len(attrs) > 0 {
+		_mock.Called(ctx, level, msg, attrs)
+	} else {
+		_mock.Called(ctx, level, msg)
+	}
+
 	return
 }
 
-// MockLogger_SetFormatter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetFormatter'
-type MockLogger_SetFormatter_Call struct {
+// MockLogger_LogAttrs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogAttrs'
+type MockLogger_LogAttrs_Call struct {
 	*mock.Call
 }
 
-// SetFormatter is a helper method to define mock.On call
-//   - f logger.Formatter
-func (_e *MockLogger_Expecter) SetFormatter(f interface{}) *MockLogger_SetFormatter_Call {
-	return &MockLogger_SetFormatter_Call{Call: _e.mock.On("SetFormatter", f)}
+// LogAttrs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - level slog.Level
+//   - msg string
+//   - attrs ...slog.Attr
+func (_e *MockLogger_Expecter) LogAttrs(ctx interface{}, level interface{}, msg interface{}, attrs ...interface{}) *MockLogger_LogAttrs_Call {
+	return &MockLogger_LogAttrs_Call{Call: _e.mock.On("LogAttrs",
+		append([]interface{}{ctx, level, msg}, attrs...)...)}
 }
 
-func (_c *MockLogger_SetFormatter_Call) Run(run func(f logger.Formatter)) *MockLogger_SetFormatter_Call {
+func (_c *MockLogger_LogAttrs_Call) Run(run func(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr)) *MockLogger_LogAttrs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 logger.Formatter
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(logger.Formatter)
+			arg0 = args[0].(context.Context)
 		}
+		var arg1 slog.Level
+		if args[1] != nil {
+			arg1 = args[1].(slog.Level)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []slog.Attr
+		var variadicArgs []slog.Attr
+		if len(args) > 3 {
+			variadicArgs = args[3].([]slog.Attr)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
+			arg1,
+			arg2,
+			arg3...,
 		)
 	})
 	return _c
 }
 
-func (_c *MockLogger_SetFormatter_Call) Return() *MockLogger_SetFormatter_Call {
+func (_c *MockLogger_LogAttrs_Call) Return() *MockLogger_LogAttrs_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockLogger_SetFormatter_Call) RunAndReturn(run func(f logger.Formatter)) *MockLogger_SetFormatter_Call {
-	_c.Run(run)
-	return _c
-}
-
-// SetLevel provides a mock function for the type MockLogger
-func (_mock *MockLogger) SetLevel(level logger.Level) {
-	_mock.Called(level)
-	return
-}
-
-// MockLogger_SetLevel_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetLevel'
-type MockLogger_SetLevel_Call struct {
-	*mock.Call
-}
-
-// SetLevel is a helper method to define mock.On call
-//   - level logger.Level
-func (_e *MockLogger_Expecter) SetLevel(level interface{}) *MockLogger_SetLevel_Call {
-	return &MockLogger_SetLevel_Call{Call: _e.mock.On("SetLevel", level)}
-}
-
-func (_c *MockLogger_SetLevel_Call) Run(run func(level logger.Level)) *MockLogger_SetLevel_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 logger.Level
-		if args[0] != nil {
-			arg0 = args[0].(logger.Level)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *MockLogger_SetLevel_Call) Return() *MockLogger_SetLevel_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockLogger_SetLevel_Call) RunAndReturn(run func(level logger.Level)) *MockLogger_SetLevel_Call {
+func (_c *MockLogger_LogAttrs_Call) RunAndReturn(run func(ctx context.Context, level slog.Level, msg string, attrs ...slog.Attr)) *MockLogger_LogAttrs_Call {
 	_c.Run(run)
 	return _c
 }
 
 // Warn provides a mock function for the type MockLogger
-func (_mock *MockLogger) Warn(msg string, keyvals ...any) {
-	if len(keyvals) > 0 {
-		_mock.Called(msg, keyvals)
+func (_mock *MockLogger) Warn(msg string, args ...any) {
+	if len(args) > 0 {
+		_mock.Called(msg, args)
 	} else {
 		_mock.Called(msg)
 	}
@@ -712,13 +633,13 @@ type MockLogger_Warn_Call struct {
 
 // Warn is a helper method to define mock.On call
 //   - msg string
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) Warn(msg interface{}, keyvals ...interface{}) *MockLogger_Warn_Call {
+//   - args ...any
+func (_e *MockLogger_Expecter) Warn(msg interface{}, args ...interface{}) *MockLogger_Warn_Call {
 	return &MockLogger_Warn_Call{Call: _e.mock.On("Warn",
-		append([]interface{}{msg}, keyvals...)...)}
+		append([]interface{}{msg}, args...)...)}
 }
 
-func (_c *MockLogger_Warn_Call) Run(run func(msg string, keyvals ...any)) *MockLogger_Warn_Call {
+func (_c *MockLogger_Warn_Call) Run(run func(msg string, args ...any)) *MockLogger_Warn_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -743,70 +664,76 @@ func (_c *MockLogger_Warn_Call) Return() *MockLogger_Warn_Call {
 	return _c
 }
 
-func (_c *MockLogger_Warn_Call) RunAndReturn(run func(msg string, keyvals ...any)) *MockLogger_Warn_Call {
+func (_c *MockLogger_Warn_Call) RunAndReturn(run func(msg string, args ...any)) *MockLogger_Warn_Call {
 	_c.Run(run)
 	return _c
 }
 
-// Warnf provides a mock function for the type MockLogger
-func (_mock *MockLogger) Warnf(format string, args ...any) {
+// WarnContext provides a mock function for the type MockLogger
+func (_mock *MockLogger) WarnContext(ctx context.Context, msg string, args ...any) {
 	if len(args) > 0 {
-		_mock.Called(format, args)
+		_mock.Called(ctx, msg, args)
 	} else {
-		_mock.Called(format)
+		_mock.Called(ctx, msg)
 	}
 
 	return
 }
 
-// MockLogger_Warnf_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Warnf'
-type MockLogger_Warnf_Call struct {
+// MockLogger_WarnContext_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WarnContext'
+type MockLogger_WarnContext_Call struct {
 	*mock.Call
 }
 
-// Warnf is a helper method to define mock.On call
-//   - format string
+// WarnContext is a helper method to define mock.On call
+//   - ctx context.Context
+//   - msg string
 //   - args ...any
-func (_e *MockLogger_Expecter) Warnf(format interface{}, args ...interface{}) *MockLogger_Warnf_Call {
-	return &MockLogger_Warnf_Call{Call: _e.mock.On("Warnf",
-		append([]interface{}{format}, args...)...)}
+func (_e *MockLogger_Expecter) WarnContext(ctx interface{}, msg interface{}, args ...interface{}) *MockLogger_WarnContext_Call {
+	return &MockLogger_WarnContext_Call{Call: _e.mock.On("WarnContext",
+		append([]interface{}{ctx, msg}, args...)...)}
 }
 
-func (_c *MockLogger_Warnf_Call) Run(run func(format string, args ...any)) *MockLogger_Warnf_Call {
+func (_c *MockLogger_WarnContext_Call) Run(run func(ctx context.Context, msg string, args ...any)) *MockLogger_WarnContext_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(string)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 []any
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 []any
 		var variadicArgs []any
-		if len(args) > 1 {
-			variadicArgs = args[1].([]any)
+		if len(args) > 2 {
+			variadicArgs = args[2].([]any)
 		}
-		arg1 = variadicArgs
+		arg2 = variadicArgs
 		run(
 			arg0,
-			arg1...,
+			arg1,
+			arg2...,
 		)
 	})
 	return _c
 }
 
-func (_c *MockLogger_Warnf_Call) Return() *MockLogger_Warnf_Call {
+func (_c *MockLogger_WarnContext_Call) Return() *MockLogger_WarnContext_Call {
 	_c.Call.Return()
 	return _c
 }
 
-func (_c *MockLogger_Warnf_Call) RunAndReturn(run func(format string, args ...any)) *MockLogger_Warnf_Call {
+func (_c *MockLogger_WarnContext_Call) RunAndReturn(run func(ctx context.Context, msg string, args ...any)) *MockLogger_WarnContext_Call {
 	_c.Run(run)
 	return _c
 }
 
 // With provides a mock function for the type MockLogger
-func (_mock *MockLogger) With(keyvals ...any) logger.Logger {
+func (_mock *MockLogger) With(args ...any) *slog.Logger {
 	var tmpRet mock.Arguments
-	if len(keyvals) > 0 {
-		tmpRet = _mock.Called(keyvals)
+	if len(args) > 0 {
+		tmpRet = _mock.Called(args)
 	} else {
 		tmpRet = _mock.Called()
 	}
@@ -816,12 +743,12 @@ func (_mock *MockLogger) With(keyvals ...any) logger.Logger {
 		panic("no return value specified for With")
 	}
 
-	var r0 logger.Logger
-	if returnFunc, ok := ret.Get(0).(func(...any) logger.Logger); ok {
-		r0 = returnFunc(keyvals...)
+	var r0 *slog.Logger
+	if returnFunc, ok := ret.Get(0).(func(...any) *slog.Logger); ok {
+		r0 = returnFunc(args...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(logger.Logger)
+			r0 = ret.Get(0).(*slog.Logger)
 		}
 	}
 	return r0
@@ -833,13 +760,13 @@ type MockLogger_With_Call struct {
 }
 
 // With is a helper method to define mock.On call
-//   - keyvals ...any
-func (_e *MockLogger_Expecter) With(keyvals ...interface{}) *MockLogger_With_Call {
+//   - args ...any
+func (_e *MockLogger_Expecter) With(args ...interface{}) *MockLogger_With_Call {
 	return &MockLogger_With_Call{Call: _e.mock.On("With",
-		append([]interface{}{}, keyvals...)...)}
+		append([]interface{}{}, args...)...)}
 }
 
-func (_c *MockLogger_With_Call) Run(run func(keyvals ...any)) *MockLogger_With_Call {
+func (_c *MockLogger_With_Call) Run(run func(args ...any)) *MockLogger_With_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 []any
 		var variadicArgs []any
@@ -854,47 +781,47 @@ func (_c *MockLogger_With_Call) Run(run func(keyvals ...any)) *MockLogger_With_C
 	return _c
 }
 
-func (_c *MockLogger_With_Call) Return(logger1 logger.Logger) *MockLogger_With_Call {
-	_c.Call.Return(logger1)
+func (_c *MockLogger_With_Call) Return(logger *slog.Logger) *MockLogger_With_Call {
+	_c.Call.Return(logger)
 	return _c
 }
 
-func (_c *MockLogger_With_Call) RunAndReturn(run func(keyvals ...any) logger.Logger) *MockLogger_With_Call {
+func (_c *MockLogger_With_Call) RunAndReturn(run func(args ...any) *slog.Logger) *MockLogger_With_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// WithPrefix provides a mock function for the type MockLogger
-func (_mock *MockLogger) WithPrefix(prefix string) logger.Logger {
-	ret := _mock.Called(prefix)
+// WithGroup provides a mock function for the type MockLogger
+func (_mock *MockLogger) WithGroup(name string) *slog.Logger {
+	ret := _mock.Called(name)
 
 	if len(ret) == 0 {
-		panic("no return value specified for WithPrefix")
+		panic("no return value specified for WithGroup")
 	}
 
-	var r0 logger.Logger
-	if returnFunc, ok := ret.Get(0).(func(string) logger.Logger); ok {
-		r0 = returnFunc(prefix)
+	var r0 *slog.Logger
+	if returnFunc, ok := ret.Get(0).(func(string) *slog.Logger); ok {
+		r0 = returnFunc(name)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(logger.Logger)
+			r0 = ret.Get(0).(*slog.Logger)
 		}
 	}
 	return r0
 }
 
-// MockLogger_WithPrefix_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithPrefix'
-type MockLogger_WithPrefix_Call struct {
+// MockLogger_WithGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'WithGroup'
+type MockLogger_WithGroup_Call struct {
 	*mock.Call
 }
 
-// WithPrefix is a helper method to define mock.On call
-//   - prefix string
-func (_e *MockLogger_Expecter) WithPrefix(prefix interface{}) *MockLogger_WithPrefix_Call {
-	return &MockLogger_WithPrefix_Call{Call: _e.mock.On("WithPrefix", prefix)}
+// WithGroup is a helper method to define mock.On call
+//   - name string
+func (_e *MockLogger_Expecter) WithGroup(name interface{}) *MockLogger_WithGroup_Call {
+	return &MockLogger_WithGroup_Call{Call: _e.mock.On("WithGroup", name)}
 }
 
-func (_c *MockLogger_WithPrefix_Call) Run(run func(prefix string)) *MockLogger_WithPrefix_Call {
+func (_c *MockLogger_WithGroup_Call) Run(run func(name string)) *MockLogger_WithGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -907,12 +834,12 @@ func (_c *MockLogger_WithPrefix_Call) Run(run func(prefix string)) *MockLogger_W
 	return _c
 }
 
-func (_c *MockLogger_WithPrefix_Call) Return(logger1 logger.Logger) *MockLogger_WithPrefix_Call {
-	_c.Call.Return(logger1)
+func (_c *MockLogger_WithGroup_Call) Return(logger *slog.Logger) *MockLogger_WithGroup_Call {
+	_c.Call.Return(logger)
 	return _c
 }
 
-func (_c *MockLogger_WithPrefix_Call) RunAndReturn(run func(prefix string) logger.Logger) *MockLogger_WithPrefix_Call {
+func (_c *MockLogger_WithGroup_Call) RunAndReturn(run func(name string) *slog.Logger) *MockLogger_WithGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }

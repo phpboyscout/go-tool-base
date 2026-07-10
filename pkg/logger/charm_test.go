@@ -2,14 +2,18 @@ package logger
 
 import (
 	"bytes"
+	"fmt"
 	"log/slog"
 	"testing"
 
+	charmlog "charm.land/log/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCharmBackend_StructuredOutput(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(DebugLevel))
 
@@ -21,14 +25,18 @@ func TestCharmBackend_StructuredOutput(t *testing.T) {
 	assert.Contains(t, output, "value")
 }
 
-func TestCharmBackend_PrintfMethods(t *testing.T) {
+// TestCharmBackend_FormattedMessages replaces the removed Debugf/Infof/... family:
+// callers pre-format with fmt.Sprintf and the message still reaches the writer.
+func TestCharmBackend_FormattedMessages(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(DebugLevel))
 
-	l.Infof("count: %d", 42)
-	l.Warnf("file: %s", "test.go")
-	l.Errorf("error: %v", "bad")
-	l.Debugf("debug: %t", true)
+	l.Info(fmt.Sprintf("count: %d", 42))
+	l.Warn(fmt.Sprintf("file: %s", "test.go"))
+	l.Error(fmt.Sprintf("error: %v", "bad"))
+	l.Debug(fmt.Sprintf("debug: %t", true))
 
 	output := buf.String()
 	assert.Contains(t, output, "count: 42")
@@ -37,18 +45,9 @@ func TestCharmBackend_PrintfMethods(t *testing.T) {
 	assert.Contains(t, output, "debug: true")
 }
 
-func TestCharmBackend_Print(t *testing.T) {
-	var buf bytes.Buffer
-	l := NewCharm(&buf, WithLevel(ErrorLevel))
-
-	// Print should output regardless of level
-	l.Print("always visible")
-
-	output := buf.String()
-	assert.Contains(t, output, "always visible")
-}
-
 func TestCharmBackend_LevelFiltering(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(WarnLevel))
 
@@ -63,27 +62,44 @@ func TestCharmBackend_LevelFiltering(t *testing.T) {
 	assert.Contains(t, output, "should also appear")
 }
 
+// TestCharmBackend_SetLevel exercises runtime level control via the Leveller
+// helper (the interface no longer carries SetLevel). The charm logger implements
+// Leveller, so the helper returns true and the new level takes effect.
 func TestCharmBackend_SetLevel(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(ErrorLevel))
 
 	l.Info("hidden")
 	assert.Empty(t, buf.String())
 
-	l.SetLevel(DebugLevel)
+	require.True(t, SetLevel(l, slog.LevelDebug), "charm logger must implement Leveller")
 	l.Info("visible")
 	assert.Contains(t, buf.String(), "visible")
 }
 
-func TestCharmBackend_GetLevel(t *testing.T) {
-	l := NewCharm(&bytes.Buffer{}, WithLevel(WarnLevel))
-	assert.Equal(t, WarnLevel, l.GetLevel())
+// TestCharmBackend_SetLevelConcrete exercises the concrete Leveller method on
+// the returned *charmLogger directly.
+func TestCharmBackend_SetLevelConcrete(t *testing.T) {
+	t.Parallel()
 
-	l.SetLevel(DebugLevel)
-	assert.Equal(t, DebugLevel, l.GetLevel())
+	var buf bytes.Buffer
+	l := NewCharm(&buf, WithLevel(ErrorLevel))
+
+	cl, ok := l.(*charmLogger)
+	require.True(t, ok)
+
+	cl.SetLevel(slog.LevelDebug)
+	cl.Debug("debug now visible")
+	assert.Contains(t, buf.String(), "debug now visible")
 }
 
+// TestCharmBackend_SetFormatter drives runtime format switching via the
+// Reformatter helper and observes the effect on emitted output.
 func TestCharmBackend_SetFormatter(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		formatter Formatter
@@ -113,10 +129,13 @@ func TestCharmBackend_SetFormatter(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var buf bytes.Buffer
 			l := NewCharm(&buf, WithLevel(DebugLevel))
-			l.SetFormatter(tt.formatter)
+			require.True(t, SetFormatter(l, tt.formatter), "charm logger must implement Reformatter")
 			l.Info("hello", "k", "v")
 			tt.check(t, buf.String())
 		})
@@ -124,6 +143,8 @@ func TestCharmBackend_SetFormatter(t *testing.T) {
 }
 
 func TestCharmBackend_Handler(t *testing.T) {
+	t.Parallel()
+
 	l := NewCharm(&bytes.Buffer{}, WithLevel(DebugLevel))
 
 	handler := l.Handler()
@@ -135,6 +156,8 @@ func TestCharmBackend_Handler(t *testing.T) {
 }
 
 func TestCharmBackend_Handler_SlogIntegration(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(DebugLevel))
 
@@ -147,9 +170,12 @@ func TestCharmBackend_Handler_SlogIntegration(t *testing.T) {
 }
 
 func TestCharmBackend_With(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(DebugLevel))
 
+	// With now returns *slog.Logger; it still writes to the same backend.
 	child := l.With("component", "test")
 	child.Info("hello")
 
@@ -159,20 +185,12 @@ func TestCharmBackend_With(t *testing.T) {
 	assert.Contains(t, output, "hello")
 }
 
-func TestCharmBackend_WithPrefix(t *testing.T) {
-	var buf bytes.Buffer
-	l := NewCharm(&buf, WithLevel(DebugLevel))
-
-	child := l.WithPrefix("myprefix")
-	child.Info("hello")
-
-	output := buf.String()
-	assert.Contains(t, output, "myprefix")
-	assert.Contains(t, output, "hello")
-}
-
 func TestCharmBackend_Options(t *testing.T) {
+	t.Parallel()
+
 	t.Run("WithTimestamp", func(t *testing.T) {
+		t.Parallel()
+
 		var buf bytes.Buffer
 		l := NewCharm(&buf, WithTimestamp(true), WithLevel(DebugLevel))
 		l.Info("timestamped")
@@ -182,6 +200,8 @@ func TestCharmBackend_Options(t *testing.T) {
 	})
 
 	t.Run("WithCaller", func(t *testing.T) {
+		t.Parallel()
+
 		var buf bytes.Buffer
 		l := NewCharm(&buf, WithCaller(true), WithLevel(DebugLevel))
 		l.Info("with caller")
@@ -190,6 +210,8 @@ func TestCharmBackend_Options(t *testing.T) {
 	})
 
 	t.Run("WithPrefix", func(t *testing.T) {
+		t.Parallel()
+
 		var buf bytes.Buffer
 		l := NewCharm(&buf, WithPrefix("pfx"), WithLevel(DebugLevel))
 		l.Info("prefixed")
@@ -198,20 +220,63 @@ func TestCharmBackend_Options(t *testing.T) {
 	})
 }
 
-func TestCharmBackend_LevelConversion_RoundTrip(t *testing.T) {
-	levels := []Level{DebugLevel, InfoLevel, WarnLevel, ErrorLevel, FatalLevel}
-	for _, l := range levels {
-		charm := toCharmLevel(l)
-		back := fromCharmLevel(charm)
-		assert.Equal(t, l, back, "round-trip failed for %s", l)
+func TestCharmBackend_LevelMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		level Level
+		want  charmlog.Level
+	}{
+		{DebugLevel, charmlog.DebugLevel},
+		{InfoLevel, charmlog.InfoLevel},
+		{WarnLevel, charmlog.WarnLevel},
+		{ErrorLevel, charmlog.ErrorLevel},
+		{FatalLevel, charmlog.FatalLevel},
+		{Level(99), charmlog.InfoLevel}, // unknown falls back to info
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.level.String(), func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, toCharmLevel(tt.level))
+		})
+	}
+}
+
+func TestCharmBackend_FormatterMapping(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		formatter Formatter
+		want      charmlog.Formatter
+	}{
+		{TextFormatter, charmlog.TextFormatter},
+		{JSONFormatter, charmlog.JSONFormatter},
+		{LogfmtFormatter, charmlog.LogfmtFormatter},
+		{Formatter(99), charmlog.TextFormatter}, // unknown falls back to text
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.formatter.String(), func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, toCharmFormatter(tt.formatter))
+		})
 	}
 }
 
 func TestCharmBackend_InterfaceSatisfaction(t *testing.T) {
+	t.Parallel()
+
 	_ = NewCharm(&bytes.Buffer{})
 }
 
 func TestCharmBackend_Inner(t *testing.T) {
+	t.Parallel()
+
 	l := NewCharm(&bytes.Buffer{})
 	cl, ok := l.(*charmLogger)
 	require.True(t, ok)
@@ -219,6 +284,8 @@ func TestCharmBackend_Inner(t *testing.T) {
 }
 
 func TestCharmBackend_AllLevels(t *testing.T) {
+	t.Parallel()
+
 	var buf bytes.Buffer
 	l := NewCharm(&buf, WithLevel(DebugLevel))
 

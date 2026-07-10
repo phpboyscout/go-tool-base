@@ -3,6 +3,7 @@ package docs
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
 	"testing"
 	"testing/fstest"
@@ -12,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mocklogger "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -321,63 +321,49 @@ func TestRunAsk_NoStyleNonStreamedSuccess(t *testing.T) {
 	})
 }
 
-// TestLogToProps_AllLevels asserts logToProps forwards each docs log level to
-// the matching props logger method exactly once.
+// TestLogToProps_AllLevels asserts logToProps forwards each docs log level to a
+// record emitted at the matching slog level. Fatal has no slog equivalent and
+// is emitted at error level (logging must never exit the process here).
 func TestLogToProps_AllLevels(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name  string
-		level logger.Level
-		setup func(e *mocklogger.MockLogger_Expecter)
+		name      string
+		level     logger.Level
+		wantLevel slog.Level
 	}{
-		{
-			name:  "debug",
-			level: logger.DebugLevel,
-			setup: func(e *mocklogger.MockLogger_Expecter) { e.Debug("msg").Once() },
-		},
-		{
-			name:  "info",
-			level: logger.InfoLevel,
-			setup: func(e *mocklogger.MockLogger_Expecter) { e.Info("msg").Once() },
-		},
-		{
-			name:  "warn",
-			level: logger.WarnLevel,
-			setup: func(e *mocklogger.MockLogger_Expecter) { e.Warn("msg").Once() },
-		},
-		{
-			name:  "error",
-			level: logger.ErrorLevel,
-			setup: func(e *mocklogger.MockLogger_Expecter) { e.Error("msg").Once() },
-		},
-		{
-			name:  "fatal",
-			level: logger.FatalLevel,
-			setup: func(e *mocklogger.MockLogger_Expecter) { e.Fatal("msg").Once() },
-		},
+		{"debug", logger.DebugLevel, slog.LevelDebug},
+		{"info", logger.InfoLevel, slog.LevelInfo},
+		{"warn", logger.WarnLevel, slog.LevelWarn},
+		{"error", logger.ErrorLevel, slog.LevelError},
+		{"fatal", logger.FatalLevel, slog.LevelError},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ml := mocklogger.NewMockLogger(t)
-			tc.setup(ml.EXPECT())
-
-			p := &props.Props{Logger: ml}
+			capture := logger.NewCaptureHandler()
+			p := &props.Props{Logger: slog.New(capture)}
 			logToProps(p, "msg", tc.level)
+
+			records := capture.Records()
+			require.Len(t, records, 1)
+			assert.Equal(t, "msg", records[0].Message)
+			assert.Equal(t, tc.wantLevel, records[0].Level)
 		})
 	}
 }
 
 // TestLogToProps_UnknownLevelNoOp asserts an unrecognised level forwards
-// nothing — the mock asserts no calls were made.
+// nothing.
 func TestLogToProps_UnknownLevelNoOp(t *testing.T) {
 	t.Parallel()
 
-	ml := mocklogger.NewMockLogger(t)
-	p := &props.Props{Logger: ml}
+	capture := logger.NewCaptureHandler()
+	p := &props.Props{Logger: slog.New(capture)}
 
 	logToProps(p, "msg", logger.Level(999))
+
+	assert.Empty(t, capture.Records())
 }

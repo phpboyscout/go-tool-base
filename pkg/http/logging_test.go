@@ -62,8 +62,9 @@ func TestLoggingMiddleware_DefaultStructuredFields(t *testing.T) {
 	kv := keyvalMap(entry.Keyvals)
 	assert.Equal(t, "GET", kv["method"])
 	assert.Equal(t, "/api/data", kv["path"])
-	assert.Equal(t, http.StatusOK, kv["status"])
-	assert.Equal(t, 5, kv["bytes"])
+	// slog normalises integer attributes to int64; compare by value.
+	assert.EqualValues(t, http.StatusOK, kv["status"])
+	assert.EqualValues(t, 5, kv["bytes"])
 	assert.Contains(t, kv, "latency")
 	assert.Equal(t, "10.0.0.1", kv["client_ip"])
 	assert.Equal(t, "test-agent/1.0", kv["user_agent"])
@@ -311,7 +312,7 @@ func TestLoggingMiddleware_DefaultStatusCode(t *testing.T) {
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	kv := keyvalMap(buf.Entries()[0].Keyvals)
-	assert.Equal(t, http.StatusOK, kv["status"])
+	assert.EqualValues(t, http.StatusOK, kv["status"])
 }
 
 // --- Format tests ---

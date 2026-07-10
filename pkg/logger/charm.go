@@ -3,13 +3,16 @@ package logger
 import (
 	"io"
 	"log/slog"
-	"os"
 
 	"charm.land/log/v2"
 )
 
-// charmLogger wraps charmbracelet/log to implement the Logger interface.
+// charmLogger is GTB's default application logger. It embeds a *slog.Logger
+// (built over charmbracelet/log's slog.Handler) so it satisfies the Logger
+// interface directly, and retains the underlying *log.Logger to implement the
+// optional Leveller and Reformatter interfaces for runtime reconfiguration.
 type charmLogger struct {
+	*slog.Logger
 	inner *log.Logger
 }
 
@@ -61,70 +64,18 @@ func NewCharm(w io.Writer, opts ...CharmOption) Logger {
 		opt(&o)
 	}
 
-	return &charmLogger{inner: log.NewWithOptions(w, o)}
+	inner := log.NewWithOptions(w, o)
+
+	return &charmLogger{Logger: slog.New(inner), inner: inner}
 }
 
-func (c *charmLogger) Debug(msg string, keyvals ...any) {
-	c.inner.Debug(msg, keyvals...)
+// SetLevel implements Leveller. charmbracelet/log's Level shares slog.Level's
+// numeric values, so the conversion is direct.
+func (c *charmLogger) SetLevel(level slog.Level) {
+	c.inner.SetLevel(log.Level(level))
 }
 
-func (c *charmLogger) Info(msg string, keyvals ...any) {
-	c.inner.Info(msg, keyvals...)
-}
-
-func (c *charmLogger) Warn(msg string, keyvals ...any) {
-	c.inner.Warn(msg, keyvals...)
-}
-
-func (c *charmLogger) Error(msg string, keyvals ...any) {
-	c.inner.Error(msg, keyvals...)
-}
-
-func (c *charmLogger) Fatal(msg string, keyvals ...any) {
-	c.inner.Fatal(msg, keyvals...)
-	os.Exit(1) // charmbracelet/log already calls os.Exit, but just in case
-}
-
-func (c *charmLogger) Debugf(format string, args ...any) {
-	c.inner.Debugf(format, args...)
-}
-
-func (c *charmLogger) Infof(format string, args ...any) {
-	c.inner.Infof(format, args...)
-}
-
-func (c *charmLogger) Warnf(format string, args ...any) {
-	c.inner.Warnf(format, args...)
-}
-
-func (c *charmLogger) Errorf(format string, args ...any) {
-	c.inner.Errorf(format, args...)
-}
-
-func (c *charmLogger) Fatalf(format string, args ...any) {
-	c.inner.Fatalf(format, args...)
-}
-
-func (c *charmLogger) Print(msg any, keyvals ...any) {
-	c.inner.Print(msg, keyvals...)
-}
-
-func (c *charmLogger) With(keyvals ...any) Logger {
-	return &charmLogger{inner: c.inner.With(keyvals...)}
-}
-
-func (c *charmLogger) WithPrefix(prefix string) Logger {
-	return &charmLogger{inner: c.inner.WithPrefix(prefix)}
-}
-
-func (c *charmLogger) SetLevel(level Level) {
-	c.inner.SetLevel(toCharmLevel(level))
-}
-
-func (c *charmLogger) GetLevel() Level {
-	return fromCharmLevel(c.inner.GetLevel())
-}
-
+// SetFormatter implements Reformatter.
 func (c *charmLogger) SetFormatter(f Formatter) {
 	c.inner.SetFormatter(toCharmFormatter(f))
 }
@@ -142,12 +93,6 @@ func toCharmFormatter(f Formatter) log.Formatter {
 	default:
 		return log.TextFormatter
 	}
-}
-
-// Handler returns an slog.Handler for interoperability.
-// charmbracelet/log *Logger natively implements slog.Handler.
-func (c *charmLogger) Handler() slog.Handler {
-	return c.inner
 }
 
 // Inner returns the underlying charmbracelet/log *Logger.
@@ -172,23 +117,5 @@ func toCharmLevel(l Level) log.Level {
 		return log.FatalLevel
 	default:
 		return log.InfoLevel
-	}
-}
-
-// fromCharmLevel converts a charmbracelet/log.Level to a logger.Level.
-func fromCharmLevel(l log.Level) Level {
-	switch l {
-	case log.DebugLevel:
-		return DebugLevel
-	case log.InfoLevel:
-		return InfoLevel
-	case log.WarnLevel:
-		return WarnLevel
-	case log.ErrorLevel:
-		return ErrorLevel
-	case log.FatalLevel:
-		return FatalLevel
-	default:
-		return InfoLevel
 	}
 }

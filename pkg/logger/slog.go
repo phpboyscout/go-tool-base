@@ -2,19 +2,11 @@ package logger
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"os"
 )
 
-// slogLogger wraps an slog.Handler to implement the Logger interface.
-type slogLogger struct {
-	handler slog.Handler
-	inner   *slog.Logger
-	level   *slog.LevelVar
-}
-
-// NewSlog returns a Logger backed by an slog.Handler. Use this when you need
+// NewSlog returns a Logger backed by an slog.Handler. Under the slog-first
+// design this is simply slog.New(handler); it exists as a named constructor for
 // ecosystem integration (OpenTelemetry, Datadog, custom handlers).
 //
 // Any library that implements or bridges to slog.Handler works here:
@@ -22,96 +14,11 @@ type slogLogger struct {
 //	Zap:     logger.NewSlog(zapslog.NewHandler(zapCore))
 //	Zerolog: logger.NewSlog(slogzerolog.Option{Logger: &zl}.NewHandler())
 //	OTEL:    logger.NewSlog(otelslog.NewHandler(exporter))
+//
+// For runtime level control, wrap the handler with NewLevelGate before passing
+// it here (or use NewCharmSlog for GTB's default output).
 func NewSlog(handler slog.Handler) Logger {
-	levelVar := &slog.LevelVar{}
-	levelVar.Set(slog.LevelInfo)
-	leveled := &slogLevelHandler{level: levelVar, handler: handler}
-
-	return &slogLogger{
-		handler: handler,
-		inner:   slog.New(leveled),
-		level:   levelVar,
-	}
-}
-
-func (s *slogLogger) Debug(msg string, keyvals ...any) {
-	s.inner.Debug(msg, keyvals...)
-}
-
-func (s *slogLogger) Info(msg string, keyvals ...any) {
-	s.inner.Info(msg, keyvals...)
-}
-
-func (s *slogLogger) Warn(msg string, keyvals ...any) {
-	s.inner.Warn(msg, keyvals...)
-}
-
-func (s *slogLogger) Error(msg string, keyvals ...any) {
-	s.inner.Error(msg, keyvals...)
-}
-
-func (s *slogLogger) Fatal(msg string, keyvals ...any) {
-	s.inner.Error(msg, keyvals...)
-	os.Exit(1)
-}
-
-func (s *slogLogger) Debugf(format string, args ...any) {
-	s.inner.Debug(fmt.Sprintf(format, args...))
-}
-
-func (s *slogLogger) Infof(format string, args ...any) {
-	s.inner.Info(fmt.Sprintf(format, args...))
-}
-
-func (s *slogLogger) Warnf(format string, args ...any) {
-	s.inner.Warn(fmt.Sprintf(format, args...))
-}
-
-func (s *slogLogger) Errorf(format string, args ...any) {
-	s.inner.Error(fmt.Sprintf(format, args...))
-}
-
-func (s *slogLogger) Fatalf(format string, args ...any) {
-	s.inner.Error(fmt.Sprintf(format, args...))
-	os.Exit(1)
-}
-
-// Print emits at Info level; slog has no unlevelled output concept.
-func (s *slogLogger) Print(msg any, keyvals ...any) {
-	s.inner.Info(fmt.Sprint(msg), keyvals...)
-}
-
-func (s *slogLogger) With(keyvals ...any) Logger {
-	return &slogLogger{
-		handler: s.handler,
-		inner:   s.inner.With(keyvals...),
-		level:   s.level,
-	}
-}
-
-func (s *slogLogger) WithPrefix(prefix string) Logger {
-	return &slogLogger{
-		handler: s.handler,
-		inner:   s.inner.With("prefix", prefix),
-		level:   s.level,
-	}
-}
-
-func (s *slogLogger) SetLevel(level Level) {
-	s.level.Set(toSlogLevel(level))
-}
-
-func (s *slogLogger) GetLevel() Level {
-	return fromSlogLevel(s.level.Level())
-}
-
-// SetFormatter is a no-op for the slog backend.
-// The output format is determined by the handler at construction time.
-func (s *slogLogger) SetFormatter(_ Formatter) {}
-
-// Handler returns the underlying slog.Handler for interoperability.
-func (s *slogLogger) Handler() slog.Handler {
-	return s.handler
+	return slog.New(handler)
 }
 
 // toSlogLevel converts a logger.Level to an slog.Level.

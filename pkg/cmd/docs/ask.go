@@ -52,10 +52,8 @@ func logToProps(p props.LoggerProvider, s string, level logger.Level) {
 		log.Info(s)
 	case logger.WarnLevel:
 		log.Warn(s)
-	case logger.ErrorLevel:
+	case logger.ErrorLevel, logger.FatalLevel:
 		log.Error(s)
-	case logger.FatalLevel:
-		log.Fatal(s)
 	}
 }
 

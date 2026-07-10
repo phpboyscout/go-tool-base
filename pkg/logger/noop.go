@@ -5,37 +5,12 @@ import (
 	"log/slog"
 )
 
-// noopLogger is a Logger that discards all output.
-type noopLogger struct {
-	level Level
-}
-
-// NewNoop returns a Logger that discards all output. Useful for tests where
-// log output is irrelevant.
+// NewNoop returns a Logger that discards all output. Useful for tests where log
+// output is irrelevant. It is a *slog.Logger over a discard handler, so it
+// satisfies the Logger interface directly.
 func NewNoop() Logger {
-	return &noopLogger{level: InfoLevel}
+	return slog.New(noopHandler{})
 }
-
-func (n *noopLogger) Debug(_ string, _ ...any) {}
-func (n *noopLogger) Info(_ string, _ ...any)  {}
-func (n *noopLogger) Warn(_ string, _ ...any)  {}
-func (n *noopLogger) Error(_ string, _ ...any) {}
-func (n *noopLogger) Fatal(_ string, _ ...any) {}
-
-func (n *noopLogger) Debugf(_ string, _ ...any) {}
-func (n *noopLogger) Infof(_ string, _ ...any)  {}
-func (n *noopLogger) Warnf(_ string, _ ...any)  {}
-func (n *noopLogger) Errorf(_ string, _ ...any) {}
-func (n *noopLogger) Fatalf(_ string, _ ...any) {}
-
-func (n *noopLogger) Print(_ any, _ ...any) {}
-
-func (n *noopLogger) With(_ ...any) Logger       { return n }
-func (n *noopLogger) WithPrefix(_ string) Logger { return n }
-func (n *noopLogger) SetLevel(level Level)       { n.level = level }
-func (n *noopLogger) GetLevel() Level            { return n.level }
-func (n *noopLogger) SetFormatter(_ Formatter)   {}
-func (n *noopLogger) Handler() slog.Handler      { return noopHandler{} }
 
 // noopHandler implements slog.Handler and discards all records.
 type noopHandler struct{}
