@@ -39,7 +39,7 @@ func TestGeneratedSigningProjectCompiles(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 	}
 
 	g := New(p, &Config{})
@@ -91,7 +91,7 @@ func TestGeneratedSigningProjectWithSignsBlock(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 	}
 
 	g := New(p, &Config{})

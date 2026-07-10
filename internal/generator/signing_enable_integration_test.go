@@ -40,7 +40,7 @@ func TestEnableDisableSigning_OnExistingProject(t *testing.T) {
 		p := &props.Props{
 			FS:     fs,
 			Logger: l,
-			Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+			Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 		}
 		g := New(p, cfg)
 		g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {

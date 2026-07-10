@@ -19,7 +19,7 @@ func cfgFrom(kv map[string]any) config.Containable {
 		v.Set(k, val)
 	}
 
-	return config.NewContainerFromViper(logger.NewNoop(), v)
+	return config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v)
 }
 
 func TestResolveSharedDefaults(t *testing.T) {
@@ -55,7 +55,7 @@ func TestResolvePreservesEnvAwareSectionUnmarshal(t *testing.T) {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithEnvPrefix("GTB"),
 		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://file-shared:4318\n  tracing:\n    enabled: true\n    endpoint: https://file-tracing:4318\n    insecure: false\n")),
@@ -111,7 +111,7 @@ func TestObserveSettingsFromConfigInitialSnapshot(t *testing.T) {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  insecure: true\n  tracing:\n    enabled: true\n")),
 	)
@@ -129,7 +129,7 @@ func TestObserveSettingsFromConfigRehydratesSharedDefaults(t *testing.T) {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  tracing:\n    enabled: true\n")),
 	)
@@ -161,7 +161,7 @@ func TestObserveSettingsFromConfigRehydratesSignalOverrides(t *testing.T) {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  metrics:\n    enabled: true\n")),
 	)
@@ -181,7 +181,7 @@ func TestObserveSettingsFromConfigUnchangedReloadDoesNotIncrementVersion(t *test
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  logs:\n    enabled: true\n")),
 	)

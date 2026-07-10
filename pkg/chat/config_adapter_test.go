@@ -22,7 +22,7 @@ func TestConfigAdapter_LoadsTypedSections(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithEnvPrefix("GTB"),
 		config.WithConfigReaders(strings.NewReader(`
@@ -279,7 +279,7 @@ func TestNew_AppliesTypedConfigBeforeProviderFactory(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithEnvPrefix("GTB"),
 		config.WithConfigReaders(strings.NewReader(`

@@ -2,9 +2,8 @@ package config
 
 import (
 	"io"
+	"log/slog"
 	"time"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // DefaultReloadDebounce is the default coalescing window applied to the burst
@@ -16,7 +15,7 @@ const DefaultReloadDebounce = 250 * time.Millisecond
 type ContainerOption func(*containerOptions)
 
 type containerOptions struct {
-	logger         logger.Logger
+	logger         *slog.Logger
 	envPrefix      string
 	configFiles    []string
 	configFormat   string
@@ -27,7 +26,7 @@ type containerOptions struct {
 
 // WithLogger sets the logger for the config container. When not provided,
 // a no-op logger is used.
-func WithLogger(l logger.Logger) ContainerOption {
+func WithLogger(l *slog.Logger) ContainerOption {
 	return func(o *containerOptions) {
 		o.logger = l
 	}
@@ -92,7 +91,7 @@ func applyOptions(opts []ContainerOption) *containerOptions {
 	}
 
 	if o.logger == nil {
-		o.logger = logger.NewNoop()
+		o.logger = slog.New(slog.DiscardHandler)
 	}
 
 	if o.reloadDebounce <= 0 {

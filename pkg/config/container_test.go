@@ -31,7 +31,7 @@ func TestContainer_ConfigFiles(t *testing.T) {
 
 	t.Run("empty for reader containers", func(t *testing.T) {
 		t.Parallel()
-		c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(log),
+		c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(log)),
 			config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
 		assert.Empty(t, c.ConfigFiles())
 	})
@@ -41,7 +41,7 @@ func TestContainer_ConfigFiles(t *testing.T) {
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "first.yaml", []byte("key: a"), 0o644))
 		require.NoError(t, afero.WriteFile(fs, "second.yaml", []byte("key: b"), 0o644))
-		c, err := config.LoadFilesContainer(fs, config.WithLogger(log),
+		c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(log)),
 			config.WithConfigFiles("first.yaml", "second.yaml"))
 		require.NoError(t, err)
 
@@ -52,7 +52,7 @@ func TestContainer_ConfigFiles(t *testing.T) {
 		t.Parallel()
 		fs := afero.NewMemMapFs()
 		require.NoError(t, afero.WriteFile(fs, "cfg.yaml", []byte("key: a"), 0o644))
-		c, err := config.LoadFilesContainer(fs, config.WithLogger(log),
+		c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(log)),
 			config.WithConfigFiles("cfg.yaml"))
 		require.NoError(t, err)
 
@@ -85,7 +85,7 @@ func TestContainer_AddObserver(t *testing.T) {
 		// cannot deliver them.
 		c := config.NewFilesContainer(
 			afero.NewOsFs(),
-			config.WithLogger(log),
+			config.WithLogger(logger.ToSlog(log)),
 			config.WithConfigFiles(filename),
 			config.WithReloadDebounce(20*time.Millisecond),
 		)
@@ -131,7 +131,7 @@ func TestContainer_Sub(t *testing.T) {
 	t.Parallel()
 
 	l := logger.NewNoop()
-	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(secondMockFilesYaml)))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(l)), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(secondMockFilesYaml)))
 	s := c.Sub("yaml.more")
 
 	assert.Equal(t, "secondfile", s.GetString("key2"))
@@ -153,7 +153,7 @@ func TestContainer_Sub_PreservesEnvBinding(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		// minimal structure so Viper's Sub returns non-nil
 		config.WithConfigReaders(strings.NewReader("github:\n  placeholder: x\n")),
@@ -177,7 +177,7 @@ func TestContainer_Sub_NestedPreservesEnvBinding(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("bitbucket:\n  auth:\n    placeholder: x\n")),
 		config.WithEnvPrefix("GTB"),
@@ -196,7 +196,7 @@ func TestContainer_GetViper(t *testing.T) {
 	t.Parallel()
 
 	l := logger.NewNoop()
-	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(firstMockFilesYaml)))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(l)), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(firstMockFilesYaml)))
 	v := c.GetViper()
 
 	assert.Equal(t, "value", v.GetString("yaml.key"))

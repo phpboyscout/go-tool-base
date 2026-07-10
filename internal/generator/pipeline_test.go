@@ -27,7 +27,7 @@ func setupTestProject(t *testing.T, path string) *props.Props {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 	}
 
 	g := New(p, &Config{})

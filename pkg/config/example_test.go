@@ -18,7 +18,7 @@ log:
 server:
   port: 8080
 `
-	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(yaml)))
+	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(l)), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader(yaml)))
 
 	fmt.Println("Level:", cfg.GetString("log.level"))
 	fmt.Println("Port:", cfg.GetInt("server.port"))
@@ -58,7 +58,7 @@ func ExampleContainer_Validate() {
 	}
 
 	l := logger.NewNoop()
-	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(l), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("log:\n  level: verbose\n")))
+	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(l)), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("log:\n  level: verbose\n")))
 
 	schema, _ := config.NewSchema(config.WithStructSchema(AppConfig{}))
 
@@ -75,7 +75,7 @@ func ExampleObserveSection() {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("server:\n  port: 8080\n")),
 	)

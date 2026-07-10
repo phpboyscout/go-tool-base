@@ -24,7 +24,7 @@ import (
 )
 
 func testCfg() config.Containable {
-	c := config.NewContainerFromViper(logger.NewCharm(io.Discard), viper.New())
+	c := config.NewContainerFromViper(logger.ToSlog(logger.NewCharm(io.Discard)), viper.New())
 	c.Set("server.grpc.port", 50099)
 
 	return c
@@ -36,7 +36,7 @@ func testCfg() config.Containable {
 func cfgWithGatewayPort(t *testing.T, port int) config.Containable {
 	t.Helper()
 
-	c := config.NewContainerFromViper(logger.NewNoop(), viper.New())
+	c := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
 	c.Set("server.gateway.port", port)
 	c.Set("server.grpc.port", 50099)
 
@@ -48,7 +48,7 @@ func gatewayCfgFromYAML(t *testing.T, yaml string) *config.Container {
 
 	return config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(yaml)),
 	)
@@ -146,7 +146,7 @@ func TestWithDialOptions(t *testing.T) {
 func TestNewFromContainable_DialLocalError(t *testing.T) {
 	t.Parallel()
 
-	c := config.NewContainerFromViper(logger.NewNoop(), viper.New())
+	c := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
 	c.Set("server.grpc.tls.enabled", true)
 	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
 
@@ -157,7 +157,7 @@ func TestNewFromContainable_DialLocalError(t *testing.T) {
 func TestRegisterFromContainable_PropagatesNewError(t *testing.T) {
 	t.Parallel()
 
-	c := config.NewContainerFromViper(logger.NewNoop(), viper.New())
+	c := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
 	c.Set("server.grpc.tls.enabled", true)
 	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
 

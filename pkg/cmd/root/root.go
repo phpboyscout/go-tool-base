@@ -97,7 +97,7 @@ func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
 
 // configOpts builds the common ContainerOption slice from Props.
 func configOpts(props *p.Props) []config.ContainerOption {
-	opts := []config.ContainerOption{config.WithLogger(props.Logger)}
+	opts := []config.ContainerOption{config.WithLogger(logger.ToSlog(props.Logger))}
 	if props.Tool.EnvPrefix != "" {
 		opts = append(opts, config.WithEnvPrefix(props.Tool.EnvPrefix))
 	}

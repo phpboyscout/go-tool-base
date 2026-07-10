@@ -37,7 +37,7 @@ import (
 func TestLoad(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.NewNoop()
+	logger := logger.ToSlog(logger.NewNoop())
 	mockConfigYaml := `test:
   key: "value"
   nested:
@@ -157,7 +157,7 @@ func TestLoad(t *testing.T) {
 func TestLoad_FileSystemErrors(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.NewNoop()
+	logger := logger.ToSlog(logger.NewNoop())
 
 	t.Run("file system stat error handling", func(t *testing.T) {
 		t.Parallel()
@@ -176,7 +176,7 @@ func TestLoad_FileSystemErrors(t *testing.T) {
 func TestLoadEmbed(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.NewNoop()
+	logger := logger.ToSlog(logger.NewNoop())
 
 	t.Run("with empty embedded filesystem", func(t *testing.T) {
 		t.Parallel()
@@ -358,7 +358,7 @@ invalid: yaml: content:
 func TestLoad_Integration(t *testing.T) {
 	t.Parallel()
 
-	logger := logger.NewNoop()
+	logger := logger.ToSlog(logger.NewNoop())
 
 	t.Run("loaded container has expected functionality", func(t *testing.T) {
 		t.Parallel()
@@ -410,7 +410,7 @@ func TestLoadEnv_WithDotEnvFile(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() { _ = os.Chdir(prev) })
 
-	config.LoadEnv(fs, logger.NewNoop())
+	config.LoadEnv(fs, logger.ToSlog(logger.NewNoop()))
 
 	assert.Equal(t, "loaded", os.Getenv("LOAD_ENV_TEST_VAR"))
 }
@@ -454,7 +454,7 @@ func TestLoadEmbed_HonoursCallerFormat(t *testing.T) {
 	container, err := config.LoadEmbed(
 		[]string{"config.json"},
 		mockFS,
-		config.WithLogger(log),
+		config.WithLogger(logger.ToSlog(log)),
 		config.WithConfigFormat("json"),
 	)
 	require.NoError(t, err)
@@ -475,7 +475,7 @@ func TestLoadEmbed_DefaultsToYAML(t *testing.T) {
 	}
 
 	// No WithConfigFormat supplied: the YAML default must still apply.
-	container, err := config.LoadEmbed([]string{"config.yaml"}, mockFS, config.WithLogger(log))
+	container, err := config.LoadEmbed([]string{"config.yaml"}, mockFS, config.WithLogger(logger.ToSlog(log)))
 	require.NoError(t, err)
 	require.NotNil(t, container)
 

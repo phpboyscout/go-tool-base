@@ -187,7 +187,7 @@ func TestCmdEdit_SeedsNewFile(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
-	c := gtbconfig.NewReaderContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c := gtbconfig.NewReaderContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFormat("yaml"),
 		gtbconfig.WithConfigReaders(strings.NewReader("log:\n  level: info\n")))
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "seedtool"}}

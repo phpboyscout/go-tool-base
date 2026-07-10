@@ -44,7 +44,7 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 	}
 
 	// Use a no-op runCommand so the skeleton does not auto-run

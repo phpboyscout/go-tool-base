@@ -46,7 +46,7 @@ func cfgWith(kv map[string]any) *config.Container {
 		v.Set(k, val)
 	}
 
-	return config.NewContainerFromViper(logger.NewNoop(), v)
+	return config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v)
 }
 
 func TestResolveEndpoint(t *testing.T) {
@@ -167,7 +167,7 @@ func TestSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T) {
 	p := &props.Props{
 		Tool:   props.Tool{Name: "tool"},
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(logger.NewNoop(), v),
+		Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
 		FS:     memfs,
 	}
 
@@ -233,7 +233,7 @@ func TestNewResetCmd(t *testing.T) {
 				DeletionRequestor: func(*props.Props) any { return fakeRequestor{err: reqErr} },
 			}},
 			Logger:    log,
-			Config:    config.NewContainerFromViper(logger.NewNoop(), v),
+			Config:    config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
 			FS:        memfs,
 			Collector: props.NoopCollector{},
 		}

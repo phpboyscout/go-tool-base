@@ -30,7 +30,7 @@ func newTestProps(t *testing.T, apiURL string) *p.Props {
 	memFS := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0o644))
 
-	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, false, config.WithLogger(l))
+	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, false, config.WithLogger(logger.ToSlog(l)))
 	require.NoError(t, err)
 
 	t.Setenv("GITHUB_TOKEN", "dummy")

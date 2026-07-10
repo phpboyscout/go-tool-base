@@ -18,7 +18,7 @@ func newReaderContainer(t *testing.T, yaml string) config.Containable {
 
 	return config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(bytes.NewReader([]byte(yaml))),
 	)

@@ -24,7 +24,7 @@ func TestConfigFromContainable_PreservesEnvAwareSubtrees(t *testing.T) {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithEnvPrefix("GTB"),
 		config.WithConfigReaders(strings.NewReader("github:\n  auth:\n    value: file-token\n  url:\n    api: https://file.example.com/api/v3/\n")),

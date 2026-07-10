@@ -31,7 +31,7 @@ func newIntegrationProject(t *testing.T) (*props.Props, string) {
 	p := &props.Props{
 		FS:      fs,
 		Logger:  l,
-		Config:  config.NewFilesContainer(fs, config.WithLogger(l)),
+		Config:  config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 
@@ -526,7 +526,7 @@ func TestSkeletonFeatures_DisabledFeaturesOmitFiles(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 	}
 
 	path := "/feature-test"
@@ -610,7 +610,7 @@ func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
 			p := &props.Props{
 				FS:     fs,
 				Logger: l,
-				Config: config.NewFilesContainer(fs, config.WithLogger(l)),
+				Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
 			}
 
 			path := filepath.Join("/", "kc-test", tc.name)

@@ -41,7 +41,7 @@ func TestHotReload_MergePreserved(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(base, over),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -91,7 +91,7 @@ func TestHotReload_ValidationRollback(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(file),
 		config.WithSchema(schema),
 		config.WithReloadDebounce(testDebounce),
@@ -148,7 +148,7 @@ func TestHotReload_PartialMergeFailClosed(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(f0, f1, f2),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -193,7 +193,7 @@ func TestHotReload_ObserverErrorNoDeadlock(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(file),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -239,7 +239,7 @@ func TestHotReload_PrimaryFileRemovedFailClosed(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(f0, f1),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -276,7 +276,7 @@ func TestHotReload_EnvPrefixPreservedAcrossReload(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithEnvPrefix("GTBTEST"),
 		config.WithConfigFiles(f0, f1),
 		config.WithReloadDebounce(testDebounce),
@@ -316,7 +316,7 @@ func TestHotReload_CloseIdempotent(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(f),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -339,7 +339,7 @@ func TestHotReload_RaceConcurrentObservers(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(f0, f1),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -422,7 +422,7 @@ func TestHotReload_OnReloadError_Validation(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(file),
 		config.WithSchema(schema),
 		config.WithReloadDebounce(testDebounce),
@@ -481,7 +481,7 @@ func TestHotReload_OnReloadError_PartialMergeFailClosed(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(f0, f1),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -526,7 +526,7 @@ func TestHotReload_OnReloadError_NotCalledOnSuccess(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(file),
 		config.WithReloadDebounce(testDebounce),
 	)
@@ -580,7 +580,7 @@ func TestHotReload_RaceConcurrentReloadErrors(t *testing.T) {
 
 	c := config.NewFilesContainer(
 		afero.NewOsFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFiles(file),
 		config.WithSchema(schema),
 		config.WithReloadDebounce(testDebounce),

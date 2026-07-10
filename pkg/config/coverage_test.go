@@ -21,7 +21,7 @@ func TestContainer_TypedAccessors(t *testing.T) {
 
 	c := NewReaderContainer(
 		afero.NewMemMapFs(),
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFormat("yaml"),
 		WithConfigReaders(strings.NewReader(
 			"ratio: 1.5\n"+
@@ -58,7 +58,7 @@ func TestNewContainerFromViper(t *testing.T) {
 			v := viper.New()
 			v.Set("foo.bar", "baz")
 
-			c := NewContainerFromViper(tt.log, v)
+			c := NewContainerFromViper(logger.ToSlog(tt.log), v)
 			require.NotNil(t, c)
 			assert.Equal(t, "viper", c.ID)
 			assert.NotNil(t, c.logger)
@@ -72,7 +72,7 @@ func TestNewContainerFromViper(t *testing.T) {
 func TestLoadFilesContainer_NoConfigFiles(t *testing.T) {
 	t.Parallel()
 
-	o := applyOptions([]ContainerOption{WithLogger(logger.NewNoop())})
+	o := applyOptions([]ContainerOption{WithLogger(logger.ToSlog(logger.NewNoop()))})
 
 	c, err := loadFilesContainer(afero.NewMemMapFs(), o)
 	require.Error(t, err)
@@ -84,7 +84,7 @@ func TestLoadFilesContainer_PrimaryMissingReturnsNilNil(t *testing.T) {
 	t.Parallel()
 
 	o := applyOptions([]ContainerOption{
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFiles("/does-not-exist.yaml"),
 	})
 
@@ -100,7 +100,7 @@ func TestLoadFilesContainer_ReadError(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/bad.yaml", []byte("key: [unterminated\n"), 0o644))
 
 	o := applyOptions([]ContainerOption{
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFiles("/bad.yaml"),
 	})
 
@@ -118,7 +118,7 @@ func TestLoadFilesContainer_MergesSecondaryAndSkipsMissing(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/b.yaml", []byte("b: 2\n"), 0o644))
 
 	o := applyOptions([]ContainerOption{
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		// /missing.yaml is silently skipped; /b.yaml is merged.
 		WithConfigFiles("/a.yaml", "/missing.yaml", "/b.yaml"),
 	})
@@ -138,7 +138,7 @@ func TestLoadFilesContainer_MergeFailureLogsWarning(t *testing.T) {
 	require.NoError(t, afero.WriteFile(fs, "/b.yaml", []byte("b: [bad\n"), 0o644))
 
 	o := applyOptions([]ContainerOption{
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFiles("/a.yaml", "/b.yaml"),
 	})
 
@@ -155,7 +155,7 @@ func TestLoadFilesContainer_MergeFailureLogsWarning(t *testing.T) {
 func TestHandleReadFileError_NonPathError(t *testing.T) {
 	t.Parallel()
 
-	c := &Container{logger: logger.NewNoop()}
+	c := &Container{logger: logger.ToSlog(logger.NewNoop())}
 
 	// A non-PathError (e.g. a parse error) exercises the "other errors" branch.
 	c.handleReadFileError(errFromString("some parse failure"))
@@ -170,7 +170,7 @@ func TestContainer_DumpWritesJSON(t *testing.T) {
 
 	c := NewReaderContainer(
 		afero.NewMemMapFs(),
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFormat("yaml"),
 		WithConfigReaders(strings.NewReader("key: value\n")),
 	)
@@ -342,7 +342,7 @@ func TestValidateStruct_Success(t *testing.T) {
 
 	c := NewReaderContainer(
 		afero.NewMemMapFs(),
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFormat("yaml"),
 		WithConfigReaders(strings.NewReader("token: present\n")),
 	)
@@ -355,7 +355,7 @@ func TestValidateStruct_ValidationFailure(t *testing.T) {
 
 	c := NewReaderContainer(
 		afero.NewMemMapFs(),
-		WithLogger(logger.NewNoop()),
+		WithLogger(logger.ToSlog(logger.NewNoop())),
 		WithConfigFormat("yaml"),
 		WithConfigReaders(strings.NewReader("other: x\n")),
 	)

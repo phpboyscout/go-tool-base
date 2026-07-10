@@ -19,7 +19,7 @@ import (
 func injectProps(tool props.Tool) *props.Props {
 	return &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(logger.NewNoop(), viper.New()),
+		Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New()),
 		Tool:   tool,
 	}
 }

@@ -88,7 +88,7 @@ func TestNewUpdater_UnknownProviderErrors(t *testing.T) {
 
 	p := &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(logger.NewNoop(), v),
+		Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
 		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github", Owner: "o", Repo: "r"}},
 	}
 
@@ -100,7 +100,7 @@ func TestNewUpdater_UnknownProviderErrors(t *testing.T) {
 // It mutates process env via t.Setenv, so it is not parallel.
 func TestRequireReleaseToken(t *testing.T) {
 	ctx := context.Background()
-	p := &props.Props{Logger: logger.NewNoop(), Config: config.NewContainerFromViper(logger.NewNoop(), viper.New())}
+	p := &props.Props{Logger: logger.NewNoop(), Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())}
 
 	t.Run("bitbucket needs no single token", func(t *testing.T) {
 		require.NoError(t, requireReleaseToken(ctx, "bitbucket", p))

@@ -20,7 +20,7 @@ func TestGenerateSkeleton_DiataxisDocsTree(t *testing.T) {
 	const root = "/work"
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	p := &props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs, config.WithLogger(l))}
+	p := &props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))}
 
 	g := New(p, &Config{})
 	g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {

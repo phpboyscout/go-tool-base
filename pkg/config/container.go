@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -13,8 +14,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // Containable is the primary configuration interface. It provides typed
@@ -89,7 +88,7 @@ type Containable interface {
 type Container struct {
 	ID     string
 	viper  *viper.Viper
-	logger logger.Logger
+	logger *slog.Logger
 	// mu guards viper (swapped on reload), observers, and schema
 	// against concurrent access from the watcher goroutine.
 	mu        sync.Mutex

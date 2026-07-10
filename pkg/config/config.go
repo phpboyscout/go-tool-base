@@ -2,19 +2,18 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func initContainer(fs afero.Fs, opts *containerOptions) *Container {
 	l := opts.logger
 	if l == nil {
-		l = logger.NewNoop()
+		l = slog.New(slog.DiscardHandler)
 	}
 
 	debounce := opts.reloadDebounce
@@ -58,9 +57,9 @@ func newResolverViper(fs afero.Fs, envPrefix string) *viper.Viper {
 
 // NewContainerFromViper creates a new Container from an existing Viper instance.
 // If l is nil, a no-op logger is used.
-func NewContainerFromViper(l logger.Logger, v *viper.Viper) *Container {
+func NewContainerFromViper(l *slog.Logger, v *viper.Viper) *Container {
 	if l == nil {
-		l = logger.NewNoop()
+		l = slog.New(slog.DiscardHandler)
 	}
 
 	return &Container{

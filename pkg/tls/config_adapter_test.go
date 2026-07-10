@@ -16,7 +16,7 @@ import (
 )
 
 func newTestConfig() config.Containable {
-	return config.NewContainerFromViper(logger.NewCharm(io.Discard), viper.New())
+	return config.NewContainerFromViper(logger.ToSlog(logger.NewCharm(io.Discard)), viper.New())
 }
 
 func TestResolve_SharedAndOverride(t *testing.T) {
@@ -64,7 +64,7 @@ func TestResolve_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithEnvPrefix("GTB"),
 		config.WithConfigReaders(strings.NewReader(`

@@ -27,7 +27,7 @@ var secondMockFilesYaml = `yaml:
 
 func TestLoadFilesContainer_NoFiles(t *testing.T) {
 	t.Parallel()
-	_, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()))
+	_, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no config files specified")
 }
@@ -37,7 +37,7 @@ func TestLoadFilesContainer_NonExistentFile(t *testing.T) {
 	// Documented contract: LoadFilesContainer "returns an error if the first
 	// file specified does not exist." It must never return (nil, nil), or
 	// callers that branch on err alone proceed with a nil Containable and panic.
-	c, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles("/does/not/exist.yaml"))
+	c, err := config.LoadFilesContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles("/does/not/exist.yaml"))
 	require.Error(t, err)
 	require.ErrorIs(t, err, config.ErrConfigFileNotFound)
 	assert.Nil(t, c)
@@ -47,7 +47,7 @@ func TestLoadFilesContainer_ExistingFile(t *testing.T) {
 	t.Parallel()
 	fs := afero.NewMemMapFs()
 	require.NoError(t, afero.WriteFile(fs, "cfg.yaml", []byte("key: hello"), 0o644))
-	c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.NewNoop()), config.WithConfigFiles("cfg.yaml"))
+	c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles("cfg.yaml"))
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	assert.Equal(t, "hello", c.GetString("key"))
@@ -55,7 +55,7 @@ func TestLoadFilesContainer_ExistingFile(t *testing.T) {
 
 func TestContainer_IsSet_Set(t *testing.T) {
 	t.Parallel()
-	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
 	assert.True(t, c.IsSet("foo"))
 	assert.False(t, c.IsSet("nonexistent"))
 	c.Set("newkey", "newval")
@@ -66,7 +66,7 @@ func TestContainer_IsSet_Set(t *testing.T) {
 func TestContainer_WriteConfigAs(t *testing.T) {
 	t.Parallel()
 	fs := afero.NewMemMapFs()
-	c := config.NewFilesContainer(fs, config.WithLogger(logger.NewNoop()))
+	c := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(logger.NewNoop())))
 	c.Set("written", "yes")
 	tmpName := "/tmp/test-write-cfg.yaml"
 	require.NoError(t, c.WriteConfigAs(tmpName))
@@ -77,14 +77,14 @@ func TestContainer_WriteConfigAs(t *testing.T) {
 
 func TestContainer_Sub_Nil(t *testing.T) {
 	t.Parallel()
-	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("foo: bar")))
 	sub := c.Sub("nonexistent")
 	assert.Nil(t, sub)
 }
 
 func TestContainer_ToJSON_Dump(t *testing.T) {
 	t.Parallel()
-	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("name: myapp\nversion: 1")))
+	c := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("name: myapp\nversion: 1")))
 	j := c.ToJSON()
 	assert.Contains(t, j, "myapp")
 	var buf strings.Builder
@@ -94,7 +94,7 @@ func TestContainer_ToJSON_Dump(t *testing.T) {
 
 func TestNewFilesContainer(t *testing.T) {
 	t.Parallel()
-	logger := logger.NewNoop()
+	logger := logger.ToSlog(logger.NewNoop())
 
 	t.Run("with single config file", func(t *testing.T) {
 		t.Parallel()
@@ -127,7 +127,7 @@ func TestNewFilesContainer(t *testing.T) {
 
 func TestNewReaderContainer(t *testing.T) {
 	t.Parallel()
-	logger := logger.NewNoop()
+	logger := logger.ToSlog(logger.NewNoop())
 
 	t.Run("with single config reader", func(t *testing.T) {
 		t.Parallel()

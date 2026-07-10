@@ -48,7 +48,7 @@ func (m *MockChatClient) Usage() chat.Usage {
 func TestGenerateDocs_Command(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(l))
+	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))
 	cfgContainer.GetViper().Set("ai.provider", "mock")
 	cfgContainer.GetViper().Set("ai.model", "test-model")
 
@@ -113,7 +113,7 @@ This is a generated doc.
 func TestGenerateDocs_Package(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(l))
+	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))
 
 	// Setup mock FS
 	root := "/work"
@@ -568,7 +568,7 @@ func TestGenerateCommandsIndex(t *testing.T) {
 func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(l))
+	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))
 	// Deliberately NO ai.provider set.
 
 	root := "/work"

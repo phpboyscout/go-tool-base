@@ -24,7 +24,7 @@ func testProps(kv map[string]any) *props.Props {
 	return &props.Props{
 		Tool:    props.Tool{Name: "macguffinsvc"},
 		Version: version.NewInfo("v1.2.3", "abc123", "2026-06-01"),
-		Config:  config.NewContainerFromViper(logger.NewNoop(), v),
+		Config:  config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
 		Logger:  logger.NewNoop(),
 	}
 }

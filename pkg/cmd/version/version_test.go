@@ -55,7 +55,7 @@ func TestNewCmdVersion(t *testing.T) {
 	_ = afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0644)
 
 	l := logger.NewNoop()
-	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, false, config.WithLogger(l))
+	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, false, config.WithLogger(logger.ToSlog(l)))
 	require.NoError(t, err)
 
 	t.Setenv("GITHUB_TOKEN", "dummy")

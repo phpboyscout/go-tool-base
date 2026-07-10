@@ -178,7 +178,7 @@ func TestRequireReleaseToken_GiteaCodebergDirect(t *testing.T) {
 			// Not parallel: mutates process env via t.Setenv.
 			t.Setenv(tt.fallbackEnv, "")
 
-			cfg := config.NewContainerFromViper(logger.NewNoop(), viper.New())
+			cfg := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
 			p := &props.Props{Config: cfg}
 
 			require.Error(t, requireReleaseToken(context.Background(), tt.vcsProvider, p))
@@ -190,7 +190,7 @@ func TestRequireReleaseToken_GiteaCodebergDirect(t *testing.T) {
 			v := viper.New()
 			v.Set(tt.vcsProvider+".auth.value", "secret-token")
 
-			cfg := config.NewContainerFromViper(logger.NewNoop(), v)
+			cfg := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v)
 			p := &props.Props{Config: cfg}
 
 			require.NoError(t, requireReleaseToken(context.Background(), tt.vcsProvider, p))

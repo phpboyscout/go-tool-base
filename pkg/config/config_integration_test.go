@@ -38,7 +38,7 @@ database:
   host: db.local
 `), 0o644))
 
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(primary, secondary))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(primary, secondary))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -68,7 +68,7 @@ app:
 
 	missing := filepath.Join(dir, "nonexistent.yaml")
 
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(primary, missing))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(primary, missing))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -83,7 +83,7 @@ func TestLoadFilesContainer_MissingPrimaryReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	missing := filepath.Join(dir, "missing.yaml")
 
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(missing))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(missing))
 	require.ErrorIs(t, err, config.ErrConfigFileNotFound)
 	assert.Nil(t, cfg)
 }
@@ -99,7 +99,7 @@ func TestLoadFilesContainer_InvalidYAML(t *testing.T) {
 not: valid: yaml: [broken
 `), 0o644))
 
-	_, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(primary))
+	_, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(primary))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read config file")
 }
@@ -116,7 +116,7 @@ func TestLoadFilesContainer_InvalidSecondaryLogWarning(t *testing.T) {
 	require.NoError(t, os.WriteFile(secondary, []byte("not: valid: [broken\n"), 0o644))
 
 	log := logger.NewBuffer()
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(log), config.WithConfigFiles(primary, secondary))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(log)), config.WithConfigFiles(primary, secondary))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -142,7 +142,7 @@ server:
 
 	t.Setenv("SERVER_PORT", "3000")
 
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(cfgFile))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(cfgFile))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -181,7 +181,7 @@ server:
       cert: /etc/ssl/cert.pem
 `), 0o644))
 
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(base, overlay))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(base, overlay))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -212,7 +212,7 @@ logging:
 		},
 	}
 
-	embeddedCfg, err := config.LoadEmbed([]string{"defaults.yaml"}, embeddedFS, config.WithLogger(logger.NewNoop()))
+	embeddedCfg, err := config.LoadEmbed([]string{"defaults.yaml"}, embeddedFS, config.WithLogger(logger.ToSlog(logger.NewNoop())))
 	require.NoError(t, err)
 	require.NotNil(t, embeddedCfg)
 
@@ -230,7 +230,7 @@ logging:
   level: debug
 `), 0o644))
 
-	fileCfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(userConfig))
+	fileCfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(userConfig))
 	require.NoError(t, err)
 	require.NotNil(t, fileCfg)
 
@@ -252,7 +252,7 @@ func TestLoadEnv_DotEnvFileLoaded(t *testing.T) {
 
 	// Use an OsFs rooted at the temp dir to find .env
 	fs := afero.NewBasePathFs(afero.NewOsFs(), dir)
-	config.LoadEnv(fs, logger.NewNoop())
+	config.LoadEnv(fs, logger.ToSlog(logger.NewNoop()))
 
 	assert.Equal(t, "from_dotenv", os.Getenv("GTB_INT_TEST_DOTENV_VAR"))
 }
@@ -266,14 +266,14 @@ func TestLoad_AllowEmptyConfig(t *testing.T) {
 
 	t.Run("disallowed_returns_error", func(t *testing.T) {
 		t.Parallel()
-		_, err := config.Load([]string{missing}, afero.NewOsFs(), false, config.WithLogger(logger.NewNoop()))
+		_, err := config.Load([]string{missing}, afero.NewOsFs(), false, config.WithLogger(logger.ToSlog(logger.NewNoop())))
 		require.Error(t, err)
 		assert.ErrorIs(t, err, config.ErrNoFilesFound)
 	})
 
 	t.Run("allowed_returns_empty_container", func(t *testing.T) {
 		t.Parallel()
-		cfg, err := config.Load([]string{missing}, afero.NewOsFs(), true, config.WithLogger(logger.NewNoop()))
+		cfg, err := config.Load([]string{missing}, afero.NewOsFs(), true, config.WithLogger(logger.ToSlog(logger.NewNoop())))
 		require.NoError(t, err)
 		// Returns an empty container (not nil) — no values set
 		require.NotNil(t, cfg)
@@ -319,7 +319,7 @@ database:
   password: secret
 `), 0o644))
 
-	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.NewNoop()), config.WithConfigFiles(defaults, project, local))
+	cfg, err := config.LoadFilesContainer(afero.NewOsFs(), config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(defaults, project, local))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -355,7 +355,7 @@ server:
   port: 8080
 `), 0o644))
 
-	_, err = config.LoadFilesContainerWithSchema(afero.NewOsFs(), schema, config.WithLogger(logger.NewNoop()), config.WithConfigFiles(cfgFile))
+	_, err = config.LoadFilesContainerWithSchema(afero.NewOsFs(), schema, config.WithLogger(logger.ToSlog(logger.NewNoop())), config.WithConfigFiles(cfgFile))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "server.host")
 }

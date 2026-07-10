@@ -22,7 +22,7 @@ func cfgFromYAML(t *testing.T, yaml string) config.Containable {
 
 	return config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(yaml)),
 	)
@@ -33,7 +33,7 @@ func prefixedCfgFromYAML(t *testing.T, prefix, yaml string) config.Containable {
 
 	return config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithEnvPrefix(prefix),
 		config.WithConfigReaders(strings.NewReader(yaml)),
@@ -89,7 +89,7 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("server:\n  port: 18080\n  http: {}\n")),
 	)
@@ -122,7 +122,7 @@ func TestObserveServerSettingsFromConfig_UnchangedReloadDoesNotIncrementVersion(
 
 	cfg := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("server:\n  port: 18080\n  http: {}\n")),
 	)

@@ -25,7 +25,7 @@ func newFileConfig(t *testing.T, contents string) (*props.Props, afero.Fs, strin
 	require.NoError(t, afero.WriteFile(fs, path, []byte(contents), 0o600))
 
 	c, err := gtbconfig.LoadFilesContainer(fs,
-		gtbconfig.WithLogger(logger.NewNoop()),
+		gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(path),
 	)
 	require.NoError(t, err)

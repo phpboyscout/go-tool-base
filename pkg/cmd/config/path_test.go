@@ -39,7 +39,7 @@ func TestCmdPath_SingleFile(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(path))
 	require.NoError(t, err)
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
@@ -57,7 +57,7 @@ func TestCmdPath_MultiFileMergeOrder(t *testing.T) {
 	first, second := "/etc/tool/config.yaml", "/home/u/.tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, first, []byte("log:\n  level: info\n"), 0o600))
 	require.NoError(t, afero.WriteFile(fs, second, []byte("log:\n  level: debug\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(first, second))
 	require.NoError(t, err)
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
@@ -71,7 +71,7 @@ func TestCmdPath_NoFile(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
-	c := gtbconfig.NewReaderContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c := gtbconfig.NewReaderContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFormat("yaml"), gtbconfig.WithConfigReaders(strings.NewReader("log:\n  level: info\n")))
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
 
@@ -87,7 +87,7 @@ func TestCmdPath_Writable(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(path))
 	require.NoError(t, err)
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
@@ -103,7 +103,7 @@ func TestCmdPath_JSONOutput(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(path))
 	require.NoError(t, err)
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
@@ -119,7 +119,7 @@ func TestCmdPath_YAMLOutput(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(path))
 	require.NoError(t, err)
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
@@ -135,7 +135,7 @@ func TestCmdPath_WritableJSON(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.NewNoop()),
+	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
 		gtbconfig.WithConfigFiles(path))
 	require.NoError(t, err)
 	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}

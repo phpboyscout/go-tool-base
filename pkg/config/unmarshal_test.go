@@ -47,7 +47,7 @@ func TestContainer_Unmarshal(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -68,7 +68,7 @@ func TestContainer_UnmarshalKey(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -93,7 +93,7 @@ func TestContainer_UnmarshalKey_RejectsInvalidTargets(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -112,7 +112,7 @@ func TestContainer_UnmarshalKey_PreservesEnvBinding(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -134,7 +134,7 @@ func TestContainer_UnmarshalKey_SubContainerPreservesEnvBinding(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 providers:
@@ -158,7 +158,7 @@ func TestContainer_UnmarshalKey_OverlaysResolvedComplexFields(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 section:
@@ -191,7 +191,7 @@ func TestContainer_SectionExists(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -209,7 +209,7 @@ func TestUnmarshalSection(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -245,7 +245,7 @@ func TestUnmarshalSection_EnvOnlyNestedValueExists(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader("other: value\n")),
 		config.WithEnvPrefix("GTB"),
@@ -263,7 +263,7 @@ func TestMustUnmarshalSection(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -282,7 +282,7 @@ func TestMustUnmarshalSection_PanicsOnDecodeError(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -300,7 +300,7 @@ func TestObserveSection_InitialUnmarshalAndRegistersObserver(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -341,7 +341,7 @@ func TestObserveSection_DefaultsRequireMergeForExistingSection(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -363,7 +363,7 @@ func TestObserveSection_DynamicDefaultsRehydrateOnReload(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 defaults:
@@ -395,7 +395,7 @@ func TestObserveSection_RehydratesOnObserver(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -438,7 +438,7 @@ func TestObserveSection_UnchangedReloadDoesNotApply(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -475,7 +475,7 @@ func TestObserveSection_CustomEqualityControlsChangeDetection(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -520,7 +520,7 @@ func TestObserveSection_InvalidReloadPreservesPriorSnapshot(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:
@@ -564,7 +564,7 @@ func TestObserveSection_DecodeErrorPreservesPriorSnapshot(t *testing.T) {
 
 	c := config.NewReaderContainer(
 		afero.NewMemMapFs(),
-		config.WithLogger(logger.NewNoop()),
+		config.WithLogger(logger.ToSlog(logger.NewNoop())),
 		config.WithConfigFormat("yaml"),
 		config.WithConfigReaders(strings.NewReader(`
 openai:

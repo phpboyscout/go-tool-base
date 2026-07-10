@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
+	"log/slog"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/subosito/gotenv"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 var (
@@ -24,9 +23,9 @@ var (
 // LoadEnv loads environment variables from a .env file if it exists.
 // A nil log is tolerated — it falls back to a no-op logger so callers
 // that have not yet wired logging cannot trigger a nil-pointer panic.
-func LoadEnv(fs afero.Fs, log logger.Logger) {
+func LoadEnv(fs afero.Fs, log *slog.Logger) {
 	if log == nil {
-		log = logger.NewNoop()
+		log = slog.New(slog.DiscardHandler)
 	}
 
 	dotEnv := ".env"
