@@ -126,3 +126,35 @@ const (
 	// LogfmtFormatter formats log messages as logfmt.
 	LogfmtFormatter
 )
+
+// ErrInvalidFormat is returned when parsing an unrecognised formatter string.
+var ErrInvalidFormat = errors.New("invalid format")
+
+// String returns the formatter name ("text", "json", "logfmt").
+func (f Formatter) String() string {
+	switch f {
+	case TextFormatter:
+		return "text"
+	case JSONFormatter:
+		return "json"
+	case LogfmtFormatter:
+		return "logfmt"
+	default:
+		return "unknown"
+	}
+}
+
+// ParseFormatter converts a formatter string ("text", "json", "logfmt") to a
+// Formatter value. The comparison is case-insensitive.
+func ParseFormatter(s string) (Formatter, error) {
+	switch strings.ToLower(s) {
+	case "text":
+		return TextFormatter, nil
+	case "json":
+		return JSONFormatter, nil
+	case "logfmt":
+		return LogfmtFormatter, nil
+	default:
+		return 0, fmt.Errorf("%w: %q", ErrInvalidFormat, s)
+	}
+}

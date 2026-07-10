@@ -37,6 +37,13 @@ func WithLevel(level Level) CharmOption {
 	}
 }
 
+// WithFormatter sets the initial output formatter.
+func WithFormatter(f Formatter) CharmOption {
+	return func(o *log.Options) {
+		o.Formatter = toCharmFormatter(f)
+	}
+}
+
 // WithPrefix sets an initial prefix on the logger.
 func WithPrefix(prefix string) CharmOption {
 	return func(o *log.Options) {
@@ -119,13 +126,21 @@ func (c *charmLogger) GetLevel() Level {
 }
 
 func (c *charmLogger) SetFormatter(f Formatter) {
+	c.inner.SetFormatter(toCharmFormatter(f))
+}
+
+// toCharmFormatter maps a logger.Formatter to the charmbracelet equivalent.
+// Unknown values fall back to the human-readable text formatter.
+func toCharmFormatter(f Formatter) log.Formatter {
 	switch f {
 	case JSONFormatter:
-		c.inner.SetFormatter(log.JSONFormatter)
+		return log.JSONFormatter
 	case LogfmtFormatter:
-		c.inner.SetFormatter(log.LogfmtFormatter)
+		return log.LogfmtFormatter
 	case TextFormatter:
-		c.inner.SetFormatter(log.TextFormatter)
+		return log.TextFormatter
+	default:
+		return log.TextFormatter
 	}
 }
 
