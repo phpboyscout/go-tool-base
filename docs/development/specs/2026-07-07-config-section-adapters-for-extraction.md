@@ -109,7 +109,13 @@ behaviour.
 - Preserve GTB's config precedence and env-prefix semantics in adapter code.
 - Make section existence explicit so adapters can distinguish absent config,
   present-but-empty config, and invalid config.
-- Avoid requiring extracted modules to import `pkg/config`.
+- Keep typed package-owned structs the primary boundary so modules *can* be
+  built without `pkg/config`, and do not *require* it. Note that `pkg/config`
+  is itself an early planned extraction (it already works standalone); once it
+  is its own lightweight module, a package may import it directly where there
+  is a genuine use case. The binding constraint is severing coupling to GTB's
+  *main-module* weight — chiefly `pkg/props` and the composition layer — not to
+  `pkg/config` itself.
 - Provide a package-by-package migration plan for extraction candidates.
 - Treat documentation as a first-class deliverable for every migrated package,
   including component docs, concept docs, migration notes, and generated-project
@@ -122,7 +128,10 @@ behaviour.
 - Do not extract `pkg/config` in this spec.
 - Do not remove existing `config.Containable` APIs immediately.
 - Do not force every package to use config structs if the package has no config.
-- Do not make `pkg/config` a dependency of extracted modules.
+- Do not make GTB's *main module* — chiefly `pkg/props` and the composition
+  glue — a dependency of extracted modules. `pkg/config` is exempt: it is
+  itself an early extraction candidate and an acceptable lightweight dependency,
+  so this spec does not forbid packages from importing it.
 - Do not change user-facing config keys in this spec unless a later package
   migration explicitly requires it.
 
@@ -1487,17 +1496,66 @@ Documentation review requirements:
 
 ## 12. Open Questions
 
-1. Should `SectionExists` include defaults, or should the first implementation
-   ship both `SectionExists` and `SectionInConfig`?
-2. Should `UnmarshalKey` be added directly to `Containable`, or should it start
-   as helper functions that accept `Containable` to avoid widening the public
-   interface immediately?
-3. Should typed config structs use `mapstructure` tags only, or standardise on
-   `mapstructure`, `json`, and `yaml` tags for documentation and examples?
-4. Should GTB adapters live inside each package, a new internal adapter package,
-   or the framework composition layer that uses them?
-5. Should `pkg/config` be extracted later as `gitlab.com/phpboyscout/config` or
-   with a more explicit name such as `cli-config`?
+_Resolved during the first-wave implementation review (2026-07-10)._
+
+1. **`SectionExists` vs `SectionInConfig`.** **Resolved: ship `SectionExists`
+   only.** The resolved-view semantics (file/env/flag/default) cover every
+   first-wave adapter, and the one source-aware "is configured" case
+   (telemetry consent) is served by direct `IsSet`/`Has` checks in its adapter.
+   `SectionInConfig` is deferred until a package genuinely needs
+   persisted-source-only presence; it can be added without breaking callers.
+2. **`UnmarshalKey` on `Containable` vs helpers.** **Resolved: added directly
+   to `Containable`** (`Unmarshal`, `UnmarshalKey`, `SectionExists`), with the
+   generic `UnmarshalSection[T]`/`ObserveSection[T]` helpers layered on top. The
+   interface widening is justified because these are the canonical section-decode
+   primitives every adapter builds on.
+3. **Tag strategy.** **Resolved: `mapstructure` primary, plus `json`/`yaml`**
+   for documentation and serialisation. Structs that are *not* decoded via
+   `UnmarshalSection` (see §7 note below) must not carry `mapstructure` tags that
+   imply a decode contract they do not honour — dotted tags such as `url.api`
+   are a footgun and were removed.
+4. **Adapter location.** **Resolved: inside each package**, in a clearly named
+   `config_adapter.go` (and `*FromProps`/`*FromContainable` helpers). This keeps
+   the GTB coupling co-located with the package it adapts and trivially
+   separable at extraction time, and is now enforced by a source-level guard
+   test (`test/architecture`) that keeps `pkg/props` out of package cores.
+5. **`pkg/config` extraction name.** Still open, deferred to the `pkg/config`
+   extraction spec itself. Not a prerequisite for this work.
+
+### Note on decode mechanism (recorded from the review)
+
+Not every adapter uses `UnmarshalSection`, and that is intentional. Per §5.2,
+lookup-style resolution remains correct for:
+
+- **provider registries with dynamic, provider-specific keys** — the `pkg/vcs`
+  providers decouple through a narrow local `release.Config`/`vcs.TokenConfig`
+  interface (which imports *no* GTB packages at all, the cleanest possible
+  seam) rather than typed decode;
+- **override-precedence resolution** — `pkg/tls` and `telemetry/otelcore`
+  resolve shared-plus-transport/signal settings using per-field `IsSet`
+  override detection, which a single typed decode cannot express;
+- **multi-prefix composition** — `pkg/gateway` composes settings that live at
+  different config prefixes, so its `Settings` is assembled by the adapter, not
+  decoded from one section.
+
+`UnmarshalSection`/`ObserveSection` are the default for self-contained sections
+(`chat`, `http`, `grpc` server settings). The structs used by the lookup-based
+adapters carry doc-only `json`/`yaml` tags and no `mapstructure` decode tags.
+
+### First-wave status (2026-07-10)
+
+Landed in this MR: the config API additions (Phases 1–2), first-wave package
+adapters (`chat`, `tls`, `http`, `grpc`, `gateway`, `telemetry/otelcore`,
+`vcs` + providers + `repo`) with props coupling confined to adapter files, the
+supporting docs (Phase 5), and the props import-boundary guard (part of Phase
+6). `vcs/release` received a narrowed registry factory signature rather than a
+full typed adapter, since its providers own the typed settings.
+
+Deferred to later waves (spec remains IN PROGRESS): the remaining §8 packages
+that currently need no config or belong to a later extraction wave (`authn`,
+`credentials`, `logger`, `output`, `browser`, `workspace`, `forms`,
+`changelog`, `redact`, `openapi`, `errorhandling`, root `pkg/telemetry`, and
+the telemetry backends), and the automated CI import-boundary check.
 
 ## 13. Acceptance Criteria
 
