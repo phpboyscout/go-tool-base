@@ -17,6 +17,13 @@ func Resolve(cfg gtbconfig.Containable, signal string) Settings {
 
 	sig := Root + "." + signal
 
+	// Decode errors are deliberately tolerated. Config/SignalConfig hold only
+	// simple string/bool/map fields; a malformed value yields the zero section,
+	// which resolves to an empty Endpoint and lets the OTel SDK fall back to the
+	// standard OTEL_EXPORTER_OTLP_* environment variables — the same graceful
+	// degradation the pre-refactor typed getters produced by coercion. Resolve
+	// must stay error-free to satisfy WithSectionDefaultFunc below, so there is
+	// no error to surface here.
 	shared, _ := gtbconfig.UnmarshalSection[Config](cfg, Root)
 	signalSection, _ := gtbconfig.UnmarshalSection[SignalConfig](cfg, sig)
 
@@ -46,6 +53,13 @@ func ObserveSettingsFromConfig(
 	return gtbconfig.ObserveSection[Settings](cfg, key, bindingOpts...)
 }
 
+// mergeResolvedSettings intentionally ignores the unmarshalled overlay. A
+// signal's Settings are the shared-plus-override resolution produced by
+// Resolve (via the default func), which a single-section decode cannot
+// reproduce — and Settings deliberately carries no decode tags because it is
+// never populated by UnmarshalSection. The observer's decode runs only to
+// detect that telemetry.<signal> exists and to trigger reloads; the resolved
+// value always comes from the recomputed defaults, which this returns verbatim.
 func mergeResolvedSettings(defaults, _ Settings) Settings {
 	return defaults
 }

@@ -37,6 +37,12 @@ func ObserveSettingsFromConfig(
 	return config.ObserveSection[Settings](cfg, ConfigPrefix, bindingOpts...)
 }
 
+// mergeSettings intentionally ignores the unmarshalled overlay. Gateway
+// settings are composed from multiple config prefixes (server.gateway.* and
+// server.grpc.*), so a single-section UnmarshalSection of Settings cannot
+// reconstruct them. The observer runs only to detect reloads; the real
+// resolution is the recomposed defaults from SettingsFromConfig(next), which
+// this returns verbatim.
 func mergeSettings(defaults, _ Settings) Settings {
 	return defaults
 }
