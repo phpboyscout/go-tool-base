@@ -74,7 +74,7 @@ func TestNewCmdVersion(t *testing.T) {
 		FS:           memFS,
 		Config:       cfgContainer,
 		Version:      ver.NewInfo("v1.0.0", "", ""), // Latest
-		ErrorHandler: errorhandling.New(l, nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(l), nil),
 	}
 
 	cmd := NewCmdVersion(props)

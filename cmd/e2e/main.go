@@ -116,7 +116,7 @@ func newTestRoot() (*setup.Command, *props.Props) {
 		Version: version.Get(),
 	}
 
-	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+	p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 
 	// When GTB_E2E_RELEASE_SCENARIO is set, swap the configured GitLab release
 	// source for an in-memory stub so `gtb update` scenarios run hermetically.

@@ -93,7 +93,7 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		Version: v,
 	}
 
-	p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+	p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 
 	// Create root command using the library functionality, with gtb-specific
 	// subcommands registered through the new composed Register pipeline so they

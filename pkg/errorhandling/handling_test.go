@@ -17,7 +17,7 @@ import (
 func TestErrorHandler_Check(t *testing.T) {
 	t.Run("Error_logs_message_with_prefix", func(t *testing.T) {
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Error(errors.New("simple error"), "Prefix: ")
 		entries := log.Entries()
 		require.NotEmpty(t, entries)
@@ -30,7 +30,7 @@ func TestErrorHandler_Check(t *testing.T) {
 
 	t.Run("Warn_logs_warning", func(t *testing.T) {
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Warn(errors.New("simple warning"), "Prefix: ")
 		entries := log.Entries()
 		require.NotEmpty(t, entries)
@@ -39,7 +39,7 @@ func TestErrorHandler_Check(t *testing.T) {
 
 	t.Run("Unknown_level_falls_back_to_error", func(t *testing.T) {
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Check(errors.New("boom"), "", "totally-unknown-level")
 		entries := log.Entries()
 		require.NotEmpty(t, entries, "unknown level must not silently swallow the error")
@@ -49,7 +49,7 @@ func TestErrorHandler_Check(t *testing.T) {
 
 	t.Run("ErrNotImplemented_downgrades_to_warn", func(t *testing.T) {
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &bytes.Buffer{}}
 		h.Check(ErrNotImplemented, "", LevelError)
 		entries := log.Entries()
 		require.NotEmpty(t, entries)
@@ -60,7 +60,7 @@ func TestErrorHandler_Check(t *testing.T) {
 	t.Run("ErrRunSubCommand_with_cmd_override", func(t *testing.T) {
 		var writerBuf bytes.Buffer
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &writerBuf}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &writerBuf}
 		cmd := &cobra.Command{
 			Use: "testcmd",
 			Run: func(cmd *cobra.Command, args []string) {},
@@ -76,7 +76,7 @@ func TestErrorHandler_Check(t *testing.T) {
 	t.Run("ErrRunSubCommand_with_usage_property", func(t *testing.T) {
 		var writerBuf bytes.Buffer
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &writerBuf}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &writerBuf}
 		cmd := &cobra.Command{
 			Use: "testcmd",
 			Run: func(cmd *cobra.Command, args []string) {},
@@ -95,7 +95,7 @@ func TestErrorHandler_Check(t *testing.T) {
 	t.Run("ErrRunSubCommand_via_Error_wrapper", func(t *testing.T) {
 		var writerBuf bytes.Buffer
 		log := logger.NewBuffer()
-		h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &writerBuf}
+		h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &writerBuf}
 		cmd := &cobra.Command{
 			Use: "testcmd",
 			Run: func(cmd *cobra.Command, args []string) {},
@@ -125,7 +125,7 @@ func TestNewErrNotImplemented(t *testing.T) {
 func TestHandleSpecialErrors_UnimplementedWithIssueLink(t *testing.T) {
 	t.Parallel()
 	log := logger.NewBuffer()
-	h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+	h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &bytes.Buffer{}}
 
 	err := NewErrNotImplemented("https://example.com/issue/99")
 	handled := h.handleSpecialErrors(err)
@@ -139,7 +139,7 @@ func TestHandleSpecialErrors_UnimplementedWithIssueLink(t *testing.T) {
 func TestHandleSpecialErrors_AssertionFailure(t *testing.T) {
 	t.Parallel()
 	log := logger.NewBuffer()
-	h := &StandardErrorHandler{Logger: log, Exit: os.Exit, Writer: &bytes.Buffer{}}
+	h := &StandardErrorHandler{Logger: logger.ToSlog(log), Exit: os.Exit, Writer: &bytes.Buffer{}}
 
 	err := NewAssertionFailure("invariant violated: %s", "x must be positive")
 	handled := h.handleSpecialErrors(err)
@@ -153,7 +153,7 @@ func TestHandleSpecialErrors_ErrRunSubCommand_NilCmd(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	l := logger.NewCharm(&buf)
-	h := &StandardErrorHandler{Logger: l, Exit: os.Exit, Writer: &buf}
+	h := &StandardErrorHandler{Logger: logger.ToSlog(l), Exit: os.Exit, Writer: &buf}
 
 	// No cmd argument, no Usage set — still returns true
 	handled := h.handleSpecialErrors(ErrRunSubCommand)
@@ -201,7 +201,7 @@ func TestErrorHandler_Fatal(t *testing.T) {
 	}
 
 	h := &StandardErrorHandler{
-		Logger: log,
+		Logger: logger.ToSlog(log),
 		Exit:   mockExit,
 		Writer: &bytes.Buffer{},
 	}

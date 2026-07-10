@@ -10,8 +10,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -55,7 +53,7 @@ type ErrorHandler interface {
 // It extracts hints, details, and stack traces from cockroachdb/errors
 // and formats them for terminal or structured output.
 type StandardErrorHandler struct {
-	Logger logger.Logger
+	Logger *slog.Logger
 	Help   HelpConfig
 	Exit   ExitFunc
 	Writer io.Writer
@@ -64,7 +62,7 @@ type StandardErrorHandler struct {
 
 // New creates an ErrorHandler with the given logger and help config.
 // Options can override the exit function, output writer, or other defaults.
-func New(l logger.Logger, help HelpConfig, opts ...Option) ErrorHandler {
+func New(l *slog.Logger, help HelpConfig, opts ...Option) ErrorHandler {
 	h := &StandardErrorHandler{
 		Logger: l,
 		Help:   help,

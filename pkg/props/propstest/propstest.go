@@ -148,7 +148,7 @@ func New(opts ...Option) *props.Props {
 		// inert so a Fatal under test neither terminates the process nor
 		// pollutes test output.
 		o.errHandler = errorhandling.New(
-			o.logger,
+			logger.ToSlog(o.logger),
 			nil, // nil HelpConfig is safe — the handler nil-guards it.
 			errorhandling.WithExitFunc(func(int) {}),
 			errorhandling.WithWriter(io.Discard),

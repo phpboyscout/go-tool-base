@@ -37,7 +37,7 @@ func TestHintsSurviveMultipleWraps(t *testing.T) {
 
 	err := simulateDeepError()
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil)
+	h := errorhandling.New(logger.ToSlog(log), nil)
 
 	h.Error(err, "API: ")
 
@@ -63,7 +63,7 @@ func TestDebugModeAddsStacktrace(t *testing.T) {
 
 	debugLog := logger.NewBuffer()
 	debugLog.SetLevel(slog.LevelDebug)
-	debugHandler := errorhandling.New(debugLog, nil)
+	debugHandler := errorhandling.New(logger.ToSlog(debugLog), nil)
 	debugHandler.Error(err)
 
 	debugEntries := debugLog.Entries()
@@ -73,7 +73,7 @@ func TestDebugModeAddsStacktrace(t *testing.T) {
 	// Non-debug mode: no stacktrace
 	infoLog := logger.NewBuffer()
 	infoLog.SetLevel(slog.LevelInfo)
-	infoHandler := errorhandling.New(infoLog, nil)
+	infoHandler := errorhandling.New(logger.ToSlog(infoLog), nil)
 	infoHandler.Error(err)
 
 	infoEntries := infoLog.Entries()
@@ -88,7 +88,7 @@ func TestHelpConfigAppearsInOutput(t *testing.T) {
 	err := cberrors.New("unexpected failure")
 	log := logger.NewBuffer()
 
-	h := errorhandling.New(log, errorhandling.SlackHelp{
+	h := errorhandling.New(logger.ToSlog(log), errorhandling.SlackHelp{
 		Team:    "Platform",
 		Channel: "#incidents",
 	})
@@ -120,7 +120,7 @@ func TestFatalCallsExitWithHints(t *testing.T) {
 
 	log := logger.NewBuffer()
 	var exitCode int
-	h := errorhandling.New(log, nil,
+	h := errorhandling.New(logger.ToSlog(log), nil,
 		errorhandling.WithExitFunc(func(code int) { exitCode = code }),
 	)
 
@@ -145,7 +145,7 @@ func TestSpecialError_WrappedUnimplemented(t *testing.T) {
 	wrapped := cberrors.Wrap(inner, "feature X")
 
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil)
+	h := errorhandling.New(logger.ToSlog(log), nil)
 	h.Error(wrapped)
 
 	entries := log.Entries()
@@ -160,7 +160,7 @@ func TestSpecialError_ErrRunSubCommandWritesUsage(t *testing.T) {
 
 	var writerBuf bytes.Buffer
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil, errorhandling.WithWriter(&writerBuf))
+	h := errorhandling.New(logger.ToSlog(log), nil, errorhandling.WithWriter(&writerBuf))
 
 	// Simulate a cobra command that has usage output
 	cmd := newTestCommand("mycommand")
@@ -181,7 +181,7 @@ func TestNilErrorIsNoOp(t *testing.T) {
 	testutil.SkipIfNotIntegration(t, "errorhandling")
 
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil)
+	h := errorhandling.New(logger.ToSlog(log), nil)
 
 	h.Check(nil, "prefix", errorhandling.LevelError)
 	h.Error(nil)
@@ -196,7 +196,7 @@ func TestAssertionFailureFallsThrough(t *testing.T) {
 
 	err := errorhandling.NewAssertionFailure("invariant broken: %s", "x < 0")
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil)
+	h := errorhandling.New(logger.ToSlog(log), nil)
 
 	h.Error(err)
 
@@ -226,7 +226,7 @@ func TestPrefixPropagation(t *testing.T) {
 
 	err := cberrors.New("timeout")
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil)
+	h := errorhandling.New(logger.ToSlog(log), nil)
 
 	h.Error(err, "HTTP: ", "GET /api: ")
 
@@ -250,7 +250,7 @@ func TestWarnLevel(t *testing.T) {
 
 	err := cberrors.New("deprecated feature used")
 	log := logger.NewBuffer()
-	h := errorhandling.New(log, nil)
+	h := errorhandling.New(logger.ToSlog(log), nil)
 
 	h.Warn(err)
 
@@ -273,7 +273,7 @@ func TestCrossPackageErrorChain(t *testing.T) {
 	log.SetLevel(slog.LevelDebug)
 
 	var exitCode int
-	h := errorhandling.New(log, errorhandling.SlackHelp{
+	h := errorhandling.New(logger.ToSlog(log), errorhandling.SlackHelp{
 		Team:    "DevTools",
 		Channel: "#support",
 	}, errorhandling.WithExitFunc(func(code int) { exitCode = code }))

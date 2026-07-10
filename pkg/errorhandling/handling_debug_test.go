@@ -15,7 +15,7 @@ func TestCheckDebug(t *testing.T) {
 	log := logger.NewBuffer()
 	log.SetLevel(slog.LevelDebug)
 
-	h := New(log, nil)
+	h := New(logger.ToSlog(log), nil)
 
 	err := errors.New("debug error")
 	h.Check(err, "", LevelError)
@@ -30,7 +30,7 @@ func TestCheckStacktrace(t *testing.T) {
 	log := logger.NewBuffer()
 	log.SetLevel(slog.LevelInfo)
 
-	h := New(log, nil)
+	h := New(logger.ToSlog(log), nil)
 
 	err := errors.New("stacktrace error")
 	h.Check(err, "", LevelError)

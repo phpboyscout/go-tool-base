@@ -32,7 +32,7 @@ func newTestProps(t *testing.T) *p.Props {
 		},
 		Logger:       logger.NewNoop(),
 		FS:           fs,
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 }
 

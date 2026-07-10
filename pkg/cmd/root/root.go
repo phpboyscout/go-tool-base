@@ -590,7 +590,7 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 
 	// Set the helper and logger for the error handling package
 	if props.ErrorHandler == nil {
-		props.ErrorHandler = errorhandling.New(props.Logger, props.Tool.Help)
+		props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), props.Tool.Help)
 	}
 
 	// Uphold the documented Props.Collector invariant ("always non-nil"). The

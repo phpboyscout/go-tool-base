@@ -207,7 +207,7 @@ func TestNewCmdDocsAsk_Run_FatalOnError(t *testing.T) {
 	})
 
 	handler := errorhandling.New(
-		logger.NewNoop(),
+		logger.ToSlog(logger.NewNoop()),
 		nil,
 		errorhandling.WithExitFunc(func(int) {}),
 	)

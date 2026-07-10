@@ -34,7 +34,7 @@ func newSignalTestProps() (*p.Props, *exitSpy) {
 	spy := &exitSpy{}
 	props := &p.Props{
 		Logger: logger.NewNoop(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil,
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil,
 			errorhandling.WithExitFunc(spy.exit)),
 	}
 
@@ -125,7 +125,7 @@ func TestExecute_InterruptNoticeIsDebugNotError(t *testing.T) {
 	spy := &exitSpy{}
 	props := &p.Props{
 		Logger: buf,
-		ErrorHandler: errorhandling.New(buf, nil,
+		ErrorHandler: errorhandling.New(logger.ToSlog(buf), nil,
 			errorhandling.WithExitFunc(spy.exit)),
 	}
 
@@ -251,7 +251,7 @@ func TestExecute_FlushRunsBeforeFatalErrorExit(t *testing.T) {
 		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
 	flushedAtExit := false
-	props.ErrorHandler = errorhandling.New(logger.NewNoop(), nil,
+	props.ErrorHandler = errorhandling.New(logger.ToSlog(logger.NewNoop()), nil,
 		errorhandling.WithExitFunc(func(code int) {
 			spy.exit(code)
 

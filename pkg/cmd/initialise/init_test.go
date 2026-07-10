@@ -21,7 +21,7 @@ func newTestProps() *p.Props {
 		Logger:       logger.NewNoop(),
 		FS:           afero.NewMemMapFs(),
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 }
 
@@ -92,7 +92,7 @@ func TestNewCmdInit(t *testing.T) {
 		},
 		Logger:       logger.NewNoop(),
 		FS:           fs,
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
 	props.Assets = p.NewAssets()
@@ -158,7 +158,7 @@ func TestNewCmdInit_FlagCombinations(t *testing.T) {
 				Logger:       logger.NewNoop(),
 				FS:           fs,
 				Assets:       p.NewAssets(),
-				ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+				ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 			}
 
 			cmd := NewCmdInit(props)
@@ -186,7 +186,7 @@ func TestNewCmdInit_CleanOverwritesExistingConfig(t *testing.T) {
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
 	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
@@ -220,7 +220,7 @@ func TestNewCmdInit_WithoutCleanMergesExistingConfig(t *testing.T) {
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
 	defaultDir := setup.GetDefaultConfigDir(fs, "test-tool")
@@ -255,7 +255,7 @@ func TestNewCmdInit_CustomDir(t *testing.T) {
 		Logger:       logger.NewNoop(),
 		FS:           fs,
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
 	customDir := "/tmp/custom-config-dir"

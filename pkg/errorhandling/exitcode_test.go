@@ -104,7 +104,7 @@ func TestCheck_FatalUsesAttachedExitCode(t *testing.T) {
 			t.Parallel()
 
 			exitCode := -1
-			h := errorhandling.New(logger.NewNoop(), nil,
+			h := errorhandling.New(logger.ToSlog(logger.NewNoop()), nil,
 				errorhandling.WithExitFunc(func(code int) { exitCode = code }))
 
 			h.Check(tt.err, "", errorhandling.LevelFatal)
@@ -123,7 +123,7 @@ func TestCheck_FatalQuietLogsDebugButStillExits(t *testing.T) {
 
 	buf := logger.NewBuffer()
 	exitCode := -1
-	h := errorhandling.New(buf, nil,
+	h := errorhandling.New(logger.ToSlog(buf), nil,
 		errorhandling.WithExitFunc(func(code int) { exitCode = code }))
 
 	err := errorhandling.WithExitCode(errors.New("interrupted by signal: interrupt"), 130)

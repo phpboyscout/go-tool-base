@@ -42,7 +42,7 @@ func bindTestProps(t *testing.T, fs afero.Fs) *p.Props {
 		Logger:       logger.NewCharm(io.Discard),
 		FS:           fs,
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 }
 

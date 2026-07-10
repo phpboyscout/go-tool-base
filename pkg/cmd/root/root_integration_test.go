@@ -34,7 +34,7 @@ func newTestProps(features ...p.FeatureState) *p.Props {
 		Logger:       logger.NewNoop(),
 		FS:           afero.NewMemMapFs(),
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 }
 
@@ -151,7 +151,7 @@ func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
 		Logger:       logger.NewNoop(),
 		FS:           afero.NewMemMapFs(),
 		Assets:       p.NewAssets(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
 	rootCmd := root.NewCmdRoot(props)

@@ -844,7 +844,7 @@ func preRunProps(t *testing.T, currentVersion string, provider *releasetest.Sour
 		FS:           fs,
 		Assets:       nil, // nil skips embedded-config load (no assets/init/config.yaml fixture)
 		Config:       config.NewReaderContainer(fs),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Version:      ver.NewInfo(currentVersion, "", ""),
 		Tool: p.Tool{
 			Name: "covprerun",
@@ -931,7 +931,7 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 		FS:           fs,
 		Assets:       nil, // nil skips embedded-config load (no assets/init/config.yaml fixture)
 		Config:       config.NewReaderContainer(fs),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Version:      ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
 			Name: tool,
@@ -1004,7 +1004,7 @@ func TestNewRootPreRunE_UpdateDisabledReturnsEarly(t *testing.T) {
 		FS:           fs,
 		Assets:       nil, // nil skips embedded-config load (no assets/init/config.yaml fixture)
 		Config:       config.NewReaderContainer(fs),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Version:      ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
 			Name: "covnoupdate",

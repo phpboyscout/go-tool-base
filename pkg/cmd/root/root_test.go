@@ -1192,7 +1192,7 @@ func TestExecute_Success(t *testing.T) {
 	var buf strings.Builder
 	l := logger.NewCharm(&buf)
 	exitCalled := false
-	eh := errorhandling.New(l, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(logger.ToSlog(l), nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
 
 	props := &p.Props{
 		Logger:       l,
@@ -1217,7 +1217,7 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 
 	log := logger.NewBuffer()
 	exitCalled := false
-	eh := errorhandling.New(log, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(logger.ToSlog(log), nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
 
 	props := &p.Props{
 		Logger:       log,
@@ -1243,7 +1243,7 @@ func TestExecute_FatalError(t *testing.T) {
 
 	log := logger.NewBuffer()
 	exitCalled := false
-	eh := errorhandling.New(log, nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(logger.ToSlog(log), nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
 
 	props := &p.Props{
 		Logger:       log,
@@ -1482,7 +1482,7 @@ func TestNewRootPreRunE_ConfigPathsNotAccumulated(t *testing.T) {
 	props := &p.Props{
 		Logger:       logger.NewNoop(),
 		FS:           afero.NewMemMapFs(),
-		ErrorHandler: errorhandling.New(logger.NewNoop(), nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Tool: p.Tool{
 			Name: "tool",
 			// InitCmd disabled -> allowEmpty true -> the append fires.

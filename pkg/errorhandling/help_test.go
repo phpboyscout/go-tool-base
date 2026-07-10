@@ -96,7 +96,7 @@ func newHelp(provider, team, channel string) HelpConfig {
 func TestErrorHandler_HelpMessage_InOutput(t *testing.T) {
 	log := logger.NewBuffer()
 
-	h := New(log, SlackHelp{Team: "Platform", Channel: "#alerts"})
+	h := New(logger.ToSlog(log), SlackHelp{Team: "Platform", Channel: "#alerts"})
 	h.Error(errors.New("something went wrong"))
 
 	entries := log.Entries()
@@ -107,7 +107,7 @@ func TestErrorHandler_HelpMessage_InOutput(t *testing.T) {
 func TestErrorHandler_NilHelp_NoHelpInOutput(t *testing.T) {
 	log := logger.NewBuffer()
 
-	h := New(log, nil)
+	h := New(logger.ToSlog(log), nil)
 	h.Error(errors.New("something went wrong"))
 
 	entries := log.Entries()

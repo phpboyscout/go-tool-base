@@ -48,7 +48,7 @@ func newTestProps(t *testing.T, apiURL string) *p.Props {
 		FS:           memFS,
 		Config:       cfgContainer,
 		Version:      ver.NewInfo("v1.0.0", "abc123", "2026-06-20"),
-		ErrorHandler: errorhandling.New(l, nil),
+		ErrorHandler: errorhandling.New(logger.ToSlog(l), nil),
 	}
 }
 

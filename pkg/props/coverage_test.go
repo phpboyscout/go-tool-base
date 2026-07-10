@@ -23,7 +23,7 @@ func newTestProps() (*Props, logger.Logger, config.Containable, Assets, afero.Fs
 	cfg := config.NewReaderContainer(memFS)
 	assets := NewAssets(AssetMap{"a": fstest.MapFS{}})
 	ver := version.NewInfo("v1.2.3", "abc123", "1970-01-01T00:00:00Z")
-	eh := errorhandling.New(log, nil)
+	eh := errorhandling.New(logger.ToSlog(log), nil)
 	tool := Tool{Name: "demo"}
 	col := NoopCollector{}
 
