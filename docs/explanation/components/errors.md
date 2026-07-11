@@ -61,6 +61,7 @@ the link to the user-facing output.
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
 | `ErrInvalidLevel` | invalid level | Returned by `ParseLevel(s string)` when the string does not map to a known log level. Validate user-supplied log level strings at config load time. |
+| `ErrInvalidFormat` | invalid format | Returned by `ParseFormatter(s string)` when the string does not map to a known formatter. Validate user-supplied log format strings at config load time. |
 
 ---
 
@@ -104,6 +105,8 @@ the link to the user-facing output.
 |-------|---------|-----------------|
 | `ErrInvalidBaseURL` | invalid base url | Returned when configuring an AI provider with a malformed base URL. |
 | `ErrInvalidSnapshotID` | invalid snapshot ID | Returned by FileStore when attempting to load a conversation snapshot that doesn't exist or is corrupted. |
+| `ErrMediaRejected` | media rejected | Returned when an attachment fails the safety filter — empty, oversized, over the per-message count limit, or a disallowed MIME type. Surface to the user so they can drop or replace the attachment. |
+| `ErrMediaUnsupported` | media not supported by provider | Returned when the selected provider or model cannot accept the attachment's media type. Fall back to text or select a multimodal provider. |
 
 ---
 
