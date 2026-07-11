@@ -212,3 +212,31 @@ it and it returns here.
   manifest` → `regenerate project` reproduces the manifest and preserves every
   feature and property, `Templates[]` included (unit + E2E) — no exceptions.
 - The `gtb-generator-manual-test` skill's "known boundary" note is updated.
+
+## 10. Implementation status (2026-07-11)
+
+Landed on `feat/manifest-reconstruction`:
+
+- **D1/D2/D5** — one generator-internal `templates.FeatureCatalogue` backs the
+  renderer, scanner, `ToggleableFeatures`/`featureDefaultEnabled`, and
+  `calculateEnabled/DisabledFeatures`; `man` included; guarded by a
+  coverage test against `props.AllFeatures`.
+- **Delta form** — generate delta-normalises the manifest (name-sorted); the
+  scanner recovers the same delta.
+- **D3** — keychain recovered from its blank-import artefact.
+- **D4** — the cmd.go Tool-literal parser recovers EnvPrefix, UpdatePolicy,
+  UpdateCheckInterval, Help, Telemetry, Bootstrap.
+- **D8** — docs_layout from the docs tree, CI ComponentSource from
+  `.gitlab-ci.yml`; hashes are repopulated by the subsequent `regenerate
+  project` (verified byte-exact end to end).
+- **D6** — a from-scratch round-trip guard test.
+
+**Result:** for a project *without template overlays or signing*, a from-scratch
+`regenerate manifest` → `regenerate project` reproduces the manifest byte-for-byte.
+
+**Remaining:** **D9** (template-overlay provenance annotated file) and full
+`Signing` recovery — the fields the renderer does not put in generated source, so
+they are dropped on a from-scratch rebuild of a project that uses overlays or
+signing. `ModulePublished` is likewise not in source. These are the last
+not-in-code residuals; the spec stays APPROVED (not yet IMPLEMENTED) until they
+land.

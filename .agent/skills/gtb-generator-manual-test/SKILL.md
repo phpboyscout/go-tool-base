@@ -153,15 +153,23 @@ $BR regenerate project -p "$G1"                       # registration from the (p
 go mod tidy && go build -buildvcs=false ./...          # SetFeatures(...) kept -> opt-in commands survive
 ```
 
-**Known boundary — do not misread as a regression.** A *from-scratch* rebuild
-(manifest deleted before the scan) cannot recover feature enablement for
-library-provided commands: it infers only the baseline `init/update/mcp/docs`
-and drops `doctor/changelog/keychain/ai/config/telemetry`, `docs_layout`, and all
-hashes. This is inherent to source-scanning and **identical on the released CLI**
-(verify by running the same delete-then-scan on `$REL`), because the enabled
-built-in feature set is not fully derivable from generated source. `regenerate
-manifest` is meant to update an existing manifest, not reconstruct one from
-nothing — so treat the delete-first path as a boundary probe, not a pass/fail.
+**From-scratch reconstruction (v0.31+).** A *from-scratch* rebuild (manifest
+deleted before the scan) now reconstructs the full property set from source —
+every feature (incl. `keychain` from its artefact, and the disabled/enabled
+delta), `env_prefix`, update policy/interval, help, telemetry, bootstrap, and
+`docs_layout`/CI — and `regenerate project` repopulates hashes, so a
+generate → delete-manifest → `regenerate manifest` → `regenerate project` round
+trip reproduces the manifest **byte-for-byte** for a project without template
+overlays or signing. See
+`docs/development/specs/2026-07-11-manifest-feature-recovery.md`.
+
+**Remaining boundary — template overlays and signing.** Template-overlay
+provenance (source URL/ref/pin) and the full `signing` config are not written
+into generated source, so a from-scratch rebuild of a project that uses overlays
+or signing still drops `templates[]` / `signing`. Those projects must restore
+those blocks from VCS until the annotated-provenance work (spec D9) lands. On the
+released CLI (≤ v0.30) the whole feature set is lost from scratch; verify against
+`$REL` to see the difference.
 
 ### Runtime smoke
 
