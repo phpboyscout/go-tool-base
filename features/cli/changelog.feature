@@ -19,14 +19,14 @@ Feature: CLI changelog command
   Scenario: changelog renders the full embedded history
     When I run gtb with "changelog"
     Then the exit code is 0
-    And stderr contains "v1.2.0"
-    And stderr contains "v1.1.0"
+    And stdout contains "v1.2.0"
+    And stdout contains "v1.1.0"
 
   Scenario: changelog --latest shows only the most recent release
     When I run gtb with "changelog --latest"
     Then the exit code is 0
-    And stderr contains "v1.2.0"
-    And stderr does not contain "v1.1.0"
+    And stdout contains "v1.2.0"
+    And stdout does not contain "v1.1.0"
 
   Scenario: changelog emits a structured JSON response
     When I run gtb with "changelog --output json"
