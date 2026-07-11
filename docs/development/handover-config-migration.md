@@ -69,15 +69,20 @@ Per `config-section-adapters` §8 (later waves) and §9 Phase 6:
    section; adding it now would be dead surface), `browser`, `workspace`,
    `forms`, `changelog`, `redact`, `regexutil`, `openapi`, `errorhandling`
    `HelpConfig`.
-2. **Root `pkg/telemetry`** — the hard one: split product-analytics/consent from
-   observability and remove the `pkg/props` coupling before it can be extracted
-   (see the extraction report's telemetry section). Its logger is already
-   migrated; `props` is what remains.
-3. **Phase 6 — automated import-boundary CI check**: extend
-   `test/architecture/boundary_test.go` (currently guards `pkg/props` out of
-   first-wave cores) to also assert first-wave cores don't import `pkg/logger`,
-   and wire a CI job (note: `just ci` does not currently run the mock/boundary
-   checks).
+2. **Root `pkg/telemetry`** — the `pkg/props` **type** coupling is now **DONE**
+   (`docs/development/specs/2026-07-10-telemetry-props-decoupling.md`,
+   IMPLEMENTED): `EventType`/`DeliveryMode` + constants moved to the
+   dependency-free `pkg/telemetrytypes` leaf; `pkg/props` keeps them as type
+   aliases (zero downstream break); `pkg/telemetry` core no longer imports
+   `pkg/props`. **Still remaining before extraction**: the larger
+   product-analytics/consent ↔ observability split (see the extraction report's
+   telemetry section) — a separate effort, not a config/props-type concern.
+3. **Phase 6 — automated import-boundary check**: **DONE**.
+   `test/architecture/boundary_test.go` is now a table-driven guard over
+   `pkg/props` **and** `pkg/logger`, covering all first-wave cores plus
+   `pkg/telemetry`. No separate CI job is needed — `go test ./...` (the cicd
+   `go-test` MR component) already runs `test/architecture`; the earlier
+   `just ci` worry was moot.
 4. **Open questions still deferred**: Q1 `SectionInConfig` (not shipped —
    `SectionExists` + `IsSet` cover the telemetry-consent case); Q5 the extracted
    `pkg/config` module name (defer to the config-extraction spec).

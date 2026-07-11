@@ -1554,8 +1554,23 @@ full typed adapter, since its providers own the typed settings.
 Deferred to later waves (spec remains IN PROGRESS): the remaining §8 packages
 that currently need no config or belong to a later extraction wave (`authn`,
 `credentials`, `output`, `browser`, `workspace`, `forms`, `changelog`,
-`redact`, `openapi`, `errorhandling`, root `pkg/telemetry`, and the telemetry
-backends), and the automated CI import-boundary check.
+`redact`, `openapi`, `errorhandling`, and the telemetry backends).
+
+### Follow-up landed on this branch (2026-07-11)
+
+- **Phase 6 automated import-boundary check — done.** The guard in
+  `test/architecture/boundary_test.go` is now table-driven over `pkg/props`
+  **and** `pkg/logger` across every first-wave core plus `pkg/telemetry`. It
+  runs in CI via the existing `go test ./...` MR component; no separate job is
+  required.
+- **Root `pkg/telemetry` props-type coupling — done.** Its config reads were
+  already adapter-confined; the last coupling was to `props.EventType` /
+  `props.DeliveryMode`, resolved by relocating those types to the
+  dependency-free `pkg/telemetrytypes` leaf under
+  [`2026-07-10-telemetry-props-decoupling.md`](2026-07-10-telemetry-props-decoupling.md)
+  (IMPLEMENTED). `pkg/props` retains the names as aliases, so downstream tools
+  are unaffected. The larger product-analytics ↔ observability split needed for
+  full telemetry extraction remains a separate, later effort.
 
 ### Joint delivery with the slog-first spec (2026-07-10)
 
