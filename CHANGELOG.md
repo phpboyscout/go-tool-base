@@ -1,5 +1,29 @@
 # Changelog
 
+## [v0.30.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.30.0)
+
+### Features
+
+- **logger**: add slog-first Charm construction and capture handler
+- **logger**: add typed Config with slog-ready construction options
+- **otelcore**: observe resolved signal settings
+- **gateway**: observe composed transport settings
+- **grpc**: observe typed server settings
+- **http**: observe typed server settings
+- **config**: detect observed section changes
+- **config**: observe typed config sections
+- **config**: add typed section unmarshalling
+
+### Bug Fixes
+
+- **generator**: run go mod tidy during regenerate post-processing
+- **generator**: convert logger to *slog.Logger in scaffolded ErrorHandler
+- **grpc,http**: stop request logging from exiting on fatal level
+- **chat**: suppress spurious fallback override warning
+- **agents**: import AGENTS.md into CLAUDE.md instead of linking it
+- **ci**: stop osv-scanner failing when it has nothing to report
+- **security**: clear the reachable advisories and waive the unreachable one
+
 ## [v0.29.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.29.0)
 
 ### Features
