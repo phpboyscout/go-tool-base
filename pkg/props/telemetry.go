@@ -1,37 +1,43 @@
 package props
 
-import "context"
+import (
+	"context"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
+)
 
 // TelemetryCmd is the feature flag for the telemetry command group.
 // Default disabled — tool authors must explicitly enable it.
 const TelemetryCmd = FeatureCmd("telemetry")
 
-// EventType identifies the category of telemetry event.
-// Defined here alongside TelemetryCollector so that commands can reference
-// event type constants without importing pkg/telemetry.
-// The same constants are mirrored in pkg/telemetry — since EventType is a
-// string typedef, values from either package are interchangeable.
-type EventType string
+// EventType identifies the category of telemetry event. It is an alias for
+// telemetrytypes.EventType — the canonical type lives in the dependency-free
+// pkg/telemetrytypes leaf so that pkg/telemetry can share it without importing
+// pkg/props. Re-exported here (with the constants below) so commands can
+// reference event types through props without importing pkg/telemetry.
+type EventType = telemetrytypes.EventType
 
 const (
-	EventCommandInvocation EventType = "command.invocation"
-	EventCommandError      EventType = "command.error"
-	EventFeatureUsed       EventType = "feature.used"
-	EventUpdateCheck       EventType = "update.check"
-	EventUpdateApplied     EventType = "update.applied"
-	EventDeletionRequest   EventType = "data.deletion_request"
+	EventCommandInvocation = telemetrytypes.EventCommandInvocation
+	EventCommandError      = telemetrytypes.EventCommandError
+	EventFeatureUsed       = telemetrytypes.EventFeatureUsed
+	EventUpdateCheck       = telemetrytypes.EventUpdateCheck
+	EventUpdateApplied     = telemetrytypes.EventUpdateApplied
+	EventDeletionRequest   = telemetrytypes.EventDeletionRequest
 )
 
-// DeliveryMode controls the delivery guarantee for telemetry events.
-type DeliveryMode string
+// DeliveryMode controls the delivery guarantee for telemetry events. It is an
+// alias for telemetrytypes.DeliveryMode; see EventType for why the canonical
+// type lives in the leaf package.
+type DeliveryMode = telemetrytypes.DeliveryMode
 
 const (
 	// DeliveryAtLeastOnce deletes spill files after successful send.
 	// Possible duplicates if the ack is lost; no data loss.
-	DeliveryAtLeastOnce DeliveryMode = "at_least_once"
+	DeliveryAtLeastOnce = telemetrytypes.DeliveryAtLeastOnce
 	// DeliveryAtMostOnce deletes spill files before sending.
 	// Possible data loss; no duplicates.
-	DeliveryAtMostOnce DeliveryMode = "at_most_once"
+	DeliveryAtMostOnce = telemetrytypes.DeliveryAtMostOnce
 )
 
 // TelemetryCollector is the interface through which commands emit telemetry events.
