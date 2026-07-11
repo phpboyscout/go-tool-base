@@ -81,7 +81,10 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	f.ImportAlias("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "gtbRoot")
 
-	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "New").Call(jen.Id("l"), jen.Id("p").Dot("Tool").Dot("Help"))
+	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "New").Call(
+		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "ToSlog").Call(jen.Id("l")),
+		jen.Id("p").Dot("Tool").Dot("Help"),
+	)
 
 	subCmdArgs := make([]jen.Code, 0, 1+len(data.Subcommands))
 	subCmdArgs = append(subCmdArgs, jen.Id("p"))
