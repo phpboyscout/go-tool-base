@@ -163,13 +163,12 @@ trip reproduces the manifest **byte-for-byte** for a project without template
 overlays or signing. See
 `docs/development/specs/2026-07-11-manifest-feature-recovery.md`.
 
-**Remaining boundary — template overlays and signing.** Template-overlay
-provenance (source URL/ref/pin) and the full `signing` config are not written
-into generated source, so a from-scratch rebuild of a project that uses overlays
-or signing still drops `templates[]` / `signing`. Those projects must restore
-those blocks from VCS until the annotated-provenance work (spec D9) lands. On the
-released CLI (≤ v0.30) the whole feature set is lost from scratch; verify against
-`$REL` to see the difference.
+Template-overlay provenance and the full `signing` posture are not in the
+generated source either, so they are recorded as `// gtb:...` annotations in a
+generated `pkg/cmd/root/provenance.go` (tracked in-tree, kept in sync at every
+manifest write) and reconstructed from there — the round trip is byte-exact for
+those projects too. On the released CLI (≤ v0.30) the whole feature set is lost
+from scratch; verify against `$REL` to see the difference.
 
 ### Runtime smoke
 

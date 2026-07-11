@@ -2,7 +2,7 @@
 title: "Complete manifest reconstruction from source"
 description: "Make `gtb regenerate manifest` reconstruct the entire manifest from a project's generated source when the manifest is absent — the full feature set (incl. man and keychain), the bootstrap policy, docs layout, hashes, and every other rendered property — by making the manifest scanner symmetric with the SetFeatures/props-literal renderer over a single per-field source of truth, so a from-scratch rebuild reproduces the manifest and survives a subsequent regenerate project unchanged."
 date: 2026-07-11
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -26,7 +26,7 @@ Date
 :   11 July 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 Related
 :   [`2026-07-07-config-section-adapters-for-extraction.md`](2026-07-07-config-section-adapters-for-extraction.md)
@@ -234,9 +234,11 @@ Landed on `feat/manifest-reconstruction`:
 **Result:** for a project *without template overlays or signing*, a from-scratch
 `regenerate manifest` → `regenerate project` reproduces the manifest byte-for-byte.
 
-**Remaining:** **D9** (template-overlay provenance annotated file) and full
-`Signing` recovery — the fields the renderer does not put in generated source, so
-they are dropped on a from-scratch rebuild of a project that uses overlays or
-signing. `ModulePublished` is likewise not in source. These are the last
-not-in-code residuals; the spec stays APPROVED (not yet IMPLEMENTED) until they
-land.
+- **D9** — signing, template-overlay provenance and `module_published` are
+  recorded as `// gtb:...` annotations in a generated `pkg/cmd/root/provenance.go`
+  (tracked in-tree, skipped by the command scanner, kept in sync at every
+  manifest write) and parsed back on a from-scratch rebuild.
+
+**Result:** a from-scratch `regenerate manifest` -> `regenerate project` round
+trip now reproduces the manifest **byte-for-byte** for every project
+configuration, signing and template overlays included. Spec **IMPLEMENTED**.
