@@ -10,6 +10,8 @@ import (
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
 
 func verifyPathExists(commands []ManifestCommand, path []string) bool {
@@ -1105,22 +1107,27 @@ func extractReleaseSourceLiteral(comp *dst.CompositeLit, rs *ManifestReleaseSour
 }
 
 // extractFeaturesFromSetFeatures parses props.SetFeatures(props.Enable/Disable(...), ...)
-// and returns a ManifestFeature slice. Starts from all-enabled defaults and applies
-// each Enable/Disable mutation found in the call arguments.
+// and returns a ManifestFeature slice. It seeds each feature at its default-enabled
+// state and applies each Enable/Disable mutation found in the call arguments.
+//
+// The feature order, the seed defaults, and the constant-token->name map are all
+// derived from props.FeatureCatalogue — the single source of truth shared with
+// the SetFeatures renderer — so this scanner recovers every built-in feature and
+// stays complete as features are added. (It previously hardcoded only
+// init/update/mcp/docs, silently dropping every other feature on a from-scratch
+// manifest rebuild.)
 func extractFeaturesFromSetFeatures(expr dst.Expr) []ManifestFeature {
-	featureOrder := []string{"init", "update", "mcp", "docs"}
-	enabled := map[string]bool{
-		"init":   true,
-		"update": true,
-		"mcp":    true,
-		"docs":   true,
-	}
+	enabled := make(map[string]bool, len(templates.FeatureCatalogue))
+	defaults := make(map[string]bool, len(templates.FeatureCatalogue))
+	constToFeature := make(map[string]string, len(templates.FeatureCatalogue))
+	order := make([]string, 0, len(templates.FeatureCatalogue))
 
-	constToFeature := map[string]string{
-		"InitCmd":   "init",
-		"UpdateCmd": "update",
-		"McpCmd":    "mcp",
-		"DocsCmd":   "docs",
+	for _, d := range templates.FeatureCatalogue {
+		name := string(d.Cmd)
+		enabled[name] = d.Default
+		defaults[name] = d.Default
+		constToFeature[d.ConstName] = name
+		order = append(order, name)
 	}
 
 	if call, ok := expr.(*dst.CallExpr); ok {
@@ -1129,9 +1136,16 @@ func extractFeaturesFromSetFeatures(expr dst.Expr) []ManifestFeature {
 		}
 	}
 
-	features := make([]ManifestFeature, 0, len(featureOrder))
-	for _, name := range featureOrder {
-		features = append(features, ManifestFeature{Name: name, Enabled: enabled[name]})
+	// Emit the delta only: an entry is kept solely when a feature's resolved
+	// state differs from its framework default, matching how the enable/disable
+	// path normalises the manifest (upsertOrClearFeature). Features at their
+	// default are inferred at read time (featureEnabledIn), so they carry no
+	// entry — keeping the manifest and the rendered SetFeatures wiring minimal.
+	features := make([]ManifestFeature, 0, len(order))
+	for _, name := range order {
+		if enabled[name] != defaults[name] {
+			features = append(features, ManifestFeature{Name: name, Enabled: enabled[name]})
+		}
 	}
 
 	return features

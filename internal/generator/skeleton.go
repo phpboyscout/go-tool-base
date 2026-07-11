@@ -802,7 +802,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 		Properties: ManifestProperties{
 			Name:                config.Name,
 			Description:         MultilineString(config.Description),
-			Features:            config.Features,
+			Features:            normaliseManifestFeatures(config.Features),
 			EnvPrefix:           config.EnvPrefix,
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
@@ -865,46 +865,54 @@ func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, ar
 	return cmd.Run()
 }
 
+// calculateDisabledFeatures returns the default-on features whose effective
+// state is off — the ones the rendered SetFeatures must Disable. Derived from
+// templates.FeatureCatalogue (the single source of truth), so it stays complete
+// as features are added and is correct whether the manifest is delta-normalised
+// or lists every feature explicitly.
 func calculateDisabledFeatures(features []ManifestFeature) []string {
-	allFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "ai", "config", "telemetry", "keychain"}
 	disabled := []string{}
 
-	featureMap := make(map[string]bool)
-
-	for _, f := range features {
-		if !f.Enabled {
-			featureMap[f.Name] = true
-		}
-	}
-
-	for _, f := range allFeatures {
-		if featureMap[f] {
-			disabled = append(disabled, f)
+	for _, d := range templates.FeatureCatalogue {
+		name := string(d.Cmd)
+		if d.Default && !featureEnabledIn(features, name) {
+			disabled = append(disabled, name)
 		}
 	}
 
 	return disabled
 }
 
-// calculateEnabledFeatures extracts opt-in features from the feature list.
-// These features are off by default and must be explicitly enabled.
+// calculateEnabledFeatures returns the opt-in (default-off) features whose
+// effective state is on — the ones the rendered SetFeatures must Enable. Derived
+// from templates.FeatureCatalogue for the same reasons as calculateDisabledFeatures.
 func calculateEnabledFeatures(features []ManifestFeature) []string {
-	optInFeatures := []string{"ai", "config", "telemetry"}
 	enabled := []string{}
 
-	featureMap := make(map[string]bool)
-
-	for _, f := range features {
-		if f.Enabled {
-			featureMap[f.Name] = true
-		}
-	}
-
-	for _, f := range optInFeatures {
-		if featureMap[f] {
-			enabled = append(enabled, f)
+	for _, d := range templates.FeatureCatalogue {
+		name := string(d.Cmd)
+		if !d.Default && featureEnabledIn(features, name) {
+			enabled = append(enabled, name)
 		}
 	}
 
 	return enabled
+}
+
+// normaliseManifestFeatures drops any feature entry that matches its framework
+// default, so the manifest carries only the delta. This mirrors the
+// enable/disable path (upsertOrClearFeature) and keeps generate's manifest in
+// the same canonical form the scanner reconstructs, so a from-scratch rebuild
+// reproduces it. A feature with no catalogue default (keychain) is treated as
+// default-off and retained.
+func normaliseManifestFeatures(features []ManifestFeature) []ManifestFeature {
+	out := make([]ManifestFeature, 0, len(features))
+
+	for _, f := range features {
+		if f.Enabled != featureDefaultEnabled(f.Name) {
+			out = append(out, f)
+		}
+	}
+
+	return out
 }

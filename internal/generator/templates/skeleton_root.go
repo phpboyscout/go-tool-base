@@ -323,26 +323,16 @@ func buildFeatures(data SkeletonRootData) []jen.Code {
 	return items
 }
 
+// getFeatureCmd maps a feature config name to the jen expression naming its
+// props FeatureCmd constant, derived from props.FeatureCatalogue — the single
+// source of truth shared with the manifest scanner, so the renderer and scanner
+// cannot disagree about the constant token for a feature. Returns nil for an
+// unknown name (e.g. keychain, which is not a SetFeatures toggle).
 func getFeatureCmd(feature string) jen.Code {
-	switch feature {
-	case "init":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "InitCmd")
-	case "update":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "UpdateCmd")
-	case "mcp":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "McpCmd")
-	case "docs":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "DocsCmd")
-	case "doctor":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "DoctorCmd")
-	case "ai":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "AiCmd")
-	case "config":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigCmd")
-	case "telemetry":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TelemetryCmd")
-	case "changelog":
-		return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ChangelogCmd")
+	for _, d := range FeatureCatalogue {
+		if string(d.Cmd) == feature {
+			return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", d.ConstName)
+		}
 	}
 
 	return nil

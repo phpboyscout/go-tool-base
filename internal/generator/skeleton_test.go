@@ -73,14 +73,12 @@ func TestGenerateSkeleton(t *testing.T) {
 	assert.Equal(t, "phpboyscout", m.ReleaseSource.Owner)
 	assert.Equal(t, "test-project", m.ReleaseSource.Repo)
 
-	featureNames := []string{}
-	for _, f := range m.Properties.Features {
-		if f.Enabled {
-			featureNames = append(featureNames, f.Name)
-		}
-	}
-	assert.Contains(t, featureNames, "init")
-	assert.Contains(t, featureNames, "docs")
+	// init and docs are on by default, so requesting them adds no manifest
+	// override — the delta-normalised feature list is empty, and both are
+	// effectively enabled (inferred from the framework defaults).
+	assert.Empty(t, m.Properties.Features, "default-state features carry no manifest entry")
+	assert.True(t, featureEnabledIn(m.Properties.Features, "init"))
+	assert.True(t, featureEnabledIn(m.Properties.Features, "docs"))
 
 	// Verify generated root/cmd.go
 	rootCmdPath := "/work/pkg/cmd/root/cmd.go"

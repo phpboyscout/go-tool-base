@@ -1029,7 +1029,7 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 			Description: "My great tool",
 			Features: props.SetFeatures(
 				props.Disable(props.InitCmd),
-				props.Enable(props.DocsCmd),
+				props.Enable(props.AiCmd),
 			),
 			ReleaseSource: props.ReleaseSource{
 				Type:  "gitlab",
@@ -1063,18 +1063,21 @@ func TestExtractProjectProperties(t *testing.T) {
 	assert.Equal(t, "acme", rs.Owner)
 	assert.Equal(t, "mytool", rs.Repo)
 
+	// The recovered feature list is the delta from framework defaults: a
+	// default-on feature that was Disabled, and a default-off feature that was
+	// Enabled, each carry an entry. Features at their default are inferred at
+	// read time and carry no entry.
 	init := findFeature(mp.Features, "init")
-	require.NotNil(t, init)
+	require.NotNil(t, init, "Disabled default-on feature must be present")
 	assert.False(t, init.Enabled)
 
-	docs := findFeature(mp.Features, "docs")
-	require.NotNil(t, docs)
-	assert.True(t, docs.Enabled)
+	ai := findFeature(mp.Features, "ai")
+	require.NotNil(t, ai, "Enabled opt-in feature must be present")
+	assert.True(t, ai.Enabled)
 
-	// update + mcp remain at default (enabled)
-	upd := findFeature(mp.Features, "update")
-	require.NotNil(t, upd)
-	assert.True(t, upd.Enabled)
+	// docs and update remain at their default, so they carry no entry.
+	assert.Nil(t, findFeature(mp.Features, "docs"), "default-state feature must be omitted")
+	assert.Nil(t, findFeature(mp.Features, "update"), "default-state feature must be omitted")
 }
 
 func TestExtractProjectProperties_NoNewCmdRoot(t *testing.T) {

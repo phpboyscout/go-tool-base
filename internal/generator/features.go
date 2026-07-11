@@ -5,30 +5,40 @@ import (
 	"slices"
 
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
 
 // ToggleableFeatures is the set of built-in features that `gtb enable <feature>`
 // and `gtb disable <feature>` can flip in a generated project's manifest. It is
-// the nine props.FeatureCmd values the generator already understands via
-// `generate project --features`.
+// derived from templates.FeatureCatalogue — the single source of truth — so it stays
+// complete as features are added.
 //
 // keychain is intentionally excluded: it is a build-time blank-import decision
-// (the scaffolded cmd/<name>/keychain.go), not a runtime feature flag, so it is
-// changed by adding/removing that file, not by a manifest toggle.
-var ToggleableFeatures = []string{
-	"init", "update", "mcp", "docs", "doctor", "changelog", "ai", "config", "telemetry",
+// (the scaffolded cmd/<name>/keychain.go), not a FeatureCmd, so it is changed by
+// adding/removing that file, not by a SetFeatures toggle.
+var ToggleableFeatures = featureNamesFromCatalogue()
+
+func featureNamesFromCatalogue() []string {
+	names := make([]string, 0, len(templates.FeatureCatalogue))
+	for _, d := range templates.FeatureCatalogue {
+		names = append(names, string(d.Cmd))
+	}
+
+	return names
 }
 
 // featureDefaultEnabled reports the framework-default enabled state of a
-// toggleable feature, mirroring props.DefaultFeatures: update/init/mcp/docs/
-// doctor/changelog are on by default; ai/config/telemetry are opt-in.
+// toggleable feature, read from templates.FeatureCatalogue (mirrors
+// props.DefaultFeatures). Unknown names default to false.
 func featureDefaultEnabled(name string) bool {
-	switch name {
-	case "init", "update", "mcp", "docs", "doctor", "changelog":
-		return true
-	default:
-		return false
+	for _, d := range templates.FeatureCatalogue {
+		if string(d.Cmd) == name {
+			return d.Default
+		}
 	}
+
+	return false
 }
 
 // CurrentFeatures returns the project's current manifest feature entries so a
