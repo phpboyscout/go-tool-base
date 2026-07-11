@@ -216,7 +216,7 @@ func (g *Generator) processFileEntry(dir string, entry os.FileInfo) *commandEntr
 	}
 
 	name := entry.Name()
-	if name == "main.go" || name == "root.go" || strings.HasSuffix(name, "_test.go") {
+	if name == "main.go" || name == "root.go" || name == provenanceFileName || strings.HasSuffix(name, "_test.go") {
 		return nil
 	}
 

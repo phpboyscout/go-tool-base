@@ -114,13 +114,27 @@ func (g *Generator) decodeManifestFile(manifestPath string) (*Manifest, error) {
 
 // encodeManifestFile is the instance wrapper over EncodeManifestFile.
 func (g *Generator) encodeManifestFile(manifestPath string, m *Manifest) error {
-	return EncodeManifestFile(g.props.FS, manifestPath, m)
+	if err := EncodeManifestFile(g.props.FS, manifestPath, m); err != nil {
+		return err
+	}
+
+	// Keep the annotated provenance file in sync (see marshalManifestFile) —
+	// generate writes the manifest through this path.
+	return g.writeProvenanceFile(m)
 }
 
 // marshalManifestFile is the instance wrapper over MarshalManifestFile.
-// Every generator write uses the standard DefaultFileMode.
+// Every generator write uses the standard DefaultFileMode. It also keeps the
+// annotated provenance file in sync, since it is the single choke point every
+// manifest write passes through — so the not-in-source properties (signing,
+// template overlays, module_published) always have an on-disk record for a
+// from-scratch rebuild to recover.
 func (g *Generator) marshalManifestFile(manifestPath string, m *Manifest) error {
-	return MarshalManifestFile(g.props.FS, manifestPath, m, os.FileMode(DefaultFileMode))
+	if err := MarshalManifestFile(g.props.FS, manifestPath, m, os.FileMode(DefaultFileMode)); err != nil {
+		return err
+	}
+
+	return g.writeProvenanceFile(m)
 }
 
 func (g *Generator) loadManifest() (*Manifest, error) {

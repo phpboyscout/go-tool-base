@@ -70,6 +70,10 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 	if src := g.recoverCIComponentSource(); src != "" {
 		props.CI.ComponentSource = src
 	}
+
+	// Signing, template-overlay provenance, and module_published are not in the
+	// generated source; recover them from the annotated provenance file.
+	g.applyProvenanceFile(props)
 }
 
 // keychainArtefactExists reports whether the scaffolded keychain blank-import
