@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -82,7 +81,7 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 	// Post-processing: run linter and refresh hashes on real filesystem only.
 	writtenSkeletonHashes, err := g.collectSkeletonHashes()
 	if err == nil {
-		g.runPostRegenerationLint(ctx, writtenSkeletonHashes)
+		g.runPostRegenerationProcessing(ctx, writtenSkeletonHashes)
 	}
 
 	g.props.Logger.Info("Project regeneration complete.")
@@ -199,27 +198,38 @@ func (g *Generator) collectSkeletonHashes() (map[string]string, error) {
 	return m.Hashes, nil
 }
 
-// runPostRegenerationLint runs golangci-lint --fix and refreshes skeleton file
-// hashes on an OS filesystem. It is a no-op for in-memory filesystems used in
-// tests.
-func (g *Generator) runPostRegenerationLint(ctx context.Context, writtenHashes map[string]string) {
+// runPostRegenerationProcessing runs go mod tidy then golangci-lint --fix and
+// refreshes skeleton file hashes on an OS filesystem. It is a no-op for
+// in-memory filesystems used in tests.
+//
+// The tidy is load-bearing and mirrors generate's runSkeletonPostProcessing:
+// regenerate rewrites go.mod from the embedded template snapshot, which omits
+// the `tool` directives' transitive dependencies. Without a tidy the project is
+// left with an under-resolved go.mod (the tool block present but its deps
+// stripped) that a plain `go mod tidy` would immediately re-add — so a freshly
+// generated, unchanged project would not survive a regenerate unchanged. Tidying
+// here keeps regenerate's go.mod byte-identical to generate's, and because the
+// hash refresh runs afterwards the manifest records the tidied go.mod's hash.
+func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHashes map[string]string) {
 	if _, ok := g.props.FS.(*afero.OsFs); !ok {
 		return
 	}
 
+	g.props.Logger.Info("Running go mod tidy...")
+
+	if err := g.runSkeletonCommand(ctx, g.config.Path, "go", "mod", "tidy"); err != nil {
+		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+	}
+
 	g.props.Logger.Info("Running golangci-lint run --fix...")
 
-	cmd := exec.CommandContext(ctx, "golangci-lint", "run", "--fix")
-	cmd.Dir = g.config.Path
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	if err := g.runSkeletonCommand(ctx, g.config.Path, "golangci-lint", "run", "--fix"); err != nil {
 		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
 	}
 
-	// Post-processing may have modified tracked skeleton files. Refresh
-	// their hashes so the next run does not flag those changes as user customisations.
+	// Post-processing (tidy, lint) may have modified tracked skeleton files.
+	// Refresh their hashes so the next run does not flag those changes as user
+	// customisations.
 	if err := g.refreshProjectFileHashes(g.config.Path, writtenHashes); err != nil {
 		g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
 	}
