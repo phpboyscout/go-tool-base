@@ -1073,6 +1073,11 @@ func applyToolField(mp *ManifestProperties, rs *ManifestReleaseSource, fieldName
 		if inner, ok := value.(*dst.CompositeLit); ok {
 			extractReleaseSourceLiteral(inner, rs)
 		}
+	default:
+		// Every other field the renderer emits into the Tool literal
+		// (EnvPrefix, UpdatePolicy, UpdateCheckInterval, Help, Telemetry,
+		// Bootstrap) is recovered here so a from-scratch rebuild reproduces it.
+		applyLiteralToolField(mp, fieldName, value)
 	}
 }
 

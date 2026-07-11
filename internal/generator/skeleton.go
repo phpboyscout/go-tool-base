@@ -914,5 +914,17 @@ func normaliseManifestFeatures(features []ManifestFeature) []ManifestFeature {
 		}
 	}
 
-	return out
+	return sortManifestFeatures(out)
+}
+
+// sortManifestFeatures orders feature entries by name so the manifest form is
+// canonical regardless of how the entries were produced (generate's requested
+// order vs the scanner's catalogue order plus keychain), making a from-scratch
+// rebuild reproduce the exact bytes.
+func sortManifestFeatures(features []ManifestFeature) []ManifestFeature {
+	slices.SortStableFunc(features, func(a, b ManifestFeature) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	return features
 }

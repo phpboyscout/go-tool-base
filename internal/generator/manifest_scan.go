@@ -34,10 +34,14 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	// If it doesn't exist yet, start from an empty manifest.
 	var m Manifest
 
+	manifestExisted := false
+
 	if data, readErr := afero.ReadFile(g.props.FS, manifestPath); readErr == nil {
 		if err := yaml.Unmarshal(data, &m); err != nil {
 			return errors.Newf("failed to unmarshal manifest: %w", err)
 		}
+
+		manifestExisted = true
 	} else if !os.IsNotExist(readErr) {
 		return errors.Newf("failed to read manifest: %w", readErr)
 	}
@@ -53,20 +57,7 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 	// module_published. So update only the recoverable fields in place and
 	// preserve the rest — replacing the whole Properties struct silently wiped
 	// them (keryx defect B; and the diataxis docs_layout regression).
-	rootCmdPath := filepath.Join(g.config.Path, "pkg", "cmd", "root", "cmd.go")
-	if mProps, rs, err := g.extractProjectProperties(rootCmdPath); err == nil {
-		m.Properties.Name = mProps.Name
-		m.Properties.Description = mProps.Description
-		m.ReleaseSource = *rs
-
-		// Fall back to the (lossy) AST-derived feature set only when the existing
-		// manifest recorded none.
-		if len(m.Properties.Features) == 0 {
-			m.Properties.Features = mProps.Features
-		}
-	} else {
-		g.props.Logger.Warn("could not extract project properties from root cmd.go", "error", err)
-	}
+	g.applyRecoveredProperties(&m, manifestExisted)
 
 	if g.props.Version != nil {
 		m.Version.GoToolBase = g.props.Version.GetVersion()
