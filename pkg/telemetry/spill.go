@@ -10,7 +10,7 @@ import (
 	"sort"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 const (
@@ -151,7 +151,7 @@ func (c *Collector) flushSpillFiles(ctx context.Context) error {
 			continue
 		}
 
-		if c.deliveryMode == props.DeliveryAtMostOnce {
+		if c.deliveryMode == telemetrytypes.DeliveryAtMostOnce {
 			c.removeSpillFile(f)
 		}
 
@@ -161,7 +161,7 @@ func (c *Collector) flushSpillFiles(ctx context.Context) error {
 			continue
 		}
 
-		if c.deliveryMode == props.DeliveryAtLeastOnce {
+		if c.deliveryMode == telemetrytypes.DeliveryAtLeastOnce {
 			c.removeSpillFile(f)
 		}
 	}

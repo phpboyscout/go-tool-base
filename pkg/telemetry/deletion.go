@@ -14,6 +14,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 const (
@@ -137,7 +138,7 @@ func NewEventDeletionRequestor(backend Backend) DeletionRequestor {
 func (e *EventDeletionRequestor) RequestDeletion(ctx context.Context, machineID string) error {
 	event := Event{
 		Timestamp: time.Now().UTC(),
-		Type:      EventDeletionRequest,
+		Type:      telemetrytypes.EventDeletionRequest,
 		Name:      "deletion_request",
 		MachineID: machineID,
 	}

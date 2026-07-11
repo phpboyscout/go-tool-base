@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 func TestCollector_SpillOnCap(t *testing.T) {
@@ -118,7 +119,7 @@ func TestCollector_DeliveryAtLeastOnce(t *testing.T) {
 	dir := t.TempDir()
 
 	// Write a spill file manually
-	events := []Event{{Type: EventCommandInvocation, Name: "spilled"}}
+	events := []Event{{Type: telemetrytypes.EventCommandInvocation, Name: "spilled"}}
 	data, err := json.Marshal(events)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -148,7 +149,7 @@ func TestCollector_DeliveryAtMostOnce(t *testing.T) {
 
 	dir := t.TempDir()
 
-	events := []Event{{Type: EventCommandInvocation, Name: "spilled"}}
+	events := []Event{{Type: telemetrytypes.EventCommandInvocation, Name: "spilled"}}
 	data, err := json.Marshal(events)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)

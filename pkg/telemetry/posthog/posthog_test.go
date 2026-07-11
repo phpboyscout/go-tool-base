@@ -11,6 +11,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 func newTestServer(t *testing.T) (*httptest.Server, *[]byte) {
@@ -36,7 +37,7 @@ func newTestServer(t *testing.T) (*httptest.Server, *[]byte) {
 func testEvent() telemetry.Event {
 	return telemetry.Event{
 		Timestamp: time.Date(2026, 3, 31, 10, 0, 0, 0, time.UTC),
-		Type:      telemetry.EventCommandInvocation,
+		Type:      telemetrytypes.EventCommandInvocation,
 		Name:      "generate",
 		MachineID: "abc123",
 		ToolName:  "mytool",

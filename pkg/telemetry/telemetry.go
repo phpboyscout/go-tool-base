@@ -12,41 +12,27 @@ import (
 	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/osinfo"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
-)
-
-// EventType identifies the category of telemetry event.
-// Mirrored from pkg/props — since both resolve to string, values are
-// interchangeable at the interface boundary.
-type EventType string
-
-const (
-	EventCommandInvocation EventType = "command.invocation"
-	EventCommandError      EventType = "command.error"
-	EventFeatureUsed       EventType = "feature.used"
-	EventUpdateCheck       EventType = "update.check"
-	EventUpdateApplied     EventType = "update.applied"
-	EventDeletionRequest   EventType = "data.deletion_request"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 // Event represents a single telemetry event.
 type Event struct {
-	Timestamp  time.Time         `json:"timestamp"`
-	Type       EventType         `json:"type"`
-	Name       string            `json:"name"`
-	MachineID  string            `json:"machine_id"`
-	ToolName   string            `json:"tool_name"`
-	Version    string            `json:"version"`
-	OS         string            `json:"os"`
-	Arch       string            `json:"arch"`
-	GoVersion  string            `json:"go_version"`
-	OSVersion  string            `json:"os_version"`
-	DurationMs int64             `json:"duration_ms,omitempty"`
-	ExitCode   int               `json:"exit_code,omitempty"`
-	Args       []string          `json:"args,omitempty"`  // only populated when ExtendedCollection is enabled
-	Error      string            `json:"error,omitempty"` // only populated when ExtendedCollection is enabled
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	Timestamp  time.Time                `json:"timestamp"`
+	Type       telemetrytypes.EventType `json:"type"`
+	Name       string                   `json:"name"`
+	MachineID  string                   `json:"machine_id"`
+	ToolName   string                   `json:"tool_name"`
+	Version    string                   `json:"version"`
+	OS         string                   `json:"os"`
+	Arch       string                   `json:"arch"`
+	GoVersion  string                   `json:"go_version"`
+	OSVersion  string                   `json:"os_version"`
+	DurationMs int64                    `json:"duration_ms,omitempty"`
+	ExitCode   int                      `json:"exit_code,omitempty"`
+	Args       []string                 `json:"args,omitempty"`  // only populated when ExtendedCollection is enabled
+	Error      string                   `json:"error,omitempty"` // only populated when ExtendedCollection is enabled
+	Metadata   map[string]string        `json:"metadata,omitempty"`
 }
 
 // Config holds runtime telemetry configuration read from the user's config file.
@@ -81,13 +67,13 @@ type Collector struct {
 	mu           sync.Mutex
 	log          *slog.Logger
 	dataDir      string
-	deliveryMode props.DeliveryMode
+	deliveryMode telemetrytypes.DeliveryMode
 	maxBuffer    int
 }
 
 // NewCollector creates a Collector. When cfg.Enabled is false, returns a noop
 // collector so callers never need to nil-check.
-func NewCollector(cfg Config, backend Backend, toolName, version string, metadata map[string]string, log *slog.Logger, dataDir string, deliveryMode props.DeliveryMode, extendedCollection bool) *Collector {
+func NewCollector(cfg Config, backend Backend, toolName, version string, metadata map[string]string, log *slog.Logger, dataDir string, deliveryMode telemetrytypes.DeliveryMode, extendedCollection bool) *Collector {
 	if !cfg.Enabled {
 		c := &Collector{backend: NewNoopBackend(), log: log, maxBuffer: defaultMaxBuffer}
 		c.SetBackendInfo("noop (disabled)")
@@ -96,7 +82,7 @@ func NewCollector(cfg Config, backend Backend, toolName, version string, metadat
 	}
 
 	if deliveryMode == "" {
-		deliveryMode = props.DeliveryAtLeastOnce
+		deliveryMode = telemetrytypes.DeliveryAtLeastOnce
 	}
 
 	return &Collector{
@@ -180,9 +166,9 @@ func (c *Collector) record(evt Event, extra map[string]string) {
 	}
 }
 
-func (c *Collector) Track(eventType props.EventType, name string, extra map[string]string) {
+func (c *Collector) Track(eventType telemetrytypes.EventType, name string, extra map[string]string) {
 	c.record(Event{
-		Type: EventType(eventType),
+		Type: eventType,
 		Name: name,
 	}, extra)
 }
@@ -191,7 +177,7 @@ func (c *Collector) Track(eventType props.EventType, name string, extra map[stri
 // This is a convenience wrapper around Track for command lifecycle events.
 func (c *Collector) TrackCommand(name string, durationMs int64, exitCode int, extra map[string]string) {
 	c.record(Event{
-		Type:       EventType(props.EventCommandInvocation),
+		Type:       telemetrytypes.EventCommandInvocation,
 		Name:       name,
 		DurationMs: durationMs,
 		ExitCode:   exitCode,
@@ -203,7 +189,7 @@ func (c *Collector) TrackCommand(name string, durationMs int64, exitCode int, ex
 // silently dropped — callers do not need to check the flag themselves.
 func (c *Collector) TrackCommandExtended(name string, args []string, durationMs int64, exitCode int, errMsg string, extra map[string]string) {
 	event := Event{
-		Type:       EventType(props.EventCommandInvocation),
+		Type:       telemetrytypes.EventCommandInvocation,
 		Name:       name,
 		DurationMs: durationMs,
 		ExitCode:   exitCode,
@@ -248,7 +234,7 @@ func (c *Collector) Flush(ctx context.Context) error {
 		// back to disk so the next flush retries. Without this re-spill the
 		// buffer was already cleared above, defeating the no-data-loss
 		// guarantee whenever a backend surfaces a transport error.
-		if c.deliveryMode == props.DeliveryAtLeastOnce {
+		if c.deliveryMode == telemetrytypes.DeliveryAtLeastOnce {
 			c.mu.Lock()
 			c.buffer = append(c.buffer, events...)
 			c.spillToDisk()

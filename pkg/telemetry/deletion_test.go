@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 func TestHTTPDeletionRequestor_Success(t *testing.T) {
@@ -168,8 +169,8 @@ func TestEventDeletionRequestor(t *testing.T) {
 
 	e := spy.lastEvents[0]
 
-	if e.Type != EventDeletionRequest {
-		t.Errorf("type = %q, want %q", e.Type, EventDeletionRequest)
+	if e.Type != telemetrytypes.EventDeletionRequest {
+		t.Errorf("type = %q, want %q", e.Type, telemetrytypes.EventDeletionRequest)
 	}
 
 	if e.MachineID != "machine-xyz" {

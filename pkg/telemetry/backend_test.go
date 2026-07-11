@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 func TestNoopBackend(t *testing.T) {
@@ -39,7 +40,7 @@ func TestStdoutBackend(t *testing.T) {
 	events := []Event{
 		{
 			Timestamp: time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC),
-			Type:      EventCommandInvocation,
+			Type:      telemetrytypes.EventCommandInvocation,
 			Name:      "generate",
 			ToolName:  "mytool",
 		},
@@ -70,8 +71,8 @@ func TestFileBackend(t *testing.T) {
 	b := NewFileBackend(path)
 
 	events := []Event{
-		{Type: EventCommandInvocation, Name: "first"},
-		{Type: EventCommandError, Name: "second"},
+		{Type: telemetrytypes.EventCommandInvocation, Name: "first"},
+		{Type: telemetrytypes.EventCommandError, Name: "second"},
 	}
 
 	if err := b.Send(context.Background(), events); err != nil {
@@ -125,7 +126,7 @@ func TestHTTPBackend_Success(t *testing.T) {
 
 	b := NewHTTPBackend(srv.URL, logger.ToSlog(logger.NewNoop()))
 
-	events := []Event{{Type: EventCommandInvocation, Name: "test"}}
+	events := []Event{{Type: telemetrytypes.EventCommandInvocation, Name: "test"}}
 	if err := b.Send(context.Background(), events); err != nil {
 		t.Fatalf("http send: %v", err)
 	}

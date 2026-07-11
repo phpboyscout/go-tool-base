@@ -13,6 +13,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 func TestCollector_Disabled(t *testing.T) {
@@ -55,8 +56,8 @@ func TestCollector_Track(t *testing.T) {
 
 	e := spy.lastEvents[0]
 
-	if e.Type != EventCommandInvocation {
-		t.Errorf("type = %q, want %q", e.Type, EventCommandInvocation)
+	if e.Type != telemetrytypes.EventCommandInvocation {
+		t.Errorf("type = %q, want %q", e.Type, telemetrytypes.EventCommandInvocation)
 	}
 
 	if e.Name != "generate" {
@@ -97,8 +98,8 @@ func TestCollector_TrackCommand(t *testing.T) {
 	}
 
 	e := spy.lastEvents[0]
-	if e.Type != EventCommandInvocation {
-		t.Errorf("type = %q, want %q", e.Type, EventCommandInvocation)
+	if e.Type != telemetrytypes.EventCommandInvocation {
+		t.Errorf("type = %q, want %q", e.Type, telemetrytypes.EventCommandInvocation)
 	}
 
 	if e.Name != "build" {
@@ -494,29 +495,6 @@ func TestTrackCommandExtended_Disabled(t *testing.T) {
 
 	if e.ExitCode != 1 {
 		t.Errorf("exit_code = %d, want 1", e.ExitCode)
-	}
-}
-
-func TestEventTypeSync(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		propsType     props.EventType
-		telemetryType EventType
-	}{
-		{props.EventCommandInvocation, EventCommandInvocation},
-		{props.EventCommandError, EventCommandError},
-		{props.EventFeatureUsed, EventFeatureUsed},
-		{props.EventUpdateCheck, EventUpdateCheck},
-		{props.EventUpdateApplied, EventUpdateApplied},
-		{props.EventDeletionRequest, EventDeletionRequest},
-	}
-
-	for _, tt := range tests {
-		if string(tt.propsType) != string(tt.telemetryType) {
-			t.Errorf("props.%s = %q != telemetry.%s = %q",
-				tt.propsType, tt.propsType, tt.telemetryType, tt.telemetryType)
-		}
 	}
 }
 

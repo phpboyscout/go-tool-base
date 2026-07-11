@@ -17,6 +17,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 // --- Collector.Enabled / Close ---
@@ -223,7 +224,7 @@ func TestOTelBackend_SendAndClose(t *testing.T) {
 
 	events := []Event{
 		{
-			Type:       EventCommandInvocation,
+			Type:       telemetrytypes.EventCommandInvocation,
 			Name:       "generate",
 			ToolName:   "tool",
 			Version:    "1.0.0",
@@ -259,7 +260,7 @@ func TestOTelBackend_SendAndClose(t *testing.T) {
 // it when the event flows through record() → mergeMetadata().
 func bigEvent(name string) Event {
 	return Event{
-		Type:     EventCommandInvocation,
+		Type:     telemetrytypes.EventCommandInvocation,
 		Name:     name,
 		Metadata: map[string]string{"blob": strings.Repeat("x y ", 75*1024)},
 	}
@@ -301,7 +302,7 @@ func TestSplitSpillData_SingleOversizedEvent(t *testing.T) {
 	t.Parallel()
 
 	giant := Event{
-		Type:     EventCommandInvocation,
+		Type:     telemetrytypes.EventCommandInvocation,
 		Name:     "giant",
 		Metadata: map[string]string{"blob": strings.Repeat("y", maxSpillFileSize*2)},
 	}
@@ -338,7 +339,7 @@ func TestSpillToDisk_SplitsAcrossFiles(t *testing.T) {
 	// payload is supplied via the extra argument (spaces keep it un-redacted).
 	blob := map[string]string{"blob": strings.Repeat("x y ", 75*1024)}
 	for _, n := range names {
-		c.record(Event{Type: EventCommandInvocation, Name: n}, blob)
+		c.record(Event{Type: telemetrytypes.EventCommandInvocation, Name: n}, blob)
 	}
 
 	files, _ := filepath.Glob(filepath.Join(dir, spillPattern))
@@ -396,7 +397,7 @@ func TestFlushSpillFiles_SendErrorRetainsFile(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	events := []Event{{Type: EventCommandInvocation, Name: "spilled"}}
+	events := []Event{{Type: telemetrytypes.EventCommandInvocation, Name: "spilled"}}
 	data, err := json.Marshal(events)
 	require.NoError(t, err)
 
