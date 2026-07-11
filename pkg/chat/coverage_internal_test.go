@@ -164,6 +164,44 @@ func TestGeminiSaveRestore_RoundTrip(t *testing.T) {
 	require.NotNil(t, dst.config.SystemInstruction)
 }
 
+// TestClaudeSaveRestore_RoundTrip exercises Claude Save/Restore, mirroring the
+// OpenAI and Gemini round-trips (Claude.Save was previously uncovered).
+func TestClaudeSaveRestore_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	orig := &Claude{}
+	orig.cfg.Model = "claude-sonnet-4-6"
+	orig.cfg.SystemPrompt = "be concise"
+
+	snap, err := orig.Save()
+	require.NoError(t, err)
+	assert.Equal(t, ProviderClaude, snap.Provider)
+	assert.Equal(t, "claude-sonnet-4-6", snap.Model)
+
+	dst := &Claude{}
+	require.NoError(t, dst.Restore(snap))
+	assert.Equal(t, "be concise", dst.cfg.SystemPrompt)
+	require.NotNil(t, dst.system)
+}
+
+func TestClaudeRestore_ProviderMismatch(t *testing.T) {
+	t.Parallel()
+
+	dst := &Claude{}
+	err := dst.Restore(&Snapshot{Provider: ProviderGemini, Messages: json.RawMessage(`[]`)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "provider mismatch")
+}
+
+func TestClaudeRestore_BadMessagesJSON(t *testing.T) {
+	t.Parallel()
+
+	dst := &Claude{}
+	err := dst.Restore(&Snapshot{Provider: ProviderClaude, Messages: json.RawMessage(`{bad`)})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unmarshalling Claude messages")
+}
+
 func TestGeminiRestore_ProviderMismatch(t *testing.T) {
 	t.Parallel()
 

@@ -389,6 +389,23 @@ func registerTestProviders(t *testing.T) {
 	})
 }
 
+// TestNewWithFallbackSettings_EnabledBuildsChain covers the fallback-enabled
+// path of NewWithFallbackSettings (the disabled early-return was already
+// exercised); it builds the provider chain from package-owned Settings.
+func TestNewWithFallbackSettings_EnabledBuildsChain(t *testing.T) {
+	registerTestProviders(t)
+
+	settings := Settings{Config: Config{Provider: "fbt-ok"}}
+	fallback := FallbackConfig{Enabled: true, Providers: []Provider{"fbt-ok", "fbt-ok2"}}
+
+	client, err := NewWithFallbackSettings(context.Background(), settings, fallback)
+	require.NoError(t, err)
+
+	got, err := client.Chat(context.Background(), "hi")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", got)
+}
+
 func TestNewFallbackFromConfigs_DropsMissingFallbackCred(t *testing.T) {
 	registerTestProviders(t)
 

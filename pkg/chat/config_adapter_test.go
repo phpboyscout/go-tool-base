@@ -224,6 +224,28 @@ func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 	assert.Equal(t, "ok", got)
 }
 
+// TestNewWithFallback_WrapperBuildsChain covers the public NewWithFallback
+// wrapper, which delegates to NewWithFallbackFromProps.
+func TestNewWithFallback_WrapperBuildsChain(t *testing.T) {
+	registerTestProviders(t)
+
+	v := viper.New()
+	v.Set(ConfigKeyAIFallbackEnabled, true)
+	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok", "fbt-ok2"})
+
+	p := &props.Props{
+		Logger: logger.NewNoop(),
+		Config: config.NewContainerFromViper(nil, v),
+	}
+
+	client, err := NewWithFallback(context.Background(), p, Config{Provider: ProviderClaude})
+	require.NoError(t, err)
+
+	got, err := client.Chat(context.Background(), "hi")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", got)
+}
+
 func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *testing.T) {
 	registerTestProviders(t)
 
