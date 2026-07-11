@@ -1,5 +1,12 @@
 # Changelog
 
+## [v0.31.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.31.0)
+
+### Features
+
+- **generator**: recover signing and template provenance via an annotated file
+- **generator**: reconstruct the full manifest from source on a from-scratch rebuild
+
 ## [v0.30.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.30.0)
 
 ### Features
