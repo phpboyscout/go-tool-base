@@ -114,7 +114,7 @@ func runMigrate(cmd *cobra.Command, p *props.Props, env string) error {
         return err
     }
 
-    p.Logger.Infof("Applied %d migrations", count)
+    p.Logger.Info("migrations applied", "count", count)
 
     return output.Emit(cmd, output.Response{
         Status:  output.StatusSuccess,

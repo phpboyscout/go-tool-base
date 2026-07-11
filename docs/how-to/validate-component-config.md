@@ -270,7 +270,7 @@ myfeature:
 `), 0o644)
     require.NoError(t, err)
 
-    c, err := config.LoadFilesContainer(fs, config.WithLogger(l), config.WithConfigFiles("/config.yaml"))
+    c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(l)), config.WithConfigFiles("/config.yaml"))
     require.NoError(t, err)
 
     err = myfeature.ValidateConfig(c)
@@ -287,7 +287,7 @@ myfeature:
 `), 0o644)
     require.NoError(t, err)
 
-    c, err := config.LoadFilesContainer(fs, config.WithLogger(l), config.WithConfigFiles("/config.yaml"))
+    c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(l)), config.WithConfigFiles("/config.yaml"))
     require.NoError(t, err)
 
     err = myfeature.ValidateConfig(c)

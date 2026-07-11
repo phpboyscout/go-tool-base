@@ -101,7 +101,7 @@ Telemetry: props.TelemetryConfig{
     Backend: func(p *props.Props) any {
         return datadog.NewBackend(
             os.Getenv("DD_API_KEY"),
-            p.Logger,
+            logger.ToSlog(p.Logger),
             datadog.WithRegion(datadog.RegionEU1),
         )
     },
@@ -138,7 +138,7 @@ Telemetry: props.TelemetryConfig{
     Backend: func(p *props.Props) any {
         return posthog.NewBackend(
             os.Getenv("POSTHOG_PROJECT_KEY"),
-            p.Logger,
+            logger.ToSlog(p.Logger),
             posthog.WithInstance(posthog.InstanceEU),
         )
     },
@@ -150,7 +150,7 @@ Telemetry: props.TelemetryConfig{
 ```go
 posthog.NewBackend(
     os.Getenv("POSTHOG_PROJECT_KEY"),
-    p.Logger,
+    logger.ToSlog(p.Logger),
     posthog.WithEndpoint("https://posthog.internal.example.com/capture/"),
 )
 ```

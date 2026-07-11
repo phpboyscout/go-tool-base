@@ -54,7 +54,7 @@ import (
 )
 
 func analyseCode(ctx context.Context, p *props.Props, code string) (*CodeReview, error) {
-    client, err := chat.New(ctx, p, chat.Config{
+    client, err := chat.NewFromProps(ctx, p, chat.Config{
         Provider:          chat.ProviderClaude,
         SystemPrompt:      "You are a senior Go code reviewer. Be concise and actionable.",
         ResponseSchema:    CodeReview{},
@@ -125,7 +125,7 @@ func NewCmdReview(p *props.Props) *setup.Command {
 Use `Add` to build up conversation context before calling `Ask`. This is useful when you want to provide reference material without it being part of the question itself:
 
 ```go
-client, err := chat.New(ctx, p, chat.Config{
+client, err := chat.NewFromProps(ctx, p, chat.Config{
     Provider:       chat.ProviderClaude,
     ResponseSchema: CodeReview{},
     SchemaName:     "code_review",
@@ -149,7 +149,7 @@ Message history accumulates across calls on the same client instance. Create a n
 If you omit `ResponseSchema`, `Ask` returns the raw text content. Pass a `*string` as target:
 
 ```go
-client, _ := chat.New(ctx, p, chat.Config{
+client, _ := chat.NewFromProps(ctx, p, chat.Config{
     Provider:     chat.ProviderClaude,
     SystemPrompt: "You are a helpful assistant.",
 })

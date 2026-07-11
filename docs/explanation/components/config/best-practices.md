@@ -23,7 +23,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 func setupConfiguration(l logger.Logger, fs afero.Fs) (*config.Container, error) {
     // Load in order of precedence (later files override earlier ones)
     container := config.NewFilesContainer(fs,
-        config.WithLogger(l),
+        config.WithLogger(logger.ToSlog(l)),
         config.WithConfigFiles(
             "defaults.yaml",      // Base defaults
             "config.yaml",        // Environment configuration
@@ -114,7 +114,7 @@ func setupProps() (*props.Props, error) {
 
     // Load configuration
     cfg := config.NewFilesContainer(fs,
-        config.WithLogger(l),
+        config.WithLogger(logger.ToSlog(l)),
         config.WithEnvPrefix("MYAPP"),
         config.WithConfigFiles("config.yaml"),
     )

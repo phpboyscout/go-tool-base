@@ -168,7 +168,7 @@ func resumableChat(ctx context.Context, p *props.Props, conversationID string) e
         SystemPrompt: "You are a helpful coding assistant.",
     }
 
-    client, err := chat.New(ctx, p, cfg)
+    client, err := chat.NewFromProps(ctx, p, cfg)
     if err != nil {
         return err
     }

@@ -134,7 +134,7 @@ func main() {
         FS:      afero.NewOsFs(),
         Version: version.NewInfo("1.0.0", "", ""),
     }
-    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 
     rootCmd := root.NewCmdRoot(p)
     root.Execute(rootCmd, p)

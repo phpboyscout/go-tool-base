@@ -53,7 +53,7 @@ The `pkg/config` package provides an in-memory container builder for testing:
 
 ```go
 cfg := config.NewReaderContainer(fs,
-    config.WithLogger(logger),
+    config.WithLogger(logger.ToSlog(logger.NewNoop())),
     config.WithConfigFormat("yaml"),
     config.WithConfigReaders(bytes.NewReader([]byte("key: test-value"))),
 )

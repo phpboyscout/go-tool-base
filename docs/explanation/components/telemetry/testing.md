@@ -24,7 +24,7 @@ Or create a disabled collector for explicit testing:
 
 ```go
 c := telemetry.NewCollector(telemetry.Config{}, telemetry.NewNoopBackend(),
-    "test", "1.0.0", nil, logger.NewNoop(), "", props.DeliveryAtLeastOnce)
+    "test", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", props.DeliveryAtLeastOnce, false)
 ```
 
 ### Verifying Events

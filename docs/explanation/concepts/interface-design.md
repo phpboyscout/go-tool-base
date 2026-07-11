@@ -38,23 +38,17 @@ GTB interfaces follow these key principles:
 **Purpose:** Unified logging abstraction accepted by all GTB packages instead of a concrete logger type.
 
 ```go
+// Mirrors the method set of *slog.Logger exactly (see pkg.go.dev for the full
+// signatures); a *slog.Logger therefore satisfies logger.Logger directly.
 type Logger interface {
-    Debug(msg string, keyvals ...any)
-    Info(msg string, keyvals ...any)
-    Warn(msg string, keyvals ...any)
-    Error(msg string, keyvals ...any)
-    Fatal(msg string, keyvals ...any)
-    Debugf(format string, args ...any)
-    Infof(format string, args ...any)
-    Warnf(format string, args ...any)
-    Errorf(format string, args ...any)
-    Fatalf(format string, args ...any)
-    Print(msg any, keyvals ...any)
-    With(keyvals ...any) Logger
-    WithPrefix(prefix string) Logger
-    SetLevel(level Level)
-    GetLevel() Level
-    SetFormatter(f Formatter)
+    Debug(msg string, args ...any)
+    Info(msg string, args ...any)
+    Warn(msg string, args ...any)
+    Error(msg string, args ...any)
+    // …Context variants, Log, LogAttrs
+    With(args ...any) *slog.Logger
+    WithGroup(name string) *slog.Logger
+    Enabled(ctx context.Context, level slog.Level) bool
     Handler() slog.Handler
 }
 ```
@@ -63,9 +57,9 @@ type Logger interface {
 
 **Key Design Decisions:**
 
-- Decouples all GTB packages from `*slog.Logger` and `*log.Logger` — backends are swappable
-- `Handler()` provides slog ecosystem interoperability without exposing a concrete type
-- `NewNoop()` eliminates test boilerplate; `NewSlog` enables OpenTelemetry, Zap, Zerolog bridges
+- Mirrors `*slog.Logger` exactly, so a plain `*slog.Logger` satisfies it directly and any type with the same method set works as a custom backend — no adapter needed
+- Structured-only: format-string helpers (`Infof`) and `Fatal` were dropped; use `log.Info("msg", "key", val)` and return errors for exit paths
+- `Handler()` provides slog ecosystem interoperability; runtime level/format are set via the `logger.SetLevel(log, slog.Level)` / `logger.SetFormatter(log, f)` helpers rather than interface methods
 
 **Usage Example:**
 
@@ -378,7 +372,7 @@ type Controllable interface {
 
 - Narrow role interfaces allow packages to declare only what they use — most consumers only need `Runner`, `HealthReporter`, or `ChannelProvider`
 - `ControllerOpt` functions accept `Configurable`, not `Controllable`, to enforce the narrowest dependency
-- `SetLogger` accepts `logger.Logger` (not `*slog.Logger`) for backend-agnostic logging
+- `SetLogger` accepts `*slog.Logger`; wrap an application `logger.Logger` with `logger.ToSlog(...)` at the call site
 - Built-in OS signal handling for graceful shutdown
 
 ---

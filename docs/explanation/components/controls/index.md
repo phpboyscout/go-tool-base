@@ -69,7 +69,7 @@ func main() {
 
     // Create controller
     controller := controls.NewController(ctx,
-        controls.WithLogger(l),
+        controls.WithLogger(logger.ToSlog(l)),
     )
 
     // Create HTTP server
@@ -97,7 +97,7 @@ func main() {
     // Wait for services to complete (blocks until shutdown)
     controller.Wait()
 
-    logger.Info("Application shutdown complete")
+    l.Info("Application shutdown complete")
 }
 ```
 
@@ -180,7 +180,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller
 
 // Available controller options
 func WithoutSignals() ControllerOpt
-func WithLogger(l logger.Logger) ControllerOpt
+func WithLogger(l *slog.Logger) ControllerOpt
 func WithShutdownTimeout(d time.Duration) ControllerOpt
 func WithValidError(fn ValidErrorFunc) ControllerOpt
 ```

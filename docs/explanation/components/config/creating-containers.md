@@ -28,7 +28,7 @@ GTB provides several factory functions for creating configuration containers. Th
 
 ```go
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml", "config.local.yaml"),
 )
 ```
@@ -46,7 +46,7 @@ container := config.NewFilesContainer(fs,
 
 ```go
 container, err := config.LoadFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml", "config.local.yaml"),
 )
 if err != nil {
@@ -73,14 +73,14 @@ app:
   debug: true
 `
 container := config.NewReaderContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFormat("yaml"),
     config.WithConfigReaders(strings.NewReader(configYAML)),
 )
 
 // From embedded bytes
 container := config.NewReaderContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFormat("yaml"),
     config.WithConfigReaders(
         bytes.NewReader(defaultConfigBytes),
@@ -106,7 +106,7 @@ v := viper.New()
 v.SetConfigFile("legacy-config.yaml")
 v.ReadInConfig()
 
-container := config.NewContainerFromViper(l, v)
+container := config.NewContainerFromViper(logger.ToSlog(l), v)
 ```
 
 **Behavior:**

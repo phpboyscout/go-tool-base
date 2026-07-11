@@ -43,7 +43,7 @@ set is `ProviderClaude`.
 - No `Token` or API key needed
 
 ```go
-client, err := chat.New(ctx, p, chat.Config{
+client, err := chat.NewFromProps(ctx, p, chat.Config{
     Provider:     chat.ProviderClaudeLocal,
     Model:        "claude-sonnet-4-6", // optional; uses claude's default if empty
     SystemPrompt: "You are a helpful assistant.",
@@ -62,7 +62,7 @@ Use `ProviderOpenAICompatible` to target any backend that exposes an OpenAI-comp
 
 ```go
 // Ollama (local)
-client, err := chat.New(ctx, p, chat.Config{
+client, err := chat.NewFromProps(ctx, p, chat.Config{
     Provider: chat.ProviderOpenAICompatible,
     BaseURL:  "http://localhost:11434/v1",
     Model:    "llama3.2",
@@ -70,7 +70,7 @@ client, err := chat.New(ctx, p, chat.Config{
 })
 
 // Groq (cloud)
-client, err := chat.New(ctx, p, chat.Config{
+client, err := chat.NewFromProps(ctx, p, chat.Config{
     Provider: chat.ProviderOpenAICompatible,
     BaseURL:  "https://api.groq.com/openai/v1",
     Model:    "llama-3.3-70b-versatile",
@@ -95,7 +95,7 @@ func newMyBackend(ctx context.Context, p *props.Props, cfg chat.Config) (chat.Ch
 }
 ```
 
-After importing your package, `chat.New(ctx, p, chat.Config{Provider: "my-backend"})` routes to your factory.
+After importing your package, `chat.NewFromProps(ctx, p, chat.Config{Provider: "my-backend"})` routes to your factory.
 
 ## Cross-provider fallback & routing
 

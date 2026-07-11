@@ -128,7 +128,7 @@ once construction completes:
 ```go
 // This enables file watching automatically
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml", "local.yaml"),
     config.WithReloadDebounce(500*time.Millisecond), // optional; default 250ms
 )
@@ -163,7 +163,7 @@ last-known-good config is retained — that is, when:
 
 ```go
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml", "local.yaml"),
     config.WithSchema(schema),
 )

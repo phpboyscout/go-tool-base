@@ -23,7 +23,7 @@ import (
 )
 
 func setupController(ctx context.Context, l logger.Logger) *controls.Controller {
-    return controls.NewController(ctx, controls.WithLogger(l))
+    return controls.NewController(ctx, controls.WithLogger(logger.ToSlog(l)))
 }
 ```
 
@@ -181,7 +181,7 @@ func main() {
         log.Fatal("failed to set up props:", err)
     }
 
-    controller := controls.NewController(ctx, controls.WithLogger(props.Logger))
+    controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(props.Logger)))
 
     registerHTTPServer(controller, props)
     registerBackgroundWorker(controller, props)

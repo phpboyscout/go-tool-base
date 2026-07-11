@@ -17,10 +17,10 @@ Provides a `release.Provider` implementation backed by the GitLab Releases API. 
 ## Constructor
 
 ```go
-func NewReleaseProvider(cfg config.Containable) (release.Provider, error)
+func NewReleaseProvider(settings Settings) (release.Provider, error)
 ```
 
-`cfg` should be a `props.Config.Sub("gitlab")` subtree. Reads `url.api` and authentication via `vcs.ResolveToken`.
+`settings` is a typed `gitlab.Settings`; GTB builds it from config with `gitlab.SettingsFromConfig(src, tokenCfg)`, supplying the release source (`url.api`) and resolving the token via `vcs.ResolveToken`.
 
 Token is optional — public projects work without one. Private projects will receive a 401 if no token is set.
 

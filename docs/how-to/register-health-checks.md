@@ -70,7 +70,7 @@ func checkConnectionPool(ctx context.Context) controls.CheckResult {
 Sync checks run inline on every health request. Use these for fast, low-cost checks:
 
 ```go
-controller := controls.NewController(ctx, controls.WithLogger(l))
+controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(l)))
 
 err := controller.RegisterHealthCheck(controls.HealthCheck{
     Name:    "database",

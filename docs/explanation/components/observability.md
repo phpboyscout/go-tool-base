@@ -40,7 +40,7 @@ func SetupFromProps(ctx context.Context, p *props.Props, controller controls.Con
 The adapter resolves each signal from config into `ObservabilitySettings`; `Setup` builds only the enabled providers, installs them as the OTel globals, sets the W3C trace-context + baggage propagators, and — when a controller is supplied — registers a `telemetry` service so the providers flush on graceful stop. Call it in `serve`, after the controller exists:
 
 ```go
-controller := controls.NewController(ctx, controls.WithLogger(p.Logger))
+controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(p.Logger)))
 
 if _, err := telemetry.SetupFromProps(ctx, p, controller); err != nil {
 	return err
@@ -58,7 +58,7 @@ Spans and the standard server metrics come from the OTel contrib libraries, wrap
 gRPC — a stats handler passed to `Register`:
 
 ```go
-grpcSrv, _ := grpc.Register(ctx, "grpc", controller, p.Config, p.Logger,
+grpcSrv, _ := grpc.RegisterFromContainable(ctx, "grpc", controller, p.Config, p.Logger,
 	grpc.OTelStatsHandler())
 ```
 
@@ -67,9 +67,9 @@ HTTP — a `Chain`-compatible middleware. Put it **ahead** of the logging middle
 ```go
 chain := http.NewChain(
 	http.OTelMiddleware("macguffin"),
-	http.LoggingMiddleware(p.Logger),
+	http.LoggingMiddleware(logger.ToSlog(p.Logger)),
 )
-http.Register(ctx, "http", controller, p.Config, p.Logger, mux, http.WithMiddleware(chain))
+http.RegisterFromContainable(ctx, "http", controller, p.Config, p.Logger, mux, http.WithMiddleware(chain))
 ```
 
 Custom, business-level instrumentation needs no GTB API — use the OTel globals directly:

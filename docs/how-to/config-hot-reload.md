@@ -91,12 +91,12 @@ If you don't need a named struct, register a function directly. The function ret
 
 ```go
 p.Config.AddObserverFunc(func(cfg config.Containable) error {
-    newLevel, err := logger.ParseLevel(cfg.GetString("log.level"))
-    if err != nil {
+    var newLevel slog.Level
+    if err := newLevel.UnmarshalText([]byte(cfg.GetString("log.level"))); err != nil {
         return err
     }
 
-    p.Logger.SetLevel(newLevel)
+    logger.SetLevel(p.Logger, newLevel)
     p.Logger.Info("Log level updated", "level", newLevel)
 
     return nil
@@ -175,18 +175,18 @@ p.Config.AddObserverFunc(func(cfg config.Containable) error {
         return nil // key absent — no change
     }
 
-    level, err := logger.ParseLevel(levelStr)
-    if err != nil {
+    var level slog.Level
+    if err := level.UnmarshalText([]byte(levelStr)); err != nil {
         return errors.WithHintf(err, "Valid levels are: debug, info, warn, error")
     }
 
-    current := p.Logger.GetLevel()
-    if level == current {
+    // logger.SetLevel returns false for a logger whose level cannot be changed
+    // at runtime (e.g. a plain injected *slog.Logger); treat that as a no-op.
+    if !logger.SetLevel(p.Logger, level) {
         return nil // no change
     }
 
-    p.Logger.SetLevel(level)
-    p.Logger.Info("Log level changed", "from", current, "to", level)
+    p.Logger.Info("Log level changed", "to", level)
 
     return nil
 })

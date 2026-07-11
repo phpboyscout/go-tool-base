@@ -222,7 +222,7 @@ Use `WithExitFunc` to prevent `Fatal` from actually calling `os.Exit` in tests:
 
 ```go
 var exitCode int
-handler := errorhandling.New(logger.NewNoop(), nil,
+handler := errorhandling.New(logger.ToSlog(logger.NewNoop()), nil,
     errorhandling.WithExitFunc(func(code int) {
         exitCode = code
     }),

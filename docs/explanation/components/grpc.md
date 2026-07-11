@@ -22,10 +22,10 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 - **`ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.grpc`.
 - **`ObserveServerSettingsFromConfig(cfg config.Containable, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
 - **`NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `NewServer`.
-- **`Start(logger logger.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
+- **`Start(logger *slog.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
 - **`StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config.
 - **`RegisterHealthService(srv *grpc.Server, controller controls.Controllable)`**: Wires the gRPC health service to the controller status.
-- **`Register(id string, controller controls.Controllable, logger logger.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
+- **`Register(id string, controller controls.Controllable, logger *slog.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
 - **`RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: GTB adapter that reads the existing config structure and delegates to typed registration.
 
 ### Server Options
@@ -89,7 +89,7 @@ The package provides an interceptor chaining API for composing gRPC unary and st
 
 `LoggingInterceptor` logs each completed RPC with structured fields (method, status code, latency, RPC type).
 
-- **`LoggingInterceptor(logger logger.Logger, opts ...GRPCLoggingOption) Interceptor`**
+- **`LoggingInterceptor(logger *slog.Logger, opts ...GRPCLoggingOption) Interceptor`**
 
 **Options**: `WithGRPCLogLevel`, `WithoutGRPCLatency`, `WithGRPCPathFilter`.
 
@@ -97,7 +97,7 @@ The package provides an interceptor chaining API for composing gRPC unary and st
 
 `RateLimitInterceptor` protects a gRPC server from overload, mirroring the HTTP server limiter. It admits RPCs under a token-bucket limiter and rejects excess with **`codes.ResourceExhausted`**. It is an `Interceptor` (unary + stream), so it composes into any `InterceptorChain`.
 
-- **`RateLimitInterceptor(log logger.Logger, cfg RateLimitConfig) Interceptor`**
+- **`RateLimitInterceptor(log *slog.Logger, cfg RateLimitConfig) Interceptor`**
 - **`DefaultRateLimitConfig() RateLimitConfig`** — 50 rps, burst 100, single global bucket
 - **`PeerKey(ctx, fullMethod) string`** — a ready-made per-peer `KeyFunc`
 - **`RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig`**
@@ -108,8 +108,8 @@ Admission is **non-blocking** (`Allow`, not `Wait`). Per-method or per-client sc
 
 `CircuitBreakerInterceptor` and `CircuitBreakerStreamInterceptor` are **client** interceptors that fail fast while a downstream is consistently failing, sharing the same Closed/Open/HalfOpen core as the HTTP breaker. While open they reject calls with **`codes.Unavailable`** — indistinguishable on the wire from a genuine outage.
 
-- **`CircuitBreakerInterceptor(log logger.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor`** — install via `grpc.WithChainUnaryInterceptor`
-- **`CircuitBreakerStreamInterceptor(log logger.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor`**
+- **`CircuitBreakerInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor`** — install via `grpc.WithChainUnaryInterceptor`
+- **`CircuitBreakerStreamInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor`**
 - **`DefaultCircuitBreakerConfig()`** — threshold 5, cooldown 30s, half-open trial 1
 - **`CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string)`**
 

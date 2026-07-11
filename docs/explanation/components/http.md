@@ -140,10 +140,10 @@ servers or explicit package-level reconfiguration logic.
 - **`NewServer(ctx context.Context, settings ServerSettings, handler http.Handler, opts ...ServerOption) (*http.Server, error)`**: Returns a pre-configured `*http.Server` from typed settings.
 - **`ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.http`.
 - **`ObserveServerSettingsFromConfig(cfg config.Containable, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
-- **`Start(logger logger.Logger, srv *http.Server, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix` to match a server built on a custom prefix; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
-- **`Register(ctx context.Context, id string, controller controls.Controllable, logger logger.Logger, handler http.Handler, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. The variadic accepts both `ServerOption` and `RegisterOption` values (mirroring `pkg/grpc.Register`). Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
+- **`StartWithTLSPair(logger *slog.Logger, srv *http.Server, tlsPair gtbtls.Pair) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix` to match a server built on a custom prefix; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
+- **`Register(ctx context.Context, id string, controller controls.Controllable, logger *slog.Logger, handler http.Handler, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*http.Server, error)`**: Creates, configures, and registers the server with a `Controller`. The variadic accepts both `ServerOption` and `RegisterOption` values (mirroring `pkg/grpc.Register`). Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted outside any middleware chain.
 - **`NewServerFromContainable`, `StartFromContainable`, `RegisterFromContainable`**: GTB compatibility adapters that read the existing `config.Containable` structure and delegate to the typed constructors.
-- **`Stop(logger logger.Logger, srv *http.Server) controls.StopFunc`**: Returns a controller stop function. It calls `srv.Shutdown(ctx)` to drain in-flight requests; if the shutdown context deadline expires (a handler outlives it), the server is **force-closed** via `srv.Close()` so a hung handler cannot leave the listener and connections open. This mirrors the gRPC transport's graceful-then-force-stop behaviour.
+- **`Stop(logger *slog.Logger, srv *http.Server) controls.StopFunc`**: Returns a controller stop function. It calls `srv.Shutdown(ctx)` to drain in-flight requests; if the shutdown context deadline expires (a handler outlives it), the server is **force-closed** via `srv.Close()` so a hung handler cannot leave the listener and connections open. This mirrors the gRPC transport's graceful-then-force-stop behaviour.
 
 **Drain semantics**: the server's per-request `BaseContext` is detached from the construction context with `context.WithoutCancel`. Cancelling the construction context (typically at shutdown) therefore does **not** cancel already-accepted requests mid-drain — `Shutdown` is left to drain them within its deadline. Context *values* on the construction context are still propagated to each request.
 
@@ -164,13 +164,13 @@ The package provides an alice-style middleware chaining API. Middleware uses the
 
 `LoggingMiddleware` logs each completed HTTP request with structured fields (method, path, status, latency, bytes, client IP, user agent).
 
-- **`LoggingMiddleware(logger logger.Logger, opts ...LoggingOption) Middleware`**
+- **`LoggingMiddleware(logger *slog.Logger, opts ...LoggingOption) Middleware`**
 
 **Format options** (`WithFormat`):
 
 | Format | Description |
 |--------|-------------|
-| `FormatStructured` (default) | Structured key-value fields via `logger.Logger` |
+| `FormatStructured` (default) | Structured key-value fields via `*slog.Logger` |
 | `FormatCommon` | NCSA Common Log Format |
 | `FormatCombined` | NCSA Combined Log Format (CLF + Referer + User-Agent) |
 | `FormatJSON` | Single JSON object per request |
@@ -213,7 +213,7 @@ Headers are set **before** the wrapped handler runs, so a handler that writes it
 
 `RateLimitMiddleware` protects a server from overload by admitting requests under a token-bucket limiter and rejecting excess traffic with **`429 Too Many Requests`** plus a `Retry-After` header (which a GTB client's retry layer honours — a pleasing closed loop). It is an ordinary `Middleware`, so it composes into any `Chain`.
 
-- **`RateLimitMiddleware(log logger.Logger, cfg RateLimitConfig) Middleware`**
+- **`RateLimitMiddleware(log *slog.Logger, cfg RateLimitConfig) Middleware`**
 - **`DefaultRateLimitConfig() RateLimitConfig`** — 50 rps sustained, burst 100, single global bucket
 - **`ClientIPKey(r *http.Request) string`** — a ready-made per-client `KeyFunc`
 - **`RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig`** — read policy from config
@@ -258,9 +258,9 @@ keys, _ := authn.NewAPIKeyVerifier(authn.KeyEntry{Key: ciKey, Subject: "ci"})
 authMW, _ := gtbhttp.AuthMiddleware(
     gtbhttp.WithAPIKeyHeader("X-API-Key", keys),
     gtbhttp.WithAuthorize(authn.RequireScopes("api:write")),
-    gtbhttp.WithAuthLogger(props.Logger),
+    gtbhttp.WithAuthLogger(logger.ToSlog(props.Logger)),
 )
-chain := gtbhttp.NewChain(gtbhttp.LoggingMiddleware(props.Logger), authMW)
+chain := gtbhttp.NewChain(gtbhttp.LoggingMiddleware(logger.ToSlog(props.Logger)), authMW)
 ```
 
 Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithCookieVerifier`, `WithMTLSVerifier`, `WithAuthorize`, `WithAuthLogger`, `WithAuthSkipper`. On failure it writes a generic `401` (with `WWW-Authenticate`) or `403` and logs the cause with the credential redacted — never disclosing why to the client. Health endpoints are outside the chain, so a global auth middleware never gates probes. **See [Authentication & Authorization](authn.md) for the full reference**, including the verifiers, the authorization seam, credential precedence, and the security model.
@@ -376,7 +376,7 @@ The middleware chain is applied after retry wrapping, so retry operates on the r
 
 `WithCircuitBreaker` is a `ClientMiddleware` that **fails fast** while a downstream is consistently failing, avoiding wasted retry/backoff cycles against a service that will not answer. It is the partner primitive to retry: retry handles *transient* flakiness, the breaker handles a *hard* outage.
 
-- **`WithCircuitBreaker(log logger.Logger, cfg CircuitBreakerConfig) ClientMiddleware`**
+- **`WithCircuitBreaker(log *slog.Logger, cfg CircuitBreakerConfig) ClientMiddleware`**
 - **`DefaultCircuitBreakerConfig() CircuitBreakerConfig`** — threshold 5, cooldown 30s, half-open trial 1
 - **`ErrCircuitOpen`** — sentinel error returned (wrapped) while open; test with `errors.Is`
 - **`CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) CircuitBreakerConfig`**

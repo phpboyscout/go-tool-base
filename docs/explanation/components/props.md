@@ -357,7 +357,7 @@ func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
         Version: v,
     }
 
-    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 
     rootCmd := root.NewCmdRoot(p)
     return rootCmd, p
@@ -545,7 +545,7 @@ Since `Tool.Help` is an interface (not serializable), assign it programmatically
 ```go
 p := &props.Props{Tool: props.Tool{...}}
 p.Tool.Help = errorhandling.SlackHelp{Team: "Platform", Channel: "#help"}
-p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 ```
 
 The Props component provides a robust foundation for building maintainable and testable CLI applications with GTB.

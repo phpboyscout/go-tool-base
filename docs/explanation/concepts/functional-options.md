@@ -64,7 +64,7 @@ Create factory functions that return configured options:
 
 ```go
 // WithLogger returns an option that sets the controller's logger
-func WithLogger(l logger.Logger) ControllerOpt {
+func WithLogger(l *slog.Logger) ControllerOpt {
     return func(c Configurable) {
         c.SetLogger(l)
     }
@@ -87,7 +87,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
     // Create with defaults
     c := &Controller{
         ctx:      ctx,
-        logger:   logger.NewNoop(),
+        logger:   slog.New(slog.DiscardHandler),
         messages: make(chan Message, 100),
         health:   make(chan HealthMessage, 100),
         errs:     make(chan error, 100),
@@ -135,7 +135,7 @@ controller := controls.NewController(ctx,
 
 | Option | Purpose |
 | :--- | :--- |
-| `WithLogger(l)` | Set a custom `logger.Logger` for the controller |
+| `WithLogger(l)` | Set a custom `*slog.Logger` for the controller |
 | `WithoutSignals()` | Disable OS signal handling (useful for testing) |
 
 ---

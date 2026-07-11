@@ -147,7 +147,7 @@ p := &props.Props{
 
 // In a version command
 func runVersionCmd(p *props.Props) {
-    p.Logger.Print(p.Version.String())
+    fmt.Println(p.Version.String())
     // prints: "v1.2.3 (abc1234)"
 }
 ```

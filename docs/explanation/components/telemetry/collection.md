@@ -19,7 +19,7 @@ props.EventUpdateApplied      // "update.applied" — update was applied
 props.EventDeletionRequest    // "data.deletion_request" — GDPR deletion request
 ```
 
-These constants are defined in both `pkg/props` and `pkg/telemetry`. Since they resolve to plain strings, values from either package are interchangeable.
+These constants live in `pkg/telemetrytypes` and are re-exported from `pkg/props` as aliases, so the `props.Event*` references above stay valid. The old `telemetry.Event*` mirror constants were removed.
 
 ---
 

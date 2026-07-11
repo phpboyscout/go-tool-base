@@ -111,7 +111,7 @@ objects instead of watching individual config keys.
 All factory functions accept functional options to configure container behavior. The only required argument is `fs afero.Fs`:
 
 ```go
-config.WithLogger(l logger.Logger)             // Logger (default: noop)
+config.WithLogger(l *slog.Logger)              // Logger (default: noop)
 config.WithEnvPrefix(prefix string)            // Env var prefix (default: none)
 config.WithConfigFiles(files ...string)        // Config file paths
 config.WithConfigFormat(format string)         // "yaml", "json", "toml"

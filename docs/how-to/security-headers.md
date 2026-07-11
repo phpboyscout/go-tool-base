@@ -66,7 +66,7 @@ import (
 func registerHTTPServer(ctx context.Context, controller controls.Controllable, cfg config.Containable, l logger.Logger, handler http.Handler) error {
     chain := gtbhttp.NewChain(
         SecurityHeaders(),
-        gtbhttp.LoggingMiddleware(l),
+        gtbhttp.LoggingMiddleware(logger.ToSlog(l)),
     )
 
     _, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, cfg, l, handler,

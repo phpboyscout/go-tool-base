@@ -157,7 +157,7 @@ func main() {
     defer cancel()
 
     controller := controls.NewController(ctx,
-        controls.WithLogger(props.Logger),
+        controls.WithLogger(logger.ToSlog(props.Logger)),
     )
 
     // Services can access shared Props

@@ -37,19 +37,22 @@ The design of the `ErrorHandler` was driven by two primary requirements:
 ### Creating an ErrorHandler
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+import (
+    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+)
 
 // No help channel
-props.ErrorHandler = errorhandling.New(logger, nil)
+props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), nil)
 
 // With Slack support channel
-props.ErrorHandler = errorhandling.New(logger, errorhandling.SlackHelp{
+props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), errorhandling.SlackHelp{
     Team:    "Platform",
     Channel: "#platform-help",
 })
 
 // With Microsoft Teams support channel
-props.ErrorHandler = errorhandling.New(logger, errorhandling.TeamsHelp{
+props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), errorhandling.TeamsHelp{
     Team:    "Platform",
     Channel: "Support",
 })
@@ -220,7 +223,7 @@ errorhandling.TeamsHelp{
 Pass `nil` when no help channel is configured:
 
 ```go
-props.ErrorHandler = errorhandling.New(logger, nil)
+props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), nil)
 ```
 
 ## Special Error Types
@@ -373,7 +376,7 @@ func TestCommandErrorHandling(t *testing.T) {
         logger.WithLevel(logger.ErrorLevel),
     )
 
-    h := errorhandling.New(l, nil)
+    h := errorhandling.New(logger.ToSlog(l), nil)
 
     testErr := errors.New("test error with stack trace")
     h.Error(testErr)
@@ -391,7 +394,7 @@ func TestSlackHelp_AppearsInOutput(t *testing.T) {
         logger.WithLevel(logger.InfoLevel),
     )
 
-    h := errorhandling.New(l, errorhandling.SlackHelp{Team: "Platform", Channel: "#alerts"})
+    h := errorhandling.New(logger.ToSlog(l), errorhandling.SlackHelp{Team: "Platform", Channel: "#alerts"})
     h.Error(errors.New("something went wrong"))
 
     assert.Contains(t, buf.String(), "For assistance, contact Platform via Slack channel #alerts")

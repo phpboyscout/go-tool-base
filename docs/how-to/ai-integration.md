@@ -250,7 +250,7 @@ Beyond the `docs ask` command, you can use the AI chat client directly in your c
 import "gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 
 func analyzeError(ctx context.Context, p *props.Props, errorLog string) (string, error) {
-    client, err := chat.New(ctx, p, chat.Config{
+    client, err := chat.NewFromProps(ctx, p, chat.Config{
         Provider:     chat.ProviderClaude,
         Model:        "claude-sonnet-4-6",
         SystemPrompt: "You are an expert at analyzing error logs and suggesting fixes.",
@@ -275,7 +275,7 @@ type ErrorAnalysis struct {
 }
 
 func analyzeErrorStructured(ctx context.Context, p *props.Props, errorLog string) (*ErrorAnalysis, error) {
-    client, err := chat.New(ctx, p, chat.Config{
+    client, err := chat.NewFromProps(ctx, p, chat.Config{
         Provider:     chat.ProviderOpenAI,
         Model:        "gpt-5.4",
         SystemPrompt: "Analyze errors and provide structured feedback.",

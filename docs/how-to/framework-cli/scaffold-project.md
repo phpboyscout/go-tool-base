@@ -107,7 +107,7 @@ func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
     // p.Tool.Help = errorhandling.SlackHelp{Team: "My Team", Channel: "#support"}
     // p.Tool.Help = errorhandling.TeamsHelp{Team: "My Team", Channel: "Support"}
 
-    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 
     rootCmd := gtbRoot.NewCmdRoot(p)
 

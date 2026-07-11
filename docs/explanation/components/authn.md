@@ -37,11 +37,11 @@ keys, _ := authn.NewAPIKeyVerifier(
 authMW, _ := gtbhttp.AuthMiddleware(
     gtbhttp.WithAPIKeyHeader("X-API-Key", keys),
     gtbhttp.WithAuthorize(authn.RequireScopes("api:write")),
-    gtbhttp.WithAuthLogger(props.Logger),
+    gtbhttp.WithAuthLogger(logger.ToSlog(props.Logger)),
 )
 chain := gtbhttp.NewChain(
     gtbhttp.SecurityHeadersMiddleware(),
-    gtbhttp.LoggingMiddleware(props.Logger),
+    gtbhttp.LoggingMiddleware(logger.ToSlog(props.Logger)),
     authMW, // after logging, so failures are logged; before the handler
 )
 gtbhttp.RegisterFromContainable(ctx, "api", controller, props.Config, props.Logger, mux,

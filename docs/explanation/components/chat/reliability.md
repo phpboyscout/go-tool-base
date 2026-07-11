@@ -20,7 +20,7 @@ The `chat` package normalizes errors from each provider:
 
 ```go
 func robustChat(ctx context.Context, p *props.Props, prompt string) (string, error) {
-    client, err := chat.New(ctx, p, chat.Config{
+    client, err := chat.NewFromProps(ctx, p, chat.Config{
         Provider: chat.ProviderClaude,
         Model:    "claude-sonnet-4-6",
     })
@@ -32,7 +32,7 @@ func robustChat(ctx context.Context, p *props.Props, prompt string) (string, err
     if err != nil {
         p.Logger.Warn("Primary provider failed, trying fallback", "error", err)
 
-        fallback, fbErr := chat.New(ctx, p, chat.Config{
+        fallback, fbErr := chat.NewFromProps(ctx, p, chat.Config{
             Provider: chat.ProviderOpenAI,
             Model:    "gpt-5.4",
         })

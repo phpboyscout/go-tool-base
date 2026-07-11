@@ -81,7 +81,7 @@ var assets embed.FS
 
 func main() {
     l := logger.NewCharm(os.Stderr,
-        logger.WithTimestamp(),
+        logger.WithTimestamp(true),
         logger.WithLevel(logger.InfoLevel),
     )
 

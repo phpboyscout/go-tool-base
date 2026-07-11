@@ -51,6 +51,7 @@ import (
 
     "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
     "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
+    "gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
 const publishTimeout = 5 * time.Second
@@ -178,7 +179,7 @@ func TestBackend_Send(t *testing.T) {
 
     events := []telemetry.Event{
         {
-            Type:     telemetry.EventCommandInvocation,
+            Type:     telemetrytypes.EventCommandInvocation,
             Name:     "generate",
             ToolName: "mytool",
             Version:  "1.0.0",

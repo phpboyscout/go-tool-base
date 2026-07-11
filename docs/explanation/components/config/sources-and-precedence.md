@@ -20,7 +20,7 @@ fs := afero.NewOsFs()
 paths := []string{"config.yaml", "config.yml", "/etc/myapp/config.yaml"}
 
 container, err := config.Load(paths, fs, false,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
 )
 if err != nil {
     log.Fatal(err)
@@ -28,7 +28,7 @@ if err != nil {
 
 // Or create a Container directly
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml", "local.yaml"),
 )
 ```
@@ -128,7 +128,7 @@ The Container automatically handles environment variables: viper's `AutomaticEnv
 // GTB's env-key replacer maps the "." separator to "_" (viper has no default replacer)
 
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml"),
 )
 
@@ -142,7 +142,7 @@ By default, config keys map directly to environment variable names (e.g., `ai.pr
 
 ```go
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithEnvPrefix("GTB"),
     config.WithConfigFiles("config.yaml"),
 )
@@ -168,7 +168,7 @@ Combine multiple configuration files with automatic merging:
 ```go
 // Multiple files are merged in order, with later files taking precedence
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles(
         "defaults.yaml",    // Base configuration
         "config.yaml",      // Environment-specific
@@ -179,7 +179,7 @@ container := config.NewFilesContainer(fs,
 // The Load function also supports merging from multiple discovered files
 paths := []string{"config.yaml", "config.local.yaml", "/etc/myapp/config.yaml"}
 container, err := config.Load(paths, fs, false,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
 )
 ```
 

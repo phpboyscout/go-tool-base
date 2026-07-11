@@ -62,7 +62,7 @@ if err != nil {
 }
 
 cfg, err := config.LoadFilesContainerWithSchema(fs, schema,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml"),
 )
 if err != nil {
@@ -76,7 +76,7 @@ if err != nil {
 
 ```go
 container := config.NewFilesContainer(fs,
-    config.WithLogger(l),
+    config.WithLogger(logger.ToSlog(l)),
     config.WithConfigFiles("config.yaml"),
 )
 result := container.Validate(schema)

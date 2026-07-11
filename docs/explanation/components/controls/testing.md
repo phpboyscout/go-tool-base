@@ -45,7 +45,7 @@ func TestHTTPServerLifecycle(t *testing.T) {
     defer cancel()
 
     l := logger.NewNoop()
-    controller := controls.NewController(ctx, controls.WithLogger(l))
+    controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(l)))
 
     // Create test HTTP server
     server := &http.Server{

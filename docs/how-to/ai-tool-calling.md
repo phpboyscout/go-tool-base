@@ -95,7 +95,7 @@ func NewCmdAnalyse(p *props.Props) *setup.Command {
         RunE: func(cmd *cobra.Command, args []string) error {
             ctx := cmd.Context()
 
-            client, err := chat.New(ctx, p, chat.Config{
+            client, err := chat.NewFromProps(ctx, p, chat.Config{
                 Provider:     chat.ProviderClaude,
                 SystemPrompt: "You are a code analysis assistant. Use the provided tools to explore the codebase before answering.",
                 MaxSteps:     15,  // limit ReAct iterations
@@ -114,7 +114,7 @@ func NewCmdAnalyse(p *props.Props) *setup.Command {
                 return err
             }
 
-            p.Logger.Print(response)
+            p.Logger.Info(response)
             return nil
         },
     })
