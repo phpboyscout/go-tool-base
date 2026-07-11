@@ -81,6 +81,33 @@ this skill was written from: the slog-first change to
 `internal/cmd/root/root.go`: wrap with `logger.ToSlog(l)`), rebuild `$BR`,
 regenerate, rebuild.
 
+### Clean-run fixed point (do this first, it is the strongest invariant)
+
+A freshly generated, **unchanged** project must survive both regenerate
+directions with **zero** diff. If `regenerate manifest` or `regenerate project`
+changes anything on a pristine project, the `generate` writer and the
+`regenerate` scanner/writer disagree — that is a bug, not normalization.
+
+```bash
+cd "$G1"
+git init -q && git add -A && git -c user.email=t@t -c user.name=t commit -qm baseline
+
+$BR regenerate manifest -p "$G1"
+git diff --quiet && echo "✅ manifest fixed point" || { echo "❌ regenerate manifest changed a clean project"; git --no-pager diff --stat; }
+
+$BR regenerate project  -p "$G1"
+git diff --quiet && echo "✅ project fixed point"  || { echo "❌ regenerate project changed a clean project"; git --no-pager diff --stat; }
+```
+
+Both must be clean. The failure this guards against: `regenerate project`
+rewrites `go.mod` from the embedded skeleton snapshot (which omits the `tool`
+block's transitive deps) and, unlike `generate`, historically did **not** run
+`go mod tidy` afterwards — so `go.mod` was left with ~200 deps stripped and the
+manifest recorded that stripped `go.mod`'s hash. Fixed by running `go mod tidy`
+in regenerate's post-processing (see `runPostRegenerationProcessing`); the
+regression is locked by `TestRunPostRegenerationProcessing_RunsGoModTidyBeforeLint`.
+If you see `go.mod` churn here again, that tidy has regressed.
+
 ### Mutation coverage (still Track 1)
 
 Exercise the command-authoring surface, rebuilding after each:
