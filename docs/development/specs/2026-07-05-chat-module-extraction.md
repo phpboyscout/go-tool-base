@@ -1,8 +1,8 @@
 ---
 title: "Extract pkg/chat into a standalone module with per-provider SDK modules"
-description: "Extract the multi-provider AI chat client out of go-tool-base into its own standalone module gitlab.com/phpboyscout/chat, dependency-inverted onto narrow Logger/Config/HTTP/credential seams. Split each vendor-SDK provider (Anthropic, OpenAI, Gemini) into its own per-provider module registering via init() blank-import, so consumers link only the SDK(s) they opt into. go-tool-base consumes the module(s) through a thin Props-mapping adapter. Mirrors the signing / signing-aws-kms extraction (work item #1)."
+description: "Extract the multi-provider AI chat client out of go-tool-base into its own standalone module gitlab.com/phpboyscout/go/chat, dependency-inverted onto narrow Logger/Config/HTTP/credential seams. Split each vendor-SDK provider (Anthropic, OpenAI, Gemini) into its own per-provider module registering via init() blank-import, so consumers link only the SDK(s) they opt into. go-tool-base consumes the module(s) through a thin Props-mapping adapter. Mirrors the signing / signing-aws-kms extraction (work item #1)."
 date: 2026-07-05
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - chat
@@ -27,10 +27,10 @@ Date
 :   5 July 2026
 
 Status
-:   DRAFT
+:   APPROVED
 
 Builds on
-:   the `signing` / `signing-aws-kms` extraction pattern (work item #1, shipped v0.28)
+:   [`2026-07-12-go-module-extraction-playbook.md`](2026-07-12-go-module-extraction-playbook.md) (naming, repo framework, migration procedure), and the `signing` / `signing-aws-kms` extraction (work item #1, relocated to `gitlab.com/phpboyscout/go/*` v0.2.0)
 
 Feasibility
 :   `chat-extraction-feasibility.md` (companion analysis)
@@ -46,7 +46,7 @@ multimodal. It is a genuinely reusable asset that non-GTB projects would want.
 
 Two forces make extraction worthwhile — the same two that drove the signing extraction:
 
-1. **Reuse.** A consumer should be able to `import gitlab.com/phpboyscout/chat` without
+1. **Reuse.** A consumer should be able to `import gitlab.com/phpboyscout/go/chat` without
    dragging in go-tool-base (viper, otel, controls, vcs, version, …).
 2. **Selective SDK weight.** Importing `pkg/chat` today unconditionally links **all three**
    vendor SDKs — `anthropics/anthropic-sdk-go`, `openai/openai-go/v3` (+ `tiktoken-go`),
@@ -81,7 +81,7 @@ interface removes the welding.
 
 ### Goals
 
-- A standalone `gitlab.com/phpboyscout/chat` core module with **zero** go-tool-base and **zero**
+- A standalone `gitlab.com/phpboyscout/go/chat` core module with **zero** go-tool-base and **zero**
   vendor-SDK dependencies beyond the SDK-free `claude-local` provider.
 - Per-provider modules — `chat-anthropic`, `chat-openai`, `chat-gemini` — each adding exactly
   one SDK and self-registering via `init()` (blank-import to activate).
@@ -125,6 +125,7 @@ type Deps struct {
     Config      ConfigLookup
     HTTPClient  *http.Client        // injected; module default is a plain bounded client
     Credentials CredentialResolver  // optional; nil ⇒ direct-token / env-fallback only
+    FS          afero.Fs            // optional; nil ⇒ afero.NewOsFs() for filestore/persistence
 }
 
 type ProviderFactory func(ctx context.Context, d Deps, cfg Config) (ChatClient, error)
@@ -132,18 +133,18 @@ type ProviderFactory func(ctx context.Context, d Deps, cfg Config) (ChatClient, 
 
 ### 4.2 Module layout
 
-**Core — `gitlab.com/phpboyscout/chat`:** `client.go` (registry, `New`, `Config`,
+**Core — `gitlab.com/phpboyscout/go/chat`:** `client.go` (registry, `New`, `Config`,
 `ChatClient`), `schema`, `streaming`, `usage`, `fallback`, `fallback_policy`, `persistence`,
 `filestore`, `baseurl`, `tools`, `constants`, the seams above, and `claude_local.go`
 (SDK-free default provider).
 
 **Per-provider modules**, each `depends on chat` + one SDK, `init()`-registers:
 
-- `gitlab.com/phpboyscout/chat-anthropic` → `anthropics/anthropic-sdk-go`
-- `gitlab.com/phpboyscout/chat-openai` → `openai/openai-go/v3` + `tiktoken-go/tokenizer`
-- `gitlab.com/phpboyscout/chat-gemini` → `google.golang.org/genai`
+- `gitlab.com/phpboyscout/go/chat-anthropic` → `anthropics/anthropic-sdk-go`
+- `gitlab.com/phpboyscout/go/chat-openai` → `openai/openai-go/v3` + `tiktoken-go/tokenizer`
+- `gitlab.com/phpboyscout/go/chat-gemini` → `google.golang.org/genai`
 
-Activation is a blank import, e.g. `import _ "gitlab.com/phpboyscout/chat-anthropic"`.
+Activation is a blank import, e.g. `import _ "gitlab.com/phpboyscout/go/chat-anthropic"`.
 
 ### 4.3 HTTP injection
 
@@ -212,31 +213,48 @@ To keep the extraction low-risk, split into two stages:
 
 ## 8. Repository & project framework
 
-Each new module is its own GitLab repo under `phpboyscout`, on the homelab group runner, with
-MR pipelines manually triggered — the operational shape already proven by `signing` and
-`signing-aws-kms`. Renovate + release choreography extend to cover the new modules.
+Each new module is its own GitLab repo in the **`phpboyscout/go` subgroup**
+(`gitlab.com/phpboyscout/go/chat`, `…/go/chat-anthropic`, etc.), bootstrapped to
+the standard framework defined in the
+[extraction playbook](2026-07-12-go-module-extraction-playbook.md) §3: cicd
+**v0.21.0** components (go-lint / go-test+Godog / go-security / releaser-pleaser /
+zensical-pages / renovate-self), `.golangci.yaml` v2 with the module's local
+prefix, `.mockery.yml`, `go 1.26.5`, `cockroachdb/errors`, `*slog.Logger` seams,
+and a **`depfootprint_test.go`** guard. The core module's guard forbids
+`go-tool-base`, viper, pflag, charmbracelet, **and every vendor AI SDK**
+(`anthropic-sdk-go`, `openai-go`, `genai`, `tiktoken`) — proving the SDK-free
+core. Each provider module's guard forbids `go-tool-base` and the *other*
+providers' SDKs. Docs publish to `chat.go.phpboyscout.uk`; GTB's component page
+becomes a stub linking there (playbook §4.1). Only the core carries a full docs
+site; the provider modules ship README + `Example` + a page on the core site.
 
-## 9. Open questions
+## 9. Resolved decisions
 
-1. **Core module default provider.** Ship `claude-local` in the core (SDK-free, gives a
-   working default with no vendor dep), or ship the core provider-less and require at least one
-   provider module? *Leaning: include `claude-local` in core.*
-2. **`chat-openai` + tiktoken.** Tiktoken (token counting) is only meaningful for OpenAI —
-   confirm it belongs in `chat-openai`, not core.
-3. **Config-key constants location.** Re-export from the GTB adapter (proposed), or publish a
-   thin `chat-gtbschema` helper so other GTB-convention tools can share them?
-4. **Module naming.** `chat` vs a less generic name (e.g. `aichat`, `llmchat`) for the public
-   module path, given `chat` is a common token.
-5. **Single umbrella repo vs N repos.** Signing used N repos. Same here, or a multi-module
-   monorepo? *Leaning: N repos, matching signing precedent for consistency.*
-6. **Persistence/encryption seam.** `filestore`/`persistence` use `afero` today (via config?).
-   Confirm the module takes an `afero.Fs` (or `io/fs` + writer) injection rather than assuming
-   GTB's FS.
+_Playbook-resolved and 2026-07-12 review._
+
+1. **Core default provider — include `claude-local` in the core.** It is SDK-free,
+   so it adds no vendor weight and gives a working default with zero provider
+   modules imported.
+2. **Tiktoken lives in `chat-openai`.** Token counting is OpenAI-specific; it must
+   not sit in the core (the dep guard enforces this).
+3. **Config-key constants — re-export from the GTB adapter.** The module stays
+   config-schema-agnostic; GTB owns the `claude.api.env`-style keys and the 5-step
+   cascade. A shared `chat-gtbschema` helper is deferred until a second
+   GTB-convention consumer actually needs it (YAGNI).
+4. **Module naming — `gitlab.com/phpboyscout/go/chat`** (playbook convention). The
+   `go` subgroup disambiguates the generic `chat` token, so no `aichat`/`llmchat`
+   rename is needed; per-provider backends follow `go/chat-<provider>`.
+5. **N repos, not a monorepo** — matches the signing precedent and the playbook;
+   keeps each provider's SDK weight quarantined by its own `go.mod`.
+6. **Persistence/encryption seam — inject `afero.Fs`.** `filestore`/`persistence`
+   take an injected `afero.Fs` (GTB passes its own; a bare consumer passes
+   `afero.NewOsFs()`), so the module never assumes GTB's filesystem wiring. This
+   is part of the Stage-1 `Deps` inversion.
 
 ## 10. Work items (once approved)
 
 1. Stage-1 in-place inversion (`Deps` + seams + HTTP/credential injection) — GTB refactor.
-2. Create `gitlab.com/phpboyscout/chat` core module; move de-GTB'd core + `claude-local`.
+2. Create `gitlab.com/phpboyscout/go/chat` core module; move de-GTB'd core + `claude-local`.
 3. Create `chat-anthropic`, `chat-openai`, `chat-gemini` provider modules.
 4. GTB adapter + blank-imports; repoint the 14 consumers.
 5. Docs (module READMEs, `chat.md` repoint, migration note) + Renovate/CI wiring.
