@@ -3,8 +3,12 @@ package chat
 import (
 	"context"
 	"log/slog"
+	"net/http"
+	"time"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	gtbcreds "gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -23,7 +27,34 @@ func SettingsFromProps(p *props.Props, cfg Config) (Settings, error) {
 		return Settings{}, err
 	}
 
+	// Wire the GTB-side seams into the package-owned config: the OS-keychain
+	// resolver and the hardened HTTP transport. The chat core stays free of
+	// pkg/credentials and pkg/http; this adapter is the only place they enter.
+	cfg.Credentials.Lookup = gtbcreds.Retrieve
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = newHardenedChatHTTPClient(resolveChatTimeout(cfg))
+	}
+
 	return Settings{Config: cfg, Logger: log}, nil
+}
+
+// newHardenedChatHTTPClient builds the chat HTTP client from go-tool-base's
+// hardened transport, with the response-header timeout raised to the chat
+// bound. This is the GTB counterpart to the module's plain default in
+// httpclient.go, injected via Config.HTTPClient so provider code never sees
+// pkg/http.
+func newHardenedChatHTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = DefaultChatRequestTimeout
+	}
+
+	transport := gtbhttp.NewTransport(nil)
+	transport.ResponseHeaderTimeout = timeout
+
+	return gtbhttp.NewClient(
+		gtbhttp.WithTransport(transport),
+		gtbhttp.WithTimeout(timeout),
+	)
 }
 
 // NewFromProps adapts GTB props into typed chat settings, then constructs a

@@ -343,5 +343,10 @@ openai:
 
 	assert.Equal(t, ProviderOpenAI, got.Provider)
 	assert.Equal(t, 11*time.Second, got.RequestTimeout)
-	assert.Equal(t, CredentialConfig{Key: "env-literal-key"}, got.Credentials)
+	assert.Equal(t, "env-literal-key", got.Credentials.Key)
+	assert.Empty(t, got.Credentials.Env)
+	assert.Empty(t, got.Credentials.Keychain)
+	// The GTB adapter wires the keychain resolver and hardened HTTP client.
+	assert.NotNil(t, got.Credentials.Lookup)
+	assert.NotNil(t, got.HTTPClient)
 }

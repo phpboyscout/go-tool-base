@@ -71,7 +71,7 @@ func newClaude(ctx context.Context, settings Settings) (ChatClient, error) {
 
 	opts := []option.RequestOption{
 		option.WithAPIKey(token),
-		option.WithHTTPClient(newChatHTTPClient(resolveChatTimeout(cfg))),
+		option.WithHTTPClient(chatHTTPClient(cfg)),
 	}
 
 	if cfg.BaseURL != "" {

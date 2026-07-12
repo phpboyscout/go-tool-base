@@ -38,8 +38,6 @@ import (
 	"context"
 	"os"
 	"strings"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 )
 
 // resolveAPIKey implements the five-step precedence above. Whitespace
@@ -86,7 +84,7 @@ func resolveFromCredentialConfig(ctx context.Context, credential CredentialConfi
 	}
 
 	if ref := strings.TrimSpace(credential.Keychain); ref != "" {
-		if v := retrieveFromKeychainRef(ctx, ref); v != "" {
+		if v := retrieveFromKeychainRef(ctx, ref, credential.Lookup); v != "" {
 			return v
 		}
 	}
@@ -95,14 +93,16 @@ func resolveFromCredentialConfig(ctx context.Context, credential CredentialConfi
 }
 
 // retrieveFromKeychainRef fetches a secret named by a
-// "<service>/<account>" reference. Returns "" on any error
-// (unavailable keychain, missing entry, parse failure) so the
-// caller falls through to the next resolution step. Without a
-// registered keychain backend this always returns "" because
-// [credentials.Retrieve] returns ErrCredentialUnsupported. The
-// context is propagated to the backend so remote-store backends
-// (Vault, SSM) honour the calling provider's deadline.
-func retrieveFromKeychainRef(ctx context.Context, ref string) string {
+// "<service>/<account>" reference using the host-injected lookup. Returns "" on
+// any error or a nil lookup (unavailable keychain, missing entry, parse
+// failure) so the caller falls through to the next resolution step. The context
+// is propagated to the backend so remote-store backends (Vault, SSM) honour the
+// calling provider's deadline.
+func retrieveFromKeychainRef(ctx context.Context, ref string, lookup KeychainLookup) string {
+	if lookup == nil {
+		return ""
+	}
+
 	i := strings.Index(ref, "/")
 	if i <= 0 || i == len(ref)-1 {
 		return ""
@@ -110,7 +110,7 @@ func retrieveFromKeychainRef(ctx context.Context, ref string) string {
 
 	service, account := ref[:i], ref[i+1:]
 
-	secret, err := credentials.Retrieve(ctx, service, account)
+	secret, err := lookup(ctx, service, account)
 	if err != nil {
 		return ""
 	}

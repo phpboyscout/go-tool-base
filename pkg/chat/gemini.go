@@ -108,7 +108,7 @@ func getGeminiToken(ctx context.Context, cfg Config) string {
 func buildGeminiClientConfig(token string, cfg Config) *genai.ClientConfig {
 	clientConfig := &genai.ClientConfig{
 		APIKey:     token,
-		HTTPClient: newChatHTTPClient(resolveChatTimeout(cfg)),
+		HTTPClient: chatHTTPClient(cfg),
 	}
 
 	if cfg.BaseURL != "" {

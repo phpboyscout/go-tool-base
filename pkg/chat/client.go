@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/exec"
 	"sync"
@@ -158,6 +159,10 @@ type Config struct {
 	// back to the ai.request_timeout config key, then DefaultChatRequestTimeout.
 	// Bounded on purpose so a stuck model fails rather than hanging forever.
 	RequestTimeout time.Duration
+	// HTTPClient, when non-nil, is used verbatim for provider API calls. The
+	// host injects a hardened transport here (go-tool-base supplies pkg/http's);
+	// nil ⇒ the module builds a plain bounded client from RequestTimeout.
+	HTTPClient *http.Client `json:"-"`
 	// ParallelTools enables concurrent execution of multiple tool calls
 	// within a single ReAct step. Disabled by default.
 	ParallelTools bool

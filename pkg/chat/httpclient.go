@@ -3,8 +3,6 @@ package chat
 import (
 	"net/http"
 	"time"
-
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 )
 
 // DefaultChatRequestTimeout bounds a single AI request. LLM generations —
@@ -28,22 +26,39 @@ func resolveChatTimeout(cfg Config) time.Duration {
 	return DefaultChatRequestTimeout
 }
 
-// newChatHTTPClient returns an HTTP client tuned for AI calls: the hardened gtb
-// transport, but with the overall and response-header timeouts raised to the
+// chatHTTPClient returns the HTTP client a provider should use: the
+// host-injected Config.HTTPClient verbatim when set (go-tool-base injects its
+// hardened transport), otherwise the module's own plain bounded default. This
+// is the seam that keeps the chat core free of any specific HTTP stack.
+func chatHTTPClient(cfg Config) *http.Client {
+	if cfg.HTTPClient != nil {
+		return cfg.HTTPClient
+	}
+
+	return newChatHTTPClient(resolveChatTimeout(cfg))
+}
+
+// newChatHTTPClient returns the module-default HTTP client for AI calls: a plain
+// stdlib client whose overall and response-header timeouts are raised to the
 // given (bounded) value so a slow model's single-shot generation isn't cut off
-// at 30s — which otherwise surfaces as "Client.Timeout exceeded while awaiting
-// headers" and a silent fall back to placeholder code. Cancellation is still
-// driven by the request context.
+// at the stdlib default — which otherwise surfaces as "Client.Timeout exceeded
+// while awaiting headers". Cancellation is still driven by the request context.
+// Hosts that want a hardened transport inject one via Config.HTTPClient.
 func newChatHTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
 		timeout = DefaultChatRequestTimeout
 	}
 
-	transport := gtbhttp.NewTransport(nil)
-	transport.ResponseHeaderTimeout = timeout
+	transport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return &http.Client{Timeout: timeout}
+	}
 
-	return gtbhttp.NewClient(
-		gtbhttp.WithTransport(transport),
-		gtbhttp.WithTimeout(timeout),
-	)
+	t := transport.Clone()
+	t.ResponseHeaderTimeout = timeout
+
+	return &http.Client{
+		Transport: t,
+		Timeout:   timeout,
+	}
 }
