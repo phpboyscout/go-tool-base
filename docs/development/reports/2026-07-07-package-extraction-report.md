@@ -1,11 +1,42 @@
 # GTB Package Extraction Report
 
-_Assessment date: 2026-07-07_
+_Assessment date: 2026-07-07 — revised 2026-07-12 (post config + slog-first decoupling)._
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
 or lower in extraction value, including GTB command wrappers, setup glue,
 `props`, and the internal generator.
+
+!!! note "2026-07-12 revision — what changed"
+
+    Three framework refactors shipped in **v0.30.0** (MR !200) and are reflected
+    throughout this revision:
+
+    - **Typed config section adapters**
+      ([`2026-07-07-config-section-adapters-for-extraction.md`](../specs/2026-07-07-config-section-adapters-for-extraction.md),
+      IMPLEMENTED). Every package that read config now owns typed settings
+      structs; GTB reads them through `*FromContainable` / `*FromProps` adapters
+      confined to a single `*config_adapter.go` file per package.
+    - **slog-first logging**
+      ([`2026-07-07-slog-first-extraction-seams.md`](../specs/2026-07-07-slog-first-extraction-seams.md),
+      IMPLEMENTED). Package seams take `*slog.Logger`; `pkg/logger` no longer
+      appears in first-wave cores.
+    - **Telemetry props-decoupling**
+      ([`2026-07-10-telemetry-props-decoupling.md`](../specs/2026-07-10-telemetry-props-decoupling.md),
+      IMPLEMENTED). Shared telemetry value types moved to the dependency-free
+      `pkg/telemetrytypes` leaf, so root `pkg/telemetry`'s core no longer imports
+      `pkg/props`.
+
+    A source-level guard (`test/architecture/boundary_test.go`) now fails CI if
+    any first-wave core (`chat`, `tls`, `http`, `grpc`, `gateway`, `vcs`,
+    `telemetry`) re-imports `pkg/props` or `pkg/logger`. The net effect: the
+    `pkg/props` / `pkg/config` / `pkg/logger` coupling vectors — the dominant
+    "ease of decoupling" drag in the original assessment — are **resolved for the
+    entire first wave**, so their readiness scores rise below. Residual coupling
+    is now sibling-package (e.g. transport-stack) and third-party, not
+    composition-layer. Per-package notes are tagged **Since v0.30.0**, and a
+    consolidated [Extraction Readiness Checklist](#extraction-readiness-checklist)
+    is in the footer.
 
 The goal is not to break GTB apart. The goal is to identify components with
 clear reuse value outside the framework, then describe the broad decoupling work
@@ -27,13 +58,19 @@ All scores are out of 10.
 The strongest extraction candidates are packages that already model a clear
 domain and have low framework coupling: `redact`, `regexutil`, `controls`,
 `credentials`, `authn`, `changelog`, `browser`, `forms`, `output`,
-`workspace`, and parts of `vcs`.
+`workspace`, and parts of `vcs`. As of the 2026-07-12 revision these are joined
+by `tls`, `logger`, `telemetry/otelcore`, and `vcs/release`, whose framework
+coupling was removed by the config + slog-first work — they are now
+**ready-to-extract** with only a `git mv` plus a GTB-side adapter left behind.
 
-`chat` remains one of the highest-value extractions, but it needs deliberate
-adapter work because it currently imports `props`, GTB HTTP helpers, GTB
-credentials/config abstractions, and `logger`. The same pattern applies to
-`http`, `grpc`, `tls`, `gateway`, and telemetry: these should be extracted as
-coherent stacks, not as isolated leaf packages that still depend on GTB.
+`chat` remains one of the highest-value extractions. **Since v0.30.0** its
+`props`, `config`, and `logger` coupling is gone (all confined to
+`chat/config_adapter.go`, `*slog.Logger` at every seam); the one residual
+framework dependency is `pkg/http` for its hardened transport, which becomes an
+injected `*http.Client` / `HTTPClientFactory` at extraction. The transport stack
+(`http`, `grpc`, `gateway`) is similarly free of composition-layer coupling now,
+but should still be extracted as one coherent stack (with `internal/circuitbreaker`
+and `internal/ratelimit` promoted alongside it) rather than as isolated leaves.
 
 Recommended extraction sequence:
 
@@ -54,18 +91,28 @@ Recommended extraction sequence:
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 9 | 10 | 7 | 4 |
+| 9 | 10 | 7 | 6 _(was 4)_ |
 
 `pkg/chat` has very high standalone value: multi-provider AI chat, structured
 responses, tool calling, persistence, fallback policy, streaming, media input,
 and provider-specific adapters are all useful outside GTB.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
 
-- Imports `pkg/props` in provider constructors and convenience flows.
-- Imports `pkg/config` and `pkg/credentials` for runtime credential resolution.
-- Imports `pkg/http` for HTTP client behaviour.
-- Imports `pkg/logger` for fallback and filestore logging.
+    `pkg/props`, `pkg/config`, and `pkg/logger` coupling is **resolved** — all
+    confined to `chat/config_adapter.go`, with `*slog.Logger` at every seam and
+    guard-enforced. The dedicated
+    [`2026-07-05-chat-module-extraction.md`](../specs/2026-07-05-chat-module-extraction.md)
+    spec (DRAFT) covers the module split. The **one** residual framework
+    dependency is `pkg/http` (`chat/httpclient.go` uses the hardened GTB
+    transport); replace with an injected `*http.Client` / `HTTPClientFactory` at
+    extraction.
+
+Current GTB coupling (residual):
+
+- Imports `pkg/http` for hardened HTTP client behaviour (`httpclient.go`).
+- ~~`pkg/props`~~, ~~`pkg/config`~~, ~~`pkg/credentials`~~, ~~`pkg/logger`~~ —
+  now adapter-confined (`config_adapter.go`), not in the core.
 
 Extraction shape:
 
@@ -238,15 +285,23 @@ This is one of the easiest extractions.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 8 | 8 | 7 | 6 |
+| 8 | 8 | 7 | 9 _(was 6)_ |
 
 `pkg/tls` centralizes hardened TLS configuration, certificate pair handling, and
 client cert-pool helpers. It is valuable outside GTB, especially if the HTTP and
 gRPC transport modules are extracted.
 
+!!! success "Since v0.30.0"
+
+    **Ready to extract.** The `pkg/config` binding is fully confined to
+    `tls/config_adapter.go`; the core owns a typed `Config` struct and imports no
+    GTB packages. Extraction is a `git mv` of the core plus leaving
+    `config_adapter.go` behind in GTB.
+
 Current GTB coupling:
 
-- Imports `pkg/config`.
+- ~~`pkg/config`~~ — now confined to `tls/config_adapter.go`; core is
+  GTB-import-free.
 
 Extraction shape:
 
@@ -262,15 +317,22 @@ Extraction should happen before or alongside the transport stack.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 8 | 9 | 8 | 7 |
+| 8 | 9 | 8 | 8 _(was 7)_ |
 
 `pkg/vcs/release` is the most extractable part of VCS: a provider registry,
 release metadata, asset APIs, and source configuration. It maps well to a
 standalone release-source module.
 
+!!! success "Since v0.30.0"
+
+    **Ready to extract.** `release` received a narrowed registry factory signature
+    rather than a full typed adapter (its providers own the typed settings), and
+    its core now imports no GTB `config`/`props`/`http`. Extract `release` first,
+    then move provider adapters.
+
 Current GTB coupling:
 
-- Imports `pkg/config`.
+- ~~`pkg/config`~~ — removed from the core via the narrowed registry factory.
 - Provider adapters under `pkg/vcs/{github,gitlab,gitea,bitbucket,direct}` build
   on it.
 
@@ -355,6 +417,16 @@ Main tradeoff: dependency weight is UI-specific but appropriate for the package.
 `pkg/logger` offers a unified logger interface with Charm, slog, buffer, and noop
 implementations.
 
+!!! success "Since v0.30.0"
+
+    **Ready to extract.** The slog-first work
+    ([`2026-07-07-slog-first-extraction-seams.md`](../specs/2026-07-07-slog-first-extraction-seams.md))
+    redefined the logging boundary to mirror `*slog.Logger`, so `pkg/logger` is now
+    consumed only as a thin facade / `logger.ToSlog` adapter at composition edges,
+    not threaded through package cores. A dedicated extraction-boundary guard keeps
+    it that way. Decide only whether the extracted module stays Charm-opinionated or
+    becomes a generic facade with Charm as one adapter.
+
 Current GTB coupling: none.
 
 Extraction shape:
@@ -417,17 +489,27 @@ modules if avoiding very small repositories is preferred.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 7 | 8 | 7 | 5 |
+| 7 | 8 | 7 | 6 _(was 5)_ |
 
 `pkg/http` provides hardened HTTP server/client helpers, middleware chains,
 retry, rate limiting, circuit breaker, auth, TLS, logging, security headers, and
 OpenTelemetry instrumentation.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
 
-- Imports `internal/circuitbreaker` and `internal/ratelimit`.
-- Imports `pkg/authn`, `pkg/config`, `pkg/controls`, `pkg/logger`,
-  `pkg/redact`, and `pkg/tls`.
+    `pkg/config` binding is confined to `http/config_adapter.go` and `pkg/logger`
+    is gone (seams take `*slog.Logger`), both guard-enforced. Residual coupling is
+    now **sibling-package and internal**, not composition-layer: `internal/*`
+    support libs plus the extracted-together transport siblings. Extract as one
+    transport stack, not a leaf.
+
+Current GTB coupling (residual):
+
+- Imports `internal/circuitbreaker` and `internal/ratelimit` (promote alongside
+  the transport module).
+- Imports `pkg/authn`, `pkg/controls`, `pkg/redact`, and `pkg/tls` (sibling
+  modules in the same wave).
+- ~~`pkg/config`~~ (adapter-confined), ~~`pkg/logger`~~ (now `*slog.Logger`).
 
 Extraction shape:
 
@@ -448,17 +530,23 @@ Pre-extraction hardening:
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 7 | 8 | 7 | 5 |
+| 7 | 8 | 7 | 6 _(was 5)_ |
 
 `pkg/grpc` provides gRPC server wiring, health, reflection, TLS, auth,
 interceptors, logging, rate limiting, circuit breaker, and OpenTelemetry
 instrumentation.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
+
+    Same as `pkg/http`: `pkg/config` confined to `grpc/config_adapter.go`,
+    `pkg/logger` replaced by `*slog.Logger`, guard-enforced. Residual coupling is
+    sibling-package and internal. Extract alongside `http`.
+
+Current GTB coupling (residual):
 
 - Imports `internal/circuitbreaker` and `internal/ratelimit`.
-- Imports `pkg/authn`, `pkg/config`, `pkg/controls`, `pkg/logger`,
-  `pkg/redact`, and `pkg/tls`.
+- Imports `pkg/authn`, `pkg/controls`, `pkg/redact`, and `pkg/tls`.
+- ~~`pkg/config`~~ (adapter-confined), ~~`pkg/logger`~~ (now `*slog.Logger`).
 
 Extraction shape:
 
@@ -476,14 +564,21 @@ extraction rather than lead.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 6 | 7 | 7 | 5 |
+| 6 | 7 | 7 | 6 _(was 5)_ |
 
 `pkg/gateway` wires grpc-gateway into GTB's HTTP/gRPC server model.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
 
-- Imports `pkg/config`, `pkg/controls`, `pkg/grpc`, `pkg/http`, and
-  `pkg/logger`.
+    `pkg/config` confined to `gateway/config_adapter.go` and `pkg/logger` replaced
+    by `*slog.Logger`, guard-enforced. It still depends on `http`/`grpc`/`controls`
+    (the transport siblings), so it remains a **stack member**, not an independent
+    first-wave module — extract last within the transport stack.
+
+Current GTB coupling (residual):
+
+- Imports `pkg/controls`, `pkg/grpc`, and `pkg/http` (transport siblings).
+- ~~`pkg/config`~~ (adapter-confined), ~~`pkg/logger`~~ (now `*slog.Logger`).
 
 Extraction shape:
 
@@ -518,17 +613,25 @@ This is easy technically, but its value is higher as an HTTP module companion.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 7 | 8 | 7 | 6 |
+| 7 | 8 | 7 | 8 _(was 6)_ |
 
 These packages provide reusable OpenTelemetry configuration and exporters for
 logs, metrics, and traces. They are cleaner extraction candidates than root
 `pkg/telemetry`, which mixes product analytics, consent, deletion requests,
 machine identity, and GTB integration.
 
+!!! success "Since v0.30.0"
+
+    **Ready to extract** as the `observability` module. `otelcore`'s `pkg/config`
+    binding is confined to `otelcore/config_adapter.go`; `logs`/`metrics`/`tracing`
+    only import `otelcore`. This is the destination for the observability half of
+    the [telemetry analytics/observability split](../specs/2026-07-12-telemetry-analytics-observability-split.md).
+
 Current GTB coupling:
 
-- `otelcore` imports `pkg/config`.
-- `logs`, `metrics`, and `tracing` import `otelcore`.
+- ~~`otelcore` imports `pkg/config`~~ — now confined to
+  `otelcore/config_adapter.go`.
+- `logs`, `metrics`, and `tracing` import `otelcore` (intra-group only).
 
 Extraction shape:
 
@@ -544,25 +647,39 @@ This should be treated as "observability", separate from GTB's product telemetry
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 6 | 7 | 6 | 4 |
+| 6 | 7 | 6 | 5 _(was 4)_ |
 
 Root `pkg/telemetry` handles opt-in product analytics, buffering/spill,
 redaction, deletion requests, machine identity, and backend orchestration.
 
-Current GTB coupling:
+!!! warning "Since v0.30.0 — partial"
 
-- Imports `pkg/browser`, `pkg/controls`, `pkg/http`, `pkg/logger`, `pkg/osinfo`,
-  `pkg/props`, `pkg/redact`, and OTel subpackages.
+    The `pkg/props` **type** coupling is severed (`EventType`/`DeliveryMode` moved
+    to the `pkg/telemetrytypes` leaf), config reads are confined to
+    `*_config_adapter.go`, and the core is in the boundary guard. But the package
+    still mixes two products, so it is **not** yet extractable. The blocking work
+    — separating consent-gated product analytics from service observability — is
+    now specced in
+    [`2026-07-12-telemetry-analytics-observability-split.md`](../specs/2026-07-12-telemetry-analytics-observability-split.md)
+    (DRAFT). Ease stays low until that split lands.
+
+Current GTB coupling (residual):
+
+- Imports `pkg/browser`, `pkg/controls`, `pkg/http`, `pkg/osinfo`, `pkg/redact`,
+  and OTel subpackages.
+- ~~`pkg/props`~~ type coupling removed via `pkg/telemetrytypes`; config now
+  adapter-confined.
 
 Extraction shape:
 
 - Do not extract root telemetry before splitting observability from product
-  analytics.
-- Replace `props` with explicit app metadata and consent/config interfaces.
+  analytics (see the split spec above).
+- Replace remaining `props`-adapter reach-through with explicit app metadata and
+  consent/config interfaces.
 - Move GTB-specific data directory, tool metadata, and config binding into GTB.
 - Ensure redaction happens at event ingestion boundaries before standalone use.
 
-This package can be extracted, but only after significant boundary cleanup.
+This package can be extracted, but only after the analytics/observability split.
 
 ### `pkg/telemetry/posthog`, `pkg/telemetry/datadog`
 
@@ -572,9 +689,17 @@ This package can be extracted, but only after significant boundary cleanup.
 
 These are backend adapters for root telemetry.
 
+!!! note "Since v0.30.0"
+
+    Unchanged and still gated: these move only after root telemetry's
+    analytics/observability split and contract extraction (see the
+    [split spec](../specs/2026-07-12-telemetry-analytics-observability-split.md)).
+    `pkg/logger` seams are now `*slog.Logger`, but the ordering dependency on root
+    telemetry keeps readiness at 5.
+
 Current GTB coupling:
 
-- Import `pkg/http`, `pkg/logger`, and root `pkg/telemetry`.
+- Import `pkg/http` and root `pkg/telemetry`.
 
 Extraction shape:
 
@@ -589,15 +714,22 @@ These are not independent first-wave candidates.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 6 | 7 | 7 | 6 |
+| 6 | 7 | 7 | 7 _(was 6)_ |
 
 `pkg/vcs` contains shared VCS auth/config abstractions used by provider
 packages. It is useful as the common layer for extracted release and repository
 modules.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
 
-- Imports `pkg/config` and `pkg/credentials`.
+    `pkg/config` binding is confined to `vcs/config_adapter.go`; the core's only
+    residual GTB dependency is `pkg/credentials` (itself an extraction candidate
+    with no GTB coupling). Extract after or alongside `credentials`.
+
+Current GTB coupling (residual):
+
+- Imports `pkg/credentials`.
+- ~~`pkg/config`~~ — now confined to `vcs/config_adapter.go`.
 
 Extraction shape:
 
@@ -612,16 +744,24 @@ only as needed.
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 7 | 8 | 7 | 5 |
+| 7 | 8 | 7 | 6 _(was 5)_ |
 
 These packages are release-provider adapters and platform-specific helpers. They
 have clear reuse value for tools that need release discovery and asset download
 across forges.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
 
-- Import `pkg/config`, `pkg/http`, `pkg/vcs`, and/or `pkg/vcs/release`.
+    Provider cores no longer import `pkg/config` (auth/config resolves through the
+    `vcs` adapter seam). Residual coupling is `pkg/http` (hardened client) and, for
+    Bitbucket, `pkg/credentials` — both injectable at extraction. Move as
+    subpackages of the release module.
+
+Current GTB coupling (residual):
+
+- Import `pkg/http`, `pkg/vcs`, and/or `pkg/vcs/release`.
 - Some providers import `pkg/credentials`, `pkg/browser`, or `pkg/regexutil`.
+- ~~`pkg/config`~~ — no longer in provider cores.
 
 Extraction shape:
 
@@ -642,19 +782,27 @@ Pre-extraction hardening:
 
 | Extraction | Package value | Code quality | Ease of decoupling |
 |---:|---:|---:|---:|
-| 6 | 7 | 7 | 5 |
+| 6 | 7 | 7 | 7 _(was 5)_ |
 
 `pkg/vcs/repo` wraps go-git repository operations, safe repo access, and worktree
 filesystem helpers.
 
-Current GTB coupling:
+!!! success "Since v0.30.0"
 
-- Imports `pkg/props`, `pkg/vcs`, `pkg/vcs/release`, and
-  `pkg/vcs/repo/aferobilly`.
+    `pkg/props` is **removed from the core** and config is confined to
+    `vcs/repo/config_adapter.go`. Residual coupling is only the sibling VCS
+    modules (`vcs`, `release`, `aferobilly`). Trails the release/common VCS work
+    but is otherwise clean.
+
+Current GTB coupling (residual):
+
+- Imports `pkg/vcs`, `pkg/vcs/release`, and `pkg/vcs/repo/aferobilly` (sibling
+  modules).
+- ~~`pkg/props`~~ removed from constructors/auth flows; config now
+  adapter-confined.
 
 Extraction shape:
 
-- Remove `props` from constructors and auth flows.
 - Depend on extracted `vcs`, `release`, and `aferobilly` modules.
 - Use explicit auth and filesystem options.
 - Keep GTB-specific provider resolution in GTB adapters.
@@ -670,10 +818,22 @@ This is extractable but should trail the release/common VCS work.
 `pkg/config` wraps Viper with file/env/default merging, embedded assets,
 validation, schema helpers, and hot reload.
 
+!!! note "Since v0.30.0"
+
+    `pkg/config` gained the typed section-decode primitives (`Unmarshal`,
+    `UnmarshalKey`, `SectionExists`, and the generic `UnmarshalSection[T]` /
+    `ObserveSection[T]` helpers) that every first-wave adapter now builds on. This
+    hardens its identity as an *opinionated Viper wrapper* usable as a lightweight
+    standalone dependency — and importantly, the extraction pattern deliberately
+    does **not** require other modules to import it (they own typed structs; GTB
+    adapters do the decoding). Its own `pkg/logger` dependency is now a
+    `*slog.Logger` seam.
+
 Current GTB coupling:
 
-- Imports `pkg/logger`.
-- Is a foundational dependency for many other packages.
+- Imports `pkg/logger` (as a `*slog.Logger` seam).
+- Is a foundational dependency for many other packages, but no longer a *required*
+  one for extracted modules.
 
 Extraction shape:
 
@@ -759,3 +919,67 @@ This map is intentionally conservative. Some very small modules could instead
 be grouped into a shared `cli-kit` or `security-kit`, but separate modules give
 cleaner dependency boundaries and avoid forcing consumers to take unrelated
 dependency weight.
+
+## Extraction Readiness Checklist
+
+_Snapshot: 2026-07-12. A quick-lookup tracker for future extraction work. Tick a
+box when the module is extracted and consumed back via a GTB adapter. "Ease"
+is the ease-of-decoupling score from each package's table above._
+
+**Readiness tiers**
+
+- ✅ **Ready now** — core has no GTB composition-layer coupling (or it is fully
+  confined to a `*config_adapter.go`); extraction is roughly `git mv` the core +
+  leave the adapter behind in GTB.
+- 🔗 **Ready, pending siblings** — core is clean of `props`/`logger` and config is
+  adapter-confined, but the package depends on other `pkg/` modules that should
+  extract together or first (chiefly the transport stack and the VCS tree).
+- 🚧 **Blocked** — needs design/refactor work before extraction is sound.
+
+### ✅ Ready now
+
+| Done | Package | Target module | Ease | Note |
+|:--:|---|---|:--:|---|
+| ☐ | `pkg/redact` | `redact` | 10 | No GTB imports. Expand token patterns before/after. |
+| ☐ | `pkg/regexutil` | `regexutil` | 10 | No GTB imports. Easiest extraction. |
+| ☐ | `pkg/browser` | `browser` | 10 | No GTB imports. Small — could wait for a first consumer. |
+| ☐ | `pkg/workspace` | `workspace` | 10 | No GTB imports. Preserve afero seam. |
+| ☐ | `pkg/forms` | `forms` | 10 | No GTB imports. Document non-interactive/test behaviour. |
+| ☐ | `pkg/logger` | (facade) | 10 | **slog-first**: consumed as `*slog.Logger` + `ToSlog` adapter only. |
+| ☐ | `pkg/output` | `cli-output` | 9 | Isolate Cobra helpers in `output/cobra`; fix Unicode/spinner issues first. |
+| ☐ | `pkg/changelog` | (own module) | 9 | No GTB imports. go-git weight is acceptable. |
+| ☐ | `pkg/authn` | `authn` | 9 | No GTB imports. Extract before the transport stack. |
+| ☐ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
+| ☐ | `pkg/controls` | `controls` | 8 | Only `pkg/logger` (now slog). Do lifecycle-correctness hardening first. |
+| ☐ | `pkg/tls` | `tlsconfig` | 9 | **Newly ready** — config confined to `tls/config_adapter.go`. |
+| ☐ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **Newly ready** — config confined; the observability half of the telemetry split. |
+| ☐ | `pkg/vcs/release` (+`releasetest`) | `releases` | 8 | **Newly ready** — narrowed registry factory; extract first within VCS. |
+| ☐ | `pkg/vcs/repo/aferobilly` | `vcsrepo` (or standalone) | 10 | No GTB imports. afero↔billy bridge. |
+
+### 🔗 Ready, pending sibling / stack extraction
+
+| Done | Package | Target module | Ease | Blocking dependency |
+|:--:|---|---|:--:|---|
+| ☐ | `pkg/chat` | `chat` | 6 | Inject `*http.Client` to drop the `pkg/http` transport dep (spec: chat-module-extraction). |
+| ☐ | `pkg/http` | `transport` | 6 | Promote `internal/circuitbreaker`+`internal/ratelimit`; needs `authn`/`tls`/`redact`/`controls`. |
+| ☐ | `pkg/grpc` | `transport` | 6 | Extract alongside `http`. |
+| ☐ | `pkg/gateway` | `transport` | 6 | After `http`+`grpc`+`controls`. |
+| ☐ | `pkg/openapi` | `transport` | 8 | HTTP-module companion; inject `http.ServeMux`. |
+| ☐ | `pkg/vcs` | `releases`/`vcsrepo` common | 7 | After/with `credentials`. |
+| ☐ | `pkg/vcs/{github,gitlab,gitea,bitbucket,direct}` | `releases` | 6 | Subpackages of the release module; inject `*http.Client`. |
+| ☐ | `pkg/vcs/repo` | `vcsrepo` | 7 | After `vcs`/`release`/`aferobilly`. |
+| ☐ | `pkg/config` | (opinionated Viper wrapper) | 7 | Optional foundational extraction; swap `pkg/logger` for a narrow seam. Not a prerequisite for others. |
+| ☐ | `pkg/errorhandling` | (CLI error UX) | 6 | Split Cobra integration from pure hint/exit-code helpers. |
+
+### 🚧 Blocked on design/refactor work
+
+| Done | Package | Target module | Ease | Blocker |
+|:--:|---|---|:--:|---|
+| ☐ | `pkg/telemetry` (root) | (analytics) | 5 | **Product-analytics ↔ observability split** — [2026-07-12 spec](../specs/2026-07-12-telemetry-analytics-observability-split.md) (DRAFT). |
+| ☐ | `pkg/telemetry/{posthog,datadog}` | (backend adapters) | 5 | Follows root telemetry contract extraction. |
+
+**Suggested order:** leaf utilities (redact, regexutil, browser, workspace,
+forms, logger, aferobilly) → CLI helpers (output, changelog) → security/runtime
+(authn, credentials, tls, controls) → observability (`telemetry/otelcore` group)
+→ transport stack (http → grpc → gateway/openapi) → VCS (release → providers →
+vcs/repo) → chat → telemetry split → root telemetry + backends.
