@@ -53,8 +53,8 @@ These packages were extracted into the standalone, independently-versioned [sign
 
 | Component | Module | Description |
 | :--- | :--- | :--- |
-| **[Signing](signing.md)** | `gitlab.com/phpboyscout/signing` | Backend registry letting `gtb keys mint` and downstream tools target arbitrary HSM/KMS/keyring back-ends through a single CLI-agnostic `Backend` interface. |
-| **[OpenPGP Key](openpgpkey.md)** | `gitlab.com/phpboyscout/signing/openpgpkey` | OpenPGP packet assembly from a `crypto.Signer`, wrapping an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. |
+| **[Signing](signing.md)** | `gitlab.com/phpboyscout/go/signing` | Backend registry letting `gtb keys mint` and downstream tools target arbitrary HSM/KMS/keyring back-ends through a single CLI-agnostic `Backend` interface. |
+| **[OpenPGP Key](openpgpkey.md)** | `gitlab.com/phpboyscout/go/signing/openpgpkey` | OpenPGP packet assembly from a `crypto.Signer`, wrapping an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. |
 
 ## Web Service
 

@@ -214,8 +214,8 @@ key ever ships, redeploy a known-good staging directory in seconds.
   domain, email, and host.
 - [`openpgpkey`](../explanation/components/openpgpkey.md) — the library
   function `WriteWKDTree` that the CLI wraps (now the standalone
-  `gitlab.com/phpboyscout/signing/openpgpkey` module).
-- [`gitlab.com/phpboyscout/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify)
+  `gitlab.com/phpboyscout/go/signing/openpgpkey` module).
+- [`gitlab.com/phpboyscout/go/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify)
   — the client-side `WKDResolver` that pairs with this generator (consumed
   by gtb's self-updater).
 

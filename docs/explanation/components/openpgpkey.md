@@ -11,10 +11,10 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 !!! info "Extracted into the signing module"
     This package was extracted from go-tool-base. It now lives in the
     standalone, independently-versioned **signing** module at
-    **`gitlab.com/phpboyscout/signing/openpgpkey`** (v0.1.0).
+    **`gitlab.com/phpboyscout/go/signing/openpgpkey`** (v0.1.0).
     go-tool-base consumes it as an ordinary dependency.
 
-    - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/signing/openpgpkey](https://pkg.go.dev/gitlab.com/phpboyscout/signing/openpgpkey)
+    - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey)
     - **Module documentation:** [signing.phpboyscout.uk](https://signing.phpboyscout.uk)
 
     The `gtb` CLI behaviour is unchanged — only the Go import path moved.
@@ -36,7 +36,7 @@ It also exposes:
 - **Web Key Directory (WKD) tree generation** (`WriteWKDTree`,
   `WKDHash`) — the publish-side layout per
   [draft-koch-openpgp-webkey-service §3.1][wkd], paired with the
-  client-side `WKDResolver` in `gitlab.com/phpboyscout/signing/verify`.
+  client-side `WKDResolver` in `gitlab.com/phpboyscout/go/signing/verify`.
 
 The single seam is stdlib `crypto.Signer`, so any backend that produces
 RSA signatures can use it directly.
@@ -48,7 +48,7 @@ Inside the `gtb` binary it backs `gtb keys mint`, `gtb keys generate`
 The full API reference, algorithm/version details, reproducibility
 notes, and worked examples now live in the
 [signing module documentation](https://signing.phpboyscout.uk) and on
-[pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/signing/openpgpkey).
+[pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey).
 
 For the operator-facing recipes, see:
 

@@ -45,8 +45,8 @@ require (
 	github.com/tiktoken-go/tokenizer v0.8.0
 	github.com/zalando/go-keyring v0.2.8
 	gitlab.com/gitlab-org/api/client-go/v2 v2.44.0
-	gitlab.com/phpboyscout/signing v0.1.0
-	gitlab.com/phpboyscout/signing-aws-kms v0.1.0
+	gitlab.com/phpboyscout/go/signing v0.2.0
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0

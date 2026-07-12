@@ -36,7 +36,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 
-	"gitlab.com/phpboyscout/signing/verify"
+	"gitlab.com/phpboyscout/go/signing/verify"
 )
 
 const (

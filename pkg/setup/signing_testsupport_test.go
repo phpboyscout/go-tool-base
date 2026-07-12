@@ -13,11 +13,11 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/signing/verify"
+	"gitlab.com/phpboyscout/go/signing/verify"
 )
 
 // Test fixtures for the update-signature flow. The signing/verification logic
-// itself lives in (and is exhaustively tested by) gitlab.com/phpboyscout/signing;
+// itself lives in (and is exhaustively tested by) gitlab.com/phpboyscout/go/signing;
 // these are the minimal fixtures gtb's own SelfUpdater tests need.
 
 // testSigningKey bundles a generated entity with its ASCII-armored public-key

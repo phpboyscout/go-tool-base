@@ -327,6 +327,6 @@ The chain in tabular form:
   [signing](../components/signing.md) — the programmatic APIs, now
   extracted into the standalone
   [signing module](https://signing.phpboyscout.uk)
-  (`gitlab.com/phpboyscout/signing`).
+  (`gitlab.com/phpboyscout/go/signing`).
 - [Phase 2 spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md)
   — verifier design.

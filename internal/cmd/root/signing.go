@@ -1,7 +1,7 @@
 package root
 
 import (
-	"gitlab.com/phpboyscout/signing/verify"
+	"gitlab.com/phpboyscout/go/signing/verify"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )

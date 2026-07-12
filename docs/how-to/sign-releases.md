@@ -1,6 +1,6 @@
 ---
 title: Sign release artefacts with `gtb sign`
-description: Produce an ASCII-armored OpenPGP detached signature over a release file using a KMS-held key (or any other backend registered with the signing module, `gitlab.com/phpboyscout/signing`), then verify with gpg or the in-tool verifier.
+description: Produce an ASCII-armored OpenPGP detached signature over a release file using a KMS-held key (or any other backend registered with the signing module, `gitlab.com/phpboyscout/go/signing`), then verify with gpg or the in-tool verifier.
 date: 2026-06-09
 tags: [how-to, signing, kms, openpgp, release]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
@@ -95,7 +95,7 @@ encryption like LUKS or `age` until that lands).
 
 `gtb sign` produces what `gpg --verify` consumes — and what the
 in-tool verifier (`TrustSet.VerifyManifestSignature`, now in the
-`gitlab.com/phpboyscout/signing/verify` module that gtb consumes)
+`gitlab.com/phpboyscout/go/signing/verify` module that gtb consumes)
 checks during a self-update.
 
 ```sh
@@ -161,7 +161,7 @@ The setup is split into two layers:
 
 - **`gpg --verify`** (any modern OpenPGP implementation accepting v4
   RSA-PKCS1v15 signatures)
-- **the in-tool verifier** (`gitlab.com/phpboyscout/signing/verify`, consumed by gtb) during `gtb update`
+- **the in-tool verifier** (`gitlab.com/phpboyscout/go/signing/verify`, consumed by gtb) during `gtb update`
 - **`openpgp.CheckArmoredDetachedSignature` from
   `ProtonMail/go-crypto`** (the library used by both)
 
@@ -203,7 +203,7 @@ See the Phase 2 prep doc for the full rotation runbook.
   — design decisions, RFC details, threat model.
 - [`openpgpkey`](../explanation/components/openpgpkey.md)
   — the `DetachSign` library function the CLI wraps (now the standalone
-  `gitlab.com/phpboyscout/signing/openpgpkey` module).
+  `gitlab.com/phpboyscout/go/signing/openpgpkey` module).
 - [How-to: publish via WKD](publish-wkd.md) — the matching
   trust-anchor publication step.
 - [How-to: add a signing backend](add-signing-backend.md) — for

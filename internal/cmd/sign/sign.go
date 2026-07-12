@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"gitlab.com/phpboyscout/signing"
-	"gitlab.com/phpboyscout/signing/openpgpkey"
+	"gitlab.com/phpboyscout/go/signing"
+	"gitlab.com/phpboyscout/go/signing/openpgpkey"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

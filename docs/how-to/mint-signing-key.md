@@ -202,4 +202,4 @@ v1 file once your supported-version window has cleared.
   — the end-to-end trust model.
 - [`openpgpkey`](../explanation/components/openpgpkey.md) — the underlying
   packet-assembly API if you need it programmatically (now the standalone
-  `gitlab.com/phpboyscout/signing/openpgpkey` module).
+  `gitlab.com/phpboyscout/go/signing/openpgpkey` module).

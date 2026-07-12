@@ -35,25 +35,25 @@ func SkeletonSigning(data SkeletonSigningData) *jen.File {
 
 	if data.RequireSignature {
 		body = append(body,
-			jen.Qual("gitlab.com/phpboyscout/signing/verify", "DefaultRequireSignature").Op("=").True(),
+			jen.Qual("gitlab.com/phpboyscout/go/signing/verify", "DefaultRequireSignature").Op("=").True(),
 		)
 	}
 
 	if data.KeySource != "" {
 		body = append(body,
-			jen.Qual("gitlab.com/phpboyscout/signing/verify", "DefaultKeySource").Op("=").Lit(data.KeySource),
+			jen.Qual("gitlab.com/phpboyscout/go/signing/verify", "DefaultKeySource").Op("=").Lit(data.KeySource),
 		)
 	}
 
 	if data.RequireExternalCrosscheck {
 		body = append(body,
-			jen.Qual("gitlab.com/phpboyscout/signing/verify", "DefaultRequireExternalCrosscheck").Op("=").True(),
+			jen.Qual("gitlab.com/phpboyscout/go/signing/verify", "DefaultRequireExternalCrosscheck").Op("=").True(),
 		)
 	}
 
 	if data.ExternalKeyEmail != "" {
 		body = append(body,
-			jen.Qual("gitlab.com/phpboyscout/signing/verify", "DefaultExternalKeyEmail").Op("=").Lit(data.ExternalKeyEmail),
+			jen.Qual("gitlab.com/phpboyscout/go/signing/verify", "DefaultExternalKeyEmail").Op("=").Lit(data.ExternalKeyEmail),
 		)
 	}
 

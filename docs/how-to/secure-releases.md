@@ -119,7 +119,7 @@ Phase 1 defends against accidental corruption and single-asset tampering, but a 
     policy, and the `DefaultRequireSignature` / `DefaultKeySource` /
     `DefaultExternalKeyEmail` / `DefaultRequireExternalCrosscheck`
     variables — now live in the standalone **signing** module at
-    **`gitlab.com/phpboyscout/signing/verify`** (v0.1.0). go-tool-base's
+    **`gitlab.com/phpboyscout/go/signing/verify`** (v0.1.0). go-tool-base's
     `SelfUpdater` (still in `pkg/setup`) consumes them, injecting an
     `*slog.Logger` and a hardened `*http.Client`. Where the snippets
     below show these symbols with a `setup.` prefix, read them as
@@ -211,7 +211,7 @@ update:
 ```
 
 Compile-time overrides (tool authors in `main`), set on the
-`gitlab.com/phpboyscout/signing/verify` package:
+`gitlab.com/phpboyscout/go/signing/verify` package:
 
 ```go
 verify.DefaultRequireSignature = true

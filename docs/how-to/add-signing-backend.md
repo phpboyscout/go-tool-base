@@ -17,13 +17,13 @@ package, and `gtb keys mint --backend <name>` / `gtb sign --backend
 
 !!! info "Canonical guide lives in the signing module"
     The backend registry was extracted from go-tool-base into the
-    standalone **signing** module (`gitlab.com/phpboyscout/signing`,
+    standalone **signing** module (`gitlab.com/phpboyscout/go/signing`,
     v0.1.0). The canonical, in-depth "Implement a custom backend"
     how-to — plus the trust model, threat model, and per-backend
     guides — now lives in the
     [signing module documentation](https://signing.phpboyscout.uk),
     with the API on
-    [pkg.go.dev/gitlab.com/phpboyscout/signing](https://pkg.go.dev/gitlab.com/phpboyscout/signing).
+    [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing).
 
     This page keeps the gtb-side essentials: the contract, how to
     register, and how to activate a backend in a gtb-derived binary.
@@ -34,7 +34,7 @@ The contract is **CLI-agnostic** — two methods, both backed by stdlib
 seams (`crypto.Signer`, `context.Context`):
 
 ```go
-// gitlab.com/phpboyscout/signing
+// gitlab.com/phpboyscout/go/signing
 type Backend interface {
     Name() string
     NewSigner(ctx context.Context, keyID string) (crypto.Signer, error)
@@ -66,7 +66,7 @@ import (
     "context"
     "crypto"
 
-    "gitlab.com/phpboyscout/signing"
+    "gitlab.com/phpboyscout/go/signing"
 )
 
 type backend struct{ /* optional flag-bound state */ }
@@ -84,10 +84,10 @@ func init() {
 
 The implementation pattern matches the two reference backends:
 
-- **`gitlab.com/phpboyscout/signing-aws-kms`** (package `awskms`) — a
+- **`gitlab.com/phpboyscout/go/signing-aws-kms`** (package `awskms`) — a
   separate module wrapping AWS KMS, and the example of a backend that
   contributes a CLI flag (`--kms-region`) via the optional interface.
-- **`gitlab.com/phpboyscout/signing/local`** — the on-disk PEM backend,
+- **`gitlab.com/phpboyscout/go/signing/local`** — the on-disk PEM backend,
   the example of a flag-less backend.
 
 ## Activate it in your binary
@@ -118,8 +118,8 @@ the linked binary entirely.
   backend plugs into.
 - [`signing` component](../explanation/components/signing.md) — the
   registry overview as consumed by gtb.
-- [`gitlab.com/phpboyscout/signing-aws-kms`](https://pkg.go.dev/gitlab.com/phpboyscout/signing-aws-kms)
+- [`gitlab.com/phpboyscout/go/signing-aws-kms`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing-aws-kms)
   and
-  [`gitlab.com/phpboyscout/signing/local`](https://pkg.go.dev/gitlab.com/phpboyscout/signing/local)
+  [`gitlab.com/phpboyscout/go/signing/local`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/local)
   — production example backends.
 </content>

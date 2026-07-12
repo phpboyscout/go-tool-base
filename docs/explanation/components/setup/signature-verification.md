@@ -28,7 +28,7 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
     `DefaultRequireSignature` / `DefaultKeySource` / `DefaultExternalKeyEmail`
     / `DefaultRequireExternalCrosscheck` package variables — now lives in the
     standalone, independently-versioned **signing** module at
-    **`gitlab.com/phpboyscout/signing/verify`** (v0.1.0). Those symbols are
+    **`gitlab.com/phpboyscout/go/signing/verify`** (v0.1.0). Those symbols are
     shown below with the `verify.` prefix; the `SelfUpdater` constructor and
     options (`setup.NewUpdater`, `setup.WithEmbeddedKeys`,
     `setup.WithKeyResolver`) remain in `pkg/setup`.
@@ -43,7 +43,7 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
     The `gtb` CLI behaviour is unchanged. The canonical reference for the
     verifier API is the
     [signing module documentation](https://signing.phpboyscout.uk) and
-    [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify);
+    [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify);
     this page keeps the gtb-specific operator guidance (config keys, env
     vars, posture/rollout) and how the framework wires the module in.
 
@@ -100,7 +100,7 @@ The policy fails closed: an algorithm a future `go-crypto` release might add is 
 
 
 > [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) for the full API definition.
+> See [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify) for the full API definition.
 
 
 Three implementations ship in Phase 2.
@@ -180,7 +180,7 @@ Wraps an ordered list of resolvers and requires them to **agree** on the set of 
 
 
 > [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) for the full API definition.
+> See [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify) for the full API definition.
 
 
 - Children run **concurrently**; resolve cost is `max(child latencies)`, not the sum.
@@ -267,7 +267,7 @@ Match on these with `errors.Is`; the underlying cause is wrapped for diagnostics
 
 ## Tunable Bounds & Defaults
 
-All exported as package variables on `gitlab.com/phpboyscout/signing/verify` (the `verify.` prefix) so a downstream tool author can override them in `main()`:
+All exported as package variables on `gitlab.com/phpboyscout/go/signing/verify` (the `verify.` prefix) so a downstream tool author can override them in `main()`:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -298,7 +298,7 @@ updater, err := setup.NewUpdater(ctx, props, version, force,
 ### BuildKeyResolver
 
 ```go
-// gitlab.com/phpboyscout/signing/verify
+// gitlab.com/phpboyscout/go/signing/verify
 func BuildKeyResolver(cfg KeyResolverConfig, embeddedKeys ...[]byte) (KeyResolver, error)
 ```
 
@@ -347,7 +347,7 @@ Trust sets hold multiple keys, and verification passes if **any** key validates 
 
 ## See Also
 
-- [signing module documentation](https://signing.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/signing/verify) — the canonical reference for the extracted verifier API.
+- [signing module documentation](https://signing.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify) — the canonical reference for the extracted verifier API.
 - [Setup Package](index.md) — the surrounding self-update system and Phase 1 checksum verification.
 - [Secure Releases How-To](../../../how-to/secure-releases.md) — operator-facing setup story.
 - [HTTP client](../http.md) — the hardened client `WKDResolver` expects.

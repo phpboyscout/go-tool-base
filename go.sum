@@ -504,10 +504,10 @@ github.com/zalando/go-keyring v0.2.8 h1:6sD/Ucpl7jNq10rM2pgqTs0sZ9V3qMrqfIIy5YPc
 github.com/zalando/go-keyring v0.2.8/go.mod h1:tsMo+VpRq5NGyKfxoBVjCuMrG47yj8cmakZDO5QGii0=
 gitlab.com/gitlab-org/api/client-go/v2 v2.44.0 h1:Vtv2WKC8p9BAygu5VCZlZUwDhTQ7UMlS3PErXyjUmeY=
 gitlab.com/gitlab-org/api/client-go/v2 v2.44.0/go.mod h1:pTbeBowtVA+0/ZExWEZYUGOrpu5qlRN5ZyOUf27BnVY=
-gitlab.com/phpboyscout/signing v0.1.0 h1:N86vkT20bVo/zudbfKANwueBwvPaP/EzAqgMi7VIwv8=
-gitlab.com/phpboyscout/signing v0.1.0/go.mod h1:6ubfzqFxvGIjQiYXwLR3maTH5Jr8f6kw3P/dN5o/C+s=
-gitlab.com/phpboyscout/signing-aws-kms v0.1.0 h1:muOGACmTE90Np6q76vrlPNbl6OVVOqr0QMWldBIk6mI=
-gitlab.com/phpboyscout/signing-aws-kms v0.1.0/go.mod h1:JeqDL5zMN0OSmBp4gAUtspSNTNlnE4OqnGOj5666Bfs=
+gitlab.com/phpboyscout/go/signing v0.2.0 h1:cx7dFY2CWvbI+O+vx5D9Y6fvh8NcZE6s3UVcDsKBeU8=
+gitlab.com/phpboyscout/go/signing v0.2.0/go.mod h1:Rg43efDnq8bGzQjoMTxvnFj5KAQHeuLe2PaUSi+P11Q=
+gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0 h1:/vQcdJTNvnXGEYt2iBNwuqdK/0RlzoIS5+GGIq6AaKU=
+gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0/go.mod h1:pDj2paVTBqSZOSHdzK4ZmfJWXcjSc4T2jxcK0vfFOEc=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
 go.opentelemetry.io/contrib/bridges/otelslog v0.19.0 h1:5RgvxieNq9tS3ewrV1vnODvbHPfKUIJcYtF9Cvz+6aQ=

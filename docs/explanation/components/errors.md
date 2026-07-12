@@ -119,7 +119,7 @@ the link to the user-facing output.
 
 ---
 
-## `gitlab.com/phpboyscout/signing/openpgpkey`
+## `gitlab.com/phpboyscout/go/signing/openpgpkey`
 
 Extracted into the standalone [signing module](https://signing.phpboyscout.uk); gtb consumes it.
 
@@ -150,7 +150,7 @@ Extracted into the standalone [signing module](https://signing.phpboyscout.uk); 
 | `ErrBinaryTooLarge` | binary too large | Returned during extraction if the update binary is dangerously large. |
 | `ErrBinaryNotInArchive` | binary not in archive | Returned when extracting an update tarball/zip that doesn't contain the expected executable. |
 
-The signature-verification sentinels below were extracted into `gitlab.com/phpboyscout/signing/verify`; gtb's `SelfUpdater` re-surfaces them during `Update()`.
+The signature-verification sentinels below were extracted into `gitlab.com/phpboyscout/go/signing/verify`; gtb's `SelfUpdater` re-surfaces them during `Update()`.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -164,7 +164,7 @@ The signature-verification sentinels below were extracted into `gitlab.com/phpbo
 
 ---
 
-## `gitlab.com/phpboyscout/signing`
+## `gitlab.com/phpboyscout/go/signing`
 
 Extracted into the standalone [signing module](https://signing.phpboyscout.uk); gtb consumes it.
 
@@ -174,7 +174,7 @@ Extracted into the standalone [signing module](https://signing.phpboyscout.uk); 
 
 ---
 
-## `gitlab.com/phpboyscout/signing-aws-kms`
+## `gitlab.com/phpboyscout/go/signing-aws-kms`
 
 The `awskms` backend — a separate module consumed by the standard gtb binary.
 
@@ -186,7 +186,7 @@ The `awskms` backend — a separate module consumed by the standard gtb binary.
 
 ---
 
-## `gitlab.com/phpboyscout/signing/local`
+## `gitlab.com/phpboyscout/go/signing/local`
 
 The `local` PEM backend, part of the standalone signing module.
 

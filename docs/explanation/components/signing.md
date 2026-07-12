@@ -11,10 +11,10 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 !!! info "Extracted into the signing module"
     The `Backend` interface and the registry were extracted from
     go-tool-base. They now live in the standalone, independently-versioned
-    **signing** module at **`gitlab.com/phpboyscout/signing`** (v0.1.0).
+    **signing** module at **`gitlab.com/phpboyscout/go/signing`** (v0.1.0).
     go-tool-base consumes it as an ordinary dependency.
 
-    - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/signing](https://pkg.go.dev/gitlab.com/phpboyscout/signing)
+    - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing)
     - **Module documentation:** [signing.phpboyscout.uk](https://signing.phpboyscout.uk)
 
     The `gtb` CLI behaviour is unchanged — only the Go import paths moved.
@@ -39,7 +39,7 @@ As part of the extraction the `Backend` contract was narrowed to two
 methods — it no longer references any CLI types:
 
 ```go
-// gitlab.com/phpboyscout/signing
+// gitlab.com/phpboyscout/go/signing
 type Backend interface {
     Name() string
     NewSigner(ctx context.Context, keyID string) (crypto.Signer, error)
@@ -58,11 +58,11 @@ module free of any dependency on Cobra/pflag or go-tool-base.
 The standard `gtb` binary blank-imports both built-in backends:
 
 - **`aws-kms`** — a **separate module**,
-  **`gitlab.com/phpboyscout/signing-aws-kms`** (package `awskms`).
+  **`gitlab.com/phpboyscout/go/signing-aws-kms`** (package `awskms`).
   Wraps an AWS KMS asymmetric RSA-4096 `SIGN_VERIFY` key. Kept in its
   own module so a regulated downstream that omits the blank import keeps
   the AWS SDK out of the linked binary (linker dead-code elimination).
-- **`local`** — **`gitlab.com/phpboyscout/signing/local`**. Loads an
+- **`local`** — **`gitlab.com/phpboyscout/go/signing/local`**. Loads an
   RSA private key from an unencrypted PKCS#1 or PKCS#8 PEM file. Intended
   for the onboarding tutorial, local development, and the
   rotation-authority signing path — not production CI.
@@ -74,7 +74,7 @@ The full registry API (`Register`, `Get`, `Names`, `ErrUnknownBackend`,
 opt-out story, concurrency guarantees, and the backend test pattern now
 live in the
 [signing module documentation](https://signing.phpboyscout.uk) and on
-[pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/signing).
+[pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing).
 
 ## Adding a new backend
 

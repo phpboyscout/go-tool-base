@@ -29,7 +29,7 @@ import (
 
 	// Only the local backend; no kms. If the AWS SDK ends up linked
 	// despite this omission, that's the bug we want CI to catch.
-	_ "gitlab.com/phpboyscout/signing/local"
+	_ "gitlab.com/phpboyscout/go/signing/local"
 )
 
 func main() {
