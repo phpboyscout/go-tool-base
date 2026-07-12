@@ -2,7 +2,7 @@
 title: "Standalone signing & verification module (dependency-inverted, reusable by non-GTB projects)"
 description: "Extract the OpenPGP/WKD release signing + verification primitives from pkg/signing and pkg/setup into one light, standalone Go module. The module owns the contract (a crypto.Signer-producing Backend interface), the signing mechanics, and the verification trust model; heavy cloud backends (AWS KMS, GCP, Azure) are NOT implemented in the module — consumers implement the interface and inject. Lets afmpeg verify ffmpeg-wasi's signed wasm releases, and lets any project sign without the go-tool-base framework. Driven by work item #1."
 date: 2026-06-30
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - signing
@@ -28,12 +28,25 @@ Date
 :   30 June 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 Tracking
 :   work item #1
 
 ---
+
+!!! success "Implemented — verified 2026-07-12"
+
+    Shipped as [`gitlab.com/phpboyscout/signing`](https://gitlab.com/phpboyscout/signing)
+    **v0.1.0**. Verified: the module builds and its full suite (core, `local`,
+    `openpgpkey`, `verify`, e2e steps) passes; the `depfootprint_test.go` guard
+    holds (no go-tool-base / cloud / viper / charm / pflag in the core graph); the
+    standard cicd framework is wired (lint, test+Godog, security, releaser-pleaser,
+    zensical-pages, renovate); docs publish to `signing.phpboyscout.uk`. go-tool-base
+    consumes it (`pkg/signing` and `pkg/openpgpkey` deleted; every caller repointed),
+    and afmpeg imports `signing/verify` with a module graph free of go-tool-base and
+    AWS. Work items 1–7 complete; item 8 (ffmpeg-wasi pipeline `signs:` block) is a
+    downstream-pipeline follow-up tracked in that repo.
 
 ## 1. Context & motivation
 

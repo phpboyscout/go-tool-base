@@ -2,7 +2,7 @@
 title: "Per-provider signing backend modules (signing-aws-kms first; GCP/Azure/Vault to follow)"
 description: "Extract the AWS KMS signing backend out of go-tool-base into its own standalone module gitlab.com/phpboyscout/signing-aws-kms, implementing the gitlab.com/phpboyscout/signing Backend contract. Establishes the per-provider backend-module pattern so consumers selectively include only the backend(s) they need (afmpeg: none; a KMS signer: aws-kms; gtb: all), and keeps each cloud SDK out of every graph that doesn't opt in. Integrated into go-tool-base alongside the signing module in one cut-over. Extends work item #1."
 date: 2026-06-30
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - signing
@@ -27,13 +27,26 @@ Date
 :   30 June 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED
 
 Tracking
 :   work item #1 (extends)
 
 Builds on
 :   `2026-06-30-release-signature-verification-module.md` (the `signing` module, shipped v0.1.0)
+
+---
+
+!!! success "Implemented — verified 2026-07-12"
+
+    Shipped as [`gitlab.com/phpboyscout/signing-aws-kms`](https://gitlab.com/phpboyscout/signing-aws-kms)
+    **v0.1.0** (package `awskms`). Verified: builds and tests pass, the
+    `depfootprint_test.go` guard holds (no go-tool-base, no non-AWS cloud SDK), and
+    it implements the `signing.Backend` contract with the optional `RegisterFlags`
+    seam. go-tool-base consumes it alongside `signing` (the four in-tree signing
+    trees incl. `pkg/signing/kms` deleted, callers + blank-imports repointed). This
+    establishes the per-provider backend-module pattern (`signing-<provider>`) that
+    GCP/Azure/Vault will follow.
 
 ---
 
