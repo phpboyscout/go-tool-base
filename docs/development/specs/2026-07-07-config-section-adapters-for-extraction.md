@@ -2,7 +2,7 @@
 title: "Typed config section adapters for module extraction"
 description: "Introduce a config decoupling pattern where reusable and extracted packages own typed configuration structs, while GTB's config.Container unmarshals resolved sections into those structs at framework adapter boundaries. This avoids coupling standalone modules to GTB's Viper-based config stack while preserving GTB's precedence, env binding, hot reload, and validation behaviour."
 date: 2026-07-07
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -26,7 +26,7 @@ Date
 :   7 July 2026
 
 Status
-:   IN PROGRESS
+:   IMPLEMENTED
 
 Builds on
 :   [`2026-07-07-slog-first-extraction-seams.md`](2026-07-07-slog-first-extraction-seams.md)
@@ -1551,10 +1551,39 @@ supporting docs (Phase 5), and the props import-boundary guard (part of Phase
 6). `vcs/release` received a narrowed registry factory signature rather than a
 full typed adapter, since its providers own the typed settings.
 
-Deferred to later waves (spec remains IN PROGRESS): the remaining §8 packages
-that currently need no config or belong to a later extraction wave (`authn`,
-`credentials`, `output`, `browser`, `workspace`, `forms`, `changelog`,
-`redact`, `openapi`, `errorhandling`, and the telemetry backends).
+Deferred to later waves: the remaining §8 packages that currently need no config
+or belong to a later extraction wave (`authn`, `credentials`, `output`,
+`browser`, `workspace`, `forms`, `changelog`, `redact`, `openapi`,
+`errorhandling`, and the telemetry backends).
+
+### Completion (2026-07-12)
+
+This spec is marked **IMPLEMENTED**. The pattern it set out to establish — typed,
+package-owned config structs as the primary boundary, with GTB unmarshalling
+resolved sections through co-located adapters — is fully delivered and in use by
+every first-wave package that reads config. The container APIs (`Unmarshal`,
+`UnmarshalKey`, `SectionExists`, `UnmarshalSection[T]`, `ObserveSection[T]`), the
+`test/architecture` import-boundary guard, and all §12 open questions are
+resolved.
+
+The "deferred" §8 packages do **not** represent pending work under this spec:
+
+- **No-config packages** (`authn`, `credentials`, `output`, `browser`,
+  `workspace`, `forms`, `changelog`, `redact`, `regexutil`, `openapi`,
+  `logger`, `controls`) have `Current config coupling: none`. There is nothing
+  to migrate. Their §8 entries are forward-looking guidance for *if and when*
+  each package is extracted, at which point the typed-struct + `*FromContainable`
+  adapter pattern defined here applies directly. `errorhandling` couples to
+  config only indirectly through help config and logger, and follows the same
+  rule at its own extraction time.
+- **The telemetry backends and root `pkg/telemetry`** are not blocked on a
+  config adapter — root telemetry's config reads are already adapter-confined
+  and its `pkg/props` type coupling was severed via
+  [`2026-07-10-telemetry-props-decoupling.md`](2026-07-10-telemetry-props-decoupling.md).
+  What remains is the larger **product-analytics ↔ observability split**, which
+  is an architectural effort rather than a config-boundary task and is tracked
+  in its own spec:
+  [`2026-07-12-telemetry-analytics-observability-split.md`](2026-07-12-telemetry-analytics-observability-split.md).
 
 ### Follow-up landed on this branch (2026-07-11)
 
