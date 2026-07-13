@@ -60,7 +60,7 @@ Use `http.NewChain` to compose your security middleware with any other middlewar
 ```go
 import (
     gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+    "gitlab.com/phpboyscout/go/controls"
 )
 
 func registerHTTPServer(ctx context.Context, controller controls.Controllable, cfg config.Containable, l logger.Logger, handler http.Handler) error {

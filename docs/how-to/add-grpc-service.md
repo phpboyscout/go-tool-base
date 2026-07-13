@@ -66,7 +66,7 @@ Use `grpc.Register` — a single call that creates the server, wires health chec
 ```go
 import (
     gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+    "gitlab.com/phpboyscout/go/controls"
     pb "github.com/my-org/mytool/gen/proto/myservice/v1"
     "google.golang.org/grpc"
 )

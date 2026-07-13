@@ -88,28 +88,12 @@ func TestConfigObserver(t *testing.T) {
 
 ### Controls Mocks
 
-Located in `mocks/pkg/controls/`:
-
-#### **Controllable Mock**
-Mock implementation of `controls.Controllable` interface for testing service lifecycle:
-
-```go
-func TestServiceLifecycle(t *testing.T) {
-    mockController := &mocks_controls.Controllable{}
-
-    // Setup channel expectations
-    mockController.On("Messages").Return(make(chan controls.Message))
-    mockController.On("Errors").Return(make(chan error))
-    mockController.On("Start").Return()
-    mockController.On("Stop").Return()
-
-    // Test service management
-    service := NewMyService(mockController)
-    service.Start()
-
-    mockController.AssertExpectations(t)
-}
-```
+The controls supervisor has been extracted to the standalone
+[`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk)
+module, which ships **no mocks**. To fake a controller in your own tests,
+generate a mock of its `Controllable` interface (or a narrower one) yourself, or
+drive a real controller with `controls.WithoutSignals()`. See the module's
+[testing guide](https://controls.go.phpboyscout.uk/how-to/testing/).
 
 ### Version Control Mocks
 

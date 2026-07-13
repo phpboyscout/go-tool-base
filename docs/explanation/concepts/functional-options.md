@@ -111,10 +111,11 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
 
 ### Service Controller Options
 
-The `pkg/controls` package uses functional options for controller configuration:
+The standalone [`go/controls`](https://controls.go.phpboyscout.uk) module (which
+GTB consumes) uses functional options for controller configuration:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+import "gitlab.com/phpboyscout/go/controls"
 
 // Create controller with defaults
 controller := controls.NewController(ctx)

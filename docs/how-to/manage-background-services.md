@@ -9,9 +9,12 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # How to Manage Background Services
 
 Background services (API listeners, file watchers, long-running workers) need
-ordered start-up, health monitoring, and graceful shutdown. This guide uses
-`pkg/controls` to orchestrate them. For the interface contracts and lifecycle
-states, see the [Controls component](../explanation/components/controls/index.md).
+ordered start-up, health monitoring, and graceful shutdown. This guide uses the
+standalone [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk)
+module — GTB consumes it directly — to orchestrate them, with GTB-specific glue
+(`Props`, `logger.ToSlog`). For the full supervisor API, interface contracts, and
+lifecycle states, see the module docs at
+[controls.go.phpboyscout.uk](https://controls.go.phpboyscout.uk).
 
 ## 1. Create the controller
 
@@ -19,7 +22,7 @@ states, see the [Controls component](../explanation/components/controls/index.md
 import (
     "context"
 
-    "gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+    "gitlab.com/phpboyscout/go/controls"
 )
 
 func setupController(ctx context.Context, l logger.Logger) *controls.Controller {
@@ -31,7 +34,8 @@ func setupController(ctx context.Context, l logger.Logger) *controls.Controller 
 
 Each service is registered by id with functional options: `WithStart` runs it
 (blocking work returns an error), `WithStop` shuts it down with the shutdown
-context, and `WithStatus` reports health on the controller's health channel.
+context, and `WithStatus` is a `func() error` health probe — return `nil` for
+healthy, or an error describing the failure.
 
 ```go
 func registerHTTPServer(controller *controls.Controller, props *props.Props) {
@@ -54,10 +58,10 @@ func registerHTTPServer(controller *controls.Controller, props *props.Props) {
             }
         }),
         controls.WithStatus(func() error {
-            controller.Health() <- controls.HealthMessage{
-                Host: "localhost", Port: 8080, Status: 200, Message: "HTTP server healthy",
-            }
-            return nil
+            // Return nil while healthy; a non-nil error marks the service
+            // unhealthy in the controller's aggregated Status()/Liveness()/
+            // Readiness() reports.
+            return healthCheck(server)
         }),
     )
 }
@@ -130,10 +134,11 @@ func handleHealthChecks(controller *controls.Controller, props *props.Props) {
         case <-controller.GetContext().Done():
             return
         case <-ticker.C:
-            controller.Messages() <- controls.Status // ask every service to report
-        case health := <-controller.Health():
-            if health.Status >= 400 {
-                props.Logger.Warn("Service unhealthy", "status", health.Status, "message", health.Message)
+            // Ask the controller for an aggregated report — Status()/Liveness()/
+            // Readiness() each return a controls.HealthReport built from every
+            // service's probe. (Health is read from these reports, not a channel.)
+            if report := controller.Readiness(); !report.OverallHealthy {
+                props.Logger.Warn("service not ready", "report", report)
             }
         }
     }
@@ -159,7 +164,7 @@ func handleSignals(controller *controls.Controller, props *props.Props, cancel c
                 cancel()
                 return
             case syscall.SIGUSR1:
-                controller.Messages() <- controls.Status
+                props.Logger.Info("status report", "report", controller.Status())
             }
         }
     }
@@ -199,6 +204,6 @@ func main() {
 
 ## Related
 
-- [Controls component](../explanation/components/controls/index.md) — interface contracts and lifecycle states
-- [Service types & states](../explanation/components/controls/service-types.md)
+- [Controls component](../explanation/components/controls/index.md) — how GTB consumes the external module
+- [controls.go.phpboyscout.uk](https://controls.go.phpboyscout.uk) — the full supervisor API, service types, health model, and testing guide
 - [Register health checks](register-health-checks.md)
