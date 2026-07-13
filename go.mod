@@ -46,6 +46,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
+	gitlab.com/phpboyscout/go/controls v0.1.0
 	gitlab.com/phpboyscout/go/signing v0.2.0
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0

@@ -513,6 +513,8 @@ gitlab.com/phpboyscout/go/chat-gemini v0.1.0 h1:eqnPxB5kvjtYLH/jzoUugdXPAxOVQt9i
 gitlab.com/phpboyscout/go/chat-gemini v0.1.0/go.mod h1:7Yf6ABpXC27chIooYiz8mmyMznzQ7sWfbmOysBqbwGc=
 gitlab.com/phpboyscout/go/chat-openai v0.1.0 h1:qrg3p6M622ziWTMGkXFvcNHX6flM0y+5aMZQ2GQ0x98=
 gitlab.com/phpboyscout/go/chat-openai v0.1.0/go.mod h1:IwR8+Yd7iRD3OvibqiMNm0MK8dha76Trf5F1iI/deYQ=
+gitlab.com/phpboyscout/go/controls v0.1.0 h1:BSzHCFOwv3xq/Z+oUp34m2XB9I8VOAUu2273Pd971YE=
+gitlab.com/phpboyscout/go/controls v0.1.0/go.mod h1:b7gNmMhodHKl9dw1Jbl+4ksX5S7OlWf0t6/YGSuLfsc=
 gitlab.com/phpboyscout/go/signing v0.2.0 h1:cx7dFY2CWvbI+O+vx5D9Y6fvh8NcZE6s3UVcDsKBeU8=
 gitlab.com/phpboyscout/go/signing v0.2.0/go.mod h1:Rg43efDnq8bGzQjoMTxvnFj5KAQHeuLe2PaUSi+P11Q=
 gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0 h1:/vQcdJTNvnXGEYt2iBNwuqdK/0RlzoIS5+GGIq6AaKU=

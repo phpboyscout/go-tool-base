@@ -12,7 +12,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go/controls"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 

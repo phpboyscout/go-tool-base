@@ -9,7 +9,8 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go/controls"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/logs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/metrics"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"

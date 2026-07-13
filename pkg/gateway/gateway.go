@@ -8,7 +8,8 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go/controls"
+
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )

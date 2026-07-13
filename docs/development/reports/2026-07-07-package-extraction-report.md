@@ -77,8 +77,10 @@ etc.). The transport stack
 but should still be extracted as one coherent stack (with `internal/circuitbreaker`
 and `internal/ratelimit` promoted alongside it) rather than as isolated leaves.
 
-**Done so far:** `signing` + `signing-aws-kms` (the validation dry-run) and
-**`chat`** (the first greenfield extraction, 2026-07-13). Remaining strategy:
+**Done so far:** `signing` + `signing-aws-kms` (the validation dry-run),
+**`chat`** (the first greenfield extraction, 2026-07-13), and **`controls`**
+(→ `go/controls` v0.1.0, 2026-07-13 — the first pure-repoint cut-over, no adapter).
+Remaining strategy:
 
 1. Extract low-coupling leaf utilities: `redact`, `regexutil`, `browser`,
    `workspace`.
@@ -974,7 +976,7 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/changelog` | (own module) | 9 | No GTB imports. go-git weight is acceptable. |
 | ☐ | `pkg/authn` | `authn` | 9 | No GTB imports. Extract before the transport stack. |
 | ☐ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
-| ☐ | `pkg/controls` | `controls` | 8 | Only `pkg/logger` (now slog). Do lifecycle-correctness hardening first. |
+| ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |
 | ☐ | `pkg/tls` | `tlsconfig` | 9 | **Newly ready** — config confined to `tls/config_adapter.go`. |
 | ☐ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **Newly ready** — config confined; the observability half of the telemetry split. |
 | ☐ | `pkg/vcs/release` (+`releasetest`) | `releases` | 8 | **Newly ready** — narrowed registry factory; extract first within VCS. |

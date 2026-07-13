@@ -20,6 +20,7 @@ not_counted:
   - internal/version
   - pkg/credentials/credtest
   - test/e2e/support
+  - test/integration/controls
 
 # Packages permitted below the threshold, each with a rationale. Keep in sync
 # with the spec's Bucket A (exclude-by-design) and Bucket B (generator CLI,

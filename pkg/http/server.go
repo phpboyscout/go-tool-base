@@ -13,7 +13,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/controls"
+	"gitlab.com/phpboyscout/go/controls"
+
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 

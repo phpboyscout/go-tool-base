@@ -2,7 +2,7 @@
 title: "Extract pkg/controls into a standalone go/controls module"
 description: "Extract the service-lifecycle supervisor (startup ordering, health monitoring, graceful shutdown, signal handling, restart policy) out of go-tool-base into gitlab.com/phpboyscout/go/controls. The package is already framework-free — its only external dependency is cockroachdb/errors and its only seam is a nil-safe *slog.Logger — so this is a clean git-mv extraction with a direct caller repoint (no facade, no Props adapter). Extracting controls early is the foundation the transport stack (http/grpc/gateway) later sits on."
 date: 2026-07-13
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - controls
@@ -26,7 +26,7 @@ Date
 :   2026-07-13
 
 Status
-:   IN PROGRESS (open questions resolved in review 2026-07-13)
+:   IMPLEMENTED (2026-07-13)
 
 ## Summary
 
