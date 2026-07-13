@@ -129,16 +129,27 @@ func (q *Services) monitorHealth(ctx context.Context, srv Service, updateInfo fu
 	}
 }
 
-func (q *Services) start(ctx context.Context, wg *sync.WaitGroup, errChan chan error) {
+// sendErr forwards err on errs unless shutdown has already completed (D9). Once
+// handleStopMessage closes done, the error/context handler has exited and there
+// is no receiver, so an unguarded send would block the supervisor goroutine
+// forever. The guard makes every forward provably non-blocking.
+func sendErr(done <-chan struct{}, errs chan error, err error) {
+	select {
+	case errs <- err:
+	case <-done:
+	}
+}
+
+func (q *Services) start(ctx context.Context, wg *sync.WaitGroup, errChan chan error, done <-chan struct{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	for _, s := range q.services {
-		go q.supervise(ctx, s, errChan, wg)
+		go q.supervise(ctx, s, errChan, wg, done)
 	}
 }
 
-func (q *Services) supervise(ctx context.Context, srv Service, errs chan error, wg *sync.WaitGroup) {
+func (q *Services) supervise(ctx context.Context, srv Service, errs chan error, wg *sync.WaitGroup, done <-chan struct{}) {
 	started := false
 
 	markStarted := func() {
@@ -159,15 +170,15 @@ func (q *Services) supervise(ctx context.Context, srv Service, errs chan error, 
 	}
 
 	if srv.RestartPolicy == nil {
-		q.runOnce(ctx, srv, errs, updateInfo)
+		q.runOnce(ctx, srv, errs, updateInfo, done)
 
 		return
 	}
 
-	q.runWithRestartPolicy(ctx, srv, errs, markStarted, updateInfo)
+	q.runWithRestartPolicy(ctx, srv, errs, markStarted, updateInfo, done)
 }
 
-func (q *Services) runOnce(ctx context.Context, srv Service, errs chan error, updateInfo func(func(*ServiceInfo))) {
+func (q *Services) runOnce(ctx context.Context, srv Service, errs chan error, updateInfo func(func(*ServiceInfo)), done <-chan struct{}) {
 	updateInfo(func(i *ServiceInfo) { i.LastStarted = time.Now() })
 
 	err := srv.Start(ctx)
@@ -180,7 +191,7 @@ func (q *Services) runOnce(ctx context.Context, srv Service, errs chan error, up
 	// Only forward genuine errors; a clean start, a cancellation, or a valid
 	// terminal error (e.g. http.ErrServerClosed) is not a failure.
 	if q.classifyRun(ctx, err) == outcomeError {
-		errs <- err
+		sendErr(done, errs, err)
 	}
 }
 
@@ -252,7 +263,7 @@ func (q *Services) runOnceWithRestart(ctx context.Context, srv Service, markStar
 	}
 }
 
-func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs chan error, markStarted func(), updateInfo func(func(*ServiceInfo))) {
+func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs chan error, markStarted func(), updateInfo func(func(*ServiceInfo)), done <-chan struct{}) {
 	restarts := 0
 	timings := resolveRestartTimings(srv.RestartPolicy)
 
@@ -279,7 +290,7 @@ func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs c
 
 			updateInfo(func(i *ServiceInfo) { i.Error = finalErr })
 
-			errs <- finalErr
+			sendErr(done, errs, finalErr)
 
 			return
 		}
@@ -292,7 +303,7 @@ func (q *Services) runWithRestartPolicy(ctx context.Context, srv Service, errs c
 		// failure stores its error via monitorHealth/updateInfo; only forward a
 		// non-nil Start error here.
 		if err != nil {
-			errs <- err
+			sendErr(done, errs, err)
 		}
 
 		// Wait for backoff or cancellation.

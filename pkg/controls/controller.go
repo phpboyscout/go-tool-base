@@ -241,10 +241,18 @@ func (c *Controller) Start() {
 	// full shutdown sequence (stop all services, set state) has finished.
 	c.wg.Add(1 + serviceCount)
 
+	// Wire up services and async health checks BEFORE launching the control
+	// goroutines (D8). controls() starts the signal handler and message
+	// processor, either of which can drive a shutdown that reads each async
+	// check's CancelFunc via cancelHealthChecks. Recording those CancelFuncs
+	// (startAsyncCheck writes entry.cancel) must therefore happen-before the
+	// goroutines that read them start, or the two accesses race when a shutdown
+	// lands mid-startup.
+	c.services.start(c.ctx, c.wg, c.errs, c.shutdownComplete)
+	c.startAsyncHealthChecks()
+
 	go c.controls()
 
-	c.services.start(c.ctx, c.wg, c.errs)
-	c.startAsyncHealthChecks()
 	c.logger.Debug("All services should now be running")
 }
 
