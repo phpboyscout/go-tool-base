@@ -14,8 +14,9 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"gitlab.com/phpboyscout/go/redact"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 // GRPCAuthOption configures AuthInterceptor.

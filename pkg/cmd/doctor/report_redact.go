@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go/redact"
 )
 
 // redactedSentinel replaces any value whose key is credential-shaped, so even a

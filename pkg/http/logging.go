@@ -14,7 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"go.opentelemetry.io/otel/trace"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go/redact"
 )
 
 const (

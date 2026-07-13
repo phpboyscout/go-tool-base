@@ -78,8 +78,9 @@ but should still be extracted as one coherent stack (with `internal/circuitbreak
 and `internal/ratelimit` promoted alongside it) rather than as isolated leaves.
 
 **Done so far:** `signing` + `signing-aws-kms` (the validation dry-run),
-**`chat`** (the first greenfield extraction, 2026-07-13), and **`controls`**
-(→ `go/controls` v0.1.0, 2026-07-13 — the first pure-repoint cut-over, no adapter).
+**`chat`** (the first greenfield extraction, 2026-07-13), **`controls`**
+(→ `go/controls` v0.1.0, 2026-07-13 — the first pure-repoint cut-over, no adapter),
+and **`redact`** (→ `go/redact` v0.1.0, 2026-07-13 — Phase 1 leaf, pure stdlib).
 Remaining strategy:
 
 1. Extract low-coupling leaf utilities: `redact`, `regexutil`, `browser`,
@@ -966,7 +967,7 @@ is the ease-of-decoupling score from each package's table above._
 
 | Done | Package | Target module | Ease | Note |
 |:--:|---|---|:--:|---|
-| ☐ | `pkg/redact` | `redact` | 10 | No GTB imports. Expand token patterns before/after. |
+| ✅ | `pkg/redact` | `redact` | 10 | **DONE (2026-07-13)** → `go/redact` v0.1.0. Pure-stdlib repoint (Phase 1); needed a scoped gitleaks allowlist for its example-token docs/tests. |
 | ☐ | `pkg/regexutil` | `regexutil` | 10 | No GTB imports. Easiest extraction. |
 | ☐ | `pkg/browser` | `browser` | 10 | No GTB imports. Small — could wait for a first consumer. |
 | ☐ | `pkg/workspace` | `workspace` | 10 | No GTB imports. Preserve afero seam. |

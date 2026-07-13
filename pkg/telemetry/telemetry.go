@@ -11,8 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gitlab.com/phpboyscout/go/redact"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/osinfo"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 

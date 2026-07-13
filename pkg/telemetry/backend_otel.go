@@ -12,7 +12,8 @@ import (
 	"go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
+	"gitlab.com/phpboyscout/go/redact"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 

@@ -10,10 +10,11 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"gitlab.com/phpboyscout/go/redact"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/osinfo"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 

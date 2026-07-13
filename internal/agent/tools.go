@@ -15,8 +15,9 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 
+	"gitlab.com/phpboyscout/go/redact"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 var (

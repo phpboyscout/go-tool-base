@@ -8,8 +8,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"gitlab.com/phpboyscout/go/redact"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/redact"
 )
 
 // AuthOption configures AuthMiddleware.
