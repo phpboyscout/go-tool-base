@@ -14,7 +14,6 @@ require (
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/charmbracelet/x/term v0.2.2
-	github.com/cli/browser v1.3.0
 	github.com/cli/oauth v1.2.2
 	github.com/cockroachdb/errors v1.14.0
 	github.com/cucumber/godog v0.15.1
@@ -41,6 +40,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/zalando/go-keyring v0.2.8
 	gitlab.com/gitlab-org/api/client-go/v2 v2.46.0
+	gitlab.com/phpboyscout/go/browser v0.1.0
 	gitlab.com/phpboyscout/go/chat v0.1.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
@@ -110,6 +110,7 @@ require (
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
+	github.com/cli/browser v1.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect

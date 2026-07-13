@@ -7,7 +7,7 @@ import (
 
 	"github.com/cli/oauth"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
+	"gitlab.com/phpboyscout/go/browser"
 )
 
 var (

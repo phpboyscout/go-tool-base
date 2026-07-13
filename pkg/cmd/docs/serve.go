@@ -7,7 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
+	"gitlab.com/phpboyscout/go/browser"
+
 	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )

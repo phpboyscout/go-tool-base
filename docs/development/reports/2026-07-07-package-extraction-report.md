@@ -969,7 +969,7 @@ is the ease-of-decoupling score from each package's table above._
 |:--:|---|---|:--:|---|
 | ✅ | `pkg/redact` | `redact` | 10 | **DONE (2026-07-13)** → `go/redact` v0.1.0. Pure-stdlib repoint (Phase 1); needed a scoped gitleaks allowlist for its example-token docs/tests. |
 | ✅ | `pkg/regexutil` | `regexutil` | 10 | **DONE (2026-07-13)** → `go/regexutil` v0.1.0. Phase 1 leaf, pure repoint. |
-| ☐ | `pkg/browser` | `browser` | 10 | No GTB imports. Small — could wait for a first consumer. |
+| ✅ | `pkg/browser` | `browser` | 10 | **DONE (2026-07-13)** → `go/browser` v0.1.0. Phase 1 leaf, pure repoint. |
 | ☐ | `pkg/workspace` | `workspace` | 10 | No GTB imports. Preserve afero seam. |
 | ☐ | `pkg/forms` | `forms` | 10 | No GTB imports. Document non-interactive/test behaviour. |
 | ☐ | `pkg/logger` | (facade) | 10 | **slog-first**: consumed as `*slog.Logger` + `ToSlog` adapter only. |

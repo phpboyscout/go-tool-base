@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
+	"gitlab.com/phpboyscout/go/browser"
 )
 
 // TestNewLoginFlow_RoutesBrowseThroughPkgBrowser proves the device-flow browser

@@ -12,7 +12,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/browser"
+	"gitlab.com/phpboyscout/go/browser"
+
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
