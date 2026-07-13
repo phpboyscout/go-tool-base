@@ -516,6 +516,8 @@ gitlab.com/phpboyscout/go/controls v0.1.0 h1:BSzHCFOwv3xq/Z+oUp34m2XB9I8VOAUu227
 gitlab.com/phpboyscout/go/controls v0.1.0/go.mod h1:b7gNmMhodHKl9dw1Jbl+4ksX5S7OlWf0t6/YGSuLfsc=
 gitlab.com/phpboyscout/go/redact v0.1.0 h1:oKijGxpcumEAGtgiRFNJeMbb7b87eSjfzHG/A36MHx4=
 gitlab.com/phpboyscout/go/redact v0.1.0/go.mod h1:w6tDypW5KkE7miZRfssfpulPpYGdSQeNM2jtOKAWWfk=
+gitlab.com/phpboyscout/go/regexutil v0.1.0 h1:gDPxeE/D8aI5kBmeBRNiWsYFpL7Zf0wF4/QJc0W7E5o=
+gitlab.com/phpboyscout/go/regexutil v0.1.0/go.mod h1:j2wt4bynxuHd72GXuKmWUr6g7N/sSCFpkE6bMO/4WgA=
 gitlab.com/phpboyscout/go/signing v0.2.0 h1:cx7dFY2CWvbI+O+vx5D9Y6fvh8NcZE6s3UVcDsKBeU8=
 gitlab.com/phpboyscout/go/signing v0.2.0/go.mod h1:Rg43efDnq8bGzQjoMTxvnFj5KAQHeuLe2PaUSi+P11Q=
 gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0 h1:/vQcdJTNvnXGEYt2iBNwuqdK/0RlzoIS5+GGIq6AaKU=

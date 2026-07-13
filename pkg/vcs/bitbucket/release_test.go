@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
+	"gitlab.com/phpboyscout/go/regexutil"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )

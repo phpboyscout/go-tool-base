@@ -13,8 +13,9 @@ import (
 	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 
+	"gitlab.com/phpboyscout/go/regexutil"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
 )
 
 // Styles.

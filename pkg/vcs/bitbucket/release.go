@@ -15,9 +15,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"gitlab.com/phpboyscout/go/regexutil"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/regexutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
