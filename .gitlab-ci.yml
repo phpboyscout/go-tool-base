@@ -56,7 +56,7 @@ include:
     inputs:
       args: "release --clean --parallelism=1"
       image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.2.0"
-  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.21.0
+  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.23.0
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
   # (carries the schedule-never guard, so it no longer fires on the
