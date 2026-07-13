@@ -400,3 +400,113 @@ sub-module README).
   `_gitlab-pages-verification-code.<name>.go` → the code returned when you
   `POST .../pages/domains` with `auto_ssl_enabled=true`. GitLab verifies
   asynchronously; the Let's Encrypt cert provisions once verified.
+
+## 11. Findings from the first pure-repoint extraction (`controls`, 2026-07-13)
+
+`controls` was the counterpoint to `chat`: an **already framework-free** package
+(zero go-tool-base imports; only `cockroachdb/errors`; a nil-safe `*slog.Logger`
+seam; functional-options API, no `config.Containable`). No provider modules, no
+vendor SDKs, no facade. The lessons below are what a *pure-repoint* extraction
+teaches that the greenfield `chat` case did not.
+
+### 11.1 Repoint vs facade is decided by adapter ownership, not surface size
+
+§10.8 framed the choice as "facade for large surfaces, repoint for small."
+`controls` refines it: it had a **moderate** surface (~10 GTB files, ~79 refs
+across ~17 symbols) yet was still a clean **repoint**, because there was **no
+GTB-owned state to preserve** — no config-key constants, no `*FromProps`/
+`config_adapter.go`, no unexported helpers to re-home. The real test is: *does GTB
+own an adapter or config schema on top of the package?* If no → repoint (delete
+the package, change import paths, no aliases), regardless of surface size. If yes
+(like `chat`'s config keys) → facade. A functional-options + `*slog.Logger`
+package is almost always a repoint.
+
+### 11.2 Classify the package's OWN tests before moving: pure vs cross-GTB-coupled
+
+The subtlest step. A package's own tests may import *other* GTB packages, and
+those **cannot** move into the framework-free module (forbidden dep + import
+cycle). Before the `git mv`, split the `*_test.go` files:
+
+- **Pure** (import only the package + stdlib + testify/logger) → move to the module.
+- **Cross-coupled** (import `pkg/grpc`, `pkg/http`, `internal/testutil`,
+  `mocks/pkg/config`, …) → **relocate within GTB**, not the module.
+
+`controls` had 3 integration tests driving real grpc/http servers; they moved to a
+new **`test/integration/controls/`** package (external `package controls_test`,
+repointed to the module + still importing GTB's transport). A test-only directory
+with only external test files compiles fine — but **vendor any in-package test
+helper** that moved away with the source (here `syncBuffer`, a helper that lived in
+the package's `_test.go`) into a small `testhelpers_test.go` in the new location.
+
+### 11.3 Swap the test logger to the stdlib seam
+
+Pure tests that used GTB's logger (`logger.ToSlog(logger.NewNoop())`,
+`logger.NewCharm(buf)`) must swap to the **real seam** the module exposes —
+`slog.New(slog.DiscardHandler)` and `slog.New(slog.NewTextHandler(buf, nil))` for
+log-capture assertions. Verify capture-based assertions still hold: a stdlib text
+handler emits `msg="…" key=value`, so `buf.String()` substring checks on the
+message and attribute values keep working.
+
+### 11.4 Don't ship mocks by default
+
+`chat` shipped mocks; `controls` should not have. `mockery` with `all: true`
+mocked an **unexported** interface into a separate package (which cannot legally
+reference it) and pulled `testify/mock`→`objx` into `go.sum`. If the module's own
+tests don't use mocks, **drop `.mockery.yml` and `mocks/`** — a leaner `go.sum`, a
+tighter depfootprint, and downstreams generate their own mocks of the exported
+interfaces. Only ship mocks when the module's *own* tests need them.
+
+### 11.5 `osv-scanner` fails on vulns `govulncheck` passes — lean graphs surface them
+
+The minimal dep graph surfaced `golang.org/x/sys` `GO-2026-5024`: **`govulncheck`
+passed** (the vulnerable symbol is unreachable) but **`osv-scanner` failed** (it
+flags *any* vulnerable version in the graph, reachability aside). The leanest
+modules trip this most, because GTB's larger graph has often already been bumped
+past the advisory. Fix: bump the transitive dep explicitly (`go get …@vX`, prefer
+the version a **sibling module already pins** for lockstep), then `go mod tidy`.
+Expect this on the first pipeline of every new module and fold the bump into the
+first docs/bootstrap MR rather than spawning a separate one.
+
+### 11.6 The delete-side docs sweep is bigger than the component page — and audits for loss
+
+The cut-over's docs work is **not** just stubbing `components/<pkg>/index.md`:
+
+1. **Sweep every GTB doc**, not only the component page. `grep` the whole `docs/`
+   tree for the old import path, links to the deleted sub-pages, and the package
+   symbol — how-to guides, concept pages, and `mocks.md` all referenced `controls`.
+2. **Fix stale API patterns while you're there.** The old GTB examples taught a
+   long-dead `StatusFunc`→`Health()`-channel pattern; the extraction is the moment
+   to correct them to the real API (`func() error` + aggregated `Status()`/
+   `Liveness()`/`Readiness()` reports). Extraction surfaces doc rot.
+3. **Audit for content loss (the "nothing left behind" rule).** Diff each *deleted*
+   GTB sub-page against the new microsite. Content that is genuinely about the
+   module but missing from the microsite (here: a **testing/mocking guide**) must
+   be authored on the microsite as part of the cut-over. Content that is
+   GTB-specific (here `server-controls.md` — really a pointer to `http`/`grpc`
+   docs; the `/healthz`/`/readyz` endpoints are a GTB transport concern) stays in
+   GTB, not the microsite.
+
+### 11.7 Coverage policy: relocated integration tests go in `not_counted`
+
+Deleting the package drops it from `go list ./...` (nothing to reconcile), but the
+new `test/integration/<pkg>/` package — test-only, its subject an external module —
+must be added to `.coverage-policy.yaml`'s `not_counted` prefixes (alongside
+`test/e2e/support`). §10.9's "re-cover the adapter" does **not** apply to a pure
+repoint: there is no adapter package to re-cover.
+
+### 11.8 Do a fresh adversarial concurrency review before the boundary
+
+The extraction report flagged "do lifecycle-correctness hardening first." Acting on
+it, a fresh adversarial review of the concurrency surface found **two more races**
+(a startup data-race on a health-check `CancelFunc`, and an unguarded error-channel
+send after handler exit) *beyond* the audit a prior IMPLEMENTED hardening spec had
+closed. For concurrency-heavy packages, budget an in-tree adversarial pass (ideally
+`-race`-reproduced regression tests) **before** the module boundary goes up — a
+race is far cheaper to fix in-tree than across a published module.
+
+### 11.9 Enable Pages public visibility or the cert never issues
+
+The Let's Encrypt cert for `<name>.go.phpboyscout.uk` will not provision while the
+GitLab project's **Pages access control** is restricted. Set Pages visibility to
+everyone/public in project settings (and re-request the cert) — DNS verification
+alone is not enough.
