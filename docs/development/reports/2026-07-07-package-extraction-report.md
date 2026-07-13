@@ -960,7 +960,7 @@ is the ease-of-decoupling score from each package's table above._
 
 | Done | Package | Target module | Ease | Blocking dependency |
 |:--:|---|---|:--:|---|
-| ☐ | `pkg/chat` | `chat` | 6 | Inject `*http.Client` to drop the `pkg/http` transport dep (spec: chat-module-extraction). |
+| ☑ | `pkg/chat` | `go/chat` (+`chat-anthropic`/`openai`/`gemini`) | 6 | **EXTRACTED v0.1.0 (2026-07-13)** — HTTP client injected; per-provider modules; GTB consumes via the `pkg/chat` facade (MR !215). First greenfield extraction — see playbook §10. |
 | ☐ | `pkg/http` | `transport` | 6 | Promote `internal/circuitbreaker`+`internal/ratelimit`; needs `authn`/`tls`/`redact`/`controls`. |
 | ☐ | `pkg/grpc` | `transport` | 6 | Extract alongside `http`. |
 | ☐ | `pkg/gateway` | `transport` | 6 | After `http`+`grpc`+`controls`. |

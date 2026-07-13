@@ -220,6 +220,11 @@ docs live at `signing.go.phpboyscout.uk`.
 
 ## 7. First component — `pkg/chat`
 
+> **Status: EXTRACTED (2026-07-13).** `go/chat` + `chat-anthropic`/`openai`/
+> `gemini` are published at `v0.1.0`; go-tool-base consumes them via the `pkg/chat`
+> facade (cut-over MR !215). Docs live at `chat.go.phpboyscout.uk`. The concrete
+> lessons are codified in [§10](#10-findings-from-the-first-greenfield-extraction-chat-2026-07-13).
+
 `chat` is the first greenfield extraction (highest value; core already decoupled —
 props/config/logger confined to `chat/config_adapter.go`, only the `pkg/http`
 transport seam remains). The existing
@@ -270,3 +275,128 @@ Subdomain records under `*.go.phpboyscout.uk` are managed in Cloudflare. Where a
 scoped Cloudflare API token with DNS-edit permission is available, the per-module
 record (`<name>.go` → GitLab Pages target) plus the GitLab Pages verification TXT
 record are created via the Cloudflare API rather than by hand.
+
+## 10. Findings from the first greenfield extraction (`chat`, 2026-07-13)
+
+The `chat` extraction (core `go/chat` + `chat-anthropic`/`openai`/`gemini`, all
+`v0.1.0`, GTB cut-over in MR !215) validated §5 end-to-end and surfaced concrete
+gotchas. Fold these into the procedure for every subsequent extraction.
+
+### 10.1 Core must export a *provider-authoring API* (Stage-1 addendum)
+
+For a package with sub-components that become **sibling modules** (chat's
+providers; a signing backend), the sub-modules call helpers that were
+*unexported* in the monolith. The move fails until the core **exports** them.
+Before Stage 2, grep each sub-component for unexported core identifiers it uses
+and export that set as a deliberate authoring API. For chat this was
+`ResolveAPIKey`, `NewUsage`, `UsageTracker` (+`RecordUsage`/`SetObserver`),
+`ChatHTTPClient`, `DispatchToolExecution`/`ExecuteTool`/`ExecuteToolsParallel`,
+`ResolvedMedia`, `ValidateMediaSet`. Also have the core's `New()` hand the
+factory a fully-resolved value (e.g. a non-nil `Settings.Logger`) so sub-modules
+never need an unexported accessor.
+
+### 10.2 Invert cross-provider SDK-type logic into a registry
+
+Where the core inspects **SDK-specific types** of a sub-component (chat's
+failover read `errors.As` against `*anthropic.Error`/`*openai.Error`/
+`*genai.APIError` for the HTTP status), it cannot stay SDK-free. Invert it to a
+registry (`RegisterStatusExtractor`) that each sub-module populates in `init()`,
+mirroring the provider registry. Same pattern for any "the core must know a
+vendor detail" seam.
+
+### 10.3 Test redistribution is the bulk of the work — inventory first
+
+The test suite is far more intertwined than the source (shared helpers, external
+`*_test` packages driving real sub-components, one file testing several). Build a
+**master inventory** of every `Test*`/`Fuzz*`/`Example*` func and assign each a
+destination: core / a specific sub-module / stays-in-GTB-adapter. Cross-component
+integration tests and the config-adapter tests stay in GTB. Verify by diffing the
+monolith's test-func set against the union of the new modules — the only
+un-migrated funcs should be the ones that legitimately stay. Nothing should
+silently vanish.
+
+### 10.4 Shared test infrastructure can't cross module boundaries
+
+Test files aren't importable across modules, so any shared harness — mock HTTP
+server, exec fakes, image fixtures, an integration-gate helper, a slog capture
+handler — must be **vendored per module** (each keeps its own copy). Budget for
+this; it's mechanical but easy to miss.
+
+### 10.5 CI framework gotchas (bootstrap checklist)
+
+- **`requirements-lock.txt`** is required for the `zensical-pages` docs build
+  (copy from `signing`); its absence fails `zensical-build`.
+- **`enable_e2e: false`** for library modules with no `test/e2e/` dir. Otherwise
+  `go-test-e2e` runs `go test ./test/e2e/...`, fails on the missing path, and (as
+  a stage dependency) **skips the security stage** — masking real findings.
+- **Provider/adapter modules are README-only**: no `zensical-pages` component, no
+  `docs/`, no `zensical.toml` (docs live on the parent's site).
+- Pipeline shape (matches `signing`): a **main-branch push** runs only
+  `releaser-pleaser` + `zensical-pages`; **content MRs** run the full
+  lint/test/security gate; **release MRs** (the releaser-pleaser branch) run
+  security-only. So the initial import to `main` is *not* gated by lint/test —
+  validate locally, and let the first content MR exercise the full gate.
+
+### 10.6 Local gates miss dependency vulnerabilities — CI catches them
+
+`go build`/`test`/`lint`/`depfootprint` do **not** run `govulncheck`/osv-scanner.
+A vendor SDK can drag in vulnerable transitives (chat-gemini's `genai` pulled
+`x/crypto`/`x/net` with 9–10 CVSS advisories). Expect the security stage to flag
+these; fix by bumping the transitive dep (`go get golang.org/x/crypto@latest …`)
+and re-verify. Track `phpboyscout/cicd` at the latest version so the scanners
+themselves are current.
+
+### 10.7 Dependency-ordered release
+
+Cut the core `v0.1.0` **first** (Release-MR flow); only then can the sub-modules
+drop their local `replace ../core` directive, `go get core@v0.1.0`, and release.
+`proxy.golang.org` serves the new tag within seconds of tagging, so no wait is
+needed. Prove the whole family with a throwaway consumer module that imports the
+core + sub-modules `@v0.1.0` from the proxy and builds (`-buildvcs=false` in a
+non-git temp dir).
+
+### 10.8 GTB cut-over: facade for large surfaces, repoint for small
+
+`signing` had a small consumer surface, so its cut-over **repointed callers**
+directly to the module (no aliases, per §5.6). `chat` had ~100s of references
+across 14 files **plus** GTB-owned config-key constants that were deliberately
+left out of the config-agnostic module — so its cut-over kept `pkg/chat` as a
+**facade**: `reexport.go` type/const/func aliases forwarding to the module (a
+*generic* func like `GenerateSchema[T]` needs a wrapper func, not a `var` alias),
+`constants.go` re-homing the GTB config-key schema, `adapter_helpers.go`
+reimplementing the few helpers that were unexported in the module,
+`config_adapter.go` keeping the `*FromProps` adapters, and `providers.go`
+blank-importing every provider. Choose per surface size; both are valid.
+
+### 10.9 Cut-over coverage: re-cover the adapter
+
+Deleting the monolith's tests (they moved with the code) drops the GTB
+adapter package **below the ≥90% `pkg/` bar** and fails `coverage-policy`. Add
+direct unit tests for the re-homed adapter helpers to restore it before the MR's
+pipeline can pass.
+
+### 10.10 Ship a core↔sub-module version-compatibility matrix
+
+Pre-1.0 the authoring API can break in a *minor*, and Go's MVS can select a
+**newer** core than a sub-module was built against (if the consumer, or any dep,
+requires it) — a silent break. Release the family in **lockstep** at matching
+minors and document the matrix on the core docs site (+ a pointer in each
+sub-module README).
+
+### 10.11 Workflow & infra notes
+
+- **Maintainer merges; agents raise MRs.** Do not merge/tag — releaser-pleaser
+  owns tagging via the Release MR. Auto-merge (merge-when-pipeline-succeeds) is
+  **cancelled by any new commit** pushed to the MR, so a late fix means the
+  maintainer must re-arm it.
+- **Creating public repos and merging are gated** by the assistant's safety
+  classifier and need explicit human authorisation (name the *public* visibility
+  and the release intent). Repo settings mirror `signing` (public, `main`,
+  ff-merge, squash-off, pipeline-must-pass).
+- **Tokens** for `glab` + Cloudflare live in `~/.profile` (`GITLAB_TOKEN`,
+  `CLOUDFLARE_API_TOKEN`); `source` it first.
+- **Pages DNS** (zone `phpboyscout.uk`): CNAME `<name>.go` →
+  `phpboyscout.gitlab.io` (proxied, orange-cloud — matches `signing`) + TXT
+  `_gitlab-pages-verification-code.<name>.go` → the code returned when you
+  `POST .../pages/domains` with `auto_ssl_enabled=true`. GitLab verifies
+  asynchronously; the Let's Encrypt cert provisions once verified.
