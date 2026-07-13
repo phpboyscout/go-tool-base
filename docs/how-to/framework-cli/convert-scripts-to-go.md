@@ -58,7 +58,7 @@ The conversion engine supports multiple AI providers, giving you the flexibility
 | **Claude Local** | `claude-local` | uses local `claude` binary default | none required |
 | **OpenAI-Compatible** | `openai-compatible` | none — must be set explicitly | backend-specific |
 
-See [Providers](../../explanation/components/chat/providers.md#capability-comparison) for the full capability matrix and the canonical provider details.
+See [Providers](https://chat.go.phpboyscout.uk/explanation/providers/#capability-comparison) for the full capability matrix and the canonical provider details.
 
 ### Configuration ⚙️
 

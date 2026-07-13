@@ -194,14 +194,6 @@ func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
 	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &local))
 }
 
-func TestClaudeLocal_SetToolsUnsupported(t *testing.T) {
-	t.Parallel()
-
-	err := (&ClaudeLocal{}).SetTools([]Tool{{Name: "tool"}})
-
-	require.ErrorContains(t, err, "does not support SetTools")
-}
-
 func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 	registerTestProviders(t)
 
@@ -314,23 +306,15 @@ openai:
 `)),
 	)
 
+	// Overwrite the real (blank-imported) chat-openai provider with a capturing
+	// fake for this test. The module's registry exposes no removal, so there is
+	// no restore — safe here because no other pkg/chat test constructs a real
+	// OpenAI client.
 	var got Config
-	registryMu.RLock()
-	original := providerRegistry[ProviderOpenAI]
-	registryMu.RUnlock()
 	RegisterProvider(ProviderOpenAI, func(_ context.Context, settings Settings) (ChatClient, error) {
 		got = settings.Config
 
 		return &fakeClient{chatReply: "ok"}, nil
-	})
-	t.Cleanup(func() {
-		registryMu.Lock()
-		if original == nil {
-			delete(providerRegistry, ProviderOpenAI)
-		} else {
-			providerRegistry[ProviderOpenAI] = original
-		}
-		registryMu.Unlock()
 	})
 
 	client, err := NewFromProps(context.Background(), &props.Props{

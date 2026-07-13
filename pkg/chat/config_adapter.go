@@ -85,7 +85,7 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, o
 		return New(ctx, settings)
 	}
 
-	log := settings.logger()
+	log := settings.Logger
 	warnFallbackPrimaryOverride(log, explicitProviderConfig(p, cfg), fallback.Providers[0])
 
 	providerSettings := make([]Settings, 0, len(fallback.Providers))

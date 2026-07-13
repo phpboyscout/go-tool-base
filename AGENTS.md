@@ -156,10 +156,16 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
 
 ### AI Chat Client
 
-`pkg/chat/` provides a unified multi-provider client:
-- Providers: Anthropic Claude, Claude Local (CLI binary), OpenAI, OpenAI-compatible, Google Gemini
-- Core interface: `ChatClient` (Add, Chat, Ask, SetTools)
+The multi-provider chat client was **extracted** to the standalone module
+`gitlab.com/phpboyscout/go/chat` (+ per-provider modules `chat-anthropic`,
+`chat-openai`, `chat-gemini`). `pkg/chat/` is now a **thin adapter** that
+re-exports the module's API (so GTB call sites are unchanged), owns the GTB
+config-key schema + `SettingsFromProps`/`NewFromProps` adapters, and
+blank-imports the three provider modules so every provider is registered.
+- Providers: Anthropic Claude, Claude Local (CLI binary, ships in the core module), OpenAI, OpenAI-compatible, Google Gemini
+- Core interface: `ChatClient` (Add, Chat, Ask, SetTools) — defined in the module
 - ReAct loop orchestration with automatic tool calling and JSON Schema parameter definitions
+- Module docs: [chat.go.phpboyscout.uk](https://chat.go.phpboyscout.uk); GTB-side details in `docs/explanation/components/chat/`. Keep the core↔provider modules at matching minor versions (see the module's compatibility matrix).
 
 ### Service Lifecycle (Controls)
 
