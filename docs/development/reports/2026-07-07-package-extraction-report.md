@@ -63,16 +63,22 @@ by `tls`, `logger`, `telemetry/otelcore`, and `vcs/release`, whose framework
 coupling was removed by the config + slog-first work — they are now
 **ready-to-extract** with only a `git mv` plus a GTB-side adapter left behind.
 
-`chat` remains one of the highest-value extractions. **Since v0.30.0** its
-`props`, `config`, and `logger` coupling is gone (all confined to
-`chat/config_adapter.go`, `*slog.Logger` at every seam); the one residual
-framework dependency is `pkg/http` for its hardened transport, which becomes an
-injected `*http.Client` / `HTTPClientFactory` at extraction. The transport stack
+`chat` — the highest-value extraction — is **DONE (2026-07-13)**. It shipped as
+`go/chat` (SDK-free core + `claude-local`) plus per-provider modules
+`chat-anthropic` / `chat-openai` / `chat-gemini`, all `v0.1.0`; go-tool-base
+consumes them through the `pkg/chat` facade (cut-over merged). It was the **first
+greenfield extraction** and validated the whole playbook — the concrete,
+reusable lessons are codified in
+[playbook §10](../specs/2026-07-12-go-module-extraction-playbook.md#10-findings-from-the-first-greenfield-extraction-chat-2026-07-13)
+(provider-authoring-API export, registry inversion for SDK-type logic, test
+inventory + per-module vendored helpers, CI gotchas, facade-vs-repoint cut-over,
+etc.). The transport stack
 (`http`, `grpc`, `gateway`) is similarly free of composition-layer coupling now,
 but should still be extracted as one coherent stack (with `internal/circuitbreaker`
 and `internal/ratelimit` promoted alongside it) rather than as isolated leaves.
 
-Recommended extraction sequence:
+**Done so far:** `signing` + `signing-aws-kms` (the validation dry-run) and
+**`chat`** (the first greenfield extraction, 2026-07-13). Remaining strategy:
 
 1. Extract low-coupling leaf utilities: `redact`, `regexutil`, `browser`,
    `workspace`.
@@ -82,8 +88,26 @@ Recommended extraction sequence:
 4. Extract `controls`, then move `http`/`grpc` onto it as optional transport
    adapters.
 5. Extract `vcs/release` and provider adapters.
-6. Extract `chat` after replacing GTB-specific config/credentials/props seams
-   with local interfaces and adapter packages.
+
+### Recommended next (post-`chat`, 2026-07-13)
+
+Two sensible directions, pick by appetite:
+
+- **Quick warm-ups — `redact`, `regexutil`, `browser`** (ease 10, no GTB
+  imports). Near-mechanical `git mv` + adapter; a good way to exercise the
+  playbook §10 procedure on trivial packages before a chunkier one, and each is
+  independently useful.
+- **`controls` — the recommended substantial next pick.** High value (ease 8),
+  **ready now**: its only GTB coupling is `pkg/logger`, already slog-first, so
+  the seam is a nil-safe `*slog.Logger`. It's a clean standalone lifecycle
+  supervisor and a **foundation the transport stack (`http`/`grpc`/`gateway`)
+  will later sit on**, so extracting it early unblocks that stack. **Caveat:** do
+  the lifecycle-correctness hardening first (idempotent start/stop, nil handling,
+  shutdown-timeout and signal-cleanup semantics, health-check readiness) — see
+  the `pkg/controls` entry above — since those are easier to fix in-tree than
+  across a module boundary. Being SDK-free and framework-light, `controls` should
+  be markedly simpler than `chat` was (no per-provider modules, no vendor SDKs,
+  no security-scanner surprises).
 
 ## Candidate Packages
 
@@ -978,8 +1002,10 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/telemetry` (root) | (analytics) | 5 | **Product-analytics ↔ observability split** — [2026-07-12 spec](../specs/2026-07-12-telemetry-analytics-observability-split.md) (DRAFT). |
 | ☐ | `pkg/telemetry/{posthog,datadog}` | (backend adapters) | 5 | Follows root telemetry contract extraction. |
 
-**Suggested order:** leaf utilities (redact, regexutil, browser, workspace,
-forms, logger, aferobilly) → CLI helpers (output, changelog) → security/runtime
-(authn, credentials, tls, controls) → observability (`telemetry/otelcore` group)
-→ transport stack (http → grpc → gateway/openapi) → VCS (release → providers →
-vcs/repo) → chat → telemetry split → root telemetry + backends.
+**Suggested order:** ✅ `chat` (done, out of sequence — highest value) → leaf
+utilities (redact, regexutil, browser, workspace, forms, logger, aferobilly) →
+CLI helpers (output, changelog) → security/runtime (authn, credentials, tls,
+**controls** — the recommended next substantial pick, harden lifecycle first) →
+observability (`telemetry/otelcore` group) → transport stack (http → grpc →
+gateway/openapi; sits on `controls`) → VCS (release → providers → vcs/repo) →
+telemetry split → root telemetry + backends.
