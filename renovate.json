@@ -6,7 +6,6 @@
     ":disableDependencyDashboard",
     "gitlab>phpboyscout/cicd"
   ],
-  "platform": "gitlab",
   "labels": ["dependencies"],
   "rangeStrategy": "bump",
   "prCreation": "immediate",
