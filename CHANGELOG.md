@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.31.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.31.1)
+
+### Bug Fixes
+
+- **generator**: drop global-only platform option from GitLab skeleton renovate config
+- guard workflow dedup rule so release tag pipelines fire
+- **deps**: update module github.com/google/go-github/v88 to v89
+- **controls**: close two pre-extraction lifecycle races
+- **deps**: update gomod-weekly
+
 ## [v0.31.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.31.0)
 
 ### Features
