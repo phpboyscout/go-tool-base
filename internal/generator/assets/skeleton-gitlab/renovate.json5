@@ -10,7 +10,6 @@
     ':disableDependencyDashboard',
     'gitlab>phpboyscout/cicd',
   ],
-  platform: 'gitlab',
   enabledManagers: [
     'gomod',
     'gitlabci',
