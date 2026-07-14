@@ -1,6 +1,40 @@
 # GTB Package Extraction Report
 
-_Assessment date: 2026-07-07 — revised 2026-07-12 (post config + slog-first decoupling)._
+_Assessment date: 2026-07-07 — revised 2026-07-12 (post config + slog-first
+decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
+
+!!! success "2026-07-14 progress — Phase 1 leaves complete"
+
+    The three low-coupling leaf utilities from the
+    [transport-stack extraction plan](../specs/2026-07-13-transport-stack-extraction-plan.md)
+    are **extracted, published, and consumed back**:
+
+    - **`redact`** → `go/redact` v0.1.0 (pure stdlib; needed a scoped
+      `.gitleaks.toml` allowlist for its example-token docs/tests).
+    - **`regexutil`** → `go/regexutil` v0.1.0 (needed `x/sys@v0.46.0` to clear
+      GO-2026-5024 inherited via `cockroachdb/errors`).
+    - **`browser`** → `go/browser` v0.1.0 (`x/sys` pre-bumped at creation).
+
+    All three are **pure repoints** (no GTB adapter): GTB imports the new module
+    path directly. GTB `main` is clean of `pkg/{redact,regexutil,browser}`;
+    component pages are stubs pointing at the microsites, each with a migration
+    note under `docs/reference/migration/`. This follows **`controls`**
+    (`go/controls` v0.1.0) and **`chat`** (the greenfield validation) — see
+    [playbook §10/§11](../specs/2026-07-12-go-module-extraction-playbook.md).
+
+    **Microsite / DNS learning (codified):** each `<name>.go.phpboyscout.uk`
+    docs CNAME must be created **Cloudflare DNS-only (un-proxied)** — Cloudflare's
+    Universal SSL covers `*.phpboyscout.uk` but **not** the two-level
+    `*.go.phpboyscout.uk`, so a proxied domain fails TLS and its GitLab LE cert
+    never provisions (the ACME challenge can't reach GitLab). Also set
+    `pages_access_level=enabled` at repo creation or Pages returns 403. All six
+    live microsites (`chat`/`controls`/`redact`/`regexutil`/`signing`/`browser`)
+    were un-proxied to fix this.
+
+    **Next:** Phase 2 (`tls`, `authn`, `observability`) per the plan spec —
+    **awaiting go-ahead** (facade/config-adapter decisions; `authn` will need the
+    gitleaks allowlist; observability brought forward ahead of the transport
+    clients/servers).
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
@@ -80,8 +114,8 @@ and `internal/ratelimit` promoted alongside it) rather than as isolated leaves.
 **Done so far:** `signing` + `signing-aws-kms` (the validation dry-run),
 **`chat`** (the first greenfield extraction, 2026-07-13), **`controls`**
 (→ `go/controls` v0.1.0, 2026-07-13 — the first pure-repoint cut-over, no adapter),
-and **`redact`** (→ `go/redact` v0.1.0, 2026-07-13 — Phase 1 leaf, pure stdlib).
-Remaining strategy:
+and the **Phase 1 leaves** — **`redact`**, **`regexutil`**, and **`browser`**
+(each → `go/<name>` v0.1.0, complete 2026-07-14; pure repoints). Remaining strategy:
 
 1. Extract low-coupling leaf utilities: `redact`, `regexutil`, `browser`,
    `workspace`.
