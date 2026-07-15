@@ -34,6 +34,6 @@ jobs:
       pull-requests: write
     steps:
       - name: releaser-pleaser
-        uses: apricote/releaser-pleaser@v0.8.0
+        uses: apricote/releaser-pleaser@v0.9.0
         with:
           token: ${{ "{{" }} secrets.RELEASER_PLEASER_TOKEN {{ "}}" }}
