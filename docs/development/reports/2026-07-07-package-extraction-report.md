@@ -45,8 +45,14 @@ decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
     `pkg/telemetry`), with an OTel-allowing depfootprint guard. **D3 confirmed:** it
     extracted cleanly *without* the analytics/observability split, so
     [that split spec](../specs/2026-07-12-telemetry-analytics-observability-split.md)
-    is next reframed to the analytics-only remainder. **Phase 2 is complete;** Phase 3
-    (`go/transportmw`) is next per the plan.
+    is next reframed to the analytics-only remainder. **Phase 2 is complete.**
+    **Phase 3 — the shared transport middleware → `go/transit` v0.1.0 — is DONE
+    (2026-07-16).** The HTTP/gRPC middleware (logging, OTel, circuit breaker, rate
+    limit, client retry) and the `internal/circuitbreaker`+`internal/ratelimit`
+    primitives (now `transit/resilience`) were extracted; `pkg/http` and `pkg/grpc`
+    consume it via a **facade** (re-export), so downstream call sites are unchanged.
+    The secure client constructor, config-key adapters and server bootstraps stay in
+    GTB. **Next:** Phase 4 — the light clients `go/httpclient` + `go/grpcclient`.
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
@@ -1034,8 +1040,8 @@ is the ease-of-decoupling score from each package's table above._
 | Done | Package | Target module | Ease | Blocking dependency |
 |:--:|---|---|:--:|---|
 | ☑ | `pkg/chat` | `go/chat` (+`chat-anthropic`/`openai`/`gemini`) | 6 | **EXTRACTED v0.1.0 (2026-07-13)** — HTTP client injected; per-provider modules; GTB consumes via the `pkg/chat` facade (MR !215). First greenfield extraction — see playbook §10. |
-| ☐ | `pkg/http` | `transport` | 6 | Promote `internal/circuitbreaker`+`internal/ratelimit`; needs `authn`/`tls`/`redact`/`controls`. |
-| ☐ | `pkg/grpc` | `transport` | 6 | Extract alongside `http`. |
+| ◐ | `pkg/http` | `transport` | 6 | **Middleware extracted (2026-07-16)** → `go/transit` v0.1.0 (Phase 3): logging/OTel/circuit-breaker/rate-limit/client-retry + the promoted `internal/circuitbreaker`+`internal/ratelimit` (now `transit/resilience`). `pkg/http` re-exports via a **facade**. Remainder (secure `NewClient` → Phase 4 `httpclient`; server → Phase 5) still here. |
+| ◐ | `pkg/grpc` | `transport` | 6 | **Interceptors extracted (2026-07-16)** → `go/transit` v0.1.0 (Phase 3), facade re-export. Server bootstrap remainder → Phase 5. |
 | ☐ | `pkg/gateway` | `transport` | 6 | After `http`+`grpc`+`controls`. |
 | ☐ | `pkg/openapi` | `transport` | 8 | HTTP-module companion; inject `http.ServeMux`. |
 | ☐ | `pkg/vcs` | `releases`/`vcsrepo` common | 7 | After/with `credentials`. |

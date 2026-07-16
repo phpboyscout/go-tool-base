@@ -16,6 +16,16 @@ composable middleware (HTTP) or interceptor (gRPC) added to a chain at
 registration time. Learn the pattern once and it applies to all four transport
 surfaces.
 
+!!! info "The middleware now lives in `go/transit`"
+    The HTTP/gRPC middleware and interceptors described here — logging, OpenTelemetry,
+    circuit breaking, rate limiting, client retry — plus the circuit-breaker and
+    rate-limiter primitives, were extracted into the standalone, framework-free module
+    **[`gitlab.com/phpboyscout/go/transit`](https://transit.go.phpboyscout.uk)** (`v0.1.0`).
+    GTB's `pkg/http` and `pkg/grpc` re-export it via a facade, so everything below is
+    unchanged for GTB consumers. Tools that want the middleware without the framework can
+    depend on the module directly. See the
+    [migration note](../../reference/migration/v0.x-transit-extracted.md).
+
 !!! note "This is the transport sibling of [Command Middleware](../components/setup/middleware.md)"
     [Command Middleware](../components/setup/middleware.md) covers the cobra **CLI** chain —
     cross-cutting concerns for command execution (`RunE`). *This* doc covers the

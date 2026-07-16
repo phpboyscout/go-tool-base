@@ -92,6 +92,24 @@ func WithCertPool(pool *x509.CertPool) ClientOption {
 	}
 }
 
+// WithRetry enables automatic retry with exponential backoff for transient
+// failures. The retry transport itself comes from gitlab.com/phpboyscout/go/transit
+// (re-exported as NewRetryTransport); this option wires it into the client.
+func WithRetry(cfg RetryConfig) ClientOption {
+	return func(c *clientConfig) {
+		c.retry = &cfg
+	}
+}
+
+// WithClientMiddleware applies a client middleware chain to the client's
+// transport. The chain wraps the transport after retry (if configured) so that
+// retry operates on the raw transport, not on logged/authed requests.
+func WithClientMiddleware(chain ClientChain) ClientOption {
+	return func(cfg *clientConfig) {
+		cfg.clientChain = &chain
+	}
+}
+
 // NewTransport returns a preconfigured *http.Transport with security-focused
 // defaults: curated TLS configuration, connection limits, and timeouts.
 // If tlsCfg is nil, DefaultTLSConfig() is used.
@@ -133,7 +151,7 @@ func NewClient(opts ...ClientOption) *http.Client {
 	}
 
 	if cfg.retry != nil {
-		transport = &retryTransport{next: transport, cfg: cfg.retry.normalized()}
+		transport = NewRetryTransport(transport, *cfg.retry)
 	}
 
 	if cfg.clientChain != nil {
