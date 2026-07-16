@@ -50,6 +50,7 @@ require (
 	gitlab.com/phpboyscout/go/regexutil v0.1.0
 	gitlab.com/phpboyscout/go/signing v0.2.0
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0
+	gitlab.com/phpboyscout/go/tls v0.1.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0

@@ -31,10 +31,14 @@ decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
     live microsites (`chat`/`controls`/`redact`/`regexutil`/`signing`/`browser`)
     were un-proxied to fix this.
 
-    **Next:** Phase 2 (`tls`, `authn`, `observability`) per the plan spec —
-    **awaiting go-ahead** (facade/config-adapter decisions; `authn` will need the
-    gitleaks allowlist; observability brought forward ahead of the transport
-    clients/servers).
+    **Phase 2 started:** **`tls`** → `go/tls` v0.1.0 **DONE (2026-07-16)** — the
+    first **facade** cut-over: the hardened core moved, while the config-key
+    `Resolve`/`SharedPrefix` adapter stays in `pkg/tls`, giving **zero
+    transport-consumer churn**. Docs live at `tls.go.phpboyscout.uk` (DNS-only +
+    `pages_access_level=public` + `pages_primary_domain` set so the `gitlab.io` URL
+    308-redirects to the custom domain). **Next:** `authn` (pure repoint; will need
+    the gitleaks allowlist) then `observability` (brought forward ahead of the
+    transport clients/servers).
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
@@ -1012,7 +1016,7 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/authn` | `authn` | 9 | No GTB imports. Extract before the transport stack. |
 | ☐ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
 | ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |
-| ☐ | `pkg/tls` | `tlsconfig` | 9 | **Newly ready** — config confined to `tls/config_adapter.go`. |
+| ✅ | `pkg/tls` | `tls` | 9 | **DONE (2026-07-16)** → `go/tls` v0.1.0. First Phase 2 module; **facade** cut-over (core moved; `Resolve`/`SharedPrefix` config adapter stays in `pkg/tls`), zero transport-consumer churn. |
 | ☐ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **Newly ready** — config confined; the observability half of the telemetry split. |
 | ☐ | `pkg/vcs/release` (+`releasetest`) | `releases` | 8 | **Newly ready** — narrowed registry factory; extract first within VCS. |
 | ☐ | `pkg/vcs/repo/aferobilly` | `vcsrepo` (or standalone) | 10 | No GTB imports. afero↔billy bridge. |
