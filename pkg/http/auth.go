@@ -10,7 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/redact"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
+	"gitlab.com/phpboyscout/go/authn"
 )
 
 // AuthOption configures AuthMiddleware.

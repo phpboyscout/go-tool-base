@@ -17,7 +17,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
+	"gitlab.com/phpboyscout/go/authn"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 

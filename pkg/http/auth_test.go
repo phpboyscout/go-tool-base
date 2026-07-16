@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
+	"gitlab.com/phpboyscout/go/authn"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 

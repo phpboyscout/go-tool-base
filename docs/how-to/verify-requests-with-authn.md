@@ -9,10 +9,11 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # How to Verify Requests (API Keys & JWT/OIDC)
 
 When your tool exposes an HTTP service, you usually need to authenticate callers.
-`pkg/authn` provides verifiers (API key, JWT/OIDC, mTLS) and `pkg/http` wraps them
-in a fail-closed `AuthMiddleware`. This guide shows the common setups. For the
-threat model and verification internals, see the
-[Auth component](../explanation/components/authn.md).
+The standalone [`go/authn`](https://authn.go.phpboyscout.uk) module provides the
+verifiers (API key, JWT/OIDC, mTLS) and `pkg/http` wraps them in a fail-closed
+`AuthMiddleware`. This guide shows the common setups. For the threat model and
+verification internals, see the [Auth component](../explanation/components/authn.md)
+and the [module docs](https://authn.go.phpboyscout.uk).
 
 ## Authenticate with API keys
 
@@ -20,7 +21,7 @@ Build a verifier from one or more `KeyEntry` secrets, then read them from a head
 
 ```go
 import (
-    "gitlab.com/phpboyscout/go-tool-base/pkg/authn"
+    "gitlab.com/phpboyscout/go/authn"
     gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 )
 

@@ -16,7 +16,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/redact"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/authn"
+	"gitlab.com/phpboyscout/go/authn"
 )
 
 // GRPCAuthOption configures AuthInterceptor.

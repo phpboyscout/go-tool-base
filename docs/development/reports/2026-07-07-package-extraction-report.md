@@ -36,9 +36,12 @@ decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
     `Resolve`/`SharedPrefix` adapter stays in `pkg/tls`, giving **zero
     transport-consumer churn**. Docs live at `tls.go.phpboyscout.uk` (DNS-only +
     `pages_access_level=public` + `pages_primary_domain` set so the `gitlab.io` URL
-    308-redirects to the custom domain). **Next:** `authn` (pure repoint; will need
-    the gitleaks allowlist) then `observability` (brought forward ahead of the
-    transport clients/servers).
+    308-redirects to the custom domain). **`authn`** → `go/authn` v0.1.0 **DONE
+    (2026-07-16)** — a **pure repoint** (no facade; zero GTB imports, no logger
+    seam): `pkg/{grpc,http}/auth.go` repointed, `pkg/authn/` + the unused
+    `mocks/pkg/authn/` deleted; docs live at `authn.go.phpboyscout.uk`. **Next:**
+    `observability` (brought forward ahead of the transport clients/servers) — the
+    last Phase 2 foundation.
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
@@ -1013,7 +1016,7 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/logger` | (facade) | 10 | **slog-first**: consumed as `*slog.Logger` + `ToSlog` adapter only. |
 | ☐ | `pkg/output` | `cli-output` | 9 | Isolate Cobra helpers in `output/cobra`; fix Unicode/spinner issues first. |
 | ☐ | `pkg/changelog` | (own module) | 9 | No GTB imports. go-git weight is acceptable. |
-| ☐ | `pkg/authn` | `authn` | 9 | No GTB imports. Extract before the transport stack. |
+| ✅ | `pkg/authn` | `authn` | 9 | **DONE (2026-07-16)** → `go/authn` v0.1.0. Phase 2 #2; **pure repoint** (no facade — zero GTB imports, no logger seam); repointed `pkg/{grpc,http}/auth.go`, deleted `pkg/authn/` + unused `mocks/pkg/authn/`. |
 | ☐ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
 | ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |
 | ✅ | `pkg/tls` | `tls` | 9 | **DONE (2026-07-16)** → `go/tls` v0.1.0. First Phase 2 module; **facade** cut-over (core moved; `Resolve`/`SharedPrefix` config adapter stays in `pkg/tls`), zero transport-consumer churn. |
