@@ -39,9 +39,14 @@ decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
     308-redirects to the custom domain). **`authn`** → `go/authn` v0.1.0 **DONE
     (2026-07-16)** — a **pure repoint** (no facade; zero GTB imports, no logger
     seam): `pkg/{grpc,http}/auth.go` repointed, `pkg/authn/` + the unused
-    `mocks/pkg/authn/` deleted; docs live at `authn.go.phpboyscout.uk`. **Next:**
-    `observability` (brought forward ahead of the transport clients/servers) — the
-    last Phase 2 foundation.
+    `mocks/pkg/authn/` deleted; docs live at `authn.go.phpboyscout.uk`.
+    **`observability`** → `go/observability` v0.1.0 **DONE (2026-07-16)** — the last
+    Phase 2 foundation; a **full repoint** (the config-key adapter relocated into
+    `pkg/telemetry`), with an OTel-allowing depfootprint guard. **D3 confirmed:** it
+    extracted cleanly *without* the analytics/observability split, so
+    [that split spec](../specs/2026-07-12-telemetry-analytics-observability-split.md)
+    is next reframed to the analytics-only remainder. **Phase 2 is complete;** Phase 3
+    (`go/transportmw`) is next per the plan.
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
@@ -1020,7 +1025,7 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
 | ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |
 | ✅ | `pkg/tls` | `tls` | 9 | **DONE (2026-07-16)** → `go/tls` v0.1.0. First Phase 2 module; **facade** cut-over (core moved; `Resolve`/`SharedPrefix` config adapter stays in `pkg/tls`), zero transport-consumer churn. |
-| ☐ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **Newly ready** — config confined; the observability half of the telemetry split. |
+| ✅ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **DONE (2026-07-16)** → `go/observability` v0.1.0. Phase 2 #3 (final foundation); **full repoint** (adapter relocated into `pkg/telemetry`); OTel-allowing depfootprint guard. D3 confirmed: extracted without the analytics split. |
 | ☐ | `pkg/vcs/release` (+`releasetest`) | `releases` | 8 | **Newly ready** — narrowed registry factory; extract first within VCS. |
 | ☐ | `pkg/vcs/repo/aferobilly` | `vcsrepo` (or standalone) | 10 | No GTB imports. afero↔billy bridge. |
 

@@ -13,8 +13,9 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
+	"gitlab.com/phpboyscout/go/observability/otelcore"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
 func testObservabilitySettings(mutators ...func(*ObservabilitySettings)) ObservabilitySettings {

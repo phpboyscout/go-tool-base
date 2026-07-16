@@ -193,11 +193,17 @@ TLS paths affect live traffic.
 
 ## OTel Signal Settings
 
-`pkg/telemetry/otelcore` observes resolved settings for one OTel signal at a
-time:
+`pkg/telemetry` observes resolved settings for one OTel signal at a time, over the
+typed `Settings` from the standalone
+[`go/observability/otelcore`](https://observability.go.phpboyscout.uk) module:
 
 ```go
-settings, err := otelcore.ObserveSettingsFromConfig(
+import (
+    "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
+    "gitlab.com/phpboyscout/go/observability/otelcore"
+)
+
+settings, err := telemetry.ObserveSettingsFromConfig(
     cfg,
     otelcore.SignalTracing,
     config.WithSectionApply(func(change config.SectionChange[otelcore.Settings]) error {

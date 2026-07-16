@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
+	"gitlab.com/phpboyscout/go/observability/otelcore"
 )
 
 // ObservabilitySettings contains the package-owned settings used to initialise

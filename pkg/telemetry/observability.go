@@ -11,10 +11,10 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/logs"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/metrics"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/tracing"
+	"gitlab.com/phpboyscout/go/observability/logs"
+	"gitlab.com/phpboyscout/go/observability/metrics"
+	"gitlab.com/phpboyscout/go/observability/otelcore"
+	"gitlab.com/phpboyscout/go/observability/tracing"
 )
 
 // Shutdown flushes and stops the observability providers that Setup installed.

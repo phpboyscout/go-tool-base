@@ -18,9 +18,10 @@ import (
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel"
 
+	"gitlab.com/phpboyscout/go/observability/otelcore"
+
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
 // collectorImage pins the OTel collector used by the e2e. The debug exporter and

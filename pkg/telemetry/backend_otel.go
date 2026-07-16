@@ -14,7 +14,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/redact"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
+	"gitlab.com/phpboyscout/go/observability/otelcore"
 )
 
 // OTelOption configures the OTLP backend.

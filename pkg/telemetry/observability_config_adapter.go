@@ -6,9 +6,10 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
+	"gitlab.com/phpboyscout/go/observability/otelcore"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry/otelcore"
 )
 
 // Per-signal tuning keys, layered on the shared telemetry.* keys otelcore resolves.
@@ -33,9 +34,9 @@ func ObservabilitySettingsFromProps(p *props.Props) ObservabilitySettings {
 	}
 
 	cfg := p.Config
-	settings.Tracing.OTLP = otelcore.Resolve(cfg, otelcore.SignalTracing)
-	settings.Metrics.OTLP = otelcore.Resolve(cfg, otelcore.SignalMetrics)
-	settings.Logs.OTLP = otelcore.Resolve(cfg, otelcore.SignalLogs)
+	settings.Tracing.OTLP = resolveOTLPSettings(cfg, otelcore.SignalTracing)
+	settings.Metrics.OTLP = resolveOTLPSettings(cfg, otelcore.SignalMetrics)
+	settings.Logs.OTLP = resolveOTLPSettings(cfg, otelcore.SignalLogs)
 
 	if cfg != nil && cfg.IsSet(configKeySampling) {
 		settings.Tracing.Sampling = cfg.GetFloat(configKeySampling)

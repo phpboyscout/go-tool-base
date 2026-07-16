@@ -14,13 +14,21 @@ This is distinct from the product **analytics** in the same package. Analytics i
 
 ## Package layout
 
+The OTel core and the three signal factories have been **extracted into the standalone
+[`gitlab.com/phpboyscout/go/observability`](https://gitlab.com/phpboyscout/go/observability)
+module** (framework-free apart from the OTel SDK). Full documentation — the typed
+`Settings`, endpoint resolution, and the provider factories — lives at
+**[observability.go.phpboyscout.uk](https://observability.go.phpboyscout.uk)**. GTB
+consumes it and keeps the config-key adapter + the `Setup`/consent wiring described
+below (see the [migration note](../../reference/migration/v0.x-observability-extracted.md)).
+
 | Package | Role |
 |---------|------|
-| `pkg/telemetry/otelcore` | Shared core: OTLP endpoint parsing, the service `resource`, and `telemetry.*` config resolution. Imports no signal exporters. |
-| `pkg/telemetry/tracing` | `TracerProvider` over an OTLP trace exporter; parent-based ratio sampler. |
-| `pkg/telemetry/metrics` | `MeterProvider` over an OTLP metric exporter; periodic push. |
-| `pkg/telemetry/logs` | `LoggerProvider` over an OTLP log exporter, plus an `otelslog` bridge handler. |
-| `pkg/telemetry` (`Setup`) | Builds the enabled providers from typed settings, installs the OTel globals, registers shutdown on the controller. |
+| `go/observability/otelcore` *(module)* | Shared core: OTLP endpoint parsing, the service `resource`, the typed `Settings`, and the shared-plus-per-signal `ResolveSettings` merge. Imports no signal exporters. |
+| `go/observability/tracing` *(module)* | `TracerProvider` over an OTLP trace exporter; parent-based ratio sampler. |
+| `go/observability/metrics` *(module)* | `MeterProvider` over an OTLP metric exporter; periodic push. |
+| `go/observability/logs` *(module)* | `LoggerProvider` over an OTLP log exporter, plus an `otelslog` bridge handler. |
+| `pkg/telemetry` (`Setup`, `ObserveSettingsFromConfig`) | GTB's config-key adapter over the module: resolves `telemetry.*` config into the module's typed settings, builds the enabled providers, installs the OTel globals, registers shutdown on the controller. |
 | `pkg/http`, `pkg/grpc` | `OTelMiddleware` / `OTelStatsHandler`: per-request spans + server metrics, reading the global providers. |
 
 ## Setup
