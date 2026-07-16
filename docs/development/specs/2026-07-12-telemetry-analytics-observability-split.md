@@ -1,6 +1,6 @@
 ---
 title: "Split product analytics from observability in pkg/telemetry"
-description: "Separate root pkg/telemetry's two intertwined concerns — consent-gated product analytics (event collection, buffering/spill, deletion requests, machine identity, vendor backends) and service observability (OTel logs/metrics/traces setup) — into independently extractable seams. This is the prerequisite boundary cleanup identified by the extraction report before either concern can become a standalone module (observability first; product analytics later)."
+description: "REFRAMED 2026-07-16: observability's core has been extracted to go/observability, and the two concerns are already import-separated, so this spec narrows to the remaining product-analytics extraction (the Collector, spill, deletion, machine identity, vendor posthog/datadog backends → an analytics module + backend modules). Analytics is blocked on pkg/http (needs go/httpclient, Phase 4) and pkg/osinfo, so it is re-sequenced after the transport stack — not next."
 date: 2026-07-12
 status: DRAFT
 tags:
@@ -25,7 +25,7 @@ Date
 :   12 July 2026
 
 Status
-:   DRAFT
+:   REFRAMED 2026-07-16 (observability core extracted; scope narrowed to the analytics remainder — see §0)
 
 Builds on
 :   [`2026-07-10-telemetry-props-decoupling.md`](2026-07-10-telemetry-props-decoupling.md),
@@ -37,7 +37,60 @@ Related
 
 ---
 
-## 1. Context
+## 0. Reframe (2026-07-16) — observability extracted; this spec is now analytics-only
+
+This spec was written **before** the observability extraction and framed an *in-tree
+split* as the prerequisite to extracting either concern. That work has since happened
+by a different route, so the spec is reframed:
+
+- **Observability's core is already extracted.** `otelcore` + `logs` + `metrics` +
+  `tracing` now live in the standalone
+  [`gitlab.com/phpboyscout/go/observability`](https://gitlab.com/phpboyscout/go/observability)
+  `v0.1.0` (Phase 2, spec `2026-07-16-observability-module-extraction.md`, a full
+  repoint). What remains in root `pkg/telemetry` for observability is only the thin GTB
+  **wiring** — `Setup`/`SetupFromProps`, `ObservabilitySettings`, and the relocated
+  config-key adapter (`observability_otel_config.go`) — which consumes the module. That
+  wiring is GTB composition and is **not** a further module candidate.
+- **The two concerns are already import-separated.** Measured on the current tree, the
+  observability wiring files import **no** analytics symbol (`Collector`, `Backend`,
+  spill, machine identity, deletion), and vice versa. The `test/architecture`
+  no-cross-import guard this spec proposed (§5.1/§6) is therefore **effectively already
+  satisfied** — the split-as-prerequisite is done. No separate in-tree-split effort is
+  needed.
+- **Only the analytics concern remains to extract.** The live target is root
+  `pkg/telemetry`'s **product-analytics** product — the `Collector`, buffering/spill,
+  deletion, machine identity, data-dir, and the vendor backends — into an analytics
+  module (+ `posthog`/`datadog` backend modules). Everything below now reads as the
+  plan for **that** extraction.
+
+### 0.1 Analytics is blocked — it is NOT the next extraction
+
+The analytics concern's current GTB coupling (production imports), post the
+`browser`/`redact`/`controls` extractions:
+
+| Import | Count | Status |
+|---|--:|---|
+| `pkg/telemetrytypes` | 5 | shared types — move with analytics or keep as a shared dep |
+| `pkg/telemetry` (self) | 5 | intra-package (posthog/datadog → the `Backend` interface) |
+| **`pkg/http`** | **4** | **blocker** — analytics ships events over the hardened HTTP client; needs **`go/httpclient`** (Phase 4) or the transport extraction first |
+| `pkg/props` | 2 | GTB composition — handled via `*FromProps` adapters, not a blocker |
+| `pkg/logger` | 2 | the `*slog.Logger` seam |
+| **`pkg/osinfo`** | **1** | **blocker** — machine identity; needs `osinfo` extracted or the dep severed |
+
+So analytics extraction is **gated behind Phase 4 (`go/httpclient`)** at minimum (so the
+backends can dial via `go/httpclient` instead of `pkg/http`), plus resolving `pkg/osinfo`.
+It is **re-sequenced after the transport stack**, not next. The immediate next step in
+the extraction program is **Phase 3 (`go/transportmw`)** per the
+[transport-stack plan](2026-07-13-transport-stack-extraction-plan.md).
+
+The remainder of this document (the app-metadata/consent seam, redaction-at-ingestion,
+the backend contract, and the OTel-log-backend-as-analytics-transport classification)
+stands as the design for the eventual analytics extraction, to be picked up once its
+blockers clear.
+
+---
+
+## 1. Context (historical — pre-reframe)
 
 `pkg/telemetry` grew into two distinct products that happen to share a package:
 
@@ -218,17 +271,24 @@ ingestion boundary redacts.
 - `pkg/props` retains any aliases needed so downstream tools are unaffected,
   consistent with the telemetrytypes approach.
 
-## 8. Sequencing (post-split)
+## 8. Sequencing (reframed 2026-07-16)
 
-1. **This spec**: in-tree split + guard + seams.
-2. **Observability extraction** (separate spec): move the observability concern
-   + OTel subpackages into `gitlab.com/phpboyscout/observability`; GTB consumes
-   it via `ObservabilitySettingsFromProps`.
-3. **Analytics contracts** (separate spec): finalise app-metadata/consent
-   interfaces, then extract the analytics `Collector`.
-4. **Backend modules** (separate spec): move `posthog` / `datadog` as optional
-   adapter modules once analytics contracts are stable, accepting a standard
-   `*http.Client`.
+1. ~~In-tree split + guard + seams~~ — **not needed**: the concerns are already
+   import-separated (§0).
+2. ~~Observability extraction~~ — **DONE**: `go/observability` v0.1.0 (the OTel
+   subpackages moved; GTB consumes it via `SetupFromProps` + the relocated config
+   adapter).
+3. **Transport stack first** — Phase 3 `go/transportmw`, Phase 4 `go/httpclient` +
+   `go/grpcclient` (per the transport plan). Analytics extraction depends on
+   `go/httpclient` (its backends ship events over HTTP), so it waits for Phase 4.
+4. **Resolve `pkg/osinfo`** — extract it or sever the machine-identity dependency.
+5. **Analytics contracts** (separate spec): finalise the app-metadata/consent
+   interface (§5.3), classify the OTel-log backend as an analytics transport (§5.3),
+   confirm redaction-at-ingestion (§5.4), then extract the analytics `Collector` into
+   an analytics module — dialling `go/httpclient`, not `pkg/http`.
+6. **Backend modules** (separate spec): move `posthog` / `datadog` as optional adapter
+   modules once analytics contracts are stable, each accepting a standard `*http.Client`
+   (or `go/httpclient`).
 
 ## 9. Future considerations
 
