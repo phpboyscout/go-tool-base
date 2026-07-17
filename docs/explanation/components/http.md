@@ -293,6 +293,8 @@ srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Logger, mux, set
 
 The `pkg/http` package provides a factory for creating hardened `http.Client` instances for outbound requests.
 
+> The client factory has been extracted to the standalone, framework-free module [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk) (`v0.1.0`). `pkg/http` re-exports it via a facade, so every symbol below (`NewClient`, `NewTransport`, the `With…` options) resolves exactly as before — no call-site changes. See the [migration note](../../reference/migration/v0.x-httpclient-extracted.md). To consume the client without GTB, depend on the module directly.
+
 ### Features
 
 - **Mandatory Timeouts**: Default 30s timeout to prevent blocked goroutines.

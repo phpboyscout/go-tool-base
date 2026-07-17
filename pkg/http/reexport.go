@@ -4,11 +4,12 @@ package http
 // module gitlab.com/phpboyscout/go/transit. It re-exports the module's HTTP
 // middleware — the server chain, the structured/OTel/rate-limit server
 // middleware, and the client round-trippers (retry, circuit breaker, auth) — so
-// existing GTB call sites are unchanged. The GTB-specific pieces that cannot live
-// in the framework-free module stay in this package: the secure client
-// constructor and its WithRetry/WithClientMiddleware options (client.go), the
-// config-key adapters (config_adapter.go), server wiring (server.go), request
-// authentication (auth.go) and security headers (security_headers.go).
+// existing GTB call sites are unchanged. The secure client constructor is
+// re-exported from gitlab.com/phpboyscout/go/httpclient in client.go. The
+// GTB-specific pieces that cannot live in the framework-free modules stay in
+// this package: the config-key adapters (config_adapter.go), server wiring
+// (server.go), request authentication (auth.go) and security headers
+// (security_headers.go).
 
 import (
 	transithttp "gitlab.com/phpboyscout/go/transit/http"

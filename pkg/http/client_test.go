@@ -1,7 +1,6 @@
 package http
 
 import (
-	"crypto/tls"
 	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
@@ -12,51 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRedirectPolicy(t *testing.T) {
-	t.Parallel()
-
-	policy := redirectPolicy(3)
-
-	t.Run("WithinLimit", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "https://example.com/2", nil)
-		via := []*http.Request{
-			{URL: mustParseURL("https://example.com/1")},
-		}
-		err := policy(req, via)
-		assert.NoError(t, err)
-	})
-
-	t.Run("ExceedsLimit", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "https://example.com/4", nil)
-		via := []*http.Request{
-			{URL: mustParseURL("https://example.com/1")},
-			{URL: mustParseURL("https://example.com/2")},
-			{URL: mustParseURL("https://example.com/3")},
-		}
-		err := policy(req, via)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "stopped after 3 redirects")
-	})
-
-	t.Run("HTTPStoHTTP_Downgrade", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "http://example.com/downgrade", nil)
-		via := []*http.Request{
-			{URL: mustParseURL("https://example.com/secure")},
-		}
-		err := policy(req, via)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "refused redirect: HTTPS to HTTP downgrade")
-	})
-
-	t.Run("HTTPStoHTTPS_Allowed", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "https://example.com/secure2", nil)
-		via := []*http.Request{
-			{URL: mustParseURL("https://example.com/secure1")},
-		}
-		err := policy(req, via)
-		assert.NoError(t, err)
-	})
-}
+// These tests exercise the re-exported client factory (from
+// gitlab.com/phpboyscout/go/httpclient) through the GTB facade, confirming the
+// value-alias re-exports wire correctly. The factory's internals (redirect
+// policy, hardened defaults) are unit-tested in the httpclient module.
 
 func TestNewClient_WithMaxRedirects_Zero(t *testing.T) {
 	t.Parallel()
@@ -88,35 +46,6 @@ func TestNewClient_RealHTTPSRequest(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestWithCertPool(t *testing.T) {
-	t.Parallel()
-
-	t.Run("PreservesHardenedDefaults", func(t *testing.T) {
-		t.Parallel()
-
-		pool := x509.NewCertPool()
-		cfg := defaultClientConfig()
-		WithCertPool(pool)(cfg)
-
-		assert.Same(t, pool, cfg.tlsConfig.RootCAs)
-		// Hardened defaults from gtbtls.DefaultConfig must remain intact.
-		assert.Equal(t, uint16(tls.VersionTLS12), cfg.tlsConfig.MinVersion)
-		assert.NotEmpty(t, cfg.tlsConfig.CipherSuites)
-	})
-
-	t.Run("SeedsConfigWhenNil", func(t *testing.T) {
-		t.Parallel()
-
-		pool := x509.NewCertPool()
-		cfg := &clientConfig{} // tlsConfig deliberately nil
-		WithCertPool(pool)(cfg)
-
-		require.NotNil(t, cfg.tlsConfig)
-		assert.Same(t, pool, cfg.tlsConfig.RootCAs)
-		assert.Equal(t, uint16(tls.VersionTLS12), cfg.tlsConfig.MinVersion)
-	})
-}
-
 func TestNewClient_WithCertPool_RealHTTPSRequest(t *testing.T) {
 	t.Parallel()
 
@@ -141,8 +70,3 @@ func mustParseURL(s string) *url.URL {
 	u, _ := url.Parse(s)
 	return u
 }
-
-// In redirectPolicy check, via[0] is the original request.
-// Let's re-verify the logic in redirectPolicy.
-// if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme == "http"
-// This looks correct.

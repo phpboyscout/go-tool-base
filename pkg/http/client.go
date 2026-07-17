@@ -1,182 +1,48 @@
 package http
 
+// The secure HTTP client factory has been extracted to the standalone module
+// gitlab.com/phpboyscout/go/httpclient. This file re-exports that module's
+// public surface so existing GTB call sites (gtbhttp.NewClient, WithTimeout,
+// WithRetry, …) are unchanged. The retry/middleware types the client options
+// consume (RetryConfig, ClientChain) are re-exported from
+// gitlab.com/phpboyscout/go/transit in reexport.go and are type-identical to
+// the types httpclient's options expect, so the aliases below compose cleanly.
+
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"net"
-	"net/http"
-	"time"
-
-	"github.com/cockroachdb/errors"
-
-	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
+	"gitlab.com/phpboyscout/go/httpclient"
 )
-
-type clientConfig struct {
-	timeout      time.Duration
-	maxRedirects int
-	tlsConfig    *tls.Config
-	transport    http.RoundTripper
-	retry        *RetryConfig
-	clientChain  *ClientChain
-}
-
-const (
-	defaultTimeout               = 30 * time.Second
-	defaultMaxRedirects          = 10
-	defaultMaxIdleConns          = 100
-	defaultMaxIdleConnsPerHost   = 10
-	defaultIdleConnTimeout       = 90 * time.Second
-	defaultTLSHandshakeTimeout   = 10 * time.Second
-	defaultResponseHeaderTimeout = 30 * time.Second
-	defaultDialTimeout           = 30 * time.Second
-	defaultKeepAlive             = 30 * time.Second
-)
-
-func defaultClientConfig() *clientConfig {
-	return &clientConfig{
-		timeout:      defaultTimeout,
-		maxRedirects: defaultMaxRedirects,
-		tlsConfig:    gtbtls.DefaultConfig(),
-	}
-}
 
 // ClientOption configures the secure HTTP client.
-type ClientOption func(*clientConfig)
+type ClientOption = httpclient.ClientOption
 
-// WithTimeout sets the overall request timeout. Default: 30s.
-func WithTimeout(d time.Duration) ClientOption {
-	return func(cfg *clientConfig) {
-		cfg.timeout = d
-	}
-}
+// Re-exported client factory and options (function values forwarding to the
+// module). Value aliases carry no statements, so they add no coverage surface.
+var (
+	// NewClient returns an *http.Client with security-focused defaults:
+	// TLS 1.2 minimum, curated cipher suites, timeouts, connection limits,
+	// and a redirect policy that rejects HTTPS-to-HTTP downgrades.
+	NewClient = httpclient.NewClient
+	// NewTransport returns a preconfigured *http.Transport with
+	// security-focused defaults: curated TLS configuration, connection limits,
+	// and timeouts.
+	NewTransport = httpclient.NewTransport
 
-// WithMaxRedirects sets the maximum number of redirects to follow. Default: 10.
-// Set to 0 to disable redirect following entirely.
-func WithMaxRedirects(n int) ClientOption {
-	return func(cfg *clientConfig) {
-		cfg.maxRedirects = n
-	}
-}
-
-// WithTLSConfig overrides the default TLS configuration.
-// The caller is responsible for ensuring the provided config meets
-// security requirements.
-func WithTLSConfig(cfg *tls.Config) ClientOption {
-	return func(c *clientConfig) {
-		c.tlsConfig = cfg
-	}
-}
-
-// WithTransport overrides the entire HTTP transport.
-// When set, transport-level options (TLS config, connection limits) are ignored.
-func WithTransport(rt http.RoundTripper) ClientOption {
-	return func(cfg *clientConfig) {
-		cfg.transport = rt
-	}
-}
-
-// WithCertPool sets the root CA pool used to verify server certificates,
-// preserving the hardened default TLS configuration (cipher suites, minimum
-// version, curve preferences). Use this to trust certificates that are not in
-// the system roots, such as a private CA or self-signed cert. Build the pool
-// with tls.CertPool. Applying WithTLSConfig after this option replaces the
-// pool along with the rest of the TLS configuration.
-func WithCertPool(pool *x509.CertPool) ClientOption {
-	return func(cfg *clientConfig) {
-		if cfg.tlsConfig == nil {
-			cfg.tlsConfig = gtbtls.DefaultConfig()
-		}
-
-		cfg.tlsConfig.RootCAs = pool
-	}
-}
-
-// WithRetry enables automatic retry with exponential backoff for transient
-// failures. The retry transport itself comes from gitlab.com/phpboyscout/go/transit
-// (re-exported as NewRetryTransport); this option wires it into the client.
-func WithRetry(cfg RetryConfig) ClientOption {
-	return func(c *clientConfig) {
-		c.retry = &cfg
-	}
-}
-
-// WithClientMiddleware applies a client middleware chain to the client's
-// transport. The chain wraps the transport after retry (if configured) so that
-// retry operates on the raw transport, not on logged/authed requests.
-func WithClientMiddleware(chain ClientChain) ClientOption {
-	return func(cfg *clientConfig) {
-		cfg.clientChain = &chain
-	}
-}
-
-// NewTransport returns a preconfigured *http.Transport with security-focused
-// defaults: curated TLS configuration, connection limits, and timeouts.
-// If tlsCfg is nil, DefaultTLSConfig() is used.
-func NewTransport(tlsCfg *tls.Config) *http.Transport {
-	if tlsCfg == nil {
-		tlsCfg = gtbtls.DefaultConfig()
-	}
-
-	return &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		TLSClientConfig:       tlsCfg,
-		MaxIdleConns:          defaultMaxIdleConns,
-		MaxIdleConnsPerHost:   defaultMaxIdleConnsPerHost,
-		IdleConnTimeout:       defaultIdleConnTimeout,
-		TLSHandshakeTimeout:   defaultTLSHandshakeTimeout,
-		ExpectContinueTimeout: 1 * time.Second,
-		ResponseHeaderTimeout: defaultResponseHeaderTimeout,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultDialTimeout,
-			KeepAlive: defaultKeepAlive,
-		}).DialContext,
-	}
-}
-
-// NewClient returns an *http.Client with security-focused defaults:
-// TLS 1.2 minimum, curated cipher suites, timeouts, connection limits,
-// and redirect policy that rejects HTTPS-to-HTTP downgrades.
-func NewClient(opts ...ClientOption) *http.Client {
-	cfg := defaultClientConfig()
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	var transport http.RoundTripper
-	if cfg.transport != nil {
-		transport = cfg.transport
-	} else {
-		transport = NewTransport(cfg.tlsConfig)
-	}
-
-	if cfg.retry != nil {
-		transport = NewRetryTransport(transport, *cfg.retry)
-	}
-
-	if cfg.clientChain != nil {
-		transport = cfg.clientChain.Then(transport)
-	}
-
-	return &http.Client{
-		Timeout:       cfg.timeout,
-		Transport:     transport,
-		CheckRedirect: redirectPolicy(cfg.maxRedirects),
-	}
-}
-
-// redirectPolicy returns a CheckRedirect function that limits the number
-// of redirects and rejects HTTPS-to-HTTP downgrades.
-func redirectPolicy(maxRedirects int) func(*http.Request, []*http.Request) error {
-	return func(req *http.Request, via []*http.Request) error {
-		if len(via) >= maxRedirects {
-			return errors.Newf("stopped after %d redirects", maxRedirects)
-		}
-
-		if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme == "http" {
-			return errors.New("refused redirect: HTTPS to HTTP downgrade")
-		}
-
-		return nil
-	}
-}
+	// WithTimeout sets the overall request timeout. Default: 30s.
+	WithTimeout = httpclient.WithTimeout
+	// WithMaxRedirects sets the maximum number of redirects to follow.
+	// Default: 10. Set to 0 to disable redirect following entirely.
+	WithMaxRedirects = httpclient.WithMaxRedirects
+	// WithTLSConfig overrides the default TLS configuration.
+	WithTLSConfig = httpclient.WithTLSConfig
+	// WithTransport overrides the entire HTTP transport.
+	WithTransport = httpclient.WithTransport
+	// WithCertPool sets the root CA pool used to verify server certificates,
+	// preserving the hardened default TLS configuration.
+	WithCertPool = httpclient.WithCertPool
+	// WithRetry enables automatic retry with exponential backoff for transient
+	// failures, wiring in the transit retry transport.
+	WithRetry = httpclient.WithRetry
+	// WithClientMiddleware applies a client middleware chain to the client's
+	// transport, wrapping the transport after retry (if configured).
+	WithClientMiddleware = httpclient.WithClientMiddleware
+)
