@@ -102,6 +102,19 @@ variables:
 
 default:
   tags: [saas-linux-medium-amd64]
+  # Auto-retry transient shared-runner infrastructure failures. golangci-lint
+  # (and occasionally the e2e job) intermittently dies with "Job failed (system
+  # failure): context deadline exceeded" on the SaaS runners — a runner/scheduler
+  # flake, not a real defect. This retries only infrastructure failure types;
+  # script_failure (a genuine lint/test failure) is deliberately excluded so real
+  # failures still fail fast. goreleaser keeps its own component-provided retry.
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+      - scheduler_failure
+      - api_failure
 
 # ----------------------------------------------------------------------
 # Phase 2 release-binary signing — overlay on the `goreleaser` job
