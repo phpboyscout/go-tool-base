@@ -16,3 +16,14 @@ packages:
   gitlab.com/phpboyscout/go-tool-base/pkg:
     config:
       all: true
+  # The chat client interfaces were extracted to the standalone go/chat module.
+  # GTB tests only need a ChatClient mock, so point mockery at the module for
+  # that one interface (output kept at mocks/pkg/chat so the import path and
+  # package name are unchanged) rather than hand-maintaining the generated file.
+  gitlab.com/phpboyscout/go/chat:
+    config:
+      all: false
+      dir: mocks/pkg/chat
+      pkgname: chat
+    interfaces:
+      ChatClient:
