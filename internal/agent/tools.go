@@ -17,7 +17,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/redact"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 var (
@@ -215,8 +215,8 @@ func ensurePathAllowed(afs afero.Fs, basePath, targetPath string) (string, error
 	return isPathAllowed(afs, basePath, targetPath)
 }
 
-func createSingleDirTool(name, description, successMsg string, command []string, failureErr error, afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func createSingleDirTool(name, description, successMsg string, command []string, failureErr error, afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        name,
 		Description: description,
 		Parameters: jsonschema.Reflect(struct {
@@ -261,8 +261,8 @@ func createSingleDirTool(name, description, successMsg string, command []string,
 }
 
 // ReadFileTool returns a tool for reading file content.
-func ReadFileTool(afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func ReadFileTool(afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        "read_file",
 		Description: "Reads the content of a file at the given path.",
 		Parameters: jsonschema.Reflect(struct {
@@ -292,8 +292,8 @@ func ReadFileTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // WriteFileTool returns a tool for writing content to a file.
-func WriteFileTool(afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func WriteFileTool(afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        "write_file",
 		Description: "Writes content to a file at the given path, creating it if it doesn't exist.",
 		Parameters: jsonschema.Reflect(struct {
@@ -325,8 +325,8 @@ func WriteFileTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // ListDirTool returns a tool for listing directory contents.
-func ListDirTool(afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func ListDirTool(afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        "list_dir",
 		Description: "Lists the files and subdirectories in a given directory.",
 		Parameters: jsonschema.Reflect(struct {
@@ -370,8 +370,8 @@ func ListDirTool(afs afero.Fs, basePath string) chat.Tool {
 // the agent doesn't spend a round-trip per file. Each file's content is
 // returned under a header; a path that can't be read is reported inline rather
 // than failing the whole batch.
-func ReadFilesTool(afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func ReadFilesTool(afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        "read_files",
 		Description: "Reads the contents of several files in one call, each under a '===== <path> =====' header. Prefer this over multiple read_file calls when you need more than one file.",
 		Parameters: jsonschema.Reflect(struct {
@@ -417,8 +417,8 @@ const maxTreeEntries = 500
 // TreeTool returns a tool that lists a directory and all its subdirectories
 // recursively in a single call, as sorted relative paths. It saves the agent
 // from walking the layout one folder at a time with list_dir.
-func TreeTool(afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func TreeTool(afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        "tree",
 		Description: "Lists a directory and all its subdirectories recursively, as sorted relative paths (directories end with '/'), in one call. Prefer this over repeated list_dir calls to learn the project layout.",
 		Parameters: jsonschema.Reflect(struct {
@@ -485,7 +485,7 @@ func TreeTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // GoBuildTool returns a tool for running 'go build ./...'.
-func GoBuildTool(afs afero.Fs, basePath string) chat.Tool {
+func GoBuildTool(afs afero.Fs, basePath string) gochat.Tool {
 	return createSingleDirTool(
 		"go_build",
 		"Runs 'go build ./...' in the specified directory to check for compilation errors.",
@@ -498,7 +498,7 @@ func GoBuildTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // GoTestTool returns a tool for running 'go test ./...'.
-func GoTestTool(afs afero.Fs, basePath string) chat.Tool {
+func GoTestTool(afs afero.Fs, basePath string) gochat.Tool {
 	return createSingleDirTool(
 		"go_test",
 		"Runs 'go test ./...' in the specified directory to check for test failures.",
@@ -511,8 +511,8 @@ func GoTestTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // GoGetTool returns a tool for running 'go get'.
-func GoGetTool(afs afero.Fs, basePath string) chat.Tool {
-	return chat.Tool{
+func GoGetTool(afs afero.Fs, basePath string) gochat.Tool {
+	return gochat.Tool{
 		Name:        "go_get",
 		Description: "Runs 'go get <package>' to add or update dependencies.",
 		Parameters: jsonschema.Reflect(struct {
@@ -559,7 +559,7 @@ func GoGetTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // LinterTool returns a tool for running 'golangci-lint run --fix'.
-func LinterTool(afs afero.Fs, basePath string) chat.Tool {
+func LinterTool(afs afero.Fs, basePath string) gochat.Tool {
 	return createSingleDirTool(
 		"golangci_lint",
 		"Runs 'golangci-lint run --fix' in the specified directory to find and fix lint issues.",
@@ -572,7 +572,7 @@ func LinterTool(afs afero.Fs, basePath string) chat.Tool {
 }
 
 // GoModTidyTool returns a tool for running 'go mod tidy'.
-func GoModTidyTool(afs afero.Fs, basePath string) chat.Tool {
+func GoModTidyTool(afs afero.Fs, basePath string) gochat.Tool {
 	return createSingleDirTool(
 		"go_mod_tidy",
 		"Runs 'go mod tidy' in the specified directory to clean up go.mod and go.sum.",

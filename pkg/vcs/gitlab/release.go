@@ -9,7 +9,8 @@ import (
 	"github.com/cockroachdb/errors"
 	gitlab "gitlab.com/gitlab-org/api/client-go/v2"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
@@ -103,7 +104,7 @@ func NewReleaseProvider(settings Settings) (release.Provider, error) {
 
 	client, err := gitlab.NewClient(token,
 		gitlab.WithBaseURL(baseURL),
-		gitlab.WithHTTPClient(gtbhttp.NewClient()),
+		gitlab.WithHTTPClient(httpclient.NewClient()),
 	)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -202,7 +203,7 @@ func (p *GitLabReleaseProvider) DownloadReleaseAsset(ctx context.Context, owner,
 		req.Header.Set("PRIVATE-TOKEN", p.token)
 	}
 
-	resp, err := gtbhttp.NewClient().Do(req)
+	resp, err := httpclient.NewClient().Do(req)
 	if err != nil {
 		return nil, "", errors.WithStack(err)
 	}

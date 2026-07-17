@@ -14,7 +14,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/browser"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
 
@@ -44,7 +45,7 @@ type HTTPDeletionRequestor struct {
 func NewHTTPDeletionRequestor(endpoint string, log *slog.Logger) DeletionRequestor {
 	return &HTTPDeletionRequestor{
 		endpoint: endpoint,
-		client:   gtbhttp.NewClient(gtbhttp.WithTimeout(deletionTimeout)),
+		client:   httpclient.NewClient(httpclient.WithTimeout(deletionTimeout)),
 		log:      log,
 	}
 }

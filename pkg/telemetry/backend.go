@@ -13,7 +13,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
 )
 
 const (
@@ -119,7 +119,7 @@ type httpBackend struct {
 func NewHTTPBackend(endpoint string, log *slog.Logger) Backend {
 	return &httpBackend{
 		endpoint: endpoint,
-		client:   gtbhttp.NewClient(gtbhttp.WithTimeout(httpTimeout)),
+		client:   httpclient.NewClient(httpclient.WithTimeout(httpTimeout)),
 		log:      log,
 	}
 }

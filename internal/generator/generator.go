@@ -9,7 +9,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
@@ -53,7 +54,7 @@ type Config struct {
 	AIModel    string
 	AIProvider string
 	// MaxSteps bounds the autonomous repair agent's ReAct loop. Zero uses the
-	// framework default (chat.DefaultMaxSteps). Raise it for complex commands
+	// framework default (gochat.DefaultMaxSteps). Raise it for complex commands
 	// the agent cannot finish within the default budget.
 	MaxSteps int
 	// NonInteractive withholds the repair agent's query_user tool so a
@@ -114,7 +115,7 @@ type CommandFlag struct {
 type Generator struct {
 	props      *props.Props
 	config     *Config
-	chatClient chat.ChatClient
+	chatClient gochat.ChatClient
 	runCommand func(ctx context.Context, dir, name string, args ...string) ([]byte, error)
 	// cloneTemplate fetches a git custom-template source into a staging dir
 	// and returns the resolved commit SHA. nil means "no clone available"

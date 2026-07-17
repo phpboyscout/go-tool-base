@@ -7,7 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -18,27 +19,27 @@ func TestResolveProvider(t *testing.T) {
 		name           string
 		configProvider string
 		propProvider   string
-		expected       chat.Provider
+		expected       gochat.Provider
 	}{
 		{
 			name:     "Default (Claude)",
-			expected: chat.ProviderClaude,
+			expected: gochat.ProviderClaude,
 		},
 		{
 			name:         "Provider from Props (Config)",
 			propProvider: "gemini",
-			expected:     chat.ProviderGemini,
+			expected:     gochat.ProviderGemini,
 		},
 		{
 			name:           "Provider from Generator Config",
 			configProvider: "claude",
-			expected:       chat.ProviderClaude,
+			expected:       gochat.ProviderClaude,
 		},
 		{
 			name:           "Generator Config overrides Props",
 			configProvider: "claude",
 			propProvider:   "gemini",
-			expected:       chat.ProviderClaude,
+			expected:       gochat.ProviderClaude,
 		},
 	}
 
@@ -78,13 +79,13 @@ func TestResolveToken(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		provider chat.Provider
+		provider gochat.Provider
 		expected string
 	}{
-		{name: "OpenAI", provider: chat.ProviderOpenAI, expected: "sk-openai"},
-		{name: "Claude", provider: chat.ProviderClaude, expected: "sk-anthropic"},
-		{name: "Gemini", provider: chat.ProviderGemini, expected: "sk-gemini"},
-		{name: "Unknown", provider: chat.Provider("unknown"), expected: ""},
+		{name: "OpenAI", provider: gochat.ProviderOpenAI, expected: "sk-openai"},
+		{name: "Claude", provider: gochat.ProviderClaude, expected: "sk-anthropic"},
+		{name: "Gemini", provider: gochat.ProviderGemini, expected: "sk-gemini"},
+		{name: "Unknown", provider: gochat.Provider("unknown"), expected: ""},
 	}
 
 	for _, tt := range tests {
@@ -95,7 +96,7 @@ func TestResolveToken(t *testing.T) {
 
 	t.Run("No Config", func(t *testing.T) {
 		gNoConfig := &Generator{props: &props.Props{Config: nil}}
-		assert.Empty(t, gNoConfig.resolveToken(chat.ProviderOpenAI))
+		assert.Empty(t, gNoConfig.resolveToken(gochat.ProviderOpenAI))
 	})
 }
 

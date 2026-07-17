@@ -13,7 +13,8 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -97,7 +98,7 @@ func NewReleaseProvider(settings Settings) (*DirectReleaseProvider, error) {
 		pinnedVersion:        src.Params["pinned_version"],
 		token:                token,
 		toolName:             src.Repo, // use Repo as tool name fallback; callers can override via url_template
-		httpClient:           gtbhttp.NewClient(),
+		httpClient:           httpclient.NewClient(),
 	}, nil
 }
 

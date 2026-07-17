@@ -11,6 +11,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/verifier"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
@@ -304,7 +306,7 @@ func (g *Generator) checkExistingMain(cmdDir string) error {
 	return nil
 }
 
-func (g *Generator) processAIGeneration(ctx context.Context, data *templates.CommandData, flags []CommandFlag) chat.ChatClient {
+func (g *Generator) processAIGeneration(ctx context.Context, data *templates.CommandData, flags []CommandFlag) gochat.ChatClient {
 	if g.config.ScriptPath == "" && g.config.Prompt == "" {
 		return nil
 	}
@@ -603,7 +605,7 @@ func (g *Generator) convertFlagsToTemplate(flags []CommandFlag) []templates.Comm
 	return tFlags
 }
 
-func (g *Generator) verifyAndFixProject(ctx context.Context, cmdDir string, data *templates.CommandData, aiClient chat.ChatClient) error {
+func (g *Generator) verifyAndFixProject(ctx context.Context, cmdDir string, data *templates.CommandData, aiClient gochat.ChatClient) error {
 	var v verifier.Verifier
 	if g.config.Agentless {
 		v = verifier.NewLegacy(g.props, g.config.Path)
@@ -644,7 +646,7 @@ func (g *Generator) resolveInput() (string, error) {
 	return "", nil
 }
 
-func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageName, funcName, optionsStructName string, flags []CommandFlag) (chat.ChatClient, verifier.AIResponse, error) {
+func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageName, funcName, optionsStructName string, flags []CommandFlag) (gochat.ChatClient, verifier.AIResponse, error) {
 	input, err := g.resolveInput()
 	if err != nil {
 		return nil, verifier.AIResponse{}, err
@@ -663,7 +665,7 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 
 	provider := g.resolveProvider()
 	if g.props.Config.GetBool("ai.claude.local") {
-		provider = chat.ProviderClaudeLocal
+		provider = gochat.ProviderClaudeLocal
 	}
 
 	token := g.resolveToken(provider)
@@ -671,20 +673,20 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 
 	systemPrompt := fmt.Sprintf(commandGenerationSystemPrompt, packageName, funcName, optionsStructName, optionsStructName, flagDescriptions, optionsStructName, packageName, importPath, packageName, funcName)
 
-	chatCfg := chat.Config{
+	chatCfg := gochat.Config{
 		Provider:       provider,
 		Model:          model,
 		Token:          token,
 		SystemPrompt:   systemPrompt,
-		ResponseSchema: chat.GenerateSchema[verifier.AIResponse](),
+		ResponseSchema: gochat.GenerateSchema[verifier.AIResponse](),
 		SchemaName:     "go_conversion",
 		// MaxSteps bounds the autonomous repair agent's ReAct loop (this same
 		// client drives it via VerifyAndFix). Zero falls back to the provider
-		// default (chat.DefaultMaxSteps).
+		// default (gochat.DefaultMaxSteps).
 		MaxSteps: g.config.MaxSteps,
 		// RequestTimeout lets a slow flagship model (e.g. opus) finish a
 		// single-shot generation; the ai.request_timeout config key overrides
-		// the bounded default. Zero falls back to chat.DefaultChatRequestTimeout.
+		// the bounded default. Zero falls back to gochat.DefaultChatRequestTimeout.
 		RequestTimeout: g.requestTimeout(),
 	}
 
@@ -707,7 +709,7 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 	return client, resp, nil
 }
 
-func (g *Generator) handleAIGeneration(ctx context.Context, data *templates.CommandData, flags []CommandFlag) (chat.ChatClient, error) {
+func (g *Generator) handleAIGeneration(ctx context.Context, data *templates.CommandData, flags []CommandFlag) (gochat.ChatClient, error) {
 	importPath, err := g.getImportPath()
 	if err != nil {
 		return nil, errors.Newf("failed to get import path: %w", err)

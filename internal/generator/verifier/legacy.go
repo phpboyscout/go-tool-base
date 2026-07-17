@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -27,7 +28,7 @@ func NewLegacy(p *props.Props, projectPath string) *LegacyVerifier {
 }
 
 // VerifyAndFix runs the verification loop.
-func (v *LegacyVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir string, data *templates.CommandData, aiClient chat.ChatClient, gen GeneratorFunc) error {
+func (v *LegacyVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir string, data *templates.CommandData, aiClient gochat.ChatClient, gen GeneratorFunc) error {
 	const maxRetries = 5
 
 	var lastVerificationErrors string

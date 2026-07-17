@@ -11,6 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/httpclient"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -35,7 +38,7 @@ func countingHandler(t *testing.T, statusCodes ...int) http.Handler {
 	})
 }
 
-// TestWithRetry_Integration verifies NewClient(WithRetry(...)) installs the
+// TestWithRetry_Integration verifies httpclient.NewClient(httpclient.WithRetry(...)) installs the
 // transit retry transport and a transient sequence is retried to success.
 func TestWithRetry_Integration(t *testing.T) {
 	t.Parallel()
@@ -46,9 +49,9 @@ func TestWithRetry_Integration(t *testing.T) {
 	))
 	t.Cleanup(srv.Close)
 
-	client := NewClient(
-		WithTransport(srv.Client().Transport),
-		WithRetry(RetryConfig{
+	client := httpclient.NewClient(
+		httpclient.WithTransport(srv.Client().Transport),
+		httpclient.WithRetry(transithttp.RetryConfig{
 			MaxRetries:           3,
 			InitialBackoff:       1 * time.Millisecond,
 			MaxBackoff:           10 * time.Millisecond,
@@ -63,7 +66,7 @@ func TestWithRetry_Integration(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-// TestWithClientMiddleware_Integration verifies NewClient(WithClientMiddleware(...))
+// TestWithClientMiddleware_Integration verifies httpclient.NewClient(httpclient.WithClientMiddleware(...))
 // applies a transit ClientChain to the transport.
 func TestWithClientMiddleware_Integration(t *testing.T) {
 	t.Parallel()
@@ -76,14 +79,14 @@ func TestWithClientMiddleware_Integration(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	chain := NewClientChain(
-		WithRequestLogging(logger.ToSlog(logger.NewNoop())),
-		WithBearerToken("integration-test"),
+	chain := transithttp.NewClientChain(
+		transithttp.WithRequestLogging(logger.ToSlog(logger.NewNoop())),
+		transithttp.WithBearerToken("integration-test"),
 	)
 
-	client := NewClient(
-		WithTimeout(5*time.Second),
-		WithClientMiddleware(chain),
+	client := httpclient.NewClient(
+		httpclient.WithTimeout(5*time.Second),
+		httpclient.WithClientMiddleware(chain),
 	)
 
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)

@@ -17,8 +17,9 @@ import (
 
 	"gitlab.com/phpboyscout/go/regexutil"
 
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -128,7 +129,7 @@ func NewReleaseProvider(settings Settings) (*BitbucketReleaseProvider, error) {
 		username:        username,
 		appPassword:     appPassword,
 		filenamePattern: re,
-		httpClient:      gtbhttp.NewClient(),
+		httpClient:      httpclient.NewClient(),
 	}, nil
 }
 

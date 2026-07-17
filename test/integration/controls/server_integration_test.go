@@ -19,6 +19,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
+	transitgrpc "gitlab.com/phpboyscout/go/transit/grpc"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
@@ -135,7 +137,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 
 	var middlewareCalls atomic.Int64
 
-	mw := gtbhttp.NewChain(func(next http.Handler) http.Handler {
+	mw := transithttp.NewChain(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			middlewareCalls.Add(1)
 			w.Header().Set("X-Middleware", "applied")
@@ -305,7 +307,7 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 
 	var interceptorCalls atomic.Int64
 
-	chain := gtbgrpc.NewInterceptorChain(gtbgrpc.Interceptor{
+	chain := transitgrpc.NewInterceptorChain(transitgrpc.Interceptor{
 		Unary: func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 			interceptorCalls.Add(1)
 

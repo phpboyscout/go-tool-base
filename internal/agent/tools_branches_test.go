@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // invalidJSON is a payload that fails json.Unmarshal into any of the tools'
@@ -25,8 +25,8 @@ const invalidJSON = `[`
 // invalid-args and disallowed-path branches covers the otherwise-uncovered
 // GoBuildTool/GoTestTool/LinterTool/GoModTidyTool wrappers without invoking a
 // subprocess (which would need a network or external binary).
-func dirToolFactories() map[string]func(afero.Fs, string) chat.Tool {
-	return map[string]func(afero.Fs, string) chat.Tool{
+func dirToolFactories() map[string]func(afero.Fs, string) gochat.Tool {
+	return map[string]func(afero.Fs, string) gochat.Tool{
 		"go_build":    GoBuildTool,
 		"go_test":     GoTestTool,
 		"golangci":    LinterTool,

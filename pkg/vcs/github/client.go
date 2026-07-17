@@ -10,7 +10,8 @@ import (
 	"github.com/google/go-github/v88/github"
 	"github.com/spf13/afero"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
@@ -186,7 +187,7 @@ func (c *GHClient) GetReleaseAssetID(ctx context.Context, owner, repo, tag, asse
 }
 
 func (c *GHClient) DownloadAsset(ctx context.Context, owner string, repo string, assetID int64) (io.ReadCloser, error) {
-	rc, _, err := c.Client.Repositories.DownloadReleaseAsset(ctx, owner, repo, assetID, gtbhttp.NewClient())
+	rc, _, err := c.Client.Repositories.DownloadReleaseAsset(ctx, owner, repo, assetID, httpclient.NewClient())
 	if err != nil {
 		return nil, errors.Newf("failed to download asset %d from repo %s/%s: %w", assetID, owner, repo, err)
 	}
@@ -229,7 +230,7 @@ func (c *GHClient) DownloadAssetTo(ctx context.Context, fs afero.Fs, owner, repo
 // Enterprise instance. Explicit API/upload URLs take precedence over host-derived
 // Enterprise URLs.
 func NewGitHubClient(settings ClientSettings) (*GHClient, error) {
-	opts := []github.ClientOptionsFunc{github.WithHTTPClient(gtbhttp.NewClient())}
+	opts := []github.ClientOptionsFunc{github.WithHTTPClient(httpclient.NewClient())}
 
 	if apiURL, uploadURL := enterpriseURLs(settings); apiURL != "" {
 		opts = append(opts, github.WithEnterpriseURLs(apiURL, uploadURL))

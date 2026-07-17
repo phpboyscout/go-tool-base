@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
@@ -140,7 +142,7 @@ func TestDefaultEnvVarForm(t *testing.T) {
 	t.Run("populates default name", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := &AIConfig{Provider: string(chat.ProviderClaude)}
+		cfg := &AIConfig{Provider: string(gochat.ProviderClaude)}
 		assert.NotNil(t, defaultEnvVarForm(cfg))
 		assert.Equal(t, chat.EnvClaudeKey, cfg.EnvVarName,
 			"blank EnvVarName must be seeded with the provider default")
@@ -149,7 +151,7 @@ func TestDefaultEnvVarForm(t *testing.T) {
 	t.Run("keeps explicit name", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := &AIConfig{Provider: string(chat.ProviderOpenAI), EnvVarName: "CUSTOM"}
+		cfg := &AIConfig{Provider: string(gochat.ProviderOpenAI), EnvVarName: "CUSTOM"}
 		assert.NotNil(t, defaultEnvVarForm(cfg))
 		assert.Equal(t, "CUSTOM", cfg.EnvVarName)
 	})
@@ -161,14 +163,14 @@ func TestDefaultKeyForm(t *testing.T) {
 	t.Run("plain", func(t *testing.T) {
 		t.Setenv(chat.EnvClaudeKey, "")
 
-		cfg := &AIConfig{Provider: string(chat.ProviderClaude)}
+		cfg := &AIConfig{Provider: string(gochat.ProviderClaude)}
 		assert.NotNil(t, defaultKeyForm(cfg))
 	})
 
 	t.Run("with token env override and existing key", func(t *testing.T) {
 		t.Setenv(chat.EnvClaudeKey, "sk-ant-from-env")
 
-		cfg := &AIConfig{Provider: string(chat.ProviderClaude), ExistingKey: "sk-ant-existing"}
+		cfg := &AIConfig{Provider: string(gochat.ProviderClaude), ExistingKey: "sk-ant-existing"}
 		assert.NotNil(t, defaultKeyForm(cfg))
 	})
 
@@ -185,7 +187,7 @@ func TestDefaultKeyForm(t *testing.T) {
 func TestDefaultStorageModeForm(t *testing.T) {
 	t.Parallel()
 
-	cfg := &AIConfig{Provider: string(chat.ProviderClaude)}
+	cfg := &AIConfig{Provider: string(gochat.ProviderClaude)}
 	assert.NotNil(t, defaultStorageModeForm(cfg))
 	assert.Equal(t, credentials.ModeEnvVar, cfg.StorageMode,
 		"blank StorageMode must default to env-var mode")
@@ -205,11 +207,11 @@ func TestApplyStorageModeWrite_UnknownMode(t *testing.T) {
 	t.Parallel()
 
 	cfg := mockConfig.NewMockContainable(t)
-	keys, ok := providerConfigKeys(string(chat.ProviderClaude))
+	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
 	err := applyStorageModeWrite(cfg, "tool", keys, &AIConfig{
-		Provider:    string(chat.ProviderClaude),
+		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.Mode("bogus"),
 	})
 	require.Error(t, err)
@@ -228,11 +230,11 @@ func TestApplyStorageModeWrite_EnvVar(t *testing.T) {
 	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "").Maybe()
 	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "").Maybe()
 
-	keys, ok := providerConfigKeys(string(chat.ProviderClaude))
+	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
 	require.NoError(t, applyStorageModeWrite(cfg, "tool", keys, &AIConfig{
-		Provider:    string(chat.ProviderClaude),
+		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeEnvVar,
 		EnvVarName:  "MY_KEY",
 	}))
@@ -243,11 +245,11 @@ func TestApplyStorageModeWrite_EnvVar(t *testing.T) {
 // stub backend (no credtest installed), whose Store always fails.
 func TestApplyStorageModeWrite_KeychainStoreError(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
-	keys, ok := providerConfigKeys(string(chat.ProviderClaude))
+	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
 	err := applyStorageModeWrite(cfg, "tool", keys, &AIConfig{
-		Provider:    string(chat.ProviderClaude),
+		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeKeychain,
 		APIKey:      "sk-ant",
 	})
@@ -271,7 +273,7 @@ func TestProviderConfigKeys(t *testing.T) {
 	_, ok := providerConfigKeys("unknown")
 	assert.False(t, ok)
 
-	triple, ok := providerConfigKeys(string(chat.ProviderGemini))
+	triple, ok := providerConfigKeys(string(gochat.ProviderGemini))
 	require.True(t, ok)
 	assert.Equal(t, chat.ConfigKeyGeminiEnv, triple.env)
 	assert.Equal(t, chat.ConfigKeyGeminiKey, triple.literal)
@@ -283,10 +285,10 @@ func TestProviderEnvConfigKey(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		string(chat.ProviderClaude): chat.ConfigKeyClaudeEnv,
-		string(chat.ProviderOpenAI): chat.ConfigKeyOpenAIEnv,
-		string(chat.ProviderGemini): chat.ConfigKeyGeminiEnv,
-		"unknown":                   "",
+		string(gochat.ProviderClaude): chat.ConfigKeyClaudeEnv,
+		string(gochat.ProviderOpenAI): chat.ConfigKeyOpenAIEnv,
+		string(gochat.ProviderGemini): chat.ConfigKeyGeminiEnv,
+		"unknown":                     "",
 	}
 	for provider, want := range cases {
 		assert.Equal(t, want, providerEnvConfigKey(provider))
@@ -298,10 +300,10 @@ func TestProviderKeychainConfigKey(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		string(chat.ProviderClaude): chat.ConfigKeyClaudeKeychain,
-		string(chat.ProviderOpenAI): chat.ConfigKeyOpenAIKeychain,
-		string(chat.ProviderGemini): chat.ConfigKeyGeminiKeychain,
-		"unknown":                   "",
+		string(gochat.ProviderClaude): chat.ConfigKeyClaudeKeychain,
+		string(gochat.ProviderOpenAI): chat.ConfigKeyOpenAIKeychain,
+		string(gochat.ProviderGemini): chat.ConfigKeyGeminiKeychain,
+		"unknown":                     "",
 	}
 	for provider, want := range cases {
 		assert.Equal(t, want, providerKeychainConfigKey(provider))
@@ -313,10 +315,10 @@ func TestProviderKeychainAccount(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		string(chat.ProviderClaude): "anthropic.api",
-		string(chat.ProviderOpenAI): "openai.api",
-		string(chat.ProviderGemini): "gemini.api",
-		"unknown":                   "",
+		string(gochat.ProviderClaude): "anthropic.api",
+		string(gochat.ProviderOpenAI): "openai.api",
+		string(gochat.ProviderGemini): "gemini.api",
+		"unknown":                     "",
 	}
 	for provider, want := range cases {
 		assert.Equal(t, want, providerKeychainAccount(provider))
@@ -332,7 +334,7 @@ func TestSetAICredentialOnViper(t *testing.T) {
 
 		v := viper.New()
 		require.NoError(t, setAICredentialOnViper(v, "tool", &AIConfig{
-			Provider:    string(chat.ProviderOpenAI),
+			Provider:    string(gochat.ProviderOpenAI),
 			StorageMode: credentials.ModeEnvVar,
 			EnvVarName:  "OAI",
 		}))
@@ -344,7 +346,7 @@ func TestSetAICredentialOnViper(t *testing.T) {
 
 		v := viper.New()
 		require.NoError(t, setAICredentialOnViper(v, "tool", &AIConfig{
-			Provider:    string(chat.ProviderOpenAI),
+			Provider:    string(gochat.ProviderOpenAI),
 			StorageMode: credentials.ModeLiteral,
 			APIKey:      "sk-lit",
 		}))
@@ -356,7 +358,7 @@ func TestSetAICredentialOnViper(t *testing.T) {
 
 		v := viper.New()
 		err := setAICredentialOnViper(v, "tool", &AIConfig{
-			Provider:    string(chat.ProviderOpenAI),
+			Provider:    string(gochat.ProviderOpenAI),
 			StorageMode: credentials.Mode("bogus"),
 		})
 		require.Error(t, err)
@@ -368,7 +370,7 @@ func TestSetAICredentialOnViper(t *testing.T) {
 
 		v := viper.New()
 		require.NoError(t, setAICredentialOnViper(v, "tool", &AIConfig{
-			Provider:    string(chat.ProviderOpenAI),
+			Provider:    string(gochat.ProviderOpenAI),
 			StorageMode: credentials.ModeKeychain,
 			APIKey:      "sk-kc",
 		}))
@@ -379,7 +381,7 @@ func TestSetAICredentialOnViper(t *testing.T) {
 		// Serial: default stub backend rejects Store.
 		v := viper.New()
 		err := setAICredentialOnViper(v, "tool", &AIConfig{
-			Provider:    string(chat.ProviderOpenAI),
+			Provider:    string(gochat.ProviderOpenAI),
 			StorageMode: credentials.ModeKeychain,
 			APIKey:      "sk-kc",
 		})
@@ -397,7 +399,7 @@ func TestWriteAIConfig_EnvVarMode(t *testing.T) {
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
 	err := writeAIConfig(props, dir, &AIConfig{
-		Provider:    string(chat.ProviderOpenAI),
+		Provider:    string(gochat.ProviderOpenAI),
 		StorageMode: credentials.ModeEnvVar,
 		EnvVarName:  "OPENAI_TOKEN",
 	})
@@ -419,7 +421,7 @@ func TestWriteAIConfig_KeychainMode(t *testing.T) {
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
 	err := writeAIConfig(props, dir, &AIConfig{
-		Provider:    string(chat.ProviderGemini),
+		Provider:    string(gochat.ProviderGemini),
 		StorageMode: credentials.ModeKeychain,
 		APIKey:      "AIza-kc",
 	})
@@ -439,7 +441,7 @@ func TestWriteAIConfig_KeychainStoreError(t *testing.T) {
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
 	err := writeAIConfig(props, dir, &AIConfig{
-		Provider:    string(chat.ProviderGemini),
+		Provider:    string(gochat.ProviderGemini),
 		StorageMode: credentials.ModeKeychain,
 		APIKey:      "AIza-fail",
 	})
@@ -490,7 +492,7 @@ func TestLoadExistingAIConfig(t *testing.T) {
 // TestWriteKeychainRefToViper covers the blank-ref no-op (blank APIKey)
 // and the error pass-through.
 func TestWriteKeychainRefToViper(t *testing.T) {
-	keys, ok := providerConfigKeys(string(chat.ProviderClaude))
+	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
 	t.Run("blank key is a no-op", func(t *testing.T) {
@@ -498,7 +500,7 @@ func TestWriteKeychainRefToViper(t *testing.T) {
 
 		v := viper.New()
 		require.NoError(t, writeKeychainRefToViper(v, "tool", keys, &AIConfig{
-			Provider: string(chat.ProviderClaude),
+			Provider: string(gochat.ProviderClaude),
 			APIKey:   "",
 		}))
 		assert.Empty(t, v.GetString(chat.ConfigKeyClaudeKeychain))
@@ -508,7 +510,7 @@ func TestWriteKeychainRefToViper(t *testing.T) {
 		// Serial: default stub backend rejects Store.
 		v := viper.New()
 		err := writeKeychainRefToViper(v, "tool", keys, &AIConfig{
-			Provider: string(chat.ProviderClaude),
+			Provider: string(gochat.ProviderClaude),
 			APIKey:   "sk-ant",
 		})
 		require.Error(t, err)
@@ -543,7 +545,7 @@ func TestPruneAICredentialKeys(t *testing.T) {
 		v.Set(chat.ConfigKeyClaudeEnv, "STALE_ENV")
 		v.Set(chat.ConfigKeyClaudeKeychain, "tool/anthropic.api")
 
-		out := pruneAICredentialKeys(v, fs, string(chat.ProviderClaude))
+		out := pruneAICredentialKeys(v, fs, string(gochat.ProviderClaude))
 		assert.Equal(t, "debug", out.GetString("log.level"))
 		assert.Empty(t, out.GetString(chat.ConfigKeyClaudeKey))
 		assert.Empty(t, out.GetString(chat.ConfigKeyClaudeEnv))
@@ -605,7 +607,7 @@ func TestDeleteNestedKey(t *testing.T) {
 // Serial: default stub backend rejects Store.
 func TestStoreAIKeyInKeychain_StoreFailureWrapsHint(t *testing.T) {
 	_, err := storeAIKeyInKeychain("tool", &AIConfig{
-		Provider: string(chat.ProviderClaude),
+		Provider: string(gochat.ProviderClaude),
 		APIKey:   "sk-ant",
 	})
 	require.Error(t, err)
@@ -622,7 +624,7 @@ func TestRunAIInit_EnvVarFormCancellation(t *testing.T) {
 
 	opt := func(c *formConfig) {
 		c.providerFormCreator = func(ac *AIConfig) *huh.Form {
-			ac.Provider = string(chat.ProviderClaude)
+			ac.Provider = string(gochat.ProviderClaude)
 			ac.StorageMode = credentials.ModeEnvVar
 
 			return nil
@@ -650,7 +652,7 @@ func TestRunAICredentialStage_EnvVarSuccess(t *testing.T) {
 		return nil
 	}))
 
-	aiCfg := &AIConfig{Provider: string(chat.ProviderClaude), StorageMode: credentials.ModeEnvVar}
+	aiCfg := &AIConfig{Provider: string(gochat.ProviderClaude), StorageMode: credentials.ModeEnvVar}
 	got, err := runAICredentialStage(fCfg, aiCfg)
 	require.NoError(t, err)
 	assert.Equal(t, "X", got.EnvVarName)

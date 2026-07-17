@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
@@ -236,57 +237,57 @@ func RegisterFromContainable(ctx context.Context, id string, controller controls
 	return transporthttp.Register(ctx, id, controller, logger.ToSlog(log), handler, settings, tlsPair, registerOpts...)
 }
 
-// RateLimitConfigFromConfig builds a RateLimitConfig from the config layer
+// RateLimitConfigFromConfig builds a transithttp.RateLimitConfig from the config layer
 // under "<prefix>.ratelimit.*" (prefix defaults to "server.http"), so
 // operators tune the limiter via config like they tune the port or TLS.
 //
-// Unset keys keep their DefaultRateLimitConfig values. The code-only fields
+// Unset keys keep their transithttp.DefaultRateLimitConfig values. The code-only fields
 // (KeyFunc, OnLimited) are never read from config; wiring stays explicit.
-func RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig {
+func RateLimitConfigFromConfig(cfg config.Containable, prefix string) transithttp.RateLimitConfig {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
 
 	if cfg == nil {
-		return DefaultRateLimitConfig()
+		return transithttp.DefaultRateLimitConfig()
 	}
 
 	base := prefix + ".ratelimit"
 
-	section, err := config.UnmarshalSection[RateLimitConfig](cfg, base)
+	section, err := config.UnmarshalSection[transithttp.RateLimitConfig](cfg, base)
 	if err != nil || !section.Exists {
-		return DefaultRateLimitConfig()
+		return transithttp.DefaultRateLimitConfig()
 	}
 
-	return MergeRateLimitConfig(DefaultRateLimitConfig(), section.Value, RateLimitConfigOverrides{
+	return transithttp.MergeRateLimitConfig(transithttp.DefaultRateLimitConfig(), section.Value, transithttp.RateLimitConfigOverrides{
 		RequestsPerSecond: cfg.IsSet(base + ".requests_per_second"),
 		Burst:             cfg.IsSet(base + ".burst"),
 		MaxTrackedKeys:    cfg.IsSet(base + ".max_tracked_keys"),
 	})
 }
 
-// CircuitBreakerConfigFromConfig builds a CircuitBreakerConfig from the config
+// CircuitBreakerConfigFromConfig builds a transithttp.CircuitBreakerConfig from the config
 // layer under "<prefix>.circuitbreaker.*" (prefix defaults to "server.http").
 //
-// Unset keys keep their DefaultCircuitBreakerConfig values. The code-only
+// Unset keys keep their transithttp.DefaultCircuitBreakerConfig values. The code-only
 // fields (IsFailure, OnStateChange) are never read from config.
-func CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) CircuitBreakerConfig {
+func CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) transithttp.CircuitBreakerConfig {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
 
 	if cfg == nil {
-		return DefaultCircuitBreakerConfig()
+		return transithttp.DefaultCircuitBreakerConfig()
 	}
 
 	base := prefix + ".circuitbreaker"
 
-	section, err := config.UnmarshalSection[CircuitBreakerConfig](cfg, base)
+	section, err := config.UnmarshalSection[transithttp.CircuitBreakerConfig](cfg, base)
 	if err != nil || !section.Exists {
-		return DefaultCircuitBreakerConfig()
+		return transithttp.DefaultCircuitBreakerConfig()
 	}
 
-	return MergeCircuitBreakerConfig(DefaultCircuitBreakerConfig(), section.Value, CircuitBreakerConfigOverrides{
+	return transithttp.MergeCircuitBreakerConfig(transithttp.DefaultCircuitBreakerConfig(), section.Value, transithttp.CircuitBreakerConfigOverrides{
 		FailureThreshold:    cfg.IsSet(base + ".failure_threshold"),
 		Cooldown:            cfg.IsSet(base + ".cooldown"),
 		HalfOpenMaxRequests: cfg.IsSet(base + ".half_open_max_requests"),

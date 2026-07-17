@@ -19,6 +19,8 @@ import (
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
@@ -228,7 +230,7 @@ func (g *Generator) handleNoAIDocs(name, fullCmdName, relPath, moduleName, outpu
 }
 
 // writeAIDocs sends source content to the AI client and writes the result.
-func (g *Generator) writeAIDocs(ctx context.Context, client chat.ChatClient, content, outputPath string, isPackage bool) error {
+func (g *Generator) writeAIDocs(ctx context.Context, client gochat.ChatClient, content, outputPath string, isPackage bool) error {
 	userPrompt := fmt.Sprintf("Generate documentation for the following Go command code:\n\n%s", content)
 
 	g.props.Logger.Info("Requesting documentation from AI...")
@@ -238,9 +240,9 @@ func (g *Generator) writeAIDocs(ctx context.Context, client chat.ChatClient, con
 		err         error
 	)
 
-	if streamer, ok := client.(chat.StreamingChatClient); ok {
-		docsContent, err = streamer.StreamChat(ctx, userPrompt, func(e chat.StreamEvent) error {
-			if e.Type == chat.EventTextDelta {
+	if streamer, ok := client.(gochat.StreamingChatClient); ok {
+		docsContent, err = streamer.StreamChat(ctx, userPrompt, func(e gochat.StreamEvent) error {
+			if e.Type == gochat.EventTextDelta {
 				g.props.Logger.Debug("AI delta", "len", len(e.Delta))
 			}
 
@@ -725,7 +727,7 @@ func (g *Generator) resolveAIConfig() (provider, model string) {
 	}
 
 	if provider == "" {
-		provider = string(chat.ProviderClaude)
+		provider = string(gochat.ProviderClaude)
 	}
 
 	model = g.config.AIModel
@@ -734,7 +736,7 @@ func (g *Generator) resolveAIConfig() (provider, model string) {
 	}
 
 	if model == "" {
-		model = g.resolveModel(chat.Provider(provider))
+		model = g.resolveModel(gochat.Provider(provider))
 	}
 
 	return provider, model
@@ -751,13 +753,13 @@ func (g *Generator) sanitizeAIOutput(content string) string {
 	return strings.TrimSpace(content)
 }
 
-func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sysPrompt string) (chat.ChatClient, error) {
+func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sysPrompt string) (gochat.ChatClient, error) {
 	if g.chatClient != nil {
 		return g.chatClient, nil
 	}
 
-	chatCfg := chat.Config{
-		Provider:       chat.Provider(provider),
+	chatCfg := gochat.Config{
+		Provider:       gochat.Provider(provider),
 		Model:          model,
 		SystemPrompt:   sysPrompt,
 		RequestTimeout: g.requestTimeout(),
@@ -768,10 +770,10 @@ func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sys
 		return nil, errors.Newf("failed to create AI client: %w", err)
 	}
 
-	pathSchema := chat.GenerateSchema[struct {
+	pathSchema := gochat.GenerateSchema[struct {
 		Path string `json:"path" jsonschema:"description=Relative path to the file or directory"`
 	}]()
-	pkgSchema := chat.GenerateSchema[struct {
+	pkgSchema := gochat.GenerateSchema[struct {
 		Package string `json:"package" jsonschema:"description=Go package path (e.g. fmt, github.com/foo/bar)"`
 	}]()
 
@@ -785,28 +787,28 @@ func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sys
 		return nil, errors.New("failed to generate pkg tool schema")
 	}
 
-	ReadFileTool := chat.Tool{
+	ReadFileTool := gochat.Tool{
 		Name:        "read_file",
 		Description: "Read the contents of a file from the project. Use this to inspect referenced types or subcommands.",
 		Parameters:  jsonSchema,
 		Handler:     g.handleReadFileTool,
 	}
 
-	ListDirTool := chat.Tool{
+	ListDirTool := gochat.Tool{
 		Name:        "list_dir",
 		Description: "List files and directories in a given path.",
 		Parameters:  jsonSchema,
 		Handler:     g.handleListDirTool,
 	}
 
-	GoDocTool := chat.Tool{
+	GoDocTool := gochat.Tool{
 		Name:        "go_doc",
 		Description: "Get documentation for a Go package.",
 		Parameters:  pkgJsonSchema,
 		Handler:     g.handleGoDocTool,
 	}
 
-	if err := client.SetTools([]chat.Tool{ReadFileTool, ListDirTool, GoDocTool}); err != nil {
+	if err := client.SetTools([]gochat.Tool{ReadFileTool, ListDirTool, GoDocTool}); err != nil {
 		return nil, errors.Newf("failed to set tools: %w", err)
 	}
 

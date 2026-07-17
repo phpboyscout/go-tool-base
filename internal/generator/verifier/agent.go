@@ -8,9 +8,10 @@ import (
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/agent"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -89,11 +90,11 @@ func huhFreeText(question string) (string, error) {
 }
 
 // VerifyAndFix runs the agentic verification loop.
-func (v *AgentVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir string, data *templates.CommandData, aiClient chat.ChatClient, genFunc GeneratorFunc) error {
+func (v *AgentVerifier) VerifyAndFix(ctx context.Context, projectRoot, cmdDir string, data *templates.CommandData, aiClient gochat.ChatClient, genFunc GeneratorFunc) error {
 	v.props.Logger.Info("Starting autonomous agentic verification and repair loop...")
 
 	// 1. Register tools
-	tools := []chat.Tool{
+	tools := []gochat.Tool{
 		agent.ReadFileTool(v.props.FS, projectRoot),
 		agent.ReadFilesTool(v.props.FS, projectRoot),
 		agent.WriteFileTool(v.props.FS, projectRoot),

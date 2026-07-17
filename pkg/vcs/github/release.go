@@ -7,7 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/google/go-github/v88/github"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -133,7 +134,7 @@ func (p *GitHubReleaseProvider) ListReleases(ctx context.Context, owner, repo st
 }
 
 func (p *GitHubReleaseProvider) DownloadReleaseAsset(ctx context.Context, owner, repo string, asset release.ReleaseAsset) (io.ReadCloser, string, error) {
-	rc, redirectURL, err := p.client.Repositories.DownloadReleaseAsset(ctx, owner, repo, asset.GetID(), gtbhttp.NewClient())
+	rc, redirectURL, err := p.client.Repositories.DownloadReleaseAsset(ctx, owner, repo, asset.GetID(), httpclient.NewClient())
 	if err != nil {
 		return nil, "", errors.WithStack(err)
 	}

@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
@@ -120,11 +122,11 @@ func formAtIndex(creator func(*AIConfig) []*huh.Form, i int) func(*AIConfig) *hu
 // providerLabel returns a human-friendly label for the provider.
 func providerLabel(provider string) string {
 	switch provider {
-	case string(chat.ProviderClaude):
+	case string(gochat.ProviderClaude):
 		return "Anthropic (Claude)"
-	case string(chat.ProviderOpenAI):
+	case string(gochat.ProviderOpenAI):
 		return "OpenAI"
-	case string(chat.ProviderGemini):
+	case string(gochat.ProviderGemini):
 		return "Google Gemini"
 	default:
 		return provider
@@ -138,9 +140,9 @@ func defaultProviderForm(cfg *AIConfig) *huh.Form {
 			Title("Select AI Provider").
 			Description("Choose the default AI provider for this tool").
 			Options(
-				huh.NewOption("Claude (Anthropic)", string(chat.ProviderClaude)),
-				huh.NewOption("OpenAI", string(chat.ProviderOpenAI)),
-				huh.NewOption("Gemini (Google)", string(chat.ProviderGemini)),
+				huh.NewOption("Claude (Anthropic)", string(gochat.ProviderClaude)),
+				huh.NewOption("OpenAI", string(gochat.ProviderOpenAI)),
+				huh.NewOption("Gemini (Google)", string(gochat.ProviderGemini)),
 			).
 			Value(&cfg.Provider),
 	}
@@ -271,11 +273,11 @@ func defaultKeyForm(cfg *AIConfig) *huh.Form {
 // providerEnvVar returns the environment variable name for the provider's API key.
 func providerEnvVar(provider string) string {
 	switch provider {
-	case string(chat.ProviderClaude):
+	case string(gochat.ProviderClaude):
 		return chat.EnvClaudeKey
-	case string(chat.ProviderOpenAI):
+	case string(gochat.ProviderOpenAI):
 		return chat.EnvOpenAIKey
-	case string(chat.ProviderGemini):
+	case string(gochat.ProviderGemini):
 		return chat.EnvGeminiKey
 	default:
 		return ""
@@ -572,11 +574,11 @@ func runAICredentialStage(fCfg *formConfig, aiCfg *AIConfig) (*AIConfig, error) 
 // providerConfigKey returns the viper config key for the provider's literal API key.
 func providerConfigKey(provider string) string {
 	switch provider {
-	case string(chat.ProviderClaude):
+	case string(gochat.ProviderClaude):
 		return chat.ConfigKeyClaudeKey
-	case string(chat.ProviderOpenAI):
+	case string(gochat.ProviderOpenAI):
 		return chat.ConfigKeyOpenAIKey
-	case string(chat.ProviderGemini):
+	case string(gochat.ProviderGemini):
 		return chat.ConfigKeyGeminiKey
 	default:
 		return ""
@@ -588,11 +590,11 @@ func providerConfigKey(provider string) string {
 // in [credentials.ModeEnvVar].
 func providerEnvConfigKey(provider string) string {
 	switch provider {
-	case string(chat.ProviderClaude):
+	case string(gochat.ProviderClaude):
 		return chat.ConfigKeyClaudeEnv
-	case string(chat.ProviderOpenAI):
+	case string(gochat.ProviderOpenAI):
 		return chat.ConfigKeyOpenAIEnv
-	case string(chat.ProviderGemini):
+	case string(gochat.ProviderGemini):
 		return chat.ConfigKeyGeminiEnv
 	default:
 		return ""
@@ -604,11 +606,11 @@ func providerEnvConfigKey(provider string) string {
 // when stored in [credentials.ModeKeychain].
 func providerKeychainConfigKey(provider string) string {
 	switch provider {
-	case string(chat.ProviderClaude):
+	case string(gochat.ProviderClaude):
 		return chat.ConfigKeyClaudeKeychain
-	case string(chat.ProviderOpenAI):
+	case string(gochat.ProviderOpenAI):
 		return chat.ConfigKeyOpenAIKeychain
-	case string(chat.ProviderGemini):
+	case string(gochat.ProviderGemini):
 		return chat.ConfigKeyGeminiKeychain
 	default:
 		return ""
@@ -623,11 +625,11 @@ func providerKeychainConfigKey(provider string) string {
 // evolve with care.
 func providerKeychainAccount(provider string) string {
 	switch provider {
-	case string(chat.ProviderClaude):
+	case string(gochat.ProviderClaude):
 		return "anthropic.api"
-	case string(chat.ProviderOpenAI):
+	case string(gochat.ProviderOpenAI):
 		return "openai.api"
-	case string(chat.ProviderGemini):
+	case string(gochat.ProviderGemini):
 		return "gemini.api"
 	default:
 		return ""
@@ -796,9 +798,9 @@ func deleteNestedKey(m map[string]any, path []string) {
 
 // validProviders is the set of permitted AI provider identifiers.
 var validProviders = []string{
-	string(chat.ProviderClaude),
-	string(chat.ProviderOpenAI),
-	string(chat.ProviderGemini),
+	string(gochat.ProviderClaude),
+	string(gochat.ProviderOpenAI),
+	string(gochat.ProviderGemini),
 }
 
 // isValidProvider returns true if the provider is one of the permitted values.

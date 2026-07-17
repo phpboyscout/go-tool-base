@@ -10,7 +10,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
@@ -108,7 +109,7 @@ func NewReleaseProvider(settings Settings) (*GiteaReleaseProvider, error) {
 	return &GiteaReleaseProvider{
 		baseURL:    baseURL,
 		token:      token,
-		httpClient: gtbhttp.NewClient(),
+		httpClient: httpclient.NewClient(),
 	}, nil
 }
 

@@ -4,15 +4,17 @@ import (
 	"os"
 	"time"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 func ExampleNewClient() {
 	// Create a hardened HTTP client with security defaults.
-	client := gtbhttp.NewClient(
-		gtbhttp.WithTimeout(10*time.Second),
-		gtbhttp.WithMaxRedirects(5),
+	client := httpclient.NewClient(
+		httpclient.WithTimeout(10*time.Second),
+		httpclient.WithMaxRedirects(5),
 	)
 
 	_ = client // Use like a standard *http.Client
@@ -20,9 +22,9 @@ func ExampleNewClient() {
 
 func ExampleNewClient_withRetry() {
 	// Create a client with automatic retry for transient failures.
-	client := gtbhttp.NewClient(
-		gtbhttp.WithTimeout(30*time.Second),
-		gtbhttp.WithRetry(gtbhttp.RetryConfig{
+	client := httpclient.NewClient(
+		httpclient.WithTimeout(30*time.Second),
+		httpclient.WithRetry(transithttp.RetryConfig{
 			MaxRetries:     3,
 			InitialBackoff: 500 * time.Millisecond,
 			MaxBackoff:     30 * time.Second,
@@ -34,15 +36,15 @@ func ExampleNewClient_withRetry() {
 
 func ExampleNewClientChain() {
 	// Compose client middleware for auth, logging, and rate limiting.
-	chain := gtbhttp.NewClientChain(
-		gtbhttp.WithRequestLogging(logger.ToSlog(logger.NewNoop())),
-		gtbhttp.WithBearerToken(os.Getenv("API_TOKEN")),
-		gtbhttp.WithRateLimit(10), // 10 requests per second
+	chain := transithttp.NewClientChain(
+		transithttp.WithRequestLogging(logger.ToSlog(logger.NewNoop())),
+		transithttp.WithBearerToken(os.Getenv("API_TOKEN")),
+		transithttp.WithRateLimit(10), // 10 requests per second
 	)
 
-	client := gtbhttp.NewClient(
-		gtbhttp.WithTimeout(30*time.Second),
-		gtbhttp.WithClientMiddleware(chain),
+	client := httpclient.NewClient(
+		httpclient.WithTimeout(30*time.Second),
+		httpclient.WithClientMiddleware(chain),
 	)
 
 	_ = client // Use like a standard *http.Client

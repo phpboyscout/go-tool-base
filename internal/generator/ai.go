@@ -1,45 +1,45 @@
 package generator
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
-func (g *Generator) resolveProvider() chat.Provider {
-	provider := chat.ProviderClaude
+func (g *Generator) resolveProvider() gochat.Provider {
+	provider := gochat.ProviderClaude
 
 	if g.props.Config != nil {
 		if p := g.props.Config.GetString("ai.provider"); p != "" {
-			provider = chat.Provider(p)
+			provider = gochat.Provider(p)
 		}
 	}
 
 	if g.config.AIProvider != "" {
-		provider = chat.Provider(g.config.AIProvider)
+		provider = gochat.Provider(g.config.AIProvider)
 	}
 
 	return provider
 }
 
-func (g *Generator) resolveToken(provider chat.Provider) string {
+func (g *Generator) resolveToken(provider gochat.Provider) string {
 	if g.props.Config == nil {
 		return ""
 	}
 
 	switch provider {
-	case chat.ProviderOpenAI, chat.ProviderOpenAICompatible:
+	case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
 		return g.props.Config.GetString("openai.api.key")
-	case chat.ProviderClaude:
+	case gochat.ProviderClaude:
 		return g.props.Config.GetString("anthropic.api.key")
-	case chat.ProviderGemini:
+	case gochat.ProviderGemini:
 		return g.props.Config.GetString("gemini.api.key")
-	case chat.ProviderClaudeLocal:
+	case gochat.ProviderClaudeLocal:
 		return ""
 	default:
 		return ""
 	}
 }
 
-func (g *Generator) resolveModel(provider chat.Provider) string {
+func (g *Generator) resolveModel(provider gochat.Provider) string {
 	model := ""
 	if g.props.Config != nil {
 		model = g.props.Config.GetString("ai.model")
@@ -51,13 +51,13 @@ func (g *Generator) resolveModel(provider chat.Provider) string {
 
 	if model == "" {
 		switch provider {
-		case chat.ProviderOpenAI, chat.ProviderOpenAICompatible:
-			model = chat.DefaultModelOpenAI
-		case chat.ProviderGemini:
-			model = chat.DefaultModelGemini
-		case chat.ProviderClaude:
-			model = chat.DefaultModelClaude
-		case chat.ProviderClaudeLocal:
+		case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
+			model = gochat.DefaultModelOpenAI
+		case gochat.ProviderGemini:
+			model = gochat.DefaultModelGemini
+		case gochat.ProviderClaude:
+			model = gochat.DefaultModelClaude
+		case gochat.ProviderClaudeLocal:
 			// no default model; the claude binary selects its own default
 		}
 	}

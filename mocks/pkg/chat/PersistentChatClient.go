@@ -8,7 +8,7 @@ import (
 	"context"
 
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // NewMockPersistentChatClient creates a new instance of MockPersistentChatClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -39,7 +39,7 @@ func (_m *MockPersistentChatClient) EXPECT() *MockPersistentChatClient_Expecter 
 }
 
 // Add provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) Add(ctx context.Context, prompt string, media ...chat.Media) error {
+func (_mock *MockPersistentChatClient) Add(ctx context.Context, prompt string, media ...gochat.Media) error {
 	var tmpRet mock.Arguments
 	if len(media) > 0 {
 		tmpRet = _mock.Called(ctx, prompt, media)
@@ -53,7 +53,7 @@ func (_mock *MockPersistentChatClient) Add(ctx context.Context, prompt string, m
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...chat.Media) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...gochat.Media) error); ok {
 		r0 = returnFunc(ctx, prompt, media...)
 	} else {
 		r0 = ret.Error(0)
@@ -69,13 +69,13 @@ type MockPersistentChatClient_Add_Call struct {
 // Add is a helper method to define mock.On call
 //   - ctx context.Context
 //   - prompt string
-//   - media ...chat.Media
+//   - media ...gochat.Media
 func (_e *MockPersistentChatClient_Expecter) Add(ctx interface{}, prompt interface{}, media ...interface{}) *MockPersistentChatClient_Add_Call {
 	return &MockPersistentChatClient_Add_Call{Call: _e.mock.On("Add",
 		append([]interface{}{ctx, prompt}, media...)...)}
 }
 
-func (_c *MockPersistentChatClient_Add_Call) Run(run func(ctx context.Context, prompt string, media ...chat.Media)) *MockPersistentChatClient_Add_Call {
+func (_c *MockPersistentChatClient_Add_Call) Run(run func(ctx context.Context, prompt string, media ...gochat.Media)) *MockPersistentChatClient_Add_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -85,10 +85,10 @@ func (_c *MockPersistentChatClient_Add_Call) Run(run func(ctx context.Context, p
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 []chat.Media
-		var variadicArgs []chat.Media
+		var arg2 []gochat.Media
+		var variadicArgs []gochat.Media
 		if len(args) > 2 {
-			variadicArgs = args[2].([]chat.Media)
+			variadicArgs = args[2].([]gochat.Media)
 		}
 		arg2 = variadicArgs
 		run(
@@ -105,13 +105,13 @@ func (_c *MockPersistentChatClient_Add_Call) Return(err error) *MockPersistentCh
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Add_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...chat.Media) error) *MockPersistentChatClient_Add_Call {
+func (_c *MockPersistentChatClient_Add_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...gochat.Media) error) *MockPersistentChatClient_Add_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Ask provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) Ask(ctx context.Context, question string, target any, media ...chat.Media) error {
+func (_mock *MockPersistentChatClient) Ask(ctx context.Context, question string, target any, media ...gochat.Media) error {
 	var tmpRet mock.Arguments
 	if len(media) > 0 {
 		tmpRet = _mock.Called(ctx, question, target, media)
@@ -125,7 +125,7 @@ func (_mock *MockPersistentChatClient) Ask(ctx context.Context, question string,
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, any, ...chat.Media) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, any, ...gochat.Media) error); ok {
 		r0 = returnFunc(ctx, question, target, media...)
 	} else {
 		r0 = ret.Error(0)
@@ -142,13 +142,13 @@ type MockPersistentChatClient_Ask_Call struct {
 //   - ctx context.Context
 //   - question string
 //   - target any
-//   - media ...chat.Media
+//   - media ...gochat.Media
 func (_e *MockPersistentChatClient_Expecter) Ask(ctx interface{}, question interface{}, target interface{}, media ...interface{}) *MockPersistentChatClient_Ask_Call {
 	return &MockPersistentChatClient_Ask_Call{Call: _e.mock.On("Ask",
 		append([]interface{}{ctx, question, target}, media...)...)}
 }
 
-func (_c *MockPersistentChatClient_Ask_Call) Run(run func(ctx context.Context, question string, target any, media ...chat.Media)) *MockPersistentChatClient_Ask_Call {
+func (_c *MockPersistentChatClient_Ask_Call) Run(run func(ctx context.Context, question string, target any, media ...gochat.Media)) *MockPersistentChatClient_Ask_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -162,10 +162,10 @@ func (_c *MockPersistentChatClient_Ask_Call) Run(run func(ctx context.Context, q
 		if args[2] != nil {
 			arg2 = args[2].(any)
 		}
-		var arg3 []chat.Media
-		var variadicArgs []chat.Media
+		var arg3 []gochat.Media
+		var variadicArgs []gochat.Media
 		if len(args) > 3 {
-			variadicArgs = args[3].([]chat.Media)
+			variadicArgs = args[3].([]gochat.Media)
 		}
 		arg3 = variadicArgs
 		run(
@@ -183,13 +183,13 @@ func (_c *MockPersistentChatClient_Ask_Call) Return(err error) *MockPersistentCh
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Ask_Call) RunAndReturn(run func(ctx context.Context, question string, target any, media ...chat.Media) error) *MockPersistentChatClient_Ask_Call {
+func (_c *MockPersistentChatClient_Ask_Call) RunAndReturn(run func(ctx context.Context, question string, target any, media ...gochat.Media) error) *MockPersistentChatClient_Ask_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Chat provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) Chat(ctx context.Context, prompt string, media ...chat.Media) (string, error) {
+func (_mock *MockPersistentChatClient) Chat(ctx context.Context, prompt string, media ...gochat.Media) (string, error) {
 	var tmpRet mock.Arguments
 	if len(media) > 0 {
 		tmpRet = _mock.Called(ctx, prompt, media)
@@ -204,15 +204,15 @@ func (_mock *MockPersistentChatClient) Chat(ctx context.Context, prompt string, 
 
 	var r0 string
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...chat.Media) (string, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...gochat.Media) (string, error)); ok {
 		return returnFunc(ctx, prompt, media...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...chat.Media) string); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...gochat.Media) string); ok {
 		r0 = returnFunc(ctx, prompt, media...)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...chat.Media) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...gochat.Media) error); ok {
 		r1 = returnFunc(ctx, prompt, media...)
 	} else {
 		r1 = ret.Error(1)
@@ -228,13 +228,13 @@ type MockPersistentChatClient_Chat_Call struct {
 // Chat is a helper method to define mock.On call
 //   - ctx context.Context
 //   - prompt string
-//   - media ...chat.Media
+//   - media ...gochat.Media
 func (_e *MockPersistentChatClient_Expecter) Chat(ctx interface{}, prompt interface{}, media ...interface{}) *MockPersistentChatClient_Chat_Call {
 	return &MockPersistentChatClient_Chat_Call{Call: _e.mock.On("Chat",
 		append([]interface{}{ctx, prompt}, media...)...)}
 }
 
-func (_c *MockPersistentChatClient_Chat_Call) Run(run func(ctx context.Context, prompt string, media ...chat.Media)) *MockPersistentChatClient_Chat_Call {
+func (_c *MockPersistentChatClient_Chat_Call) Run(run func(ctx context.Context, prompt string, media ...gochat.Media)) *MockPersistentChatClient_Chat_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -244,10 +244,10 @@ func (_c *MockPersistentChatClient_Chat_Call) Run(run func(ctx context.Context, 
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 []chat.Media
-		var variadicArgs []chat.Media
+		var arg2 []gochat.Media
+		var variadicArgs []gochat.Media
 		if len(args) > 2 {
-			variadicArgs = args[2].([]chat.Media)
+			variadicArgs = args[2].([]gochat.Media)
 		}
 		arg2 = variadicArgs
 		run(
@@ -264,13 +264,13 @@ func (_c *MockPersistentChatClient_Chat_Call) Return(s string, err error) *MockP
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Chat_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...chat.Media) (string, error)) *MockPersistentChatClient_Chat_Call {
+func (_c *MockPersistentChatClient_Chat_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...gochat.Media) (string, error)) *MockPersistentChatClient_Chat_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Restore provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) Restore(snapshot *chat.Snapshot) error {
+func (_mock *MockPersistentChatClient) Restore(snapshot *gochat.Snapshot) error {
 	ret := _mock.Called(snapshot)
 
 	if len(ret) == 0 {
@@ -278,7 +278,7 @@ func (_mock *MockPersistentChatClient) Restore(snapshot *chat.Snapshot) error {
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*chat.Snapshot) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(*gochat.Snapshot) error); ok {
 		r0 = returnFunc(snapshot)
 	} else {
 		r0 = ret.Error(0)
@@ -292,16 +292,16 @@ type MockPersistentChatClient_Restore_Call struct {
 }
 
 // Restore is a helper method to define mock.On call
-//   - snapshot *chat.Snapshot
+//   - snapshot *gochat.Snapshot
 func (_e *MockPersistentChatClient_Expecter) Restore(snapshot interface{}) *MockPersistentChatClient_Restore_Call {
 	return &MockPersistentChatClient_Restore_Call{Call: _e.mock.On("Restore", snapshot)}
 }
 
-func (_c *MockPersistentChatClient_Restore_Call) Run(run func(snapshot *chat.Snapshot)) *MockPersistentChatClient_Restore_Call {
+func (_c *MockPersistentChatClient_Restore_Call) Run(run func(snapshot *gochat.Snapshot)) *MockPersistentChatClient_Restore_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *chat.Snapshot
+		var arg0 *gochat.Snapshot
 		if args[0] != nil {
-			arg0 = args[0].(*chat.Snapshot)
+			arg0 = args[0].(*gochat.Snapshot)
 		}
 		run(
 			arg0,
@@ -315,29 +315,29 @@ func (_c *MockPersistentChatClient_Restore_Call) Return(err error) *MockPersiste
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Restore_Call) RunAndReturn(run func(snapshot *chat.Snapshot) error) *MockPersistentChatClient_Restore_Call {
+func (_c *MockPersistentChatClient_Restore_Call) RunAndReturn(run func(snapshot *gochat.Snapshot) error) *MockPersistentChatClient_Restore_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Save provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) Save() (*chat.Snapshot, error) {
+func (_mock *MockPersistentChatClient) Save() (*gochat.Snapshot, error) {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Save")
 	}
 
-	var r0 *chat.Snapshot
+	var r0 *gochat.Snapshot
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func() (*chat.Snapshot, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func() (*gochat.Snapshot, error)); ok {
 		return returnFunc()
 	}
-	if returnFunc, ok := ret.Get(0).(func() *chat.Snapshot); ok {
+	if returnFunc, ok := ret.Get(0).(func() *gochat.Snapshot); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*chat.Snapshot)
+			r0 = ret.Get(0).(*gochat.Snapshot)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func() error); ok {
@@ -365,18 +365,18 @@ func (_c *MockPersistentChatClient_Save_Call) Run(run func()) *MockPersistentCha
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Save_Call) Return(snapshot *chat.Snapshot, err error) *MockPersistentChatClient_Save_Call {
+func (_c *MockPersistentChatClient_Save_Call) Return(snapshot *gochat.Snapshot, err error) *MockPersistentChatClient_Save_Call {
 	_c.Call.Return(snapshot, err)
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Save_Call) RunAndReturn(run func() (*chat.Snapshot, error)) *MockPersistentChatClient_Save_Call {
+func (_c *MockPersistentChatClient_Save_Call) RunAndReturn(run func() (*gochat.Snapshot, error)) *MockPersistentChatClient_Save_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SetTools provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) SetTools(tools []chat.Tool) error {
+func (_mock *MockPersistentChatClient) SetTools(tools []gochat.Tool) error {
 	ret := _mock.Called(tools)
 
 	if len(ret) == 0 {
@@ -384,7 +384,7 @@ func (_mock *MockPersistentChatClient) SetTools(tools []chat.Tool) error {
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func([]chat.Tool) error); ok {
+	if returnFunc, ok := ret.Get(0).(func([]gochat.Tool) error); ok {
 		r0 = returnFunc(tools)
 	} else {
 		r0 = ret.Error(0)
@@ -398,16 +398,16 @@ type MockPersistentChatClient_SetTools_Call struct {
 }
 
 // SetTools is a helper method to define mock.On call
-//   - tools []chat.Tool
+//   - tools []gochat.Tool
 func (_e *MockPersistentChatClient_Expecter) SetTools(tools interface{}) *MockPersistentChatClient_SetTools_Call {
 	return &MockPersistentChatClient_SetTools_Call{Call: _e.mock.On("SetTools", tools)}
 }
 
-func (_c *MockPersistentChatClient_SetTools_Call) Run(run func(tools []chat.Tool)) *MockPersistentChatClient_SetTools_Call {
+func (_c *MockPersistentChatClient_SetTools_Call) Run(run func(tools []gochat.Tool)) *MockPersistentChatClient_SetTools_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []chat.Tool
+		var arg0 []gochat.Tool
 		if args[0] != nil {
-			arg0 = args[0].([]chat.Tool)
+			arg0 = args[0].([]gochat.Tool)
 		}
 		run(
 			arg0,
@@ -421,24 +421,24 @@ func (_c *MockPersistentChatClient_SetTools_Call) Return(err error) *MockPersist
 	return _c
 }
 
-func (_c *MockPersistentChatClient_SetTools_Call) RunAndReturn(run func(tools []chat.Tool) error) *MockPersistentChatClient_SetTools_Call {
+func (_c *MockPersistentChatClient_SetTools_Call) RunAndReturn(run func(tools []gochat.Tool) error) *MockPersistentChatClient_SetTools_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Usage provides a mock function for the type MockPersistentChatClient
-func (_mock *MockPersistentChatClient) Usage() chat.Usage {
+func (_mock *MockPersistentChatClient) Usage() gochat.Usage {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Usage")
 	}
 
-	var r0 chat.Usage
-	if returnFunc, ok := ret.Get(0).(func() chat.Usage); ok {
+	var r0 gochat.Usage
+	if returnFunc, ok := ret.Get(0).(func() gochat.Usage); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(chat.Usage)
+		r0 = ret.Get(0).(gochat.Usage)
 	}
 	return r0
 }
@@ -460,12 +460,12 @@ func (_c *MockPersistentChatClient_Usage_Call) Run(run func()) *MockPersistentCh
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Usage_Call) Return(usage chat.Usage) *MockPersistentChatClient_Usage_Call {
+func (_c *MockPersistentChatClient_Usage_Call) Return(usage gochat.Usage) *MockPersistentChatClient_Usage_Call {
 	_c.Call.Return(usage)
 	return _c
 }
 
-func (_c *MockPersistentChatClient_Usage_Call) RunAndReturn(run func() chat.Usage) *MockPersistentChatClient_Usage_Call {
+func (_c *MockPersistentChatClient_Usage_Call) RunAndReturn(run func() gochat.Usage) *MockPersistentChatClient_Usage_Call {
 	_c.Call.Return(run)
 	return _c
 }

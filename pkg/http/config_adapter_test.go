@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
 	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
@@ -287,14 +288,14 @@ func TestStartFromContainable_DefaultPrefix(t *testing.T) {
 func TestMergeRateLimitConfig(t *testing.T) {
 	t.Parallel()
 
-	base := DefaultRateLimitConfig()
-	override := RateLimitConfig{
+	base := transithttp.DefaultRateLimitConfig()
+	override := transithttp.RateLimitConfig{
 		RequestsPerSecond: 12,
 		Burst:             34,
 		MaxTrackedKeys:    56,
 	}
 
-	got := MergeRateLimitConfig(base, override, RateLimitConfigOverrides{
+	got := transithttp.MergeRateLimitConfig(base, override, transithttp.RateLimitConfigOverrides{
 		RequestsPerSecond: true,
 		MaxTrackedKeys:    true,
 	})
@@ -334,19 +335,19 @@ func TestRateLimitConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 
 	cfg := cfgFromYAML(t, "name: x\n")
 
-	assert.Equal(t, DefaultRateLimitConfig(), RateLimitConfigFromConfig(cfg, "server.http"))
+	assert.Equal(t, transithttp.DefaultRateLimitConfig(), RateLimitConfigFromConfig(cfg, "server.http"))
 }
 
 func TestRateLimitConfigFromConfig_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, DefaultRateLimitConfig(), RateLimitConfigFromConfig(nil, ""))
+	assert.Equal(t, transithttp.DefaultRateLimitConfig(), RateLimitConfigFromConfig(nil, ""))
 }
 
 func TestCircuitBreakerConfigFromConfig_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(nil, ""))
+	assert.Equal(t, transithttp.DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(nil, ""))
 }
 
 func TestRateLimitConfigFromConfig_CustomPrefix(t *testing.T) {
@@ -361,14 +362,14 @@ func TestRateLimitConfigFromConfig_CustomPrefix(t *testing.T) {
 func TestMergeCircuitBreakerConfig(t *testing.T) {
 	t.Parallel()
 
-	base := DefaultCircuitBreakerConfig()
-	override := CircuitBreakerConfig{
+	base := transithttp.DefaultCircuitBreakerConfig()
+	override := transithttp.CircuitBreakerConfig{
 		FailureThreshold:    7,
 		Cooldown:            10 * time.Second,
 		HalfOpenMaxRequests: 3,
 	}
 
-	got := MergeCircuitBreakerConfig(base, override, CircuitBreakerConfigOverrides{
+	got := transithttp.MergeCircuitBreakerConfig(base, override, transithttp.CircuitBreakerConfigOverrides{
 		FailureThreshold: true,
 		Cooldown:         true,
 	})
@@ -408,7 +409,7 @@ func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 
 	cfg := cfgFromYAML(t, "name: x\n")
 
-	assert.Equal(t, DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.http"))
+	assert.Equal(t, transithttp.DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.http"))
 }
 
 func runHTTPConfigObservers(c *config.Container) error {

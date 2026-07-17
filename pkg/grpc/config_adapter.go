@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transitgrpc "gitlab.com/phpboyscout/go/transit/grpc"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
@@ -247,56 +248,56 @@ func RegisterFromContainable(_ context.Context, id string, controller controls.C
 	return transportgrpc.Register(id, controller, logger.ToSlog(log), settings, tlsPair, forwarded...)
 }
 
-// RateLimitConfigFromConfig builds a RateLimitConfig from the config layer
+// RateLimitConfigFromConfig builds a transitgrpc.RateLimitConfig from the config layer
 // under "<prefix>.ratelimit.*" (prefix defaults to "server.grpc").
 //
-// Unset keys keep their DefaultRateLimitConfig values. The code-only fields
+// Unset keys keep their transitgrpc.DefaultRateLimitConfig values. The code-only fields
 // (KeyFunc, OnLimited) are never read from config; wiring stays explicit.
-func RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig {
+func RateLimitConfigFromConfig(cfg config.Containable, prefix string) transitgrpc.RateLimitConfig {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
 
 	if cfg == nil {
-		return DefaultRateLimitConfig()
+		return transitgrpc.DefaultRateLimitConfig()
 	}
 
 	base := prefix + ".ratelimit"
 
-	section, err := config.UnmarshalSection[RateLimitConfig](cfg, base)
+	section, err := config.UnmarshalSection[transitgrpc.RateLimitConfig](cfg, base)
 	if err != nil || !section.Exists {
-		return DefaultRateLimitConfig()
+		return transitgrpc.DefaultRateLimitConfig()
 	}
 
-	return MergeRateLimitConfig(DefaultRateLimitConfig(), section.Value, RateLimitConfigOverrides{
+	return transitgrpc.MergeRateLimitConfig(transitgrpc.DefaultRateLimitConfig(), section.Value, transitgrpc.RateLimitConfigOverrides{
 		RequestsPerSecond: cfg.IsSet(base + ".requests_per_second"),
 		Burst:             cfg.IsSet(base + ".burst"),
 		MaxTrackedKeys:    cfg.IsSet(base + ".max_tracked_keys"),
 	})
 }
 
-// CircuitBreakerConfigFromConfig builds a CircuitBreakerConfig from the config
+// CircuitBreakerConfigFromConfig builds a transitgrpc.CircuitBreakerConfig from the config
 // layer under "<prefix>.circuitbreaker.*" (prefix defaults to "server.grpc").
 //
-// Unset keys keep their DefaultCircuitBreakerConfig values. The code-only
+// Unset keys keep their transitgrpc.DefaultCircuitBreakerConfig values. The code-only
 // fields (IsFailure, OnStateChange) are never read from config.
-func CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) CircuitBreakerConfig {
+func CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) transitgrpc.CircuitBreakerConfig {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
 
 	if cfg == nil {
-		return DefaultCircuitBreakerConfig()
+		return transitgrpc.DefaultCircuitBreakerConfig()
 	}
 
 	base := prefix + ".circuitbreaker"
 
-	section, err := config.UnmarshalSection[CircuitBreakerConfig](cfg, base)
+	section, err := config.UnmarshalSection[transitgrpc.CircuitBreakerConfig](cfg, base)
 	if err != nil || !section.Exists {
-		return DefaultCircuitBreakerConfig()
+		return transitgrpc.DefaultCircuitBreakerConfig()
 	}
 
-	return MergeCircuitBreakerConfig(DefaultCircuitBreakerConfig(), section.Value, CircuitBreakerConfigOverrides{
+	return transitgrpc.MergeCircuitBreakerConfig(transitgrpc.DefaultCircuitBreakerConfig(), section.Value, transitgrpc.CircuitBreakerConfigOverrides{
 		FailureThreshold:    cfg.IsSet(base + ".failure_threshold"),
 		Cooldown:            cfg.IsSet(base + ".cooldown"),
 		HalfOpenMaxRequests: cfg.IsSet(base + ".half_open_max_requests"),

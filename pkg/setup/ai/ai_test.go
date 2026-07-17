@@ -12,6 +12,8 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
@@ -300,9 +302,9 @@ func TestProviderConfigKey(t *testing.T) {
 		provider string
 		expected string
 	}{
-		{string(chat.ProviderClaude), chat.ConfigKeyClaudeKey},
-		{string(chat.ProviderOpenAI), chat.ConfigKeyOpenAIKey},
-		{string(chat.ProviderGemini), chat.ConfigKeyGeminiKey},
+		{string(gochat.ProviderClaude), chat.ConfigKeyClaudeKey},
+		{string(gochat.ProviderOpenAI), chat.ConfigKeyOpenAIKey},
+		{string(gochat.ProviderGemini), chat.ConfigKeyGeminiKey},
 		{"unknown", ""},
 	}
 
@@ -350,7 +352,7 @@ func TestIsAIConfigured(t *testing.T) {
 				t.Helper()
 				props := newTestProps(t)
 				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(chat.ProviderClaude),
+					chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
 					chat.ConfigKeyClaudeKey:  "sk-ant-test",
 				})
 
@@ -364,7 +366,7 @@ func TestIsAIConfigured(t *testing.T) {
 				t.Helper()
 				props := newTestProps(t)
 				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(chat.ProviderClaude),
+					chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
 				})
 
 				return props
@@ -377,7 +379,7 @@ func TestIsAIConfigured(t *testing.T) {
 				t.Helper()
 				props := newTestProps(t)
 				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(chat.ProviderOpenAI),
+					chat.ConfigKeyAIProvider: string(gochat.ProviderOpenAI),
 					chat.ConfigKeyOpenAIKey:  "sk-test",
 				})
 
@@ -391,7 +393,7 @@ func TestIsAIConfigured(t *testing.T) {
 				t.Helper()
 				props := newTestProps(t)
 				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(chat.ProviderGemini),
+					chat.ConfigKeyAIProvider: string(gochat.ProviderGemini),
 					chat.ConfigKeyGeminiKey:  "AIza-test",
 				})
 
@@ -453,9 +455,9 @@ func TestProviderEnvVar(t *testing.T) {
 		provider string
 		envVar   string
 	}{
-		{string(chat.ProviderClaude), chat.EnvClaudeKey},
-		{string(chat.ProviderOpenAI), chat.EnvOpenAIKey},
-		{string(chat.ProviderGemini), chat.EnvGeminiKey},
+		{string(gochat.ProviderClaude), chat.EnvClaudeKey},
+		{string(gochat.ProviderOpenAI), chat.EnvOpenAIKey},
+		{string(gochat.ProviderGemini), chat.EnvGeminiKey},
 		{"unknown", ""},
 		{"", ""},
 	}
@@ -475,9 +477,9 @@ func TestIsValidProvider(t *testing.T) {
 		provider string
 		valid    bool
 	}{
-		{string(chat.ProviderClaude), true},
-		{string(chat.ProviderOpenAI), true},
-		{string(chat.ProviderGemini), true},
+		{string(gochat.ProviderClaude), true},
+		{string(gochat.ProviderOpenAI), true},
+		{string(gochat.ProviderGemini), true},
 		{"unknown", false},
 		{"", false},
 	}
@@ -497,9 +499,9 @@ func TestProviderLabel(t *testing.T) {
 		provider string
 		label    string
 	}{
-		{string(chat.ProviderClaude), "Anthropic (Claude)"},
-		{string(chat.ProviderOpenAI), "OpenAI"},
-		{string(chat.ProviderGemini), "Google Gemini"},
+		{string(gochat.ProviderClaude), "Anthropic (Claude)"},
+		{string(gochat.ProviderOpenAI), "OpenAI"},
+		{string(gochat.ProviderGemini), "Google Gemini"},
 		{"custom-provider", "custom-provider"},
 	}
 
@@ -531,13 +533,13 @@ func TestAIInitialiser_IsConfigured(t *testing.T) {
 		},
 		{
 			name:     "valid provider no key",
-			values:   map[string]any{chat.ConfigKeyAIProvider: string(chat.ProviderClaude)},
+			values:   map[string]any{chat.ConfigKeyAIProvider: string(gochat.ProviderClaude)},
 			expected: false,
 		},
 		{
 			name: "claude with key",
 			values: map[string]any{
-				chat.ConfigKeyAIProvider: string(chat.ProviderClaude),
+				chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
 				chat.ConfigKeyClaudeKey:  "sk-ant-test",
 			},
 			expected: true,
@@ -545,7 +547,7 @@ func TestAIInitialiser_IsConfigured(t *testing.T) {
 		{
 			name: "openai with key",
 			values: map[string]any{
-				chat.ConfigKeyAIProvider: string(chat.ProviderOpenAI),
+				chat.ConfigKeyAIProvider: string(gochat.ProviderOpenAI),
 				chat.ConfigKeyOpenAIKey:  "sk-openai-test",
 			},
 			expected: true,
@@ -568,7 +570,7 @@ func TestAIInitialiser_Configure(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
 	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(chat.ProviderClaude)).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Once()
 	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test").Once()
 	// Writing the literal also blanks the sibling env/keychain key
 	// paths so a prior storage mode cannot leave a stale value behind.
@@ -577,7 +579,7 @@ func TestAIInitialiser_Configure(t *testing.T) {
 	i := &AIInitialiser{
 		formOpts: []FormOption{
 			WithAIForm(func(c *AIConfig) []*huh.Form {
-				c.Provider = string(chat.ProviderClaude)
+				c.Provider = string(gochat.ProviderClaude)
 				c.APIKey = "sk-ant-configure-test"
 
 				return nil
@@ -595,12 +597,12 @@ func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
 	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(chat.ProviderOpenAI)).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{
 			WithAIForm(func(c *AIConfig) []*huh.Form {
-				c.Provider = string(chat.ProviderOpenAI)
+				c.Provider = string(gochat.ProviderOpenAI)
 				// APIKey intentionally blank
 				return nil
 			}),
@@ -616,12 +618,12 @@ func TestRunAIForms_ExistingKeyFallback(t *testing.T) {
 
 	// When the form leaves APIKey blank, runAIForms should fall back to ExistingKey.
 	cfg := newMockConfig(t, map[string]any{
-		chat.ConfigKeyAIProvider: string(chat.ProviderClaude),
+		chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
 		chat.ConfigKeyClaudeKey:  "sk-ant-existing-key",
 	})
 
 	aiCfg, err := runAIForms(cfg, WithAIForm(func(c *AIConfig) []*huh.Form {
-		c.Provider = string(chat.ProviderClaude)
+		c.Provider = string(gochat.ProviderClaude)
 		// APIKey intentionally not set — should fall back to ExistingKey
 		return nil
 	}))
@@ -706,7 +708,7 @@ func TestRunAIForms_KeyFormCancellation(t *testing.T) {
 	// Provider form succeeds (returns nil to skip), but key form fails.
 	cancelOpt := func(c *formConfig) {
 		c.providerFormCreator = func(ac *AIConfig) *huh.Form {
-			ac.Provider = string(chat.ProviderClaude)
+			ac.Provider = string(gochat.ProviderClaude)
 			return nil // skip provider selection
 		}
 		c.keyFormCreator = func(_ *AIConfig) *huh.Form {

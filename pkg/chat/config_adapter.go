@@ -6,25 +6,27 @@ import (
 	"net/http"
 	"time"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	gtbcreds "gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // SettingsFromProps adapts GTB props and framework config into package-owned
 // chat settings while preserving the existing config key layout and precedence.
-func SettingsFromProps(p *props.Props, cfg Config) (Settings, error) {
+func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, error) {
 	if err := applyRuntimeConfig(p, &cfg); err != nil {
-		return Settings{}, err
+		return gochat.Settings{}, err
 	}
 
 	log := loggerFromProps(p)
 	applyDefaultProvider(log, &cfg)
 
 	if err := applyCredentialConfig(p, &cfg); err != nil {
-		return Settings{}, err
+		return gochat.Settings{}, err
 	}
 
 	// Wire the GTB-side seams into the package-owned config: the OS-keychain
@@ -35,7 +37,7 @@ func SettingsFromProps(p *props.Props, cfg Config) (Settings, error) {
 		cfg.HTTPClient = newHardenedChatHTTPClient(resolveChatTimeout(cfg))
 	}
 
-	return Settings{Config: cfg, Logger: log}, nil
+	return gochat.Settings{Config: cfg, Logger: log}, nil
 }
 
 // newHardenedChatHTTPClient builds the chat HTTP client from go-tool-base's
@@ -45,32 +47,32 @@ func SettingsFromProps(p *props.Props, cfg Config) (Settings, error) {
 // pkg/http.
 func newHardenedChatHTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
-		timeout = DefaultChatRequestTimeout
+		timeout = gochat.DefaultChatRequestTimeout
 	}
 
-	transport := gtbhttp.NewTransport(nil)
+	transport := httpclient.NewTransport(nil)
 	transport.ResponseHeaderTimeout = timeout
 
-	return gtbhttp.NewClient(
-		gtbhttp.WithTransport(transport),
-		gtbhttp.WithTimeout(timeout),
+	return httpclient.NewClient(
+		httpclient.WithTransport(transport),
+		httpclient.WithTimeout(timeout),
 	)
 }
 
 // NewFromProps adapts GTB props into typed chat settings, then constructs a
 // provider client with the reusable package constructor.
-func NewFromProps(ctx context.Context, p *props.Props, cfg Config) (ChatClient, error) {
+func NewFromProps(ctx context.Context, p *props.Props, cfg gochat.Config) (gochat.ChatClient, error) {
 	settings, err := SettingsFromProps(p, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return New(ctx, settings)
+	return gochat.New(ctx, settings)
 }
 
 // NewWithFallbackFromProps adapts GTB props into package-owned chat settings,
 // then constructs either a single provider client or a fallback composite.
-func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, opts ...FallbackOption) (ChatClient, error) {
+func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg gochat.Config, opts ...gochat.FallbackOption) (gochat.ChatClient, error) {
 	settings, err := SettingsFromProps(p, cfg)
 	if err != nil {
 		return nil, err
@@ -82,13 +84,13 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, o
 	}
 
 	if !fallback.Enabled || len(fallback.Providers) == 0 {
-		return New(ctx, settings)
+		return gochat.New(ctx, settings)
 	}
 
 	log := settings.Logger
 	warnFallbackPrimaryOverride(log, explicitProviderConfig(p, cfg), fallback.Providers[0])
 
-	providerSettings := make([]Settings, 0, len(fallback.Providers))
+	providerSettings := make([]gochat.Settings, 0, len(fallback.Providers))
 	for _, providerConfig := range fallbackProviderConfigs(settings.Config, fallback.Providers) {
 		next, err := SettingsFromProps(p, providerConfig)
 		if err != nil {
@@ -98,14 +100,14 @@ func NewWithFallbackFromProps(ctx context.Context, p *props.Props, cfg Config, o
 		providerSettings = append(providerSettings, next)
 	}
 
-	opts = append([]FallbackOption{WithFallbackLogger(log)}, opts...)
+	opts = append([]gochat.FallbackOption{gochat.WithFallbackLogger(log)}, opts...)
 
-	return NewFallbackFromSettings(ctx, providerSettings, opts...)
+	return gochat.NewFallbackFromSettings(ctx, providerSettings, opts...)
 }
 
 // NewWithFallback adapts GTB props and framework config before constructing a
 // chat client with optional provider failover.
-func NewWithFallback(ctx context.Context, p *props.Props, cfg Config, opts ...FallbackOption) (ChatClient, error) {
+func NewWithFallback(ctx context.Context, p *props.Props, cfg gochat.Config, opts ...gochat.FallbackOption) (gochat.ChatClient, error) {
 	return NewWithFallbackFromProps(ctx, p, cfg, opts...)
 }
 
@@ -115,8 +117,8 @@ func NewWithFallback(ctx context.Context, p *props.Props, cfg Config, opts ...Fa
 // when an explicit provider is overridden by fallback.providers[0]; defaulting
 // to claude first (as SettingsFromProps does) would warn spuriously when no
 // provider was configured at all.
-func explicitProviderConfig(p *props.Props, cfg Config) Config {
-	explicit := Config{Provider: cfg.Provider}
+func explicitProviderConfig(p *props.Props, cfg gochat.Config) gochat.Config {
+	explicit := gochat.Config{Provider: cfg.Provider}
 	// applyRuntimeConfig only fills Provider from ai.provider when it is empty
 	// and never defaults; the error here was already surfaced by the successful
 	// SettingsFromProps call above, so it is safe to ignore.
@@ -125,9 +127,9 @@ func explicitProviderConfig(p *props.Props, cfg Config) Config {
 	return explicit
 }
 
-func fallbackConfigFromProps(p *props.Props) (FallbackConfig, error) {
+func fallbackConfigFromProps(p *props.Props) (gochat.FallbackConfig, error) {
 	if p == nil || p.Config == nil {
-		return FallbackConfig{}, nil
+		return gochat.FallbackConfig{}, nil
 	}
 
 	return loadFallbackConfig(p.Config)
@@ -141,7 +143,7 @@ func loggerFromProps(p *props.Props) *slog.Logger {
 	return slog.New(slog.DiscardHandler)
 }
 
-func applyRuntimeConfig(p *props.Props, cfg *Config) error {
+func applyRuntimeConfig(p *props.Props, cfg *gochat.Config) error {
 	if p == nil || p.Config == nil || cfg == nil {
 		return nil
 	}
@@ -168,14 +170,14 @@ func applyRuntimeConfig(p *props.Props, cfg *Config) error {
 	return nil
 }
 
-func applyLegacyRuntimeConfig(source config.Containable, cfg *Config) {
+func applyLegacyRuntimeConfig(source config.Containable, cfg *gochat.Config) {
 	if cfg.Provider == "" {
 		cfg.Provider = cfgProvider(source)
 	}
 }
 
-func applyCredentialConfig(p *props.Props, cfg *Config) error {
-	if p == nil || p.Config == nil || cfg == nil || cfg.Provider == ProviderClaudeLocal {
+func applyCredentialConfig(p *props.Props, cfg *gochat.Config) error {
+	if p == nil || p.Config == nil || cfg == nil || cfg.Provider == gochat.ProviderClaudeLocal {
 		return nil
 	}
 
@@ -193,62 +195,62 @@ func applyCredentialConfig(p *props.Props, cfg *Config) error {
 	return nil
 }
 
-func loadRuntimeConfig(cfg config.Containable) (RuntimeConfig, error) {
+func loadRuntimeConfig(cfg config.Containable) (gochat.RuntimeConfig, error) {
 	if cfg == nil {
-		return RuntimeConfig{}, nil
+		return gochat.RuntimeConfig{}, nil
 	}
 
 	if _, ok := cfg.(*config.Container); ok {
-		section, err := config.UnmarshalSection[RuntimeConfig](cfg, "ai")
+		section, err := config.UnmarshalSection[gochat.RuntimeConfig](cfg, "ai")
 		if err != nil || !section.Exists {
-			return RuntimeConfig{}, err
+			return gochat.RuntimeConfig{}, err
 		}
 
 		return section.Value, nil
 	}
 
-	return RuntimeConfig{
+	return gochat.RuntimeConfig{
 		Provider: cfgProvider(cfg),
-		Fallback: FallbackConfig{
+		Fallback: gochat.FallbackConfig{
 			Enabled: cfg.GetBool(ConfigKeyAIFallbackEnabled),
 		},
 	}, nil
 }
 
-func loadFallbackConfig(cfg config.Containable) (FallbackConfig, error) {
+func loadFallbackConfig(cfg config.Containable) (gochat.FallbackConfig, error) {
 	if cfg == nil {
-		return FallbackConfig{}, nil
+		return gochat.FallbackConfig{}, nil
 	}
 
 	if _, ok := cfg.(*config.Container); ok {
-		section, err := config.UnmarshalSection[FallbackConfig](cfg, "ai.fallback")
+		section, err := config.UnmarshalSection[gochat.FallbackConfig](cfg, "ai.fallback")
 		if err != nil || !section.Exists {
-			return FallbackConfig{}, err
+			return gochat.FallbackConfig{}, err
 		}
 
 		return section.Value, nil
 	}
 
-	return FallbackConfig{
+	return gochat.FallbackConfig{
 		Enabled:   cfg.GetBool(ConfigKeyAIFallbackEnabled),
 		Providers: providerList(cfg.GetViper().GetStringSlice(ConfigKeyAIFallbackProviders)),
 	}, nil
 }
 
-func loadCredentialConfig(cfg config.Containable, provider Provider) (CredentialConfig, error) {
+func loadCredentialConfig(cfg config.Containable, provider gochat.Provider) (gochat.CredentialConfig, error) {
 	if cfg == nil {
-		return CredentialConfig{}, nil
+		return gochat.CredentialConfig{}, nil
 	}
 
 	root := credentialConfigRoot(provider)
 	if root == "" {
-		return CredentialConfig{}, nil
+		return gochat.CredentialConfig{}, nil
 	}
 
 	if _, ok := cfg.(*config.Container); ok {
-		section, err := config.UnmarshalSection[CredentialConfig](cfg, root)
+		section, err := config.UnmarshalSection[gochat.CredentialConfig](cfg, root)
 		if err != nil || !section.Exists {
-			return CredentialConfig{}, err
+			return gochat.CredentialConfig{}, err
 		}
 
 		return section.Value, nil
@@ -257,60 +259,60 @@ func loadCredentialConfig(cfg config.Containable, provider Provider) (Credential
 	return legacyCredentialConfig(cfg, provider), nil
 }
 
-func cfgProvider(cfg config.Containable) Provider {
+func cfgProvider(cfg config.Containable) gochat.Provider {
 	if cfgProvider := cfg.GetString(ConfigKeyAIProvider); cfgProvider != "" {
-		return Provider(cfgProvider)
+		return gochat.Provider(cfgProvider)
 	}
 
 	return ""
 }
 
-func legacyCredentialConfig(cfg config.Containable, provider Provider) CredentialConfig {
+func legacyCredentialConfig(cfg config.Containable, provider gochat.Provider) gochat.CredentialConfig {
 	switch provider {
-	case ProviderOpenAI, ProviderOpenAICompatible:
-		return CredentialConfig{
+	case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
+		return gochat.CredentialConfig{
 			Env:      cfg.GetString(ConfigKeyOpenAIEnv),
 			Keychain: cfg.GetString(ConfigKeyOpenAIKeychain),
 			Key:      cfg.GetString(ConfigKeyOpenAIKey),
 		}
-	case ProviderClaude:
-		return CredentialConfig{
+	case gochat.ProviderClaude:
+		return gochat.CredentialConfig{
 			Env:      cfg.GetString(ConfigKeyClaudeEnv),
 			Keychain: cfg.GetString(ConfigKeyClaudeKeychain),
 			Key:      cfg.GetString(ConfigKeyClaudeKey),
 		}
-	case ProviderGemini:
-		return CredentialConfig{
+	case gochat.ProviderGemini:
+		return gochat.CredentialConfig{
 			Env:      cfg.GetString(ConfigKeyGeminiEnv),
 			Keychain: cfg.GetString(ConfigKeyGeminiKeychain),
 			Key:      cfg.GetString(ConfigKeyGeminiKey),
 		}
 	default:
-		return CredentialConfig{}
+		return gochat.CredentialConfig{}
 	}
 }
 
-func credentialConfigRoot(provider Provider) string {
+func credentialConfigRoot(provider gochat.Provider) string {
 	switch provider {
-	case ProviderOpenAI, ProviderOpenAICompatible:
+	case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
 		return configRootOpenAI
-	case ProviderClaude:
+	case gochat.ProviderClaude:
 		return configRootClaude
-	case ProviderGemini:
+	case gochat.ProviderGemini:
 		return configRootGemini
 	default:
 		return ""
 	}
 }
 
-func providerList(values []string) []Provider {
+func providerList(values []string) []gochat.Provider {
 	if len(values) == 0 {
 		return nil
 	}
 
-	providers := make([]Provider, 0, len(values))
+	providers := make([]gochat.Provider, 0, len(values))
 	for _, value := range values {
-		providers = append(providers, Provider(value))
+		providers = append(providers, gochat.Provider(value))
 	}
 
 	return providers

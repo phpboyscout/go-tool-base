@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -26,16 +27,16 @@ type fakeChatClient struct {
 	answer string
 }
 
-func (f *fakeChatClient) Add(context.Context, string, ...chat.Media) error      { return nil }
-func (f *fakeChatClient) Ask(context.Context, string, any, ...chat.Media) error { return nil }
-func (f *fakeChatClient) SetTools([]chat.Tool) error                            { return nil }
-func (f *fakeChatClient) Chat(context.Context, string, ...chat.Media) (string, error) {
+func (f *fakeChatClient) Add(context.Context, string, ...gochat.Media) error      { return nil }
+func (f *fakeChatClient) Ask(context.Context, string, any, ...gochat.Media) error { return nil }
+func (f *fakeChatClient) SetTools([]gochat.Tool) error                            { return nil }
+func (f *fakeChatClient) Chat(context.Context, string, ...gochat.Media) (string, error) {
 	return f.answer, nil
 }
-func (f *fakeChatClient) Usage() chat.Usage { return chat.Usage{} }
+func (f *fakeChatClient) Usage() gochat.Usage { return gochat.Usage{} }
 
-func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb chat.StreamCallback, _ ...chat.Media) (string, error) {
-	if err := cb(chat.StreamEvent{Type: chat.EventTextDelta, Delta: f.answer}); err != nil {
+func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb gochat.StreamCallback, _ ...gochat.Media) (string, error) {
+	if err := cb(gochat.StreamEvent{Type: gochat.EventTextDelta, Delta: f.answer}); err != nil {
 		return "", err
 	}
 
@@ -47,23 +48,23 @@ func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb chat.StreamC
 // branch take the didStream==false sub-branch.
 type plainChatClient struct{ answer string }
 
-func (p *plainChatClient) Add(context.Context, string, ...chat.Media) error      { return nil }
-func (p *plainChatClient) Ask(context.Context, string, any, ...chat.Media) error { return nil }
-func (p *plainChatClient) SetTools([]chat.Tool) error                            { return nil }
-func (p *plainChatClient) Chat(context.Context, string, ...chat.Media) (string, error) {
+func (p *plainChatClient) Add(context.Context, string, ...gochat.Media) error      { return nil }
+func (p *plainChatClient) Ask(context.Context, string, any, ...gochat.Media) error { return nil }
+func (p *plainChatClient) SetTools([]gochat.Tool) error                            { return nil }
+func (p *plainChatClient) Chat(context.Context, string, ...gochat.Media) (string, error) {
 	return p.answer, nil
 }
-func (p *plainChatClient) Usage() chat.Usage { return chat.Usage{} }
+func (p *plainChatClient) Usage() gochat.Usage { return gochat.Usage{} }
 
 // registerFakeProvider registers a uniquely-named fake provider for the
 // duration of the test. The chat provider registry is a process-global, so
 // this test must not run in parallel; the unique name avoids collisions with
 // other suites' registrations.
-func registerFakeProvider(t *testing.T, name string, client chat.ChatClient) chat.Provider {
+func registerFakeProvider(t *testing.T, name string, client gochat.ChatClient) gochat.Provider {
 	t.Helper()
 
-	provider := chat.Provider(name)
-	chat.RegisterProvider(provider, func(context.Context, chat.Settings) (chat.ChatClient, error) {
+	provider := gochat.Provider(name)
+	gochat.RegisterProvider(provider, func(context.Context, gochat.Settings) (gochat.ChatClient, error) {
 		return client, nil
 	})
 
@@ -196,7 +197,7 @@ func TestNewCmdDocsAsk_Structure(t *testing.T) {
 }
 
 // TestNewCmdDocsAsk_Run_FatalOnError drives the cobra Run handler through the
-// failure path: an unsupported --provider makes chat.New (inside runAsk) fail
+// failure path: an unsupported --provider makes gochat.New (inside runAsk) fail
 // fast with no network. A no-op exit function lets the test observe that the
 // handler was invoked without terminating the process.
 func TestNewCmdDocsAsk_Run_FatalOnError(t *testing.T) {
@@ -231,7 +232,7 @@ func TestNewCmdDocsAsk_Run_FatalOnError(t *testing.T) {
 }
 
 // TestRunAsk_UnsupportedProvider exercises runAsk's error path directly: an
-// unsupported provider override makes chat.New return an error with no network
+// unsupported provider override makes gochat.New return an error with no network
 // or AI call, which runAsk wraps as "failed to ask AI".
 func TestRunAsk_UnsupportedProvider(t *testing.T) {
 	t.Parallel()
@@ -251,7 +252,7 @@ func TestRunAsk_UnsupportedProvider(t *testing.T) {
 }
 
 // TestRunAsk_NoStyleUnsupportedProvider covers the no-style branch selection in
-// runAsk. The error still originates from chat.New so no AI call is made; the
+// runAsk. The error still originates from gochat.New so no AI call is made; the
 // branch under test is the deltaFn assignment guarded by noStyle.
 func TestRunAsk_NoStyleUnsupportedProvider(t *testing.T) {
 	t.Parallel()

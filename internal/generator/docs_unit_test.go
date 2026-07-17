@@ -10,39 +10,40 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// MockChatClient implements chat.ChatClient for testing.
+// MockChatClient implements gochat.ChatClient for testing.
 type MockChatClient struct {
 	mock.Mock
 }
 
-func (m *MockChatClient) Add(ctx context.Context, prompt string, _ ...chat.Media) error {
+func (m *MockChatClient) Add(ctx context.Context, prompt string, _ ...gochat.Media) error {
 	args := m.Called(ctx, prompt)
 	return args.Error(0)
 }
 
-func (m *MockChatClient) Ask(ctx context.Context, question string, target any, _ ...chat.Media) error {
+func (m *MockChatClient) Ask(ctx context.Context, question string, target any, _ ...gochat.Media) error {
 	args := m.Called(ctx, question, target)
 	return args.Error(0)
 }
 
-func (m *MockChatClient) SetTools(tools []chat.Tool) error {
+func (m *MockChatClient) SetTools(tools []gochat.Tool) error {
 	args := m.Called(tools)
 	return args.Error(0)
 }
 
-func (m *MockChatClient) Chat(ctx context.Context, prompt string, _ ...chat.Media) (string, error) {
+func (m *MockChatClient) Chat(ctx context.Context, prompt string, _ ...gochat.Media) (string, error) {
 	args := m.Called(ctx, prompt)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockChatClient) Usage() chat.Usage {
-	return chat.Usage{}
+func (m *MockChatClient) Usage() gochat.Usage {
+	return gochat.Usage{}
 }
 
 func TestGenerateDocs_Command(t *testing.T) {

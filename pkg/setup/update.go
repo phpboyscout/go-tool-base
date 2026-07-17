@@ -20,8 +20,9 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -412,7 +413,7 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 		// and inject gtb's hardened HTTP client for WKD fetches (the module's
 		// nil-default is a plain stdlib client).
 		Logger:     slog.New(s.logger.Handler()),
-		HTTPClient: gtbhttp.NewClient(),
+		HTTPClient: httpclient.NewClient(),
 	}, s.embeddedKeys...)
 	if err != nil {
 		return errors.Wrap(err, "configuring update signature verification")

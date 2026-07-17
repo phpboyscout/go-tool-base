@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
@@ -74,7 +76,7 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 	cfg := mockConfig.NewMockContainable(t)
 	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
 	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(chat.ProviderClaude)).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Once()
 	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api").Once()
 	// Recording the keychain reference also blanks the sibling
 	// env/literal key paths so a prior storage mode leaves nothing.
@@ -82,7 +84,7 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{
-			WithAIForm(mockKeychainFormCreator(string(chat.ProviderClaude), "sk-ant-configure-keychain")),
+			WithAIForm(mockKeychainFormCreator(string(gochat.ProviderClaude), "sk-ant-configure-keychain")),
 		},
 	}
 
@@ -101,7 +103,7 @@ func TestStoreAIKeyInKeychain_BlankKeyIsNoop(t *testing.T) {
 	credtest.Install(t)
 
 	ref, err := storeAIKeyInKeychain("test-tool", &AIConfig{
-		Provider: string(chat.ProviderOpenAI),
+		Provider: string(gochat.ProviderOpenAI),
 		APIKey:   "",
 	})
 	require.NoError(t, err)

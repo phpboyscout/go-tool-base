@@ -4,17 +4,19 @@ import (
 	"log/slog"
 	"os"
 	"time"
+
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // resolveChatTimeout picks the effective per-request timeout: an explicit
-// Config.RequestTimeout wins, else DefaultChatRequestTimeout. Reimplemented here
+// Config.RequestTimeout wins, else gochat.DefaultChatRequestTimeout. Reimplemented here
 // because the module keeps it unexported.
-func resolveChatTimeout(cfg Config) time.Duration {
+func resolveChatTimeout(cfg gochat.Config) time.Duration {
 	if cfg.RequestTimeout > 0 {
 		return cfg.RequestTimeout
 	}
 
-	return DefaultChatRequestTimeout
+	return gochat.DefaultChatRequestTimeout
 }
 
 // These helpers were unexported in the standalone chat module, so the adapter
@@ -26,26 +28,26 @@ func resolveChatTimeout(cfg Config) time.Duration {
 // applyDefaultProvider fills an unset provider from AI_PROVIDER, else the Claude
 // default — matching the module's own default resolution so credential loading
 // (which is per-provider) sees the effective provider.
-func applyDefaultProvider(log *slog.Logger, cfg *Config) {
+func applyDefaultProvider(log *slog.Logger, cfg *gochat.Config) {
 	if cfg.Provider != "" {
 		return
 	}
 
 	if envProvider := os.Getenv(EnvAIProvider); envProvider != "" {
-		cfg.Provider = Provider(envProvider)
+		cfg.Provider = gochat.Provider(envProvider)
 		log.Debug("provider not specified in config, using environment variable",
 			"env", EnvAIProvider, "provider", cfg.Provider)
 
 		return
 	}
 
-	cfg.Provider = ProviderClaude
+	cfg.Provider = gochat.ProviderClaude
 	log.Debug("no provider specified, using default", "provider", cfg.Provider)
 }
 
 // warnFallbackPrimaryOverride logs a WARN when ai.fallback.providers[0] overrides
 // an explicitly configured ai.provider.
-func warnFallbackPrimaryOverride(log *slog.Logger, cfg Config, primary Provider) {
+func warnFallbackPrimaryOverride(log *slog.Logger, cfg gochat.Config, primary gochat.Provider) {
 	if cfg.Provider == "" || cfg.Provider == primary {
 		return
 	}
@@ -58,8 +60,8 @@ func warnFallbackPrimaryOverride(log *slog.Logger, cfg Config, primary Provider)
 // fallbackProviderConfigs derives one Config per provider in the fallback chain,
 // inheriting nothing provider-specific from the base (each provider resolves its
 // own credentials and default model).
-func fallbackProviderConfigs(base Config, providers []Provider) []Config {
-	cfgs := make([]Config, 0, len(providers))
+func fallbackProviderConfigs(base gochat.Config, providers []gochat.Provider) []gochat.Config {
+	cfgs := make([]gochat.Config, 0, len(providers))
 	for _, name := range providers {
 		cfgs = append(cfgs, perProviderConfig(base, name))
 	}
@@ -69,11 +71,11 @@ func fallbackProviderConfigs(base Config, providers []Provider) []Config {
 
 // perProviderConfig clones base for a specific provider, clearing the fields that
 // must be resolved per provider.
-func perProviderConfig(base Config, provider Provider) Config {
+func perProviderConfig(base gochat.Config, provider gochat.Provider) gochat.Config {
 	pc := base
 	pc.Provider = provider
 	pc.Token = ""
-	pc.Credentials = CredentialConfig{}
+	pc.Credentials = gochat.CredentialConfig{}
 	pc.Model = ""
 	pc.BaseURL = ""
 

@@ -21,9 +21,10 @@ import (
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
@@ -191,7 +192,7 @@ func TestNewFromContainable_PropagatesRegisterError(t *testing.T) {
 func TestNewFromContainable_WithDialOptionsAndMiddleware(t *testing.T) {
 	t.Parallel()
 
-	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
+	chain := transithttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
 	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
 		gateway.WithDialOptions(grpc.WithUserAgent("gtb-gateway-test")),
@@ -236,7 +237,7 @@ func TestRegisterFromContainable_ReturnsManagedServer(t *testing.T) {
 	t.Parallel()
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
+	chain := transithttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
 	srv, err := gateway.RegisterFromContainable(
 		context.Background(),
@@ -269,7 +270,7 @@ func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
 	t.Parallel()
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	chain := gtbhttp.NewChain(func(next http.Handler) http.Handler { return next })
+	chain := transithttp.NewChain(func(next http.Handler) http.Handler { return next })
 
 	srv, err := gateway.RegisterFromConfig(
 		context.Background(),

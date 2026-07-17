@@ -6,7 +6,7 @@ package chat
 
 import (
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // NewMockFailoverPolicy creates a new instance of MockFailoverPolicy. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -37,18 +37,18 @@ func (_m *MockFailoverPolicy) EXPECT() *MockFailoverPolicy_Expecter {
 }
 
 // Classify provides a mock function for the type MockFailoverPolicy
-func (_mock *MockFailoverPolicy) Classify(err error) chat.FailoverDecision {
+func (_mock *MockFailoverPolicy) Classify(err error) gochat.FailoverDecision {
 	ret := _mock.Called(err)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Classify")
 	}
 
-	var r0 chat.FailoverDecision
-	if returnFunc, ok := ret.Get(0).(func(error) chat.FailoverDecision); ok {
+	var r0 gochat.FailoverDecision
+	if returnFunc, ok := ret.Get(0).(func(error) gochat.FailoverDecision); ok {
 		r0 = returnFunc(err)
 	} else {
-		r0 = ret.Get(0).(chat.FailoverDecision)
+		r0 = ret.Get(0).(gochat.FailoverDecision)
 	}
 	return r0
 }
@@ -77,12 +77,12 @@ func (_c *MockFailoverPolicy_Classify_Call) Run(run func(err error)) *MockFailov
 	return _c
 }
 
-func (_c *MockFailoverPolicy_Classify_Call) Return(failoverDecision chat.FailoverDecision) *MockFailoverPolicy_Classify_Call {
+func (_c *MockFailoverPolicy_Classify_Call) Return(failoverDecision gochat.FailoverDecision) *MockFailoverPolicy_Classify_Call {
 	_c.Call.Return(failoverDecision)
 	return _c
 }
 
-func (_c *MockFailoverPolicy_Classify_Call) RunAndReturn(run func(err error) chat.FailoverDecision) *MockFailoverPolicy_Classify_Call {
+func (_c *MockFailoverPolicy_Classify_Call) RunAndReturn(run func(err error) gochat.FailoverDecision) *MockFailoverPolicy_Classify_Call {
 	_c.Call.Return(run)
 	return _c
 }

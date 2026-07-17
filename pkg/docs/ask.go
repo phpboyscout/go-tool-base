@@ -8,6 +8,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
@@ -86,7 +88,7 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 
 	provider := ResolveProvider(p, providerOverride...)
 
-	cfg := chat.Config{
+	cfg := gochat.Config{
 		Provider:     provider,
 		SystemPrompt: sysPrompt,
 	}
@@ -100,9 +102,9 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 
 	logFn(fmt.Sprintf("Asking AI: %s", question), logger.DebugLevel)
 
-	if streamer, ok := client.(chat.StreamingChatClient); ok {
-		return streamer.StreamChat(ctx, question, func(e chat.StreamEvent) error {
-			if e.Type == chat.EventTextDelta && deltaFn != nil {
+	if streamer, ok := client.(gochat.StreamingChatClient); ok {
+		return streamer.StreamChat(ctx, question, func(e gochat.StreamEvent) error {
+			if e.Type == gochat.EventTextDelta && deltaFn != nil {
 				deltaFn(e.Delta)
 			}
 
@@ -116,16 +118,16 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 }
 
 // ResolveProvider determines the AI provider to use based on override, config, and defaults.
-func ResolveProvider(p props.ConfigProvider, providerOverride ...string) chat.Provider {
+func ResolveProvider(p props.ConfigProvider, providerOverride ...string) gochat.Provider {
 	if len(providerOverride) > 0 && providerOverride[0] != "" {
-		return chat.Provider(providerOverride[0])
+		return gochat.Provider(providerOverride[0])
 	}
 
 	if cfg := p.GetConfig(); cfg != nil {
 		if pName := cfg.GetString(chat.ConfigKeyAIProvider); pName != "" {
-			return chat.Provider(pName)
+			return gochat.Provider(pName)
 		}
 	}
 
-	return chat.ProviderOpenAI
+	return gochat.ProviderOpenAI
 }

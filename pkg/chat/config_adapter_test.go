@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -45,12 +47,12 @@ openai:
 	runtime, err := loadRuntimeConfig(c)
 	require.NoError(t, err)
 
-	assert.Equal(t, ProviderOpenAI, runtime.Provider)
+	assert.Equal(t, gochat.ProviderOpenAI, runtime.Provider)
 	assert.Equal(t, 9*time.Second, runtime.RequestTimeout)
 	assert.True(t, runtime.Fallback.Enabled)
-	assert.Equal(t, []Provider{ProviderOpenAI, ProviderClaude}, runtime.Fallback.Providers)
+	assert.Equal(t, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderClaude}, runtime.Fallback.Providers)
 
-	credentials, err := loadCredentialConfig(c, ProviderOpenAI)
+	credentials, err := loadCredentialConfig(c, gochat.ProviderOpenAI)
 	require.NoError(t, err)
 
 	assert.Equal(t, "CUSTOM_OPENAI_TOKEN", credentials.Env)
@@ -62,26 +64,26 @@ func TestApplyRuntimeConfig_LegacyContainable(t *testing.T) {
 	t.Parallel()
 
 	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(ProviderGemini)).Once()
+	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(gochat.ProviderGemini)).Once()
 
-	chatConfig := Config{}
+	chatConfig := gochat.Config{}
 	err := applyRuntimeConfig(&props.Props{Config: cfg}, &chatConfig)
 	require.NoError(t, err)
 
-	assert.Equal(t, ProviderGemini, chatConfig.Provider)
+	assert.Equal(t, gochat.ProviderGemini, chatConfig.Provider)
 }
 
 func TestLoadRuntimeConfig_LegacyContainable(t *testing.T) {
 	t.Parallel()
 
 	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(ProviderClaude)).Once()
+	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(gochat.ProviderClaude)).Once()
 	cfg.EXPECT().GetBool(ConfigKeyAIFallbackEnabled).Return(true).Once()
 
 	runtime, err := loadRuntimeConfig(cfg)
 	require.NoError(t, err)
 
-	assert.Equal(t, ProviderClaude, runtime.Provider)
+	assert.Equal(t, gochat.ProviderClaude, runtime.Provider)
 	assert.True(t, runtime.Fallback.Enabled)
 }
 
@@ -99,7 +101,7 @@ func TestLoadFallbackConfig_LegacyContainable(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.True(t, fallback.Enabled)
-	assert.Equal(t, []Provider{ProviderOpenAI, ProviderGemini}, fallback.Providers)
+	assert.Equal(t, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderGemini}, fallback.Providers)
 }
 
 func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
@@ -107,28 +109,28 @@ func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		provider Provider
+		provider gochat.Provider
 		envKey   string
 		kcKey    string
 		keyKey   string
 	}{
 		{
 			name:     "openai",
-			provider: ProviderOpenAI,
+			provider: gochat.ProviderOpenAI,
 			envKey:   ConfigKeyOpenAIEnv,
 			kcKey:    ConfigKeyOpenAIKeychain,
 			keyKey:   ConfigKeyOpenAIKey,
 		},
 		{
 			name:     "claude",
-			provider: ProviderClaude,
+			provider: gochat.ProviderClaude,
 			envKey:   ConfigKeyClaudeEnv,
 			kcKey:    ConfigKeyClaudeKeychain,
 			keyKey:   ConfigKeyClaudeKey,
 		},
 		{
 			name:     "gemini",
-			provider: ProviderGemini,
+			provider: gochat.ProviderGemini,
 			envKey:   ConfigKeyGeminiEnv,
 			kcKey:    ConfigKeyGeminiKeychain,
 			keyKey:   ConfigKeyGeminiKey,
@@ -147,7 +149,7 @@ func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
 			credentials, err := loadCredentialConfig(cfg, tt.provider)
 			require.NoError(t, err)
 
-			assert.Equal(t, CredentialConfig{
+			assert.Equal(t, gochat.CredentialConfig{
 				Env:      "TOKEN_ENV",
 				Keychain: "service/account",
 				Key:      "literal-key",
@@ -159,7 +161,7 @@ func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
 func TestLoadCredentialConfig_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
-	credentials, err := loadCredentialConfig(configmocks.NewMockContainable(t), Provider("unknown"))
+	credentials, err := loadCredentialConfig(configmocks.NewMockContainable(t), gochat.Provider("unknown"))
 	require.NoError(t, err)
 
 	assert.True(t, credentials.IsZero())
@@ -179,18 +181,18 @@ func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, fallback)
 
-	credentials, err := loadCredentialConfig(nil, ProviderOpenAI)
+	credentials, err := loadCredentialConfig(nil, gochat.ProviderOpenAI)
 	require.NoError(t, err)
 	assert.True(t, credentials.IsZero())
 
-	cfg := Config{
-		Provider:    ProviderOpenAI,
-		Credentials: CredentialConfig{Key: "already-set"},
+	cfg := gochat.Config{
+		Provider:    gochat.ProviderOpenAI,
+		Credentials: gochat.CredentialConfig{Key: "already-set"},
 	}
 	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &cfg))
-	assert.Equal(t, CredentialConfig{Key: "already-set"}, cfg.Credentials)
+	assert.Equal(t, gochat.CredentialConfig{Key: "already-set"}, cfg.Credentials)
 
-	local := Config{Provider: ProviderClaudeLocal}
+	local := gochat.Config{Provider: gochat.ProviderClaudeLocal}
 	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &local))
 }
 
@@ -208,7 +210,7 @@ func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 
 	// cfg.Provider deliberately disagrees with providers[0], exercising the
 	// override WARN; providers[0] (fbt-ok) is the effective primary.
-	client, err := NewWithFallbackFromProps(context.Background(), p, Config{Provider: ProviderClaude})
+	client, err := NewWithFallbackFromProps(context.Background(), p, gochat.Config{Provider: gochat.ProviderClaude})
 	require.NoError(t, err)
 
 	got, err := client.Chat(context.Background(), "hi")
@@ -230,7 +232,7 @@ func TestNewWithFallback_WrapperBuildsChain(t *testing.T) {
 		Config: config.NewContainerFromViper(nil, v),
 	}
 
-	client, err := NewWithFallback(context.Background(), p, Config{Provider: ProviderClaude})
+	client, err := NewWithFallback(context.Background(), p, gochat.Config{Provider: gochat.ProviderClaude})
 	require.NoError(t, err)
 
 	got, err := client.Chat(context.Background(), "hi")
@@ -254,7 +256,7 @@ func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *tes
 	// No ai.provider is configured and the caller passes an empty Config, so the
 	// provider is only defaulted internally (to claude). The override warning
 	// must NOT fire — nothing the operator configured was overridden.
-	client, err := NewWithFallbackFromProps(context.Background(), p, Config{})
+	client, err := NewWithFallbackFromProps(context.Background(), p, gochat.Config{})
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -280,7 +282,7 @@ func TestNewWithFallbackFromProps_WarnsWhenConfiguredProviderOverridden(t *testi
 	// (fbt-ok) becomes the effective primary, so the override warning MUST fire
 	// even though the caller passed an empty Config (the provider is resolved
 	// from ai.provider, not defaulted).
-	client, err := NewWithFallbackFromProps(context.Background(), p, Config{})
+	client, err := NewWithFallbackFromProps(context.Background(), p, gochat.Config{})
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -310,8 +312,8 @@ openai:
 	// fake for this test. The module's registry exposes no removal, so there is
 	// no restore — safe here because no other pkg/chat test constructs a real
 	// OpenAI client.
-	var got Config
-	RegisterProvider(ProviderOpenAI, func(_ context.Context, settings Settings) (ChatClient, error) {
+	var got gochat.Config
+	gochat.RegisterProvider(gochat.ProviderOpenAI, func(_ context.Context, settings gochat.Settings) (gochat.ChatClient, error) {
 		got = settings.Config
 
 		return &fakeClient{chatReply: "ok"}, nil
@@ -320,12 +322,12 @@ openai:
 	client, err := NewFromProps(context.Background(), &props.Props{
 		Logger: logger.NewNoop(),
 		Config: c,
-	}, Config{})
+	}, gochat.Config{})
 
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
-	assert.Equal(t, ProviderOpenAI, got.Provider)
+	assert.Equal(t, gochat.ProviderOpenAI, got.Provider)
 	assert.Equal(t, 11*time.Second, got.RequestTimeout)
 	assert.Equal(t, "env-literal-key", got.Credentials.Key)
 	assert.Empty(t, got.Credentials.Env)

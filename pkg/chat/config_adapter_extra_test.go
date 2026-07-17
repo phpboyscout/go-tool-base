@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -34,7 +36,7 @@ func TestFallbackConfigFromProps_NilAndEmpty(t *testing.T) {
 func TestNewHardenedChatHTTPClient(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, DefaultChatRequestTimeout, newHardenedChatHTTPClient(0).Timeout,
+	assert.Equal(t, gochat.DefaultChatRequestTimeout, newHardenedChatHTTPClient(0).Timeout,
 		"non-positive timeout falls back to the default")
 	assert.Equal(t, 3*time.Minute, newHardenedChatHTTPClient(3*time.Minute).Timeout)
 }

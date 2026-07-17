@@ -8,7 +8,7 @@ import (
 	"context"
 
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // NewMockChatClient creates a new instance of MockChatClient. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -39,7 +39,7 @@ func (_m *MockChatClient) EXPECT() *MockChatClient_Expecter {
 }
 
 // Add provides a mock function for the type MockChatClient
-func (_mock *MockChatClient) Add(ctx context.Context, prompt string, media ...chat.Media) error {
+func (_mock *MockChatClient) Add(ctx context.Context, prompt string, media ...gochat.Media) error {
 	var tmpRet mock.Arguments
 	if len(media) > 0 {
 		tmpRet = _mock.Called(ctx, prompt, media)
@@ -53,7 +53,7 @@ func (_mock *MockChatClient) Add(ctx context.Context, prompt string, media ...ch
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...chat.Media) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...gochat.Media) error); ok {
 		r0 = returnFunc(ctx, prompt, media...)
 	} else {
 		r0 = ret.Error(0)
@@ -69,13 +69,13 @@ type MockChatClient_Add_Call struct {
 // Add is a helper method to define mock.On call
 //   - ctx context.Context
 //   - prompt string
-//   - media ...chat.Media
+//   - media ...gochat.Media
 func (_e *MockChatClient_Expecter) Add(ctx interface{}, prompt interface{}, media ...interface{}) *MockChatClient_Add_Call {
 	return &MockChatClient_Add_Call{Call: _e.mock.On("Add",
 		append([]interface{}{ctx, prompt}, media...)...)}
 }
 
-func (_c *MockChatClient_Add_Call) Run(run func(ctx context.Context, prompt string, media ...chat.Media)) *MockChatClient_Add_Call {
+func (_c *MockChatClient_Add_Call) Run(run func(ctx context.Context, prompt string, media ...gochat.Media)) *MockChatClient_Add_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -85,10 +85,10 @@ func (_c *MockChatClient_Add_Call) Run(run func(ctx context.Context, prompt stri
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 []chat.Media
-		var variadicArgs []chat.Media
+		var arg2 []gochat.Media
+		var variadicArgs []gochat.Media
 		if len(args) > 2 {
-			variadicArgs = args[2].([]chat.Media)
+			variadicArgs = args[2].([]gochat.Media)
 		}
 		arg2 = variadicArgs
 		run(
@@ -105,13 +105,13 @@ func (_c *MockChatClient_Add_Call) Return(err error) *MockChatClient_Add_Call {
 	return _c
 }
 
-func (_c *MockChatClient_Add_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...chat.Media) error) *MockChatClient_Add_Call {
+func (_c *MockChatClient_Add_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...gochat.Media) error) *MockChatClient_Add_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Ask provides a mock function for the type MockChatClient
-func (_mock *MockChatClient) Ask(ctx context.Context, question string, target any, media ...chat.Media) error {
+func (_mock *MockChatClient) Ask(ctx context.Context, question string, target any, media ...gochat.Media) error {
 	var tmpRet mock.Arguments
 	if len(media) > 0 {
 		tmpRet = _mock.Called(ctx, question, target, media)
@@ -125,7 +125,7 @@ func (_mock *MockChatClient) Ask(ctx context.Context, question string, target an
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, any, ...chat.Media) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, any, ...gochat.Media) error); ok {
 		r0 = returnFunc(ctx, question, target, media...)
 	} else {
 		r0 = ret.Error(0)
@@ -142,13 +142,13 @@ type MockChatClient_Ask_Call struct {
 //   - ctx context.Context
 //   - question string
 //   - target any
-//   - media ...chat.Media
+//   - media ...gochat.Media
 func (_e *MockChatClient_Expecter) Ask(ctx interface{}, question interface{}, target interface{}, media ...interface{}) *MockChatClient_Ask_Call {
 	return &MockChatClient_Ask_Call{Call: _e.mock.On("Ask",
 		append([]interface{}{ctx, question, target}, media...)...)}
 }
 
-func (_c *MockChatClient_Ask_Call) Run(run func(ctx context.Context, question string, target any, media ...chat.Media)) *MockChatClient_Ask_Call {
+func (_c *MockChatClient_Ask_Call) Run(run func(ctx context.Context, question string, target any, media ...gochat.Media)) *MockChatClient_Ask_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -162,10 +162,10 @@ func (_c *MockChatClient_Ask_Call) Run(run func(ctx context.Context, question st
 		if args[2] != nil {
 			arg2 = args[2].(any)
 		}
-		var arg3 []chat.Media
-		var variadicArgs []chat.Media
+		var arg3 []gochat.Media
+		var variadicArgs []gochat.Media
 		if len(args) > 3 {
-			variadicArgs = args[3].([]chat.Media)
+			variadicArgs = args[3].([]gochat.Media)
 		}
 		arg3 = variadicArgs
 		run(
@@ -183,13 +183,13 @@ func (_c *MockChatClient_Ask_Call) Return(err error) *MockChatClient_Ask_Call {
 	return _c
 }
 
-func (_c *MockChatClient_Ask_Call) RunAndReturn(run func(ctx context.Context, question string, target any, media ...chat.Media) error) *MockChatClient_Ask_Call {
+func (_c *MockChatClient_Ask_Call) RunAndReturn(run func(ctx context.Context, question string, target any, media ...gochat.Media) error) *MockChatClient_Ask_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Chat provides a mock function for the type MockChatClient
-func (_mock *MockChatClient) Chat(ctx context.Context, prompt string, media ...chat.Media) (string, error) {
+func (_mock *MockChatClient) Chat(ctx context.Context, prompt string, media ...gochat.Media) (string, error) {
 	var tmpRet mock.Arguments
 	if len(media) > 0 {
 		tmpRet = _mock.Called(ctx, prompt, media)
@@ -204,15 +204,15 @@ func (_mock *MockChatClient) Chat(ctx context.Context, prompt string, media ...c
 
 	var r0 string
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...chat.Media) (string, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...gochat.Media) (string, error)); ok {
 		return returnFunc(ctx, prompt, media...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...chat.Media) string); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, ...gochat.Media) string); ok {
 		r0 = returnFunc(ctx, prompt, media...)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...chat.Media) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, ...gochat.Media) error); ok {
 		r1 = returnFunc(ctx, prompt, media...)
 	} else {
 		r1 = ret.Error(1)
@@ -228,13 +228,13 @@ type MockChatClient_Chat_Call struct {
 // Chat is a helper method to define mock.On call
 //   - ctx context.Context
 //   - prompt string
-//   - media ...chat.Media
+//   - media ...gochat.Media
 func (_e *MockChatClient_Expecter) Chat(ctx interface{}, prompt interface{}, media ...interface{}) *MockChatClient_Chat_Call {
 	return &MockChatClient_Chat_Call{Call: _e.mock.On("Chat",
 		append([]interface{}{ctx, prompt}, media...)...)}
 }
 
-func (_c *MockChatClient_Chat_Call) Run(run func(ctx context.Context, prompt string, media ...chat.Media)) *MockChatClient_Chat_Call {
+func (_c *MockChatClient_Chat_Call) Run(run func(ctx context.Context, prompt string, media ...gochat.Media)) *MockChatClient_Chat_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -244,10 +244,10 @@ func (_c *MockChatClient_Chat_Call) Run(run func(ctx context.Context, prompt str
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 []chat.Media
-		var variadicArgs []chat.Media
+		var arg2 []gochat.Media
+		var variadicArgs []gochat.Media
 		if len(args) > 2 {
-			variadicArgs = args[2].([]chat.Media)
+			variadicArgs = args[2].([]gochat.Media)
 		}
 		arg2 = variadicArgs
 		run(
@@ -264,13 +264,13 @@ func (_c *MockChatClient_Chat_Call) Return(s string, err error) *MockChatClient_
 	return _c
 }
 
-func (_c *MockChatClient_Chat_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...chat.Media) (string, error)) *MockChatClient_Chat_Call {
+func (_c *MockChatClient_Chat_Call) RunAndReturn(run func(ctx context.Context, prompt string, media ...gochat.Media) (string, error)) *MockChatClient_Chat_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SetTools provides a mock function for the type MockChatClient
-func (_mock *MockChatClient) SetTools(tools []chat.Tool) error {
+func (_mock *MockChatClient) SetTools(tools []gochat.Tool) error {
 	ret := _mock.Called(tools)
 
 	if len(ret) == 0 {
@@ -278,7 +278,7 @@ func (_mock *MockChatClient) SetTools(tools []chat.Tool) error {
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func([]chat.Tool) error); ok {
+	if returnFunc, ok := ret.Get(0).(func([]gochat.Tool) error); ok {
 		r0 = returnFunc(tools)
 	} else {
 		r0 = ret.Error(0)
@@ -292,16 +292,16 @@ type MockChatClient_SetTools_Call struct {
 }
 
 // SetTools is a helper method to define mock.On call
-//   - tools []chat.Tool
+//   - tools []gochat.Tool
 func (_e *MockChatClient_Expecter) SetTools(tools interface{}) *MockChatClient_SetTools_Call {
 	return &MockChatClient_SetTools_Call{Call: _e.mock.On("SetTools", tools)}
 }
 
-func (_c *MockChatClient_SetTools_Call) Run(run func(tools []chat.Tool)) *MockChatClient_SetTools_Call {
+func (_c *MockChatClient_SetTools_Call) Run(run func(tools []gochat.Tool)) *MockChatClient_SetTools_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 []chat.Tool
+		var arg0 []gochat.Tool
 		if args[0] != nil {
-			arg0 = args[0].([]chat.Tool)
+			arg0 = args[0].([]gochat.Tool)
 		}
 		run(
 			arg0,
@@ -315,24 +315,24 @@ func (_c *MockChatClient_SetTools_Call) Return(err error) *MockChatClient_SetToo
 	return _c
 }
 
-func (_c *MockChatClient_SetTools_Call) RunAndReturn(run func(tools []chat.Tool) error) *MockChatClient_SetTools_Call {
+func (_c *MockChatClient_SetTools_Call) RunAndReturn(run func(tools []gochat.Tool) error) *MockChatClient_SetTools_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Usage provides a mock function for the type MockChatClient
-func (_mock *MockChatClient) Usage() chat.Usage {
+func (_mock *MockChatClient) Usage() gochat.Usage {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Usage")
 	}
 
-	var r0 chat.Usage
-	if returnFunc, ok := ret.Get(0).(func() chat.Usage); ok {
+	var r0 gochat.Usage
+	if returnFunc, ok := ret.Get(0).(func() gochat.Usage); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(chat.Usage)
+		r0 = ret.Get(0).(gochat.Usage)
 	}
 	return r0
 }
@@ -354,12 +354,12 @@ func (_c *MockChatClient_Usage_Call) Run(run func()) *MockChatClient_Usage_Call 
 	return _c
 }
 
-func (_c *MockChatClient_Usage_Call) Return(usage chat.Usage) *MockChatClient_Usage_Call {
+func (_c *MockChatClient_Usage_Call) Return(usage gochat.Usage) *MockChatClient_Usage_Call {
 	_c.Call.Return(usage)
 	return _c
 }
 
-func (_c *MockChatClient_Usage_Call) RunAndReturn(run func() chat.Usage) *MockChatClient_Usage_Call {
+func (_c *MockChatClient_Usage_Call) RunAndReturn(run func() gochat.Usage) *MockChatClient_Usage_Call {
 	_c.Call.Return(run)
 	return _c
 }

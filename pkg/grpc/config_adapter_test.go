@@ -12,6 +12,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transitgrpc "gitlab.com/phpboyscout/go/transit/grpc"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
 	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
@@ -268,14 +269,14 @@ func TestDialLocalFromContainable_ForwardsDialOption(t *testing.T) {
 func TestMergeRateLimitConfig(t *testing.T) {
 	t.Parallel()
 
-	base := DefaultRateLimitConfig()
-	override := RateLimitConfig{
+	base := transitgrpc.DefaultRateLimitConfig()
+	override := transitgrpc.RateLimitConfig{
 		RequestsPerSecond: 12,
 		Burst:             34,
 		MaxTrackedKeys:    56,
 	}
 
-	got := MergeRateLimitConfig(base, override, RateLimitConfigOverrides{
+	got := transitgrpc.MergeRateLimitConfig(base, override, transitgrpc.RateLimitConfigOverrides{
 		RequestsPerSecond: true,
 		MaxTrackedKeys:    true,
 	})
@@ -315,20 +316,20 @@ func TestRateLimitConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 
 	cfg := cfgFromYAML(t, "name: x\n")
 
-	assert.Equal(t, DefaultRateLimitConfig(), RateLimitConfigFromConfig(cfg, "server.grpc"))
+	assert.Equal(t, transitgrpc.DefaultRateLimitConfig(), RateLimitConfigFromConfig(cfg, "server.grpc"))
 }
 
 func TestMergeCircuitBreakerConfig(t *testing.T) {
 	t.Parallel()
 
-	base := DefaultCircuitBreakerConfig()
-	override := CircuitBreakerConfig{
+	base := transitgrpc.DefaultCircuitBreakerConfig()
+	override := transitgrpc.CircuitBreakerConfig{
 		FailureThreshold:    4,
 		Cooldown:            5 * time.Second,
 		HalfOpenMaxRequests: 2,
 	}
 
-	got := MergeCircuitBreakerConfig(base, override, CircuitBreakerConfigOverrides{
+	got := transitgrpc.MergeCircuitBreakerConfig(base, override, transitgrpc.CircuitBreakerConfigOverrides{
 		FailureThreshold: true,
 		Cooldown:         true,
 	})
@@ -368,7 +369,7 @@ func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 
 	cfg := cfgFromYAML(t, "name: x\n")
 
-	assert.Equal(t, DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.grpc"))
+	assert.Equal(t, transitgrpc.DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.grpc"))
 }
 
 func runGRPCConfigObservers(c *config.Container) error {

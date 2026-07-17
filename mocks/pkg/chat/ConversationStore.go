@@ -8,7 +8,7 @@ import (
 	"context"
 
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // NewMockConversationStore creates a new instance of MockConversationStore. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -96,23 +96,23 @@ func (_c *MockConversationStore_Delete_Call) RunAndReturn(run func(ctx context.C
 }
 
 // List provides a mock function for the type MockConversationStore
-func (_mock *MockConversationStore) List(ctx context.Context) ([]chat.SnapshotSummary, error) {
+func (_mock *MockConversationStore) List(ctx context.Context) ([]gochat.SnapshotSummary, error) {
 	ret := _mock.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for List")
 	}
 
-	var r0 []chat.SnapshotSummary
+	var r0 []gochat.SnapshotSummary
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]chat.SnapshotSummary, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]gochat.SnapshotSummary, error)); ok {
 		return returnFunc(ctx)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []chat.SnapshotSummary); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []gochat.SnapshotSummary); ok {
 		r0 = returnFunc(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]chat.SnapshotSummary)
+			r0 = ret.Get(0).([]gochat.SnapshotSummary)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -147,34 +147,34 @@ func (_c *MockConversationStore_List_Call) Run(run func(ctx context.Context)) *M
 	return _c
 }
 
-func (_c *MockConversationStore_List_Call) Return(snapshotSummarys []chat.SnapshotSummary, err error) *MockConversationStore_List_Call {
+func (_c *MockConversationStore_List_Call) Return(snapshotSummarys []gochat.SnapshotSummary, err error) *MockConversationStore_List_Call {
 	_c.Call.Return(snapshotSummarys, err)
 	return _c
 }
 
-func (_c *MockConversationStore_List_Call) RunAndReturn(run func(ctx context.Context) ([]chat.SnapshotSummary, error)) *MockConversationStore_List_Call {
+func (_c *MockConversationStore_List_Call) RunAndReturn(run func(ctx context.Context) ([]gochat.SnapshotSummary, error)) *MockConversationStore_List_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Load provides a mock function for the type MockConversationStore
-func (_mock *MockConversationStore) Load(ctx context.Context, id string) (*chat.Snapshot, error) {
+func (_mock *MockConversationStore) Load(ctx context.Context, id string) (*gochat.Snapshot, error) {
 	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Load")
 	}
 
-	var r0 *chat.Snapshot
+	var r0 *gochat.Snapshot
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*chat.Snapshot, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*gochat.Snapshot, error)); ok {
 		return returnFunc(ctx, id)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *chat.Snapshot); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *gochat.Snapshot); ok {
 		r0 = returnFunc(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*chat.Snapshot)
+			r0 = ret.Get(0).(*gochat.Snapshot)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
@@ -215,18 +215,18 @@ func (_c *MockConversationStore_Load_Call) Run(run func(ctx context.Context, id 
 	return _c
 }
 
-func (_c *MockConversationStore_Load_Call) Return(snapshot *chat.Snapshot, err error) *MockConversationStore_Load_Call {
+func (_c *MockConversationStore_Load_Call) Return(snapshot *gochat.Snapshot, err error) *MockConversationStore_Load_Call {
 	_c.Call.Return(snapshot, err)
 	return _c
 }
 
-func (_c *MockConversationStore_Load_Call) RunAndReturn(run func(ctx context.Context, id string) (*chat.Snapshot, error)) *MockConversationStore_Load_Call {
+func (_c *MockConversationStore_Load_Call) RunAndReturn(run func(ctx context.Context, id string) (*gochat.Snapshot, error)) *MockConversationStore_Load_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Save provides a mock function for the type MockConversationStore
-func (_mock *MockConversationStore) Save(ctx context.Context, snapshot *chat.Snapshot) error {
+func (_mock *MockConversationStore) Save(ctx context.Context, snapshot *gochat.Snapshot) error {
 	ret := _mock.Called(ctx, snapshot)
 
 	if len(ret) == 0 {
@@ -234,7 +234,7 @@ func (_mock *MockConversationStore) Save(ctx context.Context, snapshot *chat.Sna
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *chat.Snapshot) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *gochat.Snapshot) error); ok {
 		r0 = returnFunc(ctx, snapshot)
 	} else {
 		r0 = ret.Error(0)
@@ -249,20 +249,20 @@ type MockConversationStore_Save_Call struct {
 
 // Save is a helper method to define mock.On call
 //   - ctx context.Context
-//   - snapshot *chat.Snapshot
+//   - snapshot *gochat.Snapshot
 func (_e *MockConversationStore_Expecter) Save(ctx interface{}, snapshot interface{}) *MockConversationStore_Save_Call {
 	return &MockConversationStore_Save_Call{Call: _e.mock.On("Save", ctx, snapshot)}
 }
 
-func (_c *MockConversationStore_Save_Call) Run(run func(ctx context.Context, snapshot *chat.Snapshot)) *MockConversationStore_Save_Call {
+func (_c *MockConversationStore_Save_Call) Run(run func(ctx context.Context, snapshot *gochat.Snapshot)) *MockConversationStore_Save_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *chat.Snapshot
+		var arg1 *gochat.Snapshot
 		if args[1] != nil {
-			arg1 = args[1].(*chat.Snapshot)
+			arg1 = args[1].(*gochat.Snapshot)
 		}
 		run(
 			arg0,
@@ -277,7 +277,7 @@ func (_c *MockConversationStore_Save_Call) Return(err error) *MockConversationSt
 	return _c
 }
 
-func (_c *MockConversationStore_Save_Call) RunAndReturn(run func(ctx context.Context, snapshot *chat.Snapshot) error) *MockConversationStore_Save_Call {
+func (_c *MockConversationStore_Save_Call) RunAndReturn(run func(ctx context.Context, snapshot *gochat.Snapshot) error) *MockConversationStore_Save_Call {
 	_c.Call.Return(run)
 	return _c
 }

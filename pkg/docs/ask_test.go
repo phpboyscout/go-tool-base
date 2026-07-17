@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -27,7 +28,7 @@ func TestAskAI_UnsupportedProvider(t *testing.T) {
 
 	logFn := func(msg string, level logger.Level) {}
 
-	// "nonexistent-provider-xyz" is not registered → chat.New returns error
+	// "nonexistent-provider-xyz" is not registered → gochat.New returns error
 	_, err := AskAI(context.Background(), p, fsys, "what is this?", logFn, nil, "nonexistent-provider-xyz")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported provider")
@@ -37,7 +38,7 @@ func TestAskAI_FSError(t *testing.T) {
 	t.Parallel()
 
 	// Use an empty FS but with a question — GetAllMarkdownContent succeeds on empty FS,
-	// then chat.New fails with unsupported provider.
+	// then gochat.New fails with unsupported provider.
 	fsys := fstest.MapFS{}
 	l := logger.NewNoop()
 	p := &props.Props{Logger: l}
@@ -74,7 +75,7 @@ func TestResolveProvider(t *testing.T) {
 	t.Run("explicit override", func(t *testing.T) {
 		p := &props.Props{}
 		provider := ResolveProvider(p, "gemini")
-		assert.Equal(t, chat.ProviderGemini, provider)
+		assert.Equal(t, gochat.ProviderGemini, provider)
 	})
 
 	t.Run("config override", func(t *testing.T) {
@@ -84,7 +85,7 @@ func TestResolveProvider(t *testing.T) {
 		t.Setenv("AI_PROVIDER", "claude")
 
 		provider := ResolveProvider(p)
-		assert.Equal(t, chat.ProviderClaude, provider)
+		assert.Equal(t, gochat.ProviderClaude, provider)
 	})
 
 	t.Run("default is openai", func(t *testing.T) {
@@ -94,12 +95,12 @@ func TestResolveProvider(t *testing.T) {
 		t.Setenv("AI_PROVIDER", "")
 
 		provider := ResolveProvider(p)
-		assert.Equal(t, chat.ProviderOpenAI, provider)
+		assert.Equal(t, gochat.ProviderOpenAI, provider)
 	})
 
 	t.Run("no config defaults to openai", func(t *testing.T) {
 		p := &props.Props{}
 		provider := ResolveProvider(p)
-		assert.Equal(t, chat.ProviderOpenAI, provider)
+		assert.Equal(t, gochat.ProviderOpenAI, provider)
 	})
 }

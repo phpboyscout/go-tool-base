@@ -16,7 +16,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	"gitlab.com/phpboyscout/go/httpclient"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
@@ -111,7 +112,7 @@ func NewBackend(apiKey string, log *slog.Logger, opts ...Option) telemetry.Backe
 		endpoint: endpoint,
 		apiKey:   apiKey,
 		source:   cfg.source,
-		client:   gtbhttp.NewClient(gtbhttp.WithTimeout(httpTimeout)),
+		client:   httpclient.NewClient(httpclient.WithTimeout(httpTimeout)),
 		log:      log,
 	}
 }

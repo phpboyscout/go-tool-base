@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 // ErrQueryQuestionRequired is returned when the model calls query_user without
@@ -23,8 +23,8 @@ type UserPrompter func(ctx context.Context, question string, suggestions []strin
 // QueryUserTool returns a tool that lets the model ask the human a clarifying
 // question rather than guess. It is only registered for interactive runs; the
 // prompter performs the actual interaction.
-func QueryUserTool(prompter UserPrompter) chat.Tool {
-	return chat.Tool{
+func QueryUserTool(prompter UserPrompter) gochat.Tool {
+	return gochat.Tool{
 		Name: "query_user",
 		Description: "Ask the human a clarifying question and receive their answer. " +
 			"Use this when the request is ambiguous, a design decision could reasonably " +

@@ -19,8 +19,8 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"gitlab.com/phpboyscout/go/observability/otelcore"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
 
@@ -111,7 +111,7 @@ func TestObservabilityE2E(t *testing.T) {
 	require.NoError(t, err)
 
 	// A real server span via the transport middleware (reads the global provider).
-	handler := gtbhttp.NewChain(gtbhttp.OTelMiddleware("macguffinsvc")).Then(
+	handler := transithttp.NewChain(transithttp.OTelMiddleware("macguffinsvc")).Then(
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
 	srv := httptest.NewServer(handler)

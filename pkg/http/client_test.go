@@ -9,17 +9,19 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/httpclient"
 )
 
-// These tests exercise the re-exported client factory (from
-// gitlab.com/phpboyscout/go/httpclient) through the GTB facade, confirming the
-// value-alias re-exports wire correctly. The factory's internals (redirect
-// policy, hardened defaults) are unit-tested in the httpclient module.
+// These tests exercise the secure client factory from
+// gitlab.com/phpboyscout/go/httpclient as GTB consumes it. The factory's
+// internals (redirect policy, hardened defaults) are unit-tested in the
+// httpclient module.
 
 func TestNewClient_WithMaxRedirects_Zero(t *testing.T) {
 	t.Parallel()
 
-	client := NewClient(WithMaxRedirects(0))
+	client := httpclient.NewClient(httpclient.WithMaxRedirects(0))
 
 	// len(via) >= 0 is always true, so every redirect attempt must be rejected.
 	req, _ := http.NewRequest(http.MethodGet, "https://example.com/dest", nil)
@@ -39,7 +41,7 @@ func TestNewClient_RealHTTPSRequest(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	// Use server's cert for the client
-	client := NewClient(WithTLSConfig(server.Client().Transport.(*http.Transport).TLSClientConfig))
+	client := httpclient.NewClient(httpclient.WithTLSConfig(server.Client().Transport.(*http.Transport).TLSClientConfig))
 	resp, err := client.Get(server.URL)
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
@@ -59,7 +61,7 @@ func TestNewClient_WithCertPool_RealHTTPSRequest(t *testing.T) {
 	pool := x509.NewCertPool()
 	pool.AddCert(server.Certificate())
 
-	client := NewClient(WithCertPool(pool))
+	client := httpclient.NewClient(httpclient.WithCertPool(pool))
 	resp, err := client.Get(server.URL)
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()

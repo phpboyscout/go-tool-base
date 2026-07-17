@@ -10,7 +10,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/spf13/afero"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 const chatAESKeySize = 32
@@ -19,12 +19,12 @@ type chatWorldKey struct{}
 
 type chatWorld struct {
 	fs        afero.Fs
-	store     chat.ConversationStore
+	store     gochat.ConversationStore
 	dir       string
 	key       []byte
-	snapshots []*chat.Snapshot
-	loaded    *chat.Snapshot
-	summaries []chat.SnapshotSummary
+	snapshots []*gochat.Snapshot
+	loaded    *gochat.Snapshot
+	summaries []gochat.SnapshotSummary
 	lastErr   error
 }
 
@@ -70,7 +70,7 @@ func initChatSteps(ctx *godog.ScenarioContext) {
 func aNewFileStore(ctx context.Context) (context.Context, error) {
 	w := getChatWorld(ctx)
 
-	store, err := chat.NewFileStore(w.fs, w.dir)
+	store, err := gochat.NewFileStore(w.fs, w.dir)
 	if err != nil {
 		return ctx, err
 	}
@@ -90,7 +90,7 @@ func aNewEncryptedFileStore(ctx context.Context) (context.Context, error) {
 
 	w.key = key
 
-	store, err := chat.NewFileStore(w.fs, w.dir, chat.WithEncryption(key))
+	store, err := gochat.NewFileStore(w.fs, w.dir, gochat.WithEncryption(key))
 	if err != nil {
 		return ctx, err
 	}
@@ -103,8 +103,8 @@ func aNewEncryptedFileStore(ctx context.Context) (context.Context, error) {
 func aSnapshotForProviderWithModel(ctx context.Context, provider, model string) (context.Context, error) {
 	w := getChatWorld(ctx)
 
-	snap := chat.NewSnapshot(
-		chat.Provider(provider), model, "",
+	snap := gochat.NewSnapshot(
+		gochat.Provider(provider), model, "",
 		json.RawMessage(`[{"role":"user","content":"hello"}]`),
 		nil, nil,
 	)
@@ -116,8 +116,8 @@ func aSnapshotForProviderWithModel(ctx context.Context, provider, model string) 
 func aSnapshotWithID(ctx context.Context, id string) (context.Context, error) {
 	w := getChatWorld(ctx)
 
-	snap := chat.NewSnapshot(
-		chat.ProviderClaude, "claude-3-5-sonnet", "",
+	snap := gochat.NewSnapshot(
+		gochat.ProviderClaude, "claude-3-5-sonnet", "",
 		json.RawMessage(`[{"role":"user","content":"test"}]`),
 		nil, nil,
 	)
@@ -130,8 +130,8 @@ func aSnapshotWithID(ctx context.Context, id string) (context.Context, error) {
 func aSnapshotWithSystemPrompt(ctx context.Context, prompt string) (context.Context, error) {
 	w := getChatWorld(ctx)
 
-	snap := chat.NewSnapshot(
-		chat.ProviderClaude, "claude-3-5-sonnet", prompt,
+	snap := gochat.NewSnapshot(
+		gochat.ProviderClaude, "claude-3-5-sonnet", prompt,
 		json.RawMessage(`[{"role":"user","content":"hello"}]`),
 		nil, nil,
 	)
@@ -143,7 +143,7 @@ func aSnapshotWithSystemPrompt(ctx context.Context, prompt string) (context.Cont
 func aSnapshotWithTools(ctx context.Context) (context.Context, error) {
 	w := getChatWorld(ctx)
 
-	tools := map[string]chat.Tool{
+	tools := map[string]gochat.Tool{
 		"search": {
 			Name:        "search",
 			Description: "Search the web",
@@ -151,8 +151,8 @@ func aSnapshotWithTools(ctx context.Context) (context.Context, error) {
 		},
 	}
 
-	snap := chat.NewSnapshot(
-		chat.ProviderClaude, "claude-3-5-sonnet", "",
+	snap := gochat.NewSnapshot(
+		gochat.ProviderClaude, "claude-3-5-sonnet", "",
 		json.RawMessage(`[]`),
 		tools, nil,
 	)
@@ -222,7 +222,7 @@ func iCreateFileStoreWithDifferentKey(ctx context.Context) (context.Context, err
 		return ctx, err
 	}
 
-	store, err := chat.NewFileStore(w.fs, w.dir, chat.WithEncryption(differentKey))
+	store, err := gochat.NewFileStore(w.fs, w.dir, gochat.WithEncryption(differentKey))
 	if err != nil {
 		return ctx, err
 	}

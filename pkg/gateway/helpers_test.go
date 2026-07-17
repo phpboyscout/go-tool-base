@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
 )
 
 // noopRegister is a RegisterFunc that wires nothing — enough to construct a
@@ -21,7 +21,7 @@ func noopRegister(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) er
 
 // headerMiddleware sets a fixed response header, so a test can assert the
 // middleware chain was applied over the gateway's REST surface.
-func headerMiddleware(key, value string) gtbhttp.Middleware {
+func headerMiddleware(key, value string) transithttp.Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(key, value)
