@@ -1,15 +1,17 @@
-// Package http provides an HTTP server and client toolkit for GTB services.
+// Package http is GTB's framework-integration layer over the extracted HTTP
+// transport modules.
 //
-// The server side bootstraps an HTTP server that integrates with the pkg/controls
-// lifecycle and exposes health, liveness, and readiness endpoints, plus composable
-// server middleware: authentication ([AuthMiddleware]), rate limiting, security
-// headers, OpenTelemetry, and logging.
-// Servers are constructed from package-owned [ServerSettings]. GTB config
-// integration lives in adapter helpers such as [ServerSettingsFromConfig],
-// [ObserveServerSettingsFromConfig], [NewServerFromContainable], and
-// [RegisterFromContainable], so the core constructors remain independent of the
-// framework config container.
+// The hardened HTTP server now lives in gitlab.com/phpboyscout/go/transport/http
+// and the HTTP client in gitlab.com/phpboyscout/go/httpclient; this package binds
+// them to the GTB config container. It provides the config-driven server adapters
+// — [ServerSettingsFromConfig], [ObserveServerSettingsFromConfig],
+// [NewServerFromContainable], [StartFromContainable], [RegisterFromContainable],
+// plus [RateLimitConfigFromConfig] / [CircuitBreakerConfigFromConfig] — which read
+// a service's config and call the transport constructors. The GTB config-selection
+// options [WithConfigPrefix] and [WithPort] steer that resolution. It also
+// re-exports the secure client factory ([NewClient]) from go/httpclient and the
+// go/transit HTTP middleware.
 //
-// The client side ([NewClient]) provides a configurable HTTP client with retry,
-// rate-limiting, redirect control, and circuit-breaker middleware.
+// Code that wants the pure server or client API without the GTB config container
+// imports go/transport/http or go/httpclient directly.
 package http

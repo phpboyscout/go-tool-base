@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -16,10 +17,12 @@ import (
 	"google.golang.org/grpc"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transportgateway "gitlab.com/phpboyscout/go/transport/gateway"
+	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
+	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
-	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -62,8 +65,8 @@ func TestSettingsFromConfig_ComposesTransportSettings(t *testing.T) {
 
 	settings := gateway.SettingsFromConfig(cfg)
 
-	assert.Equal(t, gtbhttp.ServerSettings{Port: 18081}, settings.HTTP)
-	assert.Equal(t, gtbgrpc.ServerSettings{Port: 19081, Reflection: true}, settings.GRPC)
+	assert.Equal(t, transporthttp.ServerSettings{Port: 18081}, settings.HTTP)
+	assert.Equal(t, transportgrpc.ServerSettings{Port: 19081, Reflection: true}, settings.GRPC)
 }
 
 func TestObserveSettingsFromConfig_RehydratesTransportSettings(t *testing.T) {
@@ -71,10 +74,10 @@ func TestObserveSettingsFromConfig_RehydratesTransportSettings(t *testing.T) {
 
 	cfg := gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n")
 
-	changes := make([]config.SectionChange[gateway.Settings], 0, 2)
+	changes := make([]config.SectionChange[transportgateway.Settings], 0, 2)
 	settings, err := gateway.ObserveSettingsFromConfig(
 		cfg,
-		config.WithSectionApply(func(change config.SectionChange[gateway.Settings]) error {
+		config.WithSectionApply(func(change config.SectionChange[transportgateway.Settings]) error {
 			changes = append(changes, change)
 
 			return nil
@@ -106,7 +109,7 @@ func TestObservedSettingsSatisfiesSource(t *testing.T) {
 	settings, err := gateway.ObserveSettingsFromConfig(gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n"))
 	require.NoError(t, err)
 
-	var source gateway.SettingsSource = settings
+	var source transportgateway.SettingsSource = settings
 	require.NotNil(t, source.Current())
 	assert.Equal(t, 18081, source.Current().HTTP.Port)
 	assert.Equal(t, uint64(1), source.Version())
@@ -144,6 +147,66 @@ func TestWithDialOptions(t *testing.T) {
 // TestNewFromContainable_DialLocalError forces the in-process gRPC dial to fail
 // by enabling TLS with a certificate path that does not exist, so
 // TLSClientCredentials cannot build a transport.
+// TestWithMuxOptions_HandlerHonoursMatcher verifies a mux option threaded via
+// WithMuxOptions is applied to the built handler: a custom incoming-header
+// matcher runs when a request is driven through the gateway handler.
+func TestWithMuxOptions_HandlerHonoursMatcher(t *testing.T) {
+	t.Parallel()
+
+	var matcherCalled bool
+
+	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
+		gateway.WithMuxOptions(runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
+			matcherCalled = true
+
+			return runtime.DefaultHeaderMatcher(key)
+		})),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, h)
+
+	req := httptest.NewRequest(http.MethodGet, "/anything", nil)
+	req.Header.Set("X-Trace", "1")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	assert.True(t, matcherCalled, "WithMuxOptions header matcher must be honoured by the handler")
+}
+
+// TestNewFromContainable_PropagatesRegisterError forces the transport New to
+// fail (its register func errors) and asserts NewFromContainable surfaces the
+// error rather than returning a half-built handler.
+func TestNewFromContainable_PropagatesRegisterError(t *testing.T) {
+	t.Parallel()
+
+	_, err := gateway.NewFromContainable(context.Background(), testCfg(),
+		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
+			return errors.New("register boom")
+		})
+	require.Error(t, err)
+}
+
+// TestNewFromContainable_WithDialOptionsAndMiddleware combines a caller dial
+// option with a middleware chain and asserts the chain wraps the built handler.
+func TestNewFromContainable_WithDialOptionsAndMiddleware(t *testing.T) {
+	t.Parallel()
+
+	chain := gtbhttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
+
+	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
+		gateway.WithDialOptions(grpc.WithUserAgent("gtb-gateway-test")),
+		gateway.WithMiddleware(chain),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, h)
+
+	req := httptest.NewRequest(http.MethodGet, "/anything", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	assert.Equal(t, "1", rec.Header().Get("X-Gateway-MW"), "the middleware chain must wrap the gateway handler")
+}
+
 func TestNewFromContainable_DialLocalError(t *testing.T) {
 	t.Parallel()
 

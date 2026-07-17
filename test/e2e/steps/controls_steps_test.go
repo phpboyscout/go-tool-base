@@ -17,7 +17,10 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
+	transporthttp "gitlab.com/phpboyscout/go/transport/http"
+
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -188,7 +191,7 @@ func anHTTPServerWithRateLimiter(ctx context.Context, rps int) (context.Context,
 		Burst:             rps,
 	}))
 
-	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, gtbhttp.WithMiddleware(chain))
+	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, transporthttp.WithMiddleware(chain))
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register rate-limited HTTP server: %w", err)
 	}

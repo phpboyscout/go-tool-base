@@ -19,8 +19,12 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
+	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
+	transporthttp "gitlab.com/phpboyscout/go/transport/http"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	mockConfig "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -146,7 +150,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 	})
 
 	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, mux,
-		gtbhttp.WithMiddleware(mw))
+		transporthttp.WithMiddleware(mw))
 	require.NoError(t, err)
 
 	controller.Start()
@@ -310,7 +314,7 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 	})
 
 	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, newGRPCCfg(t, port), noop,
-		gtbgrpc.WithInterceptors(chain))
+		transportgrpc.WithInterceptors(chain))
 	require.NoError(t, err)
 
 	controller.Start()

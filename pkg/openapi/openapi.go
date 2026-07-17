@@ -16,7 +16,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	transithttp "gitlab.com/phpboyscout/go/transit/http"
+	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 )
 
 //go:embed assets/web-components.min.js assets/styles.min.css
@@ -53,7 +54,7 @@ type config struct {
 	specPath            string
 	docsPath            string
 	title               string
-	securityHeaders     []gtbhttp.SecurityHeadersOption
+	securityHeaders     []transporthttp.SecurityHeadersOption
 	withoutSecurityHdrs bool
 }
 
@@ -81,7 +82,7 @@ func WithTitle(t string) Option {
 // the docs/spec handlers. By default the conservative
 // http.SecurityHeadersMiddleware defaults are used (nosniff, X-Frame-Options:
 // DENY, frame-ancestors 'none', Referrer-Policy: no-referrer, HSTS off).
-func WithSecurityHeaderOptions(opts ...gtbhttp.SecurityHeadersOption) Option {
+func WithSecurityHeaderOptions(opts ...transporthttp.SecurityHeadersOption) Option {
 	return func(c *config) { c.securityHeaders = append(c.securityHeaders, opts...) }
 }
 
@@ -149,12 +150,12 @@ func Register(mux *http.ServeMux, spec []byte, opts ...Option) error {
 // securityWrapper returns the middleware applied to the docs/spec handlers:
 // the security-headers middleware by default, or a no-op pass-through when
 // WithoutSecurityHeaders was supplied.
-func securityWrapper(cfg *config) gtbhttp.Middleware {
+func securityWrapper(cfg *config) transithttp.Middleware {
 	if cfg.withoutSecurityHdrs {
 		return func(next http.Handler) http.Handler { return next }
 	}
 
-	return gtbhttp.SecurityHeadersMiddleware(cfg.securityHeaders...)
+	return transporthttp.SecurityHeadersMiddleware(cfg.securityHeaders...)
 }
 
 func renderIndex(cfg *config) ([]byte, error) {

@@ -6,15 +6,61 @@ import (
 	"google.golang.org/grpc"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
+// DefaultConfigPrefix is the config block a gRPC server reads its port,
+// reflection and TLS settings from unless overridden with WithConfigPrefix.
+const DefaultConfigPrefix = "server.grpc"
+
+// ConfigKeySharedPort is the shared fallback port used when the per-server port
+// key (<prefix>.port) is unset.
+const ConfigKeySharedPort = "server.port"
+
+// ServerOption selects which GTB config block (and, optionally, an explicit
+// port) the *FromContainable adapters read. It is distinct from the transport's
+// own gitlab.com/phpboyscout/go/transport/grpc.ServerOption; the adapters accept
+// GTB options (config selection) and forward grpc.ServerOption / grpc.DialOption
+// / transport RegisterOption values to the underlying constructor.
+type ServerOption func(*serverConfig)
+
+// serverConfig carries the GTB config-selection knobs.
+type serverConfig struct {
+	prefix string
+	port   *int
+}
+
+// WithConfigPrefix sets the config block the server reads from (default
+// "server.grpc"). Use it to run a second gRPC server on its own block, e.g.
+// "server.internal".
+func WithConfigPrefix(prefix string) ServerOption {
+	return func(c *serverConfig) {
+		c.prefix = prefix
+	}
+}
+
+// WithPort sets the listen (or dial) port explicitly, bypassing config lookup.
+func WithPort(port int) ServerOption {
+	return func(c *serverConfig) {
+		c.port = &port
+	}
+}
+
+func (c serverConfig) resolvedPrefix() string {
+	if c.prefix == "" {
+		return DefaultConfigPrefix
+	}
+
+	return c.prefix
+}
+
 // ServerSettingsFromConfig resolves gRPC server settings from GTB config. It
 // preserves the existing fallback from <prefix>.port to server.port.
-func ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings {
+func ServerSettingsFromConfig(cfg config.Containable, prefix string) transportgrpc.ServerSettings {
 	return serverSettingsFromConfig(cfg, prefix, true, true)
 }
 
@@ -23,39 +69,39 @@ func ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSetti
 func ObserveServerSettingsFromConfig(
 	cfg config.Containable,
 	prefix string,
-	opts ...config.SectionBindingOption[ServerSettings],
-) (*config.ObservedSection[ServerSettings], error) {
+	opts ...config.SectionBindingOption[transportgrpc.ServerSettings],
+) (*config.ObservedSection[transportgrpc.ServerSettings], error) {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
 
-	bindingOpts := make([]config.SectionBindingOption[ServerSettings], 0, 1+len(opts))
-	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(func(next config.Containable) ServerSettings {
+	bindingOpts := make([]config.SectionBindingOption[transportgrpc.ServerSettings], 0, 1+len(opts))
+	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(func(next config.Containable) transportgrpc.ServerSettings {
 		if next == nil {
-			return ServerSettings{}
+			return transportgrpc.ServerSettings{}
 		}
 
-		return ServerSettings{Port: next.GetInt(ConfigKeySharedPort)}
+		return transportgrpc.ServerSettings{Port: next.GetInt(ConfigKeySharedPort)}
 	}, mergeServerSettings))
 	bindingOpts = append(bindingOpts, opts...)
 
-	return config.ObserveSection[ServerSettings](cfg, prefix, bindingOpts...)
+	return config.ObserveSection[transportgrpc.ServerSettings](cfg, prefix, bindingOpts...)
 }
 
-func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort, includeReflection bool) ServerSettings {
+func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort, includeReflection bool) transportgrpc.ServerSettings {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
 
 	if cfg == nil {
-		return ServerSettings{}
+		return transportgrpc.ServerSettings{}
 	}
 
 	if _, ok := cfg.(*config.Container); !ok {
 		return serverSettingsFromLegacyConfig(cfg, prefix, includePort, includeReflection)
 	}
 
-	section, err := config.UnmarshalSection[ServerSettings](cfg, prefix)
+	section, err := config.UnmarshalSection[transportgrpc.ServerSettings](cfg, prefix)
 	if err != nil {
 		return serverSettingsFromLegacyConfig(cfg, prefix, includePort, includeReflection)
 	}
@@ -74,7 +120,7 @@ func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort
 	return settings
 }
 
-func mergeServerSettings(defaults, overlay ServerSettings) ServerSettings {
+func mergeServerSettings(defaults, overlay transportgrpc.ServerSettings) transportgrpc.ServerSettings {
 	if overlay.Port != 0 {
 		defaults.Port = overlay.Port
 	}
@@ -84,8 +130,8 @@ func mergeServerSettings(defaults, overlay ServerSettings) ServerSettings {
 	return defaults
 }
 
-func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, includePort, includeReflection bool) ServerSettings {
-	var settings ServerSettings
+func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, includePort, includeReflection bool) transportgrpc.ServerSettings {
+	var settings transportgrpc.ServerSettings
 
 	if includePort {
 		settings.Port = cfg.GetInt(prefix + ".port")
@@ -102,117 +148,103 @@ func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, inclu
 	return settings
 }
 
-// NewServerFromContainable returns a new preconfigured grpc.Server from config.
-//
-// Default gRPC options applied (before caller-supplied opts):
-//   - grpc.MaxRecvMsgSize(DefaultMaxGRPCMessageBytes)
-//   - grpc.MaxSendMsgSize(DefaultMaxGRPCMessageBytes)
-//
-// Caller-supplied grpc.ServerOption values override the defaults (gRPC applies
-// later options last, so a caller can raise or lower the limits explicitly).
-//
-// The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix,
-// which selects the config block the reflection flag is read from) and
-// grpc.ServerOption values; other types are ignored.
-func NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error) {
-	sc := defaultServerConfig()
+// portOverride applies an explicit WithPort onto resolved settings.
+func portOverride(settings transportgrpc.ServerSettings, sc serverConfig) transportgrpc.ServerSettings {
+	if sc.port != nil {
+		settings.Port = *sc.port
+	}
 
-	var serverOpts []grpc.ServerOption
+	return settings
+}
+
+// NewServerFromContainable returns a new preconfigured grpc.Server from config.
+// GTB config-selection options (WithConfigPrefix) select the block the
+// reflection flag is read from; grpc.ServerOption values are forwarded.
+func NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error) {
+	var sc serverConfig
+
+	var forwarded []any
 
 	for _, o := range opts {
 		switch v := o.(type) {
 		case ServerOption:
 			v(&sc)
-		case grpc.ServerOption:
-			serverOpts = append(serverOpts, v)
+		default:
+			forwarded = append(forwarded, v)
 		}
 	}
 
-	if sc.prefix == "" {
-		return newServer(ServerSettings{}, sc, serverOpts...)
-	}
+	settings := serverSettingsFromConfig(cfg, sc.resolvedPrefix(), false, true)
 
-	return newServer(serverSettingsFromConfig(cfg, sc.prefix, false, true), sc, serverOpts...)
+	return transportgrpc.NewServer(settings, forwarded...)
 }
 
-// StartFromContainable returns a curried function suitable for use with the controls package.
-// With no options it reads its port and TLS from the default "server.grpc"
-// config block; pass WithConfigPrefix/WithPort to target a custom server.
-// TLS configuration cascades: <prefix>.tls.* overrides server.tls.* shared defaults.
-func StartFromContainable(cfg config.Containable, log logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc {
-	sc := defaultServerConfig()
+// StartFromContainable returns a curried function suitable for use with the
+// controls package. With no options it reads its port and TLS from the default
+// "server.grpc" config block; pass WithConfigPrefix/WithPort to target a custom
+// server. TLS cascades: <prefix>.tls.* overrides server.tls.* shared defaults.
+func StartFromContainable(cfg config.Containable, log logger.Logger, srv *grpc.Server, opts ...any) controls.StartFunc {
+	var sc serverConfig
+
 	for _, o := range opts {
-		o(&sc)
+		if v, ok := o.(ServerOption); ok {
+			v(&sc)
+		}
 	}
 
-	if sc.prefix == "" {
-		sc.prefix = DefaultConfigPrefix
-	}
+	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, false), sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
 
-	settings := serverSettingsFromConfig(cfg, sc.prefix, sc.port == nil, false)
-	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
-
-	return start(logger.ToSlog(log), srv, settings, tlsPair, sc, nil)
+	return transportgrpc.Start(logger.ToSlog(log), srv, settings, tlsPair)
 }
 
-// DialLocalFromContainable dials the gRPC server described by cfg over the loopback interface,
-// using transport security that matches the server's own TLS config
-// (server.grpc.tls -> server.tls). Intended for in-process callers such as the
-// grpc-gateway, so they connect to the local server without re-deriving the
-// endpoint or credentials by hand.
-// The opts variadic accepts both ServerOption values (e.g. WithConfigPrefix to
-// dial a non-default gRPC server) and grpc.DialOption values; other types are
-// ignored.
+// DialLocalFromContainable dials the gRPC server described by cfg over the
+// loopback interface, using transport security that matches the server's own
+// TLS config (server.grpc.tls -> server.tls). Intended for in-process callers
+// such as the grpc-gateway. The opts variadic accepts GTB ServerOption values
+// (WithConfigPrefix to dial a non-default server) and grpc.DialOption values.
 func DialLocalFromContainable(cfg config.Containable, opts ...any) (*grpc.ClientConn, error) {
-	sc := defaultServerConfig()
+	var sc serverConfig
 
-	var dialOpts []grpc.DialOption
+	var dialOpts []any
 
 	for _, o := range opts {
 		switch v := o.(type) {
 		case ServerOption:
 			v(&sc)
-		case grpc.DialOption:
+		default:
 			dialOpts = append(dialOpts, v)
 		}
 	}
 
-	settings := serverSettingsFromConfig(cfg, sc.prefix, sc.port == nil, false)
-	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
+	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, false), sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
 
-	return dialLocal(settings, tlsPair, sc, dialOpts...)
+	return transportgrpc.DialLocal(settings, tlsPair, dialOpts...)
 }
 
 // RegisterFromContainable creates a new gRPC server from config and registers it
-// with the controller under the given id. The opts variadic accepts ServerOption
-// values (port, prefix), RegisterOption values (interceptors) and
-// grpc.ServerOption values.
+// with the controller under the given id. The opts variadic accepts GTB
+// ServerOption values (WithConfigPrefix, WithPort), transport RegisterOption
+// values (interceptors) and grpc.ServerOption values.
 func RegisterFromContainable(_ context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, opts ...any) (*grpc.Server, error) {
-	sc := defaultServerConfig()
+	var sc serverConfig
 
-	var rc registerConfig
-
-	var serverOpts []grpc.ServerOption
+	var forwarded []any
 
 	for _, o := range opts {
 		switch v := o.(type) {
 		case ServerOption:
 			v(&sc)
-		case RegisterOption:
-			v(&rc)
-		case grpc.ServerOption:
-			serverOpts = append(serverOpts, v)
+		default:
+			forwarded = append(forwarded, v)
 		}
 	}
 
-	if sc.prefix == "" {
-		return register(id, controller, logger.ToSlog(log), ServerSettings{}, gtbtls.Pair{}, sc, rc, serverOpts)
-	}
+	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, true), sc)
+	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
 
-	settings := serverSettingsFromConfig(cfg, sc.prefix, sc.port == nil, true)
-	tlsPair := gtbtls.Resolve(cfg, sc.tlsPrefix())
-
-	return register(id, controller, logger.ToSlog(log), settings, tlsPair, sc, rc, serverOpts)
+	return transportgrpc.Register(id, controller, logger.ToSlog(log), settings, tlsPair, forwarded...)
 }
 
 // RateLimitConfigFromConfig builds a RateLimitConfig from the config layer

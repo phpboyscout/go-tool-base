@@ -12,6 +12,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
 	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
@@ -78,7 +79,7 @@ func TestServerSettingsFromConfig_FallsBackToSharedPort(t *testing.T) {
 func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, ServerSettings{}, ServerSettingsFromConfig(nil, ""))
+	assert.Equal(t, transportgrpc.ServerSettings{}, ServerSettingsFromConfig(nil, ""))
 }
 
 func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
@@ -102,7 +103,7 @@ func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
 	settings, err := ObserveServerSettingsFromConfig(cfg, "")
 	require.NoError(t, err)
 
-	assert.Equal(t, ServerSettings{Port: 18080, Reflection: true}, settings.Value())
+	assert.Equal(t, transportgrpc.ServerSettings{Port: 18080, Reflection: true}, settings.Value())
 	assert.True(t, settings.Exists())
 	assert.Equal(t, uint64(1), settings.Version())
 }
@@ -117,11 +118,11 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 		config.WithConfigReaders(strings.NewReader("server:\n  port: 19081\n  grpc: {}\n")),
 	)
 
-	changes := make([]config.SectionChange[ServerSettings], 0, 1)
+	changes := make([]config.SectionChange[transportgrpc.ServerSettings], 0, 1)
 	settings, err := ObserveServerSettingsFromConfig(
 		cfg,
 		"",
-		config.WithSectionApply(func(change config.SectionChange[ServerSettings]) error {
+		config.WithSectionApply(func(change config.SectionChange[transportgrpc.ServerSettings]) error {
 			changes = append(changes, change)
 
 			return nil
@@ -166,7 +167,7 @@ func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
 	settings, err := ObserveServerSettingsFromConfig(cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n"), "")
 	require.NoError(t, err)
 
-	var source ServerSettingsSource = settings
+	var source transportgrpc.ServerSettingsSource = settings
 	require.NotNil(t, source.Current())
 	assert.Equal(t, 19081, source.Current().Port)
 	assert.Equal(t, uint64(1), source.Version())
@@ -223,6 +224,45 @@ func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, srv)
+}
+
+func TestDialLocalFromContainable_WithPort(t *testing.T) {
+	t.Parallel()
+
+	// No server.grpc block: the default prefix resolves to port 0, then the
+	// explicit WithPort drives the dial target.
+	cfg := cfgFromYAML(t, "name: x\n")
+
+	conn, err := DialLocalFromContainable(cfg, WithPort(19099))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	assert.Equal(t, "localhost:19099", conn.Target(), "explicit WithPort must drive the dial target")
+}
+
+func TestDialLocalFromContainable_ExplicitPortOverridesConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
+
+	conn, err := DialLocalFromContainable(cfg, WithPort(19099))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	assert.Equal(t, "localhost:19099", conn.Target(), "WithPort must override the configured port")
+}
+
+func TestDialLocalFromContainable_ForwardsDialOption(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
+
+	conn, err := DialLocalFromContainable(cfg, googlegrpc.WithUserAgent("gtb-dial-test"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	require.NotNil(t, conn)
+	assert.Equal(t, "localhost:19081", conn.Target(), "a caller dial option must not disturb the resolved target")
 }
 
 func TestMergeRateLimitConfig(t *testing.T) {

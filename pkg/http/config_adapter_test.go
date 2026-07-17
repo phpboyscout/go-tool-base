@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/controls"
+	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
 	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
@@ -56,7 +57,7 @@ func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T
 func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, ServerSettings{}, ServerSettingsFromConfig(nil, ""))
+	assert.Equal(t, transporthttp.ServerSettings{}, ServerSettingsFromConfig(nil, ""))
 }
 
 func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
@@ -80,7 +81,7 @@ func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
 	settings, err := ObserveServerSettingsFromConfig(cfg, "")
 	require.NoError(t, err)
 
-	assert.Equal(t, ServerSettings{Port: 18080, MaxHeaderBytes: 4096}, settings.Value())
+	assert.Equal(t, transporthttp.ServerSettings{Port: 18080, MaxHeaderBytes: 4096}, settings.Value())
 	assert.True(t, settings.Exists())
 	assert.Equal(t, uint64(1), settings.Version())
 }
@@ -95,11 +96,11 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 		config.WithConfigReaders(strings.NewReader("server:\n  port: 18080\n  http: {}\n")),
 	)
 
-	changes := make([]config.SectionChange[ServerSettings], 0, 1)
+	changes := make([]config.SectionChange[transporthttp.ServerSettings], 0, 1)
 	settings, err := ObserveServerSettingsFromConfig(
 		cfg,
 		"",
-		config.WithSectionApply(func(change config.SectionChange[ServerSettings]) error {
+		config.WithSectionApply(func(change config.SectionChange[transporthttp.ServerSettings]) error {
 			changes = append(changes, change)
 
 			return nil
@@ -144,7 +145,7 @@ func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
 	settings, err := ObserveServerSettingsFromConfig(cfgFromYAML(t, "server:\n  http:\n    port: 18080\n"), "")
 	require.NoError(t, err)
 
-	var source ServerSettingsSource = settings
+	var source transporthttp.ServerSettingsSource = settings
 	require.NotNil(t, source.Current())
 	assert.Equal(t, 18080, source.Current().Port)
 	assert.Equal(t, uint64(1), source.Version())
@@ -190,6 +191,97 @@ func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotNil(t, srv)
+}
+
+func TestNewServerFromContainable_WithPortBypassesConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+
+	srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(18099))
+	require.NoError(t, err)
+	assert.Equal(t, ":18099", srv.Addr, "explicit WithPort must win over the configured port")
+}
+
+func TestNewServerFromContainable_InvalidPortFallsBackToEmptySettings(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+
+	for _, port := range []int{-1, 70000} {
+		srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(port))
+		require.NoError(t, err)
+		assert.Equalf(t, ":0", srv.Addr, "an out-of-range WithPort(%d) must short-circuit to empty settings", port)
+	}
+}
+
+func TestNewServerFromContainable_ForwardsTransportServerOption(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+
+	srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(),
+		WithConfigPrefix("server.http"),
+		transporthttp.WithReadTimeout(7*time.Second),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, ":18081", srv.Addr)
+	assert.Equal(t, 7*time.Second, srv.ReadTimeout, "a transport ServerOption must be forwarded to the constructor")
+}
+
+func TestRegisterFromContainable_InvalidPortFallsBackToEmptySettings(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	srv, err := RegisterFromContainable(
+		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
+		WithPort(70000),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, ":0", srv.Addr, "an out-of-range WithPort must short-circuit Register to empty settings")
+}
+
+func TestRegisterFromContainable_ForwardsTransportOption(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	srv, err := RegisterFromContainable(
+		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
+		transporthttp.WithReadTimeout(5*time.Second),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, ":18081", srv.Addr)
+	assert.Equal(t, 5*time.Second, srv.ReadTimeout, "a forwarded transport ServerOption must reach the built server")
+}
+
+func TestRegisterFromContainable_WithConfigPrefixSelectsBlock(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n  admin:\n    port: 18085\n")
+	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+
+	srv, err := RegisterFromContainable(
+		context.Background(), "admin-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
+		WithConfigPrefix("server.admin"),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, ":18085", srv.Addr, "WithConfigPrefix must select the non-default config block's port")
+}
+
+func TestStartFromContainable_DefaultPrefix(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+	srv := &stdhttp.Server{Handler: stdhttp.NewServeMux()}
+
+	// No WithConfigPrefix -> the default "server.http" block is resolved.
+	start := StartFromContainable(cfg, logger.NewNoop(), srv)
+
+	assert.NotNil(t, start)
 }
 
 func TestMergeRateLimitConfig(t *testing.T) {
@@ -243,6 +335,18 @@ func TestRateLimitConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 	cfg := cfgFromYAML(t, "name: x\n")
 
 	assert.Equal(t, DefaultRateLimitConfig(), RateLimitConfigFromConfig(cfg, "server.http"))
+}
+
+func TestRateLimitConfigFromConfig_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, DefaultRateLimitConfig(), RateLimitConfigFromConfig(nil, ""))
+}
+
+func TestCircuitBreakerConfigFromConfig_NilConfig(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(nil, ""))
 }
 
 func TestRateLimitConfigFromConfig_CustomPrefix(t *testing.T) {

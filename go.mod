@@ -39,14 +39,12 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/zalando/go-keyring v0.2.8
 	gitlab.com/gitlab-org/api/client-go/v2 v2.46.0
-	gitlab.com/phpboyscout/go/authn v0.1.0
 	gitlab.com/phpboyscout/go/browser v0.1.0
 	gitlab.com/phpboyscout/go/chat v0.1.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
 	gitlab.com/phpboyscout/go/controls v0.1.0
-	gitlab.com/phpboyscout/go/grpcclient v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/redact v0.1.0
@@ -55,6 +53,7 @@ require (
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0
 	gitlab.com/phpboyscout/go/tls v0.1.0
 	gitlab.com/phpboyscout/go/transit v0.1.0
+	gitlab.com/phpboyscout/go/transport v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.20.0
@@ -237,6 +236,8 @@ require (
 	github.com/yuin/goldmark v1.7.17 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	gitlab.com/phpboyscout/go/authn v0.1.0 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect

@@ -8,6 +8,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # gRPC
 
+!!! info "The server now lives in a standalone module"
+    The hardened **gRPC server** (`NewServer`, health service, `AuthInterceptor`, TLS credentials, `DialLocal`, lifecycle glue) has been extracted to [`gitlab.com/phpboyscout/go/transport/grpc`](https://transport.go.phpboyscout.uk). This was a **clean break**: `pkg/grpc` keeps only the `config.Containable` adapters (`NewServerFromContainable`, `DialLocalFromContainable`, …, with `WithConfigPrefix`/`WithPort`) plus the re-exported go/transit interceptors. Code that used the pure server symbols repoints to `go/transport/grpc` — see the [migration note](../../reference/migration/v0.x-transport-extracted.md). The API described below is unchanged; only its import path moved.
+
 The `pkg/grpc` package provides a standard gRPC server implementation that integrates with the `controls` package for lifecycle management and observability.
 
 ## Features

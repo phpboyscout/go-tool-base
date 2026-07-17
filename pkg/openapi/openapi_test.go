@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	httpsec "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	httpsec "gitlab.com/phpboyscout/go/transport/http"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/openapi"
 )
 

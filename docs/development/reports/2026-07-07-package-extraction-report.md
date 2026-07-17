@@ -57,8 +57,15 @@ decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
     facade; and the gRPC dial factory → `go/grpcclient` v0.1.0 (the server-decoupled
     `Target{Host, Port, TLS}` + `Dial`), with `pkg/grpc.DialLocal` now a thin adapter
     over it. Both modules depend only on `go/tls` + `go/transit` (+ the gRPC SDK for
-    grpcclient) and carry a `depfootprint` guard. **Next:** Phase 5 — the server stack
-    (`http.Server`, `grpc.Server`, gateway, `ServerSettings`) → `go/transport`.
+    grpcclient) and carry a `depfootprint` guard. **Phase 5 is complete (2026-07-17) —
+    the extraction programme is DONE.** The HTTP server, gRPC server and grpc-gateway
+    were extracted → `go/transport` v0.1.1 (`http`/`grpc`/`gateway` sub-packages),
+    consuming `go/controls` + `go/authn` + `go/transit` + `go/tls` + `go/grpcclient`.
+    This one was a deliberate **clean break, not a facade**: GTB keeps only the
+    `config.Containable` adapters (which own the config-selection options
+    `WithConfigPrefix`/`WithPort` and call the exported transport constructors); the pure
+    server API is no longer re-exported, so downstreams that used it repoint to
+    `go/transport` (see the [migration note](../../reference/migration/v0.x-transport-extracted.md)).
 
 This report reviews `pkg/` and relevant reusable subpackages for suitability as
 independently versioned Go modules. It intentionally excludes packages scored 5
@@ -1046,9 +1053,9 @@ is the ease-of-decoupling score from each package's table above._
 | Done | Package | Target module | Ease | Blocking dependency |
 |:--:|---|---|:--:|---|
 | ☑ | `pkg/chat` | `go/chat` (+`chat-anthropic`/`openai`/`gemini`) | 6 | **EXTRACTED v0.1.0 (2026-07-13)** — HTTP client injected; per-provider modules; GTB consumes via the `pkg/chat` facade (MR !215). First greenfield extraction — see playbook §10. |
-| ◐ | `pkg/http` | `transport` | 6 | **Middleware extracted (2026-07-16)** → `go/transit` v0.1.0 (Phase 3): logging/OTel/circuit-breaker/rate-limit/client-retry + the promoted `internal/circuitbreaker`+`internal/ratelimit` (now `transit/resilience`). **Client factory extracted (2026-07-17)** → `go/httpclient` v0.1.0 (Phase 4): secure `NewClient`/`NewTransport` + options. `pkg/http` re-exports both via a **facade**. Remainder (server bootstrap → Phase 5) still here. |
-| ◐ | `pkg/grpc` | `transport` | 6 | **Interceptors extracted (2026-07-16)** → `go/transit` v0.1.0 (Phase 3), facade re-export. **Dial factory extracted (2026-07-17)** → `go/grpcclient` v0.1.0 (Phase 4): `Target` + `Dial`; `DialLocal` now a thin adapter. Server bootstrap remainder → Phase 5. |
-| ☐ | `pkg/gateway` | `transport` | 6 | After `http`+`grpc`+`controls`. |
+| ✅ | `pkg/http` | `transport` | 6 | **Middleware** → `go/transit` v0.1.0 (Phase 3, facade). **Client factory** → `go/httpclient` v0.1.0 (Phase 4, facade). **Server** → `go/transport/http` v0.1.1 (Phase 5, **clean break**): server/health/auth/security-headers moved; `pkg/http` keeps only the `config.Containable` adapters (+ client & transit re-exports). DONE. |
+| ✅ | `pkg/grpc` | `transport` | 6 | **Interceptors** → `go/transit` v0.1.0 (Phase 3, facade). **Dial factory** → `go/grpcclient` v0.1.0 (Phase 4). **Server** → `go/transport/grpc` v0.1.1 (Phase 5, **clean break**): server/health/auth/TLS-creds/`DialLocal` moved; `pkg/grpc` keeps only the config adapters (+ transit re-exports). DONE. |
+| ✅ | `pkg/gateway` | `transport` | 6 | **Server** → `go/transport/gateway` v0.1.1 (Phase 5, **clean break**): `New`/`Register`/`Settings` moved; `pkg/gateway` keeps only the config adapters (which own the config-driven dial + their own `WithDialOptions`/`WithMuxOptions`/`WithMiddleware`). DONE. |
 | ☐ | `pkg/openapi` | `transport` | 8 | HTTP-module companion; inject `http.ServeMux`. |
 | ☐ | `pkg/vcs` | `releases`/`vcsrepo` common | 7 | After/with `credentials`. |
 | ☐ | `pkg/vcs/{github,gitlab,gitea,bitbucket,direct}` | `releases` | 6 | Subpackages of the release module; inject `*http.Client`. |

@@ -8,6 +8,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # HTTP
 
+!!! info "The server and client now live in standalone modules"
+    The hardened **HTTP server** (`NewServer`, health handlers, `AuthMiddleware`, `SecurityHeadersMiddleware`, lifecycle glue) has been extracted to [`gitlab.com/phpboyscout/go/transport/http`](https://transport.go.phpboyscout.uk), and the **HTTP client** to [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk). This was a **clean break** for the server: `pkg/http` keeps only the `config.Containable` adapters (`NewServerFromContainable`, `RegisterFromContainable`, …, with the GTB config-selection options `WithConfigPrefix`/`WithPort`) plus the re-exported client factory and go/transit middleware. Code that used the pure server symbols repoints to `go/transport/http` — see the [migration note](../../reference/migration/v0.x-transport-extracted.md). The API described below is unchanged; only its import path moved.
+
 The `pkg/http` package provides hardened HTTP components for both server-side and client-side operations. It enforces secure TLS defaults, provides built-in observability endpoints, and mirrors the security posture required for production environments.
 
 ## Server Control

@@ -11,7 +11,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 )
 
 const (
@@ -75,7 +75,7 @@ func Serve(ctx context.Context, fsys fs.FS, port int, opts ...ServeOption) error
 	// Apply conservative security headers to the built-in docs surface
 	// (nosniff, frame-ancestors 'none', referrer-policy). HSTS stays off:
 	// the server is plain HTTP on loopback by default.
-	handler := gtbhttp.SecurityHeadersMiddleware()(mux)
+	handler := transporthttp.SecurityHeadersMiddleware()(mux)
 
 	server := &http.Server{
 		Addr:              addr,

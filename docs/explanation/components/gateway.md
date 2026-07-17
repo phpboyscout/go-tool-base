@@ -8,6 +8,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Gateway
 
+!!! info "The pure gateway now lives in a standalone module"
+    The pure gateway construction (`New`, `Register`, `Settings`) has been extracted to [`gitlab.com/phpboyscout/go/transport/gateway`](https://transport.go.phpboyscout.uk). This was a **clean break**: `pkg/gateway` keeps only the `config.Containable` adapters (`NewFromContainable`, `RegisterFromContainable`, …), which resolve settings from config, dial the local gRPC server, and delegate to the module — and which own their own `WithDialOptions`/`WithMuxOptions`/`WithMiddleware`. Code that already has a `*grpc.ClientConn` uses `go/transport/gateway` directly — see the [migration note](../../reference/migration/v0.x-transport-extracted.md).
+
 The `pkg/gateway` package makes a [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway) a first-class transport. It dials the local gRPC server — matching the server's own transport security — and serves the generated REST handlers, either mounted on an existing HTTP server or as its own controller-managed HTTP server.
 
 This gives you a JSON/REST surface over an existing gRPC service without standing up a separate, hand-written translation layer. The only gateway-specific code you write is a single registration function.
