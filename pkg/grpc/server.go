@@ -12,12 +12,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
 	"gitlab.com/phpboyscout/go/controls"
+	"gitlab.com/phpboyscout/go/grpcclient"
 
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
@@ -360,20 +360,15 @@ func dialLocal(settings ServerSettings, tlsPair gtbtls.Pair, sc serverConfig, op
 		return nil, err
 	}
 
-	endpoint := fmt.Sprintf("localhost:%d", port)
-
-	security := grpc.WithTransportCredentials(insecure.NewCredentials())
-
-	if tlsPair.Enabled {
-		creds, credErr := TLSClientCredentials(tlsPair.Cert)
-		if credErr != nil {
-			return nil, credErr
-		}
-
-		security = grpc.WithTransportCredentials(creds)
-	}
-
-	return grpc.NewClient(endpoint, append([]grpc.DialOption{security}, opts...)...)
+	// The endpoint assembly and credential selection now live in the extracted
+	// gitlab.com/phpboyscout/go/grpcclient module. This adapter resolves the
+	// GTB-side port and maps the local server + TLS pair onto a grpcclient.Target
+	// (pkg/tls.Pair is a type alias of go/tls.Pair, so it passes through directly).
+	return grpcclient.Dial(grpcclient.Target{
+		Host: "localhost",
+		Port: port,
+		TLS:  tlsPair,
+	}, opts...)
 }
 
 // Stop returns a curried function suitable for use with the controls package.

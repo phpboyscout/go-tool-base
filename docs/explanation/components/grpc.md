@@ -187,8 +187,10 @@ This uses the same shared hardened TLS config from [`pkg/tls`](tls.md) as the au
 
 The package also provides the client side, used for example by the [gateway](gateway.md) when it dials the gRPC server over a self-signed or private-CA certificate:
 
+> The dial factory behind `DialLocal` has been extracted to the standalone, framework-free module [`gitlab.com/phpboyscout/go/grpcclient`](https://grpcclient.go.phpboyscout.uk) (`v0.1.0`). `DialLocal` is now a thin adapter that maps `ServerSettings` + the TLS pair onto a `grpcclient.Target` and calls `grpcclient.Dial` — its signature and behaviour are unchanged. See the [migration note](../../reference/migration/v0.x-grpcclient-extracted.md). To dial gRPC without GTB, depend on the module directly.
+
 - **`TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, error)`**: client transport credentials trusting the given CA/cert files — the mirror of `TLSServerCredentials`. With no files it trusts the system roots.
-- **`DialLocal(settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.ClientConn, error)`**: dials the local gRPC server from explicit typed settings and TLS information.
+- **`DialLocal(settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.ClientConn, error)`**: dials the local gRPC server from explicit typed settings and TLS information (a thin adapter over `grpcclient.Dial`).
 - **`DialLocalFromContainable(cfg config.Containable, opts ...any) (*grpc.ClientConn, error)`**: GTB adapter that dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`<prefix>.tls` cascading to `server.tls`). The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix` to dial a non-default server) and `grpc.DialOption` values. Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
 
 ```go

@@ -46,6 +46,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
 	gitlab.com/phpboyscout/go/controls v0.1.0
+	gitlab.com/phpboyscout/go/grpcclient v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/redact v0.1.0
