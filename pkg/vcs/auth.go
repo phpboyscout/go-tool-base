@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go/credentials"
 )
 
 // TokenConfig is the minimal string lookup surface needed for VCS token

@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/credentials"
+	"gitlab.com/phpboyscout/go/credentials/credtest"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -158,9 +159,9 @@ func TestIsConfigured(t *testing.T) {
 	}
 }
 
-// The storage-mode option matrix is now provided by
-// credentials.StorageModeOptions and exercised in pkg/credentials's
-// wizard_test.go — a single source of truth shared by every wizard.
+// The storage-mode choice matrix is now provided by
+// credentials.ModeChoices (go/credentials module) and exercised in that
+// module's tests — a single source of truth shared by every wizard.
 
 // TestWriteKeychainBlob_MissingFields defends against a regression
 // that would write a half-populated entry when the form is bypassed

@@ -15,9 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	gossh "golang.org/x/crypto/ssh"
 
+	"gitlab.com/phpboyscout/go/credentials"
+
 	mockVCS "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"

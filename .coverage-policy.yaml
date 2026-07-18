@@ -18,7 +18,6 @@ not_counted:
   - cmd/
   - internal/exectest
   - internal/version
-  - pkg/credentials/credtest
   - test/e2e/support
   - test/integration/controls
 
@@ -31,7 +30,6 @@ excluded:
   - { pkg: pkg/docs, reason: "Bubble Tea markdown-browser TUI (E2E/manual)" }
   - { pkg: pkg/cmd/docs, reason: "Wrapper around the docs TUI; residual lines are tea.NewProgram().Run() + live HTTP serve (covered to the TTY ceiling)" }
   - { pkg: internal/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }
-  - { pkg: pkg/credentials/keychain, reason: "Real OS-keychain round-trip needs a desktop keychain (desktop-gated integration spec)" }
   - { pkg: pkg/setup, reason: "Update orchestration; signing verification extracted to the signing module (tested there). Residual is release-provider resolution + the update flow, covered by features/cli/update.feature E2E (89.6% unit)" }
   # --- Bucket B: generator CLI, covered by @generator BDD E2E + generator_build ---
   - { pkg: internal/cmd, reason: "Generator CLI shared wiring — covered by @generator BDD E2E" }

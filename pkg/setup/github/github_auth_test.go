@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/credentials"
+	"gitlab.com/phpboyscout/go/credentials/credtest"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -227,10 +228,10 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 	})
 }
 
-// The storage-mode option matrix and the env-var-name validation are
-// now provided by pkg/credentials (StorageModeOptions /
-// ValidateEnvVarName) and exercised in that package's wizard_test.go —
-// a single source of truth shared by every setup wizard.
+// The storage-mode choice matrix and the env-var-name validation are
+// now provided by the go/credentials module (ModeChoices /
+// ValidateEnvVarName) and exercised in that module's tests — a single
+// source of truth shared by every setup wizard.
 
 // Compile-time guard: AuthFormOption is exposed and composable with
 // WithAuthForm. Protects the public test-extension surface from

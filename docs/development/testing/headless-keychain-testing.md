@@ -121,7 +121,7 @@ For interactive use, replace the final `bash -c \"…\"` with `bash` and drive t
 
 ## Option 3 — In-memory backend swap
 
-The `pkg/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and reports `Available() == true`, so the wizard thinks a real keychain is present. Everything GTB does downstream — storage-mode selector, `Probe()` round-trip, config writes, resolver cascade — runs unchanged.
+The `go/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and reports `Available() == true`, so the wizard thinks a real keychain is present. Everything GTB does downstream — storage-mode selector, `Probe()` round-trip, config writes, resolver cascade — runs unchanged.
 
 **What this covers:**
 
@@ -134,7 +134,7 @@ The `pkg/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and
 
 **What this does NOT cover:**
 
-- The actual `go-keyring` library's behaviour against a platform keychain. That's already covered by the unit tests in `pkg/credentials/keychain/` (via `keyring.MockInit()`) and should be verified with Option 1 on a desktop before a release.
+- The actual `go-keyring` library's behaviour against a platform keychain. That's already covered by the unit tests in `go/credentials/keychain/` (via `keyring.MockInit()`) and should be verified with Option 1 on a desktop before a release.
 
 ### Swap in the memory backend
 
@@ -151,8 +151,8 @@ package main
 // CI exercises the full go-keyring path.
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+	"gitlab.com/phpboyscout/go/credentials"
+	"gitlab.com/phpboyscout/go/credentials/credtest"
 )
 
 //nolint:gochecknoinits // side-effect registration for headless test runs
@@ -188,4 +188,4 @@ Never commit the swapped version — `cmd/e2e` must ship with the real backend s
 
 - [Manual credential testing](manual-credentials.md) — the scenarios this guide unblocks.
 - [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, and the stub/memory/go-keyring implementations.
-- [`pkg/credentials/credtest`](../../../pkg/credentials/credtest/memory.go) — source for the in-memory backend and its test helper.
+- [`go/credentials/credtest`](../../../go/credentials/credtest/memory.go) — source for the in-memory backend and its test helper.

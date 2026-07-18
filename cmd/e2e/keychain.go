@@ -5,4 +5,4 @@ package main
 // import the e2e binary would run with the stub backend and any
 // Gherkin / manual scenario exercising keychain mode would fail to
 // store, rendering those paths untestable.
-import _ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+import _ "gitlab.com/phpboyscout/go/credentials/keychain"

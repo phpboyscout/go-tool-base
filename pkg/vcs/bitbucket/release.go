@@ -19,7 +19,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/httpclient"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	"gitlab.com/phpboyscout/go/credentials"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 

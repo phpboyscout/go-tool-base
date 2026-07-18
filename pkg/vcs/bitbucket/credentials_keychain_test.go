@@ -7,8 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials/credtest"
+	"gitlab.com/phpboyscout/go/credentials"
+	"gitlab.com/phpboyscout/go/credentials/credtest"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 

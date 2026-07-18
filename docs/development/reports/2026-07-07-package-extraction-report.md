@@ -1041,7 +1041,7 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/output` | `cli-output` | 9 | Isolate Cobra helpers in `output/cobra`; fix Unicode/spinner issues first. |
 | ☐ | `pkg/changelog` | (own module) | 9 | No GTB imports. go-git weight is acceptable. |
 | ✅ | `pkg/authn` | `authn` | 9 | **DONE (2026-07-16)** → `go/authn` v0.1.0. Phase 2 #2; **pure repoint** (no facade — zero GTB imports, no logger seam); repointed `pkg/{grpc,http}/auth.go`, deleted `pkg/authn/` + unused `mocks/pkg/authn/`. |
-| ☐ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
+| ☑ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
 | ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |
 | ✅ | `pkg/tls` | `tls` | 9 | **DONE (2026-07-16)** → `go/tls` v0.1.0. First Phase 2 module; **facade** cut-over (core moved; `Resolve`/`SharedPrefix` config adapter stays in `pkg/tls`), zero transport-consumer churn. |
 | ✅ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **DONE (2026-07-16)** → `go/observability` v0.1.0. Phase 2 #3 (final foundation); **full repoint** (adapter relocated into `pkg/telemetry`); OTel-allowing depfootprint guard. D3 confirmed: extracted without the analytics split. |

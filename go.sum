@@ -518,6 +518,8 @@ gitlab.com/phpboyscout/go/chat-openai v0.1.0 h1:qrg3p6M622ziWTMGkXFvcNHX6flM0y+5
 gitlab.com/phpboyscout/go/chat-openai v0.1.0/go.mod h1:IwR8+Yd7iRD3OvibqiMNm0MK8dha76Trf5F1iI/deYQ=
 gitlab.com/phpboyscout/go/controls v0.1.0 h1:BSzHCFOwv3xq/Z+oUp34m2XB9I8VOAUu2273Pd971YE=
 gitlab.com/phpboyscout/go/controls v0.1.0/go.mod h1:b7gNmMhodHKl9dw1Jbl+4ksX5S7OlWf0t6/YGSuLfsc=
+gitlab.com/phpboyscout/go/credentials v0.1.0 h1:yAY7Ii3mxVzWWzW2o4qC1EBFca/qZxTQHaLYJQWBKZU=
+gitlab.com/phpboyscout/go/credentials v0.1.0/go.mod h1:dJ6XXbF3ndhfuk+vtbg0g5ijmy3YbgfMcGYJMbtWCGw=
 gitlab.com/phpboyscout/go/grpcclient v0.1.0 h1:bh4F59Zd3P5QdaROFyJ9zzfKtndk2Im3ueHTyox4jQY=
 gitlab.com/phpboyscout/go/grpcclient v0.1.0/go.mod h1:OPL968Wfrgv6L5wrJrG292RSU+ELjS6Hp3gLdROobis=
 gitlab.com/phpboyscout/go/httpclient v0.1.0 h1:IGveXzlVGwqIf7TH7ife5fseu0FuB1CUWlRH8AGxcVI=

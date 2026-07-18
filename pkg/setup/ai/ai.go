@@ -18,9 +18,10 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go/credentials"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -176,10 +177,15 @@ func defaultStorageModeForm(cfg *AIConfig) *huh.Form {
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	options := credentials.StorageModeOptions(credentials.IsCI(), credentials.Probe(ctx),
+	choices := credentials.ModeChoices(credentials.IsCI(), credentials.Probe(ctx),
 		"Environment variable reference (recommended)",
 		"OS keychain",
 		"Literal value in config file (plaintext)")
+
+	options := make([]huh.Option[credentials.Mode], len(choices))
+	for i, c := range choices {
+		options[i] = huh.NewOption(c.Label, c.Mode)
+	}
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar

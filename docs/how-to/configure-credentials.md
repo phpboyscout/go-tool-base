@@ -20,7 +20,7 @@ If you want the background on why we built this, see the [Credential Storage Har
 | **OS keychain** (opt-in via blank import) | A `<service>/<account>` reference | OS keychain (macOS Keychain / Linux Secret Service / Windows Credential Manager) |
 | **Literal** (legacy) | The secret itself | The config file — `~/.<toolname>/config.yaml` |
 
-Keychain mode is only offered if the tool's `main` package imports `gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain`. Regulated builds omit the import — the tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
+Keychain mode is only offered if the tool's `main` package imports `gitlab.com/phpboyscout/go/credentials/keychain`. Regulated builds omit the import — the tool then runs with a stub backend that never reaches a session bus or platform keychain API, and Go's linker dead-code elimination keeps `go-keyring`, `godbus`, and `wincred` out of the shipped binary.
 
 ## When to pick which mode
 
@@ -210,7 +210,7 @@ Add a blank import of the optional keychain subpackage to your tool's `main`:
 ```go
 // cmd/mytool/main.go
 import (
-    _ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+    _ "gitlab.com/phpboyscout/go/credentials/keychain"
 )
 ```
 

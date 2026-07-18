@@ -640,7 +640,7 @@ func TestSkeletonFeatures_KeychainScaffolding(t *testing.T) {
 				content, err := afero.ReadFile(fs, keychainFile)
 				require.NoError(t, err)
 				assert.Contains(t, string(content),
-					`import _ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"`,
+					`import _ "gitlab.com/phpboyscout/go/credentials/keychain"`,
 					"scaffolded keychain.go must blank-import the subpackage")
 			}
 		})

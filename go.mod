@@ -37,7 +37,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/subosito/gotenv v1.6.0
 	github.com/testcontainers/testcontainers-go v0.43.0
-	github.com/zalando/go-keyring v0.2.8
 	gitlab.com/gitlab-org/api/client-go/v2 v2.46.0
 	gitlab.com/phpboyscout/go/browser v0.1.0
 	gitlab.com/phpboyscout/go/chat v0.1.0
@@ -45,6 +44,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
 	gitlab.com/phpboyscout/go/controls v0.1.0
+	gitlab.com/phpboyscout/go/credentials v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/redact v0.1.0
@@ -236,6 +236,7 @@ require (
 	github.com/yuin/goldmark v1.7.17 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

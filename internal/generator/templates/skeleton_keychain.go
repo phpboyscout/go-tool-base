@@ -22,7 +22,7 @@ func SkeletonKeychain() *jen.File {
 	f.PackageComment("no session-bus / keychain IPC code. See")
 	f.PackageComment("docs/how-to/configure-credentials.md in the GTB repo.")
 
-	f.Anon("gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain")
+	f.Anon("gitlab.com/phpboyscout/go/credentials/keychain")
 
 	return f
 }

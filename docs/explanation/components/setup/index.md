@@ -408,12 +408,12 @@ See [How to add a custom release source](../../../how-to/custom-release-source.m
 
 ### Credential Storage Modes
 
-The `gtb init ai` and `gtb init github` wizards now present a credential storage mode selector backed by [`pkg/credentials`](../credentials.md). Users choose how their secret is persisted, with sensible defaults:
+The `gtb init ai` and `gtb init github` wizards now present a credential storage mode selector backed by [`go/credentials`](../credentials.md). Users choose how their secret is persisted, with sensible defaults:
 
 | Mode | Config output | When offered |
 |------|---------------|--------------|
 | Env-var reference (default) | `{provider}.api.env: ENV_NAME` / `github.auth.env: ENV_NAME` | Always. Selected by default. |
-| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain` (or registers a custom [`Backend`](../credentials.md#backend-interface)) AND [`credentials.Probe`](../credentials.md#api) succeeds against that backend at wizard start. Phase 2. |
+| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `gitlab.com/phpboyscout/go/credentials/keychain` (or registers a custom [`Backend`](../credentials.md#backend-interface)) AND [`credentials.Probe`](../credentials.md#api) succeeds against that backend at wizard start. Phase 2. |
 | Literal | `{provider}.api.key: sk-...` / `github.auth.value: ghp_...` | Hidden entirely under `CI=true`; the wizard refuses to persist a plaintext credential into a config file that will almost certainly leak via CI artefacts or logs. |
 
 The AI wizard then prompts for an env var name (defaulting to the provider standard — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.

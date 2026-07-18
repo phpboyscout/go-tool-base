@@ -124,7 +124,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	_ "gitlab.com/phpboyscout/go/credentials/keychain"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -233,7 +233,7 @@ import (
 
 	"github.com/spf13/afero"
 
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
+	_ "gitlab.com/phpboyscout/go/credentials/keychain"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
@@ -340,8 +340,8 @@ package main
 import (
 	"fmt"
 
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
+	_ "gitlab.com/phpboyscout/go/credentials/keychain"
+	"gitlab.com/phpboyscout/go/credentials"
 )
 
 func main() {
@@ -352,7 +352,7 @@ EOF
 go run /tmp/probe_check.go
 ```
 
-- `Available=false` → the `pkg/credentials/keychain` subpackage is not linked (missing blank import, or you're on the stub build).
+- `Available=false` → the `go/credentials/keychain` subpackage is not linked (missing blank import, or you're on the stub build).
 - `Available=true` / `Probe=false` → backend is compiled in but the live round-trip failed. On Linux this is almost always a missing or locked Secret Service provider; on macOS, a locked login keychain; on Windows, a disabled Credential Manager.
 
 **`secret-tool: command not found` on Linux.** Install `libsecret-tools` (Debian/Ubuntu) or `libsecret` (Fedora/Arch). You can also verify entries via GNOME Seahorse (GUI) or `dbus-send` queries.

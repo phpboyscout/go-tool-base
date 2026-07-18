@@ -15,9 +15,10 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"gitlab.com/phpboyscout/go/credentials"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -127,7 +128,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 	if target == credentials.ModeKeychain && !credentials.KeychainAvailable() {
 		return nil, errors.WithHint(
 			errors.New("keychain target requested but no keychain-capable Backend is registered"),
-			"Import gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain in your tool's main, or pass --target=env.",
+			"Import gitlab.com/phpboyscout/go/credentials/keychain in your tool's main, or pass --target=env.",
 		)
 	}
 
@@ -748,7 +749,7 @@ Target modes:
                         and verifies it is set before rewriting the config.
   keychain  — store the secret in the OS keychain via the registered credentials.Backend
               and write '<prefix>.keychain' referencing it. Requires that the tool
-              imports gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain
+              imports gitlab.com/phpboyscout/go/credentials/keychain
               (or registers a custom Backend) or the command refuses.
 
 When --target is omitted, the command honours the 'credentials.migrate.default_target'

@@ -12,8 +12,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"gitlab.com/phpboyscout/go/credentials"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/credentials"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -187,10 +188,15 @@ func defaultStorageModeForm(cfg *BitbucketConfig) *huh.Form {
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	options := credentials.StorageModeOptions(credentials.IsCI(), credentials.Probe(ctx),
+	choices := credentials.ModeChoices(credentials.IsCI(), credentials.Probe(ctx),
 		"Environment variable references (recommended)",
 		"OS keychain (single JSON blob)",
 		"Literal values in config file (plaintext)")
+
+	options := make([]huh.Option[credentials.Mode], len(choices))
+	for i, c := range choices {
+		options[i] = huh.NewOption(c.Label, c.Mode)
+	}
 
 	if cfg.StorageMode == "" {
 		cfg.StorageMode = credentials.ModeEnvVar
