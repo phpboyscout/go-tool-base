@@ -2,7 +2,7 @@
 title: "Extract the transport server stack into go/transport"
 description: "Phase 5 (final) of the transport-stack extraction plan: promote GTB's HTTP server, gRPC server and grpc-gateway — health handlers, secure server constructors, request/RPC authentication, security headers — into the standalone gitlab.com/phpboyscout/go/transport module, consuming go/controls + go/authn + go/transit + go/tls. This is a CLEAN BREAK: GTB keeps only the config.Containable adapters (which cannot leave the framework); the pure server API is no longer re-exported, so downstreams migrate to go/transport directly."
 date: 2026-07-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - transport
@@ -27,7 +27,7 @@ Date
 :   2026-07-17
 
 Status
-:   APPROVED (2026-07-17) — O1–O7 resolved. Phase 5 (final) of the transport-stack
+:   IMPLEMENTED (2026-07-18) — shipped to main (cut-over MR !247); originally APPROVED (2026-07-17) — O1–O7 resolved. Phase 5 (final) of the transport-stack
     extraction plan. **This is a deliberate clean break, not a facade cut-over.**
 
 ## Summary

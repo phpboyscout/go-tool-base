@@ -2,7 +2,7 @@
 title: "Extract the shared transport middleware & resilience into go/transit"
 description: "Extract GTB's transport-neutral middleware layer — the circuit-breaker and rate-limiter primitives plus the shared HTTP and gRPC middleware (request/response chaining, logging with redaction, OTel instrumentation, client round-trippers, and server interceptors) — out of pkg/http, pkg/grpc, and internal/ into the standalone gitlab.com/phpboyscout/go/transit module. Phase 3 of the transport-stack extraction plan; the layer every transport client and server sits on."
 date: 2026-07-16
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - transit
@@ -28,7 +28,7 @@ Date
 :   2026-07-16
 
 Status
-:   APPROVED (O1–O4 resolved in review 2026-07-16)
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED (O1–O4 resolved in review 2026-07-16)
 
 ## Summary
 

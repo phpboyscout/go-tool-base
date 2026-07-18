@@ -2,7 +2,7 @@
 title: "Transport stack & foundations — extraction sequence plan"
 description: "The dependency-ordered plan for extracting the leaf utilities (redact, regexutil, browser), the transport foundations (tls, authn), and the transport stack (http/grpc/gateway) into standalone modules. Establishes the phased order forced by the dependency graph, the per-package extraction shape (repoint vs facade), and the client/server module split for the transport layer."
 date: 2026-07-13
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - module-extraction
@@ -27,7 +27,7 @@ Date
 :   2026-07-13
 
 Status
-:   APPROVED (open questions resolved in review 2026-07-13; design points D1–D4 deferred to their phases)
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED (open questions resolved in review 2026-07-13; design points D1–D4 deferred to their phases)
 
 ## Summary
 

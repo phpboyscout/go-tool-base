@@ -2,7 +2,7 @@
 title: "Extract pkg/tls into a standalone go/tls module"
 description: "Extract the hardened TLS plumbing (default config, the typed Pair cert shape, ServerConfig/ClientConfig builders, and the CA cert-pool helpers) out of go-tool-base into gitlab.com/phpboyscout/go/tls. The crypto core is framework-free — only crypto/tls, crypto/x509, os and cockroachdb/errors — so it moves cleanly; the single GTB seam is the config-key Resolve() adapter, which stays behind in a thin pkg/tls facade. First Phase 2 foundation of the transport-stack extraction plan."
 date: 2026-07-16
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - tls
@@ -26,7 +26,7 @@ Date
 :   2026-07-16
 
 Status
-:   APPROVED (O1–O2 resolved in review 2026-07-16)
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED (O1–O2 resolved in review 2026-07-16)
 
 ## Summary
 

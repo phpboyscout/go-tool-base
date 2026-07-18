@@ -2,7 +2,7 @@
 title: "Remove the extraction facade re-export surfaces (clean break)"
 description: "Follow-up cleanup to the transport-stack extraction programme: delete the pure re-export surfaces GTB retained over the extracted modules (the go/httpclient client facade, the go/transit HTTP+gRPC middleware re-exports, and the go/chat re-exports), repointing GTB's own code to import the modules directly. The genuine framework glue — config.Containable/Props adapters, tls.Resolve, chat's config schema and provider blank-imports — stays. A breaking change for downstream tools, shipped with a migration note."
 date: 2026-07-17
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - refactor
@@ -25,7 +25,7 @@ Date
 :   2026-07-17
 
 Status
-:   APPROVED (2026-07-17) — scope chosen: **full clean break** of the removable
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED (2026-07-17) — scope chosen: **full clean break** of the removable
     re-export surfaces.
 
 ## Summary

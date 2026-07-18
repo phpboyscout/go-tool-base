@@ -2,7 +2,7 @@
 title: "Extract the OTel observability group into a standalone go/observability module"
 description: "Extract the OpenTelemetry logs/metrics/traces setup group (pkg/telemetry/otelcore + logs + metrics + tracing) out of go-tool-base into gitlab.com/phpboyscout/go/observability. The core is config-agnostic OTel plumbing (only the OTel SDK + cockroachdb/errors); the single GTB seam is otelcore's config-key Resolve adapter, which stays behind in a thin pkg/telemetry/otelcore facade. Third and final Phase 2 foundation. Confirms D3: the observability group extracts cleanly WITHOUT the root telemetry analytics/observability split."
 date: 2026-07-16
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - observability
@@ -26,7 +26,7 @@ Date
 :   2026-07-16
 
 Status
-:   APPROVED (O1–O4 resolved in review 2026-07-16)
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED (O1–O4 resolved in review 2026-07-16)
 
 ## Summary
 

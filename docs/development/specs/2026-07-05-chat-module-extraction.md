@@ -2,7 +2,7 @@
 title: "Extract pkg/chat into a standalone module with per-provider SDK modules"
 description: "Extract the multi-provider AI chat client out of go-tool-base into its own standalone module gitlab.com/phpboyscout/go/chat, dependency-inverted onto narrow Logger/Config/HTTP/credential seams. Split each vendor-SDK provider (Anthropic, OpenAI, Gemini) into its own per-provider module registering via init() blank-import, so consumers link only the SDK(s) they opt into. go-tool-base consumes the module(s) through a thin Props-mapping adapter. Mirrors the signing / signing-aws-kms extraction (work item #1)."
 date: 2026-07-05
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -27,7 +27,7 @@ Date
 :   5 July 2026
 
 Status
-:   APPROVED
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED
 
 Builds on
 :   [`2026-07-12-go-module-extraction-playbook.md`](2026-07-12-go-module-extraction-playbook.md) (naming, repo framework, migration procedure), and the `signing` / `signing-aws-kms` extraction (work item #1, relocated to `gitlab.com/phpboyscout/go/*` v0.2.0)

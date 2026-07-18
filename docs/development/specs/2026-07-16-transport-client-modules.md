@@ -2,7 +2,7 @@
 title: "Extract the transport client factories into go/httpclient and go/grpcclient"
 description: "Phase 4 of the transport-stack extraction plan: lift GTB's hardened HTTP client factory (pkg/http/client.go) into the standalone gitlab.com/phpboyscout/go/httpclient module, and the gRPC client dial factory into gitlab.com/phpboyscout/go/grpcclient — two light modules that wire the go/transit middleware and go/tls onto stdlib net/http and the gRPC SDK, so a client-only consumer never inherits the server stack (controls/authn/gateway)."
 date: 2026-07-16
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - httpclient
@@ -27,7 +27,7 @@ Date
 :   2026-07-16
 
 Status
-:   APPROVED (2026-07-16) — O1–O5 resolved; O3 = `grpcclient.Target` type.
+:   IMPLEMENTED (2026-07-18) — shipped to main; originally APPROVED (2026-07-16) — O1–O5 resolved; O3 = `grpcclient.Target` type.
 
 ## Summary
 
