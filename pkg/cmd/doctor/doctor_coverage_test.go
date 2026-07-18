@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	configMocks "gitlab.com/phpboyscout/go/config/configmock"
+	configMocks "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"

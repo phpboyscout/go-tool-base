@@ -17,7 +17,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
-	mockConfig "gitlab.com/phpboyscout/go/config/configmock"
+	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"

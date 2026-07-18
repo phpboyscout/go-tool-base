@@ -16,7 +16,7 @@ import (
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
 	"gitlab.com/phpboyscout/go/config"
-	configmocks "gitlab.com/phpboyscout/go/config/configmock"
+	configmocks "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )

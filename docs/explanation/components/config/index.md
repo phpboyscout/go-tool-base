@@ -13,7 +13,7 @@ The configuration container has been **extracted into the standalone
 module**. Its full documentation — the `Containable` interface, sources and
 precedence, typed sections (`UnmarshalSection` / `ObserveSection`), schema
 validation, hot-reload safety, flag binding, and testing with the published
-`configmock` package — now lives at:
+`mocks` package — now lives at:
 
 > **[config.go.phpboyscout.uk](https://config.go.phpboyscout.uk)**
 

@@ -517,7 +517,7 @@ All interfaces have auto-generated mocks in `mocks/pkg/`:
 ```go
 import (
     "testing"
-    mocks_config "gitlab.com/phpboyscout/go/config/configmock"
+    mocks_config "gitlab.com/phpboyscout/go/config/mocks"
 )
 
 func TestMyFunction(t *testing.T) {

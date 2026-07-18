@@ -24,7 +24,7 @@ import (
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
-	mockConfig "gitlab.com/phpboyscout/go/config/configmock"
+	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 

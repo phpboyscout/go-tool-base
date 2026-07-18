@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
-	configMocks "gitlab.com/phpboyscout/go/config/configmock"
+	configMocks "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	configmocks "gitlab.com/phpboyscout/go/config/configmock"
+	configmocks "gitlab.com/phpboyscout/go/config/mocks"
 
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )

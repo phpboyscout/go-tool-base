@@ -217,7 +217,8 @@ _All resolved — see Resolutions above._
 
 IMPLEMENTED (2026-07-18). All open questions resolved (R1–R5). Delivered:
 `go/config v0.1.0` published (repo, DNS/Pages at `config.go.phpboyscout.uk`, landing
-card, release) with the published `configmock` package (R3), the de-branded
+card, release) with the published mocks package (R3 — shipped as `configmock` at
+`v0.1.0`, renamed to `mocks` at `v0.2.0` when that became the toolkit convention), the de-branded
 `ErrNoFilesFound` message (R5), and a depfootprint guard that makes no Viper assertion
 (R2). GTB cut over clean-break in one shot (R4): `pkg/config` and `mocks/pkg/config`
 deleted, ~85 files and 26 mock consumers repointed, generator templates updated, the

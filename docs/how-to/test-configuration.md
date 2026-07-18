@@ -46,7 +46,7 @@ database:
 ## Use the generated mocks
 
 GTB ships auto-generated mocks (via [mockery](https://github.com/vektra/mockery))
-in `go/config/configmock`. **Prefer these over hand-written fakes** — they are
+in `go/config/mocks`. **Prefer these over hand-written fakes** — they are
 generated from the real interfaces (`MockContainable`, `MockObservable`,
 `MockEmbeddedFileReader`), so they stay in sync and verify expectations on
 cleanup.
@@ -55,7 +55,7 @@ cleanup.
 import (
     "testing"
 
-    "gitlab.com/phpboyscout/go/config/configmock"
+    "gitlab.com/phpboyscout/go/config/mocks"
     "github.com/stretchr/testify/assert"
 )
 

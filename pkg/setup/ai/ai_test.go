@@ -17,7 +17,7 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go/config"
-	mockConfig "gitlab.com/phpboyscout/go/config/configmock"
+	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"

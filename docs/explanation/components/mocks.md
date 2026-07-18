@@ -26,7 +26,7 @@ The mocks package contains mock implementations for all major GTB interfaces, ma
 
 ### Configuration Mocks
 
-Located in `go/config/configmock/`:
+Located in `go/config/mocks/`:
 
 #### **Containable Mock**
 Mock implementation of `config.Containable` interface for testing configuration-dependent code:
@@ -158,7 +158,7 @@ import (
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/mock"
 
-    mocks_config "gitlab.com/phpboyscout/go/config/configmock"
+    mocks_config "gitlab.com/phpboyscout/go/config/mocks"
     mocks_controls "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/controls"
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -245,7 +245,7 @@ The mocks are automatically generated using **Mockery v3** (pinned via the
 ```yaml
 # Mockery v3: `template` replaces v2's `with-expecter` (expecters are always on now).
 template: testify
-dir: "mocks/{{ .InterfaceDirRelative }}"   # e.g. pkg/config -> go/config/configmock
+dir: "mocks/{{ .InterfaceDirRelative }}"   # e.g. pkg/config -> go/config/mocks
 filename: "{{.InterfaceName}}.go"
 structname: "{{.Mock}}{{.InterfaceName}}"
 formatter: goimports
@@ -258,7 +258,7 @@ packages:
 ```
 
 `dir` uses `{{ .InterfaceDirRelative }}`, so an interface in `go/config`
-generates into `go/config/configmock/` (mirroring the source tree under `mocks/`).
+generates into `go/config/mocks/` (mirroring the source tree under `mocks/`).
 
 ### Regenerating Mocks
 

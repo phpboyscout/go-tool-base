@@ -6,7 +6,7 @@ import (
 	"charm.land/huh/v2"
 	testifymock "github.com/stretchr/testify/mock"
 
-	mockcfg "gitlab.com/phpboyscout/go/config/configmock"
+	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

@@ -14,7 +14,7 @@ import (
 	gochat "gitlab.com/phpboyscout/go/chat"
 
 	"gitlab.com/phpboyscout/go/config"
-	configmocks "gitlab.com/phpboyscout/go/config/configmock"
+	configmocks "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

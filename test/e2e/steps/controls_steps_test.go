@@ -20,7 +20,7 @@ import (
 	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
-	mockConfig "gitlab.com/phpboyscout/go/config/configmock"
+	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
