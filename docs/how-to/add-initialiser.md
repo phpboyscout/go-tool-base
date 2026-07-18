@@ -20,7 +20,7 @@ Create a new package or add a file to your feature package that implements `setu
 package myfeature
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

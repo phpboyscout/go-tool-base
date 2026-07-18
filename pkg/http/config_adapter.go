@@ -8,7 +8,8 @@ import (
 	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )

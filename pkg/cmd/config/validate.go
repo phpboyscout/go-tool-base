@@ -7,7 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	cfg "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	cfg "gitlab.com/phpboyscout/go/config"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

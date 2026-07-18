@@ -9,7 +9,8 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )

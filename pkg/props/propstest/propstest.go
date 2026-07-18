@@ -30,7 +30,8 @@ import (
 
 	"github.com/spf13/afero"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

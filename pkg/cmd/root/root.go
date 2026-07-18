@@ -15,6 +15,8 @@ import (
 	"github.com/njayp/ophis"
 	"github.com/spf13/afero"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
 	cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/docs"
@@ -24,7 +26,6 @@ import (
 	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"

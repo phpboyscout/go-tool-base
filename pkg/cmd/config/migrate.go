@@ -17,8 +17,9 @@ import (
 
 	"gitlab.com/phpboyscout/go/credentials"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

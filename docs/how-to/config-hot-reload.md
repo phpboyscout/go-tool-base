@@ -32,7 +32,7 @@ Observers are invoked synchronously in the watch goroutine. An observer that **r
 Create a struct that implements `config.Observable`. `Run` returns an `error`:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+import "gitlab.com/phpboyscout/go/config"
 
 type DatabaseReconfigurer struct {
     pool *sql.DB

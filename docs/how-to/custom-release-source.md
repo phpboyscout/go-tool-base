@@ -48,7 +48,7 @@ import (
 
     "github.com/cockroachdb/errors"
 
-    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go/config"
     "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
@@ -149,7 +149,7 @@ package main
 
 import (
     "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go/config"
 
     "github.com/myorg/mytool/pkg/vcs/s3"
 )
@@ -171,7 +171,7 @@ package s3
 
 import (
     "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go/config"
 )
 
 func init() {

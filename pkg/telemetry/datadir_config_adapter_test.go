@@ -7,7 +7,8 @@ import (
 
 	"github.com/spf13/viper"
 
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	mockcfg "gitlab.com/phpboyscout/go/config/configmock"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

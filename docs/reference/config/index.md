@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 This page lists the configuration keys the **framework itself** reads. Tools built
 on GTB add their own keys on top. For how these are loaded and merged, see
-[Sources & Precedence](../../explanation/components/config/sources-and-precedence.md).
+[Precedence & merge model](https://config.go.phpboyscout.uk/explanation/precedence-and-merge/).
 
 **Precedence** (highest to lowest): CLI flags → environment variables → config
 files (later files override earlier) → embedded defaults.

@@ -6,7 +6,7 @@ package props
 
 import (
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
 )
 
 // NewMockConfigProvider creates a new instance of MockConfigProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

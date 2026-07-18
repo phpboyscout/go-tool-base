@@ -137,7 +137,7 @@ Call `release.Register` in your `main()` before any update operations. The regis
 ```go
 import (
     "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+    "gitlab.com/phpboyscout/go/config"
 )
 
 func main() {

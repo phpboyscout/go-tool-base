@@ -11,7 +11,8 @@ import (
 	testifymock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	mockcfg "gitlab.com/phpboyscout/go/config/configmock"
+
 	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

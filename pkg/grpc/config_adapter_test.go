@@ -15,8 +15,9 @@ import (
 	transitgrpc "gitlab.com/phpboyscout/go/transit/grpc"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
-	configmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+	configmocks "gitlab.com/phpboyscout/go/config/configmock"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 

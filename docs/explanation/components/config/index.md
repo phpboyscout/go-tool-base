@@ -1,132 +1,161 @@
 ---
 title: Configuration
-description: Configuration management extending Viper with testability, change observation, and multiple sources.
-date: 2026-02-16
+description: go-tool-base's integration of the standalone go/config container — embedded-asset defaults, the project-local config layer, env-prefix propagation, flag binding, initialisers, and sensitive-value masking.
+date: 2026-07-18
 tags: [components, config, configuration, viper]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Configuration
 
-The Configuration component provides a flexible and powerful abstraction over the `spf13/viper` configuration library. It delivers enhanced functionality for configuration loading and management while adding crucial testability features that are not available with viper directly.
+The configuration container has been **extracted into the standalone
+[`gitlab.com/phpboyscout/go/config`](https://gitlab.com/phpboyscout/go/config)
+module**. Its full documentation — the `Containable` interface, sources and
+precedence, typed sections (`UnmarshalSection` / `ObserveSection`), schema
+validation, hot-reload safety, flag binding, and testing with the published
+`configmock` package — now lives at:
 
-## Overview
+> **[config.go.phpboyscout.uk](https://config.go.phpboyscout.uk)**
 
-The configuration system is built around the `Containable` interface and the `Container` struct, providing a unified API for accessing configuration values regardless of their source. The package adds several key improvements over raw viper usage:
+API reference: **[pkg.go.dev/gitlab.com/phpboyscout/go/config](https://pkg.go.dev/gitlab.com/phpboyscout/go/config)**.
+See the [migration note](../../../reference/migration/v0.x-config-extracted.md) for the
+import-path change.
 
-**Enhanced Testability**: Unlike viper, which is difficult to mock effectively, the `Containable` interface enables clean dependency injection and comprehensive testing strategies.
+go-tool-base imports the module directly (no adapter package). This page documents only
+what **GTB layers on top** — the conventions and wiring that are framework concerns and
+deliberately not in the module.
 
-**Observer Pattern**: Adds filesystem watching with an observer pattern for configuration changes, allowing your application to react to configuration updates automatically.
+## How GTB wires the container
 
-**Typed Section Boundaries**: Decodes resolved config sections into package-owned structs with `UnmarshalSection`, so reusable packages can receive ordinary Go data instead of depending on GTB's config container.
-
-**Observed Settings Snapshots**: Binds long-lived components to typed settings with `ObserveSection`, which performs the initial decode, registers a reload observer, validates new snapshots, detects whole-struct changes, and publishes the latest immutable settings through `ObservedSection`.
-
-**Simplified API**: Provides convenience methods for common configuration tasks while maintaining access to the underlying viper instance when needed.
-
-**Multiple Source Support**: Handles configuration loading from files, embedded resources, environment variables, and command-line flags with automatic merging and type conversion.
-
-## Why use the Wrapper?
-
-Instead of industrializing Viper directly in your application code, GTB provides the `Containable` interface. This allows us to:
-
-- **Enforce Consistency**: Methods like `NewFilesContainer` ensure that every CLI tool follows the same logic for loading and merging configuration files.
-- **Abstract the Filesystem**: We integrate natively with `afero`, meaning your configuration can be loaded from the OS, an in-memory test buffer, or embedded assets through the same interface.
-- **Automate Environment Mapping**: We pre-configure environment variable replacement (e.g., `server.port` becomes `SERVER_PORT`) so you don't have to.
-
-## Core Interface
-
-The `Containable` interface provides the primary API for configuration access:
-
-
-> [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full API definition.
-
-
-## Container Implementation
-
-The `Container` struct is the primary implementation of the `Containable` interface. Engineers should use this concrete type rather than the interface directly, except for testing and dependency injection. Its fields are internal — construct it via the options-pattern factory functions:
+The root command builds the container during its pre-run and publishes it as
+`props.Config`, so every command and initialiser receives the same instance:
 
 ```go
-func NewFilesContainer(fs afero.Fs, opts ...ContainerOption) *Container
-func NewReaderContainer(fs afero.Fs, opts ...ContainerOption) *Container
+p := &props.Props{
+    Config: cfg,   // config.Containable
+    Logger: l,
+    FS:     fs,
+}
 ```
 
-> [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/config) for the full `Container` API.
+`Props.Tool.EnvPrefix` is propagated into the container as the module's
+`WithEnvPrefix`, so a tool's config keys resolve from `MYTOOL_*` rather than bare
+names — see the module's
+[env-prefix rationale](https://config.go.phpboyscout.uk/explanation/precedence-and-merge/#the-env-prefix-is-a-security-control).
 
-## Typed Sections for Package Boundaries
+## Embedded defaults: the `assets/init/config.yaml` convention
 
-Reusable packages should define the settings struct they need and accept that
-struct in their constructors. GTB adapter code is responsible for loading and
-observing the framework config:
+GTB discovers shipped defaults at a fixed path inside each package's `embed.FS`:
+
+- **Path:** `assets/init/config.yaml`
+- **Directive:** `//go:embed assets/*`
+
+The root command aggregates assets from every subcommand and merges them, so each
+feature package ships its own defaults without a central file:
 
 ```go
-type ServerSettings struct {
-    Port int           `mapstructure:"port"`
-    ReadTimeout time.Duration `mapstructure:"read_timeout"`
-}
+//go:embed assets/*
+var assets embed.FS
 
-section, err := config.UnmarshalSection[ServerSettings](cfg, "server.http")
-if err != nil {
-    return err
-}
-
-server, err := http.NewServer(ctx, section.Value, handler)
+allAssets := []embed.FS{assets}
+// ... append each subcommand's assets ...
+rootCmd := root.NewCmdRoot(props, allAssets)
 ```
 
-For long-lived components, prefer `ObserveSection` so reloads rehydrate typed
-settings automatically:
+Defaults live **only** here — never duplicated into `default:` struct tags, which the
+module treats as hint text and never applies.
+
+## The project-local config layer
+
+At startup GTB also looks for a **project-local** file named `.<tool>.yaml` (e.g.
+`.myapp.yaml`), discovered by walking up from the working directory to the filesystem
+root — a repo-root convention like `.editorconfig`. When found it is merged **last among
+the file sources**, so it deep-merges over and overrides the per-user
+`~/.<tool>/config.yaml`:
+
+```
+~/.myapp/config.yaml          # global, per-user
+/path/to/repo/.myapp.yaml     # project — overrides the global, committed with the repo
+```
+
+This keeps a project's non-secret settings in the repo that owns them. A tool opts out
+simply by not having the file; it never errors when absent. Environment variables and
+flags still override it — it sits in the *file* tier of the module's precedence chain.
+The filename derives from `Props.Tool.Name`.
+
+## Binding CLI flags
+
+GTB registers and binds flags on your behalf, so you rarely call the module's
+`BindPFlag` directly:
 
 ```go
-settings, err := config.ObserveSection[ServerSettings](
-    cfg,
-    "server.http",
-    config.WithSectionValidator(func(next ServerSettings) error {
-        return next.Validate()
-    }),
-    config.WithSectionApply(func(change config.SectionChange[ServerSettings]) error {
-        return server.Reconfigure(&change.Current.Value)
-    }),
+portFlags := pflag.NewFlagSet("server", pflag.ContinueOnError)
+portFlags.Int("server-port", 8080, "server port")
+
+rootCmd := root.NewCmdRootWithOptions(props,
+    root.WithBoundFlags(map[string]*pflag.Flag{"server.port": portFlags.Lookup("server-port")}),
+    // or, by convention (--server-port -> server.port):
+    root.WithConventionBoundFlags(portFlags),
 )
-if err != nil {
-    return err
-}
-
-server.SetSettingsSource(settings)
 ```
 
-Packages that may be extracted should depend on a tiny local interface such as
-`interface { Current() *ServerSettings }` when they need reload-aware access.
-That lets `*config.ObservedSection[ServerSettings]` satisfy the package
-contract without the extracted module importing `pkg/config`.
+A subcommand's own local flags are bound by the same hyphen-to-dot convention when that
+command runs. **Only flags the user actually changed are bound**, which is what keeps a
+defaulted flag from masking file or env values — see the module's
+[default-clobber warning](https://config.go.phpboyscout.uk/how-to/bind-cli-flags/).
 
-`ObservedSection.Version()` increments only when the typed section changes after
-a successful reload. `WithSectionApply` receives a `SectionChange[T]` with the
-previous and current snapshots, so packages can reconfigure from whole settings
-objects instead of watching individual config keys.
+The built-in `--debug` and `--ci` flags fold through the same path, so
+`Config.GetBool("ci")` reflects `--ci`; `--debug` additionally retains its immediate
+effect on the log level.
 
-### Container Options
+## Initialiser integration
 
-All factory functions accept functional options to configure container behavior. The only required argument is `fs afero.Fs`:
+`config.Containable` is the standard interface for
+[tool initialisers](../setup/initialisers.md): an initialiser checks existing state with
+`IsConfigured(cfg)` and writes new values with `cfg.Set(...)`, giving a consistent API
+across the whole setup lifecycle.
+
+## Sensitive-value masking
+
+Masking lives in GTB's `config` **command** (`pkg/cmd/config/sensitive.go`), not in the
+container — the module never inspects values for sensitivity. `config get` / `config
+list` render secrets as `****<tail>` using two independent strategies:
+
+1. **Key-name matching** — the leaf segment of the dotted key against `token`,
+   `password`, `secret`, `key`, `apikey`, `auth`.
+2. **Value-content matching** — the value against known token patterns (e.g. `ghp_…`,
+   `github_pat_…`), which catches keys like `github.auth.value` whose *name* is not
+   sensitive.
+
+Tool authors extend it via functional options:
 
 ```go
-config.WithLogger(l *slog.Logger)              // Logger (default: noop)
-config.WithEnvPrefix(prefix string)            // Env var prefix (default: none)
-config.WithConfigFiles(files ...string)        // Config file paths
-config.WithConfigFormat(format string)         // "yaml", "json", "toml"
-config.WithConfigReaders(readers ...io.Reader) // io.Reader config sources
-config.WithSchema(schema *Schema)              // Validation schema
+cmdconfig.NewCmdConfig(props,
+    cmdconfig.WithKeyPattern("credential"),
+    cmdconfig.WithValuePattern(regexp.MustCompile(`^sk-[A-Za-z0-9]{32}$`)),
+)
 ```
 
----
+## Relationship with `init` and `config`
 
-## In this section
+| Workflow | Command |
+| :--- | :--- |
+| First-run bootstrap | `init` |
+| Re-configure a subsystem interactively | `init <subsystem>` (e.g. `init ai`) |
+| Read / write / remove a single value | `config get` / `config set` / `config unset` |
+| Find where config actually lives | `config path` (backed by the module's `ConfigFiles()`) |
+| Hand-edit the file safely (re-validated) | `config edit` |
+| Inspect all resolved config | `config list` |
+| Validate config against schema | `config validate` |
 
-- **[Creating Containers](creating-containers.md)** — factory functions and choosing the right one
-- **[Sources & Precedence](sources-and-precedence.md)** — file, embedded, environment, dotenv, and how they merge
-- **[Schema Validation](validation.md)** — validate configuration against a schema
-- **[Hot-Reload & Observers](hot-reload.md)** — react to live configuration changes
-- **[Best Practices & Integration](best-practices.md)** — patterns, GTB integration, sensitive-value masking
+Both `InitCmd` and `ConfigCmd` should be disabled in containerised services where local
+YAML config is not applicable.
 
-For test recipes (in-memory containers, the generated mocks, testing observers), see the **[Test Code That Uses Configuration](../../../how-to/test-configuration.md)** how-to guide.
+## Related
+
+- **Module docs:** [config.go.phpboyscout.uk](https://config.go.phpboyscout.uk)
+- **How-to:** [Test code that uses configuration](../../../how-to/test-configuration.md),
+  [Bind flags to config](../../../how-to/bind-flags-to-config.md),
+  [React to config changes](../../../how-to/config-hot-reload.md),
+  [Validate component config](../../../how-to/validate-component-config.md)
+- **Assets:** [Embed custom assets](../../../how-to/embed-custom-assets.md)

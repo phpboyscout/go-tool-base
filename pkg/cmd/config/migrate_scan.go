@@ -3,8 +3,9 @@ package config
 import (
 	"strings"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
 )
 
 // literalCredential describes a single credential the scanner

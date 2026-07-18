@@ -13,7 +13,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/viper"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )

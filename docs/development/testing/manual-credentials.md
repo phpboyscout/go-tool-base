@@ -126,7 +126,7 @@ import (
 
 	_ "gitlab.com/phpboyscout/go/credentials/keychain"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -234,7 +234,7 @@ import (
 	"github.com/spf13/afero"
 
 	_ "gitlab.com/phpboyscout/go/credentials/keychain"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )

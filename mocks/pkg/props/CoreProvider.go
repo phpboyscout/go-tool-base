@@ -7,7 +7,7 @@ package props
 import (
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 

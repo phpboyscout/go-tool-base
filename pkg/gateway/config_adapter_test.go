@@ -23,7 +23,8 @@ import (
 
 	transithttp "gitlab.com/phpboyscout/go/transit/http"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )

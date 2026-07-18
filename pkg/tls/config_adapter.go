@@ -1,6 +1,6 @@
 package tls
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+import "gitlab.com/phpboyscout/go/config"
 
 // Resolve resolves the TLS settings for a transport from GTB config. It starts
 // from the shared SharedPrefix ("server.tls") and overrides each field

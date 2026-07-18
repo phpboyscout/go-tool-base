@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # How to Test Code That Uses Configuration
 
-The `pkg/config` package is built for testability: unlike a bare `*viper.Viper`,
+The `go/config` package is built for testability: unlike a bare `*viper.Viper`,
 the `Containable` interface can be mocked, and reader-backed containers let you
 feed config from an in-memory string. This guide covers the common recipes. For
 general test scaffolding (test `Props`, filesystem mocking, race avoidance), see
@@ -46,7 +46,7 @@ database:
 ## Use the generated mocks
 
 GTB ships auto-generated mocks (via [mockery](https://github.com/vektra/mockery))
-in `mocks/pkg/config`. **Prefer these over hand-written fakes** — they are
+in `go/config/configmock`. **Prefer these over hand-written fakes** — they are
 generated from the real interfaces (`MockContainable`, `MockObservable`,
 `MockEmbeddedFileReader`), so they stay in sync and verify expectations on
 cleanup.
@@ -55,7 +55,7 @@ cleanup.
 import (
     "testing"
 
-    "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+    "gitlab.com/phpboyscout/go/config/configmock"
     "github.com/stretchr/testify/assert"
 )
 
@@ -178,7 +178,7 @@ allSettings := container.GetViper().AllSettings()
 
 Resolution precedence when a value surprises you: **flags → env → config files
 (later files override earlier) → defaults**. For schema-based validation see
-[Schema Validation](../explanation/components/config/validation.md); for general
+[Validate configuration](https://config.go.phpboyscout.uk/how-to/validate-config/); for general
 runtime issues see the [Troubleshooting Guide](../development/troubleshooting.md).
 
 ## Related

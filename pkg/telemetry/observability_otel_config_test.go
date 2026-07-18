@@ -11,7 +11,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/observability/otelcore"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 

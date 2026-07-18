@@ -61,7 +61,7 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			enabled:  data.WithInitializer,
 			funcName: "Init" + data.PascalName,
 			requiredImports: []string{
-				"gitlab.com/phpboyscout/go-tool-base/pkg/config",
+				"gitlab.com/phpboyscout/go/config",
 			},
 			stub: func() string {
 				return fmt.Sprintf(

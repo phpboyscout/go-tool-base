@@ -9,7 +9,8 @@ import (
 	transitgrpc "gitlab.com/phpboyscout/go/transit/grpc"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )

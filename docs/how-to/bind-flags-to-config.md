@@ -83,4 +83,4 @@ The `RootOption`s above are preferred because they handle registration, `flag.Ch
 ## Related
 
 - [Configuration System](../explanation/components/config/index.md) — precedence and the observer pattern.
-- [Config component reference](../explanation/components/config/sources-and-precedence.md#binding-cli-flags-to-config) — full API.
+- [Bind CLI flags](https://config.go.phpboyscout.uk/how-to/bind-cli-flags/) — the module guide.

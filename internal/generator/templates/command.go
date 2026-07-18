@@ -366,11 +366,11 @@ func CommandInitializer(data CommandData) *jen.File {
 		jen.Return(jen.Lit(data.Name)),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName + "Initialiser")).Id("IsConfigured").Params(jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/config", "Containable")).Bool().Block(
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName + "Initialiser")).Id("IsConfigured").Params(jen.Id("cfg").Qual("gitlab.com/phpboyscout/go/config", "Containable")).Bool().Block(
 		jen.Return(jen.Id("cfg").Dot("IsSet").Call(jen.Lit(data.Name))),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/config", "Containable")).Error().Block(
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("gitlab.com/phpboyscout/go/config", "Containable")).Error().Block(
 		jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("cfg"))),
 	)
 
@@ -730,7 +730,7 @@ func CommandConfigValidation(data CommandData) string {
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
 	sb.WriteString("import (\n")
-	sb.WriteString("\t\"gitlab.com/phpboyscout/go-tool-base/pkg/config\"\n")
+	sb.WriteString("\t\"gitlab.com/phpboyscout/go/config\"\n")
 	sb.WriteString(")\n\n")
 
 	fmt.Fprintf(&sb, "// %sConfig describes the configuration keys consumed by %s.\n", data.PascalName, data.Name)
@@ -826,7 +826,7 @@ func getCleanImports(rawImports []string, withInitializer bool) []string {
 	// The generated Init<Name> stub takes a config.Containable, so the config
 	// package is required in main.go when an initializer is generated.
 	if withInitializer {
-		baseImports = append(baseImports, "gitlab.com/phpboyscout/go-tool-base/pkg/config")
+		baseImports = append(baseImports, "gitlab.com/phpboyscout/go/config")
 	}
 
 	for _, imp := range baseImports {

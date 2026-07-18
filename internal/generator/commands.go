@@ -69,7 +69,7 @@ REQUIREMENTS:
 - You MUST import the package under test (import path: '%s').
 - You MUST import "gitlab.com/phpboyscout/go-tool-base/pkg/props" if you reference 'props.Props' in the test.
 - You MUST reference functions and structs from the package under test (e.g., '%s.%s').
-- If mocking is required for props.Config, use the shared mocks in 'gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config'.
+- If mocking is required for props.Config, use the shared mocks in 'gitlab.com/phpboyscout/go/config/configmock'.
 - For the Logger ('props.Logger'), DO NOT use a mock. Instead, use an actual implementation:
 - Import "gitlab.com/phpboyscout/go-tool-base/pkg/logger".
 - Initialize it with: l := logger.NewNoop().

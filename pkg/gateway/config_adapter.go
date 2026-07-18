@@ -13,7 +13,8 @@ import (
 	transportgateway "gitlab.com/phpboyscout/go/transport/gateway"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"

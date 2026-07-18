@@ -1,7 +1,8 @@
 package vcs
 
 import (
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 

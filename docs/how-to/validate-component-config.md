@@ -121,7 +121,7 @@ Create a struct that describes the config keys your package consumes:
 // pkg/myfeature/config.go
 package myfeature
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+import "gitlab.com/phpboyscout/go/config"
 
 // Config describes the configuration keys consumed by myfeature.
 type Config struct {
@@ -304,7 +304,7 @@ myfeature:
 
 **Don't create a single global schema for the whole config.** Each package validates its own slice. A global schema would need to know which features are active and would couple packages together.
 
-**Don't add `Validate` to the `Containable` interface.** It lives on `*Container` deliberately. Tests that mock config use `Containable`; validation runs against the real container in production.
+**Don't reach for the concrete container to validate.** `ValidateStruct[T]` and `Validate` both work through the `Containable` interface, so a package never needs to type-assert `props.Config` down to a concrete type.
 
 ---
 

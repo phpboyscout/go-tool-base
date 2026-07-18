@@ -3,7 +3,7 @@ package telemetry
 import (
 	"gitlab.com/phpboyscout/go/observability/otelcore"
 
-	gtbconfig "gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	gtbconfig "gitlab.com/phpboyscout/go/config"
 )
 
 // resolveOTLPSettings reads telemetry.<signal>.* overlaid on the shared telemetry.*

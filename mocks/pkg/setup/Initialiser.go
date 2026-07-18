@@ -6,7 +6,7 @@ package setup
 
 import (
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

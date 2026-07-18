@@ -8,9 +8,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+	pkgcfg "gitlab.com/phpboyscout/go/config"
+	mockcfg "gitlab.com/phpboyscout/go/config/configmock"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
-	pkgcfg "gitlab.com/phpboyscout/go-tool-base/pkg/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

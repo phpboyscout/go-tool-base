@@ -103,7 +103,7 @@ type ErrorHandlerProvider interface {
 
 #### Containable
 
-**Package:** `pkg/config`  
+**Package:** `go/config`  
 **Purpose:** Abstract configuration access, enabling testing without real config files.
 
 ```go
@@ -153,7 +153,7 @@ func loadDatabaseConfig(cfg config.Containable) (*DatabaseConfig, error) {
 
 #### Observable
 
-**Package:** `pkg/config`  
+**Package:** `go/config`  
 **Purpose:** Configuration change notification callback.
 
 ```go
@@ -517,7 +517,7 @@ All interfaces have auto-generated mocks in `mocks/pkg/`:
 ```go
 import (
     "testing"
-    mocks_config "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+    mocks_config "gitlab.com/phpboyscout/go/config/configmock"
 )
 
 func TestMyFunction(t *testing.T) {

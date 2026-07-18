@@ -19,7 +19,6 @@ require (
 	github.com/cucumber/godog v0.15.1
 	github.com/dave/dst v0.27.4
 	github.com/dave/jennifer v1.7.1
-	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/google/go-github/v88 v88.0.0
@@ -35,7 +34,6 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	github.com/subosito/gotenv v1.6.0
 	github.com/testcontainers/testcontainers-go v0.43.0
 	gitlab.com/gitlab-org/api/client-go/v2 v2.46.0
 	gitlab.com/phpboyscout/go/browser v0.1.0
@@ -43,6 +41,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
+	gitlab.com/phpboyscout/go/config v0.1.0
 	gitlab.com/phpboyscout/go/controls v0.1.0
 	gitlab.com/phpboyscout/go/credentials v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
@@ -134,6 +133,7 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/getsentry/sentry-go v0.46.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
@@ -219,6 +219,7 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/standard-webhooks/standard-webhooks/libraries v0.0.1 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
+	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect

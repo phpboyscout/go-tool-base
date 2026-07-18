@@ -13,7 +13,8 @@ import (
 	"github.com/spf13/afero"
 	"golang.org/x/crypto/ssh"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/config"
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	rootvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"

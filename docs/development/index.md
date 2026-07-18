@@ -368,7 +368,7 @@ import (
     "testing"
 
     "gitlab.com/phpboyscout/go-tool-base/newpackage"
-    "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/config"
+    "gitlab.com/phpboyscout/go/config/configmock"
     "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
     "github.com/stretchr/testify/assert"
 )
