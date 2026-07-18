@@ -30,7 +30,7 @@ func TestGetCleanImports_NoInitializer(t *testing.T) {
 	// Base imports are always present.
 	assert.Contains(t, imps, "context")
 	assert.Contains(t, imps, "gitlab.com/phpboyscout/go-tool-base/pkg/props")
-	assert.Contains(t, imps, "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling")
+	assert.Contains(t, imps, "gitlab.com/phpboyscout/go/errorhandling")
 }
 
 func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {

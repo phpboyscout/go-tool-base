@@ -16,7 +16,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -273,7 +272,7 @@ func TestNewResetCmd(t *testing.T) {
 		t.Parallel()
 
 		p := makeResetProps(logger.NewNoop(), errors.New("network down"), false)
-		p.Tool.Help = errorhandling.SlackHelp{Team: "team", Channel: "ops"}
+		p.Tool.Help = props.SlackHelp{Team: "team", Channel: "ops"}
 		cmd := newResetCmd(p)
 		cmd.SetContext(context.Background())
 

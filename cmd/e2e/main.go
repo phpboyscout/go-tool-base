@@ -33,6 +33,8 @@ import (
 
 	"github.com/spf13/afero"
 
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
@@ -41,7 +43,6 @@ import (
 	tmplcmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd/template"
 	"gitlab.com/phpboyscout/go-tool-base/internal/version"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

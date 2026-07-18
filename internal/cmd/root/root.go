@@ -7,8 +7,9 @@ import (
 
 	"github.com/spf13/afero"
 
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

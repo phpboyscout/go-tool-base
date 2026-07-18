@@ -1061,7 +1061,7 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/vcs/{github,gitlab,gitea,bitbucket,direct}` | `releases` | 6 | Subpackages of the release module; inject `*http.Client`. |
 | ☐ | `pkg/vcs/repo` | `vcsrepo` | 7 | After `vcs`/`release`/`aferobilly`. |
 | ☑ | `pkg/config` | (opinionated Viper wrapper) | 7 | Optional foundational extraction; swap `pkg/logger` for a narrow seam. Not a prerequisite for others. |
-| ☐ | `pkg/errorhandling` | (CLI error UX) | 6 | Split Cobra integration from pure hint/exit-code helpers. |
+| ☑ | `pkg/errorhandling` | (CLI error UX) | 6 | Done. No split needed: the Cobra parameter was vestigial (duplicated `SetUsage`, no caller passed it), so removing it left one framework-free module. |
 
 ### 🚧 Blocked on design/refactor work
 

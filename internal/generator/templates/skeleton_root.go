@@ -81,7 +81,7 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	f.ImportAlias("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "gtbRoot")
 
-	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "New").Call(
+	pErrorHandler := jen.Id("p").Dot("ErrorHandler").Op("=").Qual("gitlab.com/phpboyscout/go/errorhandling", "New").Call(
 		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/logger", "ToSlog").Call(jen.Id("l")),
 		jen.Id("p").Dot("Tool").Dot("Help"),
 	)
@@ -158,12 +158,12 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 
 	switch data.HelpType {
 	case "slack":
-		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "SlackHelp").Values(jen.Dict{
+		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "SlackHelp").Values(jen.Dict{
 			jen.Id("Channel"): jen.Lit(data.SlackChannel),
 			jen.Id("Team"):    jen.Lit(data.SlackTeam),
 		})
 	case "teams":
-		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling", "TeamsHelp").Values(jen.Dict{
+		toolDict[jen.Id("Help")] = jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "TeamsHelp").Values(jen.Dict{
 			jen.Id("Channel"): jen.Lit(data.TeamsChannel),
 			jen.Id("Team"):    jen.Lit(data.TeamsTeam),
 		})

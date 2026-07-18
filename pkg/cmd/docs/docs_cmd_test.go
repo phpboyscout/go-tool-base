@@ -15,7 +15,8 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )

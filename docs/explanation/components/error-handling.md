@@ -1,118 +1,32 @@
 ---
 title: Error Handling
-description: Centralized error handling system with structured logging, stack traces, and user-friendly messages.
-date: 2026-02-16
+description: go-tool-base's integration of the standalone go/errorhandling module — the Execute wrapper, signal-aware exits, help-channel implementations, and the generated command patterns.
+date: 2026-07-18
 tags: [components, error-handling, errors, logging]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Error Handling
 
-The Error Handling component provides a centralized, structured approach to error management throughout GTB applications. It emphasizes consistent error handling patterns, proper logging integration, and user-friendly error messages — all routed through a single `Execute()` entry point that calls `ErrorHandler.Check`.
+The error-reporting layer has been **extracted into the standalone
+[`gitlab.com/phpboyscout/go/errorhandling`](https://gitlab.com/phpboyscout/go/errorhandling)
+module**. Its full documentation — the `ErrorHandler` interface, hints, exit codes
+carried on the error value, `LevelFatalQuiet`, debug-gated stack traces, assertion
+failures, the sentinels, and `HelpConfig` — now lives at:
 
-## Overview
+> **[errorhandling.go.phpboyscout.uk](https://errorhandling.go.phpboyscout.uk)**
 
-GTB uses a custom error handling system built around the `errorhandling` package, which provides enhanced error handling capabilities including stack traces, structured logging, user-facing hints, and consistent error reporting. The system is powered by `github.com/cockroachdb/errors`, which captures stack traces automatically, supports user-facing hints and developer details, and produces rich diagnostic output via `fmt.Sprintf("%+v", err)`.
+API reference: **[pkg.go.dev/gitlab.com/phpboyscout/go/errorhandling](https://pkg.go.dev/gitlab.com/phpboyscout/go/errorhandling)**.
+See the [migration note](../../reference/migration/v0.x-errorhandling-extracted.md) for
+the import-path change and the `Check` signature change.
 
-## Core Philosophy
+GTB imports the module directly (no adapter package). This page documents only what
+**GTB layers on top**.
 
-GTB commands use Cobra's `RunE` and return errors idiomatically. A central `Execute()` wrapper in `pkg/cmd/root` silences Cobra's own error output, adds a `--help` hint to flag parse errors, and routes any returned error through `ErrorHandler.Check` at `LevelFatal`. This ensures all errors — runtime, flag parse, and pre-run failures — are handled consistently.
+## The `Execute` wrapper — one funnel for every error
 
-## History & Rationale
-
-The design of the `ErrorHandler` was driven by two primary requirements:
-
-1. **Observability**: We needed a way to display detailed debugging information, specifically full stack traces, whenever an error occurs in a development or troubleshooting context. This led to the adoption of `github.com/cockroachdb/errors` for error creation/wrapping — providing stack traces, user-facing hints, and structured details — alongside the unified `logger` package (with charmbracelet as the default backend) for rich, structured terminal output.
-2. **Consistent Output**: We route all errors — runtime errors, flag parse errors, and pre-run failures — through a single `Execute()` wrapper that calls `ErrorHandler.Check`. This suppresses Cobra's own error printing and ensures all output is produced by GTB's structured logger.
-
-## The errorhandling Package
-
-### Core Interface
-
-
-> [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling) for the full API definition.
-
-
-### Creating an ErrorHandler
-
-```go
-import (
-    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-)
-
-// No help channel
-props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), nil)
-
-// With Slack support channel
-props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), errorhandling.SlackHelp{
-    Team:    "Platform",
-    Channel: "#platform-help",
-})
-
-// With Microsoft Teams support channel
-props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), errorhandling.TeamsHelp{
-    Team:    "Platform",
-    Channel: "Support",
-})
-```
-
-### Usage Patterns
-
-#### 1. Command Error Handling
-
-The standard pattern for command implementation:
-
-```go
-import "github.com/cockroachdb/errors"
-
-func NewMyCommand(props *props.Props) *cobra.Command {
-    return &cobra.Command{
-        Use:   "mycommand",
-        Short: "Description of my command",
-        RunE: func(cmd *cobra.Command, args []string) error {
-            return runMyCommand(cmd.Context(), props)
-        },
-    }
-}
-
-func runMyCommand(ctx context.Context, props *props.Props, args []string) error {
-    if len(args) == 0 {
-        return ErrInsufficientArgs
-    }
-
-    result, err := performOperation(ctx, args[0])
-    if err != nil {
-        return errors.Wrap(err, "operation failed")
-    }
-
-    props.Logger.Info("Command completed", "result", result)
-    return nil
-}
-
-var ErrInsufficientArgs = errors.New("at least one argument is required")
-```
-
-#### 2. Non-Fatal Error Handling
-
-For errors that should be logged but not terminate the program:
-
-```go
-func performBackgroundTasks(props *props.Props) {
-    // Log errors but continue execution
-    props.ErrorHandler.Error(updateCache(), "cache-update")
-    props.ErrorHandler.Warn(cleanupTempFiles(), "cleanup")
-}
-```
-
-The prefix is not prepended to the message text; the handler attaches it as a
-structured `prefix` attribute via `logger.With("prefix", …)`, so it shows up as
-`prefix=cache-update` in the log output rather than being baked into the message.
-
-#### 3. The Execute Wrapper
-
-Your generated `main.go` uses `pkgRoot.Execute` which routes all `RunE` errors through `ErrorHandler`:
+GTB's commands use Cobra's `RunE` and return errors idiomatically. A single wrapper in
+`pkg/cmd/root` is where they all land:
 
 ```go
 func main() {
@@ -121,292 +35,70 @@ func main() {
 }
 ```
 
-`Execute` sets `SilenceErrors` and `SilenceUsage` on the root command so Cobra never prints errors itself, and adds a `--help` hint to all flag parse errors. It also runs the command tree under a signal-aware context — see the [Root Command documentation](../../reference/cli/root.md#signal-handling) for the full signal lifecycle.
+`Execute` does four things the module cannot do for you:
 
-#### 4. Custom Exit Codes
+1. Sets `SilenceErrors` and `SilenceUsage` so **Cobra never prints errors itself** — all
+   output comes from the structured logger.
+2. Adds a `--help` hint to flag-parse errors via `SetFlagErrorFunc`.
+3. Runs the command tree under a **signal-aware context** (see below).
+4. Routes whatever comes back through `ErrorHandler.Check` at `LevelFatal`.
 
-A fatal error normally terminates the process with exit code `1`. Callers that need a different code — for example the Unix `128+signum` convention for signal-terminated runs — attach it with `WithExitCode` and the `ErrorHandler`'s fatal path honours it:
+The result: runtime errors, flag-parse errors, and `PersistentPreRunE` failures are all
+reported the same way, and there is exactly one place in the process that exits.
 
-```go
-err := errorhandling.WithExitCode(errors.New("interrupted by signal: interrupt"), 130)
-props.ErrorHandler.Check(err, "", errorhandling.LevelFatal) // exits 130
-```
+## Signal handling
 
-`ExitCode(err)` reads the attached code back (returning `0` for `nil` and `1` for an error without an attachment). The attachment is transparent to `errors.Is`/`errors.As` and survives further wrapping, so hints and stack traces continue to work as normal. This keeps every process exit routed through the single `ErrorHandler` exit path instead of scattering `os.Exit` calls.
+`Execute` runs the command tree under a context cancelled by `SIGINT`/`SIGTERM`. The
+first signal cancels gracefully; a **second forces an immediate exit** so a hung cleanup
+cannot trap the user. The run exits `128+signum` (130 for SIGINT, 143 for SIGTERM)
+through the module's `LevelFatalQuiet` path — the correct code, logged at debug rather
+than as an error, because an interrupt is a deliberate choice, not a failure.
 
-For expected, user-initiated terminations — a SIGINT/SIGTERM interrupt — use `LevelFatalQuiet` instead of `LevelFatal`. It exits identically (honouring any attached `WithExitCode`) but logs the message at **debug** rather than error, so an interrupt does not surface as an error to end users while the notice remains visible under `--debug`:
+!!! warning "Flush before the fatal call, not in a `defer`"
+    `Check(..., LevelFatal)` exits the process, so **deferred cleanup in the calling
+    frames never runs**. GTB's telemetry flush is therefore `sync.Once`-guarded and
+    invoked *explicitly* before the fatal call, with its own bounded background context
+    — a cancelled context would abort the flush itself. Any pre-exit work you add must
+    follow the same pattern.
 
-```go
-err := errorhandling.WithExitCode(errors.New("interrupted by signal: interrupt"), 130)
-props.ErrorHandler.Check(err, "", errorhandling.LevelFatalQuiet) // exits 130, logs at debug
-```
+## Help channels
 
-## Advanced Features
-
-### Stack Trace Support
-
-When debug logging is enabled, the errorhandling package automatically includes formatted stack traces:
-
-```go
-// Enable debug logging to see stack traces
-logger.SetLevel(props.Logger, slog.LevelDebug)
-
-// This error will include a clean stack trace in debug mode
-props.ErrorHandler.Error(errors.New("something went wrong"))
-
-// Render a full trace manually at any time
-fmt.Sprintf("%+v", err)
-```
-
-- Stack captured automatically on error creation and wrapping
-- Only shown in the structured log when debug logging is enabled — the handler
-  branches on `props.Logger.Enabled(ctx, slog.LevelDebug)` rather than reading a
-  level off the logger
-- Rich `%+v` formatting includes hints, details, and issue links
-
-### User-Facing Hints
-
-Attach hints using `errors.WithHint` or `errorhandling.WrapWithHint`. `ErrorHandler` surfaces hints as a dedicated `hints` field in the structured log output.
+The module defines the `HelpConfig` interface and deliberately ships no
+implementations — where a team's support channel lives is a framework concern, not an
+error library's. GTB provides the two common ones in `pkg/props`:
 
 ```go
-import (
-    "github.com/cockroachdb/errors"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
-)
-
-// Attach a hint to a new error
-err := errors.WithHint(
-    errors.New("database connection failed"),
-    "Check that the database server is running and the connection string is correct",
-)
-
-// Attach a formatted hint
-err = errors.WithHintf(err, "expected port in range 1–65535, got %d", port)
-
-// Convenience wrapper: wrap an error with a message and a hint in one call
-err = errorhandling.WrapWithHint(err, "failed to connect", "Verify network connectivity and credentials")
-```
-
-Hints are always displayed when present, regardless of log level.
-
-### Help Integration
-
-The `HelpConfig` interface allows plugging in a support channel message that is appended to every error output:
-
-
-> [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling) for the full API definition.
-
-
-Two built-in implementations are provided:
-
-**`SlackHelp`** — directs users to a Slack channel:
-
-```go
-errorhandling.SlackHelp{
-    Team:    "DevOps Team",
-    Channel: "#support",
-}
-// Output: "For assistance, contact DevOps Team via Slack channel #support"
-```
-
-**`TeamsHelp`** — directs users to a Microsoft Teams channel:
-
-```go
-errorhandling.TeamsHelp{
-    Team:    "DevOps Team",
-    Channel: "Support",
-}
-// Output: "For assistance, contact DevOps Team via Microsoft Teams channel Support"
-```
-
-Pass `nil` when no help channel is configured:
-
-```go
-props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), nil)
-```
-
-## Special Error Types
-
-The framework defines several "sentinel" errors that trigger specific cross-cutting behaviors:
-
-- **`ErrNotImplemented`**: Automatically logs a warning indicating that the command is still under development.
-- **`ErrRunSubCommand`**: Triggered when a parent command is run without a required subcommand. The framework automatically prints the command's usage instructions.
-
-## Best Practices
-
-Always import and use `cockroachdb/errors` for error creation and wrapping in GTB applications:
-
-```go
-import "github.com/cockroachdb/errors"
-```
-
-### 1. Error Wrapping
-
-```go
-func loadConfig(path string) error {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        return errors.Wrap(err, fmt.Sprintf("failed to read config file %s", path))
-    }
-
-    var config Config
-    if err := yaml.Unmarshal(data, &config); err != nil {
-        return errors.Wrap(err, fmt.Sprintf("failed to parse config file %s", path))
-    }
-
-    return nil
+props.Tool{
+    Help: props.SlackHelp{Team: "Platform", Channel: "#platform-help"},
+    // or props.TeamsHelp{Team: "Platform", Channel: "Support"}
 }
 ```
 
-**Why cockroachdb/errors over standard library:**
+Scaffolded projects get this wired from `gtb generate project --help-type slack|teams`,
+and the value round-trips through the project manifest.
 
-- **Stack Traces**: Automatic stack trace capture at error creation points
-- **Better Debugging**: Stack traces available via `%+v` and in debug log output
-- **Consistent Integration**: Works seamlessly with the `errorhandling` package
-- **Rich Error Context**: Preserves the full error chain with hints, details, and stack information
+## Command patterns
 
-**Concrete Errors vs fmt.Errorf:**
+Generated commands follow a fixed shape:
 
 ```go
-// ✅ Preferred: Predefined concrete error variables
-var (
-    ErrInputEmpty     = errors.New("input cannot be empty")
-    ErrInvalidPort    = errors.New("invalid port: must be between 1 and 65535")
-    ErrConfigNotFound = errors.New("configuration file not found")
-)
-
-// ✅ Preferred: Use concrete errors with Wrap for dynamic content
-func validatePort(port int) error {
-    if port < 1 || port > 65535 {
-        return errors.Wrap(ErrInvalidPort, fmt.Sprintf("port %d", port))
-    }
-    return nil
-}
-
-// ❌ Avoid: fmt.Errorf doesn't provide stack traces
-func badValidation(input string) error {
-    if input == "" {
-        return fmt.Errorf("input cannot be empty") // No stack trace
-    }
-    return nil
-}
-```
-
-### 2. Contextual Error Messages
-
-```go
-func connectToDatabase(config DatabaseConfig) error {
-    conn, err := sql.Open(config.Driver, config.ConnectionString)
-    if err != nil {
-        return errorhandling.WrapWithHint(
-            err,
-            "failed to connect to database",
-            "Check that the database server is running, the connection string is correct, and network connectivity is available",
-        )
-    }
-    defer conn.Close()
-
-    if err := conn.Ping(); err != nil {
-        return errors.WithHint(
-            errors.Wrap(err, "database connection test failed"),
-            "The connection was established but the database is not responding — check server health",
-        )
-    }
-
-    return nil
-}
-```
-
-### 3. Error Message Guidelines
-
-- **Be Specific**: Include relevant details like file paths, URLs, or configuration keys
-- **Be Actionable**: Use `errors.WithHint` to suggest concrete steps the user can take
-- **Be Consistent**: Use consistent formatting and terminology across all error messages
-- **Wrap, don't replace**: Always add context when propagating errors up the call stack
-
-**Error Creation Hierarchy:**
-
-- **First Choice**: `errors.New("simple message")` for static error messages
-- **Second Choice**: `errors.Newf("formatted %s", value)` for dynamic error messages
-- **For Wrapping**: `errors.Wrap(err, "context")` when adding context to existing errors
-- **For Stack Only**: `errors.WithStack(err)` when you only need to capture the stack without changing the message
-- **For Hints**: `errors.WithHint(err, "hint")` or `errorhandling.WrapWithHint(err, "msg", "hint")`
-- **Never Use**: `fmt.Errorf()` — doesn't provide stack traces and breaks consistency
-
-## Integration with Built-in Commands
-
-The built-in commands (`init`, `version`, `update`, `docs`) all use `RunE` and return errors:
-
-```go
-// pkg/cmd/initialise/init.go
-RunE: func(cmd *cobra.Command, _ []string) error {
-    location, err := setup.Initialise(props, setup.InitOptions{...})
-    if err != nil {
-        return errors.Wrap(err, "failed to initialise configuration")
-    }
-    props.Logger.Info("Configuration initialised", "location", location)
-    return nil
+RunE: func(cmd *cobra.Command, args []string) error {
+    return runMyCommand(cmd.Context(), props)
 },
 ```
 
-## Testing Error Handling
+- **Return errors; don't report them in place.** `Execute` reports. A `Fatal` buried in
+  business logic skips deferred cleanup — see the module's
+  [reporting model](https://errorhandling.go.phpboyscout.uk/explanation/reporting-model/).
+- **`SetUsage` is set per command.** Generated commands call
+  `props.ErrorHandler.SetUsage(cmd.Usage)` in their `PreRunE`, so a parent command that
+  returns `ErrRunSubCommand` prints *its own* usage, not the root's.
+- **A stubbed command returns `ErrNotImplemented`** (or `NewErrNotImplemented(issueURL)`
+  to point at a tracking issue), which reports as a warning rather than a crash.
 
-### Testing Error Conditions
+## Related
 
-```go
-func TestLoadConfig_InvalidFile(t *testing.T) {
-    err := loadConfig("/nonexistent/file.yaml")
-
-    assert.Error(t, err)
-    assert.Contains(t, err.Error(), "failed to read config file")
-
-    // Verify the stack trace is available via %+v
-    stackTrace := fmt.Sprintf("%+v", err)
-    assert.NotEmpty(t, stackTrace)
-}
-```
-
-### Testing Error Handler Integration
-
-```go
-func TestCommandErrorHandling(t *testing.T) {
-    var logBuffer bytes.Buffer
-    l := logger.NewCharm(&logBuffer,
-        logger.WithLevel(logger.ErrorLevel),
-    )
-
-    h := errorhandling.New(logger.ToSlog(l), nil)
-
-    testErr := errors.New("test error with stack trace")
-    h.Error(testErr)
-
-    assert.Contains(t, logBuffer.String(), "test error with stack trace")
-}
-```
-
-### Testing Help Message Output
-
-```go
-func TestSlackHelp_AppearsInOutput(t *testing.T) {
-    var buf bytes.Buffer
-    l := logger.NewCharm(&buf,
-        logger.WithLevel(logger.InfoLevel),
-    )
-
-    h := errorhandling.New(logger.ToSlog(l), errorhandling.SlackHelp{Team: "Platform", Channel: "#alerts"})
-    h.Error(errors.New("something went wrong"))
-
-    assert.Contains(t, buf.String(), "For assistance, contact Platform via Slack channel #alerts")
-}
-```
-
-## Summary
-
-The GTB error handling system provides:
-
-1. **Consistent Patterns**: All commands use `RunE` and return errors; the `Execute()` wrapper handles fatal routing
-2. **Better User Experience**: Errors include context, hints, and optional help channel information
-3. **Developer Friendly**: Stack traces and structured logging for debugging
-4. **Pluggable Help**: `HelpConfig` interface supports Slack, Microsoft Teams, or custom implementations
-5. **Integration Ready**: Works seamlessly with the logging and configuration systems
+- **Module docs:** [errorhandling.go.phpboyscout.uk](https://errorhandling.go.phpboyscout.uk)
+- **How-to:** [Write user-facing errors](../../how-to/user-facing-errors.md),
+  [Custom commands](../../how-to/custom-commands.md)
+- **Patterns:** [Error handling patterns](../../development/error-handling.md)

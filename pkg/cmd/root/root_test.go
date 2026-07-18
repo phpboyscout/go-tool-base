@@ -21,7 +21,8 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	configMocks "gitlab.com/phpboyscout/go/config/mocks"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

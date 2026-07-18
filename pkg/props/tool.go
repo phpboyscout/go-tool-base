@@ -4,7 +4,8 @@ import (
 	"slices"
 	"time"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 

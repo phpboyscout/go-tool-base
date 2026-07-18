@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -173,8 +172,8 @@ type recordingHandler struct {
 	onError func()
 }
 
-func (h *recordingHandler) Check(error, string, string, ...*cobra.Command) {}
-func (h *recordingHandler) Fatal(error, ...string)                         {}
-func (h *recordingHandler) Error(error, ...string)                         { h.onError() }
-func (h *recordingHandler) Warn(error, ...string)                          {}
-func (h *recordingHandler) SetUsage(func() error)                          {}
+func (h *recordingHandler) Check(error, string, string) {}
+func (h *recordingHandler) Fatal(error, ...string)      {}
+func (h *recordingHandler) Error(error, ...string)      { h.onError() }
+func (h *recordingHandler) Warn(error, ...string)       {}
+func (h *recordingHandler) SetUsage(func() error)       {}

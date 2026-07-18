@@ -2,7 +2,7 @@
 title: "Extract pkg/errorhandling into a standalone go/errorhandling module"
 description: "Extract the structured error-reporting layer (hint/detail/stack-trace formatting over cockroachdb/errors, exit-code attachment, log-level routing, and pluggable help channels) out of go-tool-base into gitlab.com/phpboyscout/go/errorhandling. The package has zero go-tool-base coupling; its only framework dependency is a vestigial variadic *cobra.Command parameter on Check, which no production call site uses and which duplicates the existing SetUsage seam. Removing that parameter eliminates the Cobra coupling entirely, so the module ships as one framework-free package with no companion module and no split."
 date: 2026-07-18
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - errorhandling
@@ -272,6 +272,17 @@ _All resolved — see Resolutions above._
 
 ## Status
 
-APPROVED (2026-07-18) — all open questions resolved (R1–R4). Next: flip to
-`IN PROGRESS`, build locally to a green checkpoint, then the human-gated
-repo/DNS/publish, then the GTB clean-break cut-over.
+IMPLEMENTED (2026-07-18). All open questions resolved (R1–R4). Delivered:
+`go/errorhandling v0.1.0` published (repo, DNS/Pages at
+`errorhandling.go.phpboyscout.uk`, landing card, release) — Cobra-free, with the
+published `mocks` subpackage (R2) and the `HelpConfig` interface only (R4). GTB cut over
+clean-break: `pkg/errorhandling` and `mocks/pkg/errorhandling` deleted, consumers
+repointed, `SlackHelp`/`TeamsHelp` relocated to `pkg/props` with the generator's emitter
+and manifest reader updated, and a
+[migration note](../../reference/migration/v0.x-errorhandling-extracted.md) added.
+
+Three stale claims in `docs/how-to/user-facing-errors.md` were corrected during the
+cut-over: assertion-failure stack traces are debug-gated (the doc claimed they appear
+regardless of level), the prefix is a structured attribute rather than `[bracketed]`
+message text, and the page omitted `LevelFatalQuiet`, `WithExitCode`, and `SetUsage`
+entirely.

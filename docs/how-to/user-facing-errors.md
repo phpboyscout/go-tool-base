@@ -43,7 +43,7 @@ A hint is a short, actionable suggestion shown to the user alongside the error m
 ```go
 import (
     "github.com/cockroachdb/errors"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go/errorhandling"
 )
 
 // Attach a hint to an existing error
@@ -81,18 +81,50 @@ err = errors.WithDetail(err,
 
 ## Using `ErrorHandler` in Commands
 
-`Props.ErrorHandler` provides three severity levels:
+`Props.ErrorHandler` provides these severity levels:
 
 ```go
 // Fatal: logs the error and exits with code 1
 p.ErrorHandler.Fatal(err)
-p.ErrorHandler.Fatal(err, "database")  // with prefix: "ERROR [database] ..."
+p.ErrorHandler.Fatal(err, "database")  // prefix is a structured attribute: prefix=database
 
 // Error: logs but continues execution
 p.ErrorHandler.Error(err)
 
 // Warn: logs at warning level, execution continues
 p.ErrorHandler.Warn(err, "config")
+```
+
+For an **expected, user-initiated termination** — a SIGINT/SIGTERM interrupt, where the
+non-zero exit code *is* the signal — use `LevelFatalQuiet`. It exits identically to
+`LevelFatal` (honouring any attached exit code) but logs at debug, so an interrupt does
+not surface to the user as an error:
+
+```go
+p.ErrorHandler.Check(err, "", errorhandling.LevelFatalQuiet)
+```
+
+### Custom exit codes
+
+A fatal error exits `1` by default. Attach a different code to the error itself and the
+fatal path honours it — keeping every exit on one path instead of scattering `os.Exit`:
+
+```go
+return errorhandling.WithExitCode(err, 3)
+```
+
+The attachment is transparent to `errors.Is`/`errors.As` and survives further wrapping.
+See the [module guide](https://errorhandling.go.phpboyscout.uk/how-to/exit-codes/).
+
+### Printing usage for a parent command
+
+Returning `errorhandling.ErrRunSubCommand` prints the command's usage. The handler has
+no Cobra dependency, so the printer is supplied through `SetUsage` — GTB's generated
+commands do this in their `PreRunE`, so the usage shown belongs to the command that
+actually ran:
+
+```go
+props.ErrorHandler.SetUsage(cmd.Usage)
 ```
 
 `Check` is the lower-level method used when you want to choose the level dynamically:
@@ -145,7 +177,7 @@ if errors.Is(err, ErrTokenExpired) {
 For commands that are planned but not yet built:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+import "gitlab.com/phpboyscout/go/errorhandling"
 
 RunE: func(cmd *cobra.Command, args []string) error {
     return errorhandling.NewErrNotImplemented("https://github.com/my-org/mytool/issues/42")
@@ -167,7 +199,9 @@ if len(items) == 0 {
 }
 ```
 
-`ErrorHandler` logs these at error level and includes the stack trace regardless of the log level setting.
+`ErrorHandler` logs these as `Internal error (assertion failure)` at error level. The
+full `%+v` detail — including the stack trace — is emitted at debug, like every other
+diagnostic, so enable debug logging to see it.
 
 ---
 
@@ -178,7 +212,7 @@ If your tool has a support channel (Slack, Teams, email), configure it on the `T
 ```go
 tool := props.Tool{
     // ...
-    Help: errorhandling.SlackHelp{
+    Help: props.SlackHelp{
         Team:    "my-team",
         Channel: "#my-tool-support",
     },

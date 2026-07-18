@@ -211,7 +211,7 @@ type FeatureState func([]Feature) []Feature
 ```
 
 !!! info "Help Configuration"
-    `Tool.Help` accepts any value that implements the `errorhandling.HelpConfig` interface (`SupportMessage() string`). Use `errorhandling.SlackHelp` or `errorhandling.TeamsHelp` for built-in support channel messages, or pass `nil` for no help message. The field is set programmatically — it is not read from YAML/JSON config files.
+    `Tool.Help` accepts any value that implements the `errorhandling.HelpConfig` interface (`SupportMessage() string`). Use `props.SlackHelp` or `props.TeamsHelp` for built-in support channel messages, or pass `nil` for no help message. The field is set programmatically — it is not read from YAML/JSON config files.
 
 #### Bootstrap Policy
 
@@ -253,7 +253,7 @@ p := &props.Props{
 }
 
 // Set the help channel after constructing Props
-p.Tool.Help = errorhandling.SlackHelp{
+p.Tool.Help = props.SlackHelp{
     Channel: "#support",
     Team:    "myteam",
 }
@@ -544,7 +544,7 @@ Since `Tool.Help` is an interface (not serializable), assign it programmatically
 
 ```go
 p := &props.Props{Tool: props.Tool{...}}
-p.Tool.Help = errorhandling.SlackHelp{Team: "Platform", Channel: "#help"}
+p.Tool.Help = props.SlackHelp{Team: "Platform", Channel: "#help"}
 p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 ```
 

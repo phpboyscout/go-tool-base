@@ -110,7 +110,7 @@ func durationUnit(expr dst.Expr) (time.Duration, bool) {
 	}
 }
 
-// extractHelpLiteral recovers a ManifestHelp from an errorhandling.SlackHelp{...}
+// extractHelpLiteral recovers a ManifestHelp from a props.SlackHelp{...}
 // or TeamsHelp{...} composite literal, inverting buildToolDict's Help switch.
 func extractHelpLiteral(value dst.Expr, help *ManifestHelp) {
 	comp, ok := value.(*dst.CompositeLit)

@@ -67,7 +67,7 @@ import (
     "os"
 
     gtbRoot "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
+    "gitlab.com/phpboyscout/go/errorhandling"
     "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
     "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -104,8 +104,8 @@ func NewCmdRoot(v version.Info) (*cobra.Command, *props.Props) {
     }
 
     // Optionally configure a help/support channel shown in error messages:
-    // p.Tool.Help = errorhandling.SlackHelp{Team: "My Team", Channel: "#support"}
-    // p.Tool.Help = errorhandling.TeamsHelp{Team: "My Team", Channel: "Support"}
+    // p.Tool.Help = props.SlackHelp{Team: "My Team", Channel: "#support"}
+    // p.Tool.Help = props.TeamsHelp{Team: "My Team", Channel: "Support"}
 
     p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 

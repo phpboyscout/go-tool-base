@@ -19,8 +19,9 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
+	"gitlab.com/phpboyscout/go/errorhandling"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/errorhandling"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
