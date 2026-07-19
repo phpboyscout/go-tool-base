@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	gorepo "gitlab.com/phpboyscout/go/repo"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -99,8 +100,31 @@ github:
 
 	assert.True(t, settings.SSH.Configured)
 	assert.True(t, settings.SSH.HasKey)
-	assert.Equal(t, "GTB_TEST_SSH_KEY", settings.SSH.Env)
+	// An explicit path wins over the named environment variable.
 	assert.Equal(t, "/id_ed25519", settings.SSH.Path)
+}
+
+// TestSettingsFromContainable_SSHKeyFromEnv proves the adapter — not the repo
+// package — resolves a named environment variable into a concrete path, so
+// Settings arrives fully resolved.
+func TestSettingsFromContainable_SSHKeyFromEnv(t *testing.T) {
+	t.Setenv("GTB_TEST_SSH_KEY_FROM_ENV", "/from/env/id_ed25519")
+
+	cfg := repoCfgFromYAML(t, `
+github:
+  ssh:
+    key:
+      env: GTB_TEST_SSH_KEY_FROM_ENV
+`)
+
+	settings := SettingsFromContainable(
+		release.ReleaseSourceConfig{Type: "github"},
+		cfg,
+		logger.NewNoop(),
+		afero.NewMemMapFs(),
+	)
+
+	assert.Equal(t, "/from/env/id_ed25519", settings.SSH.Path)
 }
 
 func TestSettingsFromContainable_ScalarSSH(t *testing.T) {
@@ -140,4 +164,63 @@ func TestSettingsFromProps(t *testing.T) {
 	assert.True(t, settings.AuthEnabled)
 	require.NotNil(t, settings.Token)
 	assert.Equal(t, "tok-from-config", settings.Token())
+}
+
+// TestSettingsFromProps_Nil covers the nil-props guard: a caller with no
+// container gets empty settings rather than a panic.
+func TestSettingsFromProps_Nil(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, gorepo.Settings{}, SettingsFromProps(nil))
+}
+
+// TestResolveForge covers the normalisation the adapter applies before storing
+// the result in Settings.Forge. Because the module applies the same rule
+// internally, storing the normalised value makes that pass a no-op — the config
+// subtree, the fallback env var and the auth convention cannot disagree.
+func TestResolveForge(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"github":      "github",
+		"GitLab":      "gitlab",
+		"  gitea  ":   "gitea",
+		"":            "github",
+		"direct":      "github",
+		"self-hosted": "self-hosted",
+	}
+
+	for in, want := range cases {
+		t.Run("in="+in, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, want, resolveForge(in))
+		})
+	}
+}
+
+// TestNewRepoFromProps covers both GTB constructors end to end, including the
+// nil-props path.
+func TestNewRepoFromProps(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
+		Logger: logger.NewNoop(),
+		Config: repoCfgFromYAML(t, `github: {auth: {value: tok}}`),
+		FS:     afero.NewMemMapFs(),
+	}
+
+	r, err := NewRepoFromProps(p)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	ts, err := NewThreadSafeRepoFromProps(p)
+	require.NoError(t, err)
+	require.NotNil(t, ts)
+
+	// Nil props resolves to empty settings, which is still constructible.
+	rNil, err := NewRepoFromProps(nil)
+	require.NoError(t, err)
+	assert.NotNil(t, rNil)
 }

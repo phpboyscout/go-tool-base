@@ -19,7 +19,6 @@ require (
 	github.com/cucumber/godog v0.15.1
 	github.com/dave/dst v0.27.4
 	github.com/dave/jennifer v1.7.1
-	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/google/go-github/v88 v88.0.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
@@ -49,6 +48,7 @@ require (
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/redact v0.1.0
 	gitlab.com/phpboyscout/go/regexutil v0.1.0
+	gitlab.com/phpboyscout/go/repo v0.1.0
 	gitlab.com/phpboyscout/go/signing v0.2.0
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.0
 	gitlab.com/phpboyscout/go/tls v0.1.0
@@ -137,6 +137,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/getsentry/sentry-go v0.46.0 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
+	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -239,6 +240,7 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
+	gitlab.com/phpboyscout/go/aferobilly v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

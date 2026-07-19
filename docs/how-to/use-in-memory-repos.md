@@ -1,142 +1,82 @@
 ---
 title: How to Use In-Memory Repositories
-description: Guide to using the RepoLike interface and SourceMemory for transient analysis.
-date: 2026-02-17
+description: Clone and inspect a repository in RAM from a GTB tool, using the props adapter and the extracted go/repo module.
+date: 2026-07-19
 tags: [how-to, vcs, git, memfs, memory, transient]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # How to Use In-Memory Repositories
 
-For tasks like transient analysis, code generation, or CI verification, you may want to clone and interact with a repository without leaving files on the host disk. GTB supports this via the `SourceMemory` strategy.
+For transient analysis, code generation, or CI verification, you may want to
+clone and interact with a repository without leaving files on the host disk.
 
-## 1. Initialize a Memory Repository
+Git operations live in the standalone
+[`go/repo`](https://repo.go.phpboyscout.uk) module. This page covers the GTB
+half — constructing a repository from your tool's props — and links to the
+module docs for everything after that.
 
-Use the GTB props adapter and `OpenInMemory` to clone a repository into RAM using `memfs`.
+## 1. Construct from props
+
+Use the GTB adapter so the repository picks up your tool's forge, credentials
+and filesystem from configuration:
 
 ```go
 import (
+    "gitlab.com/phpboyscout/go/repo"
+
     "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
+    gtbrepo "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
 )
 
-func analyzeRepo(p *props.Props, url string) error {
-    r, err := repo.NewRepoFromProps(p)
+func analyseRepo(p *props.Props, url string) error {
+    r, err := gtbrepo.NewRepoFromProps(p)
     if err != nil {
         return err
     }
 
-    // Clone into memory
-    _, _, err = r.OpenInMemory(url, "main")
-    if err != nil {
+    // Clone into memory — nothing touches disk
+    if _, _, err = r.OpenInMemory(url, "main", repo.WithShallowClone(1)); err != nil {
         return err
     }
 
-    // The repository is now resident in memory
     return nil
 }
 ```
 
-## 2. Inspect Files In-Memory
+`NewThreadSafeRepoFromProps(p)` is the equivalent when the repository will be
+shared across goroutines.
 
-You can walk the tree or check for specific files without touching the disk.
+Everything after construction is module API — `FileExists`, `GetFile`,
+`WalkTree`, `WorkFS`, `AddAll`, `Commit` — called on `r` exactly as documented
+on the module site.
 
-```go
-exists, err := r.FileExists("cmd/root.go")
-if exists {
-    file, _ := r.GetFile("cmd/root.go")
-    // Use file.Reader() to read content
-}
-```
+## 2. Read the module guides
 
-## 3. Accessing the Underlying Repository
+| Topic | Guide |
+|---|---|
+| Backends, clone options, the memory ceiling | [Work in memory](https://repo.go.phpboyscout.uk/how-to/in-memory/) |
+| The live `afero.Fs` worktree view, and `AddToFS` vs `WorkFS` | [Read and write the worktree](https://repo.go.phpboyscout.uk/how-to/worktree-fs/) |
+| `ThreadSafeRepo`, callback rules, the escaped-handle guarantee | [Share a repository across goroutines](https://repo.go.phpboyscout.uk/how-to/concurrency/) |
+| Mocking a narrow role vs using a real in-memory repository | [Test with the role mocks](https://repo.go.phpboyscout.uk/how-to/testing/) |
 
-Use `WithRepo` and `WithTree` to interact with the underlying `go-git` objects. These callback-style methods keep the pointer scoped to the closure:
+## 3. Why in-memory?
 
-```go
-err := r.WithRepo(func(gr *git.Repository) error {
-    head, err := gr.Head()
-    if err != nil {
-        return err
-    }
-    fmt.Println("HEAD:", head.Hash())
-    return nil
-})
-```
+- **Cleanup** — no temporary directories to create, track, or delete, and none
+  left behind when a process dies mid-run.
+- **Speed** — all I/O stays in memory, markedly faster for small and medium
+  repositories.
+- **Security** — nothing sensitive is written to shared disk, which matters on
+  CI runners and multi-tenant hosts where a temp directory may outlive the job.
 
-!!! warning "Pointer lifetime"
-    The `*git.Repository` and `*git.Worktree` pointers passed to the callback are only valid for the duration of the closure. Do not store them in variables outside the callback or pass them to goroutines that outlive the callback — doing so bypasses any thread-safety guarantees.
+!!! warning "Memory constraints"
+    Large repositories — especially those with heavy binary history — can consume
+    all available RAM. Past a few hundred megabytes, prefer a local shallow clone
+    (`WithShallowClone(1)`).
 
-## 4. Hydrating the Application Filesystem
+## Related
 
-If you need to move files from the in-memory Git storage to your application's primary filesystem (e.g., for processing or output), use `AddToFS`.
-
-```go
-// r.AddToFS(target_fs, git_file, target_path)
-err := r.AddToFS(p.FS, gitFile, "/tmp/analysis/root.go")
-```
-
-`AddToFS` *copies* into a **separate** filesystem — ideal for one-shot
-extraction. For **live** read/write against the worktree itself, use `WorkFS`
-(next).
-
-## 4a. Editing the Worktree Through afero
-
-`WorkFS()` returns the **live worktree** as an `afero.Fs`. Files written through
-it *are* the worktree, so `go-git` stages and commits them with no
-materialise/sync step — one source of truth. This makes an afero-based
-"commit-on-save" run verbatim over an in-memory repo:
-
-```go
-fs, err := r.WorkFS()                       // afero view of the worktree
-_ = afero.WriteFile(fs, "storyboard.json", data, 0o644)
-_ = r.AddAll()                              // stages the afero-written file
-_, _ = r.Commit("save", opts)               // it's in the commit
-```
-
-On a `ThreadSafeRepo`, the `WorkFS()` handle is safe for concurrent use (every
-operation re-locks the repo mutex). For a sequence that must be atomic relative
-to commits, use `WithWorkFS(func(fs afero.Fs) error { ... })`, which holds the
-lock for the whole callback. See the
-[Repo component reference](../explanation/components/vcs/repo.md#live-worktree-as-aferofs)
-and the [aferobilly adapter](../explanation/components/vcs/aferobilly.md) for the full
-contract and semantics.
-
-## 5. Concurrent Access
-
-If multiple goroutines need to share a repository, use `ThreadSafeRepo` instead of `Repo`. It wraps every operation with a mutex:
-
-```go
-ts, err := repo.NewThreadSafeRepo(p)
-if err != nil {
-    return err
-}
-
-_, _, err = ts.OpenInMemory(url, "main")
-if err != nil {
-    return err
-}
-
-// Safe to call from multiple goroutines
-var wg sync.WaitGroup
-for range 5 {
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        exists, _ := ts.FileExists("go.mod")
-        fmt.Println("go.mod exists:", exists)
-    }()
-}
-wg.Wait()
-```
-
-For single-goroutine workflows, `*Repo` is sufficient and has no locking overhead. See the [Repo component reference](../explanation/components/vcs/repo.md#thread-safety) for the full thread-safety guide.
-
-## 6. Why use In-Memory?
-
-- **Cleanup**: No need to manage temporary directories or track files for deletion.
-- **Speed**: I/O is restricted to memory, making it significantly faster for small-to-medium repositories.
-- **Security**: Reduces the risk of leaving sensitive source code on shared disk space or CI environments.
-
-!!! warning "Memory Constraints"
-    Large repositories (especially those with heavy binary history) can quickly consume all available RAM. For repositories over 500MB, consider using a local shallow clone (`WithShallowClone(1)`) instead.
+- **[Repo](../explanation/components/vcs/repo.md)** — how GTB wires the module:
+  forge resolution, deferred token resolution, SSH key paths
+- **[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk)** — full module
+  documentation

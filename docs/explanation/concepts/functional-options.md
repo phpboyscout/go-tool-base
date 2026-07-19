@@ -143,29 +143,30 @@ controller := controls.NewController(ctx,
 
 ### Git Clone Options
 
-The `pkg/vcs` package uses functional options for configuring repository clones:
+The extracted [`go/repo`](https://repo.go.phpboyscout.uk) module uses functional
+options for configuring repository clones:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+import "gitlab.com/phpboyscout/go/repo"
 
 // Full clone (default)
-repo, worktree, err := r.OpenInMemory(url, branch)
+gitRepo, worktree, err := r.OpenInMemory(url, branch)
 
 // Shallow clone for faster CI
-repo, worktree, err := r.OpenInMemory(url, branch,
-    vcs.WithShallowClone(1),
+gitRepo, worktree, err := r.OpenInMemory(url, branch,
+    repo.WithShallowClone(1),
 )
 
 // Optimized clone for specific branch without tags
-repo, worktree, err := r.OpenInMemory(url, branch,
-    vcs.WithShallowClone(1),
-    vcs.WithSingleBranch("main"),
-    vcs.WithNoTags(),
+gitRepo, worktree, err := r.OpenInMemory(url, branch,
+    repo.WithShallowClone(1),
+    repo.WithSingleBranch("main"),
+    repo.WithNoTags(),
 )
 
 // Clone with submodules
-repo, worktree, err := r.OpenInMemory(url, branch,
-    vcs.WithRecurseSubmodules(),
+gitRepo, worktree, err := r.OpenInMemory(url, branch,
+    repo.WithRecurseSubmodules(),
 )
 ```
 
@@ -355,5 +356,5 @@ func TestServerWithCustomConfig(t *testing.T) {
 
 - **[Props Container](../components/props.md)**: Dependency injection using a central struct
 - **[Service Orchestration](service-orchestration.md)**: Controller options for service lifecycle
-- **[VCS Repositories](../components/vcs/repo.md)**: Clone options for repository operations
+- **[repo module](https://repo.go.phpboyscout.uk/how-to/in-memory/)**: Clone options for repository operations
 

@@ -145,9 +145,16 @@ These tests require **no external credentials** — only local network access.
 
 ### `pkg/vcs/repo/` — Git Operations
 
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `repo_integration_test.go` | Branch creation, push, clone, checkout, file operations, in-memory repo | Network access to GitHub, `GITHUB_TOKEN`, optionally `GITHUB_KEY` |
+!!! info "Moved — now in the `go/repo` module"
+
+    Git operations were extracted to
+    [`gitlab.com/phpboyscout/go/repo`](https://repo.go.phpboyscout.uk), and
+    `repo_integration_test.go` moved with them. It is gated and run in that
+    module's own pipeline, not GTB's.
+
+    What remains here is `config_adapter_test.go`, which is a **pure unit test** —
+    it exercises the props/config→`Settings` mapping with an in-memory filesystem
+    and needs no network, token or SSH key.
 
 ### `pkg/vcs/github/` — GitHub API
 

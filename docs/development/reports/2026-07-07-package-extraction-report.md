@@ -445,6 +445,13 @@ This extraction aligns with GTB's registry-over-hard-coding architecture.
 |---:|---:|---:|---:|
 | 8 | 7 | 8 | 10 |
 
+!!! success "Extracted — `gitlab.com/phpboyscout/go/aferobilly` v0.1.0 (2026-07-19)"
+
+    Shipped as its **own standalone module** rather than folded into a broader VCS
+    module: it is not VCS-specific, and burying it inside a git module would hide it
+    behind a dependency its users don't want. Docs:
+    [aferobilly.go.phpboyscout.uk](https://aferobilly.go.phpboyscout.uk).
+
 `aferobilly` bridges `afero.Fs` and go-git's `billy.Filesystem`. It is focused,
 independent, and reusable anywhere go-git and afero meet.
 
@@ -876,6 +883,15 @@ Pre-extraction hardening:
 |---:|---:|---:|---:|
 | 6 | 7 | 7 | 7 _(was 5)_ |
 
+!!! success "Extracted — `gitlab.com/phpboyscout/go/repo` v0.1.0 (2026-07-19)"
+
+    Clean break: GTB keeps only the props/config adapters in `pkg/vcs/repo`. The
+    predicted dependency on extracted `vcs`/`release` modules **did not
+    materialise** — the repo→forge coupling proved *eliminable* rather than merely
+    separable, so the module ships with **zero forge dependency** (a `depfootprint`
+    guard forbids every forge SDK). Docs:
+    [repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk).
+
 `pkg/vcs/repo` wraps go-git repository operations, safe repo access, and worktree
 filesystem helpers.
 
@@ -895,9 +911,12 @@ Current GTB coupling (residual):
 
 Extraction shape:
 
-- Depend on extracted `vcs`, `release`, and `aferobilly` modules.
-- Use explicit auth and filesystem options.
-- Keep GTB-specific provider resolution in GTB adapters.
+- ~~Depend on extracted `vcs`, `release`, and `aferobilly` modules.~~ Superseded:
+  only `aferobilly` is a dependency. The forge name and token are **injected as
+  plain data**, so `vcs` and `release` are not needed at all.
+- Use explicit auth and filesystem options. **Done** — and taken further: the
+  module reads no environment either, so every input arrives through `Settings`.
+- Keep GTB-specific provider resolution in GTB adapters. **Done.**
 
 This is extractable but should trail the release/common VCS work.
 

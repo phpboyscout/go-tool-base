@@ -2,7 +2,7 @@
 title: "VCS stack extraction plan — go/repo, go/forge and the forge providers"
 description: "Sequencing plan for decomposing pkg/vcs into independent modules. The current tree is not one component but three: git operations (repo), forge/release operations (forge + per-provider modules), and an afero-billy bridge that is not VCS at all. The repo-to-forge dependency is not merely separable but eliminable by injecting a forge name and token, so repo ships with zero forge dependency. Every provider becomes its own module — including the SDK-free ones — so adopting a vendor SDK later is a dependency change inside a module rather than a re-extraction. Direct stays in the core as its reference implementation."
 date: 2026-07-19
-status: APPROVED
+status: IN PROGRESS
 tags:
   - specification
   - vcs
@@ -406,6 +406,29 @@ _All resolved — see Resolutions above._
 
 ## Status
 
-APPROVED (2026-07-19) — all open questions resolved (R1–R7). Phase 1 (`go/aferobilly`)
-may begin. Each phase follows the playbook §5 procedure; the trivial ones proceed directly
-under this plan, the larger ones (`repo`, `forge`) get a spec-lite of their own.
+IN PROGRESS (2026-07-19) — all open questions resolved (R1–R8). Each phase follows the
+playbook §5 procedure; the trivial ones proceed directly under this plan, the larger ones
+(`repo`, `forge`) get a spec-lite of their own.
+
+**Phase 1 — `go/aferobilly` — COMPLETE.** Published `v0.1.0`; docs live at
+[aferobilly.go.phpboyscout.uk](https://aferobilly.go.phpboyscout.uk). Landed in GTB
+together with Phase 2 (its only consumer was `pkg/vcs/repo`).
+
+**Phase 2 — `go/repo` — COMPLETE.** Published `v0.1.0`; docs live at
+[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk). The R8 dependency inversion
+was done in-tree first and shipped green, then extracted. Two settings changed shape
+during extraction so that **every input arrives through `Settings`** and the module reads
+no environment of its own: `SSHSettings.Env` was removed in favour of a resolved
+`Path` (with the caller-side `KeyPath` helper), and the `GTB_GIT_ENABLE_PROGRESS`
+environment variable — which was a package-level writer set in `init()`, and so raced
+under `t.Parallel()` — became `Settings.Progress`. An AST-walking `envfootprint_test.go`
+guard makes the no-environment claim enforceable, alongside the `depfootprint` guard that
+proves the forge inversion. A latent bug surfaced during that work: `Progress` reached
+`Pull` and both `Clone` paths but not `Push`, while `Push` did backfill `Auth` — so a
+push rejected by a server-side hook lost the rejection reason, which arrives only on the
+sideband channel. Fixed in the module before release.
+
+**Phase 3 — `go/forge` — NEXT.** Audit for the provider-authoring API first (playbook
+§10.1). Carry the "Backend Agnosticism" design goal recovered from the deleted
+`docs/explanation/concepts/vcs-repositories.md` into its documentation — it is forge
+intent, not repo intent.

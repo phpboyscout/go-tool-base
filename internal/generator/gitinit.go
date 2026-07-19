@@ -10,7 +10,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/spf13/afero"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
+	"gitlab.com/phpboyscout/go/repo"
+
+	gtbrepo "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"
 )
 
 const (
@@ -68,7 +70,7 @@ func (g *Generator) runSkeletonGitInit(config SkeletonConfig) {
 
 	g.props.Logger.Info("initialising git repository", "branch", branch)
 
-	r, err := repo.NewRepoFromProps(g.props)
+	r, err := gtbrepo.NewRepoFromProps(g.props)
 	if err != nil {
 		g.props.Logger.Warn("Failed to construct repository; skipping git initialisation", "error", err)
 
