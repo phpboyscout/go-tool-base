@@ -239,6 +239,50 @@ caller-side enforcement — or to an injectable bound — if any of these surfac
 Whichever way it lands, record the outcome here with a dated note rather than a silent
 edit. *(new — the sub-decision G2 required)*
 
+**D15 — Remove the suppressed mutable globals at cut-over; do not repoint them.**
+*(new, 2026-07-19)*
+
+`pkg/setup/checksum.go` declares its size bounds and checksum policy as **exported mutable
+package variables**, each with a `//nolint:gochecknoglobals` suppression:
+
+```go
+//nolint:gochecknoglobals // size bounds are tool-author tunables
+var (
+	MaxChecksumsSize      int64 = 1 << 20
+	MaxBinaryDownloadSize int64 = 512 << 20
+)
+
+//nolint:gochecknoglobals // tool-author compile-time override
+var DefaultRequireChecksum = false
+```
+
+This is the pattern `AGENTS.md` bans — *"this pattern races under `t.Parallel()`"* — and the
+suppression is what let it survive. The cost is already visible and already documented, in
+`update_checksum_test.go`:
+
+```go
+// Mutates the package-level [MaxChecksumsSize] tunable, so
+// cannot run with t.Parallel
+```
+
+The requirement behind it — tool authors tuning the bounds — is real, but never needed a
+mutable global. `forge` expresses it as a `const` default plus a **caller-supplied
+parameter**, which is strictly more flexible (per-call rather than per-process), needs no
+suppression, and leaves tests parallel-safe. See D14.
+
+At cut-over therefore: delete the three variables, take the bounds as `SelfUpdater` fields
+or explicit arguments defaulting to `forge.DefaultMaxChecksumsSize` /
+`forge.DefaultMaxSignatureSize`, and drop the two suppressions. The oversized-response test
+regains `t.Parallel()` by passing its own bound.
+
+**Scope, honestly.** Only these two suppressions are removed. The four
+`//nolint:gochecknoglobals // sentinel error` annotations in the same file are **not** a
+smell and stay: Go has no const errors, so `var ErrX = errors.New(...)` is the only way to
+declare a sentinel, and `AGENTS.md` explicitly permits a narrowly-scoped suppression where
+one is genuinely unavoidable. The compiled-regex global is idiomatic `MustCompile` and is
+also out of scope. The point is to stop a banned pattern crossing into the new boundary
+unexamined — not to run a suppression count to zero.
+
 ---
 
 ## Seams and decoupling
@@ -279,7 +323,8 @@ commit, D12). Each: move package + its own tests, repoint to `forge`, README wit
 **Then stop and reassess (R2).** With three providers proven against the contract, settle
 GitHub's scope before extracting it. Only then `forge-github`.
 
-**Phase 5 — GTB cut-over (single MR).** Delete the in-tree packages; repoint `pkg/setup`,
+**Phase 5 — GTB cut-over (single MR).** Delete the in-tree packages; **remove the suppressed
+mutable globals rather than repointing them (D15)**; repoint `pkg/setup`,
 `pkg/setup/github`, `pkg/props`, `pkg/vcs/repo/config_adapter.go`; keep
 `ConfigFromContainable` and the GTB config-key schemas; blank-import the provider modules
 in `pkg/setup/providers.go`; migration note; docs sweep.
@@ -391,6 +436,10 @@ than repoint it.
    dated note.
 9. Bitbucket's credential convergence is a **separate, isolable commit**; every commit
    before it in that MR is behaviour-preserving.
+10. `pkg/setup` no longer declares mutable exported size/policy globals, the two
+    `gochecknoglobals` suppressions covering them are gone, and
+    `TestDownloadChecksumManifest_RejectsOversizedResponse` runs under `t.Parallel()`
+    (D15).
 
 ---
 
