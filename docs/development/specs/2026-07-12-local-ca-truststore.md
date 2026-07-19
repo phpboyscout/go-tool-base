@@ -26,8 +26,15 @@ Date
 :   12 July 2026
 
 Status
-:   DRAFT — feature request. Raised from downstream (keryx spec 0027); to be picked
-    up as a GTB feature once the in-flight config-extraction work settles.
+:   **SUPERSEDED (2026-07-16)** — the research and motivation below stand, but the
+    implementation home changed. Rather than a GTB `pkg/tls/localca` feature, the local-CA
+    is a **standalone, framework-free module**,
+    [`gitlab.com/phpboyscout/go/localca`](https://gitlab.com/phpboyscout/go/localca) (spec
+    `go/localca/docs/development/specs/2026-07-16-localca-module.md`), consumed **directly**
+    by keryx/krites so no go-tool-base version bump is forced. Reason: `pkg/tls` is itself
+    being extracted to `go/tls`, and coupling a consumer's TLS work to a framework upgrade is
+    undesirable. Open questions Q1–Q6 here are **resolved** in the module spec §9. A GTB
+    `trust` command feature wrapping the module remains a possible later add.
 
 ---
 
