@@ -13,7 +13,7 @@ import (
 	gochat "gitlab.com/phpboyscout/go/chat"
 
 	"gitlab.com/phpboyscout/go/credentials"
-	"gitlab.com/phpboyscout/go/credentials/credtest"
+	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
 	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 

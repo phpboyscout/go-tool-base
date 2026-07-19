@@ -42,7 +42,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
 	gitlab.com/phpboyscout/go/config v0.2.0
 	gitlab.com/phpboyscout/go/controls v0.1.0
-	gitlab.com/phpboyscout/go/credentials v0.1.0
+	gitlab.com/phpboyscout/go/credentials v0.2.0
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0

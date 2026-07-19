@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/credentials"
-	"gitlab.com/phpboyscout/go/credentials/credtest"
+	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
 	"gitlab.com/phpboyscout/go/config"
 

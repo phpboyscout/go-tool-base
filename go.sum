@@ -522,8 +522,8 @@ gitlab.com/phpboyscout/go/config v0.2.0 h1:T1ckcx94pqY0nAveHcAsxwAkxaGdclC9h42bu
 gitlab.com/phpboyscout/go/config v0.2.0/go.mod h1:j+cmrpgxxKmJv+jgoqghtpsDi3wg9f5dOEf/wmLKxRo=
 gitlab.com/phpboyscout/go/controls v0.1.0 h1:BSzHCFOwv3xq/Z+oUp34m2XB9I8VOAUu2273Pd971YE=
 gitlab.com/phpboyscout/go/controls v0.1.0/go.mod h1:b7gNmMhodHKl9dw1Jbl+4ksX5S7OlWf0t6/YGSuLfsc=
-gitlab.com/phpboyscout/go/credentials v0.1.0 h1:yAY7Ii3mxVzWWzW2o4qC1EBFca/qZxTQHaLYJQWBKZU=
-gitlab.com/phpboyscout/go/credentials v0.1.0/go.mod h1:dJ6XXbF3ndhfuk+vtbg0g5ijmy3YbgfMcGYJMbtWCGw=
+gitlab.com/phpboyscout/go/credentials v0.2.0 h1:/ME5EDiHCilUfTpCW/B+2UCHAw3l1GzoIdoRQO9Htlg=
+gitlab.com/phpboyscout/go/credentials v0.2.0/go.mod h1:dJ6XXbF3ndhfuk+vtbg0g5ijmy3YbgfMcGYJMbtWCGw=
 gitlab.com/phpboyscout/go/errorhandling v0.1.0 h1:yMDXim7rsC2FBzuEXU1S79v/O2c0XXuxzOEJmNZjxzg=
 gitlab.com/phpboyscout/go/errorhandling v0.1.0/go.mod h1:rpRCIR6dFL5+yn4EXlOkvBne/EFzf8dJOgthAPBak+Q=
 gitlab.com/phpboyscout/go/grpcclient v0.1.0 h1:bh4F59Zd3P5QdaROFyJ9zzfKtndk2Im3ueHTyox4jQY=
