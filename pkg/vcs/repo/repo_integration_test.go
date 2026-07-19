@@ -21,7 +21,6 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 var (
@@ -50,10 +49,10 @@ func newTestRepo() (*Repo, error) {
 	_ = os.Setenv("GITHUB_KEY", "id_rsa")
 
 	return NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		SSH:           SSHSettings{Configured: true, HasKey: true, Env: "GITHUB_KEY"},
-		Logger:        logger.NewNoop(),
-		FS:            localfs,
+		Forge:  "github",
+		SSH:    SSHSettings{Configured: true, HasKey: true, Env: "GITHUB_KEY"},
+		Logger: logger.NewNoop(),
+		FS:     localfs,
 	})
 }
 
@@ -172,10 +171,10 @@ func TestOpenRemoteHTTP(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
 	repo, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		AuthEnabled:   true,
-		Logger:        logger.NewNoop(),
-		FS:            afero.NewMemMapFs(),
+		Forge:       "github",
+		AuthEnabled: true,
+		Logger:      logger.NewNoop(),
+		FS:          afero.NewMemMapFs(),
 	})
 	if assert.NoError(t, err) {
 		// Clear auth for public repo
@@ -192,10 +191,10 @@ func TestCheckoutRemoteBranch(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
 	repo, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		AuthEnabled:   true,
-		Logger:        logger.NewNoop(),
-		FS:            afero.NewMemMapFs(),
+		Forge:       "github",
+		AuthEnabled: true,
+		Logger:      logger.NewNoop(),
+		FS:          afero.NewMemMapFs(),
 	})
 	require.NoError(t, err, "unable to open test repo")
 
@@ -222,10 +221,10 @@ func TestClone(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
 	repo, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		AuthEnabled:   true,
-		Logger:        logger.NewNoop(),
-		FS:            afero.NewMemMapFs(),
+		Forge:       "github",
+		AuthEnabled: true,
+		Logger:      logger.NewNoop(),
+		FS:          afero.NewMemMapFs(),
 	})
 	if err != nil {
 		t.Fatalf("Failed to create repo: %v", err)
@@ -303,10 +302,10 @@ func TestFileOperations(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "dummy_token")
 
 	repo, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		AuthEnabled:   true,
-		Logger:        logger.NewNoop(),
-		FS:            afero.NewMemMapFs(),
+		Forge:       "github",
+		AuthEnabled: true,
+		Logger:      logger.NewNoop(),
+		FS:          afero.NewMemMapFs(),
 	})
 	require.NoError(t, err)
 	// Clear auth for public repo clone
@@ -420,10 +419,10 @@ func TestForgeAuthClonePush(t *testing.T) {
 
 			// Forge-configured Repo: clone, commit, push.
 			r, err := NewRepo(Settings{
-				ReleaseSource: release.ReleaseSourceConfig{Type: tc.forge},
-				Auth:          tokenConfig{"auth.env": tc.envName},
-				Logger:        logger.NewNoop(),
-				FS:            afero.NewOsFs(),
+				Forge:  tc.forge,
+				Token:  func() string { return os.Getenv(tc.envName) },
+				Logger: logger.NewNoop(),
+				FS:     afero.NewOsFs(),
 			})
 			require.NoError(t, err)
 
@@ -475,10 +474,10 @@ func TestInitAddPushForgeAuth(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(workDir, "build.log"), []byte("noise\n"), 0o644))
 
 	r, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		Auth:          tokenConfig{"auth.env": "GTB_INT_GH_TOKEN"},
-		Logger:        logger.NewNoop(),
-		FS:            afero.NewOsFs(),
+		Forge:  "github",
+		Token:  func() string { return os.Getenv("GTB_INT_GH_TOKEN") },
+		Logger: logger.NewNoop(),
+		FS:     afero.NewOsFs(),
 	})
 	require.NoError(t, err)
 

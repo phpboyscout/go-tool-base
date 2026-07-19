@@ -32,16 +32,17 @@ func TestSettingsFromContainable_Nil(t *testing.T) {
 
 	settings := SettingsFromContainable(source, nil, logger.NewNoop(), afero.NewMemMapFs())
 
-	assert.Equal(t, source, settings.ReleaseSource)
+	assert.Equal(t, "github", settings.Forge)
+	assert.False(t, settings.Private)
 	assert.False(t, settings.AuthEnabled)
-	assert.Nil(t, settings.Auth)
+	assert.Nil(t, settings.Token)
 	assert.False(t, settings.SSH.Configured)
 }
 
 func TestSettingsFromContainable_TokenAuth(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `github: {auth: {env: GTB_TEST_GH_TOKEN}}`)
+	cfg := repoCfgFromYAML(t, `github: {auth: {value: tok-from-config}}`)
 
 	settings := SettingsFromContainable(
 		release.ReleaseSourceConfig{Type: "github"},
@@ -51,8 +52,9 @@ func TestSettingsFromContainable_TokenAuth(t *testing.T) {
 	)
 
 	assert.True(t, settings.AuthEnabled)
-	require.NotNil(t, settings.Auth)
-	assert.Equal(t, "GTB_TEST_GH_TOKEN", settings.Auth.GetString("auth.env"))
+	require.NotNil(t, settings.Token)
+	// The adapter bound the github subtree, so the token resolves from it.
+	assert.Equal(t, "tok-from-config", settings.Token())
 	assert.False(t, settings.SSH.Configured)
 }
 
@@ -61,7 +63,7 @@ func TestSettingsFromContainable_ProviderOverride(t *testing.T) {
 
 	cfg := repoCfgFromYAML(t, `
 vcs: {provider: gitlab}
-gitlab: {auth: {env: GTB_TEST_GL_TOKEN}}
+gitlab: {auth: {value: gl-tok-from-config}}
 `)
 
 	settings := SettingsFromContainable(
@@ -72,8 +74,9 @@ gitlab: {auth: {env: GTB_TEST_GL_TOKEN}}
 	)
 
 	assert.Equal(t, "gitlab", settings.Forge)
-	require.NotNil(t, settings.Auth)
-	assert.Equal(t, "GTB_TEST_GL_TOKEN", settings.Auth.GetString("auth.env"))
+	require.NotNil(t, settings.Token)
+	// The provider override switched the bound subtree to gitlab.
+	assert.Equal(t, "gl-tok-from-config", settings.Token())
 }
 
 func TestSettingsFromContainable_SSHKey(t *testing.T) {
@@ -119,7 +122,7 @@ func TestSettingsFromContainable_ScalarSSH(t *testing.T) {
 func TestSettingsFromProps(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `github: {auth: {env: GTB_TEST_GH_TOKEN}}`)
+	cfg := repoCfgFromYAML(t, `github: {auth: {value: tok-from-config}}`)
 	p := &props.Props{
 		Tool: props.Tool{ReleaseSource: props.ReleaseSource{
 			Type:    "github",
@@ -132,8 +135,9 @@ func TestSettingsFromProps(t *testing.T) {
 
 	settings := SettingsFromProps(p)
 
-	assert.Equal(t, release.ReleaseSourceConfig{Type: "github", Private: true}, settings.ReleaseSource)
+	assert.Equal(t, "github", settings.Forge)
+	assert.True(t, settings.Private, "Private must carry over from the release source")
 	assert.True(t, settings.AuthEnabled)
-	require.NotNil(t, settings.Auth)
-	assert.Equal(t, "GTB_TEST_GH_TOKEN", settings.Auth.GetString("auth.env"))
+	require.NotNil(t, settings.Token)
+	assert.Equal(t, "tok-from-config", settings.Token())
 }

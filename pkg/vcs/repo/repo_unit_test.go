@@ -22,14 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
-
-type tokenConfig map[string]string
-
-func (cfg tokenConfig) GetString(key string) string {
-	return cfg[key]
-}
 
 func TestRepo_Unit_OpenLocal(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -160,12 +153,11 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
 	t.Run("token_auth", func(t *testing.T) {
-		t.Setenv("G", "test-token")
 		r, err := NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			Auth:          tokenConfig{"auth.env": "G"},
-			FS:            fs,
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			Token:  StaticToken("test-token"),
+			FS:     fs,
+			Logger: logger.NewNoop(),
 		})
 		require.NoError(t, err)
 		assert.NotNil(t, r.GetAuth())
@@ -174,10 +166,10 @@ func TestRepo_Unit_AuthConfig(t *testing.T) {
 	t.Run("ssh_auth_agent", func(t *testing.T) {
 		// This might fail if no agent is running, but let's see
 		_, _ = NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			SSH:           SSHSettings{Configured: true, HasKey: true, Type: "agent"},
-			FS:            fs,
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			SSH:    SSHSettings{Configured: true, HasKey: true, Type: "agent"},
+			FS:     fs,
+			Logger: logger.NewNoop(),
 		})
 	})
 }
@@ -592,11 +584,9 @@ func TestRepo_Unit_NewRepo_OptError(t *testing.T) {
 }
 
 func TestRepo_Unit_NewRepo_TypedSettingsTokenAuth(t *testing.T) {
-	t.Setenv("GTB_TYPED_REPO_TOKEN", "typed-token")
-
 	r, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		Auth:          tokenConfig{"auth.env": "GTB_TYPED_REPO_TOKEN"},
+		Forge: "github",
+		Token: StaticToken("typed-token"),
 	})
 	require.NoError(t, err)
 
@@ -611,10 +601,10 @@ func TestRepo_Unit_NewRepo_TokenAuthFails(t *testing.T) {
 	// requires a token, so configureTokenAuth fails.
 	t.Setenv("GITHUB_TOKEN", "")
 	_, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github", Private: true},
-		AuthEnabled:   true,
-		FS:            afero.NewMemMapFs(),
-		Logger:        logger.NewNoop(),
+		Forge: "github", Private: true,
+		AuthEnabled: true,
+		FS:          afero.NewMemMapFs(),
+		Logger:      logger.NewNoop(),
 	})
 	assert.Error(t, err)
 }
@@ -623,10 +613,10 @@ func TestRepo_Unit_configureSSHAuth_Paths(t *testing.T) {
 	t.Run("path_key_not_found", func(t *testing.T) {
 		fs := afero.NewOsFs()
 		_, err := NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			SSH:           SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_rsa"},
-			FS:            fs,
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			SSH:    SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_rsa"},
+			FS:     fs,
+			Logger: logger.NewNoop(),
 		})
 		assert.Error(t, err)
 	})
@@ -635,20 +625,20 @@ func TestRepo_Unit_configureSSHAuth_Paths(t *testing.T) {
 		t.Setenv("GTB_TEST_SSH_KEY_EMPTY_XYZ", "")
 		// Falls back to ssh-agent; will fail if no agent running, but path is covered.
 		_, _ = NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			SSH:           SSHSettings{Configured: true, HasKey: true, Env: "GTB_TEST_SSH_KEY_EMPTY_XYZ"},
-			FS:            afero.NewMemMapFs(),
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			SSH:    SSHSettings{Configured: true, HasKey: true, Env: "GTB_TEST_SSH_KEY_EMPTY_XYZ"},
+			FS:     afero.NewMemMapFs(),
+			Logger: logger.NewNoop(),
 		})
 	})
 
 	t.Run("env_key_not_found", func(t *testing.T) {
 		t.Setenv("GTB_TEST_SSH_KEY_XYZ", "/nonexistent/key")
 		_, err := NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			SSH:           SSHSettings{Configured: true, HasKey: true, Env: "GTB_TEST_SSH_KEY_XYZ"},
-			FS:            afero.NewOsFs(),
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			SSH:    SSHSettings{Configured: true, HasKey: true, Env: "GTB_TEST_SSH_KEY_XYZ"},
+			FS:     afero.NewOsFs(),
+			Logger: logger.NewNoop(),
 		})
 		assert.Error(t, err)
 	})
@@ -662,10 +652,10 @@ func TestRepo_Unit_configureSSHAuth_ScalarSSH(t *testing.T) {
 		// Falls back to ssh-agent when no key details are present; may error
 		// if no agent is running, but must never panic on the nil subtree.
 		_, _ = NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			SSH:           SSHSettings{Configured: true},
-			FS:            afero.NewMemMapFs(),
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			SSH:    SSHSettings{Configured: true},
+			FS:     afero.NewMemMapFs(),
+			Logger: logger.NewNoop(),
 		})
 	})
 }

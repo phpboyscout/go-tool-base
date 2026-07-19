@@ -18,7 +18,6 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // TestRepo_Unit_ForgeTokenAuth proves NewRepo resolves clone/push credentials
@@ -28,130 +27,111 @@ func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 	tests := []struct {
 		name     string
 		settings Settings
-		env      map[string]string
 		wantErr  string
 		wantAuth transport.AuthMethod
+		// wantSSH marks a case that takes the SSH branch, where NewRepo fails on
+		// the missing key file — the assertion is that it got there at all.
+		wantSSH bool
 	}{
 		{
-			name: "gitlab type resolves from gitlab settings",
+			name: "gitlab uses the oauth2 basic-auth username",
 			settings: Settings{
-				ReleaseSource: release.ReleaseSourceConfig{Type: "gitlab"},
-				Auth:          tokenConfig{"auth.env": "GTB_TEST_GL_TOKEN"},
+				Forge: "gitlab",
+				Token: StaticToken("glpat-secret"),
 			},
-			env: map[string]string{"GTB_TEST_GL_TOKEN": "glpat-secret"},
 			wantAuth: &http.BasicAuth{
 				Username: "oauth2",
 				Password: "glpat-secret",
 			},
 		},
 		{
-			name: "gitlab type with no gitlab auth ignores github env",
-			settings: Settings{
-				ReleaseSource: release.ReleaseSourceConfig{Type: "gitlab"},
-				AuthEnabled:   true,
-			},
-			env: map[string]string{
-				"GTB_TEST_GH_TOKEN": "ghp_secret",
-				"GITLAB_TOKEN":      "",
-			},
-			wantAuth: nil, // public repo, no gitlab credential: unauthenticated
-		},
-		{
-			name: "explicit forge overrides release source type",
-			settings: Settings{
-				ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-				Forge:         "gitlab",
-				Auth:          tokenConfig{"auth.env": "GTB_TEST_GL_TOKEN"},
-			},
-			env: map[string]string{"GTB_TEST_GL_TOKEN": "glpat-override"},
-			wantAuth: &http.BasicAuth{
-				Username: "oauth2",
-				Password: "glpat-override",
-			},
-		},
-		{
-			name:     "github default unchanged",
-			settings: Settings{Auth: tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"}},
-			env:      map[string]string{"GTB_TEST_GH_TOKEN": "ghp_secret"},
+			name:     "github is the default and uses x-access-token",
+			settings: Settings{Token: StaticToken("ghp_secret")},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "ghp_secret",
 			},
 		},
 		{
-			name:     "public repo with no token does not error",
-			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: "github"}, AuthEnabled: true},
-			env:      map[string]string{"GITHUB_TOKEN": ""},
-		},
-		{
-			name: "private repo with no token errors",
-			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{
-				Type:    "github",
-				Private: true,
-			}, AuthEnabled: true},
-			env:     map[string]string{"GITHUB_TOKEN": ""},
-			wantErr: "no GITHUB token available for private repository",
-		},
-		{
-			name: "private gitlab repo with no token errors",
-			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{
-				Type:    "gitlab",
-				Private: true,
-			}, AuthEnabled: true},
-			env:     map[string]string{"GITLAB_TOKEN": ""},
-			wantErr: "no GITLAB token available for private repository",
-		},
-		{
-			name:     "gitea fallback env token",
-			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: "gitea"}, AuthEnabled: true},
-			env:      map[string]string{"GITEA_TOKEN": "gta_secret"},
-			wantAuth: &http.BasicAuth{
-				Username: "x-access-token",
-				Password: "gta_secret",
-			},
-		},
-		{
 			name: "bitbucket uses x-token-auth username",
 			settings: Settings{
-				ReleaseSource: release.ReleaseSourceConfig{Type: "bitbucket"},
-				Auth:          tokenConfig{"auth.env": "GTB_TEST_BB_TOKEN"},
+				Forge: "bitbucket",
+				Token: StaticToken("bb_secret"),
 			},
-			env: map[string]string{"GTB_TEST_BB_TOKEN": "bb_secret"},
 			wantAuth: &http.BasicAuth{
 				Username: "x-token-auth",
 				Password: "bb_secret",
 			},
 		},
 		{
-			name:     "empty type defaults to github",
-			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: ""}, Auth: tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"}},
-			env:      map[string]string{"GTB_TEST_GH_TOKEN": "ghp_default"},
+			name:     "empty forge defaults to github",
+			settings: Settings{Forge: "", Token: StaticToken("ghp_default")},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "ghp_default",
 			},
 		},
 		{
-			name:     "direct type falls back to github",
-			settings: Settings{ReleaseSource: release.ReleaseSourceConfig{Type: "direct"}, Auth: tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"}},
-			env:      map[string]string{"GTB_TEST_GH_TOKEN": "ghp_direct"},
+			name:     "direct forge falls back to github",
+			settings: Settings{Forge: "direct", Token: StaticToken("ghp_direct")},
 			wantAuth: &http.BasicAuth{
 				Username: "x-access-token",
 				Password: "ghp_direct",
 			},
 		},
+		{
+			name:     "public repo with no token does not error",
+			settings: Settings{Forge: "github", AuthEnabled: true},
+			wantAuth: nil,
+		},
+		{
+			name:     "nil token source is treated as no token",
+			settings: Settings{Forge: "gitlab", AuthEnabled: true, Token: nil},
+			wantAuth: nil,
+		},
+		{
+			name:     "empty token is treated as no token",
+			settings: Settings{Forge: "gitlab", AuthEnabled: true, Token: StaticToken("")},
+			wantAuth: nil,
+		},
+		{
+			name:     "private repo with no token errors",
+			settings: Settings{Forge: "github", Private: true, AuthEnabled: true},
+			wantErr:  "no GITHUB token available for private repository",
+		},
+		{
+			name:     "private gitlab repo with no token errors",
+			settings: Settings{Forge: "gitlab", Private: true, AuthEnabled: true},
+			wantErr:  "no GITLAB token available for private repository",
+		},
+		{
+			name: "token source is not called when SSH auth is configured",
+			settings: Settings{
+				Forge: "github",
+				SSH:   SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_ed25519"},
+				Token: func() string {
+					panic("token source must not be resolved on the SSH path")
+				},
+			},
+			wantErr: "", // SSH path fails on the missing key, never touching the token
+			wantSSH: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for k, v := range tt.env {
-				t.Setenv(k, v)
-			}
-
 			tt.settings.FS = afero.NewMemMapFs()
 			tt.settings.Logger = logger.NewNoop()
 
 			r, err := NewRepo(tt.settings)
+			if tt.wantSSH {
+				// The SSH branch was taken (and failed on the absent key), which
+				// proves the token source was never consulted.
+				require.Error(t, err)
+
+				return
+			}
+
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -169,23 +149,21 @@ func TestRepo_Unit_ForgeTokenAuth(t *testing.T) {
 func TestRepo_Unit_ForgeSSHAuth(t *testing.T) {
 	t.Run("gitlab ssh subtree selected for gitlab tool", func(t *testing.T) {
 		_, err := NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "gitlab"},
-			SSH:           SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_ed25519"},
-			FS:            afero.NewMemMapFs(),
-			Logger:        logger.NewNoop(),
+			Forge:  "gitlab",
+			SSH:    SSHSettings{Configured: true, HasKey: true, Path: "/nonexistent/id_ed25519"},
+			FS:     afero.NewMemMapFs(),
+			Logger: logger.NewNoop(),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get SSH key")
 	})
 
 	t.Run("gitlab ssh subtree ignored for github tool", func(t *testing.T) {
-		t.Setenv("GTB_TEST_GH_TOKEN", "ghp_secret")
-
 		r, err := NewRepo(Settings{
-			ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-			Auth:          tokenConfig{"auth.env": "GTB_TEST_GH_TOKEN"},
-			FS:            afero.NewMemMapFs(),
-			Logger:        logger.NewNoop(),
+			Forge:  "github",
+			Token:  StaticToken("ghp_secret"),
+			FS:     afero.NewMemMapFs(),
+			Logger: logger.NewNoop(),
 		})
 		require.NoError(t, err)
 		assert.Equal(t, &http.BasicAuth{Username: "x-access-token", Password: "ghp_secret"}, r.GetAuth())
@@ -253,10 +231,10 @@ func TestRepo_Unit_NewRepo_EncryptedSSHKey(t *testing.T) {
 	encryptedTestKey(t, fs, "/id_ed25519", "testpass")
 
 	_, err := NewRepo(Settings{
-		ReleaseSource: release.ReleaseSourceConfig{Type: "github"},
-		SSH:           SSHSettings{Configured: true, HasKey: true, Path: "/id_ed25519"},
-		FS:            fs,
-		Logger:        logger.NewNoop(),
+		Forge:  "github",
+		SSH:    SSHSettings{Configured: true, HasKey: true, Path: "/id_ed25519"},
+		FS:     fs,
+		Logger: logger.NewNoop(),
 	})
 	require.Error(t, err)
 

@@ -7,9 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-
 	"github.com/cockroachdb/errors"
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
@@ -741,12 +738,11 @@ func setSSHAgent(repo *Repo) error {
 // layer has no forge of its own to read.
 func resolveForge(settings Settings) string {
 	forge := strings.ToLower(strings.TrimSpace(settings.Forge))
-	if forge == "" {
-		forge = strings.ToLower(strings.TrimSpace(settings.ReleaseSource.Type))
-	}
 
-	if forge == "" || forge == release.SourceTypeDirect {
-		return release.SourceTypeGitHub
+	// "direct" is a plain download source with no git remote, so it has no
+	// forge convention of its own; fall back to GitHub's.
+	if forge == "" || forge == ForgeDirect {
+		return ForgeGitHub
 	}
 
 	return forge
@@ -756,9 +752,9 @@ func resolveForge(settings Settings) string {
 // git-over-HTTPS token authentication.
 func basicAuthUsername(forge string) string {
 	switch forge {
-	case release.SourceTypeGitLab:
+	case ForgeGitLab:
 		return "oauth2"
-	case release.SourceTypeBitbucket:
+	case ForgeBitbucket:
 		return "x-token-auth"
 	default:
 		return "x-access-token"
@@ -807,9 +803,11 @@ func configureSSHAuth(repo *Repo, settings Settings, forge string) error {
 func configureTokenAuth(repo *Repo, settings Settings, forge string) error {
 	fallbackEnv := strings.ToUpper(forge) + "_TOKEN"
 
-	token := vcs.ResolveToken(settings.Auth, fallbackEnv)
+	// Resolved here and nowhere earlier: a token may live in the OS keychain,
+	// and a repository using SSH auth must never trigger that lookup.
+	token := settings.Token.resolve()
 	if token == "" {
-		if settings.ReleaseSource.Private {
+		if settings.Private {
 			return errors.WithHint(
 				errors.Newf("no %s token available for private repository", strings.ToUpper(forge)),
 				fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable git operations", fallbackEnv, forge),
@@ -860,7 +858,7 @@ func NewRepo(settings Settings, ops ...RepoOpt) (*Repo, error) {
 		if err := configureSSHAuth(repo, settings, forge); err != nil {
 			return nil, err
 		}
-	} else if settings.AuthEnabled || settings.Auth != nil {
+	} else if settings.AuthEnabled || settings.Token != nil {
 		if err := configureTokenAuth(repo, settings, forge); err != nil {
 			return nil, err
 		}

@@ -35,9 +35,11 @@ func SettingsFromProps(p *props.Props) Settings {
 // config remains a framework boundary; NewRepo itself does not depend on it.
 func SettingsFromContainable(source release.ReleaseSourceConfig, cfg config.Containable, log diagnosticLogger, fs afero.Fs) Settings {
 	settings := Settings{
-		ReleaseSource: source,
-		Logger:        log,
-		FS:            fs,
+		// The release source names the forge unless config overrides it below.
+		Forge:   strings.ToLower(strings.TrimSpace(source.Type)),
+		Private: source.Private,
+		Logger:  log,
+		FS:      fs,
 	}
 
 	if cfg == nil {
@@ -51,7 +53,13 @@ func SettingsFromContainable(source release.ReleaseSourceConfig, cfg config.Cont
 	}
 
 	forge := resolveForge(settings)
-	settings.Auth = vcs.ConfigFromContainable(cfg.Sub(forge))
+
+	// Bind the config subtree now, but defer resolution: ResolveToken walks the
+	// env → keychain → literal chain, and a repository authenticating over SSH
+	// must never trigger a keychain lookup it does not need.
+	authCfg := vcs.ConfigFromContainable(cfg.Sub(forge))
+	fallbackEnv := strings.ToUpper(forge) + "_TOKEN"
+	settings.Token = func() string { return vcs.ResolveToken(authCfg, fallbackEnv) }
 
 	if !cfg.Has(forge + ".ssh") {
 		return settings
