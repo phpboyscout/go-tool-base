@@ -428,7 +428,22 @@ proves the forge inversion. A latent bug surfaced during that work: `Progress` r
 push rejected by a server-side hook lost the rejection reason, which arrives only on the
 sideband channel. Fixed in the module before release.
 
-**Phase 3 — `go/forge` — NEXT.** Audit for the provider-authoring API first (playbook
-§10.1). Carry the "Backend Agnosticism" design goal recovered from the deleted
-`docs/explanation/concepts/vcs-repositories.md` into its documentation — it is forge
-intent, not repo intent.
+**Phases 3–4 — `go/forge` and the provider modules — SPECIFIED.** See
+[forge module extraction](2026-07-19-forge-module-extraction.md) (APPROVED 2026-07-19), the
+spec-lite this plan provided for. The provider-authoring API audit required by playbook
+§10.1 is **done**, and it changed two things this plan assumed:
+
+- **Auth moves with the contract.** `ResolveToken`/`TokenConfig`/`AuthConfig` live in
+  `pkg/vcs` root while the contract lives in `pkg/vcs/release`, and three of four providers
+  need both. Extracting only the contract would force out-of-tree authors back onto
+  go-tool-base — the `chat` lockstep trap.
+- **R2 is amended.** `direct` still stays in the core, but it cannot serve as the reference
+  implementation: it bypasses `ResolveToken`, stubs `ListReleases`, and fabricates synthetic
+  release types. It is rewritten, and a `forgetest` conformance harness ships with it.
+
+GitHub's scope is **deferred to phase 4** — only 4 of its 13 client methods are
+release-related — so phase 4 halts after `forge-bitbucket` to settle it.
+
+The "Backend Agnosticism" design goal recovered from the deleted
+`docs/explanation/concepts/vcs-repositories.md` is quoted verbatim in that spec, ready for
+the forge microsite — it is forge intent, not repo intent.
