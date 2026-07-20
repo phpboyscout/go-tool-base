@@ -107,12 +107,22 @@ func configOpts(props *p.Props) []config.ContainerOption {
 	return opts
 }
 
-// loadAndMergeConfig loads the main configuration and merges it with embedded config if present.
 // projectConfigPaths returns base with any discovered project-local ".<tool>.yaml"
 // (a repo-root config layer, found by walking up from the working directory) appended
-// last, so it deep-merges OVER the global config (env + flags still override it). A
-// convention like .editorconfig — a tool opts out by not having the file.
-func projectConfigPaths(props *p.Props, base []string) []string {
+// last, so it deep-merges OVER the default config paths (env + flags still override
+// it). A convention like .editorconfig — a tool opts out by not having the file.
+//
+// An explicit --config suppresses the layer entirely. That flag replaces the default
+// paths rather than adding to them, which is the whole reason it is declared with the
+// defaults as its default value: naming a config file means "use this one". A
+// project-local file the caller did not name — and may not know is there — must not
+// override files they did name, because nothing on the command line would explain the
+// resulting settings.
+func projectConfigPaths(props *p.Props, cmd *cobra.Command, base []string) []string {
+	if cmd.Flags().Changed("config") {
+		return base
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return base
@@ -697,7 +707,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// missing-config outcome is relaxed. The project-local config layer
 		// (projectConfigPaths) is resolved here so it is honoured on both the
 		// initial load and any auto-initialise reload.
-		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, state.cfgPaths))
+		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, cmd, state.cfgPaths))
 		if err != nil {
 			return errors.Wrap(err, "failed to load configuration")
 		}

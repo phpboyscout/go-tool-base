@@ -12,8 +12,39 @@ This page lists the configuration keys the **framework itself** reads. Tools bui
 on GTB add their own keys on top. For how these are loaded and merged, see
 [Precedence & merge model](https://config.go.phpboyscout.uk/explanation/precedence-and-merge/).
 
-**Precedence** (highest to lowest): CLI flags → environment variables → config
-files (later files override earlier) → embedded defaults.
+## Precedence
+
+Highest to lowest — each layer overrides everything below it.
+
+| | Layer |
+|---|---|
+| 1 | CLI flags |
+| 2 | Environment variables |
+| 3 | Project-local `.<tool>.yaml`, found by walking up from the working directory |
+| 4 | Config files — the `--config` paths if given, otherwise the defaults below |
+| 5 | Embedded defaults shipped with the tool |
+
+Within a single layer, later files override earlier ones.
+
+**The default config files** are `~/.config/<tool>/config.yaml` then
+`/etc/<tool>/config.yaml`.
+
+**`--config` replaces those defaults rather than adding to them.** Naming a file
+means "use this one":
+
+```bash
+mytool run                                           # both defaults
+mytool run --config ./ci.yaml                        # only ci.yaml
+mytool run --config ./base.yaml --config ./ci.yaml   # both, ci.yaml wins
+```
+
+Repeating the flag builds an ordered list in which the last occurrence wins.
+
+**`--config` also suppresses the project-local layer.** A `.<tool>.yaml` in the
+working directory is a convention like `.editorconfig` and applies whenever the
+tool runs without an explicit config. Once you name a file, though, nothing you
+did not name should override it — so in a repository containing `.mytool.yaml`,
+`mytool run --config ./ci.yaml` takes those two layers from `ci.yaml` alone.
 
 **Environment mapping.** Every key maps to an environment variable as
 `<PREFIX>_<KEY>`, upper-cased with `.` replaced by `_` — e.g. with prefix
