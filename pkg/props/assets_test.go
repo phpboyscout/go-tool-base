@@ -225,7 +225,8 @@ func TestAssets_Names(t *testing.T) {
 		"b": fstest.MapFS{},
 	})
 
-	assert.Equal(t, []string{"a", "b"}, assets.Names())
+	// The framework baseline bundle registers first in every NewAssets.
+	assert.Equal(t, []string{FrameworkBundle, "a", "b"}, assets.Names())
 }
 
 func TestOpenMergedCSV_SingleFS(t *testing.T) {
@@ -342,7 +343,9 @@ func TestAssets_Merge(t *testing.T) {
 	a2 := NewAssets(AssetMap{"b": f2})
 	result := a1.Merge(a2)
 	require.NotNil(t, result)
-	assert.Len(t, result.Names(), 2)
+	// framework + a + b: the framework bundle is registered once (both sides
+	// carry it under the same name).
+	assert.Len(t, result.Names(), 3)
 	rf1, err := result.Open("f1.txt")
 	require.NoError(t, err)
 	if rf1 != nil {

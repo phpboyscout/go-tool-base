@@ -60,15 +60,21 @@ type embeddedAssets struct {
 	order    []string
 }
 
+// newEmbeddedAssets returns an empty wrapper with no implicit bundles —
+// the internal constructor subset operations (For) build their results with.
+func newEmbeddedAssets() *embeddedAssets {
+	return &embeddedAssets{
+		embedded: make(map[string]fs.FS),
+		order:    make([]string, 0),
+	}
+}
+
 // NewAssets creates a new Assets wrapper with the given AssetMap pointers.
 // The framework's baseline bundle registers first, so every later bundle —
 // the tool's own, feature bundles applied at root construction — overrides
 // it in the merged structured reads.
 func NewAssets(assets ...AssetMap) Assets {
-	a := &embeddedAssets{
-		embedded: make(map[string]fs.FS),
-		order:    make([]string, 0),
-	}
+	a := newEmbeddedAssets()
 
 	a.Register(FrameworkBundle, &frameworkAssets)
 
@@ -500,9 +506,10 @@ func (a *embeddedAssets) Get(name string) fs.FS {
 	return a.embedded[name]
 }
 
-// For returns a subset of assets identified by the given names.
+// For returns a subset of assets identified by the given names — exactly
+// those, with no implicit framework bundle.
 func (a *embeddedAssets) For(names ...string) Assets {
-	res := NewAssets()
+	res := newEmbeddedAssets()
 
 	for _, name := range names {
 		if fs, ok := a.embedded[name]; ok {

@@ -321,7 +321,7 @@ func TestEmbeddedAssets_RegisterDuplicate(t *testing.T) {
 	a := NewAssets(AssetMap{"a": fstest.MapFS{"v1.txt": &fstest.MapFile{}}})
 	a.Register("a", fstest.MapFS{"v2.txt": &fstest.MapFile{}})
 
-	assert.Equal(t, []string{"a"}, a.Names())
+	assert.Equal(t, []string{FrameworkBundle, "a"}, a.Names())
 
 	_, err := a.Open("v2.txt")
 	require.NoError(t, err)
@@ -338,5 +338,5 @@ func TestEmbeddedAssets_MergeNilOther(t *testing.T) {
 	a := NewAssets(AssetMap{"a": fstest.MapFS{}})
 	result := a.Merge(nil)
 	require.NotNil(t, result)
-	assert.Equal(t, []string{"a"}, result.Names())
+	assert.Equal(t, []string{FrameworkBundle, "a"}, result.Names())
 }

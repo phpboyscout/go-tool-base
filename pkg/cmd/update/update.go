@@ -18,12 +18,6 @@ import (
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
-func init() {
-	setup.RegisterMiddleware(p.UpdateCmd, setup.WithAuthCheck(
-	// "github.token", // Example: require github.token for updates
-	))
-}
-
 // semVerPattern matches semantic version strings in the format v0.0.0 or v0.0.0-suffix.
 var semVerPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+(-\w+)?$`)
 

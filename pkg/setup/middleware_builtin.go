@@ -6,7 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -98,12 +97,25 @@ func WithTelemetry(p *props.Props) Middleware {
 // configuration keys are non-empty before allowing command execution.
 // If any key is empty, a descriptive error is returned without
 // executing the command.
-func WithAuthCheck(keys ...string) Middleware {
+//
+// The keys resolve against p's live store at execution time. The previous
+// implementation read the global viper singleton, which GTB's own
+// configuration never populated — every check passed vacuously.
+func WithAuthCheck(p props.ConfigProvider, keys ...string) Middleware {
 	return func(next func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 		return func(cmd *cobra.Command, args []string) error {
+			if len(keys) == 0 {
+				return next(cmd, args)
+			}
+
+			if p == nil || p.GetConfig() == nil {
+				return errors.New("auth check requires a loaded configuration")
+			}
+
+			view := p.GetConfig().View()
+
 			for _, key := range keys {
-				val := viper.GetString(key)
-				if val == "" {
+				if view.GetString(key) == "" {
 					return errors.Newf(
 						"required configuration %q is not set; run 'config set %s <value>' first",
 						key, key,
