@@ -16,8 +16,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
-	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
-
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
@@ -54,31 +52,15 @@ func TestHTTPAndGRPC_SeparatePorts(t *testing.T) {
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
 
 	// Register HTTP server.
-	httpCfg := mockConfig.NewMockContainable(t)
-	httpCfg.EXPECT().GetInt("server.http.port").Return(httpPort)
-	httpCfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	httpCfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	httpCfg.EXPECT().GetString("server.tls.cert").Return("")
-	httpCfg.EXPECT().GetString("server.tls.key").Return("")
-	httpCfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
+	httpCfg := testutil.ViewFromYAML(t, fmt.Sprintf("server:\n  http:\n    port: %d\n", httpPort))
 
-	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, httpCfg, noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, httpCfg, noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	// Register gRPC server.
-	grpcCfg := mockConfig.NewMockContainable(t)
-	grpcCfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	grpcCfg.EXPECT().GetInt("server.grpc.port").Return(grpcPort)
-	grpcCfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
+	grpcCfg := testutil.ViewFromYAML(t, fmt.Sprintf("server:\n  grpc:\n    port: %d\n    reflection: false\n", grpcPort))
 
-	_, err = gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, noop)
+	_, err = gtbgrpc.RegisterFromReader(ctx, "grpc", controller, grpcCfg, noop)
 	require.NoError(t, err)
 
 	controller.Start()

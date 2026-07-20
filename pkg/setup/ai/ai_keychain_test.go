@@ -7,7 +7,6 @@ import (
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -15,8 +14,8 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
-	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -47,7 +46,7 @@ func TestRunAIInit_KeychainMode_WritesReferenceAndStoresSecret(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(props, dir, WithAIForm(mockKeychainFormCreator("openai", "sk-keychain-test")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockKeychainFormCreator("openai", "sk-keychain-test")))
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -70,19 +69,19 @@ func TestRunAIInit_KeychainMode_WritesReferenceAndStoresSecret(t *testing.T) {
 }
 
 // Configure path (as opposed to RunAIInit) exercises the shared
-// container flow used by the top-level wizard. It must Set the
-// keychain config key — not the literal key — on the container.
+// editor flow used by the top-level wizard. It must Set the
+// keychain config key — not the literal key — through the editor.
 func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 	credtest.Install(t)
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
-	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api").Once()
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
+	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Return(nil).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api").Return(nil).Once()
 	// Recording the keychain reference also blanks the sibling
 	// env/literal key paths so a prior storage mode leaves nothing.
-	cfg.EXPECT().Set(mock.Anything, "").Maybe()
+	cfg.EXPECT().Set(chat.ConfigKeyClaudeEnv, "").Return(nil).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "").Return(nil).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{

@@ -251,10 +251,12 @@ func assetDocument(p *props.Props, path string) []byte {
 }
 
 // writeInitialConfig materialises the target file. Absent (or --clean): the
-// merged init template is written verbatim, so its comments reach the user's
-// file. Existing: the file's values are merged over the template so re-running
-// init gains new template keys without disturbing user values (comment-lossy
-// on this path, as the viper round-trip it replaces also was).
+// merged init template is written. Existing: the file's values are merged over
+// the template so re-running init gains new template keys without disturbing
+// user values. Both paths re-encode (the cross-bundle template merge parses
+// and re-emits, so template comments do not carry) — parity with the viper
+// round-trip this replaces. Comments the USER writes survive later edits,
+// because wizard writes go through Apply.
 func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
 	seed := assetDocument(p, InitTemplateAssetPath)
 

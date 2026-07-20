@@ -6,17 +6,16 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
-	"gitlab.com/phpboyscout/go/config"
-
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // authFormOverride composes the slice-returning creator and the
@@ -35,10 +34,11 @@ func authFormOverride(
 	)
 }
 
-// newAuthProps constructs the Props fixture used by the auth tests
-// and also neutralises env vars that could otherwise short-circuit
-// the wizard (already-configured detection) or flip CI branches.
-func newAuthProps(t *testing.T) (*props.Props, config.Containable) {
+// newAuthProps constructs the Props fixture used by the auth tests plus a
+// real store-backed editor over a memfs config file, and also neutralises
+// env vars that could otherwise short-circuit the wizard
+// (already-configured detection) or flip CI branches.
+func newAuthProps(t *testing.T) (*props.Props, setup.Editor) {
 	t.Helper()
 
 	t.Setenv("GITHUB_TOKEN", "")
@@ -51,7 +51,7 @@ func newAuthProps(t *testing.T) (*props.Props, config.Containable) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	return p, config.NewContainerFromViper(nil, viper.New())
+	return p, newTestEditor(t, p, "")
 }
 
 // TestGitHubAuth_LiteralModeWritesAuthValue pins the legacy literal
@@ -69,9 +69,10 @@ func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 	)
 
 	require.NoError(t, init.Configure(p, cfg))
-	assert.Equal(t, "ghp_lit_token", cfg.GetString("github.auth.value"))
-	assert.Empty(t, cfg.GetString("github.auth.env"))
-	assert.Empty(t, cfg.GetString("github.auth.keychain"))
+	view := cfg.View()
+	assert.Equal(t, "ghp_lit_token", view.GetString("github.auth.value"))
+	assert.Empty(t, view.GetString("github.auth.env"))
+	assert.Empty(t, view.GetString("github.auth.keychain"))
 }
 
 // TestGitHubAuth_EnvVarModeWritesReferenceOnly exercises the
@@ -97,9 +98,10 @@ func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 	)
 
 	require.NoError(t, init.Configure(p, cfg))
-	assert.Equal(t, "MYTOOL_GH_TOKEN", cfg.GetString("github.auth.env"))
-	assert.Empty(t, cfg.GetString("github.auth.value"))
-	assert.Empty(t, cfg.GetString("github.auth.keychain"))
+	view := cfg.View()
+	assert.Equal(t, "MYTOOL_GH_TOKEN", view.GetString("github.auth.env"))
+	assert.Empty(t, view.GetString("github.auth.value"))
+	assert.Empty(t, view.GetString("github.auth.keychain"))
 }
 
 // TestGitHubAuth_EnvVarModeDisplayOnce — FetchToken=true path: OAuth
@@ -141,9 +143,10 @@ func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 	assert.Equal(t, "ghp_envvar_token", tokenShown)
 	assert.Equal(t, "GITHUB_TOKEN", envVarNameShown)
 
-	assert.Equal(t, "GITHUB_TOKEN", cfg.GetString("github.auth.env"))
-	assert.Empty(t, cfg.GetString("github.auth.value"), "token must not be written to config")
-	assert.Empty(t, cfg.GetString("github.auth.keychain"))
+	view := cfg.View()
+	assert.Equal(t, "GITHUB_TOKEN", view.GetString("github.auth.env"))
+	assert.Empty(t, view.GetString("github.auth.value"), "token must not be written to config")
+	assert.Empty(t, view.GetString("github.auth.keychain"))
 }
 
 // TestGitHubAuth_KeychainModeStoresTokenAndRef — OAuth returns a
@@ -163,9 +166,10 @@ func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 	)
 
 	require.NoError(t, init.Configure(p, cfg))
-	assert.Equal(t, "testtool/github.auth", cfg.GetString("github.auth.keychain"))
-	assert.Empty(t, cfg.GetString("github.auth.value"), "token must not leak into config")
-	assert.Empty(t, cfg.GetString("github.auth.env"))
+	view := cfg.View()
+	assert.Equal(t, "testtool/github.auth", view.GetString("github.auth.keychain"))
+	assert.Empty(t, view.GetString("github.auth.value"), "token must not leak into config")
+	assert.Empty(t, view.GetString("github.auth.env"))
 
 	got, err := credentials.Retrieve(t.Context(), "testtool", "github.auth")
 	require.NoError(t, err)
@@ -179,7 +183,9 @@ func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 	credtest.Install(t)
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	// A mock editor with no expectations proves the guard fires before
+	// any config write.
+	cfg := setupmocks.NewMockEditor(t)
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.ModeKeychain}
 
 	err := writeGitHubCredential(t.Context(), cfg, "testtool", authCfg)
@@ -192,11 +198,11 @@ func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 // credential in one storage mode must purge any value left behind by a
 // prior mode, so config never carries both an env reference and a
 // literal token (the keryx-reported leak class, applied to the GitHub
-// backend).
+// backend). Stale keys are blanked to "" rather than deleted.
 func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 	t.Run("env-var mode clears a stale literal token", func(t *testing.T) {
-		cfg := config.NewContainerFromViper(nil, viper.New())
-		cfg.Set("github.auth.value", "ghp_STALE_TOKEN")
+		p := newTestProps(t)
+		cfg := newTestEditor(t, p, "github:\n  auth:\n    value: ghp_STALE_TOKEN\n")
 
 		err := writeGitHubCredential(t.Context(), cfg, "testtool", &GitHubAuthConfig{
 			StorageMode: credentials.ModeEnvVar,
@@ -204,14 +210,15 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.Equal(t, "GITHUB_TOKEN", cfg.GetString("github.auth.env"))
-		assert.Empty(t, cfg.GetString("github.auth.value"),
+		view := cfg.View()
+		assert.Equal(t, "GITHUB_TOKEN", view.GetString("github.auth.env"))
+		assert.Empty(t, view.GetString("github.auth.value"),
 			"switching to env-var mode must purge the stale literal token")
 	})
 
 	t.Run("literal mode clears a stale env reference", func(t *testing.T) {
-		cfg := config.NewContainerFromViper(nil, viper.New())
-		cfg.Set("github.auth.env", "OLD_GH_ENV")
+		p := newTestProps(t)
+		cfg := newTestEditor(t, p, "github:\n  auth:\n    env: OLD_GH_ENV\n")
 
 		// Held in a variable rather than an inline Token literal so
 		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
@@ -223,8 +230,9 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.Equal(t, replacement, cfg.GetString("github.auth.value"))
-		assert.Empty(t, cfg.GetString("github.auth.env"),
+		view := cfg.View()
+		assert.Equal(t, replacement, view.GetString("github.auth.value"))
+		assert.Empty(t, view.GetString("github.auth.env"),
 			"switching to literal mode must purge the stale env reference")
 	})
 }
@@ -239,6 +247,6 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 // accidental unexport.
 var _ AuthFormOption = WithAuthForm(nil, nil)
 
-// Compile-time guard: displayOnceForm's signature matches what
+// Compile-time guard: writeGitHubCredential's signature matches what
 // configureAuth expects.
-var _ func(ctx context.Context, cfg config.Containable, toolName string, authCfg *GitHubAuthConfig) error = writeGitHubCredential
+var _ func(ctx context.Context, cfg setup.Editor, toolName string, authCfg *GitHubAuthConfig) error = writeGitHubCredential

@@ -9,15 +9,13 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
-	"gitlab.com/phpboyscout/go/config"
-
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -113,11 +111,11 @@ func TestRunFormStage(t *testing.T) {
 }
 
 // TestWriteBitbucketCredentials_DefaultMode hits the unsupported-mode
-// error branch in the write switch.
+// error branch in the write switch. The mock expects no Set calls.
 func TestWriteBitbucketCredentials_DefaultMode(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := setupmocks.NewMockEditor(t)
 	err := writeBitbucketCredentials(t.Context(), cfg, "tool", &BitbucketConfig{
 		StorageMode: credentials.Mode("bogus"),
 	})
@@ -130,36 +128,39 @@ func TestWriteBitbucketCredentials_DefaultMode(t *testing.T) {
 func TestWriteBitbucketCredentials_EmptyMode(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().Set("bitbucket.username", "alice").Return(nil)
+	cfg.EXPECT().Set("bitbucket.app_password", "pw").Return(nil)
+
 	err := writeBitbucketCredentials(t.Context(), cfg, "tool", &BitbucketConfig{
 		Username:    "alice",
 		AppPassword: "pw",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "alice", cfg.GetString("bitbucket.username"))
-	assert.Equal(t, "pw", cfg.GetString("bitbucket.app_password"))
 }
 
 // TestWriteBitbucketCredentials_EnvVarPartial exercises the env-var
-// branch when only one of the two names is supplied.
+// branch when only one of the two names is supplied — the absent
+// app-password name must not be written (unexpected-call guard).
 func TestWriteBitbucketCredentials_EnvVarPartial(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().Set("bitbucket.username.env", "ONLY_USER").Return(nil)
+
 	err := writeBitbucketCredentials(t.Context(), cfg, "tool", &BitbucketConfig{
 		StorageMode:     credentials.ModeEnvVar,
 		UsernameEnvName: "ONLY_USER",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "ONLY_USER", cfg.GetString("bitbucket.username.env"))
-	assert.Empty(t, cfg.GetString("bitbucket.app_password.env"))
 }
 
 // TestWriteKeychainBlob_NoToolName guards the empty-tool-name branch.
+// No Set call is expected.
 func TestWriteKeychainBlob_NoToolName(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := setupmocks.NewMockEditor(t)
 	err := writeKeychainBlob(t.Context(), cfg, "", &BitbucketConfig{
 		Username:    "alice",
 		AppPassword: "pw",
@@ -173,32 +174,33 @@ func TestWriteKeychainBlob_NoToolName(t *testing.T) {
 func TestWriteKeychainBlob_Success(t *testing.T) {
 	credtest.Install(t)
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().Set("bitbucket.keychain", "tool/bitbucket.auth").Return(nil)
+
 	err := writeKeychainBlob(t.Context(), cfg, "tool", &BitbucketConfig{
 		Username:    "alice",
 		AppPassword: "pw",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "tool/bitbucket.auth", cfg.GetString("bitbucket.keychain"))
 }
 
 // TestWriteKeychainBlob_StoreError covers the credentials.Store error
 // branch (with the WithHint wrap). A cancelled context makes the
-// MemoryBackend's Store fail.
+// MemoryBackend's Store fail. No Set call is expected — the keychain
+// reference must not be recorded when the store fails.
 func TestWriteKeychainBlob_StoreError(t *testing.T) {
 	credtest.Install(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := setupmocks.NewMockEditor(t)
 	err := writeKeychainBlob(ctx, cfg, "tool", &BitbucketConfig{
 		Username:    "alice",
 		AppPassword: "pw",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "storing Bitbucket credentials in OS keychain")
-	assert.Empty(t, cfg.GetString("bitbucket.keychain"))
 }
 
 // failingForm returns a form with a single input group that errors on
@@ -347,9 +349,14 @@ func TestNewCmdInitBitbucket(t *testing.T) {
 }
 
 // TestRunBitbucketInit_Success drives RunBitbucketInit with an injected
-// env-var-mode form creator and asserts the credentials are persisted.
+// env-var-mode form creator and asserts the credentials are persisted
+// through the editor.
 func TestRunBitbucketInit_Success(t *testing.T) {
-	p, cfg := newTestProps(t)
+	p := newTestProps(t)
+
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().Set("bitbucket.username.env", "BB_USER").Return(nil)
+	cfg.EXPECT().Set("bitbucket.app_password.env", "BB_APP_PW").Return(nil)
 
 	err := RunBitbucketInit(p, cfg, mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeEnvVar
@@ -357,16 +364,14 @@ func TestRunBitbucketInit_Success(t *testing.T) {
 		c.AppPasswordEnvName = "BB_APP_PW"
 	}))
 	require.NoError(t, err)
-	assert.Equal(t, "BB_USER", cfg.GetString("bitbucket.username.env"))
-	assert.Equal(t, "BB_APP_PW", cfg.GetString("bitbucket.app_password.env"))
 }
 
 // TestRunBitbucketInit_FormError drives RunBitbucketInit with a failing
-// injected form; the wizard error propagates.
+// injected form; the wizard error propagates before any write.
 func TestRunBitbucketInit_FormError(t *testing.T) {
-	t.Setenv("CI", "")
+	p := newTestProps(t)
 
-	p, cfg := newTestProps(t)
+	cfg := setupmocks.NewMockEditor(t)
 
 	err := RunBitbucketInit(p, cfg, WithForm(func(_ *BitbucketConfig) []*huh.Form {
 		return []*huh.Form{failingForm()}
@@ -375,7 +380,8 @@ func TestRunBitbucketInit_FormError(t *testing.T) {
 }
 
 // TestRunInitCmd_LoadedConfig covers the full success write-back path
-// when an existing config file is present (the loaded-container branch).
+// when an existing config file is present: the editor opens over the
+// file and the wizard's writes land in it immediately.
 func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	t.Setenv("CI", "")
 
@@ -388,17 +394,18 @@ func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: logger.NewNoop(),
+		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	err := RunInitCmd(p, dir, mockForms(func(c *BitbucketConfig) {
+	err := RunInitCmd(t.Context(), p, dir, mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeEnvVar
 		c.UsernameEnvName = "BB_USER"
 		c.AppPasswordEnvName = "BB_APP_PW"
 	}))
 	require.NoError(t, err)
 
-	// The config was written back to disk with the captured env-var names.
+	// The config was written to disk with the captured env-var names.
 	written, rerr := afero.ReadFile(fs, target)
 	require.NoError(t, rerr)
 	assert.Contains(t, string(written), "BB_USER")
@@ -408,34 +415,8 @@ func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	assert.Equal(t, "-rw-------", info.Mode().String())
 }
 
-// TestRunInitCmd_DefaultConfigFallback exercises the branch where no
-// config file exists and LoadFilesContainer fails, so RunInitCmd falls
-// back to parsing the embedded default config. The embedded bytes are
-// decoded by a type-less viper, which surfaces a decode error — this
-// covers the fallback's read-error return.
-func TestRunInitCmd_DefaultConfigFallback(t *testing.T) {
-	t.Setenv("CI", "")
-
-	fs := afero.NewMemMapFs()
-	dir := filepath.Join(t.TempDir(), "missing")
-
-	p := &props.Props{
-		FS:     fs,
-		Logger: logger.NewNoop(),
-		Tool:   props.Tool{Name: "testtool"},
-	}
-
-	err := RunInitCmd(p, dir, mockForms(func(c *BitbucketConfig) {
-		c.StorageMode = credentials.ModeEnvVar
-		c.UsernameEnvName = "BB_USER"
-		c.AppPasswordEnvName = "BB_APP_PW"
-	}))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to read default config")
-}
-
 // TestRunInitCmd_FormError covers the wizard-error propagation out of
-// RunInitCmd (before the write-back).
+// RunInitCmd (after the editor opens, before any write).
 func TestRunInitCmd_FormError(t *testing.T) {
 	t.Setenv("CI", "")
 
@@ -445,44 +426,39 @@ func TestRunInitCmd_FormError(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: logger.NewNoop(),
+		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	err := RunInitCmd(p, dir, WithForm(func(_ *BitbucketConfig) []*huh.Form {
+	err := RunInitCmd(t.Context(), p, dir, WithForm(func(_ *BitbucketConfig) []*huh.Form {
 		return []*huh.Form{failingForm()}
 	}))
 	require.Error(t, err)
 }
 
-// TestRunInitCmd_MkdirError covers the MkdirAll error branch. A config
-// file is seeded in a base FS so LoadFilesContainer succeeds; the FS is
-// then wrapped read-only so the subsequent MkdirAll for a not-yet-
-// existing nested directory fails after the wizard completes.
+// TestRunInitCmd_MkdirError covers the MkdirAll error branch: opening
+// the config editor creates the config directory before the wizard
+// runs, and a read-only FS makes that fail.
 func TestRunInitCmd_MkdirError(t *testing.T) {
 	t.Setenv("CI", "")
 
-	base := afero.NewMemMapFs()
+	fs := afero.NewReadOnlyFs(afero.NewMemMapFs())
 	dir := filepath.Join(t.TempDir(), "newdir")
-	target := filepath.Join(dir, setup.DefaultConfigFilename)
-	require.NoError(t, afero.WriteFile(base, target, []byte("foo: bar\n"), 0o600))
-
-	// Remove the directory so MkdirAll has work to do, but keep the file
-	// readable for LoadFilesContainer via the in-memory contents.
-	fs := afero.NewReadOnlyFs(base)
 
 	p := &props.Props{
 		FS:     fs,
 		Logger: logger.NewNoop(),
+		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	err := RunInitCmd(p, dir, mockForms(func(c *BitbucketConfig) {
+	err := RunInitCmd(t.Context(), p, dir, mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeEnvVar
 		c.UsernameEnvName = "BB_USER"
 		c.AppPasswordEnvName = "BB_APP_PW"
 	}))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create config directory")
+	assert.Contains(t, err.Error(), "Failed to create directory")
 }
 
 // TestCredentialsForm_UsernameValidator runs the username input from
@@ -517,11 +493,16 @@ func TestNewCmdInitBitbucket_RunE_Error(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: logger.NewNoop(),
+		Assets: props.NewAssets(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
 	cmd := NewCmdInitBitbucket(p)
 	require.NoError(t, cmd.Flags().Set("dir", dir))
+
+	// RunE reads cmd.Context(), which is nil until Execute runs; seed it
+	// for a direct invocation.
+	cmd.SetContext(t.Context())
 
 	err := cmd.RunE(cmd, nil)
 	require.Error(t, err)

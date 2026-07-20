@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"github.com/cucumber/godog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,8 +21,6 @@ import (
 
 	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
-
-	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
@@ -157,10 +157,14 @@ func anHTTPServerRegistered(ctx context.Context) (context.Context, error) {
 
 	w.HTTPPort = port
 
-	cfg := newHTTPMockConfig(port)
+	cfg, err := newHTTPConfig(port)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to build HTTP config: %w", err)
+	}
+
 	mux := http.NewServeMux()
 
-	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http", w.Controller, cfg, w.Logger, mux)
+	_, err = gtbhttp.RegisterFromReader(w.Ctx, "http", w.Controller, cfg, w.Logger, mux)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register HTTP server: %w", err)
 	}
@@ -178,7 +182,11 @@ func anHTTPServerWithRateLimiter(ctx context.Context, rps int) (context.Context,
 
 	w.HTTPPort = port
 
-	cfg := newHTTPMockConfig(port)
+	cfg, err := newHTTPConfig(port)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to build HTTP config: %w", err)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(rw http.ResponseWriter, _ *http.Request) {
 		rw.WriteHeader(http.StatusOK)
@@ -192,7 +200,7 @@ func anHTTPServerWithRateLimiter(ctx context.Context, rps int) (context.Context,
 		Burst:             rps,
 	}))
 
-	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, transporthttp.WithMiddleware(chain))
+	_, err = gtbhttp.RegisterFromReader(w.Ctx, "http-ratelimit", w.Controller, cfg, w.Logger, mux, transporthttp.WithMiddleware(chain))
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register rate-limited HTTP server: %w", err)
 	}
@@ -257,9 +265,12 @@ func aGRPCServerRegistered(ctx context.Context) (context.Context, error) {
 
 	w.GRPCPort = port
 
-	cfg := newGRPCMockConfig(port)
+	cfg, err := newGRPCConfig(port)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to build gRPC config: %w", err)
+	}
 
-	_, err = gtbgrpc.RegisterFromContainable(w.Ctx, "grpc", w.Controller, cfg, w.Logger)
+	_, err = gtbgrpc.RegisterFromReader(w.Ctx, "grpc", w.Controller, cfg, w.Logger)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register gRPC server: %w", err)
 	}
@@ -289,8 +300,12 @@ func theHTTPServerHasSlowHandler(ctx context.Context, path string, seconds int) 
 		close(w.RequestFinished)
 	})
 
-	cfg := newHTTPMockConfig(port)
-	_, err = gtbhttp.RegisterFromContainable(w.Ctx, "http-slow", w.Controller, cfg, w.Logger, mux)
+	cfg, err := newHTTPConfig(port)
+	if err != nil {
+		return ctx, fmt.Errorf("failed to build HTTP config: %w", err)
+	}
+
+	_, err = gtbhttp.RegisterFromReader(w.Ctx, "http-slow", w.Controller, cfg, w.Logger, mux)
 	if err != nil {
 		return ctx, fmt.Errorf("failed to register slow HTTP server: %w", err)
 	}
@@ -916,33 +931,26 @@ func assertReportDoesNotInclude(report controls.HealthReport, name string) error
 	return nil
 }
 
-// --- Mock config helpers ---
+// --- Config helpers ---
 
-// newHTTPMockConfig creates a mock Containable configured for HTTP server registration.
-// We use mock.Mock directly since godog.TestingT doesn't implement Cleanup.
-func newHTTPMockConfig(port int) *mockConfig.MockContainable {
-	cfg := &mockConfig.MockContainable{}
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
-	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
-	return cfg
+// viewFromYAML builds a pinned view over a YAML document. godog.TestingT has
+// no Cleanup, so the store is built directly rather than via testutil.
+func viewFromYAML(yaml string) (*config.View, error) {
+	store, err := config.NewStore(context.Background(),
+		config.WithReaders(config.NamedSource{Name: "e2e", Content: []byte(yaml)}))
+	if err != nil {
+		return nil, err
+	}
+
+	return store.View(), nil
 }
 
-// newGRPCMockConfig creates a mock Containable configured for gRPC server registration.
-func newGRPCMockConfig(port int) *mockConfig.MockContainable {
-	cfg := &mockConfig.MockContainable{}
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
-	return cfg
+// newHTTPConfig creates a resolved config view for HTTP server registration.
+func newHTTPConfig(port int) (*config.View, error) {
+	return viewFromYAML(fmt.Sprintf("server:\n  http:\n    port: %d\n", port))
+}
+
+// newGRPCConfig creates a resolved config view for gRPC server registration.
+func newGRPCConfig(port int) (*config.View, error) {
+	return viewFromYAML(fmt.Sprintf("server:\n  grpc:\n    port: %d\n    reflection: false\n", port))
 }

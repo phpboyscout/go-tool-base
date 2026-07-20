@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"github.com/charmbracelet/keygen"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -19,6 +17,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	mockVCS "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/github"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -112,7 +112,7 @@ func TestDefaultDisplayOnceForm(t *testing.T) {
 
 func TestDefaultGitHubClientFactory(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 	client, err := defaultGitHubClientFactory(cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, client)
@@ -180,11 +180,13 @@ func TestCaptureToken_FallbackToManual(t *testing.T) {
 func TestRunAuthCredentialStage_UnsupportedMode(t *testing.T) {
 	t.Parallel()
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	// The dispatch fails before any config write, so a no-expectation
+	// mock editor suffices.
+	cfg := setupmocks.NewMockEditor(t)
 	g := &GitHubInitialiser{loginFunc: func(_ string) (string, error) { return "tok", nil }}
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.Mode("bogus")}
 
-	err := g.runAuthCredentialStage(context.Background(), p, cfg, newAuthFormConfig(), authCfg)
+	err := g.runAuthCredentialStage(t.Context(), p, cfg, newAuthFormConfig(), authCfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported credential storage mode")
 }
@@ -193,50 +195,56 @@ func TestRunAuthCredentialStage_UnsupportedMode(t *testing.T) {
 
 func TestWriteGitHubCredential_EnvVarMode(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	p := newTestProps(t)
+	cfg := newTestEditor(t, p, "")
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.ModeEnvVar, EnvVarName: "MY_GH"}
-	require.NoError(t, writeGitHubCredential(context.Background(), cfg, "testtool", authCfg))
-	assert.Equal(t, "MY_GH", cfg.GetString("github.auth.env"))
+	require.NoError(t, writeGitHubCredential(t.Context(), cfg, "testtool", authCfg))
+	assert.Equal(t, "MY_GH", cfg.View().GetString("github.auth.env"))
 }
 
 func TestWriteGitHubCredential_EnvVarModeEmptyName(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	p := newTestProps(t)
+	cfg := newTestEditor(t, p, "")
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.ModeEnvVar}
-	require.NoError(t, writeGitHubCredential(context.Background(), cfg, "testtool", authCfg))
-	assert.Empty(t, cfg.GetString("github.auth.env"))
+	require.NoError(t, writeGitHubCredential(t.Context(), cfg, "testtool", authCfg))
+	assert.Empty(t, cfg.View().GetString("github.auth.env"))
 }
 
 func TestWriteGitHubCredential_KeychainNoToolName(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	// Fails before any write — no editor expectations needed.
+	cfg := setupmocks.NewMockEditor(t)
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.ModeKeychain, Token: "tok"}
-	err := writeGitHubCredential(context.Background(), cfg, "", authCfg)
+	err := writeGitHubCredential(t.Context(), cfg, "", authCfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "without a tool name")
 }
 
 func TestWriteGitHubCredential_LiteralMode(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	p := newTestProps(t)
+	cfg := newTestEditor(t, p, "")
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.ModeLiteral, Token: "ghp_lit"}
-	require.NoError(t, writeGitHubCredential(context.Background(), cfg, "testtool", authCfg))
-	assert.Equal(t, "ghp_lit", cfg.GetString("github.auth.value"))
+	require.NoError(t, writeGitHubCredential(t.Context(), cfg, "testtool", authCfg))
+	assert.Equal(t, "ghp_lit", cfg.View().GetString("github.auth.value"))
 }
 
 func TestWriteGitHubCredential_EmptyModeDefaultsLiteral(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	p := newTestProps(t)
+	cfg := newTestEditor(t, p, "")
 	authCfg := &GitHubAuthConfig{StorageMode: "", Token: "ghp_empty"}
-	require.NoError(t, writeGitHubCredential(context.Background(), cfg, "testtool", authCfg))
-	assert.Equal(t, "ghp_empty", cfg.GetString("github.auth.value"))
+	require.NoError(t, writeGitHubCredential(t.Context(), cfg, "testtool", authCfg))
+	assert.Equal(t, "ghp_empty", cfg.View().GetString("github.auth.value"))
 }
 
 func TestWriteGitHubCredential_UnsupportedMode(t *testing.T) {
 	t.Parallel()
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	// Fails on the mode switch before any write.
+	cfg := setupmocks.NewMockEditor(t)
 	authCfg := &GitHubAuthConfig{StorageMode: credentials.Mode("nope"), Token: "tok"}
-	err := writeGitHubCredential(context.Background(), cfg, "testtool", authCfg)
+	err := writeGitHubCredential(t.Context(), cfg, "testtool", authCfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported credential storage mode")
 }
@@ -248,7 +256,7 @@ func TestConfigureSSH_FormError(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := newTestEditor(t, p, "")
 	g := &GitHubInitialiser{}
 
 	err := g.configureSSH(p, cfg)
@@ -265,7 +273,7 @@ func TestRunGitHubInit_AuthShortCircuitThenSSHError(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "already-here")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := newTestEditor(t, p, "")
 
 	err := RunGitHubInit(p, cfg)
 	// Auth resolves from GITHUB_TOKEN; SSH default form errors (no TTY).
@@ -289,8 +297,8 @@ func TestNewCmdInitGitHub(t *testing.T) {
 
 // --- NewCmdInitGitHub RunE: GITHUB_TOKEN short-circuits auth; the SSH
 // stage errors without a TTY, so RunE wraps and returns the failure.
-// Covers the RunE closure and RunInitCmd's LoadFilesContainer fallback
-// + default-config read path. ---
+// Covers the RunE closure and RunInitCmd's OpenConfigEditor seeding path
+// (target file absent → seeded from the merged init template). ---
 
 func TestNewCmdInitGitHub_RunE_Error(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
@@ -301,8 +309,10 @@ func TestNewCmdInitGitHub_RunE_Error(t *testing.T) {
 		FS:     afero.NewMemMapFs(),
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
+		Assets: props.NewAssets(),
 	}
 	cmd := NewCmdInitGitHub(p)
+	cmd.SetContext(t.Context())
 	require.NoError(t, cmd.Flags().Set("dir", "/cfgdir"))
 
 	err := cmd.RunE(cmd, nil)
@@ -358,7 +368,7 @@ func TestGenerateKey_UploadError(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	mockClient := mockVCS.NewMockGitHubClient(t)
 	mockClient.EXPECT().UploadKey(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
@@ -366,7 +376,7 @@ func TestGenerateKey_UploadError(t *testing.T) {
 	_, err := generateKey(p, cfg,
 		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
 		WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
-		WithGitHubClientFactory(func(_ config.Containable) (githubvcs.GitHubClient, error) {
+		WithGitHubClientFactory(func(_ config.Reader) (githubvcs.GitHubClient, error) {
 			return mockClient, nil
 		}),
 	)
@@ -382,11 +392,10 @@ func TestIsConfigured_KeychainRef(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
-	v := viper.New()
-	v.Set("github.auth.keychain", "testtool/github.auth")
-	v.Set("github.ssh.key.path", "/home/u/.ssh/id_ed25519")
+	cfg := testutil.ViewFromYAML(t,
+		"github:\n  auth:\n    keychain: testtool/github.auth\n  ssh:\n    key:\n      path: /home/u/.ssh/id_ed25519\n")
 	i := NewGitHubInitialiser(p, false, false)
-	assert.True(t, i.IsConfigured(config.NewContainerFromViper(nil, v)))
+	assert.True(t, i.IsConfigured(cfg))
 }
 
 // --- newAuthFormConfig defaults wired ---
@@ -439,7 +448,7 @@ func TestIsValidSSHKey_PassphraseProtected(t *testing.T) {
 func TestHandleSSHKeySelection_Other_InvalidKeyContent(t *testing.T) {
 	t.Parallel()
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 	require.NoError(t, afero.WriteFile(p.FS, "/garbage.key", []byte("not-a-key"), 0o600))
 
 	opts := &configureSSHKeyConfig{
@@ -483,10 +492,11 @@ func TestDiscoverSSHKeys_CreatesMissingDir(t *testing.T) {
 func TestConfigure_BothAlreadyConfigured(t *testing.T) {
 	t.Parallel()
 	p := newTestProps(t)
-	v := viper.New()
-	v.Set("github.auth.value", "tok")
-	v.Set("github.ssh.key.path", "/home/u/.ssh/id_ed25519")
-	cfg := config.NewContainerFromViper(nil, v)
+	// A mock editor proves neither wizard writes anything; only the
+	// guard reads happen.
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t,
+		"github:\n  auth:\n    value: tok\n  ssh:\n    key:\n      path: /home/u/.ssh/id_ed25519\n"))
 
 	i := &GitHubInitialiser{SkipLogin: false, SkipKey: false}
 	require.NoError(t, i.Configure(p, cfg))
@@ -502,18 +512,18 @@ func TestConfigure_SSHRunsAndErrors(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	p := newTestProps(t)
-	v := viper.New()
-	v.Set("github.auth.value", "tok") // hasAnyGitHubCredential → skip login
-	cfg := config.NewContainerFromViper(nil, v)
+	// hasAnyGitHubCredential → skip login
+	cfg := newTestEditor(t, p, "github:\n  auth:\n    value: tok\n")
 
 	i := &GitHubInitialiser{SkipLogin: false, SkipKey: false}
 	err := i.Configure(p, cfg)
 	require.Error(t, err)
 }
 
-// --- RunInitCmd: an existing config file makes LoadFilesContainer
-// succeed (covers the non-fallback branch). The forced SSH stage errors
-// without a TTY, so RunInitCmd returns that error before writing. ---
+// --- RunInitCmd: an existing config file is merged over the init
+// template rather than reseeded (covers the merge branch of
+// OpenConfigEditor). The forced SSH stage errors without a TTY, so
+// RunInitCmd returns that error before any wizard write. ---
 
 func TestRunInitCmd_ExistingConfigFile(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
@@ -530,9 +540,10 @@ func TestRunInitCmd_ExistingConfigFile(t *testing.T) {
 		FS:     fs,
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
+		Assets: props.NewAssets(),
 	}
 
-	err := RunInitCmd(p, dir)
+	err := RunInitCmd(t.Context(), p, dir)
 	// Auth short-circuits on GITHUB_TOKEN; SSH default form errors.
 	require.Error(t, err)
 }
@@ -642,7 +653,7 @@ func TestConfigureSSHKey_SelectFormError(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	var v string
 	_, _, err := ConfigureSSHKey(p, cfg,
@@ -660,7 +671,7 @@ func TestConfigureSSHKey_SelectFormError(t *testing.T) {
 func TestHandleSSHKeySelection_Other_FormError(t *testing.T) {
 	t.Parallel()
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	var v string
 	opts := &configureSSHKeyConfig{
@@ -680,7 +691,7 @@ func TestGenerateKey_PassphraseFormError(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	var v string
 	_, err := generateKey(p, cfg,
@@ -697,7 +708,7 @@ func TestGenerateKey_UploadFormError(t *testing.T) {
 	t.Setenv("HOME", "/home/testuser")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	var v bool
 	_, err := generateKey(p, cfg,
@@ -818,7 +829,7 @@ func TestHandleSSHKeySelection_Generate_Error(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	opts := &configureSSHKeyConfig{
 		generateKeyOpts: []GenerateKeyOption{
@@ -840,7 +851,7 @@ func TestConfigure_EnvVarFetchTokenCaptureError(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := newTestEditor(t, p, "")
 
 	init := NewGitHubInitialiser(p, false, true,
 		WithGHLogin(func(_ string) (string, error) { return "", assert.AnError }),
@@ -869,7 +880,7 @@ func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: ""}, // forces the write-stage error
 	}
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := newTestEditor(t, p, "")
 
 	init := NewGitHubInitialiser(p, false, true,
 		WithGHLogin(func(_ string) (string, error) { return "ghp_tok", nil }),
@@ -891,7 +902,7 @@ func TestConfigure_EnvVarNameFormError(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := newTestEditor(t, p, "")
 
 	var name string
 	init := NewGitHubInitialiser(p, false, true,
@@ -923,7 +934,7 @@ func TestConfigureSSHKey_DiscoverError(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	_, _, err := ConfigureSSHKey(p, cfg)
 	require.Error(t, err)
@@ -937,7 +948,7 @@ func TestConfigure_StorageModeFormError(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	p := newTestProps(t)
-	cfg := config.NewContainerFromViper(nil, viper.New())
+	cfg := newTestEditor(t, p, "")
 
 	var mode credentials.Mode
 	init := NewGitHubInitialiser(p, false, true,

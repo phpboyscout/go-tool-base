@@ -11,9 +11,9 @@ import (
 func TestGetCleanImports_Initializer(t *testing.T) {
 	imps := getCleanImports(nil, true)
 
-	// The generated Init<Name> stub takes a config.Containable parameter.
-	assert.Contains(t, imps, "gitlab.com/phpboyscout/go/config",
-		"initializer main.go needs the config package")
+	// The generated Init<Name> stub takes a setup.Editor parameter.
+	assert.Contains(t, imps, "gitlab.com/phpboyscout/go-tool-base/pkg/setup",
+		"initializer main.go needs pkg/setup for the Editor")
 	// It does not use viper; importing it leaves an unused import.
 	assert.NotContains(t, imps, "github.com/spf13/viper",
 		"initializer main.go must not import viper")

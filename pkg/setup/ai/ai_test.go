@@ -7,7 +7,6 @@ import (
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -16,11 +15,10 @@ import (
 
 	"gitlab.com/phpboyscout/go/credentials"
 
-	"gitlab.com/phpboyscout/go/config"
-	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
-
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -81,25 +79,25 @@ func TestRunAIInit_ClaudeEnvVarMode(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(props, dir, WithAIForm(mockEnvVarFormCreator("claude", "CUSTOM_ANTHROPIC_KEY")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockEnvVarFormCreator("claude", "CUSTOM_ANTHROPIC_KEY")))
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
 	content, err := afero.ReadFile(props.FS, configFile)
 	require.NoError(t, err)
 
-	contentStr := string(content)
-	assert.Contains(t, contentStr, "provider: claude")
-	assert.Contains(t, contentStr, "env: CUSTOM_ANTHROPIC_KEY",
+	view := testutil.ViewFromYAML(t, string(content))
+	assert.Equal(t, "claude", view.GetString(chat.ConfigKeyAIProvider))
+	assert.Equal(t, "CUSTOM_ANTHROPIC_KEY", view.GetString(chat.ConfigKeyClaudeEnv),
 		"env-var mode must record the env var NAME under {provider}.api.env")
-	assert.NotContains(t, contentStr, "key:",
-		"env-var mode must NOT write the literal {provider}.api.key field")
+	assert.Empty(t, view.GetString(chat.ConfigKeyClaudeKey),
+		"env-var mode must leave the literal {provider}.api.key blank")
 }
 
 func TestRunAIForms_CIRefusesLiteral(t *testing.T) {
 	t.Setenv("CI", "true")
 
-	cfg := config.NewFilesContainer(afero.NewMemMapFs())
+	cfg := testutil.ViewFromYAML(t, "")
 
 	_, err := runAIForms(cfg, WithAIForm(mockFormCreator("claude", "sk-should-be-refused")))
 	require.Error(t, err)
@@ -113,7 +111,7 @@ func TestRunAIInit_Claude(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(props, dir, WithAIForm(mockFormCreator("claude", "sk-ant-test123")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("claude", "sk-ant-test123")))
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -136,7 +134,7 @@ func TestRunAIInit_OpenAI(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(props, dir, WithAIForm(mockFormCreator("openai", "sk-openai-test456")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("openai", "sk-openai-test456")))
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -156,7 +154,7 @@ func TestRunAIInit_Gemini(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(props, dir, WithAIForm(mockFormCreator("gemini", "AIza-gemini-test789")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("gemini", "AIza-gemini-test789")))
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -176,7 +174,7 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 	props.Assets = p.NewAssets()
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 
-	err := RunAIInit(props, dir, WithAIForm(mockFormCreator("claude", "sk-ant-test")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("claude", "sk-ant-test")))
 	require.NoError(t, err)
 
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
@@ -196,7 +194,9 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 // guard for the keryx-reported security bug: re-running the wizard in
 // env-var mode over a config that already held a literal API key must
 // purge the literal secret from the persisted file — never leave both
-// a `.env` reference and a plaintext `.key` behind.
+// a `.env` reference and a plaintext `.key` behind. Under the editor
+// flow the stale key is blanked to "" (resolution and doctor treat
+// empty as absent) rather than deleted from the file.
 func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 	withNoCI(t)
 
@@ -211,7 +211,7 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 		[]byte("anthropic:\n  api:\n    key: sk-ant-STALE-SECRET\n"), 0o600))
 
 	// Re-run the wizard, this time choosing env-var mode.
-	err := RunAIInit(props, dir, WithAIForm(mockEnvVarFormCreator("claude", "ANTHROPIC_API_KEY")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockEnvVarFormCreator("claude", "ANTHROPIC_API_KEY")))
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(props.FS, configFile)
@@ -222,6 +222,10 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 		"env-var mode must record the env var name")
 	assert.NotContains(t, contentStr, "sk-ant-STALE-SECRET",
 		"switching to env-var mode must purge the stale literal secret from config")
+
+	view := testutil.ViewFromYAML(t, string(content))
+	assert.Empty(t, view.GetString(chat.ConfigKeyClaudeKey),
+		"the stale literal key must resolve as empty after the switch")
 }
 
 // TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys exercises the
@@ -229,9 +233,21 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 // credential in one mode must blank the key paths owned by the other
 // modes, enforcing the spec's single-credential-key invariant.
 func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
+	openEditor := func(t *testing.T) setup.Editor {
+		t.Helper()
+
+		props := newTestProps(t)
+		props.Assets = p.NewAssets()
+
+		editor, _, err := setup.OpenConfigEditor(t.Context(), props, "/cfg", false)
+		require.NoError(t, err)
+
+		return editor
+	}
+
 	t.Run("env-var mode clears a stale literal", func(t *testing.T) {
-		cfg := config.NewFilesContainer(afero.NewMemMapFs())
-		cfg.Set("anthropic.api.key", "sk-ant-STALE")
+		cfg := openEditor(t)
+		require.NoError(t, cfg.Set("anthropic.api.key", "sk-ant-STALE"))
 
 		err := writeAICredentialKeys(cfg, "test-tool", &AIConfig{
 			Provider:    "claude",
@@ -240,14 +256,15 @@ func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.Equal(t, "ANTHROPIC_API_KEY", cfg.GetString("anthropic.api.env"))
-		assert.Empty(t, cfg.GetString("anthropic.api.key"),
+		view := cfg.View()
+		assert.Equal(t, "ANTHROPIC_API_KEY", view.GetString("anthropic.api.env"))
+		assert.Empty(t, view.GetString("anthropic.api.key"),
 			"env-var mode must clear the stale literal key")
 	})
 
 	t.Run("literal mode clears a stale env reference", func(t *testing.T) {
-		cfg := config.NewFilesContainer(afero.NewMemMapFs())
-		cfg.Set("anthropic.api.env", "OLD_ENV_NAME")
+		cfg := openEditor(t)
+		require.NoError(t, cfg.Set("anthropic.api.env", "OLD_ENV_NAME"))
 
 		// Held in a variable rather than an inline APIKey literal so
 		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
@@ -260,8 +277,9 @@ func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.Equal(t, replacement, cfg.GetString("anthropic.api.key"))
-		assert.Empty(t, cfg.GetString("anthropic.api.env"),
+		view := cfg.View()
+		assert.Equal(t, replacement, view.GetString("anthropic.api.key"))
+		assert.Empty(t, view.GetString("anthropic.api.env"),
 			"literal mode must clear the stale env reference")
 	})
 }
@@ -283,7 +301,7 @@ github:
 	configFile := filepath.Join(dir, setup.DefaultConfigFilename)
 	require.NoError(t, afero.WriteFile(props.FS, configFile, []byte(existingConfig), 0o644))
 
-	err := RunAIInit(props, dir, WithAIForm(mockFormCreator("openai", "sk-test")))
+	err := RunAIInit(t.Context(), props, dir, WithAIForm(mockFormCreator("openai", "sk-test")))
 	require.NoError(t, err)
 
 	content, err := afero.ReadFile(props.FS, configFile)
@@ -343,7 +361,7 @@ func TestIsAIConfigured(t *testing.T) {
 			setup: func(t *testing.T) *p.Props {
 				t.Helper()
 				props := newTestProps(t)
-				props.Config = newMockConfig(t, map[string]any{})
+				props.Config = testutil.StoreFromYAML(t, "")
 
 				return props
 			},
@@ -354,10 +372,8 @@ func TestIsAIConfigured(t *testing.T) {
 			setup: func(t *testing.T) *p.Props {
 				t.Helper()
 				props := newTestProps(t)
-				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
-					chat.ConfigKeyClaudeKey:  "sk-ant-test",
-				})
+				props.Config = testutil.StoreFromYAML(t,
+					"ai:\n  provider: claude\nanthropic:\n  api:\n    key: sk-ant-test\n")
 
 				return props
 			},
@@ -368,9 +384,7 @@ func TestIsAIConfigured(t *testing.T) {
 			setup: func(t *testing.T) *p.Props {
 				t.Helper()
 				props := newTestProps(t)
-				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
-				})
+				props.Config = testutil.StoreFromYAML(t, "ai:\n  provider: claude\n")
 
 				return props
 			},
@@ -381,10 +395,8 @@ func TestIsAIConfigured(t *testing.T) {
 			setup: func(t *testing.T) *p.Props {
 				t.Helper()
 				props := newTestProps(t)
-				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(gochat.ProviderOpenAI),
-					chat.ConfigKeyOpenAIKey:  "sk-test",
-				})
+				props.Config = testutil.StoreFromYAML(t,
+					"ai:\n  provider: openai\nopenai:\n  api:\n    key: sk-test\n")
 
 				return props
 			},
@@ -395,10 +407,8 @@ func TestIsAIConfigured(t *testing.T) {
 			setup: func(t *testing.T) *p.Props {
 				t.Helper()
 				props := newTestProps(t)
-				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: string(gochat.ProviderGemini),
-					chat.ConfigKeyGeminiKey:  "AIza-test",
-				})
+				props.Config = testutil.StoreFromYAML(t,
+					"ai:\n  provider: gemini\ngemini:\n  api:\n    key: AIza-test\n")
 
 				return props
 			},
@@ -409,9 +419,7 @@ func TestIsAIConfigured(t *testing.T) {
 			setup: func(t *testing.T) *p.Props {
 				t.Helper()
 				props := newTestProps(t)
-				props.Config = newMockConfig(t, map[string]any{
-					chat.ConfigKeyAIProvider: "unknown",
-				})
+				props.Config = testutil.StoreFromYAML(t, "ai:\n  provider: unknown\n")
 
 				return props
 			},
@@ -521,38 +529,32 @@ func TestAIInitialiser_IsConfigured(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		values   map[string]any
+		yaml     string
 		expected bool
 	}{
 		{
 			name:     "no provider",
-			values:   map[string]any{},
+			yaml:     "",
 			expected: false,
 		},
 		{
 			name:     "invalid provider",
-			values:   map[string]any{chat.ConfigKeyAIProvider: "bad"},
+			yaml:     "ai:\n  provider: bad\n",
 			expected: false,
 		},
 		{
 			name:     "valid provider no key",
-			values:   map[string]any{chat.ConfigKeyAIProvider: string(gochat.ProviderClaude)},
+			yaml:     "ai:\n  provider: claude\n",
 			expected: false,
 		},
 		{
-			name: "claude with key",
-			values: map[string]any{
-				chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
-				chat.ConfigKeyClaudeKey:  "sk-ant-test",
-			},
+			name:     "claude with key",
+			yaml:     "ai:\n  provider: claude\nanthropic:\n  api:\n    key: sk-ant-test\n",
 			expected: true,
 		},
 		{
-			name: "openai with key",
-			values: map[string]any{
-				chat.ConfigKeyAIProvider: string(gochat.ProviderOpenAI),
-				chat.ConfigKeyOpenAIKey:  "sk-openai-test",
-			},
+			name:     "openai with key",
+			yaml:     "ai:\n  provider: openai\nopenai:\n  api:\n    key: sk-openai-test\n",
 			expected: true,
 		},
 	}
@@ -560,7 +562,7 @@ func TestAIInitialiser_IsConfigured(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			cfg := newMockConfig(t, tt.values)
+			cfg := testutil.ViewFromYAML(t, tt.yaml)
 			i := &AIInitialiser{}
 			assert.Equal(t, tt.expected, i.IsConfigured(cfg))
 		})
@@ -570,14 +572,14 @@ func TestAIInitialiser_IsConfigured(t *testing.T) {
 func TestAIInitialiser_Configure(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
-	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test").Once()
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
+	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Return(nil).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test").Return(nil).Once()
 	// Writing the literal also blanks the sibling env/keychain key
 	// paths so a prior storage mode cannot leave a stale value behind.
-	cfg.EXPECT().Set(mock.Anything, "").Maybe()
+	cfg.EXPECT().Set(chat.ConfigKeyClaudeEnv, "").Return(nil).Once()
+	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "").Return(nil).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{
@@ -597,10 +599,9 @@ func TestAIInitialiser_Configure(t *testing.T) {
 func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
-	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)).Once()
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
+	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)).Return(nil).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{
@@ -620,10 +621,8 @@ func TestRunAIForms_ExistingKeyFallback(t *testing.T) {
 	t.Parallel()
 
 	// When the form leaves APIKey blank, runAIForms should fall back to ExistingKey.
-	cfg := newMockConfig(t, map[string]any{
-		chat.ConfigKeyAIProvider: string(gochat.ProviderClaude),
-		chat.ConfigKeyClaudeKey:  "sk-ant-existing-key",
-	})
+	cfg := testutil.ViewFromYAML(t,
+		"ai:\n  provider: claude\nanthropic:\n  api:\n    key: sk-ant-existing-key\n")
 
 	aiCfg, err := runAIForms(cfg, WithAIForm(func(c *AIConfig) []*huh.Form {
 		c.Provider = string(gochat.ProviderClaude)
@@ -661,6 +660,7 @@ func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
 	t.Setenv("CI", "true")
 
 	props := newTestProps(t)
+	props.Assets = p.NewAssets()
 
 	// Inject a provider form that fails to run (no TTY) so RunAIInit
 	// returns an error without prompting.
@@ -669,6 +669,7 @@ func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
 			huh.NewForm(huh.NewGroup(huh.NewInput().Title("dummy"))),
 		}
 	}))
+	cmd.SetContext(t.Context())
 
 	err := cmd.RunE(cmd, nil)
 	require.Error(t, err)
@@ -678,7 +679,7 @@ func TestNewCmdInitAI_RunEReturnsError(t *testing.T) {
 func TestRunAIForms_ProviderFormCancellation(t *testing.T) {
 	t.Parallel()
 
-	cfg := newMockConfig(t, map[string]any{})
+	cfg := testutil.ViewFromYAML(t, "")
 
 	// Inject a providerFormCreator that returns a real huh.Form.
 	// In a test environment (no TTY) huh.Form.Run() will return an error,
@@ -706,7 +707,7 @@ func TestRunAIForms_ProviderFormCancellation(t *testing.T) {
 func TestRunAIForms_KeyFormCancellation(t *testing.T) {
 	t.Parallel()
 
-	cfg := newMockConfig(t, map[string]any{})
+	cfg := testutil.ViewFromYAML(t, "")
 
 	// Provider form succeeds (returns nil to skip), but key form fails.
 	cancelOpt := func(c *formConfig) {
@@ -732,9 +733,8 @@ func TestRunAIForms_KeyFormCancellation(t *testing.T) {
 func TestAIInitialiser_Configure_FormCancellation(t *testing.T) {
 	t.Parallel()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetString(chat.ConfigKeyAIProvider).Return("").Maybe()
-	cfg.EXPECT().GetString(mock.Anything).Return("").Maybe()
+	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{
@@ -756,29 +756,4 @@ func TestAIInitialiser_Configure_FormCancellation(t *testing.T) {
 	err := i.Configure(newTestProps(t), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "AI configuration form cancelled")
-}
-
-// newMockConfig creates a config.Containable mock with the given values.
-func newMockConfig(t *testing.T, values map[string]any) config.Containable {
-	t.Helper()
-
-	m := mockConfig.NewMockContainable(t)
-	for k, v := range values {
-		if str, ok := v.(string); ok {
-			m.On("GetString", k).Return(str)
-		} else {
-			m.On("Get", k).Return(v)
-		}
-	}
-
-	// Default fallbacks for common keys if not specified
-	m.On("GetString", chat.ConfigKeyAIProvider).Return("").Maybe()
-	m.On("GetString", chat.ConfigKeyClaudeKey).Return("").Maybe()
-	m.On("GetString", chat.ConfigKeyOpenAIKey).Return("").Maybe()
-	m.On("GetString", chat.ConfigKeyGeminiKey).Return("").Maybe()
-	m.On("IsSet", mock.Anything).Return(false).Maybe()
-	m.On("Get", mock.Anything).Return(nil).Maybe()
-	m.On("GetString", mock.Anything).Return("").Maybe()
-
-	return m
 }

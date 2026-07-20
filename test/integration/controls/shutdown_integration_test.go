@@ -17,8 +17,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/controls"
 
-	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
-
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	gtbgrpc "gitlab.com/phpboyscout/go-tool-base/pkg/grpc"
 	gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
@@ -64,17 +62,9 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 	)
 
 	// --- Register gRPC server ---
-	grpcCfg := mockConfig.NewMockContainable(t)
-	grpcCfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	grpcCfg.EXPECT().GetInt("server.grpc.port").Return(grpcPort)
-	grpcCfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
+	grpcCfg := newGRPCCfg(t, grpcPort)
 
-	grpcSrv, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, l)
+	grpcSrv, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, grpcCfg, l)
 	require.NoError(t, err)
 
 	// --- Register HTTP server (simulating gRPC-Gateway) ---
@@ -104,17 +94,9 @@ func TestGracefulShutdown_SignalInterrupt(t *testing.T) {
 		_, _ = fmt.Fprintf(w, "gRPC health: %s", resp.GetStatus())
 	})
 
-	httpCfg := mockConfig.NewMockContainable(t)
-	httpCfg.EXPECT().GetInt("server.http.port").Return(httpPort)
-	httpCfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	httpCfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	httpCfg.EXPECT().GetString("server.tls.cert").Return("")
-	httpCfg.EXPECT().GetString("server.tls.key").Return("")
-	httpCfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
+	httpCfg := newHTTPCfg(t, httpPort)
 
-	_, err = gtbhttp.RegisterFromContainable(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	_, err = gtbhttp.RegisterFromReader(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
 	require.NoError(t, err)
 
 	// --- Start the controller ---
@@ -213,17 +195,9 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 	)
 
 	// --- Register gRPC server ---
-	grpcCfg := mockConfig.NewMockContainable(t)
-	grpcCfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	grpcCfg.EXPECT().GetInt("server.grpc.port").Return(grpcPort)
-	grpcCfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
+	grpcCfg := newGRPCCfg(t, grpcPort)
 
-	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, l)
+	_, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, grpcCfg, l)
 	require.NoError(t, err)
 
 	// --- Register HTTP server with a slow handler ---
@@ -240,17 +214,9 @@ func TestGracefulShutdown_DrainsInflightRequests(t *testing.T) {
 		close(requestFinished)
 	})
 
-	httpCfg := mockConfig.NewMockContainable(t)
-	httpCfg.EXPECT().GetInt("server.http.port").Return(httpPort)
-	httpCfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	httpCfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	httpCfg.EXPECT().GetString("server.tls.cert").Return("")
-	httpCfg.EXPECT().GetString("server.tls.key").Return("")
-	httpCfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
+	httpCfg := newHTTPCfg(t, httpPort)
 
-	_, err = gtbhttp.RegisterFromContainable(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	_, err = gtbhttp.RegisterFromReader(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
 	require.NoError(t, err)
 
 	// --- Start the controller ---
@@ -340,17 +306,9 @@ func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
 	)
 
 	// --- Register gRPC server ---
-	grpcCfg := mockConfig.NewMockContainable(t)
-	grpcCfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	grpcCfg.EXPECT().GetInt("server.grpc.port").Return(grpcPort)
-	grpcCfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	grpcCfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	grpcCfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
+	grpcCfg := newGRPCCfg(t, grpcPort)
 
-	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, grpcCfg, l)
+	_, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, grpcCfg, l)
 	require.NoError(t, err)
 
 	// --- Register HTTP server with a slow-starting handler ---
@@ -361,17 +319,9 @@ func TestGracefulShutdown_EarlySignalDuringStartup(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	httpCfg := mockConfig.NewMockContainable(t)
-	httpCfg.EXPECT().GetInt("server.http.port").Return(httpPort)
-	httpCfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	httpCfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	httpCfg.EXPECT().GetString("server.tls.cert").Return("")
-	httpCfg.EXPECT().GetString("server.tls.key").Return("")
-	httpCfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	httpCfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
+	httpCfg := newHTTPCfg(t, httpPort)
 
-	_, err = gtbhttp.RegisterFromContainable(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
+	_, err = gtbhttp.RegisterFromReader(ctx, "http-gateway", controller, httpCfg, l, gatewayMux)
 	require.NoError(t, err)
 
 	// Register a slow-starting service that delays startup completion.

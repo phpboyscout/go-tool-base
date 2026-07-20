@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -23,8 +25,6 @@ import (
 	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
-
-	mockConfig "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 
@@ -51,38 +51,16 @@ func httpGet(t *testing.T, url string) (int, string) {
 	return resp.StatusCode, string(body)
 }
 
-func newHTTPCfg(t *testing.T, port int) *mockConfig.MockContainable {
+func newHTTPCfg(t *testing.T, port int) *config.View {
 	t.Helper()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(port)
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(0).Maybe()
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false)
-	cfg.EXPECT().GetString("server.tls.cert").Return("")
-	cfg.EXPECT().GetString("server.tls.key").Return("")
-	// Transport-specific TLS overrides (ResolveTLSConfig checks IsSet first).
-	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Maybe()
-
-	return cfg
+	return testutil.ViewFromYAML(t, fmt.Sprintf("server:\n  http:\n    port: %d\n", port))
 }
 
-func newGRPCCfg(t *testing.T, port int) *mockConfig.MockContainable {
+func newGRPCCfg(t *testing.T, port int) *config.View {
 	t.Helper()
 
-	cfg := mockConfig.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(false).Maybe()
-	cfg.EXPECT().GetInt("server.grpc.port").Return(port)
-	// Transport-specific TLS overrides.
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().GetString("server.tls.cert").Return("").Maybe()
-	cfg.EXPECT().GetString("server.tls.key").Return("").Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.enabled").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.cert").Return(false).Maybe()
-	cfg.EXPECT().IsSet("server.grpc.tls.key").Return(false).Maybe()
-
-	return cfg
+	return testutil.ViewFromYAML(t, fmt.Sprintf("server:\n  grpc:\n    port: %d\n    reflection: false\n", port))
 }
 
 func TestHTTP_AllHealthEndpoints(t *testing.T) {
@@ -94,7 +72,7 @@ func TestHTTP_AllHealthEndpoints(t *testing.T) {
 
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
 
-	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -152,7 +130,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 		_, _ = fmt.Fprint(w, "ok")
 	})
 
-	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, mux,
+	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, mux,
 		transporthttp.WithMiddleware(mw))
 	require.NoError(t, err)
 
@@ -202,7 +180,7 @@ func TestHTTP_CustomHealthCheck_AffectsEndpoints(t *testing.T) {
 
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
 
-	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	// Register a readiness check that starts unhealthy
@@ -262,7 +240,7 @@ func TestGRPC_HealthProbes(t *testing.T) {
 
 	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
 
-	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, newGRPCCfg(t, port), noop)
+	_, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, newGRPCCfg(t, port), noop)
 	require.NoError(t, err)
 
 	controller.Start()
@@ -316,7 +294,7 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 		},
 	})
 
-	_, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, newGRPCCfg(t, port), noop,
+	_, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, newGRPCCfg(t, port), noop,
 		transportgrpc.WithInterceptors(chain))
 	require.NoError(t, err)
 
@@ -353,7 +331,7 @@ func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
 		controls.WithLogger(logger.ToSlog(noop)),
 		controls.WithShutdownTimeout(5*time.Second))
 
-	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
+	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
 
 	controller.Start()
@@ -399,7 +377,7 @@ func TestHTTP_AppHandlerServesRequests(t *testing.T) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	})
 
-	_, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, newHTTPCfg(t, port), noop, mux)
+	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, mux)
 	require.NoError(t, err)
 
 	controller.Start()
