@@ -22,7 +22,7 @@ const DefaultConfigPrefix = "server.http"
 const maxPort = 65535
 
 // ServerOption selects which GTB config block (and, optionally, an explicit
-// port) the *FromContainable adapters read. It is distinct from the transport's
+// port) the *FromReader adapters read. It is distinct from the transport's
 // own gitlab.com/phpboyscout/go/transport/http.ServerOption (timeouts, TLS,
 // max-header-bytes); the adapters accept both — GTB options steer config
 // resolution, transport options are forwarded to the constructor.
@@ -56,14 +56,14 @@ func WithPort(port int) ServerOption {
 // ServerSettingsFromConfig resolves HTTP server settings from GTB config. It
 // preserves the existing fallback from <prefix>.port to server.port and keeps
 // max_header_bytes scoped to the selected prefix.
-func ServerSettingsFromConfig(cfg config.Containable, prefix string) transporthttp.ServerSettings {
+func ServerSettingsFromConfig(cfg config.Reader, prefix string) transporthttp.ServerSettings {
 	return serverSettingsFromConfig(cfg, prefix, true)
 }
 
 // ObserveServerSettingsFromConfig binds HTTP server settings to cfg and keeps a
 // typed snapshot rehydrated after successful config reloads.
 func ObserveServerSettingsFromConfig(
-	cfg config.Containable,
+	cfg config.Binder,
 	prefix string,
 	opts ...config.SectionBindingOption[transporthttp.ServerSettings],
 ) (*config.ObservedSection[transporthttp.ServerSettings], error) {
@@ -72,7 +72,7 @@ func ObserveServerSettingsFromConfig(
 	}
 
 	bindingOpts := make([]config.SectionBindingOption[transporthttp.ServerSettings], 0, 1+len(opts))
-	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(func(next config.Containable) transporthttp.ServerSettings {
+	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(func(next config.Observed) transporthttp.ServerSettings {
 		if next == nil {
 			return transporthttp.ServerSettings{}
 		}
@@ -84,7 +84,7 @@ func ObserveServerSettingsFromConfig(
 	return config.ObserveSection[transporthttp.ServerSettings](cfg, prefix, bindingOpts...)
 }
 
-func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort bool) transporthttp.ServerSettings {
+func serverSettingsFromConfig(cfg config.Reader, prefix string, includePort bool) transporthttp.ServerSettings {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
@@ -93,13 +93,11 @@ func serverSettingsFromConfig(cfg config.Containable, prefix string, includePort
 		return transporthttp.ServerSettings{}
 	}
 
-	if _, ok := cfg.(*config.Container); !ok {
-		return serverSettingsFromLegacyConfig(cfg, prefix, includePort)
-	}
-
+	// A malformed section (e.g. a non-numeric port) fails the typed decode;
+	// fall back to per-key reads, which yield zero values for the bad keys.
 	section, err := config.UnmarshalSection[transporthttp.ServerSettings](cfg, prefix)
 	if err != nil {
-		return serverSettingsFromLegacyConfig(cfg, prefix, includePort)
+		return serverSettingsFromFlatKeys(cfg, prefix, includePort)
 	}
 
 	settings := section.Value
@@ -124,7 +122,7 @@ func mergeServerSettings(defaults, overlay transporthttp.ServerSettings) transpo
 	return defaults
 }
 
-func serverSettingsFromLegacyConfig(cfg config.Containable, prefix string, includePort bool) transporthttp.ServerSettings {
+func serverSettingsFromFlatKeys(cfg config.Reader, prefix string, includePort bool) transporthttp.ServerSettings {
 	var settings transporthttp.ServerSettings
 
 	if includePort {
@@ -161,7 +159,7 @@ func splitServerOptions(opts []any) (serverConfig, []transporthttp.ServerOption)
 
 // resolveSettings turns the config block + port override into typed settings.
 // An explicit WithPort wins; otherwise the port is read from config.
-func resolveSettings(cfg config.Containable, sc serverConfig) transporthttp.ServerSettings {
+func resolveSettings(cfg config.Reader, sc serverConfig) transporthttp.ServerSettings {
 	prefix := sc.prefix
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
@@ -175,11 +173,11 @@ func resolveSettings(cfg config.Containable, sc serverConfig) transporthttp.Serv
 	return settings
 }
 
-// NewServerFromContainable returns a new preconfigured http.Server. With no
+// NewServerFromReader returns a new preconfigured http.Server. With no
 // options it reads from the default "server.http" config prefix; pass a GTB
 // WithConfigPrefix/WithPort to select the config block, and transport
 // ServerOption values (timeouts, TLS) to configure the server.
-func NewServerFromContainable(ctx context.Context, cfg config.Containable, handler http.Handler, opts ...any) (*http.Server, error) {
+func NewServerFromReader(ctx context.Context, cfg config.Reader, handler http.Handler, opts ...any) (*http.Server, error) {
 	sc, transportOpts := splitServerOptions(opts)
 
 	if sc.port != nil && (*sc.port < 0 || *sc.port > maxPort) {
@@ -189,10 +187,10 @@ func NewServerFromContainable(ctx context.Context, cfg config.Containable, handl
 	return transporthttp.NewServer(ctx, resolveSettings(cfg, sc), handler, transportOpts...)
 }
 
-// StartFromContainable returns a curried function suitable for use with the
+// StartFromReader returns a curried function suitable for use with the
 // controls package. With no options it reads TLS from the default "server.http"
 // config prefix; pass WithConfigPrefix to match a server on a custom prefix.
-func StartFromContainable(cfg config.Containable, log logger.Logger, srv *http.Server, opts ...any) controls.StartFunc {
+func StartFromReader(cfg config.Reader, log logger.Logger, srv *http.Server, opts ...any) controls.StartFunc {
 	sc, _ := splitServerOptions(opts)
 
 	prefix := sc.prefix
@@ -203,11 +201,11 @@ func StartFromContainable(cfg config.Containable, log logger.Logger, srv *http.S
 	return transporthttp.StartWithTLSPair(logger.ToSlog(log), srv, gtbtls.Resolve(cfg, prefix+".tls"))
 }
 
-// RegisterFromContainable creates a new HTTP server and registers it with the
+// RegisterFromReader creates a new HTTP server and registers it with the
 // controller under the given id. The opts variadic accepts GTB config-selection
 // options (WithConfigPrefix, WithPort) plus transport ServerOption and
 // RegisterOption values (timeouts, middleware, body limit).
-func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
+func RegisterFromReader(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, log logger.Logger, handler http.Handler, opts ...any) (*http.Server, error) {
 	var sc serverConfig
 
 	var registerOpts []any
@@ -244,7 +242,7 @@ func RegisterFromContainable(ctx context.Context, id string, controller controls
 //
 // Unset keys keep their transithttp.DefaultRateLimitConfig values. The code-only fields
 // (KeyFunc, OnLimited) are never read from config; wiring stays explicit.
-func RateLimitConfigFromConfig(cfg config.Containable, prefix string) transithttp.RateLimitConfig {
+func RateLimitConfigFromConfig(cfg config.Reader, prefix string) transithttp.RateLimitConfig {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}
@@ -272,7 +270,7 @@ func RateLimitConfigFromConfig(cfg config.Containable, prefix string) transithtt
 //
 // Unset keys keep their transithttp.DefaultCircuitBreakerConfig values. The code-only
 // fields (IsFailure, OnStateChange) are never read from config.
-func CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string) transithttp.CircuitBreakerConfig {
+func CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) transithttp.CircuitBreakerConfig {
 	if prefix == "" {
 		prefix = DefaultConfigPrefix
 	}

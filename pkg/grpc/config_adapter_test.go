@@ -2,11 +2,9 @@ package grpc
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	googlegrpc "google.golang.org/grpc"
@@ -16,39 +14,24 @@ import (
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 
 	"gitlab.com/phpboyscout/go/config"
-	configmocks "gitlab.com/phpboyscout/go/config/mocks"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func cfgFromYAML(t *testing.T, yaml string) config.Containable {
+func cfgFromYAML(t *testing.T, yaml string) *config.View {
 	t.Helper()
 
-	return config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
-}
-
-func prefixedCfgFromYAML(t *testing.T, prefix, yaml string) config.Containable {
-	t.Helper()
-
-	return config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix(prefix),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
+	return testutil.ViewFromYAML(t, yaml)
 }
 
 func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
 	t.Setenv("GTB_SERVER_GRPC_PORT", "19082")
 	t.Setenv("GTB_SERVER_GRPC_REFLECTION", "true")
 
-	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  grpc:\n    port: 19081\n    reflection: false\n")
+	cfg := testutil.ViewFromYAML(t,
+		"server:\n  grpc:\n    port: 19081\n    reflection: false\n",
+		config.WithEnv("GTB"))
 
 	got := ServerSettingsFromConfig(cfg, "")
 
@@ -84,23 +67,24 @@ func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
 	assert.Equal(t, transportgrpc.ServerSettings{}, ServerSettingsFromConfig(nil, ""))
 }
 
-func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
+// TestServerSettingsFromConfig_MalformedSectionFallsBackToFlatKeys pins the
+// decode-error fallback: a section the typed decode rejects resolves per key,
+// yielding zero values for the malformed keys instead of failing outright.
+func TestServerSettingsFromConfig_MalformedSectionFallsBackToFlatKeys(t *testing.T) {
 	t.Parallel()
 
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.grpc.port").Return(19081).Once()
-	cfg.EXPECT().GetBool("server.grpc.reflection").Return(true).Once()
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: not-a-number\n    reflection: true\n")
 
 	got := ServerSettingsFromConfig(cfg, "")
 
-	assert.Equal(t, 19081, got.Port)
+	assert.Equal(t, 0, got.Port)
 	assert.True(t, got.Reflection)
 }
 
 func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
 	t.Parallel()
 
-	cfg := cfgFromYAML(t, "server:\n  port: 18080\n  grpc:\n    reflection: true\n")
+	cfg := testutil.StoreFromYAML(t, "server:\n  port: 18080\n  grpc:\n    reflection: true\n")
 
 	settings, err := ObserveServerSettingsFromConfig(cfg, "")
 	require.NoError(t, err)
@@ -113,12 +97,7 @@ func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
 func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("server:\n  port: 19081\n  grpc: {}\n")),
-	)
+	cfg, src := testutil.MutableStoreFromYAML(t, "server:\n  port: 19081\n  grpc: {}\n")
 
 	changes := make([]config.SectionChange[transportgrpc.ServerSettings], 0, 1)
 	settings, err := ObserveServerSettingsFromConfig(
@@ -133,8 +112,8 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, 19081, settings.Value().Port)
 
-	cfg.Set("server.port", 19082)
-	require.NoError(t, runGRPCConfigObservers(cfg))
+	src.Set("server:\n  port: 19082\n  grpc: {}\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, 19082, settings.Value().Port)
 	assert.Equal(t, uint64(2), settings.Version())
@@ -146,18 +125,13 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 func TestObserveServerSettingsFromConfig_UnchangedReloadDoesNotIncrementVersion(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("server:\n  port: 19081\n  grpc: {}\n")),
-	)
+	cfg, src := testutil.MutableStoreFromYAML(t, "server:\n  port: 19081\n  grpc: {}\n")
 
 	settings, err := ObserveServerSettingsFromConfig(cfg, "")
 	require.NoError(t, err)
 
-	cfg.Set("unrelated.value", "changed")
-	require.NoError(t, runGRPCConfigObservers(cfg))
+	src.Set("server:\n  port: 19081\n  grpc: {}\nunrelated:\n  value: changed\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, 19081, settings.Value().Port)
 	assert.Equal(t, uint64(1), settings.Version())
@@ -166,7 +140,7 @@ func TestObserveServerSettingsFromConfig_UnchangedReloadDoesNotIncrementVersion(
 func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
 	t.Parallel()
 
-	settings, err := ObserveServerSettingsFromConfig(cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n"), "")
+	settings, err := ObserveServerSettingsFromConfig(testutil.StoreFromYAML(t, "server:\n  grpc:\n    port: 19081\n"), "")
 	require.NoError(t, err)
 
 	var source transportgrpc.ServerSettingsSource = settings
@@ -175,46 +149,46 @@ func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
 	assert.Equal(t, uint64(1), source.Version())
 }
 
-func TestNewServerFromContainable_ReturnsConfiguredServer(t *testing.T) {
+func TestNewServerFromReader_ReturnsConfiguredServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    reflection: true\n")
 
-	srv, err := NewServerFromContainable(cfg, WithConfigPrefix("server.grpc"), googlegrpc.MaxRecvMsgSize(1024))
+	srv, err := NewServerFromReader(cfg, WithConfigPrefix("server.grpc"), googlegrpc.MaxRecvMsgSize(1024))
 	require.NoError(t, err)
 
 	assert.NotNil(t, srv)
 }
 
-func TestStartFromContainable_ReturnsStartFunc(t *testing.T) {
+func TestStartFromReader_ReturnsStartFunc(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
 
-	start := StartFromContainable(cfg, logger.NewNoop(), googlegrpc.NewServer(), WithConfigPrefix("server.grpc"))
+	start := StartFromReader(cfg, logger.NewNoop(), googlegrpc.NewServer(), WithConfigPrefix("server.grpc"))
 
 	assert.NotNil(t, start)
 }
 
-func TestDialLocalFromContainable_ReturnsConnection(t *testing.T) {
+func TestDialLocalFromReader_ReturnsConnection(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
 
-	conn, err := DialLocalFromContainable(cfg, WithConfigPrefix("server.grpc"))
+	conn, err := DialLocalFromReader(cfg, WithConfigPrefix("server.grpc"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
 	assert.NotNil(t, conn)
 }
 
-func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
+func TestRegisterFromReader_ReturnsServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    reflection: true\n")
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := RegisterFromContainable(
+	srv, err := RegisterFromReader(
 		context.Background(),
 		"test-grpc",
 		controller,
@@ -228,38 +202,38 @@ func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
 	assert.NotNil(t, srv)
 }
 
-func TestDialLocalFromContainable_WithPort(t *testing.T) {
+func TestDialLocalFromReader_WithPort(t *testing.T) {
 	t.Parallel()
 
 	// No server.grpc block: the default prefix resolves to port 0, then the
 	// explicit WithPort drives the dial target.
 	cfg := cfgFromYAML(t, "name: x\n")
 
-	conn, err := DialLocalFromContainable(cfg, WithPort(19099))
+	conn, err := DialLocalFromReader(cfg, WithPort(19099))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
 	assert.Equal(t, "localhost:19099", conn.Target(), "explicit WithPort must drive the dial target")
 }
 
-func TestDialLocalFromContainable_ExplicitPortOverridesConfig(t *testing.T) {
+func TestDialLocalFromReader_ExplicitPortOverridesConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
 
-	conn, err := DialLocalFromContainable(cfg, WithPort(19099))
+	conn, err := DialLocalFromReader(cfg, WithPort(19099))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
 	assert.Equal(t, "localhost:19099", conn.Target(), "WithPort must override the configured port")
 }
 
-func TestDialLocalFromContainable_ForwardsDialOption(t *testing.T) {
+func TestDialLocalFromReader_ForwardsDialOption(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n")
 
-	conn, err := DialLocalFromContainable(cfg, googlegrpc.WithUserAgent("gtb-dial-test"))
+	conn, err := DialLocalFromReader(cfg, googlegrpc.WithUserAgent("gtb-dial-test"))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
@@ -303,7 +277,7 @@ func TestRateLimitConfigFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.
 	t.Setenv("GTB_SERVER_GRPC_RATELIMIT_REQUESTS_PER_SECOND", "25")
 	t.Setenv("GTB_SERVER_GRPC_RATELIMIT_MAX_TRACKED_KEYS", "1024")
 
-	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  grpc:\n    ratelimit:\n      requests_per_second: 12\n      burst: 24\n      max_tracked_keys: 512\n")
+	cfg := testutil.ViewFromYAML(t, "server:\n  grpc:\n    ratelimit:\n      requests_per_second: 12\n      burst: 24\n      max_tracked_keys: 512\n", config.WithEnv("GTB"))
 
 	got := RateLimitConfigFromConfig(cfg, "")
 
@@ -356,7 +330,7 @@ func TestCircuitBreakerConfigFromConfig_PreservesEnvAwareSectionUnmarshal(t *tes
 	t.Setenv("GTB_SERVER_GRPC_CIRCUITBREAKER_COOLDOWN", "45s")
 	t.Setenv("GTB_SERVER_GRPC_CIRCUITBREAKER_HALF_OPEN_MAX_REQUESTS", "9")
 
-	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  grpc:\n    circuitbreaker:\n      failure_threshold: 4\n      cooldown: 5s\n      half_open_max_requests: 2\n")
+	cfg := testutil.ViewFromYAML(t, "server:\n  grpc:\n    circuitbreaker:\n      failure_threshold: 4\n      cooldown: 5s\n      half_open_max_requests: 2\n", config.WithEnv("GTB"))
 
 	got := CircuitBreakerConfigFromConfig(cfg, "")
 
@@ -373,12 +347,3 @@ func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 	assert.Equal(t, transitgrpc.DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.grpc"))
 }
 
-func runGRPCConfigObservers(c *config.Container) error {
-	for _, observer := range c.GetObservers() {
-		if err := observer.Run(c); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}

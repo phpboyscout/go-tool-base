@@ -4,8 +4,8 @@
 // The hardened gRPC server now lives in gitlab.com/phpboyscout/go/transport/grpc;
 // this package binds it to the GTB config container. It provides the config-driven
 // adapters — [ServerSettingsFromConfig], [ObserveServerSettingsFromConfig],
-// [NewServerFromContainable], [StartFromContainable], [DialLocalFromContainable],
-// [RegisterFromContainable], plus [RateLimitConfigFromConfig] /
+// [NewServerFromReader], [StartFromReader], [DialLocalFromReader],
+// [RegisterFromReader], plus [RateLimitConfigFromConfig] /
 // [CircuitBreakerConfigFromConfig] — which read a service's config and call the
 // transport constructors. The GTB config-selection options [WithConfigPrefix] and
 // [WithPort] steer that resolution. The config adapters name the go/transit gRPC

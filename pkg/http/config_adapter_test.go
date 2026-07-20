@@ -3,11 +3,9 @@ package http
 import (
 	"context"
 	stdhttp "net/http"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,39 +14,24 @@ import (
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 
 	"gitlab.com/phpboyscout/go/config"
-	configmocks "gitlab.com/phpboyscout/go/config/mocks"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func cfgFromYAML(t *testing.T, yaml string) config.Containable {
+func cfgFromYAML(t *testing.T, yaml string) *config.View {
 	t.Helper()
 
-	return config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
-}
-
-func prefixedCfgFromYAML(t *testing.T, prefix, yaml string) config.Containable {
-	t.Helper()
-
-	return config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix(prefix),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
+	return testutil.ViewFromYAML(t, yaml)
 }
 
 func TestServerSettingsFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
 	t.Setenv("GTB_SERVER_HTTP_PORT", "18082")
 	t.Setenv("GTB_SERVER_HTTP_MAX_HEADER_BYTES", "4096")
 
-	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  http:\n    port: 18081\n    max_header_bytes: 2048\n")
+	cfg := testutil.ViewFromYAML(t,
+		"server:\n  http:\n    port: 18081\n    max_header_bytes: 2048\n",
+		config.WithEnv("GTB"))
 
 	got := ServerSettingsFromConfig(cfg, "")
 
@@ -62,23 +45,24 @@ func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
 	assert.Equal(t, transporthttp.ServerSettings{}, ServerSettingsFromConfig(nil, ""))
 }
 
-func TestServerSettingsFromConfig_LegacyContainable(t *testing.T) {
+// TestServerSettingsFromConfig_MalformedSectionFallsBackToFlatKeys pins the
+// decode-error fallback: a section the typed decode rejects resolves per key,
+// yielding zero values for the malformed keys instead of failing outright.
+func TestServerSettingsFromConfig_MalformedSectionFallsBackToFlatKeys(t *testing.T) {
 	t.Parallel()
 
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetInt("server.http.port").Return(18081).Once()
-	cfg.EXPECT().GetInt("server.http.max_header_bytes").Return(4096).Once()
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: not-a-number\n    max_header_bytes: 4096\n")
 
 	got := ServerSettingsFromConfig(cfg, "")
 
-	assert.Equal(t, 18081, got.Port)
+	assert.Equal(t, 0, got.Port)
 	assert.Equal(t, 4096, got.MaxHeaderBytes)
 }
 
 func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
 	t.Parallel()
 
-	cfg := cfgFromYAML(t, "server:\n  port: 18080\n  http:\n    max_header_bytes: 4096\n")
+	cfg := testutil.StoreFromYAML(t, "server:\n  port: 18080\n  http:\n    max_header_bytes: 4096\n")
 
 	settings, err := ObserveServerSettingsFromConfig(cfg, "")
 	require.NoError(t, err)
@@ -91,12 +75,7 @@ func TestObserveServerSettingsFromConfig_InitialSnapshot(t *testing.T) {
 func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("server:\n  port: 18080\n  http: {}\n")),
-	)
+	cfg, src := testutil.MutableStoreFromYAML(t, "server:\n  port: 18080\n  http: {}\n")
 
 	changes := make([]config.SectionChange[transporthttp.ServerSettings], 0, 1)
 	settings, err := ObserveServerSettingsFromConfig(
@@ -111,8 +90,8 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, 18080, settings.Value().Port)
 
-	cfg.Set("server.port", 18081)
-	require.NoError(t, runHTTPConfigObservers(cfg))
+	src.Set("server:\n  port: 18081\n  http: {}\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, 18081, settings.Value().Port)
 	assert.Equal(t, uint64(2), settings.Version())
@@ -124,18 +103,13 @@ func TestObserveServerSettingsFromConfig_RehydratesSharedPortDefault(t *testing.
 func TestObserveServerSettingsFromConfig_UnchangedReloadDoesNotIncrementVersion(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("server:\n  port: 18080\n  http: {}\n")),
-	)
+	cfg, src := testutil.MutableStoreFromYAML(t, "server:\n  port: 18080\n  http: {}\n")
 
 	settings, err := ObserveServerSettingsFromConfig(cfg, "")
 	require.NoError(t, err)
 
-	cfg.Set("unrelated.value", "changed")
-	require.NoError(t, runHTTPConfigObservers(cfg))
+	src.Set("server:\n  port: 18080\n  http: {}\nunrelated:\n  value: changed\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, 18080, settings.Value().Port)
 	assert.Equal(t, uint64(1), settings.Version())
@@ -144,7 +118,7 @@ func TestObserveServerSettingsFromConfig_UnchangedReloadDoesNotIncrementVersion(
 func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
 	t.Parallel()
 
-	settings, err := ObserveServerSettingsFromConfig(cfgFromYAML(t, "server:\n  http:\n    port: 18080\n"), "")
+	settings, err := ObserveServerSettingsFromConfig(testutil.StoreFromYAML(t, "server:\n  http:\n    port: 18080\n"), "")
 	require.NoError(t, err)
 
 	var source transporthttp.ServerSettingsSource = settings
@@ -153,35 +127,35 @@ func TestObservedServerSettingsSatisfiesSource(t *testing.T) {
 	assert.Equal(t, uint64(1), source.Version())
 }
 
-func TestNewServerFromContainable_ReturnsConfiguredServer(t *testing.T) {
+func TestNewServerFromReader_ReturnsConfiguredServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n    max_header_bytes: 4096\n")
 
-	srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(), WithConfigPrefix("server.http"))
+	srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux(), WithConfigPrefix("server.http"))
 	require.NoError(t, err)
 
 	assert.NotNil(t, srv)
 }
 
-func TestStartFromContainable_ReturnsStartFunc(t *testing.T) {
+func TestStartFromReader_ReturnsStartFunc(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 	srv := &stdhttp.Server{Handler: stdhttp.NewServeMux()}
 
-	start := StartFromContainable(cfg, logger.NewNoop(), srv, WithConfigPrefix("server.http"))
+	start := StartFromReader(cfg, logger.NewNoop(), srv, WithConfigPrefix("server.http"))
 
 	assert.NotNil(t, start)
 }
 
-func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
+func TestRegisterFromReader_ReturnsServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := RegisterFromContainable(
+	srv, err := RegisterFromReader(
 		context.Background(),
 		"test-http",
 		controller,
@@ -195,34 +169,34 @@ func TestRegisterFromContainable_ReturnsServer(t *testing.T) {
 	assert.NotNil(t, srv)
 }
 
-func TestNewServerFromContainable_WithPortBypassesConfig(t *testing.T) {
+func TestNewServerFromReader_WithPortBypassesConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 
-	srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(18099))
+	srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(18099))
 	require.NoError(t, err)
 	assert.Equal(t, ":18099", srv.Addr, "explicit WithPort must win over the configured port")
 }
 
-func TestNewServerFromContainable_InvalidPortFallsBackToEmptySettings(t *testing.T) {
+func TestNewServerFromReader_InvalidPortFallsBackToEmptySettings(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 
 	for _, port := range []int{-1, 70000} {
-		srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(port))
+		srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(port))
 		require.NoError(t, err)
 		assert.Equalf(t, ":0", srv.Addr, "an out-of-range WithPort(%d) must short-circuit to empty settings", port)
 	}
 }
 
-func TestNewServerFromContainable_ForwardsTransportServerOption(t *testing.T) {
+func TestNewServerFromReader_ForwardsTransportServerOption(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 
-	srv, err := NewServerFromContainable(context.Background(), cfg, stdhttp.NewServeMux(),
+	srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux(),
 		WithConfigPrefix("server.http"),
 		transporthttp.WithReadTimeout(7*time.Second),
 	)
@@ -231,13 +205,13 @@ func TestNewServerFromContainable_ForwardsTransportServerOption(t *testing.T) {
 	assert.Equal(t, 7*time.Second, srv.ReadTimeout, "a transport ServerOption must be forwarded to the constructor")
 }
 
-func TestRegisterFromContainable_InvalidPortFallsBackToEmptySettings(t *testing.T) {
+func TestRegisterFromReader_InvalidPortFallsBackToEmptySettings(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := RegisterFromContainable(
+	srv, err := RegisterFromReader(
 		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
 		WithPort(70000),
 	)
@@ -245,13 +219,13 @@ func TestRegisterFromContainable_InvalidPortFallsBackToEmptySettings(t *testing.
 	assert.Equal(t, ":0", srv.Addr, "an out-of-range WithPort must short-circuit Register to empty settings")
 }
 
-func TestRegisterFromContainable_ForwardsTransportOption(t *testing.T) {
+func TestRegisterFromReader_ForwardsTransportOption(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := RegisterFromContainable(
+	srv, err := RegisterFromReader(
 		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
 		transporthttp.WithReadTimeout(5*time.Second),
 	)
@@ -260,13 +234,13 @@ func TestRegisterFromContainable_ForwardsTransportOption(t *testing.T) {
 	assert.Equal(t, 5*time.Second, srv.ReadTimeout, "a forwarded transport ServerOption must reach the built server")
 }
 
-func TestRegisterFromContainable_WithConfigPrefixSelectsBlock(t *testing.T) {
+func TestRegisterFromReader_WithConfigPrefixSelectsBlock(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n  admin:\n    port: 18085\n")
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	srv, err := RegisterFromContainable(
+	srv, err := RegisterFromReader(
 		context.Background(), "admin-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
 		WithConfigPrefix("server.admin"),
 	)
@@ -274,14 +248,14 @@ func TestRegisterFromContainable_WithConfigPrefixSelectsBlock(t *testing.T) {
 	assert.Equal(t, ":18085", srv.Addr, "WithConfigPrefix must select the non-default config block's port")
 }
 
-func TestStartFromContainable_DefaultPrefix(t *testing.T) {
+func TestStartFromReader_DefaultPrefix(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 	srv := &stdhttp.Server{Handler: stdhttp.NewServeMux()}
 
 	// No WithConfigPrefix -> the default "server.http" block is resolved.
-	start := StartFromContainable(cfg, logger.NewNoop(), srv)
+	start := StartFromReader(cfg, logger.NewNoop(), srv)
 
 	assert.NotNil(t, start)
 }
@@ -322,7 +296,7 @@ func TestRateLimitConfigFromConfig_PreservesEnvAwareSectionUnmarshal(t *testing.
 	t.Setenv("GTB_SERVER_HTTP_RATELIMIT_REQUESTS_PER_SECOND", "25")
 	t.Setenv("GTB_SERVER_HTTP_RATELIMIT_MAX_TRACKED_KEYS", "512")
 
-	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  http:\n    ratelimit:\n      requests_per_second: 10\n      burst: 20\n      max_tracked_keys: 256\n")
+	cfg := testutil.ViewFromYAML(t, "server:\n  http:\n    ratelimit:\n      requests_per_second: 10\n      burst: 20\n      max_tracked_keys: 256\n", config.WithEnv("GTB"))
 
 	got := RateLimitConfigFromConfig(cfg, "")
 
@@ -396,7 +370,7 @@ func TestCircuitBreakerConfigFromConfig_PreservesEnvAwareSectionUnmarshal(t *tes
 	t.Setenv("GTB_SERVER_HTTP_CIRCUITBREAKER_COOLDOWN", "45s")
 	t.Setenv("GTB_SERVER_HTTP_CIRCUITBREAKER_HALF_OPEN_MAX_REQUESTS", "9")
 
-	cfg := prefixedCfgFromYAML(t, "GTB", "server:\n  http:\n    circuitbreaker:\n      failure_threshold: 7\n      cooldown: 10s\n      half_open_max_requests: 3\n")
+	cfg := testutil.ViewFromYAML(t, "server:\n  http:\n    circuitbreaker:\n      failure_threshold: 7\n      cooldown: 10s\n      half_open_max_requests: 3\n", config.WithEnv("GTB"))
 
 	got := CircuitBreakerConfigFromConfig(cfg, "")
 
@@ -411,14 +385,4 @@ func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 	cfg := cfgFromYAML(t, "name: x\n")
 
 	assert.Equal(t, transithttp.DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.http"))
-}
-
-func runHTTPConfigObservers(c *config.Container) error {
-	for _, observer := range c.GetObservers() {
-		if err := observer.Run(c); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
