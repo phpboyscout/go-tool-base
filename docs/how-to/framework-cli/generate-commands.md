@@ -100,7 +100,7 @@ Need configuration files or static assets? Use the `--assets` flag.
 
 - The CLI generates an `assets/` directory with a default `config.yaml`.
 - It uses Go's `embed` package to bundle these files into your binary.
-- Registration logic automatically adds these assets to the `Props` container via `p.Assets.Add(&assets)`.
+- Registration logic automatically adds these assets to the `Props` container via `props.Assets.Register("<name>", &assets)`.
 
 ### 4b. Lifecycle Hooks ⚙️
 
@@ -109,7 +109,7 @@ You can generate lifecycle hook stubs for your command:
 - `--persistent-pre-run`: Generate a `PersistentPreRun` hook (runs before this command and all subcommands).
 - `--pre-run`: Generate a `PreRun` hook (runs before this command only).
 - `--with-initializer`: Generate a config Initializer for this command (creates `init.go` and adds an `Init<Name>` stub in `main.go`).
-- `--with-config-validation`: Generate a `config.go` with a `<Name>Config` struct and a `Validate<Name>Config(cfg config.Containable)` function (delegating to `config.ValidateStruct[<Name>Config]`) for validating this command's config keys. See [Define and Validate Config for a Component](../validate-component-config.md).
+- `--with-config-validation`: Generate a `config.go` with a `<Name>Config` struct and a `Validate<Name>Config(cfg config.Reader)` function (delegating to `config.ValidateStruct[<Name>Config]`) for validating this command's config keys. See [Define and Validate Config for a Component](../validate-component-config.md).
 
 ```bash
 # Generate a command with a PersistentPreRun hook and an initializer

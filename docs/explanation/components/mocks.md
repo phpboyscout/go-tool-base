@@ -26,65 +26,62 @@ The mocks package contains mock implementations for all major GTB interfaces, ma
 
 ### Configuration Mocks
 
-Located in `go/config/mocks/`:
+Configuration mocks are published by the standalone
+[`gitlab.com/phpboyscout/go/config`](https://config.go.phpboyscout.uk) module in its
+`mocks` package: `MockReader`, `MockObservable` and `MockBinder`
+(the old catch-all container mock is gone along with its interface).
 
-#### **Containable Mock**
-Mock implementation of `config.Containable` interface for testing configuration-dependent code:
+#### **Reader Mock**
+`MockReader` fakes `config.Reader` — the read-only surface the GTB adapter
+functions accept (a real `*config.View` satisfies it too):
 
 ```go
-// Example usage in tests
-func TestMyCommand(t *testing.T) {
-    mockConfig := &mocks_config.Containable{}
+import configmocks "gitlab.com/phpboyscout/go/config/mocks"
+
+func TestSettingsResolution(t *testing.T) {
+    cfg := configmocks.NewMockReader(t)
 
     // Setup expected behavior
-    mockConfig.On("GetString", "app.timeout").Return("30s")
-    mockConfig.On("GetBool", "app.debug").Return(true)
+    cfg.On("GetString", "app.timeout").Return("30s")
+    cfg.On("GetBool", "app.debug").Return(true)
 
-    // Use in your test
-    props := &props.Props{Config: mockConfig}
-    result := myFunction(props)
+    // Pass to any function taking config.Reader
+    result := resolveSettings(cfg)
 
-    // Verify expectations
-    mockConfig.AssertExpectations(t)
+    assert.NotNil(t, result)
 }
 ```
 
-#### **EmbeddedFileReader Mock**
-Mock for embedded file system operations:
+#### **A real store instead of a mock**
+`props.Props.Config` is a concrete `*config.Store`, so it cannot hold a mock.
+When code under test needs a whole `Props`, build a real in-memory store — or
+use the `pkg/props/test` fixture helper, which wires one for you:
 
 ```go
-func TestAssetReading(t *testing.T) {
-    mockReader := &mocks_config.EmbeddedFileReader{}
+store, err := config.NewStore(t.Context(),
+    config.WithReaders(config.NamedSource{Name: "test", Content: []byte("app:\n  debug: true\n")}),
+)
+require.NoError(t, err)
 
-    mockReader.On("ReadFile", "config.yaml").Return([]byte("test: config"), nil)
-
-    // Test code that reads embedded assets
-    content, err := mockReader.ReadFile("config.yaml")
-    assert.NoError(t, err)
-    assert.Equal(t, "test: config", string(content))
-
-    mockReader.AssertExpectations(t)
-}
+p := propstest.New(propstest.WithConfig(store))
+result := myFunction(p) // reads via p.Config.View().GetBool("app.debug")
 ```
 
-#### **Observable Mock**
-Mock for configuration change observer pattern:
+#### **Binder and Observable Mocks**
+`MockBinder` fakes `config.Binder`, the first parameter of the reload-aware
+`Observe*` adapters (a real `*config.Store` satisfies it); `MockObservable`
+fakes the reload-notification surface. Both follow the same
+`configmocks.NewMockX(t)` constructor-plus-expecter pattern as `MockReader`.
 
-```go
-func TestConfigObserver(t *testing.T) {
-    mockObserver := &mocks_config.Observable{}
+### Setup & Props Mocks
 
-    mockObserver.On("Subscribe", mock.AnythingOfType("func()")).Return()
-    mockObserver.On("Notify").Return()
+GTB generates mocks for its own configuration-adjacent interfaces:
 
-    // Test observer registration and notification
-    myObserver := func() { /* handle config change */ }
-    mockObserver.Subscribe(myObserver)
-    mockObserver.Notify()
-
-    mockObserver.AssertExpectations(t)
-}
-```
+- **`mocks/pkg/setup`** — `MockEditor` (the `setup.Editor` read/write surface an
+  initialiser receives during `init`) and `MockInitialiser`.
+- **`mocks/pkg/props`** — `MockConfigProvider` (`GetConfig()` returns the
+  concrete `*config.Store`), `MockConfigReader` (`GetConfigView()` returns a
+  `*config.View`) and `MockConfigFSProvider`.
 
 ### Controls Mocks
 
@@ -97,53 +94,28 @@ drive a real controller with `controls.WithoutSignals()`. See the module's
 
 ### Version Control Mocks
 
-Located in `mocks/pkg/vcs/`:
+Located in `mocks/pkg/vcs/github/`:
 
 #### **GitHubClient Mock**
-Mock for GitHub Enterprise API operations:
+`MockGitHubClient` fakes GTB's GitHub API surface (PRs, release assets, keys):
 
 ```go
 func TestGitHubOperations(t *testing.T) {
-    mockGHClient := &mocks_vcs.GitHubClient{}
+    mockGHClient := githubmocks.NewMockGitHubClient(t)
 
-    mockRepo := &github.Repository{
-        Name: github.String("test-repo"),
-        FullName: github.String("org/test-repo"),
-    }
-
-    mockGHClient.On("GetRepository", "org", "test-repo").Return(mockRepo, nil)
+    mockGHClient.On("ListReleases", mock.Anything, "org", "test-repo").
+        Return([]string{"v1.2.3"}, nil)
 
     // Test GitHub operations
-    repo, err := mockGHClient.GetRepository("org", "test-repo")
+    releases, err := mockGHClient.ListReleases(ctx, "org", "test-repo")
     assert.NoError(t, err)
-    assert.Equal(t, "test-repo", repo.GetName())
-
-    mockGHClient.AssertExpectations(t)
+    assert.Equal(t, []string{"v1.2.3"}, releases)
 }
 ```
 
-#### **RepoLike Mock**
-Mock for Git repository operations:
-
-```go
-func TestGitOperations(t *testing.T) {
-    mockRepo := &mocks_vcs.RepoLike{}
-
-    mockRepo.On("Clone", "https://github.com/org/repo.git", "/tmp/repo").Return(nil)
-    mockRepo.On("Pull").Return(nil)
-    mockRepo.On("GetCurrentBranch").Return("main", nil)
-
-    // Test Git operations
-    err := mockRepo.Clone("https://github.com/org/repo.git", "/tmp/repo")
-    assert.NoError(t, err)
-
-    branch, err := mockRepo.GetCurrentBranch()
-    assert.NoError(t, err)
-    assert.Equal(t, "main", branch)
-
-    mockRepo.AssertExpectations(t)
-}
-```
+Repository (git) operations were extracted to the standalone
+[`gitlab.com/phpboyscout/go/repo`](https://repo.go.phpboyscout.uk) module; fake
+those through that module's published `mocks` package rather than a GTB mock.
 
 ## Testing Patterns
 
@@ -156,43 +128,35 @@ import (
     "testing"
 
     "github.com/stretchr/testify/assert"
-    "github.com/stretchr/testify/mock"
 
-    mocks_config "gitlab.com/phpboyscout/go/config/mocks"
-    mocks_controls "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/controls"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+    configmocks "gitlab.com/phpboyscout/go/config/mocks"
 )
 
 func TestMyFunction(t *testing.T) {
-    // Setup mocks
-    mockConfig := &mocks_config.Containable{}
-    mockController := &mocks_controls.Controllable{}
+    // Setup a mock for a function that takes config.Reader
+    cfg := configmocks.NewMockReader(t)
 
     // Configure mock behavior
-    mockConfig.On("GetString", "key").Return("value")
-    mockController.On("Start").Return()
-
-    // Create props with mocks
-    testProps := &props.Props{
-        Config: mockConfig,
-        // ... other props
-    }
+    cfg.On("GetString", "key").Return("value")
 
     // Run test
-    result := MyFunction(testProps, mockController)
+    result := MyFunction(cfg)
 
-    // Assertions
+    // Assertions (NewMockReader registers AssertExpectations via t.Cleanup)
     assert.NotNil(t, result)
-    mockConfig.AssertExpectations(t)
-    mockController.AssertExpectations(t)
 }
 ```
+
+For code that takes a whole `*props.Props`, mock nothing — build a hermetic
+fixture with `pkg/props/test` (`propstest.New(...)`), which wires a real
+in-memory `*config.Store` alongside a noop logger, in-memory filesystem, and
+inert error handler.
 
 ### Advanced Mock Configuration
 
 ```go
 func TestComplexScenario(t *testing.T) {
-    mockConfig := &mocks_config.Containable{}
+    mockConfig := configmocks.NewMockReader(t)
 
     // Multiple return values for different calls
     mockConfig.On("GetString", "database.host").Return("localhost")
@@ -208,12 +172,11 @@ func TestComplexScenario(t *testing.T) {
     // Error simulation
     mockConfig.On("GetString", "invalid.key").Return("").Maybe()
 
-    // Test your component
+    // Test your component (NewDatabaseComponent takes a config.Reader)
     component := NewDatabaseComponent(mockConfig)
     err := component.Connect()
 
     assert.NoError(t, err)
-    mockConfig.AssertExpectations(t)
 }
 ```
 
@@ -221,18 +184,16 @@ func TestComplexScenario(t *testing.T) {
 
 ```go
 func TestErrorHandling(t *testing.T) {
-    mockGHClient := &mocks_vcs.GitHubClient{}
+    mockGHClient := githubmocks.NewMockGitHubClient(t)
 
     // Simulate GitHub API error
-    mockGHClient.On("GetRepository", "org", "nonexistent").
+    mockGHClient.On("ListReleases", mock.Anything, "org", "nonexistent").
         Return(nil, errors.New("repository not found"))
 
     // Test error handling
-    _, err := mockGHClient.GetRepository("org", "nonexistent")
+    _, err := mockGHClient.ListReleases(ctx, "org", "nonexistent")
     assert.Error(t, err)
     assert.Contains(t, err.Error(), "repository not found")
-
-    mockGHClient.AssertExpectations(t)
 }
 ```
 
@@ -245,7 +206,7 @@ The mocks are automatically generated using **Mockery v3** (pinned via the
 ```yaml
 # Mockery v3: `template` replaces v2's `with-expecter` (expecters are always on now).
 template: testify
-dir: "mocks/{{ .InterfaceDirRelative }}"   # e.g. pkg/config -> go/config/mocks
+dir: "mocks/{{ .InterfaceDirRelative }}"   # e.g. pkg/setup -> mocks/pkg/setup
 filename: "{{.InterfaceName}}.go"
 structname: "{{.Mock}}{{.InterfaceName}}"
 formatter: goimports
@@ -255,10 +216,13 @@ packages:
   gitlab.com/phpboyscout/go-tool-base/pkg:
     config:
       all: true
+      recursive: true
 ```
 
-`dir` uses `{{ .InterfaceDirRelative }}`, so an interface in `go/config`
-generates into `go/config/mocks/` (mirroring the source tree under `mocks/`).
+`dir` uses `{{ .InterfaceDirRelative }}`, so an interface in `pkg/setup`
+generates into `mocks/pkg/setup/` (mirroring the source tree under `mocks/`).
+Configuration mocks are not generated here at all — they ship with the
+`go/config` module.
 
 ### Regenerating Mocks
 
@@ -286,20 +250,17 @@ func TestConfigManager_LoadsDefaultValues_WhenNoConfigFile(t *testing.T) {
 
 ### 2. **Setup and Teardown**
 ```go
-func setupMocks(t *testing.T) (*mocks_config.Containable, *mocks_controls.Controllable) {
-    mockConfig := &mocks_config.Containable{}
-    mockController := &mocks_controls.Controllable{}
+func setupMockConfig(t *testing.T) *configmocks.MockReader {
+    mockConfig := configmocks.NewMockReader(t)
 
-    // Common setup
+    // Common setup; AssertExpectations is registered via t.Cleanup
     mockConfig.On("GetString", "app.name").Return("test-app")
 
-    return mockConfig, mockController
+    return mockConfig
 }
 
 func TestMyFeature(t *testing.T) {
-    mockConfig, mockController := setupMocks(t)
-    defer mockConfig.AssertExpectations(t)
-    defer mockController.AssertExpectations(t)
+    mockConfig := setupMockConfig(t)
 
     // Test implementation
 }
@@ -307,20 +268,20 @@ func TestMyFeature(t *testing.T) {
 
 ### 3. **Test Both Success and Failure Paths**
 ```go
-func TestRepository_Clone_Success(t *testing.T) {
-    mockRepo := &mocks_vcs.RepoLike{}
-    mockRepo.On("Clone", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+func TestSettings_Resolve_Success(t *testing.T) {
+    mockConfig := configmocks.NewMockReader(t)
+    mockConfig.On("GetString", "vcs.provider").Return("github")
 
-    err := mockRepo.Clone("url", "path")
+    provider, err := ResolveProvider(mockConfig)
     assert.NoError(t, err)
+    assert.Equal(t, "github", provider)
 }
 
-func TestRepository_Clone_Failure(t *testing.T) {
-    mockRepo := &mocks_vcs.RepoLike{}
-    mockRepo.On("Clone", mock.AnythingOfType("string"), mock.AnythingOfType("string")).
-        Return(errors.New("clone failed"))
+func TestSettings_Resolve_Failure(t *testing.T) {
+    mockConfig := configmocks.NewMockReader(t)
+    mockConfig.On("GetString", "vcs.provider").Return("unknown-forge")
 
-    err := mockRepo.Clone("url", "path")
+    _, err := ResolveProvider(mockConfig)
     assert.Error(t, err)
 }
 ```
@@ -330,12 +291,12 @@ func TestRepository_Clone_Failure(t *testing.T) {
 func TestConfigValidation(t *testing.T) {
     tests := []struct {
         name           string
-        configSetup    func(*mocks_config.Containable)
+        configSetup    func(*configmocks.MockReader)
         expectedResult bool
     }{
         {
             name: "valid config",
-            configSetup: func(m *mocks_config.Containable) {
+            configSetup: func(m *configmocks.MockReader) {
                 m.On("GetString", "required.field").Return("value")
                 m.On("GetBool", "optional.feature").Return(true)
             },
@@ -343,7 +304,7 @@ func TestConfigValidation(t *testing.T) {
         },
         {
             name: "missing required field",
-            configSetup: func(m *mocks_config.Containable) {
+            configSetup: func(m *configmocks.MockReader) {
                 m.On("GetString", "required.field").Return("")
                 m.On("GetBool", "optional.feature").Return(false)
             },
@@ -353,13 +314,11 @@ func TestConfigValidation(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            mockConfig := &mocks_config.Containable{}
+            mockConfig := configmocks.NewMockReader(t)
             tt.configSetup(mockConfig)
 
             result := ValidateConfig(mockConfig)
             assert.Equal(t, tt.expectedResult, result)
-
-            mockConfig.AssertExpectations(t)
         })
     }
 }
@@ -367,29 +326,32 @@ func TestConfigValidation(t *testing.T) {
 
 ## Integration with GTB Testing
 
-The mocks integrate seamlessly with GTB components. For testing commands that use props:
+The mocks integrate seamlessly with GTB components. For testing commands that
+use props, `Props.Config` is a concrete `*config.Store`, so feed it real
+configuration through an in-memory reader source (or lean on `pkg/props/test`):
 
 ```go
 func TestMyCommand(t *testing.T) {
-    // Setup mocks
-    mockConfig := &mocks_config.Containable{}
-    mockConfig.On("GetString", "timeout").Return("30s")
+    // Real in-memory config store — Props.Config is a concrete *config.Store.
+    store, err := config.NewStore(t.Context(),
+        config.WithReaders(config.NamedSource{Name: "test", Content: []byte("timeout: 30s\n")}),
+    )
+    require.NoError(t, err)
 
-    // Create test props
+    // Create test props (or: propstest.New(propstest.WithConfig(store)))
     testProps := &props.Props{
         Tool: props.Tool{
             Name: "test-tool",
         },
-        Config: mockConfig,
+        Config: store,
         Logger: logger.NewNoop(), // Silent logger for tests
     }
 
-    // Test your command
+    // Test your command — reads resolve via testProps.Config.View()
     cmd := NewMyCommand(testProps)
-    err := cmd.Execute()
+    err = cmd.Execute()
 
     assert.NoError(t, err)
-    mockConfig.AssertExpectations(t)
 }
 ```
 

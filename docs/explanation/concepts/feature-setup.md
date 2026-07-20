@@ -43,23 +43,23 @@ For features that require interactive setup (like configuring API keys or local 
 ```go
 type Initialiser interface {
     Name() string
-    IsConfigured(cfg config.Containable) bool
-    Configure(p *props.Props, cfg config.Containable) error
+    IsConfigured(cfg config.Reader) bool
+    Configure(p *props.Props, cfg setup.Editor) error
 }
 ```
 
-- **`IsConfigured`**: Checks the existing configuration to see if setup can be skipped.
-- **`Configure`**: Executes the interactive setup (often using `huh` or prompt libraries) and populates the configuration container.
+- **`IsConfigured`**: Checks the existing configuration (through a pinned read-only view) to see if setup can be skipped.
+- **`Configure`**: Executes the interactive setup (often using `huh` or prompt libraries) and writes values through the `setup.Editor`, whose `Set` edits the user's config file in place via the store's transactional `Apply`.
 
 ## The Init Workflow
 
-When a user runs the `init` command, the `setup.Initialise` function performs the following steps:
+When a user runs the `init` command, the `setup.Initialise` function (context first: `Initialise(ctx, p, opts)`) performs the following steps:
 
-1.  **Bootstrap**: Creates the default config directory and base `config.yaml`.
-2.  **Merge Assets**: Loads any domain-specific configuration templates from the `Assets` layer.
-3.  **Discovery**: Retrieves all registered `InitialiserProvider` functions from the `globalRegistry`.
+1.  **Bootstrap**: Creates the config directory and materialises the base `config.yaml` from the init template (`assets/init/config.yaml`, merged across every registered asset bundle) — seeding a missing file, or merging new template keys under an existing one.
+2.  **Open an editor**: Opens a `setup.Editor` over the target file, whose reads resolve the file layered over the tool's embedded defaults.
+3.  **Discovery**: The `init` command retrieves all registered `InitialiserProvider` functions from the `globalRegistry` and passes the resulting initialisers in.
 4.  **Execution**: Iterates through each initialiser, checking if it's already configured and running the `Configure` step if necessary.
-5.  **Persistence**: Writes the final, merged configuration back to disk.
+5.  **Persistence**: Each `Set` is applied to the file in place as it happens (via the store's `Apply`), preserving template comments — there is no separate final write-back.
 
 ## Why use this pattern?
 
@@ -71,4 +71,4 @@ When a user runs the `init` command, the `setup.Initialise` function performs th
 
 - **Feature Enums**: Define unique identifiers for your features in `pkg/props` or a shared constants package to avoid collisions.
 - **Idempotent Setup**: Ensure that `IsConfigured` accurately reflects the state of the configuration to avoid re-prompting users for information they've already provided.
-- **Asset Integration**: If your feature requires default configuration values, include them in an `assets/init/config.yaml` file within your feature's package and register it as an asset.
+- **Asset Integration**: If your feature requires default configuration values, ship them in an `assets/config.yaml` (the always-applied embedded-defaults layer) and put the human-facing, commented stanzas for the user's file in `assets/init/config.yaml`; register the bundle with `setup.RegisterAssets` so it is applied when the feature is enabled.

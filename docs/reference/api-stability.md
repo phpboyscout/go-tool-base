@@ -34,9 +34,7 @@ the next major version.
 | `pkg/props` | `LoggerProvider`, `ConfigProvider`, `ErrorHandlerProvider` | v0.1 |
 | `pkg/props` | `Tool`, `Version`, `Assets` types | v0.1 |
 | `pkg/props` | `SetFeatures`, `Enable`, `Disable`, feature constants | v0.1 |
-| `pkg/config` | `Containable` interface | v0.1 |
-| `pkg/config` | `Container` (all public methods) | v0.1 |
-| `pkg/config` | `NewFilesContainer`, `NewReaderContainer`, `LoadFilesContainer` | v0.1 |
+| `go/config` *(module)* | `Store`, `View`, `Reader`, `Binder` and the layered-source constructors | versioned by the standalone [`gitlab.com/phpboyscout/go/config`](https://config.go.phpboyscout.uk) module, not by GTB |
 | `pkg/logger` | `Logger` interface | v1.0 |
 | `pkg/logger` | `Level`, `Formatter` types and constants | v1.0 |
 | `pkg/logger` | `NewCharm`, `NewNoop` | v1.0 |

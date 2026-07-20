@@ -14,7 +14,24 @@ For a high-level conceptual overview of the Initialiser pattern, please see the 
 
 ## Interface Definition
 
-The `setup.Initialiser` interface is the core contract for all initialization logic. It is defined in `pkg/setup/setup.go`:
+The `setup.Initialiser` interface is the core contract for all initialization logic. It is defined in `pkg/setup/init.go`:
+
+```go
+type Initialiser interface {
+    // Name returns a human-readable name for logging.
+    Name() string
+    // IsConfigured returns true if this initialiser's config is already present.
+    IsConfigured(cfg config.Reader) bool
+    // Configure runs the interactive config and writes values through cfg.
+    Configure(p *props.Props, cfg Editor) error
+}
+```
+
+`setup.Editor` is the read/write surface an initialiser uses during init:
+`View()` returns a pinned `*config.View` whose reads resolve the target file
+over the tool's embedded defaults, and `Set(key, value)` writes one key through
+the store's transactional `Apply`, editing the target document in place so
+template comments survive the wizards.
 
 
 > [!NOTE]
@@ -24,8 +41,8 @@ The `setup.Initialiser` interface is the core contract for all initialization lo
 ### Key Considerations for Implementers
 
 1.  **Idempotency**: `IsConfigured` must be robust. It is called every time `init` is run. If it returns `false` incorrectly, the user will be prompted unnecessarily.
-2.  **Configuration Isolation**: While `Configure` receives the full `config.Containable`, an initialiser should ideally only modify keys relevant to its feature domain (e.g., `github.*` or `ai.*`).
-3.  **Error Handling**: Errors returned from `Configure` will halt the entire initialization process. Ensure critical failures are handled gracefully or returned with explanatory context.
+2.  **Configuration Isolation**: While the `setup.Editor` can write any key, an initialiser should ideally only modify keys relevant to its feature domain (e.g., `github.*` or `ai.*`).
+3.  **Error Handling**: An error returned from `Configure` is logged as a warning ("configuration skipped") and the run continues with the next initialiser — the base config is still written. Return errors with explanatory context so that warning is actionable.
 
 ## Registration Lifecycle
 
@@ -33,10 +50,10 @@ Initialisers are registered via the `setup.Register` function, typically in a pa
 
 ```go
 func Register(
-    featureName string,
-    initialisers []InitialiserProvider,
-    subcommands []SubcommandProvider,
-    flags []FeatureFlag,
+    feature props.FeatureCmd,
+    ips []InitialiserProvider,
+    sps []SubcommandProvider,
+    fps []FeatureFlag,
 )
 ```
 
@@ -180,8 +197,8 @@ graph TD
 1. When you run `mytool init`, the framework fetches all registered items from the **Global Setup Registry**.
 2. It filters these items based on `props.Tool.IsEnabled(feature)`.
 3. It dynamically attaches any registered **Flags** to the `init` command.
-4. During execution, it iterates through the **Initialisers**. If `IsConfigured()` returns false (and the feature isn't explicitly skipped via a flag), it calls `Configure()`.
-5. Finally, it merges any default assets provided by the feature and writes the final configuration to disk.
+4. Before any initialiser runs, it materialises the config file from the init template (`assets/init/config.yaml`, merged across every registered bundle) — seeding it when absent, or merging new template keys under an existing file.
+5. During execution, it iterates through the **Initialisers**. If `IsConfigured()` returns false (and the feature isn't explicitly skipped via a flag), it calls `Configure()`; each `Set` is applied to the file in place as it happens, preserving the template's comments.
 
 ---
 

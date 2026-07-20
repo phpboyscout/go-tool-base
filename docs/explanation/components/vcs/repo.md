@@ -50,7 +50,7 @@ found, err := repo.DiscoverRepository(path) // module API, used directly
 | Adapter | Purpose |
 |---------|---------|
 | `SettingsFromProps(p)` | Maps `props.Tool`, `Config`, `Logger`, `FS` into `repo.Settings` |
-| `SettingsFromContainable(source, cfg, log, fs)` | The same mapping from an explicit release source + config container |
+| `SettingsFromReader(source, cfg, log, fs)` | The same mapping from an explicit release source + a `config.Reader` |
 | `NewRepoFromProps(p, ops...)` | `repo.NewRepo` with GTB-derived settings |
 | `NewThreadSafeRepoFromProps(p, opts...)` | `repo.NewThreadSafeRepo` with GTB-derived settings |
 
@@ -79,13 +79,13 @@ Credentials are resolved from the tool's **forge** config subtree:
 |----------|-----------|-------------|
 | 1 | `<forge>.ssh.key.type = "agent"` | SSH agent |
 | 2 | `<forge>.ssh.key.path`, or the env var named by `<forge>.ssh.key.env` | Identity file |
-| 3 | No `<forge>.ssh` config at all | Token via `vcs.ResolveToken` on the `<forge>` subtree (`auth.env` → `auth.keychain` → `auth.value` → `<FORGE>_TOKEN`) |
+| 3 | No `<forge>.ssh` config at all | Token via `forge.ResolveToken` on the `<forge>` subtree (`auth.env` → `auth.keychain` → `auth.value` → `<FORGE>_TOKEN`) |
 
 Two properties of this wiring are deliberate, and worth keeping in mind before
 changing it:
 
 - **Token resolution is deferred.** The adapter binds the config subtree eagerly
-  but wraps `vcs.ResolveToken` in the module's `TokenSource` closure. A
+  but wraps `forge.ResolveToken` in the module's `TokenSource` closure. A
   repository authenticating over SSH therefore never walks the credential chain,
   so it never triggers a keychain unlock prompt it does not need.
 - **Environment reading happens here, not in the module.** The module reads no

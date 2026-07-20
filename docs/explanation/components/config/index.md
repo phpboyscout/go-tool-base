@@ -1,19 +1,19 @@
 ---
 title: Configuration
-description: go-tool-base's integration of the standalone go/config container — embedded-asset defaults, the project-local config layer, env-prefix propagation, flag binding, initialisers, and sensitive-value masking.
+description: go-tool-base's integration of the standalone go/config store — embedded-asset defaults, the project-local config layer, env-prefix propagation, flag binding, initialisers, and sensitive-value masking.
 date: 2026-07-18
-tags: [components, config, configuration, viper]
+tags: [components, config, configuration, store]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Configuration
 
-The configuration container has been **extracted into the standalone
+The configuration layer has been **extracted into the standalone
 [`gitlab.com/phpboyscout/go/config`](https://gitlab.com/phpboyscout/go/config)
-module**. Its full documentation — the `Containable` interface, sources and
+module**. Its full documentation — the `Store`/`View` model, layered sources and
 precedence, typed sections (`UnmarshalSection` / `ObserveSection`), schema
-validation, hot-reload safety, flag binding, and testing with the published
-`mocks` package — now lives at:
+validation, explicit hot-reload (`Watch`), transactional writes (`Apply`), flag
+binding, and testing with the published `mocks` package — now lives at:
 
 > **[config.go.phpboyscout.uk](https://config.go.phpboyscout.uk)**
 
@@ -27,39 +27,62 @@ deliberately not in the module.
 
 ## How GTB wires the container
 
-The root command builds the container during its pre-run and publishes it as
+The root command builds the store during its pre-run and publishes it as
 `props.Config`, so every command and initialiser receives the same instance:
 
 ```go
 p := &props.Props{
-    Config: cfg,   // config.Containable
+    Config: cfg,   // *config.Store
     Logger: l,
     FS:     fs,
 }
+
+// Reads pin an immutable snapshot:
+timeout := p.Config.View().GetString("app.timeout")
 ```
 
-`Props.Tool.EnvPrefix` is propagated into the container as the module's
-`WithEnvPrefix`, so a tool's config keys resolve from `MYTOOL_*` rather than bare
+The store is the live object that owns reloads and writes; **reads go through
+`props.Config.View()`**, which pins a consistent snapshot (a `*config.View`,
+satisfying the module's `config.Reader`). Hot reload is explicit — the root
+pre-run calls `Store.Watch`, so file changes propagate without any per-package
+wiring — and writes go through the store's transactional `Apply`, which edits
+the target file in place, preserving comments and writing only the named keys.
+
+The layer declaration, highest precedence first: changed CLI flags; environment
+variables under the tool's `EnvPrefix`; the project-local `.<tool>.yaml`; the
+config files (`--config` paths if given, otherwise `~/.<tool>/config.yaml` then
+`/etc/<tool>/config.yaml`); the tool's `ConfigPaths` embedded assets; and the
+merged `assets/config.yaml` embedded defaults, which always apply.
+
+`Props.Tool.EnvPrefix` is propagated into the store as the module's
+`WithEnv` layer, so a tool's config keys resolve from `MYTOOL_*` rather than bare
 names — see the module's
 [env-prefix rationale](https://config.go.phpboyscout.uk/explanation/precedence-and-merge/#the-env-prefix-is-a-security-control).
 
-## Embedded defaults: the `assets/init/config.yaml` convention
+## Embedded defaults: the `assets/config.yaml` convention
 
-GTB discovers shipped defaults at a fixed path inside each package's `embed.FS`:
+GTB discovers shipped assets at fixed paths inside each registered bundle's
+`embed.FS` (directive: `//go:embed assets/*`):
 
-- **Path:** `assets/init/config.yaml`
-- **Directive:** `//go:embed assets/*`
+- **`assets/config.yaml`** — the embedded-defaults layer. Merged across every
+  registered bundle and always applied as the lowest-precedence layer, so a
+  user file that omits a key resolves to the shipped default.
+- **`assets/init/config.yaml`** — the init template: the human-facing document
+  (comments included) that `init` writes to the user's config file.
 
-The root command aggregates assets from every subcommand and merges them, so each
-feature package ships its own defaults without a central file:
+The framework's own baseline bundle registers first (inside `props.NewAssets`),
+the tool's bundle next, and feature bundles (registered via
+`setup.RegisterAssets`) are applied for enabled features at root construction —
+later bundles override earlier ones in the merged structured reads:
 
 ```go
 //go:embed assets/*
 var assets embed.FS
 
-allAssets := []embed.FS{assets}
-// ... append each subcommand's assets ...
-rootCmd := root.NewCmdRoot(props, allAssets)
+p := &props.Props{
+    Assets: props.NewAssets(props.AssetMap{"root": &assets}),
+    // ...
+}
 ```
 
 Defaults live **only** here — never duplicated into `default:` struct tags, which the
@@ -81,12 +104,14 @@ the file sources**, so it deep-merges over and overrides the per-user
 This keeps a project's non-secret settings in the repo that owns them. A tool opts out
 simply by not having the file; it never errors when absent. Environment variables and
 flags still override it — it sits in the *file* tier of the module's precedence chain.
-The filename derives from `Props.Tool.Name`.
+An explicit `--config` **suppresses the layer entirely**: naming a config file means
+"use this one", and a project-local file the caller did not name must not override
+files they did. The filename derives from `Props.Tool.Name`.
 
 ## Binding CLI flags
 
-GTB registers and binds flags on your behalf, so you rarely call the module's
-`BindPFlag` directly:
+GTB registers and binds flags on your behalf, so you rarely touch the module's
+flag layer (`config.WithFlags` / `config.BindFlag`) directly:
 
 ```go
 portFlags := pflag.NewFlagSet("server", pflag.ContinueOnError)
@@ -105,15 +130,16 @@ defaulted flag from masking file or env values — see the module's
 [default-clobber warning](https://config.go.phpboyscout.uk/how-to/bind-cli-flags/).
 
 The built-in `--debug` and `--ci` flags fold through the same path, so
-`Config.GetBool("ci")` reflects `--ci`; `--debug` additionally retains its immediate
-effect on the log level.
+`Config.View().GetBool("ci")` reflects `--ci`; `--debug` additionally retains its
+immediate effect on the log level.
 
 ## Initialiser integration
 
-`config.Containable` is the standard interface for
-[tool initialisers](../setup/initialisers.md): an initialiser checks existing state with
-`IsConfigured(cfg)` and writes new values with `cfg.Set(...)`, giving a consistent API
-across the whole setup lifecycle.
+[Tool initialisers](../setup/initialisers.md) work against two narrow surfaces:
+`IsConfigured(cfg config.Reader)` checks existing state against a pinned view, and
+`Configure(p, cfg setup.Editor)` writes new values through `cfg.Set(...)` — the
+`setup.Editor` routes writes through the store's transactional `Apply`, so
+template comments in the user's file survive the wizards.
 
 ## Sensitive-value masking
 
@@ -143,7 +169,7 @@ cmdconfig.NewCmdConfig(props,
 | First-run bootstrap | `init` |
 | Re-configure a subsystem interactively | `init <subsystem>` (e.g. `init ai`) |
 | Read / write / remove a single value | `config get` / `config set` / `config unset` |
-| Find where config actually lives | `config path` (backed by the module's `ConfigFiles()`) |
+| Find where config actually lives | `config path` (backed by the store's declared file layers) |
 | Hand-edit the file safely (re-validated) | `config edit` |
 | Inspect all resolved config | `config list` |
 | Validate config against schema | `config validate` |

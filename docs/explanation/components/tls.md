@@ -26,10 +26,10 @@ belongs to the framework — the config-key adapter `Resolve`. See the
 ## What go-tool-base adds: config resolution
 
 The module works from typed `Pair` values; it is deliberately config-agnostic. GTB's
-facade bridges that to its Viper-backed configuration with `Resolve`, which maps the
+facade bridges that to its layered configuration with `Resolve`, which maps the
 `server.tls` key cascade onto a `Pair`.
 
-`Resolve(cfg config.Containable, transportPrefix string) Pair` starts from the shared
+`Resolve(cfg config.Reader, transportPrefix string) Pair` starts from the shared
 `SharedPrefix` (`server.tls`) and overrides each field individually from the
 transport-specific prefix whenever that key is set. This lets a single certificate
 serve every transport, with per-transport overrides where needed. The transport

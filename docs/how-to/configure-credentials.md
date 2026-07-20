@@ -117,7 +117,7 @@ This lets you give different tools different keys (useful for per-project billin
 
 ## Prefix-aware env binding (advanced)
 
-A tool built on GTB can declare an `EnvPrefix` in its `Tool` props (e.g. `MYTOOL`). Viper's `AutomaticEnv` then automatically binds every config key to its `MYTOOL_<UPPER_SNAKE>` env var:
+A tool built on GTB can declare an `EnvPrefix` in its `Tool` props (e.g. `MYTOOL`). The config store's environment layer then automatically binds every config key to its `MYTOOL_<UPPER_SNAKE>` env var (environment variables are read **only** under the tool's prefix):
 
 ```yaml
 # config.yaml

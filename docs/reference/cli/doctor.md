@@ -84,7 +84,7 @@ It is available wherever `doctor` is (gated by `DoctorCmd`, default-on) — ther
 |---------|----------|
 | **Tool** | Name, summary, version, commit, build date |
 | **Runtime** | Go version, host OS string (`pkg/osinfo`), arch |
-| **Paths** | Resolved config directory and config file in use (no cache dir — GTB has none) |
+| **Paths** | Resolved config directory and config file in use — the highest-precedence *loaded* file layer in the store, the same answer Viper's `ConfigFileUsed()` gave (no cache dir — GTB has none) |
 | **Features** | Every built-in feature flag, enabled/disabled |
 | **Config** | The *effective* merged configuration, **redacted** |
 | **Doctor** | The full report above, reused verbatim |
@@ -96,7 +96,7 @@ The entire bundle passes through [`pkg/redact`](../../explanation/components/red
 1. **Credential-shaped keys are dropped to `<redacted>`** regardless of value — keys ending in `.api.key`, `.auth.value`, `.app_password`, `.password`, `.secret`, `.token`, or whose final segment is a known credential word. Even a malformed value cannot leak.
 2. **Every other value is scrubbed through `redact.String`** (best-effort): URL userinfo, well-known token prefixes (`sk-`, `ghp_`, `glpat-`, `AKIA…`), and long opaque tokens. Map **keys are preserved** so the structure stays legible.
 
-The process environment is **never** enumerated (high leak surface, low triage value); env-derived values still appear via the resolved config under Viper precedence. See [`pkg/redact`](../../explanation/components/redact.md) for the full pattern set.
+The process environment is **never** enumerated (high leak surface, low triage value); env-derived values still appear via the resolved config snapshot (`Snapshot().Values()`) under the store's precedence. See [`pkg/redact`](../../explanation/components/redact.md) for the full pattern set.
 
 ## Implementation
 

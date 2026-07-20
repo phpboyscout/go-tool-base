@@ -21,9 +21,10 @@ The VCS layer has been **extracted** into standalone modules. What remains in
 
 ## What stays in GTB
 
-**`pkg/vcs`** — `ConfigFromContainable`, adapting GTB's config container to the
-narrow `forge.Config` seam. The seam is two methods wide precisely so a provider
-needs no config library; this bridge is the one place that knows about both.
+**`pkg/vcs`** — `ConfigFromReader`, adapting a GTB config view (`config.Reader`,
+typically `props.Config.View()`) to the narrow `forge.Config` seam. The seam is
+two methods wide precisely so a provider needs no config library; this bridge is
+the one place that knows about both.
 
 **`pkg/vcs/github`** — GitHub's **wider API**: pull requests, repository
 creation, SSH key upload, file contents, and the OAuth device-login flow. See

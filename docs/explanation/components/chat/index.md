@@ -27,10 +27,11 @@ module map and how to consume the light client directly.
 The module is deliberately config-system-agnostic. `pkg/chat` layers GTB's
 framework integration on top:
 
-- **Props/Viper construction.** `chat.NewFromProps(ctx, p, cfg)` and
-  `chat.NewWithFallbackFromProps(...)` map a `Props` instance and GTB's Viper
-  config into the module's typed `chat.Settings`, then call the module
-  constructor. `chat.SettingsFromProps` exposes just the mapping.
+- **Props construction.** `chat.NewFromProps(ctx, p, cfg)` and
+  `chat.NewWithFallbackFromProps(...)` map a `Props` instance and GTB's layered
+  config (read through a pinned `props.Config.View()`) into the module's typed
+  `chat.Settings`, then call the module constructor. `chat.SettingsFromProps`
+  exposes just the mapping.
 - **The GTB config-key schema.** The adapter owns the config keys and their
   precedence; the module knows nothing about them:
 

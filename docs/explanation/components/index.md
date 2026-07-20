@@ -15,7 +15,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | Component | Package | Description |
 | :--- | :--- | :--- |
 | **[Props](props.md)** | `pkg/props` | The dependency injection container. Holds global state like configuration, logger, and filesystem interfaces. |
-| **[Config](config/index.md)** | `pkg/config` | Robust configuration management wrapping generic Viper usage with type safety and interface-based testability. |
+| **[Config](config/index.md)** | `go/config` | GTB's wiring of the standalone layered config store — embedded defaults, project-local layer, env prefix, flag binding, and masking. |
 | **[Logger](logger.md)** | `pkg/logger` | Unified logging abstraction with charmbracelet, slog, and noop backends. |
 | **[Commands](../../reference/cli/index.md)** | `cmd/` | Built-in Cobra commands for configuration (`init`), updates (`version`, `update`), interactive browser (`docs`), and agentic workflows (`mcp`). |
 | **[Error Handling](error-handling.md)** | `pkg/errorhandling` | Centralized error reporting and formatting, ensuring consistent exit codes and log output. |
@@ -74,7 +74,7 @@ Components for running a CLI as a long-lived service. See also **[Controls](cont
 
 | Component | Package | Description |
 | :--- | :--- | :--- |
-| **[Mocks](mocks.md)** | `pkg/mocks` | Auto-generated Mockery definitions for all core interfaces to simplify unit testing. |
+| **[Mocks](mocks.md)** | `mocks/` | Auto-generated Mockery definitions for GTB's core interfaces to simplify unit testing (config mocks ship with the `go/config` module). |
 
 ## Internal Development
 

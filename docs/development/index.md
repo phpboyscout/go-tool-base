@@ -204,26 +204,21 @@ go vet ./...
 - **Table-Driven Tests**: Use table-driven patterns for multiple scenarios
 - **Parallel Execution**: Tests should run in parallel where possible
 
-Example test structure:
+Example test structure (config-consuming code uses the `internal/testutil`
+store fixtures rather than mocking the config layer):
 ```go
-func TestLoadEmbed(t *testing.T) {
+func TestResolveLogLevel(t *testing.T) {
     t.Parallel()
 
     tests := []struct {
-        name          string
-        paths         []string
-        setup         func(*configMocks.MockEmbeddedFileReader)
-        expectError   bool
-        expectedFiles int
+        name     string
+        yaml     string
+        expected string
     }{
         {
-            name:  "successful single file",
-            paths: []string{"config.yaml"},
-            setup: func(m *configMocks.MockEmbeddedFileReader) {
-                m.EXPECT().ReadFile("config.yaml").Return([]byte("test"), nil)
-            },
-            expectError:   false,
-            expectedFiles: 1,
+            name:     "explicit level",
+            yaml:     "log:\n  level: debug",
+            expected: "debug",
         },
         // ... more test cases
     }
@@ -231,7 +226,9 @@ func TestLoadEmbed(t *testing.T) {
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             t.Parallel()
-            // Test implementation
+
+            view := testutil.ViewFromYAML(t, tt.yaml)
+            // Exercise the code under test against the pinned view.
         })
     }
 }
@@ -275,8 +272,9 @@ For a visual overview of component relationships and core workflows, see the **[
 All components receive their dependencies via constructor functions:
 
 ```go
-func NewCmdRoot(ver string, commit string, date string) *cobra.Command {
-    // Dependencies are injected, and root initialization handles built-in commands
+func NewCmdRoot(props *p.Props, subcommands ...*setup.Command) *setup.Command {
+    // Dependencies arrive via Props; root construction wires config,
+    // feature assets, and the built-in commands
 }
 ```
 
@@ -285,8 +283,8 @@ func NewCmdRoot(ver string, commit string, date string) *cobra.Command {
 Small, focused interfaces for better testability:
 
 ```go
-type EmbeddedFileReader interface {
-    ReadFile(name string) ([]byte, error)
+type LoggerProvider interface {
+    GetLogger() logger.Logger
 }
 ```
 
