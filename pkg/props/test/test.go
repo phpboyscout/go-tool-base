@@ -1,4 +1,4 @@
-// Package propstest provides a public test-fixture helper for constructing a
+// Package test provides a public test-fixture helper for constructing a
 // fully-wired *props.Props with hermetic, safe defaults.
 //
 // Tools built on go-tool-base — and GTB's own tests — frequently need a Props
@@ -8,7 +8,7 @@
 // wrong (for example, leaving Collector nil and violating the documented
 // non-nil-Collector invariant).
 //
-// propstest.New returns a Props with every field wired to a hermetic default:
+// test.New returns a Props with every field wired to a hermetic default:
 // a noop logger, an in-memory afero filesystem, a NoopCollector, an error
 // handler whose Exit and Writer are inert, benign Tool metadata, a deterministic
 // Version, empty-but-valid Assets, and a usable empty Config container. Each
@@ -20,10 +20,10 @@
 //
 //	func TestSomething(t *testing.T) {
 //		t.Parallel()
-//		p := propstest.New(propstest.WithTool(props.Tool{Name: "mytool"}))
+//		p := test.New(test.WithTool(props.Tool{Name: "mytool"}))
 //		// ... drive code that needs a *props.Props ...
 //	}
-package propstest
+package test
 
 import (
 	"context"
@@ -117,14 +117,14 @@ func WithErrorHandler(h errorhandling.ErrorHandler) Option {
 // calling New, or pass their own store via WithConfig.
 func emptyStore(filesystem afero.Fs) *config.Store {
 	const (
-		path = "/propstest-config.yaml"
+		path = "/props-test-config.yaml"
 		// Owner-only, matching what config writes: a test store that differed
 		// would hide a permissions mistake rather than reproduce it.
 		perm = 0o600
 	)
 
 	if err := afero.WriteFile(filesystem, path, []byte(""), perm); err != nil {
-		panic("propstest: seeding the config file: " + err.Error())
+		panic("props/test: seeding the config file: " + err.Error())
 	}
 
 	store, err := config.NewStore(context.Background(),
@@ -134,7 +134,7 @@ func emptyStore(filesystem afero.Fs) *config.Store {
 		// owns. Panicking beats returning nil, which would defer the failure to
 		// an unrelated nil dereference in whichever test read configuration
 		// first.
-		panic("propstest: empty config store: " + err.Error())
+		panic("props/test: empty config store: " + err.Error())
 	}
 
 	return store

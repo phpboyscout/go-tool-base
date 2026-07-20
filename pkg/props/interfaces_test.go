@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 )
 
 // Compile-time interface satisfaction checks.
@@ -21,13 +21,13 @@ var (
 	_ props.CoreProvider          = (*props.Props)(nil)
 )
 
-// TestTelemetryProvider verifies that both *props.Props and a propstest-built
+// TestTelemetryProvider verifies that both *props.Props and a fixture-built
 // Props satisfy TelemetryProvider and expose a non-nil collector via the getter.
 func TestTelemetryProvider(t *testing.T) {
 	t.Parallel()
 
-	var p props.TelemetryProvider = propstest.New()
+	var p props.TelemetryProvider = test.New()
 	if p.GetCollector() == nil {
-		t.Fatal("propstest.New() GetCollector() returned nil; want non-nil NoopCollector")
+		t.Fatal("test.New() GetCollector() returned nil; want non-nil NoopCollector")
 	}
 }

@@ -1,4 +1,4 @@
-package propstest_test
+package test_test
 
 import (
 	"context"
@@ -12,14 +12,14 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 func TestNew_AllFieldsNonNil(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 	require.NotNil(t, p)
 
 	assert.NotNil(t, p.Logger, "Logger must be non-nil")
@@ -39,7 +39,7 @@ func TestNew_AllFieldsNonNil(t *testing.T) {
 func TestNew_CollectorIsNoop(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 
 	// The default Collector is the disabled NoopCollector and upholds the
 	// non-nil-Collector invariant without emitting telemetry.
@@ -59,7 +59,7 @@ func TestNew_CollectorIsNoop(t *testing.T) {
 func TestNew_FSIsInMemoryAndWritable(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 
 	// The default FS is an in-memory afero filesystem and is writable.
 	require.NoError(t, afero.WriteFile(p.FS, "/tmp/file.txt", []byte("hello"), 0o600))
@@ -76,7 +76,7 @@ func TestNew_FSIsInMemoryAndWritable(t *testing.T) {
 func TestNew_ConfigGettersAreSafe(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 
 	// Get* accessors on the default empty store are safe and return zero values.
 	view := p.Config.View()
@@ -91,7 +91,7 @@ func TestNew_ConfigGettersAreSafe(t *testing.T) {
 func TestNew_VersionIsDeterministic(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 
 	assert.NotEmpty(t, p.Version.GetVersion())
 	assert.NotEmpty(t, p.Version.String())
@@ -100,7 +100,7 @@ func TestNew_VersionIsDeterministic(t *testing.T) {
 func TestNew_ErrorHandlerDoesNotExitOnFatal(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 
 	// The default error handler's Exit and Writer are inert: a Fatal call
 	// neither terminates the test process nor panics.
@@ -112,8 +112,8 @@ func TestNew_ErrorHandlerDoesNotExitOnFatal(t *testing.T) {
 func TestNew_IndependentInstances(t *testing.T) {
 	t.Parallel()
 
-	p1 := propstest.New()
-	p2 := propstest.New()
+	p1 := test.New()
+	p2 := test.New()
 
 	// Distinct Props pointers.
 	assert.NotSame(t, p1, p2)
@@ -139,14 +139,14 @@ func TestNew_OptionsOverride(t *testing.T) {
 	require.NoError(t, err)
 	customTool := props.Tool{Name: "overridden", EnvPrefix: "OV"}
 
-	p := propstest.New(
-		propstest.WithFS(customFS),
-		propstest.WithLogger(customLogger),
-		propstest.WithCollector(customCollector),
-		propstest.WithVersion(customVersion),
-		propstest.WithAssets(customAssets),
-		propstest.WithConfig(customConfig),
-		propstest.WithTool(customTool),
+	p := test.New(
+		test.WithFS(customFS),
+		test.WithLogger(customLogger),
+		test.WithCollector(customCollector),
+		test.WithVersion(customVersion),
+		test.WithAssets(customAssets),
+		test.WithConfig(customConfig),
+		test.WithTool(customTool),
 	)
 
 	assert.Same(t, customFS, p.FS)
@@ -160,7 +160,7 @@ func TestNew_WithErrorHandlerOverride(t *testing.T) {
 	t.Parallel()
 
 	called := false
-	p := propstest.New(propstest.WithErrorHandler(&recordingHandler{onError: func() { called = true }}))
+	p := test.New(test.WithErrorHandler(&recordingHandler{onError: func() { called = true }}))
 
 	p.ErrorHandler.Error(assert.AnError)
 	assert.True(t, called, "custom error handler should be used")

@@ -440,29 +440,29 @@ props.FS = cowFs
 
 ## Testing with Props
 
-### `propstest.New` (recommended)
+### `test.New` (recommended)
 
-The `pkg/props/propstest` package — public, so tools built on GTB can use it too — distils the common "construct a fully-wired `*props.Props`" pattern into a single call. Every field gets a hermetic, safe default, so the documented invariants (notably non-nil `Collector` and a usable `Config`) hold without hand-assembly:
+The `pkg/props/test` package — public, so tools built on GTB can use it too — distils the common "construct a fully-wired `*props.Props`" pattern into a single call. Every field gets a hermetic, safe default, so the documented invariants (notably non-nil `Collector` and a usable `Config`) hold without hand-assembly:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 
 func TestMyCommand(t *testing.T) {
     t.Parallel()
 
-    p := propstest.New() // all fields wired with safe defaults
+    p := test.New() // all fields wired with safe defaults
 
     // Override only what the test cares about:
-    p = propstest.New(
-        propstest.WithTool(props.Tool{Name: "mytool", EnvPrefix: "MYTOOL"}),
-        propstest.WithFS(afero.NewMemMapFs()),
+    p = test.New(
+        test.WithTool(props.Tool{Name: "mytool", EnvPrefix: "MYTOOL"}),
+        test.WithFS(afero.NewMemMapFs()),
     )
 
     // ... drive code that needs a *props.Props ...
 }
 ```
 
-Defaults applied by `propstest.New`:
+Defaults applied by `test.New`:
 
 | Field | Default |
 |-------|---------|

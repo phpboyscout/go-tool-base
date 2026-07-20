@@ -10,7 +10,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 )
 
 // TestGetConfigView_ReadsThroughToTheStore covers the read surface added when
@@ -81,7 +81,7 @@ func TestGetConfigFS_BridgesAfero(t *testing.T) {
 // TestPropstestDefaultStoreIsWritable pins a regression the migration could
 // easily have shipped.
 //
-// The container propstest used to default to supported Set. A store built from
+// The container this fixture used to default to supported Set. A store built from
 // a reader source does not: Apply fails with "no writable layer for change",
 // and it fails at whichever line happens to write first rather than at the
 // construction that caused it. Backing the default with a real file keeps
@@ -89,7 +89,7 @@ func TestGetConfigFS_BridgesAfero(t *testing.T) {
 func TestPropstestDefaultStoreIsWritable(t *testing.T) {
 	t.Parallel()
 
-	p := propstest.New()
+	p := test.New()
 
 	_, err := p.Config.Apply(t.Context(), config.Set("key", "value"))
 	require.NoError(t, err, "the default test store must accept writes")

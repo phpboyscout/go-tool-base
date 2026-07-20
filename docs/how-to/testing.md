@@ -12,16 +12,16 @@ One of the primary goals of GTB is to make CLI tools easily testable. By using t
 
 ## Building a test `Props` in one call
 
-The fastest way to get a fully-wired `*props.Props` for a test — with a noop logger, in-memory filesystem, noop telemetry collector, inert error handler and a usable empty config — is the public `propstest.New` helper:
+The fastest way to get a fully-wired `*props.Props` for a test — with a noop logger, in-memory filesystem, noop telemetry collector, inert error handler and a usable empty config — is the public `test.New` helper:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/props/propstest"
+import "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 
 func TestMyCommand(t *testing.T) {
     t.Parallel()
 
-    p := propstest.New(
-        propstest.WithTool(props.Tool{Name: "mytool", EnvPrefix: "MYTOOL"}),
+    p := test.New(
+        test.WithTool(props.Tool{Name: "mytool", EnvPrefix: "MYTOOL"}),
     )
     // ... run your command logic with p ...
 }
