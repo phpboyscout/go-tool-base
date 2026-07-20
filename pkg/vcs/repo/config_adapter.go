@@ -38,14 +38,21 @@ func SettingsFromProps(p *props.Props) gorepo.Settings {
 		Params:  p.Tool.ReleaseSource.Params,
 	}
 
-	return SettingsFromContainable(source, p.Config, p.Logger, p.FS)
+	// Props built without a store (tests, hand-constructed Props) must resolve
+	// to the same no-auth settings a nil reader does, not panic on View.
+	var cfg config.Reader
+	if p.Config != nil {
+		cfg = p.Config.View()
+	}
+
+	return SettingsFromReader(source, cfg, p.Logger, p.FS)
 }
 
 // resolveForge normalises a release source type into the forge name GTB uses
 // for config lookup.
 //
 // The module applies the same normalisation internally to pick the
-// git-over-HTTPS username. Because SettingsFromContainable stores the result in
+// git-over-HTTPS username. Because SettingsFromReader stores the result in
 // Settings.Forge, that internal pass is a no-op — the config subtree, the
 // fallback environment variable and the auth convention are guaranteed to agree
 // rather than agreeing by coincidence.
@@ -61,11 +68,11 @@ func resolveForge(forge string) string {
 	return forge
 }
 
-// SettingsFromContainable adapts GTB config into typed repo settings. Runtime
+// SettingsFromReader adapts GTB config into typed repo settings. Runtime
 // config remains a framework boundary; the module itself does not depend on it.
-func SettingsFromContainable(
+func SettingsFromReader(
 	source forge.ReleaseSourceConfig,
-	cfg config.Containable,
+	cfg config.Reader,
 	log gorepo.Logger,
 	fs afero.Fs,
 ) gorepo.Settings {
@@ -92,7 +99,7 @@ func SettingsFromContainable(
 	// Bind the config subtree now, but defer resolution: ResolveToken walks the
 	// env → keychain → literal chain, and a repository authenticating over SSH
 	// must never trigger a keychain lookup it does not need.
-	authCfg := vcs.ConfigFromContainable(cfg.Sub(forgeName))
+	authCfg := vcs.ConfigFromReader(cfg).Sub(forgeName)
 	fallbackEnv := strings.ToUpper(forgeName) + "_TOKEN"
 	settings.Token = func() string { return forge.ResolveToken(authCfg, fallbackEnv) }
 
@@ -102,24 +109,24 @@ func SettingsFromContainable(
 
 	settings.SSH.Configured = true
 
-	sshCfg := cfg.Sub(forgeName + ".ssh.key")
-	if sshCfg == nil {
+	keyPrefix := forgeName + ".ssh.key"
+	if !cfg.SectionExists(keyPrefix) {
 		return settings
 	}
 
 	settings.SSH.HasKey = true
-	settings.SSH.Type = sshCfg.GetString("type")
+	settings.SSH.Type = cfg.GetString(keyPrefix + ".type")
 
 	// Environment resolution happens here, in the composition root, rather than
 	// inside the module: it reads no environment of its own so that every input
 	// arrives through Settings. KeyPath applies the documented "explicit path,
 	// else named env var" precedence.
 	var path string
-	if sshCfg.Has("path") {
-		path = sshCfg.GetString("path")
+	if cfg.Has(keyPrefix + ".path") {
+		path = cfg.GetString(keyPrefix + ".path")
 	}
 
-	settings.SSH.Path = gorepo.KeyPath(path, sshCfg.GetString("env"))
+	settings.SSH.Path = gorepo.KeyPath(path, cfg.GetString(keyPrefix+".env"))
 
 	return settings
 }

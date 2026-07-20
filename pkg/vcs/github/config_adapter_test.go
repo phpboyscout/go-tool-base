@@ -1,24 +1,23 @@
 package github
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go/forge"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
 func TestClientSettingsFromConfig(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(`
+	store, err := config.NewStore(t.Context(),
+		config.WithReaders(config.NamedSource{Name: "test", Content: []byte(`
 github:
   url:
     api: https://ghe.example.com/api/v3/
@@ -27,12 +26,12 @@ github:
     env: GITHUB_TOKEN
     value: literal-token
     keychain: tool/github.auth
-`)),
-	)
+`)}))
+	require.NoError(t, err)
 
 	settings := ClientSettingsFromConfig(
 		forge.ReleaseSourceConfig{Host: "github.com"},
-		cfg.Sub("github"),
+		vcs.ConfigFromReader(store.View()).Sub("github"),
 	)
 
 	assert.Equal(t, forge.ReleaseSourceConfig{Host: "github.com"}, settings.ReleaseSource)

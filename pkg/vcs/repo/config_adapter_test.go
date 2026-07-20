@@ -1,7 +1,6 @@
 package repo
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -16,22 +15,28 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-func repoCfgFromYAML(t *testing.T, yaml string) config.Containable {
+func repoStoreFromYAML(t *testing.T, yaml string) *config.Store {
 	t.Helper()
 
-	return config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
+	store, err := config.NewStore(t.Context(),
+		config.WithReaders(config.NamedSource{Name: "test", Content: []byte(yaml)}))
+	require.NoError(t, err)
+
+	return store
 }
 
-func TestSettingsFromContainable_Nil(t *testing.T) {
+func repoViewFromYAML(t *testing.T, yaml string) *config.View {
+	t.Helper()
+
+	return repoStoreFromYAML(t, yaml).View()
+}
+
+func TestSettingsFromReader_Nil(t *testing.T) {
 	t.Parallel()
 
 	source := forge.ReleaseSourceConfig{Type: "github"}
 
-	settings := SettingsFromContainable(source, nil, logger.NewNoop(), afero.NewMemMapFs())
+	settings := SettingsFromReader(source, nil, logger.NewNoop(), afero.NewMemMapFs())
 
 	assert.Equal(t, "github", settings.Forge)
 	assert.False(t, settings.Private)
@@ -40,12 +45,12 @@ func TestSettingsFromContainable_Nil(t *testing.T) {
 	assert.False(t, settings.SSH.Configured)
 }
 
-func TestSettingsFromContainable_TokenAuth(t *testing.T) {
+func TestSettingsFromReader_TokenAuth(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `github: {auth: {value: tok-from-config}}`)
+	cfg := repoViewFromYAML(t, `github: {auth: {value: tok-from-config}}`)
 
-	settings := SettingsFromContainable(
+	settings := SettingsFromReader(
 		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
@@ -59,15 +64,15 @@ func TestSettingsFromContainable_TokenAuth(t *testing.T) {
 	assert.False(t, settings.SSH.Configured)
 }
 
-func TestSettingsFromContainable_ProviderOverride(t *testing.T) {
+func TestSettingsFromReader_ProviderOverride(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `
+	cfg := repoViewFromYAML(t, `
 vcs: {provider: gitlab}
 gitlab: {auth: {value: gl-tok-from-config}}
 `)
 
-	settings := SettingsFromContainable(
+	settings := SettingsFromReader(
 		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
@@ -80,10 +85,10 @@ gitlab: {auth: {value: gl-tok-from-config}}
 	assert.Equal(t, "gl-tok-from-config", settings.Token())
 }
 
-func TestSettingsFromContainable_SSHKey(t *testing.T) {
+func TestSettingsFromReader_SSHKey(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `
+	cfg := repoViewFromYAML(t, `
 github:
   ssh:
     key:
@@ -91,7 +96,7 @@ github:
       path: /id_ed25519
 `)
 
-	settings := SettingsFromContainable(
+	settings := SettingsFromReader(
 		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
@@ -104,20 +109,20 @@ github:
 	assert.Equal(t, "/id_ed25519", settings.SSH.Path)
 }
 
-// TestSettingsFromContainable_SSHKeyFromEnv proves the adapter — not the repo
+// TestSettingsFromReader_SSHKeyFromEnv proves the adapter — not the repo
 // package — resolves a named environment variable into a concrete path, so
 // Settings arrives fully resolved.
-func TestSettingsFromContainable_SSHKeyFromEnv(t *testing.T) {
+func TestSettingsFromReader_SSHKeyFromEnv(t *testing.T) {
 	t.Setenv("GTB_TEST_SSH_KEY_FROM_ENV", "/from/env/id_ed25519")
 
-	cfg := repoCfgFromYAML(t, `
+	cfg := repoViewFromYAML(t, `
 github:
   ssh:
     key:
       env: GTB_TEST_SSH_KEY_FROM_ENV
 `)
 
-	settings := SettingsFromContainable(
+	settings := SettingsFromReader(
 		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
@@ -127,12 +132,12 @@ github:
 	assert.Equal(t, "/from/env/id_ed25519", settings.SSH.Path)
 }
 
-func TestSettingsFromContainable_ScalarSSH(t *testing.T) {
+func TestSettingsFromReader_ScalarSSH(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `github: {ssh: true}`)
+	cfg := repoViewFromYAML(t, `github: {ssh: true}`)
 
-	settings := SettingsFromContainable(
+	settings := SettingsFromReader(
 		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
@@ -146,14 +151,13 @@ func TestSettingsFromContainable_ScalarSSH(t *testing.T) {
 func TestSettingsFromProps(t *testing.T) {
 	t.Parallel()
 
-	cfg := repoCfgFromYAML(t, `github: {auth: {value: tok-from-config}}`)
 	p := &props.Props{
 		Tool: props.Tool{ReleaseSource: props.ReleaseSource{
 			Type:    "github",
 			Private: true,
 		}},
 		Logger: logger.NewNoop(),
-		Config: cfg,
+		Config: repoStoreFromYAML(t, `github: {auth: {value: tok-from-config}}`),
 		FS:     afero.NewMemMapFs(),
 	}
 
@@ -167,11 +171,29 @@ func TestSettingsFromProps(t *testing.T) {
 }
 
 // TestSettingsFromProps_Nil covers the nil-props guard: a caller with no
-// container gets empty settings rather than a panic.
+// store gets empty settings rather than a panic.
 func TestSettingsFromProps_Nil(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, gorepo.Settings{}, SettingsFromProps(nil))
+}
+
+// TestSettingsFromProps_NilStore covers Props built without a store (tests,
+// hand-constructed Props): same no-auth settings as a nil reader, no panic.
+func TestSettingsFromProps_NilStore(t *testing.T) {
+	t.Parallel()
+
+	p := &props.Props{
+		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+	}
+
+	settings := SettingsFromProps(p)
+
+	assert.Equal(t, "github", settings.Forge)
+	assert.False(t, settings.AuthEnabled)
+	assert.Nil(t, settings.Token)
 }
 
 // TestResolveForge covers the normalisation the adapter applies before storing
@@ -207,7 +229,7 @@ func TestNewRepoFromProps(t *testing.T) {
 	p := &props.Props{
 		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github"}},
 		Logger: logger.NewNoop(),
-		Config: repoCfgFromYAML(t, `github: {auth: {value: tok}}`),
+		Config: repoStoreFromYAML(t, `github: {auth: {value: tok}}`),
 		FS:     afero.NewMemMapFs(),
 	}
 

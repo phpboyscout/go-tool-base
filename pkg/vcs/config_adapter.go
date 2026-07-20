@@ -7,12 +7,13 @@ import (
 )
 
 type configAdapter struct {
-	cfg config.Containable
+	cfg    config.Reader
+	prefix string
 }
 
-// ConfigFromContainable adapts GTB's config container to the narrow VCS release
-// config reader used by release providers.
-func ConfigFromContainable(cfg config.Containable) forge.Config {
+// ConfigFromReader adapts GTB's resolved configuration to the narrow VCS
+// release config reader used by release providers.
+func ConfigFromReader(cfg config.Reader) forge.Config {
 	if cfg == nil {
 		return nil
 	}
@@ -21,9 +22,16 @@ func ConfigFromContainable(cfg config.Containable) forge.Config {
 }
 
 func (a configAdapter) GetString(key string) string {
-	return a.cfg.GetString(key)
+	return a.cfg.GetString(a.prefix + key)
 }
 
+// Sub returns a reader scoped under key, or nil when the section is absent —
+// the contract forge's nil guards rely on, matching what Containable.Sub did.
 func (a configAdapter) Sub(key string) forge.Config {
-	return ConfigFromContainable(a.cfg.Sub(key))
+	full := a.prefix + key
+	if !a.cfg.SectionExists(full) {
+		return nil
+	}
+
+	return configAdapter{cfg: a.cfg, prefix: full + "."}
 }
