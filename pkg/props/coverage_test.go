@@ -19,10 +19,12 @@ import (
 
 // newTestProps wires a *Props with hermetic, valid defaults for accessor and
 // provider-dispatch tests.
-func newTestProps() (*Props, logger.Logger, config.Containable, Assets, afero.Fs, version.Version, errorhandling.ErrorHandler, Tool, NoopCollector) {
+func newTestProps(t *testing.T) (*Props, logger.Logger, *config.Store, Assets, afero.Fs, version.Version, errorhandling.ErrorHandler, Tool, NoopCollector) {
 	log := logger.NewNoop()
 	memFS := afero.NewMemMapFs()
-	cfg := config.NewReaderContainer(memFS)
+	cfg, err := config.NewStore(t.Context(),
+		config.WithReaders(config.NamedSource{Name: "coverage", Content: []byte("")}))
+	require.NoError(t, err)
 	assets := NewAssets(AssetMap{"a": fstest.MapFS{}})
 	ver := version.NewInfo("v1.2.3", "abc123", "1970-01-01T00:00:00Z")
 	eh := errorhandling.New(logger.ToSlog(log), nil)
@@ -48,7 +50,7 @@ func newTestProps() (*Props, logger.Logger, config.Containable, Assets, afero.Fs
 func TestProps_Accessors(t *testing.T) {
 	t.Parallel()
 
-	p, log, cfg, assets, memFS, ver, eh, tool, col := newTestProps()
+	p, log, cfg, assets, memFS, ver, eh, tool, col := newTestProps(t)
 
 	assert.Equal(t, log, p.GetLogger())
 	assert.Equal(t, cfg, p.GetConfig())
@@ -66,7 +68,7 @@ func TestProps_Accessors(t *testing.T) {
 func TestProps_SatisfiesProviders(t *testing.T) {
 	t.Parallel()
 
-	p, _, _, _, _, _, _, _, _ := newTestProps()
+	p, _, _, _, _, _, _, _, _ := newTestProps(t)
 
 	var (
 		lp   LoggerProvider        = p

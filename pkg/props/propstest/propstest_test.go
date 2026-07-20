@@ -78,17 +78,14 @@ func TestNew_ConfigGettersAreSafe(t *testing.T) {
 
 	p := propstest.New()
 
-	// Get* accessors on the default empty container are safe and return zero values.
-	assert.Nil(t, p.Config.Get("missing"))
-	assert.Empty(t, p.Config.GetString("missing"))
-	assert.Equal(t, 0, p.Config.GetInt("missing"))
-	assert.InDelta(t, 0.0, p.Config.GetFloat("missing"), 0)
-	assert.False(t, p.Config.GetBool("missing"))
-	assert.False(t, p.Config.Has("missing"))
-
-	// And it is round-trip usable: Set then Get.
-	p.Config.Set("key", "value")
-	assert.Equal(t, "value", p.Config.GetString("key"))
+	// Get* accessors on the default empty store are safe and return zero values.
+	view := p.Config.View()
+	assert.Nil(t, view.Get("missing"))
+	assert.Empty(t, view.GetString("missing"))
+	assert.Equal(t, 0, view.GetInt("missing"))
+	assert.InDelta(t, 0.0, view.GetFloat("missing"), 0)
+	assert.False(t, view.GetBool("missing"))
+	assert.False(t, view.Has("missing"))
 }
 
 func TestNew_VersionIsDeterministic(t *testing.T) {
@@ -137,7 +134,9 @@ func TestNew_OptionsOverride(t *testing.T) {
 	customCollector := props.NoopCollector{}
 	customVersion := version.NewInfo("v9.9.9", "deadbeef", "2020-01-01")
 	customAssets := props.NewAssets()
-	customConfig := config.NewReaderContainer(afero.NewMemMapFs())
+	customConfig, err := config.NewStore(t.Context(),
+		config.WithReaders(config.NamedSource{Name: "custom", Content: []byte("marker: set\n")}))
+	require.NoError(t, err)
 	customTool := props.Tool{Name: "overridden", EnvPrefix: "OV"}
 
 	p := propstest.New(

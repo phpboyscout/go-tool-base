@@ -26,11 +26,13 @@
 package propstest
 
 import (
+	"context"
 	"io"
 
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
+	configafero "gitlab.com/phpboyscout/go/config-afero"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
@@ -48,7 +50,7 @@ type options struct {
 	collector  props.TelemetryCollector
 	version    version.Version
 	assets     props.Assets
-	config     config.Containable
+	config     *config.Store
 	errHandler errorhandling.ErrorHandler
 }
 
@@ -85,14 +87,57 @@ func WithAssets(a props.Assets) Option {
 	return func(o *options) { o.assets = a }
 }
 
-// WithConfig overrides the default empty config container.
-func WithConfig(c config.Containable) Option {
+// WithConfig overrides the default empty config store.
+func WithConfig(c *config.Store) Option {
 	return func(o *options) { o.config = c }
 }
 
 // WithErrorHandler overrides the default inert error handler.
 func WithErrorHandler(h errorhandling.ErrorHandler) Option {
 	return func(o *options) { o.errHandler = h }
+}
+
+// emptyStore builds a store with nothing in it, so every accessor is safe and
+// returns the zero value.
+//
+// Backed by a file on the test's own filesystem rather than an in-memory
+// reader, for two reasons.
+//
+// It has to be writable. The container this replaced supported Set, so a
+// read-only default would break every test that writes configuration — and
+// break it late, with "no writable layer for change" from whichever line
+// happened to write first rather than from the construction that caused it. A
+// reader source cannot be written to.
+//
+// It also exercises the adapter production uses. The file lands on the same
+// afero filesystem the test already holds, reached through the same
+// configafero.Wrap bridge, so the default path under test is the real one.
+//
+// Callers who want configuration with something in it write to o.fs before
+// calling New, or pass their own store via WithConfig.
+func emptyStore(filesystem afero.Fs) *config.Store {
+	const (
+		path = "/propstest-config.yaml"
+		// Owner-only, matching what config writes: a test store that differed
+		// would hide a permissions mistake rather than reproduce it.
+		perm = 0o600
+	)
+
+	if err := afero.WriteFile(filesystem, path, []byte(""), perm); err != nil {
+		panic("propstest: seeding the config file: " + err.Error())
+	}
+
+	store, err := config.NewStore(context.Background(),
+		config.WithFiles(configafero.Wrap(filesystem), path))
+	if err != nil {
+		// Unreachable: the file was just written to a filesystem the caller
+		// owns. Panicking beats returning nil, which would defer the failure to
+		// an unrelated nil dereference in whichever test read configuration
+		// first.
+		panic("propstest: empty config store: " + err.Error())
+	}
+
+	return store
 }
 
 // defaultTool returns benign, valid Tool metadata so bootstrap-style code under
@@ -140,9 +185,7 @@ func New(opts ...Option) *props.Props {
 	}
 
 	if o.config == nil {
-		// NewReaderContainer with no readers yields an empty-but-usable
-		// container: every Get* accessor is safe and returns the zero value.
-		o.config = config.NewReaderContainer(o.fs)
+		o.config = emptyStore(o.fs)
 	}
 
 	if o.errHandler == nil {

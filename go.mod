@@ -39,7 +39,8 @@ require (
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
 	gitlab.com/phpboyscout/go/chat-openai v0.1.0
-	gitlab.com/phpboyscout/go/config v0.2.0
+	gitlab.com/phpboyscout/go/config v0.4.0
+	gitlab.com/phpboyscout/go/config-afero v0.1.0
 	gitlab.com/phpboyscout/go/controls v0.1.0
 	gitlab.com/phpboyscout/go/credentials v0.2.0
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
@@ -150,6 +151,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
+	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/gofrs/uuid v4.3.1+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -252,6 +254,7 @@ require (
 	gitlab.com/phpboyscout/go/aferobilly v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect
+	gitlab.com/phpboyscout/go/yamldoc v0.1.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
