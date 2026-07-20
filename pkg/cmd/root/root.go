@@ -423,7 +423,7 @@ type UpdateCheckResult struct {
 }
 
 // checkForUpdates handles the version checking and update prompting logic.
-func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, flags *FlagValues, state *rootState) *UpdateCheckResult {
+func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
 
 	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, props.Config.View().GetString("update.policy"))
@@ -436,7 +436,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 		warnIfBehindCached(props)
 	}
 
-	if shouldSkipUpdateCheck(props, cmd, flags, state) {
+	if shouldSkipUpdateCheck(props, cmd, state) {
 		return result
 	}
 
@@ -483,7 +483,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 	return result
 }
 
-func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues, state *rootState) bool {
+func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, state *rootState) bool {
 	// Skip update checks in various conditions
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
 		(props.Version != nil && props.Version.IsDevelopment()) ||
@@ -815,7 +815,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 			return nil
 		}
 
-		updateResult := checkForUpdates(cmd.Context(), cmd, props, flags, state)
+		updateResult := checkForUpdates(cmd.Context(), cmd, props, state)
 		if updateResult.Error != nil {
 			return updateResult.Error
 		}

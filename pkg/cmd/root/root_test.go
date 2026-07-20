@@ -19,10 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
-	configMocks "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -41,72 +41,32 @@ func TestExtractFlags(t *testing.T) {
 		name          string
 		setupCmd      func() *cobra.Command
 		expectError   bool
-		expectedCI    bool
 		expectedDebug bool
 	}{
 		{
 			name: "default flags",
 			setupCmd: func() *cobra.Command {
 				cmd := &cobra.Command{}
-				cmd.Flags().Bool("ci", false, "ci flag")
 				cmd.Flags().Bool("debug", false, "debug flag")
 				return cmd
 			},
 			expectError:   false,
-			expectedCI:    false,
-			expectedDebug: false,
-		},
-		{
-			name: "ci flag set to true",
-			setupCmd: func() *cobra.Command {
-				cmd := &cobra.Command{}
-				cmd.Flags().Bool("ci", true, "ci flag")
-				cmd.Flags().Bool("debug", false, "debug flag")
-				return cmd
-			},
-			expectError:   false,
-			expectedCI:    true,
 			expectedDebug: false,
 		},
 		{
 			name: "debug flag set to true",
 			setupCmd: func() *cobra.Command {
 				cmd := &cobra.Command{}
-				cmd.Flags().Bool("ci", false, "ci flag")
 				cmd.Flags().Bool("debug", true, "debug flag")
 				return cmd
 			},
 			expectError:   false,
-			expectedCI:    false,
 			expectedDebug: true,
-		},
-		{
-			name: "both flags set to true",
-			setupCmd: func() *cobra.Command {
-				cmd := &cobra.Command{}
-				cmd.Flags().Bool("ci", true, "ci flag")
-				cmd.Flags().Bool("debug", true, "debug flag")
-				return cmd
-			},
-			expectError:   false,
-			expectedCI:    true,
-			expectedDebug: true,
-		},
-		{
-			name: "missing ci flag",
-			setupCmd: func() *cobra.Command {
-				cmd := &cobra.Command{}
-				cmd.Flags().Bool("debug", false, "debug flag")
-				// ci flag is missing
-				return cmd
-			},
-			expectError: true,
 		},
 		{
 			name: "missing debug flag",
 			setupCmd: func() *cobra.Command {
 				cmd := &cobra.Command{}
-				cmd.Flags().Bool("ci", false, "ci flag")
 				// debug flag is missing
 				return cmd
 			},
@@ -129,13 +89,12 @@ func TestExtractFlags(t *testing.T) {
 
 			require.NoError(t, err)
 			require.NotNil(t, flags)
-			assert.Equal(t, tt.expectedCI, flags.CI)
 			assert.Equal(t, tt.expectedDebug, flags.Debug)
 		})
 	}
 }
 
-func TestLoadAndMergeConfig(t *testing.T) {
+func TestBuildConfigStore(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
@@ -247,7 +206,7 @@ database:
 			t.Parallel()
 
 			opts := tt.setupOptions()
-			cfg, err := loadAndMergeConfig(opts)
+			cfg, err := buildConfigStore(t.Context(), opts)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -258,16 +217,18 @@ database:
 			require.NoError(t, err)
 			require.NotNil(t, cfg)
 
+			view := cfg.View()
+
 			// Test expected values
 			if tt.expectedMainKey != "" {
-				assert.Equal(t, tt.expectedMainKey, cfg.GetString("main.key"))
+				assert.Equal(t, tt.expectedMainKey, view.GetString("main.key"))
 			}
 			if tt.expectedEmbedKey != "" {
-				assert.Equal(t, tt.expectedEmbedKey, cfg.GetString("embedded.key"))
+				assert.Equal(t, tt.expectedEmbedKey, view.GetString("embedded.key"))
 			}
 			if tt.expectedSharedKey != "" {
 				// Access the shared value from the main section
-				assert.Equal(t, tt.expectedSharedKey, cfg.GetString("main.shared"))
+				assert.Equal(t, tt.expectedSharedKey, view.GetString("main.shared"))
 			}
 		})
 	}
@@ -411,27 +372,27 @@ plugins:
 			err := afero.WriteFile(fs, "main-config.yaml", []byte(tt.mainConfigContent), 0o644)
 			require.NoError(t, err)
 
-			// Load main config
-			mainCfg, err := config.Load([]string{"main-config.yaml"}, fs, false, config.WithLogger(logger.ToSlog(l)))
-			require.NoError(t, err, "failed to load main config")
-
-			// Setup mock embedded filesystem using fstest.MapFS
+			// The embedded config arrives through a registered asset bundle,
+			// exactly as a feature ships one.
 			mockAssets := fstest.MapFS{
 				tt.embedConfigPath: &fstest.MapFile{Data: []byte(tt.embedConfigContent)},
 			}
 
-			// Load embedded config using our mock
-			embeddedCfg, err := config.LoadEmbed([]string{tt.embedConfigPath}, mockAssets, config.WithLogger(logger.ToSlog(l)))
-			require.NoError(t, err, "failed to load embedded config")
+			props := &p.Props{
+				Logger: l,
+				FS:     fs,
+				Assets: p.NewAssets(p.AssetMap{"test": mockAssets}),
+			}
 
-			// Perform the merge exactly as loadAndMergeConfig does
-			// Use MergeConfig with JSON for a deep merge (main config (mainCfg) overrides embedded (embeddedCfg))
-			t.Logf("--- %s ---", tt.name)
-			err = embeddedCfg.GetViper().MergeConfig(strings.NewReader(mainCfg.ToJSON()))
-			require.NoError(t, err, "failed to merge configs")
+			store, err := buildConfigStore(t.Context(), ConfigLoadOptions{
+				CfgPaths:    []string{"main-config.yaml"},
+				ConfigPaths: []string{tt.embedConfigPath},
+				Props:       props,
+			})
+			require.NoError(t, err, "failed to build config store")
 
 			// The merged config should have main config values taking precedence
-			mergedCfg := embeddedCfg
+			mergedCfg := store.View()
 
 			// Verify all expected values
 			for key, expectedValue := range tt.expectedValues {
@@ -525,16 +486,8 @@ func TestConfigureLogging(t *testing.T) {
 				Debug: tt.debugFlag,
 			}
 
-			// Create mock config using the generated mockery mock
-			mockCfg := configMocks.NewMockContainable(t)
-
-			// Only expect log.level call when debug flag is false
-			if !tt.debugFlag {
-				mockCfg.EXPECT().GetString("log.level").Return(tt.logLevel)
-			}
-
-			// Always expect log.format call
-			mockCfg.EXPECT().GetString("log.format").Return(tt.logFormat)
+			view := testutil.ViewFromYAML(t,
+				"log:\n  level: "+tt.logLevel+"\n  format: "+tt.logFormat+"\n")
 
 			// Create level var for MCP logging
 			mcpLogLevel := &slog.LevelVar{}
@@ -542,7 +495,7 @@ func TestConfigureLogging(t *testing.T) {
 			mcpLogLevel.Set(slog.LevelInfo)
 
 			// Configure logging
-			configureLogging(props, flags, mockCfg, mcpLogLevel)
+			configureLogging(props, flags, view, mcpLogLevel)
 
 			// Map the expected charm level to slog for the assertions below.
 			var expectedSlogLevel slog.Level
@@ -584,7 +537,6 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 		name         string
 		toolDisabled []p.FeatureCmd
 		redirecting  bool
-		ciFlag       bool
 		configCI     bool
 		cmdName      string
 		expectedSkip bool
@@ -600,8 +552,10 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			expectedSkip: true,
 		},
 		{
+			// The --ci flag reaches configuration through the flags layer, so
+			// the config key is the single source of truth here.
 			name:         "skip when CI flag is true",
-			ciFlag:       true,
+			configCI:     true,
 			expectedSkip: true,
 		},
 		{
@@ -639,11 +593,12 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			state := newRootState()
 			state.redirectingToUpdate = tt.redirecting
 
-			// Create mock config
-			mockCfg := configMocks.NewMockContainable(t)
-			mockCfg.EXPECT().GetBool("ci").Return(tt.configCI).Maybe()
-			// shouldSkipUpdateCheck resolves the configurable check interval.
-			mockCfg.EXPECT().GetString("update.check_interval").Return("").Maybe()
+			yaml := "{}\n"
+			if tt.configCI {
+				yaml = "ci: true\n"
+			}
+
+			mockCfg := testutil.StoreFromYAML(t, yaml)
 
 			// Create props — build features that disable the specified commands
 			var disableMutators []p.FeatureState
@@ -660,18 +615,13 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 				FS:     afero.NewMemMapFs(),
 			}
 
-			// Create flags
-			flags := &FlagValues{
-				CI: tt.ciFlag,
-			}
-
 			// Create command
 			cmd := &cobra.Command{
 				Use: tt.cmdName,
 			}
 
 			// Test shouldSkipUpdateCheck
-			result := shouldSkipUpdateCheck(props, cmd, flags, state)
+			result := shouldSkipUpdateCheck(props, cmd, state)
 
 			assert.Equal(t, tt.expectedSkip, result)
 		})
@@ -1075,7 +1025,7 @@ func TestValidateConfig_WarnsOnEmptySetKeys(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	log := logger.NewBuffer()
-	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(log)), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("github:\n  token: \"\"\n")))
+	cfg := testutil.ViewFromYAML(t, "github:\n  token: \"\"\n")
 	validateConfig(cfg, log)
 	assert.True(t, log.Contains("github.token is set but empty"))
 }
@@ -1084,46 +1034,42 @@ func TestValidateConfig_NoWarningForMissingKeys(t *testing.T) {
 	t.Parallel()
 
 	log := logger.NewBuffer()
-	cfg := config.NewReaderContainer(afero.NewMemMapFs(), config.WithLogger(logger.ToSlog(log)), config.WithConfigFormat("yaml"), config.WithConfigReaders(strings.NewReader("other: value\n")))
+	cfg := testutil.ViewFromYAML(t, "other: value\n")
 	validateConfig(cfg, log)
 	assert.False(t, log.Contains("is set but empty"))
 }
 
-func TestMergeEmbeddedConfigs_NilAssets(t *testing.T) {
+func TestEmbeddedSources_NilAssets(t *testing.T) {
 	t.Parallel()
 
-	l := logger.NewNoop()
 	props := &p.Props{
-		Logger: l,
+		Logger: logger.NewNoop(),
 		FS:     afero.NewMemMapFs(),
 		Assets: nil,
 	}
-	result, err := mergeEmbeddedConfigs(ConfigLoadOptions{
+	result := embeddedSources(ConfigLoadOptions{
 		ConfigPaths: []string{"config.yaml"},
 		Props:       props,
 	})
-	require.NoError(t, err)
-	assert.Nil(t, result)
+	assert.Empty(t, result)
 }
 
-func TestMergeEmbeddedConfigs_EmptyPaths(t *testing.T) {
+func TestEmbeddedSources_EmptyPaths(t *testing.T) {
 	t.Parallel()
 
-	l := logger.NewNoop()
 	props := &p.Props{
-		Logger: l,
+		Logger: logger.NewNoop(),
 		FS:     afero.NewMemMapFs(),
 		Assets: p.NewAssets(),
 	}
-	result, err := mergeEmbeddedConfigs(ConfigLoadOptions{
+	result := embeddedSources(ConfigLoadOptions{
 		ConfigPaths: []string{},
 		Props:       props,
 	})
-	require.NoError(t, err)
-	assert.Nil(t, result)
+	assert.Empty(t, result)
 }
 
-func TestMergeEmbeddedConfigs_WithAssets(t *testing.T) {
+func TestEmbeddedSources_WithAssets(t *testing.T) {
 	t.Parallel()
 
 	assets := p.NewAssets(p.AssetMap{
@@ -1135,13 +1081,13 @@ func TestMergeEmbeddedConfigs_WithAssets(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Assets: assets,
 	}
-	result, err := mergeEmbeddedConfigs(ConfigLoadOptions{
+	result := embeddedSources(ConfigLoadOptions{
 		ConfigPaths: []string{"config.yaml"},
 		Props:       props,
 	})
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	assert.Equal(t, "value", result.GetString("key"))
+	require.Len(t, result, 1)
+	assert.Equal(t, "embedded:config.yaml", result[0].Name)
+	assert.Equal(t, "key: value\n", string(result[0].Content))
 }
 
 func TestMapLogLevel_Default(t *testing.T) {
@@ -1151,7 +1097,7 @@ func TestMapLogLevel_Default(t *testing.T) {
 	assert.Equal(t, slog.LevelInfo, mapLogLevel(unknown))
 }
 
-func TestLoadAndMergeConfig_WithEmbeddedConfig(t *testing.T) {
+func TestBuildConfigStore_WithEmbeddedConfig(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
@@ -1172,7 +1118,7 @@ func TestLoadAndMergeConfig_WithEmbeddedConfig(t *testing.T) {
 		Assets: assets,
 	}
 
-	cfg, err := loadAndMergeConfig(ConfigLoadOptions{
+	cfg, err := buildConfigStore(t.Context(), ConfigLoadOptions{
 		CfgPaths:    []string{"main.yaml"},
 		ConfigPaths: []string{"defaults.yaml"},
 		Props:       props,
@@ -1180,10 +1126,12 @@ func TestLoadAndMergeConfig_WithEmbeddedConfig(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
+
+	view := cfg.View()
 	// main.yaml overrides the embedded default
-	assert.Equal(t, "override", cfg.GetString("main.key"))
+	assert.Equal(t, "override", view.GetString("main.key"))
 	// embedded-only key preserved
-	assert.Equal(t, "value", cfg.GetString("main.extra"))
+	assert.Equal(t, "value", view.GetString("main.extra"))
 }
 
 func TestExecute_Success(t *testing.T) {
@@ -1438,7 +1386,7 @@ func TestBootstrapOrdering_RootBeforeChild(t *testing.T) {
 
 	props, cfgPath := bootstrapTestProps(t)
 
-	var configWhenChildHookRan config.Containable
+	var configWhenChildHookRan *config.Store
 
 	child := &cobra.Command{
 		Use: "child",

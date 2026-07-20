@@ -12,8 +12,7 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
-	"gitlab.com/phpboyscout/go/config"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -50,9 +49,7 @@ func (m *MockChatClient) Usage() gochat.Usage {
 func TestGenerateDocs_Command(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))
-	cfgContainer.GetViper().Set("ai.provider", "mock")
-	cfgContainer.GetViper().Set("ai.model", "test-model")
+	cfgContainer := testutil.StoreFromYAML(t, "ai:\n  provider: mock\n  model: test-model\n")
 
 	// Setup mock FS
 	root := "/work"
@@ -115,7 +112,7 @@ This is a generated doc.
 func TestGenerateDocs_Package(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))
+	cfgContainer := emptyTestStore(t)
 
 	// Setup mock FS
 	root := "/work"
@@ -261,8 +258,7 @@ func TestGetModuleNameSafe(t *testing.T) {
 }
 
 func TestResolveAIConfig(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	cfgContainer := config.NewFilesContainer(fs)
+	cfgContainer := emptyTestStore(t)
 
 	g := &Generator{
 		props: &props.Props{Config: cfgContainer},
@@ -570,7 +566,7 @@ func TestGenerateCommandsIndex(t *testing.T) {
 func TestGenerateDocs_OptInBoilerplateWithoutProvider(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	cfgContainer := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l)))
+	cfgContainer := emptyTestStore(t)
 	// Deliberately NO ai.provider set.
 
 	root := "/work"
@@ -618,10 +614,13 @@ func TestAIDocsEnabled(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fs := afero.NewMemMapFs()
-			cfgContainer := config.NewFilesContainer(fs)
+
+			yaml := "{}\n"
 			if tc.propProvider != "" {
-				cfgContainer.GetViper().Set("ai.provider", tc.propProvider)
+				yaml = "ai:\n  provider: " + tc.propProvider + "\n"
 			}
+
+			cfgContainer := testutil.StoreFromYAML(t, yaml)
 
 			g := &Generator{
 				props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: cfgContainer},

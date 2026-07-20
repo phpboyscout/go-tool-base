@@ -5,12 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -84,12 +82,9 @@ func TestNewUpdater_NilConfigErrors(t *testing.T) {
 func TestNewUpdater_UnknownProviderErrors(t *testing.T) {
 	t.Parallel()
 
-	v := viper.New()
-	v.Set("vcs.provider", "bogus-provider")
-
 	p := &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
+		Config: testutil.StoreFromYAML(t, "vcs:\n  provider: bogus-provider\n"),
 		Tool:   props.Tool{ReleaseSource: props.ReleaseSource{Type: "github", Owner: "o", Repo: "r"}},
 	}
 
@@ -101,7 +96,7 @@ func TestNewUpdater_UnknownProviderErrors(t *testing.T) {
 // It mutates process env via t.Setenv, so it is not parallel.
 func TestRequireReleaseToken(t *testing.T) {
 	ctx := context.Background()
-	p := &props.Props{Logger: logger.NewNoop(), Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())}
+	p := &props.Props{Logger: logger.NewNoop(), Config: testutil.StoreFromYAML(t, "{}\n")}
 
 	t.Run("bitbucket needs no single token", func(t *testing.T) {
 		require.NoError(t, requireReleaseToken(ctx, "bitbucket", p))

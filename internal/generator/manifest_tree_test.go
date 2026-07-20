@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -70,7 +68,7 @@ func NewCmdSocial(props *props.Props) *setup.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	p := &props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs), Tool: props.Tool{Name: "test-tool"}}
+	p := &props.Props{FS: fs, Logger: l, Config: emptyTestStore(t), Tool: props.Tool{Name: "test-tool"}}
 
 	g := New(p, &Config{Path: workDir})
 	require.NoError(t, g.RegenerateManifest(context.Background()))
@@ -137,7 +135,7 @@ func NewCmdCover(props *props.Props) *setup.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	p := &props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs), Tool: props.Tool{Name: "test-tool"}}
+	p := &props.Props{FS: fs, Logger: l, Config: emptyTestStore(t), Tool: props.Tool{Name: "test-tool"}}
 
 	g := New(p, &Config{Path: workDir})
 	require.NoError(t, g.RegenerateManifest(context.Background()))
@@ -211,7 +209,7 @@ func NewCmdChild(p *props.Props) *cobra.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	conf := config.NewFilesContainer(fs)
+	conf := emptyTestStore(t)
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
@@ -326,7 +324,7 @@ func NewCmdBuild(props *props.Props) *setup.Command {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs),
+		Config: emptyTestStore(t),
 		Tool:   props.Tool{Name: "test-tool"},
 	}
 
@@ -425,7 +423,7 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs),
+		Config: emptyTestStore(t),
 		Tool:   props.Tool{Name: "test-tool"},
 	}
 
@@ -499,7 +497,7 @@ func NewCmdDup2(p *props.Props) *cobra.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	conf := config.NewFilesContainer(fs)
+	conf := emptyTestStore(t)
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
@@ -635,7 +633,7 @@ func NewCmdChild2(p *props.Props) *cobra.Command {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte("properties:\n  name: test-tool\n"), 0644))
 
-	conf := config.NewFilesContainer(fs)
+	conf := emptyTestStore(t)
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,

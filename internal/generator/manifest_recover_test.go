@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -30,7 +28,7 @@ func TestRegenerateManifest_FromScratchReconstructsProperties(t *testing.T) {
 	p := &props.Props{
 		FS:      fs,
 		Logger:  l,
-		Config:  config.NewContainerFromViper(nil, nil),
+		Config:  emptyTestStore(t),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 

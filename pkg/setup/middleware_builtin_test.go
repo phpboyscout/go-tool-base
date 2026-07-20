@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -128,16 +128,20 @@ func TestWithRecovery(t *testing.T) {
 }
 
 func TestWithAuthCheck(t *testing.T) {
-	// Not parallel because it modifies global viper state
+	t.Parallel()
+
+	propsWith := func(t *testing.T, yaml string) *props.Props {
+		t.Helper()
+
+		return &props.Props{Config: testutil.StoreFromYAML(t, yaml)}
+	}
 
 	t.Run("AllKeysPresent", func(t *testing.T) {
-		viper.Reset()
-		t.Cleanup(viper.Reset)
+		t.Parallel()
 
-		viper.Set("test.key1", "value1")
-		viper.Set("test.key2", "value2")
+		p := propsWith(t, "test:\n  key1: value1\n  key2: value2\n")
 
-		mw := WithAuthCheck("test.key1", "test.key2")
+		mw := WithAuthCheck(p, "test.key1", "test.key2")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -147,12 +151,11 @@ func TestWithAuthCheck(t *testing.T) {
 	})
 
 	t.Run("MissingKey", func(t *testing.T) {
-		viper.Reset()
-		t.Cleanup(viper.Reset)
+		t.Parallel()
 
-		viper.Set("test.key1", "value1")
+		p := propsWith(t, "test:\n  key1: value1\n")
 
-		mw := WithAuthCheck("test.key1", "test.missing")
+		mw := WithAuthCheck(p, "test.key1", "test.missing")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -163,12 +166,11 @@ func TestWithAuthCheck(t *testing.T) {
 	})
 
 	t.Run("EmptyKey", func(t *testing.T) {
-		viper.Reset()
-		t.Cleanup(viper.Reset)
+		t.Parallel()
 
-		viper.Set("test.key1", "")
+		p := propsWith(t, "test:\n  key1: \"\"\n")
 
-		mw := WithAuthCheck("test.key1")
+		mw := WithAuthCheck(p, "test.key1")
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
@@ -178,20 +180,28 @@ func TestWithAuthCheck(t *testing.T) {
 		assert.Contains(t, err.Error(), "required configuration \"test.key1\" is not set")
 	})
 
-	t.Run("NoKeys", func(t *testing.T) {
-		viper.Reset()
-		t.Cleanup(viper.Reset)
+	t.Run("NoKeysIsNoOp", func(t *testing.T) {
+		t.Parallel()
 
-		mw := WithAuthCheck()
+		mw := WithAuthCheck(nil)
 		handler := mw(func(cmd *cobra.Command, args []string) error {
 			return nil
 		})
 
-		err := handler(&cobra.Command{}, nil)
-		assert.NoError(t, err)
+		assert.NoError(t, handler(&cobra.Command{}, nil))
+	})
+
+	t.Run("NoConfigFailsCheck", func(t *testing.T) {
+		t.Parallel()
+
+		mw := WithAuthCheck(&props.Props{}, "test.key1")
+		handler := mw(func(cmd *cobra.Command, args []string) error {
+			return nil
+		})
+
+		require.Error(t, handler(&cobra.Command{}, nil))
 	})
 }
-
 func TestWithTelemetry(t *testing.T) {
 	t.Run("RecordsSuccessfulCommand", func(t *testing.T) {
 		rc := &recordingCollector{}

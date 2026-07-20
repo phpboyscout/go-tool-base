@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -28,7 +26,7 @@ func setupTestProject(t *testing.T, path string) *props.Props {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
+		Config: emptyTestStore(t),
 	}
 
 	g := New(p, &Config{})

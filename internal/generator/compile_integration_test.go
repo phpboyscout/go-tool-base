@@ -11,8 +11,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -45,7 +43,7 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
+		Config: emptyTestStore(t),
 	}
 
 	// Use a no-op runCommand so the skeleton does not auto-run
@@ -81,7 +79,9 @@ func TestGeneratedProjectCompiles(t *testing.T) {
 	injectGoToolBaseReplace(t, path, localModule)
 
 	runGo(t, path, "mod", "tidy")
-	runGo(t, path, "build", "./...")
+	// -buildvcs=false: the scaffold lives in a bare temp dir, and VCS
+	// stamping would shell out to git and fail there rather than build.
+	runGo(t, path, "build", "-buildvcs=false", "./...")
 }
 
 // runGo runs a `go <args...>` command in dir and fails the test on any

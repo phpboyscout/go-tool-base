@@ -9,8 +9,7 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
-	"gitlab.com/phpboyscout/go/config"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -47,10 +46,13 @@ func TestResolveProvider(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("AI_PROVIDER", "") // Ensure no env var interference
-			c := config.NewFilesContainer(afero.NewMemMapFs())
+
+			yaml := "{}\n"
 			if tt.propProvider != "" {
-				c.GetViper().Set("ai.provider", tt.propProvider)
+				yaml = "ai:\n  provider: " + tt.propProvider + "\n"
 			}
+
+			c := testutil.StoreFromYAML(t, yaml)
 
 			g := &Generator{
 				props: &props.Props{
@@ -67,10 +69,8 @@ func TestResolveProvider(t *testing.T) {
 }
 
 func TestResolveToken(t *testing.T) {
-	c := config.NewFilesContainer(afero.NewMemMapFs())
-	c.GetViper().Set("openai.api.key", "sk-openai")
-	c.GetViper().Set("anthropic.api.key", "sk-anthropic")
-	c.GetViper().Set("gemini.api.key", "sk-gemini")
+	c := testutil.StoreFromYAML(t,
+		"openai:\n  api:\n    key: sk-openai\nanthropic:\n  api:\n    key: sk-anthropic\ngemini:\n  api:\n    key: sk-gemini\n")
 
 	g := &Generator{
 		props: &props.Props{

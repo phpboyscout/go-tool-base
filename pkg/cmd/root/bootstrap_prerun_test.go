@@ -211,7 +211,7 @@ func TestAutoInitialiseConfig_NoHomeDir(t *testing.T) {
 		Tool:   p.Tool{Name: "nohome-tool"},
 	}
 
-	_, err := autoInitialiseConfig(props, ConfigLoadOptions{Props: props})
+	_, err := autoInitialiseConfig(t.Context(), props, ConfigLoadOptions{Props: props})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "config directory")
 }

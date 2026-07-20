@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -41,7 +39,7 @@ func TestEnableDisableSigning_OnExistingProject(t *testing.T) {
 		p := &props.Props{
 			FS:     fs,
 			Logger: l,
-			Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
+			Config: emptyTestStore(t),
 		}
 		g := New(p, cfg)
 		g.runCommand = func(_ context.Context, _, _ string, _ ...string) ([]byte, error) {

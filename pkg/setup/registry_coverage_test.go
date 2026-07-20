@@ -5,13 +5,10 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -179,8 +176,7 @@ func TestRequireReleaseToken_GiteaCodebergDirect(t *testing.T) {
 			// Not parallel: mutates process env via t.Setenv.
 			t.Setenv(tt.fallbackEnv, "")
 
-			cfg := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
-			p := &props.Props{Config: cfg}
+			p := &props.Props{Config: testutil.StoreFromYAML(t, "{}\n")}
 
 			require.Error(t, requireReleaseToken(context.Background(), tt.vcsProvider, p))
 		})
@@ -188,11 +184,7 @@ func TestRequireReleaseToken_GiteaCodebergDirect(t *testing.T) {
 		t.Run(tt.name+" with config token succeeds", func(t *testing.T) {
 			t.Setenv(tt.fallbackEnv, "")
 
-			v := viper.New()
-			v.Set(tt.vcsProvider+".auth.value", "secret-token")
-
-			cfg := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v)
-			p := &props.Props{Config: cfg}
+			p := &props.Props{Config: testutil.StoreFromYAML(t, tt.vcsProvider+":\n  auth:\n    value: secret-token\n")}
 
 			require.NoError(t, requireReleaseToken(context.Background(), tt.vcsProvider, p))
 		})

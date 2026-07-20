@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -20,7 +18,7 @@ func TestAddCommand_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	// Config container requires a logger
 	l := logger.NewNoop()
-	conf := config.NewFilesContainer(fs)
+	conf := emptyTestStore(t)
 
 	p := &props.Props{
 		FS:      fs,
@@ -67,7 +65,7 @@ func NewCmdRoot(p *props.Props) *cobra.Command {
 func TestRegenerateProject_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	conf := config.NewFilesContainer(fs)
+	conf := emptyTestStore(t)
 
 	p := &props.Props{
 		FS:      fs,
@@ -102,7 +100,7 @@ func TestRegenerateProject_Lifecycle(t *testing.T) {
 func TestRegenerateManifest_Lifecycle(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	conf := config.NewFilesContainer(fs)
+	conf := emptyTestStore(t)
 
 	p := &props.Props{
 		FS:      fs,

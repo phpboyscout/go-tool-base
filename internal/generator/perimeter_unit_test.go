@@ -22,8 +22,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -49,7 +47,7 @@ func newPerimeterTestProject(t *testing.T, manifest string) (*Generator, afero.F
 	p := &props.Props{
 		FS:      fs,
 		Logger:  buf,
-		Config:  config.NewFilesContainer(fs),
+		Config:  emptyTestStore(t),
 		Version: version.NewInfo("v1.0.0", "", ""),
 	}
 

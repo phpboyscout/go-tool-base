@@ -6,8 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	configMocks "gitlab.com/phpboyscout/go/config/mocks"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
@@ -55,8 +54,7 @@ func TestFlushTelemetry_FlushesEnabledCollectorDespiteConfigKey(t *testing.T) {
 	collector := telemetry.NewCollector(telemetry.Config{Enabled: true}, spy,
 		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
-	cfg := configMocks.NewMockContainable(t)
-	cfg.EXPECT().GetBool("telemetry.enabled").Return(false).Maybe()
+	cfg := testutil.StoreFromYAML(t, "telemetry:\n  enabled: false\n")
 
 	props := &p.Props{Logger: logger.NewNoop(), Config: cfg, Collector: collector}
 

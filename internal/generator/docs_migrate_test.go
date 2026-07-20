@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -42,7 +40,7 @@ commands:
 	write("docs/packages/config/index.md", "CONFIG DOC")
 
 	g := &Generator{
-		props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: config.NewFilesContainer(fs)},
+		props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: emptyTestStore(t)},
 		config: &Config{Path: root},
 	}
 
@@ -119,7 +117,7 @@ func TestMigrateFlatDocsToDiataxis_PartialTrees(t *testing.T) {
 			}
 
 			g := &Generator{
-				props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: config.NewFilesContainer(fs)},
+				props:  &props.Props{FS: fs, Logger: logger.NewNoop(), Config: emptyTestStore(t)},
 				config: &Config{Path: root},
 			}
 

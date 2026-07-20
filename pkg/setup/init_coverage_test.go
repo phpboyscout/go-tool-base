@@ -24,7 +24,7 @@ func TestInitialise_Basic(t *testing.T) {
 
 	targetDir := "/home/testuser/.testtool"
 
-	configPath, err := Initialise(p, InitOptions{
+	configPath, err := Initialise(t.Context(), p, InitOptions{
 		Dir: targetDir,
 	})
 	require.NoError(t, err)

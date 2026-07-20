@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -98,8 +96,7 @@ func TestCollectAncestoralPersistentFlags(t *testing.T) {
 func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	sl := logger.NewNoop()
-	conf := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(sl)))
+	conf := emptyTestStore(t)
 
 	p := &props.Props{
 		FS:     fs,
@@ -132,8 +129,7 @@ func TestHandleDocumentationGeneration_Fallback(t *testing.T) {
 func TestCheckProtection(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	sl := logger.NewNoop()
-	conf := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(sl)))
+	conf := emptyTestStore(t)
 
 	// Create a manifest with one protected command and one unprotected command
 	manifestPath := "/work/.gtb/manifest.yaml"
@@ -231,8 +227,7 @@ func TestCheckProtection(t *testing.T) {
 func TestPrepareAndVerify(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()
-	sl := logger.NewNoop()
-	conf := config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(sl)))
+	conf := emptyTestStore(t)
 
 	// Setup: root command exists
 	_ = fs.MkdirAll("/work/pkg/cmd", 0755)

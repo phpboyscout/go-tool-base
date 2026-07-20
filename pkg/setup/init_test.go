@@ -29,14 +29,14 @@ func TestInitialise_MkdirFailure_PreservesCause(t *testing.T) {
 		FS:     afero.NewReadOnlyFs(afero.NewMemMapFs()),
 	}
 
-	_, err := Initialise(p, InitOptions{Dir: "/cannot/create"})
+	_, err := Initialise(t.Context(), p, InitOptions{Dir: "/cannot/create"})
 	require.Error(t, err)
 	require.ErrorIs(t, err, syscall.EPERM,
 		"the wrapped error must preserve the underlying MkdirAll cause")
 	assert.Contains(t, err.Error(), "Failed to create directory")
 }
 
-func TestInitializeConfig(t *testing.T) {
+func TestOpenConfigEditor(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
@@ -50,21 +50,23 @@ func TestInitializeConfig(t *testing.T) {
 
 	// Test case 1: New config creation
 	t.Run("Create new config", func(t *testing.T) {
-		cfg, err := initializeConfig(p, tmpDir, targetFile, false)
+		editor, path, err := OpenConfigEditor(t.Context(), p, tmpDir, false)
 		require.NoError(t, err)
-		assert.NotNil(t, cfg)
+		assert.NotNil(t, editor)
+		assert.Equal(t, targetFile, path)
+
+		exists, err := afero.Exists(p.FS, targetFile)
+		require.NoError(t, err)
+		assert.True(t, exists, "the config file must be materialised")
 	})
 
-	// Test case 2: Existing config merge
+	// Test case 2: Existing config values survive the template merge
 	t.Run("Merge existing config", func(t *testing.T) {
-		require.NoError(t, p.FS.MkdirAll(tmpDir, 0755))
+		require.NoError(t, afero.WriteFile(p.FS, targetFile, []byte("existing: value\n"), 0o644))
 
-		err := afero.WriteFile(p.FS, targetFile, []byte("existing: value\n"), 0644)
+		editor, _, err := OpenConfigEditor(t.Context(), p, tmpDir, false)
 		require.NoError(t, err)
-
-		cfg, err := initializeConfig(p, tmpDir, targetFile, false)
-		require.NoError(t, err)
-		assert.Equal(t, "value", cfg.GetString("existing"))
+		assert.Equal(t, "value", editor.View().GetString("existing"))
 	})
 }
 
@@ -160,9 +162,9 @@ type recordingInitialiser struct {
 	calls int
 }
 
-func (r *recordingInitialiser) Name() string                         { return "Fake provider" }
-func (r *recordingInitialiser) IsConfigured(config.Containable) bool { return false }
-func (r *recordingInitialiser) Configure(*props.Props, config.Containable) error {
+func (r *recordingInitialiser) Name() string                    { return "Fake provider" }
+func (r *recordingInitialiser) IsConfigured(config.Reader) bool { return false }
+func (r *recordingInitialiser) Configure(*props.Props, Editor) error {
 	r.calls++
 
 	return nil
@@ -175,7 +177,7 @@ func TestInitialise_SkipsWizardsWhenNonInteractive(t *testing.T) {
 	rec := &recordingInitialiser{}
 	notInteractive := false
 
-	_, err := Initialise(p, InitOptions{
+	_, err := Initialise(t.Context(), p, InitOptions{
 		Dir:          t.TempDir(),
 		Initialisers: []Initialiser{rec},
 		Interactive:  &notInteractive,
@@ -191,7 +193,7 @@ func TestInitialise_RunsWizardsWhenInteractive(t *testing.T) {
 	rec := &recordingInitialiser{}
 	interactive := true
 
-	_, err := Initialise(p, InitOptions{
+	_, err := Initialise(t.Context(), p, InitOptions{
 		Dir:          t.TempDir(),
 		Initialisers: []Initialiser{rec},
 		Interactive:  &interactive,

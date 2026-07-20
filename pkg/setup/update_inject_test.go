@@ -4,24 +4,24 @@ import (
 	"context"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // injectProps builds a minimal Props sufficient for NewUpdater's release-client
 // resolution (a loaded Config; Version intentionally nil — guarded).
-func injectProps(tool props.Tool) *props.Props {
+func injectProps(t *testing.T, tool props.Tool) *props.Props {
+	t.Helper()
+
 	return &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New()),
+		Config: testutil.StoreFromYAML(t, "{}\n"),
 		Tool:   tool,
 	}
 }
@@ -35,7 +35,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 		src := forgetest.New(forgetest.WithRelease("v1.0.0"))
 		// An unknown ReleaseSource.Type would fail registry Lookup — proving the
 		// option short-circuits it when resolution succeeds anyway.
-		p := injectProps(props.Tool{ReleaseSource: props.ReleaseSource{Type: "no-such-provider"}})
+		p := injectProps(t, props.Tool{ReleaseSource: props.ReleaseSource{Type: "no-such-provider"}})
 
 		u, err := NewUpdater(context.Background(), p, "", false, WithReleaseProvider(src))
 		require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 		t.Parallel()
 
 		src := forgetest.New(forgetest.WithRelease("v1.0.0"))
-		p := injectProps(props.Tool{
+		p := injectProps(t, props.Tool{
 			ReleaseSource:   props.ReleaseSource{Type: "no-such-provider"},
 			ReleaseProvider: src,
 		})
@@ -61,7 +61,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 
 		field := forgetest.New(forgetest.WithRelease("v1.0.0"))
 		option := forgetest.New(forgetest.WithRelease("v2.0.0"))
-		p := injectProps(props.Tool{ReleaseProvider: field})
+		p := injectProps(t, props.Tool{ReleaseProvider: field})
 
 		u, err := NewUpdater(context.Background(), p, "", false, WithReleaseProvider(option))
 		require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 
 		// No provider injected and an unregistered type → the registry path is
 		// taken and errors, proving we did not silently skip it.
-		p := injectProps(props.Tool{ReleaseSource: props.ReleaseSource{Type: "no-such-provider", Owner: "o", Repo: "r"}})
+		p := injectProps(t, props.Tool{ReleaseSource: props.ReleaseSource{Type: "no-such-provider", Owner: "o", Repo: "r"}})
 
 		_, err := NewUpdater(context.Background(), p, "", false)
 		require.Error(t, err)
@@ -88,7 +88,7 @@ func TestNewUpdater_InjectedProviderSkipsTokenGate(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "") // ensure no ambient token satisfies the gate
 
 	src := forgetest.New(forgetest.WithRelease("v1.0.0"))
-	p := injectProps(props.Tool{
+	p := injectProps(t, props.Tool{
 		ReleaseSource: props.ReleaseSource{Type: "github", Owner: "o", Repo: "r", Private: true},
 	})
 

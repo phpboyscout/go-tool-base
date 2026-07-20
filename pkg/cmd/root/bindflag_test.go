@@ -89,7 +89,7 @@ func TestBindBoundFlags_RootOption(t *testing.T) {
 			probe := &cobra.Command{
 				Use: "probe",
 				RunE: func(_ *cobra.Command, _ []string) error {
-					gotPort = props.Config.GetInt("server.port")
+					gotPort = props.Config.View().GetInt("server.port")
 
 					return nil
 				},
@@ -128,7 +128,7 @@ func TestBindConventionFlags(t *testing.T) {
 	probe := &cobra.Command{
 		Use: "probe",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			gotPort = props.Config.GetInt("server.port")
+			gotPort = props.Config.View().GetInt("server.port")
 
 			return nil
 		},
@@ -180,7 +180,7 @@ func TestBindPrecedence(t *testing.T) {
 			probe := &cobra.Command{
 				Use: "probe",
 				RunE: func(_ *cobra.Command, _ []string) error {
-					gotPort = props.Config.GetInt("server.port")
+					gotPort = props.Config.View().GetInt("server.port")
 
 					return nil
 				},
@@ -229,7 +229,7 @@ func TestBindBuiltins(t *testing.T) {
 	probe := &cobra.Command{
 		Use: "probe",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			gotCI = props.Config.GetBool("ci")
+			gotCI = props.Config.View().GetBool("ci")
 			gotDebugEnabled = props.Logger.Enabled(context.Background(), slog.LevelDebug)
 
 			return nil
@@ -260,7 +260,7 @@ func TestBindPerCommandFlags(t *testing.T) {
 	serve := &cobra.Command{
 		Use: "serve",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			gotPort = props.Config.GetInt("server.port")
+			gotPort = props.Config.View().GetInt("server.port")
 
 			return nil
 		},

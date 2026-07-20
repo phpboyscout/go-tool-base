@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -52,7 +50,7 @@ func newSkeletonGeneratorForTest(t *testing.T, fs afero.Fs) *Generator {
 	p := &props.Props{
 		FS:     fs,
 		Logger: l,
-		Config: config.NewFilesContainer(fs, config.WithLogger(logger.ToSlog(l))),
+		Config: emptyTestStore(t),
 	}
 
 	g := New(p, &Config{})

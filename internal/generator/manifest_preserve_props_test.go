@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -63,7 +61,7 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
 	require.NoError(t, fs.MkdirAll(filepath.Join(workDir, ".gtb"), 0o755))
 	require.NoError(t, afero.WriteFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"), []byte(manifestYAML), 0o644))
 
-	g := New(&props.Props{FS: fs, Logger: l, Config: config.NewFilesContainer(fs), Tool: props.Tool{Name: "test-tool"}}, &Config{Path: workDir})
+	g := New(&props.Props{FS: fs, Logger: l, Config: emptyTestStore(t), Tool: props.Tool{Name: "test-tool"}}, &Config{Path: workDir})
 	require.NoError(t, g.RegenerateManifest(context.Background()))
 
 	data, err := afero.ReadFile(fs, filepath.Join(workDir, ".gtb/manifest.yaml"))

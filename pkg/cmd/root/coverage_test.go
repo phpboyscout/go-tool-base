@@ -3,24 +3,20 @@ package root
 import (
 	"context"
 	"log/slog"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
 	forgetest "gitlab.com/phpboyscout/go/forge/test"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -68,7 +64,7 @@ func newUpdateProps(t *testing.T, currentVersion string, provider *forgetest.Sou
 	return &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo(currentVersion, "", ""),
 		Tool:    updateTool(provider),
 	}
@@ -96,9 +92,7 @@ func TestCheckForUpdates_UpToDate(t *testing.T) {
 	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
 	state := newRootState()
-	flags := &FlagValues{}
-
-	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, flags, state)
+	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
 	require.NotNil(t, result)
 	require.NoError(t, result.Error)
@@ -118,9 +112,7 @@ func TestCheckForUpdates_OutdatedDeclines(t *testing.T) {
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
 	state := newRootState()
-	flags := &FlagValues{}
-
-	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, flags, state)
+	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
 	require.NotNil(t, result)
 	// Default policy is "disabled": available update is logged, not blocked.
@@ -138,9 +130,7 @@ func TestCheckForUpdates_SkippedWhenDevelopment(t *testing.T) {
 	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v0.0.0-dev", provider)
 	state := newRootState()
-	flags := &FlagValues{}
-
-	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, flags, state)
+	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
 	require.NotNil(t, result)
 	require.NoError(t, result.Error)
@@ -165,9 +155,7 @@ func TestCheckForUpdates_EnabledPolicyBlocks(t *testing.T) {
 	state := newRootState()
 	state.formCreator = func(runUpdate *bool) *huh.Form { *runUpdate = false; return nil }
 
-	flags := &FlagValues{}
-
-	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, flags, state)
+	result := checkForUpdates(context.Background(), mkUpdateCmd(t), props, state)
 
 	require.NotNil(t, result)
 	require.Error(t, result.Error, "enabled policy must block on a declined required update")
@@ -185,7 +173,7 @@ func TestWarnIfBehindCached(t *testing.T) {
 	props := &p.Props{
 		Logger:  log,
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Tool:    p.Tool{Name: "covcachetool"},
 	}
@@ -248,7 +236,7 @@ func TestRecordCheckedVersion_Outdated(t *testing.T) {
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Tool:    updateTool(provider),
 	}
@@ -273,7 +261,7 @@ func TestRecordCheckedVersion_UpToDate(t *testing.T) {
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Tool:    updateTool(provider),
 	}
@@ -309,7 +297,7 @@ func TestPerformUpdate_Success(t *testing.T) {
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
 			Name: tool,
@@ -360,7 +348,7 @@ func TestPerformUpdate_DownloadError(t *testing.T) {
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
 			Name: tool,
@@ -405,7 +393,7 @@ func telemetryProps(t *testing.T, tcfg p.TelemetryConfig, enabledFeature bool) *
 	return &p.Props{
 		Logger:  logger.NewBuffer(),
 		FS:      fs,
-		Config:  config.NewReaderContainer(fs),
+		Config:  testutil.StoreFromYAML(t, "{}\n"),
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
 			Name:      "covtelemetrytool",
@@ -568,61 +556,24 @@ func TestResolveVersionString(t *testing.T) {
 	assert.Empty(t, resolveVersionString(nilVersion))
 }
 
-// --- ensureMinimalConfig ---------------------------------------------------
+// --- telemetry consent persistence -----------------------------------------
 
-func TestEnsureMinimalConfig_WritesFile(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-	// Not parallel: GetDefaultConfigDir derives the path from HOME.
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	fs := afero.NewMemMapFs()
-	props := &p.Props{
-		Logger: logger.NewBuffer(),
-		FS:     fs,
-		Tool:   p.Tool{Name: "covminimaltool"},
-	}
-
-	v := viper.New()
-	v.SetFs(fs)
-
-	require.NoError(t, ensureMinimalConfig(props, v, true))
-
-	cfgPath := filepath.Join(setup.GetDefaultConfigDir(fs, props.Tool.Name), setup.DefaultConfigFilename)
-	exists, err := afero.Exists(fs, cfgPath)
-	require.NoError(t, err)
-	assert.True(t, exists, "minimal config file must be written")
-
-	loaded := viper.New()
-	loaded.SetFs(fs)
-	loaded.SetConfigFile(cfgPath)
-	loaded.SetConfigType("yaml")
-	require.NoError(t, loaded.ReadInConfig())
-	assert.True(t, loaded.GetBool("telemetry.enabled"))
-}
-
-// TestEnsureMinimalConfig_NoConfigDir proves the empty-config-dir guard. When
-// HOME is unresolvable GetDefaultConfigDir returns "" and ensureMinimalConfig
-// errors rather than writing to a bogus path.
-func TestEnsureMinimalConfig_NoConfigDir(t *testing.T) {
+// TestPromptTelemetryConsent_ApplyCreatesFile is covered end to end in
+// pkg/cmd/telemetry (setTelemetryEnabled); the root prompt shares the same
+// Apply path. Here the no-config-dir guard is pinned: with HOME unresolvable
+// the prompt's persistence degrades to a debug log rather than writing to a
+// bogus relative path.
+func TestPromptTelemetryConsent_NoConfigDirDoesNotWrite(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
 	// Not parallel: clears HOME so os.UserHomeDir fails.
 	t.Setenv("HOME", "")
 	t.Setenv("USERPROFILE", "") // windows fallback
 
-	props := &p.Props{
-		Logger: logger.NewBuffer(),
-		FS:     afero.NewMemMapFs(),
-		Tool:   p.Tool{Name: "covminimaltool"},
-	}
-
-	v := viper.New()
-	v.SetFs(props.FS)
-
-	err := ensureMinimalConfig(props, v, true)
-	require.Error(t, err, "unresolvable config dir must error")
+	props := consentProps(t, "", true)
+	assert.NotPanics(t, func() {
+		promptTelemetryConsent(t.Context(), props)
+	})
 }
 
 // --- NewCmdRootWithConfig --------------------------------------------------
@@ -705,10 +656,11 @@ func consentProps(t *testing.T, cfgYAML string, featureEnabled bool) *p.Props {
 		feature = p.Disable(p.TelemetryCmd)
 	}
 
-	cfg := config.NewReaderContainer(fs,
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(cfgYAML)),
-	)
+	if cfgYAML == "" {
+		cfgYAML = "{}\n"
+	}
+
+	cfg := testutil.StoreFromYAML(t, cfgYAML)
 
 	return &p.Props{
 		Logger: logger.NewBuffer(),
@@ -728,7 +680,7 @@ func TestPromptTelemetryConsent_FeatureDisabled(t *testing.T) {
 
 	props := consentProps(t, "", false)
 	assert.NotPanics(t, func() {
-		promptTelemetryConsent(props, &FlagValues{})
+		promptTelemetryConsent(t.Context(), props)
 	})
 }
 
@@ -740,7 +692,7 @@ func TestPromptTelemetryConsent_ForceEnabled(t *testing.T) {
 	props := consentProps(t, "", true)
 	props.Tool.Telemetry.ForceEnabled = true
 	assert.NotPanics(t, func() {
-		promptTelemetryConsent(props, &FlagValues{})
+		promptTelemetryConsent(t.Context(), props)
 	})
 }
 
@@ -752,7 +704,7 @@ func TestPromptTelemetryConsent_EnvSet(t *testing.T) {
 
 	props := consentProps(t, "", true)
 	assert.NotPanics(t, func() {
-		promptTelemetryConsent(props, &FlagValues{})
+		promptTelemetryConsent(t.Context(), props)
 	})
 }
 
@@ -762,9 +714,9 @@ func TestPromptTelemetryConsent_AlreadyConfigured(t *testing.T) {
 	t.Parallel()
 
 	props := consentProps(t, "telemetry:\n  enabled: true\n", true)
-	require.True(t, props.Config.IsSet("telemetry.enabled"))
+	require.True(t, props.Config.View().IsSet("telemetry.enabled"))
 	assert.NotPanics(t, func() {
-		promptTelemetryConsent(props, &FlagValues{})
+		promptTelemetryConsent(t.Context(), props)
 	})
 }
 
@@ -773,9 +725,11 @@ func TestPromptTelemetryConsent_CIFlagSkips(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	props := consentProps(t, "", true)
+	// The --ci flag reaches config through the flags layer, so the CI skip is
+	// driven by the config key.
+	props := consentProps(t, "ci: true\n", true)
 	assert.NotPanics(t, func() {
-		promptTelemetryConsent(props, &FlagValues{CI: true})
+		promptTelemetryConsent(t.Context(), props)
 	})
 }
 
@@ -791,7 +745,7 @@ func TestPromptTelemetryConsent_NonInteractiveFormFails(t *testing.T) {
 	// reaches form.Run(), which errors without a TTY.
 	props := consentProps(t, "", true)
 	assert.NotPanics(t, func() {
-		promptTelemetryConsent(props, &FlagValues{})
+		promptTelemetryConsent(t.Context(), props)
 	})
 }
 
@@ -846,7 +800,7 @@ func preRunProps(t *testing.T, currentVersion string, provider *forgetest.Source
 		Logger:       logger.NewBuffer(),
 		FS:           fs,
 		Assets:       nil, // nil skips embedded-config load (no assets/init/config.yaml fixture)
-		Config:       config.NewReaderContainer(fs),
+		Config:       testutil.StoreFromYAML(t, "{}\n"),
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Version:      ver.NewInfo(currentVersion, "", ""),
 		Tool: p.Tool{
@@ -933,7 +887,7 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 		Logger:       logger.NewBuffer(),
 		FS:           fs,
 		Assets:       nil, // nil skips embedded-config load (no assets/init/config.yaml fixture)
-		Config:       config.NewReaderContainer(fs),
+		Config:       testutil.StoreFromYAML(t, "{}\n"),
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Version:      ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
@@ -983,7 +937,7 @@ func TestNewRootPreRunE_UpToDate(t *testing.T) {
 	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	props := preRunProps(t, "v1.0.0", provider)
 	props.FS = afero.NewOsFs()
-	props.Config = config.NewReaderContainer(props.FS)
+	props.Config = testutil.StoreFromYAML(t, "{}\n")
 
 	mcpLogLevel := &slog.LevelVar{}
 	state := newRootState()
@@ -1006,7 +960,7 @@ func TestNewRootPreRunE_UpdateDisabledReturnsEarly(t *testing.T) {
 		Logger:       logger.NewBuffer(),
 		FS:           fs,
 		Assets:       nil, // nil skips embedded-config load (no assets/init/config.yaml fixture)
-		Config:       config.NewReaderContainer(fs),
+		Config:       testutil.StoreFromYAML(t, "{}\n"),
 		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 		Version:      ver.NewInfo("v1.0.0", "", ""),
 		Tool: p.Tool{
