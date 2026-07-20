@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -166,13 +167,17 @@ var ErrNoConfigFile = errors.New("no config file found")
 
 // buildConfigStore constructs the configuration store for a command.
 //
-// Layer order, lowest precedence first, matching the documented precedence and
-// the behaviour this replaces:
+// Layer order, lowest precedence first, matching the documented precedence:
 //
-//  1. embedded asset configs, deep-merged underneath everything
-//  2. the config files — --config paths if given, otherwise the defaults, with
-//     a project-local .<tool>.yaml appended last where one applies
-//  3. environment variables under the tool's prefix
+//  1. assets/config.yaml merged across every registered bundle — the
+//     embedded-defaults layer (framework, enabled features, the tool's own).
+//     Always applies: a user file that omits a key resolves to the shipped
+//     default (segregated-default-config spec, D4).
+//  2. the tool's explicit ConfigPaths embedded assets
+//  3. the config files — --config paths if given, otherwise the defaults,
+//     with a project-local .<tool>.yaml appended last where one applies
+//  4. environment variables under the tool's prefix
+//  5. changed CLI flags
 //
 // The Store makes this a declaration rather than a sequence of merges. What it
 // replaces built the user config, built the embedded config separately, then
@@ -183,44 +188,29 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 
 	storeOpts := []config.StoreOption{}
 
-	// Embedded asset configs sit at the bottom: a tool ships defaults, and
-	// anything the user writes overrides them.
-	embedded, err := embeddedSources(opts)
-	if err != nil {
-		return nil, err
+	if defaults := assetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
+		storeOpts = append(storeOpts, config.WithReaders(*defaults))
 	}
 
-	if len(embedded) > 0 {
+	if embedded := embeddedSources(opts); len(embedded) > 0 {
 		storeOpts = append(storeOpts, config.WithReaders(embedded...))
 	}
 
-	// setup.DefaultConfig substitutes for the user's file when there is no file
-	// at all — it does not underlay one. Layering it unconditionally would be
-	// the subtle way to break this: a config file that omits a key would start
-	// inheriting the compiled-in value instead of leaving the key unset.
+	// The missing-config gate. The Store tolerates an absent file silently (a
+	// layer that is not there), but auto-initialise depends on the distinction.
 	present, err := anyConfigFilePresent(fsys, opts.CfgPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	switch {
-	case present:
-		storeOpts = append(storeOpts, config.WithFiles(fsys, opts.CfgPaths...))
-	case !opts.AllowEmpty:
+	if !present && !opts.AllowEmpty {
 		return nil, ErrNoConfigFile
-	case len(setup.DefaultConfig) > 0:
-		opts.Props.Logger.Debug("No config file found, loading default configuration")
-
-		storeOpts = append(storeOpts, config.WithReaders(config.NamedSource{
-			Name:    "embedded default config",
-			Content: setup.DefaultConfig,
-		}))
-	default:
-		// Nothing on disk and nothing compiled in. The files are still declared
-		// so the store has a writable layer to route an Apply to, and so
-		// `config path` can report where a future write would land.
-		storeOpts = append(storeOpts, config.WithFiles(fsys, opts.CfgPaths...))
 	}
+
+	// The files are always declared, present or not, so the store has a
+	// writable layer to route an Apply to and `config path` can report where
+	// a future write would land.
+	storeOpts = append(storeOpts, config.WithFiles(fsys, opts.CfgPaths...))
 
 	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
 		storeOpts = append(storeOpts, config.WithEnv(prefix))
@@ -274,34 +264,41 @@ func anyConfigFilePresent(fsys config.FS, paths []string) (bool, error) {
 	return false, nil
 }
 
-// embeddedSources reads the tool's embedded config assets into named sources.
-func embeddedSources(opts ConfigLoadOptions) ([]config.NamedSource, error) {
-	if len(opts.ConfigPaths) == 0 || opts.Props.Assets == nil {
-		return nil, nil
+// assetSource reads one merged asset document into a named source, or nil
+// when no registered bundle ships it.
+//
+// fs.ReadFile rather than a ReadFile method on Assets, and the distinction is
+// load-bearing: fs.ReadFile falls back to Open, and Open is where Assets
+// merges a structured file across every registered bundle. A hand-rolled
+// ReadFile that indexed one bundle would compile, read plausibly, and
+// silently return only the last bundle's copy.
+func assetSource(props *p.Props, path string) *config.NamedSource {
+	if props.Assets == nil {
+		return nil
 	}
 
+	content, err := fs.ReadFile(props.Assets, path)
+	if err != nil {
+		// An absent embedded asset is normal: the paths are candidates, and a
+		// tool is not obliged to ship every one.
+		return nil
+	}
+
+	return &config.NamedSource{Name: "embedded:" + path, Content: content}
+}
+
+// embeddedSources reads the tool's explicit embedded config assets into named
+// sources.
+func embeddedSources(opts ConfigLoadOptions) []config.NamedSource {
 	sources := make([]config.NamedSource, 0, len(opts.ConfigPaths))
 
 	for _, path := range opts.ConfigPaths {
-		// fs.ReadFile rather than a ReadFile method on Assets, and the
-		// distinction is load-bearing: fs.ReadFile falls back to Open, and Open
-		// is where Assets merges a structured file across every registered
-		// bundle. A hand-rolled ReadFile that indexed one bundle would compile,
-		// read plausibly, and silently return only the last bundle's copy.
-		content, err := fs.ReadFile(opts.Props.Assets, path)
-		if err != nil {
-			// An absent embedded asset is normal: the paths are candidates, and
-			// a tool is not obliged to ship every one.
-			continue
+		if src := assetSource(opts.Props, path); src != nil {
+			sources = append(sources, *src)
 		}
-
-		sources = append(sources, config.NamedSource{
-			Name:    "embedded:" + path,
-			Content: content,
-		})
 	}
 
-	return sources, nil
+	return sources
 }
 
 // resolveBootstrapConfig loads configuration for cmd, applying the tool's
@@ -319,19 +316,11 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 		props.Tool.Bootstrap.MatchesSkipList(cmd.Name(), cmd.CommandPath())
 	autoInitialise := props.Tool.Bootstrap.AutoInitialise && initEnabled && !skipConfigCheck
 
-	// Clone the captured slice per invocation so the append below never
-	// accumulates across repeated PersistentPreRunE runs and never mutates the
-	// caller's backing array.
 	allowEmpty := !initEnabled || skipConfigCheck
-	paths := slices.Clone(configPaths)
-
-	if allowEmpty {
-		paths = append(paths, "assets/init/config.yaml")
-	}
 
 	loadOpts := ConfigLoadOptions{
 		CfgPaths:    cfgPaths,
-		ConfigPaths: paths,
+		ConfigPaths: configPaths,
 		Props:       props,
 		AllowEmpty:  allowEmpty,
 		Flags:       cmd.Flags(),
@@ -700,6 +689,11 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 		props.Collector = p.NoopCollector{}
 	}
 
+	// Feature-gated asset bundles: apply every enabled feature's registered
+	// bundle before the command tree is built, so the merged defaults and
+	// init-template reads include them (segregated-default-config spec, D8).
+	registerFeatureAssets(props)
+
 	state := newRootState()
 
 	// mcpLogLevel is used to control the log level of the MCP server dynamically
@@ -863,6 +857,29 @@ func registerGlobalMiddlewareOnce(props *p.Props) {
 	)
 
 	setup.Seal()
+}
+
+// registerFeatureAssets applies the asset bundles of enabled features onto
+// props.Assets, in deterministic feature order. Non-command feature packages
+// (pkg/setup/github, pkg/setup/ai) announce their bundles via
+// setup.RegisterAssets from init(); command-owned bundles register in their
+// constructors, which only run for enabled features.
+func registerFeatureAssets(props *p.Props) {
+	if props.Assets == nil {
+		return
+	}
+
+	registered := setup.GetAssets()
+
+	for _, feature := range slices.Sorted(maps.Keys(registered)) {
+		if !props.Tool.IsEnabled(feature) {
+			continue
+		}
+
+		for _, bundle := range registered[feature] {
+			props.Assets.Register(bundle.Name, bundle.Bundle)
+		}
+	}
 }
 
 func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {

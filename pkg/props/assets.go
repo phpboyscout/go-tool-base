@@ -2,6 +2,7 @@ package props
 
 import (
 	"bytes"
+	"embed"
 	"encoding/csv"
 	"encoding/json"
 	"encoding/xml"
@@ -26,6 +27,17 @@ const (
 // AssetMap is a custom type for a map of filesystems.
 type AssetMap map[string]fs.FS
 
+// FrameworkBundle is the name under which the framework's baseline asset
+// bundle (log defaults, the framework init template) registers.
+const FrameworkBundle = "framework"
+
+// frameworkAssets carries the framework's own baseline: assets/config.yaml
+// (the log.* defaults layer) and assets/init/config.yaml (the framework's
+// init-template stanzas). See the segregated-default-config spec.
+//
+//go:embed assets/*
+var frameworkAssets embed.FS
+
 // Assets is an interface that wraps a map of fs.FS pointers and implements the standard fs interfaces.
 type Assets interface {
 	fs.FS
@@ -49,11 +61,16 @@ type embeddedAssets struct {
 }
 
 // NewAssets creates a new Assets wrapper with the given AssetMap pointers.
+// The framework's baseline bundle registers first, so every later bundle —
+// the tool's own, feature bundles applied at root construction — overrides
+// it in the merged structured reads.
 func NewAssets(assets ...AssetMap) Assets {
 	a := &embeddedAssets{
 		embedded: make(map[string]fs.FS),
 		order:    make([]string, 0),
 	}
+
+	a.Register(FrameworkBundle, &frameworkAssets)
 
 	for _, m := range assets {
 		keys := make([]string, 0, len(m))
