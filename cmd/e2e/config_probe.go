@@ -48,7 +48,7 @@ func newConfigProbeCmd(p *props.Props) *setup.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			// props.Config is populated by the root's PersistentPreRunE. If the
 			// bootstrap had been shadowed, this would be the zero value.
-			value := p.Config.GetString("probe.value")
+			value := p.Config.View().GetString("probe.value")
 			fmt.Printf("config-probe: value=%s\n", value)
 
 			return nil

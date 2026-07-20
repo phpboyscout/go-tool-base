@@ -13,6 +13,13 @@ require-template-schema-exists: true
 template: testify
 template-schema: "{{.Template}}.schema.json"
 packages:
+  # The local pkg/ tree, scanned recursively. This entry was accidentally
+  # deleted alongside the pkg/config exclusion when config was extracted
+  # (bd0253a), which silently stopped every local mock from regenerating.
+  gitlab.com/phpboyscout/go-tool-base/pkg:
+    config:
+      all: true
+      recursive: true
   # The chat client interfaces were extracted to the standalone go/chat module.
   # GTB tests only need a ChatClient mock, so point mockery at the module for
   # that one interface (output kept at mocks/pkg/chat so the import path and

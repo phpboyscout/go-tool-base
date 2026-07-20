@@ -37,19 +37,19 @@ func (_m *MockConfigProvider) EXPECT() *MockConfigProvider_Expecter {
 }
 
 // GetConfig provides a mock function for the type MockConfigProvider
-func (_mock *MockConfigProvider) GetConfig() config.Containable {
+func (_mock *MockConfigProvider) GetConfig() *config.Store {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetConfig")
 	}
 
-	var r0 config.Containable
-	if returnFunc, ok := ret.Get(0).(func() config.Containable); ok {
+	var r0 *config.Store
+	if returnFunc, ok := ret.Get(0).(func() *config.Store); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Containable)
+			r0 = ret.Get(0).(*config.Store)
 		}
 	}
 	return r0
@@ -72,12 +72,12 @@ func (_c *MockConfigProvider_GetConfig_Call) Run(run func()) *MockConfigProvider
 	return _c
 }
 
-func (_c *MockConfigProvider_GetConfig_Call) Return(containable config.Containable) *MockConfigProvider_GetConfig_Call {
-	_c.Call.Return(containable)
+func (_c *MockConfigProvider_GetConfig_Call) Return(store *config.Store) *MockConfigProvider_GetConfig_Call {
+	_c.Call.Return(store)
 	return _c
 }
 
-func (_c *MockConfigProvider_GetConfig_Call) RunAndReturn(run func() config.Containable) *MockConfigProvider_GetConfig_Call {
+func (_c *MockConfigProvider_GetConfig_Call) RunAndReturn(run func() *config.Store) *MockConfigProvider_GetConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }

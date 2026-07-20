@@ -266,7 +266,7 @@ func isCI(cmd *cobra.Command, p props.ConfigProvider) bool {
 	}
 
 	if cfg := p.GetConfig(); cfg != nil {
-		return cfg.GetBool("ci")
+		return cfg.View().GetBool("ci")
 	}
 
 	return false

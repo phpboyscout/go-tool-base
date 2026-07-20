@@ -7,8 +7,8 @@ package props
 import (
 	"github.com/spf13/afero"
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go/config"
 )
 
 // NewMockCoreProvider creates a new instance of MockCoreProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -39,19 +39,19 @@ func (_m *MockCoreProvider) EXPECT() *MockCoreProvider_Expecter {
 }
 
 // GetConfig provides a mock function for the type MockCoreProvider
-func (_mock *MockCoreProvider) GetConfig() config.Containable {
+func (_mock *MockCoreProvider) GetConfig() *config.Store {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetConfig")
 	}
 
-	var r0 config.Containable
-	if returnFunc, ok := ret.Get(0).(func() config.Containable); ok {
+	var r0 *config.Store
+	if returnFunc, ok := ret.Get(0).(func() *config.Store); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Containable)
+			r0 = ret.Get(0).(*config.Store)
 		}
 	}
 	return r0
@@ -74,12 +74,12 @@ func (_c *MockCoreProvider_GetConfig_Call) Run(run func()) *MockCoreProvider_Get
 	return _c
 }
 
-func (_c *MockCoreProvider_GetConfig_Call) Return(containable config.Containable) *MockCoreProvider_GetConfig_Call {
-	_c.Call.Return(containable)
+func (_c *MockCoreProvider_GetConfig_Call) Return(store *config.Store) *MockCoreProvider_GetConfig_Call {
+	_c.Call.Return(store)
 	return _c
 }
 
-func (_c *MockCoreProvider_GetConfig_Call) RunAndReturn(run func() config.Containable) *MockCoreProvider_GetConfig_Call {
+func (_c *MockCoreProvider_GetConfig_Call) RunAndReturn(run func() *config.Store) *MockCoreProvider_GetConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }

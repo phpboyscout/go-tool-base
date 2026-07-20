@@ -6,8 +6,9 @@ package setup
 
 import (
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go/config"
 )
 
 // NewMockInitialiser creates a new instance of MockInitialiser. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -38,7 +39,7 @@ func (_m *MockInitialiser) EXPECT() *MockInitialiser_Expecter {
 }
 
 // Configure provides a mock function for the type MockInitialiser
-func (_mock *MockInitialiser) Configure(p *props.Props, cfg config.Containable) error {
+func (_mock *MockInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
 	ret := _mock.Called(p, cfg)
 
 	if len(ret) == 0 {
@@ -46,7 +47,7 @@ func (_mock *MockInitialiser) Configure(p *props.Props, cfg config.Containable) 
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*props.Props, config.Containable) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(*props.Props, setup.Editor) error); ok {
 		r0 = returnFunc(p, cfg)
 	} else {
 		r0 = ret.Error(0)
@@ -61,20 +62,20 @@ type MockInitialiser_Configure_Call struct {
 
 // Configure is a helper method to define mock.On call
 //   - p *props.Props
-//   - cfg config.Containable
+//   - cfg setup.Editor
 func (_e *MockInitialiser_Expecter) Configure(p interface{}, cfg interface{}) *MockInitialiser_Configure_Call {
 	return &MockInitialiser_Configure_Call{Call: _e.mock.On("Configure", p, cfg)}
 }
 
-func (_c *MockInitialiser_Configure_Call) Run(run func(p *props.Props, cfg config.Containable)) *MockInitialiser_Configure_Call {
+func (_c *MockInitialiser_Configure_Call) Run(run func(p *props.Props, cfg setup.Editor)) *MockInitialiser_Configure_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *props.Props
 		if args[0] != nil {
 			arg0 = args[0].(*props.Props)
 		}
-		var arg1 config.Containable
+		var arg1 setup.Editor
 		if args[1] != nil {
-			arg1 = args[1].(config.Containable)
+			arg1 = args[1].(setup.Editor)
 		}
 		run(
 			arg0,
@@ -89,13 +90,13 @@ func (_c *MockInitialiser_Configure_Call) Return(err error) *MockInitialiser_Con
 	return _c
 }
 
-func (_c *MockInitialiser_Configure_Call) RunAndReturn(run func(p *props.Props, cfg config.Containable) error) *MockInitialiser_Configure_Call {
+func (_c *MockInitialiser_Configure_Call) RunAndReturn(run func(p *props.Props, cfg setup.Editor) error) *MockInitialiser_Configure_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // IsConfigured provides a mock function for the type MockInitialiser
-func (_mock *MockInitialiser) IsConfigured(cfg config.Containable) bool {
+func (_mock *MockInitialiser) IsConfigured(cfg config.Reader) bool {
 	ret := _mock.Called(cfg)
 
 	if len(ret) == 0 {
@@ -103,7 +104,7 @@ func (_mock *MockInitialiser) IsConfigured(cfg config.Containable) bool {
 	}
 
 	var r0 bool
-	if returnFunc, ok := ret.Get(0).(func(config.Containable) bool); ok {
+	if returnFunc, ok := ret.Get(0).(func(config.Reader) bool); ok {
 		r0 = returnFunc(cfg)
 	} else {
 		r0 = ret.Get(0).(bool)
@@ -117,16 +118,16 @@ type MockInitialiser_IsConfigured_Call struct {
 }
 
 // IsConfigured is a helper method to define mock.On call
-//   - cfg config.Containable
+//   - cfg config.Reader
 func (_e *MockInitialiser_Expecter) IsConfigured(cfg interface{}) *MockInitialiser_IsConfigured_Call {
 	return &MockInitialiser_IsConfigured_Call{Call: _e.mock.On("IsConfigured", cfg)}
 }
 
-func (_c *MockInitialiser_IsConfigured_Call) Run(run func(cfg config.Containable)) *MockInitialiser_IsConfigured_Call {
+func (_c *MockInitialiser_IsConfigured_Call) Run(run func(cfg config.Reader)) *MockInitialiser_IsConfigured_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 config.Containable
+		var arg0 config.Reader
 		if args[0] != nil {
-			arg0 = args[0].(config.Containable)
+			arg0 = args[0].(config.Reader)
 		}
 		run(
 			arg0,
@@ -140,7 +141,7 @@ func (_c *MockInitialiser_IsConfigured_Call) Return(b bool) *MockInitialiser_IsC
 	return _c
 }
 
-func (_c *MockInitialiser_IsConfigured_Call) RunAndReturn(run func(cfg config.Containable) bool) *MockInitialiser_IsConfigured_Call {
+func (_c *MockInitialiser_IsConfigured_Call) RunAndReturn(run func(cfg config.Reader) bool) *MockInitialiser_IsConfigured_Call {
 	_c.Call.Return(run)
 	return _c
 }

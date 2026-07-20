@@ -737,7 +737,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 // interactive remote-template confirmation in CI.
 func isCIEnv(p *props.Props) bool {
 	if cfg := p.GetConfig(); cfg != nil {
-		return cfg.GetBool("ci")
+		return cfg.View().GetBool("ci")
 	}
 
 	return false

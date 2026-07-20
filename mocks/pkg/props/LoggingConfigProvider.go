@@ -6,8 +6,8 @@ package props
 
 import (
 	mock "github.com/stretchr/testify/mock"
-	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go/config"
 )
 
 // NewMockLoggingConfigProvider creates a new instance of MockLoggingConfigProvider. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -38,19 +38,19 @@ func (_m *MockLoggingConfigProvider) EXPECT() *MockLoggingConfigProvider_Expecte
 }
 
 // GetConfig provides a mock function for the type MockLoggingConfigProvider
-func (_mock *MockLoggingConfigProvider) GetConfig() config.Containable {
+func (_mock *MockLoggingConfigProvider) GetConfig() *config.Store {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetConfig")
 	}
 
-	var r0 config.Containable
-	if returnFunc, ok := ret.Get(0).(func() config.Containable); ok {
+	var r0 *config.Store
+	if returnFunc, ok := ret.Get(0).(func() *config.Store); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Containable)
+			r0 = ret.Get(0).(*config.Store)
 		}
 	}
 	return r0
@@ -73,12 +73,12 @@ func (_c *MockLoggingConfigProvider_GetConfig_Call) Run(run func()) *MockLogging
 	return _c
 }
 
-func (_c *MockLoggingConfigProvider_GetConfig_Call) Return(containable config.Containable) *MockLoggingConfigProvider_GetConfig_Call {
-	_c.Call.Return(containable)
+func (_c *MockLoggingConfigProvider_GetConfig_Call) Return(store *config.Store) *MockLoggingConfigProvider_GetConfig_Call {
+	_c.Call.Return(store)
 	return _c
 }
 
-func (_c *MockLoggingConfigProvider_GetConfig_Call) RunAndReturn(run func() config.Containable) *MockLoggingConfigProvider_GetConfig_Call {
+func (_c *MockLoggingConfigProvider_GetConfig_Call) RunAndReturn(run func() *config.Store) *MockLoggingConfigProvider_GetConfig_Call {
 	_c.Call.Return(run)
 	return _c
 }
