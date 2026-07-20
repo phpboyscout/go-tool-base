@@ -130,6 +130,10 @@ func TestCmdUnset_EnvShadowedFileValueUnsettable(t *testing.T) {
 	assert.True(t, p.Config.View().IsSet("feature.enabled"))
 }
 
+// TestCmdUnset_RequiredKeyRefused pins the no-defaults case: the fixture
+// Props carry no asset bundles, so nothing backfills log.level and the
+// removal would leave the resolved configuration invalid — refused, file
+// untouched.
 func TestCmdUnset_RequiredKeyRefused(t *testing.T) {
 	t.Parallel()
 
@@ -146,6 +150,26 @@ func TestCmdUnset_RequiredKeyRefused(t *testing.T) {
 	data, rerr := afero.ReadFile(fs, path)
 	require.NoError(t, rerr)
 	assert.Contains(t, string(data), "level")
+}
+
+// TestCmdUnset_DefaultedKeyFallsBack pins the framework-defaults case: with
+// asset bundles registered the candidate is validated layered over the
+// merged embedded defaults, so removing log.level succeeds and the resolved
+// value falls back to the shipped default.
+func TestCmdUnset_DefaultedKeyFallsBack(t *testing.T) {
+	t.Parallel()
+
+	p, fs, path := newFileConfig(t, "log:\n  level: debug\n")
+	p.Assets = props.NewAssets()
+
+	cmd := config.NewCmdUnset(p)
+	cmd.SetArgs([]string{"log.level"})
+	require.NoError(t, cmd.Execute())
+
+	data, err := afero.ReadFile(fs, path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "debug",
+		"the user's override must leave the file")
 }
 
 func TestCmdUnset_JSONOutput(t *testing.T) {

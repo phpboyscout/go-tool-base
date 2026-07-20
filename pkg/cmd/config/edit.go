@@ -164,7 +164,7 @@ func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, path, tmpPath 
 		)
 	}
 
-	if err := validateCandidate(cmd.Context(), edited); err != nil {
+	if err := validateCandidate(cmd.Context(), props, edited); err != nil {
 		return errors.WithHintf(err, "your edit is preserved at %s; original left unchanged", tmpPath)
 	}
 

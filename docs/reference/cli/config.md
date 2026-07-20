@@ -89,8 +89,11 @@ mytool config set feature.enabled true
 ### `config unset <key>`
 
 Remove a single configuration value — the inverse of `config set`. Only the writable
-file layer is affected. The post-removal config is re-validated before it is written:
-removing a required key (e.g. `log.level`) is refused and leaves the file untouched.
+file layer is affected. The post-removal config is re-validated **layered over the
+tool's embedded defaults** before it is written: removing a key the defaults supply
+(e.g. `log.level`) succeeds and the resolved value falls back to the shipped default,
+while a removal that would leave the resolved configuration invalid is refused and
+leaves the file untouched.
 
 ```bash
 mytool config unset feature.enabled

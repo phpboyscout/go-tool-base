@@ -105,6 +105,23 @@ func TestCmdPath_Writable(t *testing.T) {
 	assert.NotContains(t, out, "contributing")
 }
 
+// TestCmdPath_Writable_DeclaredButMissing pins the Plan-derived answer: a
+// config file declared to the store but not yet created is still where Apply
+// will write, so --writable reports it rather than the default fallback.
+func TestCmdPath_Writable_DeclaredButMissing(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	path := "/etc/tool/config.yaml" // declared below, never created
+	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), path))
+	require.NoError(t, err)
+
+	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}}
+
+	out := runPath(t, p, "text", "--writable")
+	assert.Equal(t, path+"\n", out)
+}
+
 func TestCmdPath_JSONOutput(t *testing.T) {
 	t.Parallel()
 

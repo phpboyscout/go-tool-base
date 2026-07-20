@@ -60,12 +60,15 @@ func ensureDefaultConfigDir(props *p.Props) {
 	_, _ = setup.EnsureDefaultConfigDir(writableFS(props), props.Tool.Name)
 }
 
-// resolveWritableConfigPath returns the file the loaded config is bound to, or
-// the user's default config path when none is bound.
+// resolveWritableConfigPath returns the file a config write would land in, or
+// the user's default config path when the store has no writable layer. The
+// answer comes from planning a probe Set against the store — the same routing
+// Apply uses — so a declared-but-not-yet-created config file is reported
+// correctly rather than falling back to whichever file happened to load.
 func resolveWritableConfigPath(props *p.Props, fs afero.Fs) string {
 	if props.Config != nil {
-		if files := p.ConfigFileSources(props.Config.Snapshot()); len(files) > 0 {
-			return files[len(files)-1]
+		if plan, err := props.Config.Plan(cfg.Set("gtb.write-probe", true)); err == nil && len(plan.Operations) > 0 {
+			return plan.Operations[0].Target.Name
 		}
 	}
 

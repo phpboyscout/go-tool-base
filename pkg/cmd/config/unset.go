@@ -14,6 +14,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // NewCmdUnset returns the "config unset <key>" subcommand — the inverse of
@@ -27,8 +28,11 @@ func NewCmdUnset(props *p.Props) *cobra.Command {
 
 Only the writable config file layer is affected — values coming from
 environment variables or flags are not file-backed and cannot be unset. The
-result is re-validated before it is written: removing a required key is
-refused and leaves the file untouched.`,
+result is re-validated (layered over the tool's embedded defaults, exactly as
+"config validate" resolves it) before it is written: removing a key the
+defaults supply simply falls back to the shipped default, while a removal
+that would leave the resolved configuration invalid is refused and leaves the
+file untouched.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
@@ -85,7 +89,7 @@ func persistUnset(ctx context.Context, props *p.Props, key string) error {
 		return errors.Wrap(err, "marshalling config")
 	}
 
-	if err := validateCandidate(ctx, data); err != nil {
+	if err := validateCandidate(ctx, props, data); err != nil {
 		return err
 	}
 
@@ -97,16 +101,25 @@ func persistUnset(ctx context.Context, props *p.Props, key string) error {
 }
 
 // validateCandidate checks a candidate YAML config document against the base
-// schema without mutating the live store. It loads the bytes into a throwaway
-// store (which is never watched) and runs the same schema validation as
-// "config validate". Returns a descriptive error when invalid.
-func validateCandidate(ctx context.Context, data []byte) error {
+// schema without mutating the live store. The candidate is layered over the
+// tool's merged embedded defaults — the same resolution "config validate"
+// checks — so removing a defaults-supplied key is not refused just because
+// the bare file no longer carries it. It loads the layers into a throwaway
+// store (which is never watched). Returns a descriptive error when invalid.
+func validateCandidate(ctx context.Context, props *p.Props, data []byte) error {
 	schema, err := buildBaseSchema()
 	if err != nil {
 		return errors.Wrap(err, "failed to build validation schema")
 	}
 
-	candidate, err := cfg.NewStore(ctx, cfg.WithReaders(cfg.NamedSource{Name: "candidate", Content: data}))
+	var sources []cfg.NamedSource
+	if defaults := setup.AssetDocument(props, setup.DefaultsAssetPath); len(defaults) > 0 {
+		sources = append(sources, cfg.NamedSource{Name: "defaults", Content: defaults})
+	}
+
+	sources = append(sources, cfg.NamedSource{Name: "candidate", Content: data})
+
+	candidate, err := cfg.NewStore(ctx, cfg.WithReaders(sources...))
 	if err != nil {
 		return errors.Wrap(err, "loading candidate configuration")
 	}

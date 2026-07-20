@@ -77,10 +77,15 @@ Feature: CLI Config Command
     When I run gtb with "config get feature.enabled"
     Then the exit code is not 0
 
-  Scenario: Unset refuses to remove a required key
+  Scenario: Unset of a defaulted key falls back to the embedded default
+    When I run gtb with "config set log.level debug"
+    Then the exit code is 0
     When I run gtb with "config unset log.level"
-    Then the exit code is not 0
-    And stderr contains "invalid"
+    Then the exit code is 0
+    And stdout contains "unset log.level"
+    When I run gtb with "config get log.level"
+    Then the exit code is 0
+    And stdout contains "info"
 
   Scenario: Path prints contributing files and the writable target
     When I run gtb with "config path"
