@@ -9,6 +9,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
 )
@@ -95,6 +96,16 @@ func TestPropstestDefaultStoreIsWritable(t *testing.T) {
 	require.NoError(t, err, "the default test store must accept writes")
 
 	assert.Equal(t, "value", p.GetConfigView().GetString("key"))
+}
+
+// TestSlogLogger covers the props-hosted slog adapter both config-side adapters
+// (pkg/chat, pkg/telemetry) share: a nil Props yields a non-nil discarding
+// logger, and a real logger is adapted through.
+func TestSlogLogger(t *testing.T) {
+	t.Parallel()
+
+	assert.NotNil(t, props.SlogLogger(nil), "nil props must yield a non-nil discard logger")
+	assert.NotNil(t, props.SlogLogger(&props.Props{Logger: logger.NewNoop()}))
 }
 
 // propsConfigFS adapts a filesystem the same way Props does, so these tests

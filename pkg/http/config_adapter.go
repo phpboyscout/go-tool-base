@@ -10,6 +10,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/transportcfg"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
@@ -247,22 +248,18 @@ func RateLimitConfigFromConfig(cfg config.Reader, prefix string) transithttp.Rat
 		prefix = DefaultConfigPrefix
 	}
 
-	if cfg == nil {
-		return transithttp.DefaultRateLimitConfig()
-	}
-
 	base := prefix + ".ratelimit"
 
-	section, err := config.UnmarshalSection[transithttp.RateLimitConfig](cfg, base)
-	if err != nil || !section.Exists {
-		return transithttp.DefaultRateLimitConfig()
-	}
-
-	return transithttp.MergeRateLimitConfig(transithttp.DefaultRateLimitConfig(), section.Value, transithttp.RateLimitConfigOverrides{
-		RequestsPerSecond: cfg.IsSet(base + ".requests_per_second"),
-		Burst:             cfg.IsSet(base + ".burst"),
-		MaxTrackedKeys:    cfg.IsSet(base + ".max_tracked_keys"),
-	})
+	return transportcfg.ResolveSection(cfg, base,
+		transithttp.DefaultRateLimitConfig,
+		transithttp.MergeRateLimitConfig,
+		func(isSet func(string) bool) transithttp.RateLimitConfigOverrides {
+			return transithttp.RateLimitConfigOverrides{
+				RequestsPerSecond: isSet(base + ".requests_per_second"),
+				Burst:             isSet(base + ".burst"),
+				MaxTrackedKeys:    isSet(base + ".max_tracked_keys"),
+			}
+		})
 }
 
 // CircuitBreakerConfigFromConfig builds a transithttp.CircuitBreakerConfig from the config
@@ -275,20 +272,16 @@ func CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) transithtt
 		prefix = DefaultConfigPrefix
 	}
 
-	if cfg == nil {
-		return transithttp.DefaultCircuitBreakerConfig()
-	}
-
 	base := prefix + ".circuitbreaker"
 
-	section, err := config.UnmarshalSection[transithttp.CircuitBreakerConfig](cfg, base)
-	if err != nil || !section.Exists {
-		return transithttp.DefaultCircuitBreakerConfig()
-	}
-
-	return transithttp.MergeCircuitBreakerConfig(transithttp.DefaultCircuitBreakerConfig(), section.Value, transithttp.CircuitBreakerConfigOverrides{
-		FailureThreshold:    cfg.IsSet(base + ".failure_threshold"),
-		Cooldown:            cfg.IsSet(base + ".cooldown"),
-		HalfOpenMaxRequests: cfg.IsSet(base + ".half_open_max_requests"),
-	})
+	return transportcfg.ResolveSection(cfg, base,
+		transithttp.DefaultCircuitBreakerConfig,
+		transithttp.MergeCircuitBreakerConfig,
+		func(isSet func(string) bool) transithttp.CircuitBreakerConfigOverrides {
+			return transithttp.CircuitBreakerConfigOverrides{
+				FailureThreshold:    isSet(base + ".failure_threshold"),
+				Cooldown:            isSet(base + ".cooldown"),
+				HalfOpenMaxRequests: isSet(base + ".half_open_max_requests"),
+			}
+		})
 }

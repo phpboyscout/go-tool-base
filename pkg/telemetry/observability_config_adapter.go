@@ -8,7 +8,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/observability/otelcore"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -28,7 +27,7 @@ func ObservabilitySettingsFromProps(p *props.Props) ObservabilitySettings {
 
 	settings.ServiceName = p.Tool.Name
 
-	settings.Logger = loggerFromProps(p)
+	settings.Logger = props.SlogLogger(p)
 	if p.Version != nil {
 		settings.Version = p.Version.GetVersion()
 	}
@@ -58,12 +57,4 @@ func ObservabilitySettingsFromProps(p *props.Props) ObservabilitySettings {
 // installs the enabled OpenTelemetry providers.
 func SetupFromProps(ctx context.Context, p *props.Props, controller controls.Controllable) (Shutdown, error) {
 	return Setup(ctx, ObservabilitySettingsFromProps(p), controller)
-}
-
-func loggerFromProps(p *props.Props) *slog.Logger {
-	if p != nil {
-		return logger.ToSlog(p.Logger)
-	}
-
-	return slog.New(slog.DiscardHandler)
 }

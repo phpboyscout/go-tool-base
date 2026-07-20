@@ -1,6 +1,8 @@
 package props
 
 import (
+	"log/slog"
+
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -84,6 +86,18 @@ func ConfigFileSources(snap *config.Snapshot) []string {
 	}
 
 	return files
+}
+
+// SlogLogger adapts p's logger to a *slog.Logger, falling back to a discarding
+// logger when p is nil. The config adapters in pkg/chat and pkg/telemetry both
+// need a slog handle from possibly-nil Props; hosting the conversion here keeps
+// them from carrying identical copies (compare ViewOrNil).
+func SlogLogger(p *Props) *slog.Logger {
+	if p != nil {
+		return logger.ToSlog(p.Logger)
+	}
+
+	return slog.New(slog.DiscardHandler)
 }
 
 // GetConfigFS adapts the application filesystem for the config store.

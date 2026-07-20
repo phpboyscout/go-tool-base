@@ -1013,8 +1013,6 @@ func promptTelemetryConsent(ctx context.Context, props *p.Props) {
 	}
 }
 
-// buildTelemetryCollector creates the appropriate telemetry collector based on
-// feature flags, user config, environment variables, and tool-author settings.
 // resolveVersionString returns the tool version, or "" when Props was built
 // without a Version (the interface field is nilable on hand-constructed Props).
 func resolveVersionString(props *p.Props) string {
@@ -1025,6 +1023,8 @@ func resolveVersionString(props *p.Props) string {
 	return props.Version.GetVersion()
 }
 
+// buildTelemetryCollector creates the appropriate telemetry collector based on
+// feature flags, user config, environment variables, and tool-author settings.
 func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Collector {
 	dataDir := telemetry.ResolveDataDirFromProps(props)
 

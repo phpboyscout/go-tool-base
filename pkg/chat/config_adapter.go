@@ -2,7 +2,6 @@ package chat
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -28,7 +26,7 @@ func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, erro
 		return gochat.Settings{}, err
 	}
 
-	log := loggerFromProps(p)
+	log := props.SlogLogger(p)
 	applyDefaultProvider(log, &cfg)
 
 	if err := applyCredentialConfig(view, &cfg); err != nil {
@@ -135,14 +133,6 @@ func explicitProviderConfig(p *props.Props, cfg gochat.Config) gochat.Config {
 
 func fallbackConfigFromProps(p *props.Props) (gochat.FallbackConfig, error) {
 	return loadFallbackConfig(props.ViewOrNil(p))
-}
-
-func loggerFromProps(p *props.Props) *slog.Logger {
-	if p != nil {
-		return logger.ToSlog(p.Logger)
-	}
-
-	return slog.New(slog.DiscardHandler)
 }
 
 func applyRuntimeConfig(cfg config.Reader, target *gochat.Config) error {
