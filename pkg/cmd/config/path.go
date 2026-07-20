@@ -6,8 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	cfg "gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -59,7 +57,7 @@ print only that target.`,
 				return emitWritable(cmd, target)
 			}
 
-			return emitPathList(cmd, contributingFiles(props.Config), target)
+			return emitPathList(cmd, p.ConfigFileSources(props.Config.Snapshot()), target)
 		},
 	}
 
@@ -67,24 +65,6 @@ print only that target.`,
 		"print only the writable target path that set/unset/edit mutate")
 
 	return cmd
-}
-
-// contributingFiles returns the file layers that loaded into the live
-// configuration, in merge order, deduplicating multi-document entries.
-func contributingFiles(store *cfg.Store) []string {
-	var files []string
-
-	seen := map[string]bool{}
-
-	for _, layer := range store.Snapshot().Layers() {
-		if layer.Source.Kind == cfg.SourceFile && !seen[layer.Source.Name] {
-			seen[layer.Source.Name] = true
-
-			files = append(files, layer.Source.Name)
-		}
-	}
-
-	return files
 }
 
 // emitWritable prints just the writable target — a bare line in text mode (for

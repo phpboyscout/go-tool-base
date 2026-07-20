@@ -81,7 +81,7 @@ type SelfUpdater struct {
 	isInteractive func() bool
 
 	// requireChecksum resolved from config (update.require_checksum →
-	// env-prefixed env var via viper AutomaticEnv → DefaultRequireChecksum).
+	// env-prefixed env var via the store's env layer → DefaultRequireChecksum).
 	// When true, a missing or invalid checksums manifest aborts the update
 	// rather than proceeding with a warning.
 	requireChecksum bool
@@ -474,7 +474,7 @@ func (s *SelfUpdater) buildDefaultKeyResolver() error {
 	return nil
 }
 
-// boolConfig is the narrow subset of [config.Containable] that
+// boolConfig is the narrow subset of [config.Reader] that
 // [resolveRequireChecksum] depends on. Declared here so tests can
 // pass a two-method fake without stubbing the full interface.
 type boolConfig interface {
@@ -483,8 +483,8 @@ type boolConfig interface {
 }
 
 // resolveRequireChecksum applies the precedence specified by the
-// update trust model: explicit config value first (which viper's
-// AutomaticEnv pulls from an env var too, prefixed per the tool),
+// update trust model: explicit config value first (which the store's
+// env layer supplies from a prefixed env var too),
 // otherwise the compile-time [DefaultRequireChecksum] sentinel. Tool
 // authors flip the default at link time for security-critical tools.
 // resolveRequireChecksum applies the precedence: runtime config, then the tool
@@ -499,7 +499,7 @@ func resolveRequireChecksum(cfg boolConfig, toolDefault *bool) bool {
 		return fallback
 	}
 
-	// Interface typed nil (e.g. a nil *viper.Viper wrapped in boolConfig)
+	// Interface typed nil (e.g. a nil *config.View wrapped in boolConfig)
 	// must not panic on IsSet. Protect the call with a reflective check.
 	if reflectIsNil(cfg) {
 		return fallback

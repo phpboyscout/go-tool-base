@@ -721,9 +721,11 @@ func (g *Generator) diataxisCommandDocPath(m *Manifest, parentParts []string, na
 }
 
 func (g *Generator) resolveAIConfig() (provider, model string) {
+	view := g.props.Config.View()
+
 	provider = g.config.AIProvider
 	if provider == "" {
-		provider = g.props.Config.View().GetString("ai.provider")
+		provider = view.GetString("ai.provider")
 	}
 
 	if provider == "" {
@@ -732,7 +734,7 @@ func (g *Generator) resolveAIConfig() (provider, model string) {
 
 	model = g.config.AIModel
 	if model == "" {
-		model = g.props.Config.View().GetString("ai.model")
+		model = view.GetString("ai.model")
 	}
 
 	if model == "" {

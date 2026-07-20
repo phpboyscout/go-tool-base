@@ -3,8 +3,10 @@ package config
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
@@ -118,4 +120,53 @@ func validateCandidate(ctx context.Context, data []byte) error {
 	}
 
 	return nil
+}
+
+// deleteNestedKey removes a dot-path entry from a nested map. When
+// the path resolves through non-map nodes, the call is a no-op —
+// the caller is asking to delete something that isn't there.
+func deleteNestedKey(m map[string]any, dotPath string) {
+	parts := strings.Split(dotPath, ".")
+	current := m
+
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			delete(current, part)
+
+			return
+		}
+
+		next, ok := current[part].(map[string]any)
+		if !ok {
+			return
+		}
+
+		current = next
+	}
+}
+
+// loadWritableSettings resolves the writable config file and reads it into a
+// nested map ready for mutation — the candidate document unset validates
+// before applying the removal. It returns an empty (non-nil) map when the
+// file does not yet exist.
+func loadWritableSettings(props *p.Props) (string, map[string]any, error) {
+	fs := writableFS(props)
+
+	path := resolveWritableConfigPath(props, fs)
+	if path == "" {
+		return "", nil, errors.New("could not resolve a writable config path")
+	}
+
+	settings := map[string]any{}
+	if data, err := afero.ReadFile(fs, path); err == nil {
+		if uerr := yaml.Unmarshal(data, &settings); uerr != nil {
+			return "", nil, errors.Wrapf(uerr, "parsing existing config %q", path)
+		}
+
+		if settings == nil {
+			settings = map[string]any{}
+		}
+	}
+
+	return path, settings, nil
 }

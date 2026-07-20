@@ -597,7 +597,7 @@ func runAICredentialStage(fCfg *formConfig, aiCfg *AIConfig) (*AIConfig, error) 
 	return aiCfg, nil
 }
 
-// providerConfigKey returns the viper config key for the provider's literal API key.
+// providerConfigKey returns the config key for the provider's literal API key.
 func providerConfigKey(provider string) string {
 	switch provider {
 	case string(gochat.ProviderClaude):
@@ -611,7 +611,7 @@ func providerConfigKey(provider string) string {
 	}
 }
 
-// providerEnvConfigKey returns the viper config key that records the
+// providerEnvConfigKey returns the config key that records the
 // env var NAME (not value) for the provider's API key when stored
 // in [credentials.ModeEnvVar].
 func providerEnvConfigKey(provider string) string {
@@ -627,7 +627,7 @@ func providerEnvConfigKey(provider string) string {
 	}
 }
 
-// providerKeychainConfigKey returns the viper config key that records
+// providerKeychainConfigKey returns the config key that records
 // the "<service>/<account>" reference for the provider's API key
 // when stored in [credentials.ModeKeychain].
 func providerKeychainConfigKey(provider string) string {

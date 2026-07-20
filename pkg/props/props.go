@@ -52,6 +52,40 @@ func (p *Props) GetConfig() *config.Store { return p.Config }
 // the point: they are guaranteed to come from the same snapshot.
 func (p *Props) GetConfigView() *config.View { return p.Config.View() }
 
+// ViewOrNil pins a view of p's store, or returns a true-nil Reader when p or
+// its store is absent. The nil handling is the point: returning a typed
+// (*config.View)(nil) would box a nil pointer into a non-nil interface and
+// silently defeat the cfg == nil guards the read adapters rely on.
+func ViewOrNil(p *Props) config.Reader {
+	if p == nil || p.Config == nil {
+		return nil
+	}
+
+	return p.Config.View()
+}
+
+// ConfigFileSources returns the paths of the loaded file layers in snapshot
+// precedence order, deduplicating multi-document entries. The last element is
+// the highest-precedence loaded file — the same answer Viper's
+// ConfigFileUsed() gave (it reported the last file it loaded), which several
+// consumers (doctor's report, telemetry's data dir, the config command's
+// writable-target resolution) depend on for parity.
+func ConfigFileSources(snap *config.Snapshot) []string {
+	var files []string
+
+	seen := map[string]bool{}
+
+	for _, layer := range snap.Layers() {
+		if layer.Source.Kind == config.SourceFile && !seen[layer.Source.Name] {
+			seen[layer.Source.Name] = true
+
+			files = append(files, layer.Source.Name)
+		}
+	}
+
+	return files
+}
+
 // GetConfigFS adapts the application filesystem for the config store.
 //
 // Props.FS stays a full afero.Fs — OsFs live, MemMapFs under test — because

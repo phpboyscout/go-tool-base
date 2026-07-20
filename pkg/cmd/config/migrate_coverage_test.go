@@ -255,21 +255,19 @@ func TestMigrateToKeychain_EmptyServiceRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "tool name is empty")
 }
 
-// TestApplyPlan_NoWritableLayer — applyPlan errors when the store has
-// no writable file layer to route the staged changes to (a reader-only
+// TestMigrate_NoWritableLayer — committing the staged plan errors when the
+// store has no writable file layer to route the changes to (a reader-only
 // store: in-memory sources are never writable).
-func TestApplyPlan_NoWritableLayer(t *testing.T) {
+func TestMigrate_NoWritableLayer(t *testing.T) {
 	t.Parallel()
 
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
-		Config: testutil.StoreFromYAML(t, "other: value\n"),
+		Config: testutil.StoreFromYAML(t, "anthropic:\n  api:\n    key: sk-literal\n"),
 		Logger: logger.NewNoop(),
 	}
 
-	plan := &rewritePlan{changes: []config.Change{config.Set("a.b", "c")}}
-
-	err := applyPlan(t.Context(), p, plan)
+	_, err := Migrate(t.Context(), p, MigrateOptions{AssumeYes: true})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, config.ErrNoWritableLayer), "got: %v", err)
 	assert.Contains(t, err.Error(), "rewriting config")

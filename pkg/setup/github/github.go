@@ -243,10 +243,10 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg setup.Editor) erro
 	}
 
 	// If the user already has any GitHub credential configured —
-	// env-var reference, literal config value (Viper's AutomaticEnv
-	// surfaces prefixed env like <TOOL>_GITHUB_AUTH_VALUE through
-	// pkg/config's env-aware Sub), or the unprefixed GITHUB_TOKEN
-	// ecosystem fallback — don't overwrite with a fresh OAuth token.
+	// env-var reference, literal config value (the store's env layer
+	// surfaces prefixed env like <TOOL>_GITHUB_AUTH_VALUE), or the
+	// unprefixed GITHUB_TOKEN ecosystem fallback — don't overwrite
+	// with a fresh OAuth token.
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 

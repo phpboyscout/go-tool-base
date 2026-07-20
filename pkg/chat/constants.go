@@ -15,13 +15,6 @@ const ConfigKeyAIRequestTimeout = "ai.request_timeout"
 // EnvAIProvider is the environment variable for overriding the AI provider.
 const EnvAIProvider = "AI_PROVIDER"
 
-// ConfigKeyAIFallbackEnabled toggles cross-provider failover.
-const ConfigKeyAIFallbackEnabled = "ai.fallback.enabled"
-
-// ConfigKeyAIFallbackProviders is the ordered list of provider names to fail
-// over across; index 0 is the primary.
-const ConfigKeyAIFallbackProviders = "ai.fallback.providers"
-
 // Per-provider credential config keys.
 //
 //   - ConfigKey<Provider>Key — full config path for the literal API key.

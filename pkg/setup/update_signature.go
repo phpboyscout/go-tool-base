@@ -42,7 +42,7 @@ func (s *SelfUpdater) SignatureAssetName() string {
 	return signatureDefaultAssetName
 }
 
-// stringConfig is the narrow subset of [config.Containable] the
+// stringConfig is the narrow subset of [config.Reader] the
 // string-valued signing resolvers depend on, declared so tests can
 // pass a small fake.
 type stringConfig interface {

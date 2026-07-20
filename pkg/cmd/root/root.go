@@ -189,7 +189,7 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 
 	storeOpts := []config.StoreOption{}
 
-	if defaults := assetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
+	if defaults := setup.AssetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
 		storeOpts = append(storeOpts, config.WithReaders(*defaults))
 	}
 
@@ -271,36 +271,13 @@ func anyConfigFilePresent(fsys config.FS, paths []string) (bool, error) {
 	return false, nil
 }
 
-// assetSource reads one merged asset document into a named source, or nil
-// when no registered bundle ships it.
-//
-// fs.ReadFile rather than a ReadFile method on Assets, and the distinction is
-// load-bearing: fs.ReadFile falls back to Open, and Open is where Assets
-// merges a structured file across every registered bundle. A hand-rolled
-// ReadFile that indexed one bundle would compile, read plausibly, and
-// silently return only the last bundle's copy.
-func assetSource(props *p.Props, path string) *config.NamedSource {
-	if props.Assets == nil {
-		return nil
-	}
-
-	content, err := fs.ReadFile(props.Assets, path)
-	if err != nil {
-		// An absent embedded asset is normal: the paths are candidates, and a
-		// tool is not obliged to ship every one.
-		return nil
-	}
-
-	return &config.NamedSource{Name: "embedded:" + path, Content: content}
-}
-
 // embeddedSources reads the tool's explicit embedded config assets into named
 // sources.
 func embeddedSources(opts ConfigLoadOptions) []config.NamedSource {
 	sources := make([]config.NamedSource, 0, len(opts.ConfigPaths))
 
 	for _, path := range opts.ConfigPaths {
-		if src := assetSource(opts.Props, path); src != nil {
+		if src := setup.AssetSource(opts.Props, path); src != nil {
 			sources = append(sources, *src)
 		}
 	}
@@ -321,7 +298,6 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 	initEnabled := props.Tool.IsEnabled(p.InitCmd)
 	skipConfigCheck := setup.SkipsConfigCheck(cmd) ||
 		props.Tool.Bootstrap.MatchesSkipList(cmd.Name(), cmd.CommandPath())
-	autoInitialise := props.Tool.Bootstrap.AutoInitialise && initEnabled && !skipConfigCheck
 
 	allowEmpty := !initEnabled || skipConfigCheck
 
@@ -338,8 +314,10 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 	if err != nil {
 		// Auto-initialise heals a genuinely missing config: run a
 		// non-interactive init (no credential wizards) to write the default
-		// localised config, then load it for real.
-		if autoInitialise && errors.Is(err, ErrNoConfigFile) {
+		// localised config, then load it for real. ErrNoConfigFile is only
+		// returned when AllowEmpty is false — i.e. init is enabled and the
+		// command did not opt out — so the gate needs no further conjuncts.
+		if props.Tool.Bootstrap.AutoInitialise && errors.Is(err, ErrNoConfigFile) {
 			return autoInitialiseConfig(cmd.Context(), props, loadOpts)
 		}
 
@@ -433,17 +411,21 @@ type UpdateCheckResult struct {
 func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
 
-	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, props.Config.View().GetString("update.policy"))
+	// One pinned view for the whole check, so the policy, CI gate and
+	// interval agree with each other even under a mid-sequence reload.
+	view := props.Config.View()
+
+	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, view.GetString("update.policy"))
 
 	// Persistent out-of-date reminder from the cached latest version: emitted
 	// every invocation (even when the network check is throttled below), so a
 	// user who declined an update — or runs a disabled-policy tool — keeps
 	// being reminded. Suppressed under --ci.
-	if !props.Config.View().GetBool("ci") {
+	if !view.GetBool("ci") {
 		warnIfBehindCached(props)
 	}
 
-	if shouldSkipUpdateCheck(props, cmd, state) {
+	if shouldSkipUpdateCheck(props, view, cmd, state) {
 		return result
 	}
 
@@ -490,16 +472,16 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	return result
 }
 
-func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, state *rootState) bool {
+func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) bool {
 	// Skip update checks in various conditions
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
 		(props.Version != nil && props.Version.IsDevelopment()) ||
 		state.redirectingToUpdate ||
-		props.Config.View().GetBool("ci") {
+		view.GetBool("ci") {
 		return true
 	}
 
-	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, props.Config.View().GetString("update.check_interval"))
+	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, view.GetString("update.check_interval"))
 
 	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
 }
@@ -1020,13 +1002,10 @@ func promptTelemetryConsent(ctx context.Context, props *p.Props) {
 	// Persist the choice so we don't prompt again. Apply writes only this key
 	// and creates a missing file; the default config dir may not exist yet
 	// (tools without InitCmd), so ensure it first.
-	if configDir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name); configDir != "" {
-		const configDirPerm = 0o700
-		if err := props.FS.MkdirAll(configDir, configDirPerm); err != nil {
-			props.Logger.Debug("failed to create config directory", "error", err)
+	if _, err := setup.EnsureDefaultConfigDir(props.FS, props.Tool.Name); err != nil {
+		props.Logger.Debug("failed to create config directory", "error", err)
 
-			return
-		}
+		return
 	}
 
 	if _, err := props.Config.Apply(ctx, config.Set("telemetry.enabled", optIn)); err != nil {

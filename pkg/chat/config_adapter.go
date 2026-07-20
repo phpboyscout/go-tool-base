@@ -22,7 +22,7 @@ import (
 func SettingsFromProps(p *props.Props, cfg gochat.Config) (gochat.Settings, error) {
 	// One view for the whole adaptation, so the runtime and credential reads
 	// resolve against the same snapshot.
-	view := readerFromProps(p)
+	view := props.ViewOrNil(p)
 
 	if err := applyRuntimeConfig(view, &cfg); err != nil {
 		return gochat.Settings{}, err
@@ -128,23 +128,13 @@ func explicitProviderConfig(p *props.Props, cfg gochat.Config) gochat.Config {
 	// applyRuntimeConfig only fills Provider from ai.provider when it is empty
 	// and never defaults; the error here was already surfaced by the successful
 	// SettingsFromProps call above, so it is safe to ignore.
-	_ = applyRuntimeConfig(readerFromProps(p), &explicit)
+	_ = applyRuntimeConfig(props.ViewOrNil(p), &explicit)
 
 	return explicit
 }
 
 func fallbackConfigFromProps(p *props.Props) (gochat.FallbackConfig, error) {
-	return loadFallbackConfig(readerFromProps(p))
-}
-
-// readerFromProps pins a view of the live store, or nil when Props carries no
-// store — nil is a valid Reader input to every load function below.
-func readerFromProps(p *props.Props) config.Reader {
-	if p == nil || p.Config == nil {
-		return nil
-	}
-
-	return p.Config.View()
+	return loadFallbackConfig(props.ViewOrNil(p))
 }
 
 func loggerFromProps(p *props.Props) *slog.Logger {

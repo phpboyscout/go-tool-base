@@ -621,7 +621,7 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			}
 
 			// Test shouldSkipUpdateCheck
-			result := shouldSkipUpdateCheck(props, cmd, state)
+			result := shouldSkipUpdateCheck(props, mockCfg.View(), cmd, state)
 
 			assert.Equal(t, tt.expectedSkip, result)
 		})

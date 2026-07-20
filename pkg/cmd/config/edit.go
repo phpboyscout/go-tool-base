@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 
 	"github.com/cockroachdb/errors"
@@ -238,4 +239,47 @@ func defaultEditorRunner(ctx context.Context, argv []string, path string) error 
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+// writtenConfigFilePerm is the POSIX mode the rewritten config is
+// left in after a successful write. Matches the 0600 invariant
+// enforced by the initial setup wizards (R4 in the hardening spec)
+// — a credential-bearing file must not be world-readable.
+const writtenConfigFilePerm = 0o600
+
+// writeConfigAtomic writes data to path via a temp-file + rename
+// dance so a mid-write interrupt leaves the original file intact.
+// Also enforces writtenConfigFilePerm on the final file.
+func writeConfigAtomic(fs afero.Fs, path string, data []byte) error {
+	if fs == nil {
+		fs = afero.NewOsFs()
+	}
+
+	// Create the parent dir lazily at first write — setup.GetDefaultConfigDir
+	// is pure and no longer creates ~/.toolname as a side effect.
+	const configDirPerm = 0o700
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		if err := fs.MkdirAll(dir, configDirPerm); err != nil {
+			return errors.Wrap(err, "create config directory")
+		}
+	}
+
+	tmpPath := path + ".migrate.tmp"
+
+	if err := afero.WriteFile(fs, tmpPath, data, writtenConfigFilePerm); err != nil {
+		return errors.Wrap(err, "write temporary migrated config")
+	}
+
+	if err := fs.Rename(tmpPath, path); err != nil {
+		_ = fs.Remove(tmpPath)
+
+		return errors.Wrap(err, "rename migrated config into place")
+	}
+
+	// Best-effort chmod: some filesystems (afero memfs) don't track
+	// modes. Tests pass; production OsFs always honours chmod. We
+	// intentionally don't error out here.
+	_ = fs.Chmod(path, writtenConfigFilePerm)
+
+	return nil
 }

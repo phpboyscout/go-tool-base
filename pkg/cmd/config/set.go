@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
 	cfg "gitlab.com/phpboyscout/go/config"
 
@@ -58,56 +57,15 @@ their native types; everything else is stored as a string.`,
 // write routed to the default path has somewhere to land. Best-effort: a
 // custom --config path's directory already exists, because its file loaded.
 func ensureDefaultConfigDir(props *p.Props) {
-	if dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name); dir != "" {
-		const configDirPerm = 0o700
-
-		_ = writableFS(props).MkdirAll(dir, configDirPerm)
-	}
-}
-
-// loadWritableSettings resolves the writable config file and reads it into a
-// nested map ready for mutation. It returns an empty (non-nil) map when the
-// file does not yet exist, so callers can write a fresh file. Shared by
-// "config set" and "config unset", which differ only in how they mutate the
-// returned map and whether they validate/reload afterwards.
-func loadWritableSettings(props *p.Props) (string, map[string]any, error) {
-	fs := writableFS(props)
-
-	path := resolveWritableConfigPath(props, fs)
-	if path == "" {
-		return "", nil, errors.New("could not resolve a writable config path")
-	}
-
-	settings := map[string]any{}
-	if data, err := afero.ReadFile(fs, path); err == nil {
-		if uerr := yaml.Unmarshal(data, &settings); uerr != nil {
-			return "", nil, errors.Wrapf(uerr, "parsing existing config %q", path)
-		}
-
-		if settings == nil {
-			settings = map[string]any{}
-		}
-	}
-
-	return path, settings, nil
+	_, _ = setup.EnsureDefaultConfigDir(writableFS(props), props.Tool.Name)
 }
 
 // resolveWritableConfigPath returns the file the loaded config is bound to, or
 // the user's default config path when none is bound.
 func resolveWritableConfigPath(props *p.Props, fs afero.Fs) string {
 	if props.Config != nil {
-		// The highest-precedence loaded file layer — the same answer Viper's
-		// ConfigFileUsed() gave (it reported the last file it loaded).
-		last := ""
-
-		for _, layer := range props.Config.Snapshot().Layers() {
-			if layer.Source.Kind == cfg.SourceFile {
-				last = layer.Source.Name
-			}
-		}
-
-		if last != "" {
-			return last
+		if files := p.ConfigFileSources(props.Config.Snapshot()); len(files) > 0 {
+			return files[len(files)-1]
 		}
 	}
 

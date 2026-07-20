@@ -25,13 +25,15 @@ func (g *Generator) resolveToken(provider gochat.Provider) string {
 		return ""
 	}
 
+	view := g.props.Config.View()
+
 	switch provider {
 	case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
-		return g.props.Config.View().GetString("openai.api.key")
+		return view.GetString("openai.api.key")
 	case gochat.ProviderClaude:
-		return g.props.Config.View().GetString("anthropic.api.key")
+		return view.GetString("anthropic.api.key")
 	case gochat.ProviderGemini:
-		return g.props.Config.View().GetString("gemini.api.key")
+		return view.GetString("gemini.api.key")
 	case gochat.ProviderClaudeLocal:
 		return ""
 	default:

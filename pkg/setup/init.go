@@ -153,6 +153,24 @@ func GetDefaultConfigDir(_ afero.Fs, name string) string {
 	return filepath.Join(homeDir, fmt.Sprintf(".%s", strings.ToLower(name)))
 }
 
+// EnsureDefaultConfigDir creates the tool's default config directory with
+// user-only permissions (it may hold credential-bearing files) and returns its
+// path, or "" when the home directory cannot be resolved. One shared home for
+// the pre-create every Apply-to-the-default-path caller needs; each caller
+// keeps its own error posture.
+func EnsureDefaultConfigDir(fs afero.Fs, name string) (string, error) {
+	dir := GetDefaultConfigDir(fs, name)
+	if dir == "" {
+		return "", nil
+	}
+
+	if err := fs.MkdirAll(dir, dirPermUserOnly); err != nil {
+		return "", errors.Wrap(err, "failed to create config directory")
+	}
+
+	return dir, nil
+}
+
 // Initialise creates the tool's configuration file in the specified directory
 // and runs the supplied initialisers over it.
 func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, error) {
@@ -214,11 +232,8 @@ func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean boo
 	}
 
 	storeOpts := []config.StoreOption{}
-	if defaults := assetDocument(p, DefaultsAssetPath); len(defaults) > 0 {
-		storeOpts = append(storeOpts, config.WithReaders(config.NamedSource{
-			Name:    "embedded:" + DefaultsAssetPath,
-			Content: defaults,
-		}))
+	if defaults := AssetSource(p, DefaultsAssetPath); defaults != nil {
+		storeOpts = append(storeOpts, config.WithReaders(*defaults))
 	}
 
 	storeOpts = append(storeOpts, config.WithFiles(p.GetConfigFS(), targetFile))
@@ -231,13 +246,15 @@ func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean boo
 	return &storeEditor{ctx: ctx, store: store}, targetFile, nil
 }
 
-// assetDocument returns the named document merged across every registered
+// AssetDocument returns the named document merged across every registered
 // asset bundle, or nil when no bundle ships one.
 //
 // fs.ReadFile rather than a ReadFile method on Assets, and the distinction is
 // load-bearing: fs.ReadFile falls back to Open, and Open is where Assets
-// merges a structured file across every registered bundle.
-func assetDocument(p *props.Props, path string) []byte {
+// merges a structured file across every registered bundle. A hand-rolled
+// ReadFile that indexed one bundle would compile, read plausibly, and
+// silently return only the last bundle's copy.
+func AssetDocument(p *props.Props, path string) []byte {
 	if p.Assets == nil {
 		return nil
 	}
@@ -250,6 +267,18 @@ func assetDocument(p *props.Props, path string) []byte {
 	return data
 }
 
+// AssetSource wraps a merged asset document as a named config source, or nil
+// when no bundle ships the path. The "embedded:" prefix is the provenance
+// name convention for embedded layers.
+func AssetSource(p *props.Props, path string) *config.NamedSource {
+	content := AssetDocument(p, path)
+	if content == nil {
+		return nil
+	}
+
+	return &config.NamedSource{Name: "embedded:" + path, Content: content}
+}
+
 // writeInitialConfig materialises the target file. Absent (or --clean): the
 // merged init template is written. Existing: the file's values are merged over
 // the template so re-running init gains new template keys without disturbing
@@ -258,7 +287,7 @@ func assetDocument(p *props.Props, path string) []byte {
 // round-trip this replaces. Comments the USER writes survive later edits,
 // because wizard writes go through Apply.
 func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
-	seed := assetDocument(p, InitTemplateAssetPath)
+	seed := AssetDocument(p, InitTemplateAssetPath)
 
 	exists, err := afero.Exists(p.FS, targetFile)
 	if err != nil {
@@ -285,10 +314,12 @@ func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
 		return errors.Wrap(err, "writing config file")
 	}
 
-	// Restrict permissions on pre-existing files too — the file may contain
+	// Restrict permissions on pre-existing files — the file may contain
 	// credentials, and WriteFile's mode only applies on creation.
-	if chmodErr := p.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
-		p.Logger.Warn("failed to set config file permissions", "error", chmodErr)
+	if exists {
+		if chmodErr := p.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
+			p.Logger.Warn("failed to set config file permissions", "error", chmodErr)
+		}
 	}
 
 	return nil

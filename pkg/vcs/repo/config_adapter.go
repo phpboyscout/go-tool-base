@@ -38,14 +38,9 @@ func SettingsFromProps(p *props.Props) gorepo.Settings {
 		Params:  p.Tool.ReleaseSource.Params,
 	}
 
-	// Props built without a store (tests, hand-constructed Props) must resolve
-	// to the same no-auth settings a nil reader does, not panic on View.
-	var cfg config.Reader
-	if p.Config != nil {
-		cfg = p.Config.View()
-	}
-
-	return SettingsFromReader(source, cfg, p.Logger, p.FS)
+	// Props built without a store (tests, hand-constructed Props) resolve to
+	// the same no-auth settings a nil reader does, not a panic on View.
+	return SettingsFromReader(source, props.ViewOrNil(p), p.Logger, p.FS)
 }
 
 // resolveForge normalises a release source type into the forge name GTB uses

@@ -171,14 +171,14 @@ func TestAssetDocument(t *testing.T) {
 	t.Run("nil assets", func(t *testing.T) {
 		t.Parallel()
 
-		assert.Nil(t, assetDocument(&props.Props{}, DefaultsAssetPath))
+		assert.Nil(t, AssetDocument(&props.Props{}, DefaultsAssetPath))
 	})
 
 	t.Run("absent path", func(t *testing.T) {
 		t.Parallel()
 
 		p := &props.Props{Assets: props.NewAssets()}
-		assert.Nil(t, assetDocument(p, "assets/nonexistent.yaml"))
+		assert.Nil(t, AssetDocument(p, "assets/nonexistent.yaml"))
 	})
 
 	t.Run("merged across bundles", func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestAssetDocument(t *testing.T) {
 			"two": fstest.MapFS{"assets/config.yaml": &fstest.MapFile{Data: []byte("b: 2\n")}},
 		})}
 
-		doc := string(assetDocument(p, DefaultsAssetPath))
+		doc := string(AssetDocument(p, DefaultsAssetPath))
 		assert.Contains(t, doc, "a:")
 		assert.Contains(t, doc, "b:")
 	})

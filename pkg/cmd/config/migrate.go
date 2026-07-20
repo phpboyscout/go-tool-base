@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/credentials"
@@ -118,7 +116,11 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		return nil, errors.New("no configuration loaded")
 	}
 
-	target, err := resolveMigrateTarget(opts.Target, props.Config.View())
+	// One pinned view for the whole scan-plan run: candidates, target
+	// resolution and keychain payloads must come from the same snapshot.
+	view := props.Config.View()
+
+	target, err := resolveMigrateTarget(opts.Target, view)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +134,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		)
 	}
 
-	candidates := scanLiteralCredentials(props.Config.View())
+	candidates := scanLiteralCredentials(view)
 	if len(candidates) == 0 {
 		return &MigrateResult{}, nil
 	}
@@ -145,7 +147,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 	result := &MigrateResult{Actions: make([]MigrationAction, 0, len(candidates))}
 
 	for _, c := range candidates {
-		action, actErr := processCandidate(ctx, props, opts, c, plan)
+		action, actErr := processCandidate(ctx, props, view, opts, c, plan)
 		if actErr != nil {
 			return nil, actErr
 		}
@@ -157,8 +159,10 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		return result, nil
 	}
 
-	if err := applyPlan(ctx, props, plan); err != nil {
-		return nil, err
+	// One transactional Apply commits the staged plan: the target document is
+	// edited in place and a partial failure changes nothing on disk.
+	if _, err := props.Config.Apply(ctx, plan.changes...); err != nil {
+		return nil, errors.Wrap(err, "rewriting config")
 	}
 
 	result.WroteConfig = true
@@ -223,11 +227,12 @@ func validateMigrateTarget(m credentials.Mode) (credentials.Mode, error) {
 func processCandidate(
 	ctx context.Context,
 	props *p.Props,
+	view *config.View,
 	opts MigrateOptions,
 	c literalCredential,
 	plan *rewritePlan,
 ) (MigrationAction, error) {
-	if alreadyMigrated(props.Config.View(), c, opts.Target) {
+	if alreadyMigrated(view, c, opts.Target) {
 		return MigrationAction{
 			SourceKey:  c.Key,
 			PartnerKey: c.PartnerKey,
@@ -241,7 +246,7 @@ func processCandidate(
 	case credentials.ModeEnvVar:
 		return migrateToEnvVar(opts, c, plan)
 	case credentials.ModeKeychain:
-		return migrateToKeychain(ctx, props, opts, c, plan)
+		return migrateToKeychain(ctx, props, view, opts, c, plan)
 	case credentials.ModeLiteral:
 		return MigrationAction{}, errors.New("unreachable: literal is not a valid migration target (caught by validateMigrateTarget)")
 	}
@@ -298,6 +303,7 @@ func migrateToEnvVar(opts MigrateOptions, c literalCredential, plan *rewritePlan
 func migrateToKeychain(
 	ctx context.Context,
 	props *p.Props,
+	view *config.View,
 	opts MigrateOptions,
 	c literalCredential,
 	plan *rewritePlan,
@@ -311,7 +317,7 @@ func migrateToKeychain(
 		return MigrationAction{}, errors.New("cannot build keychain reference: tool name is empty and --keychain-service not set")
 	}
 
-	secret, err := secretForKeychain(props.Config.View(), c)
+	secret, err := secretForKeychain(view, c)
 	if err != nil {
 		return MigrationAction{}, err
 	}
@@ -550,86 +556,6 @@ func defaultVCSEnvVarName(key string) string {
 	}
 
 	return ""
-}
-
-// applyPlan commits a [rewritePlan] through the store: one Apply carries
-// every staged delete and set, edits the target document in place (comments
-// survive, and only the named keys change — the old path re-encoded the whole
-// resolved tree, dumping merged defaults into the user's file), and publishes
-// the new snapshot so in-memory Get returns the new state. Apply is
-// transactional, so a partial failure changes nothing on disk.
-func applyPlan(ctx context.Context, props *p.Props, plan *rewritePlan) error {
-	if _, err := props.Config.Apply(ctx, plan.changes...); err != nil {
-		return errors.Wrap(err, "rewriting config")
-	}
-
-	return nil
-}
-
-// migratedConfigFilePerm is the POSIX mode the rewritten config is
-// left in after a successful migration. Matches the 0600 invariant
-// enforced by the initial setup wizards (R4 in the hardening spec)
-// — a credential-bearing file must not be world-readable.
-const migratedConfigFilePerm = 0o600
-
-// writeConfigAtomic writes data to path via a temp-file + rename
-// dance so a mid-write interrupt leaves the original file intact.
-// Also enforces migratedConfigFilePerm on the final file.
-func writeConfigAtomic(fs afero.Fs, path string, data []byte) error {
-	if fs == nil {
-		fs = afero.NewOsFs()
-	}
-
-	// Create the parent dir lazily at first write — setup.GetDefaultConfigDir
-	// is pure and no longer creates ~/.toolname as a side effect.
-	const configDirPerm = 0o700
-	if dir := filepath.Dir(path); dir != "" && dir != "." {
-		if err := fs.MkdirAll(dir, configDirPerm); err != nil {
-			return errors.Wrap(err, "create config directory")
-		}
-	}
-
-	tmpPath := path + ".migrate.tmp"
-
-	if err := afero.WriteFile(fs, tmpPath, data, migratedConfigFilePerm); err != nil {
-		return errors.Wrap(err, "write temporary migrated config")
-	}
-
-	if err := fs.Rename(tmpPath, path); err != nil {
-		_ = fs.Remove(tmpPath)
-
-		return errors.Wrap(err, "rename migrated config into place")
-	}
-
-	// Best-effort chmod: some filesystems (afero memfs) don't track
-	// modes. Tests pass; production OsFs always honours chmod. We
-	// intentionally don't error out here.
-	_ = fs.Chmod(path, migratedConfigFilePerm)
-
-	return nil
-}
-
-// deleteNestedKey removes a dot-path entry from a nested map. When
-// the path resolves through non-map nodes, the call is a no-op —
-// the caller is asking to delete something that isn't there.
-func deleteNestedKey(m map[string]any, dotPath string) {
-	parts := strings.Split(dotPath, ".")
-	current := m
-
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			delete(current, part)
-
-			return
-		}
-
-		next, ok := current[part].(map[string]any)
-		if !ok {
-			return
-		}
-
-		current = next
-	}
 }
 
 // PrintResult writes a human-readable summary of result to w. Used
