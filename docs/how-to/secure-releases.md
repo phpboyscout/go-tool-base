@@ -176,13 +176,25 @@ script:
 
 So until a signing key is configured in CI, releases ship unsigned exactly as before; once `GTB_SIGNING_KEY` is set, every release gains a `checksums.txt.sig`.
 
-!!! warning "Coverage gap: `scripts/sign-release.sh` is untested"
-    The sign→verify loop was previously covered end-to-end by
-    `TestSignReleaseScript_VerifiesViaTrustSet` (gated `INT_TEST_SIGNING=1`).
-    That test was lost when the signing library moved to
-    [`go/signing`](https://signing.go.phpboyscout.uk) — the module carries its own
-    verification coverage, but `scripts/sign-release.sh` is GTB-specific release
-    tooling and no longer has a test exercising it against a real key.
+The **sign→verify contract** — that a signature `gtb sign` produces is accepted by
+the same trust set self-update enforces — is covered by
+`TestSignVerifyContract_*` in `internal/cmd/sign`. Those tests sign a manifest
+through the real `runSign` path, verify it via `verify.LoadTrustSet`, and assert
+that both a tampered manifest and an untrusted signing key are rejected with
+`ErrSignatureInvalid`. They need no credentials and run in the normal unit suite.
+
+!!! warning "Coverage gap: the KMS path in `scripts/sign-release.sh`"
+    The script itself is not exercised by any test. It is KMS-only — it shells out
+    to `gtb sign --backend aws-kms` and refuses to run without AWS credentials — so
+    covering it requires a real KMS key and OIDC-derived credentials.
+
+    The previous end-to-end test (`TestSignReleaseScript_VerifiesViaTrustSet`, gated
+    `INT_TEST_SIGNING=1`) drove the script with **gpg** and was lost when signing
+    moved to [`go/signing`](https://signing.go.phpboyscout.uk). It cannot simply be
+    restored: the gpg path it depended on no longer exists.
+
+    What remains untested is therefore the script's argument wiring and its KMS
+    round-trip, not the cryptographic contract above.
 
 ### Trust model at a glance
 

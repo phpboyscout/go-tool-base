@@ -233,11 +233,60 @@ the doc note already added in `integration-testing.md` clarifying the in-process
 
 ---
 
+## Work Item 5 — `scripts/sign-release.sh` against real KMS · NOT desktop-gated
+
+*Added 2026-07-20, after the forge-extraction documentation sweep found the
+previous coverage claim was false.*
+
+**Effort:** small. **Where:** anywhere with AWS credentials for the signing key.
+**Blocked on:** a KMS key (or a throwaway equivalent) plus credentials the AWS
+SDK default chain can resolve.
+
+**Why it matters:** `scripts/sign-release.sh` is the build-side half of release
+signing and has **no test at all**. The `docs/how-to/secure-releases.md` claim
+that it was covered end-to-end by `TestSignReleaseScript_VerifiesViaTrustSet`
+was stale: that test drove the script with **gpg** and was deleted in `0726367`
+when signing moved to `go/signing`. The script has since been rewritten to be
+KMS-only, so the old test cannot be restored — the gpg path it used is gone.
+
+**Already closed, and deliberately not part of this item:** the *cryptographic*
+contract (a `gtb sign` signature verifying against the trust set self-update
+enforces, with tampered manifests and untrusted keys rejected) is covered by
+`TestSignVerifyContract_*` in `internal/cmd/sign`, which needs no credentials.
+
+**What remains to test (gated, `INT_TEST_SIGNING=1` — reinstating the tag this
+spec's sweep removed as phantom):**
+
+- The script's argument wiring: `<artifact> <signature-output>` positional
+  handling, and that `--output` lands where GoReleaser expects.
+- Its guard rails: refusal when `GTB_SIGNING_KEY_PUBLIC` is missing, and refusal
+  when no AWS credentials resolve.
+- A real KMS round-trip producing an armored detached signature that
+  `verify.LoadTrustSet` accepts — the same assertion as the contract tests, but
+  through the script and a live `kms:Sign` call.
+
+**Prerequisites:**
+
+| Need | Detail |
+|---|---|
+| `GTB_SIGNING_KEY_ID` | KMS key id / ARN / alias (RSA, `SIGN_VERIFY`). A throwaway key is fine. |
+| `GTB_SIGNING_KEY_PUBLIC` | Path to the armored public half matching that key. |
+| AWS credentials | `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` (+ session token), or `AWS_ROLE_ARN` + `AWS_WEB_IDENTITY_TOKEN_FILE`. |
+| `AWS_REGION` | Defaults to `eu-west-2`. |
+
+**Acceptance:** a `*_integration_test.go` gated by `INT_TEST_SIGNING`; the tag is
+restored to the `integration-testing.md` table and inventory; the coverage-gap
+warning in `docs/how-to/secure-releases.md` is removed.
+
+---
+
 ## Testing Strategy & gating
 
 - Each item is a dedicated `*_integration_test.go` gated by its tag via
   `testutil.SkipIfNotIntegration`. New tags: `INT_TEST_KEYCHAIN`, `INT_TEST_WKD`,
-  `INT_TEST_CHAT_LIVE` (VCS reuses the existing `INT_TEST_VCS`).
+  `INT_TEST_CHAT_LIVE` (VCS reuses the existing `INT_TEST_VCS`; Item 5 reinstates
+  `INT_TEST_SIGNING`, which was removed as a phantom gate once its only test was
+  found to have been deleted).
 - Tests must **self-clean** any remote/keychain state they create (`t.Cleanup`,
   unique per-run identifiers).
 - They stay **opt-in** — never enabled by the default suite or CI without a
