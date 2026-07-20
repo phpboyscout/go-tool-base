@@ -337,26 +337,44 @@ func (a *AIInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
 		return err
 	}
 
-	if err := cfg.Set(chat.ConfigKeyAIProvider, aiCfg.Provider); err != nil {
+	return writeAIConfig(cfg, p.Tool.Name, aiCfg)
+}
+
+// writeAIConfig commits the provider selection and its credential as one
+// transactional write. The credential changes are computed first — including
+// the fallible OS-keychain store in keychain mode — so a failure there returns
+// before anything touches the config file. Persisting the provider in the same
+// Apply is what prevents an orphaned `ai.provider` with no credential when the
+// keychain is locked (the pre-Store code wrote the whole document at once for
+// the same reason).
+func writeAIConfig(cfg setup.Editor, toolName string, aiCfg *AIConfig) error {
+	credChanges, err := credentialChanges(toolName, aiCfg)
+	if err != nil {
 		return err
 	}
 
-	return writeAICredentialKeys(cfg, p.Tool.Name, aiCfg)
+	changes := append(
+		[]config.Change{config.Set(chat.ConfigKeyAIProvider, aiCfg.Provider)},
+		credChanges...,
+	)
+
+	return cfg.Apply(changes...)
 }
 
-// writeAICredentialKeys writes the provider's credential keys based
-// on the selected storage mode. Only one of the literal / env-var /
-// keychain keys is set — this ensures config.GetString returns the
-// intended value without stale entries from a prior mode. toolName
-// names the service used by the keychain write; see
-// [providerKeychainAccount] for the account shape.
-func writeAICredentialKeys(cfg setup.Editor, toolName string, aiCfg *AIConfig) error {
+// credentialChanges builds the config changes for the provider's credential in
+// the selected storage mode — exactly one of the literal / env-var / keychain
+// keys is set and the other two removed (via [setup.ExclusiveChanges]), so a
+// stale entry from a prior mode cannot mask the new value. In keychain mode the
+// external keychain store runs here, before any change is returned, so its
+// failure aborts the whole write. toolName names the service used by the
+// keychain write; see [providerKeychainAccount] for the account shape.
+func credentialChanges(toolName string, aiCfg *AIConfig) ([]config.Change, error) {
 	keys, ok := providerConfigKeys(aiCfg.Provider)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
-	return applyStorageModeWrite(cfg, toolName, keys, aiCfg)
+	return storageModeChanges(toolName, keys, aiCfg)
 }
 
 // providerConfigKeyTriple groups the three provider-specific config
@@ -387,50 +405,52 @@ func (k providerConfigKeyTriple) all() []string {
 	return []string{k.env, k.literal, k.keychain}
 }
 
-// applyStorageModeWrite performs the write corresponding to the selected
-// storage mode, dispatching to a per-mode helper so each arm stays readable.
-func applyStorageModeWrite(cfg setup.Editor, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+// storageModeChanges returns the config changes for the selected storage mode,
+// dispatching to a per-mode helper so each arm stays readable. A blank
+// credential field yields no changes (the wizard was bypassed in tests, or the
+// user left the field empty), never an error.
+func storageModeChanges(toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) ([]config.Change, error) {
 	switch aiCfg.StorageMode {
 	case credentials.ModeEnvVar:
-		return applyEnvVarWrite(cfg, keys, aiCfg)
+		return envVarChanges(keys, aiCfg), nil
 	case credentials.ModeLiteral, "":
 		// "" preserves prior behaviour for callers (tests) that
 		// bypass the wizard and set APIKey directly.
-		return applyLiteralWrite(cfg, keys, aiCfg)
+		return literalChanges(keys, aiCfg), nil
 	case credentials.ModeKeychain:
-		return applyKeychainWrite(cfg, toolName, keys, aiCfg)
+		return keychainChanges(toolName, keys, aiCfg)
 	default:
-		return errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
+		return nil, errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
 	}
 }
 
-func applyEnvVarWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+func envVarChanges(keys providerConfigKeyTriple, aiCfg *AIConfig) []config.Change {
 	if aiCfg.EnvVarName == "" {
 		return nil
 	}
 
-	return setup.WriteExclusive(cfg, map[string]any{keys.env: aiCfg.EnvVarName}, keys.all())
+	return setup.ExclusiveChanges(map[string]any{keys.env: aiCfg.EnvVarName}, keys.all())
 }
 
-func applyLiteralWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+func literalChanges(keys providerConfigKeyTriple, aiCfg *AIConfig) []config.Change {
 	if aiCfg.APIKey == "" {
 		return nil
 	}
 
-	return setup.WriteExclusive(cfg, map[string]any{keys.literal: aiCfg.APIKey}, keys.all())
+	return setup.ExclusiveChanges(map[string]any{keys.literal: aiCfg.APIKey}, keys.all())
 }
 
-func applyKeychainWrite(cfg setup.Editor, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+func keychainChanges(toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) ([]config.Change, error) {
 	ref, err := storeAIKeyInKeychain(toolName, aiCfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if ref == "" {
-		return nil
+		return nil, nil
 	}
 
-	return setup.WriteExclusive(cfg, map[string]any{keys.keychain: ref}, keys.all())
+	return setup.ExclusiveChanges(map[string]any{keys.keychain: ref}, keys.all()), nil
 }
 
 // storeAIKeyInKeychain writes the API key into the OS keychain under
@@ -472,11 +492,7 @@ func RunAIInit(ctx context.Context, p *props.Props, dir string, opts ...FormOpti
 		return err
 	}
 
-	if err := editor.Set(chat.ConfigKeyAIProvider, aiCfg.Provider); err != nil {
-		return err
-	}
-
-	return writeAICredentialKeys(editor, p.Tool.Name, aiCfg) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
+	return writeAIConfig(editor, p.Tool.Name, aiCfg) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
 }
 
 // runAIForms runs the multi-stage AI configuration forms and returns the result.

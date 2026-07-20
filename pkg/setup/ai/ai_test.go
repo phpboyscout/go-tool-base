@@ -229,11 +229,12 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 		"the stale literal key must resolve as empty after the switch")
 }
 
-// TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys exercises the
-// live-config write path (the interactive wizard) directly: writing a
-// credential in one mode must remove the key paths owned by the other
-// modes, enforcing the spec's single-credential-key invariant.
-func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
+// TestWriteAIConfig_ModeSwitchClearsStaleKeys exercises the live-config write
+// path (the interactive wizard) directly through the atomic writer: writing a
+// credential in one mode must remove the key paths owned by the other modes,
+// enforcing the spec's single-credential-key invariant, and must persist the
+// provider in the same write.
+func TestWriteAIConfig_ModeSwitchClearsStaleKeys(t *testing.T) {
 	openEditor := func(t *testing.T) setup.Editor {
 		t.Helper()
 
@@ -250,7 +251,7 @@ func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 		cfg := openEditor(t)
 		require.NoError(t, cfg.Set("anthropic.api.key", "sk-ant-STALE"))
 
-		err := writeAICredentialKeys(cfg, "test-tool", &AIConfig{
+		err := writeAIConfig(cfg, "test-tool", &AIConfig{
 			Provider:    "claude",
 			StorageMode: credentials.ModeEnvVar,
 			EnvVarName:  "ANTHROPIC_API_KEY",
@@ -258,9 +259,10 @@ func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		view := cfg.View()
+		assert.Equal(t, "claude", view.GetString("ai.provider"))
 		assert.Equal(t, "ANTHROPIC_API_KEY", view.GetString("anthropic.api.env"))
-		assert.Empty(t, view.GetString("anthropic.api.key"),
-			"env-var mode must clear the stale literal key")
+		assert.False(t, view.IsSet("anthropic.api.key"),
+			"env-var mode must remove the stale literal key")
 	})
 
 	t.Run("literal mode clears a stale env reference", func(t *testing.T) {
@@ -271,7 +273,7 @@ func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
 		replacement := "sk-ant-new"
 
-		err := writeAICredentialKeys(cfg, "test-tool", &AIConfig{
+		err := writeAIConfig(cfg, "test-tool", &AIConfig{
 			Provider:    "claude",
 			StorageMode: credentials.ModeLiteral,
 			APIKey:      replacement,
@@ -279,9 +281,10 @@ func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		view := cfg.View()
+		assert.Equal(t, "claude", view.GetString("ai.provider"))
 		assert.Equal(t, replacement, view.GetString("anthropic.api.key"))
-		assert.Empty(t, view.GetString("anthropic.api.env"),
-			"literal mode must clear the stale env reference")
+		assert.False(t, view.IsSet("anthropic.api.env"),
+			"literal mode must remove the stale env reference")
 	})
 }
 
@@ -575,11 +578,12 @@ func TestAIInitialiser_Configure(t *testing.T) {
 
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Return(nil).Once()
-	// Writing the literal also removes the sibling env/keychain key paths in
-	// the same transactional Apply, so a prior storage mode cannot leave a
-	// stale value behind.
+	// Provider and credential commit in ONE transactional Apply: the provider
+	// is set, the literal key is set, and the sibling env/keychain key paths a
+	// prior storage mode may have used are removed. Committing together means a
+	// credential-write failure can never orphan the provider.
 	cfg.EXPECT().Apply([]config.Change{
+		config.Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)),
 		config.Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test"),
 		config.Remove(chat.ConfigKeyClaudeEnv),
 		config.Remove(chat.ConfigKeyClaudeKeychain),
@@ -605,7 +609,11 @@ func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)).Return(nil).Once()
+	// No credential supplied, so only the provider is written — but still
+	// through the single combined Apply.
+	cfg.EXPECT().Apply([]config.Change{
+		config.Set(chat.ConfigKeyAIProvider, string(gochat.ProviderOpenAI)),
+	}).Return(nil).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{

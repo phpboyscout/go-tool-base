@@ -15,7 +15,6 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
-	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -202,16 +201,15 @@ func TestStorageModeDescription(t *testing.T) {
 	assert.Contains(t, storageModeDescription(false), "out of the config file")
 }
 
-// TestApplyStorageModeWrite_UnknownMode covers the default arm of the
+// TestStorageModeChanges_UnknownMode covers the default arm of the
 // storage-mode dispatch switch.
-func TestApplyStorageModeWrite_UnknownMode(t *testing.T) {
+func TestStorageModeChanges_UnknownMode(t *testing.T) {
 	t.Parallel()
 
-	cfg := setupmocks.NewMockEditor(t)
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
-	err := applyStorageModeWrite(cfg, "tool", keys, &AIConfig{
+	_, err := storageModeChanges("tool", keys, &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.Mode("bogus"),
 	})
@@ -219,54 +217,54 @@ func TestApplyStorageModeWrite_UnknownMode(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown credential storage mode")
 }
 
-// TestApplyStorageModeWrite_EnvVar covers the env-var arm writing the
-// env key through the editor.
-func TestApplyStorageModeWrite_EnvVar(t *testing.T) {
+// TestStorageModeChanges_EnvVar covers the env-var arm: the mode-owned key is
+// set and the literal and keychain key paths it does not own are removed, all
+// in one ordered change list.
+func TestStorageModeChanges_EnvVar(t *testing.T) {
 	t.Parallel()
-
-	cfg := setupmocks.NewMockEditor(t)
-	// One transactional Apply: the mode-owned key is set and the literal and
-	// keychain key paths the env-var mode does not own are removed.
-	cfg.EXPECT().Apply([]config.Change{
-		config.Set(chat.ConfigKeyClaudeEnv, "MY_KEY"),
-		config.Remove(chat.ConfigKeyClaudeKey),
-		config.Remove(chat.ConfigKeyClaudeKeychain),
-	}).Return(nil).Once()
 
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
-	require.NoError(t, applyStorageModeWrite(cfg, "tool", keys, &AIConfig{
+	changes, err := storageModeChanges("tool", keys, &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeEnvVar,
 		EnvVarName:  "MY_KEY",
-	}))
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []config.Change{
+		config.Set(chat.ConfigKeyClaudeEnv, "MY_KEY"),
+		config.Remove(chat.ConfigKeyClaudeKey),
+		config.Remove(chat.ConfigKeyClaudeKeychain),
+	}, changes)
 }
 
-// TestApplyStorageModeWrite_KeychainStoreError covers the keychain arm
-// when the backend rejects the write. Serial: relies on the default
-// stub backend (no credtest installed), whose Store always fails.
-func TestApplyStorageModeWrite_KeychainStoreError(t *testing.T) {
-	cfg := setupmocks.NewMockEditor(t)
+// TestStorageModeChanges_KeychainStoreError covers the keychain arm when the
+// backend rejects the write. Serial: relies on the default stub backend (no
+// credtest installed), whose Store always fails. The change list must be nil
+// so nothing is committed to the config file.
+func TestStorageModeChanges_KeychainStoreError(t *testing.T) {
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
-	err := applyStorageModeWrite(cfg, "tool", keys, &AIConfig{
+	changes, err := storageModeChanges("tool", keys, &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeKeychain,
 		APIKey:      "sk-ant",
 	})
 	require.Error(t, err)
+	assert.Nil(t, changes)
 	assert.Contains(t, err.Error(), "storing AI API key in OS keychain")
 }
 
-// TestWriteAICredentialKeys_UnknownProvider covers the early no-op
-// return when the provider has no config-key triple.
-func TestWriteAICredentialKeys_UnknownProvider(t *testing.T) {
+// TestCredentialChanges_UnknownProvider covers the early no-op return when the
+// provider has no config-key triple.
+func TestCredentialChanges_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
-	cfg := setupmocks.NewMockEditor(t)
-	require.NoError(t, writeAICredentialKeys(cfg, "tool", &AIConfig{Provider: "unknown"}))
+	changes, err := credentialChanges("tool", &AIConfig{Provider: "unknown"})
+	require.NoError(t, err)
+	assert.Nil(t, changes)
 }
 
 // TestProviderConfigKeys covers the unknown-provider false return.

@@ -77,11 +77,12 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
-	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Return(nil).Once()
-	// Recording the keychain reference also removes the sibling env/literal
-	// key paths in the same transactional Apply, so a prior storage mode
-	// leaves nothing behind.
+	// Provider and keychain reference commit in ONE transactional Apply, with
+	// the sibling env/literal key paths removed. The keychain external store
+	// runs before this Apply, so a locked keychain aborts before the provider
+	// is written — never orphaning it.
 	cfg.EXPECT().Apply([]config.Change{
+		config.Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)),
 		config.Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api"),
 		config.Remove(chat.ConfigKeyClaudeEnv),
 		config.Remove(chat.ConfigKeyClaudeKey),
@@ -117,6 +118,37 @@ func TestStoreAIKeyInKeychain_BlankKeyIsNoop(t *testing.T) {
 	_, retrieveErr := credentials.Retrieve(t.Context(), "test-tool", "openai.api")
 	require.ErrorIs(t, retrieveErr, credentials.ErrCredentialNotFound,
 		"blank key must not have been written")
+}
+
+// TestWriteAIConfig_KeychainFailureLeavesNothing is the regression guard for
+// the orphaned-provider bug: when the OS keychain store fails, writeAIConfig
+// must not have persisted the provider (or anything) to the config file. Not
+// parallel and no credtest.Install, so the default stub backend's Store fails.
+func TestWriteAIConfig_KeychainFailureLeavesNothing(t *testing.T) {
+	props := newTestProps(t)
+	props.Assets = p.NewAssets()
+
+	editor, path, err := setup.OpenConfigEditor(t.Context(), props, "/cfg", false)
+	require.NoError(t, err)
+
+	// A non-empty, non-secret-looking value: it only needs to be present so the
+	// keychain store is attempted (and fails), without tripping gosec G101.
+	placeholder := "should-not-persist"
+
+	writeErr := writeAIConfig(editor, "test-tool", &AIConfig{
+		Provider:    string(gochat.ProviderClaude),
+		StorageMode: credentials.ModeKeychain,
+		APIKey:      placeholder,
+	})
+	require.Error(t, writeErr, "a failed keychain store must abort the write")
+
+	assert.False(t, editor.View().IsSet("ai.provider"),
+		"the provider must not be persisted when the credential write fails")
+
+	if data, rerr := afero.ReadFile(props.FS, path); rerr == nil {
+		assert.NotContains(t, string(data), "provider",
+			"nothing must reach the config file when the keychain store fails")
+	}
 }
 
 // Missing provider account => error. This guards against a future

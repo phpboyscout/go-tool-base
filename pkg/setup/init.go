@@ -95,8 +95,16 @@ func (e *storeEditor) Apply(changes ...config.Change) error {
 // key in all, as one transactional Apply — the single-credential-key
 // invariant from the hardening spec, enforced atomically so an interrupted
 // storage-mode switch cannot leave both the old and new credential behind.
-// Removing an already-absent key is a no-op, so stale keys end up absent
-// rather than blanked.
+func WriteExclusive(e Editor, winning map[string]any, all []string) error {
+	return e.Apply(ExclusiveChanges(winning, all)...)
+}
+
+// ExclusiveChanges builds the ordered change list WriteExclusive applies:
+// the winning keys set, every other key in all removed. Callers that need to
+// commit the credential together with other keys (e.g. the AI wizard writing
+// the provider selection in the same transaction) compose this list rather
+// than issuing a separate Apply. Removing an already-absent key is a no-op, so
+// stale keys end up absent rather than blanked.
 //
 // Change ordering matters twice over. A stale key on the same dotted path as
 // a winning key (bitbucket.username versus bitbucket.username.env) must be
@@ -104,7 +112,7 @@ func (e *storeEditor) Apply(changes ...config.Change) error {
 // and a later subtree removal would take the winner with it. Every other
 // stale key is removed AFTER all sets, so a parent mapping shared by winning
 // and stale keys never passes through an empty state mid-batch.
-func WriteExclusive(e Editor, winning map[string]any, all []string) error {
+func ExclusiveChanges(winning map[string]any, all []string) []config.Change {
 	changes := make([]config.Change, 0, len(all)+len(winning))
 	removed := make(map[string]bool, len(all))
 
@@ -129,7 +137,7 @@ func WriteExclusive(e Editor, winning map[string]any, all []string) error {
 		}
 	}
 
-	return e.Apply(changes...)
+	return changes
 }
 
 // samePath reports whether one dotted key path is an ancestor of the other,
