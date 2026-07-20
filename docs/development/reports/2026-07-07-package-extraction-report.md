@@ -1,7 +1,33 @@
 # GTB Package Extraction Report
 
 _Assessment date: 2026-07-07 — revised 2026-07-12 (post config + slog-first
-decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete)._
+decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete) and
+2026-07-20 (wave 2: credentials, config, errorhandling, and the VCS/forge tree)._
+
+!!! success "2026-07-20 progress — wave 2 complete; the VCS tree is out"
+
+    Four of wave 2's ranked items landed, taking the toolkit to **27 published
+    modules**:
+
+    - **`credentials`** → `go/credentials` v0.2.0, **`config`** → `go/config`
+      v0.2.0, **`errorhandling`** → `go/errorhandling` v0.1.0.
+    - **The VCS/release tree** shipped as **seven** modules, not one:
+      `go/repo` v0.1.0, `go/aferobilly` v0.1.0, `go/forge` v0.1.1, and one module
+      per provider (`go/forge-{gitlab,gitea,bitbucket,github}` v0.1.0). GTB
+      cut-over MR !267, then documentation reconciliation !268 and signing
+      coverage !269 — all merged.
+
+    **Two decisions worth not re-litigating.** The release contract, registry and
+    auth merged into the **root** `go/forge` package rather than staying split;
+    and each forge is its **own module**, so a tool can depend on one provider
+    instead of four SDKs. `pkg/vcs/github`'s wider client (PRs, repo creation, SSH
+    keys, device login) **deliberately stayed in GTB** — moving it would give
+    GitHub capabilities no other forge has, which is the disparity backend
+    agnosticism exists to prevent.
+
+    **What remains** is the analytics split and the standalone leaves — see the
+    checklist footer. A substantial **config overhaul** is queued next, which will
+    change how GTB consumes `go/config`.
 
 !!! success "2026-07-14 progress — Phase 1 leaves complete"
 
@@ -1033,9 +1059,15 @@ dependency weight.
 
 ## Extraction Readiness Checklist
 
-_Snapshot: 2026-07-12. A quick-lookup tracker for future extraction work. Tick a
-box when the module is extracted and consumed back via a GTB adapter. "Ease"
-is the ease-of-decoupling score from each package's table above._
+_Snapshot: 2026-07-20. A quick-lookup tracker for future extraction work. Tick a
+box when the module is extracted and consumed back. "Ease" is the
+ease-of-decoupling score from each package's table above._
+
+_Legend: ✅ done · ⚠️ partially extracted (read the note) · ☐ outstanding._
+
+_Note on "consumed back via a GTB adapter": the programme has since settled on
+**clean breaks over facades** (MR !248). Only genuine glue stays in GTB — config
+adapters, `tls.Resolve`, the chat config-key schema, `pkg/vcs/config_adapter.go`._
 
 **Readiness tiers**
 
@@ -1060,27 +1092,28 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/output` | `cli-output` | 9 | Isolate Cobra helpers in `output/cobra`; fix Unicode/spinner issues first. |
 | ☐ | `pkg/changelog` | (own module) | 9 | No GTB imports. go-git weight is acceptable. |
 | ✅ | `pkg/authn` | `authn` | 9 | **DONE (2026-07-16)** → `go/authn` v0.1.0. Phase 2 #2; **pure repoint** (no facade — zero GTB imports, no logger seam); repointed `pkg/{grpc,http}/auth.go`, deleted `pkg/authn/` + unused `mocks/pkg/authn/`. |
-| ☑ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | No GTB imports in core. Consider a `wizard` subpackage. |
+| ✅ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | **DONE** → `go/credentials` v0.2.0. `keychain` stayed an opt-in subpackage so regulated downstreams can omit the blank import and let the linker drop go-keyring. Mocks live in a `mocks` subpackage (not `credentialsmock`) — alias at the import site. |
 | ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |
 | ✅ | `pkg/tls` | `tls` | 9 | **DONE (2026-07-16)** → `go/tls` v0.1.0. First Phase 2 module; **facade** cut-over (core moved; `Resolve`/`SharedPrefix` config adapter stays in `pkg/tls`), zero transport-consumer churn. |
 | ✅ | `pkg/telemetry/otelcore` (+`logs`,`metrics`,`tracing`) | `observability` | 8 | **DONE (2026-07-16)** → `go/observability` v0.1.0. Phase 2 #3 (final foundation); **full repoint** (adapter relocated into `pkg/telemetry`); OTel-allowing depfootprint guard. D3 confirmed: extracted without the analytics split. |
-| ☐ | `pkg/vcs/release` (+`releasetest`) | `releases` | 8 | **Newly ready** — narrowed registry factory; extract first within VCS. |
-| ☐ | `pkg/vcs/repo/aferobilly` | `vcsrepo` (or standalone) | 10 | No GTB imports. afero↔billy bridge. |
+| ✅ | `pkg/vcs/release` (+`releasetest`) | `forge` | 8 | **DONE (2026-07-19)** → `go/forge` v0.1.1. Named `forge`, not `releases`: the contract, registry and auth merged into the root package (D3). `releasetest` became the conformance harness at `forge/test` — not `forgetest`, which stutters. |
+| ✅ | `pkg/vcs/repo/aferobilly` | `aferobilly` | 10 | **DONE (2026-07-19)** → `go/aferobilly` v0.1.0. Standalone, as suggested. afero↔billy bridge, no GTB imports. |
 
 ### 🔗 Ready, pending sibling / stack extraction
 
 | Done | Package | Target module | Ease | Blocking dependency |
 |:--:|---|---|:--:|---|
-| ☑ | `pkg/chat` | `go/chat` (+`chat-anthropic`/`openai`/`gemini`) | 6 | **EXTRACTED v0.1.0 (2026-07-13)** — HTTP client injected; per-provider modules; GTB consumes via the `pkg/chat` facade (MR !215). First greenfield extraction — see playbook §10. |
+| ✅ | `pkg/chat` | `go/chat` (+`chat-anthropic`/`openai`/`gemini`) | 6 | **DONE (2026-07-13)** → v0.1.0. HTTP client injected; per-provider modules. First greenfield extraction — see playbook §10. The `pkg/chat` facade it originally shipped behind was later clean-broken (MR !248); GTB now imports the module directly and `pkg/chat` keeps only the GTB config-key schema + provider blank imports. |
 | ✅ | `pkg/http` | `transport` | 6 | **Middleware** → `go/transit` v0.1.0 (Phase 3, facade). **Client factory** → `go/httpclient` v0.1.0 (Phase 4, facade). **Server** → `go/transport/http` v0.1.1 (Phase 5, **clean break**): server/health/auth/security-headers moved; `pkg/http` keeps only the `config.Containable` adapters (+ client & transit re-exports). DONE. |
 | ✅ | `pkg/grpc` | `transport` | 6 | **Interceptors** → `go/transit` v0.1.0 (Phase 3, facade). **Dial factory** → `go/grpcclient` v0.1.0 (Phase 4). **Server** → `go/transport/grpc` v0.1.1 (Phase 5, **clean break**): server/health/auth/TLS-creds/`DialLocal` moved; `pkg/grpc` keeps only the config adapters (+ transit re-exports). DONE. |
 | ✅ | `pkg/gateway` | `transport` | 6 | **Server** → `go/transport/gateway` v0.1.1 (Phase 5, **clean break**): `New`/`Register`/`Settings` moved; `pkg/gateway` keeps only the config adapters (which own the config-driven dial + their own `WithDialOptions`/`WithMuxOptions`/`WithMiddleware`). DONE. |
 | ☐ | `pkg/openapi` | `transport` | 8 | HTTP-module companion; inject `http.ServeMux`. |
-| ☐ | `pkg/vcs` | `releases`/`vcsrepo` common | 7 | After/with `credentials`. |
-| ☐ | `pkg/vcs/{github,gitlab,gitea,bitbucket,direct}` | `releases` | 6 | Subpackages of the release module; inject `*http.Client`. |
-| ☐ | `pkg/vcs/repo` | `vcsrepo` | 7 | After `vcs`/`release`/`aferobilly`. |
-| ☑ | `pkg/config` | (opinionated Viper wrapper) | 7 | Optional foundational extraction; swap `pkg/logger` for a narrow seam. Not a prerequisite for others. |
-| ☑ | `pkg/errorhandling` | (CLI error UX) | 6 | Done. No split needed: the Cobra parameter was vestigial (duplicated `SetUsage`, no caller passed it), so removing it left one framework-free module. |
+| ✅ | `pkg/vcs` | `forge` | 7 | **DONE (2026-07-20)** → merged into the `go/forge` root rather than a separate common package. `pkg/vcs` keeps only `config_adapter.go` (the GTB config→`Settings` glue), `doc.go`, and the two retained subpackages below. |
+| ✅ | `pkg/vcs/{gitlab,gitea,bitbucket,direct}` | `forge-<forge>` | 6 | **DONE (2026-07-19)** → one module *each* (`go/forge-{gitlab,gitea,bitbucket}` v0.1.0), not subpackages — so a tool can depend on a single forge. `direct` is not a forge and ships inside `go/forge` itself. Registered by blank import from `pkg/setup/providers.go`, so downstream tools get all five transitively. |
+| ⚠️ | `pkg/vcs/github` | `forge-github` | 6 | **PARTIAL (2026-07-19)** → only the **release provider** moved, to `go/forge-github` v0.1.0. The wider client (PRs, repo creation, SSH keys, file contents, device login) **deliberately stays in GTB**: it predates open-sourcing and moving it would give GitHub capabilities no other forge has. Restoring that surface across *all* providers in lockstep needs a spec on the [forge project](https://gitlab.com/phpboyscout/go/forge) before any code moves. |
+| ✅ | `pkg/vcs/repo` | `repo` | 7 | **DONE (2026-07-19)** → `go/repo` v0.1.0. Env-var detection **removed** in favour of injected `Settings` + a `KeyPath(path, env)` helper, guarded by an AST test (`envfootprint_test.go`) that fails on any `os.Getenv` outside it. |
+| ✅ | `pkg/config` | `config` | 7 | **DONE (2026-07-18)** → `go/config` v0.2.0. Clean-break `git mv` + direct repoint across ~19 consumer packages; carries the full Viper stack, which is legitimate for this module. Was the prerequisite for a clean forge/VCS extraction. **Note: a substantial config overhaul is planned — see the handover.** |
+| ✅ | `pkg/errorhandling` | `errorhandling` | 6 | **DONE (2026-07-18)** → `go/errorhandling` v0.1.0. No split needed: the Cobra parameter was vestigial (duplicated `SetUsage`, no caller passed it), so removing it left one framework-free module. |
 
 ### 🚧 Blocked on design/refactor work
 
@@ -1089,10 +1122,26 @@ is the ease-of-decoupling score from each package's table above._
 | ☐ | `pkg/telemetry` (root) | (analytics) | 5 | **Product-analytics ↔ observability split** — [2026-07-12 spec](../specs/2026-07-12-telemetry-analytics-observability-split.md) (DRAFT). |
 | ☐ | `pkg/telemetry/{posthog,datadog}` | (backend adapters) | 5 | Follows root telemetry contract extraction. |
 
-**Suggested order:** ✅ `chat` (done, out of sequence — highest value) → leaf
-utilities (redact, regexutil, browser, workspace, forms, logger, aferobilly) →
-CLI helpers (output, changelog) → security/runtime (authn, credentials, tls,
-**controls** — the recommended next substantial pick, harden lifecycle first) →
-observability (`telemetry/otelcore` group) → transport stack (http → grpc →
-gateway/openapi; sits on `controls`) → VCS (release → providers → vcs/repo) →
-telemetry split → root telemetry + backends.
+**Order as executed (all ✅):** `chat` (out of sequence — highest value) → Phase-1
+leaves (redact, regexutil, browser) → `controls` → transport stack (tls, authn,
+observability → transit → httpclient, grpcclient → transport) → facade clean-break
+→ wave 2 (credentials, config, errorhandling) → the VCS/forge tree (repo,
+aferobilly, forge, four providers).
+
+**What is left**, in rough value order:
+
+1. **Telemetry analytics split** — the one genuinely *blocked* item; needs the
+   product-analytics ↔ observability design decision. Its blockers (`pkg/http`,
+   `pkg/osinfo`) cleared when the transport stack landed, so it is now actionable.
+2. **CLI helpers** — `output` (fix the Unicode/spinner issues first, isolate the
+   Cobra helpers in `output/cobra`), `changelog`.
+3. **Remaining leaves** — `workspace`, `forms`, `logger` (facade only), `openapi`.
+4. **Deferred by decision, not readiness** — restoring `pkg/vcs/github`'s wider
+   client across every provider in lockstep. Needs a spec on the forge project
+   before any code moves.
+
+**Before the next extraction, note:** a substantial **config overhaul** is queued
+that will rewrite how GTB consumes and manages configuration. Every remaining
+candidate reads config through the typed-section adapters, so it is worth letting
+that land before extracting anything further — the adapter shape it produces is
+what the next module has to be built against.
