@@ -65,21 +65,6 @@ refused and leaves the file untouched.`,
 	return cmd
 }
 
-// fileBacked reports whether any file layer defines key.
-func fileBacked(view *cfg.View, key string) bool {
-	if origin, ok := view.Origin(key); ok && origin.Kind == cfg.SourceFile {
-		return true
-	}
-
-	for _, source := range view.Shadowed(key) {
-		if source.Kind == cfg.SourceFile {
-			return true
-		}
-	}
-
-	return false
-}
-
 // persistUnset removes key from the user's config file. The candidate result
 // is validated against the base schema first, so an unset can never leave the
 // file in a state "config validate" would reject; the removal itself then goes

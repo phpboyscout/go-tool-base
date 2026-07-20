@@ -44,8 +44,18 @@ Feature: CLI Config Command
     And stdout contains "github.auth.token"
     And stdout does not contain "supersecrettoken"
 
-  Scenario: Validate reports error for missing required key
+  Scenario: Validate heals a missing required key from the embedded defaults
     Given a config file with no log.level key
+    When I run gtb with "config validate"
+    Then the exit code is 0
+    And stdout contains "configuration is valid"
+
+  Scenario: Validate reports error for an invalid value
+    Given the config file contains:
+      """
+      log:
+        level: verbose
+      """
     When I run gtb with "config validate"
     Then the exit code is not 0
     And stdout contains "error:"

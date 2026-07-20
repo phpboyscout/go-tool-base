@@ -5,9 +5,11 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	configafero "gitlab.com/phpboyscout/go/config-afero"
 )
 
 // StoreFromYAML builds a config store over the given YAML document, with any
@@ -28,6 +30,31 @@ func ViewFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *config
 	t.Helper()
 
 	return StoreFromYAML(t, yaml, opts...).View()
+}
+
+// FileStoreFromYAML builds a store whose YAML document loads as a FILE layer
+// (a writable config file on a MemMapFs) — for tests that depend on
+// user-authored provenance or a writable Apply target, which a reader layer
+// deliberately is not.
+func FileStoreFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *config.Store {
+	t.Helper()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte(yaml), 0o600))
+
+	store, err := config.NewStore(t.Context(), append([]config.StoreOption{
+		config.WithFiles(configafero.Wrap(fs), "config.yaml"),
+	}, opts...)...)
+	require.NoError(t, err)
+
+	return store
+}
+
+// FileViewFromYAML pins a view over a file-layer-backed YAML document.
+func FileViewFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *config.View {
+	t.Helper()
+
+	return FileStoreFromYAML(t, yaml, opts...).View()
 }
 
 // MutableSource is a config backend whose content a test can replace before

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -43,8 +44,10 @@ func TestCmdValidate_InvalidConfig(t *testing.T) {
 func TestCmdValidate_WarningDoesNotFail(t *testing.T) {
 	t.Parallel()
 
-	// An unknown key in an authored layer yields a warning, not an error.
-	p := newTestProps(t, "log:\n  level: info\nunknown:\n  key: surplus\n")
+	// An unknown key in a user-authored (file) layer yields a warning, not an
+	// error. Provenance matters: the same key in an embedded-defaults reader
+	// layer is filtered from the warnings.
+	p := &props.Props{Config: testutil.FileStoreFromYAML(t, "log:\n  level: info\nunknown:\n  key: surplus\n")}
 	cmd := config.NewCmdValidate(p)
 
 	var buf bytes.Buffer

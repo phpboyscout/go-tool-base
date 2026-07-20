@@ -31,7 +31,14 @@ Exits with a non-zero status code if any validation errors are found.`,
 				return errors.Wrap(err, "failed to build validation schema")
 			}
 
-			result := props.Config.View().Validate(schema)
+			view := props.Config.View()
+			result := view.Validate(schema)
+
+			// Unknown-key warnings only help when the user can act on them.
+			// Keys supplied solely by embedded defaults (the framework or a
+			// feature bundle) are not the user's to remove, so they are
+			// filtered; anything file-, env- or flag-authored still warns.
+			result.Warnings = userActionableWarnings(view, result.Warnings)
 
 			printValidationResult(cmd.OutOrStdout(), result)
 
@@ -55,6 +62,20 @@ func buildBaseSchema() (*cfg.Schema, error) {
 	}
 
 	return cfg.NewSchema(cfg.WithStructSchema(baseConfig{}))
+}
+
+// userActionableWarnings drops warnings for keys no user-influenced layer
+// defines.
+func userActionableWarnings(view *cfg.View, warnings []cfg.ValidationError) []cfg.ValidationError {
+	kept := make([]cfg.ValidationError, 0, len(warnings))
+
+	for _, warning := range warnings {
+		if warning.Key == "" || userAuthoredKey(view, warning.Key) {
+			kept = append(kept, warning)
+		}
+	}
+
+	return kept
 }
 
 func printValidationResult(w io.Writer, result *cfg.ValidationResult) {

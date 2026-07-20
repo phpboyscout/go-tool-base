@@ -135,21 +135,32 @@ func TestAlreadyMigrated(t *testing.T) {
 	t.Run("env target set", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := testutil.ViewFromYAML(t, "anthropic:\n  api:\n    env: X\n")
+		cfg := testutil.FileViewFromYAML(t, "anthropic:\n  api:\n    env: X\n")
 		assert.True(t, alreadyMigrated(cfg, c, credentials.ModeEnvVar))
 	})
 
 	t.Run("keychain target set", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := testutil.ViewFromYAML(t, "anthropic:\n  api:\n    keychain: svc/acct\n")
+		cfg := testutil.FileViewFromYAML(t, "anthropic:\n  api:\n    keychain: svc/acct\n")
 		assert.True(t, alreadyMigrated(cfg, c, credentials.ModeKeychain))
 	})
 
 	t.Run("env target empty", func(t *testing.T) {
 		t.Parallel()
 
-		cfg := testutil.ViewFromYAML(t, "other: value\n")
+		cfg := testutil.FileViewFromYAML(t, "other: value\n")
+		assert.False(t, alreadyMigrated(cfg, c, credentials.ModeEnvVar))
+	})
+
+	t.Run("defaults-supplied target does not count as migrated", func(t *testing.T) {
+		t.Parallel()
+
+		// The env target resolves from an embedded-defaults reader layer (the
+		// github bundle ships auth.env: GITHUB_TOKEN this way) while the file
+		// still holds the literal — the credential is NOT migrated.
+		cfg := testutil.FileStoreFromYAML(t, "anthropic:\n  api:\n    key: sk-literal\n",
+			config.WithReaders(config.NamedSource{Name: "embedded:defaults", Content: []byte("anthropic:\n  api:\n    env: ANTHROPIC_API_KEY\n")})).View()
 		assert.False(t, alreadyMigrated(cfg, c, credentials.ModeEnvVar))
 	})
 

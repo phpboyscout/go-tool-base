@@ -384,16 +384,19 @@ func jsonBlobFieldFor(key string) string {
 	return key
 }
 
-// alreadyMigrated reports whether the target key already has a value
-// in config — meaning a prior migration already ran for this
-// credential. Avoids duplicate writes and awkward double prompts
-// when the command is invoked multiple times.
-func alreadyMigrated(cfg config.Reader, c literalCredential, target credentials.Mode) bool {
+// alreadyMigrated reports whether the target key already carries a value the
+// USER authored — meaning a prior migration already ran for this credential.
+// Avoids duplicate writes and awkward double prompts when the command is
+// invoked multiple times. The user-authored check matters: a feature's
+// embedded defaults may supply the target key (github.auth.env ships as a
+// default), and treating that as "migrated" would leave the literal secret
+// sitting in the file, which is the very thing migrate exists to remove.
+func alreadyMigrated(cfg *config.View, c literalCredential, target credentials.Mode) bool {
 	switch target {
 	case credentials.ModeEnvVar:
-		return strings.TrimSpace(cfg.GetString(c.EnvTargetKey)) != ""
+		return userAuthoredKey(cfg, c.EnvTargetKey) && strings.TrimSpace(cfg.GetString(c.EnvTargetKey)) != ""
 	case credentials.ModeKeychain:
-		return strings.TrimSpace(cfg.GetString(c.KeychainTargetKey)) != ""
+		return userAuthoredKey(cfg, c.KeychainTargetKey) && strings.TrimSpace(cfg.GetString(c.KeychainTargetKey)) != ""
 	case credentials.ModeLiteral:
 		// Literal is not a valid target; see validateMigrateTarget.
 		return false
