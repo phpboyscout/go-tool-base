@@ -10,12 +10,14 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	configafero "gitlab.com/phpboyscout/go/config-afero"
+
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -40,13 +42,33 @@ type fakeRequestor struct{ err error }
 
 func (f fakeRequestor) RequestDeletion(_ context.Context, _ string) error { return f.err }
 
-func cfgWith(kv map[string]any) *config.Container {
-	v := viper.New()
-	for k, val := range kv {
-		v.Set(k, val)
-	}
+func cfgWith(t *testing.T, yaml string) *config.Store {
+	t.Helper()
 
-	return config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v)
+	return testutil.StoreFromYAML(t, yaml)
+}
+
+// writableProps builds Props whose store routes writes to the tool's default
+// config path on a MemMapFs, so setTelemetryEnabled has a file layer to land
+// in — a missing file is a target the file backend creates.
+func writableProps(t *testing.T, log logger.Logger) (*props.Props, afero.Fs) {
+	t.Helper()
+
+	memfs := afero.NewMemMapFs()
+	dir := setup.GetDefaultConfigDir(memfs, "tool")
+	require.NotEmpty(t, dir)
+
+	target := filepath.Join(dir, setup.DefaultConfigFilename)
+
+	store, err := config.NewStore(t.Context(), config.WithFiles(configafero.Wrap(memfs), target))
+	require.NoError(t, err)
+
+	return &props.Props{
+		Tool:   props.Tool{Name: "tool"},
+		Logger: log,
+		Config: store,
+		FS:     memfs,
+	}, memfs
 }
 
 func TestResolveEndpoint(t *testing.T) {
@@ -66,7 +88,7 @@ func TestCheckTelemetryStatus(t *testing.T) {
 	t.Run("disabled", func(t *testing.T) {
 		t.Parallel()
 
-		res := checkTelemetryStatus(context.Background(), &props.Props{Config: cfgWith(nil)})
+		res := checkTelemetryStatus(context.Background(), &props.Props{Config: cfgWith(t, "{}\n")})
 		assert.Equal(t, "skip", res.Status)
 	})
 
@@ -74,7 +96,7 @@ func TestCheckTelemetryStatus(t *testing.T) {
 		t.Parallel()
 
 		p := &props.Props{
-			Config:    cfgWith(map[string]any{"telemetry.enabled": true}),
+			Config:    cfgWith(t, "telemetry:\n  enabled: true\n"),
 			Collector: props.NoopCollector{},
 		}
 		res := checkTelemetryStatus(context.Background(), p)
@@ -88,7 +110,7 @@ func TestCheckTelemetryConnectivity(t *testing.T) {
 
 	enabled := func(endpoint string) *props.Props {
 		return &props.Props{
-			Config: cfgWith(map[string]any{"telemetry.enabled": true}),
+			Config: cfgWith(t, "telemetry:\n  enabled: true\n"),
 			Tool:   props.Tool{Telemetry: props.TelemetryConfig{Endpoint: endpoint}},
 		}
 	}
@@ -96,7 +118,7 @@ func TestCheckTelemetryConnectivity(t *testing.T) {
 	t.Run("disabled skips", func(t *testing.T) {
 		t.Parallel()
 
-		res := checkTelemetryConnectivity(context.Background(), &props.Props{Config: cfgWith(nil)})
+		res := checkTelemetryConnectivity(context.Background(), &props.Props{Config: cfgWith(t, "{}\n")})
 		assert.Equal(t, "skip", res.Status)
 	})
 
@@ -138,43 +160,16 @@ func TestCheckTelemetryConnectivity(t *testing.T) {
 	})
 }
 
-func TestEnsureConfigFile(t *testing.T) {
-	t.Parallel()
-
-	memfs := afero.NewMemMapFs()
-	v := viper.New()
-	v.SetFs(memfs)
-	v.Set("telemetry.enabled", true)
-	v.Set("telemetry.local_only", true)
-
-	p := &props.Props{Tool: props.Tool{Name: "tool"}, FS: memfs}
-
-	require.NoError(t, ensureConfigFile(p, v))
-
-	dir := setup.GetDefaultConfigDir(memfs, "tool")
-	exists, err := afero.Exists(memfs, filepath.Join(dir, setup.DefaultConfigFilename))
-	require.NoError(t, err)
-	assert.True(t, exists, "ensureConfigFile must write the config file")
-}
-
 func TestSetTelemetryEnabled_CreatesConfigWhenMissing(t *testing.T) {
 	t.Parallel()
 
-	memfs := afero.NewMemMapFs()
-	v := viper.New()
-	v.SetFs(memfs)
+	p, memfs := writableProps(t, logger.NewNoop())
 
-	p := &props.Props{
-		Tool:   props.Tool{Name: "tool"},
-		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
-		FS:     memfs,
-	}
-
-	// No config file is set on the viper → WriteConfig fails → ensureConfigFile.
+	// No config file exists yet — Apply routes to the declared file layer and
+	// the file backend creates it.
 	var out bytes.Buffer
 
-	require.NoError(t, setTelemetryEnabled(p, true, &out))
+	require.NoError(t, setTelemetryEnabled(t.Context(), p, true, &out))
 	assert.Contains(t, out.String(), "Telemetry enabled")
 
 	dir := setup.GetDefaultConfigDir(memfs, "tool")
@@ -223,20 +218,14 @@ func TestNewResetCmd(t *testing.T) {
 	t.Parallel()
 
 	makeResetProps := func(log logger.Logger, reqErr error, forceEnabled bool) *props.Props {
-		memfs := afero.NewMemMapFs()
-		v := viper.New()
-		v.SetFs(memfs)
-
-		return &props.Props{
-			Tool: props.Tool{Name: "tool", Telemetry: props.TelemetryConfig{
-				ForceEnabled:      forceEnabled,
-				DeletionRequestor: func(*props.Props) any { return fakeRequestor{err: reqErr} },
-			}},
-			Logger:    log,
-			Config:    config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
-			FS:        memfs,
-			Collector: props.NoopCollector{},
+		p, _ := writableProps(t, log)
+		p.Tool.Telemetry = props.TelemetryConfig{
+			ForceEnabled:      forceEnabled,
+			DeletionRequestor: func(*props.Props) any { return fakeRequestor{err: reqErr} },
 		}
+		p.Collector = props.NoopCollector{}
+
+		return p
 	}
 
 	t.Run("clears data, requests deletion, disables", func(t *testing.T) {

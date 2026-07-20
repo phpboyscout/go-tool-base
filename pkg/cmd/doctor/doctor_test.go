@@ -12,9 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	configMocks "gitlab.com/phpboyscout/go/config/mocks"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -58,8 +56,7 @@ func TestCheckGoVersion_OldVersions(t *testing.T) {
 func TestCheckConfig_Loaded(t *testing.T) {
 	t.Parallel()
 
-	mockCfg := configMocks.NewMockContainable(t)
-	props := &p.Props{Config: mockCfg}
+	props := &p.Props{Config: testutil.StoreFromYAML(t, "{}\n")}
 
 	result := checkConfig(context.Background(), props)
 	assert.Equal(t, "Configuration", result.Name)
@@ -81,12 +78,7 @@ func TestCheckConfig_Missing(t *testing.T) {
 func TestCheckAPIKeys_None(t *testing.T) {
 	t.Parallel()
 
-	mockCfg := configMocks.NewMockContainable(t)
-	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("")
-	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("")
-	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("")
-
-	props := &p.Props{Config: mockCfg}
+	props := &p.Props{Config: testutil.StoreFromYAML(t, "{}\n")}
 
 	result := checkAPIKeys(context.Background(), props)
 	assert.Equal(t, "API keys", result.Name)
@@ -97,12 +89,7 @@ func TestCheckAPIKeys_None(t *testing.T) {
 func TestCheckAPIKeys_Some(t *testing.T) {
 	t.Parallel()
 
-	mockCfg := configMocks.NewMockContainable(t)
-	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("sk-test")
-	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("")
-	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("")
-
-	props := &p.Props{Config: mockCfg}
+	props := &p.Props{Config: testutil.StoreFromYAML(t, "anthropic:\n  api:\n    key: sk-test\n")}
 
 	result := checkAPIKeys(context.Background(), props)
 	assert.Equal(t, "API keys", result.Name)
@@ -122,14 +109,7 @@ func TestCheckAPIKeys_NoConfig(t *testing.T) {
 func TestRunChecks(t *testing.T) {
 	t.Parallel()
 
-	mockCfg := configMocks.NewMockContainable(t)
-	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString("github.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("gitlab.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("gitea.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("bitbucket.app_password").Return("").Maybe()
+	mockCfg := testutil.StoreFromYAML(t, "{}\n")
 
 	props := &p.Props{
 		Tool:    p.Tool{Name: "test-tool"},
@@ -383,14 +363,7 @@ func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 		},
 	})
 
-	mockCfg := configMocks.NewMockContainable(t)
-	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString("github.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("gitlab.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("gitea.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("bitbucket.app_password").Return("").Maybe()
+	mockCfg := testutil.StoreFromYAML(t, "{}\n")
 
 	props := &p.Props{
 		Tool: p.Tool{

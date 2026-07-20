@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -30,10 +30,7 @@ func newTestProps(t *testing.T, apiURL string) *p.Props {
 
 	cfgContent := fmt.Sprintf(testConfig, apiURL, apiURL)
 	memFS := afero.NewMemMapFs()
-	require.NoError(t, afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0o644))
-
-	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, false, config.WithLogger(logger.ToSlog(l)))
-	require.NoError(t, err)
+	cfgContainer := testutil.StoreFromYAML(t, cfgContent)
 
 	t.Setenv("GITHUB_TOKEN", "dummy")
 
@@ -116,7 +113,8 @@ func TestNewCmdVersion_UpdaterLoadFailureIsNonFatal(t *testing.T) {
 	props := newTestProps(t, "http://127.0.0.1:0")
 	// An unknown vcs.provider makes release.Lookup (inside NewUpdater) fail,
 	// driving the non-fatal "failed to load updater" branch.
-	props.Config.Set("vcs.provider", "definitely-not-a-real-provider")
+	require.NoError(t, props.Config.AddLayer(t.Context(), "override",
+		strings.NewReader("vcs:\n  provider: definitely-not-a-real-provider\n")))
 
 	require.NoError(t, runVersionCmd(t, props, "text"))
 }

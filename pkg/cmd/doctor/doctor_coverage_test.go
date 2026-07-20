@@ -9,12 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	gtbconfig "gitlab.com/phpboyscout/go/config"
+
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	configMocks "gitlab.com/phpboyscout/go/config/mocks"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -52,21 +53,12 @@ func captureStdout(t *testing.T, fn func()) string {
 	return <-done
 }
 
-// emptyCredsConfig wires the literal-credential and API-key config keys to
-// return empty strings so the built-in checks run cleanly under RunChecks.
-func emptyCredsConfig(t *testing.T) *configMocks.MockContainable {
+// emptyCredsConfig returns a store with no credential or API-key config keys
+// set, so the built-in checks run cleanly under RunChecks.
+func emptyCredsConfig(t *testing.T) *gtbconfig.Store {
 	t.Helper()
 
-	mockCfg := configMocks.NewMockContainable(t)
-	mockCfg.EXPECT().GetString(chat.ConfigKeyClaudeKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString(chat.ConfigKeyOpenAIKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString(chat.ConfigKeyGeminiKey).Return("").Maybe()
-	mockCfg.EXPECT().GetString("github.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("gitlab.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("gitea.auth.value").Return("").Maybe()
-	mockCfg.EXPECT().GetString("bitbucket.app_password").Return("").Maybe()
-
-	return mockCfg
+	return testutil.StoreFromYAML(t, "{}\n")
 }
 
 // TestNewCmdDoctor_TextOutput exercises the cobra RunE closure end-to-end
@@ -186,12 +178,7 @@ func TestCheckNoLiteralCredentials_NoConfig(t *testing.T) {
 func TestCheckNoLiteralCredentials_Clean(t *testing.T) {
 	t.Parallel()
 
-	mockCfg := configMocks.NewMockContainable(t)
-	for _, key := range literalCredentialKeys {
-		mockCfg.EXPECT().GetString(key).Return("")
-	}
-
-	result := checkNoLiteralCredentials(context.Background(), &p.Props{Config: mockCfg})
+	result := checkNoLiteralCredentials(context.Background(), &p.Props{Config: testutil.StoreFromYAML(t, "{}\n")})
 	assert.Equal(t, CheckPass, result.Status)
 	assert.Equal(t, "no literal credentials in config", result.Message)
 }
@@ -204,17 +191,11 @@ func TestCheckNoLiteralCredentials_Leaked(t *testing.T) {
 
 	const secret = "super-secret-value"
 
-	mockCfg := configMocks.NewMockContainable(t)
-	for _, key := range literalCredentialKeys {
-		if key == chat.ConfigKeyClaudeKey || key == "gitlab.auth.value" {
-			mockCfg.EXPECT().GetString(key).Return("  " + secret + "  ") // whitespace-padded
-			continue
-		}
+	// Whitespace-padded values still count as leaked (the check trims).
+	store := testutil.StoreFromYAML(t,
+		"anthropic:\n  api:\n    key: \"  "+secret+"  \"\ngitlab:\n  auth:\n    value: \"  "+secret+"  \"\n")
 
-		mockCfg.EXPECT().GetString(key).Return("")
-	}
-
-	result := checkNoLiteralCredentials(context.Background(), &p.Props{Config: mockCfg})
+	result := checkNoLiteralCredentials(context.Background(), &p.Props{Config: store})
 	assert.Equal(t, CheckWarn, result.Status)
 	assert.Contains(t, result.Message, "2 literal credential(s)")
 	assert.Contains(t, result.Details, chat.ConfigKeyClaudeKey)

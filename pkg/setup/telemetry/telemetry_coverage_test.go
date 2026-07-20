@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -143,7 +143,7 @@ func TestDefaultTelemetryForm(t *testing.T) {
 func TestConfigure_FormRunError(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
+	mock := setupmocks.NewMockEditor(t)
 	// Set must never be called on the error path.
 
 	props := newTestProps(t)

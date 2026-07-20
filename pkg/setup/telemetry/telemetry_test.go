@@ -3,6 +3,8 @@ package telemetry
 import (
 	"testing"
 
+	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
+
 	"charm.land/huh/v2"
 	testifymock "github.com/stretchr/testify/mock"
 
@@ -34,7 +36,7 @@ func TestTelemetryInitialiser_Name(t *testing.T) {
 func TestTelemetryInitialiser_IsConfigured_KeySet(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
+	mock := mockcfg.NewMockReader(t)
 	mock.EXPECT().IsSet("telemetry.enabled").Return(true)
 
 	init := NewTelemetryInitialiser(newTestProps(t))
@@ -48,7 +50,7 @@ func TestTelemetryInitialiser_IsConfigured_EnvSet(t *testing.T) {
 	// Not parallel — modifies environment
 	t.Setenv("TELEMETRY_ENABLED", "true")
 
-	mock := mockcfg.NewMockContainable(t)
+	mock := mockcfg.NewMockReader(t)
 
 	init := NewTelemetryInitialiser(newTestProps(t))
 
@@ -60,7 +62,7 @@ func TestTelemetryInitialiser_IsConfigured_EnvSet(t *testing.T) {
 func TestTelemetryInitialiser_IsConfigured_Neither(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
+	mock := mockcfg.NewMockReader(t)
 	mock.EXPECT().IsSet("telemetry.enabled").Return(false)
 
 	init := NewTelemetryInitialiser(newTestProps(t))
@@ -74,8 +76,8 @@ func TestTelemetryInitialiser_Configure_EnvTrue(t *testing.T) {
 	// Not parallel — modifies environment
 	t.Setenv("TELEMETRY_ENABLED", "true")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().Set("telemetry.enabled", true).Return()
+	mock := setupmocks.NewMockEditor(t)
+	mock.EXPECT().Set("telemetry.enabled", true).Return(nil)
 
 	p := newTestProps(t)
 	init := NewTelemetryInitialiser(p)
@@ -89,8 +91,8 @@ func TestTelemetryInitialiser_Configure_EnvFalse(t *testing.T) {
 	// Not parallel — modifies environment
 	t.Setenv("TELEMETRY_ENABLED", "false")
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().Set("telemetry.enabled", false).Return()
+	mock := setupmocks.NewMockEditor(t)
+	mock.EXPECT().Set("telemetry.enabled", false).Return(nil)
 
 	p := newTestProps(t)
 	init := NewTelemetryInitialiser(p)
@@ -103,12 +105,12 @@ func TestTelemetryInitialiser_Configure_EnvFalse(t *testing.T) {
 func TestTelemetryInitialiser_Configure_FormOptIn(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
+	mock := setupmocks.NewMockEditor(t)
 	mock.EXPECT().Set("telemetry.enabled", testifymock.Anything).Run(func(key string, value any) {
 		if v, ok := value.(bool); !ok || !v {
 			t.Errorf("expected telemetry.enabled = true, got %v", value)
 		}
-	}).Return()
+	}).Return(nil)
 
 	p := newTestProps(t)
 	init := NewTelemetryInitialiser(p, WithForm(func(_ *props.Props, optIn *bool) *huh.Form {
@@ -125,12 +127,12 @@ func TestTelemetryInitialiser_Configure_FormOptIn(t *testing.T) {
 func TestTelemetryInitialiser_Configure_FormOptOut(t *testing.T) {
 	t.Parallel()
 
-	mock := mockcfg.NewMockContainable(t)
+	mock := setupmocks.NewMockEditor(t)
 	mock.EXPECT().Set("telemetry.enabled", testifymock.Anything).Run(func(key string, value any) {
 		if v, ok := value.(bool); !ok || v {
 			t.Errorf("expected telemetry.enabled = false, got %v", value)
 		}
-	}).Return()
+	}).Return(nil)
 
 	p := newTestProps(t)
 	init := NewTelemetryInitialiser(p, WithForm(func(_ *props.Props, optIn *bool) *huh.Form {

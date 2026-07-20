@@ -13,10 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go/config"
-
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -54,11 +53,9 @@ func TestNewCmdVersion(t *testing.T) {
 	// Setup Config pointing to mock server
 	cfgContent := fmt.Sprintf(testConfig, server.URL, server.URL)
 	memFS := afero.NewMemMapFs()
-	_ = afero.WriteFile(memFS, "config.yaml", []byte(cfgContent), 0644)
 
 	l := logger.NewNoop()
-	cfgContainer, err := config.Load([]string{"config.yaml"}, memFS, false, config.WithLogger(logger.ToSlog(l)))
-	require.NoError(t, err)
+	cfgContainer := testutil.StoreFromYAML(t, cfgContent)
 
 	t.Setenv("GITHUB_TOKEN", "dummy")
 
@@ -84,7 +81,7 @@ func TestNewCmdVersion(t *testing.T) {
 	assert.Equal(t, "version", cmd.Use)
 
 	// Execute command (Should be latest)
-	err = cmd.Execute()
+	err := cmd.Execute()
 	require.NoError(t, err)
 
 	// Test Outdated

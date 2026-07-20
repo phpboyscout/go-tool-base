@@ -7,12 +7,10 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	gtbconfig "gitlab.com/phpboyscout/go/config"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -31,18 +29,27 @@ var reportRawSecrets = []string{
 func reportSecretProps(t *testing.T) *props.Props {
 	t.Helper()
 
-	v := viper.New()
-	v.Set("anthropic.api.key", "sk-ant-SECRET123")
-	v.Set("github.auth.value", "ghp_SECRETTOKEN456")
-	v.Set("bitbucket.app_password", "app-pass-SECRET789")
-	v.Set("log.level", "debug")                      // non-secret — must survive
-	v.Set("free.form", "glpat-ABCDEFGHIJ1234567890") // non-credential key, secret-shaped value
-	v.Set("service.url", "https://superuser:hunter2@example.com/api")
+	store := testutil.StoreFromYAML(t, `
+anthropic:
+  api:
+    key: sk-ant-SECRET123
+github:
+  auth:
+    value: ghp_SECRETTOKEN456
+bitbucket:
+  app_password: app-pass-SECRET789
+log:
+  level: debug # non-secret -- must survive
+free:
+  form: glpat-ABCDEFGHIJ1234567890 # non-credential key, secret-shaped value
+service:
+  url: https://superuser:hunter2@example.com/api
+`)
 
 	return &props.Props{
 		Logger:  logger.NewNoop(),
 		FS:      afero.NewMemMapFs(),
-		Config:  gtbconfig.NewContainerFromViper(nil, v),
+		Config:  store,
 		Version: version.Info{Version: "1.2.3", Commit: "abc", Date: "2026-06-22"},
 		Tool:    props.Tool{Name: "demo", Summary: "demo tool"},
 	}
