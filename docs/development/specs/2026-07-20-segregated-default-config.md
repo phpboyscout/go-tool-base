@@ -109,9 +109,36 @@ The consequence, in two parts:
   where the config store is built. So even then the defaults arrive **after** the store that
   was supposed to read them.
 
-**The documented per-package defaults mechanism has therefore never worked for defaults.** It
-works for `setup.Initialise`, which reads assets during init, and that is the only reason the
-pattern looks correct in practice.
+**The documented per-package defaults mechanism has therefore never worked for defaults.**
+
+### There are two patterns, and only the undocumented one works
+
+This is the part that makes the bug survivable and therefore invisible.
+
+`Register` is called during command-tree construction and is safe. The generator emits it as
+the first statement of a generated subcommand's constructor
+(`internal/generator/templates/command.go:270`), and those constructors are evaluated as
+arguments to `NewCmdRoot(p, sub1(p), sub2(p), ...)` — argument evaluation completes before
+`Execute`, so the bundles are visible to config loading.
+
+`Mount` from an initialiser provider is what the how-to documents, and it is too late.
+
+So generated subcommands get working defaults, hand-written framework packages following the
+guide do not, and nobody noticed because the two look equivalent in a diff. **The fix is
+partly to make the documented path match the one that already works.**
+
+### And the mounted bundles are unreachable even after mounting
+
+`mountedFS.Open` (`pkg/props/assets.go:438`) resolves only names under `prefix + "/"`. Mounting
+at `"pkg/setup/ai"` makes the file addressable **only** as
+`pkg/setup/ai/assets/init/config.yaml`. Its one consumer, `mergeExtraConfig`
+(`pkg/setup/init.go:168`), opens the bare path `assets/init/config.yaml`.
+
+Nothing in the repo reads the prefixed form. `pkg/setup/ai/assets/init/config.yaml` and
+`pkg/setup/github/assets/init/config.yaml` are therefore **dead payloads**: embedded, shipped,
+and unloadable by any code path. The existing tests assert only that the mount happened
+(`github_extra_test.go:780`, `ai_coverage_test.go:106`), never that the content comes back —
+which is precisely how a dead payload stays green.
 
 ### The evidence that this is the god file's cause
 
@@ -280,9 +307,29 @@ define the same key. Today nothing depends on it; afterwards a reordering is a b
 change. The order needs to be deterministic and documented, and the framework must register
 first so a consumer can override it.
 
-**Sealing.** The registry is sealed after the tree is built. Mounting must happen before the
-seal, and a late `Mount` should be an error rather than a silent no-op that produces exactly
-the class of bug this spec exists to fix.
+Two existing quirks of `Register` become live once order carries meaning
+(`pkg/props/assets.go:465-475`): re-registering an existing name **replaces the filesystem but
+keeps its original position**, so precedence is set by first registration and content by last;
+and the two traversal directions are opposite — static files shadow in reverse
+(last-registered wins whole-file), structured files merge forward (last-registered wins
+per-key). The net precedence agrees, but the implementations do not look alike, and a reader
+checking one will draw the wrong conclusion about the other.
+
+**`Assets` has no seal and no mutex.** `embeddedAssets` is a bare struct with a map and a
+slice, mutated in place by `Register` with no locking — unlike the sibling `setup` registry,
+which has both a `sync.RWMutex` and a seal that panics on late registration
+(`pkg/setup/registry.go:52,78`). Reads walk `a.order` live, so a late `Register` is visible to
+code that already read, which is exactly how the current bug hides. Once defaults depend on
+registration having finished, a late registration must be an error rather than a silent
+reordering. `Names()` also returns the internal slice rather than a copy
+(`pkg/props/assets.go:79`), so a caller can corrupt precedence.
+
+**`Assets` has no `ReadFile`, and adding one naively would reintroduce this class of bug.**
+The interface embeds `fs.FS`, `fs.ReadDirFS`, `fs.GlobFS` and `fs.StatFS` — not
+`fs.ReadFileFS`. Reads must go through `fs.ReadFile`, which falls back to `Open`, and `Open`
+is where the cross-bundle merge happens. A hand-rolled `ReadFile` indexing a single bundle
+would compile, look right, and silently return one bundle's copy. The migration's
+`embeddedSources` had exactly this defect and is fixed alongside this spec.
 
 **Tools that disable features.** `discoverInitialisers` filters by `props.Tool.IsEnabled`.
 Whether a disabled feature's defaults should still apply is a real question: its config keys
@@ -314,16 +361,24 @@ that previously did not exist.
    today, asserted to be fixed.
 8. Defaults are present during `PersistentPreRunE`, not merely by `RunE` — the availability
    bug, pinned so it cannot regress.
-9. A `Mount` after sealing is an error.
+9. A registration after sealing is an error.
+10. A file in a mounted bundle is retrievable by the path its consumer actually opens — the
+    dead-payload case, which current tests miss by asserting the mount rather than the read.
+11. `fs.ReadFile` through `Assets` returns the merged document, not one bundle's copy.
 
-Tests 7 and 8 are the ones that would have caught the current bug, and both must be shown to
-fail before the fix.
+Tests 7, 8 and 10 are the ones that would have caught the current bugs, and each must be shown
+to fail before its fix.
 
 ## Migration procedure
 
-**Phase A.** Move mounting to registration (D1). No behaviour change intended beyond assets
-becoming available earlier; the existing constructor `Mount` calls stay until Phase C so
-nothing breaks mid-sequence.
+**Phase A.** Move mounting to registration (D1), adopting the pattern the generator already
+uses successfully. No behaviour change intended beyond assets becoming available earlier; the
+existing constructor `Mount` calls stay until Phase C so nothing breaks mid-sequence.
+
+This phase also settles the prefix question: whether bundles register unprefixed (so
+`assets/config.yaml` collides across packages and merges, which is what a defaults layer
+wants) or prefixed (so they stay addressable separately, which is what `Mount` attempted and
+got wrong). The merge behaviour this spec relies on requires the unprefixed form.
 
 **Phase B.** Add the `assets/config.yaml` defaults layer to `buildConfigStore` (D2, D3, D4).
 

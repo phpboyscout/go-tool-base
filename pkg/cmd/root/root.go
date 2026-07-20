@@ -279,7 +279,12 @@ func embeddedSources(opts ConfigLoadOptions) ([]config.NamedSource, error) {
 	sources := make([]config.NamedSource, 0, len(opts.ConfigPaths))
 
 	for _, path := range opts.ConfigPaths {
-		content, err := opts.Props.Assets.ReadFile(path)
+		// fs.ReadFile rather than a ReadFile method on Assets, and the
+		// distinction is load-bearing: fs.ReadFile falls back to Open, and Open
+		// is where Assets merges a structured file across every registered
+		// bundle. A hand-rolled ReadFile that indexed one bundle would compile,
+		// read plausibly, and silently return only the last bundle's copy.
+		content, err := fs.ReadFile(opts.Props.Assets, path)
 		if err != nil {
 			// An absent embedded asset is normal: the paths are candidates, and
 			// a tool is not obliged to ship every one.
