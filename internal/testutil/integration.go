@@ -17,7 +17,7 @@ import (
 // variables, allowing targeted execution of specific test groups:
 //
 //	testutil.SkipIfNotIntegration(t, "vcs")    // runs if INT_TEST=1 OR INT_TEST_VCS=1
-//	testutil.SkipIfNotIntegration(t, "config") // runs if INT_TEST=1 OR INT_TEST_CONFIG=1
+//	testutil.SkipIfNotIntegration(t, "setup")  // runs if INT_TEST=1 OR INT_TEST_SETUP=1
 //	testutil.SkipIfNotIntegration(t)           // runs only if INT_TEST=1
 func SkipIfNotIntegration(t *testing.T, tags ...string) {
 	t.Helper()

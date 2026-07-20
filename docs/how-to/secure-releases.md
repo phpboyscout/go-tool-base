@@ -174,7 +174,15 @@ script:
     fi
 ```
 
-So until a signing key is configured in CI, releases ship unsigned exactly as before; once `GTB_SIGNING_KEY` is set, every release gains a `checksums.txt.sig`. The sign→verify loop is covered end-to-end by `TestSignReleaseScript_VerifiesViaTrustSet` (gated `INT_TEST_SIGNING=1`).
+So until a signing key is configured in CI, releases ship unsigned exactly as before; once `GTB_SIGNING_KEY` is set, every release gains a `checksums.txt.sig`.
+
+!!! warning "Coverage gap: `scripts/sign-release.sh` is untested"
+    The sign→verify loop was previously covered end-to-end by
+    `TestSignReleaseScript_VerifiesViaTrustSet` (gated `INT_TEST_SIGNING=1`).
+    That test was lost when the signing library moved to
+    [`go/signing`](https://signing.go.phpboyscout.uk) — the module carries its own
+    verification coverage, but `scripts/sign-release.sh` is GTB-specific release
+    tooling and no longer has a test exercising it against a real key.
 
 ### Trust model at a glance
 

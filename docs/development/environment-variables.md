@@ -70,6 +70,6 @@ These variables control integration test execution. See the [Integration Testing
 | Variable | Description |
 | :--- | :--- |
 | `INT_TEST` | Set to any non-empty value to enable **all** integration tests. |
-| `INT_TEST_<TAG>` | Enable a specific group of integration tests (e.g. `INT_TEST_VCS=1`, `INT_TEST_CONFIG=1`). |
+| `INT_TEST_<TAG>` | Enable a specific group of integration tests (e.g. `INT_TEST_VCS=1`, `INT_TEST_SETUP=1`). |
 | `GITHUB_TOKEN` | GitHub personal access token (`repo` scope) for VCS integration tests. |
 | `GITHUB_KEY` | Path to an SSH private key for git-over-SSH tests (optional). |

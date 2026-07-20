@@ -44,15 +44,11 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | :--- | :--- |
 | `INT_TEST=1` | Enables **all** integration tests |
 | `INT_TEST_VCS=1` | Enables only tests tagged `"vcs"` |
-| `INT_TEST_CONFIG=1` | Enables only tests tagged `"config"` |
 | `INT_TEST_CONTROLS=1` | Enables only tests tagged `"controls"` |
 | `INT_TEST_GENERATOR=1` | Enables only tests tagged `"generator"` |
 | `INT_TEST_GENERATOR_BUILD=1` | Enables only tests tagged `"generator_build"` — the toolchain-backed generator tests that scaffold a project and run `go build`/`go test`/`golangci-lint` against it (also enabled by `INT_TEST_GENERATOR`) |
-| `INT_TEST_SIGNING=1` | Enables only tests tagged `"signing"` |
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
-| `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
-| `INT_TEST_CHAT=1` | Enables only tests tagged `"chat"` |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
@@ -107,7 +103,12 @@ The `.env` file is loaded automatically by `just` via `dotenv-load`. You can als
 
 ## Test Inventory
 
-### `pkg/controls/` — Service Lifecycle
+### `test/integration/controls/` — Service Lifecycle
+
+The `controls` package itself was extracted to
+[`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk), but
+these tests stayed: they exercise **GTB's wiring of** the service stack, not the
+module's own behaviour.
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
@@ -116,18 +117,6 @@ The `.env` file is loaded automatically by `just` via `dotenv-load`. You can als
 | `server_integration_test.go` | Health endpoints, middleware bypass, custom health checks, gRPC probes, interceptors, graceful shutdown, app handlers | Local network |
 
 These tests require **no external credentials** — only local network access.
-
-### `pkg/config/` — Configuration Merging
-
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `config_integration_test.go` | Multi-source merge, env var overrides, deep nesting, embedded config, dotenv loading, schema validation | Filesystem |
-
-### `pkg/errorhandling/` — Error Propagation
-
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `propagation_integration_test.go` | Cross-package error chains, hints, stacktraces, special errors, help config | None |
 
 ### `pkg/cmd/root/` — Feature Flags
 
@@ -179,20 +168,29 @@ These tests require **no external credentials** — only local network access.
     See [`forge.go.phpboyscout.uk`](https://forge.go.phpboyscout.uk) for the
     contract every provider must satisfy.
 
-### `pkg/chat/` — AI Chat Providers
+### Extracted suites — chat, config, errorhandling, signing
 
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `parallel_integration_test.go` | Parallel tool execution across providers, concurrency limits | **None** — in-process mock config + registered fake providers (no network, no API keys) |
-| `streaming_integration_test.go` | Streaming chat responses, event callback sequencing | **None** — in-process mock config + registered fake providers (no network, no API keys) |
+!!! info "Now owned by their modules"
+    These suites left GTB with their packages and run in each module's own
+    pipeline:
 
-Gate with `testutil.SkipIfNotIntegration(t, "chat")` and enable with `INT_TEST_CHAT=1`. These tests exercise the client/ReAct orchestration against in-process fakes; live-provider SSE/auth coverage (which would need real API keys) is a separate, deferred item.
+    | Was | Now |
+    | :--- | :--- |
+    | `pkg/chat/{parallel,streaming}_integration_test.go` | [`go/chat`](https://chat.go.phpboyscout.uk) |
+    | `pkg/config/config_integration_test.go` | [`go/config`](https://config.go.phpboyscout.uk) |
+    | `pkg/errorhandling/propagation_integration_test.go` | [`go/errorhandling`](https://errorhandling.go.phpboyscout.uk) |
+    | signing coverage | [`go/signing`](https://signing.go.phpboyscout.uk) |
+
+    Their `INT_TEST_CHAT`, `INT_TEST_CONFIG`, `INT_TEST_ERRORHANDLING` and
+    `INT_TEST_SIGNING` gates no longer exist in this repository — setting them
+    here has no effect.
 
 ### `internal/generator/` — Code Generation Pipeline
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `pipeline_integration_test.go` | Full lifecycle, deep hierarchy, manifest consistency, protection, command options, dry-run, manifest recovery, feature flags | Filesystem (in-memory) |
+| `templatesource_integration_test.go` | The provider-aware template clone leg (`realCloneTemplate` → `pkg/vcs/repo`) against a real on-disk git repo: resolves a ref to a concrete commit, checks it out, returns the matching SHA | Local git repo — **no network**; tagged `"vcs"` (`INT_TEST_VCS=1`) |
 | `compile_integration_test.go` | Scaffold a project and compile it (`go build`) | **Go toolchain** — tagged `"generator_build"` |
 | `signing_integration_test.go`, `signing_enable_integration_test.go` | Generate with signing enabled, then build/verify the scaffolded tree | **Go toolchain** — tagged `"generator_build"` |
 | `verifier/verifier_integration_test.go` | The post-generation verifier runs the real `go build`/`go test`/`golangci-lint` toolchain over a scaffold | **Go toolchain** (+ `golangci-lint` on PATH) — tagged `"generator_build"` |
