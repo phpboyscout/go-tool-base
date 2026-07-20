@@ -68,7 +68,6 @@ func newRootState() *rootState {
 
 // FlagValues holds the command-line flag values extracted from cobra command.
 type FlagValues struct {
-	CI    bool
 	Debug bool
 }
 
@@ -78,24 +77,27 @@ type ConfigLoadOptions struct {
 	ConfigPaths []string
 	Props       *p.Props
 	AllowEmpty  bool
+
+	// Flags is the dispatched command's full flag set (local + inherited).
+	// Changed flags become the store's highest-precedence layer; nil skips
+	// the layer (reload paths that outlive the invocation's flag values).
+	Flags *pflag.FlagSet
+	// BoundFlags maps config keys to author-declared flags whose names do
+	// not follow the hyphen-to-dot convention (WithBoundFlags).
+	BoundFlags map[string]*pflag.Flag
 }
 
 // extractFlags extracts and validates command-line flags from cobra command.
+// Only --debug needs pre-config extraction (it steers logging before the
+// store exists); every other flag reaches configuration through the flags
+// layer bound at store construction.
 func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
-	ci, err := cmd.Flags().GetBool("ci")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get ci flag")
-	}
-
 	debug, err := cmd.Flags().GetBool("debug")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get debug flag")
 	}
 
-	return &FlagValues{
-		CI:    ci,
-		Debug: debug,
-	}, nil
+	return &FlagValues{Debug: debug}, nil
 }
 
 // projectConfigPaths returns base with any discovered project-local ".<tool>.yaml"
@@ -227,6 +229,21 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		storeOpts = append(storeOpts, config.WithEnv(prefix))
 	}
 
+	// Flags are the highest-precedence layer. Only flags the user actually
+	// changed contribute (the backend walks pflag's Visit), so a flag at its
+	// default never clobbers configuration. Names map by the hyphen-to-dot
+	// convention unless an author binding (WithBoundFlags) says otherwise.
+	if opts.Flags != nil {
+		flagOpts := make([]config.FlagOption, 0, len(opts.BoundFlags))
+		for key, flag := range opts.BoundFlags {
+			if flag != nil {
+				flagOpts = append(flagOpts, config.BindFlag(flag.Name, key))
+			}
+		}
+
+		storeOpts = append(storeOpts, config.WithFlags(opts.Flags, flagOpts...))
+	}
+
 	store, err := config.NewStore(ctx, storeOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load config")
@@ -299,7 +316,7 @@ func embeddedSources(opts ConfigLoadOptions) ([]config.NamedSource, error) {
 // never auto-initialised for. Neither branch skips the framework bootstrap
 // itself — only the missing-config outcome changes, preserving the
 // "bootstrap always runs" invariant (2026-06-12-bootstrap-prerun-traversal).
-func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string) (*config.Store, error) {
+func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string, boundFlags map[string]*pflag.Flag) (*config.Store, error) {
 	initEnabled := props.Tool.IsEnabled(p.InitCmd)
 	skipConfigCheck := setup.SkipsConfigCheck(cmd) ||
 		props.Tool.Bootstrap.MatchesSkipList(cmd.Name(), cmd.CommandPath())
@@ -320,6 +337,8 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 		ConfigPaths: paths,
 		Props:       props,
 		AllowEmpty:  allowEmpty,
+		Flags:       cmd.Flags(),
+		BoundFlags:  boundFlags,
 	}
 
 	cfg, err := buildConfigStore(cmd.Context(), loadOpts)
@@ -428,7 +447,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, fl
 	// every invocation (even when the network check is throttled below), so a
 	// user who declined an update — or runs a disabled-policy tool — keeps
 	// being reminded. Suppressed under --ci.
-	if !flags.CI && !props.Config.GetBool("ci") {
+	if !props.Config.View().GetBool("ci") {
 		warnIfBehindCached(props)
 	}
 
@@ -484,8 +503,7 @@ func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
 		(props.Version != nil && props.Version.IsDevelopment()) ||
 		state.redirectingToUpdate ||
-		flags.CI ||
-		props.Config.GetBool("ci") {
+		props.Config.View().GetBool("ci") {
 		return true
 	}
 
@@ -701,8 +719,8 @@ func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 	setupRootFlags(rootCmd, props, state)
 
 	// Register author-supplied bound flags on the root's persistent flag set so
-	// cobra parses them; they are then bound onto the config container during
-	// the pre-run (filtered by flag.Changed).
+	// cobra parses them; the pre-run then binds them into the store's flags
+	// layer (only changed flags contribute).
 	for _, flag := range o.boundFlags {
 		if flag != nil && rootCmd.PersistentFlags().Lookup(flag.Name) == nil {
 			rootCmd.PersistentFlags().AddFlag(flag)
@@ -779,20 +797,13 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// missing-config outcome is relaxed. The project-local config layer
 		// (projectConfigPaths) is resolved here so it is honoured on both the
 		// initial load and any auto-initialise reload.
-		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, cmd, state.cfgPaths))
+		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, cmd, state.cfgPaths), boundFlags)
 		if err != nil {
 			return errors.Wrap(err, "failed to load configuration")
 		}
 
 		// Set config in props
 		props.Config = cfg
-
-		// Bind CLI flags into the configuration so the documented precedence
-		// (flags > env > file > embedded > defaults) holds. Binding happens
-		// after the file and env layers are established; viper's BindPFlag sits
-		// above AutomaticEnv, so no custom precedence is needed. Only flags the
-		// user explicitly changed are bound (handled in bindCommandFlags).
-		bindCommandFlags(cmd, cfg, props.Logger, boundFlags)
 
 		// Validate config for common misconfigurations
 		validateConfig(cfg, props.Logger)
@@ -822,63 +833,6 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 
 		return nil
 	}
-}
-
-// bindCommandFlags wires CLI flags into the configuration container so the
-// documented precedence (flags > env > file > embedded > defaults) holds. It
-// binds three sources, all filtered by flag.Changed:
-//
-//  1. the explicit author-supplied boundFlags map (config key → flag),
-//  2. the special-cased built-ins --ci and --debug (folded through the same
-//     binding path so config visibility is consistent — D3), and
-//  3. the dispatched command's own local flags, mapped by the hyphen-to-dot
-//     convention (--server-port → server.port) into the command-scoped config
-//     view (D5).
-//
-// Only flags the user explicitly set are bound; a flag at its default never
-// overrides config (viper's default-clobber footgun).
-func bindCommandFlags(cmd *cobra.Command, cfg config.Containable, log logger.Logger, boundFlags map[string]*pflag.Flag) {
-	// 1. Explicit author-supplied bindings (persistent/root flags).
-	bindChangedFlags(cfg, boundFlags, log)
-
-	// 2. Built-ins --ci / --debug, folded through the same binding path so
-	//    Config.GetBool("ci"/"debug") reflects the flag at the documented
-	//    precedence. --debug's immediate log-level effect is still applied
-	//    separately in configureLogging.
-	builtins := map[string]*pflag.Flag{}
-
-	for key := range builtinBoundFlags {
-		if f := cmd.Flags().Lookup(key); f != nil {
-			builtins[key] = f
-		}
-	}
-
-	bindChangedFlags(cfg, builtins, log)
-
-	// 3. The dispatched command's own local flags, by convention. Inherited
-	//    persistent flags are skipped here (the root binds its own); only the
-	//    command's local flag set participates so e.g. `serve --port` overrides
-	//    server.port for the serve command.
-	convention := map[string]*pflag.Flag{}
-
-	cmd.LocalFlags().VisitAll(func(f *pflag.Flag) {
-		// Skip flags already explicitly bound or handled as built-ins to avoid
-		// surprising convention mappings overriding an author's explicit choice.
-		if _, ok := builtinBoundFlags[f.Name]; ok {
-			return
-		}
-
-		convention[ConventionKey(f.Name)] = f
-	})
-
-	bindChangedFlags(cfg, convention, log)
-}
-
-// builtinBoundFlags is the set of built-in persistent flags folded through the
-// binding path (D3). The map value is unused; only the key set matters.
-var builtinBoundFlags = map[string]struct{}{
-	"ci":    {},
-	"debug": {},
 }
 
 func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {

@@ -14,9 +14,9 @@ import (
 type RootOption func(*rootOptions)
 
 // rootOptions accumulates configuration applied by [RootOption]s. The
-// boundFlags map is config-key → flag and is applied during config load via
-// [config.Containable.BindPFlag]; only flags the user explicitly changed
-// (flag.Changed) are bound, so defaults never clobber configured values.
+// boundFlags map is config-key → flag and feeds the store's flags layer at
+// construction; only flags the user explicitly changed contribute, so
+// defaults never clobber configured values.
 type rootOptions struct {
 	configPaths []string
 	subcommands []*setup.Command
@@ -111,39 +111,4 @@ func WithConventionBoundFlags(flags *pflag.FlagSet) RootOption {
 // can derive the same keys when constructing explicit [WithBoundFlags] maps.
 func ConventionKey(flagName string) string {
 	return strings.ReplaceAll(flagName, "-", ".")
-}
-
-// bindChangedFlags binds the flags in src onto cfg, filtered by flag.Changed.
-// keyFor derives the config key from each flag. Binding errors are logged and
-// skipped so a single bad flag never aborts startup. Returns the number of
-// flags successfully bound.
-func bindChangedFlags(cfg bindable, src map[string]*pflag.Flag, log debugLogger) int {
-	bound := 0
-
-	for key, flag := range src {
-		if flag == nil || !flag.Changed {
-			continue
-		}
-
-		if err := cfg.BindPFlag(key, flag); err != nil {
-			log.Debug("failed to bind flag to config", "flag", flag.Name, "key", key, "error", err)
-
-			continue
-		}
-
-		bound++
-	}
-
-	return bound
-}
-
-// bindable is the minimal config surface needed to bind flags. It is satisfied
-// by config.Containable.
-type bindable interface {
-	BindPFlag(key string, flag *pflag.Flag) error
-}
-
-// debugLogger is the minimal logging surface needed when binding flags.
-type debugLogger interface {
-	Debug(msg string, args ...any)
 }
