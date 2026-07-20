@@ -98,16 +98,6 @@ func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
 	}, nil
 }
 
-// configOpts builds the common ContainerOption slice from Props.
-func configOpts(props *p.Props) []config.ContainerOption {
-	opts := []config.ContainerOption{config.WithLogger(logger.ToSlog(props.Logger))}
-	if props.Tool.EnvPrefix != "" {
-		opts = append(opts, config.WithEnvPrefix(props.Tool.EnvPrefix))
-	}
-
-	return opts
-}
-
 // projectConfigPaths returns base with any discovered project-local ".<tool>.yaml"
 // (a repo-root config layer, found by walking up from the working directory) appended
 // last, so it deep-merges OVER the default config paths (env + flags still override
@@ -375,16 +365,13 @@ func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOp
 
 	opts.AllowEmpty = false
 
-	cfg, err := loadAndMergeConfig(opts)
+	cfg, err := buildConfigStore(ctx, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "auto-initialise: reload after init failed")
 	}
 
 	return cfg, nil
 }
-
-// mergeEmbeddedConfigs loads and merges all found embedded configurations.
-// It leverages the Assets layer's built-in merging for structured config files.
 
 // configureLogging sets up logging based on debug flag and config values.
 func configureLogging(props *p.Props, flags *FlagValues, cfg config.Containable, mcpLogLevel *slog.LevelVar) {
