@@ -71,7 +71,7 @@ refused and leaves the file untouched.`,
 // through the store's Apply, which edits the document in place (comments
 // survive) and publishes the new snapshot.
 func persistUnset(ctx context.Context, props *p.Props, key string) error {
-	_, _, settings, err := loadWritableSettings(props)
+	_, settings, err := loadWritableSettings(props)
 	if err != nil {
 		return err
 	}

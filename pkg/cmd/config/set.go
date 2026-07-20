@@ -60,6 +60,7 @@ their native types; everything else is stored as a string.`,
 func ensureDefaultConfigDir(props *p.Props) {
 	if dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name); dir != "" {
 		const configDirPerm = 0o700
+
 		_ = writableFS(props).MkdirAll(dir, configDirPerm)
 	}
 }
@@ -69,18 +70,18 @@ func ensureDefaultConfigDir(props *p.Props) {
 // file does not yet exist, so callers can write a fresh file. Shared by
 // "config set" and "config unset", which differ only in how they mutate the
 // returned map and whether they validate/reload afterwards.
-func loadWritableSettings(props *p.Props) (afero.Fs, string, map[string]any, error) {
+func loadWritableSettings(props *p.Props) (string, map[string]any, error) {
 	fs := writableFS(props)
 
 	path := resolveWritableConfigPath(props, fs)
 	if path == "" {
-		return nil, "", nil, errors.New("could not resolve a writable config path")
+		return "", nil, errors.New("could not resolve a writable config path")
 	}
 
 	settings := map[string]any{}
 	if data, err := afero.ReadFile(fs, path); err == nil {
 		if uerr := yaml.Unmarshal(data, &settings); uerr != nil {
-			return nil, "", nil, errors.Wrapf(uerr, "parsing existing config %q", path)
+			return "", nil, errors.Wrapf(uerr, "parsing existing config %q", path)
 		}
 
 		if settings == nil {
@@ -88,7 +89,7 @@ func loadWritableSettings(props *p.Props) (afero.Fs, string, map[string]any, err
 		}
 	}
 
-	return fs, path, settings, nil
+	return path, settings, nil
 }
 
 // resolveWritableConfigPath returns the file the loaded config is bound to, or

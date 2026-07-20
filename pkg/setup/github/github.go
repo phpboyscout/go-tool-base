@@ -375,51 +375,60 @@ func (g *GitHubInitialiser) captureToken(p props.LoggerProvider) (string, error)
 func writeGitHubCredential(ctx context.Context, cfg setup.Editor, toolName string, authCfg *GitHubAuthConfig) error {
 	switch authCfg.StorageMode {
 	case credentials.ModeEnvVar:
-		if authCfg.EnvVarName != "" {
-			if err := cfg.Set("github.auth.env", authCfg.EnvVarName); err != nil {
-				return err
-			}
-
-			return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.env")
-		}
-
-		return nil
-
+		return writeGitHubEnvRef(cfg, authCfg)
 	case credentials.ModeKeychain:
-		if authCfg.Token == "" {
-			return errors.New("no GitHub token captured for keychain mode")
-		}
-
-		if toolName == "" {
-			return errors.New("cannot write keychain entry without a tool name")
-		}
-
-		if err := credentials.Store(ctx, toolName, githubKeychainAccount, authCfg.Token); err != nil {
-			return errors.WithHint(
-				errors.Wrap(err, "storing GitHub token in OS keychain"),
-				"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
-		}
-
-		if err := cfg.Set("github.auth.keychain", toolName+"/"+githubKeychainAccount); err != nil {
-			return err
-		}
-
-		return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.keychain")
-
+		return writeGitHubKeychainRef(ctx, cfg, toolName, authCfg)
 	case credentials.ModeLiteral, "":
-		if authCfg.Token != "" {
-			if err := cfg.Set("github.auth.value", authCfg.Token); err != nil {
-				return err
-			}
-
-			return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.value")
-		}
-
-		return nil
-
+		return writeGitHubLiteral(cfg, authCfg)
 	default:
 		return errors.Newf("unsupported credential storage mode %q", authCfg.StorageMode)
 	}
+}
+
+func writeGitHubEnvRef(cfg setup.Editor, authCfg *GitHubAuthConfig) error {
+	if authCfg.EnvVarName == "" {
+		return nil
+	}
+
+	if err := cfg.Set("github.auth.env", authCfg.EnvVarName); err != nil {
+		return err
+	}
+
+	return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.env")
+}
+
+func writeGitHubKeychainRef(ctx context.Context, cfg setup.Editor, toolName string, authCfg *GitHubAuthConfig) error {
+	if authCfg.Token == "" {
+		return errors.New("no GitHub token captured for keychain mode")
+	}
+
+	if toolName == "" {
+		return errors.New("cannot write keychain entry without a tool name")
+	}
+
+	if err := credentials.Store(ctx, toolName, githubKeychainAccount, authCfg.Token); err != nil {
+		return errors.WithHint(
+			errors.Wrap(err, "storing GitHub token in OS keychain"),
+			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
+	}
+
+	if err := cfg.Set("github.auth.keychain", toolName+"/"+githubKeychainAccount); err != nil {
+		return err
+	}
+
+	return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.keychain")
+}
+
+func writeGitHubLiteral(cfg setup.Editor, authCfg *GitHubAuthConfig) error {
+	if authCfg.Token == "" {
+		return nil
+	}
+
+	if err := cfg.Set("github.auth.value", authCfg.Token); err != nil {
+		return err
+	}
+
+	return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.value")
 }
 
 // githubCredentialKeys is the full set of config key paths that can
@@ -687,5 +696,5 @@ func RunInitCmd(ctx context.Context, p *props.Props, dir string) error {
 		return err
 	}
 
-	return RunGitHubInit(p, editor)
+	return RunGitHubInit(p, editor) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
 }

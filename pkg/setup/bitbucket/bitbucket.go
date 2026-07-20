@@ -340,41 +340,46 @@ func runFormStage(creator func(*BitbucketConfig) *huh.Form, cfg *BitbucketConfig
 func writeBitbucketCredentials(ctx context.Context, cfg setup.Editor, toolName string, bbCfg *BitbucketConfig) error {
 	switch bbCfg.StorageMode {
 	case credentials.ModeEnvVar:
-		if bbCfg.UsernameEnvName != "" {
-			if err := cfg.Set("bitbucket.username.env", bbCfg.UsernameEnvName); err != nil {
-				return err
-			}
-		}
-
-		if bbCfg.AppPasswordEnvName != "" {
-			if err := cfg.Set("bitbucket.app_password.env", bbCfg.AppPasswordEnvName); err != nil {
-				return err
-			}
-		}
-
-		return nil
-
+		return writeBitbucketEnvRefs(cfg, bbCfg)
 	case credentials.ModeKeychain:
 		return writeKeychainBlob(ctx, cfg, toolName, bbCfg)
-
 	case credentials.ModeLiteral, "":
-		if bbCfg.Username != "" {
-			if err := cfg.Set("bitbucket.username", bbCfg.Username); err != nil {
-				return err
-			}
-		}
-
-		if bbCfg.AppPassword != "" {
-			if err := cfg.Set("bitbucket.app_password", bbCfg.AppPassword); err != nil {
-				return err
-			}
-		}
-
-		return nil
-
+		return writeBitbucketLiterals(cfg, bbCfg)
 	default:
 		return errors.Newf("unsupported Bitbucket credential storage mode %q", bbCfg.StorageMode)
 	}
+}
+
+func writeBitbucketEnvRefs(cfg setup.Editor, bbCfg *BitbucketConfig) error {
+	if bbCfg.UsernameEnvName != "" {
+		if err := cfg.Set("bitbucket.username.env", bbCfg.UsernameEnvName); err != nil {
+			return err
+		}
+	}
+
+	if bbCfg.AppPasswordEnvName != "" {
+		if err := cfg.Set("bitbucket.app_password.env", bbCfg.AppPasswordEnvName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeBitbucketLiterals(cfg setup.Editor, bbCfg *BitbucketConfig) error {
+	if bbCfg.Username != "" {
+		if err := cfg.Set("bitbucket.username", bbCfg.Username); err != nil {
+			return err
+		}
+	}
+
+	if bbCfg.AppPassword != "" {
+		if err := cfg.Set("bitbucket.app_password", bbCfg.AppPassword); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // writeKeychainBlob serialises the dual credentials into a JSON
@@ -459,5 +464,5 @@ func RunInitCmd(ctx context.Context, p *props.Props, dir string, opts ...FormOpt
 		return err
 	}
 
-	return RunBitbucketInit(p, editor, opts...)
+	return RunBitbucketInit(p, editor, opts...) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
 }

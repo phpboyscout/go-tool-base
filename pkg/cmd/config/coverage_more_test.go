@@ -46,7 +46,7 @@ func TestLoadWritableSettings_NullContentResetsMap(t *testing.T) {
 
 	require.NoError(t, afero.WriteFile(fs, path, []byte("null\n"), 0o600))
 
-	_, gotPath, settings, err := loadWritableSettings(p)
+	gotPath, settings, err := loadWritableSettings(p)
 	require.NoError(t, err)
 	assert.Equal(t, path, gotPath)
 	require.NotNil(t, settings)
@@ -67,7 +67,7 @@ func TestLoadWritableSettings_InvalidYAML(t *testing.T) {
 
 	require.NoError(t, afero.WriteFile(fs, path, []byte("}{"), 0o600))
 
-	_, _, _, err := loadWritableSettings(p)
+	_, _, err := loadWritableSettings(p)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing existing config")
 }

@@ -219,17 +219,9 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 
 	// Flags are the highest-precedence layer. Only flags the user actually
 	// changed contribute (the backend walks pflag's Visit), so a flag at its
-	// default never clobbers configuration. Names map by the hyphen-to-dot
-	// convention unless an author binding (WithBoundFlags) says otherwise.
+	// default never clobbers configuration.
 	if opts.Flags != nil {
-		flagOpts := make([]config.FlagOption, 0, len(opts.BoundFlags))
-		for key, flag := range opts.BoundFlags {
-			if flag != nil {
-				flagOpts = append(flagOpts, config.BindFlag(flag.Name, key))
-			}
-		}
-
-		storeOpts = append(storeOpts, config.WithFlags(opts.Flags, flagOpts...))
+		storeOpts = append(storeOpts, config.WithFlags(opts.Flags, flagBindings(opts.BoundFlags)...))
 	}
 
 	store, err := config.NewStore(ctx, storeOpts...)
@@ -238,6 +230,20 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 	}
 
 	return store, nil
+}
+
+// flagBindings maps author-declared bound flags (WithBoundFlags) onto flag
+// backend options; every other flag maps by the hyphen-to-dot convention.
+func flagBindings(boundFlags map[string]*pflag.Flag) []config.FlagOption {
+	flagOpts := make([]config.FlagOption, 0, len(boundFlags))
+
+	for key, flag := range boundFlags {
+		if flag != nil {
+			flagOpts = append(flagOpts, config.BindFlag(flag.Name, key))
+		}
+	}
+
+	return flagOpts
 }
 
 // anyConfigFilePresent reports whether at least one candidate config file

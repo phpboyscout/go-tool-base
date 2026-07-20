@@ -405,54 +405,62 @@ func clearStaleAICredentialKeys(cfg setup.Editor, keys providerConfigKeyTriple, 
 	}
 }
 
-// applyStorageModeWrite performs the single Set call corresponding
-// to the selected storage mode. Extracted so the cyclomatic cost of
-// the four-arm switch doesn't hit the outer function's budget.
+// applyStorageModeWrite performs the write corresponding to the selected
+// storage mode, dispatching to a per-mode helper so each arm stays readable.
 func applyStorageModeWrite(cfg setup.Editor, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
 	switch aiCfg.StorageMode {
 	case credentials.ModeEnvVar:
-		if aiCfg.EnvVarName != "" {
-			if err := cfg.Set(keys.env, aiCfg.EnvVarName); err != nil {
-				return err
-			}
-
-			return clearStaleAICredentialKeys(cfg, keys, credentials.ModeEnvVar)
-		}
-
-		return nil
-
+		return applyEnvVarWrite(cfg, keys, aiCfg)
 	case credentials.ModeLiteral, "":
 		// "" preserves prior behaviour for callers (tests) that
 		// bypass the wizard and set APIKey directly.
-		if aiCfg.APIKey != "" {
-			if err := cfg.Set(keys.literal, aiCfg.APIKey); err != nil {
-				return err
-			}
-
-			return clearStaleAICredentialKeys(cfg, keys, credentials.ModeLiteral)
-		}
-
-		return nil
-
+		return applyLiteralWrite(cfg, keys, aiCfg)
 	case credentials.ModeKeychain:
-		ref, err := storeAIKeyInKeychain(toolName, aiCfg)
-		if err != nil {
-			return err
-		}
-
-		if ref != "" {
-			if err := cfg.Set(keys.keychain, ref); err != nil {
-				return err
-			}
-
-			return clearStaleAICredentialKeys(cfg, keys, credentials.ModeKeychain)
-		}
-
-		return nil
-
+		return applyKeychainWrite(cfg, toolName, keys, aiCfg)
 	default:
 		return errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
 	}
+}
+
+func applyEnvVarWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+	if aiCfg.EnvVarName == "" {
+		return nil
+	}
+
+	if err := cfg.Set(keys.env, aiCfg.EnvVarName); err != nil {
+		return err
+	}
+
+	return clearStaleAICredentialKeys(cfg, keys, credentials.ModeEnvVar)
+}
+
+func applyLiteralWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+	if aiCfg.APIKey == "" {
+		return nil
+	}
+
+	if err := cfg.Set(keys.literal, aiCfg.APIKey); err != nil {
+		return err
+	}
+
+	return clearStaleAICredentialKeys(cfg, keys, credentials.ModeLiteral)
+}
+
+func applyKeychainWrite(cfg setup.Editor, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+	ref, err := storeAIKeyInKeychain(toolName, aiCfg)
+	if err != nil {
+		return err
+	}
+
+	if ref == "" {
+		return nil
+	}
+
+	if err := cfg.Set(keys.keychain, ref); err != nil {
+		return err
+	}
+
+	return clearStaleAICredentialKeys(cfg, keys, credentials.ModeKeychain)
 }
 
 // storeAIKeyInKeychain writes the API key into the OS keychain under
@@ -498,7 +506,7 @@ func RunAIInit(ctx context.Context, p *props.Props, dir string, opts ...FormOpti
 		return err
 	}
 
-	return writeAICredentialKeys(editor, p.Tool.Name, aiCfg)
+	return writeAICredentialKeys(editor, p.Tool.Name, aiCfg) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
 }
 
 // runAIForms runs the multi-stage AI configuration forms and returns the result.

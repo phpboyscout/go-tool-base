@@ -632,31 +632,6 @@ func deleteNestedKey(m map[string]any, dotPath string) {
 	}
 }
 
-// setNestedKey writes val at a dot-path in m, creating intermediate
-// map nodes as needed. Existing non-map nodes on the path are
-// overwritten to a map so the leaf can be set — the migrate command
-// is the declared authority over the keys it writes.
-func setNestedKey(m map[string]any, dotPath string, val any) {
-	parts := strings.Split(dotPath, ".")
-	current := m
-
-	for i, part := range parts {
-		if i == len(parts)-1 {
-			current[part] = val
-
-			return
-		}
-
-		next, ok := current[part].(map[string]any)
-		if !ok {
-			next = map[string]any{}
-			current[part] = next
-		}
-
-		current = next
-	}
-}
-
 // PrintResult writes a human-readable summary of result to w. Used
 // by NewCmdMigrate but exported for reuse in tests and custom
 // output paths.

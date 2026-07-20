@@ -346,4 +346,3 @@ func TestCircuitBreakerConfigFromConfig_DefaultsWhenUnset(t *testing.T) {
 
 	assert.Equal(t, transitgrpc.DefaultCircuitBreakerConfig(), CircuitBreakerConfigFromConfig(cfg, "server.grpc"))
 }
-

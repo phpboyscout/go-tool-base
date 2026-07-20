@@ -39,8 +39,11 @@ func ViewFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *config
 func FileStoreFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *config.Store {
 	t.Helper()
 
+	// The restricted mode the framework's own config writers use.
+	const configFilePerm = 0o600
+
 	fs := afero.NewMemMapFs()
-	require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte(yaml), 0o600))
+	require.NoError(t, afero.WriteFile(fs, "config.yaml", []byte(yaml), configFilePerm))
 
 	store, err := config.NewStore(t.Context(), append([]config.StoreOption{
 		config.WithFiles(configafero.Wrap(fs), "config.yaml"),
