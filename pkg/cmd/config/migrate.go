@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -139,17 +137,10 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		return &MigrateResult{}, nil
 	}
 
-	// Mutations are staged into two sets so we can rewrite the
-	// config file atomically at the end. viper.Set on a dotted path
-	// whose parent is "cleared" to an empty string clobbers the
-	// parent's subtree (e.g. setting `bitbucket.username` to "" after
-	// setting `bitbucket.username.env` destroys the `.env` key). By
-	// deferring deletions to the rewrite step we sidestep that
-	// collision entirely.
-	plan := &rewritePlan{
-		sets:    map[string]any{},
-		deletes: map[string]struct{}{},
-	}
+	// Mutations are staged so one transactional Apply rewrites the
+	// config at the end; see rewritePlan for why the staging order is
+	// remove-then-set per credential.
+	plan := &rewritePlan{}
 
 	result := &MigrateResult{Actions: make([]MigrationAction, 0, len(candidates))}
 
@@ -178,12 +169,25 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 // rewritePlan accumulates the mutations to apply in a single atomic
 // step at the end of a migrate run. sets are simple key→value
 // insertions; deletes remove a dotted path entirely from the
-// resulting YAML tree. Keeping these separate means we can safely
-// delete a parent key like `bitbucket.username` without clobbering
-// a newly-set child like `bitbucket.username.env`.
+// resulting YAML tree.
+//
+// Changes are staged in per-credential order — each credential's literal
+// removal immediately followed by its target write. The ordering is
+// load-bearing: batching all removes first empties a mapping like
+// `bitbucket:` outright, and the in-place document editor then cannot
+// create `bitbucket.username.env` beneath the removed scalar (verified
+// against go/config v0.4.0; all-sets-first fails symmetrically because
+// the target key nests under the still-present literal scalar).
 type rewritePlan struct {
-	sets    map[string]any
-	deletes map[string]struct{}
+	changes []config.Change
+}
+
+func (p *rewritePlan) set(key string, value any) {
+	p.changes = append(p.changes, config.Set(key, value))
+}
+
+func (p *rewritePlan) remove(key string) {
+	p.changes = append(p.changes, config.Remove(key))
 }
 
 // resolveMigrateTarget picks the effective target: explicit
@@ -272,8 +276,8 @@ func migrateToEnvVar(opts MigrateOptions, c literalCredential, plan *rewritePlan
 		return action, nil
 	}
 
-	plan.sets[c.EnvTargetKey] = envName
-	plan.deletes[c.Key] = struct{}{}
+	plan.remove(c.Key)
+	plan.set(c.EnvTargetKey, envName)
 
 	if c.PartnerKey != "" {
 		partnerEnvName := defaultEnvVarName(c.PartnerKey)
@@ -281,8 +285,8 @@ func migrateToEnvVar(opts MigrateOptions, c literalCredential, plan *rewritePlan
 			partnerEnvName = v
 		}
 
-		plan.sets[c.PartnerEnvTargetKey] = partnerEnvName
-		plan.deletes[c.PartnerKey] = struct{}{}
+		plan.remove(c.PartnerKey)
+		plan.set(c.PartnerEnvTargetKey, partnerEnvName)
 	}
 
 	return action, nil
@@ -335,12 +339,13 @@ func migrateToKeychain(
 		)
 	}
 
-	plan.sets[c.KeychainTargetKey] = ref
-	plan.deletes[c.Key] = struct{}{}
+	plan.remove(c.Key)
 
 	if c.PartnerKey != "" {
-		plan.deletes[c.PartnerKey] = struct{}{}
+		plan.remove(c.PartnerKey)
 	}
+
+	plan.set(c.KeychainTargetKey, ref)
 
 	return action, nil
 }
@@ -551,18 +556,7 @@ func defaultVCSEnvVarName(key string) string {
 // the new snapshot so in-memory Get returns the new state. Apply is
 // transactional, so a partial failure changes nothing on disk.
 func applyPlan(ctx context.Context, props *p.Props, plan *rewritePlan) error {
-	changes := make([]config.Change, 0, len(plan.deletes)+len(plan.sets))
-
-	// Sorted, so the plan applies (and fails) deterministically.
-	for _, key := range slices.Sorted(maps.Keys(plan.deletes)) {
-		changes = append(changes, config.Remove(key))
-	}
-
-	for _, key := range slices.Sorted(maps.Keys(plan.sets)) {
-		changes = append(changes, config.Set(key, plan.sets[key]))
-	}
-
-	if _, err := props.Config.Apply(ctx, changes...); err != nil {
+	if _, err := props.Config.Apply(ctx, plan.changes...); err != nil {
 		return errors.Wrap(err, "rewriting config")
 	}
 

@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	gtbconfig "gitlab.com/phpboyscout/go/config"
+	cfg "gitlab.com/phpboyscout/go/config"
+	configafero "gitlab.com/phpboyscout/go/config-afero"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -34,16 +35,24 @@ func runPath(t *testing.T, p *props.Props, args ...string) string {
 	return buf.String()
 }
 
-func TestCmdPath_SingleFile(t *testing.T) {
-	t.Parallel()
+// singleFileProps returns Props whose store loaded exactly one config file.
+func singleFileProps(t *testing.T) (*props.Props, string) {
+	t.Helper()
 
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(path))
+
+	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), path))
 	require.NoError(t, err)
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+
+	return &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}}, path
+}
+
+func TestCmdPath_SingleFile(t *testing.T) {
+	t.Parallel()
+
+	p, path := singleFileProps(t)
 
 	out := runPath(t, p, "text")
 	assert.Contains(t, out, path)
@@ -58,10 +67,10 @@ func TestCmdPath_MultiFileMergeOrder(t *testing.T) {
 	first, second := "/etc/tool/config.yaml", "/home/u/.tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, first, []byte("log:\n  level: info\n"), 0o600))
 	require.NoError(t, afero.WriteFile(fs, second, []byte("log:\n  level: debug\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(first, second))
+
+	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), first, second))
 	require.NoError(t, err)
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}}
 
 	out := runPath(t, p, "text")
 	// Merge order preserved: first appears before second.
@@ -69,12 +78,16 @@ func TestCmdPath_MultiFileMergeOrder(t *testing.T) {
 }
 
 func TestCmdPath_NoFile(t *testing.T) {
-	t.Parallel()
+	// Not parallel: pins HOME so the default writable path is deterministic
+	// (and any accidental write would land on the memmap FS, not a real home).
+	t.Setenv("HOME", "/home/pathtest")
 
 	fs := afero.NewMemMapFs()
-	c := gtbconfig.NewReaderContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFormat("yaml"), gtbconfig.WithConfigReaders(strings.NewReader("log:\n  level: info\n")))
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+	p := &props.Props{
+		Config: testutil.StoreFromYAML(t, "log:\n  level: info\n"),
+		FS:     fs,
+		Tool:   props.Tool{Name: "tool"},
+	}
 
 	out := runPath(t, p, "text")
 	want := filepath.Join(setup.GetDefaultConfigDir(fs, "tool"), setup.DefaultConfigFilename)
@@ -85,13 +98,7 @@ func TestCmdPath_NoFile(t *testing.T) {
 func TestCmdPath_Writable(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	path := "/etc/tool/config.yaml"
-	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(path))
-	require.NoError(t, err)
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+	p, path := singleFileProps(t)
 
 	out := runPath(t, p, "text", "--writable")
 	assert.Equal(t, path+"\n", out)
@@ -101,13 +108,7 @@ func TestCmdPath_Writable(t *testing.T) {
 func TestCmdPath_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	path := "/etc/tool/config.yaml"
-	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(path))
-	require.NoError(t, err)
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+	p, _ := singleFileProps(t)
 
 	out := runPath(t, p, "json")
 	assert.Contains(t, out, `"path"`)
@@ -117,13 +118,7 @@ func TestCmdPath_JSONOutput(t *testing.T) {
 func TestCmdPath_YAMLOutput(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	path := "/etc/tool/config.yaml"
-	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(path))
-	require.NoError(t, err)
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+	p, _ := singleFileProps(t)
 
 	out := runPath(t, p, "yaml")
 	assert.Contains(t, out, "path:")
@@ -133,13 +128,7 @@ func TestCmdPath_YAMLOutput(t *testing.T) {
 func TestCmdPath_WritableJSON(t *testing.T) {
 	t.Parallel()
 
-	fs := afero.NewMemMapFs()
-	path := "/etc/tool/config.yaml"
-	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
-	c, err := gtbconfig.LoadFilesContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(path))
-	require.NoError(t, err)
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}
+	p, path := singleFileProps(t)
 
 	out := runPath(t, p, "json", "--writable")
 	assert.Contains(t, out, `"writable"`)

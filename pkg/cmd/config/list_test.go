@@ -5,11 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -18,14 +15,7 @@ import (
 func TestCmdList_AllKeysDisplayed(t *testing.T) {
 	t.Parallel()
 
-	v := viper.New()
-	v.Set("log.level", "info")
-	v.Set("tool.name", "myapp")
-
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	p := &props.Props{Config: mock}
+	p := newTestProps(t, "log:\n  level: info\ntool:\n  name: myapp\n")
 	cmd := config.NewCmdList(p, config.NewMasker())
 
 	var buf bytes.Buffer
@@ -43,14 +33,7 @@ func TestCmdList_AllKeysDisplayed(t *testing.T) {
 func TestCmdList_SensitiveValueMasked(t *testing.T) {
 	t.Parallel()
 
-	v := viper.New()
-	v.Set("log.level", "info")
-	v.Set("github.auth.token", "supersecrettoken123")
-
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	p := &props.Props{Config: mock}
+	p := newTestProps(t, "log:\n  level: info\ngithub:\n  auth:\n    token: supersecrettoken123\n")
 	cmd := config.NewCmdList(p, config.NewMasker())
 
 	var buf bytes.Buffer
@@ -69,13 +52,7 @@ func TestCmdList_GithubPATMaskedByValue(t *testing.T) {
 
 	token := "ghp_" + strings.Repeat("Z", 36)
 
-	v := viper.New()
-	v.Set("github.auth.value", token)
-
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	p := &props.Props{Config: mock}
+	p := newTestProps(t, "github:\n  auth:\n    value: "+token+"\n")
 	cmd := config.NewCmdList(p, config.NewMasker())
 
 	var buf bytes.Buffer
@@ -90,15 +67,7 @@ func TestCmdList_GithubPATMaskedByValue(t *testing.T) {
 func TestCmdList_AlphabeticallySorted(t *testing.T) {
 	t.Parallel()
 
-	v := viper.New()
-	v.Set("z.last", "val")
-	v.Set("a.first", "val")
-	v.Set("m.middle", "val")
-
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	p := &props.Props{Config: mock}
+	p := newTestProps(t, "z:\n  last: val\na:\n  first: val\nm:\n  middle: val\n")
 	cmd := config.NewCmdList(p, config.NewMasker())
 
 	var buf bytes.Buffer
@@ -127,13 +96,7 @@ func TestCmdList_NilConfig(t *testing.T) {
 func TestCmdList_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	v := viper.New()
-	v.Set("log.level", "warn")
-
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	p := &props.Props{Config: mock}
+	p := newTestProps(t, "log:\n  level: warn\n")
 
 	// --output is a root-level persistent flag; add it to the test command root.
 	root := config.NewCmdConfig(p)

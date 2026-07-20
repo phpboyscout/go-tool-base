@@ -6,69 +6,86 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	configafero "gitlab.com/phpboyscout/go/config-afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// fileBoundProps returns Props whose live viper is bound to path on fs, so the
-// writable-path resolution used by set/unset/edit resolves to that file.
-func fileBoundProps(fs afero.Fs, path string) *props.Props {
-	v := viper.New()
-	v.SetConfigFile(path)
+// fileBoundProps returns Props whose store loaded path as its writable file
+// layer, so the writable-path resolution used by set/unset/edit resolves to
+// that file. The file must exist (with parseable content) on fs.
+func fileBoundProps(t *testing.T, fs afero.Fs, path string) *props.Props {
+	t.Helper()
+
+	store, err := config.NewStore(t.Context(), config.WithFiles(configafero.Wrap(fs), path))
+	require.NoError(t, err)
 
 	return &props.Props{
 		FS:     fs,
-		Config: config.NewContainerFromViper(nil, v),
+		Config: store,
 		Tool:   props.Tool{Name: "tool"},
 	}
 }
 
 // TestLoadWritableSettings_NullContentResetsMap — a file holding "null"
 // unmarshals to a nil map, which loadWritableSettings must reset to an empty,
-// non-nil map so callers can mutate it.
+// non-nil map so callers can mutate it. The file is rewritten to "null" after
+// the store loads, since the store itself refuses to load an all-null layer.
 func TestLoadWritableSettings_NullContentResetsMap(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
+
+	p := fileBoundProps(t, fs, path)
+
 	require.NoError(t, afero.WriteFile(fs, path, []byte("null\n"), 0o600))
 
-	_, gotPath, settings, err := loadWritableSettings(fileBoundProps(fs, path))
+	_, gotPath, settings, err := loadWritableSettings(p)
 	require.NoError(t, err)
 	assert.Equal(t, path, gotPath)
 	require.NotNil(t, settings)
 	assert.Empty(t, settings)
 }
 
-// TestLoadWritableSettings_InvalidYAML — an existing file with unparseable YAML
-// surfaces a descriptive error rather than silently starting from empty.
+// TestLoadWritableSettings_InvalidYAML — an existing file whose content became
+// unparseable after load surfaces a descriptive error rather than silently
+// starting from empty.
 func TestLoadWritableSettings_InvalidYAML(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
+
+	p := fileBoundProps(t, fs, path)
+
 	require.NoError(t, afero.WriteFile(fs, path, []byte("}{"), 0o600))
 
-	_, _, _, err := loadWritableSettings(fileBoundProps(fs, path))
+	_, _, _, err := loadWritableSettings(p)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing existing config")
 }
 
-// TestPersistConfigValue_PropagatesLoadError — persistConfigValue surfaces a
-// loadWritableSettings failure (here: an unparseable existing file).
-func TestPersistConfigValue_PropagatesLoadError(t *testing.T) {
+// TestPersistUnset_PropagatesLoadError — persistUnset surfaces a
+// loadWritableSettings failure (here: a file corrupted after the store loaded).
+func TestPersistUnset_PropagatesLoadError(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\nfeature:\n  enabled: true\n"), 0o600))
+
+	p := fileBoundProps(t, fs, path)
+
 	require.NoError(t, afero.WriteFile(fs, path, []byte("}{"), 0o600))
 
-	err := persistConfigValue(fileBoundProps(fs, path), "log.level", "debug")
+	err := persistUnset(t.Context(), p, "feature.enabled")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing existing config")
 }
@@ -115,7 +132,7 @@ func TestRunEdit_BadEditorShlex(t *testing.T) {
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte("log:\n  level: info\n"), 0o600))
 
-	cmd := NewCmdEdit(fileBoundProps(fs, path),
+	cmd := NewCmdEdit(fileBoundProps(t, fs, path),
 		WithEditorRunner(func(context.Context, []string, string) error { return nil }),
 		WithInteractiveCheck(func() bool { return true }),
 	)
@@ -139,7 +156,7 @@ func TestRunEdit_ReadEditedFails(t *testing.T) {
 		return fs.Remove(tmp) // editor "succeeds" but the temp file is gone
 	}
 
-	cmd := NewCmdEdit(fileBoundProps(fs, path),
+	cmd := NewCmdEdit(fileBoundProps(t, fs, path),
 		WithEditorRunner(runner),
 		WithInteractiveCheck(func() bool { return true }),
 	)

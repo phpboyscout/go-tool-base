@@ -5,17 +5,14 @@ import (
 	"context"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	gtbconfig "gitlab.com/phpboyscout/go/config"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -50,7 +47,7 @@ func TestCmdEdit_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "debug")
 	// Live config reflects the reload.
-	assert.Equal(t, "debug", p.Config.GetString("log.level"))
+	assert.Equal(t, "debug", p.Config.View().GetString("log.level"))
 }
 
 func TestCmdEdit_NonInteractiveRefused(t *testing.T) {
@@ -182,16 +179,20 @@ func TestCmdEdit_NilConfig(t *testing.T) {
 
 // TestCmdEdit_SeedsNewFile covers the not-yet-existing-file path: the temp file
 // is seeded with a header comment (never the full effective config), the editor
-// adds valid content, and it is persisted at the default writable path. No file
-// is bound, so reload is skipped — matching "config set".
+// adds valid content, and it is persisted at the default writable path. The
+// written file is not one of the store's layers, so the post-save reload is a
+// no-op — matching a reader-only (embedded defaults) store.
 func TestCmdEdit_SeedsNewFile(t *testing.T) {
-	t.Parallel()
+	// Not parallel: pins HOME so the default writable path is deterministic
+	// and every write lands on the memmap FS, never a real home directory.
+	t.Setenv("HOME", "/home/edithome")
 
 	fs := afero.NewMemMapFs()
-	c := gtbconfig.NewReaderContainer(fs, gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFormat("yaml"),
-		gtbconfig.WithConfigReaders(strings.NewReader("log:\n  level: info\n")))
-	p := &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "seedtool"}}
+	p := &props.Props{
+		Config: testutil.StoreFromYAML(t, "log:\n  level: info\n"),
+		FS:     fs,
+		Tool:   props.Tool{Name: "seedtool"},
+	}
 
 	var seenSeed string
 	runner := func(_ context.Context, _ []string, path string) error {

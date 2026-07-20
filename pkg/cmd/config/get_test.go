@@ -8,27 +8,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
-
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-func newTestProps(t *testing.T) (*props.Props, *mockcfg.MockContainable) {
+// newTestProps returns Props whose config store resolves the given YAML
+// document, matching what a loaded config file provides at runtime.
+func newTestProps(t *testing.T, yaml string) *props.Props {
 	t.Helper()
 
-	mock := mockcfg.NewMockContainable(t)
-	p := &props.Props{Config: mock}
-
-	return p, mock
+	return &props.Props{Config: testutil.StoreFromYAML(t, yaml)}
 }
 
 func TestCmdGet_ValueFound(t *testing.T) {
 	t.Parallel()
 
-	p, mock := newTestProps(t)
-	mock.EXPECT().IsSet("log.level").Return(true)
-	mock.EXPECT().Get("log.level").Return("debug")
+	p := newTestProps(t, "log:\n  level: debug\n")
 
 	masker := config.NewMasker()
 	cmd := config.NewCmdGet(p, masker)
@@ -44,8 +40,7 @@ func TestCmdGet_ValueFound(t *testing.T) {
 func TestCmdGet_KeyNotFound(t *testing.T) {
 	t.Parallel()
 
-	p, mock := newTestProps(t)
-	mock.EXPECT().IsSet("nonexistent.key").Return(false)
+	p := newTestProps(t, "log:\n  level: info\n")
 
 	masker := config.NewMasker()
 	cmd := config.NewCmdGet(p, masker)
@@ -59,9 +54,7 @@ func TestCmdGet_KeyNotFound(t *testing.T) {
 func TestCmdGet_SensitiveKeyMasked(t *testing.T) {
 	t.Parallel()
 
-	p, mock := newTestProps(t)
-	mock.EXPECT().IsSet("github.auth.token").Return(true)
-	mock.EXPECT().Get("github.auth.token").Return("supersecrettoken")
+	p := newTestProps(t, "github:\n  auth:\n    token: supersecrettoken\n")
 
 	masker := config.NewMasker()
 	cmd := config.NewCmdGet(p, masker)
@@ -80,9 +73,7 @@ func TestCmdGet_SensitiveKeyMasked(t *testing.T) {
 func TestCmdGet_UnmaskFlag(t *testing.T) {
 	t.Parallel()
 
-	p, mock := newTestProps(t)
-	mock.EXPECT().IsSet("github.auth.token").Return(true)
-	mock.EXPECT().Get("github.auth.token").Return("supersecrettoken")
+	p := newTestProps(t, "github:\n  auth:\n    token: supersecrettoken\n")
 
 	masker := config.NewMasker()
 	cmd := config.NewCmdGet(p, masker)
@@ -100,9 +91,7 @@ func TestCmdGet_ValueDetectedAsPAT(t *testing.T) {
 
 	token := "ghp_" + strings.Repeat("A", 36)
 
-	p, mock := newTestProps(t)
-	mock.EXPECT().IsSet("github.auth.value").Return(true)
-	mock.EXPECT().Get("github.auth.value").Return(token)
+	p := newTestProps(t, "github:\n  auth:\n    value: "+token+"\n")
 
 	masker := config.NewMasker()
 	cmd := config.NewCmdGet(p, masker)
@@ -121,9 +110,7 @@ func TestCmdGet_ValueDetectedAsPAT(t *testing.T) {
 func TestCmdGet_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	p, mock := newTestProps(t)
-	mock.EXPECT().IsSet("log.level").Return(true)
-	mock.EXPECT().Get("log.level").Return("info")
+	p := newTestProps(t, "log:\n  level: info\n")
 
 	// --output is a root-level persistent flag; add it to the test command root.
 	root := config.NewCmdConfig(p)

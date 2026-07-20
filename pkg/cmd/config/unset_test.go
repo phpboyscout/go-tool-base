@@ -8,30 +8,35 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	gtbconfig "gitlab.com/phpboyscout/go/config"
+	cfg "gitlab.com/phpboyscout/go/config"
+	configafero "gitlab.com/phpboyscout/go/config-afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// newFileConfig seeds a config file on a fresh memmap FS and returns a
-// file-bound container plus the FS, so unset's read-modify-write-reload round
-// trip exercises the same afero filesystem viper is wired to (v.SetFs).
-func newFileConfig(t *testing.T, contents string) (*props.Props, afero.Fs, string) {
+// newFileConfig seeds a config file on a fresh memmap FS and returns Props
+// whose store has that file as its writable layer, so set/unset/edit's
+// read-modify-write round trip exercises the same afero filesystem the store
+// reads and writes through.
+func newFileConfig(t *testing.T, contents string, opts ...cfg.StoreOption) (*props.Props, afero.Fs, string) {
 	t.Helper()
 
 	fs := afero.NewMemMapFs()
 	path := "/etc/tool/config.yaml"
 	require.NoError(t, afero.WriteFile(fs, path, []byte(contents), 0o600))
 
-	c, err := gtbconfig.LoadFilesContainer(fs,
-		gtbconfig.WithLogger(logger.ToSlog(logger.NewNoop())),
-		gtbconfig.WithConfigFiles(path),
-	)
+	store, err := cfg.NewStore(t.Context(),
+		append([]cfg.StoreOption{cfg.WithFiles(configafero.Wrap(fs), path)}, opts...)...)
 	require.NoError(t, err)
 
-	return &props.Props{Config: c, FS: fs, Tool: props.Tool{Name: "tool"}}, fs, path
+	return &props.Props{
+		Config: store,
+		FS:     fs,
+		Tool:   props.Tool{Name: "tool"},
+		Logger: logger.NewNoop(),
+	}, fs, path
 }
 
 func TestCmdUnset_RemovesFileKey(t *testing.T) {
@@ -50,9 +55,9 @@ func TestCmdUnset_RemovesFileKey(t *testing.T) {
 	data, err := afero.ReadFile(fs, path)
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "enabled")
-	// The required key survives; the live config reflects the rewrite.
-	assert.False(t, p.Config.IsSet("feature.enabled"))
-	assert.Equal(t, "info", p.Config.GetString("log.level"))
+	// The required key survives; the live store reflects the removal.
+	assert.False(t, p.Config.View().IsSet("feature.enabled"))
+	assert.Equal(t, "info", p.Config.View().GetString("log.level"))
 }
 
 func TestCmdUnset_NestedKey(t *testing.T) {
@@ -81,6 +86,48 @@ func TestCmdUnset_KeyAbsentFromFile(t *testing.T) {
 	err := cmd.Execute()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), `config key "does.not.exist" not found`)
+}
+
+// TestCmdUnset_EnvOnlyKeyRefused — a key present only via an env layer is not
+// file-backed, so unset refuses it rather than silently "succeeding".
+func TestCmdUnset_EnvOnlyKeyRefused(t *testing.T) {
+	t.Parallel()
+
+	p, _, _ := newFileConfig(t, "log:\n  level: info\n",
+		cfg.WithEnv("TOOLTEST", cfg.WithEnviron(func() []string {
+			return []string{"TOOLTEST_FEATURE_ENABLED=true"}
+		})))
+
+	require.True(t, p.Config.View().IsSet("feature.enabled"), "env layer must resolve")
+
+	cmd := config.NewCmdUnset(p)
+	cmd.SetArgs([]string{"feature.enabled"})
+
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `config key "feature.enabled" not found`)
+}
+
+// TestCmdUnset_EnvShadowedFileValueUnsettable — a file value hidden under an
+// env override is still file-backed, so unset removes it from the file; the
+// env value keeps resolving afterwards.
+func TestCmdUnset_EnvShadowedFileValueUnsettable(t *testing.T) {
+	t.Parallel()
+
+	p, fs, path := newFileConfig(t, "log:\n  level: info\nfeature:\n  enabled: true\n",
+		cfg.WithEnv("TOOLTEST", cfg.WithEnviron(func() []string {
+			return []string{"TOOLTEST_FEATURE_ENABLED=false"}
+		})))
+
+	cmd := config.NewCmdUnset(p)
+	cmd.SetArgs([]string{"feature.enabled"})
+	require.NoError(t, cmd.Execute())
+
+	data, err := afero.ReadFile(fs, path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "enabled")
+	// The env override still supplies the key after the file entry is gone.
+	assert.True(t, p.Config.View().IsSet("feature.enabled"))
 }
 
 func TestCmdUnset_RequiredKeyRefused(t *testing.T) {

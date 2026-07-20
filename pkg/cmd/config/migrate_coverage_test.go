@@ -2,11 +2,10 @@ package config
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,6 +14,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -24,7 +24,7 @@ import (
 func TestMigrate_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	_, err := Migrate(context.Background(), &props.Props{}, MigrateOptions{})
+	_, err := Migrate(t.Context(), &props.Props{}, MigrateOptions{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no configuration loaded")
 }
@@ -36,7 +36,7 @@ func TestMigrate_LiteralTargetRejected(t *testing.T) {
 
 	p := newMigrateFixture(t, anthropicSeed("sk-ant"))
 
-	_, err := Migrate(context.Background(), p, MigrateOptions{
+	_, err := Migrate(t.Context(), p, MigrateOptions{
 		AssumeYes: true,
 		Target:    credentials.ModeLiteral,
 	})
@@ -61,12 +61,12 @@ func TestMigrate_InteractiveSkipVerifyWritesConfig(t *testing.T) {
 		},
 	}
 
-	result, err := Migrate(context.Background(), p, opts)
+	result, err := Migrate(t.Context(), p, opts)
 	require.NoError(t, err)
 	require.Len(t, result.Actions, 1)
 	assert.True(t, result.WroteConfig)
-	assert.Equal(t, "MY_ANTHROPIC_INTERACTIVE", p.Config.GetString("anthropic.api.env"))
-	assert.Empty(t, p.Config.GetString("anthropic.api.key"))
+	assert.Equal(t, "MY_ANTHROPIC_INTERACTIVE", p.Config.View().GetString("anthropic.api.env"))
+	assert.Empty(t, p.Config.View().GetString("anthropic.api.key"))
 }
 
 // TestMigrate_InteractiveBitbucketSkipVerify — the dual-credential
@@ -75,7 +75,12 @@ func TestMigrate_InteractiveSkipVerifyWritesConfig(t *testing.T) {
 func TestMigrate_InteractiveBitbucketSkipVerify(t *testing.T) {
 	t.Parallel()
 
-	p := newMigrateFixture(t, bitbucketPairSeed("alice", "s3cret"))
+	// Sibling key keeps the bitbucket mapping non-empty mid-edit — see
+	// TestMigrate_BitbucketPairOnlyDocumentEnvVar for the pair-only gap.
+	seed := bitbucketPairSeed("alice", "s3cret")
+	seed["bitbucket"].(map[string]any)["workspace"] = "acme"
+
+	p := newMigrateFixture(t, seed)
 
 	opts := MigrateOptions{
 		AssumeYes:  false,
@@ -85,12 +90,12 @@ func TestMigrate_InteractiveBitbucketSkipVerify(t *testing.T) {
 		},
 	}
 
-	result, err := Migrate(context.Background(), p, opts)
+	result, err := Migrate(t.Context(), p, opts)
 	require.NoError(t, err)
 	require.Len(t, result.Actions, 1)
-	assert.Equal(t, "MY_BB_USER", p.Config.GetString("bitbucket.username.env"))
+	assert.Equal(t, "MY_BB_USER", p.Config.View().GetString("bitbucket.username.env"))
 	// Partner falls back to the default name (no override supplied).
-	assert.Equal(t, "BITBUCKET_APP_PASSWORD", p.Config.GetString("bitbucket.app_password.env"))
+	assert.Equal(t, "BITBUCKET_APP_PASSWORD", p.Config.View().GetString("bitbucket.app_password.env"))
 }
 
 // TestResolveEnvVarName_DryRunInteractive — the dry-run interactive
@@ -130,42 +135,35 @@ func TestAlreadyMigrated(t *testing.T) {
 	t.Run("env target set", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		v.Set("anthropic.api.env", "X")
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "anthropic:\n  api:\n    env: X\n")
 		assert.True(t, alreadyMigrated(cfg, c, credentials.ModeEnvVar))
 	})
 
 	t.Run("keychain target set", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		v.Set("anthropic.api.keychain", "svc/acct")
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "anthropic:\n  api:\n    keychain: svc/acct\n")
 		assert.True(t, alreadyMigrated(cfg, c, credentials.ModeKeychain))
 	})
 
 	t.Run("env target empty", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "other: value\n")
 		assert.False(t, alreadyMigrated(cfg, c, credentials.ModeEnvVar))
 	})
 
 	t.Run("literal target is never already migrated", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "other: value\n")
 		assert.False(t, alreadyMigrated(cfg, c, credentials.ModeLiteral))
 	})
 
 	t.Run("unknown mode falls through to false", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "other: value\n")
 		assert.False(t, alreadyMigrated(cfg, c, credentials.Mode("bogus")))
 	})
 }
@@ -193,8 +191,7 @@ func TestSecretForKeychain(t *testing.T) {
 	t.Run("single value returns raw secret", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "other: value\n")
 
 		secret, err := secretForKeychain(cfg, literalCredential{Value: "ghp_raw"})
 		require.NoError(t, err)
@@ -204,9 +201,7 @@ func TestSecretForKeychain(t *testing.T) {
 	t.Run("dual credential returns json blob", func(t *testing.T) {
 		t.Parallel()
 
-		v := viper.New()
-		v.Set("bitbucket.app_password", "pw")
-		cfg := config.NewContainerFromViper(nil, v)
+		cfg := testutil.ViewFromYAML(t, "bitbucket:\n  app_password: pw\n")
 
 		secret, err := secretForKeychain(cfg, literalCredential{
 			Key:        "bitbucket.username",
@@ -241,7 +236,7 @@ func TestMigrateToKeychain_EmptyServiceRejected(t *testing.T) {
 	})
 	p.Tool.Name = ""
 
-	_, err := Migrate(context.Background(), p, MigrateOptions{
+	_, err := Migrate(t.Context(), p, MigrateOptions{
 		AssumeYes: true,
 		Target:    credentials.ModeKeychain,
 	})
@@ -249,23 +244,24 @@ func TestMigrateToKeychain_EmptyServiceRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "tool name is empty")
 }
 
-// TestApplyPlan_NoConfigFilePath — applyPlan errors when the bound
-// viper has no config file path to rewrite.
-func TestApplyPlan_NoConfigFilePath(t *testing.T) {
+// TestApplyPlan_NoWritableLayer — applyPlan errors when the store has
+// no writable file layer to route the staged changes to (a reader-only
+// store: in-memory sources are never writable).
+func TestApplyPlan_NoWritableLayer(t *testing.T) {
 	t.Parallel()
 
-	v := viper.New() // no SetConfigFile
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),
-		Config: config.NewContainerFromViper(nil, v),
+		Config: testutil.StoreFromYAML(t, "other: value\n"),
 		Logger: logger.NewNoop(),
 	}
 
-	plan := &rewritePlan{sets: map[string]any{"a.b": "c"}, deletes: map[string]struct{}{}}
+	plan := &rewritePlan{changes: []config.Change{config.Set("a.b", "c")}}
 
-	err := applyPlan(p, plan)
+	err := applyPlan(t.Context(), p, plan)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no config file path")
+	assert.True(t, errors.Is(err, config.ErrNoWritableLayer), "got: %v", err)
+	assert.Contains(t, err.Error(), "rewriting config")
 }
 
 // TestWriteConfigAtomic_NilFSDefaultsToOsFs — a nil fs falls back to
@@ -330,7 +326,7 @@ func TestNewCmdMigrate_DryRunFlag(t *testing.T) {
 	assert.Contains(t, out, "dry run")
 	assert.Contains(t, out, "anthropic.api.key")
 	// Dry-run must not mutate.
-	assert.Equal(t, "sk-ant-cmd", p.Config.GetString("anthropic.api.key"))
+	assert.Equal(t, "sk-ant-cmd", p.Config.View().GetString("anthropic.api.key"))
 }
 
 // TestNewCmdMigrate_EnvVarFlag exercises the --env-var flag plumbed
@@ -346,7 +342,7 @@ func TestNewCmdMigrate_EnvVarFlag(t *testing.T) {
 	cmd.SetArgs([]string{"--yes", "--env-var", "anthropic.api.key=FLAG_ANTHROPIC"})
 
 	require.NoError(t, cmd.Execute())
-	assert.Equal(t, "FLAG_ANTHROPIC", p.Config.GetString("anthropic.api.env"))
+	assert.Equal(t, "FLAG_ANTHROPIC", p.Config.View().GetString("anthropic.api.env"))
 }
 
 // TestNewCmdMigrate_BadEnvVarFlag — a malformed --env-var entry

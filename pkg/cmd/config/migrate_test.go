@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -16,18 +15,18 @@ import (
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
 	"gitlab.com/phpboyscout/go/config"
+	configafero "gitlab.com/phpboyscout/go/config-afero"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// newMigrateFixture produces Props with a memory-backed config
-// container bound to a synthetic config file path. Seeds the config
-// from an initial YAML tree written to the file so every key the
-// test provides is a "real" file value rather than an in-memory
-// Viper override — otherwise Viper's override map would survive the
-// migrate's ReadInConfig reload and mask the rewrite.
+// newMigrateFixture produces Props with a store whose writable file layer is a
+// synthetic config file on a memory filesystem. Seeding through the file (not
+// an in-memory override) means every key the test provides is a "real" file
+// value, so the migrate rewrite edits exactly what the store loaded.
 //
 // seed is nested YAML-compatible data (typically a map[string]any);
 // pass nil for an empty config.
@@ -45,20 +44,17 @@ func newMigrateFixture(t *testing.T, seed map[string]any) *props.Props {
 
 		payload = data
 	} else {
-		payload = []byte("{}")
+		payload = []byte("# empty\n")
 	}
 
 	require.NoError(t, afero.WriteFile(fs, configPath, payload, 0o600))
 
-	v := viper.New()
-	v.SetFs(fs)
-	v.SetConfigFile(configPath)
-	v.SetConfigType("yaml")
-	require.NoError(t, v.ReadInConfig())
+	store, err := config.NewStore(t.Context(), config.WithFiles(configafero.Wrap(fs), configPath))
+	require.NoError(t, err)
 
 	return &props.Props{
 		FS:     fs,
-		Config: config.NewContainerFromViper(nil, v),
+		Config: store,
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
@@ -116,8 +112,8 @@ func TestMigrate_DryRunEnvVarAIProvider(t *testing.T) {
 	assert.False(t, result.WroteConfig)
 
 	// Literal still present — dry run must not mutate.
-	assert.Equal(t, "sk-ant-original", p.Config.GetString(chat.ConfigKeyClaudeKey))
-	assert.Empty(t, p.Config.GetString(chat.ConfigKeyClaudeEnv))
+	assert.Equal(t, "sk-ant-original", p.Config.View().GetString(chat.ConfigKeyClaudeKey))
+	assert.Empty(t, p.Config.View().GetString(chat.ConfigKeyClaudeEnv))
 }
 
 // TestMigrate_AssumeYesEnvVarWritesConfig — full path: AssumeYes
@@ -131,8 +127,8 @@ func TestMigrate_AssumeYesEnvVarWritesConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Actions, 1)
 
-	assert.Equal(t, "OPENAI_API_KEY", p.Config.GetString(chat.ConfigKeyOpenAIEnv))
-	assert.Empty(t, p.Config.GetString(chat.ConfigKeyOpenAIKey))
+	assert.Equal(t, "OPENAI_API_KEY", p.Config.View().GetString(chat.ConfigKeyOpenAIEnv))
+	assert.Empty(t, p.Config.View().GetString(chat.ConfigKeyOpenAIKey))
 }
 
 // TestMigrate_EnvVarOverride — --env-var flag pins a custom name,
@@ -153,7 +149,7 @@ func TestMigrate_EnvVarOverride(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Actions, 1)
 
-	assert.Equal(t, "MYAPP_GEMINI_KEY", p.Config.GetString(chat.ConfigKeyGeminiEnv))
+	assert.Equal(t, "MYAPP_GEMINI_KEY", p.Config.View().GetString(chat.ConfigKeyGeminiEnv))
 }
 
 // TestMigrate_SkipsAlreadyMigrated — a prior run's env ref causes
@@ -191,8 +187,8 @@ func TestMigrate_KeychainSingleValue(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Actions, 1)
 
-	assert.Equal(t, "testtool/github.auth", p.Config.GetString("github.auth.keychain"))
-	assert.Empty(t, p.Config.GetString("github.auth.value"))
+	assert.Equal(t, "testtool/github.auth", p.Config.View().GetString("github.auth.keychain"))
+	assert.Empty(t, p.Config.View().GetString("github.auth.value"))
 
 	stored, err := credentials.Retrieve(t.Context(), "testtool", "github.auth")
 	require.NoError(t, err)
@@ -214,8 +210,16 @@ func TestMigrate_KeychainNoBackendRefuses(t *testing.T) {
 
 // TestMigrate_BitbucketDualCredentialEnvVar — username + app_password
 // migrate as a pair; both refs written, both literals cleared.
+//
+// The seed carries a surviving sibling key: applyPlan currently commits all
+// deletes before all sets, and when the pair are the mapping's only children
+// the intermediate empty mapping trips a go/config v0.4.0 in-place-editor
+// limitation (see TestMigrate_BitbucketPairOnlyDocumentEnvVar).
 func TestMigrate_BitbucketDualCredentialEnvVar(t *testing.T) {
-	p := newMigrateFixture(t, bitbucketPairSeed("alice", "s3cret"))
+	seed := bitbucketPairSeed("alice", "s3cret")
+	seed["bitbucket"].(map[string]any)["workspace"] = "acme"
+
+	p := newMigrateFixture(t, seed)
 
 	result, err := Migrate(t.Context(), p, MigrateOptions{AssumeYes: true})
 	require.NoError(t, err)
@@ -225,10 +229,26 @@ func TestMigrate_BitbucketDualCredentialEnvVar(t *testing.T) {
 	assert.Equal(t, "bitbucket.username", a.SourceKey)
 	assert.Equal(t, "bitbucket.app_password", a.PartnerKey)
 
-	assert.Equal(t, "BITBUCKET_USERNAME", p.Config.GetString("bitbucket.username.env"))
-	assert.Equal(t, "BITBUCKET_APP_PASSWORD", p.Config.GetString("bitbucket.app_password.env"))
-	assert.Empty(t, p.Config.GetString("bitbucket.username"))
-	assert.Empty(t, p.Config.GetString("bitbucket.app_password"))
+	assert.Equal(t, "BITBUCKET_USERNAME", p.Config.View().GetString("bitbucket.username.env"))
+	assert.Equal(t, "BITBUCKET_APP_PASSWORD", p.Config.View().GetString("bitbucket.app_password.env"))
+	assert.Empty(t, p.Config.View().GetString("bitbucket.username"))
+	assert.Empty(t, p.Config.View().GetString("bitbucket.app_password"))
+}
+
+// TestMigrate_BitbucketPairOnlyDocumentEnvVar pins the canonical config shape
+// where username + app_password are the bitbucket mapping's only keys. The
+// staged changes interleave each credential's removal with its target write —
+// batching all removes first emptied the mapping mid-edit and the go/config
+// v0.4.0 in-place editor then rejected creating keys beneath the removed
+// scalars. This is the regression test for that ordering.
+func TestMigrate_BitbucketPairOnlyDocumentEnvVar(t *testing.T) {
+	p := newMigrateFixture(t, bitbucketPairSeed("alice", "s3cret"))
+
+	result, err := Migrate(t.Context(), p, MigrateOptions{AssumeYes: true})
+	require.NoError(t, err)
+	require.Len(t, result.Actions, 1)
+	assert.Equal(t, "BITBUCKET_USERNAME", p.Config.View().GetString("bitbucket.username.env"))
+	assert.Empty(t, p.Config.View().GetString("bitbucket.username"))
 }
 
 // TestMigrate_BitbucketDualCredentialKeychain — both halves stored
@@ -247,7 +267,7 @@ func TestMigrate_BitbucketDualCredentialKeychain(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Actions, 1)
 
-	assert.Equal(t, "testtool/bitbucket.auth", p.Config.GetString("bitbucket.keychain"))
+	assert.Equal(t, "testtool/bitbucket.auth", p.Config.View().GetString("bitbucket.keychain"))
 
 	raw, err := credentials.Retrieve(t.Context(), "testtool", "bitbucket.auth")
 	require.NoError(t, err)
@@ -308,7 +328,7 @@ func TestMigrate_KeychainServiceOverride(t *testing.T) {
 
 	_, err := Migrate(t.Context(), p, opts)
 	require.NoError(t, err)
-	assert.Equal(t, "customsvc/openai.api", p.Config.GetString(chat.ConfigKeyOpenAIKeychain))
+	assert.Equal(t, "customsvc/openai.api", p.Config.View().GetString(chat.ConfigKeyOpenAIKeychain))
 }
 
 // TestParseEnvVarMap covers the flag parser used by the cobra
@@ -407,11 +427,9 @@ func TestPrintResult(t *testing.T) {
 // credential pairing, including the partial-pair case.
 func TestScanBitbucketPair(t *testing.T) {
 	t.Run("both present", func(t *testing.T) {
-		v := viper.New()
-		v.Set("bitbucket.username", "alice")
-		v.Set("bitbucket.app_password", "s3cret")
+		view := testutil.ViewFromYAML(t, "bitbucket:\n  username: alice\n  app_password: s3cret\n")
 
-		pair := scanBitbucketPair(config.NewContainerFromViper(nil, v))
+		pair := scanBitbucketPair(view)
 		require.NotNil(t, pair)
 		assert.Equal(t, "bitbucket.username", pair.Key)
 		assert.Equal(t, "bitbucket.app_password", pair.PartnerKey)
@@ -419,27 +437,24 @@ func TestScanBitbucketPair(t *testing.T) {
 	})
 
 	t.Run("only username present", func(t *testing.T) {
-		v := viper.New()
-		v.Set("bitbucket.username", "alice")
+		view := testutil.ViewFromYAML(t, "bitbucket:\n  username: alice\n")
 
-		pair := scanBitbucketPair(config.NewContainerFromViper(nil, v))
+		pair := scanBitbucketPair(view)
 		require.NotNil(t, pair, "partial pair still surfaces as a candidate")
 		assert.Equal(t, "alice", pair.Value)
 	})
 
 	t.Run("neither present", func(t *testing.T) {
-		v := viper.New()
+		view := testutil.ViewFromYAML(t, "other: value\n")
 
-		pair := scanBitbucketPair(config.NewContainerFromViper(nil, v))
+		pair := scanBitbucketPair(view)
 		assert.Nil(t, pair)
 	})
 
 	t.Run("whitespace-only treated as absent", func(t *testing.T) {
-		v := viper.New()
-		v.Set("bitbucket.username", "   ")
-		v.Set("bitbucket.app_password", "\t")
+		view := testutil.ViewFromYAML(t, "bitbucket:\n  username: \"   \"\n  app_password: \"\\t\"\n")
 
-		pair := scanBitbucketPair(config.NewContainerFromViper(nil, v))
+		pair := scanBitbucketPair(view)
 		assert.Nil(t, pair)
 	})
 }
