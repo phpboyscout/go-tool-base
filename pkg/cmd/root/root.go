@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -166,46 +167,132 @@ func discoverProjectConfig(fs afero.Fs, toolName, startDir string) string {
 	}
 }
 
-func loadAndMergeConfig(opts ConfigLoadOptions) (config.Containable, error) {
-	cfgOpts := configOpts(opts.Props)
+// ErrNoConfigFile reports that none of the candidate config files exist.
+//
+// config v0.2.0 supplied this as ErrNoFilesFound. The Store does not: a missing
+// file is an empty layer, not an error, because in a layered model there is
+// nothing unusual about a layer being absent. GTB still needs the distinction —
+// it is what gates auto-initialise — so the sentinel is owned here.
+var ErrNoConfigFile = errors.New("no config file found")
 
-	// Load main configuration
-	cfg, err := config.Load(opts.CfgPaths, opts.Props.FS, opts.AllowEmpty, cfgOpts...)
-	if err != nil {
-		if errors.Is(err, config.ErrNoFilesFound) && opts.AllowEmpty {
-			opts.Props.Logger.Debug("No config file found, loading default configuration")
-			cfg = config.NewReaderContainer(opts.Props.FS, append(cfgOpts,
-				config.WithConfigFormat("yaml"),
-				config.WithConfigReaders(bytes.NewReader(setup.DefaultConfig)),
-			)...)
-		} else {
-			return nil, errors.Wrap(err, "failed to load config")
-		}
-	} else if cfg.GetViper().ConfigFileUsed() == "" && len(setup.DefaultConfig) > 0 {
-		opts.Props.Logger.Debug("No config file found (empty allowed), loading default configuration")
-		cfg = config.NewReaderContainer(opts.Props.FS, append(cfgOpts,
-			config.WithConfigFormat("yaml"),
-			config.WithConfigReaders(bytes.NewReader(setup.DefaultConfig)),
-		)...)
-	}
+// buildConfigStore constructs the configuration store for a command.
+//
+// Layer order, lowest precedence first, matching the documented precedence and
+// the behaviour this replaces:
+//
+//  1. embedded asset configs, deep-merged underneath everything
+//  2. the config files — --config paths if given, otherwise the defaults, with
+//     a project-local .<tool>.yaml appended last where one applies
+//  3. environment variables under the tool's prefix
+//
+// The Store makes this a declaration rather than a sequence of merges. What it
+// replaces built the user config, built the embedded config separately, then
+// deep-merged one into the other by round-tripping through JSON — because Viper
+// merges eagerly and had no notion of a layer.
+func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Store, error) {
+	fsys := opts.Props.GetConfigFS()
 
-	// If embedded config paths are provided, load and merge them
-	mergedCfg, err := mergeEmbeddedConfigs(opts)
+	storeOpts := []config.StoreOption{}
+
+	// Embedded asset configs sit at the bottom: a tool ships defaults, and
+	// anything the user writes overrides them.
+	embedded, err := embeddedSources(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	if mergedCfg != nil {
-		// Use MergeConfig with JSON for a deep merge (main config (cfg) overrides embedded (mergedCfg))
-		err = mergedCfg.GetViper().MergeConfig(strings.NewReader(cfg.ToJSON()))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to merge embedded config")
-		}
-
-		return mergedCfg, nil
+	if len(embedded) > 0 {
+		storeOpts = append(storeOpts, config.WithReaders(embedded...))
 	}
 
-	return cfg, nil
+	// setup.DefaultConfig substitutes for the user's file when there is no file
+	// at all — it does not underlay one. Layering it unconditionally would be
+	// the subtle way to break this: a config file that omits a key would start
+	// inheriting the compiled-in value instead of leaving the key unset.
+	present, err := anyConfigFilePresent(fsys, opts.CfgPaths)
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case present:
+		storeOpts = append(storeOpts, config.WithFiles(fsys, opts.CfgPaths...))
+	case !opts.AllowEmpty:
+		return nil, ErrNoConfigFile
+	case len(setup.DefaultConfig) > 0:
+		opts.Props.Logger.Debug("No config file found, loading default configuration")
+
+		storeOpts = append(storeOpts, config.WithReaders(config.NamedSource{
+			Name:    "embedded default config",
+			Content: setup.DefaultConfig,
+		}))
+	default:
+		// Nothing on disk and nothing compiled in. The files are still declared
+		// so the store has a writable layer to route an Apply to, and so
+		// `config path` can report where a future write would land.
+		storeOpts = append(storeOpts, config.WithFiles(fsys, opts.CfgPaths...))
+	}
+
+	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
+		storeOpts = append(storeOpts, config.WithEnv(prefix))
+	}
+
+	store, err := config.NewStore(ctx, storeOpts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load config")
+	}
+
+	return store, nil
+}
+
+// anyConfigFilePresent reports whether at least one candidate config file
+// exists.
+//
+// The Store tolerates a missing file silently, and Sources() lists every path
+// that was declared whether or not it loaded — so neither answers this. Asking
+// the filesystem directly does, and it is the same question config v0.2.0's
+// loader answered when it returned ErrNoFilesFound.
+func anyConfigFilePresent(fsys config.FS, paths []string) (bool, error) {
+	for _, path := range paths {
+		switch _, err := fsys.Stat(path); {
+		case err == nil:
+			return true, nil
+		case errors.Is(err, fs.ErrNotExist):
+			continue
+		default:
+			// A path that exists but cannot be read — a permissions problem, a
+			// broken mount — is not the same as absent, and silently treating
+			// it as absent would fall back to defaults and hide a real fault.
+			return false, errors.Wrapf(err, "checking config file %s", path)
+		}
+	}
+
+	return false, nil
+}
+
+// embeddedSources reads the tool's embedded config assets into named sources.
+func embeddedSources(opts ConfigLoadOptions) ([]config.NamedSource, error) {
+	if len(opts.ConfigPaths) == 0 || opts.Props.Assets == nil {
+		return nil, nil
+	}
+
+	sources := make([]config.NamedSource, 0, len(opts.ConfigPaths))
+
+	for _, path := range opts.ConfigPaths {
+		content, err := opts.Props.Assets.ReadFile(path)
+		if err != nil {
+			// An absent embedded asset is normal: the paths are candidates, and
+			// a tool is not obliged to ship every one.
+			continue
+		}
+
+		sources = append(sources, config.NamedSource{
+			Name:    "embedded:" + path,
+			Content: content,
+		})
+	}
+
+	return sources, nil
 }
 
 // resolveBootstrapConfig loads configuration for cmd, applying the tool's
@@ -217,7 +304,7 @@ func loadAndMergeConfig(opts ConfigLoadOptions) (config.Containable, error) {
 // never auto-initialised for. Neither branch skips the framework bootstrap
 // itself — only the missing-config outcome changes, preserving the
 // "bootstrap always runs" invariant (2026-06-12-bootstrap-prerun-traversal).
-func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string) (config.Containable, error) {
+func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfgPaths []string) (*config.Store, error) {
 	initEnabled := props.Tool.IsEnabled(p.InitCmd)
 	skipConfigCheck := setup.SkipsConfigCheck(cmd) ||
 		props.Tool.Bootstrap.MatchesSkipList(cmd.Name(), cmd.CommandPath())
@@ -240,13 +327,13 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 		AllowEmpty:  allowEmpty,
 	}
 
-	cfg, err := loadAndMergeConfig(loadOpts)
+	cfg, err := buildConfigStore(cmd.Context(), loadOpts)
 	if err != nil {
 		// Auto-initialise heals a genuinely missing config: run a
 		// non-interactive init (no credential wizards) to write the default
 		// localised config, then load it for real.
-		if autoInitialise && errors.Is(err, config.ErrNoFilesFound) {
-			return autoInitialiseConfig(props, loadOpts)
+		if autoInitialise && errors.Is(err, ErrNoConfigFile) {
+			return autoInitialiseConfig(cmd.Context(), props, loadOpts)
 		}
 
 		return nil, err
@@ -259,10 +346,10 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 // non-interactive init (credential wizards suppressed) to write the default
 // localised config, then reloads it. It is invoked by the root pre-run only
 // when Tool.Bootstrap.AutoInitialise is set, the init feature is enabled, and
-// the initial load failed with config.ErrNoFilesFound. The reload uses
+// the initial load failed with ErrNoConfigFile. The reload uses
 // AllowEmpty:false so a genuinely broken init surfaces an error rather than
 // silently masking it with embedded defaults.
-func autoInitialiseConfig(props *p.Props, opts ConfigLoadOptions) (config.Containable, error) {
+func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOptions) (*config.Store, error) {
 	dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
 	if dir == "" {
 		return nil, errors.New("auto-initialise: cannot resolve config directory (is HOME set?)")
@@ -293,13 +380,6 @@ func autoInitialiseConfig(props *p.Props, opts ConfigLoadOptions) (config.Contai
 
 // mergeEmbeddedConfigs loads and merges all found embedded configurations.
 // It leverages the Assets layer's built-in merging for structured config files.
-func mergeEmbeddedConfigs(opts ConfigLoadOptions) (config.Containable, error) {
-	if len(opts.ConfigPaths) == 0 || opts.Props.Assets == nil {
-		return nil, nil
-	}
-
-	return config.LoadEmbed(opts.ConfigPaths, opts.Props.Assets, configOpts(opts.Props)...)
-}
 
 // configureLogging sets up logging based on debug flag and config values.
 func configureLogging(props *p.Props, flags *FlagValues, cfg config.Containable, mcpLogLevel *slog.LevelVar) {
