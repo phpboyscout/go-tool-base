@@ -160,8 +160,9 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 	}
 
 	// One transactional Apply commits the staged plan: the target document is
-	// edited in place and a partial failure changes nothing on disk.
-	if _, err := props.Config.Apply(ctx, plan.changes...); err != nil {
+	// edited in place and a partial failure changes nothing on disk. Migrate
+	// moves literal credentials, so the written file is re-hardened to 0600.
+	if err := applyAndHarden(ctx, props, plan.changes...); err != nil {
 		return nil, errors.Wrap(err, "rewriting config")
 	}
 

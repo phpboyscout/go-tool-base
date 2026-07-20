@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -40,7 +41,7 @@ their native types; everything else is stored as a string.`,
 			// directory must exist.
 			ensureDefaultConfigDir(props)
 
-			if _, err := props.Config.Apply(cmd.Context(), cfg.Set(key, coerceValue(rawVal))); err != nil {
+			if err := applyAndHarden(cmd.Context(), props, cfg.Set(key, coerceValue(rawVal))); err != nil {
 				return errors.Wrap(err, "persisting config value")
 			}
 
@@ -58,6 +59,51 @@ their native types; everything else is stored as a string.`,
 // custom --config path's directory already exists, because its file loaded.
 func ensureDefaultConfigDir(props *p.Props) {
 	_, _ = setup.EnsureDefaultConfigDir(writableFS(props), props.Tool.Name)
+}
+
+// applyAndHarden commits changes through the store, then re-asserts owner-only
+// (0600) permissions on every file the write touched.
+//
+// go/config preserves an existing file's mode on write — it treats the mode as
+// the owner's choice and refuses to quietly tighten it. GTB's policy is
+// stricter: a config file routinely holds credentials and must never be group-
+// or world-readable (the R4 hardening invariant the setup wizards enforce), so
+// the credential-writing commands re-tighten after every write. A file created
+// fresh is already 0600, making the chmod idempotent, and it is best-effort
+// because some filesystems (afero memfs) don't track modes.
+//
+// The plan is taken only to learn the target files; a planning error must not
+// mask an otherwise successful write, so hardening is skipped rather than made
+// fatal in that case.
+func applyAndHarden(ctx context.Context, props *p.Props, changes ...cfg.Change) error {
+	plan, planErr := props.Config.Plan(changes...)
+
+	if _, err := props.Config.Apply(ctx, changes...); err != nil {
+		return err
+	}
+
+	if planErr != nil {
+		// The write already succeeded; the plan is only used to locate the
+		// files to re-harden, so a planning failure just skips hardening rather
+		// than reporting a write error that did not happen.
+		return nil //nolint:nilerr // deliberate: planErr must not mask a successful Apply
+	}
+
+	fs := writableFS(props)
+	seen := make(map[string]bool, len(plan.Operations))
+
+	for _, op := range plan.Operations {
+		path := op.Target.Name
+		if path == "" || seen[path] {
+			continue
+		}
+
+		seen[path] = true
+
+		_ = fs.Chmod(path, writtenConfigFilePerm)
+	}
+
+	return nil
 }
 
 // resolveWritableConfigPath returns the file a config write would land in, or

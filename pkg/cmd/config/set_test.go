@@ -2,6 +2,8 @@ package config_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -12,6 +14,7 @@ import (
 	configafero "gitlab.com/phpboyscout/go/config-afero"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -84,6 +87,34 @@ func TestCmdSet_NilConfig(t *testing.T) {
 
 	err := cmd.Execute()
 	assert.Error(t, err)
+}
+
+// TestCmdSet_HardensPreexistingFilePerms pins the R4 hardening invariant on
+// the write path: go/config preserves an existing file's mode, so a config
+// file that arrived group/world-readable would keep those bits after a
+// credential write. config set must re-tighten it to 0600. Runs against a real
+// OS temp dir because afero's memmap FS does not model chmod faithfully.
+func TestCmdSet_HardensPreexistingFilePerms(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("log:\n  level: info\n"), 0o644)) //nolint:gosec // deliberately loose: the test asserts the write tightens it
+
+	fs := afero.NewOsFs()
+	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), path))
+	require.NoError(t, err)
+
+	p := &props.Props{Config: store, FS: fs, Tool: props.Tool{Name: "tool"}, Logger: logger.NewNoop()}
+
+	cmd := config.NewCmdSet(p)
+	cmd.SetArgs([]string{"github.auth.value", "ghp_secret"})
+	require.NoError(t, cmd.Execute())
+
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm(),
+		"config set must re-tighten a pre-existing config file to owner-only")
 }
 
 func TestCmdSet_CoerceBool(t *testing.T) {
