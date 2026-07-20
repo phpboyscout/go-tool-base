@@ -1,7 +1,6 @@
 package root
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/fs"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/njayp/ophis"
@@ -39,7 +37,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
@@ -371,12 +368,11 @@ func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOp
 
 	props.Logger.Debug("No config file found; auto-initialising default configuration")
 
+	// Non-interactive, and with no Initialisers supplied the credential
+	// wizards cannot run regardless -- only the base configuration is written.
 	noInteractive := false
-	if _, err := setup.Initialise(props, setup.InitOptions{
+	if _, err := setup.Initialise(ctx, props, setup.InitOptions{
 		Dir:         dir,
-		SkipLogin:   true,
-		SkipKey:     true,
-		SkipAI:      true,
 		Interactive: &noInteractive,
 	}); err != nil {
 		return nil, errors.Wrap(err, "auto-initialise failed")
@@ -393,7 +389,7 @@ func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOp
 }
 
 // configureLogging sets up logging based on debug flag and config values.
-func configureLogging(props *p.Props, flags *FlagValues, cfg config.Containable, mcpLogLevel *slog.LevelVar) {
+func configureLogging(props *p.Props, flags *FlagValues, cfg config.Reader, mcpLogLevel *slog.LevelVar) {
 	// Apply debug flag first. SetLevel/SetFormatter are no-ops for an injected
 	// plain *slog.Logger (which owns its own level); they take effect on GTB's
 	// default Charm-backed logger, which implements Leveller/Reformatter.
@@ -441,7 +437,7 @@ type UpdateCheckResult struct {
 func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, flags *FlagValues, state *rootState) *UpdateCheckResult {
 	result := &UpdateCheckResult{}
 
-	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, props.Config.GetString("update.policy"))
+	policy := p.ResolveUpdatePolicy(props.Tool.UpdatePolicy, props.Config.View().GetString("update.policy"))
 
 	// Persistent out-of-date reminder from the cached latest version: emitted
 	// every invocation (even when the network check is throttled below), so a
@@ -507,7 +503,7 @@ func shouldSkipUpdateCheck(props *p.Props, cmd *cobra.Command, flags *FlagValues
 		return true
 	}
 
-	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, props.Config.GetString("update.check_interval"))
+	interval := setup.ResolveCheckInterval(props.Tool.UpdateCheckInterval, props.Config.View().GetString("update.check_interval"))
 
 	return setup.SkipUpdateCheck(props.FS, props.Tool.Name, cmd, interval)
 }
@@ -805,14 +801,17 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Set config in props
 		props.Config = cfg
 
+		// One pinned view for the bootstrap reads below.
+		view := cfg.View()
+
 		// Validate config for common misconfigurations
-		validateConfig(cfg, props.Logger)
+		validateConfig(view, props.Logger)
 
 		// Configure logging based on flags and config
-		configureLogging(props, flags, cfg, mcpLogLevel)
+		configureLogging(props, flags, view, mcpLogLevel)
 
 		// Prompt for telemetry consent if the feature is enabled but not yet configured
-		promptTelemetryConsent(props, flags)
+		promptTelemetryConsent(cmd.Context(), props)
 
 		// Build and wire telemetry collector
 		props.Collector = buildTelemetryCollector(cmd.Context(), props)
@@ -930,7 +929,7 @@ const telemetryFlushTimeout = 2 * time.Second
 // enabled but the user hasn't made a choice yet. Skips prompting in CI mode,
 // when the TELEMETRY_ENABLED env var is set, or when telemetry.enabled is
 // already present in config.
-func promptTelemetryConsent(props *p.Props, flags *FlagValues) {
+func promptTelemetryConsent(ctx context.Context, props *p.Props) {
 	if props.Tool.IsDisabled(p.TelemetryCmd) {
 		return
 	}
@@ -945,12 +944,14 @@ func promptTelemetryConsent(props *p.Props, flags *FlagValues) {
 		return
 	}
 
-	if props.Config.IsSet("telemetry.enabled") {
+	view := props.Config.View()
+
+	if view.IsSet("telemetry.enabled") {
 		return
 	}
 
 	// Non-interactive — skip silently
-	if flags.CI || props.Config.GetBool("ci") {
+	if view.GetBool("ci") {
 		return
 	}
 
@@ -973,44 +974,21 @@ func promptTelemetryConsent(props *p.Props, flags *FlagValues) {
 		return
 	}
 
-	props.Config.Set("telemetry.enabled", optIn)
+	// Persist the choice so we don't prompt again. Apply writes only this key
+	// and creates a missing file; the default config dir may not exist yet
+	// (tools without InitCmd), so ensure it first.
+	if configDir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name); configDir != "" {
+		const configDirPerm = 0o700
+		if err := props.FS.MkdirAll(configDir, configDirPerm); err != nil {
+			props.Logger.Debug("failed to create config directory", "error", err)
 
-	// Persist the choice so we don't prompt again
-	v := props.Config.GetViper()
-	if err := v.WriteConfig(); err != nil {
-		// No config file yet — create a minimal one
-		if cfgErr := ensureMinimalConfig(props, v, optIn); cfgErr != nil {
-			props.Logger.Debug("failed to persist telemetry consent", "error", cfgErr)
+			return
 		}
 	}
-}
 
-// ensureMinimalConfig creates a minimal config file with just the telemetry
-// consent value. Used when no config file exists (tools without InitCmd).
-func ensureMinimalConfig(props *p.Props, v *viper.Viper, enabled bool) error {
-	configDir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name)
-	if configDir == "" {
-		return errors.New("unable to determine config directory")
+	if _, err := props.Config.Apply(ctx, config.Set("telemetry.enabled", optIn)); err != nil {
+		props.Logger.Debug("failed to persist telemetry consent", "error", err)
 	}
-
-	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
-
-	// Create the config dir lazily at first write — setup.GetDefaultConfigDir
-	// is pure and no longer creates it as a side effect.
-	const configDirPerm = 0o700
-	if err := props.FS.MkdirAll(configDir, configDirPerm); err != nil {
-		return errors.Wrap(err, "failed to create config directory")
-	}
-
-	fresh := viper.New()
-	fresh.SetFs(props.FS)
-	fresh.SetConfigFile(configFile)
-	fresh.SetConfigType("yaml")
-	fresh.Set("telemetry.enabled", enabled)
-
-	v.SetConfigFile(configFile)
-
-	return errors.Wrap(fresh.WriteConfigAs(configFile), "failed to write config")
 }
 
 // buildTelemetryCollector creates the appropriate telemetry collector based on
@@ -1038,9 +1016,10 @@ func buildTelemetryCollector(ctx context.Context, props *p.Props) *telemetry.Col
 			props.Tool.Name, version, nil, logger.ToSlog(props.Logger), dataDir, p.DeliveryAtLeastOnce, false)
 	}
 
+	view := props.Config.View()
 	cfg := telemetry.Config{
-		Enabled:   props.Config.GetBool("telemetry.enabled"),
-		LocalOnly: props.Config.GetBool("telemetry.local_only"),
+		Enabled:   view.GetBool("telemetry.enabled"),
+		LocalOnly: view.GetBool("telemetry.local_only"),
 	}
 
 	// Env var override (non-interactive bypass — tool-name-agnostic)
@@ -1122,7 +1101,7 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 }
 
 // validateConfig warns about common misconfigurations.
-func validateConfig(cfg config.Containable, l logger.Logger) {
+func validateConfig(cfg config.Reader, l logger.Logger) {
 	emptySetKeys := []string{
 		"github.token",
 		"anthropic.api.key",
