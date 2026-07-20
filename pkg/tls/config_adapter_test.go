@@ -1,32 +1,45 @@
 package tls_test
 
 import (
-	"io"
-	"strings"
 	"testing"
 
-	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
 	configmocks "gitlab.com/phpboyscout/go/config/mocks"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	gtbtls "gitlab.com/phpboyscout/go-tool-base/pkg/tls"
 )
 
-func newTestConfig() config.Containable {
-	return config.NewContainerFromViper(logger.ToSlog(logger.NewCharm(io.Discard)), viper.New())
+// newTestView pins a view over the given YAML document, with any further store
+// options (e.g. config.WithEnv) layered above it.
+func newTestView(t *testing.T, yaml string, opts ...config.StoreOption) *config.View {
+	t.Helper()
+
+	store, err := config.NewStore(t.Context(), append([]config.StoreOption{
+		config.WithReaders(config.NamedSource{Name: "test", Content: []byte(yaml)}),
+	}, opts...)...)
+	require.NoError(t, err)
+
+	return store.View()
 }
 
 func TestResolve_SharedAndOverride(t *testing.T) {
 	t.Parallel()
 
-	cfg := newTestConfig()
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", "/shared/cert.pem")
-	cfg.Set("server.tls.key", "/shared/key.pem")
+	cfg := newTestView(t, `
+server:
+  tls:
+    enabled: true
+    cert: /shared/cert.pem
+    key: /shared/key.pem
+  http:
+    tls:
+      cert: /http/cert.pem
+      key: /http/key.pem
+`)
 
 	// gRPC inherits the shared cert.
 	grpcPair := gtbtls.Resolve(cfg, "server.grpc.tls")
@@ -35,9 +48,6 @@ func TestResolve_SharedAndOverride(t *testing.T) {
 	assert.True(t, grpcPair.Valid())
 
 	// HTTP overrides only the cert/key, inheriting enabled from the shared block.
-	cfg.Set("server.http.tls.cert", "/http/cert.pem")
-	cfg.Set("server.http.tls.key", "/http/key.pem")
-
 	httpPair := gtbtls.Resolve(cfg, "server.http.tls")
 	assert.True(t, httpPair.Enabled)
 	assert.Equal(t, "/http/cert.pem", httpPair.Cert)
@@ -47,10 +57,13 @@ func TestResolve_SharedAndOverride(t *testing.T) {
 func TestResolve_NoOverrides(t *testing.T) {
 	t.Parallel()
 
-	cfg := newTestConfig()
-	cfg.Set("server.tls.enabled", true)
-	cfg.Set("server.tls.cert", "/shared/cert.pem")
-	cfg.Set("server.tls.key", "/shared/key.pem")
+	cfg := newTestView(t, `
+server:
+  tls:
+    enabled: true
+    cert: /shared/cert.pem
+    key: /shared/key.pem
+`)
 
 	// Transport prefix has no keys set; everything inherits the shared block.
 	pair := gtbtls.Resolve(cfg, "server.gateway.tls")
@@ -63,12 +76,7 @@ func TestResolve_PreservesEnvAwareSectionUnmarshal(t *testing.T) {
 	t.Setenv("GTB_SERVER_TLS_CERT", "/env/shared-cert.pem")
 	t.Setenv("GTB_SERVER_HTTP_TLS_KEY", "/env/http-key.pem")
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix("GTB"),
-		config.WithConfigReaders(strings.NewReader(`
+	cfg := newTestView(t, `
 server:
   tls:
     enabled: true
@@ -77,8 +85,7 @@ server:
   http:
     tls:
       cert: /file/http-cert.pem
-`)),
-	)
+`, config.WithEnv("GTB"))
 
 	pair := gtbtls.Resolve(cfg, "server.http.tls")
 
@@ -93,16 +100,35 @@ func TestResolve_NilConfig(t *testing.T) {
 	assert.Equal(t, gtbtls.Pair{}, gtbtls.Resolve(nil, "server.http.tls"))
 }
 
-func TestResolve_LegacyContainable(t *testing.T) {
+// TestResolve_MockReader pins the property the deleted legacy branch existed
+// for: Resolve works against any config.Reader, so downstream tests can drive
+// it with the published mocks rather than a real store.
+func TestResolve_MockReader(t *testing.T) {
 	t.Parallel()
 
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetBool("server.tls.enabled").Return(true).Once()
-	cfg.EXPECT().GetString("server.tls.cert").Return("/shared/cert.pem").Once()
-	cfg.EXPECT().GetString("server.tls.key").Return("/shared/key.pem").Once()
+	cfg := configmocks.NewMockReader(t)
+	cfg.EXPECT().SectionExists("server.tls").Return(true).Once()
+	cfg.EXPECT().UnmarshalKey("server.tls", mock.Anything).RunAndReturn(func(_ string, target any) error {
+		pair, ok := target.(*gtbtls.Pair)
+		require.True(t, ok)
+
+		pair.Enabled = true
+		pair.Cert = "/shared/cert.pem"
+		pair.Key = "/shared/key.pem"
+
+		return nil
+	}).Once()
+	cfg.EXPECT().SectionExists("server.http.tls").Return(true).Once()
+	cfg.EXPECT().UnmarshalKey("server.http.tls", mock.Anything).RunAndReturn(func(_ string, target any) error {
+		pair, ok := target.(*gtbtls.Pair)
+		require.True(t, ok)
+
+		pair.Cert = "/http/cert.pem"
+
+		return nil
+	}).Once()
 	cfg.EXPECT().IsSet("server.http.tls.enabled").Return(false).Once()
 	cfg.EXPECT().IsSet("server.http.tls.cert").Return(true).Once()
-	cfg.EXPECT().GetString("server.http.tls.cert").Return("/http/cert.pem").Once()
 	cfg.EXPECT().IsSet("server.http.tls.key").Return(false).Once()
 
 	pair := gtbtls.Resolve(cfg, "server.http.tls")
