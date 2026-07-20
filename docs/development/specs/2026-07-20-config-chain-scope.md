@@ -184,16 +184,23 @@ It never returns a non-nil error, so the check at `buildConfigStore:200-202` is 
 
 Fixes defect 1.
 
-### C-4 — `mergeExtraConfig` reads `assets/config.yaml`
+### C-4 — Init seeds from the merged `assets/init/config.yaml`; `mergeExtraConfig` is deleted
 
-Currently opens `assets/init/config.yaml` (`setup/init.go:168`). Two consequences:
+*(Revised 2026-07-20 — the first version had init reading `assets/config.yaml`, i.e. writing
+defaults into the user's file. Wrong direction: a default written into a user's file is pinned
+there, overriding any future change to the shipped default. The written file is a template.)*
 
-- it picks up init *templates*, including their deliberately-empty placeholders
-- mounted bundles are unreachable through it, because `mountedFS` only serves the prefixed
-  path — which is why `pkg/setup/ai`'s defaults land in no generated config today
+`mergeExtraConfig` opens the bare `assets/init/config.yaml` (`setup/init.go:168`), but ai and
+github **mount** at a prefix and `mountedFS` only serves the prefixed path — so their init
+content lands in no generated config today. **A live bug, and `mergeExtraConfig` has no test
+in either direction.**
 
-Reading `assets/config.yaml` through `Assets` fixes both. **This is a live bug fix, not
-refactoring.**
+With bundles *registered* per segregated-defaults D8, the bare path merges the framework
+template with every enabled feature's template. `initializeConfig` seeds from one
+`fs.ReadFile(props.Assets, "assets/init/config.yaml")`, replacing both the
+`setup.DefaultConfig` read and `mergeExtraConfig` (~26 lines, deleted). The `Mount` calls in
+`NewGitHubInitialiser` / `NewAIInitialiser` are deleted as superseded. See
+segregated-defaults D9, including the regression test.
 
 ### C-5 — The 118 read sites
 
@@ -219,26 +226,30 @@ change needed for wiring**, only for the seeded file.
 
 | Item | Where |
 |---|---|
-| `assets/config.yaml` per owning package | `pkg/setup/github/`, framework core for `log.*` / `update.*` |
-| A registration point for non-command packages | open question 1 below |
+| Framework bundle: `assets/config.yaml` (`log.*`) + `assets/init/config.yaml` (template) | `pkg/cmd/root/assets/`, registered unconditionally at root construction as `framework` |
+| `assets/config.yaml` for `github.*` | `pkg/setup/github/assets/` |
+| `setup.RegisterAssets(feature, name, bundle)` + `GetAssets()` registry slot | `pkg/setup/registry.go` — segregated-defaults D8 |
+| Feature-gated bundle application at root construction | `pkg/cmd/root`, beside `registerFeatureCommands` |
 | Generator seed for `assets/config.yaml` | `internal/generator/files.go` |
 
-`update.*` keys are owned by `pkg/setup` (`update.go`, `update_signature.go`), **not**
-`pkg/cmd/update`, which has no config keys at all. `log.*` has no owning package. Both
-therefore land in a framework bundle rather than a command's.
+`update.*` ships **no defaults at all**: `ResolveUpdatePolicy` and `ResolveCheckInterval`
+treat `""` as "unset, defer to the tool baseline" (verified), so the god file's empty-string
+stanza was a no-op as a default. Its commented placeholders are template commentary and move
+to the framework bundle's `assets/init/config.yaml`. `log.*` has no owning package and lands
+in the framework bundle.
 
 ## Net effect
 
 | | Lines |
 |---|---:|
-| Deleted outright | ~155 |
+| Deleted outright | ~180 (incl. `mergeExtraConfig` ~26 and the two `Mount` calls — C-4 revision) |
 | Dead code removed | ~20 |
-| Added | ~30 |
-| **Net** | **−145** |
+| Added | ~45 (incl. `RegisterAssets`/`GetAssets` and the gated application loop) |
+| **Net** | **≈ −155** |
 
 Plus: one god file gone, one duplicated YAML block gone, one duplicated minimal-config writer
 gone, three duplicated `ci` conditionals gone, two Viper escape hatches gone, and one live bug
-fixed (ai defaults never reaching a written config).
+fixed (ai/github init content never reaching a written config).
 
 ## Order of work
 
@@ -276,17 +287,37 @@ to get the zero value will resolve to the default. Release-note material.
 
 ## Open questions
 
-1. **Where do `pkg/setup/github` and `pkg/setup/ai` register their bundles?** They are not
-   commands. Their `NewCmdInit*` constructors exist but mount nothing — the mount happens in
-   `New*Initialiser`, which runs during `init`'s `RunE`. Moving registration into
-   `NewCmdInitGitHub` / `NewCmdInitAI` would work for tools that enable those commands, and
-   not otherwise.
-2. **Do the dead `SkipLogin/SkipKey/SkipAI` fields carry intent that `Interactive: &false`
-   does not?** `autoInitialiseConfig` passes all three.
+1. ~~**Where do `pkg/setup/github` and `pkg/setup/ai` register their bundles?**~~ **Resolved
+   2026-07-20: through the setup registry they already announce themselves in.**
+   `setup.RegisterAssets(feature, name, bundle)` is called from the same package `init()`
+   as `setup.Register`; root construction applies the bundles of enabled features to
+   `props.Assets` before `PersistentPreRunE` runs. See segregated-defaults D8.
+2. ~~**Do the dead `SkipLogin/SkipKey/SkipAI` fields carry intent that `Interactive: &false`
+   does not?**~~ **Resolved 2026-07-20: no — delete them, and it is not a regression.** The
+   user-facing skip behaviour never flowed through `InitOptions`: the `--skip-login` /
+   `--skip-key` / `--skip-ai` flags bind the package-level vars in `pkg/setup/github` and
+   `pkg/setup/ai` (via the registry `FeatureFlag` closures), which gate the
+   `InitialiserProvider` (nil when skipped) and populate `GitHubInitialiser.SkipLogin/SkipKey`
+   — a different struct, which is read (`github.go:197-217`). Nothing has ever read the
+   `InitOptions` fields in this repo's history (`git log -S 'opts.SkipLogin'` is empty back to
+   the initial commit). `autoInitialiseConfig` is doubly covered without them: it passes no
+   `Initialisers` at all, so the wizard loop iterates an empty slice, and
+   `Interactive: &false` guards the same path.
 3. **Should `ConfigPaths` and `CfgPaths` be renamed?** They are disjoint namespaces against
    different filesystems in different precedence tiers, distinguished only by a missing three
    letters. Free to fix while the struct is being touched; out of scope if not.
+4. ~~**Flags-as-a-layer surface (D-2)**~~ **Resolved 2026-07-20: accept — honest provenance,
+   no new exposure.** `config.WithFlags(cmd.Flags())` contributes every changed flag by the
+   dash-to-dot convention (net new: `--config` and `--output` become visible config keys, and
+   inherited persistent flags participate). The exposure question was checked against both
+   read surfaces: `config list`/`get` route every value through `Masker.MaskIfSensitive`
+   (masked by default, `--unmask` is explicit opt-in), and the doctor report's
+   `report_redact.go` is a single redaction choke point — credential-shaped keys are dropped
+   to a sentinel and every other leaf is scrubbed through `redact.String`. A token supplied
+   via a flag therefore sits behind exactly the masking the same token would get from a
+   config file; the surface is unchanged.
 
 ## Status
 
-DRAFT — scope for review. Open question 1 blocks step 5; everything before it can proceed.
+DRAFT — scope for review. Open questions 1, 2 and 4 resolved 2026-07-20; question 3 is a
+take-it-or-leave-it rename. Nothing blocks the order of work.
