@@ -26,6 +26,7 @@ provides before/after code examples with a clear migration path.
 | v0.25 | v0.26 | [Deprecated gRPC config keys & update test seams removed](v0.26-deprecation-removals.md) |
 | v0.27 | v0.28 | [Signing & verification extracted to standalone modules](v0.28-signing-modules-extracted.md) |
 | v0.x | v0.x | [Typed config section adapters](v0.x-config-section-adapters.md) |
+| v0.x | v0.x | [Configuration moves to the go/config Store (Viper removed)](v0.x-config-store.md) |
 | v0.x | v0.x | [Chat settings constructors](v0.x-chat-settings.md) |
 | v0.x | v0.x | [Telemetry observability settings](v0.x-telemetry-observability-settings.md) |
 | v0.x | v0.x | [Logger slog-first boundary](v0.x-logger-slog-first.md) |

@@ -66,7 +66,7 @@ Spans and the standard server metrics come from the OTel contrib libraries, wrap
 gRPC — a stats handler passed to `Register`:
 
 ```go
-grpcSrv, _ := grpc.RegisterFromContainable(ctx, "grpc", controller, p.Config, p.Logger,
+grpcSrv, _ := grpc.RegisterFromReader(ctx, "grpc", controller, p.Config.View(), p.Logger,
 	grpc.OTelStatsHandler())
 ```
 
@@ -77,7 +77,7 @@ chain := http.NewChain(
 	http.OTelMiddleware("macguffin"),
 	http.LoggingMiddleware(logger.ToSlog(p.Logger)),
 )
-http.RegisterFromContainable(ctx, "http", controller, p.Config, p.Logger, mux, http.WithMiddleware(chain))
+http.RegisterFromReader(ctx, "http", controller, p.Config.View(), p.Logger, mux, http.WithMiddleware(chain))
 ```
 
 Custom, business-level instrumentation needs no GTB API — use the OTel globals directly:
@@ -110,9 +110,10 @@ All under the `telemetry.*` root, resolved shared-then-per-signal (the same shar
 Per-signal `endpoint`, `headers` and `insecure` override the shared values individually.
 
 Long-lived code that needs to react to reloads should bind a resolved signal
-snapshot through `otelcore.ObserveSettingsFromConfig`. The returned value
+snapshot through `telemetry.ObserveSettingsFromConfig(cfg config.Binder, signal string, ...)`
+(`props.Config` — a `*config.Store` — satisfies `config.Binder`). The returned value
 satisfies `otelcore.SettingsSource`, exposing `Current()` and `Version()` without
-coupling the signal package to GTB's config container. A version change means
+coupling the signal package to GTB's config store. A version change means
 the full resolved settings snapshot changed; existing exporters are not rebuilt
 automatically, so the owning package must explicitly rebuild or restart a
 provider when that is the desired behaviour.

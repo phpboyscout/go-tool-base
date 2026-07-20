@@ -120,8 +120,10 @@ GTB currently tracks (**v0.19.0** at time of writing; bump in lockstep).
 - `cockroachdb/errors` for all error creation/wrapping.
 - `*slog.Logger` as the only logging seam (optional, nil-safe); never a concrete
   logger or `pkg/logger`.
-- Typed config structs owned by the module; **never** `config.Containable`. GTB
-  does any Viper decoding in its own adapter (see §5).
+- Typed config structs owned by the module; **never** a GTB config type. GTB
+  does any config decoding in its own adapter (see §5). *(Amended 2026-07-20:
+  originally "never `config.Containable`" — that type left with the config
+  v0.3.x migration; the adapter now decodes from `config.Reader`.)*
 - `LICENSE`, `CHANGELOG.md` (releaser-pleaser-owned), `README.md` with the shared
   toolkit header/badge, `docs/development/specs/` for the module's own specs.
 
@@ -405,7 +407,8 @@ sub-module README).
 
 `controls` was the counterpoint to `chat`: an **already framework-free** package
 (zero go-tool-base imports; only `cockroachdb/errors`; a nil-safe `*slog.Logger`
-seam; functional-options API, no `config.Containable`). No provider modules, no
+seam; functional-options API, no GTB config type — `config.Containable` then,
+`config.Reader` since the v0.3.x migration). No provider modules, no
 vendor SDKs, no facade. The lessons below are what a *pure-repoint* extraction
 teaches that the greenfield `chat` case did not.
 

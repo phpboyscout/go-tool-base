@@ -2,7 +2,7 @@
 title: "Segregated default configuration via props.Assets"
 description: "Delete setup.DefaultConfig and read the embedded-defaults layer from assets/config.yaml through props.Assets, which already merges that path across every registered bundle. Each package ships its own defaults; registration is feature-gated — command constructors register their bundles when the enabled command is built, and non-command feature packages register through the setup registry. Init templates flow through the same bundles, replacing DefaultConfig, mergeExtraConfig and the initialiser Mount calls."
 date: 2026-07-20
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -27,7 +27,7 @@ Date
     it is not, because `setup.DefaultConfig` is also init's seed document.
 
 Status
-:   APPROVED — 20 July 2026
+:   IMPLEMENTED — 20 July 2026
 
 Related
 :   [config v0.3.x migration](2026-07-20-config-v0.3-migration.md) — lands inside that MR;
@@ -268,4 +268,9 @@ release-note material recorded there.
 
 ## Status
 
-APPROVED — 20 July 2026. Implementation proceeds inside the config v0.3.x migration MR.
+IMPLEMENTED — 20 July 2026, inside the config v0.3.x migration MR. One deviation from D6,
+recorded in the implementing commit: the framework bundle ships from `pkg/props` (registered
+first by `NewAssets`) rather than `pkg/cmd/root`, because tool bundles register at Props
+construction — before the root command exists — and the framework baseline must sit beneath
+them. The D9 live-bug regression test and the D4 always-apply behaviour are pinned by the
+setup integration suite and the validate feature scenarios.

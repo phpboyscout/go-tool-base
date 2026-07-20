@@ -19,17 +19,22 @@ classDiagram
     class Props {
         +Tool Tool
         +Logger Logger
-        +Config Containable
+        +Config *config.Store
         +Assets Assets
         +FS afero.Fs
         +Version Version
         +ErrorHandler ErrorHandler
     }
-    class Containable {
-        <<interface>>
-        +Get(key) any
-        +GetString(key) string
-        +Sub(key) Containable
+    class Store {
+        +View() *View
+        +Apply(ctx, changes) Snapshot
+        +Watch(ctx) stop
+    }
+    class View {
+        <<Reader>>
+        +Get(path) any
+        +GetString(path) string
+        +Origin(path) Source
     }
     class Assets {
         <<interface>>
@@ -41,11 +46,11 @@ classDiagram
         +Error(err)
     }
 
-    Props o-- Containable : uses
+    Props o-- Store : uses
     Props o-- Assets : uses
     Props o-- ErrorHandler : uses
 
-    Containable ..> Viper : wraps
+    Store --> View : pins snapshots
     Props ..> Afero : uses
     Props ..> CharmLog : uses
 ```

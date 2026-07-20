@@ -2,7 +2,7 @@
 title: "Change scope: the configuration chain"
 description: "Exact inventory of what is deleted, changed and added in the config chain — before any code moves. Covers the v0.3.x migration, segregated defaults, and the simplifications both make available: flags become a layer, DefaultConfig disappears, and post-hoc flag binding goes with it."
 date: 2026-07-20
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -24,7 +24,7 @@ Date
 :   20 July 2026
 
 Status
-:   DRAFT — scope for review. No code changes until agreed.
+:   IMPLEMENTED — 20 July 2026
 
 Related
 :   [config v0.3.x migration](2026-07-20-config-v0.3-migration.md),
@@ -319,5 +319,6 @@ to get the zero value will resolve to the default. Release-note material.
 
 ## Status
 
-DRAFT — scope for review. Open questions 1, 2 and 4 resolved 2026-07-20; question 3 is a
-take-it-or-leave-it rename. Nothing blocks the order of work.
+IMPLEMENTED — 20 July 2026. Open questions 1, 2 and 4 were resolved before implementation;
+question 3 (the `ConfigPaths`/`CfgPaths` rename) was left as-is — out of scope, still open
+as a future cleanup.
