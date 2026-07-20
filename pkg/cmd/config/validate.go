@@ -31,7 +31,7 @@ Exits with a non-zero status code if any validation errors are found.`,
 				return errors.Wrap(err, "failed to build validation schema")
 			}
 
-			result := props.Config.Validate(schema)
+			result := props.Config.View().Validate(schema)
 
 			printValidationResult(cmd.OutOrStdout(), result)
 

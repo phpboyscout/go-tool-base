@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/credentials"
 
@@ -119,7 +120,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		return nil, errors.New("no configuration loaded")
 	}
 
-	target, err := resolveMigrateTarget(opts.Target, props.Config)
+	target, err := resolveMigrateTarget(opts.Target, props.Config.View())
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +134,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		)
 	}
 
-	candidates := scanLiteralCredentials(props.Config)
+	candidates := scanLiteralCredentials(props.Config.View())
 	if len(candidates) == 0 {
 		return &MigrateResult{}, nil
 	}
@@ -165,7 +166,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 		return result, nil
 	}
 
-	if err := applyPlan(props, plan); err != nil {
+	if err := applyPlan(ctx, props, plan); err != nil {
 		return nil, err
 	}
 
@@ -188,7 +189,7 @@ type rewritePlan struct {
 // resolveMigrateTarget picks the effective target: explicit
 // opts.Target wins; otherwise the config's `credentials.migrate.default_target`
 // key if valid; otherwise [credentials.ModeEnvVar].
-func resolveMigrateTarget(explicit credentials.Mode, cfg config.Containable) (credentials.Mode, error) {
+func resolveMigrateTarget(explicit credentials.Mode, cfg config.Reader) (credentials.Mode, error) {
 	if explicit != "" {
 		return validateMigrateTarget(explicit)
 	}
@@ -222,7 +223,7 @@ func processCandidate(
 	c literalCredential,
 	plan *rewritePlan,
 ) (MigrationAction, error) {
-	if alreadyMigrated(props.Config, c, opts.Target) {
+	if alreadyMigrated(props.Config.View(), c, opts.Target) {
 		return MigrationAction{
 			SourceKey:  c.Key,
 			PartnerKey: c.PartnerKey,
@@ -306,7 +307,7 @@ func migrateToKeychain(
 		return MigrationAction{}, errors.New("cannot build keychain reference: tool name is empty and --keychain-service not set")
 	}
 
-	secret, err := secretForKeychain(props.Config, c)
+	secret, err := secretForKeychain(props.Config.View(), c)
 	if err != nil {
 		return MigrationAction{}, err
 	}
@@ -348,7 +349,7 @@ func migrateToKeychain(
 // credential c. For dual-credential bundles, returns a JSON blob
 // matching the shape the resolver expects. For single-value
 // credentials, returns the raw secret.
-func secretForKeychain(cfg config.Containable, c literalCredential) (string, error) {
+func secretForKeychain(cfg config.Reader, c literalCredential) (string, error) {
 	if c.PartnerKey == "" {
 		return c.Value, nil
 	}
@@ -382,7 +383,7 @@ func jsonBlobFieldFor(key string) string {
 // in config — meaning a prior migration already ran for this
 // credential. Avoids duplicate writes and awkward double prompts
 // when the command is invoked multiple times.
-func alreadyMigrated(cfg config.Containable, c literalCredential, target credentials.Mode) bool {
+func alreadyMigrated(cfg config.Reader, c literalCredential, target credentials.Mode) bool {
 	switch target {
 	case credentials.ModeEnvVar:
 		return strings.TrimSpace(cfg.GetString(c.EnvTargetKey)) != ""
@@ -543,44 +544,26 @@ func defaultVCSEnvVarName(key string) string {
 	return ""
 }
 
-// applyPlan atomically commits a [rewritePlan] to the config file:
-// loads the current settings, deletes the dotted keys from the
-// nested map, merges the new sets in, writes the YAML back to the
-// same file, and reloads the viper so in-memory Get returns the
-// new state. Atomicity is at the file-write step — partial failures
-// before the rewrite don't change anything on disk.
-func applyPlan(props *p.Props, plan *rewritePlan) error {
-	v := props.Config.GetViper()
+// applyPlan commits a [rewritePlan] through the store: one Apply carries
+// every staged delete and set, edits the target document in place (comments
+// survive, and only the named keys change — the old path re-encoded the whole
+// resolved tree, dumping merged defaults into the user's file), and publishes
+// the new snapshot so in-memory Get returns the new state. Apply is
+// transactional, so a partial failure changes nothing on disk.
+func applyPlan(ctx context.Context, props *p.Props, plan *rewritePlan) error {
+	changes := make([]config.Change, 0, len(plan.deletes)+len(plan.sets))
 
-	configPath := v.ConfigFileUsed()
-	if configPath == "" {
-		return errors.New("no config file path bound to the loaded configuration; cannot rewrite")
+	// Sorted, so the plan applies (and fails) deterministically.
+	for _, key := range slices.Sorted(maps.Keys(plan.deletes)) {
+		changes = append(changes, config.Remove(key))
 	}
 
-	settings := v.AllSettings()
-
-	for key := range plan.deletes {
-		deleteNestedKey(settings, key)
+	for _, key := range slices.Sorted(maps.Keys(plan.sets)) {
+		changes = append(changes, config.Set(key, plan.sets[key]))
 	}
 
-	for key, val := range plan.sets {
-		setNestedKey(settings, key, val)
-	}
-
-	data, err := yaml.Marshal(settings)
-	if err != nil {
-		return errors.Wrap(err, "marshal migrated config")
-	}
-
-	if err := writeConfigAtomic(props.FS, configPath, data); err != nil {
-		return err
-	}
-
-	// Re-read so subsequent props.Config.Get* calls see the written
-	// state rather than the stale override map that still holds the
-	// pre-rewrite literal values.
-	if err := v.ReadInConfig(); err != nil {
-		return errors.Wrap(err, "reload config after rewrite")
+	if _, err := props.Config.Apply(ctx, changes...); err != nil {
+		return errors.Wrap(err, "rewriting config")
 	}
 
 	return nil

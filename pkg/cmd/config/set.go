@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	cfg "gitlab.com/phpboyscout/go/config"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -34,11 +36,13 @@ their native types; everything else is stored as a string.`,
 				return errors.New("no configuration loaded")
 			}
 
-			val := coerceValue(rawVal)
-			props.Config.Set(key, val)
+			// The default config dir may not exist yet (tools without
+			// InitCmd); a missing file is a target Apply creates, but its
+			// directory must exist.
+			ensureDefaultConfigDir(props)
 
-			if err := persistConfigValue(props, key, val); err != nil {
-				return err
+			if _, err := props.Config.Apply(cmd.Context(), cfg.Set(key, coerceValue(rawVal))); err != nil {
+				return errors.Wrap(err, "persisting config value")
 			}
 
 			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "set %s = %s\n", key, rawVal)
@@ -50,25 +54,14 @@ their native types; everything else is stored as a string.`,
 	return cmd
 }
 
-// persistConfigValue writes a single key into the user's config file via a
-// read-modify-write. It resolves the file the loaded config is bound to, or —
-// in the embedded-merge configuration where the active viper has no file —
-// the user's default config path. Only the user's own file is rewritten, so
-// embedded defaults are never materialised into it.
-func persistConfigValue(props *p.Props, key string, val any) error {
-	fs, path, settings, err := loadWritableSettings(props)
-	if err != nil {
-		return err
+// ensureDefaultConfigDir creates the tool's default config directory so a
+// write routed to the default path has somewhere to land. Best-effort: a
+// custom --config path's directory already exists, because its file loaded.
+func ensureDefaultConfigDir(props *p.Props) {
+	if dir := setup.GetDefaultConfigDir(props.FS, props.Tool.Name); dir != "" {
+		const configDirPerm = 0o700
+		_ = writableFS(props).MkdirAll(dir, configDirPerm)
 	}
-
-	setNestedKey(settings, key, val)
-
-	data, err := yaml.Marshal(settings)
-	if err != nil {
-		return errors.Wrap(err, "marshalling config")
-	}
-
-	return writeConfigAtomic(fs, path, data)
 }
 
 // loadWritableSettings resolves the writable config file and reads it into a
@@ -102,10 +95,18 @@ func loadWritableSettings(props *p.Props) (afero.Fs, string, map[string]any, err
 // the user's default config path when none is bound.
 func resolveWritableConfigPath(props *p.Props, fs afero.Fs) string {
 	if props.Config != nil {
-		if v := props.Config.GetViper(); v != nil {
-			if used := v.ConfigFileUsed(); used != "" {
-				return used
+		// The highest-precedence loaded file layer — the same answer Viper's
+		// ConfigFileUsed() gave (it reported the last file it loaded).
+		last := ""
+
+		for _, layer := range props.Config.Snapshot().Layers() {
+			if layer.Source.Kind == cfg.SourceFile {
+				last = layer.Source.Name
 			}
+		}
+
+		if last != "" {
+			return last
 		}
 	}
 

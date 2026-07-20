@@ -32,7 +32,7 @@ vars, file config, and defaults. Sensitive values are masked by default.`,
 				return errors.New("no configuration loaded")
 			}
 
-			entries := flattenSettings(props.Config.GetViper().AllSettings(), "", masker)
+			entries := flattenSettings(props.Config.Snapshot().Values(), "", masker)
 
 			slices.SortFunc(entries, func(a, b configEntry) int {
 				return cmp.Compare(a.Key, b.Key)

@@ -145,7 +145,7 @@ var (
 //
 // Empty / whitespace-only values are ignored so a cleared key does
 // not surface as a migration candidate.
-func scanLiteralCredentials(cfg config.Containable) []literalCredential {
+func scanLiteralCredentials(cfg config.Reader) []literalCredential {
 	var out []literalCredential
 
 	for _, d := range knownCredentials {
@@ -176,7 +176,7 @@ func scanLiteralCredentials(cfg config.Containable) []literalCredential {
 // When only one half is present we still emit the entry so the
 // migrator can tell the user what's missing; this keeps the output
 // discoverable rather than silently dropping half a configuration.
-func scanBitbucketPair(cfg config.Containable) *literalCredential {
+func scanBitbucketPair(cfg config.Reader) *literalCredential {
 	user := strings.TrimSpace(cfg.GetString(bitbucketPrimary.key))
 	pw := strings.TrimSpace(cfg.GetString(bitbucketPartner.key))
 

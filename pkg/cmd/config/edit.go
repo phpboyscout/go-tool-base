@@ -163,7 +163,7 @@ func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, path, tmpPath 
 		)
 	}
 
-	if err := validateCandidate(fs, edited); err != nil {
+	if err := validateCandidate(cmd.Context(), edited); err != nil {
 		return errors.WithHintf(err, "your edit is preserved at %s; original left unchanged", tmpPath)
 	}
 
@@ -173,8 +173,10 @@ func persistEdit(cmd *cobra.Command, props *p.Props, fs afero.Fs, path, tmpPath 
 
 	_ = fs.Remove(tmpPath)
 
-	if err := reloadBoundFile(props, "edit"); err != nil {
-		return err
+	// Re-resolve so subsequent reads see the written state. A no-op when the
+	// edited file is not one of the store's declared layers.
+	if err := props.Config.Reload(cmd.Context()); err != nil {
+		return errors.Wrap(err, "reload config after edit")
 	}
 
 	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "saved %s\n", path)

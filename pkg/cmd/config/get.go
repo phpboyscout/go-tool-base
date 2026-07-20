@@ -25,11 +25,16 @@ Sensitive values are masked unless --unmask is passed.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key := args[0]
 
-			if props.Config == nil || !props.Config.IsSet(key) {
+			if props.Config == nil {
 				return errors.Newf("config key %q not found", key)
 			}
 
-			value := fmt.Sprintf("%v", props.Config.Get(key))
+			view := props.Config.View()
+			if !view.IsSet(key) {
+				return errors.Newf("config key %q not found", key)
+			}
+
+			value := fmt.Sprintf("%v", view.Get(key))
 
 			if !unmask {
 				value = masker.MaskIfSensitive(key, value)
