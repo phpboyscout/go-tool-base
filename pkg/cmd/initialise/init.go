@@ -45,7 +45,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 			// Dynamic Discovery of Initialisers
 			initOpts.Initialisers = discoverInitialisers(props)
 
-			location, err := setup.Initialise(props, initOpts)
+			location, err := setup.Initialise(cmd.Context(), props, initOpts)
 			if err != nil {
 				return errors.Wrap(err, "failed to initialise configuration")
 			}

@@ -25,7 +25,7 @@ func init() {
 // checkTelemetryStatus reports whether telemetry is enabled and which backend
 // is active. This is informational — never fails.
 func checkTelemetryStatus(_ context.Context, p *props.Props) setup.CheckResult {
-	if !p.Config.GetBool("telemetry.enabled") {
+	if !p.Config.View().GetBool("telemetry.enabled") {
 		return setup.CheckResult{
 			Name:    "Telemetry",
 			Status:  "skip",
@@ -45,7 +45,7 @@ func checkTelemetryStatus(_ context.Context, p *props.Props) setup.CheckResult {
 // checkTelemetryConnectivity verifies that the configured telemetry endpoint
 // is reachable. Skipped when telemetry is disabled or using a local-only/noop backend.
 func checkTelemetryConnectivity(ctx context.Context, p *props.Props) setup.CheckResult {
-	if !p.Config.GetBool("telemetry.enabled") {
+	if !p.Config.View().GetBool("telemetry.enabled") {
 		return setup.CheckResult{
 			Name:    "Telemetry connectivity",
 			Status:  "skip",

@@ -68,10 +68,11 @@ func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
 		"gemini":    chat.ConfigKeyGeminiKey,
 	}
 
+	cfg := props.Config.View()
 	configured := 0
 
 	for _, configKey := range keys {
-		if props.Config.GetString(configKey) != "" {
+		if cfg.GetString(configKey) != "" {
 			configured++
 		}
 	}
@@ -113,10 +114,12 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 		return CheckResult{Name: "Credential storage", Status: CheckSkip, Message: "no configuration loaded"}
 	}
 
+	cfg := props.Config.View()
+
 	var leaked []string
 
 	for _, key := range literalCredentialKeys {
-		if strings.TrimSpace(props.Config.GetString(key)) != "" {
+		if strings.TrimSpace(cfg.GetString(key)) != "" {
 			leaked = append(leaked, key)
 		}
 	}

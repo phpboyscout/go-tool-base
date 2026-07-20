@@ -14,7 +14,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+
+	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -58,7 +59,7 @@ func newEnableCmd(p *props.Props) *cobra.Command {
 No personally identifiable information is collected. The setting is written to
 your config file and takes effect immediately.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return setTelemetryEnabled(p, true, cmd.OutOrStdout())
+			return setTelemetryEnabled(cmd.Context(), p, true, cmd.OutOrStdout())
 		},
 	}
 }
@@ -78,7 +79,7 @@ enforce telemetry by organisation policy cannot be disabled here.`,
 				return nil
 			}
 
-			if err := setTelemetryEnabled(p, false, cmd.OutOrStdout()); err != nil {
+			if err := setTelemetryEnabled(cmd.Context(), p, false, cmd.OutOrStdout()); err != nil {
 				return err
 			}
 
@@ -102,8 +103,9 @@ backend.
 
 Use this to confirm your opt-in state and whether collection is local-only.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			enabled := p.Config.GetBool("telemetry.enabled")
-			localOnly := p.Config.GetBool("telemetry.local_only")
+			cfg := p.Config.View()
+			enabled := cfg.GetBool("telemetry.enabled")
+			localOnly := cfg.GetBool("telemetry.local_only")
 
 			out := cmd.OutOrStdout()
 
@@ -170,7 +172,7 @@ func newResetCmd(p *props.Props) *cobra.Command {
 			if p.Tool.Telemetry.ForceEnabled {
 				_, _ = fmt.Fprintln(out, "Local telemetry data cleared. Telemetry remains enabled per organisation policy.")
 			} else {
-				if err := setTelemetryEnabled(p, false, out); err != nil {
+				if err := setTelemetryEnabled(cmd.Context(), p, false, out); err != nil {
 					return err
 				}
 
@@ -182,19 +184,24 @@ func newResetCmd(p *props.Props) *cobra.Command {
 	}
 }
 
-// setTelemetryEnabled writes the telemetry.enabled config value and persists to disk.
-// If no config file exists (e.g. tools that disable InitCmd), the default config
-// directory and file are created automatically.
-func setTelemetryEnabled(p *props.Props, enabled bool, out io.Writer) error {
-	p.Config.Set("telemetry.enabled", enabled)
-
-	v := p.Config.GetViper()
-
-	if err := v.WriteConfig(); err != nil {
-		// No config file loaded — create the default one
-		if err := ensureConfigFile(p, v); err != nil {
-			return err
+// setTelemetryEnabled persists the telemetry.enabled choice through the
+// store: Apply edits the target document in place, writing only this key, and
+// a missing file is a legitimate target it creates. This replaces a
+// fresh-viper workaround (ensureConfigFile) that existed solely to avoid
+// dumping embedded defaults into the user's file — a problem the store's
+// provenance-routed writes do not have (migration spec D9).
+func setTelemetryEnabled(ctx context.Context, p *props.Props, enabled bool, out io.Writer) error {
+	// The default config dir may not exist yet (tools without InitCmd);
+	// create it lazily so the write's target directory is present.
+	if configDir := setup.GetDefaultConfigDir(p.FS, p.Tool.Name); configDir != "" {
+		const configDirPerm = 0o700
+		if err := p.FS.MkdirAll(configDir, configDirPerm); err != nil {
+			return errors.Wrap(err, "failed to create config directory")
 		}
+	}
+
+	if _, err := p.Config.Apply(ctx, config.Set("telemetry.enabled", enabled)); err != nil {
+		return errors.Wrap(err, "failed to persist telemetry setting")
 	}
 
 	if enabled {
@@ -205,44 +212,6 @@ func setTelemetryEnabled(p *props.Props, enabled bool, out io.Writer) error {
 	}
 
 	return nil
-}
-
-// ensureConfigFile creates the default config directory and a minimal config
-// file containing only the telemetry setting. This handles tools that disable
-// InitCmd and therefore have no init flow to create the config file.
-// It does NOT dump the full Viper state (which would include embedded defaults
-// like GitHub auth definitions that don't belong in a user config file).
-func ensureConfigFile(p *props.Props, v *viper.Viper) error {
-	configDir := setup.GetDefaultConfigDir(p.FS, p.Tool.Name)
-	if configDir == "" {
-		return errors.New("unable to determine config directory")
-	}
-
-	configFile := filepath.Join(configDir, setup.DefaultConfigFilename)
-
-	// Create the config dir lazily at first write — setup.GetDefaultConfigDir
-	// is pure and no longer creates it as a side effect.
-	const configDirPerm = 0o700
-	if err := p.FS.MkdirAll(configDir, configDirPerm); err != nil {
-		return errors.Wrap(err, "failed to create config directory")
-	}
-
-	// Create a fresh Viper with only the telemetry keys to avoid writing
-	// embedded defaults (GitHub auth, log config, etc.) into the user's config.
-	fresh := viper.New()
-	fresh.SetFs(p.FS)
-	fresh.SetConfigFile(configFile)
-	fresh.SetConfigType("yaml")
-	fresh.Set("telemetry.enabled", v.GetBool("telemetry.enabled"))
-
-	if v.IsSet("telemetry.local_only") {
-		fresh.Set("telemetry.local_only", v.GetBool("telemetry.local_only"))
-	}
-
-	// Point the main Viper at this file so subsequent writes go to the right place
-	v.SetConfigFile(configFile)
-
-	return errors.Wrap(fresh.WriteConfigAs(configFile), "failed to write config")
 }
 
 // buildDeletionRequestor constructs the appropriate DeletionRequestor.

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/redact"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/osinfo"
@@ -127,11 +128,14 @@ func CollectBundle(ctx context.Context, props *p.Props) *SupportBundle {
 	}
 
 	if props.Config != nil {
-		if v := props.Config.GetViper(); v != nil {
-			bundle.Config = redactConfig(v.AllSettings())
+		snap := props.Config.Snapshot()
+		bundle.Config = redactConfig(snap.Values())
 
-			if used := v.ConfigFileUsed(); used != "" {
-				bundle.Paths.ConfigFile = redact.String(used)
+		// The highest-precedence loaded file layer — the same answer Viper's
+		// ConfigFileUsed() gave (it reported the last file it loaded).
+		for _, layer := range snap.Layers() {
+			if layer.Source.Kind == config.SourceFile {
+				bundle.Paths.ConfigFile = redact.String(layer.Source.Name)
 			}
 		}
 	}
