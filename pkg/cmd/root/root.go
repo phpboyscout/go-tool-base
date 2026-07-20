@@ -55,6 +55,7 @@ var ErrUpdateComplete = errors.New("update complete — restart required")
 type rootState struct {
 	cfgPaths            []string
 	redirectingToUpdate bool
+	watching            bool
 	formCreator         func(*bool) *huh.Form
 }
 
@@ -794,6 +795,25 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 
 		// Set config in props
 		props.Config = cfg
+
+		// Watching is explicit in config v0.3.x: without this call the code
+		// compiles, the tests pass, and configuration silently stops
+		// reloading (migration spec D6). The watcher stops with the command
+		// context; a filesystem that cannot be watched (tests on a MemMapFs,
+		// exotic mounts) degrades to a debug line rather than an error.
+		// Guarded per rootState so a re-entrant pre-run (tests executing the
+		// same tree twice) does not stack watchers.
+		if !state.watching {
+			cfg.OnReloadError(func(err error) {
+				props.Logger.Warn("config reload rejected; keeping the last good configuration", "error", err)
+			})
+
+			if _, err := cfg.Watch(cmd.Context()); err != nil {
+				props.Logger.Debug("config watching unavailable", "error", err)
+			} else {
+				state.watching = true
+			}
+		}
 
 		// One pinned view for the bootstrap reads below.
 		view := cfg.View()

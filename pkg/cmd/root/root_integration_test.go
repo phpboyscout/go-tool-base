@@ -1,11 +1,19 @@
 package root_test
 
 import (
+	"context"
+	"io"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
+
+	"gitlab.com/phpboyscout/go/config"
 
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
@@ -14,6 +22,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 // commandNames returns the Use field of each child command in the cobra tree.
@@ -160,4 +169,62 @@ func TestToolMetadata_PropagatedToRootCommand(t *testing.T) {
 	assert.Equal(t, "mytool", rootCmd.Use)
 	assert.Equal(t, "A test tool", rootCmd.Short)
 	assert.Equal(t, "A longer description of the test tool", rootCmd.Long)
+}
+
+// TestConfigWatch_FileChangeReachesObserver is the migration spec's D6
+// acceptance: watching became explicit in config v0.3.x, and this is the only
+// change in the migration with no compiler error — done wrong, configuration
+// silently stops reloading. A real file on disk is changed after the bootstrap
+// and an observer registered on the live store must fire.
+func TestConfigWatch_FileChangeReachesObserver(t *testing.T) {
+	testutil.SkipIfNotIntegration(t, "cmd")
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	require.NoError(t, os.WriteFile(cfgPath, []byte("log:\n  level: info\n"), 0o600))
+
+	props := newTestProps(
+		p.Disable(p.UpdateCmd),
+		p.Disable(p.InitCmd),
+		p.Disable(p.McpCmd),
+		p.Disable(p.DocsCmd),
+		p.Disable(p.DoctorCmd),
+		p.Disable(p.TelemetryCmd),
+	)
+	props.FS = afero.NewOsFs() // the watcher needs paths the OS can watch
+	props.Version = ver.NewInfo("v1.0.0", "", "")
+
+	rootCmd := root.NewCmdRoot(props)
+	rootCmd.SetArgs([]string{"--config", cfgPath, "version"})
+	rootCmd.SetOut(io.Discard)
+	rootCmd.SetErr(io.Discard)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	require.NoError(t, rootCmd.ExecuteContext(ctx))
+	require.NotNil(t, props.Config, "the bootstrap must have built the store")
+
+	fired := make(chan struct{}, 1)
+	props.Config.AddObserverFunc(func(config.Observed) error {
+		select {
+		case fired <- struct{}{}:
+		default:
+		}
+
+		return nil
+	})
+
+	require.NoError(t, os.WriteFile(cfgPath, []byte("log:\n  level: debug\n"), 0o600))
+
+	select {
+	case <-fired:
+	case <-time.After(10 * time.Second):
+		t.Fatal("a config file changed on disk never reached an observer — watching is not wired")
+	}
+
+	assert.Equal(t, "debug", props.Config.View().GetString("log.level"),
+		"the reloaded snapshot must carry the changed value")
 }
