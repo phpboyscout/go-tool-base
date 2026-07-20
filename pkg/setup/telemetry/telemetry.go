@@ -77,7 +77,7 @@ func (t *TelemetryInitialiser) Name() string {
 // IsConfigured returns true if the telemetry.enabled key has been explicitly
 // set in config, OR if the TELEMETRY_ENABLED environment variable is set
 // (any value counts as "configured — no prompt needed").
-func (t *TelemetryInitialiser) IsConfigured(cfg config.Containable) bool {
+func (t *TelemetryInitialiser) IsConfigured(cfg config.Reader) bool {
 	if _, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
 		return true
 	}
@@ -87,13 +87,12 @@ func (t *TelemetryInitialiser) IsConfigured(cfg config.Containable) bool {
 
 // Configure prompts the user to opt into telemetry.
 // If TELEMETRY_ENABLED is set, applies it directly without prompting.
-func (t *TelemetryInitialiser) Configure(p *props.Props, cfg config.Containable) error {
+func (t *TelemetryInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
 	// Non-interactive bypass
 	if val, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
 		enabled, _ := strconv.ParseBool(val)
-		cfg.Set("telemetry.enabled", enabled)
 
-		return nil
+		return cfg.Set("telemetry.enabled", enabled)
 	}
 
 	fCfg := &formConfig{
@@ -112,9 +111,7 @@ func (t *TelemetryInitialiser) Configure(p *props.Props, cfg config.Containable)
 		}
 	}
 
-	cfg.Set("telemetry.enabled", optIn)
-
-	return nil
+	return cfg.Set("telemetry.enabled", optIn)
 }
 
 func defaultTelemetryForm(p *props.Props, optIn *bool) *huh.Form {

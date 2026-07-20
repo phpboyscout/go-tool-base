@@ -1,18 +1,15 @@
 package github
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"gitlab.com/phpboyscout/go/credentials"
 
@@ -22,6 +19,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
@@ -37,6 +35,7 @@ var (
 )
 
 func init() {
+	setup.RegisterAssets("github", "github", &assets)
 	setup.Register("github",
 		[]setup.InitialiserProvider{
 			func(p *props.Props) setup.Initialiser {
@@ -168,12 +167,10 @@ func WithGitHubAuthForms(opts ...AuthFormOption) InitialiserOption {
 	return func(i *GitHubInitialiser) { i.authOpts = append(i.authOpts, opts...) }
 }
 
-// NewGitHubInitialiser creates a new GitHubInitialiser and mounts its assets.
+// NewGitHubInitialiser creates a new GitHubInitialiser. Its asset bundle is
+// registered from init() via setup.RegisterAssets, applied for enabled
+// features at root construction.
 func NewGitHubInitialiser(p *props.Props, skipLogin, skipKey bool, opts ...InitialiserOption) *GitHubInitialiser {
-	if p.Assets != nil {
-		p.Assets.Mount(assets, "pkg/setup/github")
-	}
-
 	i := &GitHubInitialiser{
 		SkipLogin: skipLogin,
 		SkipKey:   skipKey,
@@ -192,7 +189,7 @@ func (g *GitHubInitialiser) Name() string {
 }
 
 // IsConfigured returns true if unskipped components are already present in the config.
-func (g *GitHubInitialiser) IsConfigured(cfg config.Containable) bool {
+func (g *GitHubInitialiser) IsConfigured(cfg config.Reader) bool {
 	authEnv := cfg.GetString("github.auth.env")
 	loginConfigured := g.SkipLogin ||
 		cfg.GetString("github.auth.value") != "" ||
@@ -207,14 +204,16 @@ func (g *GitHubInitialiser) IsConfigured(cfg config.Containable) bool {
 }
 
 // Configure runs the interactive login and/or SSH configuration.
-func (g *GitHubInitialiser) Configure(props *props.Props, cfg config.Containable) error {
-	if !g.SkipLogin && !hasAnyGitHubCredential(cfg) {
+func (g *GitHubInitialiser) Configure(props *props.Props, cfg setup.Editor) error {
+	if !g.SkipLogin && !hasAnyGitHubCredential(cfg.View()) {
 		if err := g.configureAuth(props, cfg); err != nil {
 			return err
 		}
 	}
 
-	if !g.SkipKey && cfg.GetString("github.ssh.key.path") == "" && cfg.GetString("github.ssh.key.type") != "agent" {
+	// A fresh view: configureAuth may have written keys this must observe.
+	view := cfg.View()
+	if !g.SkipKey && view.GetString("github.ssh.key.path") == "" && view.GetString("github.ssh.key.type") != "agent" {
 		if err := g.configureSSH(props, cfg); err != nil {
 			return err
 		}
@@ -226,13 +225,13 @@ func (g *GitHubInitialiser) Configure(props *props.Props, cfg config.Containable
 // hasAnyGitHubCredential reports whether the config already records a
 // credential under any of the three storage modes. Used to
 // short-circuit the auth wizard when the user re-runs `init`.
-func hasAnyGitHubCredential(cfg config.Containable) bool {
+func hasAnyGitHubCredential(cfg config.Reader) bool {
 	return cfg.GetString("github.auth.value") != "" ||
 		cfg.GetString("github.auth.keychain") != "" ||
 		cfg.GetString("github.auth.env") != ""
 }
 
-func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable) error {
+func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg setup.Editor) error {
 	// CI defence: literal-mode writes in a CI environment almost
 	// certainly leak the token to build artefacts or logs. The
 	// --skip-login default already suppresses this path under CI,
@@ -251,9 +250,10 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	if token := forge.ResolveTokenContext(ctx, cfg.Sub("github"), "GITHUB_TOKEN"); token != "" {
+	view := cfg.View()
+	if token := forge.ResolveTokenContext(ctx, vcs.ConfigFromReader(view).Sub("github"), "GITHUB_TOKEN"); token != "" {
 		p.Logger.Info("GitHub credential already configured; skipping OAuth token capture",
-			"env_ref", cfg.GetString("github.auth.env"))
+			"env_ref", view.GetString("github.auth.env"))
 
 		return nil
 	}
@@ -280,7 +280,7 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 func (g *GitHubInitialiser) runAuthCredentialStage(
 	ctx context.Context,
 	p *props.Props,
-	cfg config.Containable,
+	cfg setup.Editor,
 	fCfg *authFormConfig,
 	authCfg *GitHubAuthConfig,
 ) error {
@@ -372,12 +372,15 @@ func (g *GitHubInitialiser) captureToken(p props.LoggerProvider) (string, error)
 // the captured storage mode. Token in authCfg is the captured OAuth
 // or manual value (populated for keychain / literal modes; cleared
 // for env-var mode after the display-once flow).
-func writeGitHubCredential(ctx context.Context, cfg config.Containable, toolName string, authCfg *GitHubAuthConfig) error {
+func writeGitHubCredential(ctx context.Context, cfg setup.Editor, toolName string, authCfg *GitHubAuthConfig) error {
 	switch authCfg.StorageMode {
 	case credentials.ModeEnvVar:
 		if authCfg.EnvVarName != "" {
-			cfg.Set("github.auth.env", authCfg.EnvVarName)
-			credentials.ClearKeysExcept(cfg, githubCredentialKeys, "github.auth.env")
+			if err := cfg.Set("github.auth.env", authCfg.EnvVarName); err != nil {
+				return err
+			}
+
+			return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.env")
 		}
 
 		return nil
@@ -397,15 +400,19 @@ func writeGitHubCredential(ctx context.Context, cfg config.Containable, toolName
 				"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
 		}
 
-		cfg.Set("github.auth.keychain", toolName+"/"+githubKeychainAccount)
-		credentials.ClearKeysExcept(cfg, githubCredentialKeys, "github.auth.keychain")
+		if err := cfg.Set("github.auth.keychain", toolName+"/"+githubKeychainAccount); err != nil {
+			return err
+		}
 
-		return nil
+		return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.keychain")
 
 	case credentials.ModeLiteral, "":
 		if authCfg.Token != "" {
-			cfg.Set("github.auth.value", authCfg.Token)
-			credentials.ClearKeysExcept(cfg, githubCredentialKeys, "github.auth.value")
+			if err := cfg.Set("github.auth.value", authCfg.Token); err != nil {
+				return err
+			}
+
+			return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.value")
 		}
 
 		return nil
@@ -621,21 +628,22 @@ func promptManualGitHubToken(host string) (string, error) {
 	return strings.TrimSpace(token), nil
 }
 
-func (g *GitHubInitialiser) configureSSH(p *props.Props, cfg config.Containable) error {
-	keyType, keyPath, err := ConfigureSSHKey(p, cfg)
+func (g *GitHubInitialiser) configureSSH(p *props.Props, cfg setup.Editor) error {
+	keyType, keyPath, err := ConfigureSSHKey(p, cfg.View())
 	if err != nil {
 		return err
 	}
 
-	cfg.Set("github.ssh.key.type", keyType)
-	cfg.Set("github.ssh.key.path", keyPath)
+	if err := cfg.Set("github.ssh.key.type", keyType); err != nil {
+		return err
+	}
 
-	return nil
+	return cfg.Set("github.ssh.key.path", keyPath)
 }
 
 // RunGitHubInit forcibly runs both login and SSH configuration regardless of current state.
 // This is used by the explicit `init github` command.
-func RunGitHubInit(p *props.Props, cfg config.Containable) error {
+func RunGitHubInit(p *props.Props, cfg setup.Editor) error {
 	g := &GitHubInitialiser{loginFunc: githubvcs.GHLogin}
 
 	if err := g.configureAuth(p, cfg); err != nil {
@@ -656,7 +664,7 @@ for Git operations.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
-			if err := RunInitCmd(p, dir); err != nil {
+			if err := RunInitCmd(cmd.Context(), p, dir); err != nil {
 				return errors.Wrap(err, "failed to configure GitHub")
 			}
 
@@ -671,37 +679,13 @@ for Git operations.`,
 	return cmd
 }
 
-// RunInitCmd executes the GitHub configuration and writes the results to the config file.
-func RunInitCmd(p *props.Props, dir string) error {
-	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
-
-	c, err := config.LoadFilesContainer(p.FS, config.WithConfigFiles(targetFile))
+// RunInitCmd executes the GitHub configuration and writes the results to the
+// config file, which is seeded from the merged init template when absent.
+func RunInitCmd(ctx context.Context, p *props.Props, dir string) error {
+	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
 	if err != nil {
-		// If it doesn't exist, start with defaults
-		v := viper.New()
-		if err := v.ReadConfig(bytes.NewReader(setup.DefaultConfig)); err != nil {
-			return errors.Wrap(err, "failed to read default config")
-		}
-
-		c = config.NewContainerFromViper(nil, v)
-	}
-
-	if err := RunGitHubInit(p, c); err != nil {
 		return err
 	}
 
-	// Ensure directory exists
-	const dirPerm = 0o755
-	if err := p.FS.MkdirAll(dir, dirPerm); err != nil {
-		return errors.Wrap(err, "failed to create config directory")
-	}
-
-	if err := c.WriteConfigAs(targetFile); err != nil {
-		return err
-	}
-
-	// Restrict config file permissions — the file may contain auth tokens.
-	const configFilePerm = 0o600
-
-	return p.FS.Chmod(targetFile, configFilePerm)
+	return RunGitHubInit(p, editor)
 }

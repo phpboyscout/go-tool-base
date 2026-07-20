@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"io/fs"
 	"maps"
 	"sync"
 
@@ -33,6 +34,13 @@ type CheckFunc func(ctx context.Context, props *props.Props) CheckResult
 // CheckProvider is a function that returns diagnostic checks for a feature.
 type CheckProvider func(p *props.Props) []CheckFunc
 
+// AssetBundle names an embedded asset bundle a feature contributes to
+// props.Assets when the feature is enabled.
+type AssetBundle struct {
+	Name   string
+	Bundle fs.FS
+}
+
 // FeatureRegistry holds the registered initialisers, subcommands, flags, and
 // checks for features. All access is serialised by registryMu so concurrent
 // init() calls and parallel tests are race-free.
@@ -41,6 +49,7 @@ type FeatureRegistry struct {
 	subcommands  map[props.FeatureCmd][]SubcommandProvider
 	flags        map[props.FeatureCmd][]FeatureFlag
 	checks       map[props.FeatureCmd][]CheckProvider
+	assets       map[props.FeatureCmd][]AssetBundle
 }
 
 // registryMu protects globalRegistry and registrySealed. Acquired for write
@@ -58,6 +67,7 @@ var globalRegistry = &FeatureRegistry{
 	subcommands:  make(map[props.FeatureCmd][]SubcommandProvider),
 	flags:        make(map[props.FeatureCmd][]FeatureFlag),
 	checks:       make(map[props.FeatureCmd][]CheckProvider),
+	assets:       make(map[props.FeatureCmd][]AssetBundle),
 }
 
 // SealRegistry prevents further feature registration. Called after all
@@ -140,6 +150,34 @@ func GetFeatureFlags() map[props.FeatureCmd][]FeatureFlag {
 	return cp
 }
 
+// RegisterAssets adds an embedded asset bundle for a feature. The root command
+// registers the bundles of enabled features onto props.Assets during
+// construction, so a feature's assets/config.yaml (defaults) and
+// assets/init/config.yaml (init template) participate in the merged reads only
+// when the feature is enabled — see the segregated-default-config spec.
+// Panics if the registry has been sealed.
+func RegisterAssets(feature props.FeatureCmd, name string, bundle fs.FS) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+
+	if registrySealed {
+		panic("cannot register assets after the registry has been sealed")
+	}
+
+	globalRegistry.assets[feature] = append(globalRegistry.assets[feature], AssetBundle{Name: name, Bundle: bundle})
+}
+
+// GetAssets returns a snapshot of all registered asset bundles.
+func GetAssets() map[props.FeatureCmd][]AssetBundle {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+
+	cp := make(map[props.FeatureCmd][]AssetBundle, len(globalRegistry.assets))
+	maps.Copy(cp, globalRegistry.assets)
+
+	return cp
+}
+
 // GetChecks returns a snapshot of all registered check providers.
 func GetChecks() map[props.FeatureCmd][]CheckProvider {
 	registryMu.RLock()
@@ -164,6 +202,7 @@ func resetFeatureRegistry() {
 		subcommands:  make(map[props.FeatureCmd][]SubcommandProvider),
 		flags:        make(map[props.FeatureCmd][]FeatureFlag),
 		checks:       make(map[props.FeatureCmd][]CheckProvider),
+		assets:       make(map[props.FeatureCmd][]AssetBundle),
 	}
 	registrySealed = false
 }

@@ -337,6 +337,10 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		currentVersion = ver.FormatVersionString(p.Version.GetVersion(), true)
 	}
 
+	// One pinned view for every read below, so the trust-model settings
+	// resolve against a single snapshot (p.Config was nil-checked above).
+	cfg := p.Config.View()
+
 	s := &SelfUpdater{
 		force:                     force,
 		version:                   version,
@@ -347,13 +351,13 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		osExecutable:              os.Executable,
 		execLookPath:              exec.LookPath,
 		isInteractive:             utils.IsInteractive,
-		requireChecksum:           resolveRequireChecksum(p.Config, p.Tool.Signing.RequireChecksum),
-		checksumAssetName:         strings.TrimSpace(p.Config.GetString("update.checksum_asset_name")),
-		requireSignature:          resolveRequireSignature(p.Config),
-		signatureAssetName:        strings.TrimSpace(p.Config.GetString("update.signature_asset_name")),
-		keySource:                 resolveKeySource(p.Config),
-		externalKeyEmail:          resolveExternalKeyEmail(p.Config),
-		requireExternalCrosscheck: resolveRequireExternalCrosscheck(p.Config),
+		requireChecksum:           resolveRequireChecksum(cfg, p.Tool.Signing.RequireChecksum),
+		checksumAssetName:         strings.TrimSpace(cfg.GetString("update.checksum_asset_name")),
+		requireSignature:          resolveRequireSignature(cfg),
+		signatureAssetName:        strings.TrimSpace(cfg.GetString("update.signature_asset_name")),
+		keySource:                 resolveKeySource(cfg),
+		externalKeyEmail:          resolveExternalKeyEmail(cfg),
+		requireExternalCrosscheck: resolveRequireExternalCrosscheck(cfg),
 		// Seed the embedded trust anchor from the tool author's
 		// compile-time keys (e.g. an internal trustkeys //go:embed). All
 		// library command call sites (version/update/root) thus pick up
@@ -396,9 +400,13 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		return nil
 	}
 
+	// One pinned view for the provider override and the release-client config
+	// (NewUpdater nil-checked p.Config before calling here).
+	cfg := p.Config.View()
+
 	vcsProvider, _, _ := p.Tool.GetReleaseSource()
-	if p.Config.IsSet("vcs.provider") {
-		vcsProvider = strings.ToLower(p.Config.GetString("vcs.provider"))
+	if cfg.IsSet("vcs.provider") {
+		vcsProvider = strings.ToLower(cfg.GetString("vcs.provider"))
 	}
 
 	if p.Tool.ReleaseSource.Private {
@@ -421,7 +429,7 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		Params:  p.Tool.ReleaseSource.Params,
 	}
 
-	releaseClient, err := factory(sourceCfg, vcs.ConfigFromContainable(p.Config))
+	releaseClient, err := factory(sourceCfg, vcs.ConfigFromReader(cfg))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -524,7 +532,7 @@ func reflectIsNil(i any) bool {
 // before attempting an unauthenticated API call that would fail with a 401.
 func requireReleaseToken(ctx context.Context, vcsProvider string, p props.ConfigProvider) error {
 	var (
-		cfg         = p.GetConfig().Sub(vcsProvider)
+		cfg         = vcs.ConfigFromReader(p.GetConfig().View()).Sub(vcsProvider)
 		fallbackEnv string
 	)
 

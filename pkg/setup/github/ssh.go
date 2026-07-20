@@ -35,11 +35,11 @@ const (
 
 var GitHubHost = "github.com"
 
-func defaultGitHubClientFactory(cfg config.Containable) (githubvcs.GitHubClient, error) {
+func defaultGitHubClientFactory(cfg config.Reader) (githubvcs.GitHubClient, error) {
 	// SSH key management targets github.com (or the Enterprise host
 	// carried in cfg.url.api); release-source host is not relevant here.
 	return githubvcs.NewGitHubClient(
-		githubvcs.ClientSettingsFromConfig(forge.ReleaseSourceConfig{}, vcs.ConfigFromContainable(cfg)),
+		githubvcs.ClientSettingsFromConfig(forge.ReleaseSourceConfig{}, vcs.ConfigFromReader(cfg)),
 	)
 }
 
@@ -96,7 +96,7 @@ func defaultSSHKeyPathFormCreator(targetKey *string) *huh.Form {
 }
 
 // ConfigureSSHKey runs the interactive SSH key configuration flow.
-func ConfigureSSHKey(props *props.Props, cfg config.Containable, opts ...ConfigureSSHKeyOption) (string, string, error) {
+func ConfigureSSHKey(props *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error) {
 	props.Logger.Info("Configuring SSH key for use with Github")
 
 	optsConfig := &configureSSHKeyConfig{
@@ -186,7 +186,7 @@ func isValidSSHKey(fs afero.Fs, path string) bool {
 	return true
 }
 
-func handleSSHKeySelection(props *props.Props, cfg config.Containable, targetKey string, optsConfig *configureSSHKeyConfig) (string, string, error) {
+func handleSSHKeySelection(props *props.Props, cfg config.Reader, targetKey string, optsConfig *configureSSHKeyConfig) (string, string, error) {
 	keyType := "file"
 
 	switch targetKey {
@@ -254,7 +254,7 @@ func validateSSHKey(contents []byte, p props.LoggerProvider) error {
 type generateKeyConfig struct {
 	passphraseFormCreator    func(*string) *huh.Form
 	uploadConfirmFormCreator func(*bool) *huh.Form
-	clientFactory            func(config.Containable) (githubvcs.GitHubClient, error)
+	clientFactory            func(config.Reader) (githubvcs.GitHubClient, error)
 }
 
 // GenerateKeyOption is a functional option for SSH key generation.
@@ -277,7 +277,7 @@ func WithUploadConfirmForm(creator func(*bool) *huh.Form) GenerateKeyOption {
 // WithGitHubClientFactory overrides the GitHub client constructor used when
 // uploading SSH keys. Tests pass a fake; production callers omit to get
 // the default.
-func WithGitHubClientFactory(factory func(config.Containable) (githubvcs.GitHubClient, error)) GenerateKeyOption {
+func WithGitHubClientFactory(factory func(config.Reader) (githubvcs.GitHubClient, error)) GenerateKeyOption {
 	return func(c *generateKeyConfig) {
 		c.clientFactory = factory
 	}
@@ -314,7 +314,7 @@ func defaultUploadConfirmFormCreator(upload *bool) *huh.Form {
 	)
 }
 
-func generateKey(props *props.Props, cfg config.Containable, opts ...GenerateKeyOption) (string, error) {
+func generateKey(props *props.Props, cfg config.Reader, opts ...GenerateKeyOption) (string, error) {
 	optsConfig := &generateKeyConfig{
 		passphraseFormCreator:    defaultPassphraseFormCreator,
 		uploadConfirmFormCreator: defaultUploadConfirmFormCreator,
@@ -370,7 +370,7 @@ func generateKey(props *props.Props, cfg config.Containable, opts ...GenerateKey
 	return keypath, err
 }
 
-func uploadSSHKeyToGitHub(p props.LoggerProvider, cfg config.Containable, keyname string, publicKey []byte, clientFactory func(config.Containable) (githubvcs.GitHubClient, error)) error {
+func uploadSSHKeyToGitHub(p props.LoggerProvider, cfg config.Reader, keyname string, publicKey []byte, clientFactory func(config.Reader) (githubvcs.GitHubClient, error)) error {
 	p.GetLogger().Info("Uploading SSH public key to Github", "key", string(publicKey))
 
 	c, err := clientFactory(cfg)

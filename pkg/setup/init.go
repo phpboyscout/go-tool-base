@@ -1,19 +1,20 @@
 package setup
 
 import (
-	"bytes"
-	_ "embed"
+	"context"
 	"fmt"
-	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"dario.cat/mergo"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
-	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
@@ -24,35 +25,90 @@ const (
 	dirPermUserOnly = 0o700
 	// dirPermStandard is the standard permission mode for directories (0755).
 	dirPermStandard = 0o755
+	// configFilePerm restricts the config file — it may contain credentials.
+	configFilePerm = 0o600
 )
-
-// Initialiser is an optional config step that can check if it's
 
 const (
 	DefaultConfigFilename = "config.yaml"
+
+	// DefaultsAssetPath is the bare asset path the embedded-defaults layer is
+	// read from. props.Assets merges it across every registered bundle, so each
+	// package ships its own defaults (segregated-default-config spec, D1).
+	DefaultsAssetPath = "assets/config.yaml"
+
+	// InitTemplateAssetPath is the bare asset path init templates are read
+	// from — the human-facing document Initialise writes to the user's config
+	// file, merged across every registered bundle (D9).
+	InitTemplateAssetPath = "assets/init/config.yaml"
 )
 
-//go:embed assets/config.yaml
-var DefaultConfig []byte
-
-// Initialiser is an optional config step that can check if it's
-// already configured and, if not, interactively populate the shared viper config.
+// Initialiser is an optional config step that can check if it's already
+// configured and, if not, interactively populate the tool's config file.
 type Initialiser interface {
 	// Name returns a human-readable name for logging.
 	Name() string
 	// IsConfigured returns true if this initialiser's config is already present.
-	IsConfigured(cfg config.Containable) bool
-	// Configure runs the interactive config and writes values into cfg.
-	Configure(p *props.Props, cfg config.Containable) error
+	IsConfigured(cfg config.Reader) bool
+	// Configure runs the interactive config and writes values through cfg.
+	Configure(p *props.Props, cfg Editor) error
+}
+
+// Editor is the read/write surface an initialiser uses during init. Reads
+// resolve against the target document layered over the tool's embedded
+// defaults; writes go through the store's Apply, which edits the target
+// document in place, so template comments survive the wizards.
+type Editor interface {
+	// View returns a pinned view of the current configuration.
+	View() *config.View
+	// Set writes one key to the target document.
+	Set(key string, value any) error
+}
+
+type storeEditor struct {
+	//nolint:containedctx // scoped to one init run; threading it through every
+	// wizard Set call site would churn the whole Initialiser surface for no
+	// cancellation gain — the viper-backed flow it replaces had none either.
+	ctx   context.Context
+	store *config.Store
+}
+
+func (e *storeEditor) View() *config.View { return e.store.View() }
+
+func (e *storeEditor) Set(key string, value any) error {
+	_, err := e.store.Apply(e.ctx, config.Set(key, value))
+
+	return errors.Wrapf(err, "writing %s", key)
+}
+
+// ClearCredentialKeysExcept blanks every credential key in all that is not in
+// keep, adapting Editor to the credentials module's error-less KeyWriter and
+// surfacing the first write failure — a stale secret that could not be blanked
+// must not pass silently.
+func ClearCredentialKeysExcept(e Editor, all []string, keep ...string) error {
+	w := &editorKeyWriter{editor: e}
+	credentials.ClearKeysExcept(w, all, keep...)
+
+	return w.err
+}
+
+// editorKeyWriter adapts Editor to credentials.KeyWriter, capturing the first
+// write error since that interface cannot return one.
+type editorKeyWriter struct {
+	editor Editor
+	err    error
+}
+
+func (w *editorKeyWriter) Set(key string, value any) {
+	if w.err == nil {
+		w.err = w.editor.Set(key, value)
+	}
 }
 
 // InitOptions holds the options for the Initialise function.
 type InitOptions struct {
 	Dir          string
 	Clean        bool
-	SkipLogin    bool
-	SkipKey      bool
-	SkipAI       bool
 	Initialisers []Initialiser
 
 	// Interactive overrides terminal detection for the credential wizards.
@@ -97,28 +153,19 @@ func GetDefaultConfigDir(_ afero.Fs, name string) string {
 	return filepath.Join(homeDir, fmt.Sprintf(".%s", strings.ToLower(name)))
 }
 
-// Initialise creates the default configuration file in the specified directory.
-func Initialise(props *props.Props, opts InitOptions) (string, error) {
-	targetFile := filepath.Join(opts.Dir, DefaultConfigFilename)
-
-	if err := props.FS.MkdirAll(opts.Dir, dirPermStandard); err != nil {
-		return "", errors.Wrap(err, "Failed to create directory")
-	}
-
-	cfg, err := initializeConfig(props, opts.Dir, targetFile, opts.Clean)
+// Initialise creates the tool's configuration file in the specified directory
+// and runs the supplied initialisers over it.
+func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, error) {
+	editor, targetFile, err := OpenConfigEditor(ctx, p, opts.Dir, opts.Clean)
 	if err != nil {
 		return targetFile, err
 	}
 
-	// Initialisers are now the primary way to configure addition steps like GitHub or AI
-
-	// Run any additional initialisers
-	c := config.NewContainerFromViper(nil, cfg)
 	interactive := opts.interactive()
 
 	for _, init := range opts.Initialisers {
-		if init.IsConfigured(c) {
-			props.Logger.Info("already configured", "component", init.Name())
+		if init.IsConfigured(editor.View()) {
+			p.Logger.Info("already configured", "component", init.Name())
 
 			continue
 		}
@@ -128,86 +175,156 @@ func Initialise(props *props.Props, opts InitOptions) (string, error) {
 		// still written, and the user can run the dedicated "init <provider>"
 		// subcommand interactively later.
 		if !interactive {
-			props.Logger.Info("setup skipped: no interactive terminal", "component", init.Name())
+			p.Logger.Info("setup skipped: no interactive terminal", "component", init.Name())
 
 			continue
 		}
 
-		props.Logger.Info("enabled but not yet configured", "component", init.Name())
+		p.Logger.Info("enabled but not yet configured", "component", init.Name())
 
-		if err := init.Configure(props, c); err != nil {
-			props.Logger.Warn("configuration skipped", "component", init.Name(), "error", err)
+		if err := init.Configure(p, editor); err != nil {
+			p.Logger.Warn("configuration skipped", "component", init.Name(), "error", err)
 		}
 	}
 
-	if err := writeGitignore(props.FS, opts.Dir); err != nil {
-		props.Logger.Warn("failed to write .gitignore", "error", err)
+	if err := writeGitignore(p.FS, opts.Dir); err != nil {
+		p.Logger.Warn("failed to write .gitignore", "error", err)
 	}
 
-	warnIfAPIKeysInGitRepo(props, opts.Dir)
-
-	if err := cfg.WriteConfigAs(targetFile); err != nil {
-		return targetFile, err
-	}
-
-	// Restrict config file permissions — the file may contain credentials.
-	const configFilePerm = 0o600
-	if chmodErr := props.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
-		props.Logger.Warn("failed to set config file permissions", "error", chmodErr)
-	}
+	warnIfAPIKeysInGitRepo(p, opts.Dir)
 
 	return targetFile, nil
 }
 
-func mergeExtraConfig(p props.AssetProvider, cfg *viper.Viper) error {
-	assets := p.GetAssets()
-	if assets == nil {
+// OpenConfigEditor materialises the tool's config file in dir (seeding it from
+// the merged init template when absent or clean, merging new template keys
+// under an existing one otherwise) and opens an [Editor] over it. The editor's
+// reads resolve the file over the tool's embedded defaults, so a wizard sees
+// the same effective values the running tool would; writes land only in the
+// file. Shared by Initialise and the per-feature init subcommands.
+func OpenConfigEditor(ctx context.Context, p *props.Props, dir string, clean bool) (Editor, string, error) {
+	targetFile := filepath.Join(dir, DefaultConfigFilename)
+
+	if err := p.FS.MkdirAll(dir, dirPermStandard); err != nil {
+		return nil, targetFile, errors.Wrap(err, "Failed to create directory")
+	}
+
+	if err := writeInitialConfig(p, targetFile, clean); err != nil {
+		return nil, targetFile, err
+	}
+
+	storeOpts := []config.StoreOption{}
+	if defaults := assetDocument(p, DefaultsAssetPath); len(defaults) > 0 {
+		storeOpts = append(storeOpts, config.WithReaders(config.NamedSource{
+			Name:    "embedded:" + DefaultsAssetPath,
+			Content: defaults,
+		}))
+	}
+
+	storeOpts = append(storeOpts, config.WithFiles(p.GetConfigFS(), targetFile))
+
+	store, err := config.NewStore(ctx, storeOpts...)
+	if err != nil {
+		return nil, targetFile, errors.Wrap(err, "opening config for initialisation")
+	}
+
+	return &storeEditor{ctx: ctx, store: store}, targetFile, nil
+}
+
+// assetDocument returns the named document merged across every registered
+// asset bundle, or nil when no bundle ships one.
+//
+// fs.ReadFile rather than a ReadFile method on Assets, and the distinction is
+// load-bearing: fs.ReadFile falls back to Open, and Open is where Assets
+// merges a structured file across every registered bundle.
+func assetDocument(p *props.Props, path string) []byte {
+	if p.Assets == nil {
 		return nil
 	}
 
-	f, err := assets.Open(filepath.Join("assets/init", DefaultConfigFilename))
+	data, err := fs.ReadFile(p.Assets, path)
 	if err != nil {
 		return nil
 	}
 
-	defer func() { _ = f.Close() }()
+	return data
+}
 
-	data, err := io.ReadAll(f)
-	if err != nil || len(data) == 0 {
-		return nil
+// writeInitialConfig materialises the target file. Absent (or --clean): the
+// merged init template is written verbatim, so its comments reach the user's
+// file. Existing: the file's values are merged over the template so re-running
+// init gains new template keys without disturbing user values (comment-lossy
+// on this path, as the viper round-trip it replaces also was).
+func writeInitialConfig(p *props.Props, targetFile string, clean bool) error {
+	seed := assetDocument(p, InitTemplateAssetPath)
+
+	exists, err := afero.Exists(p.FS, targetFile)
+	if err != nil {
+		return errors.Wrap(err, "checking config file existence")
 	}
 
-	if err := cfg.MergeConfig(bytes.NewReader(data)); err != nil {
-		return errors.Wrap(err, "Failed to merge extra configuration")
+	if exists && !clean {
+		p.Logger.Info("Configuration file already exists, attempting to merge")
+
+		merged, mergeErr := mergeExistingOverTemplate(p.FS, targetFile, seed)
+		if mergeErr != nil {
+			return mergeErr
+		}
+
+		if merged == nil {
+			// No template to gain keys from; leave the user's file untouched.
+			return nil
+		}
+
+		seed = merged
+	}
+
+	if err := afero.WriteFile(p.FS, targetFile, seed, configFilePerm); err != nil {
+		return errors.Wrap(err, "writing config file")
+	}
+
+	// Restrict permissions on pre-existing files too — the file may contain
+	// credentials, and WriteFile's mode only applies on creation.
+	if chmodErr := p.FS.Chmod(targetFile, configFilePerm); chmodErr != nil {
+		p.Logger.Warn("failed to set config file permissions", "error", chmodErr)
 	}
 
 	return nil
 }
 
-func initializeConfig(props *props.Props, dir, targetFile string, clean bool) (*viper.Viper, error) {
-	cfg := viper.New()
-	cfg.SetFs(props.FS) // Use Afero FS in Viper
-	cfg.SetConfigType("yaml")
-
-	if err := cfg.ReadConfig(bytes.NewReader(DefaultConfig)); err != nil {
-		return nil, errors.Wrap(err, "Failed to read default configuration")
+// mergeExistingOverTemplate deep-merges the existing file's values over the
+// template document, returning the encoded result — or nil when there is no
+// template to merge.
+func mergeExistingOverTemplate(fsys afero.Fs, targetFile string, seed []byte) ([]byte, error) {
+	if len(seed) == 0 {
+		return nil, nil
 	}
 
-	// Load and merge any domain-specific "extra" configs from the Assets layer.
-	if err := mergeExtraConfig(props, cfg); err != nil {
-		return nil, err
+	existing, err := afero.ReadFile(fsys, targetFile)
+	if err != nil {
+		return nil, errors.Wrap(err, "reading existing config")
 	}
 
-	if _, err := props.FS.Stat(targetFile); err == nil && !clean {
-		props.Logger.Info("Configuration file already exists, attempting to merge")
-		cfg.AddConfigPath(dir)
-
-		if err = cfg.MergeInConfig(); err != nil {
-			return nil, errors.Wrap(err, "Failed to merge configuration")
-		}
+	seedDoc := map[string]any{}
+	if err := yaml.Unmarshal(seed, &seedDoc); err != nil {
+		return nil, errors.Wrap(err, "parsing init template")
 	}
 
-	return cfg, nil
+	existingDoc := map[string]any{}
+	if err := yaml.Unmarshal(existing, &existingDoc); err != nil {
+		return nil, errors.Wrap(err, "parsing existing config")
+	}
+
+	if err := mergo.Merge(&seedDoc, existingDoc, mergo.WithOverride); err != nil {
+		return nil, errors.Wrap(err, "merging existing config over template")
+	}
+
+	out, err := yaml.Marshal(seedDoc)
+	if err != nil {
+		return nil, errors.Wrap(err, "encoding merged config")
+	}
+
+	return out, nil
 }
 
 const gitignoreContent = `# Ignore files that may contain secrets
@@ -270,5 +387,3 @@ func warnIfAPIKeysInGitRepo(p *props.Props, configDir string) {
 		return nil
 	})
 }
-
-// configureSSHKeyConfig holds the form options for SSH key configuration.

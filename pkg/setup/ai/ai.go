@@ -1,20 +1,16 @@
 package ai
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
@@ -30,6 +26,7 @@ import (
 var skipAI bool
 
 func init() {
+	setup.RegisterAssets(props.AiCmd, "ai", &assets)
 	setup.Register(props.AiCmd,
 		[]setup.InitialiserProvider{
 			func(p *props.Props) setup.Initialiser {
@@ -307,12 +304,10 @@ type AIInitialiser struct {
 	formOpts []FormOption
 }
 
-// NewAIInitialiser creates a new AIInitialiser and mounts its assets.
-func NewAIInitialiser(p *props.Props, opts ...FormOption) *AIInitialiser {
-	if p.Assets != nil {
-		p.Assets.Mount(assets, "pkg/setup/ai")
-	}
-
+// NewAIInitialiser creates a new AIInitialiser. Its asset bundle is
+// registered from init() via setup.RegisterAssets, applied for enabled
+// features at root construction.
+func NewAIInitialiser(_ *props.Props, opts ...FormOption) *AIInitialiser {
 	return &AIInitialiser{formOpts: opts}
 }
 
@@ -323,7 +318,7 @@ func (a *AIInitialiser) Name() string {
 
 // IsConfigured checks if a valid AI provider is set and its corresponding
 // API key is present.
-func (a *AIInitialiser) IsConfigured(cfg config.Containable) bool {
+func (a *AIInitialiser) IsConfigured(cfg config.Reader) bool {
 	provider := cfg.GetString(chat.ConfigKeyAIProvider)
 	if !isValidProvider(provider) {
 		return false
@@ -334,15 +329,17 @@ func (a *AIInitialiser) IsConfigured(cfg config.Containable) bool {
 	return keyPath != "" && cfg.GetString(keyPath) != ""
 }
 
-// Configure runs the interactive AI configuration forms and populates the shared config.
-func (a *AIInitialiser) Configure(p *props.Props, cfg config.Containable) error {
-	aiCfg, err := runAIForms(cfg, a.formOpts...)
+// Configure runs the interactive AI configuration forms and writes the
+// results through the editor.
+func (a *AIInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
+	aiCfg, err := runAIForms(cfg.View(), a.formOpts...)
 	if err != nil {
 		return err
 	}
 
-	// Write results directly into the shared configuration container
-	cfg.Set(chat.ConfigKeyAIProvider, aiCfg.Provider)
+	if err := cfg.Set(chat.ConfigKeyAIProvider, aiCfg.Provider); err != nil {
+		return err
+	}
 
 	return writeAICredentialKeys(cfg, p.Tool.Name, aiCfg)
 }
@@ -353,7 +350,7 @@ func (a *AIInitialiser) Configure(p *props.Props, cfg config.Containable) error 
 // intended value without stale entries from a prior mode. toolName
 // names the service used by the keychain write; see
 // [providerKeychainAccount] for the account shape.
-func writeAICredentialKeys(cfg config.Containable, toolName string, aiCfg *AIConfig) error {
+func writeAICredentialKeys(cfg setup.Editor, toolName string, aiCfg *AIConfig) error {
 	keys, ok := providerConfigKeys(aiCfg.Provider)
 	if !ok {
 		return nil
@@ -393,28 +390,33 @@ func providerConfigKeys(provider string) (providerConfigKeyTriple, bool) {
 // test-only path that sets APIKey directly). Callers invoke this only
 // after the selected mode's key has actually been written, so an empty
 // wizard form never wipes an existing credential.
-func clearStaleAICredentialKeys(w credentials.KeyWriter, keys providerConfigKeyTriple, keep credentials.Mode) {
+func clearStaleAICredentialKeys(cfg setup.Editor, keys providerConfigKeyTriple, keep credentials.Mode) error {
 	all := []string{keys.env, keys.literal, keys.keychain}
 
 	switch keep {
 	case credentials.ModeEnvVar:
-		credentials.ClearKeysExcept(w, all, keys.env)
+		return setup.ClearCredentialKeysExcept(cfg, all, keys.env)
 	case credentials.ModeKeychain:
-		credentials.ClearKeysExcept(w, all, keys.keychain)
+		return setup.ClearCredentialKeysExcept(cfg, all, keys.keychain)
 	case credentials.ModeLiteral, "":
-		credentials.ClearKeysExcept(w, all, keys.literal)
+		return setup.ClearCredentialKeysExcept(cfg, all, keys.literal)
+	default:
+		return nil
 	}
 }
 
 // applyStorageModeWrite performs the single Set call corresponding
 // to the selected storage mode. Extracted so the cyclomatic cost of
 // the four-arm switch doesn't hit the outer function's budget.
-func applyStorageModeWrite(cfg config.Containable, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
+func applyStorageModeWrite(cfg setup.Editor, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
 	switch aiCfg.StorageMode {
 	case credentials.ModeEnvVar:
 		if aiCfg.EnvVarName != "" {
-			cfg.Set(keys.env, aiCfg.EnvVarName)
-			clearStaleAICredentialKeys(cfg, keys, credentials.ModeEnvVar)
+			if err := cfg.Set(keys.env, aiCfg.EnvVarName); err != nil {
+				return err
+			}
+
+			return clearStaleAICredentialKeys(cfg, keys, credentials.ModeEnvVar)
 		}
 
 		return nil
@@ -423,8 +425,11 @@ func applyStorageModeWrite(cfg config.Containable, toolName string, keys provide
 		// "" preserves prior behaviour for callers (tests) that
 		// bypass the wizard and set APIKey directly.
 		if aiCfg.APIKey != "" {
-			cfg.Set(keys.literal, aiCfg.APIKey)
-			clearStaleAICredentialKeys(cfg, keys, credentials.ModeLiteral)
+			if err := cfg.Set(keys.literal, aiCfg.APIKey); err != nil {
+				return err
+			}
+
+			return clearStaleAICredentialKeys(cfg, keys, credentials.ModeLiteral)
 		}
 
 		return nil
@@ -436,8 +441,11 @@ func applyStorageModeWrite(cfg config.Containable, toolName string, keys provide
 		}
 
 		if ref != "" {
-			cfg.Set(keys.keychain, ref)
-			clearStaleAICredentialKeys(cfg, keys, credentials.ModeKeychain)
+			if err := cfg.Set(keys.keychain, ref); err != nil {
+				return err
+			}
+
+			return clearStaleAICredentialKeys(cfg, keys, credentials.ModeKeychain)
 		}
 
 		return nil
@@ -473,21 +481,24 @@ func storeAIKeyInKeychain(toolName string, aiCfg *AIConfig) (string, error) {
 	return toolName + "/" + account, nil
 }
 
-// RunAIInit executes the AI configuration form and writes the results to the config file.
-func RunAIInit(p *props.Props, dir string, opts ...FormOption) error {
-	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
-
-	existingCfg, _ := config.LoadFilesContainer(p.FS, config.WithConfigFiles(targetFile))
-	if existingCfg == nil {
-		existingCfg = config.NewContainerFromViper(nil, viper.New())
-	}
-
-	aiCfg, err := runAIForms(existingCfg, opts...)
+// RunAIInit executes the AI configuration form and writes the results to the
+// config file, which is seeded from the merged init template when absent.
+func RunAIInit(ctx context.Context, p *props.Props, dir string, opts ...FormOption) error {
+	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
 	if err != nil {
 		return err
 	}
 
-	return writeAIConfig(p, dir, aiCfg)
+	aiCfg, err := runAIForms(editor.View(), opts...)
+	if err != nil {
+		return err
+	}
+
+	if err := editor.Set(chat.ConfigKeyAIProvider, aiCfg.Provider); err != nil {
+		return err
+	}
+
+	return writeAICredentialKeys(editor, p.Tool.Name, aiCfg)
 }
 
 // runAIForms runs the multi-stage AI configuration forms and returns the result.
@@ -496,7 +507,7 @@ func RunAIInit(p *props.Props, dir string, opts ...FormOption) error {
 // env-var name input (env-var mode) or secret input (literal/keychain
 // mode). Split across helpers to keep each stage under the
 // cyclomatic-complexity budget.
-func runAIForms(existingCfg config.Containable, opts ...FormOption) (*AIConfig, error) {
+func runAIForms(existingCfg config.Reader, opts ...FormOption) (*AIConfig, error) {
 	fCfg := newAIFormConfig(opts...)
 
 	aiCfg := &AIConfig{}
@@ -643,166 +654,6 @@ func providerKeychainAccount(provider string) string {
 	}
 }
 
-func writeAIConfig(p *props.Props, dir string, aiCfg *AIConfig) error {
-	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
-
-	cfg := viper.New()
-	cfg.SetFs(p.FS)
-	cfg.SetConfigType("yaml")
-
-	if err := loadExistingAIConfig(cfg, p.FS, targetFile); err != nil {
-		return err
-	}
-
-	// Drop every credential key for the selected provider that may have
-	// been carried over from an existing config, so the upcoming write
-	// leaves exactly one — the selected mode's — behind. Without this a
-	// prior literal key (or stale env/keychain reference) would persist
-	// alongside the new one and mask it (or leak) at resolve time.
-	cfg = pruneAICredentialKeys(cfg, p.FS, aiCfg.Provider)
-
-	configMap := map[string]any{
-		"ai": map[string]any{
-			"provider": aiCfg.Provider,
-		},
-	}
-
-	if err := setAICredentialOnViper(cfg, p.Tool.Name, aiCfg); err != nil {
-		return err
-	}
-
-	if err := cfg.MergeConfigMap(configMap); err != nil {
-		return errors.Newf("failed to merge AI config: %w", err)
-	}
-
-	// Ensure directory exists
-	const defaultDirPerm = 0o755
-
-	if err := p.FS.MkdirAll(dir, defaultDirPerm); err != nil {
-		return errors.Newf("failed to create config directory: %w", err)
-	}
-
-	if err := cfg.WriteConfigAs(targetFile); err != nil {
-		return err
-	}
-
-	// Restrict config file permissions — the file may contain API keys.
-	const configFilePerm = 0o600
-
-	return p.FS.Chmod(targetFile, configFilePerm)
-}
-
-// loadExistingAIConfig reads the target file (if present) into the
-// viper instance so we merge rather than clobber. A missing file is
-// treated as "no existing config" — only genuine read errors surface
-// downstream.
-func loadExistingAIConfig(cfg *viper.Viper, fs afero.Fs, targetFile string) error {
-	exists, _ := afero.Exists(fs, targetFile)
-	if !exists {
-		return nil
-	}
-
-	data, err := afero.ReadFile(fs, targetFile)
-	if err != nil {
-		return errors.Newf("failed to read existing config: %w", err)
-	}
-
-	if readErr := cfg.ReadConfig(bytes.NewReader(data)); readErr != nil {
-		return errors.Newf("failed to parse existing config: %w", readErr)
-	}
-
-	return nil
-}
-
-// setAICredentialOnViper writes exactly one of the credential keys
-// (env-var reference, literal, or keychain reference) based on the
-// selected storage mode, so a prior mode cannot mask the new one at
-// resolve time. toolName is the keychain service used for
-// [credentials.ModeKeychain] writes.
-func setAICredentialOnViper(cfg *viper.Viper, toolName string, aiCfg *AIConfig) error {
-	keys, _ := providerConfigKeys(aiCfg.Provider)
-
-	switch aiCfg.StorageMode {
-	case credentials.ModeEnvVar:
-		if keys.env != "" && aiCfg.EnvVarName != "" {
-			cfg.Set(keys.env, aiCfg.EnvVarName)
-		}
-	case credentials.ModeLiteral, "":
-		if keys.literal != "" && aiCfg.APIKey != "" {
-			cfg.Set(keys.literal, aiCfg.APIKey)
-		}
-	case credentials.ModeKeychain:
-		return writeKeychainRefToViper(cfg, toolName, keys, aiCfg)
-	default:
-		return errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
-	}
-
-	return nil
-}
-
-// writeKeychainRefToViper stores the API key in the backend and
-// records the reference on the viper instance. Split out of
-// [setAICredentialOnViper] to keep that function under the
-// cyclomatic-complexity budget.
-func writeKeychainRefToViper(cfg *viper.Viper, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
-	ref, err := storeAIKeyInKeychain(toolName, aiCfg)
-	if err != nil {
-		return err
-	}
-
-	if keys.keychain != "" && ref != "" {
-		cfg.Set(keys.keychain, ref)
-	}
-
-	return nil
-}
-
-// pruneAICredentialKeys returns a viper instance with every credential
-// key path for the given provider (env / literal / keychain) removed.
-// viper has no delete primitive, so it rebuilds from AllSettings minus
-// those nested keys. The file-write path calls this after loading any
-// existing config so re-running the wizard never leaves a stale
-// credential from a prior storage mode behind — exactly one credential
-// key persists. An unknown provider returns the input unchanged.
-func pruneAICredentialKeys(cfg *viper.Viper, fs afero.Fs, provider string) *viper.Viper {
-	keys, ok := providerConfigKeys(provider)
-	if !ok {
-		return cfg
-	}
-
-	settings := cfg.AllSettings()
-	for _, key := range []string{keys.env, keys.literal, keys.keychain} {
-		deleteNestedKey(settings, strings.Split(key, "."))
-	}
-
-	pruned := viper.New()
-	pruned.SetFs(fs)
-	pruned.SetConfigType("yaml")
-	_ = pruned.MergeConfigMap(settings)
-
-	return pruned
-}
-
-// deleteNestedKey removes the value addressed by the dotted path from a
-// nested map, pruning now-empty parent maps so no empty scaffolding
-// (e.g. `anthropic: {api: {}}`) is left behind in the written config.
-func deleteNestedKey(m map[string]any, path []string) {
-	switch len(path) {
-	case 0:
-		return
-	case 1:
-		delete(m, path[0])
-	default:
-		if sub, ok := m[path[0]].(map[string]any); ok {
-			deleteNestedKey(sub, path[1:])
-
-			if len(sub) == 0 {
-				delete(m, path[0])
-			}
-		}
-	}
-}
-
 // validProviders is the set of permitted AI provider identifiers.
 var validProviders = []string{
 	string(gochat.ProviderClaude),
@@ -817,10 +668,12 @@ func isValidProvider(provider string) bool {
 
 // IsAIConfigured checks if the AI provider and its corresponding key are configured.
 func IsAIConfigured(p props.ConfigProvider) bool {
-	cfg := p.GetConfig()
-	if cfg == nil {
+	store := p.GetConfig()
+	if store == nil {
 		return false
 	}
+
+	cfg := store.View()
 
 	provider := cfg.GetString(chat.ConfigKeyAIProvider)
 	if !isValidProvider(provider) {
@@ -845,7 +698,7 @@ mode is refused when running under CI.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
-			if err := RunAIInit(p, dir, opts...); err != nil {
+			if err := RunAIInit(cmd.Context(), p, dir, opts...); err != nil {
 				return errors.Wrap(err, "failed to configure AI")
 			}
 

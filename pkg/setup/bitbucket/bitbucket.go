@@ -1,16 +1,13 @@
 package bitbucket
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
 
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"gitlab.com/phpboyscout/go/credentials"
 
@@ -149,7 +146,7 @@ func (i *Initialiser) Name() string {
 
 // IsConfigured reports whether any of the three storage modes is
 // already recorded in the config.
-func (i *Initialiser) IsConfigured(cfg config.Containable) bool {
+func (i *Initialiser) IsConfigured(cfg config.Reader) bool {
 	return cfg.GetString("bitbucket.keychain") != "" ||
 		cfg.GetString("bitbucket.username.env") != "" ||
 		cfg.GetString("bitbucket.app_password.env") != "" ||
@@ -159,7 +156,7 @@ func (i *Initialiser) IsConfigured(cfg config.Containable) bool {
 
 // Configure runs the interactive wizard and persists the captured
 // credentials according to the selected storage mode.
-func (i *Initialiser) Configure(p *props.Props, cfg config.Containable) error {
+func (i *Initialiser) Configure(p *props.Props, cfg setup.Editor) error {
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
@@ -340,15 +337,19 @@ func runFormStage(creator func(*BitbucketConfig) *huh.Form, cfg *BitbucketConfig
 
 // writeBitbucketCredentials persists the captured BitbucketConfig
 // according to the selected storage mode.
-func writeBitbucketCredentials(ctx context.Context, cfg config.Containable, toolName string, bbCfg *BitbucketConfig) error {
+func writeBitbucketCredentials(ctx context.Context, cfg setup.Editor, toolName string, bbCfg *BitbucketConfig) error {
 	switch bbCfg.StorageMode {
 	case credentials.ModeEnvVar:
 		if bbCfg.UsernameEnvName != "" {
-			cfg.Set("bitbucket.username.env", bbCfg.UsernameEnvName)
+			if err := cfg.Set("bitbucket.username.env", bbCfg.UsernameEnvName); err != nil {
+				return err
+			}
 		}
 
 		if bbCfg.AppPasswordEnvName != "" {
-			cfg.Set("bitbucket.app_password.env", bbCfg.AppPasswordEnvName)
+			if err := cfg.Set("bitbucket.app_password.env", bbCfg.AppPasswordEnvName); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -358,11 +359,15 @@ func writeBitbucketCredentials(ctx context.Context, cfg config.Containable, tool
 
 	case credentials.ModeLiteral, "":
 		if bbCfg.Username != "" {
-			cfg.Set("bitbucket.username", bbCfg.Username)
+			if err := cfg.Set("bitbucket.username", bbCfg.Username); err != nil {
+				return err
+			}
 		}
 
 		if bbCfg.AppPassword != "" {
-			cfg.Set("bitbucket.app_password", bbCfg.AppPassword)
+			if err := cfg.Set("bitbucket.app_password", bbCfg.AppPassword); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -377,7 +382,7 @@ func writeBitbucketCredentials(ctx context.Context, cfg config.Containable, tool
 // the format the resolver (go/forge-bitbucket) expects. Extracted
 // from the switch to keep [writeBitbucketCredentials] under the
 // cyclomatic-complexity budget.
-func writeKeychainBlob(ctx context.Context, cfg config.Containable, toolName string, bbCfg *BitbucketConfig) error {
+func writeKeychainBlob(ctx context.Context, cfg setup.Editor, toolName string, bbCfg *BitbucketConfig) error {
 	if toolName == "" {
 		return errors.New("cannot write keychain entry without a tool name")
 	}
@@ -400,16 +405,14 @@ func writeKeychainBlob(ctx context.Context, cfg config.Containable, toolName str
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
 	}
 
-	cfg.Set("bitbucket.keychain", toolName+"/"+bitbucketKeychainAccount)
-
-	return nil
+	return cfg.Set("bitbucket.keychain", toolName+"/"+bitbucketKeychainAccount)
 }
 
 // RunBitbucketInit executes the wizard against an existing config
 // container, typically invoked by [NewCmdInitBitbucket]. Optional
 // [FormOption]s are propagated into the wizard so tests can inject
 // deterministic form creators, mirroring [pkg/setup/ai.RunAIInit].
-func RunBitbucketInit(p *props.Props, cfg config.Containable, opts ...FormOption) error {
+func RunBitbucketInit(p *props.Props, cfg setup.Editor, opts ...FormOption) error {
 	i := NewInitialiser(p, WithFormOptions(opts...))
 
 	return i.Configure(p, cfg)
@@ -430,7 +433,7 @@ and literal mode writes both fields to config.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
-			if err := RunInitCmd(p, dir); err != nil {
+			if err := RunInitCmd(cmd.Context(), p, dir); err != nil {
 				return errors.Wrap(err, "failed to configure Bitbucket")
 			}
 
@@ -445,37 +448,16 @@ and literal mode writes both fields to config.`,
 	return cmd
 }
 
-// RunInitCmd loads or creates the target config, runs the wizard,
-// and writes the updated config back to disk with 0600 permissions.
-// Optional [FormOption]s are propagated into the wizard so tests can
-// inject deterministic form creators, mirroring [pkg/setup/ai.RunAIInit].
-func RunInitCmd(p *props.Props, dir string, opts ...FormOption) error {
-	targetFile := filepath.Join(dir, setup.DefaultConfigFilename)
-
-	c, err := config.LoadFilesContainer(p.FS, config.WithConfigFiles(targetFile))
+// RunInitCmd materialises the target config (seeded from the merged init
+// template when absent) and runs the wizard over it; writes land in the file
+// as they are applied, with 0600 permissions. Optional [FormOption]s are
+// propagated into the wizard so tests can inject deterministic form creators,
+// mirroring [pkg/setup/ai.RunAIInit].
+func RunInitCmd(ctx context.Context, p *props.Props, dir string, opts ...FormOption) error {
+	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
 	if err != nil {
-		v := viper.New()
-		if rerr := v.ReadConfig(bytes.NewReader(setup.DefaultConfig)); rerr != nil {
-			return errors.Wrap(rerr, "failed to read default config")
-		}
-
-		c = config.NewContainerFromViper(nil, v)
-	}
-
-	if err := RunBitbucketInit(p, c, opts...); err != nil {
 		return err
 	}
 
-	const dirPerm = 0o755
-	if err := p.FS.MkdirAll(dir, dirPerm); err != nil {
-		return errors.Wrap(err, "failed to create config directory")
-	}
-
-	if err := c.WriteConfigAs(targetFile); err != nil {
-		return err
-	}
-
-	const configFilePerm = 0o600
-
-	return p.FS.Chmod(targetFile, configFilePerm)
+	return RunBitbucketInit(p, editor, opts...)
 }

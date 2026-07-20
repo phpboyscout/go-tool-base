@@ -13,12 +13,3 @@ update:
   # (props.Tool.UpdateCheckInterval) applies; set it to override. Empty/invalid
   # with no baseline falls back to 24h.
   check_interval: ""
-github:
-  url:
-    api: https://api.github.com
-    upload: https://uploads.github.com
-  auth:
-    env: GITHUB_TOKEN
-  ssh:
-    key:
-      env: GITHUB_KEY
