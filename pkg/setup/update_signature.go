@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"gitlab.com/phpboyscout/go/signing/verify"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 // signatureDefaultAssetName is the filename GoReleaser produces for the
@@ -123,7 +123,7 @@ func resolveExternalKeyEmail(cfg stringConfig) string {
 //   - An absent signature, an unreachable resolver, or no configured
 //     resolver is gated by requireSignature: fail-closed aborts,
 //     fail-open logs a warning and proceeds.
-func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel release.Release, manifest []byte) error {
+func (s *SelfUpdater) verifyManifestSignature(ctx context.Context, rel forge.Release, manifest []byte) error {
 	if s.keyResolver == nil {
 		if s.requireSignature {
 			return errors.WithHint(
@@ -165,7 +165,7 @@ func (s *SelfUpdater) handleResolveError(err error) error {
 // verifyAgainstTrustSet fetches the detached signature and verifies it
 // against the resolved trust set. A present-but-invalid signature is
 // always fatal; an absent signature is gated by requireSignature.
-func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Release, manifest []byte, trustSet *verify.TrustSet) error {
+func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel forge.Release, manifest []byte, trustSet *verify.TrustSet) error {
 	sig, err := s.fetchSignature(ctx, rel)
 	if err != nil {
 		if s.requireSignature {
@@ -205,17 +205,17 @@ func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel release.Rel
 }
 
 // fetchSignature retrieves the detached signature for rel, preferring
-// [release.SignatureProvider] when the provider opts in and falling
+// [forge.SignatureProvider] when the provider opts in and falling
 // back to asset-list lookup otherwise. Returns (nil, nil) when no
 // signature is available by either route.
-func (s *SelfUpdater) fetchSignature(ctx context.Context, rel release.Release) ([]byte, error) {
-	if sp, ok := s.releaseClient.(release.SignatureProvider); ok {
+func (s *SelfUpdater) fetchSignature(ctx context.Context, rel forge.Release) ([]byte, error) {
+	if sp, ok := s.releaseClient.(forge.SignatureProvider); ok {
 		sig, err := sp.DownloadSignature(ctx, rel, verify.MaxSignatureSize)
 		if err == nil {
 			return sig, nil
 		}
 
-		if !errors.Is(err, release.ErrNotSupported) {
+		if !errors.Is(err, forge.ErrNotSupported) {
 			return nil, err
 		}
 		// ErrNotSupported: provider opted out. Fall through to asset lookup.
@@ -232,7 +232,7 @@ func (s *SelfUpdater) fetchSignature(ctx context.Context, rel release.Release) (
 // findSignatureAsset returns the release asset whose name matches the
 // configured signature filename. The second return value is false when
 // no matching asset is present.
-func (s *SelfUpdater) findSignatureAsset(rel release.Release) (release.ReleaseAsset, bool) {
+func (s *SelfUpdater) findSignatureAsset(rel forge.Release) (forge.ReleaseAsset, bool) {
 	name := s.SignatureAssetName()
 
 	for _, asset := range rel.GetAssets() {

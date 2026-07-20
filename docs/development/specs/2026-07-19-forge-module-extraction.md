@@ -2,7 +2,7 @@
 title: "Extract the forge/release layer into go/forge and per-provider modules"
 description: "Extract pkg/vcs/release (the Provider contract, registry and release types) together with pkg/vcs's token-resolution helpers into gitlab.com/phpboyscout/go/forge, then split each forge provider into its own module. The release contract already has zero go-tool-base coupling, but auth lives in a sibling package and every real provider needs both — so the two must move together or out-of-tree provider authors are forced back into a go-tool-base dependency. Audit of the four in-tree providers found the true provider-authoring surface to be ten symbols, alongside nine contract gaps that would silently break a third-party author."
 date: 2026-07-19
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - vcs
@@ -27,8 +27,8 @@ Date
 :   2026-07-19
 
 Status
-:   APPROVED (2026-07-19 — Q1–Q6 resolved with user; see Resolutions). Phases 3 and 4 of
-    the VCS stack extraction plan.
+:   IMPLEMENTED (2026-07-19). Phases 3–5 shipped: `go/forge` v0.1.1, the four provider
+    modules at v0.1.0, and the GTB cut-over. Q1–Q6 resolved with user; see Resolutions.
 
 Related
 :   [VCS stack extraction plan](2026-07-19-vcs-stack-extraction-plan.md) (IN PROGRESS — the parent plan; R1–R8),
@@ -492,7 +492,20 @@ _All resolved — see Resolutions above._
 
 ## Status
 
-APPROVED (2026-07-19) — evidence gathered from three audits (core contract, four providers,
-documentation intent); Q1–Q6 resolved with the user and recorded as R1–R6. Phase 3
-(`go/forge`) may begin. Phase 4 halts after `forge-bitbucket` to settle GitHub's scope
-per R2.
+IMPLEMENTED (2026-07-19).
+
+`go/forge` v0.1.1 and `forge-github`/`-gitlab`/`-gitea`/`-bitbucket` v0.1.0 are published;
+GTB consumes them and the in-tree packages are deleted.
+
+R2 resolved with context that changed the answer: GitHub's wider API predates the framework
+being opensourced, still has value, and is **retained in GTB** rather than moved or deleted
+— because shipping it for one forge alone would create exactly the capability disparity
+backend agnosticism exists to prevent. Restoring it across every provider in lockstep is
+specified separately at `go/forge`
+`docs/development/specs/2026-07-19-forge-operations-beyond-releases.md`.
+
+Findings worth carrying forward: all four providers had the same credential-downgrade hole
+(host compared, scheme not) — now closed by the shared `HostTrusted`; the conformance
+harness had a hole in its own size-bound check, found only by breaking a provider known to
+be correct; and the Gitea SDK swap fixed a latent bug where the old code claimed
+`/releases/latest` did not exist.

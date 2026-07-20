@@ -34,7 +34,6 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
-	gitlab.com/gitlab-org/api/client-go/v2 v2.50.0
 	gitlab.com/phpboyscout/go/browser v0.1.0
 	gitlab.com/phpboyscout/go/chat v0.1.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
@@ -44,6 +43,11 @@ require (
 	gitlab.com/phpboyscout/go/controls v0.1.0
 	gitlab.com/phpboyscout/go/credentials v0.2.0
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
+	gitlab.com/phpboyscout/go/forge v0.1.1
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.1.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.1.0
+	gitlab.com/phpboyscout/go/forge-github v0.1.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/redact v0.1.0
@@ -72,6 +76,8 @@ require (
 	cloud.google.com/go v0.116.0 // indirect
 	cloud.google.com/go/auth v0.18.1 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	gitea.dev/sdk v1.2.0 // indirect
+	github.com/42wim/httpsig v1.2.4 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.20.0 // indirect
@@ -124,6 +130,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dlclark/regexp2/v2 v2.1.0 // indirect
@@ -161,6 +168,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-memdb v1.3.4 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
+	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -240,6 +248,7 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
+	gitlab.com/gitlab-org/api/client-go/v2 v2.46.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect

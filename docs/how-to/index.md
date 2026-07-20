@@ -128,7 +128,7 @@ Wire up `UpdateCmd` with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct
 Implement and register a custom `release.Provider` so your tool can self-update from any backend — S3, Artifactory, Nexus, or a proprietary store.
 
 ### [Secure Releases — Checksum Verification](secure-releases.md)
-Publish `checksums.txt` alongside release binaries so `Update()` rejects tampered or truncated downloads. Covers the fail-open library default, the `setup.DefaultRequireChecksum` opt-in for fail-closed tools, and per-provider manifest retrieval (Bitbucket downloads, Direct's `checksum_url_template`).
+Publish `checksums.txt` alongside release binaries so `Update()` rejects tampered or truncated downloads. Covers the fail-open library default, the `props.Tool.Signing.RequireChecksum` opt-in for fail-closed tools, and per-provider manifest retrieval (Bitbucket downloads, Direct's `checksum_url_template`).
 
 ## Telemetry
 

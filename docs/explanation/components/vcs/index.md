@@ -1,86 +1,76 @@
 ---
 title: VCS
-description: Version control subpackages — git operations, GitHub API, GitLab API, and release management.
-date: 2026-03-29
-tags: [components, vcs, git, github, gitlab, bitbucket, gitea, codeberg, direct, release]
-authors: [Matt Cockayne <matt@phpboyscout.com>]
+description: How GTB wires the extracted forge and repo modules — release-source config, provider registration, and the config adapters that stay.
+date: 2026-07-19
+tags: [components, vcs, forge, releases, git]
 ---
 
 # VCS
 
-The `pkg/vcs/` directory is split into focused subpackages. Each has a distinct responsibility and can be used independently.
+The VCS layer has been **extracted** into standalone modules. What remains in
+`pkg/vcs` is the glue that turns GTB configuration into what those modules need.
 
-## Package Overview
+| Concern | Module | Docs |
+|---|---|---|
+| Release providers, registry, credential chain | `gitlab.com/phpboyscout/go/forge` | [forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk) |
+| GitHub, GitLab, Gitea/Codeberg, Bitbucket | `go/forge-<name>` | [providers reference](https://forge.go.phpboyscout.uk/reference/providers/) |
+| Git operations (clone, commit, worktrees) | `gitlab.com/phpboyscout/go/repo` | [repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk) |
+| billy↔afero bridge | `gitlab.com/phpboyscout/go/aferobilly` | [aferobilly.go.phpboyscout.uk](https://aferobilly.go.phpboyscout.uk) |
 
-| Package | Import path | Purpose |
-|---------|-------------|---------|
-| **[Release](release.md)** | `pkg/vcs/release` | Backend-agnostic `Provider`/`Release`/`ReleaseAsset` interfaces, sentinel errors, and the provider registry |
-| **[Repo](repo.md)** | `pkg/vcs/repo` | Git repository operations (local and in-memory) via `go-git` |
-| **[aferobilly](aferobilly.md)** | `pkg/vcs/repo/aferobilly` | Adapts a `go-billy/v5` filesystem (e.g. a worktree) to an `afero.Fs`, with per-op locking for safe concurrent use |
-| **[GitHub](github.md)** | `pkg/vcs/github` | GitHub Enterprise API client and GitHub release provider |
-| **[GitLab](gitlab.md)** | `pkg/vcs/gitlab` | GitLab (and self-managed) release provider |
-| **[Bitbucket](bitbucket.md)** | `pkg/vcs/bitbucket` | Bitbucket Cloud Downloads-based release provider (filename-pattern version detection) |
-| **[Gitea / Codeberg](gitea.md)** | `pkg/vcs/gitea` | Gitea, Forgejo, and Codeberg REST API release provider |
-| **[Direct HTTP](direct.md)** | `pkg/vcs/direct` | Direct HTTP release provider for arbitrary download servers |
+---
 
-The root `pkg/vcs` package contains only `auth.go` — the shared `ResolveToken` helper used by the GitHub and GitLab subpackages.
+## What stays in GTB
 
-## Provider Registry
+**`pkg/vcs`** — `ConfigFromContainable`, adapting GTB's config container to the
+narrow `forge.Config` seam. The seam is two methods wide precisely so a provider
+needs no config library; this bridge is the one place that knows about both.
 
-All built-in release providers register themselves at package `init` time. Consuming code looks up a provider by source type string rather than importing platform packages directly:
+**`pkg/vcs/github`** — GitHub's **wider API**: pull requests, repository
+creation, SSH key upload, file contents, and the OAuth device-login flow. See
+[GitHub](github.md).
 
-```go
-factory, err := release.Lookup("gitea")
-provider, err := factory(src, cfg)
-```
+**`pkg/vcs/repo`** — the props/config adapters for the `repo` module. See
+[Repo](repo.md).
 
-Blank imports in `pkg/setup/providers.go` wire all built-in providers automatically — no manual registration is required when using `setup.NewUpdater`. See [Release Provider](release.md) for the full registry API and how to register a custom provider.
+---
 
-## Authentication
+## Provider registration
 
-`vcs.ResolveTokenContext(ctx context.Context, cfg config.Containable, fallbackEnv string) string` resolves a token from a config subtree in this order:
-
-1. `auth.env` — reads the named environment variable
-2. `auth.keychain` — `"<service>/<account>"` reference resolved via [`credentials.Retrieve`](../credentials.md#api); silently skipped when no keychain-capable [`Backend`](../credentials.md#backend-interface) is registered
-3. `auth.value` — uses the literal value stored in config
-4. `fallbackEnv` — falls back to a well-known environment variable (e.g. `"GITHUB_TOKEN"`)
-
-Returns an empty string when nothing is found. Callers decide whether that is an error — public repositories can operate without a token; private repositories will receive a 401. The context is propagated to the credentials backend so remote secret stores (Vault, AWS SSM, 1Password Connect) honour the caller's deadline and cancellation.
+Providers register themselves at `init()` when blank-imported.
+`pkg/setup/providers.go` imports the full first-party set, because the framework
+cannot know which forge a downstream tool targets:
 
 ```go
 import (
-    "context"
-
-    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+    _ "gitlab.com/phpboyscout/go/forge-bitbucket"
+    _ "gitlab.com/phpboyscout/go/forge-github"
+    _ "gitlab.com/phpboyscout/go/forge-gitea"
+    _ "gitlab.com/phpboyscout/go/forge-gitlab"
+    _ "gitlab.com/phpboyscout/go/forge/direct"
 )
-
-// Resolve a GitHub token from props.Config.Sub("github") with the
-// cobra command's context.
-token := vcs.ResolveTokenContext(cmd.Context(), props.Config.Sub("github"), "GITHUB_TOKEN")
 ```
 
-The context-free form `vcs.ResolveToken(cfg, fallbackEnv)` is preserved as a compatibility shim that internally calls `ResolveTokenContext(context.Background(), …)`. Prefer the context-aware variant anywhere a context is already in scope.
+A tool that supports one forge can import only that provider and shed the other
+clients entirely — which is the point of the per-provider split. `direct` is not
+a forge, so it ships inside the `forge` module.
 
-## Design Goals
+Registering a source type twice **panics at init**, naming the module at fault.
 
-**Interface segregation**
-: `RepoLike` (repo operations) and `GitHubClient` (API operations) are separate interfaces. Most features only need one of them.
+---
 
-**Backend agnosticism for releases**
-: All release providers implement `release.Provider`. Consuming code (e.g. the auto-update command) depends only on that interface and never imports a platform-specific package directly.
+## Configuration
 
-**Extensibility**
-: Custom providers can be registered at startup via `release.Register`. The registry is backed by a `sync.RWMutex` and safe for concurrent use. See the [how-to guide](../../../how-to/custom-release-source.md) for a full walkthrough.
+The config-key layout is unchanged: `<forge>.auth.{env,keychain,value}`,
+`<forge>.url.*`, and the well-known `<FORGE>_TOKEN` fallbacks. Per-provider keys
+and capabilities are documented on the
+[providers reference](https://forge.go.phpboyscout.uk/reference/providers/).
 
-**Testability**
-: All public interfaces have generated mocks in `mocks/pkg/vcs/`. In-memory git storage (`SourceMemory`) enables offline integration-style tests. HTTP-based providers use `httptest.NewServer` for network-free unit tests.
+Self-update wiring — `props.Tool.ReleaseSource`, `setup.NewUpdater`, the
+`update.require_checksum` / `require_signature` policy — is GTB's and is
+documented under [setup](../setup/index.md).
 
-**`afero` integration**
-: `Repo.AddToFS` bridges `go-git` object storage into any `afero.Fs`, so file operations are consistent between production (OS filesystem) and tests (memory-mapped filesystem).
+## Related
 
-## Related Documentation
-
-- **[VCS Concepts](repo.md)** — architectural rationale and usage patterns
-- **[Auto-Update Lifecycle](../update.md)** — how `release.Provider` is used for version checks
-- **[Interface Design](../../concepts/interface-design.md)** — `RepoLike` and `GitHubClient` in the interface hierarchy
-- **[Custom Release Source](../../../how-to/custom-release-source.md)** — register your own provider implementation
+- [GitHub](github.md) — the wider API that stays in GTB
+- [Repo](repo.md) — GTB's adapters for the git module
+- [Version control](../version-control.md) — the component family

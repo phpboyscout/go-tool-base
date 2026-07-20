@@ -18,9 +18,10 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
@@ -250,7 +251,7 @@ func (g *GitHubInitialiser) configureAuth(p *props.Props, cfg config.Containable
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	if token := vcs.ResolveTokenContext(ctx, cfg.Sub("github"), "GITHUB_TOKEN"); token != "" {
+	if token := forge.ResolveTokenContext(ctx, cfg.Sub("github"), "GITHUB_TOKEN"); token != "" {
 		p.Logger.Info("GitHub credential already configured; skipping OAuth token capture",
 			"env_ref", cfg.GetString("github.auth.env"))
 

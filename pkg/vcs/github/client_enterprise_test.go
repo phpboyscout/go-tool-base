@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 // TestPullRequestsPerPage_WithinGitHubCap guards the per-page constant against
@@ -50,7 +50,7 @@ func TestEnterpriseURLs(t *testing.T) {
 	}{
 		{
 			name:             "public github.com uses defaults",
-			settings:         ClientSettings{ReleaseSource: release.ReleaseSourceConfig{Host: "github.com"}},
+			settings:         ClientSettings{ReleaseSource: forge.ReleaseSourceConfig{Host: "github.com"}},
 			wantNoEnterprise: true,
 		},
 		{
@@ -60,7 +60,7 @@ func TestEnterpriseURLs(t *testing.T) {
 		{
 			name: "host-derived enterprise URLs",
 			settings: ClientSettings{
-				ReleaseSource: release.ReleaseSourceConfig{Host: "ghe.example.com"},
+				ReleaseSource: forge.ReleaseSourceConfig{Host: "ghe.example.com"},
 			},
 			wantAPIURL:    "https://ghe.example.com/api/v3/",
 			wantUploadURL: "https://ghe.example.com/api/uploads/",

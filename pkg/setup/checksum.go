@@ -15,31 +15,34 @@ import (
 	"github.com/spf13/afero"
 )
 
-// Size bounds on untrusted inputs. Exported as variables so tools with
-// exceptional release layouts can reassign them before calling Update;
-// the defaults are generous but protect against a hostile server
-// streaming an unbounded response.
+// Default size bounds on untrusted inputs. Generous, but they stop a hostile
+// server streaming an unbounded response into memory.
 //
-//nolint:gochecknoglobals // size bounds are tool-author tunables
-var (
-	// MaxChecksumsSize caps the byte length of a downloaded checksums
-	// manifest. A GoReleaser manifest for a typical multi-OS release
-	// is ~1 KiB; 1 MiB is 1000× headroom.
-	MaxChecksumsSize int64 = 1 << 20
+// These are constants, and a tool with an exceptional release layout raises
+// them per-updater with [WithMaxChecksumsSize] or [WithMaxBinaryDownloadSize]
+// rather than by reassigning a package variable. That is a deliberate change:
+// the previous mutable globals raced under t.Parallel — which is why the
+// oversized-response test could not run in parallel — and scoped a bound to
+// the whole process rather than to the updater that needed it.
+const (
+	// DefaultMaxChecksumsSize caps a downloaded checksums manifest. A
+	// GoReleaser manifest for a typical multi-OS release is ~1 KiB, so 1 MiB
+	// is roughly 1000x headroom.
+	DefaultMaxChecksumsSize int64 = 1 << 20
 
-	// MaxBinaryDownloadSize caps the byte length of a downloaded
-	// binary asset. 512 MiB is far above any realistic CLI binary;
-	// raise this only for tools that legitimately ship larger artefacts.
-	MaxBinaryDownloadSize int64 = 512 << 20
+	// DefaultMaxBinaryDownloadSize caps a downloaded binary asset. 512 MiB is
+	// far above any realistic CLI binary.
+	DefaultMaxBinaryDownloadSize int64 = 512 << 20
 )
 
-// DefaultRequireChecksum is the compile-time default for checksum
-// enforcement when neither config nor env var provides one. Tool
-// authors should set this to true in main() for security-critical
-// tools that want fail-closed verification from day one.
+// requireChecksumDefault is the fallback for checksum enforcement when neither
+// config nor environment provides one.
 //
-//nolint:gochecknoglobals // tool-author compile-time override
-var DefaultRequireChecksum = false
+// A tool wanting fail-closed verification from day one passes
+// [WithRequireChecksum] when constructing its updater, rather than mutating a
+// package variable at init. Same reasoning as the size bounds above: process-
+// wide mutable state is not a configuration mechanism.
+const requireChecksumDefault = false
 
 // ErrChecksumAssetNotFound is returned when the target filename is
 // not listed in the checksums manifest. The release may have been

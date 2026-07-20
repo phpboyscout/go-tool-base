@@ -15,11 +15,11 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/forge"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 // SettingsFromProps adapts GTB props into the typed repo settings used by
@@ -29,7 +29,7 @@ func SettingsFromProps(p *props.Props) gorepo.Settings {
 		return gorepo.Settings{}
 	}
 
-	source := release.ReleaseSourceConfig{
+	source := forge.ReleaseSourceConfig{
 		Type:    p.Tool.ReleaseSource.Type,
 		Host:    p.Tool.ReleaseSource.Host,
 		Owner:   p.Tool.ReleaseSource.Owner,
@@ -64,7 +64,7 @@ func resolveForge(forge string) string {
 // SettingsFromContainable adapts GTB config into typed repo settings. Runtime
 // config remains a framework boundary; the module itself does not depend on it.
 func SettingsFromContainable(
-	source release.ReleaseSourceConfig,
+	source forge.ReleaseSourceConfig,
 	cfg config.Containable,
 	log gorepo.Logger,
 	fs afero.Fs,
@@ -87,22 +87,22 @@ func SettingsFromContainable(
 		settings.Forge = resolveForge(cfg.GetString("vcs.provider"))
 	}
 
-	forge := settings.Forge
+	forgeName := settings.Forge
 
 	// Bind the config subtree now, but defer resolution: ResolveToken walks the
 	// env → keychain → literal chain, and a repository authenticating over SSH
 	// must never trigger a keychain lookup it does not need.
-	authCfg := vcs.ConfigFromContainable(cfg.Sub(forge))
-	fallbackEnv := strings.ToUpper(forge) + "_TOKEN"
-	settings.Token = func() string { return vcs.ResolveToken(authCfg, fallbackEnv) }
+	authCfg := vcs.ConfigFromContainable(cfg.Sub(forgeName))
+	fallbackEnv := strings.ToUpper(forgeName) + "_TOKEN"
+	settings.Token = func() string { return forge.ResolveToken(authCfg, fallbackEnv) }
 
-	if !cfg.Has(forge + ".ssh") {
+	if !cfg.Has(forgeName + ".ssh") {
 		return settings
 	}
 
 	settings.SSH.Configured = true
 
-	sshCfg := cfg.Sub(forge + ".ssh.key")
+	sshCfg := cfg.Sub(forgeName + ".ssh.key")
 	if sshCfg == nil {
 		return settings
 	}

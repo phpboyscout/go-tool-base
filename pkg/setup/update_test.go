@@ -10,13 +10,14 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	mockRelease "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
+	mockRelease "gitlab.com/phpboyscout/go/forge/mocks"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
-func createTestRelease(t *testing.T, tagName, body string, draft bool) release.Release {
+func createTestRelease(t *testing.T, tagName, body string, draft bool) forge.Release {
 	rel := mockRelease.NewMockRelease(t)
 	rel.EXPECT().GetTagName().Return(tagName).Maybe()
 	rel.EXPECT().GetBody().Return(body).Maybe()
@@ -31,14 +32,14 @@ func TestGetReleaseNotes(t *testing.T) {
 		name          string
 		from          string
 		to            string
-		releases      []release.Release
+		releases      []forge.Release
 		expectedNotes []string
 	}{
 		{
 			name: "successful range with multiple releases",
 			from: "v1.0.0",
 			to:   "v1.2.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.3.0", "Future release notes", false),
 				createTestRelease(t, "v1.2.0", "Release 1.2.0 notes", false),
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
@@ -54,7 +55,7 @@ func TestGetReleaseNotes(t *testing.T) {
 			name: "skip draft releases",
 			from: "v1.0.0",
 			to:   "v1.2.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "Release 1.2.0 notes", false),
 				createTestRelease(t, "v1.1.5", "Draft release notes", true), // This should be skipped
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
@@ -69,7 +70,7 @@ func TestGetReleaseNotes(t *testing.T) {
 			name: "no releases in range",
 			from: "v2.0.0",
 			to:   "v2.1.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "Release 1.2.0 notes", false),
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
@@ -80,7 +81,7 @@ func TestGetReleaseNotes(t *testing.T) {
 			name: "single release at to version",
 			from: "v1.0.0",
 			to:   "v1.1.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "Release 1.2.0 notes", false),
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
 				createTestRelease(t, "v1.0.0", "Release 1.0.0 notes", false),
@@ -93,7 +94,7 @@ func TestGetReleaseNotes(t *testing.T) {
 			name: "all releases are drafts",
 			from: "v1.0.0",
 			to:   "v1.2.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "Draft 1.2.0 notes", true),
 				createTestRelease(t, "v1.1.0", "Draft 1.1.0 notes", true),
 				createTestRelease(t, "v1.0.0", "Draft 1.0.0 notes", true),
@@ -104,7 +105,7 @@ func TestGetReleaseNotes(t *testing.T) {
 			name: "stop at 'to' version even with more releases",
 			from: "v1.0.0",
 			to:   "v1.1.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.3.0", "Future release notes", false),
 				createTestRelease(t, "v1.2.0", "Should not be included", false),
 				createTestRelease(t, "v1.1.0", "Release 1.1.0 notes", false),
@@ -302,25 +303,25 @@ func TestFindReleaseAsset(t *testing.T) {
 	tests := []struct {
 		name        string
 		toolName    string
-		assets      []release.ReleaseAsset
+		assets      []forge.ReleaseAsset
 		expectFound bool
 		expectError bool
 	}{
 		{
 			name:     "find exact match for current platform",
 			toolName: "mytool",
-			assets: []release.ReleaseAsset{
-				func() release.ReleaseAsset {
+			assets: []forge.ReleaseAsset{
+				func() forge.ReleaseAsset {
 					a := mockRelease.NewMockReleaseAsset(t)
 					a.EXPECT().GetName().Return("mytool_Darwin_x86_64.tar.gz").Maybe()
 					return a
 				}(),
-				func() release.ReleaseAsset {
+				func() forge.ReleaseAsset {
 					a := mockRelease.NewMockReleaseAsset(t)
 					a.EXPECT().GetName().Return(fmt.Sprintf("mytool_%s_%s.tar.gz", currentOS, currentArch)).Maybe()
 					return a
 				}(),
-				func() release.ReleaseAsset {
+				func() forge.ReleaseAsset {
 					a := mockRelease.NewMockReleaseAsset(t)
 					a.EXPECT().GetName().Return("mytool_Windows_x86_64.tar.gz").Maybe()
 					return a
@@ -332,13 +333,13 @@ func TestFindReleaseAsset(t *testing.T) {
 		{
 			name:     "no matching asset for current platform",
 			toolName: "mytool",
-			assets: []release.ReleaseAsset{
-				func() release.ReleaseAsset {
+			assets: []forge.ReleaseAsset{
+				func() forge.ReleaseAsset {
 					a := mockRelease.NewMockReleaseAsset(t)
 					a.EXPECT().GetName().Return("mytool_SomeOtherOS_x86_64.tar.gz").Maybe()
 					return a
 				}(),
-				func() release.ReleaseAsset {
+				func() forge.ReleaseAsset {
 					a := mockRelease.NewMockReleaseAsset(t)
 					a.EXPECT().GetName().Return("mytool_AnotherOS_arm64.tar.gz").Maybe()
 					return a
@@ -350,7 +351,7 @@ func TestFindReleaseAsset(t *testing.T) {
 		{
 			name:        "empty assets list",
 			toolName:    "mytool",
-			assets:      []release.ReleaseAsset{},
+			assets:      []forge.ReleaseAsset{},
 			expectFound: false,
 			expectError: true,
 		},
@@ -395,7 +396,7 @@ func TestFilterReleaseNotes(t *testing.T) {
 		name          string
 		from          string
 		to            string
-		releases      []release.Release
+		releases      []forge.Release
 		expectedCount int
 		expectedTags  []string
 	}{
@@ -403,7 +404,7 @@ func TestFilterReleaseNotes(t *testing.T) {
 			name: "filter releases in range",
 			from: "v1.0.0",
 			to:   "v1.2.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.3.0", "Future release", false),
 				createTestRelease(t, "v1.2.0", "To version", false),
 				createTestRelease(t, "v1.1.0", "Middle version", false),
@@ -417,7 +418,7 @@ func TestFilterReleaseNotes(t *testing.T) {
 			name: "skip draft releases",
 			from: "v1.0.0",
 			to:   "v1.2.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "To version", false),
 				createTestRelease(t, "v1.1.5", "Draft", true), // Should be skipped
 				createTestRelease(t, "v1.1.0", "Middle version", false),
@@ -429,7 +430,7 @@ func TestFilterReleaseNotes(t *testing.T) {
 			name: "no releases in range",
 			from: "v2.0.0",
 			to:   "v2.1.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "Old", false),
 				createTestRelease(t, "v1.1.0", "Older", false),
 			},
@@ -440,7 +441,7 @@ func TestFilterReleaseNotes(t *testing.T) {
 			name: "single release equals to version",
 			from: "v1.0.0",
 			to:   "v1.1.0",
-			releases: []release.Release{
+			releases: []forge.Release{
 				createTestRelease(t, "v1.2.0", "Future", false),
 				createTestRelease(t, "v1.1.0", "Target", false),
 				createTestRelease(t, "v1.0.0", "From", false),

@@ -21,10 +21,11 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	mockRelease "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
+	mockRelease "gitlab.com/phpboyscout/go/forge/mocks"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
@@ -104,7 +105,7 @@ func TestUpdate_Success(t *testing.T) {
 	mockAsset.EXPECT().GetID().Return(int64(123))
 	mockAsset.EXPECT().GetName().Return(expectedName)
 	mockAsset.EXPECT().GetBrowserDownloadURL().Return(server.URL + "/repos/org/repo/releases/assets/123")
-	mockReleaseStub.EXPECT().GetAssets().Return([]release.ReleaseAsset{mockAsset})
+	mockReleaseStub.EXPECT().GetAssets().Return([]forge.ReleaseAsset{mockAsset})
 
 	mockClient.EXPECT().GetLatestRelease(mock.Anything, "org", "repo").Return(mockReleaseStub, nil)
 	mockClient.EXPECT().DownloadReleaseAsset(mock.Anything, "org", "repo", mockAsset).Return(resp.Body, "", nil)
@@ -234,7 +235,7 @@ func TestGetReleaseNotes_Real(t *testing.T) {
 	mockRelease3.On("GetBody").Return("Initial").Maybe()
 	mockRelease3.EXPECT().GetDraft().Return(false)
 
-	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).Return([]release.Release{
+	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).Return([]forge.Release{
 		mockRelease1, mockRelease2, mockRelease3,
 	}, nil).Once()
 
@@ -254,7 +255,7 @@ func TestGetReleaseNotes_Real(t *testing.T) {
 	assert.Contains(t, notes, "# v1.2.0")
 
 	// Test No notes
-	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).Return([]release.Release{}, nil).Once()
+	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).Return([]forge.Release{}, nil).Once()
 	notes, err = updater.GetReleaseNotes(context.Background(), "v1.0.0", "v1.2.0")
 	require.NoError(t, err)
 	assert.Contains(t, notes, "No release notes found between")
@@ -311,7 +312,7 @@ func TestGetStructuredReleaseNotes_APIFallback(t *testing.T) {
 	r2.EXPECT().GetDraft().Return(false)
 
 	mockClient.EXPECT().ListReleases(mock.Anything, "org", "repo", 100).
-		Return([]release.Release{r1, r2}, nil).Once()
+		Return([]forge.Release{r1, r2}, nil).Once()
 
 	updater := &SelfUpdater{
 		Tool: props.Tool{

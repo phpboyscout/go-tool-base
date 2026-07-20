@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 // setupMockGitHubServer creates a mock HTTP server and returns a client configured to use it.
@@ -25,7 +25,7 @@ func setupMockGitHubServer(t *testing.T, handler http.HandlerFunc) (*httptest.Se
 	client, err := NewGitHubClient(ClientSettings{
 		APIURL:    server.URL,
 		UploadURL: server.URL,
-		Auth:      vcs.AuthConfig{Value: "mock-token"},
+		Auth:      forge.AuthConfig{Value: "mock-token"},
 	})
 	require.NoError(t, err)
 
@@ -350,7 +350,7 @@ func TestGetFileContents_Error(t *testing.T) {
 func TestGetGitHubToken_Present(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "test-token-abc")
 
-	token, err := GetGitHubToken(vcs.AuthConfig{Env: "GITHUB_TOKEN"})
+	token, err := GetGitHubToken(forge.AuthConfig{Env: "GITHUB_TOKEN"})
 	require.NoError(t, err)
 	assert.Equal(t, "test-token-abc", token)
 }
@@ -358,7 +358,7 @@ func TestGetGitHubToken_Present(t *testing.T) {
 func TestGetGitHubToken_Missing(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
-	_, err := GetGitHubToken(vcs.AuthConfig{})
+	_, err := GetGitHubToken(forge.AuthConfig{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GITHUB_TOKEN")
 }

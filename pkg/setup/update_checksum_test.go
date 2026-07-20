@@ -14,12 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
-// fakeAsset implements [release.ReleaseAsset] for tests. Kept local
+// fakeAsset implements [forge.ReleaseAsset] for tests. Kept local
 // so tests don't need to touch the mockery-generated mocks; the
 // update flow only reads name/URL via the interface.
 type fakeAsset struct {
@@ -35,38 +36,38 @@ func (a *fakeAsset) GetBrowserDownloadURL() string { return a.url }
 // fakeRelease holds a list of fake assets.
 type fakeRelease struct {
 	name   string
-	assets []release.ReleaseAsset
+	assets []forge.ReleaseAsset
 }
 
-func (r *fakeRelease) GetName() string                   { return r.name }
-func (r *fakeRelease) GetTagName() string                { return r.name }
-func (r *fakeRelease) GetBody() string                   { return "" }
-func (r *fakeRelease) GetDraft() bool                    { return false }
-func (r *fakeRelease) GetAssets() []release.ReleaseAsset { return r.assets }
+func (r *fakeRelease) GetName() string                 { return r.name }
+func (r *fakeRelease) GetTagName() string              { return r.name }
+func (r *fakeRelease) GetBody() string                 { return "" }
+func (r *fakeRelease) GetDraft() bool                  { return false }
+func (r *fakeRelease) GetAssets() []forge.ReleaseAsset { return r.assets }
 
-// fakeProvider implements [release.Provider] only — no
-// [release.ChecksumProvider]. Used to exercise the asset-list
+// fakeProvider implements [forge.Provider] only — no
+// [forge.ChecksumProvider]. Used to exercise the asset-list
 // fallback path. assetBodies maps asset-name → bytes served by
 // DownloadReleaseAsset.
 type fakeProvider struct {
-	rel         release.Release
+	rel         forge.Release
 	assetBodies map[string][]byte
 	downloadErr error
 }
 
-func (p *fakeProvider) GetLatestRelease(_ context.Context, _, _ string) (release.Release, error) {
+func (p *fakeProvider) GetLatestRelease(_ context.Context, _, _ string) (forge.Release, error) {
 	return p.rel, nil
 }
 
-func (p *fakeProvider) GetReleaseByTag(_ context.Context, _, _, _ string) (release.Release, error) {
+func (p *fakeProvider) GetReleaseByTag(_ context.Context, _, _, _ string) (forge.Release, error) {
 	return p.rel, nil
 }
 
-func (p *fakeProvider) ListReleases(_ context.Context, _, _ string, _ int) ([]release.Release, error) {
-	return []release.Release{p.rel}, nil
+func (p *fakeProvider) ListReleases(_ context.Context, _, _ string, _ int) ([]forge.Release, error) {
+	return []forge.Release{p.rel}, nil
 }
 
-func (p *fakeProvider) DownloadReleaseAsset(_ context.Context, _, _ string, asset release.ReleaseAsset) (io.ReadCloser, string, error) {
+func (p *fakeProvider) DownloadReleaseAsset(_ context.Context, _, _ string, asset forge.ReleaseAsset) (io.ReadCloser, string, error) {
 	if p.downloadErr != nil {
 		return nil, "", p.downloadErr
 	}
@@ -79,7 +80,7 @@ func (p *fakeProvider) DownloadReleaseAsset(_ context.Context, _, _ string, asse
 	return io.NopCloser(strings.NewReader(string(body))), "", nil
 }
 
-// checksumFakeProvider additionally implements [release.ChecksumProvider]
+// checksumFakeProvider additionally implements [forge.ChecksumProvider]
 // — used to verify the preferred path is taken.
 type checksumFakeProvider struct {
 	fakeProvider
@@ -88,7 +89,7 @@ type checksumFakeProvider struct {
 	callsManifest int
 }
 
-func (p *checksumFakeProvider) DownloadChecksumManifest(_ context.Context, _ release.Release, _ int64) ([]byte, error) {
+func (p *checksumFakeProvider) DownloadChecksumManifest(_ context.Context, _ forge.Release, _ int64) ([]byte, error) {
 	p.callsManifest++
 
 	if p.err != nil {
@@ -108,7 +109,7 @@ func manifestFor(filename string, body []byte) []byte {
 
 // newTestUpdater wires a minimal SelfUpdater around the given provider
 // with an in-process logger. requireChecksum is configurable.
-func newTestUpdater(t *testing.T, p release.Provider, require bool) *SelfUpdater {
+func newTestUpdater(t *testing.T, p forge.Provider, require bool) *SelfUpdater {
 	t.Helper()
 
 	return &SelfUpdater{
@@ -127,7 +128,7 @@ func TestVerifyAssetChecksum_HappyPath_AssetList(t *testing.T) {
 
 	rel := &fakeRelease{
 		name: "v1.0.0",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "testtool_Linux_x86_64.tar.gz"},
 			&fakeAsset{name: "checksums.txt"},
 		},
@@ -155,7 +156,7 @@ func TestVerifyAssetChecksum_Tampered(t *testing.T) {
 
 	rel := &fakeRelease{
 		name: "v1",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "bin.tar.gz"},
 			&fakeAsset{name: "checksums.txt"},
 		},
@@ -183,7 +184,7 @@ func TestVerifyAssetChecksum_NoManifest_FailOpen(t *testing.T) {
 	// behaviour for legacy releases that predate this feature).
 	rel := &fakeRelease{
 		name: "v1",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "bin.tar.gz"},
 		},
 	}
@@ -202,7 +203,7 @@ func TestVerifyAssetChecksum_NoManifest_FailClosed(t *testing.T) {
 	// No checksums.txt + requireChecksum=true must abort.
 	rel := &fakeRelease{
 		name: "v1",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "bin.tar.gz"},
 		},
 	}
@@ -228,7 +229,7 @@ func TestVerifyAssetChecksum_ChecksumProviderPreferred(t *testing.T) {
 
 	rel := &fakeRelease{
 		name: "v1",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "bin.tar.gz"},
 		},
 	}
@@ -257,7 +258,7 @@ func TestVerifyAssetChecksum_ChecksumProviderErrNotSupportedFallsBack(t *testing
 
 	rel := &fakeRelease{
 		name: "v1",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "bin.tar.gz"},
 			&fakeAsset{name: "checksums.txt"},
 		},
@@ -270,7 +271,7 @@ func TestVerifyAssetChecksum_ChecksumProviderErrNotSupportedFallsBack(t *testing
 				"checksums.txt": manifest,
 			},
 		},
-		err: release.ErrNotSupported,
+		err: forge.ErrNotSupported,
 	}
 
 	s := newTestUpdater(t, provider, false)
@@ -291,7 +292,7 @@ func TestVerifyAssetChecksum_ChecksumProviderOtherErrorAborts(t *testing.T) {
 	// policy based on requireChecksum.
 	rel := &fakeRelease{
 		name:   "v1",
-		assets: []release.ReleaseAsset{&fakeAsset{name: "bin.tar.gz"}},
+		assets: []forge.ReleaseAsset{&fakeAsset{name: "bin.tar.gz"}},
 	}
 
 	provider := &checksumFakeProvider{
@@ -324,67 +325,68 @@ type fakeBoolConfig struct {
 func (c *fakeBoolConfig) IsSet(key string) bool   { return c.set[key] }
 func (c *fakeBoolConfig) GetBool(key string) bool { return c.vals[key] }
 
-// TestResolveRequireChecksum_Precedence intentionally does NOT call
-// t.Parallel() — every subtest mutates the package-level
-// [DefaultRequireChecksum] sentinel, and parallel mutation of that
-// global races against itself and against any concurrently-running
-// SelfUpdater test that constructs via NewUpdater. Per CLAUDE.md's
-// race-avoidance guidance, tests that touch shared package state
-// must serialise; the test runs in microseconds so there's no
-// throughput cost.
+// TestResolveRequireChecksum_Precedence runs in parallel.
+//
+// It could not before: every subtest mutated a package-level
+// DefaultRequireChecksum sentinel, which raced against itself and against any
+// concurrent SelfUpdater test. The tool-author baseline is now a value passed
+// in — from props.Tool.Signing.RequireChecksum — so each case is independent.
 func TestResolveRequireChecksum_Precedence(t *testing.T) {
-	// Save-and-restore the compile-time default once so the test
-	// can't leave the package in an unexpected state.
-	old := DefaultRequireChecksum
-	t.Cleanup(func() { DefaultRequireChecksum = old })
+	t.Parallel()
 
-	t.Run("nil_config_returns_default", func(t *testing.T) {
-		DefaultRequireChecksum = true
-		assert.True(t, resolveRequireChecksum(nil))
+	yes, no := true, false
 
-		DefaultRequireChecksum = false
-		assert.False(t, resolveRequireChecksum(nil))
+	t.Run("nil_config_returns_tool_default", func(t *testing.T) {
+		t.Parallel()
+
+		assert.True(t, resolveRequireChecksum(nil, &yes))
+		assert.False(t, resolveRequireChecksum(nil, &no))
+	})
+
+	t.Run("unset_tool_default_returns_framework_default", func(t *testing.T) {
+		t.Parallel()
+
+		assert.Equal(t, requireChecksumDefault, resolveRequireChecksum(nil, nil),
+			"a nil tool baseline must fall through to the framework default")
 	})
 
 	t.Run("interface_typed_nil_pointer_returns_default", func(t *testing.T) {
-		// An interface containing a typed nil (e.g. `var c *fakeBoolConfig;
-		// resolveRequireChecksum(c)`) must not panic on method calls.
-		// This is the case where a plain `cfg == nil` check fails
-		// because the interface itself is non-nil.
-		DefaultRequireChecksum = true
+		t.Parallel()
 
+		// An interface containing a typed nil must not panic on method calls.
+		// A plain `cfg == nil` check fails here because the interface itself
+		// is non-nil.
 		var typedNil *fakeBoolConfig
 
-		assert.True(t, resolveRequireChecksum(typedNil),
-			"typed-nil interface must fall through to the compile-time default, not panic")
+		assert.True(t, resolveRequireChecksum(typedNil, &yes),
+			"typed-nil interface must fall through to the default, not panic")
 	})
 
-	t.Run("config_unset_falls_back_to_default", func(t *testing.T) {
+	t.Run("config_unset_falls_back_to_tool_default", func(t *testing.T) {
+		t.Parallel()
+
 		cfg := &fakeBoolConfig{}
 
-		DefaultRequireChecksum = true
-		assert.True(t, resolveRequireChecksum(cfg))
-
-		DefaultRequireChecksum = false
-		assert.False(t, resolveRequireChecksum(cfg))
+		assert.True(t, resolveRequireChecksum(cfg, &yes))
+		assert.False(t, resolveRequireChecksum(cfg, &no))
 	})
 
-	t.Run("config_set_wins_over_default", func(t *testing.T) {
-		// Default true, config explicitly false.
-		DefaultRequireChecksum = true
+	t.Run("config_set_wins_over_tool_default", func(t *testing.T) {
+		t.Parallel()
+
+		// Tool says require, config explicitly disables.
 		cfg := &fakeBoolConfig{
 			set:  map[string]bool{"update.require_checksum": true},
 			vals: map[string]bool{"update.require_checksum": false},
 		}
-		assert.False(t, resolveRequireChecksum(cfg))
+		assert.False(t, resolveRequireChecksum(cfg, &yes))
 
-		// Default false, config explicitly true.
-		DefaultRequireChecksum = false
+		// Tool says permissive, config explicitly requires.
 		cfg = &fakeBoolConfig{
 			set:  map[string]bool{"update.require_checksum": true},
 			vals: map[string]bool{"update.require_checksum": true},
 		}
-		assert.True(t, resolveRequireChecksum(cfg))
+		assert.True(t, resolveRequireChecksum(cfg, &no))
 	})
 }
 
@@ -404,24 +406,27 @@ func TestDownloadChecksumManifest_RefusesRedirect(t *testing.T) {
 	assert.Contains(t, err.Error(), "redirected")
 }
 
+// TestDownloadChecksumManifest_RejectsOversizedResponse runs in parallel.
+//
+// It could not before: it shrank a package-level MaxChecksumsSize tunable to
+// force the rejection, which raced with every other test in the package. The
+// bound is now per-updater, so this case sets its own and stays independent.
 func TestDownloadChecksumManifest_RejectsOversizedResponse(t *testing.T) {
-	// Mutates the package-level [MaxChecksumsSize] tunable, so
-	// cannot run with t.Parallel — see [TestResolveRequireChecksum_Precedence].
-	oldMax := MaxChecksumsSize
-	t.Cleanup(func() { MaxChecksumsSize = oldMax })
+	t.Parallel()
 
-	MaxChecksumsSize = 16
+	const bound int64 = 16
 
-	bigManifest := make([]byte, int(MaxChecksumsSize)+32)
+	bigManifest := make([]byte, bound+32)
 
 	provider := &fakeProvider{
-		rel: &fakeRelease{assets: []release.ReleaseAsset{&fakeAsset{name: "checksums.txt"}}},
+		rel: &fakeRelease{assets: []forge.ReleaseAsset{&fakeAsset{name: "checksums.txt"}}},
 		assetBodies: map[string][]byte{
 			"checksums.txt": bigManifest,
 		},
 	}
 
 	s := newTestUpdater(t, provider, false)
+	s.maxChecksumsSize = bound
 
 	_, err := s.downloadChecksumManifest(t.Context(), &fakeAsset{name: "checksums.txt"})
 	require.Error(t, err)
@@ -436,7 +441,7 @@ type redirectingProvider struct {
 	redirectURL string
 }
 
-func (p *redirectingProvider) DownloadReleaseAsset(_ context.Context, _, _ string, _ release.ReleaseAsset) (io.ReadCloser, string, error) {
+func (p *redirectingProvider) DownloadReleaseAsset(_ context.Context, _, _ string, _ forge.ReleaseAsset) (io.ReadCloser, string, error) {
 	return nil, p.redirectURL, nil
 }
 
@@ -445,7 +450,7 @@ func TestFindChecksumsAsset_HonoursConfiguredName(t *testing.T) {
 
 	rel := &fakeRelease{
 		name: "v1",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "bin.tar.gz"},
 			&fakeAsset{name: "checksums.sha256"},
 			&fakeAsset{name: "checksums.txt"},
@@ -473,7 +478,7 @@ func TestFindChecksumsAsset_HonoursConfiguredName(t *testing.T) {
 func TestDownloadAsset_BoundedBySize(t *testing.T) {
 	t.Parallel()
 
-	rel := &fakeRelease{name: "v1.0.0", assets: []release.ReleaseAsset{
+	rel := &fakeRelease{name: "v1.0.0", assets: []forge.ReleaseAsset{
 		&fakeAsset{name: "testtool_Linux_x86_64.tar.gz"},
 	}}
 	provider := &fakeProvider{rel: rel, assetBodies: map[string][]byte{

@@ -2,8 +2,6 @@ package root
 
 import (
 	"gitlab.com/phpboyscout/go/signing/verify"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // Phase 1 + Phase 2 of the remote-update-checksum-verification spec.
@@ -25,12 +23,10 @@ import (
 //
 // See [docs/components/setup/signature-verification.md].
 func init() {
-	// Phase 1: GoReleaser has always produced checksums.txt on every
-	// release, so flipping the library default to fail-closed is
-	// safe — a future release with a broken pipeline will abort the
-	// update with an actionable error rather than quietly installing
-	// an unverified binary.
-	setup.DefaultRequireChecksum = true
+	// Phase 1 (checksums) now travels on props.Tool.Signing.RequireChecksum,
+	// set where the Props are built — see root.go. It moved off a package
+	// variable because process-wide mutable state is not a configuration
+	// mechanism, and mutating one from init() raced under t.Parallel.
 
 	// Phase 2 (close-out v0.13.0): v0.12.2 was the first signed release
 	// (KMS-held key, OIDC-federated GitLab CI, ASCII-armored

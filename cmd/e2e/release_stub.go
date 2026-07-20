@@ -8,9 +8,10 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp/armor"
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
 
+	"gitlab.com/phpboyscout/go/forge"
+	forgetest "gitlab.com/phpboyscout/go/forge/test"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release/releasetest"
 	pkgversion "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
@@ -52,26 +53,26 @@ func applyReleaseStub(p *props.Props) {
 // scenario exercises signature verification, the embedded trust key the bad
 // signature is checked against. The mismatch/bad-signature scenarios abort
 // before any binary swap, so they are safe to run against the shared e2e binary.
-func buildReleaseScenario(scenario, toolName string) (release.Provider, [][]byte) {
+func buildReleaseScenario(scenario, toolName string) (forge.Provider, [][]byte) {
 	switch scenario {
 	case "already-latest":
 		// Latest equals the pinned current version → update is a no-op.
-		return releasetest.New(releasetest.WithRelease(stubCurrentVersion)), nil
+		return forgetest.New(forgetest.WithRelease(stubCurrentVersion)), nil
 
 	case "not-found":
 		// `update --version <stubMissingTag>` resolves to a missing tag.
-		return releasetest.New(
-			releasetest.WithRelease(stubCurrentVersion),
-			releasetest.WithMissingTag(stubMissingTag),
+		return forgetest.New(
+			forgetest.WithRelease(stubCurrentVersion),
+			forgetest.WithMissingTag(stubMissingTag),
 		), nil
 
 	case "bad-checksum":
 		// A newer release whose checksums manifest hashes a different payload
 		// than the served asset → checksum mismatch aborts before extract.
-		asset := releasetest.TarGzAsset(toolName, toolName, stubNewBinaryContent)
+		asset := forgetest.TarGzAsset(toolName, toolName, stubNewBinaryContent)
 
-		return releasetest.New(releasetest.WithRelease(stubNewerVersion,
-			asset, releasetest.ChecksumsAsset(true, asset))), nil
+		return forgetest.New(forgetest.WithRelease(stubNewerVersion,
+			asset, forgetest.ChecksumsAsset(true, asset))), nil
 
 	case "bad-signature":
 		// A newer release with a good checksums manifest but a detached
@@ -79,13 +80,13 @@ func buildReleaseScenario(scenario, toolName string) (release.Provider, [][]byte
 		// before extract. The embedded trust key is the one the bad signature
 		// is (unsuccessfully) checked against.
 		entity := mustStubEntity()
-		asset := releasetest.TarGzAsset(toolName, toolName, stubNewBinaryContent)
-		manifest := releasetest.Manifest(false, asset)
+		asset := forgetest.TarGzAsset(toolName, toolName, stubNewBinaryContent)
+		manifest := forgetest.Manifest(false, asset)
 
-		provider := releasetest.New(releasetest.WithRelease(stubNewerVersion,
+		provider := forgetest.New(forgetest.WithRelease(stubNewerVersion,
 			asset,
-			releasetest.Asset{Name: "checksums.txt", Body: manifest},
-			releasetest.SignatureAsset(entity, manifest, true),
+			forgetest.Asset{Name: "checksums.txt", Body: manifest},
+			forgetest.SignatureAsset(entity, manifest, true),
 		))
 
 		return provider, [][]byte{armoredPublicKey(entity)}
@@ -93,7 +94,7 @@ func buildReleaseScenario(scenario, toolName string) (release.Provider, [][]byte
 	default:
 		// Unknown scenario: a source with no releases makes GetLatestRelease
 		// fail, surfacing as a clear non-zero update error.
-		return releasetest.New(), nil
+		return forgetest.New(), nil
 	}
 }
 

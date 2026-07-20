@@ -19,11 +19,12 @@ import (
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	forgetest "gitlab.com/phpboyscout/go/forge/test"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release/releasetest"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
@@ -37,7 +38,7 @@ import (
 // updateTool returns Tool metadata wired for hermetic self-update tests: a
 // release source the injected provider satisfies, with the update command
 // enabled and other prompt/network features off.
-func updateTool(provider *releasetest.Source) p.Tool {
+func updateTool(provider *forgetest.Source) p.Tool {
 	return p.Tool{
 		Name: "covtool",
 		ReleaseSource: p.ReleaseSource{
@@ -59,7 +60,7 @@ func updateTool(provider *releasetest.Source) p.Tool {
 // newUpdateProps builds a Props with the given current version and an injected
 // in-memory release source. emptyConfig provides a usable, empty config
 // container (GetBool/GetString return zero values).
-func newUpdateProps(t *testing.T, currentVersion string, provider *releasetest.Source) *p.Props {
+func newUpdateProps(t *testing.T, currentVersion string, provider *forgetest.Source) *p.Props {
 	t.Helper()
 
 	fs := afero.NewMemMapFs()
@@ -92,7 +93,7 @@ func TestCheckForUpdates_UpToDate(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	provider := releasetest.New(releasetest.WithRelease("v1.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
 	state := newRootState()
 	flags := &FlagValues{}
@@ -114,7 +115,7 @@ func TestCheckForUpdates_OutdatedDeclines(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	provider := releasetest.New(releasetest.WithRelease("v2.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
 	state := newRootState()
 	flags := &FlagValues{}
@@ -134,7 +135,7 @@ func TestCheckForUpdates_SkippedWhenDevelopment(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Parallel()
 
-	provider := releasetest.New(releasetest.WithRelease("v2.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v0.0.0-dev", provider)
 	state := newRootState()
 	flags := &FlagValues{}
@@ -156,7 +157,7 @@ func TestCheckForUpdates_EnabledPolicyBlocks(t *testing.T) {
 	// skipped (Config.GetBool("ci") reads the CI env via viper AutomaticEnv).
 	t.Setenv("CI", "")
 
-	provider := releasetest.New(releasetest.WithRelease("v2.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	props := newUpdateProps(t, "v1.0.0", provider)
 	props.Tool.UpdatePolicy = p.UpdatePolicyEnabled
 	// Decline deterministically: a nil-returning form creator that leaves
@@ -242,7 +243,7 @@ func TestRecordCheckedVersion_Outdated(t *testing.T) {
 	// Not parallel: writes the marker via HOME-derived dir.
 	t.Setenv("HOME", t.TempDir())
 
-	provider := releasetest.New(releasetest.WithRelease("v2.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v2.0.0"))
 	fs := afero.NewOsFs()
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
@@ -267,7 +268,7 @@ func TestRecordCheckedVersion_UpToDate(t *testing.T) {
 	t.Cleanup(setup.ResetRegistryForTesting)
 	t.Setenv("HOME", t.TempDir())
 
-	provider := releasetest.New(releasetest.WithRelease("v1.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	fs := afero.NewOsFs()
 	props := &p.Props{
 		Logger:  logger.NewBuffer(),
@@ -301,8 +302,8 @@ func TestPerformUpdate_Success(t *testing.T) {
 
 	const tool = "covupdtool"
 
-	asset := releasetest.TarGzAsset(tool, tool, "#!/bin/sh\necho updated\n")
-	provider := releasetest.New(releasetest.WithRelease("v2.0.0", asset))
+	asset := forgetest.TarGzAsset(tool, tool, "#!/bin/sh\necho updated\n")
+	provider := forgetest.New(forgetest.WithRelease("v2.0.0", asset))
 
 	fs := afero.NewOsFs()
 	props := &p.Props{
@@ -349,10 +350,10 @@ func TestPerformUpdate_DownloadError(t *testing.T) {
 
 	const tool = "covupderrtool"
 
-	asset := releasetest.TarGzAsset(tool, tool, "binary")
-	provider := releasetest.New(
-		releasetest.WithRelease("v2.0.0", asset),
-		releasetest.WithDownloadError(assertErr{}),
+	asset := forgetest.TarGzAsset(tool, tool, "binary")
+	provider := forgetest.New(
+		forgetest.WithRelease("v2.0.0", asset),
+		forgetest.WithDownloadError(assertErr{}),
 	)
 
 	fs := afero.NewOsFs()
@@ -836,7 +837,7 @@ func TestRegisterFeatureCommands_ConfigAndTelemetryEnabled(t *testing.T) {
 
 // preRunProps builds Props wired so the PersistentPreRunE closure runs end to
 // end against an injected in-memory release source.
-func preRunProps(t *testing.T, currentVersion string, provider *releasetest.Source) *p.Props {
+func preRunProps(t *testing.T, currentVersion string, provider *forgetest.Source) *p.Props {
 	t.Helper()
 
 	fs := afero.NewMemMapFs()
@@ -924,8 +925,8 @@ func TestNewRootPreRunE_UpdateExit(t *testing.T) {
 
 	const tool = "covprerunexit"
 
-	asset := releasetest.TarGzAsset(tool, tool, "#!/bin/sh\necho new\n")
-	provider := releasetest.New(releasetest.WithRelease("v2.0.0", asset))
+	asset := forgetest.TarGzAsset(tool, tool, "#!/bin/sh\necho new\n")
+	provider := forgetest.New(forgetest.WithRelease("v2.0.0", asset))
 
 	fs := afero.NewOsFs()
 	props := &p.Props{
@@ -979,7 +980,7 @@ func TestNewRootPreRunE_UpToDate(t *testing.T) {
 	// Not parallel: the update check stamps a HOME-derived marker file.
 	t.Setenv("HOME", t.TempDir())
 
-	provider := releasetest.New(releasetest.WithRelease("v1.0.0"))
+	provider := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	props := preRunProps(t, "v1.0.0", provider)
 	props.FS = afero.NewOsFs()
 	props.Config = config.NewReaderContainer(props.FS)

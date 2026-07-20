@@ -1,7 +1,7 @@
 ---
 title: GitHub
-description: GitHub Enterprise API client and GitHub release provider (pkg/vcs/github).
-date: 2026-03-25
+description: GitHub's wider API — pull requests, repositories, SSH keys, file contents and device login. The release provider moved to the go/forge-github module.
+date: 2026-07-19
 tags: [components, vcs, github, api, pull-requests, releases]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
@@ -10,7 +10,21 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 **Package:** `pkg/vcs/github`
 
-Provides the GitHub Enterprise API client (`GHClient`) and a `release.Provider` implementation backed by the GitHub Releases API.
+Provides the GitHub Enterprise API client (`GHClient`) — pull requests,
+repository creation, SSH key upload, file contents, and the OAuth device-login
+flow.
+
+!!! info "Releases moved"
+    The GitHub **release provider** now ships as
+    [`go/forge-github`](https://gitlab.com/phpboyscout/go/forge-github), registered
+    by blank import like every other provider. This package no longer registers a
+    source type.
+
+    The rest of the client stayed deliberately. Moving it would give GitHub
+    capabilities the other forges lack, which is the disparity
+    [backend agnosticism](https://forge.go.phpboyscout.uk/explanation/backend-agnosticism/)
+    exists to prevent. Restoring these across every provider in lockstep is
+    specified on the forge module.
 
 ---
 
@@ -35,7 +49,7 @@ Token is optional — public repositories work without one. Private repositories
 | `url.upload` | `""` | GitHub Enterprise upload URL. When `url.api` is set (or host-derived) and this is left empty, the upload URL is derived from the API host as `https://<api-host>/api/uploads/`. |
 | `auth.env` | — | Name of the environment variable holding the token |
 | `auth.value` | — | Literal token value (use `auth.env` in preference) |
-| `auth.keychain` | — | Keychain reference resolved by the shared VCS token helper |
+| `auth.keychain` | — | Keychain reference resolved by the shared forge token helper |
 
 If no configured auth source resolves a token, `NewGitHubClient` falls back to the `GITHUB_TOKEN` environment variable.
 
@@ -44,10 +58,13 @@ If no configured auth source resolves a token, `NewGitHubClient` falls back to t
 ## Token Helper
 
 ```go
-func GetGitHubToken(cfg vcs.TokenConfig) (string, error)
+func GetGitHubToken(cfg forge.TokenConfig) (string, error)
 ```
 
-Returns the resolved token or an error if none is found. Use this where a token is strictly required (e.g. authenticated git operations). For release/update operations on public repos, `vcs.ResolveToken` directly is sufficient.
+Returns the resolved token or an error if none is found. Use this where a token
+is strictly required (e.g. authenticated git operations). For public-repo
+operations, [`forge.ResolveToken`](https://forge.go.phpboyscout.uk/how-to/authenticate/)
+directly is sufficient.
 
 ---
 
@@ -57,7 +74,7 @@ All operations are available through the `GitHubClient` interface. Use the inter
 
 
 > [!NOTE]
-> See [pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs) for the full API definition.
+> See [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github) for the full API definition.
 
 
 **Sentinel errors:**
@@ -75,8 +92,8 @@ All operations are available through the `GitHubClient` interface. Use the inter
 
 ```go
 client, err := github.NewGitHubClient(github.ClientSettings{
-    ReleaseSource: release.ReleaseSourceConfig{Owner: "my-org", Repo: "my-repo"},
-    Auth:          vcs.AuthConfig{Env: "GITHUB_TOKEN"},
+    ReleaseSource: forge.ReleaseSourceConfig{Owner: "my-org", Repo: "my-repo"},
+    Auth:          forge.AuthConfig{Env: "GITHUB_TOKEN"},
 })
 if err != nil {
     return err
@@ -111,35 +128,9 @@ if err != nil {
 err = client.DownloadAssetTo(ctx, props.FS, "my-org", "my-repo", assetID, "/tmp/mytool.tar.gz")
 ```
 
-For release workflows (auto-update, version checking), prefer the higher-level `release.Provider` — see below.
-
----
-
-## Release Provider
-
-```go
-func NewReleaseProvider(client GitHubClient) release.Provider
-```
-
-Wraps a `GitHubClient` and returns a `release.Provider`. This is the preferred way to work with releases — it keeps consuming code (e.g. the auto-update command) decoupled from GitHub specifics.
-
-```go
-client, err := github.NewGitHubClient(github.ClientSettings{
-    ReleaseSource: release.ReleaseSourceConfig{Owner: "my-org", Repo: "my-repo"},
-    Auth:          vcs.AuthConfig{Env: "GITHUB_TOKEN"},
-})
-if err != nil {
-    return err
-}
-provider := github.NewReleaseProvider(client)
-
-latest, err := provider.GetLatestRelease(ctx, "my-org", "my-repo")
-fmt.Println(latest.GetTagName())
-
-rc, _, err := provider.DownloadReleaseAsset(ctx, "my-org", "my-repo", latest.GetAssets()[0])
-```
-
-See **[Release Provider](release.md)** for the full interface reference.
+For release workflows — auto-update, version checking — use the
+[`forge.Provider`](https://forge.go.phpboyscout.uk) contract instead, resolved
+from the registry. These low-level helpers predate it.
 
 ---
 
@@ -162,6 +153,8 @@ For HTTP-level tests, use `net/http/httptest` to stand up a mock server and pass
 
 ## Related Documentation
 
-- **[GitLab](gitlab.md)** — GitLab release provider (same `release.Provider` interface)
-- **[Release Provider](release.md)** — interface reference for `Provider`, `Release`, `ReleaseAsset`
-- **[VCS index](index.md)** — `ResolveToken` and package overview
+- **[VCS index](index.md)** — what stayed in GTB, and provider registration
+- **[forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk)** — the release
+  contract, the credential chain, and every provider
+- **[Providers reference](https://forge.go.phpboyscout.uk/reference/providers/)** —
+  config keys and capabilities per forge

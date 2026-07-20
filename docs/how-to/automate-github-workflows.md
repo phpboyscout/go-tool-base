@@ -226,7 +226,7 @@ latest, err := provider.GetLatestRelease(ctx, "my-org", "my-repo")
 fmt.Println("Latest:", latest.GetTagName())
 ```
 
-See **[Release Provider](../explanation/components/vcs/release.md)** for the full interface.
+See **[Release Provider](https://forge.go.phpboyscout.uk/reference/providers/)** for the full interface.
 
 ---
 
@@ -258,5 +258,5 @@ For HTTP-level tests, stand up a `net/http/httptest` server and pass its URL as 
 ## Related Documentation
 
 - **[GitHub component](../explanation/components/vcs/github.md)** — full `GitHubClient` interface reference
-- **[Release Provider](../explanation/components/vcs/release.md)** — backend-agnostic release interface
+- **[Release Provider](https://forge.go.phpboyscout.uk/reference/providers/)** — backend-agnostic release interface
 - **[Configure Self-Updating](configure-self-updating.md)** — wiring the release provider into the update command

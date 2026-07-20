@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 // newErrorServer returns a mock GitHub server that always responds with the
@@ -27,71 +26,10 @@ func newErrorServer(t *testing.T, status int, message string) (*httptest.Server,
 	})
 }
 
-// --- release.Provider error/branch coverage ---
+// --- forge.Provider error/branch coverage ---
 
 // TestReleaseProvider_DownloadReleaseAsset_Error exercises the error-wrapping
 // branch in DownloadReleaseAsset when the GitHub API rejects the request.
-func TestReleaseProvider_DownloadReleaseAsset_Error(t *testing.T) {
-	t.Parallel()
-
-	assetID := int64(404)
-
-	server, client := setupMockGitHubServer(t, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Not Found"})
-	})
-	defer server.Close()
-
-	provider := NewReleaseProvider(client)
-	asset := &githubAsset{asset: &github.ReleaseAsset{ID: &assetID}}
-
-	rc, redirect, err := provider.DownloadReleaseAsset(context.Background(), "owner", "repo", asset)
-	require.Error(t, err)
-	assert.Nil(t, rc)
-	assert.Empty(t, redirect)
-}
-
-// TestReleaseProvider_DownloadReleaseAsset_CDNRedirect exercises the path where
-// the GitHub API responds with a 302 to a CDN URL. go-github follows the
-// redirect; the helper must return the streamed bytes without error.
-func TestReleaseProvider_DownloadReleaseAsset_CDNRedirect(t *testing.T) {
-	t.Parallel()
-
-	assetID := int64(7)
-
-	// A dedicated CDN server that serves the actual asset bytes.
-	cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/octet-stream")
-		_, _ = w.Write([]byte("cdn-bytes"))
-	}))
-	defer cdn.Close()
-
-	// The API server issues a redirect to the CDN for the asset download.
-	server, client := setupMockGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Accept") == "application/octet-stream" {
-			http.Redirect(w, r, cdn.URL, http.StatusFound)
-
-			return
-		}
-
-		w.WriteHeader(http.StatusOK)
-	})
-	defer server.Close()
-
-	provider := NewReleaseProvider(client)
-	asset := &githubAsset{asset: &github.ReleaseAsset{ID: &assetID}}
-
-	rc, _, err := provider.DownloadReleaseAsset(context.Background(), "owner", "repo", asset)
-	require.NoError(t, err)
-	defer func() { _ = rc.Close() }()
-
-	data, err := io.ReadAll(rc)
-	require.NoError(t, err)
-	assert.Equal(t, "cdn-bytes", string(data))
-}
-
-// --- GHClient error-branch coverage ---
-
 func TestCreatePullRequest_Error(t *testing.T) {
 	t.Parallel()
 
@@ -236,7 +174,7 @@ func TestNewGitHubClient_InvalidEnterpriseURL(t *testing.T) {
 
 	// A host containing a control character produces an unparseable
 	// "https://<host>/api/v3/" URL inside WithEnterpriseURLs.
-	src := release.ReleaseSourceConfig{Host: "ghe.example.com\x7f"}
+	src := forge.ReleaseSourceConfig{Host: "ghe.example.com\x7f"}
 
 	client, err := NewGitHubClient(ClientSettings{ReleaseSource: src})
 	require.Error(t, err)
@@ -268,28 +206,3 @@ func TestGHLogin_InvalidHostname(t *testing.T) {
 // --- init.go registered factory closure ---
 
 // TestRegisteredGitHubFactory drives the provider factory registered in
-// init.go via the release registry, covering the closure body (success path).
-func TestRegisteredGitHubFactory(t *testing.T) {
-	t.Parallel()
-
-	factory, err := release.Lookup(release.SourceTypeGitHub)
-	require.NoError(t, err)
-	require.NotNil(t, factory)
-
-	provider, err := factory(release.ReleaseSourceConfig{Host: "github.com"}, nil)
-	require.NoError(t, err)
-	assert.NotNil(t, provider)
-}
-
-// TestRegisteredGitHubFactory_Error covers the error branch of the registered
-// factory closure: an unparseable Enterprise host makes NewGitHubClient fail.
-func TestRegisteredGitHubFactory_Error(t *testing.T) {
-	t.Parallel()
-
-	factory, err := release.Lookup(release.SourceTypeGitHub)
-	require.NoError(t, err)
-
-	provider, err := factory(release.ReleaseSourceConfig{Host: "ghe.example.com\x7f"}, nil)
-	require.Error(t, err)
-	assert.Nil(t, provider)
-}

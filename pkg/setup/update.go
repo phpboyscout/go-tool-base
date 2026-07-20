@@ -22,11 +22,12 @@ import (
 
 	"gitlab.com/phpboyscout/go/httpclient"
 
+	"gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
@@ -69,9 +70,9 @@ type SelfUpdater struct {
 	force          bool
 	version        string
 	logger         logger.Logger
-	releaseClient  release.Provider
+	releaseClient  forge.Provider
 	CurrentVersion string
-	NextRelease    release.Release
+	NextRelease    forge.Release
 	Fs             afero.Fs
 	osExecutable   func() (string, error)
 	execLookPath   func(string) (string, error)
@@ -113,9 +114,21 @@ type SelfUpdater struct {
 	requireExternalCrosscheck bool
 
 	// maxBinaryDownloadSize caps DownloadAsset's in-memory read. Zero means
-	// use MaxBinaryDownloadSize. Overridable mainly so tests can assert the
-	// bound without allocating the full default.
+	// use DefaultMaxBinaryDownloadSize.
 	maxBinaryDownloadSize int64
+
+	// maxChecksumsSize caps a downloaded checksums manifest. Zero means use
+	// DefaultMaxChecksumsSize.
+	maxChecksumsSize int64
+}
+
+// checksumsBound returns the manifest bound for this updater.
+func (s *SelfUpdater) checksumsBound() int64 {
+	if s.maxChecksumsSize > 0 {
+		return s.maxChecksumsSize
+	}
+
+	return DefaultMaxChecksumsSize
 }
 
 // checksumsDefaultAssetName is the filename GoReleaser produces for
@@ -250,13 +263,41 @@ func WithExecLookPath(fn func(string) (string, error)) UpdaterOption {
 	return func(s *SelfUpdater) { s.execLookPath = fn }
 }
 
-// WithReleaseProvider injects the [release.Provider] the SelfUpdater uses,
+// WithReleaseProvider injects the [forge.Provider] the SelfUpdater uses,
 // bypassing the ReleaseSource.Type registry lookup (and, with it, the
 // private-repository token gate that precedes the lookup — an injected
 // provider is self-contained and owns its own auth). Parallel-safe: each call
 // site receives its own provider, with no global registry mutation. Takes
 // precedence over a props.Tool.ReleaseProvider field.
-func WithReleaseProvider(p release.Provider) UpdaterOption {
+// WithRequireChecksum sets checksum enforcement for this updater when neither
+// config nor environment provides a value.
+//
+// Replaces the former package-level DefaultRequireChecksum: a tool wanting
+// fail-closed verification states it where it builds its updater, rather than
+// mutating shared state at init.
+func WithRequireChecksum(require bool) UpdaterOption {
+	return func(s *SelfUpdater) {
+		s.requireChecksum = require
+	}
+}
+
+// WithMaxChecksumsSize raises the bound on a downloaded checksums manifest.
+// Zero or negative keeps [DefaultMaxChecksumsSize].
+func WithMaxChecksumsSize(maxBytes int64) UpdaterOption {
+	return func(s *SelfUpdater) {
+		s.maxChecksumsSize = maxBytes
+	}
+}
+
+// WithMaxBinaryDownloadSize raises the bound on a downloaded binary asset.
+// Zero or negative keeps [DefaultMaxBinaryDownloadSize].
+func WithMaxBinaryDownloadSize(maxBytes int64) UpdaterOption {
+	return func(s *SelfUpdater) {
+		s.maxBinaryDownloadSize = maxBytes
+	}
+}
+
+func WithReleaseProvider(p forge.Provider) UpdaterOption {
 	return func(s *SelfUpdater) { s.releaseClient = p }
 }
 
@@ -280,7 +321,7 @@ func NewOfflineUpdater(tool props.Tool, log logger.Logger, fs afero.Fs, opts ...
 }
 
 // NewUpdater creates a SelfUpdater configured with the tools release source.
-// The context is forwarded to [vcs.ResolveTokenContext] for
+// The context is forwarded to [forge.ResolveTokenContext] for
 // private-repository token resolution, so remote-store credential
 // backends (Vault, SSM) honour the caller's deadline when fetching
 // the release token.
@@ -306,7 +347,7 @@ func NewUpdater(ctx context.Context, p *props.Props, version string, force bool,
 		osExecutable:              os.Executable,
 		execLookPath:              exec.LookPath,
 		isInteractive:             utils.IsInteractive,
-		requireChecksum:           resolveRequireChecksum(p.Config),
+		requireChecksum:           resolveRequireChecksum(p.Config, p.Tool.Signing.RequireChecksum),
 		checksumAssetName:         strings.TrimSpace(p.Config.GetString("update.checksum_asset_name")),
 		requireSignature:          resolveRequireSignature(p.Config),
 		signatureAssetName:        strings.TrimSpace(p.Config.GetString("update.signature_asset_name")),
@@ -366,12 +407,12 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		}
 	}
 
-	factory, err := release.Lookup(vcsProvider)
+	factory, err := forge.Lookup(vcsProvider)
 	if err != nil {
 		return err
 	}
 
-	sourceCfg := release.ReleaseSourceConfig{
+	sourceCfg := forge.ReleaseSourceConfig{
 		Type:    p.Tool.ReleaseSource.Type,
 		Host:    p.Tool.ReleaseSource.Host,
 		Owner:   p.Tool.ReleaseSource.Owner,
@@ -438,22 +479,29 @@ type boolConfig interface {
 // AutomaticEnv pulls from an env var too, prefixed per the tool),
 // otherwise the compile-time [DefaultRequireChecksum] sentinel. Tool
 // authors flip the default at link time for security-critical tools.
-func resolveRequireChecksum(cfg boolConfig) bool {
+// resolveRequireChecksum applies the precedence: runtime config, then the tool
+// author's baseline from props, then the framework default.
+func resolveRequireChecksum(cfg boolConfig, toolDefault *bool) bool {
+	fallback := requireChecksumDefault
+	if toolDefault != nil {
+		fallback = *toolDefault
+	}
+
 	if cfg == nil {
-		return DefaultRequireChecksum
+		return fallback
 	}
 
 	// Interface typed nil (e.g. a nil *viper.Viper wrapped in boolConfig)
 	// must not panic on IsSet. Protect the call with a reflective check.
 	if reflectIsNil(cfg) {
-		return DefaultRequireChecksum
+		return fallback
 	}
 
 	if cfg.IsSet("update.require_checksum") {
 		return cfg.GetBool("update.require_checksum")
 	}
 
-	return DefaultRequireChecksum
+	return fallback
 }
 
 // reflectIsNil detects the interface-typed-nil case (an interface
@@ -497,7 +545,7 @@ func requireReleaseToken(ctx context.Context, vcsProvider string, p props.Config
 		fallbackEnv = "GITHUB_TOKEN"
 	}
 
-	if vcs.ResolveTokenContext(ctx, cfg, fallbackEnv) == "" {
+	if forge.ResolveTokenContext(ctx, cfg, fallbackEnv) == "" {
 		return errors.WithHint(
 			errors.Newf("no %s token available for private repository", strings.ToUpper(vcsProvider)),
 			fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable updates", fallbackEnv, vcsProvider),
@@ -621,8 +669,8 @@ func (s *SelfUpdater) Update(ctx context.Context) (string, error) {
 // failure (mismatch, malformed manifest, asset-not-listed) is fatal.
 func (s *SelfUpdater) verifyAssetChecksum(
 	ctx context.Context,
-	rel release.Release,
-	asset release.ReleaseAsset,
+	rel forge.Release,
+	asset forge.ReleaseAsset,
 	data []byte,
 ) error {
 	manifest, err := s.fetchChecksumsManifest(ctx, rel)
@@ -671,18 +719,18 @@ func (s *SelfUpdater) verifyAssetChecksum(
 }
 
 // fetchChecksumsManifest retrieves the manifest for rel, preferring
-// [release.ChecksumProvider] when the provider opts in and falling
+// [forge.ChecksumProvider] when the provider opts in and falling
 // back to asset-list lookup otherwise. Returns (nil, nil) when no
 // manifest is available by either route — the caller distinguishes
 // "not found" from "download failed".
-func (s *SelfUpdater) fetchChecksumsManifest(ctx context.Context, rel release.Release) ([]byte, error) {
-	if cp, ok := s.releaseClient.(release.ChecksumProvider); ok {
-		manifest, err := cp.DownloadChecksumManifest(ctx, rel, MaxChecksumsSize)
+func (s *SelfUpdater) fetchChecksumsManifest(ctx context.Context, rel forge.Release) ([]byte, error) {
+	if cp, ok := s.releaseClient.(forge.ChecksumProvider); ok {
+		manifest, err := cp.DownloadChecksumManifest(ctx, rel, s.checksumsBound())
 		if err == nil {
 			return manifest, nil
 		}
 
-		if !errors.Is(err, release.ErrNotSupported) {
+		if !errors.Is(err, forge.ErrNotSupported) {
 			return nil, err
 		}
 		// ErrNotSupported: provider opted out for this release's
@@ -702,7 +750,7 @@ func (s *SelfUpdater) fetchChecksumsManifest(ctx context.Context, rel release.Re
 // GoReleaser default `checksums.txt`). The second return value is
 // false when no matching asset is present, signalling to the caller
 // that checksum verification is unavailable for this release.
-func (s *SelfUpdater) findChecksumsAsset(rel release.Release) (release.ReleaseAsset, bool) {
+func (s *SelfUpdater) findChecksumsAsset(rel forge.Release) (forge.ReleaseAsset, bool) {
 	name := s.checksumAssetName
 	if name == "" {
 		name = checksumsDefaultAssetName
@@ -723,9 +771,9 @@ func (s *SelfUpdater) findChecksumsAsset(rel release.Release) (release.ReleaseAs
 // hostile server stream indefinitely.
 func (s *SelfUpdater) downloadChecksumManifest(
 	ctx context.Context,
-	asset release.ReleaseAsset,
+	asset forge.ReleaseAsset,
 ) ([]byte, error) {
-	return s.downloadBoundedAsset(ctx, asset, MaxChecksumsSize, ErrChecksumTooLarge, "checksums manifest")
+	return s.downloadBoundedAsset(ctx, asset, s.checksumsBound(), ErrChecksumTooLarge, "checksums manifest")
 }
 
 // downloadBoundedAsset downloads a small release asset (manifest or
@@ -735,7 +783,7 @@ func (s *SelfUpdater) downloadChecksumManifest(
 // sentinel returned on overshoot; kind labels the artefact in errors.
 func (s *SelfUpdater) downloadBoundedAsset(
 	ctx context.Context,
-	asset release.ReleaseAsset,
+	asset forge.ReleaseAsset,
 	maxBytes int64,
 	tooLarge error,
 	kind string,
@@ -894,7 +942,7 @@ func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (s *SelfUpdater) findReleaseAsset(rel release.Release) (release.ReleaseAsset, error) {
+func (s *SelfUpdater) findReleaseAsset(rel forge.Release) (forge.ReleaseAsset, error) {
 	c := cases.Title(language.Und)
 	targetOS := c.String(runtime.GOOS)
 
@@ -915,7 +963,7 @@ func (s *SelfUpdater) findReleaseAsset(rel release.Release) (release.ReleaseAsse
 }
 
 // DownloadAsset downloads the raw bytes of a release asset.
-func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset release.ReleaseAsset) (bytes.Buffer, error) {
+func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset forge.ReleaseAsset) (bytes.Buffer, error) {
 	var file bytes.Buffer
 
 	s.logger.Debug("downloading asset", "id", asset.GetID())
@@ -940,7 +988,7 @@ func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset release.ReleaseAs
 
 	maxBytes := s.maxBinaryDownloadSize
 	if maxBytes <= 0 {
-		maxBytes = MaxBinaryDownloadSize
+		maxBytes = DefaultMaxBinaryDownloadSize
 	}
 
 	// +1 so we can distinguish "exactly the limit" from "over the limit".
@@ -951,7 +999,7 @@ func (s *SelfUpdater) DownloadAsset(ctx context.Context, asset release.ReleaseAs
 
 	if i > maxBytes {
 		return file, errors.WithHintf(ErrBinaryTooLarge,
-			"asset %q exceeded MaxBinaryDownloadSize (%d bytes); raise the limit if this is legitimate",
+			"asset %q exceeded the binary download bound (%d bytes); raise it with WithMaxBinaryDownloadSize if this is legitimate",
 			asset.GetName(), maxBytes)
 	}
 
@@ -999,7 +1047,7 @@ func (s *SelfUpdater) isDevelopmentVersion() bool {
 	return s.CurrentVersion == "v0.0.0"
 }
 
-func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (release.Release, error) {
+func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (forge.Release, error) {
 	var err error
 
 	if s.NextRelease != nil {
@@ -1148,7 +1196,7 @@ func (s *SelfUpdater) GetStructuredReleaseNotes(ctx context.Context, from, to st
 	return cl, nil
 }
 
-func (s *SelfUpdater) filterReleaseNotes(releases []release.Release, from, to string) []string {
+func (s *SelfUpdater) filterReleaseNotes(releases []forge.Release, from, to string) []string {
 	var releaseNotes []string
 
 	fromVersion := ver.FormatVersionString(from, true)

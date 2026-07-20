@@ -6,7 +6,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 // FeatureCmd identifies a built-in feature that can be enabled or disabled.
@@ -128,6 +128,19 @@ type SigningConfig struct {
 	// signature over checksums.txt. Not serialised — keys are compile-time
 	// build artefacts, never runtime config.
 	EmbeddedKeys [][]byte `json:"-" yaml:"-"`
+
+	// RequireChecksum is the tool author's baseline for checksum enforcement,
+	// consulted when neither config nor environment supplies one. It is a
+	// pointer so "unset" is distinguishable from "explicitly false": nil
+	// leaves the framework default (permissive), and a tool wanting
+	// fail-closed verification from day one sets it true.
+	//
+	// It lives here, beside the other tool-author baselines, rather than as a
+	// package variable in pkg/setup. The framework constructs the updater, so
+	// a tool cannot pass an option to it — but it does own its Props, and
+	// process-wide mutable state is not a configuration mechanism. Runtime
+	// config (`update.require_checksum`) still overrides it.
+	RequireChecksum *bool `json:"-" yaml:"-"`
 }
 
 // BootstrapPolicy governs how the framework treats configuration bootstrap and
@@ -200,7 +213,7 @@ type Tool struct {
 	// never serialised. Production tools leave it nil and are resolved from the
 	// release registry by ReleaseSource.Type as before. An explicit
 	// setup.WithReleaseProvider option takes precedence over this field.
-	ReleaseProvider release.Provider `json:"-" yaml:"-"`
+	ReleaseProvider forge.Provider `json:"-" yaml:"-"`
 
 	// UpdatePolicy is the tool author's baseline self-update posture
 	// (disabled / prompt / enabled). The zero value normalises to

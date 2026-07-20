@@ -10,25 +10,26 @@ import (
 
 	"gitlab.com/phpboyscout/go/signing/verify"
 
+	"gitlab.com/phpboyscout/go/forge"
+	forgetest "gitlab.com/phpboyscout/go/forge/test"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release/releasetest"
 )
 
 // These exercise the full Update() pipeline (download → checksum →
 // signature → extract → replace) with verification ENABLED, on an in-memory
-// filesystem and the shared release.Provider test double — no network. The
+// filesystem and the shared forge.Provider test double — no network. The
 // constituent verifiers are unit-tested elsewhere; these guard that Update()
 // actually wires them in and aborts (without replacing the binary) when
 // verification fails. They double as the worked example for driving the real
-// pipeline from pkg/vcs/release/releasetest.
+// pipeline from pkg/vcs/release/forgetest.
 
 const e2eToolName = "testtool"
 
 // newE2EUpdater builds a SelfUpdater wired for a full Update over memfs: the
 // current binary already exists and os/exec resolution points at it.
-func newE2EUpdater(t *testing.T, provider release.Provider) (*SelfUpdater, string) {
+func newE2EUpdater(t *testing.T, provider forge.Provider) (*SelfUpdater, string) {
 	t.Helper()
 
 	memFS := afero.NewMemMapFs()
@@ -53,9 +54,9 @@ func newE2EUpdater(t *testing.T, provider release.Provider) (*SelfUpdater, strin
 func TestUpdate_VerifiesChecksum_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
-	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
-		asset, releasetest.ChecksumsAsset(false, asset)))
+	asset := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	provider := forgetest.New(forgetest.WithRelease("v1.1.0",
+		asset, forgetest.ChecksumsAsset(false, asset)))
 
 	s, currentBin := newE2EUpdater(t, provider)
 	s.requireChecksum = true
@@ -72,10 +73,10 @@ func TestUpdate_VerifiesChecksum_HappyPath(t *testing.T) {
 func TestUpdate_AbortsOnChecksumMismatch(t *testing.T) {
 	t.Parallel()
 
-	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	asset := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
 	// Corrupt manifest hashes a different payload than the served asset → mismatch.
-	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
-		asset, releasetest.ChecksumsAsset(true, asset)))
+	provider := forgetest.New(forgetest.WithRelease("v1.1.0",
+		asset, forgetest.ChecksumsAsset(true, asset)))
 
 	s, currentBin := newE2EUpdater(t, provider)
 	s.requireChecksum = true
@@ -92,13 +93,13 @@ func TestUpdate_VerifiesSignedChecksum_HappyPath(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
-	manifest := releasetest.Manifest(false, asset)
+	asset := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	manifest := forgetest.Manifest(false, asset)
 
-	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
+	provider := forgetest.New(forgetest.WithRelease("v1.1.0",
 		asset,
-		releasetest.Asset{Name: "checksums.txt", Body: manifest},
-		releasetest.SignatureAsset(testEd25519.entity, manifest, false),
+		forgetest.Asset{Name: "checksums.txt", Body: manifest},
+		forgetest.SignatureAsset(testEd25519.entity, manifest, false),
 	))
 
 	s, currentBin := newE2EUpdater(t, provider)
@@ -121,15 +122,15 @@ func TestUpdate_AbortsOnBadSignature(t *testing.T) {
 	t.Parallel()
 	mustInitTestSigningKeys(t)
 
-	asset := releasetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
-	manifest := releasetest.Manifest(false, asset)
+	asset := forgetest.TarGzAsset(e2eToolName, e2eToolName, "new-binary")
+	manifest := forgetest.Manifest(false, asset)
 
-	provider := releasetest.New(releasetest.WithRelease("v1.1.0",
+	provider := forgetest.New(forgetest.WithRelease("v1.1.0",
 		asset,
-		releasetest.Asset{Name: "checksums.txt", Body: manifest},
+		forgetest.Asset{Name: "checksums.txt", Body: manifest},
 		// Signature over a different payload, so it will not verify against the
 		// served manifest.
-		releasetest.SignatureAsset(testEd25519.entity, manifest, true),
+		forgetest.SignatureAsset(testEd25519.entity, manifest, true),
 	))
 
 	s, currentBin := newE2EUpdater(t, provider)

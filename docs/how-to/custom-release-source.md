@@ -1,268 +1,90 @@
 ---
-title: Add a Custom Release Source
-description: How to implement and register a custom release.Provider so your tool can self-update from any backend.
-date: 2026-03-29
-tags: [how-to, update, release, custom, registry]
-authors: [Matt Cockayne <matt@phpboyscout.com>]
+title: How to add a custom release source
+description: Register your own forge provider and wire it into a GTB tool's self-update.
+date: 2026-07-19
+tags: [how-to, vcs, forge, releases, providers]
 ---
 
-# Add a Custom Release Source
+# How to add a custom release source
 
-GTB's self-update system is built around a pluggable provider registry. The six built-in source types (`github`, `gitlab`, `bitbucket`, `gitea`, `codeberg`, `direct`) cover most hosting platforms, but you can register your own provider for any backend — private artifact stores, S3 buckets with custom layout, Nexus, Artifactory, or anything else.
+Release providers live in the standalone
+[`forge`](https://forge.go.phpboyscout.uk) module, and a provider ships as **your
+own module** — nothing needs contributing to GTB or to forge.
 
-This guide walks through:
+The full authoring guide, including the contract, the credential chain,
+credential pinning and the conformance harness, is
+**[author a provider](https://forge.go.phpboyscout.uk/how-to/author-a-provider/)**.
+This page covers only the GTB side: getting your provider used by a tool's
+self-update.
 
-1. Implementing `release.Provider`
-2. Registering the factory with `release.Register`
-3. Wiring `props.Tool.ReleaseSource` in `main.go`
-4. Writing unit tests for the provider
+## 1. Register it
 
----
-
-## Step 1: Implement `release.Provider`
-
-The provider interface has four methods:
-
-```go
-type Provider interface {
-    GetLatestRelease(ctx context.Context, owner, repo string) (Release, error)
-    GetReleaseByTag(ctx context.Context, owner, repo, tag string) (Release, error)
-    ListReleases(ctx context.Context, owner, repo string, limit int) ([]Release, error)
-    DownloadReleaseAsset(ctx context.Context, owner, repo string, asset ReleaseAsset) (io.ReadCloser, string, error)
-}
-```
-
-If your backend has no concept of versioned releases or individual tags, return `release.ErrNotSupported` for those methods — the update command handles this sentinel gracefully.
-
-Create a new package, e.g. `pkg/vcs/s3`:
+Your provider registers itself at `init()`, keyed by any source-type string:
 
 ```go
-// Package s3 provides a release.Provider that fetches release metadata and
-// assets from a private S3 bucket with a fixed object layout.
-package s3
-
-import (
-    "context"
-    "io"
-    "net/http"
-
-    "github.com/cockroachdb/errors"
-
-    "gitlab.com/phpboyscout/go/config"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-)
-
-type S3Provider struct {
-    bucket     string
-    region     string
-    httpClient *http.Client
-}
-
-func NewProvider(src release.ReleaseSourceConfig, cfg config.Containable) (*S3Provider, error) {
-    bucket := src.Params["bucket"]
-    if bucket == "" {
-        return nil, errors.New("s3: bucket param is required")
-    }
-
-    region := src.Params["region"]
-    if region == "" {
-        region = "us-east-1"
-    }
-
-    return &S3Provider{
-        bucket:     bucket,
-        region:     region,
-        httpClient: &http.Client{},
-    }, nil
-}
-
-func (p *S3Provider) GetLatestRelease(ctx context.Context, owner, repo string) (release.Release, error) {
-    // Fetch the latest-version sentinel from S3 and return a synthetic Release.
-    // ...
-}
-
-func (p *S3Provider) GetReleaseByTag(ctx context.Context, owner, repo, tag string) (release.Release, error) {
-    // Construct a synthetic Release for the given tag without a network call,
-    // or return release.ErrNotSupported if tags are not meaningful for this backend.
-    // ...
-}
-
-func (p *S3Provider) ListReleases(ctx context.Context, owner, repo string, limit int) ([]release.Release, error) {
-    return nil, errors.WithHint(
-        release.ErrNotSupported,
-        "ListReleases is not supported for the S3 provider.",
-    )
-}
-
-func (p *S3Provider) DownloadReleaseAsset(ctx context.Context, _, _ string, asset release.ReleaseAsset) (io.ReadCloser, string, error) {
-    req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.GetBrowserDownloadURL(), nil)
-    if err != nil {
-        return nil, "", errors.WithStack(err)
-    }
-
-    resp, err := p.httpClient.Do(req)
-    if err != nil {
-        return nil, "", errors.WithStack(err)
-    }
-
-    if resp.StatusCode != http.StatusOK {
-        _ = resp.Body.Close()
-        return nil, "", errors.Newf("S3 download failed: HTTP %d", resp.StatusCode)
-    }
-
-    return resp.Body, "", nil
-}
-```
-
-You also need concrete types that implement `release.Release` and `release.ReleaseAsset`:
-
-```go
-type s3Release struct {
-    tagName string
-    assets  []release.ReleaseAsset
-}
-
-func (r *s3Release) GetName() string                   { return r.tagName }
-func (r *s3Release) GetTagName() string                { return r.tagName }
-func (r *s3Release) GetBody() string                   { return "" }
-func (r *s3Release) GetDraft() bool                    { return false }
-func (r *s3Release) GetAssets() []release.ReleaseAsset { return r.assets }
-
-type s3Asset struct {
-    name string
-    url  string
-}
-
-func (a *s3Asset) GetID() int64                  { return 0 }
-func (a *s3Asset) GetName() string               { return a.name }
-func (a *s3Asset) GetBrowserDownloadURL() string { return a.url }
-```
-
----
-
-## Step 2: Register the Factory
-
-Register the provider factory **before** any update operation runs. The cleanest place is `main()`:
-
-```go
-package main
-
-import (
-    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "gitlab.com/phpboyscout/go/config"
-
-    "github.com/myorg/mytool/pkg/vcs/s3"
-)
-
-func main() {
-    release.Register("s3", func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
-        return s3.NewProvider(src, cfg)
-    })
-
-    // ... build and run the Cobra root command
-}
-```
-
-If your project has multiple entry points, or you want the provider to be available as a library, you can use an `init()` function in your provider package instead:
-
-```go
-// pkg/vcs/s3/init.go
-package s3
-
-import (
-    "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
-    "gitlab.com/phpboyscout/go/config"
-)
-
 func init() {
-    release.Register("s3", func(src release.ReleaseSourceConfig, cfg config.Containable) (release.Provider, error) {
-        return NewProvider(src, cfg)
+    err := forge.Register("s3", func(src forge.ReleaseSourceConfig, cfg forge.Config) (forge.Provider, error) {
+        return New(SettingsFromConfig(src, cfg))
     })
-}
-```
-
-Then import the package with a blank identifier in `main.go` to trigger the `init()`:
-
-```go
-import _ "github.com/myorg/mytool/pkg/vcs/s3"
-```
-
----
-
-## Step 3: Wire `props.Tool.ReleaseSource` in `main.go`
-
-Set `Type` to the string you registered, and pass any provider-specific parameters via `Params`:
-
-```go
-tool := props.Tool{
-    Name:    "mytool",
-    Summary: "My developer tool",
-    ReleaseSource: props.ReleaseSource{
-        Type:  "s3",
-        Owner: "myorg",
-        Repo:  "mytool",
-        Params: map[string]string{
-            "bucket": "myorg-releases",
-            "region": "eu-west-1",
-        },
-    },
-}
-```
-
-`setup.NewUpdater` calls `release.Lookup(src.Type)` internally and forwards `ReleaseSourceConfig` (including `Params`) to your factory — no other changes are needed.
-
----
-
-## Step 4: Write Unit Tests
-
-Use `httptest.NewServer` to serve mock responses without any network access:
-
-```go
-func TestS3Provider_GetLatestRelease(t *testing.T) {
-    t.Parallel()
-
-    srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Serve a mock latest-version response
-        w.Header().Set("Content-Type", "application/json")
-        _, _ = w.Write([]byte(`{"tag_name":"v2.0.0"}`))
-    }))
-    defer srv.Close()
-
-    src := release.ReleaseSourceConfig{
-        Type: "s3",
-        Params: map[string]string{
-            "bucket":      "test-bucket",
-            "version_url": srv.URL + "/latest.json",
-        },
+    if err != nil {
+        panic("myforge: " + err.Error())
     }
-
-    provider, err := s3.NewProvider(src, nil)
-    require.NoError(t, err)
-
-    rel, err := provider.GetLatestRelease(context.Background(), "myorg", "mytool")
-    require.NoError(t, err)
-    assert.Equal(t, "v2.0.0", rel.GetTagName())
 }
 ```
 
----
+!!! warning "A duplicate source type is an error, not an overwrite"
+    `forge.Register` returns `ErrAlreadyRegistered` rather than replacing an
+    existing factory — silent overwriting let one blank import displace another
+    with no diagnostic, and initialisation order decided the winner.
 
-## Registering Multiple Variants
+    To deliberately replace a built-in, call `forge.Unregister` first. To register
+    conditionally, check `forge.Registered`.
 
-You can register multiple factories from the same package for different deployment configurations:
+## 2. Import it for the side effect
+
+Blank-import your module in the tool's `main`, before any update runs:
 
 ```go
-release.Register("s3-us", makeS3Factory("us-east-1"))
-release.Register("s3-eu", makeS3Factory("eu-west-1"))
+import _ "example.com/myforge"
 ```
 
-Each source type must be unique. Calling `release.Register` with an existing key overwrites the previous factory — useful for overriding a built-in provider in tests.
+GTB's own `pkg/setup/providers.go` does this for the first-party set. A tool that
+supports only your forge can import just yours and shed the built-in clients
+entirely.
 
----
+## 3. Point the tool at it
 
-## Related Documentation
+```go
+props.Tool.ReleaseSource = props.ReleaseSource{
+    Type:  "s3",
+    Owner: "my-org",
+    Repo:  "my-tool",
+    Params: map[string]string{"bucket": "releases"},
+}
+```
 
-- **[Release Provider component](../explanation/components/vcs/release.md)** — full interface and registry API reference
-- **[Configure Self-Updating](configure-self-updating.md)** — wiring `UpdateCmd` end-to-end
-- **[Setup component](../explanation/components/setup/index.md)** — how `NewUpdater` selects and constructs providers
-- **[Auto-Update Lifecycle](../explanation/components/update.md)** — how `release.Provider` drives version checks
+`Params` is free-form, so your factory reads whatever keys it needs. The
+`vcs.provider` config key overrides `Type` at runtime.
+
+## Injecting directly, without the registry
+
+The registry is process-wide mutable state, so mutating it from tests cannot run
+under `t.Parallel()`. For tests — and for a provider constructed at runtime
+rather than registered — inject it instead:
+
+```go
+setup.NewUpdater(ctx, props, "", false, setup.WithReleaseProvider(myProvider))
+```
+
+or set `props.Tool.ReleaseProvider`, which takes precedence over registry lookup.
+The option wins over the field. GTB's own tests drive self-update this way, using
+the in-memory double from
+[`forge/test`](https://forge.go.phpboyscout.uk/how-to/testing/).
+
+## Related
+
+- **[Author a provider](https://forge.go.phpboyscout.uk/how-to/author-a-provider/)** —
+  the contract, credential resolution, and the conformance harness
+- **[Providers reference](https://forge.go.phpboyscout.uk/reference/providers/)** —
+  the first-party set and their config keys
+- [Configure self-updating](configure-self-updating.md)

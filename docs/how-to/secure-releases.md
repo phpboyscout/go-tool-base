@@ -71,15 +71,19 @@ The same placeholders (`{version}`, `{version_bare}`, `{os}`, `{arch}`, `{tool}`
 By default, a release without `checksums.txt` logs a warning and the update proceeds. This preserves backward compatibility for tools whose existing releases predate this feature. Once your tool has shipped at least one release with a manifest, flip the default to fail-closed:
 
 ```go
-package main
+requireChecksum := true
 
-import "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
-
-func main() {
-    setup.DefaultRequireChecksum = true
-    // ...
+props := &props.Props{
+    Tool: props.Tool{
+        Signing: props.SigningConfig{
+            RequireChecksum: &requireChecksum,
+        },
+    },
 }
 ```
+
+It is a pointer so "unset" stays distinguishable from "explicitly false": nil
+leaves the framework default (permissive).
 
 ### Overriding at runtime
 
@@ -97,17 +101,27 @@ update:
 export MYTOOL_UPDATE_REQUIRE_CHECKSUM=true
 ```
 
-Config wins over env var; env var wins over `setup.DefaultRequireChecksum`.
+Config wins over env var; env var wins over the tool-author baseline in `props.Tool.Signing.RequireChecksum`.
 
-> **GTB itself** ships with `setup.DefaultRequireChecksum = true` — every `gtb update` verifies. Override with `GTB_UPDATE_REQUIRE_CHECKSUM=false` or `update.require_checksum: false` in config only if you need to update across a legacy release that predates the manifest (all GoReleaser-built releases have it, so this should rarely apply).
+> **GTB itself** sets `Signing.RequireChecksum` — every `gtb update` verifies. Override with `GTB_UPDATE_REQUIRE_CHECKSUM=false` or `update.require_checksum: false` in config only if you need to update across a legacy release that predates the manifest (all GoReleaser-built releases have it, so this should rarely apply).
 
 ### Size bounds
 
-The manifest download is capped at `setup.MaxChecksumsSize` (1 MiB); the binary download at `setup.MaxBinaryDownloadSize` (512 MiB). A hostile server streaming beyond those bounds aborts with `ErrChecksumTooLarge`. Tool authors who legitimately ship larger artefacts can reassign either variable before calling `Update()`:
+The manifest download is capped at `setup.DefaultMaxChecksumsSize` (1 MiB); the
+binary download at `setup.DefaultMaxBinaryDownloadSize` (512 MiB). A hostile
+server streaming beyond those bounds aborts with `ErrChecksumTooLarge`.
+
+Those are constants. A tool legitimately shipping larger artefacts raises the
+bound **per updater** rather than by reassigning a package variable:
 
 ```go
-setup.MaxBinaryDownloadSize = 2 << 30 // 2 GiB
+setup.NewUpdater(ctx, props, "", false,
+    setup.WithMaxBinaryDownloadSize(2<<30), // 2 GiB
+)
 ```
+
+The previous mutable globals raced under `t.Parallel()` and scoped a bound to
+the whole process rather than to the updater that needed it.
 
 ## Phase 2: GPG-signed manifests
 
@@ -295,8 +309,8 @@ go test ./pkg/setup/ -run "^$" -fuzz=FuzzParseChecksumManifest -fuzztime=30s
 
 ## Related
 
-- [Setup Package Reference](../explanation/components/setup/index.md) — `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, `DefaultRequireChecksum`.
-- [VCS Release Providers](../explanation/components/vcs/release.md) — the `ChecksumProvider` optional interface and per-provider behaviour.
+- [Setup Package Reference](../explanation/components/setup/index.md) — `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, and the updater options.
+- [VCS Release Providers](https://forge.go.phpboyscout.uk/reference/providers/) — the `ChecksumProvider` optional interface and per-provider behaviour.
 - [Custom Release Source](custom-release-source.md) — implementing a custom `release.Provider` (and optionally `release.ChecksumProvider`) for a proprietary release backend.
 - [Credential Storage Hardening Spec](../development/specs/2026-04-02-credential-storage-hardening.md) — the related defence-in-depth spec that covers credential storage during update and setup.
 - [Remote Update Integrity Spec](../development/specs/2026-04-02-remote-update-checksum-verification.md) — the full design including Phase 2 (GPG) and Phase 3 (cosign).

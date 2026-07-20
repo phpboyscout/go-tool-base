@@ -10,12 +10,13 @@ import (
 
 	"gitlab.com/phpboyscout/go/signing/verify"
 
+	"gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
-// signatureFakeProvider implements [release.SignatureProvider] to
+// signatureFakeProvider implements [forge.SignatureProvider] to
 // exercise the provider-preferred fetch path.
 type signatureFakeProvider struct {
 	fakeProvider
@@ -23,7 +24,7 @@ type signatureFakeProvider struct {
 	err error
 }
 
-func (p *signatureFakeProvider) DownloadSignature(_ context.Context, _ release.Release, _ int64) ([]byte, error) {
+func (p *signatureFakeProvider) DownloadSignature(_ context.Context, _ forge.Release, _ int64) ([]byte, error) {
 	if p.err != nil {
 		return nil, p.err
 	}
@@ -89,7 +90,7 @@ func TestFetchSignature_ProviderPath(t *testing.T) {
 
 	// Provider opts out -> asset fallback finds nothing -> (nil, nil).
 	got2, err := newSigningUpdater(
-		&signatureFakeProvider{fakeProvider: fakeProvider{rel: rel}, err: release.ErrNotSupported}, nil, false,
+		&signatureFakeProvider{fakeProvider: fakeProvider{rel: rel}, err: forge.ErrNotSupported}, nil, false,
 	).fetchSignature(context.Background(), rel)
 	require.NoError(t, err)
 	assert.Nil(t, got2)
@@ -106,7 +107,7 @@ func TestVerifyManifestSignature_FetchError(t *testing.T) {
 	mustInitTestSigningKeys(t)
 
 	manifest := []byte("aa  f\n")
-	rel := &fakeRelease{name: "v1.0.0", assets: []release.ReleaseAsset{
+	rel := &fakeRelease{name: "v1.0.0", assets: []forge.ReleaseAsset{
 		&fakeAsset{name: "checksums.txt.sig"},
 	}}
 	provider := &fakeProvider{rel: rel, downloadErr: errors.New("network down")}
@@ -307,7 +308,7 @@ func TestSignatureAssetName(t *testing.T) {
 }
 
 // newSigningUpdater builds a minimal SelfUpdater for signature-gate tests.
-func newSigningUpdater(p release.Provider, resolver verify.KeyResolver, require bool) *SelfUpdater {
+func newSigningUpdater(p forge.Provider, resolver verify.KeyResolver, require bool) *SelfUpdater {
 	return &SelfUpdater{
 		Tool:             props.Tool{Name: "testtool"},
 		logger:           logger.NewNoop(),
@@ -320,7 +321,7 @@ func newSigningUpdater(p release.Provider, resolver verify.KeyResolver, require 
 func relWithSig(sig []byte) (*fakeRelease, *fakeProvider) {
 	rel := &fakeRelease{
 		name: "v1.0.0",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "testtool_Linux_x86_64.tar.gz"},
 			&fakeAsset{name: "checksums.txt"},
 			&fakeAsset{name: "checksums.txt.sig"},
@@ -441,7 +442,7 @@ func TestVerifyManifestSignature_MissingSignature(t *testing.T) {
 	manifest := []byte("aa  testtool_Linux_x86_64.tar.gz\n")
 
 	// No sig asset present.
-	rel := &fakeRelease{name: "v1.0.0", assets: []release.ReleaseAsset{
+	rel := &fakeRelease{name: "v1.0.0", assets: []forge.ReleaseAsset{
 		&fakeAsset{name: "checksums.txt"},
 	}}
 	provider := &fakeProvider{rel: rel, assetBodies: map[string][]byte{}}
@@ -500,7 +501,7 @@ func TestVerifyAssetChecksum_SignatureGate_Integration(t *testing.T) {
 
 	rel := &fakeRelease{
 		name: "v1.0.0",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "testtool_Linux_x86_64.tar.gz"},
 			&fakeAsset{name: "checksums.txt"},
 			&fakeAsset{name: "checksums.txt.sig"},
@@ -529,7 +530,7 @@ func TestVerifyAssetChecksum_BadSignatureBlocksBeforeChecksum(t *testing.T) {
 
 	rel := &fakeRelease{
 		name: "v1.0.0",
-		assets: []release.ReleaseAsset{
+		assets: []forge.ReleaseAsset{
 			&fakeAsset{name: "testtool_Linux_x86_64.tar.gz"},
 			&fakeAsset{name: "checksums.txt"},
 			&fakeAsset{name: "checksums.txt.sig"},

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 func TestNewGitHubClientInstantiation(t *testing.T) {
@@ -15,7 +15,7 @@ func TestNewGitHubClientInstantiation(t *testing.T) {
 	client, err := NewGitHubClient(ClientSettings{
 		APIURL:    "https://api.github.com",
 		UploadURL: "https://uploads.github.com",
-		Auth:      vcs.AuthConfig{Env: "GITHUB_TOKEN"},
+		Auth:      forge.AuthConfig{Env: "GITHUB_TOKEN"},
 	})
 	require.NoError(t, err)
 	assert.NotNil(t, client)

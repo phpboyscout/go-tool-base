@@ -15,10 +15,11 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	rootvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 const (
@@ -38,7 +39,7 @@ func defaultGitHubClientFactory(cfg config.Containable) (githubvcs.GitHubClient,
 	// SSH key management targets github.com (or the Enterprise host
 	// carried in cfg.url.api); release-source host is not relevant here.
 	return githubvcs.NewGitHubClient(
-		githubvcs.ClientSettingsFromConfig(release.ReleaseSourceConfig{}, rootvcs.ConfigFromContainable(cfg)),
+		githubvcs.ClientSettingsFromConfig(forge.ReleaseSourceConfig{}, vcs.ConfigFromContainable(cfg)),
 	)
 }
 

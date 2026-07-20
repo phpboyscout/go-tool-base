@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/forge"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
 )
 
 func repoCfgFromYAML(t *testing.T, yaml string) config.Containable {
@@ -29,7 +29,7 @@ func repoCfgFromYAML(t *testing.T, yaml string) config.Containable {
 func TestSettingsFromContainable_Nil(t *testing.T) {
 	t.Parallel()
 
-	source := release.ReleaseSourceConfig{Type: "github"}
+	source := forge.ReleaseSourceConfig{Type: "github"}
 
 	settings := SettingsFromContainable(source, nil, logger.NewNoop(), afero.NewMemMapFs())
 
@@ -46,7 +46,7 @@ func TestSettingsFromContainable_TokenAuth(t *testing.T) {
 	cfg := repoCfgFromYAML(t, `github: {auth: {value: tok-from-config}}`)
 
 	settings := SettingsFromContainable(
-		release.ReleaseSourceConfig{Type: "github"},
+		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -68,7 +68,7 @@ gitlab: {auth: {value: gl-tok-from-config}}
 `)
 
 	settings := SettingsFromContainable(
-		release.ReleaseSourceConfig{Type: "github"},
+		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -92,7 +92,7 @@ github:
 `)
 
 	settings := SettingsFromContainable(
-		release.ReleaseSourceConfig{Type: "github"},
+		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -118,7 +118,7 @@ github:
 `)
 
 	settings := SettingsFromContainable(
-		release.ReleaseSourceConfig{Type: "github"},
+		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -133,7 +133,7 @@ func TestSettingsFromContainable_ScalarSSH(t *testing.T) {
 	cfg := repoCfgFromYAML(t, `github: {ssh: true}`)
 
 	settings := SettingsFromContainable(
-		release.ReleaseSourceConfig{Type: "github"},
+		forge.ReleaseSourceConfig{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),

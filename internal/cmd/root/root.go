@@ -56,6 +56,9 @@ func init() {
 func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 	l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
+	// Addressable so SigningConfig can distinguish "unset" from "false".
+	requireChecksum := true
+
 	p := &props.Props{
 		Tool: props.Tool{
 			Name:        "gtb",
@@ -86,6 +89,13 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 			// internal/trustkeys/keys/*.asc — see phase2-signing-prep.md.
 			Signing: props.SigningConfig{
 				EmbeddedKeys: trustkeys.Keys(),
+
+				// GoReleaser has always produced checksums.txt on every
+				// release, so gtb fails closed: a future release with a
+				// broken pipeline aborts the update with an actionable
+				// error rather than quietly installing an unverified
+				// binary. Runtime `update.require_checksum` still wins.
+				RequireChecksum: &requireChecksum,
 			},
 		},
 		Logger:  l,

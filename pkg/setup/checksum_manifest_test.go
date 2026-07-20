@@ -168,7 +168,7 @@ func TestVerifyChecksumFromManifestReader_HappyPath(t *testing.T) {
 		"gtb_Linux_x86_64.tar.gz",
 		bytes.NewReader(body),
 		&dst,
-		MaxBinaryDownloadSize,
+		DefaultMaxBinaryDownloadSize,
 	)
 	require.NoError(t, err)
 	assert.EqualValues(t, len(body), n)
@@ -197,7 +197,7 @@ func TestVerifyChecksumFromManifestReader_MismatchPreservesCopy(t *testing.T) {
 		"gtb.tar.gz",
 		bytes.NewReader(tampered),
 		&dst,
-		MaxBinaryDownloadSize,
+		DefaultMaxBinaryDownloadSize,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "checksum mismatch")
@@ -207,7 +207,7 @@ func TestVerifyChecksumFromManifestReader_MismatchPreservesCopy(t *testing.T) {
 func TestVerifyChecksumFromManifestReader_RejectsOversizedStream(t *testing.T) {
 	t.Parallel()
 
-	// A hostile server streaming beyond MaxBinaryDownloadSize must
+	// A hostile server streaming beyond DefaultMaxBinaryDownloadSize must
 	// abort before we reach the hash comparison. Use a small cap so
 	// the test doesn't need megabytes of data.
 	body := bytes.Repeat([]byte("a"), 1024)
@@ -245,7 +245,7 @@ func TestVerifyChecksumFromManifestReader_AssetNotListedAbortsBeforeIO(t *testin
 		"missing.tar.gz",
 		iotest.ReaderFuncFail(t),
 		&dst,
-		MaxBinaryDownloadSize,
+		DefaultMaxBinaryDownloadSize,
 	)
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrChecksumAssetNotFound)

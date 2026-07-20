@@ -9,7 +9,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 func TestClientSettingsFromConfig(t *testing.T) {
@@ -31,11 +31,11 @@ github:
 	)
 
 	settings := ClientSettingsFromConfig(
-		release.ReleaseSourceConfig{Host: "github.com"},
+		forge.ReleaseSourceConfig{Host: "github.com"},
 		cfg.Sub("github"),
 	)
 
-	assert.Equal(t, release.ReleaseSourceConfig{Host: "github.com"}, settings.ReleaseSource)
+	assert.Equal(t, forge.ReleaseSourceConfig{Host: "github.com"}, settings.ReleaseSource)
 	assert.Equal(t, "https://ghe.example.com/api/v3/", settings.APIURL)
 	assert.Equal(t, "https://uploads.ghe.example.com/", settings.UploadURL)
 	assert.Equal(t, "GITHUB_TOKEN", settings.Auth.Env)
@@ -46,7 +46,7 @@ github:
 func TestClientSettingsFromConfig_Nil(t *testing.T) {
 	t.Parallel()
 
-	source := release.ReleaseSourceConfig{Host: "github.com"}
+	source := forge.ReleaseSourceConfig{Host: "github.com"}
 
 	settings := ClientSettingsFromConfig(source, nil)
 

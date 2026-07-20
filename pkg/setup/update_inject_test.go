@@ -10,9 +10,10 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	forgetest "gitlab.com/phpboyscout/go/forge/test"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release/releasetest"
 )
 
 // injectProps builds a minimal Props sufficient for NewUpdater's release-client
@@ -31,7 +32,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 	t.Run("WithReleaseProvider option injects the client and skips the registry", func(t *testing.T) {
 		t.Parallel()
 
-		src := releasetest.New(releasetest.WithRelease("v1.0.0"))
+		src := forgetest.New(forgetest.WithRelease("v1.0.0"))
 		// An unknown ReleaseSource.Type would fail registry Lookup — proving the
 		// option short-circuits it when resolution succeeds anyway.
 		p := injectProps(props.Tool{ReleaseSource: props.ReleaseSource{Type: "no-such-provider"}})
@@ -44,7 +45,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 	t.Run("props.Tool.ReleaseProvider field is used when no option is given", func(t *testing.T) {
 		t.Parallel()
 
-		src := releasetest.New(releasetest.WithRelease("v1.0.0"))
+		src := forgetest.New(forgetest.WithRelease("v1.0.0"))
 		p := injectProps(props.Tool{
 			ReleaseSource:   props.ReleaseSource{Type: "no-such-provider"},
 			ReleaseProvider: src,
@@ -58,8 +59,8 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 	t.Run("option takes precedence over the props field", func(t *testing.T) {
 		t.Parallel()
 
-		field := releasetest.New(releasetest.WithRelease("v1.0.0"))
-		option := releasetest.New(releasetest.WithRelease("v2.0.0"))
+		field := forgetest.New(forgetest.WithRelease("v1.0.0"))
+		option := forgetest.New(forgetest.WithRelease("v2.0.0"))
 		p := injectProps(props.Tool{ReleaseProvider: field})
 
 		u, err := NewUpdater(context.Background(), p, "", false, WithReleaseProvider(option))
@@ -86,7 +87,7 @@ func TestNewUpdater_ReleaseClientPrecedence(t *testing.T) {
 func TestNewUpdater_InjectedProviderSkipsTokenGate(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "") // ensure no ambient token satisfies the gate
 
-	src := releasetest.New(releasetest.WithRelease("v1.0.0"))
+	src := forgetest.New(forgetest.WithRelease("v1.0.0"))
 	p := injectProps(props.Tool{
 		ReleaseSource: props.ReleaseSource{Type: "github", Owner: "o", Repo: "r", Private: true},
 	})

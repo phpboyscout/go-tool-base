@@ -330,7 +330,7 @@ update:
 During `Update()`, after the checksums manifest is downloaded but **before** it is parsed:
 
 1. The trust set is resolved (the composite cross-check runs here — the earliest failure point).
-2. The detached signature is fetched (via [`SignatureProvider`](../vcs/release.md#signatureprovider-optional-interface) when the provider opts in, else by asset-name lookup).
+2. The detached signature is fetched (via [`SignatureProvider`](https://forge.go.phpboyscout.uk/explanation/optional-capabilities/) when the provider opts in, else by asset-name lookup).
 3. The signature is verified over the **raw manifest bytes**. Only on success is the manifest parsed for checksum comparison.
 
 Failure handling is deliberately asymmetric:

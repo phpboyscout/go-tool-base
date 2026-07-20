@@ -3,7 +3,7 @@ package vcs
 import (
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 type configAdapter struct {
@@ -12,7 +12,7 @@ type configAdapter struct {
 
 // ConfigFromContainable adapts GTB's config container to the narrow VCS release
 // config reader used by release providers.
-func ConfigFromContainable(cfg config.Containable) release.Config {
+func ConfigFromContainable(cfg config.Containable) forge.Config {
 	if cfg == nil {
 		return nil
 	}
@@ -24,6 +24,6 @@ func (a configAdapter) GetString(key string) string {
 	return a.cfg.GetString(key)
 }
 
-func (a configAdapter) Sub(key string) release.Config {
+func (a configAdapter) Sub(key string) forge.Config {
 	return ConfigFromContainable(a.cfg.Sub(key))
 }

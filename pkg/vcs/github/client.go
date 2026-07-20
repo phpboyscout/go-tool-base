@@ -12,7 +12,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/httpclient"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
+	"gitlab.com/phpboyscout/go/forge"
 )
 
 // gitHubDotComHost is the canonical public GitHub host. A ReleaseSource
@@ -239,7 +239,7 @@ func NewGitHubClient(settings ClientSettings) (*GHClient, error) {
 	// Token is optional: public repositories work without authentication.
 	// Private repositories will receive a 401 from the API if no token is
 	// set. Empty auth settings resolve the token from the GITHUB_TOKEN env var only.
-	if token := vcs.ResolveToken(settings.Auth, "GITHUB_TOKEN"); token != "" {
+	if token := forge.ResolveToken(settings.Auth, "GITHUB_TOKEN"); token != "" {
 		opts = append(opts, github.WithAuthToken(token))
 	}
 
@@ -291,9 +291,9 @@ func deriveUploadURL(apiURL string) string {
 
 // GetGitHubToken returns the GitHub token from config, erroring when none is
 // available. Use this where a token is strictly required (e.g. git operations).
-// For release/update operations on public repos, prefer vcs.ResolveToken directly.
-func GetGitHubToken(cfg vcs.TokenConfig) (string, error) {
-	token := vcs.ResolveToken(cfg, "GITHUB_TOKEN")
+// For release/update operations on public repos, prefer forge.ResolveToken directly.
+func GetGitHubToken(cfg forge.TokenConfig) (string, error) {
+	token := forge.ResolveToken(cfg, "GITHUB_TOKEN")
 	if token == "" {
 		return "", errors.New("could not find a valid GITHUB_TOKEN, please check your configuration")
 	}

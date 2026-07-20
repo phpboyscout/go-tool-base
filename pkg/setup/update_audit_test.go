@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	mockRelease "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/vcs/release"
+	mockRelease "gitlab.com/phpboyscout/go/forge/mocks"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
