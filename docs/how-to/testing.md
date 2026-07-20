@@ -49,19 +49,19 @@ func TestMyCommand(t *testing.T) {
 
 ## Mocking Configuration
 
-The `pkg/config` package provides an in-memory container builder for testing:
+The `go/config` module builds a store entirely from an in-memory document:
 
 ```go
-cfg := config.NewReaderContainer(fs,
-    config.WithLogger(logger.ToSlog(logger.NewNoop())),
-    config.WithConfigFormat("yaml"),
-    config.WithConfigReaders(bytes.NewReader([]byte("key: test-value"))),
+store, err := config.NewStore(t.Context(),
+    config.WithReaders(config.NamedSource{Name: "test", Content: []byte("key: test-value")}),
 )
-props.Config = cfg
+require.NoError(t, err)
+props.Config = store
 ```
 
-For the config-specific recipes — the generated `Containable`/`Observable` mocks
-and testing observer behaviour — see [How to Test Code That Uses Configuration](test-configuration.md).
+For the config-specific recipes — the published `MockReader`/`MockObservable`
+mocks, file-layer provenance fixtures, and testing observer behaviour — see
+[How to Test Code That Uses Configuration](test-configuration.md).
 
 ## Best Practices for Tests
 

@@ -72,7 +72,7 @@ import (
 )
 
 func registerGRPCService(ctx context.Context, controller controls.Controllable, p *props.Props) error {
-    srv, err := gtbgrpc.RegisterFromContainable(ctx, "grpc", controller, p.Config, p.Logger)
+    srv, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, p.Config.View(), p.Logger)
     if err != nil {
         return err
     }
@@ -190,7 +190,7 @@ pb.RegisterMyServiceServer(srv, &myservice.Server{props: p})
 
 // Register with controller manually
 controller.Register("grpc",
-    controls.WithStart(gtbgrpc.StartFromContainable(p.Config, p.Logger, srv)),
+    controls.WithStart(gtbgrpc.StartFromReader(p.Config.View(), p.Logger, srv)),
     controls.WithStop(gtbgrpc.Stop(logger.ToSlog(p.Logger), srv)),
     controls.WithStatus(gtbgrpc.Status(srv)),
 )

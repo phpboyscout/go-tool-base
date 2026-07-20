@@ -30,15 +30,15 @@ type MyInitialiser struct {
 
 func (m *MyInitialiser) Name() string { return "My Feature" }
 
-func (m *MyInitialiser) IsConfigured(cfg config.Containable) bool {
+func (m *MyInitialiser) IsConfigured(cfg config.Reader) bool {
     return m.skip || cfg.GetString("myfeature.key") != ""
 }
 
-func (m *MyInitialiser) Configure(props *props.Props, cfg config.Containable) error {
+func (m *MyInitialiser) Configure(props *props.Props, cfg setup.Editor) error {
     props.Logger.Info("Configuring My Feature...")
-    // Perform interactive work here (e.g., using huh)
-    cfg.Set("myfeature.key", "some-value")
-    return nil
+    // Perform interactive work here (e.g., using huh). Writes go through the
+    // editor, which applies them to the user's config file in place.
+    return cfg.Set("myfeature.key", "some-value")
 }
 ```
 
@@ -57,6 +57,13 @@ func registerFlags(cmd *cobra.Command) {
 ## Step 3: Register your Initialiser
 
 Use the `setup.Register` function in your package's `init()` block. This ensures that when your package is imported, the initialiser becomes available to the framework.
+
+If your feature ships embedded config — an `assets/config.yaml` defaults
+document or an `assets/init/config.yaml` template that `init` should write into
+the user's file — announce the bundle in the same `init()` with
+`setup.RegisterAssets(props.FeatureCmd("myfeature"), "myfeature", &assets)`.
+The root command applies the bundles of enabled features during construction,
+so a disabled feature's config never leaks in.
 
 ```go
 package myfeature

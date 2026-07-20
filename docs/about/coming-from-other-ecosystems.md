@@ -24,7 +24,7 @@ Here is how common concepts from RAD frameworks map to GTB's architecture:
 | :--- | :--- | :--- |
 | `artisan make:command` / `rails g` | `gtb generate command` | Automatically scaffolds new CLI commands with tests and wiring. |
 | Service Container / DI | The `Props` struct | Provides global access to config, logger, filesystem, and AI clients, passed explicitly to every command constructor. |
-| `.env` & `config/app.php` | The `Config` Container | A unified configuration system (wrapping Viper) that seamlessly merges environment variables, YAML files, and embedded defaults. |
+| `.env` & `config/app.php` | The Config Store | A unified, layered configuration system (the extracted go/config module) that seamlessly merges embedded defaults, YAML files, environment variables, and flags — and can explain which layer any value came from. |
 | `php artisan serve` | Custom commands | Add your own `serve` command to start an HTTP server using the GTB architecture. |
 | Framework "Magic" | Code Generation | Instead of slow runtime reflection, GTB uses generators (`gtb generate skeleton`) to produce explicitly typed boilerplate code at compile time. |
 

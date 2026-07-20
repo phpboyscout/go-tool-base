@@ -20,13 +20,14 @@ GTB separates these responsibilities deliberately. Defaults live in embedded ass
 ## How It Fits Together
 
 ```
-Embedded assets (defaults)     User config file        Environment variables
-        ↓                           ↓                         ↓
-    Props.Assets.Open()    →   Viper merge hierarchy   ←   AutomaticEnv
+Embedded defaults               User config file        Environment variables
+(assets/config.yaml,                  ↓                         ↓
+merged across bundles)     →     layered Store          ←   env backend
+        ↓                    (precedence = layer order)
+        └──────────────────────────↓
+                          store.View() (pinned snapshot)
                                     ↓
-                          Container (merged config)
-                                    ↓
-                      Package calls Validate(schema)
+                      Package calls ValidateStruct[T]
                                     ↓
                     ✓ pass → use config    ✗ fail → actionable error
 ```
@@ -51,7 +52,7 @@ This creates a `config.go` file in your command package containing:
 **After scaffolding, you need to:**
 
 1. **Edit the `Config` struct** in `config.go` — replace the TODO comments with your actual config fields and tags
-2. **Add your config defaults** to `assets/init/config.yaml` (created by `--assets`)
+2. **Add your config defaults** to `assets/config.yaml` (seeded by the generator beside the `assets/init/` template)
 3. **Call `ValidateConfig`** from your command's `RunE` or initialiser (see [Step 4](#step-4-call-validation-at-the-right-time) below)
 
 The generated `config.go` is yours to customise. Subsequent `regenerate` runs will **never overwrite** it — your changes are preserved. The rest of this guide explains each piece in detail.
@@ -60,19 +61,23 @@ The generated `config.go` is yours to customise. Subsequent `regenerate` runs wi
 
 ## Step 1: Define Config Defaults in Embedded Assets
 
-Create an `assets/init/config.yaml` file in your package with sensible defaults:
+Create an `assets/config.yaml` file in your package with sensible defaults.
+This is the **defaults document**; the sibling `assets/init/config.yaml` is a
+different thing — the human-facing template `init` writes into the user's
+config file:
 
 ```
 pkg/myfeature/
 ├── assets/
+│   ├── config.yaml        # defaults — always applied as the lowest layer
 │   └── init/
-│       └── config.yaml
+│       └── config.yaml    # init template — written to the user's file
 ├── config.go
 ├── feature.go
 └── assets.go
 ```
 
-**pkg/myfeature/assets/init/config.yaml:**
+**pkg/myfeature/assets/config.yaml:**
 
 ```yaml
 myfeature:
@@ -81,7 +86,8 @@ myfeature:
   timeout: 30s
 ```
 
-Embed and register the assets:
+Embed the assets and register the bundle. A **command package** registers in
+its constructor (the generator emits this for you):
 
 ```go
 // pkg/myfeature/assets.go
@@ -93,23 +99,31 @@ import "embed"
 var assets embed.FS
 ```
 
-Register during initialisation so the merge hierarchy picks up your defaults:
-
 ```go
-func init() {
-    setup.Register(props.FeatureCmd("myfeature"),
-        []setup.InitialiserProvider{
-            func(p *props.Props) setup.Initialiser {
-                p.Assets.Mount(assets, "pkg/myfeature")
-                return &Initialiser{}
-            },
-        },
-        // ...
-    )
+func NewCmdMyFeature(p *props.Props) *setup.Command {
+    p.Assets.Register("myfeature", &assets)
+    // ...
 }
 ```
 
-These defaults are now the baseline. Users override them in their config file or via environment variables. **Do not duplicate these values in struct tags** — the `default` tag is for documentation and hints only.
+A **non-command feature package** announces its bundle through the setup
+registry from `init()`; the root command applies the bundles of *enabled*
+features during construction, so a disabled feature's defaults never leak into
+the resolved configuration:
+
+```go
+func init() {
+    setup.RegisterAssets(props.FeatureCmd("myfeature"), "myfeature", &assets)
+    setup.Register(props.FeatureCmd("myfeature"), /* initialisers, subcommands, flags */)
+}
+```
+
+`props.Assets` merges `assets/config.yaml` across every registered bundle, and
+the root bootstrap loads that merged document as the store's lowest layer.
+These defaults **always apply**: a key omitted from the user's file resolves
+to your default rather than a zero value, and users override them in their
+config file, environment, or flags. **Do not duplicate these values in struct
+tags** — the `default` tag is for documentation and hints only.
 
 ---
 
@@ -152,21 +166,22 @@ is exactly what the generator scaffolds when you pass `--with-config-validation`
 ```go
 // ValidateConfig checks that all required myfeature config keys are present
 // and that constrained values are within their allowed sets.
-func ValidateConfig(cfg config.Containable) error {
+func ValidateConfig(cfg config.Reader) error {
     return config.ValidateStruct[Config](cfg)
 }
 ```
 
 `ValidateStruct[T]` derives the schema from `T`'s struct tags (caching it per
-type), runs it against the container, and returns a formatted error if anything
-fails. It takes the `Containable` interface, so callers never have to reach for
-the concrete `*config.Container`.
+type), runs it against the resolved configuration, and returns a formatted
+error if anything fails. It takes the `config.Reader` interface, so callers
+pass `props.Config.View()` in production and the published `MockReader` in
+tests — never a concrete store type.
 
 If you need the `ValidationResult` itself — to inspect warnings, say — build the
 schema with `SchemaOf[T]` and validate by hand:
 
 ```go
-func ValidateConfig(cfg config.Containable) error {
+func ValidateConfig(cfg config.Reader) error {
     schema, err := config.SchemaOf[Config]()
     if err != nil {
         return err
@@ -304,13 +319,13 @@ myfeature:
 
 **Don't create a single global schema for the whole config.** Each package validates its own slice. A global schema would need to know which features are active and would couple packages together.
 
-**Don't reach for the concrete container to validate.** `ValidateStruct[T]` and `Validate` both work through the `Containable` interface, so a package never needs to type-assert `props.Config` down to a concrete type.
+**Don't reach for the concrete store to validate.** `ValidateStruct[T]` and `View.Validate` both work through the `config.Reader` interface, so a package never needs the concrete `*config.Store` — a pinned view (or a mock) is enough.
 
 ---
 
 ## Related Documentation
 
-- **[Configuration component](../explanation/components/config/index.md)** — `Containable`, `Container`, factory functions, schema validation reference
+- **[Configuration component](../explanation/components/config/index.md)** — the Store, views, layers, and schema validation reference
 - **[Embed and Register Custom Assets](embed-custom-assets.md)** — how to ship config defaults with your package
 - **[React to Configuration Changes at Runtime](config-hot-reload.md)** — hot-reload and observer patterns
 - **[Add an Initialiser](add-initialiser.md)** — the full feature registration pattern including `IsConfigured` checks

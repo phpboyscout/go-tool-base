@@ -64,15 +64,13 @@ gtb/
 │   └── cmd/                # Cobra command logic use by the CLI
 │   └── generator/          # Template generation logic use by the CLI to create CLI projects
 ├── pkg/                    # Public library packages
-│   ├── chat/               # AI provider integrations (OpenAI, Gemini, Claude)
-│   ├── config/             # Configuration management (Viper wrapper)
-│   ├── controls/           # Service lifecycle management
+│   ├── chat/               # GTB adapter over the extracted go/chat module (config schema, provider registration)
+│   ├── cmd/                # Built-in command implementations (config, doctor, init, telemetry, update, version, …)
 │   ├── docs/               # TUI documentation browser and AI Q&A
-│   ├── errorhandling/      # Custom error types and reporting
 │   ├── props/              # Application-wide properties and dependency container
-│   ├── setup/              # Initialization and project setup
+│   ├── setup/              # Initialisation, feature registry, and self-update
 │   ├── utils/              # Common utility functions
-│   └── vcs/                # Version control (Git) utilities
+│   └── vcs/                # Forge/release adapters over the extracted go/forge + go/repo modules
 ├── main.go                 # CLI entry point
 └── justfile                # Build and automation tasks
 ```

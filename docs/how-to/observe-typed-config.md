@@ -102,7 +102,7 @@ must rehydrate on reload too. For example, a transport-specific port may fall
 back to a shared `server.port` key:
 
 ```go
-config.WithSectionDefaultFunc(func(cfg config.Containable) ServerSettings {
+config.WithSectionDefaultFunc(func(cfg config.Observed) ServerSettings {
     return ServerSettings{Port: cfg.GetInt("server.port")}
 }, mergeServerSettings)
 ```

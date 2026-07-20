@@ -116,20 +116,23 @@ f, err := featureOnly.Open("config/defaults.yaml")
 The most common pattern is using assets as the config baseline. Wire it into `pkg/config` during root command setup:
 
 ```go
-// pkg/cmd/root/root.go (or wherever config is initialised)
-// Open the embedded default config and build a container from it.
-defaults, err := p.Assets.Open("config/defaults.yaml")
+// Read the merged embedded document and declare it as a store layer.
+// fs.ReadFile goes through Assets.Open, which merges the path across every
+// registered bundle.
+content, err := fs.ReadFile(p.Assets, "config/defaults.yaml")
 if err != nil {
     return err
 }
-defer func() { _ = defaults.Close() }()
 
-cfg := config.NewReaderContainer(p.FS,
-    config.WithConfigFormat("yaml"),
-    config.WithConfigReaders(defaults),
+store, err := config.NewStore(ctx,
+    config.WithReaders(config.NamedSource{Name: "embedded:config/defaults.yaml", Content: content}),
+    // ...file/env/flag layers above it...
 )
+if err != nil {
+    return err
+}
 
-p.Config = cfg
+p.Config = store
 ```
 
 To layer a user config file *over* these embedded defaults, prefer the standard

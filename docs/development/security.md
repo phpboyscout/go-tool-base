@@ -2,32 +2,58 @@
 title: "Secrets & Configuration Model"
 description: "Architecture and deployment guide for managing secrets and environment-specific configuration in GTB."
 date: 2026-03-24
-tags: [development, security, configuration, viper, secrets]
+tags: [development, security, configuration, secrets]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Secrets & Configuration Model
 
-GTB uses a layered configuration model powered by **Viper**. This approach allows tools to remain environment-agnostic while supporting secure secrets management in both development and production.
+GTB uses a layered configuration model powered by the extracted
+[go/config](https://config.go.phpboyscout.uk) Store. Precedence is the order
+layers are declared, so the resolution below is a property of one constructor
+call rather than an emergent merge. This approach allows tools to remain
+environment-agnostic while supporting secure secrets management in both
+development and production.
 
 ## Configuration Priority
 
-Viper resolves configuration keys using the following priority order (highest to lowest):
+Configuration keys resolve in the following priority order (highest to lowest):
 
-1. **Explicit CLI Flags**: e.g., `--server.port 9090`
-2. **Environment Variables**: e.g., `SERVER_PORT=9090`
-3. **Config Files**: e.g., `config.yaml`
-4. **Internal Defaults**: hardcoded fallback values
+1. **Changed CLI Flags**: e.g., `--server-port 9090` (`server.port` by the
+   hyphen-to-dot convention). Only flags the user actually set contribute — a
+   flag at its default never overrides configuration.
+2. **Environment Variables**: e.g., `MYTOOL_SERVER_PORT=9090` under the tool's
+   `EnvPrefix`.
+3. **Project-local `.<tool>.yaml`**: discovered by walking up from the working
+   directory (a repo-root convention like `.editorconfig`). Suppressed entirely
+   when `--config` names files explicitly.
+4. **Config Files**: the `--config` paths if given (repeatable; later files
+   win), otherwise `~/.<tool>/config.yaml` then `/etc/<tool>/config.yaml`.
+5. **The tool's explicit embedded config assets** (`ConfigPaths`).
+6. **Embedded Defaults**: `assets/config.yaml` merged across every registered
+   asset bundle — the framework baseline, enabled features, and the tool's
+   own. Defaults always apply: a key omitted from your file resolves to the
+   shipped default rather than a zero value.
+
+`config get`/`doctor` can explain any resolved value's provenance — the store
+records which layer supplied every key.
 
 ## Environment Variable Mapping
 
-GTB automatically binds environment variables to configuration keys. Dot-separated paths are converted to upper-case, underscore-separated environment variables:
+Environment variables reach configuration only under the tool's `EnvPrefix` —
+an unprefixed variable on a shared runner cannot silently reconfigure a tool.
+The name after the prefix maps onto the configuration key, resolved against
+the keys the lower layers define:
 
-| Config Key | Environment Variable |
+| Config Key | Environment Variable (prefix `MYTOOL`) |
 | :--- | :--- |
-| `server.http.port` | `SERVER_HTTP_PORT` |
-| `github.token` | `GITHUB_TOKEN` |
-| `log.level` | `LOG_LEVEL` |
+| `server.http.port` | `MYTOOL_SERVER_HTTP_PORT` |
+| `github.auth.value` | `MYTOOL_GITHUB_AUTH_VALUE` |
+| `log.level` | `MYTOOL_LOG_LEVEL` |
+
+Well-known unprefixed variables such as `GITHUB_TOKEN` are honoured by the
+credential resolution chain (see Credential Storage below), not by the
+configuration layer.
 
 ## Deployment Models
 

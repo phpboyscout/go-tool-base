@@ -83,7 +83,7 @@ type LoggerProvider interface {
 }
 
 type ConfigProvider interface {
-    GetConfig() config.Containable
+    GetConfig() *config.Store
 }
 
 type ErrorHandlerProvider interface {
@@ -101,51 +101,57 @@ type ErrorHandlerProvider interface {
 
 ### Configuration Interfaces
 
-#### Containable
+#### Reader
 
 **Package:** `go/config`  
-**Purpose:** Abstract configuration access, enabling testing without real config files.
+**Purpose:** The read surface a consumer depends on — deliberately small and
+free of any dependency's types, so what sits behind it can be replaced (as the
+Store replaced Viper) without touching consumers.
 
 ```go
-type Containable interface {
-    Get(key string) any
-    GetBool(key string) bool
-    GetInt(key string) int
-    GetFloat(key string) float64
-    GetString(key string) string
-    GetTime(key string) time.Time
-    GetDuration(key string) time.Duration
-    GetViper() *viper.Viper
-    Has(key string) bool
-    IsSet(key string) bool
-    Set(key string, value any)
-    WriteConfigAs(dest string) error
-    Sub(key string) Containable
-    AddObserver(o Observable)
-    AddObserverFunc(f func(Containable) error)
-    ToJSON() string
-    Dump(w io.Writer)
+type Reader interface {
+    Get(path string) any
+    GetString(path string) string
+    GetBool(path string) bool
+    GetInt(path string) int
+    GetFloat(path string) float64
+    GetDuration(path string) time.Duration
+    GetTime(path string) time.Time
+    // ...the full typed-getter family, plus:
+    Has(path string) bool
+    IsSet(path string) bool
+    SectionExists(path string) bool
+    Keys() []string
+    Unmarshal(target any) error
+    UnmarshalKey(path string, target any) error
+    Origin(path string) (Source, bool)
+    Shadowed(path string) []Source
+    Explain(path string) string
 }
 ```
 
-**Primary Implementation:** `*Container`
+**Primary Implementation:** `*View` — a read surface **pinned to one
+snapshot**, obtained from the live store with `store.View()`.
 
 **Key Design Decisions:**
 
-- Wraps `viper.Viper` to provide a testable abstraction
-- `Sub(key)` returns another `Containable`, enabling hierarchical config access
-- Observer pattern built in for configuration hot-reload
+- Reads are snapshot-coherent: two values read from one view always belong to
+  the same resolved configuration, even under hot reload
+- Provenance is part of the read surface — `Origin`/`Shadowed`/`Explain`
+  report which layer supplied a value
+- Writes are deliberately absent: they go through the Store's transactional
+  `Apply`, which edits the target document in place
 
 **Usage Example:**
 
 ```go
-func loadDatabaseConfig(cfg config.Containable) (*DatabaseConfig, error) {
-    db := cfg.Sub("database")
-    return &DatabaseConfig{
-        Host:    db.GetString("host"),
-        Port:    db.GetInt("port"),
-        Timeout: db.GetDuration("timeout"),
-    }, nil
+func loadDatabaseConfig(cfg config.Reader) (*DatabaseConfig, error) {
+    section, err := config.UnmarshalSection[DatabaseConfig](cfg, "database")
+    if err != nil {
+        return nil, err
+    }
+
+    return &section.Value, nil
 }
 ```
 
@@ -158,11 +164,13 @@ func loadDatabaseConfig(cfg config.Containable) (*DatabaseConfig, error) {
 
 ```go
 type Observable interface {
-    Run(Containable) error
+    Run(cfg Observed) error
 }
 ```
 
-**Primary Implementation:** `Observer` struct with handler function
+`Observed` embeds `Reader` and is pinned to the snapshot that triggered the
+notification, so an observer never reads values from a later change partway
+through its own callback.
 
 **Usage Example:**
 
@@ -171,11 +179,11 @@ type ConfigReloader struct {
     service *MyService
 }
 
-func (r *ConfigReloader) Run(cfg config.Containable) error {
+func (r *ConfigReloader) Run(cfg config.Observed) error {
     return r.service.Reconfigure(cfg)
 }
 
-container.AddObserver(&ConfigReloader{service: myService})
+store.AddObserver(&ConfigReloader{service: myService})
 ```
 
 ---
@@ -453,8 +461,8 @@ type GitHubClient interface {
 ```go
 type Initialiser interface {
     Name() string
-    IsConfigured(cfg config.Containable) bool
-    Configure(props *props.Props, cfg config.Containable) error
+    IsConfigured(cfg config.Reader) bool
+    Configure(props *props.Props, cfg setup.Editor) error
 }
 ```
 
@@ -473,21 +481,21 @@ type Initialiser interface {
 ```mermaid
 classDiagram
     class Props {
-        +Config Containable
+        +Config *config.Store
         +Assets Assets
         +ErrorHandler ErrorHandler
     }
     
-    class Containable {
+    class Reader {
         <<interface>>
         +Get(key) any
-        +Sub(key) Containable
+        +Origin(path) Source
         +AddObserver(Observable)
     }
     
     class Observable {
         <<interface>>
-        +Run(Containable) error
+        +Run(Observed) error
     }
     
     class Assets {
@@ -502,10 +510,10 @@ classDiagram
         +Error(err)
     }
     
-    Props o-- Containable
+    Props o-- Store
     Props o-- Assets
     Props o-- ErrorHandler
-    Containable --> Observable : notifies
+    Store --> Observable : notifies
 ```
 
 ---
@@ -521,7 +529,7 @@ import (
 )
 
 func TestMyFunction(t *testing.T) {
-    mockCfg := &mocks_config.Containable{}
+    mockCfg := configmocks.NewMockReader(t)
     mockCfg.On("GetString", "api.url").Return("http://test.example.com")
     mockCfg.On("GetInt", "api.timeout").Return(30)
     
@@ -588,13 +596,13 @@ full access to the implementation:
 
 ```go
 // ✓ Good: single implementation — accept interface, return concrete
-func NewService(cfg config.Containable) *MyService {
+func NewService(cfg config.Reader) *MyService {
     return &MyService{cfg: cfg}
 }
 
 // ✗ Avoid for a single implementation: returning the interface needlessly
 //   hides the concrete type
-func NewService(cfg config.Containable) ServiceInterface {
+func NewService(cfg config.Reader) ServiceInterface {
     return &MyService{cfg: cfg}
 }
 ```
@@ -627,4 +635,4 @@ return interfaces rather than concrete structs.
 - **[Props Container](../components/props.md)**: How interfaces compose in the central dependency container
 - **[Mocks Package](../components/mocks.md)**: Using generated mocks for testing
 - **[Error Handling](../components/error-handling.md)**: ErrorHandler interface patterns
-- **[Configuration](../components/config/index.md)**: Containable and Observable usage
+- **[Configuration](../components/config/index.md)**: Store, Reader and Observable usage

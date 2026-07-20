@@ -63,22 +63,23 @@ serve.Flags().Int("server-port", 8080, "server port for serve")
 
 ## What gets bound
 
-- **Only flags the user explicitly set.** A flag left at its default is filtered out (`flag.Changed == false`) and never overrides config. This avoids viper's default-clobber footgun, where binding a defaulted flag silently masks file/env values.
-- **Built-ins `--debug` and `--ci`** are folded through the same path, so `Config.GetBool("ci")` reflects `--ci`. `--debug` also retains its immediate effect on the log level.
+- **Only flags the user explicitly set.** A flag left at its default never
+  contributes — the flags layer walks pflag's `Visit`, which covers changed
+  flags only, so a defaulted flag can never silently mask file/env values.
+- **Every changed flag participates.** The dispatched command's full flag set
+  (local and inherited) becomes the store's highest-precedence layer at
+  construction time, with names mapped by the hyphen-to-dot convention unless a
+  `WithBoundFlags` mapping says otherwise. Built-ins like `--ci` are therefore
+  visible as ordinary config keys (`Config.View().GetBool("ci")`); `--debug`
+  also retains its immediate effect on the log level.
 
-## When to bind directly
+## How it is wired
 
-For advanced cases you can bind onto the container directly with `Containable.BindPFlag` — but remember to filter by `flag.Changed` yourself:
-
-```go
-if flag.Changed {
-    if err := props.Config.BindPFlag("server.port", flag); err != nil {
-        return err
-    }
-}
-```
-
-The `RootOption`s above are preferred because they handle registration, `flag.Changed` filtering, and per-command binding consistently.
+There is no post-hoc binding step: flags are declared as a store layer when the
+root pre-run builds the configuration (`config.WithFlags`), so the precedence
+is a property of layer order rather than a sequence of bind calls. The
+`RootOption`s above are the whole author-facing surface — they feed the
+flag-name-to-key mappings that construction uses.
 
 ## Related
 

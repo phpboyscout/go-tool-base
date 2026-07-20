@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # gRPC
 
 !!! info "The server now lives in a standalone module"
-    The hardened **gRPC server** (`NewServer`, health service, `AuthInterceptor`, TLS credentials, `DialLocal`, lifecycle glue) has been extracted to [`gitlab.com/phpboyscout/go/transport/grpc`](https://transport.go.phpboyscout.uk). This was a **clean break**: `pkg/grpc` keeps only the `config.Containable` adapters (`NewServerFromContainable`, `DialLocalFromContainable`, …, with `WithConfigPrefix`/`WithPort`) plus the re-exported go/transit interceptors. Code that used the pure server symbols repoints to `go/transport/grpc` — see the [migration note](../../reference/migration/v0.x-transport-extracted.md). The API described below is unchanged; only its import path moved.
+    The hardened **gRPC server** (`NewServer`, health service, `AuthInterceptor`, TLS credentials, `DialLocal`, lifecycle glue) has been extracted to [`gitlab.com/phpboyscout/go/transport/grpc`](https://transport.go.phpboyscout.uk). This was a **clean break**: `pkg/grpc` keeps only the `config.Reader` adapters (`NewServerFromReader`, `DialLocalFromReader`, …, with `WithConfigPrefix`/`WithPort`) plus the re-exported go/transit interceptors. Code that used the pure server symbols repoints to `go/transport/grpc` — see the [migration note](../../reference/migration/v0.x-transport-extracted.md). The API described below is unchanged; only its import path moved.
 
 The `pkg/grpc` package provides a standard gRPC server implementation that integrates with the `controls` package for lifecycle management and observability.
 
@@ -22,14 +22,14 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 ## Functions
 
 - **`NewServer(settings ServerSettings, opts ...any) (*grpc.Server, error)`**: Returns a new `*grpc.Server` with reflection registered from typed settings. The variadic accepts both `ServerOption` values and `grpc.ServerOption` values.
-- **`ServerSettingsFromConfig(cfg config.Containable, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.grpc`.
-- **`ObserveServerSettingsFromConfig(cfg config.Containable, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
-- **`NewServerFromContainable(cfg config.Containable, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `NewServer`.
+- **`ServerSettingsFromConfig(cfg config.Reader, prefix string) ServerSettings`**: GTB adapter helper for one-shot settings resolution. Empty prefix defaults to `server.grpc`.
+- **`ObserveServerSettingsFromConfig(cfg config.Binder, prefix string, opts ...config.SectionBindingOption[ServerSettings]) (*config.ObservedSection[ServerSettings], error)`**: GTB adapter helper for reload-aware typed server settings.
+- **`NewServerFromReader(cfg config.Reader, opts ...any) (*grpc.Server, error)`**: GTB adapter that resolves `ServerSettings` from existing config and delegates to `NewServer`.
 - **`Start(logger *slog.Logger, srv *grpc.Server, settings ServerSettings, tlsPair gtbtls.Pair, opts ...ServerOption) controls.StartFunc`**: Returns a controller start function. Pass `WithConfigPrefix`/`WithPort` to target a custom server; it logs the bound listener address (so an ephemeral `:0` port surfaces resolved).
-- **`StartFromContainable(cfg config.Containable, logger logger.Logger, srv *grpc.Server, opts ...ServerOption) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config.
+- **`StartFromReader(cfg config.Reader, logger logger.Logger, srv *grpc.Server, opts ...any) controls.StartFunc`**: GTB adapter that resolves settings and TLS from existing config.
 - **`RegisterHealthService(srv *grpc.Server, controller controls.Controllable)`**: Wires the gRPC health service to the controller status.
 - **`Register(id string, controller controls.Controllable, logger *slog.Logger, settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.Server, error)`**: Creates a server, registers the health service, adds it to the controller, and returns the server instance. Accepts `ServerOption`, `RegisterOption` and `grpc.ServerOption` values.
-- **`RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: GTB adapter that reads the existing config structure and delegates to typed registration.
+- **`RegisterFromReader(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, logger logger.Logger, opts ...any) (*grpc.Server, error)`**: GTB adapter that reads the existing config structure and delegates to typed registration.
 
 ### Server Options
 
@@ -40,11 +40,11 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 
 ```go
 // A second gRPC server on its own config block (server.internal.*):
-srv, _ := gtbgrpc.RegisterFromContainable(ctx, "internal", controller, props.Config, props.Logger,
+srv, _ := gtbgrpc.RegisterFromReader(ctx, "internal", controller, props.Config.View(), props.Logger,
     gtbgrpc.WithConfigPrefix("server.internal"))
 
 // ...and a gateway/in-process client dialling that same server:
-conn, _ := gtbgrpc.DialLocalFromContainable(props.Config, gtbgrpc.WithConfigPrefix("server.internal"))
+conn, _ := gtbgrpc.DialLocalFromReader(props.Config.View(), gtbgrpc.WithConfigPrefix("server.internal"))
 ```
 
 ### Observing Server Settings
@@ -103,7 +103,7 @@ The package provides an interceptor chaining API for composing gRPC unary and st
 - **`RateLimitInterceptor(log *slog.Logger, cfg RateLimitConfig) Interceptor`**
 - **`DefaultRateLimitConfig() RateLimitConfig`** — 50 rps, burst 100, single global bucket
 - **`PeerKey(ctx, fullMethod) string`** — a ready-made per-peer `KeyFunc`
-- **`RateLimitConfigFromConfig(cfg config.Containable, prefix string) RateLimitConfig`**
+- **`RateLimitConfigFromConfig(cfg config.Reader, prefix string) RateLimitConfig`**
 
 Admission is **non-blocking** (`Allow`, not `Wait`). Per-method or per-client scoping is achieved with `KeyFunc` (key on `fullMethod`, or use `PeerKey`); the per-key bucket store is **bounded and LRU-evicting** (`MaxTrackedKeys`, default 8192). Config keys live under `server.grpc.ratelimit.*` (`requests_per_second`, `burst`, `max_tracked_keys`).
 
@@ -114,7 +114,7 @@ Admission is **non-blocking** (`Allow`, not `Wait`). Per-method or per-client sc
 - **`CircuitBreakerInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.UnaryClientInterceptor`** — install via `grpc.WithChainUnaryInterceptor`
 - **`CircuitBreakerStreamInterceptor(log *slog.Logger, cfg CircuitBreakerConfig) grpc.StreamClientInterceptor`**
 - **`DefaultCircuitBreakerConfig()`** — threshold 5, cooldown 30s, half-open trial 1
-- **`CircuitBreakerConfigFromConfig(cfg config.Containable, prefix string)`**
+- **`CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string)`**
 
 By default only `Unavailable` and `DeadlineExceeded` count as failures. **`ResourceExhausted` does not trip the breaker** — like an HTTP 429 it is a "slow down" signal (retry's domain), not a downstream-health signal, so a server's own rate limiter cannot trip its callers' breakers. The stream breaker inspects **per-message** errors (a `RecvMsg`/`SendMsg` returning a classified failure), not just stream establishment; a clean `io.EOF` closes the stream as a success. Config keys live under `server.grpc.circuitbreaker.*`.
 
@@ -128,7 +128,7 @@ By default only `Unavailable` and `DeadlineExceeded` count as failures. **`Resou
 ```go
 authIC, _ := gtbgrpc.AuthInterceptor(gtbgrpc.WithGRPCBearerVerifier(jwtVerifier))
 chain := gtbgrpc.NewInterceptorChain(gtbgrpc.LoggingInterceptor(log), authIC)
-gtbgrpc.RegisterFromContainable(ctx, "api", controller, cfg, log, gtbgrpc.WithInterceptors(chain))
+gtbgrpc.RegisterFromReader(ctx, "api", controller, cfg, log, gtbgrpc.WithInterceptors(chain))
 ```
 
 Options: `WithGRPCBearerVerifier`, `WithGRPCAPIKeyMetadata`, `WithGRPCMTLSVerifier`, `WithGRPCAuthorize`, `WithGRPCAuthLogger`, `WithGRPCMethodSkipper`. Failures yield a generic `codes.Unauthenticated` / `codes.PermissionDenied` with the cause logged redacted. **The standard health (`/grpc.health.v1.Health/*`) and reflection (`/grpc.reflection.v1*`) services are auto-skipped** so probes keep working; a custom skipper adds to that set. **See [Authentication & Authorization](authn.md) for the full reference.**
@@ -194,11 +194,11 @@ The package also provides the client side, used for example by the [gateway](gat
 
 - **`TLSClientCredentials(caFiles ...string) (credentials.TransportCredentials, error)`**: client transport credentials trusting the given CA/cert files — the mirror of `TLSServerCredentials`. With no files it trusts the system roots.
 - **`DialLocal(settings ServerSettings, tlsPair gtbtls.Pair, opts ...any) (*grpc.ClientConn, error)`**: dials the local gRPC server from explicit typed settings and TLS information (a thin adapter over `grpcclient.Dial`).
-- **`DialLocalFromContainable(cfg config.Containable, opts ...any) (*grpc.ClientConn, error)`**: GTB adapter that dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`<prefix>.tls` cascading to `server.tls`). The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix` to dial a non-default server) and `grpc.DialOption` values. Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
+- **`DialLocalFromReader(cfg config.Reader, opts ...any) (*grpc.ClientConn, error)`**: GTB adapter that dials the gRPC server described by `cfg` over the loopback interface, with transport security that matches the server's own config (`<prefix>.tls` cascading to `server.tls`). The variadic accepts both `ServerOption` values (e.g. `WithConfigPrefix` to dial a non-default server) and `grpc.DialOption` values. Intended for in-process callers such as the gateway, so they connect without re-deriving the endpoint or credentials by hand.
 
 ```go
 // Connect to the local gRPC server with matching transport security in one call.
-conn, err := gtbgrpc.DialLocalFromContainable(props.Config)
+conn, err := gtbgrpc.DialLocalFromReader(props.Config.View())
 if err != nil {
     return err
 }
@@ -224,7 +224,7 @@ chain := gtbgrpc.NewInterceptorChain(
 )
 
 // Register with interceptors
-srv, err := gtbgrpc.RegisterFromContainable(ctx, "grpc-api", controller, props.Config, props.Logger,
+srv, err := gtbgrpc.RegisterFromReader(ctx, "grpc-api", controller, props.Config.View(), props.Logger,
     gtbgrpc.WithInterceptors(chain),
 )
 if err != nil {

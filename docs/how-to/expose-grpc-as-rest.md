@@ -110,7 +110,7 @@ if err != nil {
 mux := stdhttp.NewServeMux()
 mux.Handle("/v1/", gwHandler)
 
-if _, err := gtbhttp.RegisterFromContainable(ctx, "http", controller, p.Config, p.Logger, mux); err != nil {
+if _, err := gtbhttp.RegisterFromReader(ctx, "http", controller, p.Config.View(), p.Logger, mux); err != nil {
     return err
 }
 ```
@@ -162,7 +162,7 @@ If you get a `404` on a path you know is annotated, check Step 4: a stray `http.
 Mounting on an existing mux (above) is the right call when the REST surface should share an origin with other routes — the OpenAPI docs, say. But the gateway can also stand up as its own controller-managed HTTP server, a peer of the gRPC and HTTP servers. Use `gateway.Register`:
 
 ```go
-srv, err := gateway.RegisterFromContainable(ctx, "gateway", controller, p.Config, p.Logger,
+srv, err := gateway.RegisterFromConfig(ctx, "gateway", controller, p.Config.View(), p.Logger,
     func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
         return widgetv1.RegisterWidgetServiceHandler(ctx, mux, conn)
     })

@@ -54,7 +54,7 @@ The framework is built around a centralized **Props** container that provides ty
 | Component | Responsibility |
 | :--- | :--- |
 | **[pkg/props](docs/explanation/components/props.md)** | Central dependency injection container for logger, config, and assets. |
-| **[pkg/config](docs/explanation/components/config.md)** | Viper-powered configuration with observer patterns and testing mocks. |
+| **[go/config](docs/explanation/components/config.md)** | Layered, snapshot-coherent configuration via the extracted [go/config](https://config.go.phpboyscout.uk) Store — provenance-aware reads, comment-preserving writes, hot reload, and published mocks. |
 | **[pkg/chat](docs/explanation/components/chat.md)** | Unified multi-provider AI client (Claude, OpenAI, Gemini, Claude Local). |
 | **[pkg/controls](docs/explanation/components/controls.md)** | Service lifecycle management and message-based coordination. |
 | **[pkg/setup](docs/explanation/components/setup/)** | Bootstrap logic: auth, key management, and pluggable self-updating. |

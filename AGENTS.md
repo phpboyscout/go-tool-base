@@ -152,7 +152,7 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
 
 ### Configuration
 
-`pkg/config/` wraps Viper with hierarchical merging (precedence: CLI flags > env vars > file config > embedded assets > defaults). Hot-reload supported via the `Observable` interface.
+Configuration is the extracted `gitlab.com/phpboyscout/go/config` Store: layered precedence (changed CLI flags > env vars > project-local `.<tool>.yaml` > config files > tool `ConfigPaths` assets > merged `assets/config.yaml` embedded defaults), snapshot-pinned reads via `store.View()`, transactional in-place writes via `Apply`, and explicit hot-reload via `Store.Watch` (wired by the root pre-run). Embedded defaults always apply and are segregated per owning package/feature bundle — see `docs/development/specs/2026-07-20-segregated-default-config.md`.
 
 ### AI Chat Client
 

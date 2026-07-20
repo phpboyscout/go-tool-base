@@ -35,11 +35,11 @@ This grid compares GTB against the most common tools developers consider when st
 
 ### GTB vs. Cobra & Viper
 
-**Cobra** is an industry-standard library for parsing and routing CLI commands. **Viper** manages configuration loading. Both are phenomenal libraries—in fact, **GTB uses both Cobra and Viper internally**. 
+**Cobra** is an industry-standard library for parsing and routing CLI commands. **Viper** manages configuration loading. Both are phenomenal libraries — GTB uses Cobra internally, and for configuration it goes a step further: the extracted [go/config](https://config.go.phpboyscout.uk) module replaces Viper with a layered Store that keeps reads coherent under reload, preserves your comments when it writes, and can tell you exactly which layer supplied any value.
 
-**The Difference:** If you use Cobra and Viper directly, you are essentially buying the raw materials to build a house. You still have to figure out how to wire Viper's configuration into Cobra's commands securely, how to structure your files, how to implement auto-updates across multiple OS architectures, and how to distribute documentation. 
+**The Difference:** If you use Cobra and Viper directly, you are essentially buying the raw materials to build a house. You still have to figure out how to wire configuration into Cobra's commands securely, how to structure your files, how to implement auto-updates across multiple OS architectures, and how to distribute documentation.
 
-**GTB is the fully built house.** It provides a heavily structured, opinionated implementation of the Cobra command router seamlessly integrated with Viper. It gives you the destination—the unified `Props` container, the filesystem abstractions (`afero`), the unified logger abstraction (with charmbracelet as the default backend), and the AI service layer—pre-wired and ready for production logic.
+**GTB is the fully built house.** It provides a heavily structured, opinionated implementation of the Cobra command router seamlessly integrated with the go/config Store. It gives you the destination—the unified `Props` container, the filesystem abstractions (`afero`), the unified logger abstraction (with charmbracelet as the default backend), and the AI service layer—pre-wired and ready for production logic.
 
 ### GTB vs. urfave/cli
 
