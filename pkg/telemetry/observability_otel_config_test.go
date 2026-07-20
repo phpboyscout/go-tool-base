@@ -1,36 +1,76 @@
 package telemetry
 
 import (
-	"strings"
+	"context"
+	"sync"
 	"testing"
 
-	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/observability/otelcore"
 
 	"gitlab.com/phpboyscout/go/config"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func otelCfgFrom(kv map[string]any) config.Containable {
-	v := viper.New()
-	for k, val := range kv {
-		v.Set(k, val)
-	}
+func otelStoreFrom(t *testing.T, yaml string, opts ...config.StoreOption) *config.Store {
+	t.Helper()
 
-	return config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v)
+	store, err := config.NewStore(t.Context(), append([]config.StoreOption{
+		config.WithReaders(config.NamedSource{Name: "test.yaml", Content: []byte(yaml)}),
+	}, opts...)...)
+	require.NoError(t, err)
+
+	return store
+}
+
+// otelMutableSource is a backend whose content a test can change before
+// calling Store.Reload — the reload idiom the config module's own tests use.
+type otelMutableSource struct {
+	mu      sync.Mutex
+	content []byte
+}
+
+func (m *otelMutableSource) ID() string { return "test.yaml" }
+
+func (m *otelMutableSource) Capabilities() config.Capabilities { return config.Capabilities{} }
+
+func (m *otelMutableSource) set(yaml string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.content = []byte(yaml)
+}
+
+func (m *otelMutableSource) Load(ctx context.Context, _ []config.Layer) ([]config.Layer, error) {
+	m.mu.Lock()
+	content := m.content
+	m.mu.Unlock()
+
+	return config.NewReaderBackend("test.yaml", content).Load(ctx, nil)
+}
+
+func otelMutableStoreFrom(t *testing.T, yaml string) (*config.Store, *otelMutableSource) {
+	t.Helper()
+
+	src := &otelMutableSource{content: []byte(yaml)}
+
+	store, err := config.NewStore(t.Context(), config.WithBackend(src))
+	require.NoError(t, err)
+
+	return store, src
 }
 
 func TestResolveSharedDefaults(t *testing.T) {
-	cfg := otelCfgFrom(map[string]any{
-		"telemetry.endpoint":        "https://collector:4318",
-		"telemetry.insecure":        true,
-		"telemetry.tracing.enabled": true,
-	})
+	t.Parallel()
+
+	cfg := otelStoreFrom(t, `
+telemetry:
+  endpoint: https://collector:4318
+  insecure: true
+  tracing:
+    enabled: true
+`).View()
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalTracing)
 
@@ -40,11 +80,15 @@ func TestResolveSharedDefaults(t *testing.T) {
 }
 
 func TestResolvePerSignalEndpointOverride(t *testing.T) {
-	cfg := otelCfgFrom(map[string]any{
-		"telemetry.endpoint":         "https://shared:4318",
-		"telemetry.metrics.endpoint": "https://metrics:4318",
-		"telemetry.metrics.enabled":  true,
-	})
+	t.Parallel()
+
+	cfg := otelStoreFrom(t, `
+telemetry:
+  endpoint: https://shared:4318
+  metrics:
+    endpoint: https://metrics:4318
+    enabled: true
+`).View()
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalMetrics)
 
@@ -56,13 +100,9 @@ func TestResolvePreservesEnvAwareSectionUnmarshal(t *testing.T) {
 	t.Setenv("GTB_TELEMETRY_TRACING_ENDPOINT", "https://env-tracing:4318")
 	t.Setenv("GTB_TELEMETRY_TRACING_INSECURE", "true")
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix("GTB"),
-		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://file-shared:4318\n  tracing:\n    enabled: true\n    endpoint: https://file-tracing:4318\n    insecure: false\n")),
-	)
+	cfg := otelStoreFrom(t,
+		"telemetry:\n  endpoint: https://file-shared:4318\n  tracing:\n    enabled: true\n    endpoint: https://file-tracing:4318\n    insecure: false\n",
+		config.WithEnv("GTB")).View()
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalTracing)
 
@@ -72,25 +112,33 @@ func TestResolvePreservesEnvAwareSectionUnmarshal(t *testing.T) {
 }
 
 func TestResolvePerSignalInsecureOverride(t *testing.T) {
-	cfg := otelCfgFrom(map[string]any{
-		"telemetry.insecure":      false,
-		"telemetry.logs.insecure": true,
-		"telemetry.logs.enabled":  true,
-	})
+	t.Parallel()
+
+	cfg := otelStoreFrom(t, `
+telemetry:
+  insecure: false
+  logs:
+    insecure: true
+    enabled: true
+`).View()
 
 	assert.True(t, resolveOTLPSettings(cfg, otelcore.SignalLogs).Insecure)
 	assert.False(t, resolveOTLPSettings(cfg, otelcore.SignalTracing).Insecure)
 }
 
 func TestResolveEnabledIsPerSignal(t *testing.T) {
-	cfg := otelCfgFrom(map[string]any{"telemetry.tracing.enabled": true})
+	t.Parallel()
+
+	cfg := otelStoreFrom(t, "telemetry:\n  tracing:\n    enabled: true\n").View()
 
 	assert.True(t, resolveOTLPSettings(cfg, otelcore.SignalTracing).Enabled)
 	assert.False(t, resolveOTLPSettings(cfg, otelcore.SignalMetrics).Enabled)
 }
 
 func TestResolveEmptyEndpointFallsBackToEnv(t *testing.T) {
-	cfg := otelCfgFrom(map[string]any{"telemetry.logs.enabled": true})
+	t.Parallel()
+
+	cfg := otelStoreFrom(t, "telemetry:\n  logs:\n    enabled: true\n").View()
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalLogs)
 
@@ -99,10 +147,15 @@ func TestResolveEmptyEndpointFallsBackToEnv(t *testing.T) {
 }
 
 func TestResolveHeaders(t *testing.T) {
-	cfg := otelCfgFrom(map[string]any{
-		"telemetry.headers":         map[string]string{"authorization": "Bearer token"},
-		"telemetry.tracing.enabled": true,
-	})
+	t.Parallel()
+
+	cfg := otelStoreFrom(t, `
+telemetry:
+  headers:
+    authorization: Bearer token
+  tracing:
+    enabled: true
+`).View()
 
 	s := resolveOTLPSettings(cfg, otelcore.SignalTracing)
 
@@ -112,12 +165,7 @@ func TestResolveHeaders(t *testing.T) {
 func TestObserveSettingsFromConfigInitialSnapshot(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  insecure: true\n  tracing:\n    enabled: true\n")),
-	)
+	cfg := otelStoreFrom(t, "telemetry:\n  endpoint: https://shared:4318\n  insecure: true\n  tracing:\n    enabled: true\n")
 
 	settings, err := ObserveSettingsFromConfig(cfg, otelcore.SignalTracing)
 	require.NoError(t, err)
@@ -130,12 +178,7 @@ func TestObserveSettingsFromConfigInitialSnapshot(t *testing.T) {
 func TestObserveSettingsFromConfigRehydratesSharedDefaults(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  tracing:\n    enabled: true\n")),
-	)
+	cfg, src := otelMutableStoreFrom(t, "telemetry:\n  endpoint: https://shared:4318\n  tracing:\n    enabled: true\n")
 
 	changes := make([]config.SectionChange[otelcore.Settings], 0, 1)
 	settings, err := ObserveSettingsFromConfig(
@@ -149,8 +192,8 @@ func TestObserveSettingsFromConfigRehydratesSharedDefaults(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cfg.Set("telemetry.endpoint", "https://changed:4318")
-	require.NoError(t, runOTelCoreConfigObservers(cfg))
+	src.set("telemetry:\n  endpoint: https://changed:4318\n  tracing:\n    enabled: true\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, "https://changed:4318", settings.Value().Endpoint)
 	assert.Equal(t, uint64(2), settings.Version())
@@ -162,18 +205,13 @@ func TestObserveSettingsFromConfigRehydratesSharedDefaults(t *testing.T) {
 func TestObserveSettingsFromConfigRehydratesSignalOverrides(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  metrics:\n    enabled: true\n")),
-	)
+	cfg, src := otelMutableStoreFrom(t, "telemetry:\n  endpoint: https://shared:4318\n  metrics:\n    enabled: true\n")
 
 	settings, err := ObserveSettingsFromConfig(cfg, otelcore.SignalMetrics)
 	require.NoError(t, err)
 
-	cfg.Set("telemetry.metrics.endpoint", "https://metrics:4318")
-	require.NoError(t, runOTelCoreConfigObservers(cfg))
+	src.set("telemetry:\n  endpoint: https://shared:4318\n  metrics:\n    enabled: true\n    endpoint: https://metrics:4318\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, otelcore.Settings{Enabled: true, Endpoint: "https://metrics:4318"}, settings.Value())
 	assert.Equal(t, uint64(2), settings.Version())
@@ -182,18 +220,13 @@ func TestObserveSettingsFromConfigRehydratesSignalOverrides(t *testing.T) {
 func TestObserveSettingsFromConfigUnchangedReloadDoesNotIncrementVersion(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader("telemetry:\n  endpoint: https://shared:4318\n  logs:\n    enabled: true\n")),
-	)
+	cfg, src := otelMutableStoreFrom(t, "telemetry:\n  endpoint: https://shared:4318\n  logs:\n    enabled: true\n")
 
 	settings, err := ObserveSettingsFromConfig(cfg, otelcore.SignalLogs)
 	require.NoError(t, err)
 
-	cfg.Set("unrelated.value", "changed")
-	require.NoError(t, runOTelCoreConfigObservers(cfg))
+	src.set("telemetry:\n  endpoint: https://shared:4318\n  logs:\n    enabled: true\nunrelated:\n  value: changed\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, otelcore.Settings{Enabled: true, Endpoint: "https://shared:4318"}, settings.Value())
 	assert.Equal(t, uint64(1), settings.Version())
@@ -202,23 +235,12 @@ func TestObserveSettingsFromConfigUnchangedReloadDoesNotIncrementVersion(t *test
 func TestObservedSettingsSatisfiesSource(t *testing.T) {
 	t.Parallel()
 
-	settings, err := ObserveSettingsFromConfig(otelCfgFrom(map[string]any{
-		"telemetry.logs.enabled": true,
-	}), otelcore.SignalLogs)
+	settings, err := ObserveSettingsFromConfig(
+		otelStoreFrom(t, "telemetry:\n  logs:\n    enabled: true\n"), otelcore.SignalLogs)
 	require.NoError(t, err)
 
 	var source otelcore.SettingsSource = settings
 	require.NotNil(t, source.Current())
 	assert.True(t, source.Current().Enabled)
 	assert.Equal(t, uint64(1), source.Version())
-}
-
-func runOTelCoreConfigObservers(c *config.Container) error {
-	for _, observer := range c.GetObservers() {
-		if err := observer.Run(c); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

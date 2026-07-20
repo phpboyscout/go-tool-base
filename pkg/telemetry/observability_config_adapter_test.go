@@ -5,27 +5,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
-func testProps(kv map[string]any) *props.Props {
-	v := viper.New()
-	for k, val := range kv {
-		v.Set(k, val)
-	}
+func testProps(t *testing.T, yaml string) *props.Props {
+	t.Helper()
 
 	return &props.Props{
 		Tool:    props.Tool{Name: "macguffinsvc"},
 		Version: version.NewInfo("v1.2.3", "abc123", "2026-06-01"),
-		Config:  config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), v),
+		Config:  otelStoreFrom(t, yaml),
 		Logger:  logger.NewNoop(),
 	}
 }
@@ -33,16 +27,20 @@ func testProps(kv map[string]any) *props.Props {
 func TestObservabilitySettingsFromProps(t *testing.T) {
 	t.Parallel()
 
-	settings := ObservabilitySettingsFromProps(testProps(map[string]any{
-		"telemetry.endpoint":         "http://shared:4318",
-		"telemetry.insecure":         true,
-		"telemetry.tracing.enabled":  true,
-		"telemetry.tracing.endpoint": "http://traces:4318",
-		"telemetry.tracing.sampling": 0.25,
-		"telemetry.metrics.enabled":  true,
-		"telemetry.metrics.interval": "3s",
-		"telemetry.logs.enabled":     true,
-	}))
+	settings := ObservabilitySettingsFromProps(testProps(t, `
+telemetry:
+  endpoint: http://shared:4318
+  insecure: true
+  tracing:
+    enabled: true
+    endpoint: http://traces:4318
+    sampling: 0.25
+  metrics:
+    enabled: true
+    interval: 3s
+  logs:
+    enabled: true
+`))
 
 	assert.Equal(t, "macguffinsvc", settings.ServiceName)
 	assert.Equal(t, "v1.2.3", settings.Version)
@@ -62,12 +60,14 @@ func TestObservabilitySettingsFromProps(t *testing.T) {
 func TestSetupFromProps_ObservabilityIndependentOfAnalyticsConsent(t *testing.T) {
 	restoreGlobals(t)
 
-	sh, err := SetupFromProps(context.Background(), testProps(map[string]any{
-		"telemetry.enabled":          false, // analytics opt-in OFF
-		"telemetry.tracing.enabled":  true,  // observability ON
-		"telemetry.tracing.endpoint": "http://localhost:4318",
-		"telemetry.tracing.insecure": true,
-	}), nil)
+	sh, err := SetupFromProps(context.Background(), testProps(t, `
+telemetry:
+  enabled: false  # analytics opt-in OFF
+  tracing:
+    enabled: true  # observability ON
+    endpoint: http://localhost:4318
+    insecure: true
+`), nil)
 	require.NoError(t, err)
 	assert.NoError(t, sh(context.Background()))
 }

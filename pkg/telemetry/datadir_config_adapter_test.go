@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/stretchr/testify/require"
 
-	mockcfg "gitlab.com/phpboyscout/go/config/mocks"
+	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -17,22 +17,36 @@ func TestResolveDataDirFromProps_ConfigDir(t *testing.T) {
 
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "config.yaml")
-	if err := os.WriteFile(cfgFile, []byte("key: value\n"), 0o600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
+	require.NoError(t, os.WriteFile(cfgFile, []byte("key: value\n"), 0o600))
 
-	v := viper.New()
-	v.SetConfigFile(cfgFile)
-	if err := v.ReadInConfig(); err != nil {
-		t.Fatalf("read config: %v", err)
-	}
+	store, err := config.NewStore(t.Context(), config.WithFiles(config.OS(), cfgFile))
+	require.NoError(t, err)
 
-	mock := mockcfg.NewMockContainable(t)
-	mock.EXPECT().GetViper().Return(v)
-
-	result := ResolveDataDirFromProps(&props.Props{Config: mock})
+	result := ResolveDataDirFromProps(&props.Props{Config: store})
 	if result != dir {
 		t.Errorf("expected %q, got %q", dir, result)
+	}
+}
+
+// TestResolveDataDirFromProps_LastFileWins pins the Viper-parity rule the
+// adapter preserves: ConfigFileUsed() reported the last file loaded, so the
+// highest-precedence file layer decides the data directory.
+func TestResolveDataDirFromProps_LastFileWins(t *testing.T) {
+	t.Parallel()
+
+	first := t.TempDir()
+	second := t.TempDir()
+	firstFile := filepath.Join(first, "config.yaml")
+	secondFile := filepath.Join(second, "config.yaml")
+	require.NoError(t, os.WriteFile(firstFile, []byte("a: 1\n"), 0o600))
+	require.NoError(t, os.WriteFile(secondFile, []byte("b: 2\n"), 0o600))
+
+	store, err := config.NewStore(t.Context(), config.WithFiles(config.OS(), firstFile, secondFile))
+	require.NoError(t, err)
+
+	result := ResolveDataDirFromProps(&props.Props{Config: store})
+	if result != second {
+		t.Errorf("expected %q, got %q", second, result)
 	}
 }
 

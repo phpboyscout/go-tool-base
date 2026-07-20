@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/controls"
 
 	"gitlab.com/phpboyscout/go/observability/otelcore"
@@ -33,7 +34,13 @@ func ObservabilitySettingsFromProps(p *props.Props) ObservabilitySettings {
 		settings.Version = p.Version.GetVersion()
 	}
 
-	cfg := p.Config
+	// One pinned view for every read below, so the per-signal sections and the
+	// tuning keys resolve against the same snapshot.
+	var cfg config.Reader
+	if p.Config != nil {
+		cfg = p.Config.View()
+	}
+
 	settings.Tracing.OTLP = resolveOTLPSettings(cfg, otelcore.SignalTracing)
 	settings.Metrics.OTLP = resolveOTLPSettings(cfg, otelcore.SignalMetrics)
 	settings.Logs.OTLP = resolveOTLPSettings(cfg, otelcore.SignalLogs)

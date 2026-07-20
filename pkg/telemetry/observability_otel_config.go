@@ -16,7 +16,7 @@ import (
 // otelcore.ResolveSettings. An empty Endpoint is intentional and not an error — it
 // lets the OTel SDK fall back to the standard OTEL_EXPORTER_OTLP_* environment
 // variables.
-func resolveOTLPSettings(cfg gtbconfig.Containable, signal string) otelcore.Settings {
+func resolveOTLPSettings(cfg gtbconfig.Reader, signal string) otelcore.Settings {
 	if cfg == nil {
 		return otelcore.Settings{}
 	}
@@ -39,14 +39,14 @@ func resolveOTLPSettings(cfg gtbconfig.Containable, signal string) otelcore.Sett
 // settings to cfg and keeps the typed snapshot rehydrated after successful config
 // reloads. The returned section satisfies [otelcore.SettingsSource].
 func ObserveSettingsFromConfig(
-	cfg gtbconfig.Containable,
+	cfg gtbconfig.Binder,
 	signal string,
 	opts ...gtbconfig.SectionBindingOption[otelcore.Settings],
 ) (*gtbconfig.ObservedSection[otelcore.Settings], error) {
 	key := otelcore.Root + "." + signal
 
 	bindingOpts := make([]gtbconfig.SectionBindingOption[otelcore.Settings], 0, 1+len(opts))
-	bindingOpts = append(bindingOpts, gtbconfig.WithSectionDefaultFunc(func(next gtbconfig.Containable) otelcore.Settings {
+	bindingOpts = append(bindingOpts, gtbconfig.WithSectionDefaultFunc(func(next gtbconfig.Observed) otelcore.Settings {
 		return resolveOTLPSettings(next, signal)
 	}, mergeResolvedSettings))
 	bindingOpts = append(bindingOpts, opts...)
