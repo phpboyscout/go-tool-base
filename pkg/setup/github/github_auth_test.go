@@ -198,7 +198,7 @@ func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 // credential in one storage mode must purge any value left behind by a
 // prior mode, so config never carries both an env reference and a
 // literal token (the keryx-reported leak class, applied to the GitHub
-// backend). Stale keys are blanked to "" rather than deleted.
+// backend). Stale keys are removed from the document entirely.
 func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 	t.Run("env-var mode clears a stale literal token", func(t *testing.T) {
 		p := newTestProps(t)
@@ -212,8 +212,8 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 
 		view := cfg.View()
 		assert.Equal(t, "GITHUB_TOKEN", view.GetString("github.auth.env"))
-		assert.Empty(t, view.GetString("github.auth.value"),
-			"switching to env-var mode must purge the stale literal token")
+		assert.False(t, view.IsSet("github.auth.value"),
+			"switching to env-var mode must remove the stale literal token")
 	})
 
 	t.Run("literal mode clears a stale env reference", func(t *testing.T) {
@@ -232,8 +232,8 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 
 		view := cfg.View()
 		assert.Equal(t, replacement, view.GetString("github.auth.value"))
-		assert.Empty(t, view.GetString("github.auth.env"),
-			"switching to literal mode must purge the stale env reference")
+		assert.False(t, view.IsSet("github.auth.env"),
+			"switching to literal mode must remove the stale env reference")
 	})
 }
 

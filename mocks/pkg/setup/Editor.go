@@ -36,6 +36,65 @@ func (_m *MockEditor) EXPECT() *MockEditor_Expecter {
 	return &MockEditor_Expecter{mock: &_m.Mock}
 }
 
+// Apply provides a mock function for the type MockEditor
+func (_mock *MockEditor) Apply(changes ...config.Change) error {
+	var ret mock.Arguments
+	if len(changes) > 0 {
+		ret = _mock.Called(changes)
+	} else {
+		ret = _mock.Called()
+	}
+
+	if len(ret) == 0 {
+		panic("no return value specified for Apply")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(...config.Change) error); ok {
+		r0 = returnFunc(changes...)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockEditor_Apply_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Apply'
+type MockEditor_Apply_Call struct {
+	*mock.Call
+}
+
+// Apply is a helper method to define mock.On call
+//   - changes ...config.Change
+func (_e *MockEditor_Expecter) Apply(changes ...interface{}) *MockEditor_Apply_Call {
+	return &MockEditor_Apply_Call{Call: _e.mock.On("Apply",
+		append([]interface{}{}, changes...)...)}
+}
+
+func (_c *MockEditor_Apply_Call) Run(run func(changes ...config.Change)) *MockEditor_Apply_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 []config.Change
+		var variadicArgs []config.Change
+		if len(args) > 0 {
+			variadicArgs = args[0].([]config.Change)
+		}
+		arg0 = variadicArgs
+		run(
+			arg0...,
+		)
+	})
+	return _c
+}
+
+func (_c *MockEditor_Apply_Call) Return(err error) *MockEditor_Apply_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockEditor_Apply_Call) RunAndReturn(run func(changes ...config.Change) error) *MockEditor_Apply_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Set provides a mock function for the type MockEditor
 func (_mock *MockEditor) Set(key string, value any) error {
 	ret := _mock.Called(key, value)

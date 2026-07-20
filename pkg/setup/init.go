@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"dario.cat/mergo"
@@ -14,7 +16,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/config"
-	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
@@ -63,6 +64,9 @@ type Editor interface {
 	View() *config.View
 	// Set writes one key to the target document.
 	Set(key string, value any) error
+	// Apply stages several changes as one transactional write to the target
+	// document — all land or none do.
+	Apply(changes ...config.Change) error
 }
 
 type storeEditor struct {
@@ -81,28 +85,57 @@ func (e *storeEditor) Set(key string, value any) error {
 	return errors.Wrapf(err, "writing %s", key)
 }
 
-// ClearCredentialKeysExcept blanks every credential key in all that is not in
-// keep, adapting Editor to the credentials module's error-less KeyWriter and
-// surfacing the first write failure — a stale secret that could not be blanked
-// must not pass silently.
-func ClearCredentialKeysExcept(e Editor, all []string, keep ...string) error {
-	w := &editorKeyWriter{editor: e}
-	credentials.ClearKeysExcept(w, all, keep...)
+func (e *storeEditor) Apply(changes ...config.Change) error {
+	_, err := e.store.Apply(e.ctx, changes...)
 
-	return w.err
+	return errors.Wrap(err, "applying config changes")
 }
 
-// editorKeyWriter adapts Editor to credentials.KeyWriter, capturing the first
-// write error since that interface cannot return one.
-type editorKeyWriter struct {
-	editor Editor
-	err    error
-}
+// WriteExclusive commits the winning credential keys and removes every other
+// key in all, as one transactional Apply — the single-credential-key
+// invariant from the hardening spec, enforced atomically so an interrupted
+// storage-mode switch cannot leave both the old and new credential behind.
+// Removing an already-absent key is a no-op, so stale keys end up absent
+// rather than blanked.
+//
+// Change ordering matters twice over. A stale key on the same dotted path as
+// a winning key (bitbucket.username versus bitbucket.username.env) must be
+// removed BEFORE that key is set, or the set has to write through a scalar —
+// and a later subtree removal would take the winner with it. Every other
+// stale key is removed AFTER all sets, so a parent mapping shared by winning
+// and stale keys never passes through an empty state mid-batch.
+func WriteExclusive(e Editor, winning map[string]any, all []string) error {
+	changes := make([]config.Change, 0, len(all)+len(winning))
+	removed := make(map[string]bool, len(all))
 
-func (w *editorKeyWriter) Set(key string, value any) {
-	if w.err == nil {
-		w.err = w.editor.Set(key, value)
+	for _, key := range slices.Sorted(maps.Keys(winning)) {
+		for _, stale := range all {
+			if _, wins := winning[stale]; wins || removed[stale] {
+				continue
+			}
+
+			if samePath(stale, key) {
+				changes = append(changes, config.Remove(stale))
+				removed[stale] = true
+			}
+		}
+
+		changes = append(changes, config.Set(key, winning[key]))
 	}
+
+	for _, stale := range all {
+		if _, wins := winning[stale]; !wins && !removed[stale] {
+			changes = append(changes, config.Remove(stale))
+		}
+	}
+
+	return e.Apply(changes...)
+}
+
+// samePath reports whether one dotted key path is an ancestor of the other,
+// i.e. writing one would collide with a document node the other occupies.
+func samePath(a, b string) bool {
+	return strings.HasPrefix(a, b+".") || strings.HasPrefix(b, a+".")
 }
 
 // InitOptions holds the options for the Initialise function.

@@ -11,6 +11,7 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
@@ -224,11 +225,13 @@ func TestApplyStorageModeWrite_EnvVar(t *testing.T) {
 	t.Parallel()
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeEnv, "MY_KEY").Return(nil).Once()
-	// The mode-owned write is followed by a stale-clear pass that blanks
-	// the literal and keychain key paths the env-var mode does not own.
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "").Return(nil).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "").Return(nil).Once()
+	// One transactional Apply: the mode-owned key is set and the literal and
+	// keychain key paths the env-var mode does not own are removed.
+	cfg.EXPECT().Apply([]config.Change{
+		config.Set(chat.ConfigKeyClaudeEnv, "MY_KEY"),
+		config.Remove(chat.ConfigKeyClaudeKey),
+		config.Remove(chat.ConfigKeyClaudeKeychain),
+	}).Return(nil).Once()
 
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
@@ -266,19 +269,6 @@ func TestWriteAICredentialKeys_UnknownProvider(t *testing.T) {
 	require.NoError(t, writeAICredentialKeys(cfg, "tool", &AIConfig{Provider: "unknown"}))
 }
 
-// TestClearStaleAICredentialKeys_UnknownModeNoop covers the default arm
-// of the stale-clear dispatch: an unrecognised keep-mode must not blank
-// anything (the mock expects no Set calls) and must not error.
-func TestClearStaleAICredentialKeys_UnknownModeNoop(t *testing.T) {
-	t.Parallel()
-
-	cfg := setupmocks.NewMockEditor(t)
-	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
-	require.True(t, ok)
-
-	require.NoError(t, clearStaleAICredentialKeys(cfg, keys, credentials.Mode("bogus")))
-}
-
 // TestProviderConfigKeys covers the unknown-provider false return.
 func TestProviderConfigKeys(t *testing.T) {
 	t.Parallel()
@@ -291,6 +281,8 @@ func TestProviderConfigKeys(t *testing.T) {
 	assert.Equal(t, chat.ConfigKeyGeminiEnv, triple.env)
 	assert.Equal(t, chat.ConfigKeyGeminiKey, triple.literal)
 	assert.Equal(t, chat.ConfigKeyGeminiKeychain, triple.keychain)
+	assert.Equal(t, []string{triple.env, triple.literal, triple.keychain}, triple.all(),
+		"all() is the exclusive-write key set")
 }
 
 // TestProviderEnvConfigKey covers all arms incl. the unknown default.

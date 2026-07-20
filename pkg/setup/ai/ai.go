@@ -381,28 +381,10 @@ func providerConfigKeys(provider string) (providerConfigKeyTriple, bool) {
 	return providerConfigKeyTriple{env: envKey, literal: litKey, keychain: kcKey}, true
 }
 
-// clearStaleAICredentialKeys blanks the provider credential key paths
-// that the selected storage mode does NOT own. Re-running the setup
-// wizard in a different mode (e.g. literal → env-var) must never leave
-// the prior secret — or a stale reference — behind: exactly one of env
-// / literal / keychain may carry a value, so a prior mode cannot mask
-// the new one at resolve time. An empty mode is treated as literal (the
-// test-only path that sets APIKey directly). Callers invoke this only
-// after the selected mode's key has actually been written, so an empty
-// wizard form never wipes an existing credential.
-func clearStaleAICredentialKeys(cfg setup.Editor, keys providerConfigKeyTriple, keep credentials.Mode) error {
-	all := []string{keys.env, keys.literal, keys.keychain}
-
-	switch keep {
-	case credentials.ModeEnvVar:
-		return setup.ClearCredentialKeysExcept(cfg, all, keys.env)
-	case credentials.ModeKeychain:
-		return setup.ClearCredentialKeysExcept(cfg, all, keys.keychain)
-	case credentials.ModeLiteral, "":
-		return setup.ClearCredentialKeysExcept(cfg, all, keys.literal)
-	default:
-		return nil
-	}
+// all returns the triple as the full key set a [setup.WriteExclusive] call
+// enforces the single-credential-key invariant over.
+func (k providerConfigKeyTriple) all() []string {
+	return []string{k.env, k.literal, k.keychain}
 }
 
 // applyStorageModeWrite performs the write corresponding to the selected
@@ -427,11 +409,7 @@ func applyEnvVarWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AIC
 		return nil
 	}
 
-	if err := cfg.Set(keys.env, aiCfg.EnvVarName); err != nil {
-		return err
-	}
-
-	return clearStaleAICredentialKeys(cfg, keys, credentials.ModeEnvVar)
+	return setup.WriteExclusive(cfg, map[string]any{keys.env: aiCfg.EnvVarName}, keys.all())
 }
 
 func applyLiteralWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
@@ -439,11 +417,7 @@ func applyLiteralWrite(cfg setup.Editor, keys providerConfigKeyTriple, aiCfg *AI
 		return nil
 	}
 
-	if err := cfg.Set(keys.literal, aiCfg.APIKey); err != nil {
-		return err
-	}
-
-	return clearStaleAICredentialKeys(cfg, keys, credentials.ModeLiteral)
+	return setup.WriteExclusive(cfg, map[string]any{keys.literal: aiCfg.APIKey}, keys.all())
 }
 
 func applyKeychainWrite(cfg setup.Editor, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) error {
@@ -456,11 +430,7 @@ func applyKeychainWrite(cfg setup.Editor, toolName string, keys providerConfigKe
 		return nil
 	}
 
-	if err := cfg.Set(keys.keychain, ref); err != nil {
-		return err
-	}
-
-	return clearStaleAICredentialKeys(cfg, keys, credentials.ModeKeychain)
+	return setup.WriteExclusive(cfg, map[string]any{keys.keychain: ref}, keys.all())
 }
 
 // storeAIKeyInKeychain writes the API key into the OS keychain under

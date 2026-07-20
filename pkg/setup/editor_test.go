@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/config"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -42,40 +44,96 @@ func TestStoreEditor_SetAppliesToFile(t *testing.T) {
 	assert.Contains(t, string(data), "key: value")
 }
 
-// TestClearCredentialKeysExcept_BlanksOthers covers the editor-backed clear:
-// every listed key except the kept one is blanked to "", and the kept key
-// survives untouched.
-func TestClearCredentialKeysExcept_BlanksOthers(t *testing.T) {
+// TestWriteExclusive_RemovesStaleSiblings covers the flat-sibling family
+// (github's shape): the winning key survives, and every stale sibling ends up
+// absent from the document — removed, not blanked to "".
+func TestWriteExclusive_RemovesStaleSiblings(t *testing.T) {
 	t.Parallel()
 
 	p := editorProps(t)
 
-	editor, _, err := OpenConfigEditor(t.Context(), p, "/home/user/.edtool", false)
+	editor, path, err := OpenConfigEditor(t.Context(), p, "/home/user/.edtool", false)
 	require.NoError(t, err)
 
-	require.NoError(t, editor.Set("cred.env", "TOKEN"))
-	require.NoError(t, editor.Set("cred.value", "literal"))
+	require.NoError(t, editor.Set("cred.value", "sekret-literal"))
 	require.NoError(t, editor.Set("cred.keychain", "svc/acct"))
 
 	all := []string{"cred.env", "cred.value", "cred.keychain"}
-	require.NoError(t, ClearCredentialKeysExcept(editor, all, "cred.env"))
+	require.NoError(t, WriteExclusive(editor, map[string]any{"cred.env": "TOKEN"}, all))
 
 	view := editor.View()
-	assert.Equal(t, "TOKEN", view.GetString("cred.env"), "the kept key must survive")
-	assert.Empty(t, view.GetString("cred.value"))
-	assert.Empty(t, view.GetString("cred.keychain"))
+	assert.Equal(t, "TOKEN", view.GetString("cred.env"), "the winning key must survive")
+	assert.False(t, view.IsSet("cred.value"))
+	assert.False(t, view.IsSet("cred.keychain"))
+
+	data, err := afero.ReadFile(p.FS, path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "sekret-literal", "the stale secret must leave the file")
+	assert.NotContains(t, string(data), `value: ""`, "stale keys are removed, not blanked")
 }
 
-// failingEditor errors on every Set, driving the first-error capture in the
-// KeyWriter adapter.
-type failingEditor struct{ Editor }
-
-func (failingEditor) Set(string, any) error { return errors.New("write refused") }
-
-func TestClearCredentialKeysExcept_SurfacesWriteError(t *testing.T) {
+// TestWriteExclusive_NestedKeyFamily covers bitbucket's shape, where the
+// literal key is an ancestor of its env-ref key, in both directions: the
+// on-path stale key is cleared before the winner is set, and independent
+// siblings are removed after, so the switch survives the in-place editor.
+func TestWriteExclusive_NestedKeyFamily(t *testing.T) {
 	t.Parallel()
 
-	err := ClearCredentialKeysExcept(failingEditor{}, []string{"a", "b"}, "")
+	all := []string{"bb.username.env", "bb.app_password.env", "bb.username", "bb.app_password", "bb.keychain"}
+
+	t.Run("literal to env-ref", func(t *testing.T) {
+		t.Parallel()
+
+		p := editorProps(t)
+		editor, _, err := OpenConfigEditor(t.Context(), p, "/home/user/.edtool", false)
+		require.NoError(t, err)
+
+		require.NoError(t, editor.Set("bb.username", "bob"))
+		require.NoError(t, editor.Set("bb.app_password", "hunter2"))
+
+		require.NoError(t, WriteExclusive(editor, map[string]any{
+			"bb.username.env":     "BB_USER",
+			"bb.app_password.env": "BB_PASS",
+		}, all))
+
+		view := editor.View()
+		assert.Equal(t, "BB_USER", view.GetString("bb.username.env"))
+		assert.Equal(t, "BB_PASS", view.GetString("bb.app_password.env"))
+		assert.False(t, view.IsSet("bb.keychain"))
+	})
+
+	t.Run("env-ref to literal", func(t *testing.T) {
+		t.Parallel()
+
+		p := editorProps(t)
+		editor, _, err := OpenConfigEditor(t.Context(), p, "/home/user/.edtool", false)
+		require.NoError(t, err)
+
+		require.NoError(t, editor.Set("bb.username.env", "BB_USER"))
+		require.NoError(t, editor.Set("bb.app_password.env", "BB_PASS"))
+
+		require.NoError(t, WriteExclusive(editor, map[string]any{
+			"bb.username":     "bob",
+			"bb.app_password": "hunter2",
+		}, all))
+
+		view := editor.View()
+		assert.Equal(t, "bob", view.GetString("bb.username"))
+		assert.Equal(t, "hunter2", view.GetString("bb.app_password"))
+		assert.False(t, view.IsSet("bb.username.env"))
+		assert.False(t, view.IsSet("bb.app_password.env"))
+	})
+}
+
+// failingEditor errors on every write, driving error surfacing.
+type failingEditor struct{ Editor }
+
+func (failingEditor) Apply(...config.Change) error { return errors.New("write refused") }
+
+func TestWriteExclusive_SurfacesWriteError(t *testing.T) {
+	t.Parallel()
+
+	err := WriteExclusive(failingEditor{}, map[string]any{"a": 1}, []string{"a", "b"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "write refused")
 }

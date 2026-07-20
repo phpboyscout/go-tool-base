@@ -390,11 +390,8 @@ func writeGitHubEnvRef(cfg setup.Editor, authCfg *GitHubAuthConfig) error {
 		return nil
 	}
 
-	if err := cfg.Set("github.auth.env", authCfg.EnvVarName); err != nil {
-		return err
-	}
-
-	return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.env")
+	return setup.WriteExclusive(cfg,
+		map[string]any{"github.auth.env": authCfg.EnvVarName}, githubCredentialKeys)
 }
 
 func writeGitHubKeychainRef(ctx context.Context, cfg setup.Editor, toolName string, authCfg *GitHubAuthConfig) error {
@@ -412,11 +409,9 @@ func writeGitHubKeychainRef(ctx context.Context, cfg setup.Editor, toolName stri
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
 	}
 
-	if err := cfg.Set("github.auth.keychain", toolName+"/"+githubKeychainAccount); err != nil {
-		return err
-	}
-
-	return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.keychain")
+	return setup.WriteExclusive(cfg,
+		map[string]any{"github.auth.keychain": toolName + "/" + githubKeychainAccount},
+		githubCredentialKeys)
 }
 
 func writeGitHubLiteral(cfg setup.Editor, authCfg *GitHubAuthConfig) error {
@@ -424,11 +419,8 @@ func writeGitHubLiteral(cfg setup.Editor, authCfg *GitHubAuthConfig) error {
 		return nil
 	}
 
-	if err := cfg.Set("github.auth.value", authCfg.Token); err != nil {
-		return err
-	}
-
-	return setup.ClearCredentialKeysExcept(cfg, githubCredentialKeys, "github.auth.value")
+	return setup.WriteExclusive(cfg,
+		map[string]any{"github.auth.value": authCfg.Token}, githubCredentialKeys)
 }
 
 // githubCredentialKeys is the full set of config key paths that can

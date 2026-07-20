@@ -351,35 +351,37 @@ func writeBitbucketCredentials(ctx context.Context, cfg setup.Editor, toolName s
 }
 
 func writeBitbucketEnvRefs(cfg setup.Editor, bbCfg *BitbucketConfig) error {
+	winning := map[string]any{}
 	if bbCfg.UsernameEnvName != "" {
-		if err := cfg.Set("bitbucket.username.env", bbCfg.UsernameEnvName); err != nil {
-			return err
-		}
+		winning["bitbucket.username.env"] = bbCfg.UsernameEnvName
 	}
 
 	if bbCfg.AppPasswordEnvName != "" {
-		if err := cfg.Set("bitbucket.app_password.env", bbCfg.AppPasswordEnvName); err != nil {
-			return err
-		}
+		winning["bitbucket.app_password.env"] = bbCfg.AppPasswordEnvName
 	}
 
-	return nil
+	if len(winning) == 0 {
+		return nil
+	}
+
+	return setup.WriteExclusive(cfg, winning, bitbucketCredentialKeys)
 }
 
 func writeBitbucketLiterals(cfg setup.Editor, bbCfg *BitbucketConfig) error {
+	winning := map[string]any{}
 	if bbCfg.Username != "" {
-		if err := cfg.Set("bitbucket.username", bbCfg.Username); err != nil {
-			return err
-		}
+		winning["bitbucket.username"] = bbCfg.Username
 	}
 
 	if bbCfg.AppPassword != "" {
-		if err := cfg.Set("bitbucket.app_password", bbCfg.AppPassword); err != nil {
-			return err
-		}
+		winning["bitbucket.app_password"] = bbCfg.AppPassword
 	}
 
-	return nil
+	if len(winning) == 0 {
+		return nil
+	}
+
+	return setup.WriteExclusive(cfg, winning, bitbucketCredentialKeys)
 }
 
 // writeKeychainBlob serialises the dual credentials into a JSON
@@ -410,7 +412,22 @@ func writeKeychainBlob(ctx context.Context, cfg setup.Editor, toolName string, b
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
 	}
 
-	return cfg.Set("bitbucket.keychain", toolName+"/"+bitbucketKeychainAccount)
+	return setup.WriteExclusive(cfg,
+		map[string]any{"bitbucket.keychain": toolName + "/" + bitbucketKeychainAccount},
+		bitbucketCredentialKeys)
+}
+
+// bitbucketCredentialKeys is the full set of config key paths that can carry
+// a Bitbucket credential across the three storage modes. Each writer commits
+// its mode's keys through [setup.WriteExclusive] so switching modes never
+// leaves a stale secret or reference behind (the single-credential-key
+// invariant from the hardening spec).
+var bitbucketCredentialKeys = []string{
+	"bitbucket.username.env",
+	"bitbucket.app_password.env",
+	"bitbucket.username",
+	"bitbucket.app_password",
+	"bitbucket.keychain",
 }
 
 // RunBitbucketInit executes the wizard against an existing config

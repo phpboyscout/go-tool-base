@@ -11,6 +11,7 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
@@ -77,11 +78,14 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Return(nil).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api").Return(nil).Once()
-	// Recording the keychain reference also blanks the sibling
-	// env/literal key paths so a prior storage mode leaves nothing.
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeEnv, "").Return(nil).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "").Return(nil).Once()
+	// Recording the keychain reference also removes the sibling env/literal
+	// key paths in the same transactional Apply, so a prior storage mode
+	// leaves nothing behind.
+	cfg.EXPECT().Apply([]config.Change{
+		config.Set(chat.ConfigKeyClaudeKeychain, "test-tool/anthropic.api"),
+		config.Remove(chat.ConfigKeyClaudeEnv),
+		config.Remove(chat.ConfigKeyClaudeKey),
+	}).Return(nil).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{

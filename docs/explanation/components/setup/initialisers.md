@@ -29,9 +29,13 @@ type Initialiser interface {
 
 `setup.Editor` is the read/write surface an initialiser uses during init:
 `View()` returns a pinned `*config.View` whose reads resolve the target file
-over the tool's embedded defaults, and `Set(key, value)` writes one key through
-the store's transactional `Apply`, editing the target document in place so
-template comments survive the wizards.
+over the tool's embedded defaults, `Set(key, value)` writes one key, and
+`Apply(changes...)` stages several `config.Change`s as one transactional
+write — all through the store's `Apply`, editing the target document in place
+so template comments survive the wizards. Credential wizards commit a
+storage-mode switch through `setup.WriteExclusive`, which sets the winning
+keys and removes every stale sibling in a single batch (the
+single-credential-key invariant).
 
 
 > [!NOTE]

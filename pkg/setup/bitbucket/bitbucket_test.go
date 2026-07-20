@@ -2,6 +2,7 @@ package bitbucket
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 
 	"charm.land/huh/v2"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
@@ -16,6 +18,7 @@ import (
 	setupmocks "gitlab.com/phpboyscout/go-tool-base/mocks/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // newTestProps builds a fixture Props. CI env var is cleared so
@@ -43,15 +46,21 @@ func mockForms(cfgMutate func(*BitbucketConfig)) FormOption {
 	})
 }
 
-// TestConfigure_EnvVarMode pins the two-env-var write path. The mock
-// editor's expectations double as the exclusivity assertion: any write
-// to a literal or keychain key would be an unexpected call.
+// TestConfigure_EnvVarMode pins the two-env-var write path: one
+// transactional Apply sets the env refs and removes every key the other
+// storage modes own, with each on-path literal cleared before the env ref
+// that nests inside it is set.
 func TestConfigure_EnvVarMode(t *testing.T) {
 	p := newTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.username.env", "BB_USER").Return(nil)
-	cfg.EXPECT().Set("bitbucket.app_password.env", "BB_APP_PW").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Remove("bitbucket.app_password"),
+		config.Set("bitbucket.app_password.env", "BB_APP_PW"),
+		config.Remove("bitbucket.username"),
+		config.Set("bitbucket.username.env", "BB_USER"),
+		config.Remove("bitbucket.keychain"),
+	}).Return(nil)
 
 	i := NewInitialiser(p, WithFormOptions(mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeEnvVar
@@ -72,7 +81,13 @@ func TestConfigure_KeychainMode(t *testing.T) {
 	p := newTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.keychain", "testtool/bitbucket.auth").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Set("bitbucket.keychain", "testtool/bitbucket.auth"),
+		config.Remove("bitbucket.username.env"),
+		config.Remove("bitbucket.app_password.env"),
+		config.Remove("bitbucket.username"),
+		config.Remove("bitbucket.app_password"),
+	}).Return(nil)
 
 	i := NewInitialiser(p, WithFormOptions(mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeKeychain
@@ -91,14 +106,20 @@ func TestConfigure_KeychainMode(t *testing.T) {
 	assert.Equal(t, "s3cret", blob["app_password"])
 }
 
-// TestConfigure_LiteralMode — both fields land in config as plaintext;
-// no env-var or keychain keys are written (unexpected-call guard).
+// TestConfigure_LiteralMode — both fields land in config as plaintext,
+// with the nested env refs removed before their parent scalars are set
+// and the keychain ref removed last.
 func TestConfigure_LiteralMode(t *testing.T) {
 	p := newTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.username", "alice").Return(nil)
-	cfg.EXPECT().Set("bitbucket.app_password", "s3cret").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Remove("bitbucket.app_password.env"),
+		config.Set("bitbucket.app_password", "s3cret"),
+		config.Remove("bitbucket.username.env"),
+		config.Set("bitbucket.username", "alice"),
+		config.Remove("bitbucket.keychain"),
+	}).Return(nil)
 
 	i := NewInitialiser(p, WithFormOptions(mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeLiteral
@@ -153,6 +174,71 @@ func TestIsConfigured(t *testing.T) {
 			assert.Equal(t, tc.wantYes, i.IsConfigured(view))
 		})
 	}
+}
+
+// TestWriteBitbucketCredentials_ModeSwitchClearsStaleKeys drives the real
+// store-backed editor through both directions of the literal↔env-ref switch:
+// the invariant write must leave only the selected mode's keys in the
+// document, with the dual-credential nesting (username vs username.env)
+// surviving the in-place edit.
+func TestWriteBitbucketCredentials_ModeSwitchClearsStaleKeys(t *testing.T) {
+	openEditor := func(t *testing.T, yamlDoc string) (setup.Editor, *props.Props, string) {
+		t.Helper()
+
+		p := newTestProps(t)
+		const dir = "/cfgdir"
+		path := filepath.Join(dir, setup.DefaultConfigFilename)
+		require.NoError(t, p.FS.MkdirAll(dir, 0o755))
+		require.NoError(t, afero.WriteFile(p.FS, path, []byte(yamlDoc), 0o600))
+
+		editor, _, err := setup.OpenConfigEditor(t.Context(), p, dir, false)
+		require.NoError(t, err)
+
+		return editor, p, path
+	}
+
+	t.Run("env-var mode clears stale literals", func(t *testing.T) {
+		cfg, p, path := openEditor(t, "bitbucket:\n  username: alice\n  app_password: s3cret-stale\n")
+
+		// Env var NAMES, not credentials — held in variables named to keep
+		// gosec G101 from flagging a "hardcoded credential" test fixture.
+		userVar, appVar := "BB_USER", "BB_APP_PW"
+
+		require.NoError(t, writeBitbucketCredentials(t.Context(), cfg, "testtool", &BitbucketConfig{
+			StorageMode:        credentials.ModeEnvVar,
+			UsernameEnvName:    userVar,
+			AppPasswordEnvName: appVar,
+		}))
+
+		view := cfg.View()
+		assert.Equal(t, "BB_USER", view.GetString("bitbucket.username.env"))
+		assert.Equal(t, "BB_APP_PW", view.GetString("bitbucket.app_password.env"))
+
+		content, err := afero.ReadFile(p.FS, path)
+		require.NoError(t, err)
+		assert.NotContains(t, string(content), "s3cret-stale",
+			"switching to env-var mode must remove the stale literal app password from the file")
+		assert.NotContains(t, string(content), "alice",
+			"switching to env-var mode must remove the stale literal username from the file")
+	})
+
+	t.Run("literal mode clears stale env refs", func(t *testing.T) {
+		cfg, _, _ := openEditor(t, "bitbucket:\n  username:\n    env: BB_USER\n  app_password:\n    env: BB_APP_PW\n")
+
+		require.NoError(t, writeBitbucketCredentials(t.Context(), cfg, "testtool", &BitbucketConfig{
+			StorageMode: credentials.ModeLiteral,
+			Username:    "alice",
+			AppPassword: "s3cret",
+		}))
+
+		view := cfg.View()
+		assert.Equal(t, "alice", view.GetString("bitbucket.username"))
+		assert.Equal(t, "s3cret", view.GetString("bitbucket.app_password"))
+		assert.False(t, view.IsSet("bitbucket.username.env"),
+			"switching to literal mode must remove the stale username env ref")
+		assert.False(t, view.IsSet("bitbucket.app_password.env"),
+			"switching to literal mode must remove the stale app-password env ref")
+	})
 }
 
 // The storage-mode choice matrix is now provided by

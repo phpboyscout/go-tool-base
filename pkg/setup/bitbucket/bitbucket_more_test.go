@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
 
@@ -129,8 +130,13 @@ func TestWriteBitbucketCredentials_EmptyMode(t *testing.T) {
 	t.Parallel()
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.username", "alice").Return(nil)
-	cfg.EXPECT().Set("bitbucket.app_password", "pw").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Remove("bitbucket.app_password.env"),
+		config.Set("bitbucket.app_password", "pw"),
+		config.Remove("bitbucket.username.env"),
+		config.Set("bitbucket.username", "alice"),
+		config.Remove("bitbucket.keychain"),
+	}).Return(nil)
 
 	err := writeBitbucketCredentials(t.Context(), cfg, "tool", &BitbucketConfig{
 		Username:    "alice",
@@ -141,12 +147,19 @@ func TestWriteBitbucketCredentials_EmptyMode(t *testing.T) {
 
 // TestWriteBitbucketCredentials_EnvVarPartial exercises the env-var
 // branch when only one of the two names is supplied — the absent
-// app-password name must not be written (unexpected-call guard).
+// app-password env ref is removed along with the other stale keys, not
+// written.
 func TestWriteBitbucketCredentials_EnvVarPartial(t *testing.T) {
 	t.Parallel()
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.username.env", "ONLY_USER").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Remove("bitbucket.username"),
+		config.Set("bitbucket.username.env", "ONLY_USER"),
+		config.Remove("bitbucket.app_password.env"),
+		config.Remove("bitbucket.app_password"),
+		config.Remove("bitbucket.keychain"),
+	}).Return(nil)
 
 	err := writeBitbucketCredentials(t.Context(), cfg, "tool", &BitbucketConfig{
 		StorageMode:     credentials.ModeEnvVar,
@@ -175,7 +188,13 @@ func TestWriteKeychainBlob_Success(t *testing.T) {
 	credtest.Install(t)
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.keychain", "tool/bitbucket.auth").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Set("bitbucket.keychain", "tool/bitbucket.auth"),
+		config.Remove("bitbucket.username.env"),
+		config.Remove("bitbucket.app_password.env"),
+		config.Remove("bitbucket.username"),
+		config.Remove("bitbucket.app_password"),
+	}).Return(nil)
 
 	err := writeKeychainBlob(t.Context(), cfg, "tool", &BitbucketConfig{
 		Username:    "alice",
@@ -355,8 +374,13 @@ func TestRunBitbucketInit_Success(t *testing.T) {
 	p := newTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().Set("bitbucket.username.env", "BB_USER").Return(nil)
-	cfg.EXPECT().Set("bitbucket.app_password.env", "BB_APP_PW").Return(nil)
+	cfg.EXPECT().Apply([]config.Change{
+		config.Remove("bitbucket.app_password"),
+		config.Set("bitbucket.app_password.env", "BB_APP_PW"),
+		config.Remove("bitbucket.username"),
+		config.Set("bitbucket.username.env", "BB_USER"),
+		config.Remove("bitbucket.keychain"),
+	}).Return(nil)
 
 	err := RunBitbucketInit(p, cfg, mockForms(func(c *BitbucketConfig) {
 		c.StorageMode = credentials.ModeEnvVar

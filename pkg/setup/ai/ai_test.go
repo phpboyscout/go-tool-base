@@ -13,6 +13,7 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
@@ -194,9 +195,9 @@ func TestRunAIInit_OnlyWritesSelectedProviderKey(t *testing.T) {
 // guard for the keryx-reported security bug: re-running the wizard in
 // env-var mode over a config that already held a literal API key must
 // purge the literal secret from the persisted file — never leave both
-// a `.env` reference and a plaintext `.key` behind. Under the editor
-// flow the stale key is blanked to "" (resolution and doctor treat
-// empty as absent) rather than deleted from the file.
+// a `.env` reference and a plaintext `.key` behind. Under the
+// exclusive-write flow the stale key is removed from the file
+// entirely, not blanked.
 func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 	withNoCI(t)
 
@@ -230,7 +231,7 @@ func TestRunAIInit_SwitchingToEnvVarPurgesStaleLiteral(t *testing.T) {
 
 // TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys exercises the
 // live-config write path (the interactive wizard) directly: writing a
-// credential in one mode must blank the key paths owned by the other
+// credential in one mode must remove the key paths owned by the other
 // modes, enforcing the spec's single-credential-key invariant.
 func TestWriteAICredentialKeys_ModeSwitchClearsStaleKeys(t *testing.T) {
 	openEditor := func(t *testing.T) setup.Editor {
@@ -575,11 +576,14 @@ func TestAIInitialiser_Configure(t *testing.T) {
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 	cfg.EXPECT().Set(chat.ConfigKeyAIProvider, string(gochat.ProviderClaude)).Return(nil).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test").Return(nil).Once()
-	// Writing the literal also blanks the sibling env/keychain key
-	// paths so a prior storage mode cannot leave a stale value behind.
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeEnv, "").Return(nil).Once()
-	cfg.EXPECT().Set(chat.ConfigKeyClaudeKeychain, "").Return(nil).Once()
+	// Writing the literal also removes the sibling env/keychain key paths in
+	// the same transactional Apply, so a prior storage mode cannot leave a
+	// stale value behind.
+	cfg.EXPECT().Apply([]config.Change{
+		config.Set(chat.ConfigKeyClaudeKey, "sk-ant-configure-test"),
+		config.Remove(chat.ConfigKeyClaudeEnv),
+		config.Remove(chat.ConfigKeyClaudeKeychain),
+	}).Return(nil).Once()
 
 	i := &AIInitialiser{
 		formOpts: []FormOption{
