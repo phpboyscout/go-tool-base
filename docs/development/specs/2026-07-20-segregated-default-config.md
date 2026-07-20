@@ -69,8 +69,8 @@ for _, fsName := range a.order {
 reverse-search shadowing instead.
 
 The config store already reads through it. `buildConfigStore` (Phase 2 of the migration) calls
-`Props.Assets.ReadFile` per candidate path, so the embedded layer already benefits from
-per-bundle merging. Only `setup.DefaultConfig` bypasses it.
+`fs.ReadFile(Props.Assets, path)` per candidate path, so the embedded layer already benefits
+from per-bundle merging. Only `setup.DefaultConfig` bypasses it.
 
 So the remaining work is layering, not machinery — **provided the bundles are actually
 mounted**, which is where this falls down.
