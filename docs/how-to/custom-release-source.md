@@ -77,9 +77,48 @@ setup.NewUpdater(ctx, props, "", false, setup.WithReleaseProvider(myProvider))
 ```
 
 or set `props.Tool.ReleaseProvider`, which takes precedence over registry lookup.
-The option wins over the field. GTB's own tests drive self-update this way, using
-the in-memory double from
+The option wins over the field.
+
+An injected provider is self-contained, so `NewUpdater` skips **both** the
+registry lookup *and* the private-repository token gate that precedes it. That is
+why a test double works against a tool configured with `Private: true` and no
+credentials — worth knowing before you conclude your credential wiring is
+correct because the tests pass.
+
+GTB's own tests drive self-update this way, using the in-memory double from
 [`forge/test`](https://forge.go.phpboyscout.uk/how-to/testing/).
+
+## A worked self-update test
+
+```go
+func TestSelfUpdate_NoOpWhenLatest(t *testing.T) {
+    src := forgetest.New(
+        forgetest.WithRelease("v1.2.3", forgetest.TarGzAsset("mytool", "mytool", "#!/bin/sh\n")),
+        forgetest.WithLatestTag("v1.2.3"),
+    )
+
+    p := &props.Props{
+        Tool: props.Tool{
+            Name:            "mytool",
+            ReleaseProvider: src, // injected: no registry, no token gate
+        },
+        Logger:  logger.NewNoop(),
+        FS:      afero.NewMemMapFs(),
+        Version: version.NewInfo("v1.2.3", "abc123", "2026-01-01"),
+    }
+
+    updater, err := setup.NewUpdater(t.Context(), p, "", false)
+    require.NoError(t, err)
+
+    // Already on the latest version: no download, no replacement.
+    require.NoError(t, updater.Update(t.Context()))
+}
+```
+
+For the fuller picture: `pkg/setup/update_e2e_test.go` drives the verified
+pipeline — checksum and signature, happy path and abort — over an in-memory
+filesystem, and `features/cli/update.feature` covers the user-visible outcomes
+end to end.
 
 ## Related
 
