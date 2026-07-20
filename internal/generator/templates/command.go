@@ -366,11 +366,11 @@ func CommandInitializer(data CommandData) *jen.File {
 		jen.Return(jen.Lit(data.Name)),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName + "Initialiser")).Id("IsConfigured").Params(jen.Id("cfg").Qual("gitlab.com/phpboyscout/go/config", "Containable")).Bool().Block(
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName + "Initialiser")).Id("IsConfigured").Params(jen.Id("cfg").Qual("gitlab.com/phpboyscout/go/config", "Reader")).Bool().Block(
 		jen.Return(jen.Id("cfg").Dot("IsSet").Call(jen.Lit(data.Name))),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("gitlab.com/phpboyscout/go/config", "Containable")).Error().Block(
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Editor")).Error().Block(
 		jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("cfg"))),
 	)
 
@@ -381,8 +381,15 @@ func CommandInitializer(data CommandData) *jen.File {
 		jen.Return(jen.Op("&").Qual("github.com/spf13/cobra", "Command").Values(jen.Dict{
 			jen.Id("Use"):   jen.Lit(data.Name),
 			jen.Id("Short"): jen.Lit("Initialise " + data.Name + " configuration"),
-			jen.Id("RunE"): jen.Func().Params(jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"), jen.Id("args").Index().String()).Error().Block(
-				jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("p").Dot("Config"))),
+			jen.Id("RunE"): jen.Func().Params(jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"), jen.Id("_").Index().String()).Error().Block(
+				jen.List(jen.Id("editor"), jen.Id("_"), jen.Err()).Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "OpenConfigEditor").Call(
+					jen.Id("cmd").Dot("Context").Call(),
+					jen.Id("p"),
+					jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "GetDefaultConfigDir").Call(jen.Id("p").Dot("FS"), jen.Id("p").Dot("Tool").Dot("Name")),
+					jen.False(),
+				),
+				jen.If(jen.Err().Op("!=").Nil()).Block(jen.Return(jen.Err())),
+				jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("editor"))),
 			),
 		})),
 	)
@@ -743,7 +750,7 @@ func CommandConfigValidation(data CommandData) string {
 
 	fmt.Fprintf(&sb, "// Validate%sConfig checks that all required %s config keys are present\n", data.PascalName, data.Name)
 	fmt.Fprintf(&sb, "// and that constrained values are within their allowed sets.\n")
-	fmt.Fprintf(&sb, "func Validate%sConfig(cfg config.Containable) error {\n", data.PascalName)
+	fmt.Fprintf(&sb, "func Validate%sConfig(cfg config.Reader) error {\n", data.PascalName)
 	fmt.Fprintf(&sb, "\treturn config.ValidateStruct[%sConfig](cfg)\n", data.PascalName)
 	sb.WriteString("}\n")
 
@@ -802,7 +809,7 @@ func CommandExecution(data CommandData) string {
 
 	if data.WithInitializer {
 		sb.WriteString("\n")
-		fmt.Fprintf(&sb, "func Init%s(p *props.Props, cfg config.Containable) error {\n", data.PascalName)
+		fmt.Fprintf(&sb, "func Init%s(p *props.Props, cfg setup.Editor) error {\n", data.PascalName)
 		sb.WriteString("\t// TODO: Implement custom initialization logic for " + data.Name + "\n")
 		sb.WriteString("\treturn nil\n")
 		sb.WriteString("}\n")
@@ -823,10 +830,10 @@ func getCleanImports(rawImports []string, withInitializer bool) []string {
 		"gitlab.com/phpboyscout/go/errorhandling",
 	}
 
-	// The generated Init<Name> stub takes a config.Containable, so the config
-	// package is required in main.go when an initializer is generated.
+	// The generated Init<Name> stub takes a setup.Editor, so pkg/setup is
+	// required in main.go when an initializer is generated.
 	if withInitializer {
-		baseImports = append(baseImports, "gitlab.com/phpboyscout/go/config")
+		baseImports = append(baseImports, "gitlab.com/phpboyscout/go-tool-base/pkg/setup")
 	}
 
 	for _, imp := range baseImports {

@@ -61,11 +61,11 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			enabled:  data.WithInitializer,
 			funcName: "Init" + data.PascalName,
 			requiredImports: []string{
-				"gitlab.com/phpboyscout/go/config",
+				"gitlab.com/phpboyscout/go-tool-base/pkg/setup",
 			},
 			stub: func() string {
 				return fmt.Sprintf(
-					"\nfunc Init%s(p *props.Props, cfg config.Containable) error {\n"+
+					"\nfunc Init%s(p *props.Props, cfg setup.Editor) error {\n"+
 						"\t// TODO: Implement custom initialization logic for %s\n"+
 						"\treturn nil\n"+
 						"}\n",

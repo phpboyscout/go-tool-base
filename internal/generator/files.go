@@ -28,31 +28,53 @@ func (g *Generator) writeVerb() string {
 }
 
 func (g *Generator) generateAssetFiles(cmdDir string) error {
-	assetDir := filepath.Join(cmdDir, "assets", "init")
+	// The init template: written to the user's config file by setup.Initialise.
+	if err := g.seedAssetFile(
+		filepath.Join(cmdDir, "assets", "init", "config.yaml"),
+		fmt.Sprintf("%s:\n", g.config.Name),
+	); err != nil {
+		return err
+	}
 
-	if err := g.props.FS.MkdirAll(assetDir, os.ModePerm); err != nil {
+	// The defaults document: merged into the tool's embedded-defaults layer,
+	// where keys always apply. Seeded as commentary so scaffolding does not
+	// inject a null section into every tool's resolved configuration.
+	return g.seedAssetFile(
+		filepath.Join(cmdDir, "assets", "config.yaml"),
+		fmt.Sprintf(
+			"# Baseline defaults for %[1]s, merged into the tool's embedded-defaults\n"+
+				"# layer. Keys here always apply; user config, env vars and flags override\n"+
+				"# them.\n"+
+				"# %[1]s:\n"+
+				"#   example_key: value\n",
+			g.config.Name,
+		),
+	)
+}
+
+// seedAssetFile writes content to path unless the file already exists.
+func (g *Generator) seedAssetFile(path, content string) error {
+	if err := g.props.FS.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		return errors.Newf("failed to create asset directory: %w", err)
 	}
 
-	configPath := filepath.Join(assetDir, "config.yaml")
-
-	exists, err := afero.Exists(g.props.FS, configPath)
+	exists, err := afero.Exists(g.props.FS, path)
 	if err != nil {
 		return errors.Newf("failed to check for config file: %w", err)
 	}
 
 	if exists {
-		g.props.Logger.Warn("config file already exists, skipping creation", "path", configPath)
+		g.props.Logger.Warn("config file already exists, skipping creation", "path", path)
 
 		return nil
 	}
 
-	f, err := g.props.FS.Create(configPath)
+	f, err := g.props.FS.Create(path)
 	if err != nil {
 		return errors.Newf("failed to create config file: %w", err)
 	}
 
-	if _, err := fmt.Fprintf(f, "%s:\n", g.config.Name); err != nil {
+	if _, err := f.WriteString(content); err != nil {
 		_ = f.Close()
 
 		return errors.Newf("failed to write config file: %w", err)
