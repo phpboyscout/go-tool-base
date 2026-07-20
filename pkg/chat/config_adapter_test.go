@@ -2,13 +2,11 @@ package chat
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -20,15 +18,23 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
+// chatStoreFromYAML builds a store over the given YAML document, with any
+// further options (e.g. config.WithEnv) layered above it.
+func chatStoreFromYAML(t *testing.T, yaml string, opts ...config.StoreOption) *config.Store {
+	t.Helper()
+
+	store, err := config.NewStore(t.Context(), append([]config.StoreOption{
+		config.WithReaders(config.NamedSource{Name: "test", Content: []byte(yaml)}),
+	}, opts...)...)
+	require.NoError(t, err)
+
+	return store
+}
+
 func TestConfigAdapter_LoadsTypedSections(t *testing.T) {
 	t.Setenv("GTB_OPENAI_API_KEY", "env-literal-key")
 
-	c := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix("GTB"),
-		config.WithConfigReaders(strings.NewReader(`
+	view := chatStoreFromYAML(t, `
 ai:
   provider: openai
   request_timeout: 9s
@@ -42,10 +48,9 @@ openai:
     key: file-literal-key
     env: CUSTOM_OPENAI_TOKEN
     keychain: service/account
-`)),
-	)
+`, config.WithEnv("GTB")).View()
 
-	runtime, err := loadRuntimeConfig(c)
+	runtime, err := loadRuntimeConfig(view)
 	require.NoError(t, err)
 
 	assert.Equal(t, gochat.ProviderOpenAI, runtime.Provider)
@@ -53,7 +58,7 @@ openai:
 	assert.True(t, runtime.Fallback.Enabled)
 	assert.Equal(t, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderClaude}, runtime.Fallback.Providers)
 
-	credentials, err := loadCredentialConfig(c, gochat.ProviderOpenAI)
+	credentials, err := loadCredentialConfig(view, gochat.ProviderOpenAI)
 	require.NoError(t, err)
 
 	assert.Equal(t, "CUSTOM_OPENAI_TOKEN", credentials.Env)
@@ -61,80 +66,67 @@ openai:
 	assert.Equal(t, "env-literal-key", credentials.Key)
 }
 
-func TestApplyRuntimeConfig_LegacyContainable(t *testing.T) {
+func TestLoadFallbackConfig_TypedSection(t *testing.T) {
 	t.Parallel()
 
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(gochat.ProviderGemini)).Once()
+	view := chatStoreFromYAML(t, `
+ai:
+  fallback:
+    enabled: true
+    providers: [openai, gemini]
+`).View()
 
-	chatConfig := gochat.Config{}
-	err := applyRuntimeConfig(&props.Props{Config: cfg}, &chatConfig)
-	require.NoError(t, err)
-
-	assert.Equal(t, gochat.ProviderGemini, chatConfig.Provider)
-}
-
-func TestLoadRuntimeConfig_LegacyContainable(t *testing.T) {
-	t.Parallel()
-
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return(string(gochat.ProviderClaude)).Once()
-	cfg.EXPECT().GetBool(ConfigKeyAIFallbackEnabled).Return(true).Once()
-
-	runtime, err := loadRuntimeConfig(cfg)
-	require.NoError(t, err)
-
-	assert.Equal(t, gochat.ProviderClaude, runtime.Provider)
-	assert.True(t, runtime.Fallback.Enabled)
-}
-
-func TestLoadFallbackConfig_LegacyContainable(t *testing.T) {
-	t.Parallel()
-
-	v := viper.New()
-	v.Set(ConfigKeyAIFallbackProviders, []string{"openai", "gemini"})
-
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetBool(ConfigKeyAIFallbackEnabled).Return(true).Once()
-	cfg.EXPECT().GetViper().Return(v).Once()
-
-	fallback, err := loadFallbackConfig(cfg)
+	fallback, err := loadFallbackConfig(view)
 	require.NoError(t, err)
 
 	assert.True(t, fallback.Enabled)
 	assert.Equal(t, []gochat.Provider{gochat.ProviderOpenAI, gochat.ProviderGemini}, fallback.Providers)
 }
 
-func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
+// TestApplyRuntimeConfig_MockReader pins the property the deleted legacy
+// branch existed for: the adapter stays drivable by the published mocks.
+func TestApplyRuntimeConfig_MockReader(t *testing.T) {
+	t.Parallel()
+
+	cfg := configmocks.NewMockReader(t)
+	cfg.EXPECT().SectionExists("ai").Return(true).Once()
+	cfg.EXPECT().UnmarshalKey("ai", mock.Anything).RunAndReturn(func(_ string, target any) error {
+		runtime, ok := target.(*gochat.RuntimeConfig)
+		require.True(t, ok)
+
+		runtime.Provider = gochat.ProviderGemini
+
+		return nil
+	}).Once()
+
+	chatConfig := gochat.Config{}
+	require.NoError(t, applyRuntimeConfig(cfg, &chatConfig))
+
+	assert.Equal(t, gochat.ProviderGemini, chatConfig.Provider)
+}
+
+func TestLoadCredentialConfig_TypedSections(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name     string
 		provider gochat.Provider
-		envKey   string
-		kcKey    string
-		keyKey   string
+		yaml     string
 	}{
 		{
 			name:     "openai",
 			provider: gochat.ProviderOpenAI,
-			envKey:   ConfigKeyOpenAIEnv,
-			kcKey:    ConfigKeyOpenAIKeychain,
-			keyKey:   ConfigKeyOpenAIKey,
+			yaml:     "openai:\n  api:\n    env: TOKEN_ENV\n    keychain: service/account\n    key: literal-key\n",
 		},
 		{
 			name:     "claude",
 			provider: gochat.ProviderClaude,
-			envKey:   ConfigKeyClaudeEnv,
-			kcKey:    ConfigKeyClaudeKeychain,
-			keyKey:   ConfigKeyClaudeKey,
+			yaml:     "anthropic:\n  api:\n    env: TOKEN_ENV\n    keychain: service/account\n    key: literal-key\n",
 		},
 		{
 			name:     "gemini",
 			provider: gochat.ProviderGemini,
-			envKey:   ConfigKeyGeminiEnv,
-			kcKey:    ConfigKeyGeminiKeychain,
-			keyKey:   ConfigKeyGeminiKey,
+			yaml:     "gemini:\n  api:\n    env: TOKEN_ENV\n    keychain: service/account\n    key: literal-key\n",
 		},
 	}
 
@@ -142,12 +134,7 @@ func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cfg := configmocks.NewMockContainable(t)
-			cfg.EXPECT().GetString(tt.envKey).Return("TOKEN_ENV").Once()
-			cfg.EXPECT().GetString(tt.kcKey).Return("service/account").Once()
-			cfg.EXPECT().GetString(tt.keyKey).Return("literal-key").Once()
-
-			credentials, err := loadCredentialConfig(cfg, tt.provider)
+			credentials, err := loadCredentialConfig(chatStoreFromYAML(t, tt.yaml).View(), tt.provider)
 			require.NoError(t, err)
 
 			assert.Equal(t, gochat.CredentialConfig{
@@ -162,7 +149,7 @@ func TestLoadCredentialConfig_LegacyContainable(t *testing.T) {
 func TestLoadCredentialConfig_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
-	credentials, err := loadCredentialConfig(configmocks.NewMockContainable(t), gochat.Provider("unknown"))
+	credentials, err := loadCredentialConfig(configmocks.NewMockReader(t), gochat.Provider("unknown"))
 	require.NoError(t, err)
 
 	assert.True(t, credentials.IsZero())
@@ -186,27 +173,25 @@ func TestConfigAdapter_NilAndSkipBranches(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, credentials.IsZero())
 
+	// Credentials already supplied: the reader must not be consulted at all.
 	cfg := gochat.Config{
 		Provider:    gochat.ProviderOpenAI,
 		Credentials: gochat.CredentialConfig{Key: "already-set"},
 	}
-	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &cfg))
+	require.NoError(t, applyCredentialConfig(configmocks.NewMockReader(t), &cfg))
 	assert.Equal(t, gochat.CredentialConfig{Key: "already-set"}, cfg.Credentials)
 
+	// claude-local resolves credentials via the CLI binary, never from config.
 	local := gochat.Config{Provider: gochat.ProviderClaudeLocal}
-	require.NoError(t, applyCredentialConfig(&props.Props{Config: configmocks.NewMockContainable(t)}, &local))
+	require.NoError(t, applyCredentialConfig(configmocks.NewMockReader(t), &local))
 }
 
 func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 	registerTestProviders(t)
 
-	v := viper.New()
-	v.Set(ConfigKeyAIFallbackEnabled, true)
-	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok", "fbt-ok2"})
-
 	p := &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(nil, v),
+		Config: chatStoreFromYAML(t, "ai:\n  fallback:\n    enabled: true\n    providers: [fbt-ok, fbt-ok2]\n"),
 	}
 
 	// cfg.Provider deliberately disagrees with providers[0], exercising the
@@ -224,13 +209,9 @@ func TestNewWithFallback_EnabledBuildsChainFromConfig(t *testing.T) {
 func TestNewWithFallback_WrapperBuildsChain(t *testing.T) {
 	registerTestProviders(t)
 
-	v := viper.New()
-	v.Set(ConfigKeyAIFallbackEnabled, true)
-	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok", "fbt-ok2"})
-
 	p := &props.Props{
 		Logger: logger.NewNoop(),
-		Config: config.NewContainerFromViper(nil, v),
+		Config: chatStoreFromYAML(t, "ai:\n  fallback:\n    enabled: true\n    providers: [fbt-ok, fbt-ok2]\n"),
 	}
 
 	client, err := NewWithFallback(context.Background(), p, gochat.Config{Provider: gochat.ProviderClaude})
@@ -244,14 +225,10 @@ func TestNewWithFallback_WrapperBuildsChain(t *testing.T) {
 func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *testing.T) {
 	registerTestProviders(t)
 
-	v := viper.New()
-	v.Set(ConfigKeyAIFallbackEnabled, true)
-	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok"})
-
 	buf := logger.NewBuffer()
 	p := &props.Props{
 		Logger: buf,
-		Config: config.NewContainerFromViper(nil, v),
+		Config: chatStoreFromYAML(t, "ai:\n  fallback:\n    enabled: true\n    providers: [fbt-ok]\n"),
 	}
 
 	// No ai.provider is configured and the caller passes an empty Config, so the
@@ -268,15 +245,10 @@ func TestNewWithFallbackFromProps_NoSpuriousOverrideWarnWhenProviderUnset(t *tes
 func TestNewWithFallbackFromProps_WarnsWhenConfiguredProviderOverridden(t *testing.T) {
 	registerTestProviders(t)
 
-	v := viper.New()
-	v.Set(ConfigKeyAIProvider, "fbt-ok2")
-	v.Set(ConfigKeyAIFallbackEnabled, true)
-	v.Set(ConfigKeyAIFallbackProviders, []string{"fbt-ok"})
-
 	buf := logger.NewBuffer()
 	p := &props.Props{
 		Logger: buf,
-		Config: config.NewContainerFromViper(nil, v),
+		Config: chatStoreFromYAML(t, "ai:\n  provider: fbt-ok2\n  fallback:\n    enabled: true\n    providers: [fbt-ok]\n"),
 	}
 
 	// ai.provider=fbt-ok2 is explicitly configured but fallback.providers[0]
@@ -294,20 +266,14 @@ func TestNewWithFallbackFromProps_WarnsWhenConfiguredProviderOverridden(t *testi
 func TestNew_AppliesTypedConfigBeforeProviderFactory(t *testing.T) {
 	t.Setenv("GTB_OPENAI_API_KEY", "env-literal-key")
 
-	c := config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithEnvPrefix("GTB"),
-		config.WithConfigReaders(strings.NewReader(`
+	store := chatStoreFromYAML(t, `
 ai:
   provider: openai
   request_timeout: 11s
 openai:
   api:
     key: file-literal-key
-`)),
-	)
+`, config.WithEnv("GTB"))
 
 	// Overwrite the real (blank-imported) chat-openai provider with a capturing
 	// fake for this test. The module's registry exposes no removal, so there is
@@ -322,7 +288,7 @@ openai:
 
 	client, err := NewFromProps(context.Background(), &props.Props{
 		Logger: logger.NewNoop(),
-		Config: c,
+		Config: store,
 	}, gochat.Config{})
 
 	require.NoError(t, err)

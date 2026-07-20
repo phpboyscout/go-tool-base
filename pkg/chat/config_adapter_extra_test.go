@@ -9,8 +9,6 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
-	configmocks "gitlab.com/phpboyscout/go/config/mocks"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -40,13 +38,4 @@ func TestNewHardenedChatHTTPClient(t *testing.T) {
 	assert.Equal(t, gochat.DefaultChatRequestTimeout, newHardenedChatHTTPClient(0).Timeout,
 		"non-positive timeout falls back to the default")
 	assert.Equal(t, 3*time.Minute, newHardenedChatHTTPClient(3*time.Minute).Timeout)
-}
-
-func TestCfgProvider_Empty(t *testing.T) {
-	t.Parallel()
-
-	cfg := configmocks.NewMockContainable(t)
-	cfg.EXPECT().GetString(ConfigKeyAIProvider).Return("").Once()
-
-	assert.Empty(t, cfgProvider(cfg))
 }
