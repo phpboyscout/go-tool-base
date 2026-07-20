@@ -5,7 +5,6 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -80,22 +79,20 @@ func TestResolveProvider(t *testing.T) {
 	})
 
 	t.Run("config override", func(t *testing.T) {
-		p := &props.Props{
-			Config: config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml")),
-		}
-		t.Setenv("AI_PROVIDER", "claude")
+		store, err := config.NewStore(t.Context(),
+			config.WithReaders(config.NamedSource{Name: "test", Content: []byte("ai:\n  provider: claude\n")}))
+		require.NoError(t, err)
 
-		provider := ResolveProvider(p)
+		provider := ResolveProvider(&props.Props{Config: store})
 		assert.Equal(t, gochat.ProviderClaude, provider)
 	})
 
 	t.Run("default is openai", func(t *testing.T) {
-		p := &props.Props{
-			Config: config.NewReaderContainer(afero.NewOsFs(), config.WithConfigFormat("yaml")),
-		}
-		t.Setenv("AI_PROVIDER", "")
+		store, err := config.NewStore(t.Context(),
+			config.WithReaders(config.NamedSource{Name: "test", Content: []byte("{}\n")}))
+		require.NoError(t, err)
 
-		provider := ResolveProvider(p)
+		provider := ResolveProvider(&props.Props{Config: store})
 		assert.Equal(t, gochat.ProviderOpenAI, provider)
 	})
 

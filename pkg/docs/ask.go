@@ -124,7 +124,7 @@ func ResolveProvider(p props.ConfigProvider, providerOverride ...string) gochat.
 	}
 
 	if cfg := p.GetConfig(); cfg != nil {
-		if pName := cfg.GetString(chat.ConfigKeyAIProvider); pName != "" {
+		if pName := cfg.View().GetString(chat.ConfigKeyAIProvider); pName != "" {
 			return gochat.Provider(pName)
 		}
 	}
