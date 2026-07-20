@@ -75,90 +75,70 @@ from per-bundle merging. Only `setup.DefaultConfig` bypasses it.
 So the remaining work is layering, not machinery — **provided the bundles are actually
 mounted**, which is where this falls down.
 
-## The root cause: assets mount after the config is built
+## The mechanism works; nothing uses it for defaults
 
-This is the finding that reframes the whole change.
+An earlier draft of this spec claimed asset registration happened too late for the config
+store to see it. That was wrong, and the correction matters because it changes the shape of
+the work from "fix a bug" to "adopt the existing mechanism".
 
-`docs/how-to/validate-component-config.md` instructs package authors to mount their assets
-from an `InitialiserProvider`:
+**`Register` runs at command construction, before any config is resolved.** Subcommands are
+constructed as arguments to `NewCmdRootWithOptions(props, WithSubcommands(subcommands...))`,
+so argument evaluation — including each constructor's `p.Assets.Register(...)` — completes
+before the root command exists, let alone before cobra invokes `PersistentPreRunE`, which is
+where `buildConfigStore` runs. This is what `docs/explanation/components/assets.md` documents
+under "Subcommand Contribution", and the generator emits exactly that
+(`internal/generator/templates/command.go:270`).
 
-```go
-func init() {
-    setup.Register(props.FeatureCmd("myfeature"),
-        []setup.InitialiserProvider{
-            func(p *props.Props) setup.Initialiser {
-                p.Assets.Mount(assets, "pkg/myfeature")
-                return &Initialiser{}
-            },
-        },
-    )
-}
+Verified rather than reasoned about:
+
+```
+Register("root"), Register("github")  →  fs.ReadFile(assets, "assets/config.yaml")
+  → "github:\n  api: https://api.github.com\nlog:\n  level: info\n"
 ```
 
-Both production `Mount` calls follow it — `pkg/setup/ai/ai.go:313` and
-`pkg/setup/github/github.go:174`, each inside a `New*Initialiser` constructor.
+Two bundles, one bare path, deep-merged in registration order.
 
-Those constructors run only when `discoverInitialisers` invokes the providers, and that is
-called from **inside `RunE` of the init command** (`pkg/cmd/initialise/init.go:46`).
+**So a package can already ship defaults that reach the config store.** Nothing reads them as
+defaults, because the defaults layer is `setup.DefaultConfig` — a compiled-in `[]byte` that
+never consults `Assets` at all. That is the whole gap.
 
-The consequence, in two parts:
+### `Mount` is a different feature and is not the defaults path
 
-- During any normal command — `mytool serve`, `mytool doctor` — the providers never run, so
-  `pkg/setup/ai` and `pkg/setup/github` assets are **never mounted at all**.
-- During `mytool init` they are mounted, but `RunE` runs *after* `PersistentPreRunE`, which is
-  where the config store is built. So even then the defaults arrive **after** the store that
-  was supposed to read them.
+`assets.md` lists mounting under "Advanced Extensibility": attaching an arbitrary `fs.FS` at a
+virtual prefix, for plugins and external resources. It is not subcommand contribution.
 
-**The documented per-package defaults mechanism has therefore never worked for defaults.**
+The distinction is not cosmetic — mounted content is addressable **only** under its prefix:
 
-### There are two patterns, and only the undocumented one works
-
-This is the part that makes the bug survivable and therefore invisible.
-
-`Register` is called during command-tree construction and is safe. The generator emits it as
-the first statement of a generated subcommand's constructor
-(`internal/generator/templates/command.go:270`), and those constructors are evaluated as
-arguments to `NewCmdRoot(p, sub1(p), sub2(p), ...)` — argument evaluation completes before
-`Execute`, so the bundles are visible to config loading.
-
-`Mount` from an initialiser provider is what the how-to documents, and it is too late.
-
-So generated subcommands get working defaults, hand-written framework packages following the
-guide do not, and nobody noticed because the two look equivalent in a diff. **The fix is
-partly to make the documented path match the one that already works.**
-
-### And the mounted bundles are unreachable even after mounting
-
-`mountedFS.Open` (`pkg/props/assets.go:438`) resolves only names under `prefix + "/"`. Mounting
-at `"pkg/setup/ai"` makes the file addressable **only** as
-`pkg/setup/ai/assets/init/config.yaml`. Its one consumer, `mergeExtraConfig`
-(`pkg/setup/init.go:168`), opens the bare path `assets/init/config.yaml`.
-
-Nothing in the repo reads the prefixed form. `pkg/setup/ai/assets/init/config.yaml` and
-`pkg/setup/github/assets/init/config.yaml` are therefore **dead payloads**: embedded, shipped,
-and unloadable by any code path. The existing tests assert only that the mount happened
-(`github_extra_test.go:780`, `ai_coverage_test.go:106`), never that the content comes back —
-which is precisely how a dead payload stays green.
-
-### The evidence that this is the god file's cause
-
-`pkg/setup/github/assets/init/config.yaml` exists and contains exactly:
-
-```yaml
-github:
-  url:
-    api: https://api.github.com
-    upload: https://uploads.github.com
-  auth:
-    env: GITHUB_TOKEN
-  ssh:
-    key:
-      env: GITHUB_KEY
+```
+Mount(bundle, "pkg/setup/github")
+  fs.ReadFile(assets, "assets/init/config.yaml")                    → file does not exist
+  fs.ReadFile(assets, "pkg/setup/github/assets/init/config.yaml")   → content
 ```
 
-The `github:` stanza in `pkg/setup/assets/config.yaml` is byte-identical. The values were
-duplicated into the framework file because the package's own copy never mounts in time. The
-god file is not misplacement — it is the workaround.
+`pkg/setup/ai` and `pkg/setup/github` mount their bundles from `New*Initialiser`, which is
+correct for what those bundles are: init templates, needed when `init` runs interactively, and
+the initialiser is exactly when that happens. They are not defaults and were never wired as
+defaults.
+
+It does mean the prefixed path is read by nothing in the repo — `mergeExtraConfig`
+(`pkg/setup/init.go:168`) opens the bare `assets/init/config.yaml`, which resolves against the
+tool's own registered bundle rather than these. Whether the two mounts are load-bearing or
+vestigial is **open question 5**; it is a loose end, not the foundation of this change.
+
+### Why the god file holds `github:`
+
+`pkg/setup/github/assets/init/config.yaml` and the `github:` stanza in
+`pkg/setup/assets/config.yaml` are byte-identical.
+
+The earlier draft read this as a workaround for broken timing. The simpler reading is right:
+one is the template written into a user's config at init, the other is the runtime default,
+and they agree because they describe the same settings. The duplication is real and worth
+removing — that is D7 — but it is ordinary drift-prone duplication, not evidence of a bug.
+
+What it does show is that `pkg/setup/github` has no way to contribute a *default* today. It is
+not a command, so it has no construction hook to `Register` from; its only entry point is the
+initialiser, which is the wrong tool. That is the gap D1 has to close, and it is narrower than
+the earlier draft claimed.
 
 ## Motivation
 
@@ -175,25 +155,29 @@ the default path reads them at the time it matters.
 
 ## Decisions
 
-### D1 — Mounting moves to command-tree construction, before any config is built
+### D1 — Non-command packages get a registration hook that runs at tree construction
 
-The fix has to come first; everything else depends on it.
+Commands already have one: their constructor. `pkg/setup/github`, `pkg/setup/ai` and any
+future non-command package do not — their only callback is the initialiser provider, which
+runs inside the init command's `RunE` and is scoped to interactive setup.
 
-Asset mounting must happen while the command tree is built, which is before cobra runs any
-`PersistentPreRunE`. Registration is already the right shape for this — `setup.Register` is
-called from `init()` functions and the registry is sealed once the tree is built — so the
-bundle belongs in the registration, not in a constructor invoked much later.
+So the gap is narrow: a way for a package with no command to contribute an asset bundle at the
+same point a subcommand does. Registration is already in an `init()` (`setup.Register`), and
+the registry is sealed once the tree is built, so the bundle belongs alongside it.
 
-Proposed: `setup.Register` gains an asset argument, or a sibling `setup.RegisterAssets(name,
-fs.FS)` is called from the same `init()`. Bundles are mounted onto `Props.Assets` during root
-command construction, in registry order.
+Proposed: `setup.Register` gains an asset bundle, or a sibling `setup.RegisterAssets(name,
+fs.FS)` is called from the same `init()`; the root command drains the registry and calls
+`Props.Assets.Register` for each, in registry order, during tree construction.
 
-The existing `Mount` calls inside `New*Initialiser` become redundant and are removed. They are
-currently the only thing that makes ai and github assets available during init, so removing
-them without D1 in place would break `setup.Initialise`.
+Bundles must register **unprefixed**, so every package's `assets/config.yaml` collides on one
+path and merges. That is what makes segregated defaults aggregate into a single defaults
+document, and it is the opposite of what `Mount` does.
 
-**Exact mechanism is open question 1** — it is the one part of this spec that is genuinely a
-design choice rather than a correction.
+The existing `Mount` calls in `New*Initialiser` are left alone by this decision — they serve
+init templates, not defaults (see open question 5).
+
+**Exact mechanism is open question 1** — it is the only real design choice here and it sets
+the API every package author touches.
 
 ### D2 — Defaults come from `assets/config.yaml`, not `assets/init/config.yaml`
 
@@ -405,6 +389,11 @@ constructor mounts (D5).
 3. **Do disabled features' defaults still apply?** Proposed yes; it is a judgement call.
 4. **Is D4's always-apply change worth a migration note for existing installs?** A user who
    deliberately omitted a key to get the zero value will now get the default.
+5. **Are the `pkg/setup/ai` and `pkg/setup/github` mounts load-bearing or vestigial?** Their
+   content is addressable only under the mount prefix, and nothing in the repo opens that
+   path — `mergeExtraConfig` opens the bare one, which resolves against the tool's own
+   registered bundle. Either they are dead and should go, or something is meant to read them
+   and does not. Independent of this spec, but adjacent enough to settle while here.
 
 ## Status
 
