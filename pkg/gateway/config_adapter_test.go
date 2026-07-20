@@ -2,16 +2,13 @@ package gateway_test
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/cockroachdb/errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/spf13/afero"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -25,45 +22,31 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/gateway"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
-func testCfg() config.Containable {
-	c := config.NewContainerFromViper(logger.ToSlog(logger.NewCharm(io.Discard)), viper.New())
-	c.Set("server.grpc.port", 50099)
+func testCfg(t *testing.T) *config.View {
+	t.Helper()
 
-	return c
+	return testutil.ViewFromYAML(t, "server:\n  grpc:\n    port: 50099\n")
 }
 
-// cfgWithGatewayPort returns a config container with the gateway HTTP port set
-// to the supplied free port. The gateway's own HTTP server reads
+// cfgWithGatewayPort returns a resolved view with the gateway HTTP port set to
+// the supplied free port. The gateway's own HTTP server reads
 // "server.gateway.port"; the in-process gRPC dial reads "server.grpc.port".
-func cfgWithGatewayPort(t *testing.T, port int) config.Containable {
+func cfgWithGatewayPort(t *testing.T, port int) *config.View {
 	t.Helper()
 
-	c := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
-	c.Set("server.gateway.port", port)
-	c.Set("server.grpc.port", 50099)
-
-	return c
-}
-
-func gatewayCfgFromYAML(t *testing.T, yaml string) *config.Container {
-	t.Helper()
-
-	return config.NewReaderContainer(
-		afero.NewMemMapFs(),
-		config.WithLogger(logger.ToSlog(logger.NewNoop())),
-		config.WithConfigFormat("yaml"),
-		config.WithConfigReaders(strings.NewReader(yaml)),
-	)
+	return testutil.ViewFromYAML(t,
+		fmt.Sprintf("server:\n  gateway:\n    port: %d\n  grpc:\n    port: 50099\n", port))
 }
 
 func TestSettingsFromConfig_ComposesTransportSettings(t *testing.T) {
 	t.Parallel()
 
-	cfg := gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n    reflection: true\n")
+	cfg := testutil.ViewFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n    reflection: true\n")
 
 	settings := gateway.SettingsFromConfig(cfg)
 
@@ -74,7 +57,7 @@ func TestSettingsFromConfig_ComposesTransportSettings(t *testing.T) {
 func TestObserveSettingsFromConfig_RehydratesTransportSettings(t *testing.T) {
 	t.Parallel()
 
-	cfg := gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n")
+	cfg, src := testutil.MutableStoreFromYAML(t, "server:\n  gateway:\n    port: 18081\n  grpc:\n    port: 19081\n")
 
 	changes := make([]config.SectionChange[transportgateway.Settings], 0, 2)
 	settings, err := gateway.ObserveSettingsFromConfig(
@@ -89,11 +72,11 @@ func TestObserveSettingsFromConfig_RehydratesTransportSettings(t *testing.T) {
 	assert.Equal(t, 18081, settings.Value().HTTP.Port)
 	assert.Equal(t, 19081, settings.Value().GRPC.Port)
 
-	cfg.Set("server.gateway.port", 18082)
-	require.NoError(t, runGatewayConfigObservers(cfg))
+	src.Set("server:\n  gateway:\n    port: 18082\n  grpc:\n    port: 19081\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
-	cfg.Set("server.grpc.port", 19082)
-	require.NoError(t, runGatewayConfigObservers(cfg))
+	src.Set("server:\n  gateway:\n    port: 18082\n  grpc:\n    port: 19082\n")
+	require.NoError(t, cfg.Reload(t.Context()))
 
 	assert.Equal(t, 18082, settings.Value().HTTP.Port)
 	assert.Equal(t, 19082, settings.Value().GRPC.Port)
@@ -108,7 +91,7 @@ func TestObserveSettingsFromConfig_RehydratesTransportSettings(t *testing.T) {
 func TestObservedSettingsSatisfiesSource(t *testing.T) {
 	t.Parallel()
 
-	settings, err := gateway.ObserveSettingsFromConfig(gatewayCfgFromYAML(t, "server:\n  gateway:\n    port: 18081\n"))
+	settings, err := gateway.ObserveSettingsFromConfig(testutil.StoreFromYAML(t, "server:\n  gateway:\n    port: 18081\n"))
 	require.NoError(t, err)
 
 	var source transportgateway.SettingsSource = settings
@@ -117,12 +100,12 @@ func TestObservedSettingsSatisfiesSource(t *testing.T) {
 	assert.Equal(t, uint64(1), source.Version())
 }
 
-func TestNewFromContainable_ReturnsHandler(t *testing.T) {
+func TestNewFromConfig_ReturnsHandler(t *testing.T) {
 	t.Parallel()
 
 	var called bool
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(),
+	h, err := gateway.NewFromConfig(context.Background(), testCfg(t),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			called = true
 
@@ -139,16 +122,13 @@ func TestNewFromContainable_ReturnsHandler(t *testing.T) {
 func TestWithDialOptions(t *testing.T) {
 	t.Parallel()
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
+	h, err := gateway.NewFromConfig(context.Background(), testCfg(t), noopRegister,
 		gateway.WithDialOptions(grpc.WithUserAgent("gtb-gateway-test")),
 	)
 	require.NoError(t, err)
 	assert.NotNil(t, h)
 }
 
-// TestNewFromContainable_DialLocalError forces the in-process gRPC dial to fail
-// by enabling TLS with a certificate path that does not exist, so
-// TLSClientCredentials cannot build a transport.
 // TestWithMuxOptions_HandlerHonoursMatcher verifies a mux option threaded via
 // WithMuxOptions is applied to the built handler: a custom incoming-header
 // matcher runs when a request is driven through the gateway handler.
@@ -157,7 +137,7 @@ func TestWithMuxOptions_HandlerHonoursMatcher(t *testing.T) {
 
 	var matcherCalled bool
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
+	h, err := gateway.NewFromConfig(context.Background(), testCfg(t), noopRegister,
 		gateway.WithMuxOptions(runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
 			matcherCalled = true
 
@@ -175,27 +155,27 @@ func TestWithMuxOptions_HandlerHonoursMatcher(t *testing.T) {
 	assert.True(t, matcherCalled, "WithMuxOptions header matcher must be honoured by the handler")
 }
 
-// TestNewFromContainable_PropagatesRegisterError forces the transport New to
-// fail (its register func errors) and asserts NewFromContainable surfaces the
-// error rather than returning a half-built handler.
-func TestNewFromContainable_PropagatesRegisterError(t *testing.T) {
+// TestNewFromConfig_PropagatesRegisterError forces the transport New to fail
+// (its register func errors) and asserts NewFromConfig surfaces the error
+// rather than returning a half-built handler.
+func TestNewFromConfig_PropagatesRegisterError(t *testing.T) {
 	t.Parallel()
 
-	_, err := gateway.NewFromContainable(context.Background(), testCfg(),
+	_, err := gateway.NewFromConfig(context.Background(), testCfg(t),
 		func(_ context.Context, _ *runtime.ServeMux, _ *grpc.ClientConn) error {
 			return errors.New("register boom")
 		})
 	require.Error(t, err)
 }
 
-// TestNewFromContainable_WithDialOptionsAndMiddleware combines a caller dial
-// option with a middleware chain and asserts the chain wraps the built handler.
-func TestNewFromContainable_WithDialOptionsAndMiddleware(t *testing.T) {
+// TestNewFromConfig_WithDialOptionsAndMiddleware combines a caller dial option
+// with a middleware chain and asserts the chain wraps the built handler.
+func TestNewFromConfig_WithDialOptionsAndMiddleware(t *testing.T) {
 	t.Parallel()
 
 	chain := transithttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	h, err := gateway.NewFromContainable(context.Background(), testCfg(), noopRegister,
+	h, err := gateway.NewFromConfig(context.Background(), testCfg(t), noopRegister,
 		gateway.WithDialOptions(grpc.WithUserAgent("gtb-gateway-test")),
 		gateway.WithMiddleware(chain),
 	)
@@ -209,38 +189,37 @@ func TestNewFromContainable_WithDialOptionsAndMiddleware(t *testing.T) {
 	assert.Equal(t, "1", rec.Header().Get("X-Gateway-MW"), "the middleware chain must wrap the gateway handler")
 }
 
-func TestNewFromContainable_DialLocalError(t *testing.T) {
+// TestNewFromConfig_DialLocalError forces the in-process gRPC dial to fail by
+// enabling TLS with a certificate path that does not exist, so
+// TLSClientCredentials cannot build a transport.
+func TestNewFromConfig_DialLocalError(t *testing.T) {
 	t.Parallel()
 
-	c := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
-	c.Set("server.grpc.tls.enabled", true)
-	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
+	cfg := testutil.ViewFromYAML(t, "server:\n  grpc:\n    tls:\n      enabled: true\n      cert: /nonexistent/ca.pem\n")
 
-	_, err := gateway.NewFromContainable(context.Background(), c, noopRegister)
+	_, err := gateway.NewFromConfig(context.Background(), cfg, noopRegister)
 	require.Error(t, err)
 }
 
-func TestRegisterFromContainable_PropagatesNewError(t *testing.T) {
+func TestRegisterFromConfig_PropagatesNewError(t *testing.T) {
 	t.Parallel()
 
-	c := config.NewContainerFromViper(logger.ToSlog(logger.NewNoop()), viper.New())
-	c.Set("server.grpc.tls.enabled", true)
-	c.Set("server.grpc.tls.cert", "/nonexistent/ca.pem")
+	cfg := testutil.ViewFromYAML(t, "server:\n  grpc:\n    tls:\n      enabled: true\n      cert: /nonexistent/ca.pem\n")
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 
-	_, err := gateway.RegisterFromContainable(context.Background(), "test-gateway", controller, c,
+	_, err := gateway.RegisterFromConfig(context.Background(), "test-gateway", controller, cfg,
 		logger.NewNoop(), noopRegister)
 	require.Error(t, err)
 }
 
-func TestRegisterFromContainable_ReturnsManagedServer(t *testing.T) {
+func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
 	t.Parallel()
 
 	controller := controls.NewController(context.Background(), controls.WithoutSignals())
 	chain := transithttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
-	srv, err := gateway.RegisterFromContainable(
+	srv, err := gateway.RegisterFromConfig(
 		context.Background(),
 		"test-gateway",
 		controller,
@@ -265,34 +244,4 @@ func TestRegisterFromConfig_PropagatesRegisterError(t *testing.T) {
 			return errors.New("register boom")
 		})
 	require.Error(t, err)
-}
-
-func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
-	t.Parallel()
-
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
-	chain := transithttp.NewChain(func(next http.Handler) http.Handler { return next })
-
-	srv, err := gateway.RegisterFromConfig(
-		context.Background(),
-		"test-gateway",
-		controller,
-		cfgWithGatewayPort(t, freePort(t)),
-		logger.NewNoop(),
-		noopRegister,
-		gateway.WithMiddleware(chain),
-	)
-	require.NoError(t, err)
-
-	assert.NotNil(t, srv)
-}
-
-func runGatewayConfigObservers(c *config.Container) error {
-	for _, observer := range c.GetObservers() {
-		if err := observer.Run(c); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

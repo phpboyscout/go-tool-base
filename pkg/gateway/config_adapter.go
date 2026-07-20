@@ -103,7 +103,7 @@ func (o *options) transportOptions() []transportgateway.Option {
 // SettingsFromConfig resolves gateway transport settings from GTB config. The
 // managed HTTP server reads server.gateway.* while the in-process gRPC dial uses
 // server.grpc.* so it connects to the same local gRPC service as the rest of GTB.
-func SettingsFromConfig(cfg config.Containable) transportgateway.Settings {
+func SettingsFromConfig(cfg config.Reader) transportgateway.Settings {
 	return transportgateway.Settings{
 		HTTP:    gtbhttp.ServerSettingsFromConfig(cfg, ConfigPrefix),
 		HTTPTLS: gtbtls.Resolve(cfg, ConfigPrefix+".tls"),
@@ -115,11 +115,13 @@ func SettingsFromConfig(cfg config.Containable) transportgateway.Settings {
 // ObserveSettingsFromConfig binds gateway transport settings to cfg and keeps a
 // typed snapshot rehydrated after successful config reloads.
 func ObserveSettingsFromConfig(
-	cfg config.Containable,
+	cfg config.Binder,
 	opts ...config.SectionBindingOption[transportgateway.Settings],
 ) (*config.ObservedSection[transportgateway.Settings], error) {
 	bindingOpts := make([]config.SectionBindingOption[transportgateway.Settings], 0, 1+len(opts))
-	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(SettingsFromConfig, mergeSettings))
+	bindingOpts = append(bindingOpts, config.WithSectionDefaultFunc(func(next config.Observed) transportgateway.Settings {
+		return SettingsFromConfig(next)
+	}, mergeSettings))
 	bindingOpts = append(bindingOpts, opts...)
 
 	return config.ObserveSection[transportgateway.Settings](cfg, ConfigPrefix, bindingOpts...)
@@ -135,16 +137,9 @@ func mergeSettings(defaults, _ transportgateway.Settings) transportgateway.Setti
 	return defaults
 }
 
-// NewFromContainable builds a grpc-gateway handler ready to mount on an existing
-// HTTP server. It dials the local gRPC server (transport security matches the
-// server's own config) and applies register to wire the handlers.
-func NewFromContainable(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
-	return NewFromConfig(ctx, cfg, register, opts...)
-}
-
 // NewFromConfig builds a grpc-gateway handler with GTB config resolved into
 // typed transport settings before delegating to the config-free constructor.
-func NewFromConfig(ctx context.Context, cfg config.Containable, register RegisterFunc, opts ...Option) (http.Handler, error) {
+func NewFromConfig(ctx context.Context, cfg config.Reader, register RegisterFunc, opts ...Option) (http.Handler, error) {
 	o := newOptions(opts)
 	settings := SettingsFromConfig(cfg)
 
@@ -163,17 +158,9 @@ func NewFromConfig(ctx context.Context, cfg config.Containable, register Registe
 	return handler, nil
 }
 
-// RegisterFromContainable runs the gateway as its own controller-managed HTTP
-// server on the "server.gateway" config block (TLS falling back to the shared
-// "server.tls"), dialing the local gRPC server. Pass WithMiddleware to wrap the
-// REST surface with a middleware chain (health endpoints stay outside it).
-func RegisterFromContainable(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
-	return RegisterFromConfig(ctx, id, controller, cfg, log, register, opts...)
-}
-
 // RegisterFromConfig runs the gateway with GTB config resolved into typed
 // transport settings before delegating to the config-free constructor.
-func RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Containable, log logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
+func RegisterFromConfig(ctx context.Context, id string, controller controls.Controllable, cfg config.Reader, log logger.Logger, register RegisterFunc, opts ...Option) (*http.Server, error) {
 	o := newOptions(opts)
 	settings := SettingsFromConfig(cfg)
 
