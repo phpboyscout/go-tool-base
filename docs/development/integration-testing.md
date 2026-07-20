@@ -53,8 +53,6 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
 | `INT_TEST_ERRORHANDLING=1` | Enables only tests tagged `"errorhandling"` |
 | `INT_TEST_CHAT=1` | Enables only tests tagged `"chat"` |
-| `INT_TEST_BITBUCKET=1` | Enables only tests tagged `"bitbucket"` |
-| `INT_TEST_GITEA=1` | Enables only tests tagged `"gitea"` |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
@@ -166,27 +164,20 @@ These tests require **no external credentials** — only local network access.
     [`specs/2026-06-20-desktop-gated-integration-tests.md`](specs/2026-06-20-desktop-gated-integration-tests.md)
     (Work Item 1); it needs a token (`repo` scope) and a throwaway test repo.
 
-### `pkg/vcs/bitbucket/` — Bitbucket Downloads
+### Release providers — moved out of GTB
 
-!!! warning "Not yet implemented"
-    Integration tests for the Bitbucket release provider are planned but not yet implemented. The env vars and gating are documented below for when they are added.
+!!! info "Now owned by the provider modules"
+    The GitLab, Gitea, Bitbucket and GitHub **release providers** no longer live in
+    this repository. Each ships as its own module
+    (`gitlab.com/phpboyscout/go/forge-<forge>`), so their live-API integration
+    coverage belongs there, gated by that module's own CI.
 
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `release_integration_test.go` | Latest release detection, asset listing via real Downloads API | Network access to Bitbucket, `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`, `BITBUCKET_TEST_WORKSPACE`, `BITBUCKET_TEST_REPO` |
+    GTB retains only the `forge.Provider` **consumers** (`pkg/setup`), which are
+    exercised against the in-memory conformance harness at
+    `gitlab.com/phpboyscout/go/forge/test` — no network, no credentials.
 
-Gate with `testutil.SkipIfNotIntegration(t, "bitbucket")` and enable with `INT_TEST_BITBUCKET=1`.
-
-### `pkg/vcs/gitea/` — Gitea / Forgejo
-
-!!! warning "Not yet implemented"
-    Integration tests for the Gitea release provider are planned but not yet implemented. The env vars and gating are documented below for when they are added.
-
-| File | Tests | Dependencies |
-| :--- | :--- | :--- |
-| `release_integration_test.go` | Latest/tagged/listed releases, asset download via real Gitea REST API | Network access to a Gitea/Forgejo instance, `GITEA_TOKEN`, `GITEA_HOST`, `GITEA_TEST_OWNER`, `GITEA_TEST_REPO` |
-
-Gate with `testutil.SkipIfNotIntegration(t, "gitea")` and enable with `INT_TEST_GITEA=1`.
+    See [`forge.go.phpboyscout.uk`](https://forge.go.phpboyscout.uk) for the
+    contract every provider must satisfy.
 
 ### `pkg/chat/` — AI Chat Providers
 

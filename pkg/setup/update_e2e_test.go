@@ -23,7 +23,7 @@ import (
 // constituent verifiers are unit-tested elsewhere; these guard that Update()
 // actually wires them in and aborts (without replacing the binary) when
 // verification fails. They double as the worked example for driving the real
-// pipeline from pkg/vcs/release/forgetest.
+// pipeline from gitlab.com/phpboyscout/go/forge/test.
 
 const e2eToolName = "testtool"
 

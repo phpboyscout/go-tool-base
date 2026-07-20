@@ -17,7 +17,7 @@
 //   - Literal: bitbucket.username and bitbucket.app_password written
 //     directly. Plaintext on disk; refused under CI.
 //
-// Resolver side (pkg/vcs/bitbucket) walks the full per-field chain at
+// Resolver side (go/forge-bitbucket) walks the full per-field chain at
 // runtime. Corrupt or incomplete keychain blobs abort resolution
 // rather than falling through to stale literals (R3).
 package bitbucket

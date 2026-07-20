@@ -374,7 +374,7 @@ func writeBitbucketCredentials(ctx context.Context, cfg config.Containable, tool
 
 // writeKeychainBlob serialises the dual credentials into a JSON
 // object and stores them under a single keychain entry, mirroring
-// the format the resolver (pkg/vcs/bitbucket) expects. Extracted
+// the format the resolver (go/forge-bitbucket) expects. Extracted
 // from the switch to keep [writeBitbucketCredentials] under the
 // cyclomatic-complexity budget.
 func writeKeychainBlob(ctx context.Context, cfg config.Containable, toolName string, bbCfg *BitbucketConfig) error {

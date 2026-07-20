@@ -9,7 +9,7 @@
 //
 // Self-update flows are network-free under test: when GTB_E2E_RELEASE_SCENARIO
 // is set, applyReleaseStub (release_stub.go) injects an in-memory stub release
-// source (pkg/vcs/release/releasetest) onto the tool and pins a deterministic
+// source (go/forge/test) onto the tool and pins a deterministic
 // current version, so `gtb update` scenarios resolve releases from memory. When
 // the env var is unset the configured GitLab source is used as normal.
 //

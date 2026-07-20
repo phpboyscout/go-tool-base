@@ -17,7 +17,7 @@ import (
 
 // releaseScenarioEnv selects which in-memory release scenario the e2e binary
 // exposes to the self-update subsystem. When set, applyReleaseStub injects a
-// stub release source (pkg/vcs/release/releasetest) onto the tool and pins a
+// stub release source (go/forge/test) onto the tool and pins a
 // deterministic current version, so `gtb update` scenarios run hermetically
 // (no network). BDD scenarios set it via the "I set environment variable" step.
 const releaseScenarioEnv = "GTB_E2E_RELEASE_SCENARIO"
