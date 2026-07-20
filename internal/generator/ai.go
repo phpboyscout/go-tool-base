@@ -8,7 +8,7 @@ func (g *Generator) resolveProvider() gochat.Provider {
 	provider := gochat.ProviderClaude
 
 	if g.props.Config != nil {
-		if p := g.props.Config.GetString("ai.provider"); p != "" {
+		if p := g.props.Config.View().GetString("ai.provider"); p != "" {
 			provider = gochat.Provider(p)
 		}
 	}
@@ -27,11 +27,11 @@ func (g *Generator) resolveToken(provider gochat.Provider) string {
 
 	switch provider {
 	case gochat.ProviderOpenAI, gochat.ProviderOpenAICompatible:
-		return g.props.Config.GetString("openai.api.key")
+		return g.props.Config.View().GetString("openai.api.key")
 	case gochat.ProviderClaude:
-		return g.props.Config.GetString("anthropic.api.key")
+		return g.props.Config.View().GetString("anthropic.api.key")
 	case gochat.ProviderGemini:
-		return g.props.Config.GetString("gemini.api.key")
+		return g.props.Config.View().GetString("gemini.api.key")
 	case gochat.ProviderClaudeLocal:
 		return ""
 	default:
@@ -42,7 +42,7 @@ func (g *Generator) resolveToken(provider gochat.Provider) string {
 func (g *Generator) resolveModel(provider gochat.Provider) string {
 	model := ""
 	if g.props.Config != nil {
-		model = g.props.Config.GetString("ai.model")
+		model = g.props.Config.View().GetString("ai.model")
 	}
 
 	if g.config.AIModel != "" {

@@ -179,8 +179,8 @@ func (g *Generator) gtbConfigAuthor() (gitAuthor, bool) {
 		return gitAuthor{}, false
 	}
 
-	name := strings.TrimSpace(g.props.Config.GetString("generator.git.author.name"))
-	email := strings.TrimSpace(g.props.Config.GetString("generator.git.author.email"))
+	name := strings.TrimSpace(g.props.Config.View().GetString("generator.git.author.name"))
+	email := strings.TrimSpace(g.props.Config.View().GetString("generator.git.author.email"))
 
 	if name != "" && email != "" {
 		return gitAuthor{Name: name, Email: email}, true

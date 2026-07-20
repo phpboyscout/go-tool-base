@@ -26,7 +26,7 @@ func (g *Generator) requestTimeout() time.Duration {
 		return 0
 	}
 
-	return g.props.Config.GetDuration(chat.ConfigKeyAIRequestTimeout)
+	return g.props.Config.View().GetDuration(chat.ConfigKeyAIRequestTimeout)
 }
 
 var commandGenerationSystemPrompt = `PHASE 1 (Generation/Conversion):
@@ -664,7 +664,7 @@ func (g *Generator) startAIGeneration(ctx context.Context, importPath, packageNa
 	}
 
 	provider := g.resolveProvider()
-	if g.props.Config.GetBool("ai.claude.local") {
+	if g.props.Config.View().GetBool("ai.claude.local") {
 		provider = gochat.ProviderClaudeLocal
 	}
 

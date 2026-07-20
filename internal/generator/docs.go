@@ -207,7 +207,7 @@ func (g *Generator) aiDocsEnabled() bool {
 		return true
 	}
 
-	return g.props.Config != nil && g.props.Config.GetString("ai.provider") != ""
+	return g.props.Config != nil && g.props.Config.View().GetString("ai.provider") != ""
 }
 
 // handleNoAIDocs writes documentation without AI assistance.
@@ -723,7 +723,7 @@ func (g *Generator) diataxisCommandDocPath(m *Manifest, parentParts []string, na
 func (g *Generator) resolveAIConfig() (provider, model string) {
 	provider = g.config.AIProvider
 	if provider == "" {
-		provider = g.props.Config.GetString("ai.provider")
+		provider = g.props.Config.View().GetString("ai.provider")
 	}
 
 	if provider == "" {
@@ -732,7 +732,7 @@ func (g *Generator) resolveAIConfig() (provider, model string) {
 
 	model = g.config.AIModel
 	if model == "" {
-		model = g.props.Config.GetString("ai.model")
+		model = g.props.Config.View().GetString("ai.model")
 	}
 
 	if model == "" {
