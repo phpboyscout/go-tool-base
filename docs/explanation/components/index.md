@@ -22,7 +22,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Output](output.md)** | `pkg/output` | Dual-format (text/JSON) structured output for scriptable CLI commands. |
 | **[Version](version.md)** | `pkg/version` | Semantic version parsing, comparison, and development-build detection. |
 | **[Errors](errors.md)** | `pkg/...` | Catalogue of sentinel errors defined across GTB packages, with descriptions and handling guidance. |
-| **[Changelog](changelog.md)** | `pkg/changelog` | Parse conventional-commit release notes into categorised change summaries. |
+| **[Changelog](changelog.md)** | `go/changelog` | Framework-free Conventional-Commits changelog generation (via go-git) and parsing, now a standalone module; GTB wires it into the `changelog` command, the generator tool, and self-update. |
 
 ## Advanced Features
 

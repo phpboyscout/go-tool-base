@@ -24,7 +24,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/forge"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
+	"gitlab.com/phpboyscout/go/changelog"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"

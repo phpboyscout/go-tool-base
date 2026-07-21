@@ -11,7 +11,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/changelog"
+	"gitlab.com/phpboyscout/go/changelog"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

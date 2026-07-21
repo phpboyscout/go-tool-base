@@ -24,7 +24,6 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
 	github.com/invopop/jsonschema v0.14.0
-	github.com/leodido/go-conventionalcommits v0.12.0
 	github.com/njayp/ophis v1.1.4
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
@@ -34,6 +33,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	gitlab.com/phpboyscout/go/browser v0.1.0
+	gitlab.com/phpboyscout/go/changelog v0.1.0
 	gitlab.com/phpboyscout/go/chat v0.1.0
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
@@ -188,6 +188,7 @@ require (
 	github.com/knadh/koanf/v2 v2.3.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/leodido/go-conventionalcommits v0.12.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect

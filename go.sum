@@ -512,6 +512,8 @@ gitlab.com/phpboyscout/go/authn v0.1.0 h1:aHuw0NGuJfOV/ecipUG5egphMNANoXYHt74e6g
 gitlab.com/phpboyscout/go/authn v0.1.0/go.mod h1:2C70/YY2kHZgy3cWCMdswYxbeY2h8ZWKbQbiAG67PmA=
 gitlab.com/phpboyscout/go/browser v0.1.0 h1:1wD/eNGVxkOYn33aOZLAS7dOMOFcgf9gynvAcKMAgQg=
 gitlab.com/phpboyscout/go/browser v0.1.0/go.mod h1:uh7TNJyjFPdOy8MukUWSebrbPwUmFtne63YLGGKXNYw=
+gitlab.com/phpboyscout/go/changelog v0.1.0 h1:0MozFv6RURybm+P+kw3bPqCd6VwN24HBnP8i75UrlmE=
+gitlab.com/phpboyscout/go/changelog v0.1.0/go.mod h1:L1ATHChdfJwDFsGpzYmW6JqsD4iXeLnuqczBvXN0tfw=
 gitlab.com/phpboyscout/go/chat v0.1.0 h1:CFopPGHyIMReRdaI5ink8CHR4SRjbH5bbqREsyK2MwM=
 gitlab.com/phpboyscout/go/chat v0.1.0/go.mod h1:4HLQF4WXf/hiRcar/uWD18D//OOdBfAqn/YnmjG1+VY=
 gitlab.com/phpboyscout/go/chat-anthropic v0.1.0 h1:bVq96C/FIcwR7/WqyP2nBgT/vfniW7WOTd9Zy4Hr+gw=

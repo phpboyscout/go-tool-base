@@ -1090,7 +1090,7 @@ adapters, `tls.Resolve`, the chat config-key schema, `pkg/vcs/config_adapter.go`
 | ☐ | `pkg/forms` | `forms` | 10 | No GTB imports. Document non-interactive/test behaviour. |
 | ☐ | `pkg/logger` | (facade) | 10 | **slog-first**: consumed as `*slog.Logger` + `ToSlog` adapter only. |
 | ☐ | `pkg/output` | `cli-output` | 9 | Isolate Cobra helpers in `output/cobra`; fix Unicode/spinner issues first. |
-| ☐ | `pkg/changelog` | (own module) | 9 | No GTB imports. go-git weight is acceptable. |
+| ✅ | `pkg/changelog` | `changelog` | 9 | **DONE (2026-07-21)** → `go/changelog` v0.1.0. Pure repoint (zero coupling, no adapter, no mocks); all tests moved verbatim (in-package). 4 consumers repointed (`cmd/changelog` tool, `pkg/cmd/changelog` + test, `pkg/setup/update.go`). Kept on go-git directly — `go/repo` exposes go-git types (no insulation) and lacks a read-history API, so routing through it would double the dep, not reduce it. |
 | ✅ | `pkg/authn` | `authn` | 9 | **DONE (2026-07-16)** → `go/authn` v0.1.0. Phase 2 #2; **pure repoint** (no facade — zero GTB imports, no logger seam); repointed `pkg/{grpc,http}/auth.go`, deleted `pkg/authn/` + unused `mocks/pkg/authn/`. |
 | ✅ | `pkg/credentials` (+`keychain`,`credtest`) | `credentials` | 8 | **DONE** → `go/credentials` v0.2.0. `keychain` stayed an opt-in subpackage so regulated downstreams can omit the blank import and let the linker drop go-keyring. Mocks live in a `mocks` subpackage (not `credentialsmock`) — alias at the import site. |
 | ✅ | `pkg/controls` | `controls` | 8 | **DONE (2026-07-13)** → `go/controls` v0.1.0. Direct repoint (no adapter); D8/D9 hardening landed first; 3 transport-coupled integration tests relocated to `test/integration/controls/`. |

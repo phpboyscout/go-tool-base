@@ -28,9 +28,11 @@ Status
 :   IN PROGRESS (2026-07-21). Approved to start with the proposed defaults for Q1–Q4
     (keep `DefaultMarkers` slice, keep `os.Getwd()`, sequence workspace→changelog,
     minimal workspace microsite).
-    **workspace: DONE** — `go/workspace` v0.1.0 published (repo id 84666754), microsite
-    live, landing card added; GTB cut-over raised (pure repoint, one consumer). **changelog:
-    next.**
+    **workspace: DONE** — `go/workspace` v0.1.0, GTB cut-over MR !274 merged.
+    **changelog: DONE** — `go/changelog` v0.1.0 published (repo id 84668148), microsite
+    live, landing card added; GTB cut-over raised (pure repoint, 4 consumers). Kept on
+    go-git directly (see report row — `go/repo` exposes go-git types, offers no insulation).
+    Both leaves extracted; spec can move to IMPLEMENTED once the changelog cut-over merges.
 
 Related
 :   [module-extraction playbook](2026-07-12-go-module-extraction-playbook.md) (§5 procedure, §11 pure-repoint findings),
