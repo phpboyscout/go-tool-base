@@ -240,6 +240,65 @@ is surfaced as an error rather than reported as a (zero, `nil`) false success,
 so callers will not mistakenly treat interrupted work as completed and the
 in-flight goroutine is signalled to unwind via its cancelled context.
 
+`Spin` is one of **three** operation-feedback components. Use `Spin` for
+indeterminate work, `Progress` when the total is known, and `Status` for a
+sequence of labelled steps. All three detect interactive mode (TTY plus a CI
+check) and fall back to plain line-based output when not on a terminal.
+
+---
+
+### Progress
+
+A thread-safe progress bar for an operation with a **known total**. In an
+interactive terminal it renders an animated bar; in non-interactive environments
+it logs periodic status lines (every 10%). Writes to `os.Stderr`.
+
+```go
+func NewProgress(total int, description string) *Progress
+func (p *Progress) Increment()          // advance by one unit
+func (p *Progress) IncrementBy(n int)   // advance by n units
+func (p *Progress) Done()               // mark complete and clean up the display
+```
+
+```go
+bar := output.NewProgress(len(files), "Processing")
+for _, f := range files {
+    processFile(f)
+    bar.Increment()
+}
+bar.Done()
+```
+
+`Increment`/`IncrementBy` are safe to call concurrently from multiple
+goroutines, and the count is clamped so it never exceeds the total.
+
+---
+
+### Status
+
+A thread-safe display for a **sequence of labelled steps**. `Update` shows the
+in-progress step (in an interactive terminal it rewrites the current line in
+place; otherwise it prints a new line), and each step is closed with a
+success/warn/fail icon. Writes to `os.Stderr`.
+
+```go
+func NewStatus() *Status
+func (s *Status) Update(msg string)   // show the current step with a spinner icon
+func (s *Status) Success(msg string)  // ✓ close the step as successful
+func (s *Status) Warn(msg string)     // ⚠ close the step as a warning
+func (s *Status) Fail(msg string)     // ✗ close the step as failed
+func (s *Status) Done()               // clean up the display
+```
+
+```go
+s := output.NewStatus()
+s.Update("Loading config")
+s.Success("Config loaded")
+s.Update("Connecting")
+s.Fail("Connection refused")
+s.Done()
+```
+
 ---
 
 ### TableWriter

@@ -34,6 +34,25 @@ mytool mcp start [--debug]
 | :--- | :--- |
 | `--debug` | Enable debug logging for MCP communication |
 
+### `mcp stream`
+
+Starts the MCP server over a networked **streamable-HTTP** endpoint, serving the
+same tools as `mcp start` but over HTTP instead of standard I/O.
+
+```bash
+mytool mcp stream [--host <host>] [--port <port>]
+```
+
+| Flag | Description |
+| :--- | :--- |
+| `--host` | Host/interface to bind the HTTP listener to |
+| `--port` | Port to serve the streamable-HTTP endpoint on |
+
+Use `mcp start` (stdio) for editor and desktop integrations that launch your
+tool as a subprocess (e.g. Claude Desktop); use `mcp stream` for remote or
+networked clients that connect to a running HTTP endpoint rather than spawning
+the process locally.
+
 ### `mcp tools`
 
 Exports the tool definitions to a JSON file for inspection.

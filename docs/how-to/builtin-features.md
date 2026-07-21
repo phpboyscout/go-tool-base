@@ -8,12 +8,13 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Configuring Built-in Features
 
-GTB comes with several powerful features **enabled by default**. These include:
-- **`version`**: Semantic versioning and build info.
+GTB comes with several powerful features **enabled by default**. These are:
 - **`update`**: Automatic self-updates via GitHub releases.
 - **`init`**: Interactive configuration bootstrapping.
 - **`mcp`**: The Model Context Protocol server for AI agents.
 - **`docs`**: The integrated TUI documentation browser and AI assistant.
+- **`doctor`**: Environment and configuration health checks.
+- **`changelog`**: Rendering of the tool's embedded changelog.
 
 You can selectively disable these features or enable additional opt-in features in your `main.go` using the `props.Tool` configuration.
 
@@ -73,6 +74,7 @@ The following table provides a complete reference for all `FeatureCmd` constants
 | `props.AiCmd` | **Opt-in** | `init ai` | Enable to allow users to configure AI providers |
 | `props.ConfigCmd` | **Opt-in** | `config get`, `config set`, `config list`, `config validate` | Enable to expose programmatic config access |
 | `props.TelemetryCmd` | **Opt-in** | `telemetry status`, `telemetry reset` | Enable to ship opt-in anonymous usage telemetry |
+| `props.ManCmd` | **Opt-in** | `man` | Enable to generate roff man pages for your CLI |
 
 !!! tip "Enable vs Disable Semantics"
 

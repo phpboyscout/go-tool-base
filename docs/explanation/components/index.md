@@ -37,6 +37,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Forms](forms.md)** | `pkg/forms` | Multi-step interactive CLI form helpers with Escape-to-go-back navigation, built on charmbracelet/huh. |
 | **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
 | **[Workspace](workspace.md)** | `pkg/workspace` | Project root detection by walking up from the current directory to find marker files. |
+| **[OS Info](osinfo.md)** | `pkg/osinfo` | Human-readable OS-version string; the single shared implementation behind the telemetry OS field and the doctor support bundle. |
 
 ## Security & Credentials
 

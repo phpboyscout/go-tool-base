@@ -293,6 +293,35 @@ We use Go's `text/template` engine to render code. Templates are stored as strin
 - `main.go.tmpl`: The implementation stub.
 - `main_test.go.tmpl`: Unit test scaffolding.
 
+#### The Feature Catalogue (`templates/feature_catalogue.go`)
+
+`templates.FeatureCatalogue` is the **single source of truth** for the built-in
+feature set. It is an ordered table mapping each `props.FeatureCmd` across three
+facts that must stay aligned:
+
+- **name** — the config/manifest string (e.g. `ai`);
+- **`ConstName`** — the exported Go identifier as it appears in generated source
+    (e.g. `AiCmd`). This cannot be derived reliably from the value (`mcp` →
+    `McpCmd`), so it is recorded explicitly;
+- **`Default`** — the framework default-enabled state, mirroring
+    `props.DefaultFeatures`.
+
+Both directions of feature handling derive from this one table: the
+`props.SetFeatures(...)` renderer emits toggles from it, and the manifest scanner
+(`extractFeaturesFromSetFeatures`) reads toggles back through it. Because the two
+sides share one origin, they **cannot drift**. This exists to fix a specific
+historical bug: the feature scanner once **froze at the original four features**
+while the framework's feature set kept growing, so newer features were silently
+dropped on `regenerate manifest`. A test guards `FeatureCatalogue` against
+`props.AllFeatures`, so adding a framework feature without registering its
+generator handling fails CI.
+
+`keychain` is **deliberately absent** from the catalogue: it has no `FeatureCmd`
+and is a build-time blank-import decision (the scaffolded
+`cmd/<name>/keychain.go`), so it is toggled by adding/removing that file and
+recovered from the artefact rather than from a `SetFeatures` call. This is why
+`ToggleableFeatures` (derived from the catalogue) excludes it.
+
 ### 8. Custom Template Overlays (`templatesource*.go`)
 
 Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files — `README.md` and `gtb-template.yaml` — are excluded from rendering.

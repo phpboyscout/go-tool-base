@@ -1,3 +1,15 @@
+// Package exectest provides reusable fakes for the process-execution seams
+// (exec.LookPath, exec.CommandContext, os.Executable) that GTB code injects for
+// testability. Tests build a fake with one of these helpers and pass it in
+// through a functional option or struct field, so the real subprocess is never
+// spawned.
+//
+// The fakes are deliberately plain functions rather than a mutable package-level
+// var (e.g. no `var execLookPath = exec.LookPath` swap hook). A shared global
+// swapped and restored per test races under t.Parallel(); returning a fresh
+// closure that the caller injects keeps every test's seam private to that test,
+// so the suite stays parallel-safe. See docs/how-to/testing.md for the full
+// race-avoidance rationale.
 package exectest
 
 import (

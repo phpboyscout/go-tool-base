@@ -36,6 +36,43 @@ This is the **Code-First** workflow.
 !!! warning "Structural Expectations"
     The `regenerate manifest` command relies on the [Standard Project Structure](project-structure.md). If your codebase has been manually modified to depart significantly from this structure (e.g., non-standard package naming or manual Cobra registration bypasses), the scanner may fail to correctly identify commands or their properties.
 
+#### The manifest is recoverable, not precious
+
+The headline guarantee of the code-first path is that **`.gtb/manifest.yaml` is
+disposable**. Delete the entire `.gtb/` directory and run `regenerate manifest`,
+and the generator rebuilds the *full* property set **byte-for-byte** from what is
+already committed in your source tree — you are not left with a lossy skeleton.
+Treat the manifest as a cache of the source, not as an irreplaceable original.
+
+When no manifest is present, `applyRecoveredProperties` takes the from-scratch
+path and reconstructs every property from three in-tree artefacts
+(`recoverNonLiteralProperties`):
+
+- **The root `cmd.go` `Tool` literal (AST scan)** — name, description, release
+    source, env prefix, update policy/interval, help channel, telemetry, and the
+    feature set. Features are recovered from the `props.SetFeatures(...)` call via
+    the shared `templates.FeatureCatalogue`, so every built-in toggle round-trips.
+- **`cmd/<name>/keychain.go`** — the scaffold-only `keychain` feature has no
+    `FeatureCmd` and never appears in the `SetFeatures` literal, so its state is
+    recovered from the presence of this blank-import file.
+- **`pkg/cmd/root/provenance.go`** — the signing posture, custom template-overlay
+    pins, and `module_published`, which are recorded nowhere else in generated
+    source (see [The Manifest](manifest.md#why-provenancego-exists)). The docs
+    layout and any non-default CI component source are likewise re-derived from
+    the docs tree and `.gitlab-ci.yml`.
+
+The from-scratch reconstruction produces the same normalised, canonically-sorted
+bytes that `generate` would have written, which is exactly what makes the
+[Cyclical Sync](#cyclical-validation-the-ultimate-test) below a meaningful test.
+
+!!! note "When a manifest already exists"
+    When `.gtb/manifest.yaml` *is* present, `regenerate manifest` treats it as
+    authoritative for author-set fields and refreshes only the source-of-truth
+    fields (name, description, release source) from `cmd.go` — it does **not**
+    re-derive features and other posture from source on this path. The
+    byte-exact full reconstruction described above is the *from-scratch*
+    (manifest-absent) behaviour.
+
 ## Why is Regeneration Valuable?
 
 ### Architectural Integrity

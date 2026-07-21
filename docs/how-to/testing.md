@@ -116,6 +116,8 @@ The `internal/exectest` package provides common fakes for `exec.LookPath` and `e
 | `exectest.TrackingCommand(&log)` | Records invocations into a string slice |
 | `exectest.FakeExecutable(path)` | Fake `os.Executable` returning the given path |
 
+`internal/exectest` lives under `internal/`, so it is a GTB-internal test helper that downstream tools built on GTB cannot import — copy the functional-options pattern (inject the `func(string) (string, error)` / `func(context.Context, string, ...string) *exec.Cmd` seam) into your own test helper instead.
+
 ### Registry-aware tests
 
 The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegistry`) are package-level shared state protected by mutexes. Tests that call `ResetRegistryForTesting()` wipe this state, making them logically incompatible with `t.Parallel()` against other tests in the same package — the mutex prevents data races but does not prevent state interleaving.

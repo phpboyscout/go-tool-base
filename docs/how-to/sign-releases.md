@@ -88,8 +88,9 @@ gtb sign \
 ```
 
 `local` accepts PKCS#1 and PKCS#8 PEM private keys (unencrypted —
-v0.1 doesn't decrypt encrypted PEMs; use filesystem-level
-encryption like LUKS or `age` until that lands).
+the local backend does not decrypt encrypted PEMs; protect the key
+file with filesystem-level encryption like LUKS or `age`, or use
+the `aws-kms` backend so the key never leaves the HSM).
 
 ## Verify
 

@@ -21,7 +21,7 @@ import (
 //   - `update.external_key_email` / `GTB_UPDATE_EXTERNAL_KEY_EMAIL`
 //   - `update.key_source` / `GTB_UPDATE_KEY_SOURCE` (embedded | external | both)
 //
-// See [docs/components/setup/signature-verification.md].
+// See [docs/explanation/components/setup/signature-verification.md].
 func init() {
 	// Phase 1 (checksums) now travels on props.Tool.Signing.RequireChecksum,
 	// set where the Props are built — see root.go. It moved off a package

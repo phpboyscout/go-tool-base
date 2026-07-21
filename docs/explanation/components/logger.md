@@ -273,6 +273,45 @@ if l.Enabled(ctx, slog.LevelDebug) {
 
 ---
 
+## Config-driven construction
+
+A config-driven host does not hand-assemble `CharmOption`s. It unmarshals its
+logging config section into the typed, config-system-agnostic `logger.Config`
+(fields `Level`, `Format`, `Timestamp`, `Caller`) and bridges it to `NewCharm`
+via `Config.CharmOptions()`:
+
+```go
+cfg := logger.Merge(logger.DefaultConfig(), decoded) // decoded from the host's config layer
+l := logger.NewCharm(os.Stderr, cfg.CharmOptions()...)
+```
+
+`DefaultConfig` gives the package baseline (info level, text format, no
+timestamp, no caller); `Merge` overlays the host's decoded section onto it
+(empty string fields preserve the base; booleans take the overlay value); and
+`CharmOptions()` renders the result as the `WithLevel`/`WithFormatter`/
+`WithTimestamp`/`WithCaller` options `NewCharm` expects.
+
+### Why the bridge is the only route for two of the four fields
+
+The four `Config` fields do **not** all have the same reach:
+
+| Field | Construction | Runtime |
+|-------|:---:|:---:|
+| `Level` | ✓ (`WithLevel`) | ✓ (`SetLevel` / `Leveller`) |
+| `Format` | ✓ (`WithFormatter`) | ✓ (`SetFormatter` / `Reformatter`) |
+| `Timestamp` | ✓ (`WithTimestamp`) | ✗ — no runtime setter |
+| `Caller` | ✓ (`WithCaller`) | ✗ — no runtime setter |
+
+`Level` and `Format` are reachable **both** at construction and at runtime, so a
+host can build a logger however it likes and still let `--debug`, `log.level`,
+and `log.format` take effect afterwards. `Timestamp` and `Caller` are
+**construction-time only** — the `Logger` interface exposes no runtime setter for
+them. A host that wants those two config-driven therefore *must* build its logger
+from `Config` through `CharmOptions()`; there is no later hook to apply them, so
+setting them after construction is impossible rather than merely inconvenient.
+
+---
+
 ## Contextual Logging
 
 Add fields that appear on every subsequent log call with `With` (which returns a

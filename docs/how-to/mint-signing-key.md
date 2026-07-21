@@ -109,8 +109,8 @@ What this does:
 1. Reads `signing.pem` from disk. Supports unencrypted PKCS#1
    (`-----BEGIN RSA PRIVATE KEY-----`) and unencrypted PKCS#8
    (`-----BEGIN PRIVATE KEY-----`). Encrypted PEMs are not
-   supported in v0.1 — decrypt out of band first, or use the
-   `aws-kms` backend.
+   supported — decrypt out of band first, or use the `aws-kms`
+   backend, which never exposes key material.
 2. Builds the OpenPGP entity using the in-memory `*rsa.PrivateKey`
    as the signer.
 3. Writes `release.asc` as in the AWS KMS path.

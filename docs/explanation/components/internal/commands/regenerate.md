@@ -48,10 +48,24 @@ middleware helper, so descriptions survive the rebuild. (Without this, a
 following `regenerate project` would render the blanked descriptions back into
 every `cmd.go`, wiping the help text.)
 
-`properties.features` is **preserved** from the existing manifest rather than
-re-derived from the generated root command: feature state (including the
-scaffold-only `keychain` feature and the opt-ins) is author configuration that
-the root cannot losslessly express, so the manifest remains its source of truth.
+Feature-state handling depends on whether a manifest already exists:
+
+- **Manifest present** (the common case): `properties.features` is **preserved**
+  from the existing manifest rather than re-derived. When a manifest is on disk
+  it stays authoritative for author-set posture, and only the fields the root
+  `cmd.go` is the source of truth for (name, description, release source) are
+  refreshed.
+- **From scratch** (`.gtb/` deleted, no manifest): feature state is **fully
+  re-derived** from in-tree source. The built-in features come from the root
+  command's `props.SetFeatures(...)` literal via the shared
+  `templates.FeatureCatalogue`, and the scaffold-only `keychain` feature — which
+  has no `FeatureCmd` and so never appears in that literal — is recovered from
+  the presence of `cmd/<name>/keychain.go` (`recoverNonLiteralProperties`).
+
+So the manifest is a convenience, not the only record: a from-scratch rebuild
+reconstructs the full feature set (keychain included) from the source tree. See
+the reconstruction guarantee in
+[Regeneration & Synchronization](../../../concepts/regeneration.md#the-manifest-is-recoverable-not-precious).
 
 **Help (`regenerate manifest --help`):**
 

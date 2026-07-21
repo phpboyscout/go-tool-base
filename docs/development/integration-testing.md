@@ -232,17 +232,33 @@ See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full BDD s
 
 ## CI Configuration
 
-In GitHub Actions, integration tests run as a separate job with secrets injected:
+This repository runs on **GitLab CI** (`.gitlab-ci.yml`, assembled from the
+`phpboyscout/cicd` components). The default `test` stage runs **unit tests
+only** — the same `just ci` suite — so integration tests never gate a normal
+merge request. Because the gating is env-var-based rather than build-tag-based,
+enabling a group in CI is just a matter of exporting the matching variable on a
+dedicated job:
 
 ```yaml
-- name: Integration Tests
-  env:
-    INT_TEST: "1"
-    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: go test ./... -v
+integration:
+  stage: test
+  variables:
+    INT_TEST: "1"          # all groups; or INT_TEST_VCS: "1" for a single group
+  script:
+    - go test ./... -v
+  rules:
+    # Keep it off the normal merge gate — run on a schedule or manually
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+    - when: manual
 ```
 
-The `GITHUB_TOKEN` provided by GitHub Actions has `repo` scope by default for the current repository.
+Jobs that talk to the GitLab API can authenticate with the pipeline-provided
+`CI_JOB_TOKEN` (or a project/group access token exposed as a masked CI/CD
+variable) rather than a hardcoded secret. Several groups (VCS, chat-live,
+keychain, WKD) additionally require real credentials or a desktop environment
+and are intentionally left to run locally — see the desktop-gated integration
+tests spec for the rationale.
 
 ## Writing New Integration Tests
 

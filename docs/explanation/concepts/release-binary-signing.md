@@ -16,11 +16,12 @@ already shipped you".
 
 `gtb` provides the building blocks for that chain without anyone
 holding a private key on their laptop and without shelling out to
-`gpg`. Three commands cover the whole flow:
+`gpg`. Three `gtb keys` subcommands cover the whole flow:
 
 ```sh
 gtb keys generate ...     # create new keypairs (rotation-authority, dev signing keys)
-gtb keys mint   ...       # turn an HSM-held key into an OpenPGP-armored public file
+gtb keys mint     ...     # turn an HSM-held key into an OpenPGP-armored public file
+gtb keys wkd      ...     # lay out the public keys as a Web Key Directory tree to serve
 ```
 
 Plus a Terraform module (`terraform-aws-signing-kms`) that provisions
