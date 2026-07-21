@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 When your tool exposes an HTTP service, you usually need to authenticate callers.
 The standalone [`go/authn`](https://authn.go.phpboyscout.uk) module provides the
-verifiers (API key, JWT/OIDC, mTLS) and `pkg/http` wraps them in a fail-closed
+verifiers (API key, JWT/OIDC, mTLS) and `go/transport/http` wraps them in a fail-closed
 `AuthMiddleware`. This guide shows the common setups. For the threat model and
 verification internals, see the [Auth component](../explanation/components/authn.md)
 and the [module docs](https://authn.go.phpboyscout.uk).
@@ -22,7 +22,7 @@ Build a verifier from one or more `KeyEntry` secrets, then read them from a head
 ```go
 import (
     "gitlab.com/phpboyscout/go/authn"
-    gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+    transporthttp "gitlab.com/phpboyscout/go/transport/http"
 )
 
 verifier, err := authn.NewAPIKeyVerifier(
@@ -33,8 +33,8 @@ if err != nil {
     return err
 }
 
-auth, err := gtbhttp.AuthMiddleware(
-    gtbhttp.WithAPIKeyHeader("X-API-Key", verifier),
+auth, err := transporthttp.AuthMiddleware(
+    transporthttp.WithAPIKeyHeader("X-API-Key", verifier),
 )
 if err != nil {
     return err
@@ -64,8 +64,8 @@ if err != nil {
     return err
 }
 
-auth, err := gtbhttp.AuthMiddleware(
-    gtbhttp.WithBearerVerifier(verifier), // reads "Authorization: Bearer <token>"
+auth, err := transporthttp.AuthMiddleware(
+    transporthttp.WithBearerVerifier(verifier), // reads "Authorization: Bearer <token>"
 )
 if err != nil {
     return err
@@ -83,7 +83,7 @@ After authentication, the verified `*authn.Identity` is on the request context:
 
 ```go
 func handler(w http.ResponseWriter, r *http.Request) {
-    id, ok := gtbhttp.IdentityFromContext(r.Context())
+    id, ok := transporthttp.IdentityFromContext(r.Context())
     if !ok {
         http.Error(w, "unauthenticated", http.StatusUnauthorized)
         return
@@ -105,9 +105,9 @@ requireAdmin := authn.AuthorizeFunc(func(_ context.Context, id *authn.Identity) 
     return slices.Contains(id.Scopes, "admin")
 })
 
-auth, err := gtbhttp.AuthMiddleware(
-    gtbhttp.WithBearerVerifier(verifier),
-    gtbhttp.WithAuthorize(requireAdmin),
+auth, err := transporthttp.AuthMiddleware(
+    transporthttp.WithBearerVerifier(verifier),
+    transporthttp.WithAuthorize(requireAdmin),
 )
 ```
 

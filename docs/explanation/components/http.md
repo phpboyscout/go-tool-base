@@ -8,8 +8,15 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # HTTP
 
-!!! info "The server and client now live in standalone modules"
-    The hardened **HTTP server** (`NewServer`, health handlers, `AuthMiddleware`, `SecurityHeadersMiddleware`, lifecycle glue) has been extracted to [`gitlab.com/phpboyscout/go/transport/http`](https://transport.go.phpboyscout.uk), and the **HTTP client** to [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk). This was a **clean break** for the server: `pkg/http` keeps only the `config.Reader` adapters (`NewServerFromReader`, `RegisterFromReader`, …, with the GTB config-selection options `WithConfigPrefix`/`WithPort`) plus the re-exported client factory and go/transit middleware. Code that used the pure server symbols repoints to `go/transport/http` — see the [migration note](../../reference/migration/v0.x-transport-extracted.md). The API described below is unchanged; only its import path moved.
+!!! info "The server, client and middleware now live in standalone modules"
+    Everything below `pkg/http`'s config adapters has moved out of GTB, and the earlier
+    re-export facade has been **removed** — import the owning module directly:
+
+    - **HTTP server** (`NewServer`, `Register`, `Start`/`Stop`, health handlers, `AuthMiddleware`, `SecurityHeadersMiddleware`, lifecycle glue) → [`gitlab.com/phpboyscout/go/transport/http`](https://transport.go.phpboyscout.uk) (alias `transporthttp`).
+    - **Transport middleware** (`NewChain`, `Chain`, `LoggingMiddleware`, `RateLimitMiddleware`, `OTelMiddleware`, the client-middleware chain and its `With…` builders) → [`gitlab.com/phpboyscout/go/transit/http`](https://transit.go.phpboyscout.uk) (alias `transithttp`).
+    - **HTTP client factory** (`NewClient`, `NewTransport`, the client `With…` options) → [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk) (alias `httpclient`).
+
+    `pkg/http` (alias `gtbhttp`) keeps **only** the `config.Reader` adapters — `ServerSettingsFromConfig`, `ObserveServerSettingsFromConfig`, `NewServerFromReader`, `StartFromReader`, `RegisterFromReader`, `RateLimitConfigFromConfig`, `CircuitBreakerConfigFromConfig`, with the GTB config-selection options `WithConfigPrefix`/`WithPort`. See the [facades-removed migration note](../../reference/migration/v0.x-facades-removed.md) and the [transport-extraction note](../../reference/migration/v0.x-transport-extracted.md). Behaviour is unchanged; only the import paths moved.
 
 The `pkg/http` package provides hardened HTTP components for both server-side and client-side operations. It enforces secure TLS defaults, provides built-in observability endpoints, and mirrors the security posture required for production environments.
 
@@ -53,52 +60,27 @@ The core server constructors take package-owned typed settings. GTB config is
 adapted at the framework boundary with `ServerSettingsFromConfig` for one-shot
 construction or `ObserveServerSettingsFromConfig` for reload-aware snapshots.
 
-By default the GTB adapters read server settings from the `server.http` config prefix. To run more than one HTTP server in the same process — for example a public API server plus an internal/admin server — pass a `ServerOption` so each server reads its own config block or binds an explicit port.
-
-Through the controller-integrated `Register` (a single `WithConfigPrefix` threads the prefix to both construction and start):
+By default `RegisterFromReader` reads server settings from the `server.http` config prefix. To run more than one HTTP server in the same process — for example a public API server plus an internal/admin server — pass a `ServerOption` so each reads its own config block or binds an explicit port. `RegisterFromReader` builds the server, wires its start/stop into the controller, and returns it in one call:
 
 ```go
-// Explicit typed settings, config-free.
-srv, err := gtbhttp.Register(ctx, "gateway", controller, props.Logger, handler,
-    gtbhttp.ServerSettings{Port: 8080},
-    gtbtls.Pair{},
-)
-```
-
-When composing inside GTB, use the compatibility adapter to read the existing
-config structure:
-
-```go
-// Reads server.gateway.port and server.gateway.tls.* (falling back to server.tls.*).
-srv, err := gtbhttp.RegisterFromReader(ctx, "gateway", controller, props.Config.View(), props.Logger, handler,
-    gtbhttp.WithConfigPrefix("server.gateway"),
-)
-```
-
-Or constructing standalone with `NewServer` + `Start` — pass the **same** prefix to both so the listen port and TLS settings stay consistent:
-
-```go
-view := props.Config.View() // pin one snapshot for all the reads below
+view := props.Config.View() // pin one snapshot for the reads below
 
 // Public API server on server.http.*
-settings := gtbhttp.ServerSettingsFromConfig(view, "server.http")
-pub, _ := gtbhttp.NewServer(ctx, settings, pubHandler)
-controller.Register("public",
-    controls.WithStart(gtbhttp.Start(props.Logger, pub, gtbtls.Resolve(view, "server.http.tls"))),
-    controls.WithStop(gtbhttp.Stop(props.Logger, pub)))
+gtbhttp.RegisterFromReader(ctx, "public", controller, view, props.Logger, pubHandler)
 
-// Internal admin server on its own config block (server.admin.*)
-adminSettings := gtbhttp.ServerSettingsFromConfig(view, "server.admin")
-adm, _ := gtbhttp.NewServer(ctx, adminSettings, admHandler, gtbhttp.WithConfigPrefix("server.admin"))
-controller.Register("admin",
-    controls.WithStart(gtbhttp.Start(props.Logger, adm, gtbtls.Resolve(view, "server.admin.tls"), gtbhttp.WithConfigPrefix("server.admin"))),
-    controls.WithStop(gtbhttp.Stop(props.Logger, adm)))
+// Internal admin server on its own config block (server.admin.* — port, tls.*,
+// max_header_bytes), falling back to the shared server.port.
+gtbhttp.RegisterFromReader(ctx, "admin", controller, view, props.Logger, admHandler,
+    gtbhttp.WithConfigPrefix("server.admin"))
 
-// ...or a fixed port with no config block at all:
-dbg, _ := gtbhttp.NewServer(ctx, gtbhttp.ServerSettings{}, dbgHandler, gtbhttp.WithPort(9090))
+// ...or a fixed port with no config block at all — WithPort overrides config:
+gtbhttp.RegisterFromReader(ctx, "debug", controller, view, props.Logger, dbgHandler,
+    gtbhttp.WithPort(9090))
 ```
 
-The prefix governs `<prefix>.port`, `<prefix>.tls.*` and `<prefix>.max_header_bytes`; the shared `server.port` remains the fallback. `WithPort` overrides config entirely. When the resolved port is `0`, the OS assigns an ephemeral port and `Start` logs the actually-bound address.
+`WithConfigPrefix` threads the prefix through both construction and start, so the listen port and TLS settings stay consistent. When the resolved port is `0`, the OS assigns an ephemeral port and start logs the actually-bound address.
+
+Need the server without controller integration? `NewServerFromReader` + `StartFromReader` split the same config-driven flow, and for config-free construction from explicit typed settings the core constructors live in the transport module — `transporthttp.NewServer(ctx, settings, handler)`, `transporthttp.StartWithTLSPair(slogLog, srv, tlsPair)`, `transporthttp.Stop(slogLog, srv)`. `ServerSettingsFromConfig(view, prefix)` resolves a `transporthttp.ServerSettings` from GTB config when you want to bridge the two.
 
 ### Observing Server Settings
 
@@ -156,9 +138,9 @@ servers or explicit package-level reconfiguration logic.
 
 > The HTTP server chain is one of four transport middleware surfaces. For the cross-cutting pattern (server/client × HTTP/gRPC), the resilience composition rules, and the config-prefix convention, see the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept.
 
-The package provides an alice-style middleware chaining API. Middleware uses the standard `func(http.Handler) http.Handler` signature.
+The alice-style middleware chaining API lives in [`gitlab.com/phpboyscout/go/transit/http`](https://transit.go.phpboyscout.uk) (import as `transithttp`); the server-side security-headers and auth middleware live in [`gitlab.com/phpboyscout/go/transport/http`](https://transport.go.phpboyscout.uk) (import as `transporthttp`), and `WithMiddleware` is a `transporthttp` `RegisterOption`. Middleware uses the standard `func(http.Handler) http.Handler` signature.
 
-- **`NewChain(middlewares ...Middleware) Chain`**: Creates a middleware chain. The first middleware is the outermost wrapper.
+- **`transithttp.NewChain(middlewares ...Middleware) Chain`**: Creates a middleware chain. The first middleware is the outermost wrapper.
 - **`(c Chain) Append(middlewares ...Middleware) Chain`**: Returns a new chain with additional middleware appended (immutable).
 - **`(c Chain) Extend(other Chain) Chain`**: Composes two chains.
 - **`(c Chain) Then(handler http.Handler) http.Handler`**: Applies the chain to a handler.
@@ -167,9 +149,9 @@ The package provides an alice-style middleware chaining API. Middleware uses the
 
 ### Built-in Logging Middleware
 
-`LoggingMiddleware` logs each completed HTTP request with structured fields (method, path, status, latency, bytes, client IP, user agent).
+`LoggingMiddleware` (in `transithttp`) logs each completed HTTP request with structured fields (method, path, status, latency, bytes, client IP, user agent).
 
-- **`LoggingMiddleware(logger *slog.Logger, opts ...LoggingOption) Middleware`**
+- **`transithttp.LoggingMiddleware(logger *slog.Logger, opts ...LoggingOption) Middleware`**
 
 **Format options** (`WithFormat`):
 
@@ -186,9 +168,9 @@ The package provides an alice-style middleware chaining API. Middleware uses the
 
 ### Built-in Security-Headers Middleware
 
-`SecurityHeadersMiddleware` sets a conservative set of response security headers on every request. It is a standard `Middleware`, so it composes into any `NewChain`/`WithMiddleware` pipeline.
+`SecurityHeadersMiddleware` (in `transporthttp`) sets a conservative set of response security headers on every request. It returns a `transithttp.Middleware`, so it composes into any `transithttp.NewChain`/`transporthttp.WithMiddleware` pipeline.
 
-- **`SecurityHeadersMiddleware(opts ...SecurityHeadersOption) Middleware`**
+- **`transporthttp.SecurityHeadersMiddleware(opts ...SecurityHeadersOption) transithttp.Middleware`**
 
 **Default headers:**
 
@@ -218,10 +200,10 @@ Headers are set **before** the wrapped handler runs, so a handler that writes it
 
 `RateLimitMiddleware` protects a server from overload by admitting requests under a token-bucket limiter and rejecting excess traffic with **`429 Too Many Requests`** plus a `Retry-After` header (which a GTB client's retry layer honours — a pleasing closed loop). It is an ordinary `Middleware`, so it composes into any `Chain`.
 
-- **`RateLimitMiddleware(log *slog.Logger, cfg RateLimitConfig) Middleware`**
-- **`DefaultRateLimitConfig() RateLimitConfig`** — 50 rps sustained, burst 100, single global bucket
-- **`ClientIPKey(r *http.Request) string`** — a ready-made per-client `KeyFunc`
-- **`RateLimitConfigFromConfig(cfg config.Reader, prefix string) RateLimitConfig`** — read policy from config
+- **`transithttp.RateLimitMiddleware(log *slog.Logger, cfg RateLimitConfig) Middleware`**
+- **`transithttp.DefaultRateLimitConfig() RateLimitConfig`** — 50 rps sustained, burst 100, single global bucket
+- **`transithttp.ClientIPKey(r *http.Request) string`** — a ready-made per-client `KeyFunc`
+- **`gtbhttp.RateLimitConfigFromConfig(cfg config.Reader, prefix string) transithttp.RateLimitConfig`** — GTB config adapter that reads policy from config (stays in `pkg/http`)
 
 **`RateLimitConfig` fields:**
 
@@ -255,17 +237,19 @@ Unset keys keep their defaults; the code-only fields (`KeyFunc`, `OnLimited`) ar
 
 `AuthMiddleware` authenticates (and optionally authorizes) each request from an [`pkg/authn`](authn.md) verifier — an API key, a JWT/OIDC bearer token, a session cookie, or an mTLS client certificate — storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
 
-- **`AuthMiddleware(opts ...AuthOption) (Middleware, error)`** — with no verifier configured it is a construction error (fail-closed)
-- **`IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`** — read the verified identity in a handler (same context key as the gRPC interceptor)
+`AuthMiddleware` and its options live in `transporthttp`.
+
+- **`transporthttp.AuthMiddleware(opts ...AuthOption) (transithttp.Middleware, error)`** — with no verifier configured it is a construction error (fail-closed)
+- **`transporthttp.IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`** — read the verified identity in a handler (same context key as the gRPC interceptor)
 
 ```go
 keys, _ := authn.NewAPIKeyVerifier(authn.KeyEntry{Key: ciKey, Subject: "ci"})
-authMW, _ := gtbhttp.AuthMiddleware(
-    gtbhttp.WithAPIKeyHeader("X-API-Key", keys),
-    gtbhttp.WithAuthorize(authn.RequireScopes("api:write")),
-    gtbhttp.WithAuthLogger(logger.ToSlog(props.Logger)),
+authMW, _ := transporthttp.AuthMiddleware(
+    transporthttp.WithAPIKeyHeader("X-API-Key", keys),
+    transporthttp.WithAuthorize(authn.RequireScopes("api:write")),
+    transporthttp.WithAuthLogger(logger.ToSlog(props.Logger)),
 )
-chain := gtbhttp.NewChain(gtbhttp.LoggingMiddleware(logger.ToSlog(props.Logger)), authMW)
+chain := transithttp.NewChain(transithttp.LoggingMiddleware(logger.ToSlog(props.Logger)), authMW)
 ```
 
 Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithCookieVerifier`, `WithMTLSVerifier`, `WithAuthorize`, `WithAuthLogger`, `WithAuthSkipper`. On failure it writes a generic `401` (with `WWW-Authenticate`) or `403` and logs the cause with the credential redacted — never disclosing why to the client. Health endpoints are outside the chain, so a global auth middleware never gates probes. **See [Authentication & Authorization](authn.md) for the full reference**, including the verifiers, the authorization seam, credential precedence, and the security model.
@@ -278,28 +262,29 @@ Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithCookieVerifier`, `WithMT
 mux := http.NewServeMux()
 mux.HandleFunc("/api/data", myDataHandler)
 
-// Build a middleware chain
-chain := gtbhttp.NewChain(
-    gtbhttp.LoggingMiddleware(props.Logger,
-        gtbhttp.WithFormat(gtbhttp.FormatCombined),
-        gtbhttp.WithPathFilter("/healthz", "/livez", "/readyz"),
+// Build a middleware chain (transit/http)
+chain := transithttp.NewChain(
+    transithttp.LoggingMiddleware(logger.ToSlog(props.Logger),
+        transithttp.WithFormat(transithttp.FormatCombined),
+        transithttp.WithPathFilter("/healthz", "/livez", "/readyz"),
     ),
 )
 
-// Register with middleware — health endpoints stay outside the chain.
+// Build settings via the GTB config adapter, then register on the transport server.
+// Health endpoints stay outside the chain.
 view := props.Config.View()
 settings := gtbhttp.ServerSettingsFromConfig(view, "server.http")
 tlsPair := gtbtls.Resolve(view, "server.http.tls")
-srv, err := gtbhttp.Register(ctx, "http-api", controller, props.Logger, mux, settings, tlsPair,
-    gtbhttp.WithMiddleware(chain),
+srv, err := transporthttp.Register(ctx, "http-api", controller, logger.ToSlog(props.Logger), mux, settings, tlsPair,
+    transporthttp.WithMiddleware(chain),
 )
 ```
 
 ## Client Factory
 
-The `pkg/http` package provides a factory for creating hardened `http.Client` instances for outbound requests.
+The hardened `http.Client` factory for outbound requests lives in the standalone, framework-free module [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk) (`v0.1.0`), imported as `httpclient`.
 
-> The client factory has been extracted to the standalone, framework-free module [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk) (`v0.1.0`). `pkg/http` re-exports it via a facade, so every symbol below (`NewClient`, `NewTransport`, the `With…` options) resolves exactly as before — no call-site changes. See the [migration note](../../reference/migration/v0.x-httpclient-extracted.md). To consume the client without GTB, depend on the module directly.
+> The re-export facade has been **removed**: import `gitlab.com/phpboyscout/go/httpclient` directly for `NewClient`, `NewTransport` and the client `With…` options. The client-middleware chain, `RetryConfig` and the circuit breaker live alongside the server middleware in [`gitlab.com/phpboyscout/go/transit/http`](https://transit.go.phpboyscout.uk) (`transithttp`); `httpclient.WithClientMiddleware`/`WithRetry` take those `transithttp` types. `RateLimitConfigFromConfig`/`CircuitBreakerConfigFromConfig` remain GTB config adapters in `pkg/http`. See the [facades-removed](../../reference/migration/v0.x-facades-removed.md) and [httpclient-extraction](../../reference/migration/v0.x-httpclient-extracted.md) notes.
 
 ### Features
 
@@ -310,18 +295,20 @@ The `pkg/http` package provides a factory for creating hardened `http.Client` in
 
 ### Functions
 
-- **`NewClient(opts ...ClientOption) *http.Client`**: Returns a hardened HTTP client.
-- **`NewTransport(tlsCfg *tls.Config) *http.Transport`**: Returns a pre-configured secure transport for custom client needs.
+- **`httpclient.NewClient(opts ...ClientOption) *http.Client`**: Returns a hardened HTTP client.
+- **`httpclient.NewTransport(tlsCfg *tls.Config) *http.Transport`**: Returns a pre-configured secure transport for custom client needs.
 
 ### Options
 
-- `WithTimeout(d time.Duration)`
-- `WithMaxRedirects(n int)`
-- `WithTLSConfig(cfg *tls.Config)`
-- `WithCertPool(pool *x509.CertPool)` — trusts a custom root CA pool (private CA / self-signed) while preserving the hardened TLS defaults; build the pool with `tls.CertPool`
-- `WithTransport(rt http.RoundTripper)`
-- `WithRetry(cfg RetryConfig)` — enables automatic retry with exponential backoff
-- `WithClientMiddleware(chain ClientChain)` — applies a middleware chain to the transport
+All `httpclient` `ClientOption` values:
+
+- `httpclient.WithTimeout(d time.Duration)`
+- `httpclient.WithMaxRedirects(n int)`
+- `httpclient.WithTLSConfig(cfg *tls.Config)`
+- `httpclient.WithCertPool(pool *x509.CertPool)` — trusts a custom root CA pool (private CA / self-signed) while preserving the hardened TLS defaults; build the pool with `tls.CertPool`
+- `httpclient.WithTransport(rt http.RoundTripper)`
+- `httpclient.WithRetry(cfg transithttp.RetryConfig)` — enables automatic retry with exponential backoff (`RetryConfig` is a `transithttp` type)
+- `httpclient.WithClientMiddleware(chain transithttp.ClientChain)` — applies a `transithttp` middleware chain to the transport
 
 ### Retry with Exponential Backoff
 
@@ -341,16 +328,16 @@ The client supports opt-in retry for transient failures via `WithRetry`. Retry i
 
 ### Client Middleware Chain
 
-The client supports composable `RoundTripper` middleware, mirroring the server-side chain pattern. Middleware wraps the transport — the first in the chain executes first on the request and last on the response.
+The client supports composable `RoundTripper` middleware, mirroring the server-side chain pattern. The chain type and its built-in middleware live in `transithttp`; `httpclient.WithClientMiddleware` applies the assembled chain. Middleware wraps the transport — the first in the chain executes first on the request and last on the response.
 
 ```go
-// ClientMiddleware wraps an http.RoundTripper with additional behaviour.
+// transithttp.ClientMiddleware wraps an http.RoundTripper with additional behaviour.
 type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 ```
 
-**Chain API:**
+**Chain API (`transithttp`):**
 
-- **`NewClientChain(middlewares ...ClientMiddleware) ClientChain`** — creates a chain
+- **`transithttp.NewClientChain(middlewares ...ClientMiddleware) ClientChain`** — creates a chain
 - **`(c ClientChain) Append(middlewares ...ClientMiddleware) ClientChain`** — returns a new chain with additional middleware (immutable)
 - **`(c ClientChain) Then(rt http.RoundTripper) http.RoundTripper`** — applies the chain to a transport
 
@@ -366,15 +353,15 @@ type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 **Usage example:**
 
 ```go
-chain := gtbhttp.NewClientChain(
-    gtbhttp.WithRequestLogging(props.Logger),
-    gtbhttp.WithBearerToken(os.Getenv("API_TOKEN")),
-    gtbhttp.WithRateLimit(10), // 10 requests per second
+chain := transithttp.NewClientChain(
+    transithttp.WithRequestLogging(logger.ToSlog(props.Logger)),
+    transithttp.WithBearerToken(os.Getenv("API_TOKEN")),
+    transithttp.WithRateLimit(10), // 10 requests per second
 )
 
-client := gtbhttp.NewClient(
-    gtbhttp.WithTimeout(30 * time.Second),
-    gtbhttp.WithClientMiddleware(chain),
+client := httpclient.NewClient(
+    httpclient.WithTimeout(30 * time.Second),
+    httpclient.WithClientMiddleware(chain),
 )
 ```
 
@@ -384,10 +371,10 @@ The middleware chain is applied after retry wrapping, so retry operates on the r
 
 `WithCircuitBreaker` is a `ClientMiddleware` that **fails fast** while a downstream is consistently failing, avoiding wasted retry/backoff cycles against a service that will not answer. It is the partner primitive to retry: retry handles *transient* flakiness, the breaker handles a *hard* outage.
 
-- **`WithCircuitBreaker(log *slog.Logger, cfg CircuitBreakerConfig) ClientMiddleware`**
-- **`DefaultCircuitBreakerConfig() CircuitBreakerConfig`** — threshold 5, cooldown 30s, half-open trial 1
-- **`ErrCircuitOpen`** — sentinel error returned (wrapped) while open; test with `errors.Is`
-- **`CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) CircuitBreakerConfig`**
+- **`transithttp.WithCircuitBreaker(log *slog.Logger, cfg CircuitBreakerConfig) ClientMiddleware`**
+- **`transithttp.DefaultCircuitBreakerConfig() CircuitBreakerConfig`** — threshold 5, cooldown 30s, half-open trial 1
+- **`transithttp.ErrCircuitOpen`** — sentinel error returned (wrapped) while open; test with `errors.Is`
+- **`gtbhttp.CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) transithttp.CircuitBreakerConfig`** — GTB config adapter (stays in `pkg/http`)
 
 **States:** `StateClosed` (admit all, count failures) → `StateOpen` (reject immediately with `ErrCircuitOpen` until the cooldown elapses) → `StateHalfOpen` (admit a bounded number of trials; the first success closes the breaker, any failure re-opens it).
 
@@ -412,11 +399,11 @@ request → [circuit breaker] → [retry (backoff)] → [base transport] → net
 The breaker sees the **final post-retry verdict**: one logical call that exhausts its retry budget against a dead service counts as **one** breaker failure, not N. Once Open, calls are rejected **before** entering the retry layer — so no backoff sleeps are spent on a service known to be down (exactly the waste the retry design flagged). The breaker **never** serves a cached response; an open breaker returns an error, never a stored body.
 
 ```go
-client := gtbhttp.NewClient(
-    gtbhttp.WithRetry(gtbhttp.DefaultRetryConfig()),
-    gtbhttp.WithClientMiddleware(gtbhttp.NewClientChain(
-        gtbhttp.WithCircuitBreaker(props.Logger, gtbhttp.DefaultCircuitBreakerConfig()),
-        gtbhttp.WithRequestLogging(props.Logger),
+client := httpclient.NewClient(
+    httpclient.WithRetry(transithttp.DefaultRetryConfig()),
+    httpclient.WithClientMiddleware(transithttp.NewClientChain(
+        transithttp.WithCircuitBreaker(logger.ToSlog(props.Logger), transithttp.DefaultCircuitBreakerConfig()),
+        transithttp.WithRequestLogging(logger.ToSlog(props.Logger)),
     )),
 )
 ```
@@ -433,17 +420,17 @@ client := gtbhttp.NewClient(
 
 ```go
 // Simple secure client
-client := http.NewClient()
+client := httpclient.NewClient()
 
 // Client with automatic retry for transient failures
-client := http.NewClient(
-    http.WithTimeout(60*time.Second),
-    http.WithRetry(http.DefaultRetryConfig()),
+client := httpclient.NewClient(
+    httpclient.WithTimeout(60*time.Second),
+    httpclient.WithRetry(transithttp.DefaultRetryConfig()),
 )
 
 // Custom retry configuration
-client := http.NewClient(
-    http.WithRetry(http.RetryConfig{
+client := httpclient.NewClient(
+    httpclient.WithRetry(transithttp.RetryConfig{
         MaxRetries:           5,
         InitialBackoff:       200 * time.Millisecond,
         MaxBackoff:           10 * time.Second,
@@ -452,8 +439,8 @@ client := http.NewClient(
 )
 
 // Custom retry predicate
-client := http.NewClient(
-    http.WithRetry(http.RetryConfig{
+client := httpclient.NewClient(
+    httpclient.WithRetry(transithttp.RetryConfig{
         MaxRetries:     3,
         InitialBackoff: 500 * time.Millisecond,
         MaxBackoff:     30 * time.Second,
@@ -466,8 +453,8 @@ client := http.NewClient(
     }),
 )
 
-// Power user: custom client with secure transport
+// Power user: custom client with secure transport (stdlib *http.Client + hardened transport)
 customClient := &http.Client{
-    Transport: http.NewTransport(nil),
+    Transport: httpclient.NewTransport(nil),
 }
 ```

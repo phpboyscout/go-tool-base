@@ -244,10 +244,13 @@ if err != nil {
     return err
 }
 
-container.SetSchema(schema)
-
-// Now if the config file changes and validation fails,
-// observers are NOT notified and the previous valid config stays in effect.
+// Attach the schema at construction with WithSchema. The store then validates
+// every reload against it and rejects an invalid one — observers keep the last
+// valid configuration rather than being handed a broken reload.
+store, err := config.NewStore(ctx,
+    config.WithSchema(schema),
+    config.WithFiles(fsys, paths...),
+)
 ```
 
 See [React to Configuration Changes at Runtime](config-hot-reload.md) for the full hot-reload pattern.
@@ -270,11 +273,11 @@ In strict mode, `myfeature.endpont` (typo) would produce an error instead of a w
 
 ## Testing
 
-Test validation using in-memory config containers:
+Build a store over an in-memory config file and pass a pinned `View` (a
+`config.Reader`) to your validator:
 
 ```go
 func TestValidateConfig_Valid(t *testing.T) {
-    l := logger.NewNoop()
     fs := afero.NewMemMapFs()
 
     err := afero.WriteFile(fs, "/config.yaml", []byte(`
@@ -282,34 +285,38 @@ myfeature:
   api_key: "secret"
   endpoint: "https://api.example.com"
   log_level: info
-`), 0o644)
+`), 0o600)
     require.NoError(t, err)
 
-    c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(l)), config.WithConfigFiles("/config.yaml"))
+    store, err := config.NewStore(t.Context(),
+        config.WithFiles(configafero.Wrap(fs), "/config.yaml"))
     require.NoError(t, err)
 
-    err = myfeature.ValidateConfig(c)
+    err = myfeature.ValidateConfig(store.View())
     assert.NoError(t, err)
 }
 
 func TestValidateConfig_MissingRequired(t *testing.T) {
-    l := logger.NewNoop()
     fs := afero.NewMemMapFs()
 
     err := afero.WriteFile(fs, "/config.yaml", []byte(`
 myfeature:
   log_level: info
-`), 0o644)
+`), 0o600)
     require.NoError(t, err)
 
-    c, err := config.LoadFilesContainer(fs, config.WithLogger(logger.ToSlog(l)), config.WithConfigFiles("/config.yaml"))
+    store, err := config.NewStore(t.Context(),
+        config.WithFiles(configafero.Wrap(fs), "/config.yaml"))
     require.NoError(t, err)
 
-    err = myfeature.ValidateConfig(c)
+    err = myfeature.ValidateConfig(store.View())
     require.Error(t, err)
     assert.Contains(t, err.Error(), "myfeature.api_key")
 }
 ```
+
+`configafero.Wrap` bridges an `afero.Fs` to the store's filesystem interface —
+see [Test Configuration](test-configuration.md) for the reader-based variant.
 
 ---
 

@@ -241,12 +241,12 @@ docs := p.Assets.For("core")  // Only core assets
 
 #### ErrorHandler
 
-**Package:** `pkg/errorhandling`  
+**Package:** `gitlab.com/phpboyscout/go/errorhandling`  
 **Purpose:** Centralised error processing with logging, help display, and exit handling.
 
 ```go
 type ErrorHandler interface {
-    Check(err error, prefix string, level string, cmd ...*cobra.Command)
+    Check(err error, prefix string, level string)
     Fatal(err error, prefixes ...string)
     Error(err error, prefixes ...string)
     Warn(err error, prefixes ...string)

@@ -49,7 +49,8 @@ import (
 
     "github.com/cockroachdb/errors"
 
-    gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
+    "gitlab.com/phpboyscout/go/httpclient"
+
     "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
     "gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
 )
@@ -69,7 +70,7 @@ func NewDeletionRequestor(endpoint, apiKey string, log logger.Logger) telemetry.
     return &graphQLRequestor{
         endpoint: endpoint,
         apiKey:   apiKey,
-        client:   gtbhttp.NewClient(gtbhttp.WithTimeout(requestTimeout)),
+        client:   httpclient.NewClient(httpclient.WithTimeout(requestTimeout)),
         log:      log,
     }
 }
@@ -149,7 +150,7 @@ p := &props.Props{
             DeletionRequestor: func(p *props.Props) any {
                 return myanalytics.NewDeletionRequestor(
                     "https://analytics.example.com/graphql",
-                    p.Config.GetString("analytics.api_key"),
+                    p.Config.View().GetString("analytics.api_key"),
                     p.Logger,
                 )
             },

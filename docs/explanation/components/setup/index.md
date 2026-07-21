@@ -56,7 +56,7 @@ func main() {
     configDir := setup.GetDefaultConfigDir(props.FS, "mytool")
 
     // Initialize configuration (interactive setup)
-    configFile, err := setup.Initialise(props, setup.InitOptions{Dir: configDir})
+    configFile, err := setup.Initialise(ctx, props, setup.InitOptions{Dir: configDir})
     if err != nil {
         props.Logger.Error("Failed to initialize", "error", err)
         return
@@ -75,25 +75,26 @@ The Setup component is designed to be modular and extensible. While it handles c
 The entry point for bootstrapping a tool is the `Initialise` function:
 
 ```go
-func Initialise(props *props.Props, opts InitOptions) (string, error)
+func Initialise(ctx context.Context, props *props.Props, opts InitOptions) (string, error)
 ```
 
 **InitOptions:**
 
 - `Dir` - Target directory for configuration file creation
 - `Clean` - Force overwrite existing configuration (true) or merge (false)
-- `SkipLogin` - Skip GitHub authentication setup
-- `SkipKey` - Skip SSH key configuration
 - `Initialisers` - Additional `Initialiser` implementations to run
+- `Interactive` - Overrides terminal detection for the credential wizards
+  (`*bool`; when `nil`, interactivity is detected from stdin). Non-interactive
+  runs skip the credential wizards and write only the base configuration —
+  which is how the `--skip-*` flags take effect (the wizard providers return
+  `nil` when their flag is set), not via deleted `InitOptions` fields.
 
 **Process Flow:**
 
-1.  **Directory Creation**: Creates target directory structure with proper permissions (0755).
-2.  **Asset Loading**: Loads embedded default configuration from `assets/init/config.yaml`.
-3.  **Config Merging**: Merges existing configuration if present (unless `Clean=true`).
-4.  **Registration**: Discovers registered Initialisers (including built-ins like GitHub and AI).
-5.  **Execution**: Runs each Initialiser that reports it is not yet configured.
-6.  **Persistence**: Writes the final merged configuration to the target file.
+1.  **Directory Creation**: Creates the target directory (0755); the config file itself is written `0600`, since it may hold credentials.
+2.  **Template Materialisation**: Loads the init template — `assets/init/config.yaml` merged across every registered asset bundle — and writes it to the config file (existing values are merged over the template unless `Clean=true`), so there is a document to edit in place.
+3.  **Registration**: Discovers registered Initialisers (including built-ins like GitHub and AI).
+4.  **Execution**: Opens a `setup.Editor` over the config file and runs each Initialiser that reports it is not yet configured. Each writes its keys through the Editor's transactional `Apply`, which edits the target document **in place** — comments survive and only the named keys change — so values land in the file as they happen. There is no separate final merge-and-write step.
 
 ### Initialisers
 
@@ -270,7 +271,7 @@ Resolves and returns the standard configuration directory path:
 
 #### SSH Key Management
 ```go
-func ConfigureSSHKey(props *props.Props, cfg *viper.Viper) (string, string, error)
+func ConfigureSSHKey(props *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error)
 ```
 
 Interactive SSH key configuration:
@@ -420,7 +421,7 @@ The AI wizard then prompts for an env var name (defaulting to the provider stand
 
 The GitHub wizard:
 
-1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via Viper's `AutomaticEnv`), keychain reference, or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run does not overwrite an existing mode with a fresh OAuth token.
+1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via the store's `WithEnv` layer), keychain reference, or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run does not overwrite an existing mode with a fresh OAuth token.
 2. **Refuses literal mode under `CI=true`** with a hint directing the user to the CI platform's secret-injection mechanism.
 3. **Presents the same three-mode selector as the AI wizard**, gated on CI (hides literal) and on `credentials.Probe` (hides keychain when no backend is reachable).
 4. **Env-var mode → OAuth + display-once.** The wizard prompts for an env var name (default `GITHUB_TOKEN`) then asks whether to run OAuth now. If yes, it captures a token via `gh auth login` (or the manual PAT entry fallback on headless hosts), displays the token once inside a protected note with instructions to `export GITHUB_TOKEN=<token>` in the shell profile, and waits for the user to acknowledge before continuing. Only the env-var reference is written to config — the token itself never hits disk.

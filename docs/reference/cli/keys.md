@@ -33,12 +33,13 @@ gtb keys <subcommand> [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--algorithm` | *(Ed25519)* | Key algorithm: `ed25519` or `rsa`. |
-| `--rsa-bits` | *(default)* | RSA key size when `--algorithm rsa`. |
-| `--name` / `--email` | — | User-id name and email on the key. |
-| `--output` | — | Path to write the public key. |
-| `--private-output` | — | Path to write the private key. |
-| `--created` | *(now)* | Fixed creation timestamp (for reproducible keys). |
+| `--algorithm` | *(required)* | Key algorithm: `ed25519` or `rsa`. No default — must be supplied. |
+| `--rsa-bits` | `4096` | RSA modulus size when `--algorithm rsa` (2048/3072/4096 accepted; ignored for Ed25519). |
+| `--name` | *(required)* | OpenPGP user-id real name. |
+| `--email` | *(required)* | OpenPGP user-id email. |
+| `--output` | `<algorithm>.asc` | Path to write the armored public key. |
+| `--private-output` | *(derived from `--output`)* | Path to write the private half — `.asc` → `.priv.asc` for Ed25519, `.asc` → `.pem` for RSA. |
+| `--created` | *(now)* | Fixed creation timestamp (RFC3339) for reproducible keys. |
 | `--force` | `false` | Overwrite existing output files. |
 
 ### `keys mint`
@@ -47,11 +48,12 @@ Mint a public key from an existing signer (the private half never leaves its HSM
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--backend` | — | Signing backend (e.g. `aws-kms`, `signing-local`). |
-| `--key-id` | — | Key id/ARN/alias (or PEM path for the local backend). |
-| `--name` / `--email` | — | User-id on the minted key. |
+| `--backend` | *(required)* | Signing backend (e.g. `aws-kms`, `local`). |
+| `--key-id` | *(required)* | Key id/ARN/alias (or PEM path for the `local` backend). |
+| `--name` | *(required)* | OpenPGP user-id real name on the minted key. |
+| `--email` | *(required)* | OpenPGP user-id email on the minted key. |
 | `--output` | `release.asc` | Path to write the ASCII-armored public key. |
-| `--created` | *(now)* | Fixed creation timestamp. |
+| `--created` | *(now)* | Fixed creation timestamp (RFC3339). |
 | `--force` | `false` | Overwrite the output file. |
 
 ### `keys wkd`
@@ -61,10 +63,10 @@ Takes one or more public-key files as arguments.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--domain` | — | WKD domain. |
-| `--email` | — | Email(s) to publish (repeatable). |
+| `--domain` | *(required)* | DNS domain serving the WKD endpoint (e.g. `phpboyscout.uk`). |
+| `--email` | *(all emails found in the input keys)* | Email(s) to publish (repeatable). |
 | `--output` | `./wkd-staging` | Staging directory for the generated tree. |
 | `--method` | `advanced` | URL layout: `advanced` (served from `openpgpkey.<domain>`) or `direct` (from `<domain>`). |
-| `--submission-address` | — | WKD submission address. |
+| `--submission-address` | *(none — file omitted)* | Address written to the WKD submission-address file. Empty omits the file; pass `auto` to use the first `--email`, or an explicit address to override. |
 
 > Run any subcommand with `--help` for the complete, authoritative flag set.

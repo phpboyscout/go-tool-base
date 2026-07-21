@@ -8,7 +8,17 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Service Orchestration & Control
 
-The `pkg/controls` package provides a standardized way to manage long-running background services. It handles the complexities of concurrent execution, health monitoring, and graceful shutdowns, ensuring that your CLI application remains stable and responsive.
+!!! info "The supervisor lives in the standalone `go/controls` module"
+    The service-lifecycle supervisor was **extracted into
+    [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk)**. Unlike
+    some extracted components it has **no GTB adapter**: it is framework-free (its only
+    seam is a nil-safe `*slog.Logger`), so go-tool-base consumes it **directly** — callers
+    `import "gitlab.com/phpboyscout/go/controls"` and use its functional-options API as-is.
+    The concepts below are unchanged; only the import path moved. See the
+    [Controls component page](../components/controls/index.md) and the
+    [migration note](../../reference/migration/v0.x-controls-extracted.md).
+
+The `go/controls` package provides a standardized way to manage long-running background services. It handles the complexities of concurrent execution, health monitoring, and graceful shutdowns, ensuring that your CLI application remains stable and responsive.
 
 ## The Controller Pattern
 

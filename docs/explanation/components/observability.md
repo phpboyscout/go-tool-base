@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Observability
 
-GTB services emit the three OpenTelemetry signals — **traces**, **metrics** and **logs** — over **OTLP/HTTP** to a collector. The plumbing lives as subpackages of `pkg/telemetry`, over a shared OTel core, and the per-request instrumentation lives beside the request logging in `pkg/http` and `pkg/grpc`.
+GTB services emit the three OpenTelemetry signals — **traces**, **metrics** and **logs** — over **OTLP/HTTP** to a collector. The plumbing lives as subpackages of `pkg/telemetry`, over a shared OTel core, and the per-request instrumentation lives beside the request logging in `go/transit/http` and `go/transit/grpc`.
 
 This is distinct from the product **analytics** in the same package. Analytics is the vendor learning about users and runs on **informed consent** (opt-in). Observability is the operator instrumenting their own service and runs on **implied consent** (configuration). The two share the `telemetry.*` config root and the export core, but never a consent gate. See [The two consent models](#the-two-consent-models).
 
@@ -29,7 +29,7 @@ below (see the [migration note](../../reference/migration/v0.x-observability-ext
 | `go/observability/metrics` *(module)* | `MeterProvider` over an OTLP metric exporter; periodic push. |
 | `go/observability/logs` *(module)* | `LoggerProvider` over an OTLP log exporter, plus an `otelslog` bridge handler. |
 | `pkg/telemetry` (`Setup`, `ObserveSettingsFromConfig`) | GTB's config-key adapter over the module: resolves `telemetry.*` config into the module's typed settings, builds the enabled providers, installs the OTel globals, registers shutdown on the controller. |
-| `pkg/http`, `pkg/grpc` | `OTelMiddleware` / `OTelStatsHandler`: per-request spans + server metrics, reading the global providers. |
+| `go/transit/http`, `go/transit/grpc` | `OTelMiddleware` / `OTelStatsHandler`: per-request spans + server metrics, reading the global providers. |
 
 ## Setup
 
@@ -63,21 +63,25 @@ Signals whose `telemetry.<signal>.enabled` is false are skipped, so an unconfigu
 
 Spans and the standard server metrics come from the OTel contrib libraries, wrapped as one-line helpers that read the global providers `Setup` installed. `OTelMiddleware` is just one entry in the HTTP server chain (and `OTelStatsHandler` its gRPC analogue) — it composes alongside security-headers, rate-limit, and the rest. See [Transport Middleware & Resilience](../concepts/transport-middleware.md) for the chain pattern and ordering.
 
-gRPC — a stats handler passed to `Register`:
+The `OTelStatsHandler` / `OTelMiddleware` helpers live in `go/transit` (`transitgrpc` =
+`gitlab.com/phpboyscout/go/transit/grpc`, `transithttp` = `.../transit/http`); the GTB
+`RegisterFromReader` config adapters (`gtbgrpc`/`gtbhttp`) forward them to the server.
+
+gRPC — a stats handler passed to `RegisterFromReader`:
 
 ```go
-grpcSrv, _ := grpc.RegisterFromReader(ctx, "grpc", controller, p.Config.View(), p.Logger,
-	grpc.OTelStatsHandler())
+grpcSrv, _ := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, p.Config.View(), p.Logger,
+	transitgrpc.OTelStatsHandler())
 ```
 
 HTTP — a `Chain`-compatible middleware. Put it **ahead** of the logging middleware so the access log can read the active span:
 
 ```go
-chain := http.NewChain(
-	http.OTelMiddleware("macguffin"),
-	http.LoggingMiddleware(logger.ToSlog(p.Logger)),
+chain := transithttp.NewChain(
+	transithttp.OTelMiddleware("macguffin"),
+	transithttp.LoggingMiddleware(logger.ToSlog(p.Logger)),
 )
-http.RegisterFromReader(ctx, "http", controller, p.Config.View(), p.Logger, mux, http.WithMiddleware(chain))
+gtbhttp.RegisterFromReader(ctx, "http", controller, p.Config.View(), p.Logger, mux, transporthttp.WithMiddleware(chain))
 ```
 
 Custom, business-level instrumentation needs no GTB API — use the OTel globals directly:

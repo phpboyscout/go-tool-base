@@ -17,19 +17,18 @@ wrapped error chains correctly.
 ```go
 import "github.com/cockroachdb/errors"
 
-if errors.Is(err, config.ErrNoFilesFound) {
+if errors.Is(err, root.ErrNoConfigFile) {
     // prompt user to run init
 }
 ```
 
 ---
 
-## `pkg/config`
+## `pkg/cmd/root`
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
-| `ErrNoFilesFound` | no configuration files found please run init, or provide a config file using the --config flag | Prompt the user to run `init` or pass `--config`. Returned by `LoadFilesContainer` when no config files exist at any of the provided paths. |
-| `ErrConfigFileNotFound` | config file not found | Returned by `LoadFilesContainer` when the first (explicitly named) config file does not exist on disk. |
+| `ErrNoConfigFile` | no config file found | Gates auto-initialise. The root pre-run heals it by running a non-interactive `init` when `Tool.Bootstrap.AutoInitialise` is set; otherwise it surfaces so the tool can prompt the user to run `init` or pass `--config`. This is GTB's own sentinel — config v0.4.0's Store treats a missing optional file as an empty layer, not an error, so the framework owns the "no config at all" distinction (it replaces config v0.2.0's `ErrNoFilesFound`). |
 
 ---
 
@@ -41,7 +40,9 @@ if errors.Is(err, config.ErrNoFilesFound) {
 
 ---
 
-## `pkg/errorhandling`
+## `gitlab.com/phpboyscout/go/errorhandling`
+
+Extracted into the standalone [errorhandling module](https://errorhandling.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|

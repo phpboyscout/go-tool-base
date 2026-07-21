@@ -26,8 +26,8 @@ Unlike `context.Context` which stores values as `interface{}`, Props provides co
 ```go
 // Props approach - Type safe, IDE-friendly
 func NewCommand(props *props.Props) *cobra.Command {
-    props.Logger.Info("Starting command")     // ✅ Compile-time type checking
-    host := props.Config.GetString("db.host") // ✅ Known interface methods
+    props.Logger.Info("Starting command")            // ✅ Compile-time type checking
+    host := props.Config.View().GetString("db.host") // ✅ pinned snapshot read
     return cmd
 }
 
@@ -162,7 +162,7 @@ func generateDocs(p *props.Props) error { ... }
 // After: declares exactly what it needs
 func generateDocs(p props.LoggingConfigProvider) error {
     p.GetLogger().Info("generating docs")
-    dir := p.GetConfig().GetString("docs.output_dir")
+    dir := p.GetConfig().View().GetString("docs.output_dir")
     ...
 }
 ```
@@ -395,8 +395,12 @@ func runCustomCommand(ctx context.Context, props *props.Props) error {
 
 ```go
 func runDatabaseCommand(ctx context.Context, props *props.Props) error {
-    dbHost := props.Config.GetString("database.host")
-    dbPort := props.Config.GetInt("database.port")
+    // Pin one view per logical operation: every value read from it belongs to
+    // the same resolved configuration, and it will not shift under a hot reload
+    // mid-read.
+    view := props.Config.View()
+    dbHost := view.GetString("database.host")
+    dbPort := view.GetInt("database.port")
 
     props.Logger.Info("Connecting to database", "host", dbHost, "port", dbPort)
     return nil
@@ -473,7 +477,7 @@ Defaults applied by `test.New`:
 | `Tool` | benign valid metadata (`testtool`, `EnvPrefix: TESTTOOL`, a GitHub `ReleaseSource`) |
 | `Version` | deterministic `version.NewInfo("v0.0.0-test", ...)` |
 | `Assets` | empty-but-valid `props.NewAssets()` |
-| `Config` | empty-but-usable `config.NewReaderContainer(fs)` — `Get*` is always safe |
+| `Config` | writable `*config.Store` over an empty in-memory file — reads via `.View()`, `Apply` is safe |
 
 Each call returns a fresh, independent instance with no real filesystem, network, keychain or `os.Exit` side effects, so it is safe under `t.Parallel()`. Override options are: `WithTool`, `WithLogger`, `WithFS`, `WithCollector`, `WithVersion`, `WithAssets`, `WithConfig`, and `WithErrorHandler`.
 

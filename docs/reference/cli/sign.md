@@ -27,10 +27,10 @@ to `--output`).
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--backend` | — | Signing backend (`aws-kms`, `signing-local`, …). |
-| `--key-id` | — | Key id/ARN/alias (or PEM path for the local backend). |
-| `--public-key` | — | Path to the public key the signature identifies. |
-| `--output` | *(input + `.asc`)* | Path to write the detached signature. |
-| `--created` | *(now)* | Fixed signature creation timestamp (for reproducibility). |
+| `--backend` | *(required)* | Signing backend (`aws-kms`, `local`, …). |
+| `--key-id` | *(required)* | Key id/ARN/alias (or PEM path for the `local` backend). |
+| `--public-key` | *(required)* | Path to the armored OpenPGP public key (`.asc`) the signature identifies. |
+| `--output` | *(input + `.sig`)* | Path to write the detached signature. |
+| `--created` | *(now)* | Fixed signature creation timestamp (RFC3339) for reproducibility. |
 
 > Run with `--help` for the complete, authoritative flag set.

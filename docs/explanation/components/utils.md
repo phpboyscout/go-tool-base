@@ -35,15 +35,6 @@ if err != nil {
 }
 ```
 
-#### GetPath (Deprecated)
-
-`GetPath` is a wrapper around `GracefulGetPath` that terminates the program with a fatal error if the executable is not found. **New code should use `GracefulGetPath` to handle errors gracefully.**
-
-```go
-// Deprecated: Use GracefulGetPath instead.
-func GetPath(name string, l logger.Logger, instructions ...string) string
-```
-
 ### System Checks
 
 #### IsInteractive

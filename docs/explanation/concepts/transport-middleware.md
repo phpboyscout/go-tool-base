@@ -16,15 +16,18 @@ composable middleware (HTTP) or interceptor (gRPC) added to a chain at
 registration time. Learn the pattern once and it applies to all four transport
 surfaces.
 
-!!! info "The middleware now lives in `go/transit`"
+!!! info "The middleware lives in `go/transit`; the servers in `go/transport`"
     The HTTP/gRPC middleware and interceptors described here — logging, OpenTelemetry,
     circuit breaking, rate limiting, client retry — plus the circuit-breaker and
-    rate-limiter primitives, were extracted into the standalone, framework-free module
-    **[`gitlab.com/phpboyscout/go/transit`](https://transit.go.phpboyscout.uk)** (`v0.1.0`).
-    GTB's `pkg/http` and `pkg/grpc` re-export it via a facade, so everything below is
-    unchanged for GTB consumers. Tools that want the middleware without the framework can
-    depend on the module directly. See the
-    [migration note](../../reference/migration/v0.x-transit-extracted.md).
+    rate-limiter primitives, live in the standalone, framework-free module
+    **[`gitlab.com/phpboyscout/go/transit`](https://transit.go.phpboyscout.uk)** (`v0.1.0`),
+    under its `transit/http` and `transit/grpc` subpackages. The hardened servers that
+    apply them (`Register`, `WithMiddleware`, `SecurityHeadersMiddleware`, `AuthMiddleware`,
+    `AuthInterceptor`) live in **[`gitlab.com/phpboyscout/go/transport`](https://transport.go.phpboyscout.uk)**,
+    and the outbound clients in `go/httpclient` / `go/grpcclient`. GTB's `pkg/http` and
+    `pkg/grpc` keep only the `config.Reader` adapters — the earlier re-export facade has
+    been removed, so import the owning module directly. See the
+    [facades-removed migration note](../../reference/migration/v0.x-facades-removed.md).
 
 !!! note "This is the transport sibling of [Command Middleware](../components/setup/middleware.md)"
     [Command Middleware](../components/setup/middleware.md) covers the cobra **CLI** chain —
@@ -37,10 +40,15 @@ surfaces.
 
 | Surface | Unit type | Chain type | Applied via | Reference |
 |---------|-----------|-----------|-------------|-----------|
-| HTTP server (ingress) | `Middleware` | `Chain` | `WithMiddleware(chain)` on `http.Register` | [http.md](../components/http.md) |
-| HTTP client (egress) | `ClientMiddleware` (a `RoundTripper` decorator) | `ClientChain` | `WithClientMiddleware(chain)` on `NewClient` | [http.md](../components/http.md) |
-| gRPC server (ingress) | `Interceptor` (unary + stream) | `InterceptorChain` | `WithInterceptors(chain)` on `grpc.Register` | [grpc.md](../components/grpc.md) |
-| gRPC client (egress) | `grpc.UnaryClientInterceptor` / `StreamClientInterceptor` | dial options | `grpc.WithChainUnaryInterceptor(...)` | [grpc.md](../components/grpc.md) |
+| HTTP server (ingress) | `transithttp.Middleware` | `transithttp.Chain` | `transporthttp.WithMiddleware(chain)` on `transporthttp.Register` | [http.md](../components/http.md) |
+| HTTP client (egress) | `transithttp.ClientMiddleware` (a `RoundTripper` decorator) | `transithttp.ClientChain` | `httpclient.WithClientMiddleware(chain)` on `httpclient.NewClient` | [http.md](../components/http.md) |
+| gRPC server (ingress) | `transitgrpc.Interceptor` (unary + stream) | `transitgrpc.InterceptorChain` | `transportgrpc.WithInterceptors(chain)` on `transportgrpc.Register` | [grpc.md](../components/grpc.md) |
+| gRPC client (egress) | `grpc.UnaryClientInterceptor` / `StreamClientInterceptor` | dial options | `grpc.WithChainUnaryInterceptor(...)` on `grpcclient.Dial` | [grpc.md](../components/grpc.md) |
+
+The `transithttp` / `transitgrpc` aliases are `gitlab.com/phpboyscout/go/transit/http` and
+`.../transit/grpc`; `transporthttp` / `transportgrpc` are the `go/transport` server subpackages;
+`httpclient` / `grpcclient` are the standalone client modules. GTB's `pkg/http` / `pkg/grpc`
+contribute only the `config.Reader` adapters (`RateLimitConfigFromConfig`, `RegisterFromReader`, …).
 
 ## The shared shape
 

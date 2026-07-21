@@ -29,8 +29,17 @@ All commands accept `--path, -p` (default `.`) for the project root.
 
 ## `enable` / `disable` `[feature...]`
 
-Enable or disable named built-in features on the project. With no feature
-arguments, prints the current state.
+Enable or disable named built-in features on the project. Pass one or more
+feature names to toggle several at once (e.g. `gtb enable ai config telemetry`).
+Each toggle flips `properties.features` in `.gtb/manifest.yaml` and re-renders
+the generated root command's `props.SetFeatures(...)`. Because the change lives
+in the manifest, it **survives `gtb regenerate project`**.
+
+With **no feature argument**, an interactive multi-select of the candidate
+features (those not already in the target state) is shown. In a
+non-interactive session or under CI there is nothing to prompt with, so the
+command errors (`a feature name is required in non-interactive/CI mode`) rather
+than printing state.
 
 ## `signing`
 

@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 GTB's HTTP server does not set security headers by default. This is a deliberate design choice: different tools have different security requirements. A CLI tool serving a local management API has very different header needs than a service exposed to the internet behind a reverse proxy. Imposing a fixed set of headers at the framework level would either be too restrictive for some tools or give a false sense of security to others.
 
-Instead, GTB provides the `pkg/http` middleware chain so tool authors can compose exactly the headers their deployment requires.
+Instead, the `go/transit/http` middleware chain (wired to a GTB server through the `pkg/http` config adapter) lets tool authors compose exactly the headers their deployment requires.
 
 ## 1. Write a Security Headers Middleware
 
@@ -55,30 +55,38 @@ func SecurityHeaders() func(http.Handler) http.Handler {
 
 ## 2. Apply the Middleware via the Chain
 
-Use `http.NewChain` to compose your security middleware with any other middleware (logging, recovery, etc.), then pass the chain to `http.Register`:
+Use `transithttp.NewChain` to compose your security middleware with any other middleware (logging, recovery, etc.), then pass the chain to the `gtbhttp.RegisterFromReader` config adapter via `transporthttp.WithMiddleware`:
 
 ```go
 import (
     gtbhttp "gitlab.com/phpboyscout/go-tool-base/pkg/http"
     "gitlab.com/phpboyscout/go/controls"
+    transithttp "gitlab.com/phpboyscout/go/transit/http"
+    transporthttp "gitlab.com/phpboyscout/go/transport/http"
 )
 
 func registerHTTPServer(ctx context.Context, controller controls.Controllable, cfg config.Reader, l logger.Logger, handler http.Handler) error {
-    chain := gtbhttp.NewChain(
+    chain := transithttp.NewChain(
         SecurityHeaders(),
-        gtbhttp.LoggingMiddleware(logger.ToSlog(l)),
+        transithttp.LoggingMiddleware(logger.ToSlog(l)),
     )
 
     _, err := gtbhttp.RegisterFromReader(ctx, "http", controller, cfg, l, handler,
-        gtbhttp.WithMiddleware(chain),
+        transporthttp.WithMiddleware(chain),
     )
 
     return err
 }
 ```
 
+!!! tip "`SecurityHeadersMiddleware` ships in `go/transport/http`"
+    You do not have to hand-roll the headers: `transporthttp.SecurityHeadersMiddleware(opts ...)`
+    provides a hardened default set (nosniff, frame-deny, a frame-ancestors CSP, no-referrer,
+    optional HSTS). Drop it into the same `transithttp.NewChain` in place of the custom
+    `SecurityHeaders()` above when its defaults suit you.
+
 !!! important "Health Endpoints Are Outside the Chain"
-    The `/healthz`, `/livez`, and `/readyz` endpoints are mounted outside the middleware chain by `http.Register`. Security headers set via `WithMiddleware` do not apply to health endpoints. If you need headers on health endpoints as well, wrap the entire `http.Server` handler separately.
+    The `/healthz`, `/livez`, and `/readyz` endpoints are mounted outside the middleware chain by `RegisterFromReader`. Security headers set via `WithMiddleware` do not apply to health endpoints. If you need headers on health endpoints as well, wrap the entire `http.Server` handler separately.
 
 ## 3. Choose Headers for Your Deployment
 
@@ -108,4 +116,4 @@ curl -sI https://localhost:8080/your-endpoint | grep -iE "x-content|x-frame|stri
 
 ## Summary
 
-GTB delegates security header decisions to tool authors because there is no single correct set of headers for all tools. Use the `pkg/http` middleware chain to compose the headers appropriate for your deployment, and validate them against OWASP guidance before going to production.
+GTB delegates security header decisions to tool authors because there is no single correct set of headers for all tools. Use the `go/transit/http` middleware chain to compose the headers appropriate for your deployment, and validate them against OWASP guidance before going to production.
