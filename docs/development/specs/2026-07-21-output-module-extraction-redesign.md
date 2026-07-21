@@ -2,7 +2,7 @@
 title: "Extract and redesign pkg/output into the standalone go/output module"
 description: "Extract go-tool-base's pkg/output (structured CLI output: JSON/text/table/spinner/progress/status renderers, ~1261 LOC) into gitlab.com/phpboyscout/go/output, folding in a broad redesign rather than a verbatim repoint. The core module is made cobra- AND pflag-free by having Emit/EmitError take (io.Writer, Format) instead of *cobra.Command; the tiny flag->writer/format binding moves to an opt-in go/output/cobra subpackage (cobra in go.mod, never linked unless imported, root guarded cobra-free). The redesign injects the output writer and interactivity via functional options (removing hardcoded os.Stderr / CI-env globals), unifies Status/Progress/Spinner styling, applies a Unicode display-width correctness pass, and extends the full Format matrix (YAML/CSV/TSV/Markdown) beyond TableWriter. pkg/output has zero go-tool-base imports and no GTB config/adapter, so the GTB side is a clean repoint of ~13 call sites across pkg/cmd/*."
 date: 2026-07-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - output
@@ -26,11 +26,13 @@ Date
 :   2026-07-21
 
 Status
-:   IN PROGRESS (2026-07-21). Redesign scope and §9 open questions resolved with
-    the maintainer: **Q1 = single public `Renderer` façade** (§5); Q2 = full-matrix
-    `Writer` included in v0.1.0; Q3 = ship a minimal public `Theme`; Q4 = keep the
-    charm TUI stack in the core; Q5 = `output/cobra` offers `RegisterOutputFlag`.
-    The concrete façade API (§4/§5) is the working design; refine during build.
+:   IMPLEMENTED (2026-07-21). `go/output` v0.1.0 published; GTB cut-over MR !278
+    merged (deleted `pkg/output`, migrated 14 call sites to the façade + `ocobra`).
+    §9 open questions resolved with the maintainer: **Q1 = single public `Renderer`
+    façade** (§5); Q2 = full-matrix `Writer` in v0.1.0; Q3 = minimal public `Theme`;
+    Q4 = keep the charm TUI stack in the core; Q5 = `output/cobra` offers
+    `RegisterOutputFlag`. Module coverage 95.9%; docs live at
+    `output.go.phpboyscout.uk`.
 
 Related
 :   [module-extraction playbook](2026-07-12-go-module-extraction-playbook.md) (§5 procedure, §10/§11 findings),
