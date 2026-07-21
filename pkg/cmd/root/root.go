@@ -930,26 +930,36 @@ func registerFeatureAssets(props *p.Props) {
 func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel *slog.LevelVar) {
 	registerGlobalMiddlewareOnce(props)
 
-	rootCmd.Register(version.NewCmdVersion(props))
+	// version produces its output from build-time ldflags and embedded assets,
+	// so it must run on a fresh install with no config file yet. Relaxing the
+	// missing-config gate (rather than erroring) is what lets it.
+	rootCmd.Register(skipConfigGate(version.NewCmdVersion(props)))
 
 	// Simple feature-gated commands: register each when its feature is enabled.
 	// Constructors with optional variadic options are wrapped in thunks so the
-	// table stays a single uniform func() type.
+	// table stays a single uniform func() type. skipGate marks the commands
+	// that read nothing from config and must work before any config exists.
 	simple := []struct {
-		feature p.FeatureCmd
-		build   func() *setup.Command
+		feature  p.FeatureCmd
+		build    func() *setup.Command
+		skipGate bool
 	}{
-		{p.UpdateCmd, func() *setup.Command { return update.NewCmdUpdate(props) }},
-		{p.InitCmd, func() *setup.Command { return initialise.NewCmdInit(props) }},
-		{p.DoctorCmd, func() *setup.Command { return doctor.NewCmdDoctor(props) }},
-		{p.ConfigCmd, func() *setup.Command { return cmdconfig.NewCmdConfig(props) }},
-		{p.TelemetryCmd, func() *setup.Command { return cmdtelemetry.NewCmdTelemetry(props) }},
-		{p.ChangelogCmd, func() *setup.Command { return cmdchangelog.NewCmdChangelog(props) }},
-		{p.ManCmd, func() *setup.Command { return cmdman.NewCmdMan(props) }},
+		{p.UpdateCmd, func() *setup.Command { return update.NewCmdUpdate(props) }, false},
+		{p.InitCmd, func() *setup.Command { return initialise.NewCmdInit(props) }, false},
+		{p.DoctorCmd, func() *setup.Command { return doctor.NewCmdDoctor(props) }, false},
+		{p.ConfigCmd, func() *setup.Command { return cmdconfig.NewCmdConfig(props) }, false},
+		{p.TelemetryCmd, func() *setup.Command { return cmdtelemetry.NewCmdTelemetry(props) }, false},
+		{p.ChangelogCmd, func() *setup.Command { return cmdchangelog.NewCmdChangelog(props) }, true},
+		{p.ManCmd, func() *setup.Command { return cmdman.NewCmdMan(props) }, true},
 	}
 	for _, c := range simple {
 		if props.Tool.IsEnabled(c.feature) {
-			rootCmd.Register(c.build())
+			cmd := c.build()
+			if c.skipGate {
+				skipConfigGate(cmd)
+			}
+
+			rootCmd.Register(cmd)
 		}
 	}
 
@@ -965,9 +975,23 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 
 	if props.Tool.IsEnabled(p.DocsCmd) {
 		if docsCmd := docs.NewCmdDocs(props); docsCmd != nil {
-			rootCmd.Register(docsCmd)
+			rootCmd.Register(skipConfigGate(docsCmd))
 		}
 	}
+}
+
+// skipConfigGate marks a built-in command so the root pre-run relaxes its
+// missing-config gate: when no config file exists the framework loads embedded
+// defaults instead of erroring, so a command that reads nothing from config
+// (version, changelog, man, docs) still runs on a fresh install. props.Config
+// stays populated, so any incidental read is safe. A nil command passes
+// through unchanged.
+func skipConfigGate(cmd *setup.Command) *setup.Command {
+	if cmd != nil {
+		setup.SkipConfigCheck(cmd.Command)
+	}
+
+	return cmd
 }
 
 // mcpSelectors returns the ophis selector that gates commands off the MCP tool

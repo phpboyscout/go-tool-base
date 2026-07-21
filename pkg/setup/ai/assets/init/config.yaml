@@ -1,11 +1,6 @@
-ai:
-  provider: ""
-openai:
-  api:
-    key: ""
-anthropic:
-  api:
-    key: ""
-gemini:
-  api:
-    key: ""
+# AI provider configuration is written by the `init` wizard (or `init ai`),
+# which records the chosen provider and — depending on the storage mode you
+# select — an env-var reference, a keychain reference, or a literal key under
+# the provider's block (e.g. anthropic.api.env / anthropic.api.keychain /
+# anthropic.api.key). No keys are seeded here: an empty credential placeholder
+# reads as "configured but blank" and would warn on every command.

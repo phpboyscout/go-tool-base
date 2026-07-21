@@ -787,6 +787,47 @@ func TestRegisterFeatureCommands_ConfigAndTelemetryEnabled(t *testing.T) {
 	assert.True(t, names["changelog"], "changelog command should be registered")
 }
 
+// TestConfigIndependentBuiltinsSkipConfigGate pins that built-in commands which
+// read nothing from config (version, changelog, man, docs) carry the
+// skip-config-check annotation, so they run on a fresh install before any
+// config file exists — while a config-dependent command (config) does not.
+func TestConfigIndependentBuiltinsSkipConfigGate(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+
+	props := &p.Props{
+		Logger: logger.NewNoop(),
+		FS:     afero.NewMemMapFs(),
+		Assets: p.NewAssets(),
+		Tool: p.Tool{
+			Name: "skipgatetool",
+			Features: p.SetFeatures(
+				p.Enable(p.ChangelogCmd),
+				p.Enable(p.ManCmd),
+				p.Enable(p.DocsCmd),
+				p.Enable(p.ConfigCmd),
+			),
+		},
+	}
+
+	cmd := NewCmdRoot(props)
+
+	byName := map[string]*cobra.Command{}
+	for _, c := range cmd.Commands() {
+		byName[c.Name()] = c
+	}
+
+	for _, name := range []string{"version", "changelog", "man", "docs"} {
+		sub := byName[name]
+		require.NotNil(t, sub, "%s must be registered", name)
+		assert.True(t, setup.SkipsConfigCheck(sub), "%s must skip the config gate", name)
+	}
+
+	require.NotNil(t, byName["config"])
+	assert.False(t, setup.SkipsConfigCheck(byName["config"]),
+		"config is config-dependent and must not skip the gate")
+}
+
 // --- newRootPreRunE: init-skip and update-exit paths -----------------------
 
 // preRunProps builds Props wired so the PersistentPreRunE closure runs end to

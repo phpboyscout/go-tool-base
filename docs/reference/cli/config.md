@@ -175,8 +175,15 @@ mytool config list --output json
 ### `config validate`
 
 Validate the current configuration against the tool's required schema. Exits non-zero if
-any required fields are missing or invalid.
+any required fields are missing or invalid (e.g. `log.level` outside
+`debug`/`info`/`warn`/`error`).
 
 ```bash
 mytool config validate
 ```
+
+Unknown-key warnings are reserved for keys that look like genuine mistakes. A
+key under a framework section (`log.*`, `update.*`, `server.*`, the provider and
+forge sections, …) or one the tool declares in its own embedded defaults is a
+recognised key, not flagged — the schema cannot enumerate every feature and
+tool key. A key matching neither still warns as a possible typo.

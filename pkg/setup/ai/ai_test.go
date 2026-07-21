@@ -2,6 +2,7 @@ package ai
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"charm.land/huh/v2"
@@ -627,6 +628,32 @@ func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 
 	err := i.Configure(newTestProps(t), cfg)
 	assert.NoError(t, err)
+}
+
+// TestInitTemplate_SeedsNoEmptyCredentials pins the #1 fix: the AI init
+// template must not seed empty credential placeholders. An empty `key: ""` (or
+// `provider: ""`) reads as "configured but blank" and made validateConfig warn
+// on every command; the wizard writes real values instead.
+func TestInitTemplate_SeedsNoEmptyCredentials(t *testing.T) {
+	t.Parallel()
+
+	data, err := assets.ReadFile("assets/init/config.yaml")
+	require.NoError(t, err)
+
+	text := string(data)
+	assert.NotContains(t, text, `key: ""`, "no empty credential key placeholder")
+	assert.NotContains(t, text, `provider: ""`, "no empty provider placeholder")
+
+	// Every non-blank, non-comment line would be a seeded key; there should be
+	// none — the template is documentation only.
+	for _, line := range strings.Split(text, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		t.Errorf("AI init template must seed no keys, found: %q", line)
+	}
 }
 
 func TestRunAIForms_ExistingKeyFallback(t *testing.T) {

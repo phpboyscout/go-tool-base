@@ -206,6 +206,39 @@ edge, but with existence filtering GTB never hands the store a non-existent
 non-target file, so it is not exercised. Left as a module observation, not a
 GTB dependency change.
 
+### D9 — Fresh-tool polish: no empty credential placeholders, quieter validate, config-free built-ins
+
+Manually exercising a freshly-scaffolded tool surfaced three rough edges — two
+pre-existing, one migration-owned — all fixed under "leave it better":
+
+1. **Empty credential placeholders (migration-owned).** The AI feature bundle's
+   init template (`pkg/setup/ai/assets/init/config.yaml`) seeded
+   `anthropic.api.key: ""` and its siblings. An empty string is "set but empty",
+   so `validateConfig` warned on *every* command that AI keys were blank — noise
+   the wizard's real values were meant to replace, and redundant with `doctor`'s
+   graceful "no AI provider API keys configured". The template now seeds no keys
+   (documentation-only); the wizard writes real values. Because the bundle is
+   consumed at runtime, generated tools pick this up with no generator change.
+
+2. **`config validate` cried wolf about every feature key.** The base schema
+   types only `log.level`, so go/config's unknown-key detection flagged
+   `ai.*`, `update.*`, `server.*` — the tool's own keys — as "unknown". The
+   schema cannot enumerate an open-ended space (features, resilience configs,
+   tool-custom keys) as struct-tag literals. So validate keeps its
+   *value* checks (required, enum, type) and drops unknown-key warnings only for
+   keys the framework or the tool legitimately owns: a key under a framework
+   section (`frameworkConfigSections`) or one the tool declares in its embedded
+   defaults / init template (`toolDeclaredKeys`). A key matching neither still
+   warns, so genuine typos survive. Pre-existing, fixed here.
+
+3. **Config-independent built-ins required a config file.** `version` (and
+   `changelog`, `man`, `docs`) failed the missing-config gate on a fresh install
+   — they read nothing from config yet were blocked before their RunE. They now
+   carry the `setup.SkipConfigCheck` annotation (`skipConfigGate`), so the gate
+   relaxes to a tolerant load. `init` keeps its existing pre-run special-case;
+   config-dependent commands (`config`, `doctor`, `update`) are unchanged.
+   Pre-existing, fixed here.
+
 ## Testing
 
 - WriteExclusive: winning-key survival, sibling removal (absent, not blank),
@@ -227,5 +260,11 @@ GTB dependency change.
   absent, and the absent lower-precedence path is not; `existingConfigPaths`
   filters to real files; `declaredConfigPaths` appends the write target only
   when absent.
+- fresh-tool polish (D9): the AI init template seeds no keys; `config validate`
+  passes a framework key (`server.grpc.reflection`) and a tool-declared key
+  while still flagging a genuinely-unknown key and erroring on a bad enum value;
+  `recognisedConfigKey`/`toolDeclaredKeys`/`flattenConfigKeys` covered directly;
+  version/changelog/man/docs carry the skip-config-check annotation while
+  `config` does not.
 - `config path --writable` on a declared-but-missing file reports the declared
   path (where Apply will actually write), not the default fallback.
