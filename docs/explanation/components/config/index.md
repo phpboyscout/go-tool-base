@@ -52,7 +52,16 @@ The layer declaration, highest precedence first: changed CLI flags; environment
 variables under the tool's `EnvPrefix`; the project-local `.<tool>.yaml`; the
 config files (`--config` paths if given, otherwise `~/.<tool>/config.yaml` then
 `/etc/<tool>/config.yaml`); the tool's `ConfigPaths` embedded assets; and the
-merged `assets/config.yaml` embedded defaults, which always apply.
+merged `assets/config.yaml` embedded defaults, which always apply. The per-user
+config outranks the system `/etc` file, the Unix convention.
+
+Only config files that **exist** are declared as layers — a non-existent file
+contributes nothing and must not become a phantom write target. The one
+exception is the write destination: the highest-precedence path is always
+available so `config set`/`unset`/`edit` have somewhere to land and can create
+the file on first write. Writes therefore go to the per-user config (or the
+project-local file when one is present), never to a system path the user cannot
+write.
 
 `Props.Tool.EnvPrefix` is propagated into the store as the module's
 `WithEnv` layer, so a tool's config keys resolve from `MYTOOL_*` rather than bare

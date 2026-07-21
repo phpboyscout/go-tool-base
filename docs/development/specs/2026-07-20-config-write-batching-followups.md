@@ -171,6 +171,41 @@ automated suite. `config edit` shares the routing root cause but opens the
 whole file in an editor rather than taking a single key+value, so the
 key-level warning does not apply there.
 
+### D8 — Writes land in the user config, not a missing /etc: path order and existence filtering
+
+Scaffold testing surfaced a harder failure than D7's warning covers: with the
+default config paths, `config set` failed outright —
+`persisting config value: /etc/<tool>/config.yaml: file does not exist`. Two
+root causes, both fixed GTB-side (no go/config change):
+
+1. **Inverted precedence.** The default paths were declared user-first,
+   `/etc`-last — and precedence is declaration order, lowest first, so the
+   system `/etc` file *overrode* the user's config (backwards from the Unix
+   convention) and, being highest-precedence, became the write target. The
+   order is flipped to `/etc` first, user last, so the user config overrides
+   the system one and is where writes land. A project-local `.<tool>.yaml`,
+   when present, is still appended after both and wins over each.
+
+2. **Phantom write target from a non-existent file.** `buildConfigStore`
+   declared every candidate path whether or not it existed. A declared-but-
+   absent file is not just inert: it is a writable-layer candidate, so a write
+   could route to it, and go/config's Apply re-reads every non-written backend
+   to build its candidate snapshot — a re-read that fails on a missing file
+   (`fs.ErrNotExist`) even though the initial load tolerates it. Deciding what
+   is real is GTB's responsibility, not the store's: `existingConfigPaths`
+   filters the declared paths to those that exist. The one exception is the
+   write target (`declaredConfigPaths`) — the highest-precedence path is always
+   declared so a write has a destination and can create the file; because it is
+   the *written* backend it uses staged content and never triggers the missing-
+   file re-read. Every other absent path is excluded, so it can neither shadow
+   resolution nor capture a write.
+
+The go/config `rebuild` behaviour (re-reading a non-written backend and failing
+on `fs.ErrNotExist`, where `loadAll` tolerates it) is a latent module sharp
+edge, but with existence filtering GTB never hands the store a non-existent
+non-target file, so it is not exercised. Left as a module observation, not a
+GTB dependency change.
+
 ## Testing
 
 - WriteExclusive: winning-key survival, sibling removal (absent, not blank),
@@ -186,5 +221,11 @@ key-level warning does not apply there.
 - unset: a defaulted key unsets successfully and resolves to the default; an
   unset invalid even over defaults is still refused; the env-only refusal is
   unchanged.
+- path order + existence filtering (D8): a write succeeds when a lower-
+  precedence declared path is absent (routing to the existing user file, not
+  choking on the missing /etc); the write target is created when all paths are
+  absent, and the absent lower-precedence path is not; `existingConfigPaths`
+  filters to real files; `declaredConfigPaths` appends the write target only
+  when absent.
 - `config path --writable` on a declared-but-missing file reports the declared
   path (where Apply will actually write), not the default fallback.

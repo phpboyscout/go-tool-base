@@ -197,21 +197,28 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		storeOpts = append(storeOpts, config.WithReaders(embedded...))
 	}
 
-	// The missing-config gate. The Store tolerates an absent file silently (a
-	// layer that is not there), but auto-initialise depends on the distinction.
-	present, err := anyConfigFilePresent(fsys, opts.CfgPaths)
+	// Only files that actually exist are declared as layers. A non-existent
+	// file contributes nothing to resolution, and declaring it anyway makes it
+	// a candidate write target — which is how a write to the user's config
+	// wrongly routed to a missing system /etc path. Deciding what is real
+	// before the store is constructed is GTB's job, not the store's.
+	existing, err := existingConfigPaths(fsys, opts.CfgPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	if !present && !opts.AllowEmpty {
+	// The missing-config gate. auto-initialise depends on the distinction
+	// between "no config file exists" and "a file exists but is empty".
+	if len(existing) == 0 && !opts.AllowEmpty {
 		return nil, ErrNoConfigFile
 	}
 
-	// The files are always declared, present or not, so the store has a
-	// writable layer to route an Apply to and `config path` can report where
-	// a future write would land.
-	storeOpts = append(storeOpts, config.WithFiles(fsys, opts.CfgPaths...))
+	// The one deliberate exception to the existence rule: the write target —
+	// the highest-precedence path — is always declared so a write has somewhere
+	// to land and can create the file. It never triggers the missing-file
+	// re-read that other absent layers would, because it is the written
+	// backend (staged, not reloaded).
+	storeOpts = append(storeOpts, config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...))
 
 	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
 		storeOpts = append(storeOpts, config.WithEnv(prefix))
@@ -246,29 +253,52 @@ func flagBindings(boundFlags map[string]*pflag.Flag) []config.FlagOption {
 	return flagOpts
 }
 
-// anyConfigFilePresent reports whether at least one candidate config file
-// exists.
+// existingConfigPaths returns the subset of paths that exist on disk, in the
+// same order.
 //
 // The Store tolerates a missing file silently, and Sources() lists every path
-// that was declared whether or not it loaded — so neither answers this. Asking
-// the filesystem directly does, and it is the same question config v0.2.0's
-// loader answered when it returned ErrNoFilesFound.
-func anyConfigFilePresent(fsys config.FS, paths []string) (bool, error) {
+// that was declared whether or not it loaded — so neither answers which files
+// are real. Asking the filesystem directly does. A path that exists but cannot
+// be read (a permissions problem, a broken mount) is a hard error rather than
+// silently dropped: treating it as absent would fall back to defaults and hide
+// a real fault.
+func existingConfigPaths(fsys config.FS, paths []string) ([]string, error) {
+	existing := make([]string, 0, len(paths))
+
 	for _, path := range paths {
 		switch _, err := fsys.Stat(path); {
 		case err == nil:
-			return true, nil
+			existing = append(existing, path)
 		case errors.Is(err, fs.ErrNotExist):
 			continue
 		default:
-			// A path that exists but cannot be read — a permissions problem, a
-			// broken mount — is not the same as absent, and silently treating
-			// it as absent would fall back to defaults and hide a real fault.
-			return false, errors.Wrapf(err, "checking config file %s", path)
+			return nil, errors.Wrapf(err, "checking config file %s", path)
 		}
 	}
 
-	return false, nil
+	return existing, nil
+}
+
+// declaredConfigPaths returns the config files to declare as store layers: every
+// file that exists, plus the write target when it does not.
+//
+// The write target is the highest-precedence declared path (the last in all) —
+// where a write lands and, when absent, is created. Keeping it in the list even
+// when it does not exist is the sole exception to declaring only real files;
+// every other absent path is excluded so it can neither shadow resolution nor
+// capture a write. The target keeps its precedence position (last), so it still
+// wins on read once written.
+func declaredConfigPaths(existing, all []string) []string {
+	if len(all) == 0 {
+		return existing
+	}
+
+	writeTarget := all[len(all)-1]
+	if slices.Contains(existing, writeTarget) {
+		return existing
+	}
+
+	return append(slices.Clone(existing), writeTarget)
 }
 
 // embeddedSources reads the tool's explicit embedded config assets into named
@@ -837,9 +867,16 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 }
 
 func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
+	// Precedence is declaration order, lowest first — so the system-wide
+	// /etc file is declared before the per-user file, letting the user's
+	// config override the machine's. This is the Unix convention (user beats
+	// system), and it also makes the user file the highest-precedence writable
+	// layer, so set/unset/edit land there rather than in the root-owned /etc
+	// path an unprivileged user cannot write. A project-local .<tool>.yaml,
+	// when present, is appended after both and wins over each.
 	defaultConfigPaths := []string{
-		filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), setup.DefaultConfigFilename),
 		fmt.Sprintf("%s%s", string(os.PathSeparator), filepath.Join("etc", props.Tool.Name, setup.DefaultConfigFilename)),
+		filepath.Join(setup.GetDefaultConfigDir(props.FS, props.Tool.Name), setup.DefaultConfigFilename),
 	}
 
 	rootCmd.PersistentFlags().StringArrayVar(&state.cfgPaths, "config", defaultConfigPaths, "config files to use")

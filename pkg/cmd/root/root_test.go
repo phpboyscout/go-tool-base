@@ -234,6 +234,94 @@ database:
 	}
 }
 
+// TestBuildConfigStore_WriteSucceedsWithMissingLowerPrecedenceFile is the
+// regression guard for the config-set-routes-to-/etc bug. When a lower-
+// precedence config path is declared but absent (the system /etc file a user
+// has not created), a write to the existing higher-precedence user file must
+// succeed: the absent file is excluded from the layers, so it can neither
+// capture the write nor break the store's candidate rebuild on Apply.
+func TestBuildConfigStore_WriteSucceedsWithMissingLowerPrecedenceFile(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	props := &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Assets: p.NewAssets()}
+	userPath := "/home/u/.tool/config.yaml"
+	etcPath := "/etc/tool/config.yaml" // declared, never created — lower precedence
+	require.NoError(t, afero.WriteFile(props.FS, userPath, []byte("log:\n  level: info\n"), 0o600))
+
+	store, err := buildConfigStore(t.Context(), ConfigLoadOptions{
+		CfgPaths:   []string{etcPath, userPath}, // /etc first (lowest), user last (write target)
+		Props:      props,
+		AllowEmpty: false,
+	})
+	require.NoError(t, err)
+
+	_, err = store.Apply(t.Context(), config.Set("log.level", "debug"))
+	require.NoError(t, err, "a write must not fail because a lower-precedence declared file is absent")
+	assert.Equal(t, "debug", store.View().GetString("log.level"))
+
+	data, err := afero.ReadFile(props.FS, userPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "level: debug")
+}
+
+// TestBuildConfigStore_CreatesWriteTargetWhenAllAbsent covers Option A's write-
+// target exception: with no config file on disk but writes allowed, the highest-
+// precedence path is still a valid write destination and the write creates it.
+func TestBuildConfigStore_CreatesWriteTargetWhenAllAbsent(t *testing.T) {
+	setup.ResetRegistryForTesting()
+	t.Cleanup(setup.ResetRegistryForTesting)
+	t.Parallel()
+
+	props := &p.Props{Logger: logger.NewNoop(), FS: afero.NewMemMapFs(), Assets: p.NewAssets()}
+	userPath := "/home/u/.tool/config.yaml"
+	etcPath := "/etc/tool/config.yaml"
+
+	store, err := buildConfigStore(t.Context(), ConfigLoadOptions{
+		CfgPaths:   []string{etcPath, userPath}, // neither exists
+		Props:      props,
+		AllowEmpty: true,
+	})
+	require.NoError(t, err)
+
+	_, err = store.Apply(t.Context(), config.Set("feature.enabled", true))
+	require.NoError(t, err)
+
+	// The write created the user path (the target), not the /etc path.
+	exists, _ := afero.Exists(props.FS, userPath)
+	assert.True(t, exists, "the write target must be created")
+	etcExists, _ := afero.Exists(props.FS, etcPath)
+	assert.False(t, etcExists, "the absent lower-precedence path must not be created")
+}
+
+func TestExistingConfigPaths(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, afero.WriteFile(fs, "/a.yaml", []byte("x: 1\n"), 0o600))
+	fsys := (&p.Props{FS: fs}).GetConfigFS()
+
+	got, err := existingConfigPaths(fsys, []string{"/a.yaml", "/missing.yaml"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/a.yaml"}, got)
+}
+
+func TestDeclaredConfigPaths(t *testing.T) {
+	t.Parallel()
+
+	// Write target (last) absent → appended so a write can create it.
+	assert.Equal(t, []string{"/etc.yaml", "/user.yaml"},
+		declaredConfigPaths([]string{"/etc.yaml"}, []string{"/etc.yaml", "/user.yaml"}))
+
+	// Write target present → returned unchanged.
+	assert.Equal(t, []string{"/etc.yaml", "/user.yaml"},
+		declaredConfigPaths([]string{"/etc.yaml", "/user.yaml"}, []string{"/etc.yaml", "/user.yaml"}))
+
+	// No paths → nothing to declare.
+	assert.Empty(t, declaredConfigPaths(nil, nil))
+}
+
 // TestLoadAndMergeConfigWithOverrides tests that main config values override embedded config values
 // when both configs contain the same keys. This proves that cfg values take precedence over embeddedCfg.
 func TestLoadAndMergeConfigWithOverrides(t *testing.T) {
