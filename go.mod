@@ -13,7 +13,6 @@ require (
 	github.com/ProtonMail/go-crypto v1.4.1
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/x/ansi v0.11.7
-	github.com/charmbracelet/x/term v0.2.2
 	github.com/cli/oauth v1.2.2
 	github.com/cockroachdb/errors v1.14.0
 	github.com/cucumber/godog v0.15.1
@@ -50,6 +49,7 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitlab v0.1.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
+	gitlab.com/phpboyscout/go/output v0.1.0
 	gitlab.com/phpboyscout/go/redact v0.1.0
 	gitlab.com/phpboyscout/go/regexutil v0.1.0
 	gitlab.com/phpboyscout/go/repo v0.1.0
@@ -112,6 +112,7 @@ require (
 	github.com/charmbracelet/x/exp/ordered v0.1.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
+	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/cli/browser v1.3.0 // indirect

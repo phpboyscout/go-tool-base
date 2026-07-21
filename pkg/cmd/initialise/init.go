@@ -4,7 +4,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+	ocobra "gitlab.com/phpboyscout/go/output/cobra"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/ai"
@@ -52,7 +54,7 @@ configure a provider later with "init <provider>" from a terminal.`,
 
 			props.Logger.Info("configuration initialised", "path", location)
 
-			return output.Emit(cmd, output.Response{
+			return ocobra.Emit(cmd, output.Response{
 				Status:  output.StatusSuccess,
 				Command: "init",
 				Data: map[string]any{

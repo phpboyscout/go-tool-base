@@ -6,7 +6,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+	ocobra "gitlab.com/phpboyscout/go/output/cobra"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -40,8 +42,8 @@ Sensitive values are masked unless --unmask is passed.`,
 				value = masker.MaskIfSensitive(key, value)
 			}
 
-			if output.IsJSONOutput(cmd) {
-				return output.Emit(cmd, output.Response{
+			if ocobra.IsJSONOutput(cmd) {
+				return ocobra.Emit(cmd, output.Response{
 					Status:  output.StatusSuccess,
 					Command: "config get",
 					Data:    map[string]string{"key": key, "value": value},

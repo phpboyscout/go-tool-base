@@ -78,7 +78,7 @@ Register custom diagnostic checks so the `doctor` command validates your feature
 ## Output & Observability
 
 ### [Add Scriptable JSON Output to a Command](scriptable-json-output.md)
-Use `pkg/output` to give any command a `--output json` flag for CI/CD and scripting integration.
+Use the `go/output` module to give any command a `--output json` flag for CI/CD and scripting integration.
 
 ### [Switch to Structured JSON Logging for Containers](structured-json-logging.md)
 Replace the charmbracelet terminal logger with a `slog` JSON backend for daemon and container deployments.

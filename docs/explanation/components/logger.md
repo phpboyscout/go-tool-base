@@ -66,7 +66,7 @@ var _ logger.Logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 Runtime level/format control is *not* on the interface (see
 [Dynamic Level Control](#dynamic-level-control) below); process termination and
-unlevelled user output are the command / `pkg/output` layers' job, not the
+unlevelled user output are the command / `go/output` layers' job, not the
 logging boundary's.
 
 

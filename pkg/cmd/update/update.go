@@ -12,7 +12,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+	ocobra "gitlab.com/phpboyscout/go/output/cobra"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -126,7 +128,7 @@ access.`,
 				return err
 			}
 
-			return output.Emit(cmd, output.Response{
+			return ocobra.Emit(cmd, output.Response{
 				Status:  output.StatusSuccess,
 				Command: "update",
 				Data:    result,
@@ -236,7 +238,7 @@ func updateFromFile(cmd *cobra.Command, props *p.Props, filePath string, opts ..
 
 	props.Logger.Info("successfully installed", "from", filePath, "to", targetPath)
 
-	return output.Emit(cmd, output.Response{
+	return ocobra.Emit(cmd, output.Response{
 		Status:  output.StatusSuccess,
 		Command: "update",
 		Data: &UpdateResult{

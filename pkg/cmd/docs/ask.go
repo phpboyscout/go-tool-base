@@ -9,9 +9,10 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/output"
+
 	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 

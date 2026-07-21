@@ -19,7 +19,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Logger](logger.md)** | `pkg/logger` | Unified logging abstraction with charmbracelet, slog, and noop backends. |
 | **[Commands](../../reference/cli/index.md)** | `cmd/` | Built-in Cobra commands for configuration (`init`), updates (`version`, `update`), interactive browser (`docs`), and agentic workflows (`mcp`). |
 | **[Error Handling](error-handling.md)** | `pkg/errorhandling` | Centralized error reporting and formatting, ensuring consistent exit codes and log output. |
-| **[Output](output.md)** | `pkg/output` | Dual-format (text/JSON) structured output for scriptable CLI commands. |
+| **[Output](output.md)** | `go/output` | Structured CLI output (text/JSON/YAML/CSV/TSV/Markdown), tables, spinners, progress and the JSON envelope behind one `Renderer` façade — now a standalone module; GTB wires it in via the opt-in `go/output/cobra` subpackage. |
 | **[Version](version.md)** | `pkg/version` | Semantic version parsing, comparison, and development-build detection. |
 | **[Errors](errors.md)** | `pkg/...` | Catalogue of sentinel errors defined across GTB packages, with descriptions and handling guidance. |
 | **[Changelog](changelog.md)** | `go/changelog` | Framework-free Conventional-Commits changelog generation (via go-git) and parsing, now a standalone module; GTB wires it into the `changelog` command, the generator tool, and self-update. |

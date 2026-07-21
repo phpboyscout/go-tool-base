@@ -13,7 +13,9 @@ import (
 
 	"gitlab.com/phpboyscout/go/changelog"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+	ocobra "gitlab.com/phpboyscout/go/output/cobra"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -129,8 +131,8 @@ func renderOutput(cmd *cobra.Command, releases []changelog.Release) error {
 		return nil
 	}
 
-	if output.IsJSONOutput(cmd) {
-		return output.Emit(cmd, output.Response{
+	if ocobra.IsJSONOutput(cmd) {
+		return ocobra.Emit(cmd, output.Response{
 			Status:  output.StatusSuccess,
 			Command: "changelog",
 			Data:    releases,

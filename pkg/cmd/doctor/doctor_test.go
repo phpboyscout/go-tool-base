@@ -12,9 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/output"
+
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -150,7 +151,7 @@ func TestDoctorReport_JSONOutput(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	out := output.NewWriter(&buf, output.FormatJSON)
+	out := output.New(output.WithWriter(&buf), output.WithFormat(output.FormatJSON))
 
 	err := out.Write(report, func(w io.Writer) {})
 	require.NoError(t, err)

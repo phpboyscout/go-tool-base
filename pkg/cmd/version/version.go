@@ -10,7 +10,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -40,7 +41,7 @@ is a development build, it also contacts the configured release source to
 report whether a newer version is available.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			format, _ := cmd.Flags().GetString("output")
-			out := output.NewWriter(os.Stdout, output.Format(format))
+			out := output.New(output.WithWriter(os.Stdout), output.WithFormat(output.Format(format)))
 
 			info := &VersionInfo{
 				Version: props.Version.GetVersion(),

@@ -6,7 +6,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+	ocobra "gitlab.com/phpboyscout/go/output/cobra"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -70,8 +72,8 @@ print only that target.`,
 // emitWritable prints just the writable target — a bare line in text mode (for
 // scripting) or a structured single value under --output json.
 func emitWritable(cmd *cobra.Command, target string) error {
-	if output.IsJSONOutput(cmd) {
-		return output.Emit(cmd, output.Response{
+	if ocobra.IsJSONOutput(cmd) {
+		return ocobra.Emit(cmd, output.Response{
 			Status:  output.StatusSuccess,
 			Command: "config path",
 			Data:    map[string]string{"writable": target},
@@ -96,9 +98,9 @@ func emitPathList(cmd *cobra.Command, files []string, target string) error {
 	rows = append(rows, pathEntry{Path: target, Role: pathRoleWritable})
 
 	format, _ := cmd.Flags().GetString("output")
-	tw := output.NewTableWriter(cmd.OutOrStdout(), output.Format(format))
+	tw := output.New(output.WithWriter(cmd.OutOrStdout()), output.WithFormat(output.Format(format)))
 
-	if err := tw.WriteRows(rows); err != nil {
+	if err := tw.Table(rows); err != nil {
 		return err
 	}
 

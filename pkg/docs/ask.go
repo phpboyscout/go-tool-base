@@ -10,9 +10,10 @@ import (
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 
+	"gitlab.com/phpboyscout/go/output"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -112,7 +113,7 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 		})
 	}
 
-	return output.SpinWithResult(ctx, "Waiting for AI response", func(ctx context.Context) (string, error) {
+	return output.SpinWithResult(output.New(), ctx, "Waiting for AI response", func(ctx context.Context) (string, error) {
 		return client.Chat(ctx, question)
 	})
 }

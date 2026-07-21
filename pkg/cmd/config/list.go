@@ -8,7 +8,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -39,9 +40,9 @@ vars, file config, and defaults. Sensitive values are masked by default.`,
 			})
 
 			format, _ := cmd.Flags().GetString("output")
-			tw := output.NewTableWriter(cmd.OutOrStdout(), output.Format(format))
+			tw := output.New(output.WithWriter(cmd.OutOrStdout()), output.WithFormat(output.Format(format)))
 
-			return tw.WriteRows(entries)
+			return tw.Table(entries)
 		},
 	}
 

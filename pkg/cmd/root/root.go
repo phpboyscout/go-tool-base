@@ -19,6 +19,8 @@ import (
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
+	"gitlab.com/phpboyscout/go/output"
+
 	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
 	cmdconfig "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/config"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/docs"
@@ -28,7 +30,6 @@ import (
 	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
@@ -473,7 +474,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 		message         string
 	)
 
-	spinErr := output.Spin(ctx, "Checking for latest version", func(ctx context.Context) error {
+	spinErr := output.New().Spin(ctx, "Checking for latest version", func(ctx context.Context) error {
 		var versionErr error
 
 		isLatestVersion, message, versionErr = selfUpdater.IsLatestVersion(ctx)

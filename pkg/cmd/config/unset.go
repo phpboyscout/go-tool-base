@@ -12,7 +12,9 @@ import (
 
 	cfg "gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/output"
+	"gitlab.com/phpboyscout/go/output"
+	ocobra "gitlab.com/phpboyscout/go/output/cobra"
+
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -54,8 +56,8 @@ file untouched.`,
 				return err
 			}
 
-			if output.IsJSONOutput(cmd) {
-				return output.Emit(cmd, output.Response{
+			if ocobra.IsJSONOutput(cmd) {
+				return ocobra.Emit(cmd, output.Response{
 					Status:  output.StatusSuccess,
 					Command: "config unset",
 					Data:    map[string]string{"key": key},
