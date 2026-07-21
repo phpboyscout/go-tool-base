@@ -50,7 +50,7 @@ jobs:
       # Upload PR artifacts if on a PR branch
       - name: Upload PR artifacts
         if: ${{ "{{" }} github.event_name == 'pull_request' {{ "}}" }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pr-binaries-${{ "{{" }} github.event.number {{ "}}" }}
           path: dist/**
