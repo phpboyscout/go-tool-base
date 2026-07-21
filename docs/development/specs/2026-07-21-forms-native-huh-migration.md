@@ -2,7 +2,7 @@
 title: "Delete pkg/forms and rewrite the generator wizards on native huh v2"
 description: "pkg/forms is an internal-only wrapper (used solely by the scaffolding generator) that fakes multi-form back-navigation by chaining separate huh.Form.Run() calls and catching ErrUserAborted. huh v2 has since absorbed its reason for being: native shift+tab back-navigation across all groups in one form (skipping hidden groups), Group.WithHideFunc for conditional sections, and reactive field funcs (TitleFunc/DescriptionFunc/PlaceholderFunc/OptionsFunc) for content that depends on earlier answers. This spec deletes pkg/forms and rewrites internal/cmd/generate/{command.go,project.go} onto single native huh forms, keeping only the command flag-collection loop as an imperative multi-Run loop (huh has no repeat-group primitive). It also adds the headless interactive-path test coverage the wizards lack today."
 date: 2026-07-21
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - forms
@@ -26,7 +26,10 @@ Date
 :   2026-07-21
 
 Status
-:   DRAFT — awaiting review. Open questions in [§8](#8-open-questions).
+:   IMPLEMENTED (2026-07-21). Open questions resolved with user: **Q1** native shift+tab
+    for back (Esc unbound, ctrl+c aborts); **Q2** aborting a flag form ends flag entry;
+    **Q3** reactive `*Func` for same-form defaults; **Q4** done standalone. See the
+    implementation note at the end for what the rewrite settled and how it is tested.
 
 Related
 :   [leaf module extraction](2026-07-21-leaf-module-extraction-workspace-changelog.md) (the sibling spec — `forms` was pulled out of that batch by this decision),
@@ -249,3 +252,40 @@ the interactive path goes from ~no coverage to covered.
    references swept.
 5. Extraction report updated: `forms` marked **not extracted — deleted; internal
    generator wizards migrated to native huh v2** with a one-line rationale.
+
+## 10. Implementation notes (2026-07-21)
+
+What the rewrite settled, and where §6/§9 met reality:
+
+- **Single form + residual flag loop.** `project.go`'s wizard is now one native form
+  (`SkeletonOptions.wizardForm`) of nine groups: `basicsGroup` (name/desc/path/features
+  + backend + help selects), env-prefix, update-policy, update-interval, git, slack,
+  teams, signing-enable, signing-detail. `command.go`'s main form folds the AI-prompt
+  group in via `WithHideFunc`; its **flag loop stays imperative** (a per-flag
+  `newForm(...).Run()` loop) because huh has no repeat-group primitive.
+- **Seeds via idempotent validators.** The name→env-prefix and backend→host defaults are
+  seeded in the entry group's field validators (guarded by `if x == ""`), so the later
+  groups pick them up pre-filled; `deriveEnvPrefix`/`hostForBackend` back them and the
+  reactive field text.
+- **Group title/description are static in huh** — the dynamic "GitHub/GitLab Repository"
+  heading became a static group title plus reactive field descriptions/placeholder
+  (`DescriptionFunc`/`PlaceholderFunc` bound to `&o.GitBackend`). No Note-field
+  workaround was needed.
+- **Shared `newForm` helper** (`internal/cmd/generate/form.go`) sets AltScreen via the
+  view hook; back-nav is huh's native shift+tab, ctrl+c aborts. Esc is unbound (Q1).
+- **Testing — corrected from §6/§9.** The interactive path is now tested three ways, but
+  *not* via a full end-to-end accessible-mode drive as §6 imagined:
+  - Pure unit tests for the seed/reactive-text logic (`deriveEnvPrefix`, `backendLabel`,
+    `hostForBackend`, `repoDescription`, `repoPlaceholder`).
+  - A **`tea.Model` drive** of the real `wizardForm()` (huh's own test style: synthetic
+    key events, parallel-safe, no global stdin) proving the name→env-prefix seed fires.
+  - The @generator BDD suite + `generator_build` for the flag path and generated output.
+  A full accessible-mode (`TERM=dumb`) drive was prototyped and **dropped**: huh's
+  `runAccessible` ignores `WithHideFunc` (it ranges every group) and its line-by-line
+  input consumption (empty-line-keeps-value, placeholder interplay, select-with-preset)
+  proved brittle and huh-version-coupled. Hiding is a TUI-event-loop behaviour that huh
+  tests itself; the predicates here are trivial (`o.HelpType != "slack"`, `!o.Signing`).
+  `internal/cmd/generate` remains coverage-excluded (Bucket B), as `pkg/forms` was.
+- **Scaffold output unchanged.** The rewrite touches only interactive *collection*; the
+  generator and its emitted scaffold are untouched (the flag path bypasses the wizard).
+  A non-interactive `gtb generate project` smoke run succeeds end-to-end.

@@ -279,18 +279,17 @@ func TestUpdateCommandMetadataRecursive_EmptyPath(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// -- SkeletonOptions.defaultHost ----------------------------------------------
+// -- hostForBackend -----------------------------------------------------------
 
-func TestDefaultHost_GitHub(t *testing.T) {
+func TestHostForBackend_GitHub(t *testing.T) {
 	t.Parallel()
-	o := &SkeletonOptions{}
-	assert.Equal(t, "github.com", o.defaultHost())
+	assert.Equal(t, "github.com", hostForBackend(""))
+	assert.Equal(t, "github.com", hostForBackend("github"))
 }
 
-func TestDefaultHost_GitLab(t *testing.T) {
+func TestHostForBackend_GitLab(t *testing.T) {
 	t.Parallel()
-	o := &SkeletonOptions{GitBackend: "gitlab"}
-	assert.Equal(t, "gitlab.com", o.defaultHost())
+	assert.Equal(t, "gitlab.com", hostForBackend("gitlab"))
 }
 
 // -- resolveFeatures ----------------------------------------------------------

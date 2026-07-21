@@ -15,7 +15,6 @@ import (
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
@@ -348,23 +347,72 @@ func normalizeRepoHost(repo, host string) (string, string) {
 	return repo, host
 }
 
-func (o *SkeletonOptions) defaultHost() string {
-	if o.GitBackend == "gitlab" {
+// envPrefixRe validates the environment-variable prefix (upper-case, digits and
+// underscores). It is a build-time literal, so MustCompile is safe.
+var envPrefixRe = regexp.MustCompile(`^[A-Z0-9_]+$`)
+
+// backendLabel is the human-facing name for a git backend value.
+func backendLabel(backend string) string {
+	if backend == "gitlab" {
+		return "GitLab"
+	}
+
+	return "GitHub"
+}
+
+// hostForBackend is the default host for a git backend value.
+func hostForBackend(backend string) string {
+	if backend == "gitlab" {
 		return "gitlab.com"
 	}
 
 	return "github.com"
 }
 
+// repoDescription is the repository-field help text for a git backend.
+func repoDescription(backend string) string {
+	if backend == "gitlab" {
+		return "The repository path. GitLab supports nested groups — use the full path and the last segment will be treated as the repository name (e.g. group/subgroup/repo)."
+	}
+
+	return "The repository path in org/repo format."
+}
+
+// repoPlaceholder is the repository-field placeholder for a git backend.
+func repoPlaceholder(backend string) string {
+	if backend == "gitlab" {
+		return "group/subgroup/repo"
+	}
+
+	return "org/repo"
+}
+
+// deriveEnvPrefix is the default env-var prefix for a project name: upper-case
+// with hyphens turned into underscores (my-app → MY_APP).
+func deriveEnvPrefix(name string) string {
+	return strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
+}
+
 func (o *SkeletonOptions) runWizard() error {
-	// Stage 1: project basics + backend/help type selections
-	stage1 := huh.NewGroup(
+	return o.wizardForm().Run()
+}
+
+// basicsGroup is the entry group: project basics plus the backend and help-type
+// selections that drive later groups. The name field seeds the env-prefix
+// default and the backend field seeds the host default (both once, if unset), so
+// the later groups pick those values up pre-filled.
+func (o *SkeletonOptions) basicsGroup() *huh.Group {
+	return huh.NewGroup(
 		huh.NewInput().
 			Title("Project Name").
 			Value(&o.Name).
 			Validate(func(s string) error {
 				if s == "" {
 					return ErrNameRequired
+				}
+
+				if o.EnvPrefix == "" {
+					o.EnvPrefix = deriveEnvPrefix(s)
 				}
 
 				return nil
@@ -398,7 +446,14 @@ func (o *SkeletonOptions) runWizard() error {
 				huh.NewOption("GitHub", "github"),
 				huh.NewOption("GitLab", "gitlab"),
 			).
-			Value(&o.GitBackend),
+			Value(&o.GitBackend).
+			Validate(func(s string) error {
+				if o.Host == "" {
+					o.Host = hostForBackend(s)
+				}
+
+				return nil
+			}),
 		huh.NewSelect[string]().
 			Title("Help Channel").
 			Description("Where users should ask for help — shown in error messages.").
@@ -411,124 +466,183 @@ func (o *SkeletonOptions) runWizard() error {
 	).
 		Title("New CLI Project").
 		Description("Configure your new CLI tool. The next steps will collect repository and help channel details.\n")
-
-	return forms.NewWizard(stage1).
-		Step(o.runEnvPrefixStep).
-		Step(o.runUpdatePolicyStep).
-		Step(o.runUpdateCheckIntervalStep).
-		// Stage 2: git config — built dynamically so the description reflects the chosen backend
-		Step(func() error {
-			if o.Host == "" {
-				o.Host = o.defaultHost()
-			}
-
-			backendLabel := "GitHub"
-			repoDesc := "The repository path in org/repo format."
-			repoPlaceholder := "org/repo"
-
-			if o.GitBackend == "gitlab" {
-				backendLabel = "GitLab"
-				repoDesc = "The repository path. GitLab supports nested groups — use the full path and the last segment will be treated as the repository name (e.g. group/subgroup/repo)."
-				repoPlaceholder = "group/subgroup/repo"
-			}
-
-			stage2 := huh.NewGroup(
-				huh.NewInput().
-					Title("Git Host").
-					Description(fmt.Sprintf("The %s host. Change this only if you use a self-hosted instance.", backendLabel)).
-					Value(&o.Host).
-					Validate(func(s string) error {
-						if s == "" {
-							return ErrHostRequired
-						}
-
-						return nil
-					}),
-				huh.NewInput().
-					Title("Repository").
-					Description(repoDesc).
-					Placeholder(repoPlaceholder).
-					Value(&o.Repo).
-					Validate(func(s string) error {
-						if s == "" {
-							return ErrRepositoryRequired
-						}
-
-						if !strings.Contains(s, "/") {
-							return ErrRepositoryInvalidFormat
-						}
-
-						return nil
-					}),
-				huh.NewConfirm().
-					Title("Private Repository").
-					Description("Does this repository require authentication to access releases? Enable for private repos; leave off for public ones.").
-					Affirmative("Private").
-					Negative("Public").
-					Value(&o.Private),
-			).
-				Title(fmt.Sprintf("%s Repository", backendLabel)).
-				Description(fmt.Sprintf("Configure the %s repository that will host your new tool.\n", backendLabel))
-
-			return forms.NewNavigable(stage2).Run()
-		}).
-		// Stage 3: help config — built dynamically based on the chosen help type
-		Step(func() error {
-			switch o.HelpType {
-			case "slack":
-				stage3 := huh.NewGroup(
-					huh.NewInput().
-						Title("Slack Channel").
-						Description("The channel where users should ask for help (e.g. #platform-help).").
-						Placeholder("#my-team-help").
-						Value(&o.SlackChannel),
-					huh.NewInput().
-						Title("Slack Team").
-						Description("The team or squad name owning this tool.").
-						Placeholder("My Team").
-						Value(&o.SlackTeam),
-				).
-					Title("Slack Help Configuration").
-					Description("These values appear in error messages to direct users to support.\n")
-
-				return forms.NewNavigable(stage3).Run()
-			case "teams":
-				stage3 := huh.NewGroup(
-					huh.NewInput().
-						Title("Teams Channel").
-						Description("The channel where users should ask for help.").
-						Placeholder("Support").
-						Value(&o.TeamsChannel),
-					huh.NewInput().
-						Title("Teams Team").
-						Description("The team name owning this tool.").
-						Placeholder("Engineering").
-						Value(&o.TeamsTeam),
-				).
-					Title("Microsoft Teams Help Configuration").
-					Description("These values appear in error messages to direct users to support.\n")
-
-				return forms.NewNavigable(stage3).Run()
-			default:
-				return nil
-			}
-		}).
-		// Stage 4: release signing — off by default. When enabled, collect
-		// the WKD email and key source. require_signature is never prompted.
-		Step(o.runSigningStep).
-		Run()
 }
 
-// runSigningStep asks whether to enable release signing (default No) and,
-// when enabled, collects the WKD email and key source. require_signature
-// is deliberately never prompted — it stays false until a signed release
-// has shipped and is only flipped later via `gtb enable signing`.
-func (o *SkeletonOptions) runSigningStep() error {
+// wizardForm assembles the single native form: the entry group plus the
+// per-stage groups. Conditional sections (help channel, signing details) use
+// WithHideFunc and huh skips the hidden groups; content that depends on the
+// chosen backend uses reactive *Func binders. Back-navigation is shift+tab.
+// It is a seam for tests, which drive the form directly.
+func (o *SkeletonOptions) wizardForm() *huh.Form {
+	// Fixed default — not derived from another field, so it is set upfront. The
+	// signing detail group is hidden unless signing is enabled, but the key
+	// source select still binds to this so it defaults to "Both" when shown.
 	if o.SigningKeySource == "" {
 		o.SigningKeySource = "both"
 	}
 
-	enableGroup := huh.NewGroup(
+	return newForm(
+		o.basicsGroup(),
+		o.envPrefixGroup(),
+		o.updatePolicyGroup(),
+		o.updateCheckIntervalGroup(),
+		o.gitGroup(),
+		o.slackGroup(),
+		o.teamsGroup(),
+		o.signingEnableGroup(),
+		o.signingDetailGroup(),
+	)
+}
+
+// envPrefixGroup collects the config env-var prefix. Its value is pre-seeded
+// from the project name (see the name field's validator); the placeholder
+// reactively shows that suggestion if the user clears the field.
+func (o *SkeletonOptions) envPrefixGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Title("Environment Variable Prefix").
+			Description("Prefix for config env var overrides (e.g. MY_APP → MY_APP_LOG_LEVEL). Leave empty to disable.").
+			PlaceholderFunc(func() string {
+				return deriveEnvPrefix(o.Name)
+			}, &o.Name).
+			Value(&o.EnvPrefix).
+			Validate(func(s string) error {
+				if s == "" {
+					return nil // opt-out
+				}
+
+				if !envPrefixRe.MatchString(s) {
+					return ErrEnvPrefixInvalid
+				}
+
+				return nil
+			}),
+	).
+		Title("Environment Variable Prefix").
+		Description("Scopes config env var lookups so only variables starting with this prefix are considered.\n")
+}
+
+// updatePolicyGroup selects the self-update posture. The default (and "Disabled")
+// leaves the policy empty so the framework default applies.
+func (o *SkeletonOptions) updatePolicyGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewSelect[string]().
+			Title("Self-Update Policy").
+			Description("How the generated tool behaves when a newer release is found. Users can override via the update.policy config key.").
+			Options(
+				huh.NewOption("Disabled — log that an update is available, then continue (default)", "").Selected(o.UpdatePolicy == "" || o.UpdatePolicy == "disabled"),
+				huh.NewOption("Prompt — ask to update; declining continues the command", "prompt").Selected(o.UpdatePolicy == "prompt"),
+				huh.NewOption("Enabled — block every command until the tool is updated", "enabled").Selected(o.UpdatePolicy == "enabled"),
+			).
+			Value(&o.UpdatePolicy),
+	).
+		Title("Self-Update Policy").
+		Description("Sets props.Tool.UpdatePolicy in the generated tool.\n")
+}
+
+// updateCheckIntervalGroup collects the baseline self-update-check throttle as a
+// Go duration. Empty leaves it unset so the framework default (24h) applies.
+func (o *SkeletonOptions) updateCheckIntervalGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Title("Update Check Interval").
+			Description("How often the generated tool checks for updates, as a Go duration (e.g. 24h, 168h). Leave empty for the framework default (24h). Users can override via update.check_interval.").
+			Placeholder("24h").
+			Value(&o.UpdateCheckInterval).
+			Validate(generator.ValidateUpdateCheckInterval),
+	).
+		Title("Update Check Interval").
+		Description("Sets props.Tool.UpdateCheckInterval in the generated tool.\n")
+}
+
+// gitGroup collects repository details. The host is pre-seeded from the chosen
+// backend (see the backend field's validator); the host/repository help text and
+// the repository placeholder react to the backend via *Func binders.
+func (o *SkeletonOptions) gitGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Title("Git Host").
+			DescriptionFunc(func() string {
+				return fmt.Sprintf("The %s host. Change this only if you use a self-hosted instance.", backendLabel(o.GitBackend))
+			}, &o.GitBackend).
+			Value(&o.Host).
+			Validate(func(s string) error {
+				if s == "" {
+					return ErrHostRequired
+				}
+
+				return nil
+			}),
+		huh.NewInput().
+			Title("Repository").
+			DescriptionFunc(func() string { return repoDescription(o.GitBackend) }, &o.GitBackend).
+			PlaceholderFunc(func() string { return repoPlaceholder(o.GitBackend) }, &o.GitBackend).
+			Value(&o.Repo).
+			Validate(func(s string) error {
+				if s == "" {
+					return ErrRepositoryRequired
+				}
+
+				if !strings.Contains(s, "/") {
+					return ErrRepositoryInvalidFormat
+				}
+
+				return nil
+			}),
+		huh.NewConfirm().
+			Title("Private Repository").
+			Description("Does this repository require authentication to access releases? Enable for private repos; leave off for public ones.").
+			Affirmative("Private").
+			Negative("Public").
+			Value(&o.Private),
+	).
+		Title("Repository").
+		Description("Configure the repository that will host your new tool. The host and repository help below reflect the backend you chose.\n")
+}
+
+// slackGroup collects Slack help-channel details. Shown only when the help
+// channel is Slack.
+func (o *SkeletonOptions) slackGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Title("Slack Channel").
+			Description("The channel where users should ask for help (e.g. #platform-help).").
+			Placeholder("#my-team-help").
+			Value(&o.SlackChannel),
+		huh.NewInput().
+			Title("Slack Team").
+			Description("The team or squad name owning this tool.").
+			Placeholder("My Team").
+			Value(&o.SlackTeam),
+	).
+		Title("Slack Help Configuration").
+		Description("These values appear in error messages to direct users to support.\n").
+		WithHideFunc(func() bool { return o.HelpType != "slack" })
+}
+
+// teamsGroup collects Microsoft Teams help-channel details. Shown only when the
+// help channel is Teams.
+func (o *SkeletonOptions) teamsGroup() *huh.Group {
+	return huh.NewGroup(
+		huh.NewInput().
+			Title("Teams Channel").
+			Description("The channel where users should ask for help.").
+			Placeholder("Support").
+			Value(&o.TeamsChannel),
+		huh.NewInput().
+			Title("Teams Team").
+			Description("The team name owning this tool.").
+			Placeholder("Engineering").
+			Value(&o.TeamsTeam),
+	).
+		Title("Microsoft Teams Help Configuration").
+		Description("These values appear in error messages to direct users to support.\n").
+		WithHideFunc(func() bool { return o.HelpType != "teams" })
+}
+
+// signingEnableGroup asks whether to enable release signing (default No).
+func (o *SkeletonOptions) signingEnableGroup() *huh.Group {
+	return huh.NewGroup(
 		huh.NewConfirm().
 			Title("Enable release signing?").
 			Description("Sets up consumer-side self-update signature verification. Needs a signing key and a published WKD endpoint — leave off unless you have them.").
@@ -538,16 +652,14 @@ func (o *SkeletonOptions) runSigningStep() error {
 	).
 		Title("Release Signing").
 		Description("Verify self-update downloads against an embedded release key.\n")
+}
 
-	if err := forms.NewNavigable(enableGroup).Run(); err != nil {
-		return err
-	}
-
-	if !o.Signing {
-		return nil
-	}
-
-	detailGroup := huh.NewGroup(
+// signingDetailGroup collects the WKD email and key source. Shown only when
+// signing is enabled. require_signature is deliberately never prompted — it
+// stays false until a signed release has shipped and is flipped later via
+// `gtb enable signing`.
+func (o *SkeletonOptions) signingDetailGroup() *huh.Group {
+	return huh.NewGroup(
 		huh.NewInput().
 			Title("Release WKD email").
 			Description("Derives the WKD URL and enables the external trust-anchor leg. Leave empty for embedded-only.").
@@ -569,9 +681,8 @@ func (o *SkeletonOptions) runSigningStep() error {
 			Value(&o.SigningKeyID),
 	).
 		Title("Signing Configuration").
-		Description("These values are written to the manifest signing block.\n")
-
-	return forms.NewNavigable(detailGroup).Run()
+		Description("These values are written to the manifest signing block.\n").
+		WithHideFunc(func() bool { return !o.Signing })
 }
 
 // resolveFeatures builds the full feature list from the selected set,
@@ -596,76 +707,6 @@ func resolveFeatures(selected []string) []generator.ManifestFeature {
 	}
 
 	return features
-}
-
-// runEnvPrefixStep presents the env prefix wizard step, defaulting to the
-// upper-cased tool name with hyphens replaced by underscores.
-func (o *SkeletonOptions) runEnvPrefixStep() error {
-	if o.EnvPrefix == "" {
-		o.EnvPrefix = strings.ToUpper(strings.ReplaceAll(o.Name, "-", "_"))
-	}
-
-	envPrefixGroup := huh.NewGroup(
-		huh.NewInput().
-			Title("Environment Variable Prefix").
-			Description("Prefix for config env var overrides (e.g. MY_APP → MY_APP_LOG_LEVEL). Leave empty to disable.").
-			Placeholder(o.EnvPrefix).
-			Value(&o.EnvPrefix).
-			Validate(func(s string) error {
-				if s == "" {
-					return nil // opt-out
-				}
-
-				if !regexp.MustCompile(`^[A-Z0-9_]+$`).MatchString(s) {
-					return ErrEnvPrefixInvalid
-				}
-
-				return nil
-			}),
-	).
-		Title("Environment Variable Prefix").
-		Description("Scopes config env var lookups so only variables starting with this prefix are considered.\n")
-
-	return forms.NewNavigable(envPrefixGroup).Run()
-}
-
-// runUpdatePolicyStep presents the self-update posture selector. The default
-// (and the "Disabled" choice) leaves the policy empty so the framework default
-// applies; "prompt"/"enabled" are wired into the generated tool.
-func (o *SkeletonOptions) runUpdatePolicyStep() error {
-	group := huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Self-Update Policy").
-			Description("How the generated tool behaves when a newer release is found. Users can override via the update.policy config key.").
-			Options(
-				huh.NewOption("Disabled — log that an update is available, then continue (default)", "").Selected(o.UpdatePolicy == "" || o.UpdatePolicy == "disabled"),
-				huh.NewOption("Prompt — ask to update; declining continues the command", "prompt").Selected(o.UpdatePolicy == "prompt"),
-				huh.NewOption("Enabled — block every command until the tool is updated", "enabled").Selected(o.UpdatePolicy == "enabled"),
-			).
-			Value(&o.UpdatePolicy),
-	).
-		Title("Self-Update Policy").
-		Description("Sets props.Tool.UpdatePolicy in the generated tool.\n")
-
-	return forms.NewNavigable(group).Run()
-}
-
-// runUpdateCheckIntervalStep collects the baseline self-update-check throttle
-// as a Go duration. Empty leaves it unset so the framework default (24h)
-// applies; end users can still override at runtime via update.check_interval.
-func (o *SkeletonOptions) runUpdateCheckIntervalStep() error {
-	group := huh.NewGroup(
-		huh.NewInput().
-			Title("Update Check Interval").
-			Description("How often the generated tool checks for updates, as a Go duration (e.g. 24h, 168h). Leave empty for the framework default (24h). Users can override via update.check_interval.").
-			Placeholder("24h").
-			Value(&o.UpdateCheckInterval).
-			Validate(generator.ValidateUpdateCheckInterval),
-	).
-		Title("Update Check Interval").
-		Description("Sets props.Tool.UpdateCheckInterval in the generated tool.\n")
-
-	return forms.NewNavigable(group).Run()
 }
 
 func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
@@ -701,7 +742,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 
 	host := o.Host
 	if host == "" {
-		host = o.defaultHost()
+		host = hostForBackend(o.GitBackend)
 	}
 
 	helpType := o.HelpType

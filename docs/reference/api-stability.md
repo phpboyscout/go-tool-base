@@ -79,7 +79,6 @@ depend on them in production code without pinning to a specific version.
 | Package | Scope | Note |
 |---------|-------|------|
 | `internal/*` | All packages | Always unstable — import not supported |
-| `pkg/forms` | All types and functions | Subject to charmbracelet/huh API changes |
 | `pkg/setup/ai`, `pkg/setup/github` | All types and functions | Configuration UX still evolving |
 
 ---

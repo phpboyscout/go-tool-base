@@ -26,7 +26,6 @@ not_counted:
 # E2E-covered) tables.
 excluded:
   # --- Bucket A: exclude by design ---
-  - { pkg: pkg/forms, reason: "Bubble Tea TUI — interactive event loop needs a real terminal (E2E/manual)" }
   - { pkg: pkg/docs, reason: "Bubble Tea markdown-browser TUI (E2E/manual)" }
   - { pkg: pkg/cmd/docs, reason: "Wrapper around the docs TUI; residual lines are tea.NewProgram().Run() + live HTTP serve (covered to the TTY ceiling)" }
   - { pkg: internal/generator/templates, reason: "Skeleton string/AST emitters — output correctness verified by building the scaffold (generator_build + @generator BDD)" }

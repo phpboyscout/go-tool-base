@@ -12,7 +12,6 @@ import (
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/forms"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
@@ -295,9 +294,26 @@ func (o *CommandOptions) runInteractivePrompt() error {
 	// keeps today's behaviour.
 	o.ExposeToMCP = true
 
-	return forms.NewWizard(o.buildMainGroup()).
-		Step(o.runAdditionalSteps).
-		Run()
+	// The core fields and the (conditionally shown) AI-prompt group are one
+	// native form: the prompt group reveals itself via WithHideFunc when the
+	// "Set AI Prompt" confirm is checked. The flag stage stays an imperative
+	// loop below because huh has no repeat-group primitive.
+	if err := newForm(o.buildMainGroup(), o.buildPromptGroup()).Run(); err != nil {
+		return err
+	}
+
+	o.processAliasesInput()
+
+	if o.AddFlags {
+		if err := o.runFlagLoop(); err != nil {
+			return err
+		}
+	}
+
+	o.syncOptionsToFlags()
+	o.applyMCPExposureChoice()
+
+	return nil
 }
 
 // buildMainGroup returns the primary form group containing core command fields
@@ -471,7 +487,9 @@ func flagsSummary(flags []string) string {
 	return sb.String()
 }
 
-// buildPromptGroup returns a form group for capturing the AI generation prompt.
+// buildPromptGroup returns the AI-prompt form group. It is shown only when the
+// "Set AI Prompt" confirm on the main group is checked; WithHideFunc keeps it
+// hidden otherwise and huh skips it during navigation.
 func (o *CommandOptions) buildPromptGroup() *huh.Group {
 	return huh.NewGroup(
 		huh.NewText().
@@ -479,34 +497,8 @@ func (o *CommandOptions) buildPromptGroup() *huh.Group {
 			Description("Describe what this command should do, or paste a script to convert to Go.").
 			Value(&o.Prompt),
 	).Title("AI Generation").
-		Description("Provide a prompt or script for AI-assisted command logic generation.\n")
-}
-
-// runAdditionalSteps processes aliases and conditionally runs the flag and
-// prompt stages based on selections made in the main form.
-//
-// Escape on the first flag form (before any flags are saved) propagates back
-// to the main form. Escape on subsequent flag forms stops flag entry and
-// continues. Escape on the prompt form returns to the main form.
-func (o *CommandOptions) runAdditionalSteps() error {
-	o.processAliasesInput()
-
-	if o.AddFlags {
-		if err := o.runFlagLoop(); err != nil {
-			return err
-		}
-	}
-
-	if o.AddPrompt {
-		if err := forms.NewNavigable(o.buildPromptGroup()).Run(); err != nil {
-			return err
-		}
-	}
-
-	o.syncOptionsToFlags()
-	o.applyMCPExposureChoice()
-
-	return nil
+		Description("Provide a prompt or script for AI-assisted command logic generation.\n").
+		WithHideFunc(func() bool { return !o.AddPrompt })
 }
 
 // applyMCPExposureChoice translates the interactive ExposeToMCP confirm into the
@@ -520,31 +512,19 @@ func (o *CommandOptions) applyMCPExposureChoice() {
 	}
 }
 
-// runFlagLoop presents the flag form repeatedly until the user unchecks
-// "Add Another Flag". Escape on the very first flag form propagates
-// huh.ErrUserAborted so the Wizard navigates back to the main form.
-// Escape on any subsequent flag form stops flag entry cleanly.
+// runFlagLoop presents the flag form repeatedly until the user chooses not to
+// add another. Each iteration is its own native form because huh has no
+// repeat-group primitive; the "Add Another Flag" confirm is how the user ends
+// the loop. Aborting a flag form (ctrl+c) propagates as a cancel.
 func (o *CommandOptions) runFlagLoop() error {
-	first := true
-
 	for {
 		fi := FlagFormInput{}
 
-		err := forms.NewNavigable(o.buildFlagGroup(&fi, o.Flags)).Run()
-		if errors.Is(err, huh.ErrUserAborted) {
-			if first {
-				return err // propagate → Wizard goes back to main form
-			}
-
-			return nil // user is done adding flags
-		}
-
-		if err != nil {
+		if err := newForm(o.buildFlagGroup(&fi, o.Flags)).Run(); err != nil {
 			return err
 		}
 
 		o.Flags = append(o.Flags, fi.toFlagString())
-		first = false
 
 		if !fi.AddAnother {
 			return nil
