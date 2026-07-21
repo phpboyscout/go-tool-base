@@ -68,7 +68,7 @@ jobs:
       - name: Find existing comment
         if: github.event_name == 'pull_request'
         id: find-comment
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@v4
         with:
           issue-number: ${{ "{{" }} github.event.pull_request.number {{ "}}" }}
           body-includes: "<!-- test-summary-comment -->"
