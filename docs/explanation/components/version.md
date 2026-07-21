@@ -134,6 +134,18 @@ version.NewInfo("v1.2.3-dev", "abc", "2026-01-01").IsDevelopment() // true
 The self-updater uses this to require `--force` when updating from a
 development build, preventing accidental overwriting of local builds.
 
+### How a dev build still gets a commit and date
+
+Even without `ldflags`, a `go build`/`go install` binary is not versionless.
+`internal/version` reads Go's embedded build metadata (`debug.ReadBuildInfo`) at
+package init and fills in what ldflags would have: the VCS revision
+(`vcs.revision`, suffixed `-dirty` when the working tree was modified), the
+commit time (`vcs.time`), and — when no ldflags version was injected — the
+module version or, failing that, the short commit hash. So `IsDevelopment()`
+stays honest (an untagged local build still reports as development) while
+`version`, `doctor`, and the update check all have a real commit to show. This
+relies on `-buildvcs` (Go's default) being enabled.
+
 ---
 
 ## Integration with Props

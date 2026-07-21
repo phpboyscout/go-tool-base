@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 **Package:** `pkg/workspace`
 
-Detects project boundaries by walking up from a starting directory to find marker files. Used internally by the generator commands to auto-resolve the project root when running from subdirectories.
+Detects project boundaries by walking up from a starting directory to find marker files (`.gtb/manifest.yaml`, `go.mod`, `.git`). It is a standalone utility with no Props or command-lifecycle coupling: GTB's own generator commands use it to resolve the project root when run from a subdirectory, but any tool built on GTB can use it the same way — to scope a command to the current project context (find the repo root, locate config relative to it, refuse to run outside a project).
 
 ## Usage
 

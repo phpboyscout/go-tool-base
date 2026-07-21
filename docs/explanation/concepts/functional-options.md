@@ -222,6 +222,29 @@ initialiser := ai.NewAIInitialiser(
 
 ---
 
+### Logger Options
+
+The `pkg/logger` package builds its Charm logger with a `CharmOption` family:
+
+```go
+import "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+
+log := logger.NewCharm(os.Stderr,
+    logger.WithLevel(logger.InfoLevel),
+    logger.WithTimestamp(true),
+    logger.WithCaller(false),
+)
+```
+
+This is also the seam a config-driven host uses: `logger.Config` carries the
+same knobs and produces the option slice, so you build from config rather than
+setting fields after the fact — `logger.NewCharm(w, cfg.CharmOptions()...)`.
+That matters because `Timestamp`/`Caller` are construction-time only (no runtime
+setter), so they *must* be passed as options. See the
+[logger component](../components/logger.md#config-driven-construction).
+
+---
+
 ## Creating Custom Options
 
 Follow these guidelines when implementing functional options in your own code:
