@@ -117,6 +117,90 @@ func TestCmdSet_HardensPreexistingFilePerms(t *testing.T) {
 		"config set must re-tighten a pre-existing config file to owner-only")
 }
 
+// projectLocalConfig builds Props whose store's writable file is a
+// project-local ".<tool>.yaml", so set routes credential writes there.
+func projectLocalConfig(t *testing.T, contents string) (*props.Props, afero.Fs, string) {
+	t.Helper()
+
+	fs := afero.NewMemMapFs()
+	path := "/repo/.tool.yaml"
+	require.NoError(t, afero.WriteFile(fs, path, []byte(contents), 0o600))
+
+	store, err := cfg.NewStore(t.Context(), cfg.WithFiles(configafero.Wrap(fs), path))
+	require.NoError(t, err)
+
+	return &props.Props{
+		Config: store,
+		FS:     fs,
+		Tool:   props.Tool{Name: "tool"},
+		Logger: logger.NewNoop(),
+	}, fs, path
+}
+
+// TestCmdSet_SensitiveProjectLocalWrite_WarnsAndProceeds covers the credential
+// guard on a committable file. Under `go test` stdin is not a terminal, so the
+// non-interactive branch runs: a warning is emitted to stderr and the write
+// proceeds (a project-local secret can be legitimate — it is never blocked).
+func TestCmdSet_SensitiveProjectLocalWrite_WarnsAndProceeds(t *testing.T) {
+	t.Parallel()
+
+	p, fs, path := projectLocalConfig(t, "log:\n  level: info\n")
+
+	cmd := config.NewCmdSet(p)
+	var out, errBuf bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&errBuf)
+	cmd.SetIn(&bytes.Buffer{}) // force the non-interactive branch
+	cmd.SetArgs([]string{"github.auth.value", "ghp_committed_secret"})
+
+	require.NoError(t, cmd.Execute())
+
+	assert.Contains(t, errBuf.String(), "Warning")
+	assert.Contains(t, errBuf.String(), "project-local")
+	assert.NotContains(t, out.String(), "aborted")
+
+	// The write still lands — the guard warns, it does not block.
+	data, err := afero.ReadFile(fs, path)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "ghp_committed_secret")
+}
+
+// TestCmdSet_NonSensitiveProjectLocalWrite_NoWarning confirms the guard is
+// scoped to credentials: an ordinary key written to the same project-local
+// file produces no warning.
+func TestCmdSet_NonSensitiveProjectLocalWrite_NoWarning(t *testing.T) {
+	t.Parallel()
+
+	p, _, _ := projectLocalConfig(t, "log:\n  level: info\n")
+
+	cmd := config.NewCmdSet(p)
+	var errBuf bytes.Buffer
+	cmd.SetErr(&errBuf)
+	cmd.SetIn(&bytes.Buffer{})
+	cmd.SetArgs([]string{"log.level", "debug"})
+
+	require.NoError(t, cmd.Execute())
+	assert.NotContains(t, errBuf.String(), "Warning")
+}
+
+// TestCmdSet_SensitiveGlobalWrite_NoWarning confirms the guard does not fire
+// for a credential written to the user's private (non-project-local) config —
+// that is the normal, safe destination.
+func TestCmdSet_SensitiveGlobalWrite_NoWarning(t *testing.T) {
+	t.Parallel()
+
+	p, _, _ := newFileConfig(t, "log:\n  level: info\n") // path base is config.yaml
+
+	cmd := config.NewCmdSet(p)
+	var errBuf bytes.Buffer
+	cmd.SetErr(&errBuf)
+	cmd.SetIn(&bytes.Buffer{})
+	cmd.SetArgs([]string{"github.auth.value", "ghp_private_ok"})
+
+	require.NoError(t, cmd.Execute())
+	assert.NotContains(t, errBuf.String(), "Warning")
+}
+
 func TestCmdSet_CoerceBool(t *testing.T) {
 	t.Parallel()
 

@@ -137,6 +137,40 @@ provenance fold belong in go/config eventually; neither justifies a module
 release alone. GTB's `props.ConfigFileSources` and `pkg/cmd/config`'s
 predicates are the interim homes.
 
+### D7 — Warn (and, interactively, confirm) a credential write to a project-local file
+
+A later code review found that go/config routes a *new* key to the
+highest-precedence writable file, which is the project-local `.<tool>.yaml`
+when one exists in the working-directory tree. So `config set anthropic.api.key
+sk-…` run inside a repo carrying a committed `.<tool>.yaml` writes the
+plaintext secret into that committable file rather than the user's private
+config.
+
+The write is **not blocked** — a project-local secret can be deliberate, and
+the project-local layer is an intended feature (a `.editorconfig`-style repo
+convention). Instead `config set` warns when it recognises a credential landing
+in a project-local file, and — when the session is interactive — asks the user
+to confirm; a decline aborts with the file untouched. A non-interactive session
+cannot be prompted, so it proceeds after the warning (CI and scripts are not
+held hostage to a TTY).
+
+Recognition uses two independent signals: the value matches a known credential
+shape (`redact.String(value) != value` — the `sk-`/`ghp_`/`AIza`/`glpat-`
+prefixes, JWTs, and long opaque tokens the redact package already catches), or
+the key is one the migrate catalogue recognises as a literal-credential slot.
+Reference-mode keys (`.env`, `.keychain`) hold an env-var name or keychain
+locator, not a secret, so neither signal fires for them — the recommended
+storage modes never trip the warning. "Project-local" is detected by the file's
+base name (`.<tool>.yaml`), which the global `config.yaml` never shares.
+
+The interactivity check reads the *command's* input stream (os.Stdin by
+default), so a test can force the non-interactive branch with `cmd.SetIn`. The
+interactive huh confirmation itself (reached only under a real TTY) is the
+established `config migrate` confirm pattern and is not exercised by the
+automated suite. `config edit` shares the routing root cause but opens the
+whole file in an editor rather than taking a single key+value, so the
+key-level warning does not apply there.
+
 ## Testing
 
 - WriteExclusive: winning-key survival, sibling removal (absent, not blank),
@@ -144,6 +178,11 @@ predicates are the interim homes.
   `bitbucket.username.env` under one mapping) that broke migrate's editor.
 - Each wizard's mode-switch test asserts stale keys are gone from the written
   file; bitbucket gains the clearing coverage it never had.
+- sensitive-write guard: the recogniser (known keys, token-shaped values, and
+  the `.env`/`.keychain` negatives), the project-local base-name detection, and
+  the command flow — a credential to a project-local file warns and (non-
+  interactively) proceeds; an ordinary key does not warn; a credential to the
+  global config does not warn.
 - unset: a defaulted key unsets successfully and resolves to the default; an
   unset invalid even over defaults is still refused; the env-only refusal is
   unchanged.

@@ -79,12 +79,24 @@ mytool config get github.auth.token --unmask
 ### `config set <key> <value>`
 
 Write a single configuration value. The value is type-coerced (bool → int64 → string) and
-persisted to the config file on disk.
+persisted to the config file on disk. The written file is left owner-only (`0600`).
 
 ```bash
 mytool config set log.level debug
 mytool config set feature.enabled true
 ```
+
+**Credential safety.** When the write would place a recognised credential in a
+project-local `.<tool>.yaml` — the repo-root config layer, which the store
+writes to ahead of your private config when one is present — `set` warns that
+the file may be committed to version control. In an interactive terminal it
+asks you to confirm; declining aborts and leaves the file untouched. In a
+non-interactive session (CI, a pipe) it warns and proceeds. The write is never
+blocked outright — a project-local secret can be deliberate — but prefer
+env-var or OS-keychain storage (see the tool's `init`) for anything sensitive.
+A credential is recognised by a token-shaped value or a known credential key;
+env-var and keychain *references* (`…​.env`, `…​.keychain`) are not secrets and
+never trip the warning.
 
 ### `config unset <key>`
 

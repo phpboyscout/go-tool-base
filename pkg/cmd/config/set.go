@@ -3,14 +3,17 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 
+	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	cfg "gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/redact"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -41,7 +44,24 @@ their native types; everything else is stored as a string.`,
 			// directory must exist.
 			ensureDefaultConfigDir(props)
 
-			if err := applyAndHarden(cmd.Context(), props, cfg.Set(key, coerceValue(rawVal))); err != nil {
+			change := cfg.Set(key, coerceValue(rawVal))
+
+			// Writing a recognised credential into a project-local config file
+			// risks committing the secret to version control. Warn — and, when
+			// interactive, ask to confirm — but never block: a project-local
+			// secret can be legitimate.
+			proceed, err := confirmSensitiveProjectLocalWrite(cmd, props, key, rawVal, change)
+			if err != nil {
+				return err
+			}
+
+			if !proceed {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "aborted")
+
+				return nil
+			}
+
+			if err := applyAndHarden(cmd.Context(), props, change); err != nil {
 				return errors.Wrap(err, "persisting config value")
 			}
 
@@ -104,6 +124,128 @@ func applyAndHarden(ctx context.Context, props *p.Props, changes ...cfg.Change) 
 	}
 
 	return nil
+}
+
+// confirmSensitiveProjectLocalWrite guards a credential write that would land
+// in a project-local config file — the committable ".<tool>.yaml" at a repo
+// root, which the store routes to ahead of the user's private config when one
+// is present. It returns whether the write should proceed.
+//
+// The write is never blocked outright: a project-local secret can be
+// deliberate. When it is a recognised credential, the user is warned; if the
+// session is interactive they are asked to confirm, and a decline aborts.
+// A non-interactive session cannot be prompted, so it proceeds after the
+// warning — CI and scripts are not held hostage to a TTY.
+func confirmSensitiveProjectLocalWrite(cmd *cobra.Command, props *p.Props, key, value string, change cfg.Change) (bool, error) {
+	target := plannedWriteTarget(props, change)
+	if !isProjectLocalConfig(target, props.Tool.Name) || !isSensitiveWrite(key, value) {
+		return true, nil
+	}
+
+	w := cmd.ErrOrStderr()
+	_, _ = fmt.Fprintf(w, "\nWarning: %q looks like a credential and would be written to\n  %s\n", key, target)
+	_, _ = fmt.Fprintln(w, "a project-local config file that may be committed to version control.")
+	_, _ = fmt.Fprintln(w, "Prefer env-var or OS-keychain storage (see the tool's `init`), or write it to")
+	_, _ = fmt.Fprintln(w, "your private config with an explicit --config path.")
+	_, _ = fmt.Fprintln(w)
+
+	if !isInteractiveInput(cmd) {
+		_, _ = fmt.Fprintln(w, "Proceeding (non-interactive); re-run in a terminal to be asked to confirm.")
+
+		return true, nil
+	}
+
+	var confirmed bool
+
+	if err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Write this credential to the project-local config file?").
+				Affirmative("Yes, write it").
+				Negative("No, cancel").
+				Value(&confirmed),
+		),
+	).Run(); err != nil {
+		return false, errors.Wrap(err, "confirmation cancelled")
+	}
+
+	return confirmed, nil
+}
+
+// plannedWriteTarget returns the file a change would be routed to, or "" when
+// the store cannot plan it. Unlike resolveWritableConfigPath's new-key probe,
+// this routes the actual change, so a key that already lives in a lower-
+// precedence file reports that file.
+func plannedWriteTarget(props *p.Props, change cfg.Change) string {
+	if props.Config == nil {
+		return ""
+	}
+
+	plan, err := props.Config.Plan(change)
+	if err != nil || len(plan.Operations) == 0 {
+		return ""
+	}
+
+	return plan.Operations[0].Target.Name
+}
+
+// isProjectLocalConfig reports whether path is a project-local ".<tool>.yaml"
+// config file — the repo-root layer discovered by walking up from the working
+// directory. The global config file is named config.yaml, so the base name
+// cleanly distinguishes the two regardless of directory.
+func isProjectLocalConfig(path, toolName string) bool {
+	if path == "" || toolName == "" {
+		return false
+	}
+
+	return filepath.Base(path) == "."+toolName+".yaml"
+}
+
+// isSensitiveWrite reports whether writing value under key would place a
+// credential in the file. Two independent signals: the value matches a known
+// credential shape (redact rewrites it — sk-/ghp_/AIza/glpat- prefixes, JWTs,
+// long opaque tokens), or the key is one GTB recognises as a literal-credential
+// slot (the migrate catalogue). The value signal catches secrets under a
+// downstream tool's own keys; the key signal catches a short or unusual secret
+// under a known slot. Reference-mode keys (.env, .keychain) hold an env-var
+// name or keychain locator, not a secret, so neither signal fires for them.
+func isSensitiveWrite(key, value string) bool {
+	if redact.String(value) != value {
+		return true
+	}
+
+	return isKnownCredentialKey(key)
+}
+
+// isKnownCredentialKey reports whether key is one GTB recognises as holding a
+// literal credential — the catalogue config migrate scans, including the
+// Bitbucket dual-credential pair whose halves live outside knownCredentials.
+func isKnownCredentialKey(key string) bool {
+	for _, c := range knownCredentials {
+		if key == c.key {
+			return true
+		}
+	}
+
+	return key == bitbucketPrimary.key || key == bitbucketPartner.key
+}
+
+// isInteractiveInput reports whether the command's input is an interactive
+// terminal. It reads the command's own input stream — os.Stdin by default, so
+// production behaviour is unchanged — which lets tests force the
+// non-interactive path with cmd.SetIn.
+func isInteractiveInput(cmd *cobra.Command) bool {
+	f, ok := cmd.InOrStdin().(*os.File)
+	if !ok {
+		return false
+	}
+
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	return info.Mode()&os.ModeCharDevice != 0
 }
 
 // resolveWritableConfigPath returns the file a config write would land in, or
