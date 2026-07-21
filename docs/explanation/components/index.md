@@ -36,7 +36,7 @@ The `pkg` directory contains the reusable library components that power `gtb` ap
 | **[Docs](docs.md)** | `pkg/docs` | Logic for the interactive TUI documentation browser. |
 | **[Forms](forms.md)** | `pkg/forms` | Multi-step interactive CLI form helpers with Escape-to-go-back navigation, built on charmbracelet/huh. |
 | **[Utils](utils.md)** | `pkg/utils` | General-purpose utility functions for path resolution and system checks. |
-| **[Workspace](workspace.md)** | `pkg/workspace` | Project root detection by walking up from the current directory to find marker files. |
+| **[Workspace](workspace.md)** | `go/workspace` | Framework-free project-root detection — a marker-file walk over an injected `afero.Fs`, now a standalone module. |
 | **[OS Info](osinfo.md)** | `pkg/osinfo` | Human-readable OS-version string; the single shared implementation behind the telemetry OS field and the doctor support bundle. |
 
 ## Security & Credentials

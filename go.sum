@@ -562,6 +562,8 @@ gitlab.com/phpboyscout/go/transit v0.1.0 h1:1RdzBEzXzvvTmVqiItON5+FSVw3LvuoUMdVZ
 gitlab.com/phpboyscout/go/transit v0.1.0/go.mod h1:O9JFuK66lqlprUvFDaeZdlQgIA4aBGrwsiwqofToiZ0=
 gitlab.com/phpboyscout/go/transport v0.1.1 h1:wnV6Y3tN7mVcXzhGCzhEpXiqKL6TEPb/MLlbpN1UPH4=
 gitlab.com/phpboyscout/go/transport v0.1.1/go.mod h1:yb6d4S4zmUWpv8by86s1ToBjAWTR+ip9XtNlpL7vlMc=
+gitlab.com/phpboyscout/go/workspace v0.1.0 h1:5iJW+H+WI8desSEve6O8m3rTqTjRa76oAq6juowdIQU=
+gitlab.com/phpboyscout/go/workspace v0.1.0/go.mod h1:fQmiZMDx5i2V3DFhshdR2voNYuKquLM1nigjdJUWcxA=
 gitlab.com/phpboyscout/go/yamldoc v0.1.3 h1:HBnhvcazTIrULLkni4ZxF3X6XoVZsC34SKjL6qPZEaM=
 gitlab.com/phpboyscout/go/yamldoc v0.1.3/go.mod h1:fNWrvlEVSNBcZq4O+EKN2tXrbf4fbrqUngPvuCXJm70=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=

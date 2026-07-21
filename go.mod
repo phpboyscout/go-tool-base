@@ -58,6 +58,7 @@ require (
 	gitlab.com/phpboyscout/go/tls v0.1.0
 	gitlab.com/phpboyscout/go/transit v0.1.0
 	gitlab.com/phpboyscout/go/transport v0.1.1
+	gitlab.com/phpboyscout/go/workspace v0.1.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.20.0

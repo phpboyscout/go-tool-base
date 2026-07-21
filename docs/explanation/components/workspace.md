@@ -1,63 +1,32 @@
 ---
 title: Workspace
-description: Project root detection by walking up from the current directory to find marker files.
-date: 2026-04-01
-tags: [components, workspace, project, utility]
-authors: [Matt Cockayne <matt@phpboyscout.com>]
+description: Project-root detection has been extracted to the standalone go/workspace module.
+date: 2026-07-21
+tags: [components, workspace, project, utility, module-extraction]
+authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---
 
 # Workspace
 
-**Package:** `pkg/workspace`
+Project-root detection — walking up from a starting directory to find a marker file
+(`.gtb/manifest.yaml`, `go.mod`, `.git`) over an injected `afero.Fs` — now lives in the
+standalone module **[`gitlab.com/phpboyscout/go/workspace`](https://gitlab.com/phpboyscout/go/workspace)**.
 
-Detects project boundaries by walking up from a starting directory to find marker files (`.gtb/manifest.yaml`, `go.mod`, `.git`). It is a standalone utility with no Props or command-lifecycle coupling: GTB's own generator commands use it to resolve the project root when run from a subdirectory, but any tool built on GTB can use it the same way — to scope a command to the current project context (find the repo root, locate config relative to it, refuse to run outside a project).
+It is a framework-free utility with no Props or command-lifecycle coupling. GTB's own
+generator commands use it to resolve the project root when run from a subdirectory (all of
+`regenerate`, `generate command/docs/flag`, and `remove` resolve the root when `--path` is
+`"."`), and any tool built on GTB can use it the same way.
 
-## Usage
+- **Docs:** [workspace.go.phpboyscout.uk](https://workspace.go.phpboyscout.uk)
+- **API reference:** [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/workspace)
+- **Migration:** [project-root detection → `go/workspace`](../../reference/migration/v0.x-workspace-extracted.md)
 
 ```go
-ws, err := workspace.Detect(afero.NewOsFs(), ".", workspace.DefaultMarkers)
+import "gitlab.com/phpboyscout/go/workspace"
+
+ws, err := workspace.DetectFromCWD(afero.NewOsFs(), workspace.DefaultMarkers)
 if err != nil {
     return errors.Wrap(err, "not inside a project")
 }
-
-fmt.Println("Project root:", ws.Root)
-fmt.Println("Detected via:", ws.Marker)
+// ws.Root, ws.Marker
 ```
-
-### From Current Working Directory
-
-```go
-ws, err := workspace.DetectFromCWD(afero.NewOsFs(), workspace.DefaultMarkers)
-```
-
-## Default Markers
-
-Checked in order — the first match wins:
-
-| Marker | Detects |
-|--------|---------|
-| `.gtb/manifest.yaml` | GTB-generated project |
-| `go.mod` | Go module root |
-| `.git` | Git repository root |
-
-## Custom Markers
-
-```go
-ws, err := workspace.Detect(fs, startDir, []string{"package.json", "Cargo.toml"})
-```
-
-## Max Depth
-
-Default: 100 levels. Override to limit scanning:
-
-```go
-ws, err := workspace.Detect(fs, startDir, markers, workspace.WithMaxDepth(10))
-```
-
-## Generator Integration
-
-All generator commands (`regenerate`, `generate command/docs/flag`, `remove`) automatically resolve the workspace root when `--path` is `"."` (the default). This means you can run `gtb regenerate project` from any subdirectory within the project.
-
-## Related Documentation
-
-- [Workspace Detection Specification](../../development/specs/2026-03-31-workspace-detection.md)
