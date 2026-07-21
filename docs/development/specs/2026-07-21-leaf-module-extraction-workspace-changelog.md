@@ -2,7 +2,7 @@
 title: "Extract pkg/workspace and pkg/changelog into standalone leaf modules"
 description: "Extract two zero-coupling leaf packages out of go-tool-base into gitlab.com/phpboyscout/go/workspace and gitlab.com/phpboyscout/go/changelog. Both have no go-tool-base imports, no config adapter, no logger seam, and only pure in-package tests, so both are clean repoints (delete the package, repoint callers, no facade). workspace is a ~113-LOC afero-seam marker-file project-root detector; changelog is a ~800-LOC Conventional-Commits changelog generator/parser over go-git. pkg/forms was considered for the same batch but is excluded: it is internal generator-wizard tooling whose core justification huh v2 has since absorbed, and is handled by a separate delete-and-rewrite refactor rather than an extraction."
 date: 2026-07-21
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - workspace
@@ -29,10 +29,9 @@ Status
     (keep `DefaultMarkers` slice, keep `os.Getwd()`, sequence workspace→changelog,
     minimal workspace microsite).
     **workspace: DONE** — `go/workspace` v0.1.0, GTB cut-over MR !274 merged.
-    **changelog: DONE** — `go/changelog` v0.1.0 published (repo id 84668148), microsite
-    live, landing card added; GTB cut-over raised (pure repoint, 4 consumers). Kept on
+    **changelog: DONE** — `go/changelog` v0.1.0, GTB cut-over MR !275 merged. Kept on
     go-git directly (see report row — `go/repo` exposes go-git types, offers no insulation).
-    Both leaves extracted; spec can move to IMPLEMENTED once the changelog cut-over merges.
+    Both leaves extracted end-to-end; forms handled separately (delete + huh v2 rewrite).
 
 Related
 :   [module-extraction playbook](2026-07-12-go-module-extraction-playbook.md) (§5 procedure, §11 pure-repoint findings),
