@@ -111,35 +111,43 @@ f, err := featureOnly.Open("config/defaults.yaml")
 
 ---
 
-## Step 5: Loading Assets into Config
+## Step 5: Shipping config defaults (the `assets/config.yaml` convention)
 
-The most common pattern is using assets as the config baseline. Wire it into `pkg/config` during root command setup:
+You almost never hand-wire embedded defaults into the store. GTB uses a
+filename convention so defaults are picked up automatically:
+
+- **`assets/config.yaml`** — your package's config **defaults**. Every bundle's
+  copy is merged and declared as the store's lowest-precedence layer, so a key
+  absent from the user's file resolves to the shipped default. These *always
+  apply*.
+- **`assets/init/config.yaml`** — the **init template**: the document (comments
+  included) written to the user's config file by `init`. Seed only meaningful
+  values here; an empty placeholder like `api.key: ""` reads as "configured but
+  blank" and is noise.
+
+A **command** feature's bundle rides along whenever the feature is enabled — no
+extra wiring. A **non-command** feature package announces its bundle with
+`setup.RegisterAssets`, and the root command applies it for enabled features at
+construction (the framework baseline registers first, via `props.NewAssets`):
 
 ```go
-// Read the merged embedded document and declare it as a store layer.
-// fs.ReadFile goes through Assets.Open, which merges the path across every
-// registered bundle.
-content, err := fs.ReadFile(p.Assets, "config/defaults.yaml")
-if err != nil {
-    return err
-}
+//go:embed assets/*
+var assets embed.FS
 
-store, err := config.NewStore(ctx,
-    config.WithReaders(config.NamedSource{Name: "embedded:config/defaults.yaml", Content: content}),
-    // ...file/env/flag layers above it...
-)
-if err != nil {
-    return err
+func init() {
+    // Contributes assets/config.yaml (defaults) and assets/init/config.yaml
+    // (init template) for props.MyFeatureCmd when the feature is enabled.
+    setup.RegisterAssets(props.MyFeatureCmd, "myfeature", &assets)
 }
-
-p.Config = store
 ```
 
-To layer a user config file *over* these embedded defaults, prefer the standard
-root/Props config loading (`config.LoadFilesContainer` with `WithConfigFiles`),
-which applies the full `flags > env > file > embedded > defaults` precedence — see
-[Configuration Precedence](../explanation/components/config/index.md). Hand-merging via
-the low-level container is rarely necessary.
+The root pre-run then builds the store — merged `assets/config.yaml` defaults at
+the bottom, then files, env, and flags — with the full
+`flags > env > file > embedded > defaults` precedence. See
+[Configuration Precedence](../explanation/components/config/index.md) and the
+[segregated-defaults spec](../development/specs/2026-07-20-segregated-default-config.md).
+Reach for a manual `config.WithReaders(config.NamedSource{…})` layer only when
+you construct a store yourself, outside the framework's root wiring.
 
 ---
 

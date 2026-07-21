@@ -15,9 +15,27 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 Before any subcommand is executed, the root command performs the following automated steps:
 
 1. **Flag Extraction**: Validates and parses the global flags.
-2. **Configuration Loading**: Merges embedded assets with local filesystem configuration.
+2. **Configuration Loading**: Builds the layered `config.Store` — embedded defaults, config files, env, and changed flags — and pins it on `props.Config`.
 3. **Logging Setup**: Configures the global `props.Logger` level and format based on flags and config.
 4. **Update Checking**: Optionally performs a background check for newer versions (unless `--ci` is set or the check was done in the last 24 hours).
+
+### The missing-config gate
+
+When the `init` feature is enabled, configuration is treated as required: if no
+config file exists, loading returns `ErrNoConfigFile` rather than running the
+command against bare defaults. Two escape hatches relax it:
+
+- **Auto-initialise** — with `Tool.Bootstrap.AutoInitialise` set, the pre-run
+  heals a missing config by running a non-interactive `init` (writing the
+  default config) and then loading it for real, so the command proceeds.
+- **Config-independent commands skip the gate** — `version`, `changelog`,
+  `man`, and `docs` read nothing from configuration, so requiring one before
+  they run would be a fresh-install papercut. They carry the
+  `setup.SkipConfigCheck` annotation, which relaxes the gate to a tolerant load
+  (embedded defaults, no error) — `props.Config` is still populated, so any
+  incidental read is safe. `init` itself skips config loading entirely (it is
+  what *creates* the config). A command that owns its own bootstrap can opt in
+  with `setup.SkipConfigCheck(cmd)` or `Tool.Bootstrap.SkipConfigCheck`.
 
 ## Signal Handling
 

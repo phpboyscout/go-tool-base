@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Version Command
 
-The `version` command displays version information and checks for available updates.
+The `version` command displays version information and checks for available updates. It reads nothing from configuration, so it runs on a fresh install before any config file exists (it [skips the missing-config gate](../../explanation/components/setup/root-command.md#the-missing-config-gate)).
 
 ## Usage
 

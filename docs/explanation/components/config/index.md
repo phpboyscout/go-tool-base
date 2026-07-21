@@ -63,6 +63,18 @@ the file on first write. Writes therefore go to the per-user config (or the
 project-local file when one is present), never to a system path the user cannot
 write.
 
+Two safeguards ride on every config-command write. The written file is
+re-tightened to **`0600`**: the store deliberately *preserves* an existing
+file's mode on write (it treats the mode as the owner's choice), but a GTB
+config file routinely holds credentials, so the framework actively re-asserts
+owner-only permissions. And when a write would place a **recognised credential
+in a project-local `.<tool>.yaml`** — a file that may be committed to version
+control — `config set` warns, and, in an interactive terminal, asks to confirm.
+It never blocks the write (a project-local secret can be deliberate), but it
+nudges toward env-var or keychain storage. See
+[`config set`](../../reference/cli/config.md) and
+[Configure credentials](../../how-to/configure-credentials.md).
+
 `Props.Tool.EnvPrefix` is propagated into the store as the module's
 `WithEnv` layer, so a tool's config keys resolve from `MYTOOL_*` rather than bare
 names — see the module's

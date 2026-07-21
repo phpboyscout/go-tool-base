@@ -135,6 +135,30 @@ mytool ai chat "hi"    # uses the env value, not the YAML placeholder
 
 This is orthogonal to the env-var-reference mode — it's automatic for every config key. It's convenient for CI-injected overrides but shouldn't be the primary storage strategy because it still couples the env var name to the tool's prefix, making per-project rotation harder.
 
+## Switching modes is atomic — old keys are removed
+
+Each credential has exactly one home: env-var reference, keychain reference, or
+literal. When the `init` wizard writes one mode, it **removes** the keys the
+other modes would use, in a single transactional write. So re-running `init` to
+move from a literal `anthropic.api.key` to `anthropic.api.env` leaves only the
+env reference — the old literal is gone from the file, not left behind as a
+stale secret. (Earlier versions of the Bitbucket wizard did leave the previous
+credential behind on a mode switch; it no longer does.) Because exactly one key
+is ever populated, resolution is unambiguous and there is no "which one wins"
+question at read time.
+
+## Where a `config set` credential lands
+
+`config set` writes to the highest-precedence config file — normally your
+private `~/.<tool>/config.yaml`, but the **project-local `.<tool>.yaml`** when
+you are inside a repo that has one. Since that file may be committed, writing a
+recognised credential into it makes `config set` **warn** ("looks like a
+credential … may be committed to version control") and, in an interactive
+terminal, ask to confirm. It never blocks the write, but prefer env-var or
+keychain storage, or target your private config with an explicit `--config`
+path. A pre-configured credential key already living in your private config
+keeps routing there, so it is not affected.
+
 ## Migrating from literal mode
 
 The `config migrate-credentials` command automates this — see the

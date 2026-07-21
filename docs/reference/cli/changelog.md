@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Changelog Command
 
-The `changelog` command displays version history from a CHANGELOG.md embedded in the tool's assets. The changelog is baked into the binary at build time, so it always reflects the version the user is running.
+The `changelog` command displays version history from a CHANGELOG.md embedded in the tool's assets. The changelog is baked into the binary at build time, so it always reflects the version the user is running. Like `version`/`man`/`docs`, it reads nothing from configuration and runs before `init` — it [skips the missing-config gate](../../explanation/components/setup/root-command.md#the-missing-config-gate).
 
 ## Usage
 
