@@ -15,7 +15,7 @@
 useDefault = true
 
 [allowlist]
-description = "pkg/redact and internal/agent redaction tests intentionally contain credential-shaped inputs for the redactor to strip (the tests assert these tokens do NOT survive); the doctor report support-bundle tests and feature do the same (asserting the bundle redacts seeded credential-shaped config values); component docs carry the same illustrative strings; pkg/openapi vendors the minified Stoplight Elements UI (a third-party library whose tokenised minified code trips generic-api-key); and the keys command's unit test plus its spec doc carry a throwaway generated private key / illustrative PEM example. None are real leaked secrets."
+description = "pkg/redact and internal/agent redaction tests intentionally contain credential-shaped inputs for the redactor to strip (the tests assert these tokens do NOT survive); the doctor report support-bundle tests and feature do the same (asserting the bundle redacts seeded credential-shaped config values); component docs carry the same illustrative strings; and the keys command's unit test plus its spec doc carry a throwaway generated private key / illustrative PEM example. None are real leaked secrets."
 paths = [
     '''pkg/redact/redact_test\.go''',
     '''pkg/redact/redact_fuzz_test\.go''',
@@ -25,8 +25,6 @@ paths = [
     '''docs/explanation/components/telemetry\.md''',
     '''docs/explanation/components/telemetry/.*\.md''',
     '''docs/explanation/concepts/telemetry\.md''',
-    '''pkg/openapi/assets/web-components\.min\.js''',
-    '''pkg/openapi/assets/styles\.min\.css''',
     '''internal/cmd/keys/keys_test\.go''',
     '''docs/development/specs/2026-06-08-keys-mint-command\.md''',
     '''features/cli/keys\.feature''',

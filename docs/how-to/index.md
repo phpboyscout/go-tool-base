@@ -166,7 +166,7 @@ Register a gRPC server with the controller, wire the standard health protocol, a
 Put a JSON/REST surface over an existing gRPC service with the grpc-gateway — annotate the proto, mount `gateway.New`, and let `DialLocal` handle the connection.
 
 ### [Serve Interactive API Docs](serve-api-docs.md)
-Generate an OpenAPI v3 spec and serve it with an embedded Stoplight Elements "try it" console using `pkg/openapi`.
+Generate an OpenAPI v3 spec and serve it with an embedded Stoplight Elements "try it" console using the `go/transport-openapi` module.
 
 ### [Verify Requests (API Keys & JWT/OIDC)](verify-requests-with-authn.md)
 Authenticate HTTP requests with `pkg/authn` verifiers and the fail-closed `AuthMiddleware` — API keys, JWT/OIDC, mTLS, and an authorization policy.

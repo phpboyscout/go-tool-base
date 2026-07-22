@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Serve Interactive API Docs
 
-GTB's `pkg/openapi` package serves an OpenAPI specification alongside an interactive [Stoplight Elements](https://stoplight.io/open-source/elements) docs site — complete with a "try it" console — from a single `Register` call. The Stoplight Elements UI is embedded in the framework, so your project ships only its generated spec. There is no per-project vendoring of the UI.
+The standalone [`go/transport-openapi`](https://transport-openapi.go.phpboyscout.uk) module — a companion to `go/transport` — serves an OpenAPI specification alongside an interactive [Stoplight Elements](https://stoplight.io/open-source/elements) docs site, complete with a "try it" console, from a single `Register` call. The Stoplight Elements UI is embedded in the module, so your project ships only its generated spec. There is no per-project vendoring of the UI.
 
 This guide takes you from a `.proto` file to a browsable, runnable docs site mounted alongside your REST API.
 
@@ -88,14 +88,14 @@ import (
 	_ "embed"
 	"net/http"
 
-	"gitlab.com/phpboyscout/go-tool-base/pkg/openapi"
+	openapi "gitlab.com/phpboyscout/go/transport-openapi"
 )
 
 //go:embed assets/openapi.yaml
 var spec []byte
 ```
 
-Embedding only your own spec keeps the project lean — the Stoplight Elements assets (the JavaScript and CSS) ship inside go-tool-base, not your repository.
+Embedding only your own spec keeps the project lean — the Stoplight Elements assets (the JavaScript and CSS) ship inside the `go/transport-openapi` module, not your repository. Add it with `go get gitlab.com/phpboyscout/go/transport-openapi`.
 
 ---
 

@@ -194,7 +194,7 @@ The alice-style middleware chaining API lives in [`gitlab.com/phpboyscout/go/tra
 
 Headers are set **before** the wrapped handler runs, so a handler that writes its own response still emits them; a handler may override any value by setting its own.
 
-**Applied to the built-in surfaces by default.** The interactive docs/OpenAPI handlers (`pkg/openapi.Register`) and the documentation server (`pkg/docs.Serve`) wrap their handlers with this middleware automatically — the docs UI serves a "try-it" console that benefits from `nosniff`/frame/referrer protections. Customise via `openapi.WithSecurityHeaderOptions(...)` or opt out with `openapi.WithoutSecurityHeaders()`. The middleware is **not** forced onto user-supplied handlers; add it to your own chain where you want it.
+**Applied to the built-in surfaces by default.** The interactive docs/OpenAPI handlers (the standalone `go/transport-openapi` module's `Register`) and the documentation server (`pkg/docs.Serve`) wrap their handlers with this middleware automatically — the docs UI serves a "try-it" console that benefits from `nosniff`/frame/referrer protections. Customise via `openapi.WithSecurityHeaderOptions(...)` or opt out with `openapi.WithoutSecurityHeaders()`. The middleware is **not** forced onto user-supplied handlers; add it to your own chain where you want it.
 
 ### Built-in Rate-Limit Middleware
 

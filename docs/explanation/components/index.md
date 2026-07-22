@@ -67,7 +67,7 @@ Components for running a CLI as a long-lived service. See also **[Controls](cont
 | **[Auth](authn.md)** | `pkg/authn` | Opt-in credential verification (API-key, JWT/OIDC, mTLS) and a minimal authorization seam for the HTTP and gRPC transports. |
 | **[TLS](tls.md)** | `pkg/tls` | Shared hardened TLS config, the typed `Pair`, shared/per-transport resolution, and client cert-pool helpers. |
 | **[Gateway](gateway.md)** | `pkg/gateway` | grpc-gateway as a first-class transport: REST-to-gRPC, mounted or as its own server. |
-| **[OpenAPI](openapi.md)** | `pkg/openapi` | Serve an OpenAPI spec and an embedded Stoplight Elements docs site. |
+| **[OpenAPI](openapi.md)** | `go/transport-openapi` | Serve an OpenAPI spec and an embedded Stoplight Elements docs site from one `Register` call — now a standalone companion module to `go/transport`. |
 | **[Observability](observability.md)** | `pkg/telemetry/*` | OTel-native traces, metrics and logs over OTLP; one-line transport instrumentation in `pkg/http`/`pkg/grpc`; trace-correlated request logs. |
 
 ## Testing Support
