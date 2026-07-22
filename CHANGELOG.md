@@ -1,5 +1,490 @@
 # Changelog
 
+## [v0.32.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.32.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.31.1...v0.32.0)
+
+This release migrates GTB's configuration subsystem from the Viper-backed container to the extracted **`go/config` Store**, removing Viper from the dependency graph entirely. It is a breaking change on the pre-1.0 line: `Props.Config` is now a `*config.Store` — reads go through a pinned `props.Config.View()` (which satisfies `config.Reader`), writes go through the store's transactional `Apply`, and hot reload is explicit via `Store.Watch`. Downstream tools should follow the [configuration Store migration guide](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/docs/reference/migration/v0.x-config-store.md).
+
+Highlights beyond the API change:
+
+- **Segregated, always-on defaults** — embedded `assets/config.yaml` defaults merge per feature bundle and always apply, so a key absent from your file resolves to the shipped default rather than a zero value.
+- **Corrected write routing** — the per-user config now overrides the system `/etc` file (the Unix convention, previously inverted), and `config set`/`unset`/`edit` land in the user config (created on first write, re-hardened to `0600`), never an un-writable system path.
+- **Credential safety** — switching storage mode removes the previous mode's keys atomically, and `config set` warns before writing a recognised credential into a committable project-local `.<tool>.yaml`.
+- **Quieter first run** — config-independent commands (`version`, `changelog`, `man`, `docs`) run before any config file exists, and `config validate` no longer flags recognised framework keys as "unknown".
+
+### Suffix / End
+
+This will be added to the end of the release notes.
+
+```rp-suffix
+
+### Features
+
+- **vcs**: remove the superseded pkg/vcs/github wide client ([e0abfe7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e0abfe712c89d870fb4fb263058560f6f0b64048))
+- **setup**: unify GitHub and Bitbucket setup into one forge-driven initialiser ([b0bbab5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b0bbab5d8eb004ccbc54beccb9e52a13339b0152))
+- **deps**: adopt forge v0.2.0 provider account capabilities ([cf579cd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cf579cd1611838903c51f7c7d8b6983bf2cfe17a))
+- **openapi**: consume the extracted go/transport-openapi module ([30e6154](https://gitlab.com/phpboyscout/go-tool-base/-/commit/30e61541dff94a24a73277071ec76d11b1d9decb))
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **vcs**: remove the superseded pkg/vcs/github wide client ([e0abfe7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e0abfe712c89d870fb4fb263058560f6f0b64048))
+- **setup**: unify GitHub and Bitbucket setup into one forge-driven initialiser ([b0bbab5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b0bbab5d8eb004ccbc54beccb9e52a13339b0152))
+- **deps**: adopt forge v0.2.0 provider account capabilities ([cf579cd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cf579cd1611838903c51f7c7d8b6983bf2cfe17a))
+- **openapi**: consume the extracted go/transport-openapi module ([30e6154](https://gitlab.com/phpboyscout/go-tool-base/-/commit/30e61541dff94a24a73277071ec76d11b1d9decb))
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **vcs**: remove the superseded pkg/vcs/github wide client ([e0abfe7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e0abfe712c89d870fb4fb263058560f6f0b64048))
+- **setup**: unify GitHub and Bitbucket setup into one forge-driven initialiser ([b0bbab5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b0bbab5d8eb004ccbc54beccb9e52a13339b0152))
+- **deps**: adopt forge v0.2.0 provider account capabilities ([cf579cd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cf579cd1611838903c51f7c7d8b6983bf2cfe17a))
+- **openapi**: consume the extracted go/transport-openapi module ([30e6154](https://gitlab.com/phpboyscout/go-tool-base/-/commit/30e61541dff94a24a73277071ec76d11b1d9decb))
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **openapi**: consume the extracted go/transport-openapi module ([30e6154](https://gitlab.com/phpboyscout/go-tool-base/-/commit/30e61541dff94a24a73277071ec76d11b1d9decb))
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **openapi**: consume the extracted go/transport-openapi module ([30e6154](https://gitlab.com/phpboyscout/go-tool-base/-/commit/30e61541dff94a24a73277071ec76d11b1d9decb))
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **output**: consume the extracted go/output module ([57af634](https://gitlab.com/phpboyscout/go-tool-base/-/commit/57af634462f80f6efbc799a7b19daa95b047efd0))
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **generate**: rewrite the wizards on native huh v2 and delete pkg/forms ([8b5732c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8b5732c077150a19513728346a035440ee45699d))
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+### Features
+
+- **config**: warn before writing a credential to a project-local config file ([ebb082d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ebb082d1cf8e3a8d2bcb6436c9057b5f1f2ebd09))
+- **setup**: commit credential mode switches as one exclusive transactional write ([e4e5758](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e4e5758b2384a86c6301de95dfb52a71026d5a6f))
+- **root**: watch the config store for external changes ([8dfd129](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8dfd12958283d183bb55271a96cafc3bcd2ab98e))
+- **generator**: emit store-era initialiser and validation signatures ([b29119a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b29119aadb21391a6809174d1ec90d621bad3038))
+- **root**: the segregated defaults layer always applies ([cc6305d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6305d79c7f36e6957aa6d8a0007e32a2acb8d9))
+- **root**: build one config Store instead of load-then-merge ([dda0f2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda0f2f20043dc942a157202bb592b9307904001))
+- **props**: hold a config Store rather than a Containable ([33ef674](https://gitlab.com/phpboyscout/go-tool-base/-/commit/33ef67465f90bd617738ee2cf1bec037c122bf32))
+- **vcs**: consume the extracted forge modules ([0478abc](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0478abcd1df4a4ddf8f275bf41b11fe44e95a829))
+- **vcs/repo**: consume the extracted go/repo and go/aferobilly modules ([950b151](https://gitlab.com/phpboyscout/go-tool-base/-/commit/950b151fea1f83f410eb3f1bcf075ea8aa1330b4))
+
+### Bug Fixes
+
+- **config**: quiet fresh-tool config noise and let config-free commands run ([3e7bdd4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e7bdd411da9e87c5455ef6241cd4ba66921959a))
+- **config**: route config writes to the user file, not a missing /etc path ([d983cda](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d983cda33059066c7466805021931868218d025b))
+- **ai**: commit the AI provider and its credential in one write ([766a119](https://gitlab.com/phpboyscout/go-tool-base/-/commit/766a1196e4a8f5d4b2e85838a50e7bfbf358a72d))
+- **config**: re-harden config file permissions to 0600 on set and migrate ([d1dfef5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d1dfef52bcb3bae1cb77fd4460290c93a99c6c90))
+- **config**: resolve unset and --writable through the store's own routing ([cc6e7b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cc6e7b2fb311781bb9fe706c42f92a45043c49a2))
+- **config-cmd**: defaults-layer provenance for validate and migrate ([bb5a2e6](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bb5a2e64c07258be347c90532a5511f42a50973b))
+- **config-cmd**: interleave migrate's removes and sets per credential ([bd0706e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bd0706efed2f8c3bde43bc89e189979b2b95bbbf))
+- **setup**: WithAuthCheck reads the live store instead of the global viper ([0f3c949](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0f3c9490ced0b7e8e3d4fa2d5d7bf7bfe8ed0175))
+- **root**: repair the three phase-2 defects in the config bootstrap ([4ee53c9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4ee53c9cb3e4d2c3cfa47a17d5f2265f5631082e))
+- **root**: read embedded assets through fs.ReadFile, and correct the spec ([a114dec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a114dec4c3dc33b398226d8930d22245ff7765c4))
+- **config**: let an explicit --config suppress the project-local layer ([4df7507](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4df75076fa804e51b8b0019a099665416474021e))
+- **deps**: update gomod-weekly ([1fc795a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1fc795a58cbca0bb43aeab1493ef48c3342a5c72))
+
+```
+
 ## [v0.31.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.31.1)
 
 ### Bug Fixes
