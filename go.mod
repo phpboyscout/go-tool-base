@@ -13,7 +13,6 @@ require (
 	github.com/ProtonMail/go-crypto v1.4.1
 	github.com/charmbracelet/keygen v0.5.4
 	github.com/charmbracelet/x/ansi v0.11.7
-	github.com/cli/oauth v1.2.2
 	github.com/cockroachdb/errors v1.14.0
 	github.com/cucumber/godog v0.15.1
 	github.com/dave/dst v0.27.4
@@ -42,11 +41,11 @@ require (
 	gitlab.com/phpboyscout/go/controls v0.1.0
 	gitlab.com/phpboyscout/go/credentials v0.2.0
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.1.1
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.1.0
-	gitlab.com/phpboyscout/go/forge-gitea v0.1.0
-	gitlab.com/phpboyscout/go/forge-github v0.1.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.1.0
+	gitlab.com/phpboyscout/go/forge v0.2.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.2.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.2.0
+	gitlab.com/phpboyscout/go/forge-github v0.2.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.2.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/output v0.1.0
@@ -116,6 +115,7 @@ require (
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/cli/browser v1.3.0 // indirect
+	github.com/cli/oauth v1.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
