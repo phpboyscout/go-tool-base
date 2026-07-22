@@ -1,0 +1,114 @@
+package forge
+
+import (
+	"context"
+
+	"github.com/cockroachdb/errors"
+	"github.com/spf13/cobra"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+
+// RunGitHubInit forcibly runs both login and SSH configuration regardless of
+// current state. This is used by the explicit `init github` command.
+func RunGitHubInit(p *props.Props, cfg setup.Editor) error {
+	g := New(p, gitHubProfile)
+
+	if err := g.configureAuth(p, cfg); err != nil {
+		return err
+	}
+
+	return g.configureSSH(p, cfg)
+}
+
+// NewCmdInitGitHub creates the `init github` subcommand.
+func NewCmdInitGitHub(p *props.Props) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "github",
+		Short: "Configure GitHub authentication and SSH keys",
+		Long: `Configure the GitHub token for API access via the three-mode selector
+(env-var reference, OS keychain, or literal), and generate or select an SSH key
+for Git operations.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			dir, _ := cmd.Flags().GetString("dir")
+
+			if err := RunGitHubInitCmd(cmd.Context(), p, dir); err != nil {
+				return errors.Wrap(err, "failed to configure GitHub")
+			}
+
+			p.Logger.Info("GitHub configuration saved successfully")
+
+			return nil
+		},
+	}
+
+	cmd.Flags().String("dir", setup.GetDefaultConfigDir(p.FS, p.Tool.Name), "directory containing the config file")
+
+	return cmd
+}
+
+// RunGitHubInitCmd executes the GitHub configuration and writes the results to
+// the config file, which is seeded from the merged init template when absent.
+func RunGitHubInitCmd(ctx context.Context, p *props.Props, dir string) error {
+	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
+	if err != nil {
+		return err
+	}
+
+	return RunGitHubInit(p, editor) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
+}
+
+// RunBitbucketInit executes the wizard against an existing config container,
+// typically invoked by [NewCmdInitBitbucket]. Optional [DualFormOption]s are
+// propagated into the wizard so tests can inject deterministic form creators,
+// mirroring [pkg/setup/ai.RunAIInit].
+func RunBitbucketInit(p *props.Props, cfg setup.Editor, opts ...DualFormOption) error {
+	i := NewBitbucketInitialiser(p, WithDualForms(opts...))
+
+	return i.Configure(p, cfg)
+}
+
+// NewCmdInitBitbucket creates the `init bitbucket` subcommand.
+func NewCmdInitBitbucket(p *props.Props) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bitbucket",
+		Short: "Configure Bitbucket authentication (username + app password)",
+		Long: `Configure Bitbucket credentials via the three-mode selector: environment
+variable references (recommended default), OS keychain (single JSON blob), or
+literal values in the config file.
+
+Bitbucket's dual-credential model (username + app_password) is handled natively:
+env-var mode records two env-var names, keychain mode stores a single JSON blob,
+and literal mode writes both fields to config.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			dir, _ := cmd.Flags().GetString("dir")
+
+			if err := RunBitbucketInitCmd(cmd.Context(), p, dir); err != nil {
+				return errors.Wrap(err, "failed to configure Bitbucket")
+			}
+
+			p.Logger.Info("Bitbucket configuration saved successfully")
+
+			return nil
+		},
+	}
+
+	cmd.Flags().String("dir", setup.GetDefaultConfigDir(p.FS, p.Tool.Name), "directory containing the config file")
+
+	return cmd
+}
+
+// RunBitbucketInitCmd materialises the target config (seeded from the merged
+// init template when absent) and runs the wizard over it; writes land in the
+// file as they are applied, with 0600 permissions. Optional [DualFormOption]s
+// are propagated into the wizard so tests can inject deterministic form
+// creators, mirroring [pkg/setup/ai.RunAIInit].
+func RunBitbucketInitCmd(ctx context.Context, p *props.Props, dir string, opts ...DualFormOption) error {
+	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
+	if err != nil {
+		return err
+	}
+
+	return RunBitbucketInit(p, editor, opts...) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
+}

@@ -10,8 +10,7 @@ import (
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/ai"
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/bitbucket"
-	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/github"
+	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
 // InitOption configures the init command for testability.

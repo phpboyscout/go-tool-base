@@ -1,4 +1,4 @@
-package github
+package forge
 
 import (
 	"context"
@@ -18,15 +18,14 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-// authFormOverride composes the slice-returning creator and the
-// display-once creator into a single [AuthFormOption]. Keeps the
-// test call sites tight.
+// authFormOverride composes the slice-returning creator and the display-once
+// creator into a single [AuthFormOption]. Keeps the test call sites tight.
 func authFormOverride(
-	cfgMutate func(*GitHubAuthConfig),
+	cfgMutate func(*AuthConfig),
 	displayOnce func(string, string) *huh.Form,
 ) AuthFormOption {
 	return WithAuthForm(
-		func(cfg *GitHubAuthConfig) []*huh.Form {
+		func(cfg *AuthConfig) []*huh.Form {
 			cfgMutate(cfg)
 			return nil
 		},
@@ -34,10 +33,10 @@ func authFormOverride(
 	)
 }
 
-// newAuthProps constructs the Props fixture used by the auth tests plus a
-// real store-backed editor over a memfs config file, and also neutralises
-// env vars that could otherwise short-circuit the wizard
-// (already-configured detection) or flip CI branches.
+// newAuthProps constructs the Props fixture used by the auth tests plus a real
+// store-backed editor over a memfs config file, and also neutralises env vars
+// that could otherwise short-circuit the wizard (already-configured detection)
+// or flip CI branches.
 func newAuthProps(t *testing.T) (*props.Props, setup.Editor) {
 	t.Helper()
 
@@ -54,16 +53,16 @@ func newAuthProps(t *testing.T) (*props.Props, setup.Editor) {
 	return p, newTestEditor(t, p, "")
 }
 
-// TestGitHubAuth_LiteralModeWritesAuthValue pins the legacy literal
-// behaviour: OAuth succeeds, the token lands under github.auth.value,
-// nothing else is touched.
+// TestGitHubAuth_LiteralModeWritesAuthValue pins the legacy literal behaviour:
+// OAuth succeeds, the token lands under github.auth.value, nothing else is
+// touched.
 func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 	p, cfg := newAuthProps(t)
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithGHLogin(func(_ string) (string, error) { return "ghp_lit_token", nil }),
-		WithGitHubAuthForms(authFormOverride(
-			func(c *GitHubAuthConfig) { c.StorageMode = credentials.ModeLiteral },
+		WithProviderFactory(authProviderFactory("ghp_lit_token", nil)),
+		WithAuthForms(authFormOverride(
+			func(c *AuthConfig) { c.StorageMode = credentials.ModeLiteral },
 			nil,
 		)),
 	)
@@ -75,20 +74,16 @@ func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 	assert.Empty(t, view.GetString("github.auth.keychain"))
 }
 
-// TestGitHubAuth_EnvVarModeWritesReferenceOnly exercises the
-// "FetchToken=false" branch — the user already has a token in their
-// shell profile and just wants to record the env-var reference.
+// TestGitHubAuth_EnvVarModeWritesReferenceOnly exercises the "FetchToken=false"
+// branch — the user already has a token in their shell profile and just wants to
+// record the env-var reference.
 func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 	p, cfg := newAuthProps(t)
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithGHLogin(func(_ string) (string, error) {
-			t.Fatal("OAuth must not run when FetchToken=false")
-
-			return "", nil
-		}),
-		WithGitHubAuthForms(authFormOverride(
-			func(c *GitHubAuthConfig) {
+		WithProviderFactory(fatalOnLoginProvider(t)),
+		WithAuthForms(authFormOverride(
+			func(c *AuthConfig) {
 				c.StorageMode = credentials.ModeEnvVar
 				c.EnvVarName = "MYTOOL_GH_TOKEN"
 				c.FetchToken = false
@@ -104,9 +99,9 @@ func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 	assert.Empty(t, view.GetString("github.auth.keychain"))
 }
 
-// TestGitHubAuth_EnvVarModeDisplayOnce — FetchToken=true path: OAuth
-// runs, display-once form receives the captured token and the env-var
-// name, the config stores only the env-var reference.
+// TestGitHubAuth_EnvVarModeDisplayOnce — FetchToken=true path: OAuth runs,
+// display-once form receives the captured token and the env-var name, the config
+// stores only the env-var reference.
 func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 	p, cfg := newAuthProps(t)
 
@@ -117,9 +112,9 @@ func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 	)
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithGHLogin(func(_ string) (string, error) { return "ghp_envvar_token", nil }),
-		WithGitHubAuthForms(authFormOverride(
-			func(c *GitHubAuthConfig) {
+		WithProviderFactory(authProviderFactory("ghp_envvar_token", nil)),
+		WithAuthForms(authFormOverride(
+			func(c *AuthConfig) {
 				c.StorageMode = credentials.ModeEnvVar
 				c.EnvVarName = "GITHUB_TOKEN"
 				c.FetchToken = true
@@ -129,10 +124,9 @@ func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 				tokenShown = token
 				envVarNameShown = envVarName
 
-				// Returning nil causes the wizard to skip the render
-				// step, which is what we want under test — we've
-				// already captured the token and env-var name by the
-				// time the creator is called.
+				// Returning nil causes the wizard to skip the render step, which
+				// is what we want under test — we've already captured the token
+				// and env-var name by the time the creator is called.
 				return nil
 			},
 		)),
@@ -149,18 +143,18 @@ func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 	assert.Empty(t, view.GetString("github.auth.keychain"))
 }
 
-// TestGitHubAuth_KeychainModeStoresTokenAndRef — OAuth returns a
-// token, the wizard stashes it via the credentials.Backend, and the
-// config records a "<tool>/github.auth" reference with no plaintext.
+// TestGitHubAuth_KeychainModeStoresTokenAndRef — OAuth returns a token, the
+// wizard stashes it via the credentials.Backend, and the config records a
+// "<tool>/github.auth" reference with no plaintext.
 func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 	credtest.Install(t)
 
 	p, cfg := newAuthProps(t)
 
 	init := NewGitHubInitialiser(p, false, true,
-		WithGHLogin(func(_ string) (string, error) { return "ghp_kc_token", nil }),
-		WithGitHubAuthForms(authFormOverride(
-			func(c *GitHubAuthConfig) { c.StorageMode = credentials.ModeKeychain },
+		WithProviderFactory(authProviderFactory("ghp_kc_token", nil)),
+		WithAuthForms(authFormOverride(
+			func(c *AuthConfig) { c.StorageMode = credentials.ModeKeychain },
 			nil,
 		)),
 	)
@@ -176,35 +170,34 @@ func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 	assert.Equal(t, "ghp_kc_token", got)
 }
 
-// TestWriteGitHubCredential_KeychainWithoutToken — defensive: the
-// routing layer refuses keychain mode when the capture step produced
-// no token. The wizard should never reach this state, but the guard
-// prevents an empty keychain entry if a future refactor regresses.
+// TestWriteGitHubCredential_KeychainWithoutToken — defensive: the routing layer
+// refuses keychain mode when the capture step produced no token. The wizard
+// should never reach this state, but the guard prevents an empty keychain entry
+// if a future refactor regresses.
 func TestWriteGitHubCredential_KeychainWithoutToken(t *testing.T) {
 	credtest.Install(t)
 
-	// A mock editor with no expectations proves the guard fires before
-	// any config write.
+	// A mock editor with no expectations proves the guard fires before any
+	// config write.
 	cfg := setupmocks.NewMockEditor(t)
-	authCfg := &GitHubAuthConfig{StorageMode: credentials.ModeKeychain}
+	authCfg := &AuthConfig{StorageMode: credentials.ModeKeychain}
 
-	err := writeGitHubCredential(t.Context(), cfg, "testtool", authCfg)
+	err := writeSingleCredential(t.Context(), gitHubProfile, cfg, "testtool", authCfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no GitHub token captured")
 }
 
-// TestWriteGitHubCredential_ModeSwitchClearsStaleKeys is the
-// regression guard for the credential single-key invariant: writing a
-// credential in one storage mode must purge any value left behind by a
-// prior mode, so config never carries both an env reference and a
-// literal token (the keryx-reported leak class, applied to the GitHub
-// backend). Stale keys are removed from the document entirely.
+// TestWriteGitHubCredential_ModeSwitchClearsStaleKeys is the regression guard
+// for the credential single-key invariant: writing a credential in one storage
+// mode must purge any value left behind by a prior mode, so config never carries
+// both an env reference and a literal token. Stale keys are removed from the
+// document entirely.
 func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 	t.Run("env-var mode clears a stale literal token", func(t *testing.T) {
 		p := newTestProps(t)
 		cfg := newTestEditor(t, p, "github:\n  auth:\n    value: ghp_STALE_TOKEN\n")
 
-		err := writeGitHubCredential(t.Context(), cfg, "testtool", &GitHubAuthConfig{
+		err := writeSingleCredential(t.Context(), gitHubProfile, cfg, "testtool", &AuthConfig{
 			StorageMode: credentials.ModeEnvVar,
 			EnvVarName:  "GITHUB_TOKEN",
 		})
@@ -220,11 +213,11 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 		p := newTestProps(t)
 		cfg := newTestEditor(t, p, "github:\n  auth:\n    env: OLD_GH_ENV\n")
 
-		// Held in a variable rather than an inline Token literal so
-		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
+		// Held in a variable rather than an inline Token literal so gosec G101
+		// doesn't flag a "hardcoded credential" test fixture.
 		replacement := "ghp_new_token"
 
-		err := writeGitHubCredential(t.Context(), cfg, "testtool", &GitHubAuthConfig{
+		err := writeSingleCredential(t.Context(), gitHubProfile, cfg, "testtool", &AuthConfig{
 			StorageMode: credentials.ModeLiteral,
 			Token:       replacement,
 		})
@@ -237,16 +230,15 @@ func TestWriteGitHubCredential_ModeSwitchClearsStaleKeys(t *testing.T) {
 	})
 }
 
-// The storage-mode choice matrix and the env-var-name validation are
-// now provided by the go/credentials module (ModeChoices /
-// ValidateEnvVarName) and exercised in that module's tests — a single
-// source of truth shared by every setup wizard.
+// The storage-mode choice matrix and the env-var-name validation are now
+// provided by the go/credentials module (ModeChoices / ValidateEnvVarName) and
+// exercised in that module's tests — a single source of truth shared by every
+// setup wizard.
 
-// Compile-time guard: AuthFormOption is exposed and composable with
-// WithAuthForm. Protects the public test-extension surface from
-// accidental unexport.
+// Compile-time guard: AuthFormOption is exposed and composable with WithAuthForm.
+// Protects the public test-extension surface from accidental unexport.
 var _ AuthFormOption = WithAuthForm(nil, nil)
 
-// Compile-time guard: writeGitHubCredential's signature matches what
+// Compile-time guard: writeSingleCredential's signature matches what
 // configureAuth expects.
-var _ func(ctx context.Context, cfg setup.Editor, toolName string, authCfg *GitHubAuthConfig) error = writeGitHubCredential
+var _ func(ctx context.Context, profile Profile, cfg setup.Editor, toolName string, authCfg *AuthConfig) error = writeSingleCredential

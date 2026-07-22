@@ -1,4 +1,4 @@
-package github
+package forge
 
 import (
 	"context"
@@ -15,11 +15,11 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go/forge"
+	forgeapi "gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
-	githubvcs "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/github"
 )
 
 const (
@@ -33,14 +33,32 @@ const (
 	minPassphraseLength = 12
 )
 
-var GitHubHost = "github.com"
+// defaultKeyManager builds the registered forge provider and type-asserts it
+// for the optional [forgeapi.KeyManager] capability. SSH-key upload targets the
+// profile's Host (or the Enterprise host carried in the config's url.api), so
+// only Host is set on the release source. A provider that does not implement
+// KeyManager yields [forgeapi.ErrNotSupported], which the caller treats as
+// "skip automated upload and tell the user to add the key manually".
+func defaultKeyManager(profile Profile) func(config.Reader) (forgeapi.KeyManager, error) {
+	return func(cfg config.Reader) (forgeapi.KeyManager, error) {
+		factory, err := forgeapi.Lookup(profile.Provider)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 
-func defaultGitHubClientFactory(cfg config.Reader) (githubvcs.GitHubClient, error) {
-	// SSH key management targets github.com (or the Enterprise host
-	// carried in cfg.url.api); release-source host is not relevant here.
-	return githubvcs.NewGitHubClient(
-		githubvcs.ClientSettingsFromConfig(forge.ReleaseSourceConfig{}, vcs.ConfigFromReader(cfg)),
-	)
+		provider, err := factory(forgeapi.ReleaseSourceConfig{Host: profile.Host}, vcs.ConfigFromReader(cfg))
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		km, ok := provider.(forgeapi.KeyManager)
+		if !ok {
+			return nil, errors.Wrapf(forgeapi.ErrNotSupported,
+				"%s provider does not support SSH-key upload", profile.Provider)
+		}
+
+		return km, nil
+	}
 }
 
 type configureSSHKeyConfig struct {
@@ -96,8 +114,8 @@ func defaultSSHKeyPathFormCreator(targetKey *string) *huh.Form {
 }
 
 // ConfigureSSHKey runs the interactive SSH key configuration flow.
-func ConfigureSSHKey(props *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error) {
-	props.Logger.Info("Configuring SSH key for use with Github")
+func ConfigureSSHKey(profile Profile, props *props.Props, cfg config.Reader, opts ...ConfigureSSHKeyOption) (string, string, error) {
+	props.Logger.Info("Configuring SSH key", "provider", profile.Label)
 
 	optsConfig := &configureSSHKeyConfig{
 		sshKeySelectFormCreator: defaultSSHKeySelectFormCreator,
@@ -119,8 +137,8 @@ func ConfigureSSHKey(props *props.Props, cfg config.Reader, opts ...ConfigureSSH
 	potentialKeys = append(potentialKeys, huh.NewOption("Enter path to key manually", "other"))
 
 	var targetKey string
-	if cfg.IsSet("github.ssh.key.path") {
-		targetKey = cfg.GetString("github.ssh.key.path")
+	if cfg.IsSet(profile.sshKeyPathKey()) {
+		targetKey = cfg.GetString(profile.sshKeyPathKey())
 	}
 
 	form := optsConfig.sshKeySelectFormCreator(&targetKey, potentialKeys)
@@ -130,7 +148,7 @@ func ConfigureSSHKey(props *props.Props, cfg config.Reader, opts ...ConfigureSSH
 		}
 	}
 
-	return handleSSHKeySelection(props, cfg, targetKey, optsConfig)
+	return handleSSHKeySelection(profile, props, cfg, targetKey, optsConfig)
 }
 
 func discoverSSHKeys(props *props.Props) ([]huh.Option[string], error) {
@@ -186,12 +204,12 @@ func isValidSSHKey(fs afero.Fs, path string) bool {
 	return true
 }
 
-func handleSSHKeySelection(props *props.Props, cfg config.Reader, targetKey string, optsConfig *configureSSHKeyConfig) (string, string, error) {
+func handleSSHKeySelection(profile Profile, props *props.Props, cfg config.Reader, targetKey string, optsConfig *configureSSHKeyConfig) (string, string, error) {
 	keyType := "file"
 
 	switch targetKey {
 	case "generate":
-		key, err := generateKey(props, cfg, optsConfig.generateKeyOpts...)
+		key, err := generateKey(profile, props, cfg, optsConfig.generateKeyOpts...)
 		if err != nil {
 			return "", "", errors.Wrap(err, "failed to generate SSH key")
 		}
@@ -254,7 +272,7 @@ func validateSSHKey(contents []byte, p props.LoggerProvider) error {
 type generateKeyConfig struct {
 	passphraseFormCreator    func(*string) *huh.Form
 	uploadConfirmFormCreator func(*bool) *huh.Form
-	clientFactory            func(config.Reader) (githubvcs.GitHubClient, error)
+	keyManagerFactory        func(config.Reader) (forgeapi.KeyManager, error)
 }
 
 // GenerateKeyOption is a functional option for SSH key generation.
@@ -274,12 +292,12 @@ func WithUploadConfirmForm(creator func(*bool) *huh.Form) GenerateKeyOption {
 	}
 }
 
-// WithGitHubClientFactory overrides the GitHub client constructor used when
-// uploading SSH keys. Tests pass a fake; production callers omit to get
-// the default.
-func WithGitHubClientFactory(factory func(config.Reader) (githubvcs.GitHubClient, error)) GenerateKeyOption {
+// WithKeyManager overrides the [forgeapi.KeyManager] constructor used when
+// uploading SSH keys. Tests pass a factory returning a fake; production callers
+// omit it to get the registered provider's key-upload capability.
+func WithKeyManager(factory func(config.Reader) (forgeapi.KeyManager, error)) GenerateKeyOption {
 	return func(c *generateKeyConfig) {
-		c.clientFactory = factory
+		c.keyManagerFactory = factory
 	}
 }
 
@@ -306,7 +324,7 @@ func defaultUploadConfirmFormCreator(upload *bool) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Upload SSH key to Github?").
+				Title("Upload SSH key to the forge?").
 				Affirmative("Yes!").
 				Negative("No.").
 				Value(upload),
@@ -314,11 +332,11 @@ func defaultUploadConfirmFormCreator(upload *bool) *huh.Form {
 	)
 }
 
-func generateKey(props *props.Props, cfg config.Reader, opts ...GenerateKeyOption) (string, error) {
+func generateKey(profile Profile, props *props.Props, cfg config.Reader, opts ...GenerateKeyOption) (string, error) {
 	optsConfig := &generateKeyConfig{
 		passphraseFormCreator:    defaultPassphraseFormCreator,
 		uploadConfirmFormCreator: defaultUploadConfirmFormCreator,
-		clientFactory:            defaultGitHubClientFactory,
+		keyManagerFactory:        defaultKeyManager(profile),
 	}
 
 	for _, opt := range opts {
@@ -360,26 +378,42 @@ func generateKey(props *props.Props, cfg config.Reader, opts ...GenerateKeyOptio
 	}
 
 	if upload {
-		if err := uploadSSHKeyToGitHub(props, cfg, keyname, publicKeyBytes, optsConfig.clientFactory); err != nil {
+		if err := uploadSSHKey(profile, props, cfg, keyname, publicKeyBytes, optsConfig.keyManagerFactory); err != nil {
 			return keypath, err
 		}
 	} else {
-		props.Logger.Warn("You must ensure your SSH key is added to Github")
+		props.Logger.Warn("You must ensure your SSH key is added to the forge")
 	}
 
 	return keypath, err
 }
 
-func uploadSSHKeyToGitHub(p props.LoggerProvider, cfg config.Reader, keyname string, publicKey []byte, clientFactory func(config.Reader) (githubvcs.GitHubClient, error)) error {
-	p.GetLogger().Info("Uploading SSH public key to Github", "key", string(publicKey))
+func uploadSSHKey(
+	profile Profile,
+	p props.LoggerProvider,
+	cfg config.Reader,
+	keyname string,
+	publicKey []byte,
+	keyManagerFactory func(config.Reader) (forgeapi.KeyManager, error),
+) error {
+	log := p.GetLogger()
+	log.Info("Uploading SSH public key", "provider", profile.Label, "key", string(publicKey))
 
-	c, err := clientFactory(cfg)
+	km, err := keyManagerFactory(cfg)
 	if err != nil {
+		// A provider that cannot upload keys (ErrNotSupported) is not a hard
+		// failure: the key is already on disk, so instruct the user to add it
+		// manually rather than aborting setup.
+		if errors.Is(err, forgeapi.ErrNotSupported) {
+			log.Warn("provider does not support SSH-key upload; add the key manually", "provider", profile.Label)
+
+			return nil
+		}
+
 		return errors.WithStack(err)
 	}
 
-	err = c.UploadKey(context.Background(), keyname, publicKey)
-	if err != nil {
+	if err := km.UploadKey(context.Background(), keyname, publicKey); err != nil {
 		return errors.WithStack(err)
 	}
 
@@ -415,4 +449,19 @@ func runForm(form *huh.Form) error {
 	}
 
 	return form.Run()
+}
+
+// configureSSH runs the SSH key configuration stage and records the selected
+// key type and path under the profile's SSH config keys.
+func (i *Initialiser) configureSSH(p *props.Props, cfg setup.Editor) error {
+	keyType, keyPath, err := ConfigureSSHKey(i.profile, p, cfg.View())
+	if err != nil {
+		return err
+	}
+
+	if err := cfg.Set(i.profile.sshKeyTypeKey(), keyType); err != nil {
+		return err
+	}
+
+	return cfg.Set(i.profile.sshKeyPathKey(), keyPath)
 }

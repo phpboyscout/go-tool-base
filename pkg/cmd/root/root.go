@@ -907,7 +907,7 @@ func registerGlobalMiddlewareOnce(props *p.Props) {
 
 // registerFeatureAssets applies the asset bundles of enabled features onto
 // props.Assets, in deterministic feature order. Non-command feature packages
-// (pkg/setup/github, pkg/setup/ai) announce their bundles via
+// (pkg/setup/forge, pkg/setup/ai) announce their bundles via
 // setup.RegisterAssets from init(); command-owned bundles register in their
 // constructors, which only run for enabled features.
 func registerFeatureAssets(props *p.Props) {
