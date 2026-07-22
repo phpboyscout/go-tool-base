@@ -8,8 +8,11 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Error Catalogue
 
-This document lists all sentinel errors defined across GTB packages. All errors
-use `github.com/cockroachdb/errors` for wrapping and stack traces.
+This document lists the sentinel errors a GTB tool may encounter — both those
+defined in GTB's own `pkg/` packages and those from the standalone
+`gitlab.com/phpboyscout/go/*` modules it consumes (each such section links to the
+owning module). All errors use `github.com/cockroachdb/errors` for wrapping and
+stack traces.
 
 Use `errors.Is(err, target)` to check for sentinel errors — this traverses
 wrapped error chains correctly.
@@ -32,7 +35,9 @@ if errors.Is(err, root.ErrNoConfigFile) {
 
 ---
 
-## `pkg/controls`
+## `gitlab.com/phpboyscout/go/controls`
+
+Extracted into the standalone [controls module](https://controls.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -74,7 +79,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/authn`
+## `gitlab.com/phpboyscout/go/authn`
+
+Extracted into the standalone [authn module](https://authn.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -82,7 +89,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/browser`
+## `gitlab.com/phpboyscout/go/browser`
+
+Extracted into the standalone [browser module](https://browser.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -91,7 +100,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/chat`
+## `gitlab.com/phpboyscout/go/chat`
+
+Extracted into the standalone [chat module](https://chat.go.phpboyscout.uk) (+ per-provider modules); gtb's `pkg/chat` is a thin adapter that consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -102,7 +113,9 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/credentials`
+## `gitlab.com/phpboyscout/go/credentials`
+
+Extracted into the standalone [credentials module](https://credentials.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -121,7 +134,9 @@ Extracted into the standalone [signing module](https://signing.phpboyscout.uk); 
 
 ---
 
-## `pkg/regexutil`
+## `gitlab.com/phpboyscout/go/regexutil`
+
+Extracted into the standalone [regexutil module](https://regexutil.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -190,7 +205,9 @@ The `local` PEM backend, part of the standalone signing module.
 
 ---
 
-## `pkg/telemetry/otelcore`
+## `gitlab.com/phpboyscout/go/observability`
+
+Extracted into the standalone [observability module](https://observability.go.phpboyscout.uk) (the OTel core, in its `otelcore` subpackage); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -198,7 +215,9 @@ The `local` PEM backend, part of the standalone signing module.
 
 ---
 
-## `pkg/workspace`
+## `gitlab.com/phpboyscout/go/workspace`
+
+Extracted into the standalone [workspace module](https://workspace.go.phpboyscout.uk); gtb consumes it.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
@@ -206,7 +225,9 @@ The `local` PEM backend, part of the standalone signing module.
 
 ---
 
-## `pkg/http`
+## `gitlab.com/phpboyscout/go/transit`
+
+Extracted into the standalone [transit module](https://transit.go.phpboyscout.uk) (shared transport middleware + resilience); gtb consumes it via the HTTP/gRPC clients. gtb's `pkg/http` retains only the config adapters.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
