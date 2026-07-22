@@ -66,15 +66,6 @@ the link to the user-facing output.
 
 ---
 
-## `pkg/vcs/github`
-
-| Error | Message | Typical Handling |
-|-------|---------|-----------------|
-| `ErrNoPullRequestFound` | no pull request found | Returned by `GetPullRequestByBranch` when no open PR exists for the given branch. Check before attempting PR operations. |
-| `ErrRepoExists` | repository already exists | Returned when attempting to create a repository that already exists on the remote. |
-
----
-
 ## `pkg/cmd/root`
 
 | Error | Message | Typical Handling |
@@ -204,27 +195,6 @@ The `local` PEM backend, part of the standalone signing module.
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
 | `ErrInvalidEndpoint` | invalid endpoint | Returned when validating the configured OTLP collector URL endpoint. |
-
----
-
-## `pkg/vcs/repo`
-
-| Error | Message | Typical Handling |
-|-------|---------|-----------------|
-| `ErrAlreadyRepository` | already repository | Returned by Init() when attempting to initialize a git repo inside an existing git repository. |
-| `ErrNoRepository` | repository not initialised; call Open, Clone, or SetRepo first | Returned by `WithRepo` (and related methods) when no `*git.Repository` has been set. |
-| `ErrNoWorktree` | worktree not initialised; call Open, Clone, or SetTree first | Returned by `WithTree` (and related methods) when no `*git.Worktree` has been set. |
-
----
-
-## `pkg/vcs/release`
-
-| Error | Message | Typical Handling |
-|-------|---------|-----------------|
-| `ErrProviderNotFound` | no release provider registered for source type | Returned by `Lookup` when no factory has been registered for the requested source type. |
-| `ErrNotSupported` | operation not supported by this release provider | Returned by provider methods that are not applicable to the configured provider mode. Callers treat it like "provider does not implement this". |
-| `ErrVersionUnknown` | cannot determine latest version: configure version_url or pinned_version in Params | Returned by the direct provider when neither a version URL nor a pinned version is configured. |
-| `ErrReleaseNotFound` | release not found | Returned when a requested release — by tag, or the latest — cannot be located. |
 
 ---
 

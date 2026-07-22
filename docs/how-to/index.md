@@ -143,9 +143,6 @@ Implement the `telemetry.DeletionRequestor` interface for GDPR-compliant data de
 ### [Configure Generator Ignore Rules](configure-generator-ignore.md)
 Use `.gtb/ignore` to prevent the generator from overwriting customised files during regeneration.
 
-### [Automate GitHub Workflows](automate-github-workflows.md)
-Create pull requests, download release assets, and read file contents using `GHClient`.
-
 ## Assets
 
 ### [Embed and Register Custom Assets](embed-custom-assets.md)

@@ -143,15 +143,15 @@ These tests require **no external credentials** — only local network access.
     it exercises the props/config→`Settings` mapping with an in-memory filesystem
     and needs no network, token or SSH key.
 
-### `pkg/vcs/github/` — GitHub API
+### Forge VCS (GitHub/GitLab) — moved out of GTB
 
-!!! warning "Not yet implemented"
-    The previous `client_integration_test.go` was removed — it hardcoded a fake
-    `GITHUB_TOKEN`, so it could never authenticate, and the archived GitHub
-    mirror rejects writes after the GitLab migration. A real GitHub (and GitLab)
-    VCS integration suite is specified as ready-to-pick-up follow-up work in
-    [`specs/2026-06-20-desktop-gated-integration-tests.md`](specs/2026-06-20-desktop-gated-integration-tests.md)
-    (Work Item 1); it needs a token (`repo` scope) and a throwaway test repo.
+!!! info "Now owned by the forge provider modules"
+    `pkg/vcs/github` no longer exists in this repository. The forge auth, SSH and
+    API clients were extracted to
+    [`gitlab.com/phpboyscout/go/forge`](https://forge.go.phpboyscout.uk) and its
+    per-provider `forge-<forge>` modules, so any live GitHub/GitLab VCS
+    integration coverage — with a real token and a throwaway test repo — now
+    belongs to those modules' own pipelines, not GTB's.
 
 ### Release providers — moved out of GTB
 

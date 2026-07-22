@@ -113,17 +113,17 @@ func TestInstructAndVerifyEnvVar_ConfirmedButUnset(t *testing.T) {
 
 ## Approach B — inject the form (best for new code)
 
-When you control the code, make the form **creator** injectable so tests supply a deterministic one. This is parallel-safe (no globals) and the established pattern in `pkg/setup/bitbucket` and `pkg/setup/ai`.
+When you control the code, make the form **creator** injectable so tests supply a deterministic one. This is parallel-safe (no globals) and the established pattern in `pkg/setup/forge` (both the single-token `WithAuthForm` and the dual-credential `WithDualForm` seams) and `pkg/setup/ai`.
 
 ```go
 // Production seam: a creator func, defaulted to the real form, overridable in tests.
-type FormOption func(*formConfig)
+type DualFormOption func(*dualFormConfig)
 
-func WithForm(creator func(*BitbucketConfig) *huh.Form) FormOption { /* ... */ }
+func WithDualForm(creator func(*DualConfig) []*huh.Form) DualFormOption { /* ... */ }
 
 // Test: inject a form pre-seeded with values, or one wired to scripted input.
-i := bitbucket.NewInitialiser(p, bitbucket.WithFormOptions(
-	bitbucket.WithForm(func(cfg *bitbucket.BitbucketConfig) []*huh.Form {
+i := forge.NewBitbucketInitialiser(p, forge.WithDualForms(
+	forge.WithDualForm(func(cfg *forge.DualConfig) []*huh.Form {
 		cfg.StorageMode = credentials.ModeEnvVar // set the outcome directly
 		return []*huh.Form{huh.NewForm( /* trivial / no-op group */ )}
 	}),
@@ -177,5 +177,5 @@ Use this when you specifically need to assert **keystroke-level** behaviour (nav
 
 - [Testing & Mocking](../../how-to/testing.md) — the general unit-testing guide, race-avoidance rules, and `internal/exectest` fakes.
 - [`pkg/cmd/config/migrate_forms_test.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/cmd/config/migrate_forms_test.go) — the real `withScriptedStdin` tests for the migrate wizard.
-- [`pkg/setup/bitbucket/bitbucket.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/setup/bitbucket/bitbucket.go) — the `WithForm` injection pattern (Approach B).
+- [`pkg/setup/forge/dual.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/setup/forge/dual.go) — the `WithDualForm` injection pattern (Approach B); see [`single.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/setup/forge/single.go) for the single-token `WithAuthForm` equivalent.
 - [config migrate-wizard coverage spec](../specs/2026-06-22-config-migrate-wizard-injectability.md) — the decision record behind choosing accessible mode over a seam refactor.

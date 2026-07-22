@@ -127,4 +127,4 @@ func NewCmdMyFeature(p *props.Props) *setup.Command {
 ---
 
 !!! tip
-    Look at the **AI Initialiser** (`pkg/setup/ai`) or **GitHub Initialiser** (`pkg/setup/github`) for comprehensive real-world examples.
+    Look at the **AI Initialiser** (`pkg/setup/ai`) or the **Forge Initialiser** (`pkg/setup/forge`) for comprehensive real-world examples.

@@ -2,7 +2,7 @@
 title: "Forge-aware setup: migrate in-use GitHub auth + SSH operations into the forge providers"
 description: "Reframes and significantly extends the wave-2 'GitHub wider-client' item. The wide pkg/vcs/github client is legacy from a GitHub-centric predecessor of go-tool-base; most of it (PR management, repo creation, file contents, and its release methods) is dead — releases already route through go/forge, and self-update is already forge-aware. The genuinely in-use surface is narrow: interactive auth (GitHub OAuth device flow) and SSH-key upload, still done GitHub-specifically in pkg/setup/github. This spec brings ONLY those in-use operations into the go/forge provider abstraction as optional capability interfaces (Authenticator, KeyManager), implements them across all four forge adapters in sync (accounting for provider variance — device flow vs PAT vs app-password, SSH-API availability), makes pkg/setup drive the configured provider instead of hardcoded GitHub, then decommissions pkg/vcs/github. Dead paths (PR/repo/contents) are not built here; they move to a go/forge widening spec for a future wave."
 date: 2026-07-22
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - forge
@@ -27,14 +27,24 @@ Date
 :   2026-07-22
 
 Status
-:   IN PROGRESS (2026-07-22). Re-scope endorsed by the maintainer: bring only the
-    in-use auth + SSH into forge across all providers; park the dead PR/repo/contents
-    in the go/forge widening spec. §8 open questions resolved — **Q4: prove the model
-    on GitHub first (the old `pkg/vcs/github` code is the proven reference), then build
-    the other three adapters and PUBLISH ALL FOUR SIMULTANEOUSLY (lockstep)**; Q3:
-    collapse `setup/github` + `setup/bitbucket` into one forge-driven initialiser; Q5:
-    Bitbucket stays on the manual app-password fallback (no `Authenticator`); Q1: the
-    two coarse capabilities; Q2: minimal `Prompter`, drafted in Phase 1.
+:   IMPLEMENTED (2026-07-22). All phases (§5) delivered. The forge contract gained
+    the optional `Authenticator` and `KeyManager` capabilities (`go/forge` v0.2.0);
+    all four provider adapters implement what their forge supports and were published
+    **simultaneously at v0.2.0** (github + gitlab: device-flow `Authenticator` +
+    `KeyManager`; gitea + bitbucket: `KeyManager` only — manual login fallback). GTB's
+    `pkg/setup/github` + `pkg/setup/bitbucket` were collapsed into one provider-driven
+    `pkg/setup/forge` initialiser that type-asserts the capabilities on the configured
+    forge; the device-code prompt renders through a huh `Prompter`. The legacy
+    `pkg/vcs/github` wide client was deleted, and its dead PR/repo/contents surface is
+    parked in the `go/forge` widening spec for a future wave. Shipped in GTB MR !283.
+
+    Original re-scope (endorsed by the maintainer) and resolved open questions, for the
+    record: bring only the in-use auth + SSH into forge across all providers; park the
+    dead PR/repo/contents. §8 — **Q4: prove the model on GitHub first (the old
+    `pkg/vcs/github` code was the proven reference), then build the other three adapters
+    and publish all four simultaneously**; Q3: collapse `setup/github` + `setup/bitbucket`
+    into one forge-driven initialiser; Q5: Bitbucket stays on the manual app-password
+    fallback (no `Authenticator`); Q1: the two coarse capabilities; Q2: minimal `Prompter`.
 
 Related
 :   [extraction report](../reports/2026-07-07-package-extraction-report.md) (the wave-2 github row this replaces),

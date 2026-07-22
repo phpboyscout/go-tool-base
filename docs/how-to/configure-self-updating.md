@@ -261,6 +261,6 @@ The `--from-file` flag is mutually exclusive with `--version`. The `--force` fla
 - **[Auto-Update Lifecycle](../explanation/components/update.md)** — how the update loop works
 - **[Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/)** — all built-in providers, registry API, and `Params` reference
 - **[Add a Custom Release Source](custom-release-source.md)** — register your own provider for any backend
-- **[GitHub component](../explanation/components/vcs/github.md)** — `NewGitHubClient` and token resolution
+- **[GitHub provider](https://gitlab.com/phpboyscout/go/forge-github)** — GitHub release provider and token resolution (external `go/forge-github` module)
 - **[GitLab component](https://forge.go.phpboyscout.uk/reference/providers/#gitlab)** — `NewReleaseProvider` for GitLab
 - **[Configuring Built-in Features](builtin-features.md)** — enabling and disabling UpdateCmd

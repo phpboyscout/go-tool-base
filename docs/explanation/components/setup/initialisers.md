@@ -76,11 +76,13 @@ func Register(
 
 ## Built-in Initialisers Implementation
 
-### 1. GitHub Initialiser
+### 1. Forge Initialiser (GitHub / Bitbucket)
 
-**Package**: `pkg/setup/github`
+**Package**: `pkg/setup/forge`
 
-The GitHub initialiser manages two distinct configuration areas: **Authentication** (OAuth token) and **SSH Keys**.
+The forge initialiser is a single, provider-parameterised initialiser driven by a `Profile`. `NewGitHubInitialiser` runs the GitHub profile (single-token auth + SSH keys); `NewBitbucketInitialiser` runs the Bitbucket profile (dual `username` + `app_password` credentials). The interactive login and SSH-key upload are performed against the **configured forge provider** via the optional `forge.Authenticator` and `forge.KeyManager` capabilities — type-asserted on the registered provider. A provider that does not implement a capability returns `forge.ErrNotSupported`, which the wizard treats as "skip the automated step and tell the user to do it manually" rather than a hard failure.
+
+The GitHub profile manages two distinct configuration areas: **Authentication** (OAuth device flow / token) and **SSH Keys**.
 
 #### Configuration Keys
 *   `github.auth.value`: The GitHub Personal Access Token (PAT).

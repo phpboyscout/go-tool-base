@@ -24,13 +24,14 @@ The VCS layer has been **extracted** into standalone modules. What remains in
 **`pkg/vcs`** — `ConfigFromReader`, adapting a GTB config view (`config.Reader`,
 typically `props.Config.View()`) to the narrow `forge.Config` seam. The seam is
 two methods wide precisely so a provider needs no config library; this bridge is
-the one place that knows about both.
+the one place that knows about both. This config glue is **all** that remains in
+GTB — the forge clients themselves (GitHub, GitLab, Gitea/Codeberg, Bitbucket,
+plus the built-in `direct` source) now live in the external `go/forge` and
+`go/forge-<name>` modules. The interactive auth and SSH-key operations GTB used
+to reach for on GitHub are now optional `forge.Authenticator` / `forge.KeyManager`
+provider capabilities, driven from [setup](../setup/index.md).
 
-**`pkg/vcs/github`** — GitHub's **wider API**: pull requests, repository
-creation, SSH key upload, file contents, and the OAuth device-login flow. See
-[GitHub](github.md).
-
-**`pkg/vcs/repo`** — the props/config adapters for the `repo` module. See
+**`pkg/vcs/repo`** — the props/config adapters for the `go/repo` module. See
 [Repo](repo.md).
 
 ---
@@ -72,6 +73,6 @@ documented under [setup](../setup/index.md).
 
 ## Related
 
-- [GitHub](github.md) — the wider API that stays in GTB
 - [Repo](repo.md) — GTB's adapters for the git module
+- [forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk) — the release contract, credential chain, and every provider client
 - [Version control](../version-control.md) — the component family

@@ -424,33 +424,6 @@ type RepoLike interface {
 
 ---
 
-#### GitHubClient
-
-**Package:** `pkg/vcs`  
-**Purpose:** GitHub Enterprise API operations.
-
-```go
-type GitHubClient interface {
-    GetClient() *github.Client
-    CreatePullRequest(ctx, owner, repo string, pull *github.NewPullRequest) (*github.PullRequest, error)
-    GetPullRequestByBranch(ctx, owner, repo, branch, state string) (*github.PullRequest, error)
-    AddLabelsToPullRequest(ctx, owner, repo string, number int, labels []string) error
-    UpdatePullRequest(ctx, owner, repo string, number int, pull *github.PullRequest) (*github.PullRequest, *github.Response, error)
-    CreateRepo(ctx, owner, slug string) (*github.Repository, error)
-    UploadKey(ctx, name string, key []byte) error
-    ListReleases(ctx, owner, repo string) ([]string, error)
-    GetReleaseAssets(ctx, owner, repo, tag string) ([]*github.ReleaseAsset, error)
-    GetReleaseAssetID(ctx, owner, repo, tag, assetName string) (int64, error)
-    DownloadAsset(ctx, owner, repo string, assetID int64) (io.ReadCloser, error)
-    DownloadAssetTo(ctx, fs afero.Fs, owner, repo string, assetID int64, filePath string) error
-    GetFileContents(ctx, owner, repo, path, ref string) (string, error)
-}
-```
-
-**Primary Implementation:** `*GHClient`
-
----
-
 ### Initialisation
 
 #### Initialiser

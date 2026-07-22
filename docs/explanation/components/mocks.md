@@ -94,24 +94,12 @@ drive a real controller with `controls.WithoutSignals()`. See the module's
 
 ### Version Control Mocks
 
-Located in `mocks/pkg/vcs/github/`:
-
-#### **GitHubClient Mock**
-`MockGitHubClient` fakes GTB's GitHub API surface (PRs, release assets, keys):
-
-```go
-func TestGitHubOperations(t *testing.T) {
-    mockGHClient := githubmocks.NewMockGitHubClient(t)
-
-    mockGHClient.On("ListReleases", mock.Anything, "org", "test-repo").
-        Return([]string{"v1.2.3"}, nil)
-
-    // Test GitHub operations
-    releases, err := mockGHClient.ListReleases(ctx, "org", "test-repo")
-    assert.NoError(t, err)
-    assert.Equal(t, []string{"v1.2.3"}, releases)
-}
-```
+GTB no longer ships forge (GitHub/GitLab/Gitea/Bitbucket) client mocks. The
+forge release and auth/SSH clients were extracted to the standalone
+[`gitlab.com/phpboyscout/go/forge`](https://forge.go.phpboyscout.uk) module plus
+its per-provider `forge-github`, `forge-gitlab`, `forge-gitea`, and
+`forge-bitbucket` modules; each ships its own `mocks` subpackage — fake those
+through the owning module's published `mocks` package rather than a GTB mock.
 
 Repository (git) operations were extracted to the standalone
 [`gitlab.com/phpboyscout/go/repo`](https://repo.go.phpboyscout.uk) module; fake
@@ -184,16 +172,16 @@ func TestComplexScenario(t *testing.T) {
 
 ```go
 func TestErrorHandling(t *testing.T) {
-    mockGHClient := githubmocks.NewMockGitHubClient(t)
+    mockReader := configmocks.NewMockReader(t)
 
-    // Simulate GitHub API error
-    mockGHClient.On("ListReleases", mock.Anything, "org", "nonexistent").
-        Return(nil, errors.New("repository not found"))
+    // Simulate a lookup that resolves to an unusable value
+    mockReader.On("GetString", "database.host").Return("")
 
     // Test error handling
-    _, err := mockGHClient.ListReleases(ctx, "org", "nonexistent")
+    component := NewDatabaseComponent(mockReader)
+    err := component.Connect()
     assert.Error(t, err)
-    assert.Contains(t, err.Error(), "repository not found")
+    assert.Contains(t, err.Error(), "database host not configured")
 }
 ```
 

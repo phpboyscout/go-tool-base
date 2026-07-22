@@ -111,6 +111,6 @@ migration is required.
   filesystem, concurrency, and testing with the role mocks
 - **[aferobilly](aferobilly.md)** — the extracted billy↔afero bridge
 - **[VCS index](index.md)** — package overview and authentication helper
-- **[GitHub](github.md)** — GitHub API client (separate from git operations)
+- **[forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk)** — the forge provider clients (separate from git operations)
 - **[Generator](../internal/generator.md)** — GTB's main consumer, for scaffold
   git initialisation and template-source clones

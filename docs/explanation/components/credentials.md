@@ -51,15 +51,15 @@ subsystem walks:
 |-----------|------------------|
 | `pkg/chat` | direct → `<provider>.api.env` (ref) → `<provider>.api.keychain` (lookup) → `<provider>.api.key` (literal) → well-known env fallback |
 | `pkg/vcs` | `auth.env` → `auth.keychain` → `auth.value` → fallback env (GitHub/GitLab/Gitea/direct) |
-| `pkg/vcs/bitbucket` | `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt blob aborts resolution rather than falling through to stale literals. |
+| `go/forge-bitbucket` (external module) | `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt blob aborts resolution rather than falling through to stale literals. |
 
 ## Consumers
 
 | Subsystem | Relationship to `go/credentials` |
 |-----------|----------------------------------|
 | `pkg/setup/ai` | Storage-mode selector via `ModeChoices` gated on `Probe`; the chosen mode decides whether `<provider>.api.env`, `.keychain`, or `.key` is written. Keychain mode stores the secret via `credentials.Store` — never in config. |
-| `pkg/setup/github` | CI refusal for `ModeLiteral`; OAuth device flow with a manual-PAT fallback on headless hosts. |
-| `pkg/setup/bitbucket` | Dual-credential model; keychain mode serialises `{username, app_password}` into one JSON-blob entry. |
+| `pkg/setup/forge` (GitHub profile) | CI refusal for `ModeLiteral`; OAuth device flow (via the provider's `forge.Authenticator` capability) with a manual-PAT fallback on headless hosts. |
+| `pkg/setup/forge` (Bitbucket profile) | Dual-credential model; keychain mode serialises `{username, app_password}` into one JSON-blob entry. |
 | `pkg/cmd/config` | `migrate-credentials` moves literals to env/keychain; the config masker renders literal secrets as `****<tail>`. |
 | `pkg/cmd/doctor` | `credentials.no-literal` check warns when any `ModeLiteral`-style value is present. |
 

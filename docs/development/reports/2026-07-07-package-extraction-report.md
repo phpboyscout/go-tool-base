@@ -20,10 +20,15 @@ decoupling), progress-updated 2026-07-14 (Phase 1 leaves complete) and
     **Two decisions worth not re-litigating.** The release contract, registry and
     auth merged into the **root** `go/forge` package rather than staying split;
     and each forge is its **own module**, so a tool can depend on one provider
-    instead of four SDKs. `pkg/vcs/github`'s wider client (PRs, repo creation, SSH
-    keys, device login) **deliberately stayed in GTB** — moving it would give
-    GitHub capabilities no other forge has, which is the disparity backend
-    agnosticism exists to prevent.
+    instead of four SDKs. `pkg/vcs/github`'s wider client stayed in GTB at first —
+    moving it would give GitHub capabilities no other forge has, which is the
+    disparity backend agnosticism exists to prevent. That gap has since been closed
+    the right way (2026-07-22): the **in-use** parts (interactive login + SSH-key
+    upload) became the optional `Authenticator`/`KeyManager` capabilities in
+    `go/forge` v0.2.0, implemented across all four adapters in lockstep and consumed
+    by GTB's forge-driven setup; `pkg/vcs/github` was then deleted, and the still-dead
+    PR/repo/contents surface was parked in the `go/forge` provider-contract-widening
+    spec for a future wave.
 
     **What remains** is the analytics split and the standalone leaves — see the
     checklist footer. A substantial **config overhaul** is queued next, which will
@@ -1107,10 +1112,10 @@ adapters, `tls.Resolve`, the chat config-key schema, `pkg/vcs/config_adapter.go`
 | ✅ | `pkg/http` | `transport` | 6 | **Middleware** → `go/transit` v0.1.0 (Phase 3, facade). **Client factory** → `go/httpclient` v0.1.0 (Phase 4, facade). **Server** → `go/transport/http` v0.1.1 (Phase 5, **clean break**): server/health/auth/security-headers moved; `pkg/http` keeps only the `config.Containable` adapters (+ client & transit re-exports). DONE. |
 | ✅ | `pkg/grpc` | `transport` | 6 | **Interceptors** → `go/transit` v0.1.0 (Phase 3, facade). **Dial factory** → `go/grpcclient` v0.1.0 (Phase 4). **Server** → `go/transport/grpc` v0.1.1 (Phase 5, **clean break**): server/health/auth/TLS-creds/`DialLocal` moved; `pkg/grpc` keeps only the config adapters (+ transit re-exports). DONE. |
 | ✅ | `pkg/gateway` | `transport` | 6 | **Server** → `go/transport/gateway` v0.1.1 (Phase 5, **clean break**): `New`/`Register`/`Settings` moved; `pkg/gateway` keeps only the config adapters (which own the config-driven dial + their own `WithDialOptions`/`WithMuxOptions`/`WithMiddleware`). DONE. |
-| ☐ | `pkg/openapi` | `transport-openapi` | 8 | **DECISION (2026-07-21): its OWN `transport-openapi` companion module**, not folded into `go/transport` core — mirrors the `transport-metrics` companion pattern, keeping openapi's heavy dependency graph (Stoplight Elements, spec tooling) off everyone who imports the transport server. Inject `http.ServeMux`. |
+| ✅ | `pkg/openapi` | `transport-openapi` | 8 | **DONE (2026-07-22)** → `go/transport-openapi` v0.1.0. Its OWN companion module (not folded into `go/transport` core), mirroring the `transport-metrics` pattern — keeps the ~2.4 MB embedded Stoplight Elements blob off every transport-server binary that serves no docs. Injects `http.ServeMux`; verbatim move, unchanged API. GTB cut-over MR !281 was a pure deletion (zero GTB consumers). Needed a module-root `.gitleaks.toml` allowlist for the minified vendored asset. |
 | ✅ | `pkg/vcs` | `forge` | 7 | **DONE (2026-07-20)** → merged into the `go/forge` root rather than a separate common package. `pkg/vcs` keeps only `config_adapter.go` (the GTB config→`Settings` glue), `doc.go`, and the two retained subpackages below. |
 | ✅ | `pkg/vcs/{gitlab,gitea,bitbucket,direct}` | `forge-<forge>` | 6 | **DONE (2026-07-19)** → one module *each* (`go/forge-{gitlab,gitea,bitbucket}` v0.1.0), not subpackages — so a tool can depend on a single forge. `direct` is not a forge and ships inside `go/forge` itself. Registered by blank import from `pkg/setup/providers.go`, so downstream tools get all five transitively. |
-| ⚠️ | `pkg/vcs/github` | `forge-github` | 6 | **PARTIAL (2026-07-19)** → only the **release provider** moved, to `go/forge-github` v0.1.0. The wider client (PRs, repo creation, SSH keys, file contents, device login) **deliberately stays in GTB**: it predates open-sourcing and moving it would give GitHub capabilities no other forge has. Restoring that surface across *all* providers in lockstep needs a spec on the [forge project](https://gitlab.com/phpboyscout/go/forge) before any code moves. |
+| ✅ | `pkg/vcs/github` | `forge-github` | 6 | **DONE (2026-07-22).** The **release provider** moved to `go/forge-github` v0.1.0 (2026-07-19); the **in-use** parts of the wider client — interactive login (OAuth device flow) and SSH-key upload — then became the optional `Authenticator`/`KeyManager` capabilities in `go/forge` v0.2.0, implemented across all four adapters in lockstep and consumed by GTB's forge-driven `pkg/setup/forge`. `pkg/vcs/github` was deleted (GTB MR !283). The still-dead PR/repo/contents surface is parked in the [`go/forge` provider-contract-widening spec](https://gitlab.com/phpboyscout/go/forge) for a future wave. See `specs/2026-07-22-forge-aware-setup-auth-ssh.md`. |
 | ✅ | `pkg/vcs/repo` | `repo` | 7 | **DONE (2026-07-19)** → `go/repo` v0.1.0. Env-var detection **removed** in favour of injected `Settings` + a `KeyPath(path, env)` helper, guarded by an AST test (`envfootprint_test.go`) that fails on any `os.Getenv` outside it. |
 | ✅ | `pkg/config` | `config` | 7 | **DONE (2026-07-18)** → `go/config` v0.2.0. Clean-break `git mv` + direct repoint across ~19 consumer packages; carries the full Viper stack, which is legitimate for this module. Was the prerequisite for a clean forge/VCS extraction. **Note: a substantial config overhaul is planned — see the handover.** |
 | ✅ | `pkg/errorhandling` | `errorhandling` | 6 | **DONE (2026-07-18)** → `go/errorhandling` v0.1.0. No split needed: the Cobra parameter was vestigial (duplicated `SetUsage`, no caller passed it), so removing it left one framework-free module. |

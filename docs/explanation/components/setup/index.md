@@ -351,7 +351,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
 
 ## Release Provider Registry
 
-`NewUpdater` resolves the `release.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry (`pkg/vcs/release`). All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go` — no manual wiring is needed.
+`NewUpdater` resolves the `forge.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry in the external `gitlab.com/phpboyscout/go/forge` module. All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go` — no manual wiring is needed.
 
 ### Supported source types
 
@@ -383,10 +383,10 @@ See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/p
 
 ### Custom providers
 
-Register a custom `release.Provider` factory before calling `NewUpdater`:
+Register a custom `forge.Provider` factory before calling `NewUpdater`:
 
 ```go
-import "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+import "gitlab.com/phpboyscout/go/forge"
 
 func main() {
     forge.Register("s3", func(src forge.ReleaseSourceConfig, cfg forge.Config) (forge.Provider, error) {
@@ -438,7 +438,7 @@ The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles
 Related surfaces that rely on the same taxonomy:
 
 - **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Chat > Credential Resolution](../chat/index.md#credential-resolution).
-- **`pkg/vcs/bitbucket`** — dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals.
+- **`go/forge-bitbucket`** (external module) — the dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals. GTB adapts its config subtree via `SettingsFromConfig`.
 - **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
 - **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
 

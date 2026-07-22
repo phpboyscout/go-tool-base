@@ -51,7 +51,7 @@ the next major version.
 | `pkg/credentials` | `Store`/`Retrieve`/`Delete` package-level helpers | v1.12 |
 | `pkg/credentials/keychain` | `Backend` struct (go-keyring implementation) | v1.12 |
 | `pkg/credentials/credtest` | `MemoryBackend`, `Install` | v1.12 |
-| `pkg/vcs` | `ResolveToken`, `ResolveTokenContext` | v1.11 (`ResolveToken`), v1.12 (`ResolveTokenContext`) |
+| `pkg/vcs` | `ConfigFromReader` (config→`forge.Config` bridge; token resolution moved to `go/forge`) | v0.x |
 
 ### Beta
 
@@ -66,9 +66,6 @@ minor versions. Changes will be documented in [migration guides](migration/v0.x-
 | `pkg/http` | `Start`, `Stop`, `NewSecureClient` | v0.x |
 | `pkg/grpc` | `New`, `Start`, `Stop` | v0.x |
 | `pkg/controls` | `WithLiveness`, `WithReadiness`, `WithRestartPolicy`, `RestartPolicy` | v0.x |
-| `pkg/vcs/github` | `NewClient`, `ReleaseProvider` interface | v0.x |
-| `pkg/vcs/gitlab` | `NewClient`, `ReleaseProvider` interface | v0.x |
-| `pkg/vcs/repo` | `Repo` struct and all public methods | v0.x |
 | `pkg/setup` | `NewUpdater(ctx, props, version, force)` | v1.12 (signature updated from v1.11's context-free form) |
 
 ### Experimental
@@ -79,7 +76,7 @@ depend on them in production code without pinning to a specific version.
 | Package | Scope | Note |
 |---------|-------|------|
 | `internal/*` | All packages | Always unstable — import not supported |
-| `pkg/setup/ai`, `pkg/setup/github` | All types and functions | Configuration UX still evolving |
+| `pkg/setup/ai`, `pkg/setup/forge` | All types and functions | Configuration UX still evolving |
 
 ---
 

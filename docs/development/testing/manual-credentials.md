@@ -222,7 +222,7 @@ bitbucket:
 EOF
 ```
 
-No e2e subcommand exercises the Bitbucket resolver directly, so drive it with a tiny ad-hoc program that calls `bitbucket.NewReleaseProvider` — construction performs the resolution and surfaces any error:
+No e2e subcommand exercises the Bitbucket resolver directly, so drive it with a tiny ad-hoc program that calls `bitbucket.SettingsFromConfig` (from the extracted `gitlab.com/phpboyscout/go/forge-bitbucket` module) — the config→settings adapter performs the keychain resolution and surfaces any error:
 
 ```bash
 cat > /tmp/bb_check.go <<'EOF'
@@ -235,8 +235,8 @@ import (
 
 	_ "gitlab.com/phpboyscout/go/credentials/keychain"
 	"gitlab.com/phpboyscout/go/config"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/bitbucket"
-	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs/release"
+	"gitlab.com/phpboyscout/go/forge"
+	bitbucket "gitlab.com/phpboyscout/go/forge-bitbucket"
 )
 
 func main() {
@@ -245,14 +245,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	_, err = bitbucket.NewReleaseProvider(release.ReleaseSourceConfig{Private: true}, cfg)
+	_, err = bitbucket.SettingsFromConfig(forge.ReleaseSourceConfig{Private: true}, cfg)
 	fmt.Printf("err=%v\n", err)
 }
 EOF
 go run /tmp/bb_check.go
 ```
 
-With the valid blob from above, `err=<nil>` (construction succeeded; both fields resolved from the keychain).
+With the valid blob from above, `err=<nil>` (resolution succeeded; both the username and app-password fields resolved from the keychain).
 
 ### Corrupt-blob abort (R3)
 
