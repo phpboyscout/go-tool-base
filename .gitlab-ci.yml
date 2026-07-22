@@ -70,9 +70,6 @@ include:
   # Scheduled Renovate run — wires its own schedule gate
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
   # carries the custom manager that auto-bumps the pins above.
-  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.27.0
-    inputs:
-      repositories: '["phpboyscout/go-tool-base"]'
 
 stages:
   - lint
