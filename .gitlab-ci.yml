@@ -26,8 +26,8 @@ include:
   # cicd dev-tools image baked into the components (Go 1.26.4, govulncheck,
   # golangci-lint) — no per-component image overrides needed since cicd
   # v0.14.0.
-  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.24.1
-  - component: gitlab.com/phpboyscout/cicd/go-test@v0.24.1
+  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.25.0
+  - component: gitlab.com/phpboyscout/cicd/go-test@v0.25.0
     inputs:
       enable_e2e: true
       # The e2e generator scenarios scaffold projects and compile them against
@@ -35,7 +35,7 @@ include:
       # (larger OTel/grpc/SDK trees) the cumulative build cost exceeds the 5m
       # default on the shared runner, so allow generous headroom.
       e2e_timeout: "15m"
-  - component: gitlab.com/phpboyscout/cicd/go-security@v0.24.1
+  - component: gitlab.com/phpboyscout/cicd/go-security@v0.25.0
 
   # Release — tag-gated goreleaser + main-branch zensical-pages deploy.
   # goreleaser runs on the dev-tools image (Go 1.26.4), so it builds with
@@ -52,16 +52,16 @@ include:
   # goreleaser's sboms: stanza shells out to it. The component's default
   # (v0.1.2) lacks syft, so the release failed at the SBOM step ("exec:
   # syft: not found") after the binaries built.
-  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.24.1
+  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.25.0
     inputs:
       args: "release --clean --parallelism=1"
       image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.2.0"
-  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.24.1
+  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.25.0
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
   # (carries the schedule-never guard, so it no longer fires on the
   # Renovate schedule).
-  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.24.1
+  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.25.0
     inputs:
       token: $RELEASER_PLEASER_TOKEN
       branch: main
@@ -70,7 +70,7 @@ include:
   # Scheduled Renovate run — wires its own schedule gate
   # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json)
   # carries the custom manager that auto-bumps the pins above.
-  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.24.1
+  - component: gitlab.com/phpboyscout/cicd/renovate-self@v0.25.0
     inputs:
       repositories: '["phpboyscout/go-tool-base"]'
 
