@@ -2,7 +2,7 @@
 title: "Setup credential stage: scope the keychain timeout to keychain operations, not the whole interactive flow"
 description: "The forge-aware setup wizard creates a single 5-second context (credentials.KeychainOpTimeout) and threads it through the entire credential stage — storage-mode forms, the OAuth device flow, and the config write. The OAuth device flow can never complete inside 5 seconds, so interactive login always deadline-expires and silently falls back to manual PAT entry. Scope the timeout to individual keychain operations and give Login the caller's context."
 date: 2026-07-23
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - setup
@@ -26,7 +26,11 @@ Date
 :   2026-07-23
 
 Status
-:   IN PROGRESS (2026-07-23). Open questions resolved by the maintainer:
+:   IMPLEMENTED (2026-07-23). GTB: Initialiser ctx plumbing + per-operation
+    keychain scoping with red-first regression tests (pkg/setup/forge/
+    ctx_scoping_test.go). Providers: forge-github + forge-gitlab v0.2.1 bound
+    device.Wait by the code's ExpiresIn; GTB pins bumped. Open questions were
+    resolved by the maintainer:
     **Q1 — full context plumbing** through the `setup.Initialiser` seam
     (breaking `Configure`, `RunGitHubInit`, `RunBitbucketInit` signatures;
     migration note at `docs/reference/migration/v0.x-initialiser-context.md`),
