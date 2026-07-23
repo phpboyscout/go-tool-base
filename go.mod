@@ -44,8 +44,8 @@ require (
 	gitlab.com/phpboyscout/go/forge v0.2.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.2.0
 	gitlab.com/phpboyscout/go/forge-gitea v0.2.0
-	gitlab.com/phpboyscout/go/forge-github v0.2.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.2.0
+	gitlab.com/phpboyscout/go/forge-github v0.2.1
+	gitlab.com/phpboyscout/go/forge-gitlab v0.2.1
 	gitlab.com/phpboyscout/go/httpclient v0.1.0
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/output v0.1.0

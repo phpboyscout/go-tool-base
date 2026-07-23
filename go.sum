@@ -538,10 +538,10 @@ gitlab.com/phpboyscout/go/forge-bitbucket v0.2.0 h1:oaBJhy1BxRw9R7pZD9gW9t9KYSj9
 gitlab.com/phpboyscout/go/forge-bitbucket v0.2.0/go.mod h1:QXRHiovni001+X5CJZsy39kp8L5Qp3/8BR6GlECfQ+8=
 gitlab.com/phpboyscout/go/forge-gitea v0.2.0 h1:eYiX5HEi8qG/uVWVCKKdFtuq9SAFHDuLUG8tpbaN9QE=
 gitlab.com/phpboyscout/go/forge-gitea v0.2.0/go.mod h1:Naenng9xjnI9VQ+Tjj5Fp/qHvCWHOGRR7YgYUQ8Boho=
-gitlab.com/phpboyscout/go/forge-github v0.2.0 h1:Cjr3BDDiZ7gBAPQ4AXMyyWPPN3qneRf/awWbCXkKKgc=
-gitlab.com/phpboyscout/go/forge-github v0.2.0/go.mod h1:FqAquBzIM7CYFAyWIhPCCox1RLUneaa6AgaxFtpeT74=
-gitlab.com/phpboyscout/go/forge-gitlab v0.2.0 h1:h2ovA8rfTQwO0Sfjuk2wdObDt3/iHdu9yqZ8UBb2Iwk=
-gitlab.com/phpboyscout/go/forge-gitlab v0.2.0/go.mod h1:YgO5nXjY++uzwJrdN/bpkI7S3a0ZFfxNwQ5FkdrdcPA=
+gitlab.com/phpboyscout/go/forge-github v0.2.1 h1:xKM67U+NKdIDZ2LzpXAJgaLCC0z3VUHPvKOIEPNffZg=
+gitlab.com/phpboyscout/go/forge-github v0.2.1/go.mod h1:FqAquBzIM7CYFAyWIhPCCox1RLUneaa6AgaxFtpeT74=
+gitlab.com/phpboyscout/go/forge-gitlab v0.2.1 h1:Y85paRAcXMk2zjPHXL5QSkNb9YW1+RF4N4L9FgxsGas=
+gitlab.com/phpboyscout/go/forge-gitlab v0.2.1/go.mod h1:YgO5nXjY++uzwJrdN/bpkI7S3a0ZFfxNwQ5FkdrdcPA=
 gitlab.com/phpboyscout/go/grpcclient v0.1.0 h1:bh4F59Zd3P5QdaROFyJ9zzfKtndk2Im3ueHTyox4jQY=
 gitlab.com/phpboyscout/go/grpcclient v0.1.0/go.mod h1:OPL968Wfrgv6L5wrJrG292RSU+ELjS6Hp3gLdROobis=
 gitlab.com/phpboyscout/go/httpclient v0.1.0 h1:IGveXzlVGwqIf7TH7ife5fseu0FuB1CUWlRH8AGxcVI=
