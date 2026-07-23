@@ -107,6 +107,52 @@ func FuzzEscapeMarkdown(f *testing.F) {
 	})
 }
 
+func FuzzEscapeMarkdownTableCell(f *testing.F) {
+	seeds := []string{
+		"", "plain", "a|b", `a \| b`, `a \\| b`,
+		"multi\nline", "crlf\r\nline", "tab\tcell",
+		"\x00\x01\x02", "\x7f", "\\\x07|", "invalid\xff",
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+
+	f.Fuzz(func(t *testing.T, s string) {
+		out := escapeMarkdownTableCell(s)
+
+		// Critical invariant: the output must stay on one table row —
+		// no newline or carriage return survives.
+		if strings.ContainsAny(out, "\n\r") {
+			t.Fatalf("escapeMarkdownTableCell left a line break in output: input=%q output=%q", s, out)
+		}
+
+		// Critical invariant: every pipe is backslash-escaped (an odd
+		// run of backslashes precedes it), so it cannot terminate the
+		// table cell.
+		for i, r := range out {
+			if r != '|' {
+				continue
+			}
+
+			backslashes := 0
+			for j := i - 1; j >= 0 && out[j] == '\\'; j-- {
+				backslashes++
+			}
+
+			if backslashes%2 == 0 {
+				t.Fatalf("escapeMarkdownTableCell left an unescaped pipe: input=%q output=%q pos=%d",
+					s, out, i)
+			}
+		}
+
+		// Idempotent: escaped pipes are recognised and not re-escaped.
+		again := escapeMarkdownTableCell(out)
+		if again != out {
+			t.Fatalf("escapeMarkdownTableCell not idempotent: f(%q)=%q, f(f(x))=%q", s, out, again)
+		}
+	})
+}
+
 func FuzzEscapeMarkdownCodeBlock(f *testing.F) {
 	seeds := []string{
 		"", "plain code", "```fence", "````long-fence",

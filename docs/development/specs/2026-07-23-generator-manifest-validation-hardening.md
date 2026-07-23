@@ -2,7 +2,7 @@
 title: "Generator: close the manifest-validation gaps behind CI-executed and code-generating sinks"
 description: "ValidateManifest promises that a tampered manifest fails fast before driving file writes, but several fields it skips render — unescaped — into CI-executed files (.gitlab-ci.yml, .goreleaser.yaml), into generated Go source (default_is_code flag defaults via jen.Id), and into the provenance annotation. The boilerplate docs builder additionally renders command/flag descriptions into Markdown with neither validation nor escaping. This spec extends the existing two-layer gate (character-class validators + per-sink escapes) to cover every field the renderers actually consume."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -24,7 +24,34 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — 2026-07-23. Resolved maintainer decisions:
+
+    1. **`ValidateFlagDefaultCode` grammar — strict identifier/selector.** An
+       empirical sweep of the repository (generator testdata, skeleton/command
+       templates, fixture manifests, feature files, docs) found **no**
+       `default_is_code: true` usage with an expression default — the only
+       occurrence anywhere (`internal/cmd/generate/purelogic_test.go`) carries
+       an empty default, and the sink (`jen.Id`) is only meaningful for a
+       named identifier or package-qualified selector. Per the resolved
+       decision rule, the strict grammar shipped:
+       `^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`, ≤ 128 bytes.
+       The `go/parser.ParseExpr` + denylist alternative was not needed;
+       expressions like `5 * time.Second` are rejected (a named constant is
+       the supported shape).
+    2. **`ReleaseSource.Type` locked to `github|gitlab`** (empty allowed for
+       the host-derived default); `gitea`/`bitbucket` remain reserved but are
+       rejected until skeleton asset sets exist for them.
+    3. **No sink-side `escapeYAML` on `{{ .Repo }}`/`{{ .ModulePath }}`** —
+       gate-side validation is the mechanism; the belt-and-braces quoting is
+       **deferred** to avoid formatting churn (quoted scalars) in every
+       generated project. Revisit if the segment rules are ever widened.
+    4. **Deviation from §2.1 as drafted:** the manifest's `release_source.repo`
+       holds a *bare repository name* (a single segment — `Repo`/`ModulePath`
+       are joined from host+owner+repo at render time), so running
+       `ValidateRepo` (which requires a `/`-separated module path) would have
+       rejected every valid manifest. A dedicated `ValidateRepoName`
+       (single segment `^[a-zA-Z0-9][a-zA-Z0-9._~-]*$`, ≤ 255 bytes) gates the
+       field instead; the CLI `--repo` module path keeps `ValidateRepo`.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (generator §HIGH manifest-validation + §MEDIUM docs-escaping findings),
@@ -154,13 +181,12 @@ No public `pkg/` API changes; everything lives in `internal/generator`.
 
 ## 5. Open questions
 
-1. `ValidateFlagDefaultCode`: is the identifier/selector grammar sufficient for existing
-   downstream manifests, or do any legitimately use expressions
-   (e.g. `5 * time.Second`)? If expressions must be admitted, the alternative is parsing
-   with `go/parser.ParseExpr` and rejecting on parse error plus a denylist of call/composite
-   nodes — decide before implementation.
-2. `ReleaseSource.Type` enum: lock to `github|gitlab` now, or reserve `gitea|bitbucket`
-   for the forge adapters even though no skeleton asset set exists for them yet?
-3. Should `{{ .Repo }}`/`{{ .ModulePath }}` additionally be piped through `escapeYAML` at
-   the YAML sinks as belt-and-braces, accepting the (quoted-scalar) formatting change to
-   generated files, or is gate-side validation sufficient given the strict segment rules?
+All three were resolved at implementation time — see the Status block above:
+
+1. `ValidateFlagDefaultCode` grammar — **resolved: strict identifier/selector**
+   (empirically no manifest, template, or fixture uses expression defaults).
+2. `ReleaseSource.Type` enum — **resolved: `github|gitlab` only**;
+   `gitea|bitbucket` reserved but rejected until skeleton assets exist.
+3. Sink-side `escapeYAML` for `{{ .Repo }}`/`{{ .ModulePath }}` — **resolved:
+   deferred**; gate-side validation is the mechanism, avoiding quoted-scalar
+   formatting churn in generated files.

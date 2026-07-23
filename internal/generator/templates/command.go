@@ -661,6 +661,11 @@ func getFlagDefaultValue(flag CommandFlag) jen.Code {
 	}
 
 	if flag.DefaultIsCode {
+		// The default is emitted verbatim as Go source. Both input
+		// boundaries (generator.ValidateManifest on the manifest path,
+		// the generate-command CLI path) gate the value through
+		// generator.ValidateFlagDefaultCode, which restricts it to a
+		// bare identifier or dot-joined selector (e.g. time.Second).
 		return jen.Id(flag.Default)
 	}
 

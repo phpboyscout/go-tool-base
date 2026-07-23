@@ -111,7 +111,10 @@ func (g *Generator) writeProvenanceFile(m *Manifest) error {
 }
 
 // signingFields serialises the recoverable signing posture. Hashes and other
-// derivable data are excluded — this is provenance/config only.
+// derivable data are excluded — this is provenance/config only. Every value
+// written here is gated by validateManifestSigning (ValidateManifest), whose
+// character classes exclude whitespace and control bytes, so no field can
+// break the space-separated KV encoding or escape the comment line.
 func signingFields(s ManifestSigning) []kv {
 	return []kv{
 		{"enabled", strconv.FormatBool(s.Enabled)},

@@ -267,7 +267,68 @@ func (o *CommandOptions) validateNonInteractive() error {
 		return err
 	}
 
+	if err := generator.ValidateDescription(o.Short); err != nil {
+		return err
+	}
+
+	if err := generator.ValidateLongDescription(o.Long); err != nil {
+		return err
+	}
+
+	for _, fs := range o.Flags {
+		if err := validateFlagString(fs); err != nil {
+			return err
+		}
+	}
+
 	return o.syncFlagsToOptions()
+}
+
+// validateFlagString applies the generator field validators to one
+// colon-delimited --flag definition
+// (name:type:description:persistent:shorthand:required:default:defaultIsCode)
+// so a hostile name, type, shorthand, description, or code default is
+// rejected at the CLI boundary — the same gate ValidateManifest applies on
+// the manifest path.
+func validateFlagString(fs string) error {
+	const (
+		maxFlagParts       = 8
+		typeIndex          = 1
+		descriptionIndex   = 2
+		shorthandIndex     = 4
+		defaultIndex       = 6
+		defaultIsCodeIndex = 7
+	)
+
+	parts := strings.SplitN(fs, ":", maxFlagParts)
+
+	if err := generator.ValidateFlagName(parts[0]); err != nil {
+		return err
+	}
+
+	if len(parts) > typeIndex {
+		if err := generator.ValidateFlagType(parts[typeIndex]); err != nil {
+			return err
+		}
+	}
+
+	if len(parts) > descriptionIndex {
+		if err := generator.ValidateDescription(parts[descriptionIndex]); err != nil {
+			return err
+		}
+	}
+
+	if len(parts) > shorthandIndex {
+		if err := generator.ValidateFlagShorthand(parts[shorthandIndex]); err != nil {
+			return err
+		}
+	}
+
+	if len(parts) > defaultIsCodeIndex && parts[defaultIsCodeIndex] == "true" {
+		return generator.ValidateFlagDefaultCode(parts[defaultIndex])
+	}
+
+	return nil
 }
 
 // hintedValidation rewrites a generator validation error so its hint —
@@ -335,12 +396,15 @@ func (o *CommandOptions) buildMainGroup() *huh.Group {
 					return errors.Newf("description is required")
 				}
 
-				return nil
+				return hintedValidation(generator.ValidateDescription(s))
 			}),
 		huh.NewText().
 			Title("Long Description").
 			Description("Optional — leave blank to use short description").
-			Value(&o.Long),
+			Value(&o.Long).
+			Validate(func(s string) error {
+				return hintedValidation(generator.ValidateLongDescription(s))
+			}),
 		huh.NewInput().
 			Title("Aliases").
 			Description("Comma-separated aliases (e.g. ls, list)").
@@ -412,7 +476,7 @@ func (o *CommandOptions) buildFlagGroup(fi *FlagFormInput, existing []string) *h
 					return errors.Newf("flag name is required")
 				}
 
-				return nil
+				return hintedValidation(generator.ValidateFlagName(s))
 			}),
 		huh.NewSelect[string]().
 			Title("Type").
@@ -428,11 +492,17 @@ func (o *CommandOptions) buildFlagGroup(fi *FlagFormInput, existing []string) *h
 			Value(&fi.Type),
 		huh.NewInput().
 			Title("Description").
-			Value(&fi.Description),
+			Value(&fi.Description).
+			Validate(func(s string) error {
+				return hintedValidation(generator.ValidateDescription(s))
+			}),
 		huh.NewInput().
 			Title("Shorthand").
 			Description("Single character (leave blank for none)").
-			Value(&fi.Shorthand),
+			Value(&fi.Shorthand).
+			Validate(func(s string) error {
+				return hintedValidation(generator.ValidateFlagShorthand(s))
+			}),
 		huh.NewInput().
 			Title("Default Value").
 			Description("Leave blank for zero value").

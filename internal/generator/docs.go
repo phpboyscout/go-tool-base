@@ -398,7 +398,7 @@ func appendCommandDescription(sb *strings.Builder, cmd *ManifestCommand, short, 
 	}
 
 	if description != "" {
-		fmt.Fprintf(sb, "## Description\n\n%s\n\n", description)
+		fmt.Fprintf(sb, "## Description\n\n%s\n\n", escapeMarkdown(description))
 	}
 
 	longDesc := ""
@@ -409,7 +409,7 @@ func appendCommandDescription(sb *strings.Builder, cmd *ManifestCommand, short, 
 	}
 
 	if longDesc != "" {
-		sb.WriteString(longDesc + "\n\n")
+		sb.WriteString(escapeMarkdown(longDesc) + "\n\n")
 	}
 }
 
@@ -428,15 +428,29 @@ func appendFlagsTable(sb *strings.Builder, cmd *ManifestCommand) {
 			required = "Yes"
 		}
 
-		defaultVal := ""
-		if f.Default != "" {
-			defaultVal = fmt.Sprintf("`%s`", f.Default)
-		}
-
-		fmt.Fprintf(sb, "| `--%s` | %s | %s | %s |\n", f.Name, f.Description, defaultVal, required)
+		fmt.Fprintf(sb, "| `--%s` | %s | %s | %s |\n",
+			f.Name,
+			escapeMarkdownTableCell(escapeMarkdown(string(f.Description))),
+			formatFlagDefaultCell(f.Default),
+			required)
 	}
 
 	sb.WriteString("\n")
+}
+
+// formatFlagDefaultCell renders a flag default as a table-safe code span.
+// A default containing a backtick cannot live in a code span (the
+// backtick would close it), so it falls back to escaped plain text.
+func formatFlagDefaultCell(def string) string {
+	if def == "" {
+		return ""
+	}
+
+	if strings.ContainsRune(def, '`') {
+		return escapeMarkdownTableCell(escapeMarkdown(def))
+	}
+
+	return "`" + escapeMarkdownTableCell(def) + "`"
 }
 
 func appendSubcommandsTable(sb *strings.Builder, fullCmdName string, cmd *ManifestCommand) {
@@ -449,7 +463,9 @@ func appendSubcommandsTable(sb *strings.Builder, fullCmdName string, cmd *Manife
 	sb.WriteString("| :--- | :--- |\n")
 
 	for _, sub := range cmd.Commands {
-		fmt.Fprintf(sb, "| `%s %s` | %s |\n", fullCmdName, sub.Name, sub.Description)
+		fmt.Fprintf(sb, "| `%s %s` | %s |\n",
+			fullCmdName, sub.Name,
+			escapeMarkdownTableCell(escapeMarkdown(string(sub.Description))))
 	}
 
 	sb.WriteString("\n")

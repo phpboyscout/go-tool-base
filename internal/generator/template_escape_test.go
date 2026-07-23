@@ -235,6 +235,47 @@ func TestEscape_Idempotent_WhereApplicable(t *testing.T) {
 	for _, in := range inputs {
 		assertIdempotent(t, "escapeMarkdownCodeBlock", escapeMarkdownCodeBlock, in)
 		assertIdempotent(t, "escapeComment", escapeComment, in)
+		assertIdempotent(t, "escapeMarkdownTableCell", escapeMarkdownTableCell, in)
+	}
+
+	// Table-cell-specific idempotence cases: already-escaped pipes must
+	// not be double-escaped.
+	for _, in := range []string{"a | b", `a \| b`, "pipe|and\nnewline", `\\|`} {
+		assertIdempotent(t, "escapeMarkdownTableCell", escapeMarkdownTableCell, in)
+	}
+}
+
+func TestEscapeMarkdownTableCell_IdentityOnSafeClass(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, safeCharClass, escapeMarkdownTableCell(safeCharClass))
+}
+
+func TestEscapeMarkdownTableCell(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "pipe escaped", input: "a | b", want: `a \| b`},
+		{name: "escaped pipe untouched", input: `a \| b`, want: `a \| b`},
+		{name: "even backslash run re-escaped", input: `a \\| b`, want: `a \\\| b`},
+		{name: "newline collapsed", input: "line1\nline2", want: "line1 line2"},
+		{name: "crlf collapsed", input: "line1\r\nline2", want: "line1 line2"},
+		{name: "tab to space", input: "a\tb", want: "a b"},
+		{name: "control stripped", input: "a\x07b", want: "ab"},
+		{name: "control between backslash and pipe", input: "\\\x07|", want: `\|`},
+		{name: "composes with escapeMarkdown", input: escapeMarkdown("a | b\nc"), want: `a \| b c`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.want, escapeMarkdownTableCell(tc.input))
+		})
 	}
 }
 
@@ -332,6 +373,7 @@ func TestEscape_TemplateFuncMapCompletenes(t *testing.T) {
 		"escapeYAML",
 		"escapeMarkdown",
 		"escapeMarkdownCodeBlock",
+		"escapeMarkdownTableCell",
 		"escapeTOML",
 		"escapeComment",
 		"escapeShellArg",

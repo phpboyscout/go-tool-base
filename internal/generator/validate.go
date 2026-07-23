@@ -37,6 +37,10 @@ import (
 
 const (
 	maxDescriptionLen       = 500
+	maxLongDescriptionLen   = 4000
+	maxFlagDefaultCodeLen   = 128
+	maxRepoNameLen          = 255
+	maxSigningEmailLen      = 254
 	maxOrgLenGitHub         = 39
 	maxGitLabSubgroupDepth  = 4
 	maxGitLabNamespaceLen   = 255
@@ -86,7 +90,39 @@ var (
 	// identifier (pascalCase) and a cobra flag registration, so the class
 	// is constrained the same way command names are.
 	flagNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+	// flagDefaultCodeRe matches the only shapes `default_is_code: true`
+	// legitimately renders through jen.Id: a bare Go identifier
+	// (defaultTimeout) or a dot-joined selector (time.Second,
+	// pkg.sub.Const). Everything else — calls, operators, literals,
+	// statements — is rejected at the gate, because the sink emits the
+	// value verbatim as Go source. Empirically no manifest, template, or
+	// fixture uses expression defaults, so the strict grammar is
+	// sufficient (see the 2026-07-23 hardening spec).
+	flagDefaultCodeRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)
+	// signingEmailRe is an email-shaped character class (single `@`
+	// guaranteed by construction, no whitespace or control characters)
+	// consistent with the space-separated KV encoding of the generated
+	// provenance annotation, which the value is written into.
+	signingEmailRe = regexp.MustCompile(`^[A-Za-z0-9._%+-]+@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$`)
 )
+
+// signingKeySources is the trust-anchor enum recorded in the manifest and
+// the provenance annotation; empty selects the framework default ("both").
+var signingKeySources = map[string]bool{
+	"":         true,
+	"embedded": true,
+	"external": true,
+	"both":     true,
+}
+
+// releaseSourceTypes is the set of release-source providers the skeleton
+// asset sets actually support. "gitea" and "bitbucket" are reserved for
+// the forge adapters but rejected until skeleton assets exist for them.
+var releaseSourceTypes = map[string]bool{
+	"":       true,
+	"github": true,
+	"gitlab": true,
+}
 
 // validFlagTypes is the set of flag types the command generator knows
 // how to render (kept in sync with templates/command.go's flagFuncMap
@@ -415,6 +451,129 @@ func ValidateDescription(desc string) error {
 
 	if err := rejectControlChars(d, "Description", []rune{'\t'}); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// ValidateLongDescription enforces a bounded-length, control-character-free
+// long description. Unlike [ValidateDescription], newlines are permitted —
+// multi-line long descriptions are legitimate — and `|` need not be banned
+// because the Markdown table sink escapes it (escapeMarkdownTableCell).
+func ValidateLongDescription(desc string) error {
+	d := norm.NFC.String(desc)
+
+	if len(d) > maxLongDescriptionLen {
+		return rejectf("LongDescription",
+			fmt.Sprintf("long description must be at most %d bytes after NFC normalisation", maxLongDescriptionLen),
+			d)
+	}
+
+	return rejectControlChars(d, "LongDescription", []rune{'\t', '\n'})
+}
+
+// ValidateFlagDefaultCode gates a flag default that renders as Go source
+// (`default_is_code: true` emits the value verbatim via jen.Id). Only a
+// bare identifier or a dot-joined selector (`defaultTimeout`,
+// `time.Second`) is accepted — the shapes jen.Id is legitimately used
+// for. Calls, operators, literals, and anything statement-like are
+// rejected so a tampered manifest cannot compile arbitrary Go into a
+// regenerated tool. Empty means "zero value" and is accepted.
+func ValidateFlagDefaultCode(def string) error {
+	if def == "" {
+		return nil
+	}
+
+	d := norm.NFC.String(def)
+	if len(d) > maxFlagDefaultCodeLen {
+		return rejectf("FlagDefaultCode",
+			fmt.Sprintf("code default must be at most %d bytes after NFC normalisation", maxFlagDefaultCodeLen),
+			d)
+	}
+
+	if !flagDefaultCodeRe.MatchString(d) {
+		return rejectf("FlagDefaultCode",
+			"code default must be a Go identifier or dot-joined selector (e.g. defaultTimeout, time.Second)",
+			d)
+	}
+
+	return nil
+}
+
+// ValidateSigningExternalKeyEmail accepts an empty string and otherwise
+// enforces an email-shaped character class: single `@`, no whitespace, no
+// control characters. The value is written raw into the `// gtb:signing`
+// annotation of the generated provenance file, so a newline could
+// otherwise break out of the comment line.
+func ValidateSigningExternalKeyEmail(email string) error {
+	if email == "" {
+		return nil
+	}
+
+	e := norm.NFC.String(email)
+	if len(e) > maxSigningEmailLen {
+		return rejectf("SigningExternalKeyEmail",
+			fmt.Sprintf("external key email must be at most %d bytes", maxSigningEmailLen),
+			e)
+	}
+
+	if !signingEmailRe.MatchString(e) {
+		return rejectf("SigningExternalKeyEmail",
+			"external key email must be email-shaped: local part, a single `@`, and a domain, with no whitespace or control characters",
+			e)
+	}
+
+	return nil
+}
+
+// ValidateSigningKeySource restricts the trust-anchor source to the known
+// enum: "embedded", "external", "both", or empty for the framework default.
+func ValidateSigningKeySource(source string) error {
+	if !signingKeySources[norm.NFC.String(source)] {
+		return rejectf("SigningKeySource",
+			"signing key source must be one of: embedded, external, both (or empty for the default)",
+			source)
+	}
+
+	return nil
+}
+
+// ValidateReleaseSourceType restricts the manifest release-source provider
+// to the enum the skeleton assets support: "github", "gitlab", or empty
+// for the host-derived default. "gitea" and "bitbucket" are reserved for
+// the forge adapters and rejected until skeleton asset sets exist.
+func ValidateReleaseSourceType(sourceType string) error {
+	if !releaseSourceTypes[norm.NFC.String(sourceType)] {
+		return rejectf("ReleaseSourceType",
+			"release source type must be github or gitlab (gitea and bitbucket are reserved until skeleton assets exist)",
+			sourceType)
+	}
+
+	return nil
+}
+
+// ValidateRepoName enforces the shape of the manifest's bare repository
+// name (release_source.repo — a single path segment, unlike the CLI
+// --repo module path handled by [ValidateRepo]). The value is joined
+// into `{{ .Repo }}` / `{{ .ModulePath }}` and rendered raw into
+// CI-executed files (.gitlab-ci.yml, .goreleaser.yaml), so quotes,
+// whitespace, brackets, and separators are all outside the class.
+func ValidateRepoName(name string) error {
+	n := norm.NFC.String(name)
+	if n == "" {
+		return rejectf("RepoName", "repository name must not be empty", "")
+	}
+
+	if len(n) > maxRepoNameLen {
+		return rejectf("RepoName",
+			fmt.Sprintf("repository name must be at most %d bytes after NFC normalisation", maxRepoNameLen),
+			n)
+	}
+
+	if !repoSegmentRe.MatchString(n) {
+		return rejectf("RepoName",
+			"repository name must match ^[a-zA-Z0-9][a-zA-Z0-9._~-]*$",
+			n)
 	}
 
 	return nil
@@ -900,11 +1059,13 @@ func ValidateManifest(m *Manifest) error {
 }
 
 // validateManifestCommands walks the manifest command tree and validates
-// every command name, so a tampered manifest cannot drive the
-// filepath.Join / RemoveAll sinks through the regenerate path.
+// every command's name, descriptions, and flags, so a tampered manifest
+// cannot drive the filepath.Join / RemoveAll sinks, the generated-Go
+// default_is_code sink, or the boilerplate docs builder through the
+// regenerate path.
 func validateManifestCommands(cmds []ManifestCommand) error {
 	for i := range cmds {
-		if err := ValidateCommandName(cmds[i].Name); err != nil {
+		if err := validateManifestCommand(&cmds[i]); err != nil {
 			return err
 		}
 
@@ -916,8 +1077,61 @@ func validateManifestCommands(cmds []ManifestCommand) error {
 	return nil
 }
 
+// validateManifestCommand validates a single command record: name,
+// descriptions (rendered into generated docs), and every flag.
+func validateManifestCommand(c *ManifestCommand) error {
+	if err := ValidateCommandName(c.Name); err != nil {
+		return err
+	}
+
+	if err := ValidateDescription(string(c.Description)); err != nil {
+		return err
+	}
+
+	if err := ValidateLongDescription(string(c.LongDescription)); err != nil {
+		return err
+	}
+
+	for i := range c.Flags {
+		if err := validateManifestFlag(&c.Flags[i]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateManifestFlag applies the CLI add-flag validators to a manifest
+// flag record, plus the code-default gate: `default_is_code: true` emits
+// the default verbatim as Go source (jen.Id), so it must be a plain
+// identifier/selector.
+func validateManifestFlag(f *ManifestFlag) error {
+	if err := ValidateFlagName(f.Name); err != nil {
+		return err
+	}
+
+	if err := ValidateFlagType(f.Type); err != nil {
+		return err
+	}
+
+	if err := ValidateFlagShorthand(f.Shorthand); err != nil {
+		return err
+	}
+
+	if err := ValidateDescription(string(f.Description)); err != nil {
+		return err
+	}
+
+	if f.DefaultIsCode {
+		return ValidateFlagDefaultCode(f.Default)
+	}
+
+	return nil
+}
+
 // validateManifestSigning validates every ManifestSigning field that is
-// rendered into the CI-executed .goreleaser.yaml signs block.
+// rendered into the CI-executed .goreleaser.yaml signs block or the
+// `// gtb:signing` annotation of the generated provenance file.
 func validateManifestSigning(s *ManifestSigning) error {
 	if err := ValidateSigningBackend(s.Backend); err != nil {
 		return err
@@ -928,6 +1142,14 @@ func validateManifestSigning(s *ManifestSigning) error {
 	}
 
 	if err := ValidateSigningKeyID(s.KeyID); err != nil {
+		return err
+	}
+
+	if err := ValidateSigningExternalKeyEmail(s.ExternalKeyEmail); err != nil {
+		return err
+	}
+
+	if err := ValidateSigningKeySource(s.KeySource); err != nil {
 		return err
 	}
 
@@ -990,9 +1212,15 @@ func validateManifestHelp(h *ManifestHelp) error {
 	return ValidateTeamsTeam(h.TeamsTeam)
 }
 
-// validateManifestReleaseSource validates Host and Owner only when
-// populated; absent fields are permitted in the YAML schema.
+// validateManifestReleaseSource validates Type, Host, Owner, and Repo when
+// populated; absent fields are permitted in the YAML schema. Owner and
+// Repo are joined into `{{ .Repo }}` / `{{ .ModulePath }}` and rendered
+// raw into CI-executed files, so both are gated here.
 func validateManifestReleaseSource(rs *ManifestReleaseSource) error {
+	if err := ValidateReleaseSourceType(rs.Type); err != nil {
+		return err
+	}
+
 	if rs.Host != "" {
 		if err := ValidateHost(rs.Host); err != nil {
 			return err
@@ -1001,6 +1229,12 @@ func validateManifestReleaseSource(rs *ManifestReleaseSource) error {
 
 	if rs.Owner != "" {
 		if err := ValidateOrg(rs.Owner, rs.Type); err != nil {
+			return err
+		}
+	}
+
+	if rs.Repo != "" {
+		if err := ValidateRepoName(rs.Repo); err != nil {
 			return err
 		}
 	}

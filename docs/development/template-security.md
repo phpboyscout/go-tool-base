@@ -60,10 +60,18 @@ Every user-influenced field has a dedicated validator in `internal/generator/val
 | `Signing.KMSRegion` (`ValidateSigningKMSRegion`) | `^[a-z][a-z0-9-]{0,31}$` (or empty) | AWS region identifiers; same render site. |
 | `Signing.KeyID` (`ValidateSigningKeyID`) | `^[a-zA-Z0-9:/_.=+,@-]{1,256}$` (or empty), and must not contain a literal `..` substring | KMS ids/ARNs/aliases plus the local backend's PEM paths; quotes, whitespace, and control characters are outside the class so the value cannot break out of its quoted YAML scalar. The `..` rejection is defence-in-depth — legitimate KMS ids/ARNs/aliases (`alias/my-key`) and local relative PEM paths (`./release.pem`) never contain it. |
 | `Signing.PublicKey` (`ValidateSigningPublicKey`) | Clean `/`-separated path relative to the project root; a single leading `./` is normalised away (`./key.asc` is accepted as `key.asc`); no absolute paths, `..` segments, or backslashes; segments `^[a-zA-Z0-9][a-zA-Z0-9._-]{0,254}$` | The field is a path to the armored public-key file (default `internal/trustkeys/keys/signing-key-v1.asc`), not inline armor. The leading-`./` normalisation is a friendliness affordance; the path must still resolve cleanly inside the project root after it. |
+| `Signing.ExternalKeyEmail` (`ValidateSigningExternalKeyEmail`) | Email-shaped: `local@domain` with a single `@`, no whitespace or control characters; ≤ 254 bytes (or empty) | Written raw into the `// gtb:signing` annotation of the generated `pkg/cmd/root/provenance.go`; the class excludes newlines (comment breakout) and spaces (the annotation's space-separated KV encoding). |
+| `Signing.KeySource` (`ValidateSigningKeySource`) | One of `embedded`, `external`, `both` (or empty) | Enum for the trust-anchor source recorded in the manifest and the provenance annotation; an unknown value is rejected rather than silently recorded. |
+| `ReleaseSource.Type` (`ValidateReleaseSourceType`) | One of `github`, `gitlab` (or empty for the host-derived default) | Selects the skeleton asset set; `gitea`/`bitbucket` are reserved for the forge adapters but rejected until skeleton assets exist for them. |
+| `ReleaseSource.Repo` (`ValidateRepoName`) | Single path segment `^[a-zA-Z0-9][a-zA-Z0-9._~-]*$`; ≤ 255 bytes | The manifest's bare repository name is joined into `{{ .Repo }}`/`{{ .ModulePath }}` and rendered raw into CI-executed files (`.gitlab-ci.yml` component inputs, `.goreleaser.yaml` ldflags, `.golangci.yaml`, `.mockery.yml`); quotes, whitespace, brackets, and separators are all outside the class. (The CLI `--repo` module path is covered by `ValidateRepo` above.) |
+| `LongDescription` (`ValidateLongDescription`) | ≤ 4000 bytes after NFC; no control chars except `\t` and `\n` | Multi-line long descriptions are legitimate, so newlines are allowed; `\|` need not be banned because the Markdown table sink escapes it (`escapeMarkdownTableCell`). |
+| Flag `Default` with `default_is_code: true` (`ValidateFlagDefaultCode`) | Bare Go identifier or dot-joined selector: `^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`; ≤ 128 bytes (or empty) | The value is emitted **verbatim as Go source** via `jen.Id` in the generated command; the strict identifier/selector grammar (e.g. `defaultTimeout`, `time.Second`) forecloses compiling arbitrary Go into a regenerated tool. Expression defaults (`5 * time.Second`) are not admitted — no existing manifest or fixture uses them. |
 
 ### Where the Validators Fire
 
-`ValidateManifest` is the gate for the regenerate path: it walks `Properties`, `ReleaseSource`, **every command in the `Commands` tree** (via `ValidateCommandName`), and **every rendered `Signing` field**, so a tampered `.gtb/manifest.yaml` cannot drive writes or deletes outside the project tree, nor inject YAML into the release pipeline.
+`ValidateManifest` is the gate for the regenerate path: it walks `Properties`, `ReleaseSource` (type, host, owner, **and repo name**), **every command in the `Commands` tree** — name, description, long description, and **every flag** (name, type, shorthand, description, and the code-default grammar when `default_is_code: true`) — and **every rendered `Signing` field** including the provenance-annotation fields (`external_key_email`, `key_source`). A tampered `.gtb/manifest.yaml` therefore cannot drive writes or deletes outside the project tree, inject YAML into CI-executed files, compile arbitrary Go through a flag default, or break out of the provenance comment.
+
+The `generate command` CLI applies the same rules at its boundary: `--short`/`--long` run through `ValidateDescription`/`ValidateLongDescription`, and each colon-delimited `--flag` definition is validated field-by-field (including `ValidateFlagDefaultCode` when the definition marks its default as code).
 
 The same rules apply at every entry point, with severity matched to the input's origin:
 
@@ -104,6 +112,15 @@ a shell- and fence-safe character class, so clean projects see no diff, but the
 pipe keeps the output safe if a validator is ever widened. The
 `TestEscape_HelpersWiredAtDocumentedSites` test asserts the pipes stay in place.
 
+Not every render site is a `text/template`: the boilerplate docs builder
+(`internal/generator/docs.go`) assembles Markdown with `fmt.Fprintf` on a
+`strings.Builder`, so the FuncMap pipes never apply there. Its sites call the
+helpers directly — `escapeMarkdown` for the description/long-description prose
+and `escapeMarkdownTableCell` (composed with `escapeMarkdown`) for every flags-
+and subcommands-table cell. When adding a Go-side render site, call the helper
+explicitly; the two-layer rule (validate at the gate, escape at the sink) applies
+regardless of the rendering mechanism.
+
 ### Helper Contract
 
 Every escape function is:
@@ -120,6 +137,7 @@ Every escape function is:
 | `escapeYAML` | Double-quoted YAML scalar with `\`/`"`/control bytes escaped. Unconditional quoting avoids YAML 1.1/1.2 implicit-typing edge cases (`yes`, `null`, `1.0`). |
 | `escapeMarkdown` | CommonMark prose context. Escapes `\`, backtick, `*`, `[`, `]`, `<`, `>`, `|`, `{`, `}`, `!`, `#`. Leaves `_`, `.`, `-`, `+` alone so ordinary prose (`v1.0.0`, `foo_bar`) survives unchanged. |
 | `escapeMarkdownCodeBlock` | Fenced code block content. Runs of 3+ backticks are broken with a zero-width space between the 2nd and 3rd so the enclosing fence cannot close early. Idempotent by construction. |
+| `escapeMarkdownTableCell` | GFM table cell content. Newlines collapse to spaces (a newline terminates the row), any `\|` not already backslash-escaped becomes `\\\|` (honoured by GFM even inside code spans), remaining control bytes are stripped. Composes with `escapeMarkdown` and is idempotent. Used by the boilerplate docs builder (`internal/generator/docs.go`) for the flags and subcommands tables. |
 | `escapeTOML` | TOML basic-string interior (without enclosing quotes). |
 | `escapeComment` | Single-line comment contexts (`#` in YAML / justfile / CODEOWNERS). Newlines and NUL bytes become spaces so comment scope cannot escape. |
 | `escapeShellArg` | POSIX single-quoted shell argument; interior single quotes become `'\''`. Used in justfile recipe bodies when user input reaches a shell. |

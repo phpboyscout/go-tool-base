@@ -63,6 +63,7 @@ var templateFuncMap = template.FuncMap{
 	"escapeYAML":              escapeYAML,
 	"escapeMarkdown":          escapeMarkdown,
 	"escapeMarkdownCodeBlock": escapeMarkdownCodeBlock,
+	"escapeMarkdownTableCell": escapeMarkdownTableCell,
 	"escapeTOML":              escapeTOML,
 	"escapeComment":           escapeComment,
 	"escapeShellArg":          escapeShellArg,
@@ -153,6 +154,60 @@ func escapeMarkdown(s string) string {
 			// stripped
 		default:
 			b.WriteRune(r)
+		}
+	}
+
+	return b.String()
+}
+
+// escapeMarkdownTableCell sanitises content destined for a GFM table
+// cell: every newline sequence collapses to a single space (a newline
+// terminates the row), any `|` not already backslash-escaped becomes
+// `\|` (the GFM-sanctioned in-cell escape, honoured even inside code
+// spans), and remaining ASCII control bytes are stripped. It composes
+// with [escapeMarkdown] — pipes that helper has already escaped are
+// left alone — and is idempotent.
+func escapeMarkdownTableCell(s string) string {
+	s = replaceInvalidUTF8(s)
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	s = strings.ReplaceAll(s, "\n", " ")
+
+	var b strings.Builder
+
+	b.Grow(len(s))
+
+	// backslashes counts the run of backslashes emitted to the output
+	// immediately before the current position — the run that decides
+	// whether a pipe is already escaped. Stripped control bytes leave
+	// the run intact because the surrounding characters become
+	// adjacent in the output.
+	backslashes := 0
+
+	for _, r := range s {
+		switch {
+		case r == '|':
+			if backslashes%2 == 0 {
+				b.WriteByte('\\')
+			}
+
+			b.WriteRune(r)
+
+			backslashes = 0
+		case r == '\\':
+			b.WriteRune(r)
+
+			backslashes++
+		case r == '\t':
+			b.WriteByte(' ')
+
+			backslashes = 0
+		case r < asciiControlBound || r == delRune:
+			// stripped — control bytes have no place in a table cell
+		default:
+			b.WriteRune(r)
+
+			backslashes = 0
 		}
 	}
 
