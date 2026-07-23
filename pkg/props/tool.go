@@ -167,6 +167,20 @@ type BootstrapPolicy struct {
 	// also be marked via the setup.SkipConfigCheck annotation; either mechanism
 	// relaxes the check.
 	SkipConfigCheck []string `json:"skip_config_check,omitempty" yaml:"skip_config_check,omitempty"`
+
+	// AuxiliaryCommands lists commands that take the root pre-run's auxiliary
+	// fast path: the framework bootstrap — config load, telemetry consent,
+	// collector wiring, update check — is skipped entirely (only the --debug
+	// flag is still honoured for logging). Cobra's own generated help,
+	// completion and __complete commands take this path automatically; the
+	// list lets a downstream tool extend the set (e.g. for its own
+	// bootstrap-free plumbing commands) without a framework release.
+	//
+	// This is stronger than SkipConfigCheck: an auxiliary command runs with
+	// props.Config left nil, so it must read nothing from configuration.
+	// Entries match a command's Name() or full CommandPath(), the same
+	// semantics as SkipConfigCheck.
+	AuxiliaryCommands []string `json:"auxiliary_commands,omitempty" yaml:"auxiliary_commands,omitempty"`
 }
 
 // MatchesSkipList reports whether a command identified by name and path is
@@ -175,7 +189,20 @@ type BootstrapPolicy struct {
 // entries never match. The annotation half (setup.SkipConfigCheck) is evaluated
 // separately by the root pre-run to avoid a props->setup import cycle.
 func (b BootstrapPolicy) MatchesSkipList(name, path string) bool {
-	for _, entry := range b.SkipConfigCheck {
+	return matchesCommandList(b.SkipConfigCheck, name, path)
+}
+
+// MatchesAuxiliaryList reports whether a command identified by name and path
+// is listed in AuxiliaryCommands, using the same Name()/CommandPath() equality
+// semantics as MatchesSkipList.
+func (b BootstrapPolicy) MatchesAuxiliaryList(name, path string) bool {
+	return matchesCommandList(b.AuxiliaryCommands, name, path)
+}
+
+// matchesCommandList reports whether any non-empty entry equals the command's
+// bare name or its full command path.
+func matchesCommandList(entries []string, name, path string) bool {
+	for _, entry := range entries {
 		if entry == "" {
 			continue
 		}

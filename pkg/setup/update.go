@@ -565,14 +565,28 @@ func requireReleaseToken(ctx context.Context, vcsProvider string, p props.Config
 }
 
 // SkipUpdateCheck reports whether the update check should be skipped this
-// invocation: always for the version/update/auth/init commands, and otherwise
-// when a prior check happened within checkInterval. A checkInterval <= 0 means
-// check on every invocation; a missing timestamp (first run) is never skipped,
-// regardless of the interval.
+// invocation: always for commands exempted by annotation or feature (see
+// below), and otherwise when a prior check happened within checkInterval. A
+// checkInterval <= 0 means check on every invocation; a missing timestamp
+// (first run) is never skipped, regardless of the interval.
+//
+// Exemption is decided by the typed command metadata, not the Use string (the
+// old {"update","auth","init","version"} name list collided with any
+// downstream command coincidentally named "auth"/"init" and broke when Use
+// carried an args suffix). A command is exempt when it — or any ancestor, so a
+// stamped or feature-owned group covers its whole subtree — carries the
+// [MarkSkipUpdateCheck] annotation or is wrapped with the UpdateCmd or InitCmd
+// feature. Built-ins stamp themselves (version, doctor, mcp); a downstream
+// command opts out with setup.MarkSkipUpdateCheck(cmd).
 func SkipUpdateCheck(fs afero.Fs, name string, cmd *cobra.Command, checkInterval time.Duration) bool {
-	skippableCommands := []string{"update", "auth", "init", "version"}
-	if slices.Contains(skippableCommands, cmd.Use) {
-		return true
+	for c := cmd; c != nil; c = c.Parent() {
+		if SkipsUpdateCheck(c) {
+			return true
+		}
+
+		if f := FeatureOf(c); f == props.UpdateCmd || f == props.InitCmd {
+			return true
+		}
 	}
 
 	if checkInterval <= 0 {

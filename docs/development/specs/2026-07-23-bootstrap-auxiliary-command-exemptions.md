@@ -2,7 +2,7 @@
 title: "Bootstrap exemptions for auxiliary commands: help, completion, __complete, and the init subtree"
 description: "The root pre-run runs the full framework bootstrap for cobra's auto-generated help, completion and hidden __complete commands, so on a fresh install (no config file) 'tool help' and shell completion exit non-zero, and every tab-completion keystroke pays the bootstrap — including the update check. The fix is annotation-based exemption using the existing setup.FeatureOf/SkipConfigCheck mechanism, replacing the fragile Use-string skip list in SkipUpdateCheck, extending the InitCmd exemption to the whole init subtree, and attaching a run-init hint to the missing-config error."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - bootstrap
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — 2026-07-23
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (GTB-core §HIGH
@@ -134,13 +134,37 @@ string matching.
   a hint naming `<tool> init`.
 - `SkipUpdateCheck` has no remaining `cmd.Use` string comparisons.
 
-## 5. Open questions
+## 5. Open questions — resolved
 
-1. Should the `completion` parent group be exempted wholesale (including a downstream
-   tool that overrides/extends it), or only cobra's own generated command instances?
-2. Should the fast-path still run `configureLogging` (as the `InitCmd` branch configures
-   debug logging) so `--debug tool completion bash` remains debuggable, or is the
-   flags-only debug toggle enough?
-3. Is a `Tool.Bootstrap.MatchesSkipList` entry (the existing name/path skip list at
-   `root.go:330-331`) preferable for `help`/`completion` over hard-coding in the
-   pre-run, so downstream tools can extend the set without a GTB release?
+1. **Only cobra's own generated command instances are exempted**, not any
+   downstream command that happens to share the name. The discriminator
+   (`isCobraGeneratedCommand`, `pkg/cmd/root/root.go`) is a direct child of the
+   root carrying no annotations — every GTB-wrapped command is stamped by
+   `setup.Wrap`, so a downstream feature command named `help` or `completion`
+   still gets the normal bootstrap (covered by
+   `TestPreRun_DownstreamCompletionCommand_GetsNormalBootstrap`).
+2. **The fast path still configures debug logging** (`applyDebugFlag`, shared
+   semantics with the former `InitCmd` branch), so `--debug tool completion
+   bash` stays debuggable. It is tolerant of `__complete`, whose flags cobra
+   never parses.
+3. **Both.** Cobra's auxiliary commands are exempted intrinsically, and a
+   `Tool.Bootstrap.AuxiliaryCommands` name/path list (matching
+   `SkipConfigCheck`'s semantics via `MatchesAuxiliaryList`) lets downstream
+   tools extend the fast-path set without a GTB release. Auxiliary commands run
+   with `props.Config` nil — stronger than `SkipConfigCheck`'s tolerant load.
+
+### Implementation notes
+
+- `SkipUpdateCheck` keeps its signature; only the exemption semantics changed
+  (annotation/feature parent-chain walk, no `Use` strings). `help`/`completion`
+  need no update-check annotation because the pre-run fast path returns before
+  the check is ever reached; there is no construction site at which to stamp
+  cobra's generated instances. The forge `auth` command named by §2.3 no longer
+  exists post-extraction, so no stamp was needed there.
+- Migration note: `docs/reference/migration/v0.x-update-check-annotations.md`.
+- The `init github` fresh-install path is covered by unit test
+  (`TestPreRun_FreshInstall_InitSubtreeRuns`) rather than a Gherkin scenario:
+  the provider wizard reaches an unguarded `form.Run()` and huh hangs on
+  non-terminal stdin (the MR !157 failure mode), which would risk hanging the
+  e2e suite. Gherkin covers `help`, `completion bash`, `__complete` and the
+  run-init hint (`features/cli/fresh_install.feature`).

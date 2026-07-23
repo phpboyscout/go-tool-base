@@ -82,6 +82,7 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	// --- When ---
 	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
 	ctx.Step(`^I run gtb with "([^"]*)"$`, iRunGTBWith)
+	ctx.Step(`^I run gtb bare with "([^"]*)"$`, iRunGTBBareWith)
 
 	// --- Then ---
 	ctx.Step(`^the exit code is (\d+)$`, theExitCodeIs)
@@ -190,6 +191,17 @@ func iSetEnvironmentVariable(ctx context.Context, key, value string) (context.Co
 
 // --- When implementations ---
 
+// iRunGTBBareWith runs the binary with EXACTLY the given args — no appended
+// --ci/--config. Needed for cobra's hidden __complete command, which treats
+// every trailing argument as the command line being completed, so appended
+// harness flags would corrupt the completion request. HOME is still isolated
+// to the scenario's temp directory (which holds no config file on the default
+// search paths), so this also models the fresh-install state. Stdin is a pipe,
+// so utils.IsInteractive() reports false deterministically.
+func iRunGTBBareWith(ctx context.Context, args string) context.Context {
+	return runGTB(ctx, strings.Fields(args))
+}
+
 func iRunGTBWith(ctx context.Context, args string) context.Context {
 	w := getCLIWorld(ctx)
 
@@ -210,6 +222,17 @@ func iRunGTBWith(ctx context.Context, args string) context.Context {
 	parts = append(parts, "--ci")
 	// Point to the per-scenario temp config so the binary doesn't require a real install
 	parts = append(parts, "--config", filepath.Join(w.configDir, "config.yaml"))
+
+	return runGTB(ctx, parts)
+}
+
+// runGTB executes the scenario binary with the given argv, capturing exit
+// code, stdout and stderr onto the CLI world. Shared by iRunGTBWith (which
+// appends the harness --ci/--config flags) and iRunGTBBareWith (which does
+// not).
+func runGTB(ctx context.Context, parts []string) context.Context {
+	w := getCLIWorld(ctx)
+
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 
 	// Give the child a piped (non-TTY) stdin so utils.IsInteractive() reports

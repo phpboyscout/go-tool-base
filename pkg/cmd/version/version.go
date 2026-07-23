@@ -98,6 +98,10 @@ report whether a newer version is available.`,
 		},
 	}
 
+	// version performs (and prints) its own latest-version lookup, so the
+	// pre-run's update check would be redundant noise before it.
+	setup.MarkSkipUpdateCheck(cmd)
+
 	// "" feature: version is a generic built-in (no feature-specific middleware).
 	return setup.Wrap("", cmd)
 }

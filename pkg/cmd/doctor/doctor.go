@@ -64,6 +64,11 @@ pinpoint a misconfigured or missing dependency.`,
 		},
 	}
 
+	// A diagnostics run inspects the install it has; a pre-run network update
+	// check (and its spinner) would only obscure the report. The stamp covers
+	// the whole doctor subtree via SkipUpdateCheck's parent-chain walk.
+	setup.MarkSkipUpdateCheck(cmd)
+
 	doctorCmd := setup.Wrap(p.DoctorCmd, cmd)
 
 	// `doctor report` — the paste-ready, redacted support bundle that wraps the

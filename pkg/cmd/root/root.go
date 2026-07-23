@@ -783,23 +783,33 @@ func commandTreeHasPersistentPreRun(cmd *cobra.Command) bool {
 
 func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState, boundFlags map[string]*pflag.Flag) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		// Fast path — skip the framework bootstrap entirely (config load,
+		// telemetry consent, collector wiring, update check) but still honour
+		// --debug so `--debug tool completion bash` stays debuggable:
+		//
+		//   - the init subtree: init is what CREATES the config, and its
+		//     provider subcommands (`init github`, …) must equally run on a
+		//     configless machine. Identified by the typed feature annotation
+		//     (stamped by setup.Wrap), walking up the tree — never the fragile
+		//     Use string, which misfires for any unrelated command literally
+		//     named "init" and breaks if Use carries an arg suffix.
+		//   - cobra's own generated help/completion/__complete commands: on a
+		//     fresh install they must not fail the missing-config gate, and
+		//     shell tab-completion must never pay the bootstrap (least of all
+		//     the network update check) on every keystroke.
+		//   - commands a downstream tool lists in Tool.Bootstrap.
+		//     AuxiliaryCommands, so the set is extensible without a framework
+		//     release.
+		if isInitFeatureSubtree(cmd) || isAuxiliaryCommand(props, cmd) {
+			applyDebugFlag(props, cmd, mcpLogLevel)
+
+			return nil
+		}
+
 		// Extract and validate flags
 		flags, err := extractFlags(cmd)
 		if err != nil {
 			return errors.Wrap(err, "failed to read command flags")
-		}
-
-		// Skip config loading for the init command but still configure logging.
-		// Identify it by the typed feature annotation (stamped by setup.Wrap),
-		// not the fragile Use string: a string match misfires for any unrelated
-		// command literally named "init" and breaks if Use carries an arg suffix.
-		if setup.FeatureOf(cmd) == p.InitCmd {
-			if flags.Debug {
-				logger.SetLevel(props.Logger, slog.LevelDebug)
-				mcpLogLevel.Set(slog.LevelDebug)
-			}
-
-			return nil
 		}
 
 		// Load configuration, applying the tool's bootstrap policy (skip-config
@@ -809,30 +819,13 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// initial load and any auto-initialise reload.
 		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, cmd, state.cfgPaths), boundFlags)
 		if err != nil {
-			return errors.Wrap(err, "failed to load configuration")
+			return configLoadError(props, err)
 		}
 
 		// Set config in props
 		props.Config = cfg
 
-		// Watching is explicit in config v0.3.x: without this call the code
-		// compiles, the tests pass, and configuration silently stops
-		// reloading (migration spec D6). The watcher stops with the command
-		// context; a filesystem that cannot be watched (tests on a MemMapFs,
-		// exotic mounts) degrades to a debug line rather than an error.
-		// Guarded per rootState so a re-entrant pre-run (tests executing the
-		// same tree twice) does not stack watchers.
-		if !state.watching {
-			cfg.OnReloadError(func(err error) {
-				props.Logger.Warn("config reload rejected; keeping the last good configuration", "error", err)
-			})
-
-			if _, err := cfg.Watch(cmd.Context()); err != nil {
-				props.Logger.Debug("config watching unavailable", "error", err)
-			} else {
-				state.watching = true
-			}
-		}
+		startConfigWatch(props, cfg, cmd, state)
 
 		// One pinned view for the bootstrap reads below.
 		view := cfg.View()
@@ -865,6 +858,127 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 
 		return nil
 	}
+}
+
+// configLoadError wraps a bootstrap config-load failure for the user. A
+// missing config file is a fresh-install state, not a fault: the error gains a
+// hint pointing at the command that creates one. ErrNoConfigFile is only
+// returned when the init feature is enabled (otherwise the load tolerates an
+// empty config), so the hint is always actionable.
+func configLoadError(props *p.Props, err error) error {
+	err = errors.Wrap(err, "failed to load configuration")
+
+	if errors.Is(err, ErrNoConfigFile) && props.Tool.IsEnabled(p.InitCmd) {
+		err = errors.WithHintf(err, "Run '%s init' to create a configuration.", props.Tool.Name)
+	}
+
+	return err
+}
+
+// startConfigWatch wires hot-reload for the loaded store. Watching is explicit
+// in config v0.3.x: without this call the code compiles, the tests pass, and
+// configuration silently stops reloading (migration spec D6). The watcher
+// stops with the command context; a filesystem that cannot be watched (tests
+// on a MemMapFs, exotic mounts) degrades to a debug line rather than an error.
+// Guarded per rootState so a re-entrant pre-run (tests executing the same tree
+// twice) does not stack watchers.
+func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, state *rootState) {
+	if state.watching {
+		return
+	}
+
+	cfg.OnReloadError(func(err error) {
+		props.Logger.Warn("config reload rejected; keeping the last good configuration", "error", err)
+	})
+
+	if _, err := cfg.Watch(cmd.Context()); err != nil {
+		props.Logger.Debug("config watching unavailable", "error", err)
+	} else {
+		state.watching = true
+	}
+}
+
+// isInitFeatureSubtree reports whether cmd is the init command or any
+// descendant of it, identified by walking up the tree for the InitCmd feature
+// annotation stamped by setup.Wrap. The walk is what exempts provider
+// subcommands (`init github`, `init bitbucket`), which are wrapped with their
+// *provider* feature and would otherwise fail the missing-config gate — the
+// one command tree that exists to fix that state.
+func isInitFeatureSubtree(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if setup.FeatureOf(c) == p.InitCmd {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Cobra's help and completion command names. Unlike the __complete constants
+// (cobra.ShellCompRequestCmd et al.) cobra does not export these, but they are
+// equally reserved: cobra only generates its help/completion commands when no
+// command of that name exists.
+const (
+	cobraHelpCommandName       = "help"
+	cobraCompletionCommandName = "completion"
+)
+
+// isAuxiliaryCommand reports whether cmd takes the pre-run's auxiliary fast
+// path: cobra's own generated help/completion/__complete commands, plus any
+// command the tool author listed in Tool.Bootstrap.AuxiliaryCommands.
+func isAuxiliaryCommand(props *p.Props, cmd *cobra.Command) bool {
+	return isCobraAuxiliaryCommand(cmd) ||
+		props.Tool.Bootstrap.MatchesAuxiliaryList(cmd.Name(), cmd.CommandPath())
+}
+
+// isCobraAuxiliaryCommand reports whether cmd is one of cobra's own generated
+// auxiliary commands: the hidden __complete/__completeNoDesc used by shell
+// tab-completion, the help command, or the completion group (including its
+// bash/zsh/fish/powershell subcommands, hence the parent walk).
+//
+// Only cobra's OWN instances are exempted, not any downstream command that
+// happens to share a name. The __complete names are cobra-reserved constants;
+// for help/completion the discriminator is isCobraGeneratedCommand — cobra's
+// generated commands are direct children of the root and carry no annotations,
+// whereas every GTB-wrapped command is stamped by setup.Wrap.
+func isCobraAuxiliaryCommand(cmd *cobra.Command) bool {
+	switch cmd.Name() {
+	case cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+		return true
+	case cobraHelpCommandName:
+		return isCobraGeneratedCommand(cmd)
+	}
+
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Name() == cobraCompletionCommandName && isCobraGeneratedCommand(c) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isCobraGeneratedCommand reports whether c looks like a command cobra
+// generated itself: a direct child of the root carrying no annotations. GTB
+// commands always carry at least the feature annotation stamped by setup.Wrap
+// (or a skip-check annotation), so a downstream feature command named "help"
+// or "completion" is never mistaken for cobra's.
+func isCobraGeneratedCommand(c *cobra.Command) bool {
+	return c.Parent() == c.Root() && len(c.Annotations) == 0
+}
+
+// applyDebugFlag applies the --debug flag to the logger for fast-path
+// commands that skip the config-driven configureLogging. Tolerant of commands
+// whose flags are not parsed (cobra's __complete disables flag parsing), where
+// the debug flag is simply unavailable.
+func applyDebugFlag(props *p.Props, cmd *cobra.Command, mcpLogLevel *slog.LevelVar) {
+	flags, err := extractFlags(cmd)
+	if err != nil || !flags.Debug {
+		return
+	}
+
+	logger.SetLevel(props.Logger, slog.LevelDebug)
+	mcpLogLevel.Set(slog.LevelDebug)
 }
 
 func setupRootFlags(rootCmd *cobra.Command, props *p.Props, state *rootState) {
@@ -971,6 +1085,10 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 			},
 			Selectors: mcpSelectors(),
 		})
+		// An MCP server's stdout carries JSON-RPC frames; the pre-run update
+		// check's spinner/log output must never race it. The stamp covers the
+		// whole mcp subtree (start/tools) via SkipUpdateCheck's parent walk.
+		setup.MarkSkipUpdateCheck(mcpCmd)
 		rootCmd.Register(setup.Wrap(p.McpCmd, mcpCmd))
 	}
 

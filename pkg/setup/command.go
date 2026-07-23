@@ -104,6 +104,45 @@ func SkipsConfigCheck(cmd *cobra.Command) bool {
 	return cmd.Annotations[SkipConfigCheckAnnotation] == "true"
 }
 
+// SkipUpdateCheckAnnotation is the cobra.Command.Annotations key under which
+// [MarkSkipUpdateCheck] records that the pre-run update check must never run
+// for a command (or its subtree). It is the rename-safe counterpart to the
+// old Use-string skip list inside [SkipUpdateCheck], mirroring
+// [SkipConfigCheckAnnotation].
+const SkipUpdateCheckAnnotation = "gtb.skip_update_check"
+
+// MarkSkipUpdateCheck stamps cmd so [SkipUpdateCheck] exempts it (and, via the
+// parent-chain walk, its whole subtree) from the pre-run update check. Used
+// for commands where a version check is redundant or harmful: version prints
+// its own check, mcp must not write spinner output to a protocol stdout, and
+// doctor diagnoses the install it has. It returns cmd for chaining, mirroring
+// [SkipConfigCheck]. A nil cmd is returned unchanged.
+func MarkSkipUpdateCheck(cmd *cobra.Command) *cobra.Command {
+	if cmd == nil {
+		return cmd
+	}
+
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+
+	cmd.Annotations[SkipUpdateCheckAnnotation] = "true"
+
+	return cmd
+}
+
+// SkipsUpdateCheck reports whether cmd itself carries the
+// [MarkSkipUpdateCheck] annotation. Subtree semantics (a stamped parent
+// covering its children) are applied by [SkipUpdateCheck]'s parent-chain walk,
+// not here.
+func SkipsUpdateCheck(cmd *cobra.Command) bool {
+	if cmd == nil || cmd.Annotations == nil {
+		return false
+	}
+
+	return cmd.Annotations[SkipUpdateCheckAnnotation] == "true"
+}
+
 // Register adds each child as a subcommand and wraps the child's RunE
 // with the middleware [Chain] for the child's own feature.
 //

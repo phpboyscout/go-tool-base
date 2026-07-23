@@ -86,3 +86,43 @@ func TestBootstrapPolicy_YAMLRoundTrip(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal(data, &out))
 	assert.Equal(t, in, out)
 }
+
+func TestBootstrapPolicy_MatchesAuxiliaryList(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		entries []string
+		cmdName string
+		cmdPath string
+		want    bool
+	}{
+		{"empty list never matches", nil, "help", "tool help", false},
+		{"bare name matches", []string{"plumbing"}, "plumbing", "tool plumbing", true},
+		{"full path matches", []string{"tool plumbing"}, "plumbing", "tool plumbing", true},
+		{"unrelated command does not match", []string{"plumbing"}, "other", "tool other", false},
+		{"empty entry never matches", []string{""}, "", "tool", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			b := BootstrapPolicy{AuxiliaryCommands: tc.entries}
+			assert.Equal(t, tc.want, b.MatchesAuxiliaryList(tc.cmdName, tc.cmdPath))
+		})
+	}
+}
+
+func TestBootstrapPolicy_AuxiliaryCommands_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	in := BootstrapPolicy{AuxiliaryCommands: []string{"plumbing", "tool plumbing"}}
+
+	data, err := yaml.Marshal(in)
+	require.NoError(t, err)
+
+	var out BootstrapPolicy
+	require.NoError(t, yaml.Unmarshal(data, &out))
+	assert.Equal(t, in, out)
+}

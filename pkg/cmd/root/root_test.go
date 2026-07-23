@@ -627,6 +627,8 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 		redirecting  bool
 		configCI     bool
 		cmdName      string
+		cmdFeature   p.FeatureCmd
+		cmdMarked    bool
 		expectedSkip bool
 	}{
 		{
@@ -652,23 +654,37 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 			expectedSkip: true,
 		},
 		{
-			name:         "skip when running init command",
+			// Exemption is feature-based, not name-based: the init command is
+			// identified by its InitCmd feature annotation.
+			name:         "skip when running the init-feature command",
 			cmdName:      "init",
+			cmdFeature:   p.InitCmd,
 			expectedSkip: true,
 		},
 		{
-			name:         "skip when running update command",
+			name:         "skip when running the update-feature command",
 			cmdName:      "update",
+			cmdFeature:   p.UpdateCmd,
 			expectedSkip: true,
 		},
 		{
-			name:         "skip when running version command",
+			// version carries the MarkSkipUpdateCheck annotation rather than a
+			// feature (it is wrapped with the empty feature).
+			name:         "skip when running an annotated command",
 			cmdName:      "version",
+			cmdMarked:    true,
 			expectedSkip: true,
 		},
 		{
 			name:         "do not skip for normal command",
 			cmdName:      "other",
+			expectedSkip: false,
+		},
+		{
+			// A downstream command coincidentally named like an old Use-string
+			// skip entry gets no exemption — annotations decide, not names.
+			name:         "do not skip for a bare command named auth",
+			cmdName:      "auth",
 			expectedSkip: false,
 		},
 	}
@@ -703,9 +719,17 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 				FS:     afero.NewMemMapFs(),
 			}
 
-			// Create command
+			// Create command, with the exempting metadata under test: a
+			// feature annotation (setup.Wrap) or the skip-update-check stamp.
 			cmd := &cobra.Command{
 				Use: tt.cmdName,
+			}
+			if tt.cmdFeature != "" {
+				setup.Wrap(tt.cmdFeature, cmd)
+			}
+
+			if tt.cmdMarked {
+				setup.MarkSkipUpdateCheck(cmd)
 			}
 
 			// Test shouldSkipUpdateCheck
