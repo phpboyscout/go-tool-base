@@ -56,6 +56,15 @@ const (
 	// megabytes and must complete over slow or intermittent links, so the
 	// previous 3-minute value risked aborting otherwise-healthy updates.
 	updateTimeout = 5 * time.Minute
+	// VersionCheckTimeout bounds passive, best-effort latest-version
+	// lookups — the courtesy annotation on the `version` command — where
+	// the check decorates an otherwise-local command and must not stall
+	// it for minutes on a black-holing network. The root pre-run update
+	// check currently still runs under the download-sized updateTimeout
+	// and is expected to adopt this constant in a follow-up (see
+	// docs/development/specs/2026-07-23-version-command-offline-degradation.md
+	// §2, "Related but out of scope").
+	VersionCheckTimeout = 10 * time.Second
 )
 
 type timeSinceKey string

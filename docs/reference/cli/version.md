@@ -1,7 +1,7 @@
 ---
 title: Version Command
 description: Display version information and check for available updates.
-date: 2026-02-16
+date: 2026-07-23
 tags: [components, commands, version]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
@@ -13,7 +13,7 @@ The `version` command displays version information and checks for available upda
 ## Usage
 
 ```bash
-mytool version [--output json]
+mytool version [--check] [--output json]
 ```
 
 ## Description
@@ -24,10 +24,27 @@ this is a development build, it also contacts the **configured release source**
 (GitLab or GitHub, per the tool's `props.Tool.ReleaseSource`) to report whether
 a newer version is available.
 
+The latest-version check is **best-effort**: when the release source is
+unreachable (offline machine, firewalled network, source outage), the command
+still prints the local build information and exits `0`, logging a single
+warning — `failed to check latest version` — so you can see why the `Latest`
+line is absent. The passive check is bounded by a short timeout
+(`setup.VersionCheckTimeout`, 10 seconds), so a black-holing network cannot
+stall the command for long.
+
+Pass `--check` when you *want* hard semantics — a scriptable "is there an
+update, and can you reach the release source" probe. With `--check`, a failed
+lookup exits non-zero with `unable to fetch latest version`, a longer (60
+second) timeout applies, and the check runs **even on development builds** so
+maintainers can probe the release source from a dev build. The
+disabled-update fast path is unaffected: when the `update` command feature is
+disabled the network is never contacted.
+
 ## Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--check` | `false` | Fail with a non-zero exit when the release source is unreachable; also checks on development builds. |
 | `--output` | `text` | Output format: `text` or `json`. (Global persistent flag.) |
 
 ## Output Example
@@ -78,6 +95,30 @@ field is a typed `VersionInfo` payload:
 the running version matches the latest release (or when the update check is
 skipped).
 
+### Degraded JSON Output
+
+When the check was attempted but the release source could not be reached, the
+response is still a success envelope carrying the local fields, with an
+explicit `check_failed` marker so scripts can distinguish "up to date" from
+"could not check". `latest` is absent and `current` is `false` (the answer is
+unknown — not "behind"):
+
+```json
+{
+  "status": "success",
+  "command": "version",
+  "data": {
+    "version": "v1.2.3",
+    "commit": "abc123",
+    "date": "2023-10-08T10:00:00Z",
+    "current": false,
+    "check_failed": true
+  }
+}
+```
+
+`check_failed` is omitted entirely on successful (or skipped) checks.
+
 ## Implementation
 
-The version command is implemented in `pkg/cmd/version/version.go` and integrates with the updater system to check for newer releases.
+The version command is implemented in `pkg/cmd/version/version.go` and integrates with the updater system to check for newer releases. See the spec [version command: degrade gracefully when the release source is unreachable](../../development/specs/2026-07-23-version-command-offline-degradation.md) for the offline-degradation design.

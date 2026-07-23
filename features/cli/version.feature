@@ -24,3 +24,22 @@ Feature: CLI Version Command
     When I run gtb with "version --help"
     Then the exit code is 0
     And stdout contains "Print the running binary's version"
+    And stdout contains "--check"
+
+  # The following scenarios drive the in-memory stub release source
+  # (GTB_E2E_RELEASE_SCENARIO, see cmd/e2e/release_stub.go), which pins a
+  # non-development current version so the latest-version check actually
+  # runs — hermetically, with no network.
+
+  Scenario: Unreachable release source still prints the local version
+    Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "unreachable"
+    When I run gtb with "version"
+    Then the exit code is 0
+    And stdout contains "Version:"
+    And stderr contains "failed to check latest version"
+
+  Scenario: Explicit check against an unreachable release source fails
+    Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "unreachable"
+    When I run gtb with "version --check"
+    Then the exit code is not 0
+    And stderr contains "unable to fetch latest version"

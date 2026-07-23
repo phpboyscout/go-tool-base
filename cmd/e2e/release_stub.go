@@ -99,8 +99,11 @@ func buildReleaseScenario(scenario, toolName string) (forge.Provider, [][]byte) 
 		return provider, [][]byte{armoredPublicKey(entity)}
 
 	default:
-		// Unknown scenario: a source with no releases makes GetLatestRelease
-		// fail, surfacing as a clear non-zero update error.
+		// "unreachable" and any unknown scenario: a source with no releases
+		// makes GetLatestRelease fail. The version-command offline scenarios
+		// rely on this to prove degraded (default) versus hard (--check)
+		// semantics without a network; for `update` it surfaces as a clear
+		// non-zero error.
 		return forgetest.New(), nil
 	}
 }

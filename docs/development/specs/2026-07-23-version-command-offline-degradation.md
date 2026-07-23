@@ -2,7 +2,7 @@
 title: "version command: degrade gracefully when the release source is unreachable"
 description: "tool version fails hard — exit non-zero, nothing printed, after up to a 60-second wait — when the configured release source cannot be reached, even though the local version/commit/date are already in hand and the NewUpdater failure five lines earlier already degrades gracefully. Mirror that branch: print local info with a warning, shorten the passive check's timeout, and consider making the network check opt-in via --check."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - cli
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — shipped as `fix(version)`; open questions resolved (see §5)
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (GTB-core §HIGH
@@ -127,12 +127,21 @@ timeout constant introduced in (2) should be placed so that fix can reuse it.
   untouched and still skip the network entirely.
 - Gherkin scenarios above pass under `INT_TEST_E2E=1`.
 
-## 5. Open questions
+## 5. Open questions — RESOLVED
 
-1. Timeout value for the passive check: is 10s right, or should it match whatever
-   short budget the related pre-run fix adopts (a shared constant in `pkg/setup`)?
-2. Should the degraded JSON output carry an explicit marker (e.g. `"check_failed": true`)
-   so scripts can distinguish "up to date" from "could not check", or is the absence of
-   `latest` sufficient? (`Current: true` on the degraded path is arguably misleading.)
-3. Should `--check` imply bypassing the development-build skip (`version.go:53`) so
-   maintainers can probe the release source from a dev build, or keep the skip?
+1. **Timeout value for the passive check** — *Resolved: shared named constant in
+   `pkg/setup`.* The 10-second budget ships as the exported
+   `setup.VersionCheckTimeout`, placed alongside `updateTimeout` in
+   `pkg/setup/update.go` so the related pre-run fix can adopt the same constant
+   in a later follow-up (the pre-run is deliberately untouched here, per §2's
+   out-of-scope note). The opt-in `--check` probe keeps the previous generous
+   60-second budget (`explicitCheckTimeout` in `pkg/cmd/version`).
+2. **Degraded JSON marker** — *Resolved: yes.* The degraded response carries an
+   explicit `"check_failed": true` marker, and `current` is set to `false` on
+   the degraded path — `Current: true` would misleadingly read as "up to date"
+   when the answer is unknown. `check_failed` is `omitempty`, so successful and
+   skipped checks are byte-identical to the previous contract.
+3. **`--check` versus the development-build skip** — *Resolved: bypass.*
+   `--check` bypasses the development-build skip so maintainers can probe the
+   release source from a dev build. The disabled-update fast path still skips
+   the network unconditionally.
