@@ -1,54 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended",
-    ":semanticCommits",
-    ":disableDependencyDashboard",
-    "gitlab>phpboyscout/cicd"
-  ],
-  "labels": ["dependencies"],
-  "rangeStrategy": "bump",
-  "prCreation": "immediate",
-  "dependencyDashboard": false,
-  "automerge": true,
-  "automergeType": "pr",
-  "automergeStrategy": "rebase",
-  "minimumReleaseAge": "3 days",
-  "internalChecksFilter": "strict",
-  "packageRules": [
-    {
-      "description": "Auto-merge patch + minor for trusted ecosystems; majors require human review",
-      "matchUpdateTypes": ["patch", "minor"],
-      "automerge": true
-    },
-    {
-      "description": "Major bumps land as draft MRs for review",
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "draftPR": true
-    },
-    {
-      "description": "Go module updates land grouped on Mondays to keep go.sum churn low",
-      "matchManagers": ["gomod"],
-      "schedule": ["before 9am on monday"],
-      "groupName": "gomod-weekly"
-    },
-    {
-      "description": "GitLab CI image bumps grouped similarly",
-      "matchManagers": ["gitlabci"],
-      "schedule": ["before 9am on monday"],
-      "groupName": "gitlab-ci-weekly"
-    },
-    {
-      "description": "Disable renovate for the hash-pinned Python docs toolchain — Renovate bumps the version line but cannot regenerate the SHA-256 hashes that `pip install --require-hashes` enforces, leaving CI broken. Bumps to requirements-lock.txt are handled manually via the recipe in the file's own header.",
-      "matchManagers": ["pip_requirements"],
-      "enabled": false
-    }
-  ],
-  "vulnerabilityAlerts": {
-    "enabled": true,
-    "automerge": true,
-    "minimumReleaseAge": "0",
-    "labels": ["security"]
-  }
+    "gitlab>phpboyscout/cicd:go",
+    "gitlab>phpboyscout/cicd:library"
+  ]
 }
