@@ -25,6 +25,7 @@ const releaseScenarioEnv = "GTB_E2E_RELEASE_SCENARIO"
 const (
 	stubCurrentVersion   = "v1.0.0"
 	stubNewerVersion     = "v1.1.0"
+	stubOlderVersion     = "v0.9.0"
 	stubMissingTag       = "v9.9.9"
 	stubNewBinaryContent = "new-binary"
 )
@@ -58,6 +59,12 @@ func buildReleaseScenario(scenario, toolName string) (forge.Provider, [][]byte) 
 	case "already-latest":
 		// Latest equals the pinned current version → update is a no-op.
 		return forgetest.New(forgetest.WithRelease(stubCurrentVersion)), nil
+
+	case "stale-latest":
+		// The release source reports a "latest" OLDER than the pinned current
+		// version (a stale or rolled-back listing). The downgrade guard
+		// refuses before any download, so the release needs no assets.
+		return forgetest.New(forgetest.WithRelease(stubOlderVersion)), nil
 
 	case "not-found":
 		// `update --version <stubMissingTag>` resolves to a missing tag.

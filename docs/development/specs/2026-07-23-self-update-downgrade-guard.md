@@ -2,7 +2,7 @@
 title: "Self-update downgrade guard: refuse to install an older 'latest' release without --force"
 description: "When the release source reports a 'latest' version older than the running binary, the self-updater proceeds to download and install it — signature and checksum verification authenticate the artefact, not its recency, so a stale or rolled-back release listing silently downgrades the tool. Add a guard: the implicit (no --version) update path refuses to move to a lower version unless --force is given."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - setup
@@ -25,7 +25,12 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — maintainer decisions resolved as follows:
+    implicit downgrades (release listing serves an older "latest") are
+    **refused without `--force`** (§5 preamble); an **explicit `--version`
+    naming an older release is sufficient intent on its own** — no `--force`
+    required (§5 Q1); the guard compares against the **running binary version
+    only** — no persisted high-water mark (§5 Q2).
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding),

@@ -37,6 +37,12 @@ Feature: CLI Update Command
     Then the exit code is 0
     And stderr contains "already running latest version"
 
+  Scenario: A release source reporting an older latest is refused without force
+    Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "stale-latest"
+    When I run gtb with "update"
+    Then the exit code is not 0
+    And stderr contains "refusing to downgrade"
+
   Scenario: A requested version that does not exist fails clearly
     Given I set environment variable "GTB_E2E_RELEASE_SCENARIO" to "not-found"
     When I run gtb with "update --version v9.9.9"

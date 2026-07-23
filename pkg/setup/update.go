@@ -606,8 +606,8 @@ func (s *SelfUpdater) IsLatestVersion(ctx context.Context) (bool, string, error)
 	switch ver.CompareVersions(s.CurrentVersion, latestVersion) {
 	case -1: // need an upgrade
 		return false, fmt.Sprintf("newer version found. Please upgrade to %s.  Run the `update`", latestVersion), nil
-	case 1: // a future version somehow
-		return false, fmt.Sprintf("your tardis travelled too far into the future. You are on %s, please downgrade to %s", s.CurrentVersion, latestVersion), nil
+	case 1: // the release source reports an older "latest" than the running binary
+		return false, fmt.Sprintf("the release source reports %s as latest but you are running %s; a downgrade will not be applied automatically — run `update --force` or pin a target with `update --version`", latestVersion, s.CurrentVersion), nil
 	default: // just right
 		return true, fmt.Sprintf("already running latest version, %s", s.CurrentVersion), nil
 	}
@@ -948,7 +948,48 @@ func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
+	if err := s.refuseImplicitDowngrade(ctx); err != nil {
+		return false, err
+	}
+
 	return false, nil
+}
+
+// ErrDowngradeRefused is returned when the implicit (no --version) update
+// path would install a release older than the running binary. Signature and
+// checksum verification authenticate an artefact, not its recency, so a
+// stale or rolled-back release listing must not silently downgrade the tool
+// (see the 2026-07-23 self-update downgrade guard spec).
+var ErrDowngradeRefused = errors.New("refusing to downgrade")
+
+// refuseImplicitDowngrade rejects the implicit "install latest" path when the
+// release source reports a "latest" release older than the running binary.
+// Sanctioned downgrade routes are unaffected: --force overrides the guard,
+// and an explicit --version is sufficient intent on its own. The refusal is
+// a hard error (non-zero exit), not a warning-and-skip — a silently skipped
+// update under rollback-attack conditions must be visible to the operator.
+func (s *SelfUpdater) refuseImplicitDowngrade(ctx context.Context) error {
+	if s.version != "" || s.force {
+		return nil
+	}
+
+	// GetLatestRelease was already resolved (and cached in NextRelease) by
+	// the IsLatestVersion call above, so this performs no extra API call.
+	latestVersion, err := s.GetLatestVersionString(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to check for latest version")
+	}
+
+	if ver.CompareVersions(s.CurrentVersion, latestVersion) != 1 {
+		return nil
+	}
+
+	return errors.WithHint(
+		errors.Wrapf(ErrDowngradeRefused,
+			"refusing to downgrade from %s to %s: the release source reports an older \"latest\" release",
+			s.CurrentVersion, latestVersion),
+		"If this is intentional, re-run with --force, or pin the target with --version.",
+	)
 }
 
 func (s *SelfUpdater) findReleaseAsset(rel forge.Release) (forge.ReleaseAsset, error) {

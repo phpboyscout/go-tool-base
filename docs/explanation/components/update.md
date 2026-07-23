@@ -53,6 +53,28 @@ The core engine (`pkg/setup/update.go`) that communicates with GitHub, compares 
 ### `IsLatestVersion`
 A method on `SelfUpdater` that compares the `CurrentVersion` (compiled into the binary via ldflags) against the latest GitHub release. It handles edge cases like future versions and development builds using `pkg/version.CompareVersions` and `IsDevelopment` detection.
 
+### Downgrade guard
+
+Checksum and signature verification authenticate that an artefact is a
+genuine release — they say nothing about its **recency**. If the release
+source reports a "latest" version *older* than the running binary (a stale
+listing, a deleted newest release, or a rollback attack re-serving an old,
+validly signed release), the implicit update path (`update` with no
+`--version`) **refuses** with a non-zero exit rather than silently
+downgrading. The refusal names both versions and hints at the sanctioned
+routes:
+
+- `update --version <tag>` — an explicit version is sufficient intent on its
+  own, so a pinned downgrade needs no extra flag;
+- `update --force` — overrides the guard on the implicit path.
+
+The guard compares against the running binary version only (no persisted
+high-water mark), and does not change development-build (`v0.0.0`)
+behaviour, which already requires `--force` for any update. The throttled
+background check merely *notifies* that the source reports an older latest;
+it never applies a downgrade automatically. See
+`docs/development/specs/2026-07-23-self-update-downgrade-guard.md`.
+
 ## Testability via Abstraction
 
 The update system is designed to be fully testable despite its heavy reliance on the network and filesystem:
