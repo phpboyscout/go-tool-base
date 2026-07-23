@@ -59,7 +59,7 @@ func TestGitHubInitialiser(t *testing.T) {
 			func(_ string, _ string) *huh.Form { return nil },
 		)),
 	)
-	require.NoError(t, init.Configure(p, cfg))
+	require.NoError(t, init.Configure(t.Context(), p, cfg))
 
 	assert.Equal(t, "mock-token", cfg.View().GetString("github.auth.value"))
 }
@@ -80,7 +80,7 @@ func TestGitHubInitialiser_CIRefusesOAuthLiteral(t *testing.T) {
 		WithProviderFactory(fatalOnLoginProvider(t)),
 	)
 
-	err := init.Configure(p, cfg)
+	err := init.Configure(t.Context(), p, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "refused under CI")
 }
@@ -101,7 +101,7 @@ func TestGitHubInitialiser_SkipsOAuthWhenEnvVarConfigured(t *testing.T) {
 		WithProviderFactory(fatalOnLoginProvider(t)),
 	)
 
-	require.NoError(t, init.Configure(p, cfg))
+	require.NoError(t, init.Configure(t.Context(), p, cfg))
 	// No literal token must be written — the env var is the source of truth.
 	assert.Empty(t, cfg.View().GetString("github.auth.value"))
 }
@@ -115,7 +115,7 @@ func TestConfigure_SkipBoth(t *testing.T) {
 	cfg := setupmocks.NewMockEditor(t)
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 	i := &Initialiser{profile: gitHubProfile, SkipLogin: true, SkipKey: true}
-	require.NoError(t, i.Configure(p, cfg))
+	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
 
 func TestConfigure_LoginAlreadySet_SkipKey(t *testing.T) {
@@ -126,7 +126,7 @@ func TestConfigure_LoginAlreadySet_SkipKey(t *testing.T) {
 	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, "github:\n  auth:\n    value: already-set-token\n"))
 	i := &Initialiser{profile: gitHubProfile, SkipLogin: false, SkipKey: true}
 	// SkipLogin=false but auth.value != "" so the login branch is not entered.
-	require.NoError(t, i.Configure(p, cfg))
+	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
 
 func TestConfigure_BothAlreadyConfigured(t *testing.T) {
@@ -138,7 +138,7 @@ func TestConfigure_BothAlreadyConfigured(t *testing.T) {
 		"github:\n  auth:\n    value: tok\n  ssh:\n    key:\n      path: /home/u/.ssh/id_ed25519\n"))
 
 	i := &Initialiser{profile: gitHubProfile, SkipLogin: false, SkipKey: false}
-	require.NoError(t, i.Configure(p, cfg))
+	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
 
 func TestConfigure_SSHRunsAndErrors(t *testing.T) {
@@ -151,7 +151,7 @@ func TestConfigure_SSHRunsAndErrors(t *testing.T) {
 	cfg := newTestEditor(t, p, "github:\n  auth:\n    value: tok\n")
 
 	i := &Initialiser{profile: gitHubProfile, SkipLogin: false, SkipKey: false}
-	require.Error(t, i.Configure(p, cfg))
+	require.Error(t, i.Configure(t.Context(), p, cfg))
 }
 
 func TestConfigureSSH_FormError(t *testing.T) {
@@ -489,7 +489,7 @@ func TestConfigure_EnvVarFetchTokenCaptureError(t *testing.T) {
 		)),
 	)
 	// OAuth fails → manual prompt (no TTY) fails → error propagates.
-	require.Error(t, init.Configure(p, cfg))
+	require.Error(t, init.Configure(t.Context(), p, cfg))
 }
 
 func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {
@@ -510,7 +510,7 @@ func TestConfigure_KeychainWriteError_NoToolName(t *testing.T) {
 			nil,
 		)),
 	)
-	err := init.Configure(p, cfg)
+	err := init.Configure(t.Context(), p, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "without a tool name")
 }
@@ -538,7 +538,7 @@ func TestConfigure_EnvVarNameFormError(t *testing.T) {
 			func(_, _ string) *huh.Form { return nil },
 		)),
 	)
-	require.Error(t, init.Configure(p, cfg))
+	require.Error(t, init.Configure(t.Context(), p, cfg))
 }
 
 func TestConfigure_StorageModeFormError(t *testing.T) {
@@ -565,7 +565,7 @@ func TestConfigure_StorageModeFormError(t *testing.T) {
 			func(_, _ string) *huh.Form { return nil },
 		)),
 	)
-	require.Error(t, init.Configure(p, cfg))
+	require.Error(t, init.Configure(t.Context(), p, cfg))
 }
 
 // --- RunGitHubInit / command wiring ---
@@ -579,7 +579,7 @@ func TestRunGitHubInit_AuthShortCircuitThenSSHError(t *testing.T) {
 	cfg := newTestEditor(t, p, "")
 
 	// Auth resolves from GITHUB_TOKEN; SSH default form errors (no TTY).
-	require.Error(t, RunGitHubInit(p, cfg))
+	require.Error(t, RunGitHubInit(t.Context(), p, cfg))
 }
 
 func TestNewCmdInitGitHub(t *testing.T) {

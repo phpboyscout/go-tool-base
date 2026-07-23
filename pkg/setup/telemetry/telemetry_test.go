@@ -82,7 +82,7 @@ func TestTelemetryInitialiser_Configure_EnvTrue(t *testing.T) {
 	p := newTestProps(t)
 	init := NewTelemetryInitialiser(p)
 
-	if err := init.Configure(p, mock); err != nil {
+	if err := init.Configure(t.Context(), p, mock); err != nil {
 		t.Fatalf("Configure error: %v", err)
 	}
 }
@@ -97,7 +97,7 @@ func TestTelemetryInitialiser_Configure_EnvFalse(t *testing.T) {
 	p := newTestProps(t)
 	init := NewTelemetryInitialiser(p)
 
-	if err := init.Configure(p, mock); err != nil {
+	if err := init.Configure(t.Context(), p, mock); err != nil {
 		t.Fatalf("Configure error: %v", err)
 	}
 }
@@ -119,7 +119,7 @@ func TestTelemetryInitialiser_Configure_FormOptIn(t *testing.T) {
 		return nil // skip form rendering
 	}))
 
-	if err := init.Configure(p, mock); err != nil {
+	if err := init.Configure(t.Context(), p, mock); err != nil {
 		t.Fatalf("Configure error: %v", err)
 	}
 }
@@ -141,7 +141,7 @@ func TestTelemetryInitialiser_Configure_FormOptOut(t *testing.T) {
 		return nil // skip form rendering
 	}))
 
-	if err := init.Configure(p, mock); err != nil {
+	if err := init.Configure(t.Context(), p, mock); err != nil {
 		t.Fatalf("Configure error: %v", err)
 	}
 }

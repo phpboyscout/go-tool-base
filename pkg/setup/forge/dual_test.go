@@ -89,7 +89,7 @@ func TestConfigure_EnvVarMode(t *testing.T) {
 		c.AppPasswordEnvName = "BB_APP_PW"
 	})))
 
-	require.NoError(t, i.Configure(p, cfg))
+	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
 
 // TestConfigure_KeychainMode — the captured username + app_password get
@@ -115,7 +115,7 @@ func TestConfigure_KeychainMode(t *testing.T) {
 		c.AppPassword = "s3cret"
 	})))
 
-	require.NoError(t, i.Configure(p, cfg))
+	require.NoError(t, i.Configure(t.Context(), p, cfg))
 
 	raw, err := credentials.Retrieve(t.Context(), "testtool", "bitbucket.auth")
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestConfigure_LiteralMode(t *testing.T) {
 		c.AppPassword = "s3cret"
 	})))
 
-	require.NoError(t, i.Configure(p, cfg))
+	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }
 
 // TestConfigure_CIRefusesLiteral — belt-and-braces guard: even if the form
@@ -167,7 +167,7 @@ func TestConfigure_CIRefusesLiteral(t *testing.T) {
 		c.AppPassword = "s3cret"
 	})))
 
-	err := i.Configure(p, cfg)
+	err := i.Configure(t.Context(), p, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "literal credential storage is refused under CI")
 }
@@ -579,7 +579,7 @@ func TestRunBitbucketInit_Success(t *testing.T) {
 		config.Remove("bitbucket.keychain"),
 	}).Return(nil)
 
-	err := RunBitbucketInit(p, cfg, mockForms(func(c *DualConfig) {
+	err := RunBitbucketInit(t.Context(), p, cfg, mockForms(func(c *DualConfig) {
 		c.StorageMode = credentials.ModeEnvVar
 		c.UsernameEnvName = "BB_USER"
 		c.AppPasswordEnvName = "BB_APP_PW"
@@ -592,7 +592,7 @@ func TestRunBitbucketInit_FormError(t *testing.T) {
 
 	cfg := setupmocks.NewMockEditor(t)
 
-	err := RunBitbucketInit(p, cfg, WithDualForm(func(_ *DualConfig) []*huh.Form {
+	err := RunBitbucketInit(t.Context(), p, cfg, WithDualForm(func(_ *DualConfig) []*huh.Form {
 		return []*huh.Form{failingForm()}
 	}))
 	require.Error(t, err)

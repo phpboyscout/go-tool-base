@@ -75,13 +75,12 @@ func formAtIndex(creator func(*DualConfig) []*huh.Form, i int) func(*DualConfig)
 	}
 }
 
-// configureDual runs the interactive wizard and persists the captured
-// credentials according to the selected storage mode.
-func (i *Initialiser) configureDual(p *props.Props, cfg setup.Editor) error {
-	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
-	defer cancel()
-
-	bbCfg, err := runForms(i.profile, i.dualOpts...)
+// configureDual runs the dual-credential wizard and persists the captured
+// credentials according to the selected storage mode. ctx is the caller's context —
+// it must not carry a stage-wide deadline (the forms are human-paced); the
+// keychain write derives its own KeychainOpTimeout at the call site.
+func (i *Initialiser) configureDual(ctx context.Context, p *props.Props, cfg setup.Editor) error {
+	bbCfg, err := runForms(i.profile, i.dualOpts...) //nolint:contextcheck // form creators are ctx-free seams; the storage-mode form derives its own per-op KeychainOpTimeout ctx for the availability Probe by design
 	if err != nil {
 		return err
 	}
@@ -325,7 +324,12 @@ func writeKeychainBlob(ctx context.Context, profile Profile, cfg setup.Editor, t
 		return errors.Wrap(err, "marshal bitbucket keychain blob")
 	}
 
-	if err := credentials.Store(ctx, toolName, profile.KeychainAccount, string(blob)); err != nil {
+	// Fresh per-operation deadline at the store call site (the documented
+	// KeychainOpTimeout contract); the caller's ctx spans the human-paced forms.
+	storeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+	defer cancel()
+
+	if err := credentials.Store(storeCtx, toolName, profile.KeychainAccount, string(blob)); err != nil {
 		return errors.WithHint(
 			errors.Wrapf(err, "storing %s credentials in OS keychain", profile.Label),
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")

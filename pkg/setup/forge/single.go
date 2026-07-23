@@ -99,9 +99,9 @@ func authFormAtIndex(creator func(*AuthConfig) []*huh.Form, i int) func(*AuthCon
 
 // configureSingle runs the interactive login and/or SSH configuration for a
 // single-token profile.
-func (i *Initialiser) configureSingle(p *props.Props, cfg setup.Editor) error {
+func (i *Initialiser) configureSingle(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	if !i.SkipLogin && !hasAnySingleCredential(i.profile, cfg.View()) {
-		if err := i.configureAuth(p, cfg); err != nil {
+		if err := i.configureAuth(ctx, p, cfg); err != nil {
 			return err
 		}
 	}
@@ -111,7 +111,10 @@ func (i *Initialiser) configureSingle(p *props.Props, cfg setup.Editor) error {
 	if i.profile.OffersSSH && !i.SkipKey &&
 		view.GetString(i.profile.sshKeyPathKey()) == "" &&
 		view.GetString(i.profile.sshKeyTypeKey()) != "agent" {
-		if err := i.configureSSH(p, cfg); err != nil {
+		// configureSSH stays ctx-free for now: its upload path bounds itself
+		// and is outside the credential-stage scoping fix (see the
+		// forge-repo-setup follow-ups spec).
+		if err := i.configureSSH(p, cfg); err != nil { //nolint:contextcheck // SSH stage deliberately ctx-free; upload bounds itself, plumbing tracked in the forge-repo-setup follow-ups spec
 			return err
 		}
 	}
@@ -128,7 +131,7 @@ func hasAnySingleCredential(profile Profile, cfg config.Reader) bool {
 		cfg.GetString(profile.authEnvKey()) != ""
 }
 
-func (i *Initialiser) configureAuth(p *props.Props, cfg setup.Editor) error {
+func (i *Initialiser) configureAuth(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	profile := i.profile
 
 	// CI defence: literal-mode writes in a CI environment almost certainly leak
@@ -144,11 +147,15 @@ func (i *Initialiser) configureAuth(p *props.Props, cfg setup.Editor) error {
 	// If the user already has any credential configured — env-var reference,
 	// literal config value (the store's env layer surfaces prefixed env), or
 	// the unprefixed ecosystem fallback — don't overwrite with a fresh token.
-	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
+	// The KeychainOpTimeout deadline is scoped to this single resolve only:
+	// reusing it for the stage that follows was the 2026-07-23 review's
+	// CRITICAL finding (a 5s clock spanning the OAuth device flow killed every
+	// interactive login; spec 2026-07-23-setup-credential-stage-context-scoping).
+	resolveCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
 	defer cancel()
 
 	view := cfg.View()
-	if token := forgeapi.ResolveTokenContext(ctx,
+	if token := forgeapi.ResolveTokenContext(resolveCtx,
 		vcs.ConfigFromReader(view).Sub(profile.Provider), profile.FallbackEnv); token != "" {
 		p.Logger.Info("credential already configured; skipping OAuth token capture",
 			"provider", profile.Label, "env_ref", view.GetString(profile.authEnvKey()))
@@ -157,7 +164,7 @@ func (i *Initialiser) configureAuth(p *props.Props, cfg setup.Editor) error {
 	}
 
 	authCfg := &AuthConfig{}
-	fCfg := newAuthFormConfig(profile, i.authOpts...)
+	fCfg := newAuthFormConfig(profile, i.authOpts...) //nolint:contextcheck // form creators are ctx-free seams; the storage-mode form derives its own per-op KeychainOpTimeout ctx for the availability Probe by design
 
 	if err := runAuthFormStage(fCfg.storageModeFormCreator, authCfg); err != nil {
 		return err
@@ -336,7 +343,14 @@ func writeSingleKeychainRef(ctx context.Context, profile Profile, cfg setup.Edit
 		return errors.New("cannot write keychain entry without a tool name")
 	}
 
-	if err := credentials.Store(ctx, toolName, profile.KeychainAccount, authCfg.Token); err != nil {
+	// Fresh per-operation deadline at the store call site — the documented
+	// KeychainOpTimeout contract. The caller's ctx has been through the
+	// human-paced form/OAuth stages, so any deadline derived earlier would
+	// already be spent.
+	storeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+	defer cancel()
+
+	if err := credentials.Store(storeCtx, toolName, profile.KeychainAccount, authCfg.Token); err != nil {
 		return errors.WithHint(
 			errors.Wrapf(err, "storing %s token in OS keychain", profile.Label),
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")

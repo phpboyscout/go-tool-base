@@ -4,6 +4,7 @@
 package telemetry
 
 import (
+	"context"
 	"os"
 	"strconv"
 
@@ -87,7 +88,7 @@ func (t *TelemetryInitialiser) IsConfigured(cfg config.Reader) bool {
 
 // Configure prompts the user to opt into telemetry.
 // If TELEMETRY_ENABLED is set, applies it directly without prompting.
-func (t *TelemetryInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
+func (t *TelemetryInitialiser) Configure(_ context.Context, p *props.Props, cfg setup.Editor) error {
 	// Non-interactive bypass
 	if val, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
 		enabled, _ := strconv.ParseBool(val)

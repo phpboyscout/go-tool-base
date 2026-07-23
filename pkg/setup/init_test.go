@@ -2,6 +2,7 @@ package setup
 
 import (
 	"bytes"
+	"context"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -164,7 +165,7 @@ type recordingInitialiser struct {
 
 func (r *recordingInitialiser) Name() string                    { return "Fake provider" }
 func (r *recordingInitialiser) IsConfigured(config.Reader) bool { return false }
-func (r *recordingInitialiser) Configure(*props.Props, Editor) error {
+func (r *recordingInitialiser) Configure(context.Context, *props.Props, Editor) error {
 	r.calls++
 
 	return nil

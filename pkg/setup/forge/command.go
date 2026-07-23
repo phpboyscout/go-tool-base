@@ -11,15 +11,17 @@ import (
 )
 
 // RunGitHubInit forcibly runs both login and SSH configuration regardless of
-// current state. This is used by the explicit `init github` command.
-func RunGitHubInit(p *props.Props, cfg setup.Editor) error {
+// current state. This is used by the explicit `init github` command. ctx is
+// the command context: it carries no deadline of its own so the OAuth device
+// flow can run at human pace, while Ctrl-C aborts an in-flight poll.
+func RunGitHubInit(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	g := New(p, gitHubProfile)
 
-	if err := g.configureAuth(p, cfg); err != nil {
+	if err := g.configureAuth(ctx, p, cfg); err != nil {
 		return err
 	}
 
-	return g.configureSSH(p, cfg)
+	return g.configureSSH(p, cfg) //nolint:contextcheck // SSH stage deliberately ctx-free; upload bounds itself, plumbing tracked in the forge-repo-setup follow-ups spec
 }
 
 // NewCmdInitGitHub creates the `init github` subcommand.
@@ -56,17 +58,17 @@ func RunGitHubInitCmd(ctx context.Context, p *props.Props, dir string) error {
 		return err
 	}
 
-	return RunGitHubInit(p, editor) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
+	return RunGitHubInit(ctx, p, editor)
 }
 
 // RunBitbucketInit executes the wizard against an existing config container,
 // typically invoked by [NewCmdInitBitbucket]. Optional [DualFormOption]s are
 // propagated into the wizard so tests can inject deterministic form creators,
 // mirroring [pkg/setup/ai.RunAIInit].
-func RunBitbucketInit(p *props.Props, cfg setup.Editor, opts ...DualFormOption) error {
+func RunBitbucketInit(ctx context.Context, p *props.Props, cfg setup.Editor, opts ...DualFormOption) error {
 	i := NewBitbucketInitialiser(p, WithDualForms(opts...))
 
-	return i.Configure(p, cfg)
+	return i.Configure(ctx, p, cfg)
 }
 
 // NewCmdInitBitbucket creates the `init bitbucket` subcommand.
@@ -110,5 +112,5 @@ func RunBitbucketInitCmd(ctx context.Context, p *props.Props, dir string, opts .
 		return err
 	}
 
-	return RunBitbucketInit(p, editor, opts...) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
+	return RunBitbucketInit(ctx, p, editor, opts...)
 }

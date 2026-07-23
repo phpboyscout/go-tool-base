@@ -5,6 +5,8 @@
 package setup
 
 import (
+	"context"
+
 	mock "github.com/stretchr/testify/mock"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -39,16 +41,16 @@ func (_m *MockInitialiser) EXPECT() *MockInitialiser_Expecter {
 }
 
 // Configure provides a mock function for the type MockInitialiser
-func (_mock *MockInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
-	ret := _mock.Called(p, cfg)
+func (_mock *MockInitialiser) Configure(ctx context.Context, p *props.Props, cfg setup.Editor) error {
+	ret := _mock.Called(ctx, p, cfg)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Configure")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*props.Props, setup.Editor) error); ok {
-		r0 = returnFunc(p, cfg)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *props.Props, setup.Editor) error); ok {
+		r0 = returnFunc(ctx, p, cfg)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -61,25 +63,31 @@ type MockInitialiser_Configure_Call struct {
 }
 
 // Configure is a helper method to define mock.On call
+//   - ctx context.Context
 //   - p *props.Props
 //   - cfg setup.Editor
-func (_e *MockInitialiser_Expecter) Configure(p interface{}, cfg interface{}) *MockInitialiser_Configure_Call {
-	return &MockInitialiser_Configure_Call{Call: _e.mock.On("Configure", p, cfg)}
+func (_e *MockInitialiser_Expecter) Configure(ctx interface{}, p interface{}, cfg interface{}) *MockInitialiser_Configure_Call {
+	return &MockInitialiser_Configure_Call{Call: _e.mock.On("Configure", ctx, p, cfg)}
 }
 
-func (_c *MockInitialiser_Configure_Call) Run(run func(p *props.Props, cfg setup.Editor)) *MockInitialiser_Configure_Call {
+func (_c *MockInitialiser_Configure_Call) Run(run func(ctx context.Context, p *props.Props, cfg setup.Editor)) *MockInitialiser_Configure_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *props.Props
+		var arg0 context.Context
 		if args[0] != nil {
-			arg0 = args[0].(*props.Props)
+			arg0 = args[0].(context.Context)
 		}
-		var arg1 setup.Editor
+		var arg1 *props.Props
 		if args[1] != nil {
-			arg1 = args[1].(setup.Editor)
+			arg1 = args[1].(*props.Props)
+		}
+		var arg2 setup.Editor
+		if args[2] != nil {
+			arg2 = args[2].(setup.Editor)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -90,7 +98,7 @@ func (_c *MockInitialiser_Configure_Call) Return(err error) *MockInitialiser_Con
 	return _c
 }
 
-func (_c *MockInitialiser_Configure_Call) RunAndReturn(run func(p *props.Props, cfg setup.Editor) error) *MockInitialiser_Configure_Call {
+func (_c *MockInitialiser_Configure_Call) RunAndReturn(run func(ctx context.Context, p *props.Props, cfg setup.Editor) error) *MockInitialiser_Configure_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -154,7 +154,7 @@ func TestConfigure_FormRunError(t *testing.T) {
 		return huh.NewForm(huh.NewGroup(huh.NewConfirm().Title("x")))
 	}))
 
-	err := init.Configure(props, mock)
+	err := init.Configure(t.Context(), props, mock)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "telemetry consent form")
 }

@@ -209,7 +209,7 @@ func TestStorageModeChanges_UnknownMode(t *testing.T) {
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
-	_, err := storageModeChanges("tool", keys, &AIConfig{
+	_, err := storageModeChanges(t.Context(), "tool", keys, &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.Mode("bogus"),
 	})
@@ -226,7 +226,7 @@ func TestStorageModeChanges_EnvVar(t *testing.T) {
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
-	changes, err := storageModeChanges("tool", keys, &AIConfig{
+	changes, err := storageModeChanges(t.Context(), "tool", keys, &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeEnvVar,
 		EnvVarName:  "MY_KEY",
@@ -247,7 +247,7 @@ func TestStorageModeChanges_KeychainStoreError(t *testing.T) {
 	keys, ok := providerConfigKeys(string(gochat.ProviderClaude))
 	require.True(t, ok)
 
-	changes, err := storageModeChanges("tool", keys, &AIConfig{
+	changes, err := storageModeChanges(t.Context(), "tool", keys, &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeKeychain,
 		APIKey:      "sk-ant",
@@ -262,7 +262,7 @@ func TestStorageModeChanges_KeychainStoreError(t *testing.T) {
 func TestCredentialChanges_UnknownProvider(t *testing.T) {
 	t.Parallel()
 
-	changes, err := credentialChanges("tool", &AIConfig{Provider: "unknown"})
+	changes, err := credentialChanges(t.Context(), "tool", &AIConfig{Provider: "unknown"})
 	require.NoError(t, err)
 	assert.Nil(t, changes)
 }
@@ -332,7 +332,7 @@ func TestProviderKeychainAccount(t *testing.T) {
 // wrapping path in storeAIKeyInKeychain when the backend Store fails.
 // Serial: default stub backend rejects Store.
 func TestStoreAIKeyInKeychain_StoreFailureWrapsHint(t *testing.T) {
-	_, err := storeAIKeyInKeychain("tool", &AIConfig{
+	_, err := storeAIKeyInKeychain(t.Context(), "tool", &AIConfig{
 		Provider: string(gochat.ProviderClaude),
 		APIKey:   "sk-ant",
 	})

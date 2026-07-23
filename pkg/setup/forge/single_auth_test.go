@@ -67,7 +67,7 @@ func TestGitHubAuth_LiteralModeWritesAuthValue(t *testing.T) {
 		)),
 	)
 
-	require.NoError(t, init.Configure(p, cfg))
+	require.NoError(t, init.Configure(t.Context(), p, cfg))
 	view := cfg.View()
 	assert.Equal(t, "ghp_lit_token", view.GetString("github.auth.value"))
 	assert.Empty(t, view.GetString("github.auth.env"))
@@ -92,7 +92,7 @@ func TestGitHubAuth_EnvVarModeWritesReferenceOnly(t *testing.T) {
 		)),
 	)
 
-	require.NoError(t, init.Configure(p, cfg))
+	require.NoError(t, init.Configure(t.Context(), p, cfg))
 	view := cfg.View()
 	assert.Equal(t, "MYTOOL_GH_TOKEN", view.GetString("github.auth.env"))
 	assert.Empty(t, view.GetString("github.auth.value"))
@@ -132,7 +132,7 @@ func TestGitHubAuth_EnvVarModeDisplayOnce(t *testing.T) {
 		)),
 	)
 
-	require.NoError(t, init.Configure(p, cfg))
+	require.NoError(t, init.Configure(t.Context(), p, cfg))
 	assert.True(t, displayCalled, "display-once form should be invoked")
 	assert.Equal(t, "ghp_envvar_token", tokenShown)
 	assert.Equal(t, "GITHUB_TOKEN", envVarNameShown)
@@ -159,7 +159,7 @@ func TestGitHubAuth_KeychainModeStoresTokenAndRef(t *testing.T) {
 		)),
 	)
 
-	require.NoError(t, init.Configure(p, cfg))
+	require.NoError(t, init.Configure(t.Context(), p, cfg))
 	view := cfg.View()
 	assert.Equal(t, "testtool/github.auth", view.GetString("github.auth.keychain"))
 	assert.Empty(t, view.GetString("github.auth.value"), "token must not leak into config")

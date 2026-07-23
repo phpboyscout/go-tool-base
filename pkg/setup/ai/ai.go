@@ -331,13 +331,13 @@ func (a *AIInitialiser) IsConfigured(cfg config.Reader) bool {
 
 // Configure runs the interactive AI configuration forms and writes the
 // results through the editor.
-func (a *AIInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
+func (a *AIInitialiser) Configure(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	aiCfg, err := runAIForms(cfg.View(), a.formOpts...)
 	if err != nil {
 		return err
 	}
 
-	return writeAIConfig(cfg, p.Tool.Name, aiCfg)
+	return writeAIConfig(ctx, cfg, p.Tool.Name, aiCfg)
 }
 
 // writeAIConfig commits the provider selection and its credential as one
@@ -347,8 +347,8 @@ func (a *AIInitialiser) Configure(p *props.Props, cfg setup.Editor) error {
 // Apply is what prevents an orphaned `ai.provider` with no credential when the
 // keychain is locked (the pre-Store code wrote the whole document at once for
 // the same reason).
-func writeAIConfig(cfg setup.Editor, toolName string, aiCfg *AIConfig) error {
-	credChanges, err := credentialChanges(toolName, aiCfg)
+func writeAIConfig(ctx context.Context, cfg setup.Editor, toolName string, aiCfg *AIConfig) error {
+	credChanges, err := credentialChanges(ctx, toolName, aiCfg)
 	if err != nil {
 		return err
 	}
@@ -368,13 +368,13 @@ func writeAIConfig(cfg setup.Editor, toolName string, aiCfg *AIConfig) error {
 // external keychain store runs here, before any change is returned, so its
 // failure aborts the whole write. toolName names the service used by the
 // keychain write; see [providerKeychainAccount] for the account shape.
-func credentialChanges(toolName string, aiCfg *AIConfig) ([]config.Change, error) {
+func credentialChanges(ctx context.Context, toolName string, aiCfg *AIConfig) ([]config.Change, error) {
 	keys, ok := providerConfigKeys(aiCfg.Provider)
 	if !ok {
 		return nil, nil
 	}
 
-	return storageModeChanges(toolName, keys, aiCfg)
+	return storageModeChanges(ctx, toolName, keys, aiCfg)
 }
 
 // providerConfigKeyTriple groups the three provider-specific config
@@ -409,7 +409,7 @@ func (k providerConfigKeyTriple) all() []string {
 // dispatching to a per-mode helper so each arm stays readable. A blank
 // credential field yields no changes (the wizard was bypassed in tests, or the
 // user left the field empty), never an error.
-func storageModeChanges(toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) ([]config.Change, error) {
+func storageModeChanges(ctx context.Context, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) ([]config.Change, error) {
 	switch aiCfg.StorageMode {
 	case credentials.ModeEnvVar:
 		return envVarChanges(keys, aiCfg), nil
@@ -418,7 +418,7 @@ func storageModeChanges(toolName string, keys providerConfigKeyTriple, aiCfg *AI
 		// bypass the wizard and set APIKey directly.
 		return literalChanges(keys, aiCfg), nil
 	case credentials.ModeKeychain:
-		return keychainChanges(toolName, keys, aiCfg)
+		return keychainChanges(ctx, toolName, keys, aiCfg)
 	default:
 		return nil, errors.Newf("unknown credential storage mode %q", aiCfg.StorageMode)
 	}
@@ -440,8 +440,8 @@ func literalChanges(keys providerConfigKeyTriple, aiCfg *AIConfig) []config.Chan
 	return setup.ExclusiveChanges(map[string]any{keys.literal: aiCfg.APIKey}, keys.all())
 }
 
-func keychainChanges(toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) ([]config.Change, error) {
-	ref, err := storeAIKeyInKeychain(toolName, aiCfg)
+func keychainChanges(ctx context.Context, toolName string, keys providerConfigKeyTriple, aiCfg *AIConfig) ([]config.Change, error) {
+	ref, err := storeAIKeyInKeychain(ctx, toolName, aiCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +457,7 @@ func keychainChanges(toolName string, keys providerConfigKeyTriple, aiCfg *AICon
 // "<toolName>/<account>" and returns the reference string recorded in
 // the config file. A blank APIKey is a no-op so running the wizard
 // with a placeholder form in tests doesn't touch real credentials.
-func storeAIKeyInKeychain(toolName string, aiCfg *AIConfig) (string, error) {
+func storeAIKeyInKeychain(ctx context.Context, toolName string, aiCfg *AIConfig) (string, error) {
 	if aiCfg.APIKey == "" {
 		return "", nil
 	}
@@ -467,10 +467,12 @@ func storeAIKeyInKeychain(toolName string, aiCfg *AIConfig) (string, error) {
 		return "", errors.New("cannot write keychain entry without both tool name and provider account")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
+	// Per-operation deadline derived from the caller's ctx at the store call
+	// site (the documented KeychainOpTimeout contract).
+	storeCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
 	defer cancel()
 
-	if err := credentials.Store(ctx, toolName, account, aiCfg.APIKey); err != nil {
+	if err := credentials.Store(storeCtx, toolName, account, aiCfg.APIKey); err != nil {
 		return "", errors.WithHint(
 			errors.Wrap(err, "storing AI API key in OS keychain"),
 			"If the keychain is locked, unlock it and re-run; otherwise pick env-var or literal mode instead.")
@@ -492,7 +494,7 @@ func RunAIInit(ctx context.Context, p *props.Props, dir string, opts ...FormOpti
 		return err
 	}
 
-	return writeAIConfig(editor, p.Tool.Name, aiCfg) //nolint:contextcheck // the keychain op runs under its own KeychainOpTimeout by design; Initialiser.Configure is deliberately ctx-free (see setup.Editor)
+	return writeAIConfig(ctx, editor, p.Tool.Name, aiCfg)
 }
 
 // runAIForms runs the multi-stage AI configuration forms and returns the result.

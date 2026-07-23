@@ -252,7 +252,7 @@ func TestWriteAIConfig_ModeSwitchClearsStaleKeys(t *testing.T) {
 		cfg := openEditor(t)
 		require.NoError(t, cfg.Set("anthropic.api.key", "sk-ant-STALE"))
 
-		err := writeAIConfig(cfg, "test-tool", &AIConfig{
+		err := writeAIConfig(t.Context(), cfg, "test-tool", &AIConfig{
 			Provider:    "claude",
 			StorageMode: credentials.ModeEnvVar,
 			EnvVarName:  "ANTHROPIC_API_KEY",
@@ -274,7 +274,7 @@ func TestWriteAIConfig_ModeSwitchClearsStaleKeys(t *testing.T) {
 		// gosec G101 doesn't flag a "hardcoded credential" test fixture.
 		replacement := "sk-ant-new"
 
-		err := writeAIConfig(cfg, "test-tool", &AIConfig{
+		err := writeAIConfig(t.Context(), cfg, "test-tool", &AIConfig{
 			Provider:    "claude",
 			StorageMode: credentials.ModeLiteral,
 			APIKey:      replacement,
@@ -601,7 +601,7 @@ func TestAIInitialiser_Configure(t *testing.T) {
 		},
 	}
 
-	err := i.Configure(newTestProps(t), cfg)
+	err := i.Configure(t.Context(), newTestProps(t), cfg)
 	assert.NoError(t, err)
 }
 
@@ -626,7 +626,7 @@ func TestAIInitialiser_Configure_NoKey(t *testing.T) {
 		},
 	}
 
-	err := i.Configure(newTestProps(t), cfg)
+	err := i.Configure(t.Context(), newTestProps(t), cfg)
 	assert.NoError(t, err)
 }
 
@@ -792,7 +792,7 @@ func TestAIInitialiser_Configure_FormCancellation(t *testing.T) {
 		},
 	}
 
-	err := i.Configure(newTestProps(t), cfg)
+	err := i.Configure(t.Context(), newTestProps(t), cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "AI configuration form cancelled")
 }

@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"os"
 
 	"gitlab.com/phpboyscout/go/config"
@@ -116,12 +117,15 @@ func (i *Initialiser) IsConfigured(cfg config.Reader) bool {
 }
 
 // Configure runs the interactive wizard for the profile's credential shape.
-func (i *Initialiser) Configure(p *props.Props, cfg setup.Editor) error {
+// ctx is the caller's context — it deliberately carries no stage-wide deadline
+// (see setup.Initialiser); keychain operations derive their own
+// KeychainOpTimeout bounds at each call site.
+func (i *Initialiser) Configure(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	if i.profile.Credential == DualUserPass {
-		return i.configureDual(p, cfg)
+		return i.configureDual(ctx, p, cfg)
 	}
 
-	return i.configureSingle(p, cfg)
+	return i.configureSingle(ctx, p, cfg)
 }
 
 func (i *Initialiser) isSingleConfigured(cfg config.Reader) bool {

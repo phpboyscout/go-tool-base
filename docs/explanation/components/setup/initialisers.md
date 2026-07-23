@@ -23,9 +23,18 @@ type Initialiser interface {
     // IsConfigured returns true if this initialiser's config is already present.
     IsConfigured(cfg config.Reader) bool
     // Configure runs the interactive config and writes values through cfg.
-    Configure(p *props.Props, cfg Editor) error
+    Configure(ctx context.Context, p *props.Props, cfg Editor) error
 }
 ```
+
+`Configure` receives the caller's (command) context. It deliberately carries
+no deadline of its own: interactive stages — forms, OAuth device flows — run
+at human pace, and cancelling the context (Ctrl-C) aborts any in-flight
+network or keychain call. Implementations must derive short per-operation
+deadlines (`credentials.KeychainOpTimeout`) at each backend call site rather
+than spanning interactive stages; a stage-wide deadline is exactly the defect
+that killed OAuth logins before the 2026-07-23 context-scoping fix (spec
+`2026-07-23-setup-credential-stage-context-scoping`).
 
 `setup.Editor` is the read/write surface an initialiser uses during init:
 `View()` returns a pinned `*config.View` whose reads resolve the target file

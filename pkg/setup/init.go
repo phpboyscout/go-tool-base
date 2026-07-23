@@ -51,8 +51,14 @@ type Initialiser interface {
 	Name() string
 	// IsConfigured returns true if this initialiser's config is already present.
 	IsConfigured(cfg config.Reader) bool
-	// Configure runs the interactive config and writes values through cfg.
-	Configure(p *props.Props, cfg Editor) error
+	// Configure runs the interactive config and writes values through cfg. ctx
+	// is the caller's (command) context: it bounds nothing by itself so
+	// human-paced flows (OAuth device codes, forms) can take as long as they
+	// need, while cancelling it (Ctrl-C) aborts any in-flight network or
+	// keychain operation. Implementations must derive short per-operation
+	// deadlines (e.g. credentials.KeychainOpTimeout) at each backend call site,
+	// never spanning interactive stages.
+	Configure(ctx context.Context, p *props.Props, cfg Editor) error
 }
 
 // Editor is the read/write surface an initialiser uses during init. Reads
@@ -241,7 +247,7 @@ func Initialise(ctx context.Context, p *props.Props, opts InitOptions) (string, 
 
 		p.Logger.Info("enabled but not yet configured", "component", init.Name())
 
-		if err := init.Configure(p, editor); err != nil {
+		if err := init.Configure(ctx, p, editor); err != nil {
 			p.Logger.Warn("configuration skipped", "component", init.Name(), "error", err)
 		}
 	}

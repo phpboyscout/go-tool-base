@@ -94,7 +94,7 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 		},
 	}
 
-	err := i.Configure(newTestProps(t), cfg)
+	err := i.Configure(t.Context(), newTestProps(t), cfg)
 	require.NoError(t, err)
 
 	got, err := credentials.Retrieve(t.Context(), "test-tool", "anthropic.api")
@@ -108,7 +108,7 @@ func TestAIInitialiser_Configure_KeychainMode(t *testing.T) {
 func TestStoreAIKeyInKeychain_BlankKeyIsNoop(t *testing.T) {
 	credtest.Install(t)
 
-	ref, err := storeAIKeyInKeychain("test-tool", &AIConfig{
+	ref, err := storeAIKeyInKeychain(t.Context(), "test-tool", &AIConfig{
 		Provider: string(gochat.ProviderOpenAI),
 		APIKey:   "",
 	})
@@ -135,7 +135,7 @@ func TestWriteAIConfig_KeychainFailureLeavesNothing(t *testing.T) {
 	// keychain store is attempted (and fails), without tripping gosec G101.
 	placeholder := "should-not-persist"
 
-	writeErr := writeAIConfig(editor, "test-tool", &AIConfig{
+	writeErr := writeAIConfig(t.Context(), editor, "test-tool", &AIConfig{
 		Provider:    string(gochat.ProviderClaude),
 		StorageMode: credentials.ModeKeychain,
 		APIKey:      placeholder,
@@ -158,7 +158,7 @@ func TestWriteAIConfig_KeychainFailureLeavesNothing(t *testing.T) {
 func TestStoreAIKeyInKeychain_UnknownProviderErrors(t *testing.T) {
 	credtest.Install(t)
 
-	_, err := storeAIKeyInKeychain("test-tool", &AIConfig{
+	_, err := storeAIKeyInKeychain(t.Context(), "test-tool", &AIConfig{
 		Provider: "unknown-provider",
 		APIKey:   "something",
 	})

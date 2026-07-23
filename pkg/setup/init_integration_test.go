@@ -1,6 +1,7 @@
 package setup_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -194,7 +195,7 @@ type testInitialiser struct {
 
 func (ti *testInitialiser) Name() string                      { return ti.name }
 func (ti *testInitialiser) IsConfigured(_ config.Reader) bool { return ti.configured }
-func (ti *testInitialiser) Configure(_ *props.Props, c setup.Editor) error {
+func (ti *testInitialiser) Configure(_ context.Context, _ *props.Props, c setup.Editor) error {
 	ti.called = true
 	if ti.configFn != nil {
 		ti.configFn(c)
