@@ -30,33 +30,33 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
-	gitlab.com/phpboyscout/go/browser v0.1.0
-	gitlab.com/phpboyscout/go/changelog v0.1.0
-	gitlab.com/phpboyscout/go/chat v0.1.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.1.0
-	gitlab.com/phpboyscout/go/chat-gemini v0.1.0
-	gitlab.com/phpboyscout/go/chat-openai v0.1.0
-	gitlab.com/phpboyscout/go/config v0.4.0
-	gitlab.com/phpboyscout/go/config-afero v0.1.0
-	gitlab.com/phpboyscout/go/controls v0.1.0
-	gitlab.com/phpboyscout/go/credentials v0.2.0
+	gitlab.com/phpboyscout/go/browser v0.1.1
+	gitlab.com/phpboyscout/go/changelog v0.1.1
+	gitlab.com/phpboyscout/go/chat v0.1.2
+	gitlab.com/phpboyscout/go/chat-anthropic v0.1.1
+	gitlab.com/phpboyscout/go/chat-gemini v0.1.1
+	gitlab.com/phpboyscout/go/chat-openai v0.1.3
+	gitlab.com/phpboyscout/go/config v0.9.1
+	gitlab.com/phpboyscout/go/config-afero v0.1.1
+	gitlab.com/phpboyscout/go/controls v0.1.3
+	gitlab.com/phpboyscout/go/credentials v0.2.1
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.2.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.2.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.2.1
 	gitlab.com/phpboyscout/go/forge-gitea v0.2.0
 	gitlab.com/phpboyscout/go/forge-github v0.2.1
 	gitlab.com/phpboyscout/go/forge-gitlab v0.2.1
-	gitlab.com/phpboyscout/go/httpclient v0.1.0
+	gitlab.com/phpboyscout/go/httpclient v0.1.2
 	gitlab.com/phpboyscout/go/observability v0.1.0
 	gitlab.com/phpboyscout/go/output v0.1.0
-	gitlab.com/phpboyscout/go/redact v0.1.0
-	gitlab.com/phpboyscout/go/regexutil v0.1.0
+	gitlab.com/phpboyscout/go/redact v0.1.1
+	gitlab.com/phpboyscout/go/regexutil v0.1.1
 	gitlab.com/phpboyscout/go/repo v0.1.0
-	gitlab.com/phpboyscout/go/signing v0.2.0
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.1
-	gitlab.com/phpboyscout/go/tls v0.1.0
-	gitlab.com/phpboyscout/go/transit v0.1.0
-	gitlab.com/phpboyscout/go/transport v0.1.1
+	gitlab.com/phpboyscout/go/signing v0.2.2
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.4
+	gitlab.com/phpboyscout/go/tls v0.1.2
+	gitlab.com/phpboyscout/go/transit v0.1.1
+	gitlab.com/phpboyscout/go/transport v0.1.2
 	gitlab.com/phpboyscout/go/workspace v0.1.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
@@ -84,19 +84,19 @@ require (
 	github.com/anthropics/anthropic-sdk-go v1.56.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.42.1 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.32.29 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.28 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.32.30 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.29 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.30 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.31 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.13 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.30 // indirect
-	github.com/aws/aws-sdk-go-v2/service/kms v1.54.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.4.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.32.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.37.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.44.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/kms v1.54.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.4.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.32.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.37.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.44.1 // indirect
 	github.com/aws/smithy-go v1.27.3 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
@@ -251,7 +251,7 @@ require (
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/gitlab-org/api/client-go/v2 v2.46.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.1.0 // indirect
-	gitlab.com/phpboyscout/go/authn v0.1.0 // indirect
+	gitlab.com/phpboyscout/go/authn v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect
 	gitlab.com/phpboyscout/go/yamldoc v0.1.3 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
