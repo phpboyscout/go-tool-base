@@ -159,6 +159,17 @@ goreleaser:
     AWS_REGION: eu-west-2
     AWS_ROLE_ARN: arn:aws:iam::049815585546:role/gtb-release-signing-v1-signer
     AWS_ROLE_SESSION_NAME: gtb-release-${CI_COMMIT_TAG}
+    # --- Dual-sign overlap window (2026-07-24 key rotation) -----------
+    # Secondary v2 key in the new prod account; sign-release.sh merges
+    # its signature into the same checksums.txt.sig via `gtb sign
+    # --append`, so in-field binaries (trusting only v1) and new
+    # binaries (trusting v1+v2) both verify. DELETE these three
+    # variables to close the window (see infra spec
+    # 2026-07-24-prod-rebuild-and-rekey D2a/D5 — the old account may
+    # only be closed after the window closes).
+    GTB_SIGNING_KEY_ID_2: alias/gtb-release-signing-v2
+    GTB_SIGNING_KEY_PUBLIC_2: internal/trustkeys/keys/signing-key-v2.asc
+    AWS_ROLE_ARN_2: arn:aws:iam::060730976733:role/gtb-release-signing-v2-signer
     # AWS_WEB_IDENTITY_TOKEN_FILE must be in variables: (not just
     # exported in before_script) because GitLab runs each script entry
     # in its own shell — exports don't persist between steps.

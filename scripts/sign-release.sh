@@ -79,4 +79,37 @@ go run ./cmd/gtb --ci sign \
 	--output "${signature}" \
 	"${artifact}"
 
-echo "sign-release.sh: wrote ${signature}"
+# Dual-sign overlap window (2026-07-24 key rotation, infra spec
+# 2026-07-24-prod-rebuild-and-rekey D2a): when the secondary key's env
+# is present, a SECOND signature is merged into the SAME armored file
+# via `gtb sign --append`. In-field binaries embed only the old key and
+# skip signature packets from issuers they don't know, so the one .sig
+# verifies for both binary generations. The secondary signer role lives
+# in a different AWS account; AWS_ROLE_ARN is overridden per-invocation
+# (the web-identity token file works for any role trusting the same
+# OIDC sub).
+#
+# Remove GTB_SIGNING_KEY_ID_2 / _PUBLIC_2 / AWS_ROLE_ARN_2 from
+# .gitlab-ci.yml to close the window (then this block is inert).
+if [[ -n "${GTB_SIGNING_KEY_ID_2:-}" ]]; then
+	public_key_2="${GTB_SIGNING_KEY_PUBLIC_2:?GTB_SIGNING_KEY_ID_2 set but GTB_SIGNING_KEY_PUBLIC_2 missing}"
+
+	if [[ ! -f "${public_key_2}" ]]; then
+		echo "sign-release.sh: GTB_SIGNING_KEY_PUBLIC_2 (${public_key_2}) not found" >&2
+		exit 1
+	fi
+
+	AWS_ROLE_ARN="${AWS_ROLE_ARN_2:-${AWS_ROLE_ARN:-}}" \
+	go run ./cmd/gtb --ci sign \
+		--backend aws-kms \
+		--kms-region "${region}" \
+		--key-id "${GTB_SIGNING_KEY_ID_2}" \
+		--public-key "${public_key_2}" \
+		--output "${signature}" \
+		--append \
+		"${artifact}"
+
+	echo "sign-release.sh: dual-signed ${signature} (primary ${key_id} + secondary ${GTB_SIGNING_KEY_ID_2})"
+else
+	echo "sign-release.sh: wrote ${signature}"
+fi
