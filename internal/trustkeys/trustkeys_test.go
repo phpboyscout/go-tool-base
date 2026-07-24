@@ -22,7 +22,9 @@ import (
 // an unrelated PR is exactly the safety net we want.
 //
 // Fingerprints come from `gtb keys generate` (rotation) and
-// `gtb keys mint --backend aws-kms` (signing) on 2026-06-08.
+// `gtb keys mint --backend aws-kms` (signing) on 2026-06-08; v2 was
+// minted 2026-07-24 during the dual-anchor key rotation (see infra's
+// how-to/rotate-release-signing-keys runbook).
 var expectedFingerprints = map[string]struct {
 	algorithm   string
 	description string
@@ -33,7 +35,11 @@ var expectedFingerprints = map[string]struct {
 	},
 	"6E2072BBF83DFAAF006300C495DDAC333C37AA35": {
 		algorithm:   "rsa",
-		description: "signing-key-v1 (AWS KMS alias/gtb-release-signing-v1)",
+		description: "signing-key-v1 (AWS KMS alias/gtb-release-signing-v1, old account 049815585546; retired at window close, public key trusted forever)",
+	},
+	"E969F9AB167897D876B6A93AA44A36F8D7ACF36D": {
+		algorithm:   "rsa",
+		description: "signing-key-v2 (AWS KMS alias/gtb-release-signing-v2, prod 060730976733 — 2026-07-24 rotation)",
 	},
 }
 

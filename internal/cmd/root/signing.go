@@ -48,5 +48,5 @@ func init() {
 	// externally-served copy at openpgpkey.phpboyscout.uk — exactly
 	// the two-of-three trust-anchor independence the Phase 2 design
 	// promises.
-	verify.DefaultExternalKeyEmail = "release@phpboyscout.uk"
+	verify.DefaultExternalKeyEmail = "release-v2@phpboyscout.uk"
 }
