@@ -1,6 +1,7 @@
 package sign
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -9,9 +10,11 @@ import (
 	"encoding/pem"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
@@ -108,6 +111,7 @@ func TestRunSign_HappyPath_LocalBackend(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, "", "",
 		inputPath,
+		false,
 	)
 	require.NoError(t, err)
 
@@ -131,6 +135,7 @@ func TestRunSign_RefusesOutputEqualsInput(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, inputPath, "",
 		inputPath,
+		false,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "equals the input path")
@@ -150,6 +155,7 @@ func TestRunSign_MissingPublicKey_Errors(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"fake", "ignored", filepath.Join(tmp, "nonexistent.asc"), "", "",
 		inputPath,
+		false,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "reading public key")
@@ -170,6 +176,7 @@ func TestRunSign_UnknownBackend_Errors(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"does-not-exist", "ignored", pubPath, "", "",
 		inputPath,
+		false,
 	)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, signing.ErrUnknownBackend)
@@ -196,6 +203,7 @@ func TestRunSign_SignerMismatchPublicKey_Errors(t *testing.T) {
 	err = runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, "", "",
 		inputPath,
+		false,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match")
@@ -215,6 +223,7 @@ func TestRunSign_InvalidCreatedFlag_Errors(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, "", "not-an-rfc3339-instant",
 		inputPath,
+		false,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "RFC3339")
@@ -234,6 +243,7 @@ func TestRunSign_OutputDefaultsToInputDotSig(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, "", "",
 		inputPath,
+		false,
 	)
 	require.NoError(t, err)
 
@@ -315,7 +325,82 @@ func TestRunSign_RefusesOutputEqualsInput_DotSlashSpelling(t *testing.T) {
 	err := runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, dottedOutput, "",
 		inputPath,
+		false,
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "equals the input path")
+}
+
+// TestRunSign_Append_DualSignServesBothTrustSets is the key-rotation
+// overlap contract in miniature: sign with key A, --append a signature
+// from key B into the same armored file, and the result must verify
+// for a verifier that trusts only A (the old, immutable binary), a
+// verifier that trusts only B (the new binary), and fail for one that
+// trusts neither. go-crypto's verifyDetachedSignature skips signature
+// packets from unknown issuers, which is what makes one armored block
+// serve both binary generations during a rotation window.
+func TestRunSign_Append_DualSignServesBothTrustSets(t *testing.T) {
+	tmp := t.TempDir()
+
+	privA, pubPathA := fixture(t, filepath.Join(tmp, mustMkdir(t, tmp, "a")))
+	privB, pubPathB := fixture(t, filepath.Join(tmp, mustMkdir(t, tmp, "b")))
+
+	inputPath := filepath.Join(tmp, "checksums.txt")
+	require.NoError(t, os.WriteFile(inputPath, []byte("deadbeef  gtb\n"), 0o644)) //nolint:gosec // test fixture
+
+	sigPath := filepath.Join(tmp, "checksums.txt.sig")
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	// Pass 1 (old key). --append on a not-yet-existing output must be a
+	// no-op merge, so the flag can be passed unconditionally.
+	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: privA})
+	require.NoError(t, runSign(cmd, newTestProps(),
+		"fake", "ignored", pubPathA, sigPath, "",
+		inputPath,
+		true,
+	))
+
+	// Pass 2 (new key) merges into the same file.
+	withRegisteredBackend(t, &fakeBackend{name: "fake", signer: privB})
+	require.NoError(t, runSign(cmd, newTestProps(),
+		"fake", "ignored", pubPathB, sigPath, "",
+		inputPath,
+		true,
+	))
+
+	sig, err := os.ReadFile(sigPath)
+	require.NoError(t, err)
+
+	// Exactly one armored block.
+	assert.Equal(t, 1, strings.Count(string(sig), "-----BEGIN PGP SIGNATURE-----"))
+
+	verify := func(pubPath string) error {
+		pub, err := os.ReadFile(pubPath)
+		require.NoError(t, err)
+		keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewReader(pub))
+		require.NoError(t, err)
+		payload, err := os.Open(inputPath)
+		require.NoError(t, err)
+		defer func() { _ = payload.Close() }()
+		_, err = openpgp.CheckArmoredDetachedSignature(keyring, payload, bytes.NewReader(sig), nil)
+		return err
+	}
+
+	// Old-generation verifier: trusts only A.
+	assert.NoError(t, verify(pubPathA), "verifier trusting only the old key must accept the dual signature")
+	// New-generation verifier: trusts only B.
+	assert.NoError(t, verify(pubPathB), "verifier trusting only the new key must accept the dual signature")
+
+	// A verifier trusting neither key must reject.
+	privC, pubPathC := fixture(t, filepath.Join(tmp, mustMkdir(t, tmp, "c")))
+	_ = privC
+	assert.Error(t, verify(pubPathC), "verifier trusting an unrelated key must reject")
+}
+
+// mustMkdir creates a subdirectory under parent and returns its name.
+func mustMkdir(t *testing.T, parent, name string) string {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(filepath.Join(parent, name), 0o755))
+	return name
 }

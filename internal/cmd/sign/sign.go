@@ -14,12 +14,14 @@ import (
 	"bytes"
 	"crypto"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/armor"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -44,6 +46,7 @@ func NewCmdSign(p *props.Props) *setup.Command {
 		publicKeyPath string
 		output        string
 		createdRaw    string
+		appendSig     bool
 	)
 
 	cmd := &cobra.Command{
@@ -93,10 +96,19 @@ Examples:
       --public-key ./release.asc \
       --created 2026-01-01T00:00:00Z \
       --output build.txt.sig \
-      build.txt`,
+      build.txt
+
+  # Dual-sign (key-rotation overlap window): sign with the old key,
+  # then --append the new key's signature into the SAME armored file.
+  # Verifiers skip signature packets from issuers they don't know, so
+  # one file serves binaries trusting either key.
+  gtb sign --backend aws-kms --key-id alias/release-signing-v1 \
+      --public-key v1.asc --output checksums.txt.sig checksums.txt
+  gtb sign --backend aws-kms --key-id alias/release-signing-v2 \
+      --public-key v2.asc --output checksums.txt.sig --append checksums.txt`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSign(cmd, p, backendName, keyID, publicKeyPath, output, createdRaw, args[0])
+			return runSign(cmd, p, backendName, keyID, publicKeyPath, output, createdRaw, args[0], appendSig)
 		},
 	}
 
@@ -112,6 +124,8 @@ Examples:
 		"Output file path for the armored detached signature. Defaults to <input>.sig.")
 	cmd.Flags().StringVar(&createdRaw, "created", "",
 		"Signature creation time RFC3339 (default now, truncated to whole seconds). Pin to produce byte-identical signatures across re-runs.")
+	cmd.Flags().BoolVar(&appendSig, "append", false,
+		"Merge the new signature into an existing armored signature at --output instead of overwriting, producing one armored block with multiple signature packets (dual-sign key-rotation overlap). No-op when --output does not exist yet.")
 
 	for _, who := range []string{"backend", "key-id", "public-key"} {
 		_ = cmd.MarkFlagRequired(who)
@@ -134,7 +148,7 @@ Examples:
 	return setup.Wrap("", cmd)
 }
 
-func runSign(cmd *cobra.Command, p props.LoggerProvider, backendName, keyID, publicKeyPath, output, createdRaw, input string) error {
+func runSign(cmd *cobra.Command, p props.LoggerProvider, backendName, keyID, publicKeyPath, output, createdRaw, input string, appendSig bool) error {
 	sigCreationTime, output, err := resolveSignOptions(input, output, createdRaw)
 	if err != nil {
 		return err
@@ -148,6 +162,13 @@ func runSign(cmd *cobra.Command, p props.LoggerProvider, backendName, keyID, pub
 	sig, err := signFile(signer, publicKey, input, sigCreationTime)
 	if err != nil {
 		return err
+	}
+
+	if appendSig {
+		sig, err = appendSignature(output, sig)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := writeSignature(output, sig); err != nil {
@@ -240,6 +261,73 @@ func signFile(signer crypto.Signer, publicKey []byte, input string, sigCreationT
 	}
 
 	return sig, nil
+}
+
+// appendSignature merges the freshly-produced armored signature with
+// whatever armored signature already exists at output. Returns the
+// fresh signature unchanged when output does not exist yet, so
+// `--append` is safe to pass on the first signing pass too. This is
+// the dual-sign primitive for key-rotation overlap windows: verifiers
+// (go-crypto verifyDetachedSignature) skip signature packets whose
+// issuer is not in their keyring, so one armored block carrying both
+// the old and new key's packets verifies for binaries trusting either.
+func appendSignature(output string, fresh []byte) ([]byte, error) {
+	existing, err := os.ReadFile(filepath.Clean(output))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fresh, nil
+		}
+
+		return nil, errors.Wrapf(err, "reading existing signature %s", output)
+	}
+
+	merged, err := mergeArmoredSignatures(existing, fresh)
+	if err != nil {
+		return nil, errors.Wrapf(err, "merging signature into %s", output)
+	}
+
+	return merged, nil
+}
+
+// mergeArmoredSignatures concatenates the signature packets of the
+// supplied armored detached signatures into a single armored block, in
+// argument order.
+func mergeArmoredSignatures(sigs ...[]byte) ([]byte, error) {
+	var packets bytes.Buffer
+
+	for i, s := range sigs {
+		block, err := armor.Decode(bytes.NewReader(s))
+		if err != nil {
+			return nil, errors.Wrapf(err, "decoding armored signature %d", i)
+		}
+
+		if block.Type != openpgp.SignatureType {
+			return nil, errors.Newf("armored input %d is %q, not %q", i, block.Type, openpgp.SignatureType)
+		}
+
+		if _, err := io.Copy(&packets, block.Body); err != nil {
+			return nil, errors.Wrapf(err, "reading signature packets from input %d", i)
+		}
+	}
+
+	var out bytes.Buffer
+
+	w, err := armor.Encode(&out, openpgp.SignatureType, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "starting armored output")
+	}
+
+	if _, err := w.Write(packets.Bytes()); err != nil {
+		return nil, errors.Wrap(err, "writing merged signature packets")
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, errors.Wrap(err, "closing armored output")
+	}
+
+	out.WriteByte('\n')
+
+	return out.Bytes(), nil
 }
 
 // writeSignature persists the .sig bytes. Cleans the path so gosec is

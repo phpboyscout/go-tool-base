@@ -86,6 +86,7 @@ func signManifest(t *testing.T, priv *rsa.PrivateKey, body string) (manifest, si
 	require.NoError(t, runSign(cmd, newTestProps(),
 		"fake", "ignored", pubPath, "", "",
 		manifestPath,
+		false,
 	))
 
 	signature, err := os.ReadFile(manifestPath + ".sig")
