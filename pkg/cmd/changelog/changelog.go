@@ -45,7 +45,10 @@ By default, shows the full changelog. Use flags to filter by version.`,
 				return err
 			}
 
-			cl := changelog.Parse(raw)
+			cl, err := changelog.Parse(raw)
+			if err != nil {
+				return err
+			}
 
 			releases := filterReleases(cl, version, since, latest)
 

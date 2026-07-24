@@ -1253,7 +1253,11 @@ func (s *SelfUpdater) GetStructuredReleaseNotes(ctx context.Context, from, to st
 		return nil, err
 	}
 
-	cl := changelog.Parse(raw)
+	cl, err := changelog.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+
 	cl.FromVersion = from
 	cl.ToVersion = to
 
