@@ -1,5 +1,25 @@
 # Changelog
 
+## [v0.33.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.33.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.32.0...v0.33.0)
+
+### Features
+
+- **trustkeys**: rotate trust anchors to the v2 dual-trust set ([5036845](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5036845120523a4c96f7721935b484db4e5b9cfb))
+- **sign**: add --append to merge signatures for dual-sign windows ([991646c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/991646cdda8541b2071acb739f71365467f0e6ba))
+- **root**: exempt auxiliary commands from the framework bootstrap ([a3c8b3e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a3c8b3ecf0a00d1f91b6443a3329d3fdf4074f28))
+
+### Bug Fixes
+
+- **version**: degrade gracefully when the release source is unreachable ([54358d9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/54358d9d901707b5422275c7217908158077fb4a))
+- adapt to changelog.Parse now returning (*Changelog, error) ([b2e672f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b2e672fa0a0466985375ee079e4db681daea9710))
+- **deps**: update go modules ([67baaeb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/67baaeb30f9ba43dbc87531bfc9d4cff676e1238))
+- **setup**: refuse implicit self-update downgrades without --force ([72db4a8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/72db4a832079f2d9bd5edc3008e6333da73d3df4))
+- **generator**: close manifest-validation gaps behind CI-executed and code-generating sinks ([0585fac](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0585fac9f1bb3dddf5a0cccefa3852abf120a5d9))
+- **deps**: adopt device-expiry-bounded forge providers v0.2.1 ([0b389b7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0b389b744bdcd49a4d8184e22956c6ed5deb325b))
+- **setup**: scope credential-stage contexts per operation ([822875a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/822875a9cca30b71d411288aa879b6ab8f623986))
+
 ## [v0.32.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.32.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.31.1...v0.32.0)
