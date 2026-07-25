@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/go-github/v88/github"
+	"github.com/google/go-github/v89/github"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,9 +36,8 @@ func TestNewCmdVersion(t *testing.T) {
 	// Setup Mock GitHub API
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v3/repos/owner/repo/releases/latest" {
-			v := "v1.0.0"
 			resp := github.RepositoryRelease{
-				TagName: &v,
+				TagName: "v1.0.0",
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)

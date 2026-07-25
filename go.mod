@@ -18,7 +18,6 @@ require (
 	github.com/dave/dst v0.27.4
 	github.com/dave/jennifer v1.7.1
 	github.com/go-git/go-git/v5 v5.19.1
-	github.com/google/go-github/v88 v88.0.0
 	github.com/google/go-github/v89 v89.0.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
@@ -160,6 +159,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/go-github/v88 v88.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
