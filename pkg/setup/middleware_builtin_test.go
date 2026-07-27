@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -231,5 +232,28 @@ func TestWithTelemetry(t *testing.T) {
 		assert.Equal(t, 1, rc.calls)
 		assert.Equal(t, "build", rc.name)
 		assert.Equal(t, 1, rc.exitCode)
+	})
+
+	// The process-global registry binds the FIRST root's Props into the
+	// middleware closure. When a second root stamps its own Props onto the
+	// command context, telemetry must report through THAT root's collector, not
+	// the first root's — otherwise two roots in one process cross-contaminate.
+	t.Run("ResolvesCollectorFromContext", func(t *testing.T) {
+		rootA := &recordingCollector{}
+		rootB := &recordingCollector{}
+
+		// Middleware was registered by root A (captures rootA's Props).
+		handler := WithTelemetry(&props.Props{Collector: rootA})(
+			func(_ *cobra.Command, _ []string) error { return nil })
+
+		// A command dispatched under root B carries root B's Props on its context.
+		cmd := &cobra.Command{Use: "b-cmd"}
+		cmd.SetContext(ContextWithProps(context.Background(), &props.Props{Collector: rootB}))
+
+		require.NoError(t, handler(cmd, nil))
+
+		assert.Equal(t, 0, rootA.calls, "root A's collector must not be used for root B's command")
+		assert.Equal(t, 1, rootB.calls, "root B's own collector records the command")
+		assert.Equal(t, "b-cmd", rootB.name)
 	})
 }
