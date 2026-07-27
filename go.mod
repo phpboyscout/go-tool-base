@@ -36,10 +36,10 @@ require (
 	gitlab.com/phpboyscout/go/chat-anthropic v0.1.2
 	gitlab.com/phpboyscout/go/chat-gemini v0.1.3
 	gitlab.com/phpboyscout/go/chat-openai v0.1.4
-	gitlab.com/phpboyscout/go/config v0.9.2
+	gitlab.com/phpboyscout/go/config v0.10.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.2
 	gitlab.com/phpboyscout/go/controls v0.1.3
-	gitlab.com/phpboyscout/go/credentials v0.2.1
+	gitlab.com/phpboyscout/go/credentials v0.2.2
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
 	gitlab.com/phpboyscout/go/forge v0.2.1
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.2.2
