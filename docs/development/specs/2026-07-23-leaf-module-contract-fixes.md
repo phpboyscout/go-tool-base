@@ -2,7 +2,7 @@
 title: "Leaf-module contract fixes: errorhandling, credentials, output, authn"
 description: "Batched MEDIUM/LOW findings from the architectural review where a leaf module's documented contract and its implementation disagree: errorhandling.Fatal never exits on special errors (usage errors exit 0), credentials.Probe can hang the setup wizard on a wedged keychain, output.ParseFormat is case-sensitive despite its doc, plus three small hardening/doc items."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - errorhandling
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — 2026-07-27 (all four modules fixed and merged)
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (cross-cutting leaf modules section); [redact: scheme-agnostic URL userinfo stripping](2026-07-23-redact-scheme-agnostic-userinfo.md) (covers the redact HIGH and JSON LOW findings from the same review section — excluded here); [setup credential-stage context scoping](2026-07-23-setup-credential-stage-context-scoping.md) (GTB-side context plumbing for the setup wizard — the Probe fix below complements it by making the deadline actually bite inside the module)
@@ -108,3 +108,35 @@ The 2026-07-23 architectural review of the extracted leaf modules found the modu
 1. **Exit code for usage/special errors:** 1 (cobra parity), 2 (common Unix "misuse" convention), or 64 (`EX_USAGE`, sysexits)? Recommendation: 2 — conventional, portable, and distinct from generic failure 1; but this is a public-contract choice worth a deliberate call.
 2. **Is `Probe`'s abandoned-goroutine tradeoff acceptable?** A timed-out backend call leaves a goroutine blocked until the underlying syscall/D-Bus call returns (possibly never). Recommendation: yes — it is bounded to one goroutine per probe attempt, `Probe` runs once per wizard step, and `regexutil` already sets the precedent of documenting exactly this tradeoff rather than pretending the deadline is free.
 3. **`WithWriter`:** remove or wire up? Recommendation: remove (clean break, pre-1.0) unless review wants the special-error/usage presentation decoupled from the logger, in which case wiring it there is the natural home.
+
+## 5. Resolution (2026-07-27)
+
+All items implemented and merged, each red-first (a regression test that captured
+the defect on unmodified `main` before the fix):
+
+- **Q1 — exit code: 2.** `errorhandling.Fatal` on `ErrRunSubCommand` /
+  `NewErrNotImplemented` now presents the special error **and** exits with code
+  **2** (`ExitCodeUsage`), the conventional Unix "misuse" code; non-fatal levels
+  stay non-exiting. Red: `TestErrorHandler_Fatal_SpecialErrors` (exit func not
+  called on `main`). Migration note added at
+  [`v0.x-errorhandling-fatal-exit-code`](../../reference/migration/v0.x-errorhandling-fatal-exit-code.md).
+- **Q3 — `WithWriter`: removed** (clean break, pre-1.0). The dead `Writer`
+  field + option are gone; all output flows through the logger/usage seam.
+- **Q2 — Probe goroutine tradeoff: accepted.** `credentials.Probe` now enforces
+  the caller's deadline itself (goroutine + `select` on `ctx.Done()`), returning
+  `false` on timeout so a wedged keychain reads as unavailable — the safe wizard
+  outcome. The bounded abandoned-goroutine tradeoff is documented on `Probe`,
+  mirroring `regexutil.CompileBounded`. Red: `TestProbe_DeadlineHonoured`
+  (blocked past 2s on `main`).
+- **`RegisterBackend(nil)`** now ignored (`if b == nil { return }`); the
+  previously active backend is preserved. Red: `TestRegisterBackend_NilIgnored`
+  (SIGSEGV on `main`).
+- **`output.ParseFormat`** is now case-insensitive (`strings.ToLower`); unknown
+  strings still fall back to `(FormatText, false)`. Red: `TestParseFormat` case
+  variants returned `(text, false)` on `main`.
+- **`authn`** package doc reworded: it carries no *server-transport* coupling and
+  is reusable from both transports, noting the outbound JWKS/OIDC HTTP client as
+  the one deliberate `net/http` use (contradicted by `jwt.go`/`jwks.go` imports
+  before).
+
+Merged MRs: errorhandling !12, credentials !15, output !18, authn !13.

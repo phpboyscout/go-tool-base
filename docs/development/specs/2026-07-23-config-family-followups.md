@@ -2,7 +2,7 @@
 title: "config family: medium/low follow-ups from the architectural review"
 description: "Batches the six MEDIUM and three LOW findings for the go/config module family from the 2026-07-23 architectural review into one workstream: exporting the sealed optional capability interfaces, defining the poll-interval contract once, fixing the consul watch/Verify interaction, backend ID uniqueness, synthesised source kinds, GTB's discarded watch stop handle, and a set of adapter documentation/escaping/error-taxonomy consistency fixes. The HIGH Apply finding is handled separately by its own spec."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -23,7 +23,8 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — 2026-07-27 (core released as config `v0.9.3`; all adapter
+    items merged; see § 5 for the resolved decisions and two flagged deviations)
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (§ config family),
@@ -218,3 +219,99 @@ hold the others.
 - **Q4 — encode widening scope.** Should the `cast`-based widening (F7) accept
   every fixed-width numeric, or stop at the lossless set and keep refusing
   e.g. `float32`?
+
+## 5. Resolution (2026-07-27)
+
+Landed as one wave: **config core** shipped first as `v0.9.3` (F1 interface
+exports, F2 duplicate-ID rejection, F3 `SourceKindDeclarer`, F4 backend-side
+`PollIntervalHinter` consumption, F8 conformance case), then the adapters
+re-pinned it and adopted their items. Every behavioural item was captured
+red-first (a regression test that failed on unmodified `main` before the fix);
+for the F1 export, an external codec/backend that could not satisfy the sealed
+interface was the compile-red evidence.
+
+**Resolved open questions**
+
+- **Q1 — poll interval: backend-side `PollIntervalHinter` analogue** (not a
+  sentinel). A `WatchableBackend` may implement the existing
+  `PollIntervalHinter`; `Store.Watch` adopts the hint only where the caller left
+  the default, so `WithPollInterval` keeps its single meaning ("override
+  everything"). `config-azure-appconfig` advertises its 30s cadence,
+  `config-aws-ssm`/`config-gcp-parameter` now honour the interval they are handed
+  **and** advertise their 60s cadence.
+- **Q2 — backend ID: duplicate-ID rejection now; kind-namespacing deferred.**
+  Constructor-time duplicate-ID rejection shipped in core (`NewStore` →
+  `ensureUniqueIDs`, `ErrInvalidTarget`) with a `backendconformance` ID-stability
+  assertion — this is the substantive safety mechanism. The kind-namespacing half
+  (`consul:app/`) is **deferred** (see § 6) — see the deviation note below.
+- **Q3 — config-vault: already resolved upstream, no change.** The trim premise
+  was stale: config-vault `v0.2.0` (2026-07-25) shipped the *build* direction —
+  a real `NewPrefix`, prefix mode, collision refusal and a polling `Watch`. All
+  three "defects" (phantom `NewPrefix` doc, dead `KV.List`, dead `version` field)
+  are gone; a `TestDocLinksResolve` guard exists. No config-vault MR was raised.
+- **Q4 — encode widening: lossless set only.** `config-consul` and
+  `config-azure-appconfig` widen `encode` via `cast` to the lossless numeric set
+  (all fixed-width signed/unsigned ints + `float64`) and keep **refusing**
+  `float32` (and maps/slices), with a test pinning the float32 refusal.
+
+**Per-item outcomes**
+
+- **F1** exported `CommentPreservingCodec` / `WatchErrorReporter` /
+  `WatchPathReporter`; `config-toml` and `config-hcl` now report comment
+  preservation through the public interface (previously always `false`).
+- **F2** duplicate-ID rejection in `NewStore` (see Q2).
+- **F3** `SourceKindDeclarer` — synthesised sources use the declared kind and a
+  synthesised sensitive source is leak-guarded.
+- **F4** poll-interval contract defined once in core; adapters as under Q1.
+- **F5** `config-consul` keeps a separate `watchIndex` cursor so the watch loop
+  no longer advances the Load-time `index` that `Verify` compares against; an
+  interleaving change now correctly fails `Verify`.
+- **F6** `config-sftp` chmods before writing content.
+- **F7** shared `ErrBackendUnsafe` wrapping + `cast`-widened encode in consul and
+  azure-appconfig (see Q4).
+- **F8** editing-codec escape rules: TOML quoter escapes control bytes; config-json
+  escapes gjson/sjson path metacharacters per segment; the new
+  `renderable_scalars_and_hostile_keys` conformance case runs on yaml, toml and
+  json.
+- **F9** no change needed (see Q3).
+- **F10** GTB retains and invokes the config watcher stop handle on shutdown
+  (`pkg/cmd/root`), with context cancellation as the backstop.
+
+**Merged MRs:** config core !69 (+ conformance follow-up !73); config-toml !18,
+config-hcl !17, config-json !18, config-sftp !13, config-azure-appconfig !14,
+config-consul !17, config-aws-ssm !14, config-gcp-parameter !14; go-tool-base
+!309 (F10).
+
+**Flagged deviations**
+
+1. **Q2 kind-namespacing deferred to an atomic sweep** (ratified). Namespacing
+   adapter IDs (`consul:app/`) changes provenance/`Source.Name` output and would
+   need to land across *all* ~10 remote config adapters at once to stay
+   consistent — most are outside this batch's F-items and several were already
+   merged, so partial namespacing would be worse than none. The core duplicate-ID
+   rejection (the safety fix) shipped; the namespacing is tracked in § 6.
+2. **`config-azure-appconfig` carries a test-only wrapper.** Because azure honours
+   the interval it is handed and hints a 30s cadence, the shared
+   `backendconformance` watch case (`foreign_change_reaches_observers`) — which
+   opened its watch at the default interval with a 3s window — timed out. Azure's
+   MR resolved it locally with a test-only `hintlessBackend` wrapper (no public
+   API change). The **proper** fix landed in core follow-up MR !73
+   (`fix(config)`, releases as the next config patch): the conformance case now
+   drives its watch with an explicit fast `WithPollInterval`, robust to any
+   slow-hint polled backend. Azure's local wrapper can be dropped when it re-pins
+   to that core version in the re-pin sweep.
+
+## 6. Deferred follow-up
+
+- **Atomic backend-ID kind-namespacing across config remote adapters.** Give each
+  remote/KV adapter a kind-namespaced `ID()` (e.g. `consul:app/`,
+  `azure-appconfig:app/`, `aws-ssm:/app`) so two backends of different kinds
+  scoped to the same prefix/path no longer collide on a bare ID, and provenance
+  names the kind. Must land atomically across the whole remote-adapter set
+  (consul, azure-appconfig, azure-blob, azure-keyvault, aws-ssm, aws-s3,
+  aws-secrets, gcp-parameter, gcp-gcs, gcp-secret, vault) so `Source.Name` output
+  stays consistent, and updates each adapter's provenance tests. Rides the
+  config-family re-pin sweep (see the
+  [ecosystem-fleet-maintenance spec](2026-07-23-ecosystem-fleet-maintenance.md)).
+  The core duplicate-ID rejection already shipped (F2/Q2), so this is a
+  provenance/UX refinement, not a safety gap.

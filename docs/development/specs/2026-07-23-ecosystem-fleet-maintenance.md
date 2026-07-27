@@ -152,6 +152,19 @@ deleted GTB packages at each module's HEAD.
    release v0.1.0 (naturally rides the re-pin spec's adapter wave 1) or mark
    the README WIP. *Acceptance:* a v0.1.0 tag or a README WIP notice; shared
    with the re-pin sweep — whichever lands first closes it.
+5. **Atomic backend-ID kind-namespacing across config remote adapters.** Give
+   each remote/KV config adapter a kind-namespaced `ID()` (e.g. `consul:app/`,
+   `aws-ssm:/app`) so two different-kind backends scoped to the same prefix no
+   longer collide on a bare ID, and provenance names the kind. Deferred from the
+   [config-family follow-ups](2026-07-23-config-family-followups.md) (§6, Q2):
+   the core duplicate-ID rejection already shipped, so this is a provenance/UX
+   refinement, but it must land **atomically** across the whole remote-adapter
+   set (consul, azure-appconfig/blob/keyvault, aws-ssm/s3/secrets,
+   gcp-parameter/gcs/secret, vault) to keep `Source.Name` output consistent.
+   *Direction:* one coordinated wave over the remote adapters, updating each
+   adapter's provenance tests; rides the re-pin sweep. *Acceptance:* every remote
+   adapter's `ID()` is kind-namespaced and the `backendconformance` collision
+   assertion covers it.
 
 ## 3. Scope & release plan
 
