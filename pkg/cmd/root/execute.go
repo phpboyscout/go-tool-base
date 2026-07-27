@@ -69,7 +69,18 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 
 	ctx, receivedSignal := signalAwareContext(props, opts)
 
+	// Seed a cleanup slot the pre-run's config watcher publishes its stop func
+	// into. The command tree runs between construction and here, so execute
+	// cannot see the per-invocation rootState where the stop is retained; the
+	// slot bridges the two. Invoking it explicitly stops the fsnotify/poll
+	// goroutines even when the run was driven with a background context that
+	// never cancels — with context cancellation (below) as the backstop.
+	cleanup := &watchCleanup{}
+	ctx = withWatchCleanup(ctx, cleanup)
+
 	err := rootCmd.ExecuteContext(ctx)
+
+	cleanup.run()
 
 	if sig := receivedSignal(); sig != nil {
 		// The run was interrupted: exit 128+signum regardless of what the
@@ -187,6 +198,54 @@ const (
 	// lifecycle distinguishes: graceful (first) and force-exit (second).
 	signalBuffer = 2
 )
+
+// watchCleanup is a one-shot slot execute seeds into the command context so the
+// pre-run's config watcher can publish its stop func back up to the shutdown
+// path. The command tree runs between the two, and execute never sees the
+// per-invocation rootState where the stop is retained, so the watcher registers
+// its teardown here and execute invokes it once the run returns.
+type watchCleanup struct {
+	mu   sync.Mutex
+	stop func()
+}
+
+// register records the watcher teardown to run at shutdown.
+func (w *watchCleanup) register(stop func()) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.stop = stop
+}
+
+// run invokes the registered teardown at most once. Safe to call when nothing
+// was registered (the watch never started, or an embedder drove the tree
+// without seeding a slot).
+func (w *watchCleanup) run() {
+	w.mu.Lock()
+	stop := w.stop
+	w.stop = nil
+	w.mu.Unlock()
+
+	if stop != nil {
+		stop()
+	}
+}
+
+// watchCleanupKey types the context value carrying the *watchCleanup slot.
+type watchCleanupKey struct{}
+
+// withWatchCleanup returns ctx carrying the cleanup slot.
+func withWatchCleanup(ctx context.Context, w *watchCleanup) context.Context {
+	return context.WithValue(ctx, watchCleanupKey{}, w)
+}
+
+// watchCleanupFrom returns the cleanup slot seeded into ctx by execute, or nil
+// when the run was not framework-driven (a raw ExecuteContext embedder).
+func watchCleanupFrom(ctx context.Context) *watchCleanup {
+	w, _ := ctx.Value(watchCleanupKey{}).(*watchCleanup)
+
+	return w
+}
 
 // flushTelemetry sends any buffered telemetry events and shuts down the
 // backend. Uses a bounded background context so command-context cancellation

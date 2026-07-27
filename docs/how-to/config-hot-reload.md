@@ -16,6 +16,13 @@ by the time your `RunE` runs, external file changes already reach the store.
 What's left for your code is deciding how to *react*, and that is what
 observers and typed sections are for.
 
+The bootstrap also **retains the stop handle** `Watch` returns and invokes it on
+shutdown, so the fsnotify/poll goroutines are torn down deterministically once
+the command tree returns — context cancellation is only the backstop. This
+matters for an embedder that drives the reusable command tree with a background
+context (`ExecuteContext(context.Background())`): the watcher no longer outlives
+the run.
+
 On a change the store re-reads the file layers, builds a candidate snapshot,
 validates it, and — only if the candidate is good — publishes it and notifies
 observers. A rejected reload keeps the last-known-good snapshot and fires

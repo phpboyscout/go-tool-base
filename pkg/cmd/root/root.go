@@ -59,6 +59,15 @@ type rootState struct {
 	redirectingToUpdate bool
 	watching            bool
 	formCreator         func(*bool) *huh.Form
+	// watchStop tears down the config watcher started by startConfigWatch.
+	// Retained (rather than discarded) so shutdown is deterministic instead of
+	// purely contextual — an embedder driving the tree with a background
+	// context could otherwise never stop the fsnotify/poll goroutines. See the
+	// config-family follow-ups spec (F10).
+	watchStop func()
+	// watchOpts are passed to Store.Watch. Nil in production (the store picks
+	// its own defaults); a test seam for injecting a config.WithWatcher fake.
+	watchOpts []config.WatchOption
 }
 
 func newRootState() *rootState {
@@ -915,11 +924,16 @@ func configLoadError(props *p.Props, err error) error {
 
 // startConfigWatch wires hot-reload for the loaded store. Watching is explicit
 // in config v0.3.x: without this call the code compiles, the tests pass, and
-// configuration silently stops reloading (migration spec D6). The watcher
-// stops with the command context; a filesystem that cannot be watched (tests
-// on a MemMapFs, exotic mounts) degrades to a debug line rather than an error.
-// Guarded per rootState so a re-entrant pre-run (tests executing the same tree
-// twice) does not stack watchers.
+// configuration silently stops reloading (migration spec D6). A filesystem that
+// cannot be watched (tests on a MemMapFs, exotic mounts) degrades to a debug
+// line rather than an error. Guarded per rootState so a re-entrant pre-run
+// (tests executing the same tree twice) does not stack watchers.
+//
+// The stop func Store.Watch returns is retained on rootState and, when the run
+// is framework-driven (Execute), published to the command context's cleanup
+// slot so execute can tear the watcher down on shutdown. Context cancellation
+// remains the backstop: a raw ExecuteContext embedder has no cleanup slot, so
+// the watcher stops when its context is cancelled (config-family spec F10).
 func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, state *rootState) {
 	if state.watching {
 		return
@@ -929,10 +943,28 @@ func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, sta
 		props.Logger.Warn("config reload rejected; keeping the last good configuration", "error", err)
 	})
 
-	if _, err := cfg.Watch(cmd.Context()); err != nil {
+	stop, err := cfg.Watch(cmd.Context(), state.watchOpts...)
+	if err != nil {
 		props.Logger.Debug("config watching unavailable", "error", err)
-	} else {
-		state.watching = true
+
+		return
+	}
+
+	state.watching = true
+
+	// teardown stops the watcher and clears the guard so a reused command tree
+	// re-establishes the watch on its next run rather than silently losing
+	// hot-reload after the first teardown. Store.Watch's stop is once-guarded,
+	// so a second call (context-cancel backstop plus explicit invoke) is safe.
+	teardown := func() {
+		stop()
+
+		state.watching = false
+	}
+	state.watchStop = teardown
+
+	if cleanup := watchCleanupFrom(cmd.Context()); cleanup != nil {
+		cleanup.register(teardown)
 	}
 }
 
