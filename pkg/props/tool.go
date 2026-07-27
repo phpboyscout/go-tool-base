@@ -279,16 +279,18 @@ type Tool struct {
 	InstallHint string `json:"install_hint,omitempty" yaml:"install_hint,omitempty"`
 }
 
-// isDefaultEnabled returns true if the feature is enabled by default.
+// isDefaultEnabled returns true if the feature is enabled by default. It is
+// derived from DefaultFeatures — the single source of truth for the
+// enabled-by-default set — so the two can never drift. A feature absent from the
+// default set is disabled by default.
 func isDefaultEnabled(cmd FeatureCmd) bool {
-	switch cmd {
-	case UpdateCmd, InitCmd, McpCmd, DocsCmd, DoctorCmd, ChangelogCmd:
-		return true
-	case AiCmd, ConfigCmd, TelemetryCmd, ManCmd:
-		return false
-	default:
-		return false
+	for _, f := range SetFeatures() {
+		if f.Cmd == cmd {
+			return f.Enabled
+		}
 	}
+
+	return false
 }
 
 // IsEnabled checks if a feature is enabled.

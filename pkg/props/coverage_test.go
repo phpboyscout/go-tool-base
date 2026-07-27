@@ -71,28 +71,23 @@ func TestProps_SatisfiesProviders(t *testing.T) {
 	p, _, _, _, _, _, _, _, _ := newTestProps(t)
 
 	var (
-		lp   LoggerProvider        = p
-		cp   ConfigProvider        = p
-		fsp  FileSystemProvider    = p
-		ap   AssetProvider         = p
-		vp   VersionProvider       = p
-		ehp  ErrorHandlerProvider  = p
-		tmp  ToolMetadataProvider  = p
-		tp   TelemetryProvider     = p
-		lcp  LoggingConfigProvider = p
-		core CoreProvider          = p
+		lp  LoggerProvider       = p
+		cp  ConfigProvider       = p
+		ap  AssetProvider        = p
+		tmp ToolMetadataProvider = p
 	)
 
 	assert.NotNil(t, lp.GetLogger())
 	assert.NotNil(t, cp.GetConfig())
-	assert.NotNil(t, fsp.GetFS())
 	assert.NotNil(t, ap.GetAssets())
-	assert.Equal(t, "v1.2.3", vp.GetVersion().GetVersion())
-	assert.NotNil(t, ehp.GetErrorHandler())
 	assert.Equal(t, "demo", tmp.GetTool().Name)
-	assert.NotNil(t, tp.GetCollector())
-	assert.NotNil(t, lcp.GetLogger())
-	assert.NotNil(t, core.GetFS())
+
+	// The remaining getters no longer have a narrow interface (pruned pre-1.0),
+	// but the methods stay on *Props for direct use.
+	assert.NotNil(t, p.GetFS())
+	assert.Equal(t, "v1.2.3", p.GetVersion().GetVersion())
+	assert.NotNil(t, p.GetErrorHandler())
+	assert.NotNil(t, p.GetCollector())
 }
 
 // nilAssets returns a typed-nil *embeddedAssets exercising the nil-receiver

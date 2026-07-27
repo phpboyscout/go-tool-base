@@ -18,6 +18,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 const (
@@ -58,6 +60,21 @@ type Assets interface {
 type embeddedAssets struct {
 	embedded map[string]fs.FS
 	order    []string
+	// log, when set, receives a WARN when a bundle contributing to a merged
+	// structured read is malformed (present but undecodable) rather than the
+	// error being silently swallowed. Optional: nil means no logging (the
+	// pre-bootstrap state where no logger exists yet).
+	log logger.Logger
+}
+
+// SetLogger wires a logger so malformed merge bundles surface as WARNs instead
+// of vanishing silently. It is deliberately not part of the Assets interface —
+// the framework wires it during root construction via a type assertion, and a
+// nil logger simply keeps the previous silent behaviour.
+func (a *embeddedAssets) SetLogger(l logger.Logger) {
+	if a != nil {
+		a.log = l
+	}
 }
 
 // newEmbeddedAssets returns an empty wrapper with no implicit bundles —
@@ -161,6 +178,15 @@ func (a *embeddedAssets) openMergedStructured(name, ext string) (fs.File, error)
 	for _, fsName := range a.order {
 		current, err := a.processAssetFile(fsName, name, ext)
 		if err != nil {
+			// A bundle that simply does not carry this file is expected and
+			// silent. A bundle that carries it but cannot be decoded (malformed
+			// YAML/JSON/…) must not vanish from the merged defaults without a
+			// trace — surface it so the misconfiguration is diagnosable.
+			if !errors.Is(err, fs.ErrNotExist) && a.log != nil {
+				a.log.Warn("skipping malformed embedded asset bundle in merged read",
+					"bundle", fsName, "file", name, "error", err)
+			}
+
 			continue
 		}
 
@@ -453,6 +479,12 @@ func (a *embeddedAssets) Mount(f fs.FS, prefix string) {
 	a.Register(prefix, &mountedFS{fs: f, prefix: prefix})
 }
 
+// mountedFS attaches a filesystem under a path prefix. It implements only Open:
+// LIMITATION — ReadDir and Glob over a mounted prefix are not translated, so a
+// directory listing or glob that would cross into a mounted subtree returns
+// nothing rather than the mounted entries. Mount is for point Open access only;
+// use Register with a real fs.FS if directory enumeration under the prefix is
+// required.
 type mountedFS struct {
 	fs     fs.FS
 	prefix string
@@ -554,7 +586,10 @@ type mergedFileInfo struct {
 	size int64
 }
 
-func (fi *mergedFileInfo) Name() string       { return fi.name }
+// Name returns the base name of the file, as the fs.FileInfo contract requires
+// ("base name of the file"). It once returned the full path passed to Open,
+// which violated the contract and confused consumers that expected a leaf name.
+func (fi *mergedFileInfo) Name() string       { return path.Base(fi.name) }
 func (fi *mergedFileInfo) Size() int64        { return fi.size }
 func (fi *mergedFileInfo) Mode() fs.FileMode  { return fs.FileMode(dirPermRead) }
 func (fi *mergedFileInfo) ModTime() time.Time { return time.Time{} }
