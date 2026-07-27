@@ -184,6 +184,19 @@ All releases are human-gated releaser-pleaser Release MRs. Sequencing:
   (slow, ~19 checkouts + test runs) or only on a pre-release schedule /
   Release-MR pipelines? A tag-filtered subset (fs adapters + one KV + one
   codec) on MRs with the full matrix pre-release may be the right balance.
+    - **RESOLVED (2026-07-27, this spec's recommended balance).** Implemented in
+      `go/config`'s `.gitlab-ci.yml` as two `parallel:matrix` jobs:
+      `canary-subset` runs a representative slice — one filesystem adapter, one
+      KV backend, one format codec (`config-afero`, `config-consul`,
+      `config-toml`) — on **every config MR** (change-gated to Go/module/CI
+      edits, skipped on the Release MR); `canary-full` runs all **19** adapters
+      on the pre-release surfaces only — the releaser-pleaser Release MR,
+      default-branch pipelines, and the nightly schedule. Both are gating (a red
+      canary blocks the merge/release), with a documented `allow_failure: true`
+      escape hatch to downgrade an individual job to advisory if adapter-side
+      flake makes it noisy. The 19-repo split being permanent (Q1 deferred but
+      the adapters intentionally isolate one SDK/backend/codec dep tree each)
+      makes this canary the **durable guard**, not a stopgap.
 - **Q4 — who owns the fleet Renovate preset.** The CI-component-pin drift
   (MEDIUM, 16 repos on cicd v0.22.0) has the same shape; should the Renovate
   audit here expand to cover component pins in the same pass, or stay
