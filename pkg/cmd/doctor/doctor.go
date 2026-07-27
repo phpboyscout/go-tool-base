@@ -91,7 +91,7 @@ func RunChecks(ctx context.Context, props *p.Props) *DoctorReport {
 	}
 
 	// Run built-in checks
-	for _, check := range DefaultChecks() {
+	for _, check := range DefaultChecks(props) {
 		report.Checks = append(report.Checks, check(ctx, props))
 	}
 
@@ -118,16 +118,32 @@ func discoverChecks(props *p.Props) []CheckFunc {
 	return checks
 }
 
-// DefaultChecks returns the standard set of diagnostic checks.
-func DefaultChecks() []CheckFunc {
-	return []CheckFunc{
+// DefaultChecks returns the standard set of diagnostic checks, tailored to the
+// tool's enabled features. The always-on checks validate state every tool has
+// (the Go runtime, configuration presence, credential hygiene, config-dir
+// permissions). Feature-specific checks are only included when their feature is
+// enabled, so a default-features tool does not, for example, warn "no AI
+// provider API keys configured" when the AI feature is switched off.
+//
+// Git availability is deliberately NOT a built-in check: it is only meaningful
+// to a tool with a git-consuming feature, so such tools register their own via
+// setup.RegisterChecks rather than every tool warning about a missing git.
+func DefaultChecks(props *p.Props) []CheckFunc {
+	checks := []CheckFunc{
 		checkGoVersion,
 		checkConfig,
-		checkGit,
-		checkAPIKeys,
 		checkNoLiteralCredentials,
 		checkPermissions,
 	}
+
+	// The AI-key check is only relevant when the AI feature is enabled — it is
+	// the feature that consumes those keys. Off by default, so a default-
+	// features tool never nags about unconfigured AI credentials.
+	if props != nil && props.Tool.IsEnabled(p.AiCmd) {
+		checks = append(checks, checkAPIKeys)
+	}
+
+	return checks
 }
 
 // PrintReport writes a human-readable report to the given writer.

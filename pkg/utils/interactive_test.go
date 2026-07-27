@@ -1,13 +1,13 @@
 package utils
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
 
 // TestIsInteractive exercises IsInteractive. The function's return value
@@ -32,49 +32,26 @@ func TestIsInteractive(t *testing.T) {
 	assert.Equal(t, want, got, "IsInteractive must match stdin's char-device mode")
 }
 
-// TestGracefulGetPath_ExtraInstructions verifies that caller-supplied
-// instructions are emitted on the failure path even when no map entry exists.
-func TestGracefulGetPath_ExtraInstructions(t *testing.T) {
-	t.Parallel()
-
-	l := logger.NewNoop()
-	path, err := GracefulGetPath(
-		"another_missing_cmd_qwerty_987",
-		l,
-		"do this first",
-		"then do that",
-	)
-	require.Error(t, err)
-	assert.Empty(t, path)
+// fakeFileInfo is a minimal fs.FileInfo whose Mode is controllable.
+type fakeFileInfo struct {
+	mode fs.FileMode
 }
 
-// TestInstructionsMap asserts the well-known instruction map is wired to the
-// exported instruction constants.
-func TestInstructionsMap(t *testing.T) {
+func (f fakeFileInfo) Name() string       { return "fake" }
+func (f fakeFileInfo) Size() int64        { return 0 }
+func (f fakeFileInfo) Mode() fs.FileMode  { return f.mode }
+func (f fakeFileInfo) ModTime() time.Time { return time.Time{} }
+func (f fakeFileInfo) IsDir() bool        { return false }
+func (f fakeFileInfo) Sys() any           { return nil }
+
+// TestIsCharDevice covers both arms of the char-device predicate deterministically.
+func TestIsCharDevice(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		name string
-		key  string
-		want string
-	}{
-		{name: "kubectl", key: "kubectl", want: InstructionKubectl},
-		{name: "az", key: "az", want: InstructionAz},
-		{name: "kubelogin", key: "kubelogin", want: InstructionKubelogin},
-		{name: "terraform", key: "terraform", want: InstructionTerraform},
-		{name: "terragrunt", key: "terragrunt", want: InstructionTerragrunt},
-		{name: "aws", key: "aws", want: InstructionAws},
-		{name: "git", key: "git", want: InstructionGit},
-		{name: "gh", key: "gh", want: InstructionGh},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, ok := Instructions[tc.key]
-			require.True(t, ok, "expected instruction for %q", tc.key)
-			assert.Equal(t, tc.want, got)
-		})
-	}
+	assert.False(t, isCharDevice(nil, errors.New("stat failed")),
+		"a stat error is not interactive")
+	assert.True(t, isCharDevice(fakeFileInfo{mode: os.ModeCharDevice}, nil),
+		"a character device is interactive")
+	assert.False(t, isCharDevice(fakeFileInfo{mode: 0}, nil),
+		"a regular file (pipe/redirect) is not interactive")
 }

@@ -2,6 +2,7 @@ package root
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -61,7 +62,7 @@ func TestExecute_InvokesRetainedWatcherStopOnBackgroundContext(t *testing.T) {
 	cmd := &cobra.Command{
 		Use: "stub",
 		RunE: func(c *cobra.Command, _ []string) error {
-			startConfigWatch(props, cfg, c, state)
+			startConfigWatch(props, cfg, c, state, &FlagValues{}, &slog.LevelVar{})
 
 			return nil
 		},

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	goversion "go/version"
 	"os"
-	"os/exec"
 	"runtime"
 	"strings"
 
@@ -43,20 +42,6 @@ func checkConfig(_ context.Context, props *p.Props) CheckResult {
 	return CheckResult{Name: "Configuration", Status: CheckPass, Message: "loaded successfully"}
 }
 
-func checkGit(ctx context.Context, _ *p.Props) CheckResult {
-	cmd := exec.CommandContext(ctx, "git", "status")
-
-	if err := cmd.Run(); err != nil {
-		return CheckResult{
-			Name:    "Git",
-			Status:  CheckWarn,
-			Message: "git not available or not in a repository",
-		}
-	}
-
-	return CheckResult{Name: "Git", Status: CheckPass, Message: "repository accessible"}
-}
-
 func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
 	if props.Config == nil {
 		return CheckResult{Name: "API keys", Status: CheckSkip, Message: "no configuration loaded"}
@@ -88,14 +73,17 @@ func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
 	}
 }
 
-// literalCredentialKeys enumerates the config keys that store secrets
+// LiteralCredentialKeys enumerates the config keys that store secrets
 // as plaintext. Populated entries trigger a WARN in [checkNoLiteralCredentials]
-// directing the user to migrate to env-var mode.
+// directing the user to migrate to env-var mode. It is the single source of
+// truth for "a credential stored as a literal" — the root pre-run's
+// validateConfig shares it so its empty-but-set warning tracks the current
+// credential schema instead of a hardcoded, pre-forge-migration key list.
 //
 // The spec calls for a dedicated `config migrate-credentials` command
 // (Phase 3) to automate the migration. For now the hint text points
 // at the spec and the env-var config keys.
-var literalCredentialKeys = []string{
+var LiteralCredentialKeys = []string{
 	chat.ConfigKeyClaudeKey,
 	chat.ConfigKeyOpenAIKey,
 	chat.ConfigKeyGeminiKey,
@@ -118,7 +106,7 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 
 	var leaked []string
 
-	for _, key := range literalCredentialKeys {
+	for _, key := range LiteralCredentialKeys {
 		if strings.TrimSpace(cfg.GetString(key)) != "" {
 			leaked = append(leaked, key)
 		}

@@ -132,10 +132,48 @@ func TestRunChecks(t *testing.T) {
 	}
 	assert.True(t, checkNames["Go version"], "expected 'Go version' check in report")
 	assert.True(t, checkNames["Configuration"], "expected 'Configuration' check in report")
-	assert.True(t, checkNames["Git"], "expected 'Git' check in report")
-	assert.True(t, checkNames["API keys"], "expected 'API keys' check in report")
 	assert.True(t, checkNames["Credential storage"], "expected 'Credential storage' check in report")
 	assert.True(t, checkNames["Permissions"], "expected 'Permissions' check in report")
+
+	// Git is no longer a built-in check (git-consuming features register their
+	// own), and the AI-key check is gated on the AI feature — which this
+	// default-features tool does not enable.
+	assert.False(t, checkNames["Git"], "Git must not be a built-in default check")
+	assert.False(t, checkNames["API keys"], "API-key check must be gated on the AI feature")
+}
+
+// TestDefaultChecks_FeatureAware pins the feature-awareness of the default
+// check set: the AI-key check appears only when the AI feature is enabled, and
+// the git check is never a built-in.
+func TestDefaultChecks_FeatureAware(t *testing.T) {
+	t.Parallel()
+
+	names := func(props *p.Props) map[string]bool {
+		got := map[string]bool{}
+		for _, check := range DefaultChecks(props) {
+			got[check(context.Background(), props).Name] = true
+		}
+
+		return got
+	}
+
+	// Default-features tool: AI disabled -> no API-key check, and never a Git check.
+	base := &p.Props{
+		Tool:   p.Tool{Name: "t"},
+		Config: testutil.StoreFromYAML(t, "{}\n"),
+		FS:     afero.NewMemMapFs(),
+	}
+	def := names(base)
+	assert.False(t, def["API keys"], "AI-disabled tool must not run the API-key check")
+	assert.False(t, def["Git"], "Git must never be a built-in check")
+
+	// AI-enabled tool: the API-key check is included.
+	ai := &p.Props{
+		Tool:   p.Tool{Name: "t", Features: []p.Feature{{Cmd: p.AiCmd, Enabled: true}}},
+		Config: testutil.StoreFromYAML(t, "{}\n"),
+		FS:     afero.NewMemMapFs(),
+	}
+	assert.True(t, names(ai)["API keys"], "AI-enabled tool must run the API-key check")
 }
 
 func TestDoctorReport_JSONOutput(t *testing.T) {

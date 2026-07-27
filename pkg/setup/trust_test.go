@@ -84,3 +84,77 @@ func TestIsProjectConfigTrusted_EmptyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, trusted)
 }
+
+// TestDiscoverProjectConfig covers the discovery walk directly.
+func TestDiscoverProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, fs.MkdirAll("/repo/sub/deep", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "/repo/.mytool.yaml", []byte("a: 1\n"), 0o644))
+
+	assert.Equal(t, "/repo/.mytool.yaml", setup.DiscoverProjectConfig(fs, "mytool", "/repo/sub/deep"),
+		"walks up from a nested dir")
+	assert.Equal(t, "/repo/.mytool.yaml", setup.DiscoverProjectConfig(fs, "mytool", "/repo"),
+		"found at the dir itself")
+	assert.Empty(t, setup.DiscoverProjectConfig(fs, "other", "/repo/sub"),
+		"a different tool name does not match")
+	assert.Empty(t, setup.DiscoverProjectConfig(fs, "mytool", "/elsewhere"),
+		"absent above the start dir")
+	assert.Empty(t, setup.DiscoverProjectConfig(fs, "", "/repo"), "empty tool name")
+	assert.Empty(t, setup.DiscoverProjectConfig(fs, "mytool", ""), "empty start dir")
+}
+
+// TestTrustProjectConfig_MissingFile surfaces the read error when hashing a file
+// that does not exist.
+func TestTrustProjectConfig_MissingFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	err := setup.TrustProjectConfig(afero.NewOsFs(), "mytool", filepath.Join(t.TempDir(), ".mytool.yaml"))
+	require.Error(t, err)
+}
+
+// TestTrustProjectConfig_EmptyPath rejects an empty target.
+func TestTrustProjectConfig_EmptyPath(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	require.Error(t, setup.TrustProjectConfig(afero.NewOsFs(), "mytool", ""))
+}
+
+// TestUntrustProjectConfig_NotTrustedIsNoOp confirms revoking an untrusted (or
+// empty) path is a no-op, not an error.
+func TestUntrustProjectConfig_NotTrustedIsNoOp(t *testing.T) {
+	fs, path := writeProjectFile(t, "log:\n  level: info\n")
+
+	require.NoError(t, setup.UntrustProjectConfig(fs, "mytool", path), "never trusted -> no-op")
+	require.NoError(t, setup.UntrustProjectConfig(fs, "mytool", ""), "empty path -> no-op")
+}
+
+// TestListTrustedProjects_Empty returns an empty list before anything is trusted.
+func TestListTrustedProjects_Empty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	list, err := setup.ListTrustedProjects(afero.NewOsFs(), "mytool")
+	require.NoError(t, err)
+	assert.Empty(t, list)
+}
+
+// TestIsProjectConfigTrusted_MalformedStore surfaces a corrupt trust store as an
+// error rather than a silent "trusted".
+func TestIsProjectConfigTrusted_MalformedStore(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	fs := afero.NewOsFs()
+	// Trust a file first so the store exists, then corrupt the store.
+	// writeProjectFile resets HOME to a fresh temp, so restore ours afterwards.
+	_, path := writeProjectFile(t, "log:\n  level: info\n")
+	t.Setenv("HOME", home)
+	require.NoError(t, setup.TrustProjectConfig(fs, "mytool", path))
+
+	storePath := filepath.Join(home, ".mytool", "trusted-projects.yaml")
+	require.NoError(t, afero.WriteFile(fs, storePath, []byte("trusted: [not-a-map\n"), 0o600))
+
+	_, err := setup.IsProjectConfigTrusted(fs, "mytool", path)
+	require.Error(t, err, "a corrupt trust store must not silently resolve to trusted")
+}

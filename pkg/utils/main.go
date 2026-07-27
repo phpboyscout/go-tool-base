@@ -1,61 +1,19 @@
 package utils
 
 import (
+	"io/fs"
 	"os"
-	"os/exec"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )
-
-const (
-	InstructionKubectl    = "For instructions on how to install kubectl see: https://kubernetes.io/docs/tasks/tools/"
-	InstructionAz         = "For instructions on how to install the Azure CLI see: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
-	InstructionKubelogin  = "For instructions on how to install kubelogin see: https://azure.github.io/kubelogin/install.html"
-	InstructionTerraform  = "For instructions on how to install Terraform see: https://learn.hashicorp.com/tutorials/terraform/install-cli"
-	InstructionTerragrunt = "For instructions on how to install Terragrunt see: https://terragrunt.gruntwork.io/docs/getting-started/install/"
-	InstructionAws        = "For instructions on how to install the AWS CLI see: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
-	InstructionGit        = "For instructions on how to install Git see: https://git-scm.com/book/en/v2/Getting-Started-Installing-Git"
-	InstructionGh         = "For instructions on how to install the GitHub CLI see: https://github.com/cli/cli#installation"
-)
-
-var (
-	Instructions = map[string]string{
-		"kubectl":    InstructionKubectl,
-		"az":         InstructionAz,
-		"kubelogin":  InstructionKubelogin,
-		"terraform":  InstructionTerraform,
-		"terragrunt": InstructionTerragrunt,
-		"aws":        InstructionAws,
-		"git":        InstructionGit,
-		"gh":         InstructionGh,
-	}
-)
-
-// GracefulGetPath finds an executable on PATH, returning a helpful error with install instructions if not found.
-func GracefulGetPath(name string, l logger.Logger, instructions ...string) (string, error) {
-	p, err := exec.LookPath(name)
-	if err != nil {
-		if i, ok := Instructions[name]; ok {
-			l.Warn(i)
-		}
-
-		for _, i := range instructions {
-			l.Warn(i)
-		}
-
-		l.Error("command is not available; ensure it is installed and configured in your PATH", "command", name)
-
-		return "", err
-	}
-
-	l.Debug("using command", "command", name, "path", p)
-
-	return p, nil
-}
 
 // IsInteractive returns true if stdin is a terminal (not piped or redirected).
 func IsInteractive() bool {
-	info, err := os.Stdin.Stat()
+	return isCharDevice(os.Stdin.Stat())
+}
+
+// isCharDevice reports whether the stat result describes a character device
+// (a terminal). A stat error resolves to "not interactive". Split out so both
+// arms are testable without depending on the real os.Stdin.
+func isCharDevice(info fs.FileInfo, err error) bool {
 	if err != nil {
 		return false
 	}

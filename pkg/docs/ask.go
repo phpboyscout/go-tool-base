@@ -77,7 +77,7 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 
 	logFn("Preparing prompt...", logger.DebugLevel)
 
-	sysPrompt := fmt.Sprintf("You are a helpful assistant for 'GTB' (also known as 'als'). "+
+	sysPrompt := fmt.Sprintf("You are a helpful assistant for '%s'. "+
 		"Your goal is to provide high-quality, professional, and well-structured answers to the user's questions based on the provided documentation. "+
 		"\n\nFOLLOW THESE GUIDELINES:\n"+
 		"1. Use clear, hierarchical **Markdown** (headings, bolding, lists).\n"+
@@ -85,7 +85,7 @@ func AskAI(ctx context.Context, p *props.Props, fsys fs.FS, question string, log
 		"3. Use consistent terminology from the provided documentation.\n"+
 		"4. Be comprehensive but concise.\n"+
 		"5. Answer accurately based ONLY on the documentation below. If the answer is not in the documentation, state that clearly.\n\n"+
-		"--- Documentation ---\n%s", content)
+		"--- Documentation ---\n%s", p.Tool.Name, content)
 
 	provider := ResolveProvider(p, providerOverride...)
 

@@ -1142,13 +1142,27 @@ func TestMapLogLevel(t *testing.T) {
 }
 
 func TestValidateConfig_WarnsOnEmptySetKeys(t *testing.T) {
-	// Not parallel — t.Setenv modifies process environment
-	t.Setenv("GITHUB_TOKEN", "")
+	t.Parallel()
+
+	// The warning tracks the current credential schema (doctor.LiteralCredentialKeys)
+	// — after the forge migration that is github.auth.value, not the stale
+	// pre-migration github.token that could never fire.
+	log := logger.NewBuffer()
+	cfg := testutil.ViewFromYAML(t, "github:\n  auth:\n    value: \"\"\n")
+	validateConfig(cfg, log)
+	assert.True(t, log.Contains("github.auth.value is set but empty"))
+}
+
+// TestValidateConfig_StaleGithubTokenKeyNotChecked pins the regression: the
+// pre-forge-migration "github.token" key is no longer in the warned set, so a
+// literal empty github.token never produces the stale warning.
+func TestValidateConfig_StaleGithubTokenKeyNotChecked(t *testing.T) {
+	t.Parallel()
 
 	log := logger.NewBuffer()
 	cfg := testutil.ViewFromYAML(t, "github:\n  token: \"\"\n")
 	validateConfig(cfg, log)
-	assert.True(t, log.Contains("github.token is set but empty"))
+	assert.False(t, log.Contains("github.token"))
 }
 
 func TestValidateConfig_NoWarningForMissingKeys(t *testing.T) {

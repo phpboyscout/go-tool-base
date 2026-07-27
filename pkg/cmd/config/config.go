@@ -39,6 +39,7 @@ authentication, etc.), use "init <subsystem>" instead.`,
 		setup.Wrap(p.ConfigCmd, NewCmdEdit(props)),
 		setup.Wrap(p.ConfigCmd, NewCmdValidate(props)),
 		setup.Wrap(p.ConfigCmd, NewCmdMigrate(props)),
+		setup.Wrap(p.ConfigCmd, NewCmdTrust(props)),
 	)
 
 	return configCmd

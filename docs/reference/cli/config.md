@@ -25,6 +25,7 @@ mytool config list [--output text|json|yaml]
 mytool config path [--writable] [--output text|json|yaml]
 mytool config edit [--editor <cmd>]
 mytool config validate
+mytool config trust [path] [--list] [--forget]
 ```
 
 !!! note "File-layer-only operations"
@@ -187,3 +188,25 @@ key under a framework section (`log.*`, `update.*`, `server.*`, the provider and
 forge sections, …) or one the tool declares in its own embedded defaults is a
 recognised key, not flagged — the schema cannot enumerate every feature and
 tool key. A key matching neither still warns as a possible typo.
+
+### `config trust`
+
+Trust a project-local `.<tool>.yaml` so its **security-sensitive keys** apply.
+Until a project-local file is trusted, the framework ignores its self-update
+verification, telemetry-consent, and credential keys — so a repository you clone
+cannot silently weaken security posture. Workflow-tuning keys (logging, output,
+feature toggles) always apply, trusted or not. See
+[Project-local trust](../../explanation/components/config/index.md#project-local-trust-security-keys-are-ignored-until-you-trust-the-file).
+
+```bash
+mytool config trust            # trust the .<tool>.yaml discovered from the cwd
+mytool config trust ./path     # trust a specific file
+mytool config trust --list     # list trusted project files
+mytool config trust --forget   # revoke trust for the discovered/named file
+```
+
+Trust binds to the file's exact content (a SHA-256 recorded in
+`~/.<tool>/trusted-projects.yaml`): editing a trusted file revokes trust until
+you run `config trust` again. An untrusted project-local file is read-only, so
+`config set` in an untrusted repository writes to your own config rather than the
+committed file. CI runs untrusted by default.

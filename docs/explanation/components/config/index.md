@@ -80,6 +80,37 @@ nudges toward env-var or keychain storage. See
 names — see the module's
 [env-prefix rationale](https://config.go.phpboyscout.uk/explanation/precedence-and-merge/#the-env-prefix-is-a-security-control).
 
+### Project-local trust: security keys are ignored until you trust the file
+
+The project-local `.<tool>.yaml` is convenient, but it arrives with a repository
+you may not have written — a `git clone` can ship one. So its **security-sensitive
+keys are ignored** unless you explicitly trust the file, while its ordinary
+workflow keys (logging, output, feature toggles) always apply. The protected set
+is the keys that govern self-update verification and posture
+(`update.require_signature`, `update.require_checksum`,
+`update.require_external_crosscheck`, `update.policy`, `update.key_source`,
+`update.external_key_email`), telemetry consent (`telemetry.enabled`), and every
+credential subtree (`*.auth.*`, `*.api.*`, `bitbucket.app_password`). When any of
+these is stripped from an untrusted file, the framework logs a WARN naming the
+file and the ignored keys — never a silent drop.
+
+Trust is **direnv-style**. `<tool> config trust` records the file's absolute path
+and the SHA-256 of its exact current content in a per-user store
+(`~/.<tool>/trusted-projects.yaml`, owner-only, never inside a repository).
+Editing a trusted file — or a fresh clone swapping it out — changes the hash and
+revokes trust until you run the command again. Use `config trust --list` to see
+what is trusted and `config trust --forget` to revoke. Until a file is trusted it
+is also **read-only**: `config set` in an untrusted repository routes the write to
+your own config, not the repository file.
+
+An explicit `--config` suppresses the project-local layer entirely (naming a file
+means "use this one"), so this trust gate only applies to the implicitly
+discovered `.<tool>.yaml`. CI runs untrusted by default — a pipeline that
+legitimately depends on project-local security keys should trust the file in a
+provisioning step or supply those values through the user config or environment.
+See [`config trust`](../../reference/cli/config.md) and the
+[security-decisions record](../../development/security-decisions.md#m-2-project-local-toolt-yaml-could-downgrade-security-posture).
+
 ## Embedded defaults: the `assets/config.yaml` convention
 
 GTB discovers shipped assets at fixed paths inside each registered bundle's

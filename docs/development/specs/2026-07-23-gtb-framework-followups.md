@@ -2,7 +2,7 @@
 title: "GTB framework core follow-ups: project-local config trust, bootstrap robustness, Props contract, and cleanups"
 description: "Batched MEDIUM/LOW findings from the 2026-07-23 architectural review of the GTB framework core. Headline item: the project-local .<tool>.yaml layer is fully trusted and can silently downgrade update-verification and telemetry posture from a cloned repository. Also: a dedicated short timeout for the passive pre-run update check, nil-Version defaulting, hot-reload of logging config, a commit-or-prune decision on the Props provider interfaces plus constructor validation, a per-root middleware chain, the hardcoded 'GTB/als' docs-assistant identity, and stranded-remnant cleanups (Assets merge error swallowing, stale validateConfig key, feature-unaware doctor checks, dead pkg/utils symbols, pkg/vcs naming debt, feature-default dedup)."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - framework
@@ -25,7 +25,27 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-23)
+
+Resolved maintainer decisions
+:   1. **Project-local trust model (OQ1):** allowlist + trust-acknowledgement
+    **hybrid**. Security-sensitive keys (`update.require_signature`,
+    `update.require_checksum`, `update.require_external_crosscheck`,
+    `update.policy`, `update.key_source`, `update.external_key_email`,
+    `telemetry.enabled`/consent, and every credential subtree `*.auth.*` /
+    `*.api.*` / `bitbucket.app_password`) are **ignored** from a project-local
+    `.<tool>.yaml` unless the directory is explicitly trusted; non-sensitive
+    keys stay trusted as today. Trust store: a per-user
+    `~/.<tool>/trusted-projects.yaml` (owner-only) keyed by **absolute path →
+    SHA-256 of trusted content** (direnv-style — editing revokes trust),
+    unlocked by a new `<tool> config trust` subcommand (`--list`/`--forget`).
+    Untrusted project files are read-only; ignored keys log a WARN.
+    2. **Props interfaces (OQ2):** **prune** the eight unused narrow provider
+    interfaces (dead API removed pre-1.0); the four used ones are kept. Added a
+    validating `props.New(...)` / `Props.Validate()` / `Props.ApplyDefaults()`,
+    with `NewCmdRootWithOptions` defaulting required fields and validating.
+    3. **`pkg/vcs` → `pkg/forgecfg` rename (OQ3):** **deferred** — pure naming
+    debt, left for a future breaking window.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (GTB-core
@@ -250,17 +270,15 @@ All items are GTB-repo only; no extracted-module changes.
   `/gtb-verify` before each MR. 2.1.1 and 2.2.3 warrant E2E/BDD scenarios (hostile-repo
   clone; live log-level reload, run with `-count=1`); the rest are unit-test territory.
 
-## 4. Open questions
+## 4. Open questions — RESOLVED
 
-1. **Project-local trust model (2.1.1):** denylist, allowlist, or direnv-style trust
-   acknowledgement (or the allowlist+trust hybrid)? Key tension: clone-and-run
-   ergonomics — and CI, where a trust store is awkward — versus fail-safe coverage of
-   security keys added in future releases.
-2. **Commit or prune (2.3.1):** adopt the narrow provider interfaces at high-traffic
-   call sites, or delete the eight unused ones? Pruning is less churn and honest about
-   how the codebase actually works; committing makes the DI story real but touches
-   ~20+ signatures.
-3. **Is the `pkg/vcs` → `pkg/forgecfg` rename worth the churn now?** Pure naming debt
-   on a 37-line adapter with a clear doc comment; deferring to the next
-   already-scheduled breaking window (or the v1.0 reshuffle) may beat spending a
-   migration note on it today.
+All three resolved at implementation; see the **Resolved maintainer decisions**
+block in the header.
+
+1. **Project-local trust model (2.1.1):** ~~denylist / allowlist / direnv-style~~ →
+   **allowlist + trust-acknowledgement hybrid** (sensitive keys ignored unless the
+   directory is trusted via `config trust`; content-hashed per-user trust store).
+2. **Commit or prune (2.3.1):** ~~adopt or delete~~ → **prune** the eight unused
+   interfaces; add `props.New`/`Validate` for a checkable construction contract.
+3. **`pkg/vcs` → `pkg/forgecfg` rename (2.4.5):** **deferred** — pure naming debt,
+   not done here.

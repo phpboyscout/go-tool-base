@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -142,27 +141,6 @@ func TestRunChecks_NoVersion(t *testing.T) {
 	report := RunChecks(context.Background(), props)
 	assert.Equal(t, "no-version-tool", report.Tool)
 	assert.Empty(t, report.Version)
-}
-
-// TestCheckGit_Success covers the success path of checkGit by running it in
-// the repository working tree, which is a valid git checkout.
-func TestCheckGit_Success(t *testing.T) {
-	t.Parallel()
-
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not installed")
-	}
-
-	// Confirm we are inside a working repository before asserting the pass path;
-	// otherwise checkGit legitimately warns and the assertion would be wrong.
-	if err := exec.Command("git", "status").Run(); err != nil {
-		t.Skip("not inside a git repository")
-	}
-
-	result := checkGit(context.Background(), nil)
-	assert.Equal(t, "Git", result.Name)
-	assert.Equal(t, CheckPass, result.Status)
-	assert.Equal(t, "repository accessible", result.Message)
 }
 
 // TestCheckNoLiteralCredentials_NoConfig covers the skip branch.

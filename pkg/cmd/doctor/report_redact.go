@@ -43,7 +43,7 @@ func isCredentialKey(keyPath string) bool {
 	// "literal credential" WARN check and this redaction never disagree about a
 	// known key. The generic suffix/segment net below additionally catches keys
 	// the fixed list doesn't enumerate (e.g. a downstream tool's own provider).
-	for _, known := range literalCredentialKeys {
+	for _, known := range LiteralCredentialKeys {
 		if lk == strings.ToLower(known) {
 			return true
 		}

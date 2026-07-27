@@ -12,6 +12,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 func TestDiscoverProjectConfig(t *testing.T) {
@@ -23,47 +24,46 @@ func TestDiscoverProjectConfig(t *testing.T) {
 	_ = afero.WriteFile(fs, "/repo/.keryx.yaml", []byte("themes: {}\n"), 0o644)
 
 	// walks up from a nested dir to the repo-root config
-	if got := discoverProjectConfig(fs, "keryx", "/repo/sub/deep"); got != "/repo/.keryx.yaml" {
+	if got := setup.DiscoverProjectConfig(fs, "keryx", "/repo/sub/deep"); got != "/repo/.keryx.yaml" {
 		t.Errorf("nested cwd: got %q, want /repo/.keryx.yaml", got)
 	}
 
 	// found at the dir itself
-	if got := discoverProjectConfig(fs, "keryx", "/repo"); got != "/repo/.keryx.yaml" {
+	if got := setup.DiscoverProjectConfig(fs, "keryx", "/repo"); got != "/repo/.keryx.yaml" {
 		t.Errorf("repo root: got %q", got)
 	}
 
 	// a different tool name → not matched
-	if got := discoverProjectConfig(fs, "othertool", "/repo/sub"); got != "" {
+	if got := setup.DiscoverProjectConfig(fs, "othertool", "/repo/sub"); got != "" {
 		t.Errorf("wrong tool name should not match: %q", got)
 	}
 
 	// no config anywhere above → ""
 	_ = fs.MkdirAll("/elsewhere", 0o755)
-	if got := discoverProjectConfig(fs, "keryx", "/elsewhere"); got != "" {
+	if got := setup.DiscoverProjectConfig(fs, "keryx", "/elsewhere"); got != "" {
 		t.Errorf("absent: got %q, want \"\"", got)
 	}
 
 	// empty inputs
-	if discoverProjectConfig(fs, "", "/repo") != "" || discoverProjectConfig(fs, "keryx", "") != "" {
+	if setup.DiscoverProjectConfig(fs, "", "/repo") != "" || setup.DiscoverProjectConfig(fs, "keryx", "") != "" {
 		t.Error("empty tool/dir should return \"\"")
 	}
 
 }
 
-// TestProjectConfigPaths_ExplicitConfigSuppressesTheProjectLayer pins the rule that
-// an explicitly named --config is authoritative.
+// TestProjectConfigLayer_ExplicitConfigSuppressesTheProjectLayer pins the rule
+// that an explicitly named --config is authoritative.
 //
-// The flag is declared as a StringArray whose default value IS the standard paths,
-// so supplying it replaces them outright rather than adding to them — naming a config
-// file means "use this one". Appending the project-local layer on top of that, as this
-// once did, let a .<tool>.yaml the caller never named override the file they did name.
-// The failure was silent: the tool ran against different settings with nothing on the
-// command line to account for it.
+// The flag is declared as a StringArray whose default value IS the standard
+// paths, so supplying it replaces them outright rather than adding to them —
+// naming a config file means "use this one". Layering a .<tool>.yaml the caller
+// never named on top of that, as this once did, let it override the file they
+// did name. The failure was silent: the tool ran against different settings with
+// nothing on the command line to account for it.
 //
-// Both directions matter, so both are asserted here. Only checking the suppression
-// would pass just as well if the layer had been removed altogether.
-func TestProjectConfigPaths_ExplicitConfigSuppressesTheProjectLayer(t *testing.T) {
-	// Not parallel: t.Chdir is process-wide, and projectConfigPaths reads the
+// Both directions matter, so both are asserted here.
+func TestProjectConfigLayer_ExplicitConfigSuppressesTheProjectLayer(t *testing.T) {
+	// Not parallel: t.Chdir is process-wide, and projectConfigLayer reads the
 	// working directory through os.Getwd.
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".keryx.yaml"), []byte("themes: {}\n"), 0o600))
@@ -78,21 +78,14 @@ func TestProjectConfigPaths_ExplicitConfigSuppressesTheProjectLayer(t *testing.T
 		FS:     afero.NewOsFs(),
 	}
 
-	named := []string{"/my/exact/file.yaml"}
+	withFlag := newConfigFlagCmd(t, "/my/exact/file.yaml")
+	assert.Empty(t, projectConfigLayer(props, withFlag),
+		"an explicit --config must suppress the project-local layer entirely")
 
-	withFlag := newConfigFlagCmd(t, named...)
-	assert.Equal(t, named, projectConfigPaths(props, withFlag, named),
-		"an explicit --config must not be overridden by a project-local file")
-
-	// Without the flag the layer still applies, appended last so it wins over
-	// the defaults it was designed to override.
-	defaults := []string{"/etc/keryx/config.yaml"}
-
+	// Without the flag the layer is discovered from the working directory.
 	withoutFlag := newConfigFlagCmd(t)
-	assert.Equal(t,
-		append(append([]string{}, defaults...), filepath.Join(dir, ".keryx.yaml")),
-		projectConfigPaths(props, withoutFlag, defaults),
-		"with no --config the project-local layer is appended last")
+	assert.Equal(t, filepath.Join(dir, ".keryx.yaml"), projectConfigLayer(props, withoutFlag),
+		"with no --config the project-local layer is discovered")
 }
 
 // newConfigFlagCmd builds a command carrying the same --config flag the root

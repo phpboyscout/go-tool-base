@@ -26,6 +26,7 @@ type cliWorld struct {
 	exitCode   int
 	envVars    map[string]string
 	keysDir    string // scratch dir for `gtb keys *` outputs; {keys_dir} placeholder
+	projectDir string // repo-root dir holding a project-local .gtb.yaml; sets cmd.Dir
 }
 
 func getCLIWorld(ctx context.Context) *cliWorld {
@@ -83,6 +84,8 @@ func initCLISteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I set environment variable "([^"]*)" to "([^"]*)"$`, iSetEnvironmentVariable)
 	ctx.Step(`^I run gtb with "([^"]*)"$`, iRunGTBWith)
 	ctx.Step(`^I run gtb bare with "([^"]*)"$`, iRunGTBBareWith)
+	ctx.Step(`^a project-local config file with:$`, aProjectLocalConfigFileWith)
+	ctx.Step(`^I run gtb in the project directory with "([^"]*)"$`, iRunGTBInProjectDirWith)
 
 	// --- Then ---
 	ctx.Step(`^the exit code is (\d+)$`, theExitCodeIs)
@@ -163,6 +166,37 @@ func theConfigFileContains(ctx context.Context, content *godog.DocString) (conte
 	return aTemporaryDirectoryWithConfigFile(ctx, content)
 }
 
+// aProjectLocalConfigFileWith creates a fresh repo-root directory holding a
+// project-local ".gtb.yaml" with the given content, modelling a cloned
+// repository that ships one. Runs that follow use "in the project directory"
+// so discovery (walking up from cwd) finds it.
+func aProjectLocalConfigFileWith(ctx context.Context, content *godog.DocString) (context.Context, error) {
+	w := getCLIWorld(ctx)
+
+	dir, err := os.MkdirTemp("", "gtb-e2e-project-*")
+	if err != nil {
+		return ctx, fmt.Errorf("failed to create project dir: %w", err)
+	}
+
+	w.projectDir = dir
+
+	if err := os.WriteFile(filepath.Join(dir, ".gtb.yaml"), []byte(content.Content), 0o600); err != nil {
+		return ctx, fmt.Errorf("failed to write project-local config: %w", err)
+	}
+
+	return ctx, nil
+}
+
+// iRunGTBInProjectDirWith runs the binary from the scenario's project directory
+// WITHOUT an explicit --config (an explicit --config suppresses the project-local
+// layer), so the project-local trust behaviour is exercised. HOME stays isolated
+// to the scenario's config dir, where the trust store lives.
+func iRunGTBInProjectDirWith(ctx context.Context, args string) context.Context {
+	parts := append(strings.Fields(args), "--ci")
+
+	return runGTB(ctx, parts)
+}
+
 // aConfigFileWithNoLogLevelKey writes a config file that omits the required
 // log.level key, used to exercise validation failure scenarios.
 func aConfigFileWithNoLogLevelKey(ctx context.Context) (context.Context, error) {
@@ -234,6 +268,13 @@ func runGTB(ctx context.Context, parts []string) context.Context {
 	w := getCLIWorld(ctx)
 
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
+
+	// Run inside the scenario's project directory when one is set, so the
+	// project-local ".gtb.yaml" discovery (walking up from the working dir)
+	// finds it. Empty leaves the child in the harness's own cwd.
+	if w.projectDir != "" {
+		cmd.Dir = w.projectDir
+	}
 
 	// Give the child a piped (non-TTY) stdin so utils.IsInteractive() reports
 	// false deterministically. Without this the child inherits /dev/null, which

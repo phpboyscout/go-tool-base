@@ -197,6 +197,24 @@ Spec: [2026-04-02-credential-storage-hardening.md](specs/2026-04-02-credential-s
 
 ---
 
+## Audit: 2026-07-23 (framework core review)
+
+### Remediated
+
+#### M-2: Project-local `.<tool>.yaml` could downgrade security posture
+
+**Severity:** Medium | **Status:** Remediated
+
+The project-local `.<tool>.yaml` layer (a repo-root config file, discovered by walking up from the working directory) was layered above the user's own config and fed directly into security-relevant resolution: self-update signature/checksum enforcement (`update.require_signature`, `update.require_checksum`, `update.policy`, `update.key_source`, `update.external_key_email`), telemetry consent (`telemetry.enabled`), and credential resolution (`*.auth.*`, `*.api.*`). Cloning a hostile repository that shipped `.<tool>.yaml` with `update: {require_signature: false}` silently weakened self-update verification for every command run inside that tree, and `telemetry.enabled: true` flipped consent the user never gave.
+
+**Mitigation — allowlist + trust-acknowledgement hybrid.** Security-sensitive keys from a project-local layer are now **ignored** unless the directory is explicitly trusted, while non-security workflow keys (logging, output, feature toggles) always apply. Trust is direnv-style: a per-user store (`~/.<tool>/trusted-projects.yaml`, owner-only) records the absolute path and the SHA-256 of the exact trusted content, so editing a trusted file — or a fresh clone replacing it — revokes trust until the user re-runs `<tool> config trust`. An untrusted project-local file is also read-only, so writes route to the user's own config rather than the repository file. Ignored keys are logged at WARN naming the file and the keys, never silently dropped. An explicit `--config` still suppresses the project layer entirely (naming a file means "use this one").
+
+**Tool author / user guidance.** Run `<tool> config trust` at a repository you author and control to enable its `.<tool>.yaml` security keys; `<tool> config trust --list` shows what is trusted and `--forget` revokes it. CI runs untrusted by default (safe), so a pipeline that legitimately relies on project-local security keys must either trust the file in a provisioning step or set the values through the user config / environment instead.
+
+Spec: [2026-07-23-gtb-framework-followups.md](specs/2026-07-23-gtb-framework-followups.md) §2.1.1.
+
+---
+
 ## Adding New Entries
 
 When a new security audit or review produces findings, add them to this document under a dated audit heading. Each entry should include:

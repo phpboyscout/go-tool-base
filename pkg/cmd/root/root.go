@@ -17,8 +17,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 
-	"gitlab.com/phpboyscout/go/errorhandling"
-
 	"gitlab.com/phpboyscout/go/output"
 
 	cmdchangelog "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/changelog"
@@ -88,6 +86,15 @@ type ConfigLoadOptions struct {
 	Props       *p.Props
 	AllowEmpty  bool
 
+	// ProjectConfigPath is the discovered project-local ".<tool>.yaml" (a
+	// repo-root config layer), or "" when none applies (no file, or an
+	// explicit --config suppressed it). When set it is layered as the
+	// highest-precedence file — but a hostile clone must not be able to
+	// downgrade security posture through it, so unless the directory is
+	// trusted (setup.IsProjectConfigTrusted) its security-sensitive keys are
+	// stripped and it is read-only. See projectLayerBackend.
+	ProjectConfigPath string
+
 	// Flags is the dispatched command's full flag set (local + inherited).
 	// Changed flags become the store's highest-precedence layer; nil skips
 	// the layer (reload paths that outlive the invocation's flag values).
@@ -110,63 +117,41 @@ func extractFlags(cmd *cobra.Command) (*FlagValues, error) {
 	return &FlagValues{Debug: debug}, nil
 }
 
-// projectConfigPaths returns base with any discovered project-local ".<tool>.yaml"
-// (a repo-root config layer, found by walking up from the working directory) appended
-// last, so it deep-merges OVER the default config paths (env + flags still override
-// it). A convention like .editorconfig — a tool opts out by not having the file.
+// projectConfigLayer returns the discovered project-local ".<tool>.yaml" (a
+// repo-root config layer, found by walking up from the working directory), or ""
+// when none applies. It is layered as the highest-precedence file so it
+// deep-merges over the default config paths (env + flags still override it). A
+// convention like .editorconfig — a tool opts out by not having the file.
 //
-// An explicit --config suppresses the layer entirely. That flag replaces the default
-// paths rather than adding to them, which is the whole reason it is declared with the
-// defaults as its default value: naming a config file means "use this one". A
-// project-local file the caller did not name — and may not know is there — must not
-// override files they did name, because nothing on the command line would explain the
-// resulting settings.
-func projectConfigPaths(props *p.Props, cmd *cobra.Command, base []string) []string {
+// An explicit --config suppresses the layer entirely. That flag replaces the
+// default paths rather than adding to them, which is the whole reason it is
+// declared with the defaults as its default value: naming a config file means
+// "use this one". A project-local file the caller did not name — and may not
+// know is there — must not override files they did name, because nothing on the
+// command line would explain the resulting settings.
+//
+// The returned path is handled specially at store construction: unless the
+// directory is trusted, its security-sensitive keys are stripped so a hostile
+// clone cannot downgrade update verification or telemetry consent (see
+// projectLayerBackend and setup.IsProjectConfigTrusted).
+func projectConfigLayer(props *p.Props, cmd *cobra.Command) string {
 	if cmd.Flags().Changed("config") {
-		return base
+		return ""
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return base
+		return ""
 	}
 
-	pc := discoverProjectConfig(props.FS, props.Tool.Name, cwd)
+	pc := setup.DiscoverProjectConfig(props.FS, props.Tool.Name, cwd)
 	if pc == "" {
-		return base
+		return ""
 	}
 
 	props.Logger.Debug("project config layer found", "file", pc)
 
-	return append(slices.Clone(base), pc)
-}
-
-// discoverProjectConfig walks up from the working directory looking for a project
-// config file named ".<tool>.yaml" (e.g. .keryx.yaml), returning its path or "" if
-// none is found before the filesystem root. This is a repo-root project-config layer
-// — a convention like .editorconfig — that the caller appends last so it deep-merges
-// over (and overrides) the global ~/.<tool>/config.yaml. Generic across tools; a tool
-// opts out simply by not having the file.
-func discoverProjectConfig(fs afero.Fs, toolName, startDir string) string {
-	if toolName == "" || startDir == "" {
-		return ""
-	}
-
-	name := "." + toolName + ".yaml"
-
-	for dir := startDir; ; {
-		candidate := filepath.Join(dir, name)
-		if _, serr := fs.Stat(candidate); serr == nil {
-			return candidate
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir { // reached the filesystem root
-			return ""
-		}
-
-		dir = parent
-	}
+	return pc
 }
 
 // ErrNoConfigFile reports that none of the candidate config files exist.
@@ -208,28 +193,12 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 		storeOpts = append(storeOpts, config.WithReaders(embedded...))
 	}
 
-	// Only files that actually exist are declared as layers. A non-existent
-	// file contributes nothing to resolution, and declaring it anyway makes it
-	// a candidate write target — which is how a write to the user's config
-	// wrongly routed to a missing system /etc path. Deciding what is real
-	// before the store is constructed is GTB's job, not the store's.
-	existing, err := existingConfigPaths(fsys, opts.CfgPaths)
+	fileOpts, err := fileLayerOpts(fsys, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	// The missing-config gate. auto-initialise depends on the distinction
-	// between "no config file exists" and "a file exists but is empty".
-	if len(existing) == 0 && !opts.AllowEmpty {
-		return nil, ErrNoConfigFile
-	}
-
-	// The one deliberate exception to the existence rule: the write target —
-	// the highest-precedence path — is always declared so a write has somewhere
-	// to land and can create the file. It never triggers the missing-file
-	// re-read that other absent layers would, because it is the written
-	// backend (staged, not reloaded).
-	storeOpts = append(storeOpts, config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...))
+	storeOpts = append(storeOpts, fileOpts...)
 
 	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
 		storeOpts = append(storeOpts, config.WithEnv(prefix))
@@ -248,6 +217,53 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 	}
 
 	return store, nil
+}
+
+// fileLayerOpts assembles the file-backed store layers: the user's config files
+// and, when discovered, the project-local layer above them. It also enforces the
+// missing-config gate. Split out of buildConfigStore to keep that function's
+// branching within bounds.
+func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions) ([]config.StoreOption, error) {
+	// Only files that actually exist are declared as layers. A non-existent
+	// file contributes nothing to resolution, and declaring it anyway makes it
+	// a candidate write target — which is how a write to the user's config
+	// wrongly routed to a missing system /etc path. Deciding what is real
+	// before the store is constructed is GTB's job, not the store's.
+	existing, err := existingConfigPaths(fsys, opts.CfgPaths)
+	if err != nil {
+		return nil, err
+	}
+
+	// A discovered project-local ".<tool>.yaml" counts toward "a config file
+	// exists" for the missing-config gate, even though it is layered separately
+	// from the user's own config files (it may be the only config a
+	// repository-scoped run has).
+	projectExists := opts.ProjectConfigPath != "" && projectConfigExists(fsys, opts.ProjectConfigPath)
+
+	// The missing-config gate. auto-initialise depends on the distinction
+	// between "no config file exists" and "a file exists but is empty".
+	if len(existing) == 0 && !projectExists && !opts.AllowEmpty {
+		return nil, ErrNoConfigFile
+	}
+
+	// The one deliberate exception to the existence rule: the write target —
+	// the highest-precedence path — is always declared so a write has somewhere
+	// to land and can create the file. It never triggers the missing-file
+	// re-read that other absent layers would, because it is the written
+	// backend (staged, not reloaded).
+	layerOpts := []config.StoreOption{
+		config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...),
+	}
+
+	// The project-local layer sits above the user's config files but below env
+	// and flags, and is subject to the trust filter: an untrusted file has its
+	// security-sensitive keys stripped and is read-only (writes route to the
+	// user's own config instead of the repository file).
+	if projectExists {
+		layerOpts = append(layerOpts, config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath)))
+	}
+
+	return layerOpts, nil
 }
 
 // flagBindings maps author-declared bound flags (WithBoundFlags) onto flag
@@ -288,6 +304,16 @@ func existingConfigPaths(fsys config.FS, paths []string) ([]string, error) {
 	}
 
 	return existing, nil
+}
+
+// projectConfigExists reports whether the project-local config file is present
+// on disk. A path that exists but cannot be stat'd is treated as absent — the
+// project layer is an optional convenience, not a hard dependency, so a broken
+// stat degrades to "not layered" rather than failing the whole bootstrap.
+func projectConfigExists(fsys config.FS, path string) bool {
+	_, err := fsys.Stat(path)
+
+	return err == nil
 }
 
 // declaredConfigPaths returns the config files to declare as store layers: every
@@ -343,12 +369,13 @@ func resolveBootstrapConfig(props *p.Props, cmd *cobra.Command, configPaths, cfg
 	allowEmpty := !initEnabled || skipConfigCheck
 
 	loadOpts := ConfigLoadOptions{
-		CfgPaths:    cfgPaths,
-		ConfigPaths: configPaths,
-		Props:       props,
-		AllowEmpty:  allowEmpty,
-		Flags:       cmd.Flags(),
-		BoundFlags:  boundFlags,
+		CfgPaths:          cfgPaths,
+		ConfigPaths:       configPaths,
+		Props:             props,
+		AllowEmpty:        allowEmpty,
+		Flags:             cmd.Flags(),
+		BoundFlags:        boundFlags,
+		ProjectConfigPath: projectConfigLayer(props, cmd),
 	}
 
 	cfg, err := buildConfigStore(cmd.Context(), loadOpts)
@@ -401,6 +428,19 @@ func autoInitialiseConfig(ctx context.Context, props *p.Props, opts ConfigLoadOp
 	}
 
 	return cfg, nil
+}
+
+// reloadLoggingObserver returns the config observer that re-applies logging
+// configuration on every reload, against the snapshot that triggered it. It is
+// the hot-reload half of logging setup: without it a reloaded log.level/log.format
+// changes the store but never the logger. The --debug flag still wins (see
+// configureLogging), so a reload cannot downgrade an explicit --debug.
+func reloadLoggingObserver(props *p.Props, flags *FlagValues, mcpLogLevel *slog.LevelVar) func(config.Observed) error {
+	return func(o config.Observed) error {
+		configureLogging(props, flags, o, mcpLogLevel)
+
+		return nil
+	}
 }
 
 // configureLogging sets up logging based on debug flag and config values.
@@ -485,7 +525,15 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 		message         string
 	)
 
-	spinErr := output.New().Spin(ctx, "Checking for latest version", func(ctx context.Context) error {
+	// The passive pre-run check must never block a command for long: a captive
+	// portal or firewalled release host would otherwise stall every invocation
+	// for the download-sized updateTimeout (5m). Bound this probe by the short
+	// VersionCheckTimeout; the full budget is reserved for an explicit `update`
+	// run (performUpdate below, which uses update.Update's own timeout).
+	checkCtx, cancel := context.WithTimeout(ctx, setup.VersionCheckTimeout)
+	defer cancel()
+
+	spinErr := output.New().Spin(checkCtx, "Checking for latest version", func(ctx context.Context) error {
 		var versionErr error
 
 		isLatestVersion, message, versionErr = selfUpdater.IsLatestVersion(ctx)
@@ -723,31 +771,56 @@ func NewCmdRootWithConfig(props *p.Props, configPaths []string, subcommands ...*
 // [NewCmdRootWithConfig] are thin wrappers over it. Use [WithBoundFlags] or
 // [WithConventionBoundFlags] to wire CLI flags into the configuration
 // precedence (flags > env > file > embedded > defaults).
+// init enables cobra's root→leaf PersistentPreRunE traversal for the whole
+// process. Without it, a downstream subcommand that defines its own
+// PersistentPreRunE silently shadows the root bootstrap (config load, telemetry,
+// update check) for that subtree; with it set, the framework bootstrap always
+// runs first and a child hook runs after it. Cobra exposes this only as a
+// package-global, so it is set exactly once here at package initialisation —
+// which happens-before any command construction OR execution — rather than on
+// every NewCmdRootWithOptions call. Writing it per-construction raced with a
+// concurrent ExecuteContext reading the same global (two roots, or a construct
+// alongside an execute, in one process). See spec
+// 2026-06-12-bootstrap-prerun-traversal.
+func init() {
+	cobra.EnableTraverseRunHooks = true
+}
+
 func NewCmdRootWithOptions(props *p.Props, opts ...RootOption) *setup.Command {
 	o := applyRootOptions(opts)
 
-	// Run every parent PersistentPreRunE from root to leaf rather than only the
-	// closest one. Without this, a downstream subcommand that defines its own
-	// PersistentPreRunE silently shadows the root bootstrap (config load,
-	// telemetry, update check) for that subtree. With it set, the framework
-	// bootstrap always runs first and a child hook runs after it. Cobra exposes
-	// this as a package-global; only the root command defines a persistent
-	// pre-run hook in GTB's own tree, so root→leaf traversal is otherwise a
-	// no-op for the framework. See spec 2026-06-12-bootstrap-prerun-traversal.
-	cobra.EnableTraverseRunHooks = true
-
-	// Set the helper and logger for the error handling package
-	if props.ErrorHandler == nil {
-		props.ErrorHandler = errorhandling.New(logger.ToSlog(props.Logger), props.Tool.Help)
+	// Default the required dependencies so the blessed construction path never
+	// nil-derefs, even for a hand-built Props (tests, cmd/e2e, downstream tools
+	// that skip props.New). A nil Logger/FS is a programmer error, but the root
+	// cannot return one, so it fills them rather than panicking deep in a
+	// command.
+	if props.Logger == nil {
+		props.Logger = logger.NewNoop()
 	}
 
-	// Uphold the documented Props.Collector invariant ("always non-nil"). The
-	// real *telemetry.Collector is resolved later in the root PersistentPreRunE,
-	// but the init and help paths return before that — and Props built as a
-	// struct literal (tests, cmd/e2e) never set it. Default to a noop here so
-	// every consumer can call props.Collector unconditionally.
-	if props.Collector == nil {
-		props.Collector = p.NoopCollector{}
+	if props.FS == nil {
+		props.FS = afero.NewOsFs()
+	}
+
+	// Fill the optional invariants: Collector (NoopCollector), ErrorHandler,
+	// and Version. The real *telemetry.Collector is resolved later in the
+	// PersistentPreRunE; ErrorHandler and Version must be non-nil before then
+	// because the init/help paths return early and the update-check path
+	// dereferences Version unconditionally. ApplyDefaults is the same routine
+	// props.New uses, so struct-literal and New-built Props converge here.
+	props.ApplyDefaults()
+
+	// Surface a contract violation the defaults cannot fix (an unnamed Tool)
+	// instead of failing obscurely later. Non-fatal: the root cannot return an
+	// error, so it warns rather than aborting.
+	if err := props.Validate(); err != nil {
+		props.Logger.Warn("props contract violation at root construction", "error", err)
+	}
+
+	// Wire the logger into Assets so a malformed embedded bundle surfaces as a
+	// WARN during merged structured reads instead of vanishing silently.
+	if setter, ok := any(props.Assets).(interface{ SetLogger(logger.Logger) }); ok {
+		setter.SetLogger(props.Logger)
 	}
 
 	// Feature-gated asset bundles: apply every enabled feature's registered
@@ -824,6 +897,13 @@ func commandTreeHasPersistentPreRun(cmd *cobra.Command) bool {
 
 func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.LevelVar, state *rootState, boundFlags map[string]*pflag.Flag) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		// Stamp THIS root's Props onto the command context so the process-global
+		// middleware chain resolves the right Props at execution time — a second
+		// root in the same process must not report through the first root's
+		// logger/collector. Done before the fast path so auxiliary/init commands
+		// carry it too.
+		cmd.SetContext(setup.ContextWithProps(cmd.Context(), props))
+
 		// Fast path — skip the framework bootstrap entirely (config load,
 		// telemetry consent, collector wiring, update check) but still honour
 		// --debug so `--debug tool completion bash` stays debuggable:
@@ -856,9 +936,9 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Load configuration, applying the tool's bootstrap policy (skip-config
 		// check / auto-initialise). Bootstrap itself always runs — only the
 		// missing-config outcome is relaxed. The project-local config layer
-		// (projectConfigPaths) is resolved here so it is honoured on both the
-		// initial load and any auto-initialise reload.
-		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, projectConfigPaths(props, cmd, state.cfgPaths), boundFlags)
+		// (projectConfigLayer) is resolved inside resolveBootstrapConfig so it
+		// is honoured on both the initial load and any auto-initialise reload.
+		cfg, err := resolveBootstrapConfig(props, cmd, configPaths, state.cfgPaths, boundFlags)
 		if err != nil {
 			return configLoadError(props, err)
 		}
@@ -866,7 +946,7 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Set config in props
 		props.Config = cfg
 
-		startConfigWatch(props, cfg, cmd, state)
+		startConfigWatch(props, cfg, cmd, state, flags, mcpLogLevel)
 
 		// One pinned view for the bootstrap reads below.
 		view := cfg.View()
@@ -934,7 +1014,11 @@ func configLoadError(props *p.Props, err error) error {
 // slot so execute can tear the watcher down on shutdown. Context cancellation
 // remains the backstop: a raw ExecuteContext embedder has no cleanup slot, so
 // the watcher stops when its context is cancelled (config-family spec F10).
-func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, state *rootState) {
+//
+// A reload observer re-applies logging (flags/mcpLogLevel) so an edited
+// log.level/log.format takes effect on a long-running command without a
+// restart, with --debug still winning.
+func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, state *rootState, flags *FlagValues, mcpLogLevel *slog.LevelVar) {
 	if state.watching {
 		return
 	}
@@ -942,6 +1026,14 @@ func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, sta
 	cfg.OnReloadError(func(err error) {
 		props.Logger.Warn("config reload rejected; keeping the last good configuration", "error", err)
 	})
+
+	// Re-apply logging on every reload so a long-running command (docs serve,
+	// controls-based services) picks up an edited log.level/log.format without a
+	// restart — the whole point of hot-reload. configureLogging keeps the
+	// --debug flag winning, so a reload can never downgrade an explicit --debug.
+	// The observer only mutates the logger (never configuration), so it cannot
+	// trip ErrWriteFromObserver.
+	cfg.AddObserverFunc(reloadLoggingObserver(props, flags, mcpLogLevel))
 
 	stop, err := cfg.Watch(cmd.Context(), state.watchOpts...)
 	if err != nil {
@@ -1432,15 +1524,15 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 }
 
 // validateConfig warns about common misconfigurations.
+//
+// The keys checked are the credential-resolution literals — the same list
+// doctor's credentials.no-literal check uses (doctor.LiteralCredentialKeys) —
+// so the warning tracks the current credential schema instead of a hardcoded,
+// pre-forge-migration list. The stale "github.token" key it once checked can
+// never fire against today's schema (the forge migration moved to
+// "github.auth.value").
 func validateConfig(cfg config.Reader, l logger.Logger) {
-	emptySetKeys := []string{
-		"github.token",
-		"anthropic.api.key",
-		"openai.api.key",
-		"gemini.api.key",
-	}
-
-	for _, key := range emptySetKeys {
+	for _, key := range doctor.LiteralCredentialKeys {
 		if cfg.IsSet(key) && cfg.GetString(key) == "" {
 			l.Warn(key + " is set but empty — operations using this key will fail")
 		}
