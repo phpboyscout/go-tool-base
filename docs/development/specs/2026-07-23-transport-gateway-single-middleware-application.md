@@ -2,7 +2,7 @@
 title: "Transport gateway: apply the middleware chain exactly once on the Register path"
 description: "gateway.Register wraps the gateway handler with the middleware chain via newWithOptions and then also forwards the same chain to transporthttp.Register, which wraps it again — so every middleware runs twice per REST request on the managed-gateway path. Fix by building the raw mux on the Register path and letting transporthttp.WithMiddleware be the single application point, with a regression test that counts middleware invocations."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - transport
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/transport v0.1.3 (transport MR !13), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding, transport section),

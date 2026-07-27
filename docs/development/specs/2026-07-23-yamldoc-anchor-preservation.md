@@ -2,7 +2,7 @@
 title: "yamldoc: preserve anchors on Set, and make Bytes() validation resolve aliases"
 description: "Replacing an anchored value via Set silently drops the anchor, emitting a document with a dangling alias — and the Bytes() safety net does not catch it, because it only re-parses and goccy accepts an alias to an undefined anchor at parse time. This violates the package's refuse-rather-than-corrupt promise. Preserve the anchor on the replacement node (recommended) or refuse with ErrUnsupported, and harden Bytes() to a full decode that resolves aliases. yamldoc underpins the whole config family, so the fix propagates via a config-core dependency bump."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - yamldoc
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/yamldoc v0.1.4 (yamldoc MR !16), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH yamldoc finding),

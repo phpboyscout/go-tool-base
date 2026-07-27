@@ -2,7 +2,7 @@
 title: "Transport servers: honour a supplied server TLS config so mTLS is reachable on the managed path"
 description: "transporthttp's managed start unconditionally replaces srv.TLSConfig with tlsPair.ServerConfig(), and transportgrpc's wrapTLS always builds pair.ServerConfig(\"h2\") with no override hook — so WithServerTLSConfig is silently clobbered and ClientCAs/ClientAuth can never reach a managed listener, making the mTLS auth verifiers dead code on that path. Fix by loading the pair's certificate INTO the caller-supplied config instead of replacing it, and extending gtls.Pair with client-CA fields for config-driven mTLS."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - transport
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/tls v0.1.2 + go/transport v0.1.3 (tls MR !9, transport MR !14), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding, transport section),

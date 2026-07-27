@@ -2,7 +2,7 @@
 title: "forge-gitlab: stop forwarding PRIVATE-TOKEN across cross-host redirects (plus a reusable httpclient guard)"
 description: "The GitLab provider attaches PRIVATE-TOKEN to asset downloads after a correct HostTrusted check, but Go's stdlib only strips Authorization/Cookie-class headers on cross-host redirects — a custom header like PRIVATE-TOKEN is copied to every hop, so an object-storage 302 or an open redirect on the GitLab host exfiltrates the token. Add a sensitive-header redirect guard, offered as a reusable go/httpclient option and consumed by forge-gitlab."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - forge
@@ -26,7 +26,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/httpclient v0.1.3 + go/forge-gitlab v0.2.2 (httpclient MR !9, forge-gitlab MR !11), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding),

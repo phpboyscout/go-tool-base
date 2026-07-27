@@ -2,7 +2,7 @@
 title: "changelog: parse and generate against real-world release history, not just our own output"
 description: "Two HIGH defects share one root cause — fixture blindness. Parse() cannot read the releaser-pleaser CHANGELOG format the surrounding toolchain actually emits (so self-update breaking-change warnings silently never fire), and the generator never detects a release tag placed on a merge commit (the normal shape of a merged Release MR), making released commits reappear as Unreleased. One fixture-driven rework fixes both: real releaser-pleaser fixtures for the parser, merge-commit repo fixtures plus ancestry-based bucketing for the generator."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - changelog
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/changelog v0.1.2 (changelog MR !11), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (both HIGH changelog findings),

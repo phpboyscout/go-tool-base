@@ -2,7 +2,7 @@
 title: "controls: bound Wait() against context-ignoring StartFuncs"
 description: "Wait() hangs forever when a service's StartFunc ignores cancellation and its StopFunc cannot unblock it: the supervisor goroutine never returns, so the WaitGroup never drains, even though the controller has completed its bounded shutdown and reports Stopped. Add a deadline-bounded WaitContext variant applying the same abandon-at-deadline policy Services.stop already uses for StopFuncs, documented as a new D-number decision."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - controls
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/controls v0.1.3 (controls MR !13), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH controls finding),

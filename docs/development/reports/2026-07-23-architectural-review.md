@@ -34,7 +34,17 @@ The review found **116 findings: 1 critical, 20 high, 49 medium, 46 low**. They 
 
 ## Priority actions
 
-**Every finding in this report has been triaged into a DRAFT spec** in
+> **Implementation status (updated 2026-07-27).** All 21 critical/high findings
+> have been fixed and merged except the config-family version re-pin sweep
+> (`config-family-version-repin`), which is in progress. Each fix landed via
+> red-first TDD — the defect reproduced against the target repo's pre-fix `main`
+> before the change — and shipped in a module release (or GTB `main`). The 12
+> module-side specs and the 6 GTB-side specs are now marked `IMPLEMENTED`; the
+> 11 grouped medium/low follow-up specs remain `DRAFT` for scheduling. The GTB
+> release carrying the framework-side fixes is queued (releaser-pleaser Release
+> MR) pending a deliberate cut.
+
+**Every finding in this report has been triaged into a spec** in
 [`docs/development/specs/`](../specs/index.md) (2026-07-23 series) — each finding
 below carries a **Spec:** pointer. The critical and high findings map to 19
 individual specs (two pairs share one spec where the fix is a single workstream:

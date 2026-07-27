@@ -2,7 +2,7 @@
 title: "config: Apply must tolerate absent sibling sources in rebuild"
 description: "Store.Apply fails outright whenever any other declared source is absent, because rebuild re-loads every non-written backend and treats fs.ErrNotExist as fatal — unlike loadAll, which carries an absent optional source forward with no layers. GTB is directly exposed: the root command deliberately declares the highest-precedence write target even when the file does not yet exist, so config set on a key defined in a lower file fails until the top file has been created."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/config v0.9.2 (config MR !49), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (§ config family, HIGH finding),

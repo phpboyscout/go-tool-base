@@ -2,7 +2,7 @@
 title: "Transit resilience: half-open trial deadline, stream-trial semantics, and panic-safe done callbacks"
 description: "The shared circuit-breaker core has no time-based escape from HalfOpen: the trial slot is released only by the done callback, so an abandoned stream wedges the breaker permanently and a long-lived healthy stream holds the only trial slot for its lifetime. This spec adds a half-open trial deadline to the resilience core, redefines what constitutes stream trial success, and makes the unary paths invoke done via defer so a panicking invoker cannot leak the slot."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - transport
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/transit v0.1.2 (transit MR !8), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding, transport section),

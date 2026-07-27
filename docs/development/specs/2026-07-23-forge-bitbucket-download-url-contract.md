@@ -2,7 +2,7 @@
 title: "forge-bitbucket: resolve the contradictory downloads self-link contract (auth host-pin vs URL-shape parsing)"
 description: "forge-bitbucket builds assets from the API's links.self.href, but its two consumers assume incompatible URL shapes: setBasicAuthIfHostMatches only attaches credentials to api.bitbucket.org URLs, while parseDownloadURL only accepts browser-shaped bitbucket.org/{workspace}/{repo}/downloads/{file} paths. Whichever shape the live API returns, one half breaks — either private downloads 401 or checksum/signature resolution hard-errors and aborts every Bitbucket update under require_checksum. Carry workspace/repo on the synthetic release instead of re-deriving them from asset URLs."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - forge
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/forge-bitbucket v0.2.2 (forge-bitbucket MR !9), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding),

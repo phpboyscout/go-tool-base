@@ -2,7 +2,7 @@
 title: "chat-openai: isolate per-call request params so call kinds stop bleeding state"
 description: "The OpenAI client keeps one mutable a.params for every call kind. StreamChat sets StreamOptions and never clears it, poisoning later non-streaming Chat/Ask requests; Chat and StreamChat permanently clear ResponseFormat, so a Chat(); Ask() sequence silently loses JSON-schema enforcement. Fix: build per-call params from a base, mirroring Gemini's cloneConfig pattern."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/chat-openai v0.1.4 (chat-openai MR !12), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (chat-family section, HIGH finding),

@@ -2,7 +2,7 @@
 title: "redact: scheme-agnostic URL userinfo stripping"
 description: "redact.String only strips URL userinfo for http/https URLs, so connection-string passwords (postgres://, redis://, amqp://, mongodb://) pass through unredacted into telemetry and error surfaces that trust it as the last line of defence. Widen the scheme group to the RFC 3986 scheme shape, and add a JSON-form credential rule as secondary scope."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - redact
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/redact v0.1.1 (redact MR !9), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (HIGH finding, cross-cutting leaf modules section)

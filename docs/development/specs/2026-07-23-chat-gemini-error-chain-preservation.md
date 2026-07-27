@@ -2,7 +2,7 @@
 title: "chat-gemini: preserve the typed SDK error chain so cross-provider failover works"
 description: "Gemini's handleGeminiError flattens every Chat/StreamChat error to a new string via errors.Newf without %w, destroying the typed *genai.APIError. The module's own registered geminiHTTPStatus extractor can then never match, so the fallback composite classifies retryable Gemini failures (429/503) as fatal and refuses to fail over. Fix: wrap instead of rebuild, matching the Anthropic and OpenAI providers."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Shipped in go/chat-gemini v0.1.3 (chat-gemini MR !13), red-first TDD with the defect reproduced against the module's pre-fix main before the change; GTB picks it up via the config-family / module dependency bumps. Open questions were resolved by the maintainer during triage.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (chat-family section, HIGH finding),
