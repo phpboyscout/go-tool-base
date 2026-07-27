@@ -2,7 +2,7 @@
 title: "Config family version re-pin: bring GTB and all 19 adapters to config head, and stop the drift recurring"
 description: "GTB pins config core five minors behind (v0.4.0 vs v0.9.0), skipping hardening features shipped specifically for it, and the 19 config adapters pin core across five different minors (v0.3.0–v0.9.0) with no cross-version guarantee — MVS silently runs old-pin adapters against new core in consumer builds. One coordinated workstream: land the Apply absent-source fix in core first, re-pin the whole family and GTB to head, then add the durable mechanism (Renovate audit on the stale cohort plus a cross-repo adapter build in config's CI) so propagation cannot silently stall again. The forge-family credentials diamond is folded in as a secondary re-pin item."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - config
@@ -25,7 +25,21 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED (2026-07-27). Both parts done. **The re-pin sweep resolved
+    organically** — Renovate brought GTB and all 19 config adapters (afero,
+    billy, iofs, dotenv, hcl, ini, json, properties, toml, xml, vault, consul,
+    aws-s3, aws-ssm, gcp-gcs, gcp-parameter, azure-blob, azure-appconfig, sftp)
+    to a uniform config **v0.9.2** (the review's v0.3.0–v0.9.0 spread, and GTB's
+    v0.4.0 pin, are gone), which carries the `config-apply-absent-source` fix.
+    **The durable guard is in place** — a gating cross-repo canary in `go/config`
+    CI (MR !66) builds every adapter against config HEAD before release:
+    `canary-subset` (afero + consul + toml) on every MR, `canary-full` (all 19)
+    on pre-release surfaces (Release MR / default branch / nightly). Proven to
+    catch a break (a renamed `NewStore` in config HEAD failed the afero canary).
+    The 19-repo separation is retained by maintainer decision (intentional
+    SDK-dependency isolation); the canary — not consolidation — is the permanent
+    mechanism (Q1 resolved). Q3 cadence recorded above. The forge-family
+    credentials-diamond re-pin (secondary MEDIUM) also cleared via Renovate.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (§ ecosystem, both HIGH findings + the credentials-diamond MEDIUM),
