@@ -98,7 +98,6 @@ variables:
   GIT_DEPTH: "0"
 
 default:
-  tags: [saas-linux-medium-amd64]
   # Auto-retry transient shared-runner infrastructure failures. golangci-lint
   # (and occasionally the e2e job) intermittently dies with "Job failed (system
   # failure): context deadline exceeded" on the SaaS runners — a runner/scheduler
