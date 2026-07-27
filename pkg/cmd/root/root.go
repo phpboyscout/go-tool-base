@@ -33,6 +33,7 @@ import (
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
@@ -451,8 +452,9 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	// Persistent out-of-date reminder from the cached latest version: emitted
 	// every invocation (even when the network check is throttled below), so a
 	// user who declined an update — or runs a disabled-policy tool — keeps
-	// being reminded. Suppressed under --ci.
-	if !view.GetBool("ci") {
+	// being reminded. Suppressed in CI (the --ci flag / ci config key or the
+	// CI=true environment variable), for full flag/environment parity.
+	if !isCIEnvironment(view) {
 		warnIfBehindCached(props)
 	}
 
@@ -503,12 +505,23 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *p.Props, st
 	return result
 }
 
+// isCIEnvironment reports whether the invocation should be treated as running
+// in CI. It agrees with the two ways CI is signalled: the --ci flag / `ci`
+// config key (reached through the config layers), and the bare CI=true
+// environment variable that the forge initialisers already honour
+// (pkg/setup/forge/profile.go). Config-flag and environment detection must not
+// diverge — a real CI run that forgets --ci must still be recognised — so both
+// the update-check gate and the telemetry-consent gate route through here.
+func isCIEnvironment(view *config.View) bool {
+	return view.GetBool("ci") || os.Getenv("CI") == "true"
+}
+
 func shouldSkipUpdateCheck(props *p.Props, view *config.View, cmd *cobra.Command, state *rootState) bool {
 	// Skip update checks in various conditions
 	if props.Tool.IsDisabled(p.UpdateCmd) ||
 		(props.Version != nil && props.Version.IsDevelopment()) ||
 		state.redirectingToUpdate ||
-		view.GetBool("ci") {
+		isCIEnvironment(view) {
 		return true
 	}
 
@@ -533,13 +546,22 @@ func createUpdatePromptForm(runUpdate *bool) *huh.Form {
 type OutdatedVersionOption func(*outdatedVersionConfig)
 
 type outdatedVersionConfig struct {
-	formCreator func(*bool) *huh.Form
+	formCreator   func(*bool) *huh.Form
+	isInteractive func() bool
 }
 
 // WithForm allows providing a custom form creator for testing.
 func WithForm(formCreator func(*bool) *huh.Form) OutdatedVersionOption {
 	return func(cfg *outdatedVersionConfig) {
 		cfg.formCreator = formCreator
+	}
+}
+
+// WithInteractive overrides the TTY gate (default: utils.IsInteractive) so tests
+// can exercise the interactive prompt path without a real terminal.
+func WithInteractive(isInteractive func() bool) OutdatedVersionOption {
+	return func(cfg *outdatedVersionConfig) {
+		cfg.isInteractive = isInteractive
 	}
 }
 
@@ -556,26 +578,36 @@ func handleOutdatedVersion(ctx context.Context, props *p.Props, message string, 
 
 	// Apply options
 	cfg := &outdatedVersionConfig{
-		formCreator: state.formCreator,
+		formCreator:   state.formCreator,
+		isInteractive: utils.IsInteractive,
 	}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	// Default to declining: without a usable TTY (cron, CI, piped stdin) or
-	// on an aborted/timed-out prompt, form.Run returns an error and runUpdate
-	// must stay false. Defaulting to true here would silently self-update
-	// without consent.
+	// Default to declining: without a usable TTY (cron, CI, piped stdin, MCP
+	// stdio) the prompt cannot be answered, so runUpdate must stay false.
+	// Defaulting to true here would silently self-update without consent.
 	var runUpdate = false
 
-	form := cfg.formCreator(&runUpdate)
-	// Allow nil form for testing (form creator can set the value and return nil)
-	if form != nil {
-		if err := form.Run(); err != nil {
-			runUpdate = false
+	// Gate the prompt on interactivity rather than relying on form.Run to error
+	// out on a non-terminal stdin — the assumption the MR !157 incident
+	// disproved (huh forms hung the e2e suite on piped stdin). When
+	// non-interactive we skip the prompt deterministically without touching
+	// stdin; the policy semantics below are unchanged (enabled still blocks with
+	// the "update required" error, prompt still warns and continues).
+	if cfg.isInteractive() {
+		form := cfg.formCreator(&runUpdate)
+		// Allow nil form for testing (form creator can set the value and return nil)
+		if form != nil {
+			if err := form.Run(); err != nil {
+				runUpdate = false
 
-			props.Logger.Debug("update prompt unavailable; declining update", "error", err)
+				props.Logger.Debug("update prompt unavailable; declining update", "error", err)
+			}
 		}
+	} else {
+		props.Logger.Debug("update prompt skipped: non-interactive stdin")
 	}
 
 	if runUpdate {
@@ -836,8 +868,14 @@ func newRootPreRunE(props *p.Props, configPaths []string, mcpLogLevel *slog.Leve
 		// Configure logging based on flags and config
 		configureLogging(props, flags, view, mcpLogLevel)
 
-		// Prompt for telemetry consent if the feature is enabled but not yet configured
-		promptTelemetryConsent(cmd.Context(), props)
+		// Prompt for telemetry consent if the feature is enabled but not yet
+		// configured. Never under the mcp subtree: an MCP server's stdout carries
+		// JSON-RPC frames, so prompt UI must not be rendered there even on an
+		// interactive terminal (the update check is already exempt via
+		// MarkSkipUpdateCheck).
+		if !isMCPFeatureSubtree(cmd) {
+			promptTelemetryConsent(cmd.Context(), props)
+		}
 
 		// Build and wire telemetry collector
 		props.Collector = buildTelemetryCollector(cmd.Context(), props)
@@ -907,6 +945,21 @@ func startConfigWatch(props *p.Props, cfg *config.Store, cmd *cobra.Command, sta
 func isInitFeatureSubtree(cmd *cobra.Command) bool {
 	for c := cmd; c != nil; c = c.Parent() {
 		if setup.FeatureOf(c) == p.InitCmd {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isMCPFeatureSubtree reports whether cmd is the mcp command or any descendant
+// of it, identified by walking up the tree for the McpCmd feature annotation
+// stamped by setup.Wrap. Used to suppress the interactive pre-run prompts
+// (telemetry consent) whose UI would corrupt the MCP server's JSON-RPC stdout —
+// a feature match, never a fragile name match.
+func isMCPFeatureSubtree(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if setup.FeatureOf(c) == p.McpCmd {
 			return true
 		}
 	}
@@ -1130,33 +1183,77 @@ func mcpSelectors() []ophis.Selector {
 
 const telemetryFlushTimeout = 2 * time.Second
 
+// ConsentOption configures promptTelemetryConsent behaviour.
+type ConsentOption func(*consentConfig)
+
+type consentConfig struct {
+	isInteractive func() bool
+}
+
+// WithConsentInteractive overrides the TTY gate (default: utils.IsInteractive)
+// so tests can exercise the interactive consent path without a real terminal.
+func WithConsentInteractive(isInteractive func() bool) ConsentOption {
+	return func(cfg *consentConfig) {
+		cfg.isInteractive = isInteractive
+	}
+}
+
+// consentPromptDeferred reports whether the one-time telemetry consent prompt
+// must be skipped without touching stdin, logging the reason for the CI and
+// non-interactive defers. It centralises the guard chain so the prompt body
+// stays simple. The order matters: author/config decisions (disabled,
+// force-enabled, env var, already-answered) short-circuit before the
+// environment gates (CI, then interactivity).
+func consentPromptDeferred(props *p.Props, view *config.View, isInteractive func() bool) bool {
+	_, telemetryEnvSet := os.LookupEnv("TELEMETRY_ENABLED")
+
+	switch {
+	case props.Tool.IsDisabled(p.TelemetryCmd):
+		return true
+	case props.Tool.Telemetry.ForceEnabled:
+		// Tool author has force-enabled telemetry — no prompt, always on.
+		return true
+	case telemetryEnvSet:
+		// TELEMETRY_ENABLED pre-answers the consent question.
+		return true
+	case view.IsSet("telemetry.enabled"):
+		// Already configured — no prompt needed.
+		return true
+	case isCIEnvironment(view):
+		// CI (flag/config key or CI=true env) — defer silently, persist nothing.
+		props.Logger.Debug("telemetry consent deferred: CI environment")
+
+		return true
+	case !isInteractive():
+		// Non-interactive stdin (cron, piped input, MCP stdio) — defer silently
+		// rather than relying on huh to error out on a non-terminal (the
+		// assumption the MR !157 incident disproved). Persist nothing; the opt-in
+		// reappears on the next interactive run.
+		props.Logger.Debug("telemetry consent deferred: non-interactive stdin")
+
+		return true
+	default:
+		return false
+	}
+}
+
 // promptTelemetryConsent shows a one-time opt-in prompt when TelemetryCmd is
-// enabled but the user hasn't made a choice yet. Skips prompting in CI mode,
-// when the TELEMETRY_ENABLED env var is set, or when telemetry.enabled is
-// already present in config.
-func promptTelemetryConsent(ctx context.Context, props *p.Props) {
-	if props.Tool.IsDisabled(p.TelemetryCmd) {
-		return
-	}
-
-	// Tool author has force-enabled telemetry — no prompt, always on
-	if props.Tool.Telemetry.ForceEnabled {
-		return
-	}
-
-	// Already configured — no prompt needed
-	if _, ok := os.LookupEnv("TELEMETRY_ENABLED"); ok {
-		return
+// enabled but the user hasn't made a choice yet. Prompting is skipped — without
+// ever touching stdin — when telemetry is force-enabled, the TELEMETRY_ENABLED
+// env var is set, telemetry.enabled is already present in config, the run is in
+// CI (the --ci flag / ci config key or the CI=true environment variable), or
+// stdin is not a terminal. A skipped prompt persists nothing: absence of consent
+// is not refusal, so the one-time opt-in simply reappears on the next
+// interactive run.
+func promptTelemetryConsent(ctx context.Context, props *p.Props, opts ...ConsentOption) {
+	cfg := &consentConfig{isInteractive: utils.IsInteractive}
+	for _, opt := range opts {
+		opt(cfg)
 	}
 
 	view := props.Config.View()
 
-	if view.IsSet("telemetry.enabled") {
-		return
-	}
-
-	// Non-interactive — skip silently
-	if view.GetBool("ci") {
+	if consentPromptDeferred(props, view, cfg.isInteractive) {
 		return
 	}
 

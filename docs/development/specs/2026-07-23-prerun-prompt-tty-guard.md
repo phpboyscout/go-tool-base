@@ -2,7 +2,7 @@
 title: "TTY-guard the interactive prompts in the root pre-run (telemetry consent, update prompt)"
 description: "The two huh prompts that run inside the root pre-run — telemetry consent and the out-of-date update confirm — have no utils.IsInteractive() gate, unlike every other interactive flow in the codebase. Under MCP stdio or piped stdin they rely on huh erroring out rather than being skipped, risking hangs and protocol corruption; the consent skip also honours only the --ci config flag, not the CI environment variable. Gate both prompts on interactivity, honour CI=true, and exempt the mcp command from prompting."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - bootstrap
@@ -25,7 +25,26 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — `fix(root)` shipped in `pkg/cmd/root` (`isCIEnvironment` helper,
+    the `promptTelemetryConsent` / `handleOutdatedVersion` TTY gates, and the
+    `isMCPFeatureSubtree` prompt exemption). Regression tests in
+    `pkg/cmd/root/prerun_prompt_tty_guard_test.go`.
+
+    **Resolved maintainer decisions** (open questions §5):
+
+    1. **Q1 — CI parity for `warnIfBehindCached`: YES.** `CI=true` suppresses the
+       persistent behind reminder as well, for full flag/environment parity.
+       Implemented by gating the reminder on `isCIEnvironment(view)` — the shared
+       helper that honours `--ci` / `ci: true` **and** `os.Getenv("CI") == "true"`
+       — used by the update-check gate, the consent gate, and the reminder.
+    2. **Q2 — non-interactive consent persistence: NEVER auto-persist.** A
+       deferred prompt writes nothing; absence of consent is not refusal, so
+       `telemetry.enabled` stays unset and the one-time opt-in simply reappears on
+       the next interactive run.
+    3. **Q3 — extend `IsInteractive` to stdout codebase-wide: NO.** The
+       mcp-feature exemption (`setup.FeatureOf(cmd) == p.McpCmd`, parent-walked)
+       is sufficient for the only stdout-sensitive case; no codebase-wide
+       stdin/stdout change was made.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (GTB-core §HIGH
@@ -129,6 +148,11 @@ Concrete failure scenarios:
   today (existing form tests still pass).
 
 ## 5. Open questions
+
+> **Resolved at implementation** — see the *Resolved maintainer decisions* in the
+> Status block above. Q1: yes, `CI=true` also suppresses the reminder. Q2: never
+> auto-persist a non-answer. Q3: the mcp-feature exemption is sufficient; no
+> codebase-wide stdout change.
 
 1. Should `CI=true` also suppress the persistent `warnIfBehindCached` reminder
    (currently gated only on `view.GetBool("ci")`, `root.go:455-457`), for full parity

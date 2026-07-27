@@ -159,9 +159,17 @@ check never silently hijacks an unrelated command:
 | `prompt` | Ask "update now?"; **decline** continues with the command, **accept** updates then asks you to re-run. The `gtb` CLI itself uses this. |
 | `enabled` | **Block** every command until updated. A declined or unanswerable required update exits **non-zero** (never a masked exit 0). |
 
-**Resolution precedence:** `--ci` / `ci: true` bypass the check entirely → then
-the `update.policy` config key → then the tool author's baseline
-(`props.Tool.UpdatePolicy`, default `disabled`).
+**Resolution precedence:** `--ci` / `ci: true` / the `CI=true` environment
+variable bypass the check entirely → then the `update.policy` config key → then
+the tool author's baseline (`props.Tool.UpdatePolicy`, default `disabled`). The
+flag/config key and the `CI=true` environment variable are treated identically,
+so a CI run that forgets `--ci` is still recognised.
+
+**The prompt is TTY-gated.** When stdin is not a terminal (cron, piped input,
+MCP stdio), the `prompt` policy skips the confirm entirely — deterministically,
+without ever reading stdin — and continues with a warning; the `enabled` policy
+returns its "update required" error immediately. The prompt is only rendered on
+a real interactive terminal.
 
 ```yaml
 update:
@@ -190,7 +198,8 @@ cached in the `last_checked` marker's body (its modtime still drives the
 `check_interval` throttle — one file, two jobs). While the running binary is
 behind that cached version, a single `WARN` is emitted on **every** invocation
 (even when the network check is throttled), so a user who declined — or who runs
-a `disabled`-policy tool — keeps being reminded to upgrade. `--ci` suppresses it.
+a `disabled`-policy tool — keeps being reminded to upgrade. `--ci` / `ci: true`
+/ `CI=true` suppress it, for full flag/environment parity with the check itself.
 
 **Failed updates exit non-zero.** A successful update that needs a restart exits
 0 and asks you to re-run; a *failed* update (e.g. no release asset for the

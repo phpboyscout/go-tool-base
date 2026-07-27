@@ -621,6 +621,15 @@ func TestConfigureLogging(t *testing.T) {
 func TestShouldSkipUpdateCheck(t *testing.T) {
 	setup.ResetRegistryForTesting()
 	t.Cleanup(setup.ResetRegistryForTesting)
+
+	// Neutralise any ambient CI=true (set by the GitLab runner): the update
+	// check now also skips on the CI environment variable for flag/environment
+	// parity, so the non-CI "do not skip" cases below must pin CI unset to test
+	// the deterministic baseline. The explicit CI paths are covered by the
+	// configCI cases here and by TestShouldSkipUpdateCheck_CIEnvVar. Set on the
+	// parent (which is not itself parallel) so it applies to every subtest.
+	t.Setenv("CI", "")
+
 	tests := []struct {
 		name         string
 		toolDisabled []p.FeatureCmd

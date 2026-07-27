@@ -733,21 +733,14 @@ func TestPromptTelemetryConsent_CIFlagSkips(t *testing.T) {
 	})
 }
 
-// TestPromptTelemetryConsent_NonInteractiveFormFails exercises the body past
-// the early returns: with no TTY the form fails immediately and the function
-// logs and returns without persisting. Covers the form-error tail.
-func TestPromptTelemetryConsent_NonInteractiveFormFails(t *testing.T) {
-	setup.ResetRegistryForTesting()
-	t.Cleanup(setup.ResetRegistryForTesting)
-	t.Parallel()
-
-	// Feature enabled, not force-enabled, env unset, config not set, not CI:
-	// reaches form.Run(), which errors without a TTY.
-	props := consentProps(t, "", true)
-	assert.NotPanics(t, func() {
-		promptTelemetryConsent(t.Context(), props)
-	})
-}
+// The former TestPromptTelemetryConsent_NonInteractiveFormFails relied on huh
+// erroring out on a non-terminal stdin to exercise the form-error tail. That
+// reliance is exactly what this fix removes: the prompt is now gated on
+// utils.IsInteractive() before the form is built. The deferred (non-interactive)
+// path and the interactive form-error tail are covered deterministically by
+// TestPromptTelemetryConsent_NonInteractiveSkipsPrompt and
+// TestPromptTelemetryConsent_InteractiveReachesForm in
+// prerun_prompt_tty_guard_test.go.
 
 // --- registerFeatureCommands: ConfigCmd + TelemetryCmd enabled --------------
 
