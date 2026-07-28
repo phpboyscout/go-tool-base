@@ -55,8 +55,8 @@ require (
 	gitlab.com/phpboyscout/go/signing v0.2.2
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.5
 	gitlab.com/phpboyscout/go/tls v0.1.2
-	gitlab.com/phpboyscout/go/transit v0.1.2
-	gitlab.com/phpboyscout/go/transport v0.1.3
+	gitlab.com/phpboyscout/go/transit v0.1.3
+	gitlab.com/phpboyscout/go/transport v0.2.0
 	gitlab.com/phpboyscout/go/workspace v0.1.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
@@ -253,7 +253,7 @@ require (
 	gitlab.com/gitlab-org/api/client-go/v2 v2.51.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.1 // indirect
-	gitlab.com/phpboyscout/go/grpcclient v0.1.0 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/yamldoc v0.1.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
