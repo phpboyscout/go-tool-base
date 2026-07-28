@@ -175,3 +175,57 @@ func TestIgnoreList_ResolvesAgainstManifest(t *testing.T) {
 	// Dockerfile matches no tracked file -> flagged stale.
 	assert.Contains(t, out, "stale rule (matches no tracked file): Dockerfile")
 }
+
+func TestIgnoreRemove_DryRunPreviewsWithoutWriting(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := newTestProps(fs)
+	root := "/project"
+
+	require.NoError(t, fs.MkdirAll(filepath.Join(root, ".gtb"), 0o755))
+	require.NoError(t, afero.WriteFile(fs, filepath.Join(root, ".gtb", "ignore"),
+		[]byte("# rules\njustfile\n*.yml\n"), 0o644))
+
+	// --dry-run prints the resulting file (without the removed line) and writes nothing.
+	c := newCmdIgnoreRemove(p).Command
+	require.NoError(t, c.Flags().Set("path", root))
+	require.NoError(t, c.Flags().Set("dry-run", "true"))
+
+	var out bytes.Buffer
+	c.SetOut(&out)
+	require.NoError(t, c.RunE(c, []string{"justfile"}))
+
+	assert.NotContains(t, out.String(), "\njustfile\n")
+	assert.Contains(t, out.String(), "*.yml")
+
+	body, err := afero.ReadFile(fs, filepath.Join(root, ".gtb", "ignore"))
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "justfile", "--dry-run must not write the file")
+
+	// --dry-run for an absent rule errors before printing.
+	c2 := newCmdIgnoreRemove(p).Command
+	require.NoError(t, c2.Flags().Set("path", root))
+	require.NoError(t, c2.Flags().Set("dry-run", "true"))
+	c2.SetOut(&bytes.Buffer{})
+	require.Error(t, c2.RunE(c2, []string{"nope"}))
+}
+
+func TestPrintListing_EmptyRulesAndNoGovernedEntries(t *testing.T) {
+	t.Parallel()
+
+	// No rules at all.
+	var out bytes.Buffer
+	printListing(&out, &generator.IgnoreListing{})
+	assert.Contains(t, out.String(), "No ignore rules configured.")
+
+	// Rules present but nothing governed; a stale rule is reported.
+	out.Reset()
+	printListing(&out, &generator.IgnoreListing{
+		Rules:      []string{"Dockerfile"},
+		Entries:    nil,
+		StaleRules: []string{"Dockerfile"},
+	})
+	assert.Contains(t, out.String(), "No tracked files are governed by an ignore rule.")
+	assert.Contains(t, out.String(), "stale rule (matches no tracked file): Dockerfile")
+}
