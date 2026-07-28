@@ -47,7 +47,7 @@ New features must be implemented in `pkg/` as a reusable component before being 
 
 1. Run `/gtb-verify` (tests, race detector, lint, mocks).
 2. If generator output was affected: `just build && go run ./cmd/gtb generate <command> -p tmp`, verify `tmp/`, delete it.
-3. Update `docs/components/` and `docs/concepts/` — any functional change **must** include a doc update, cross-referenced with the code for accuracy.
+3. Update `docs/explanation/components/` and `docs/explanation/concepts/` — any functional change **must** include a doc update, cross-referenced with the code for accuracy.
 4. Run `/simplify` on changed files before raising a PR.
 
 ## Commands
@@ -169,17 +169,15 @@ blank-imports the three provider modules so every provider is registered.
 
 ### Service Lifecycle (Controls)
 
-`pkg/controls/` orchestrates long-running services with startup ordering, health monitoring, and graceful shutdown. Two transports:
-- `pkg/grpc/` — gRPC for remote management
-- `pkg/http/` — health/readiness/management HTTP endpoints
+Service lifecycle orchestration — startup ordering, health monitoring, and graceful shutdown — lives in the extracted `gitlab.com/phpboyscout/go/controls` module. The server-side transports were extracted to `gitlab.com/phpboyscout/go/transport` (health/readiness/management HTTP endpoints and the gRPC remote-management server), with `gitlab.com/phpboyscout/go/httpclient` and `gitlab.com/phpboyscout/go/grpcclient` as the client halves. GTB retains thin config adapters that wire these modules from `Props`: `pkg/http/` and `pkg/grpc/` now hold only the `*FromContainable`-style settings adapters, not the transports themselves.
 
 ### Error Handling
 
-`pkg/errorhandling/` wraps `cockroachdb/errors` with user-facing hints (`WithHint`/`WithHintf`), help channel config (Slack/Teams), and stack traces in debug mode.
+Error handling is the extracted `gitlab.com/phpboyscout/go/errorhandling` module: it wraps `cockroachdb/errors` with user-facing hints (`WithHint`/`WithHintf`), help channel config (Slack/Teams), and stack traces in debug mode.
 
 ### Version Control (VCS)
 
-`pkg/vcs/` abstracts GitHub and GitLab APIs (including Enterprise and nested group paths) for auth, PR management, and release asset operations. Used by the update and init subsystems.
+The GitHub/GitLab (and Enterprise, Bitbucket, Gitea) abstraction for auth, PR management, and release asset operations was extracted to the `gitlab.com/phpboyscout/go/forge` module and its per-provider modules (`forge-github`, `forge-gitlab`, `forge-gitea`, `forge-bitbucket`), plus `gitlab.com/phpboyscout/go/repo` for local repository operations. GTB's `pkg/vcs/` is now a thin config adapter wiring `go/forge` from resolved config; it is used by the update and init subsystems.
 
 ### Setup & Bootstrap
 
@@ -187,7 +185,7 @@ blank-imports the three provider modules so every provider is registered.
 
 ### TUI Components
 
-`pkg/forms/` provides interactive terminal UI components (prompts, selections, inputs) built on Bubble Tea. `pkg/docs/` implements the built-in interactive markdown documentation browser. `pkg/output/` provides structured output formatting.
+`pkg/docs/` implements the built-in interactive markdown documentation browser. Structured output formatting was extracted to the `gitlab.com/phpboyscout/go/output` module. The former `pkg/forms/` interactive terminal UI components (prompts, selections, inputs) built on Bubble Tea have been **removed**, pending a rewrite on huh v2 (see the forms rewrite spec) — do not restore the deleted package.
 
 ### Code Generation
 
@@ -216,23 +214,23 @@ Every user-influenced field flowing into a skeleton template is validated by `in
 
 ### URL Opening
 
-All URL-opening in GTB — and in tools built on GTB — must route through `pkg/browser.OpenURL`. Do not call `github.com/cli/browser.OpenURL` or `exec.Command("open"|"xdg-open"|"rundll32")` directly. `pkg/browser` enforces a scheme allowlist (`https`, `http`, `mailto`), a URL-length bound, and control-character rejection before invoking the OS handler. Callers constructing `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value — see `pkg/telemetry.EmailDeletionRequestor` for the canonical pattern and `pkg/components/browser.md` for the threat model.
+All URL-opening in GTB — and in tools built on GTB — must route through `browser.OpenURL` from the extracted `gitlab.com/phpboyscout/go/browser` module. Do not call `github.com/cli/browser.OpenURL` or `exec.Command("open"|"xdg-open"|"rundll32")` directly. `go/browser` enforces a scheme allowlist (`https`, `http`, `mailto`), a URL-length bound, and control-character rejection before invoking the OS handler. Callers constructing `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value — see `pkg/telemetry.EmailDeletionRequestor` for the canonical pattern and `docs/explanation/components/browser.md` for the threat model.
 
 ### Regex Compilation
 
-Any `regexp.Compile` call whose pattern originates outside the binary (config file, CLI flag, TUI input, HTTP payload, message queue) must route through `pkg/regexutil.CompileBounded` or `CompileBoundedTimeout`. The helper enforces a 1 KiB length cap and a 100 ms compile timeout to mitigate ReDoS. Literal patterns known at build time may continue to use `regexp.MustCompile`. See `docs/components/regexutil.md` for the full threat model and call-site guidance.
+Any `regexp.Compile` call whose pattern originates outside the binary (config file, CLI flag, TUI input, HTTP payload, message queue) must route through `regexutil.CompileBounded` or `CompileBoundedTimeout` from the extracted `gitlab.com/phpboyscout/go/regexutil` module. The helper enforces a 1 KiB length cap and a 100 ms compile timeout to mitigate ReDoS. Literal patterns known at build time may continue to use `regexp.MustCompile`. See `docs/explanation/components/regexutil.md` for the full threat model and call-site guidance.
 
 ### Chat Provider Endpoints
 
-`chat.Config.BaseURL` values must pass `chat.ValidateBaseURL`. The validator rejects non-HTTPS schemes, URLs containing userinfo (`user:pass@host`), and placeholder hosts (`example.com` and subdomains). Tests targeting an `httptest.Server` set `Config.AllowInsecureBaseURL: true`; that field is `json:"-"` so config files cannot downgrade HTTPS enforcement. Every successful `chat.New` call logs the endpoint hostname at INFO — never the path or query. See `docs/components/chat.md` § Provider endpoint security.
+`chat.Config.BaseURL` values must pass `chat.ValidateBaseURL`. The validator rejects non-HTTPS schemes, URLs containing userinfo (`user:pass@host`), and placeholder hosts (`example.com` and subdomains). Tests targeting an `httptest.Server` set `Config.AllowInsecureBaseURL: true`; that field is `json:"-"` so config files cannot downgrade HTTPS enforcement. Every successful `chat.New` call logs the endpoint hostname at INFO — never the path or query. See `docs/explanation/components/chat/` § Provider endpoint security.
 
 ### Credential Redaction
 
-Use `pkg/redact` for any free-form string written to telemetry, distributed logs, or a third-party observability surface. `redact.String` strips URL userinfo, common credential query parameters, Authorization headers, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack), and very long opaque tokens. `TrackCommandExtended` already applies it automatically to `args` and `errMsg`; HTTP middleware uses `redact.SensitiveHeaderKeys` to redact headers at DEBUG. See `docs/components/redact.md`.
+Use the extracted `gitlab.com/phpboyscout/go/redact` module for any free-form string written to telemetry, distributed logs, or a third-party observability surface. `redact.String` strips URL userinfo, common credential query parameters, Authorization headers, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack), and very long opaque tokens. `TrackCommandExtended` already applies it automatically to `args` and `errMsg`; HTTP middleware uses `redact.SensitiveHeaderKeys` to redact headers at DEBUG. See `docs/explanation/components/redact.md`.
 
 ### Credential Storage
 
-User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `pkg/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go-tool-base/pkg/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See `pkg/credentials`, `pkg/credentials/keychain`, and `docs/development/specs/2026-04-02-credential-storage-hardening.md`.
+Credential storage is the extracted `gitlab.com/phpboyscout/go/credentials` module (with the opt-in `go/credentials/keychain` backend). User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `go/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See the `go/credentials` and `go/credentials/keychain` modules, and `docs/development/specs/2026-04-02-credential-storage-hardening.md`.
 
 ## Linting
 
