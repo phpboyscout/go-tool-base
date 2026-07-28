@@ -1,0 +1,87 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  // GTB is both a library and the generator that scaffolds downstream tools.
+  // The base policy (automerge posture, OSV alerts, first-party cicd-pin
+  // automerge, gomod grouping, library range strategy) comes from the shared
+  // phpboyscout/cicd presets below.
+  extends: [
+    'gitlab>phpboyscout/cicd:go',
+    'gitlab>phpboyscout/cicd:library',
+  ],
+  // The pre-commit manager is OFF by default in Renovate, so without this the
+  // hook `rev:` pins in this repo's own .pre-commit-config.yaml AND in the
+  // generator's skeleton template (internal/generator/assets/skeleton/
+  // .pre-commit-config.yaml) never move. Enabling it keeps both current so a
+  // freshly generated project is never born with stale golangci-lint /
+  // pre-commit-hooks pins.
+  'pre-commit': {
+    enabled: true,
+  },
+  // The generator bakes version pins into places no built-in manager reads —
+  // Go source constants and Go-templated CI files under internal/generator/.
+  // Without these customManagers those pins freeze (the cicd pin sat at
+  // v0.10.5 while the framework itself ran v0.33.0), so every scaffold is born
+  // stale until its own Renovate first runs. These trackers keep the template
+  // pins current the same way the fleet keeps live projects current.
+  //
+  // NOTE: Renovate REPLACES the customManagers array from an extended preset
+  // rather than concatenating it, so the first entry re-declares the base
+  // preset's .gitlab-ci.yml component tracker (from gitlab>phpboyscout/cicd
+  // default.json) that this repo's OWN pipeline relies on. Keep it in sync
+  // with the preset if that ever changes.
+  customManagers: [
+    {
+      customType: 'regex',
+      description: "Bump pinned phpboyscout/cicd component versions in this repo's own .gitlab-ci.yml (mirrored from the gitlab>phpboyscout/cicd base preset, which this file's customManagers array would otherwise override).",
+      managerFilePatterns: [
+        '/\\.gitlab-ci\\.ya?ml$/',
+      ],
+      matchStrings: [
+        'component:\\s*gitlab\\.com/phpboyscout/cicd/[\\w-]+@(?<currentValue>v[\\d.]+)',
+      ],
+      datasourceTemplate: 'gitlab-tags',
+      depNameTemplate: 'phpboyscout/cicd',
+      registryUrlTemplate: 'https://gitlab.com',
+      extractVersionTemplate: '^(?<version>v[\\d.]+)$',
+    },
+    {
+      customType: 'regex',
+      description: 'Track the phpboyscout/cicd component version the project generator bakes into every scaffolded .gitlab-ci.yml (CICDComponentVersion constant).',
+      managerFilePatterns: [
+        '/^internal/generator/generator\\.go$/',
+      ],
+      matchStrings: [
+        'CICDComponentVersion\\s*=\\s*"(?<currentValue>v[\\d.]+)"',
+      ],
+      datasourceTemplate: 'gitlab-tags',
+      depNameTemplate: 'phpboyscout/cicd',
+      registryUrlTemplate: 'https://gitlab.com',
+      extractVersionTemplate: '^(?<version>v[\\d.]+)$',
+    },
+    {
+      customType: 'regex',
+      description: 'Track the apricote/releaser-pleaser component/action version the generator bakes into scaffolded pipelines (ReleaserPleaserComponentVersion constant). Same tag drives the GitLab component and the GitHub Action.',
+      managerFilePatterns: [
+        '/^internal/generator/generator\\.go$/',
+      ],
+      matchStrings: [
+        'ReleaserPleaserComponentVersion\\s*=\\s*"(?<currentValue>v[\\d.]+)"',
+      ],
+      datasourceTemplate: 'github-releases',
+      depNameTemplate: 'apricote/releaser-pleaser',
+      extractVersionTemplate: '^(?<version>v[\\d.]+)$',
+    },
+    {
+      customType: 'regex',
+      description: 'Track the Python version pinned in the generator GitHub-workflow skeleton (setup-python input; a plain value the github-actions manager does not follow, unlike the uses: pins it already bumps).',
+      managerFilePatterns: [
+        '/^internal/generator/assets/skeleton-github/\\.github/workflows/.*\\.ya?ml$/',
+      ],
+      matchStrings: [
+        'python-version:\\s*["\']?(?<currentValue>\\d+\\.\\d+\\.\\d+)',
+      ],
+      datasourceTemplate: 'docker',
+      depNameTemplate: 'python',
+    },
+  ],
+}

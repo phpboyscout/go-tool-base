@@ -40,13 +40,16 @@ const (
 
 	// CICDComponentVersion is the phpboyscout/cicd component version the
 	// scaffold pins (go-lint, go-test, go-security, goreleaser,
-	// zensical-pages, renovate-self). Mirror the framework's own pin.
-	CICDComponentVersion = "v0.10.5"
+	// zensical-pages, renovate-self). Mirrors the framework's own pin; kept
+	// current automatically by the Renovate customManager in renovate.json5
+	// (do not hand-bump — let Renovate propose it).
+	CICDComponentVersion = "v0.33.0"
 
 	// ReleaserPleaserComponentVersion is the apricote/releaser-pleaser/run
 	// component version the scaffold pins. The component does not support
-	// floating tags, so this is always a full version (O7).
-	ReleaserPleaserComponentVersion = "v0.8.0"
+	// floating tags, so this is always a full version (O7). Kept current by
+	// the Renovate customManager in renovate.json5.
+	ReleaserPleaserComponentVersion = "v0.9.0"
 )
 
 type Config struct {
