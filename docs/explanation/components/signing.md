@@ -19,6 +19,10 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
     The `gtb` CLI behaviour is unchanged — only the Go import paths moved.
 
+    The `sign` / `keys` **commands** that drive this registry now live in the
+    shareable [`go/signing-cli`](https://signing-cli.go.phpboyscout.uk) module,
+    which go-tool-base and the standalone `sigillum` CLI both attach.
+
 ## What it does
 
 A tiny registry. Each backend (AWS KMS, local PEM file, GCP KMS,

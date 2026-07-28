@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
+	signingcli "gitlab.com/phpboyscout/go/signing-cli"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -19,10 +20,8 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/enable"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
 	ignorecmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd/ignore"
-	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
-	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/sign"
 	tmplcmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd/template"
 	"gitlab.com/phpboyscout/go-tool-base/internal/trustkeys"
 
@@ -114,8 +113,8 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		generate.NewCmdGenerate(p),
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
-		keys.NewCmdKeys(p),
-		sign.NewCmdSign(p),
+		setup.Wrap("", signingcli.NewCmdKeys(p.GetLogger())),
+		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),
 		tmplcmd.NewCmdTemplate(p),

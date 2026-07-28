@@ -1,5 +1,5 @@
 // Command gtb-no-aws-smoke is a compile-time fixture that proves
-// internal/cmd/keys and internal/cmd/root do not pull the AWS SDK
+// go/signing-cli and internal/cmd/root do not pull the AWS SDK
 // into the linked binary transitively.
 //
 // It is the same gtb binary minus the kms signing backend. A

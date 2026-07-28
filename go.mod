@@ -254,6 +254,7 @@ require (
 	gitlab.com/phpboyscout/go/aferobilly v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.1 // indirect
+	gitlab.com/phpboyscout/go/signing-cli v0.1.0
 	gitlab.com/phpboyscout/go/yamldoc v0.1.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect

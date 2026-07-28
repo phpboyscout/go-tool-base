@@ -13,7 +13,7 @@ package main
 //
 // The companion cmd/gtb-no-aws-smoke binary deliberately omits the
 // kms import to prove that the AWS SDK is not pulled in transitively
-// by anything inside internal/cmd/keys or internal/cmd/root.
+// by anything inside go/signing-cli or internal/cmd/root.
 import (
 	_ "gitlab.com/phpboyscout/go/signing-aws-kms"
 	_ "gitlab.com/phpboyscout/go/signing/local"
