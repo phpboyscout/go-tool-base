@@ -2,7 +2,7 @@
 title: "Ecosystem fleet maintenance: CI pin coherence, version-coupling mechanism, fan-out discipline, and docs alignment"
 description: "Batches the MEDIUM and LOW ecosystem findings from the 2026-07-23 architectural review into one standing fleet-maintenance workstream: drive the 16-repo cicd v0.22.0 cohort to a single fleet-managed component pin, mechanise core↔provider version coupling (lockstep provider require-bumps, a possible CoreAPIVersion registration assert), make the 12–23-release low-layer fan-out cost conscious via additive-only discipline and scripted waves, and run one docs pass fixing GTB's AGENTS.md (eight extracted packages still documented as local) plus stale module doc comments. Housekeeping: GTB's chat/chat-openai/controls pins, the undocumented stdlib-errors tier, yamldoc's go directive, and config-vault's missing first release."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - ecosystem
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — 2026-07-28 (see § 5 Outcomes)
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md)
@@ -203,3 +203,92 @@ workstream, not a single MR.
   repo with synchronised tagging is **the re-pin spec's Q1** — its answer
   determines whether 2.3's wave scripting is a stopgap or the permanent
   mechanism. Decide it there; this spec inherits.
+
+## 5. Outcomes (implementation, 2026-07-28)
+
+Implementation was **verify-then-act**: each finding was re-checked against the
+live fleet before any change, because Renovate's active nightly sweep had
+closed several items between the review (2026-07-23) and implementation
+(2026-07-28). Verification used direct `glab api` reads of each repo's
+`main` (never local checkouts, several of which were stale, and never
+notification content).
+
+### 5.1 Already resolved by Renovate's fleet sweep (no action taken)
+
+- **2.1 CI/CD component pins — RESOLVED.** Every repo's `.gitlab-ci.yml` on
+  `main` is now uniformly pinned to **cicd `v0.22.0` → `v0.33.0`** (verified
+  across all 57 `go/*` repos plus GTB). The v0.22.0 cohort no longer exists;
+  the fleet is coherent. The `renovate-self` component and the shared preset
+  (see Q1) drove the bump fleet-wide, satisfying the acceptance criterion
+  ("a shared preset demonstrably proposes the next bump fleet-wide") without
+  manual intervention.
+- **2.5.1 GTB stale module pins — RESOLVED.** GTB `go.mod` on `main` now
+  requires `chat v0.1.2`, `chat-openai v0.1.4`, and `controls v0.1.3` (all
+  ahead of the review's v0.1.0 floors).
+- **2.5.3 yamldoc go directive — RESOLVED.** yamldoc `main` declares
+  `go 1.26.5`, matching the fleet.
+- **2.5.4 config-vault release — RESOLVED.** config-vault now has remote tags
+  `v0.1.0` and `v0.2.0`; consumers can use it.
+
+### 5.2 Newly fixed in this workstream
+
+- **2.4 AGENTS.md (primary deliverable) — DONE.** Rewrote every stale
+  extracted/deleted-package reference to point at the `gitlab.com/phpboyscout/go/*`
+  modules and current GTB reality: Service Lifecycle (`controls`/`transport`/
+  `httpclient`/`grpcclient`; `pkg/http` & `pkg/grpc` clarified as surviving
+  config adapters only), Error Handling (`go/errorhandling`), Version Control
+  (`go/forge` + provider modules + `go/repo`; `pkg/vcs` is now a config
+  adapter), TUI Components (`pkg/forms` **removed** pending huh v2; `output`
+  extracted to `go/output`; `pkg/docs` retained), URL Opening (`go/browser`),
+  Regex (`go/regexutil`), Redaction (`go/redact`), and Credential Storage
+  (`go/credentials` + `go/credentials/keychain`, corrected blank-import path).
+  Also corrected two stale doc paths (`docs/components/` → `docs/explanation/
+  components/`).
+- **2.4 module doc comments — DONE (chat).** Fixed `chat/config.go`,
+  `chat/client.go`, and `chat/credentials.go` doc comments that cited GTB
+  packages **deleted** by extraction (`pkg/credentials`, `pkg/credentials/
+  keychain`) or misattributed the hardened transport to `pkg/http`. `httpclient`
+  and `transport` were re-audited and found **accurate**: their `go-tool-base`
+  references are correct (extracted-from provenance, depfootprint guards, and
+  the `*FromContainable` settings adapters that genuinely still live in GTB's
+  surviving `pkg/http`/`pkg/grpc` config-adapter packages) — no change made.
+- **2.5.2 errors-tier documentation — DONE.** The module-extraction playbook's
+  "Conventions carried from GTB" now records the deliberate stdlib-errors tier
+  (config family + `aferobilly`/`redact`/`yamldoc`) as an intentional exemption
+  from the `cockroachdb/errors` rule.
+
+### 5.3 Open-question resolutions
+
+- **Q1 — shared Renovate preset: RESOLVED (already in place).** The 2.1 audit
+  fetched `renovate.json` from every repo on `main`: **all 57 `go/*` repos and
+  GTB carry a byte-identical config** (`extends: ["gitlab>phpboyscout/cicd:go",
+  "gitlab>phpboyscout/cicd:library"]`) — **zero per-repo divergence**. The
+  "single shared preset the whole fleet extends" that 2.1 recommends already
+  exists: the per-repo file is a 6-line stub delegating to the hosted
+  `phpboyscout/cicd` presets, which own the `go/*` group rules, the component-pin
+  datasource, and the dev-tools image trackers. **Decision:** keep the current
+  thin-stub-extends-shared-preset model; no consolidation or per-repo cleanup is
+  needed. The fleet-wide v0.22→v0.33 bump is the working proof.
+- **Q2 — CoreAPIVersion: NOT adopted.** Per direction, the scripted lockstep
+  provider require-bump (pure process, on the core's release checklist) is the
+  chosen mechanism. A runtime `CoreAPIVersion` constant/registration assert is
+  **not** added now: it fires only at runtime after MVS has already produced the
+  skewed build, adds a lockstep-maintained constant to every core, and Go
+  modules' floor-only semantics cannot express the upper bound it would guard.
+  The process-based require-bump is sufficient for the current fleet.
+- **Q3 — multi-module consolidation: keep 19 separate repos.** Decided (inherits
+  from the re-pin spec's Q1): the config adapters stay as separate repos for
+  SDK-dependency isolation — each cloud adapter's heavy provider SDK stays out of
+  every other consumer's build graph. The **config canary** is the permanent
+  coherence mechanism; 2.3's wave scripting complements it rather than being a
+  stopgap for consolidation.
+
+### 5.4 Deferred / noted
+
+- GTB's own `pkg/chat/config_adapter.go` carries an analogous stale comment
+  ("`pkg/credentials and pkg/http`"); left for a routine GTB source-comment
+  sweep as it is outside this docs-alignment pass's named surface.
+- **2.2 lockstep script** and **2.3 wave-release script** remain as process
+  artefacts to be authored on the next real core/low-layer release wave; the
+  coupling currently holds and no core release is pending, so no script was
+  exercised in this pass.
