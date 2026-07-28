@@ -50,6 +50,17 @@ func TestServerSettingsFromConfig_ReadsValues(t *testing.T) {
 	assert.True(t, got.Reflection)
 }
 
+func TestServerSettingsFromConfig_HostRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  grpc:\n    port: 19081\n    host: 127.0.0.1\n")
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, "127.0.0.1", got.Host, "the server.grpc.host bind-address key must round-trip")
+	assert.Equal(t, 19081, got.Port)
+}
+
 func TestServerSettingsFromConfig_FallsBackToSharedPort(t *testing.T) {
 	t.Parallel()
 

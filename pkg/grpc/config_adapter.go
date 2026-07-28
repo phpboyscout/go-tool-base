@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -126,6 +128,10 @@ func mergeServerSettings(defaults, overlay transportgrpc.ServerSettings) transpo
 		defaults.Port = overlay.Port
 	}
 
+	if overlay.Host != "" {
+		defaults.Host = overlay.Host
+	}
+
 	defaults.Reflection = overlay.Reflection
 
 	return defaults
@@ -142,6 +148,8 @@ func serverSettingsFromFlatKeys(cfg config.Reader, prefix string, includePort, i
 		settings.Reflection = cfg.GetBool(prefix + ".reflection")
 	}
 
+	settings.Host = cfg.GetString(prefix + ".host")
+
 	if includePort && settings.Port == 0 {
 		settings.Port = cfg.GetInt(ConfigKeySharedPort)
 	}
@@ -156,6 +164,17 @@ func portOverride(settings transportgrpc.ServerSettings, sc serverConfig) transp
 	}
 
 	return settings
+}
+
+// unknownOptionTypes formats the concrete types of unrecognised option values
+// for a warning message.
+func unknownOptionTypes(unknown []any) string {
+	types := make([]string, 0, len(unknown))
+	for _, u := range unknown {
+		types = append(types, fmt.Sprintf("%T", u))
+	}
+
+	return strings.Join(types, ", ")
 }
 
 // NewServerFromReader returns a new preconfigured grpc.Server from config.
@@ -187,10 +206,20 @@ func NewServerFromReader(cfg config.Reader, opts ...any) (*grpc.Server, error) {
 func StartFromReader(cfg config.Reader, log logger.Logger, srv *grpc.Server, opts ...any) controls.StartFunc {
 	var sc serverConfig
 
+	var unknown []any
+
 	for _, o := range opts {
 		if v, ok := o.(ServerOption); ok {
 			v(&sc)
+		} else {
+			unknown = append(unknown, o)
 		}
+	}
+
+	if len(unknown) > 0 {
+		// StartFromReader has no error return, so an unsupported option must at
+		// least surface as a WARN naming the type rather than vanishing.
+		log.Warn("grpc: ignoring unsupported server option type(s)", "types", unknownOptionTypes(unknown))
 	}
 
 	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, false), sc)
