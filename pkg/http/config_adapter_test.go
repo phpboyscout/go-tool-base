@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	stdhttp "net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -43,6 +44,17 @@ func TestServerSettingsFromConfig_NilConfig(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, transporthttp.ServerSettings{}, ServerSettingsFromConfig(nil, ""))
+}
+
+func TestServerSettingsFromConfig_HostRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n    host: 127.0.0.1\n")
+
+	got := ServerSettingsFromConfig(cfg, "")
+
+	assert.Equal(t, "127.0.0.1", got.Host, "the server.http.host bind-address key must round-trip")
+	assert.Equal(t, 18081, got.Port)
 }
 
 // TestServerSettingsFromConfig_MalformedSectionFallsBackToFlatKeys pins the
@@ -179,15 +191,15 @@ func TestNewServerFromReader_WithPortBypassesConfig(t *testing.T) {
 	assert.Equal(t, ":18099", srv.Addr, "explicit WithPort must win over the configured port")
 }
 
-func TestNewServerFromReader_InvalidPortFallsBackToEmptySettings(t *testing.T) {
+func TestNewServerFromReader_InvalidPortIsHardError(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
 
 	for _, port := range []int{-1, 70000} {
 		srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux(), WithPort(port))
-		require.NoError(t, err)
-		assert.Equalf(t, ":0", srv.Addr, "an out-of-range WithPort(%d) must short-circuit to empty settings", port)
+		require.Errorf(t, err, "an out-of-range WithPort(%d) must fail construction, not bind an ephemeral port", port)
+		assert.Nilf(t, srv, "no server must be returned for out-of-range WithPort(%d)", port)
 	}
 }
 
@@ -205,7 +217,7 @@ func TestNewServerFromReader_ForwardsTransportServerOption(t *testing.T) {
 	assert.Equal(t, 7*time.Second, srv.ReadTimeout, "a transport ServerOption must be forwarded to the constructor")
 }
 
-func TestRegisterFromReader_InvalidPortFallsBackToEmptySettings(t *testing.T) {
+func TestRegisterFromReader_InvalidPortIsHardError(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
@@ -215,8 +227,54 @@ func TestRegisterFromReader_InvalidPortFallsBackToEmptySettings(t *testing.T) {
 		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
 		WithPort(70000),
 	)
+	require.Error(t, err, "an out-of-range WithPort must fail Register, not bind an ephemeral port")
+	assert.Nil(t, srv, "no server must be registered for an out-of-range WithPort")
+}
+
+func TestNewServerFromReader_RejectsUnknownOptionType(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+
+	// A value that is neither a GTB ServerOption nor a transport ServerOption
+	// (here a bare string standing in for e.g. a mis-targeted interceptor chain)
+	// must be rejected, not silently discarded.
+	srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux(), "not-an-option")
+	require.Error(t, err, "an unsupported option type must fail construction, not be silently dropped")
+	assert.Contains(t, err.Error(), "string", "the error must name the rejected concrete type")
+	assert.Nil(t, srv)
+}
+
+func TestStartFromReader_WarnsOnUnknownOptionType(t *testing.T) {
+	t.Parallel()
+
+	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
+	buf := logger.NewBuffer()
+
+	srv, err := NewServerFromReader(context.Background(), cfg, stdhttp.NewServeMux())
 	require.NoError(t, err)
-	assert.Equal(t, ":0", srv.Addr, "an out-of-range WithPort must short-circuit Register to empty settings")
+
+	// StartFromReader has no error return, so an unsupported option must at least
+	// surface as a WARN naming the offending type rather than vanishing.
+	_ = StartFromReader(cfg, buf, srv, 42)
+	assert.True(t, buf.Contains("unsupported server option"),
+		"StartFromReader must WARN about an unsupported option type; got %v", buf.Messages())
+	assert.Truef(t, hasKeyvalContaining(buf.Entries(), "int"),
+		"the WARN must name the rejected concrete type; got %v", buf.Entries())
+}
+
+// hasKeyvalContaining reports whether any captured entry has a keyval string
+// value containing sub.
+func hasKeyvalContaining(entries []logger.Entry, sub string) bool {
+	for _, e := range entries {
+		for _, kv := range e.Keyvals {
+			if s, ok := kv.(string); ok && strings.Contains(s, sub) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func TestRegisterFromReader_ForwardsTransportOption(t *testing.T) {
