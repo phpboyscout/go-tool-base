@@ -197,8 +197,17 @@ func (c *Collector) deleteSpillFiles() error {
 	return nil
 }
 
-// pruneSpillFiles removes the oldest spill files when the count exceeds maxSpillFiles.
-// Must be called with c.mu held.
+// pruneSpillFiles removes the oldest spill files when the count reaches
+// maxSpillFiles, bounding on-disk usage. This is the cap that bounds the
+// DeliveryAtLeastOnce guarantee: the discarded files were never sent, so each
+// prune is a bounded, deliberate breach of at-least-once delivery and is logged
+// at WARN so operators can see events being dropped (typically a long-offline
+// machine whose backend is unreachable).
+//
+// The prune frees room for exactly one incoming file. A single spill may write
+// several chunk files, so a multi-chunk spill can re-breach the cap it just
+// pruned for; the cap self-corrects on the next spill cycle. Must be called
+// with c.mu held.
 func (c *Collector) pruneSpillFiles() {
 	if c.dataDir == "" {
 		return
@@ -211,7 +220,14 @@ func (c *Collector) pruneSpillFiles() {
 
 	sort.Strings(files)
 
-	for _, f := range files[:len(files)-maxSpillFiles+1] {
+	doomed := files[:len(files)-maxSpillFiles+1]
+
+	c.log.Warn("telemetry spill cap reached; discarding oldest un-sent spill files",
+		"discarded", len(doomed),
+		"cap", maxSpillFiles,
+		"delivery", string(c.deliveryMode))
+
+	for _, f := range doomed {
 		c.removeSpillFile(f)
 	}
 }

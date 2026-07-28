@@ -3,14 +3,53 @@ package telemetry
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetrytypes"
 )
+
+// capturingHandler records every slog record it is given, for asserting on
+// emitted log lines in tests.
+type capturingHandler struct {
+	mu      sync.Mutex
+	records []slog.Record
+}
+
+func (h *capturingHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *capturingHandler) Handle(_ context.Context, r slog.Record) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.records = append(h.records, r.Clone())
+
+	return nil
+}
+
+func (h *capturingHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *capturingHandler) WithGroup(string) slog.Handler      { return h }
+
+// warnRecords returns the WARN-level records captured so far.
+func (h *capturingHandler) warnRecords() []slog.Record {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	var out []slog.Record
+
+	for _, r := range h.records {
+		if r.Level == slog.LevelWarn {
+			out = append(out, r)
+		}
+	}
+
+	return out
+}
 
 func TestCollector_SpillOnCap(t *testing.T) {
 	t.Parallel()
@@ -110,6 +149,64 @@ func TestCollector_SpillPrune(t *testing.T) {
 	// Should have pruned down to maxSpillFiles (the prune + the new one)
 	if len(files) > maxSpillFiles+1 {
 		t.Errorf("expected at most %d spill files after prune, got %d", maxSpillFiles+1, len(files))
+	}
+}
+
+// The prune discards spill files that were never sent, so under
+// DeliveryAtLeastOnce it is a bounded breach of the guarantee. It must be
+// operator-visible: each prune logs at WARN with the number of files discarded.
+func TestCollector_SpillPruneWarns(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	// Accumulate exactly maxSpillFiles spill files so the next spill prunes.
+	for i := range maxSpillFiles {
+		name := filepath.Join(dir, "telemetry-spill-"+string(rune('a'+i))+".json")
+		if err := os.WriteFile(name, []byte("[]"), 0o600); err != nil {
+			t.Fatalf("seed spill file: %v", err)
+		}
+	}
+
+	handler := &capturingHandler{}
+	spy := &spyBackend{}
+	c := NewCollector(Config{Enabled: true}, spy, "tool", "1.0.0", nil, slog.New(handler), dir, props.DeliveryAtLeastOnce, false)
+	c.maxBuffer = 1
+
+	// Triggers a spill, which prunes the oldest file.
+	c.Track(props.EventCommandInvocation, "trigger", nil)
+
+	warns := handler.warnRecords()
+	if len(warns) == 0 {
+		t.Fatalf("expected a WARN log recording the spill prune, got none")
+	}
+
+	var (
+		found     bool
+		discarded int64
+	)
+
+	for _, r := range warns {
+		r.Attrs(func(a slog.Attr) bool {
+			if a.Key == "discarded" {
+				found = true
+				discarded = a.Value.Int64()
+			}
+
+			return true
+		})
+
+		if found {
+			break
+		}
+	}
+
+	if !found {
+		t.Fatalf("prune WARN log must record the number of discarded files")
+	}
+
+	if discarded < 1 {
+		t.Errorf("expected at least 1 discarded file recorded, got %d", discarded)
 	}
 }
 

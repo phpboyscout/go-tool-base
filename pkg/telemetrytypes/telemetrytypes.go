@@ -35,8 +35,15 @@ const (
 type DeliveryMode string
 
 const (
-	// DeliveryAtLeastOnce deletes spill files only after a successful send.
-	// Possible duplicates if the acknowledgement is lost; no data loss.
+	// DeliveryAtLeastOnce deletes spill files only after a successful send, so
+	// events survive restarts and transient backend outages. Possible
+	// duplicates if the acknowledgement is lost.
+	//
+	// The guarantee is bounded by the on-disk spill cap: when accumulated spill
+	// files reach the collector's maxSpillFiles limit (a long-offline machine
+	// whose backend is unreachable), the oldest un-sent files are discarded to
+	// keep disk usage bounded. Each such prune is logged at WARN. Within the cap
+	// there is no data loss; beyond it, the oldest events are dropped.
 	DeliveryAtLeastOnce DeliveryMode = "at_least_once"
 	// DeliveryAtMostOnce deletes spill files before sending.
 	// Possible data loss; no duplicates.
