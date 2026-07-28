@@ -1216,6 +1216,15 @@ func getFrontmatter(fs afero.Fs, docPath string) map[string]any {
 	return nil
 }
 
+// Delimiters for the generated command table inside a commands index. Prose
+// outside these markers survives regeneration; the table between them is
+// rewritten in place. See docs/how-to/configure-generator-ignore.md and issue #6.
+const (
+	commandsIndexHeader      = "# Commands"
+	commandsIndexMarkerStart = "<!-- gtb:commands:start -->"
+	commandsIndexMarkerEnd   = "<!-- gtb:commands:end -->"
+)
+
 func (g *Generator) generateCommandsIndex() error {
 	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))
 	if err != nil {
@@ -1231,22 +1240,108 @@ func (g *Generator) generateCommandsIndex() error {
 		indexPath = filepath.Join(g.config.Path, "docs", "reference", "cli", "index.md")
 	}
 
+	relPath, err := filepath.Rel(g.config.Path, indexPath)
+	if err != nil {
+		relPath = indexPath
+	}
+
+	relPath = filepath.ToSlash(relPath)
+
+	// A downstream can protect a hand-maintained index with .gtb/ignore, exactly
+	// like a skeleton file — honour it and leave the file entirely untouched
+	// (issue #6: the index writer must consult the same ignore rules).
+	if LoadIgnoreRules(g.props.FS, g.config.Path).IsIgnored(relPath) {
+		g.props.Logger.Debug("commands index ignored by .gtb/ignore; leaving as-is", "path", relPath)
+
+		return nil
+	}
+
+	next, write := g.mergeCommandsIndex(indexPath, relPath, g.buildCommandsIndexTable(m.Commands, diataxis))
+	if !write {
+		return nil
+	}
+
 	g.props.Logger.Info("updating commands index", "path", indexPath)
 
 	if err := g.props.FS.MkdirAll(filepath.Dir(indexPath), DefaultDirMode); err != nil {
 		return errors.Wrap(err, "failed to create commands index dir")
 	}
 
-	if err := afero.WriteFile(g.props.FS, indexPath, []byte(g.buildCommandsIndexContent(m.Commands, diataxis)), DefaultFileMode); err != nil {
+	if err := afero.WriteFile(g.props.FS, indexPath, []byte(next), DefaultFileMode); err != nil {
 		return errors.Wrap(err, "failed to write commands index")
 	}
 
 	return nil
 }
 
+// mergeCommandsIndex computes the content to write for the commands index. It
+// splices the freshly generated command table into the region delimited by the
+// gtb:commands markers so any surrounding hand-added prose survives. It returns
+// (content, true) when a write should happen, or ("", false) when the on-disk
+// file has diverged from its generated form and must be preserved untouched —
+// so `generate command` never silently discards manual content (issue #6).
+func (g *Generator) mergeCommandsIndex(indexPath, relPath, table string) (string, bool) {
+	existing, err := afero.ReadFile(g.props.FS, indexPath)
+	if err != nil {
+		// No existing file — write a fresh, marker-delimited index.
+		return freshCommandsIndex(table), true
+	}
+
+	content := string(existing)
+
+	start := strings.Index(content, commandsIndexMarkerStart)
+
+	end := strings.Index(content, commandsIndexMarkerEnd)
+	if start != -1 && end != -1 && end > start {
+		block := commandsIndexMarkerStart + "\n" + table + commandsIndexMarkerEnd
+
+		return content[:start] + block + content[end+len(commandsIndexMarkerEnd):], true
+	}
+
+	// No markers. Migrate an untouched, purely-generated legacy index to the
+	// marker-delimited form so it keeps updating; preserve a hand-authored one.
+	if isGeneratedCommandsIndex(content) {
+		return freshCommandsIndex(table), true
+	}
+
+	g.props.Logger.Warn(
+		"commands index has diverged from its generated form; preserving it "+
+			"(wrap the command table in the gtb:commands markers, or list it in .gtb/ignore, to manage it)",
+		"path", relPath)
+
+	return "", false
+}
+
+// isGeneratedCommandsIndex reports whether content looks like an untouched,
+// gtb-generated commands index — only the "# Commands" heading and Markdown
+// table lines, with no hand-added prose. Used to safely migrate a pre-markers
+// generated index to the marker-delimited form without clobbering user content.
+func isGeneratedCommandsIndex(content string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		switch trimmed := strings.TrimSpace(line); {
+		case trimmed == "",
+			trimmed == commandsIndexHeader,
+			strings.HasPrefix(trimmed, "|"):
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+// freshCommandsIndex renders a complete commands index from scratch: the heading
+// followed by the marker-delimited command table.
+func freshCommandsIndex(table string) string {
+	return commandsIndexHeader + "\n\n" + commandsIndexMarkerStart + "\n" + table + commandsIndexMarkerEnd + "\n"
+}
+
 func (g *Generator) buildCommandsIndexContent(commands []ManifestCommand, diataxis bool) string {
+	return freshCommandsIndex(g.buildCommandsIndexTable(commands, diataxis))
+}
+
+func (g *Generator) buildCommandsIndexTable(commands []ManifestCommand, diataxis bool) string {
 	var content strings.Builder
-	content.WriteString("# Commands\n\n")
 	content.WriteString("| Command | Description |\n")
 	content.WriteString("| :--- | :--- |\n")
 

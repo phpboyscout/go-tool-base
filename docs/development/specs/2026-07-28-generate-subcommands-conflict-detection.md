@@ -2,13 +2,13 @@
 title: "Conflict detection for the generate subcommands and non-interactive conflict resolution"
 description: "Independent diagnosis of issue #6. On current main the reported silent revert of .pre-commit-config.yaml, .gitlab-ci.yml and the how-to/concepts index pages by `generate command`/`add-flag` no longer reproduces — those files are skeleton-owned and the generate subcommands never re-render the skeleton. Two real defects remain: the manifest-derived CLI index (docs/reference/cli/index.md) is rewritten unconditionally with no hash-conflict check and no .gtb/ignore consultation, and the generator conflict prompt has no utils.IsInteractive() guard, so a conflict in a headless/CI run emits per-file huh 'open /dev/tty' noise (or would block on a machine with a TTY)."
 date: 2026-07-28
-status: DRAFT
 tags:
   - specification
   - generator
   - cli
   - docs
   - tui
+status: IMPLEMENTED
 author:
   - name: Matt Cockayne
     email: matt@phpboyscout.uk
@@ -25,7 +25,7 @@ Date
 :   2026-07-28
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 Related
 :   [issue #6](https://gitlab.com/phpboyscout/go-tool-base/-/issues/6) — the original report;
@@ -334,3 +334,89 @@ coexist with a live table.
    retroactively**, i.e. is §4.1 applied to the shared `promptOverwrite` (used by
    both `verifyHash` and `checkSkeletonConflict`) so `regenerate` benefits too?
    Recommendation: yes — fix at the shared choke point.
+
+## 7. Implementation (IMPLEMENTED — 2026-07-28)
+
+The primary report stays **refuted on current main** (§2.1) — the §3 GREEN guard
+`TestIssue6_DocPostProcessing_PreservesHandEditedIndexPages` is kept as a
+regression lock and no skeleton-render path was reconnected to the generate
+subcommands. The two residuals were fixed.
+
+### 7.1 Residual — CLI index clobber (§2.2)
+
+`generateCommandsIndex` (`internal/generator/docs.go`) no longer ends in an
+unconditional `afero.WriteFile`. It now:
+
+- consults `.gtb/ignore` via `LoadIgnoreRules(...).IsIgnored(relPath)` and returns
+  without touching the file when the index is ignored — the documented workaround
+  now actually protects it (Q4-adjacent);
+- delimits the generated command **table** with stable marker comments
+  `<!-- gtb:commands:start -->` / `<!-- gtb:commands:end -->` and, via the new
+  `mergeCommandsIndex`, rewrites **only** the region between them, so any prose
+  before or after the markers survives (Q2 → marker-merge chosen, not a stored
+  hash; no manifest growth, so **Q3 is moot**);
+- migrates a purely-generated legacy index (no markers, no prose —
+  `isGeneratedCommandsIndex`) to the marker form so it keeps updating, and
+  **preserves** a diverged index (markers removed, hand-written prose present)
+  untouched with a single WARN — never a silent clobber;
+- the scaffolded skeleton index
+  (`internal/generator/assets/skeleton/docs/reference/cli/index.md`) ships with an
+  empty marker pair so a fresh project's first `generate command` splices the
+  table in cleanly rather than triggering the divergence branch.
+
+`buildCommandsIndexContent` was split into `buildCommandsIndexTable` (the table
+only) + `freshCommandsIndex` (heading + wrapped table) so the same table renders
+into both the fresh-file and splice paths.
+
+`generatePackagesIndex` was **left unchanged** — it was not part of the report and
+has a distinct (frontmatter + `# Package Reference`) shape; applying the same
+marker-merge to it is recorded as a follow-up, not done here, to keep the change
+focused.
+
+Red test now GREEN: **`TestIssue6_CommandsIndex_ClobbersHandEditedIndex`**.
+
+### 7.2 Residual — TTY conflict prompt (§2.3)
+
+`promptOverwrite` (`internal/generator/hash.go`) now detects non-interactive up
+front, **before** any `huh` call, via a new `isNonInteractive()` that treats as
+non-interactive: `GTB_NON_INTERACTIVE=true` (compatibility shim retained),
+`CI=true` (Q4 → honoured, matching `pkg/cmd/root.isCIEnvironment`), a non-terminal
+stdin (`utils.IsInteractive`), **or** an unopenable controlling terminal. The last
+signal is the decisive one for headless containers where stdin is a char device
+(e.g. `/dev/null`) yet no controlling terminal is attachable: `controllingTerminalAvailable`
+probes `/dev/tty` (unix, `tty_unix.go`) / `CONIN$` (windows, `tty_windows.go`) —
+exactly the device `huh`/bubbletea drives — and, when it cannot be opened,
+resolves by the safe default (**skip**) with no terminal attempt and no per-file
+`Prompt failed … open /dev/tty` warning. Because `promptOverwrite` is the shared
+choke point for both `verifyHash` and `checkSkeletonConflict`, `regenerate` gets
+the same clean behaviour (**Q5 → yes**). Interactive runs (real TTY) are
+unchanged: the select prompt, including `View diff`, still appears.
+
+Red test now GREEN: **`TestIssue6_ConflictPrompt_NonInteractiveEmitsTTYNoise`**.
+
+### 7.3 Deviation — the `--overwrite=fail` / `--on-conflict` flag (Q1)
+
+**Deferred, not implemented.** The mandated fix (non-interactive-safe default) and
+the two red tests are satisfied without a new policy value. Adding a `fail` value
+is *not* a clean drop-in: a skipped conflict is currently **non-fatal** — the
+skeleton walk (`walkSkeletonAssets`) deliberately logs and continues on the
+`overwrite skipped` error — so a `fail` policy would need new fatal-vs-skip error
+propagation threaded through the walk and both pipelines. That is a larger,
+independently-testable change with its own blast radius, and neither red test nor
+issue #6's core complaint requires it. It is recorded here as a follow-up; the
+existing `--overwrite=allow|deny` plus the safe non-interactive default cover the
+reported need today.
+
+### 7.4 Verification
+
+- `just build` — clean.
+- `go test ./internal/... -race -count=1` — all packages pass.
+- Generator e2e (`INT_TEST_E2E=1 INT_TEST_E2E_GENERATOR=1 go test ./test/e2e/... -count=1`) — pass.
+- `golangci-lint run` — 0 issues.
+- Manual end-to-end (built `bin/gtb`): a scaffolded project's CLI index ships the
+  empty marker pair; hand-added prose both **before and after** the markers
+  survives a `generate command` while the table updates; a marker-stripped index
+  is preserved with a WARN; a `.gtb/ignore` entry for the index skips it entirely.
+- Docs updated: `docs/how-to/configure-generator-ignore.md` (commands-index
+  section) and `docs/development/code-generation-flows.md` (conflict-prompt +
+  conflict-aware index notes).

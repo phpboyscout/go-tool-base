@@ -118,6 +118,39 @@ prints the exact top-level `signs:` block for you to paste, while still
 scaffolding `internal/trustkeys`, wiring the root command, and updating the
 manifest. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
 
+## The Generated Commands Index
+
+The CLI commands index — `docs/reference/cli/index.md` (Diátaxis layout) or
+`docs/commands/index.md` (flat layout) — is regenerated on every `generate
+command` / `generate add-flag` run so the command table stays current. It is
+handled specially so hand-added prose is never silently discarded:
+
+- The generated table is delimited by marker comments:
+
+  ```markdown
+  <!-- gtb:commands:start -->
+  | Command | Description |
+  | :--- | :--- |
+  | [deploy](deploy.md) | Deploy the app |
+  <!-- gtb:commands:end -->
+  ```
+
+  Only the region **between** the markers is rewritten. Any prose you add before
+  or after them is preserved. Scaffolded projects ship the index with an empty
+  marker pair already in place.
+
+- If the on-disk index has **diverged** from its generated form (the markers were
+  removed and hand-written prose is present), the generator leaves it untouched
+  and logs a warning rather than clobbering it. Re-add the markers to resume
+  automatic table updates.
+
+- Listing the index in `.gtb/ignore` also protects it — the generator then skips
+  it entirely, exactly like any other ignored file:
+
+  ```
+  docs/reference/cli/index.md
+  ```
+
 ## Notes
 
 - The `--force` flag does **not** override ignore rules. Ignored files stay ignored regardless.

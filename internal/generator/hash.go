@@ -10,6 +10,8 @@ import (
 	"charm.land/huh/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // mergeHashes returns a new map containing all entries from base, with entries
@@ -82,12 +84,42 @@ func (g *Generator) promptOverwrite(path string, existing, newContent []byte) bo
 		return false
 	}
 
-	// Default: ask — skip prompt in non-interactive environments
-	if os.Getenv("GTB_NON_INTERACTIVE") == "true" {
+	// Default: ask. Never attempt a terminal prompt in a non-interactive context.
+	// A headless/CI run has no controlling TTY, so huh would fail opening
+	// /dev/tty and emit a per-file, stack-flavoured "Prompt failed" warning
+	// (issue #6.2). Detect it up front and resolve by the safe default — skip —
+	// mirroring the pkg/cmd/root pre-run prompt TTY guard.
+	if isNonInteractive() {
 		return false
 	}
 
 	return g.askOverwriteAction(path, existing, newContent)
+}
+
+// isNonInteractive reports whether the generator is running without a usable
+// controlling terminal, so interactive huh prompts must be skipped rather than
+// attempted. It honours the explicit GTB_NON_INTERACTIVE=true opt-out, the
+// CI=true signal the rest of the toolchain treats as non-interactive
+// (pkg/cmd/root.isCIEnvironment), and finally the absence of a TTY on stdin.
+func isNonInteractive() bool {
+	if os.Getenv("GTB_NON_INTERACTIVE") == "true" {
+		return true
+	}
+
+	if os.Getenv("CI") == "true" {
+		return true
+	}
+
+	if !utils.IsInteractive() {
+		return true
+	}
+
+	// stdin looks like a terminal, but huh/bubbletea drives the controlling
+	// terminal (/dev/tty on unix, the console on Windows), not stdin. In some
+	// headless containers a char-device stdin (e.g. /dev/null) coexists with no
+	// attachable controlling terminal, so probe it directly and skip cleanly
+	// rather than letting huh fail with an "open /dev/tty" error (issue #6.2).
+	return !controllingTerminalAvailable()
 }
 
 // askOverwriteAction presents an interactive select to the user and returns
