@@ -2,7 +2,7 @@
 title: "Transport stack follow-ups: bind addresses, option safety, retry semantics, and hardening batch"
 description: "Batches the MEDIUM and LOW findings from the 2026-07-23 architectural review of the transport stack into one grouped remediation spec: server bind-address support, runtime rejection of mistyped ...any options, GTB port-error passthrough, retry idempotency and defaults, hostPinnedAuth explicitness, gRPC rate-limit peer keying, responseLogger Unwrap, breaker enum alignment, gateway connection lifecycle, and localca write/expiry hardening. The three HIGH findings are covered by dedicated sibling specs and are out of scope here."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - transport
@@ -24,7 +24,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — shipped 2026-07-28
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (transport section, MEDIUM/LOW findings),
@@ -226,21 +226,42 @@ a minor `feat`; the metrics-server loopback default and the retry idempotency
 flip are the two deliberate behaviour changes and get changelog + migration
 notes.
 
-## 4. Open questions
+## 4. Resolved decisions
 
-1. **Metrics server loopback default is behaviour-breaking.** Anyone scraping
-   a standalone metrics server over the network today relies on the implicit
-   0.0.0.0 bind; defaulting to `127.0.0.1` breaks them on upgrade. Ship the
-   safe default with a loud changelog/migration note (recommended pre-1.0), or
-   keep `""` and only WARN when pprof is enabled on an all-interfaces bind?
-2. **Retry idempotency opt-out shape.** Is a boolean `RetryAllMethods` enough,
-   or should the escape hatch be a `RetryableMethods []string` /
-   method-predicate for callers with idempotency-keyed POSTs? A predicate is
-   more expressive but grows `RetryConfig`; the review suggested both.
-3. **Option-safety failure mode per surface.** Constructors that return errors
-   should error on unknown option types; surfaces without an error return may
-   only be able to WARN. Is a mixed error/WARN policy acceptable, or should
-   adapter signatures change so errors are possible everywhere?
-4. **hostPinnedAuth compatibility.** Keep the zero-argument first-request-pin
-   behaviour as a deprecated fallback, or require the explicit host (breaking,
-   pre-1.0-acceptable) so the silent misdirection cannot recur?
+The four open questions were resolved by the maintainer as follows and
+implemented accordingly:
+
+1. **Metrics server loopback default (Q1).** The standalone metrics/pprof server
+   now defaults to **loopback (`127.0.0.1`)**, shipped with a prominent
+   changelog/migration note (see
+   [`v0.x-server-bind-address`](../../reference/migration/v0.x-server-bind-address.md)).
+   `Host`/`BindAddress` was added to `ServerSettings` across the stack; the
+   managed HTTP and gRPC servers keep the `""` (all-interfaces) default for
+   compatibility — **only** the standalone metrics server defaults to loopback.
+2. **Retry idempotency opt-out shape (Q2).** Default is idempotent-methods-only
+   (GET/HEAD/OPTIONS/PUT/DELETE, plus any method on a provably before-send
+   failure). **Both** escape hatches ship: a boolean `WithRetryAllMethods` and a
+   `RetryableMethods` list / `ShouldRetry` predicate for idempotency-keyed POST
+   callers. `RoundTrip` now clones the request per attempt (no caller mutation).
+3. **Option-safety failure mode (Q3).** A **mixed error/WARN** policy is
+   accepted: constructors that return an error reject an unknown option type
+   naming it; surfaces without an error return (e.g. `StartFromReader`) log a
+   WARN. Adapter signatures were not churned to force errors everywhere.
+4. **hostPinnedAuth compatibility (Q4).** `WithBearerToken`/`WithBasicAuth`
+   accept an explicit host; the zero-argument first-request pin is retained as a
+   **deprecated fallback** (no hard break), and a request whose host mismatches
+   the pin logs a WARN naming both hosts.
+
+## 5. Shipped module versions
+
+| Module | Version | Items |
+|--------|---------|-------|
+| `go/transit` | `v0.1.3` | 2.2.1, 2.2.2, 2.2.3, 2.3.1, 2.3.2 |
+| `go/transport` | `v0.2.0` | 2.1.1 (bind), 2.1.2 (option-safety), 2.4.2 (gateway conn) |
+| `go/transport-metrics` | `v0.4.0` | 2.1.1 (loopback default), 2.4.1 (breaker enum) |
+| `go/localca` | `v0.1.3` | 2.5.1 (atomic writes), 2.5.2 (leaf clamp) |
+| **GTB glue** | this MR | 2.1.1 `host` config keys, 2.1.2 adapter option-safety, 2.1.3 invalid-port passthrough (transport `v0.2.0`, transit `v0.1.3`) |
+
+The gateway conn-close (2.4.2) is owned end-to-end by `go/transport`'s `Register`
+(closes on the error path and on controller shutdown), so the GTB
+`pkg/gateway` adapter required no change.

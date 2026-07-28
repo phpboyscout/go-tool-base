@@ -35,8 +35,16 @@ The `pkg/grpc` package provides a standard gRPC server implementation that integ
 
 `ServerOption` values select the config block (and port) a gRPC server uses, so you can run more than one gRPC server in a process. They are accepted by `NewServer`, `Start`, `DialLocal` and `Register`:
 
-- **`WithConfigPrefix(prefix string) ServerOption`**: Config prefix for port, reflection and TLS (default `server.grpc`). The keys become `<prefix>.port`, `<prefix>.reflection`, `<prefix>.tls.*`.
+- **`WithConfigPrefix(prefix string) ServerOption`**: Config prefix for port, reflection and TLS (default `server.grpc`). The keys become `<prefix>.port`, `<prefix>.host`, `<prefix>.reflection`, `<prefix>.tls.*`.
 - **`WithPort(port int) ServerOption`**: Explicit listen/dial port, bypassing config lookup (overrides `<prefix>.port` and the `server.port` fallback).
+
+The server also reads a **bind address** from `<prefix>.host` (e.g. `server.grpc.host`),
+defaulting to `""` — **all interfaces**, unchanged from prior releases; set it to
+`127.0.0.1` to restrict a listener to loopback (`transportgrpc.WithHost` /
+`WithBindAddress` at the transport layer). An **unsupported option type** passed to
+`StartFromReader` is logged as a WARN rather than silently dropped; the
+error-returning constructors (`NewServer`/`Register`/`DialLocal`) reject it. See the
+[bind-address migration note](../../reference/migration/v0.x-server-bind-address.md).
 
 ```go
 // A second gRPC server on its own config block (server.internal.*):

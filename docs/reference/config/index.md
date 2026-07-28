@@ -114,13 +114,23 @@ plain CLI.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `server.http.port` | int | — | HTTP listener port. |
+| `server.http.host` | string | `""` (all interfaces) | Bind address (interface) for the HTTP listener. Set to `127.0.0.1` to restrict to loopback. |
 | `server.http.tls.enabled` | bool | `false` | Enable TLS on the HTTP listener. |
 | `server.http.max_header_bytes` | int | — | Max request-header size. |
 | `server.grpc.port` | int | — | gRPC listener port. |
+| `server.grpc.host` | string | `""` (all interfaces) | Bind address (interface) for the gRPC listener. Set to `127.0.0.1` to restrict to loopback. |
 | `server.grpc.reflection` | bool | `false` | Enable gRPC server reflection. |
 | `server.admin.port` | int | — | Admin/management listener port. |
 | `server.admin.reflection` | bool | `false` | Enable reflection on the admin listener. |
 | `server.tls.enabled` | bool | `false` | Enable TLS globally for the server. |
+
+!!! warning "Bind address defaults to all interfaces"
+    `server.http.host` and `server.grpc.host` default to `""`, which binds **all
+    interfaces** (`0.0.0.0` / `[::]`) — unchanged from previous releases. Set the
+    key to `127.0.0.1` for any listener that should not be reachable off-host
+    (management, metrics, or pprof endpoints in particular). The standalone
+    metrics/pprof server shipped by `go/transport-metrics` now defaults to
+    **loopback** — see the [bind-address migration note](../migration/v0.x-server-bind-address.md).
 
 ## Credentials
 

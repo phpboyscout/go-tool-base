@@ -122,6 +122,24 @@ servers or explicit package-level reconfiguration logic.
 - **`WithReadTimeout` / `WithWriteTimeout` / `WithIdleTimeout(d time.Duration) ServerOption`**: Override the built-in `http.Server` timeouts.
 - **`WithServerTLSConfig(c *tls.Config) ServerOption`**: Replaces the default hardened `*tls.Config` on the constructed server (named distinctly from the client-side `WithTLSConfig`).
 
+### Bind address, invalid ports & option safety
+
+The server reads a **bind address** from `<prefix>.host` (e.g. `server.http.host`).
+It defaults to `""` — **all interfaces** (`0.0.0.0` / `[::]`), unchanged from prior
+releases — so set it to `127.0.0.1` to restrict a listener (admin, metrics) to
+loopback. The transport also exposes `transporthttp.WithHost` / `WithBindAddress`.
+See the [bind-address migration note](../../reference/migration/v0.x-server-bind-address.md).
+
+An **out-of-range explicit port** passed via `WithPort` (e.g. `70000`) is now a
+hard error from `NewServerFromReader`/`RegisterFromReader`, not a silent ephemeral
+(`:0`) bind — it is forwarded to the transport's validated port resolution. Pass
+`WithPort(0)` explicitly if you genuinely want an OS-assigned ephemeral port.
+
+An **unsupported option type** (a value that is neither a GTB `ServerOption` nor a
+transport `ServerOption`) is rejected rather than silently dropped:
+`NewServerFromReader` returns an error naming the offending type; `StartFromReader`
+(no error return) logs a WARN.
+
 ### Functions
 
 - **`NewServer(ctx context.Context, settings ServerSettings, handler http.Handler, opts ...ServerOption) (*http.Server, error)`**: Returns a pre-configured `*http.Server` from typed settings.
