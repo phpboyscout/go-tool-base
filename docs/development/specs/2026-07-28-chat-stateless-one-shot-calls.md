@@ -2,7 +2,7 @@
 title: "chat: a stateless one-shot mode so batch work stops paying quadratic history costs"
 description: "ChatClient accumulates conversation history across calls, so a caller doing N independent Ask calls on one client re-sends the whole prefix each time — quadratic input cost and silent cross-call contamination of independent classifications. Adds Config.Stateless, under which history is neither read nor appended across calls while the intra-call ReAct loop keeps the turns it needs; guarantees stateless provider clients are goroutine-safe so a batch caller can use a worker pool; guards the flag with a capability marker so a provider module that predates it fails loudly rather than silently billing; and fixes the Anthropic Ask history asymmetry found while verifying the report."
 date: 2026-07-28
-status: APPROVED
+status: IMPLEMENTED
 tags:
   - specification
   - chat
@@ -25,7 +25,7 @@ Date
 :   2026-07-28
 
 Status
-:   APPROVED (2026-07-28). All seven open questions resolved by the maintainer on 2026-07-28; see §6. Implementation in progress.
+:   IMPLEMENTED (2026-07-28). Shipped in go/chat v0.2.0, chat-anthropic v0.1.3 (D10) and v0.2.0, chat-openai v0.2.0, chat-gemini v0.2.0. All seven open questions were resolved by the maintainer on 2026-07-28; see §6.
 
 Related
 :   [chat/#2](https://gitlab.com/phpboyscout/go/chat/-/work_items/2) (the originating report),
@@ -556,19 +556,30 @@ defect rather than verifying the fix.
 
 ## 7. Implementation record
 
-Branches, all unpushed as of 2026-07-28:
+Shipped 2026-07-28, in this order:
 
-| Repo | Branch | Commits |
-|---|---|---|
-| `go-tool-base` | `spec/chat-stateless-one-shot` | this spec |
-| `go/chat-anthropic` | `feat/stateless-one-shot` | `fix(claude):` D10, then `feat(claude):` D1-D3/D5/D6/D9 |
-| `go/chat` | `feat/stateless-one-shot` | `feat(chat):` D1-D9 + docs |
-| `go/chat-openai` | `feat/stateless-one-shot` | `feat(openai):` D1-D3/D5/D6/D9 |
-| `go/chat-gemini` | `feat/stateless-one-shot` | `feat(gemini):` D1-D3/D5/D6/D9, `test(gemini):` OQ-7 |
+| Release | Carries |
+|---|---|
+| `chat-anthropic` **v0.1.3** | D10 alone, as its own patch (OQ-6) |
+| `go/chat` **v0.2.0** | D1-D9, the docs, and the `v0.2.x` compatibility row |
+| `chat-anthropic` **v0.2.0** | D1-D3, D5, D6, D9 |
+| `chat-openai` **v0.2.0** | D1-D3, D5, D6, D9 (covers `openai-compatible`) |
+| `chat-gemini` **v0.2.0** | D1-D3, D5, D6, D9, and the OQ-7 gated test |
 
-Tests, race detector and lint are green in all four modules.
+The family is back to a matching minor. Tests, race detector and lint are green
+in all four modules, verified against the published `go/chat v0.2.0` rather than
+a local workspace — which is the first check that `StatelessCapable` actually
+resolves from the module proxy.
 
-**Release order.** The provider modules are written against the unreleased core
-and still `require` the current `go/chat`, so their branches do not build
-standalone until it ships. Sequence: `chat-anthropic` D10 patch → `go/chat`
-minor → each provider's `go.mod` bump to that version → provider minors.
+## 8. The measured result
+
+OQ-7's gated test, run against the real Gemini API before the `v0.2.0` tag, over
+six independent documents of equal size:
+
+```
+stateless input tokens per call: [2011 2011 2011 2011 2011 2011]
+```
+
+Flat, with no drift at all. Under the previous behaviour call six would have
+carried the five documents before it. This is the claim §1 rests on, confirmed
+by billing rather than by a fake — the gap §1.6 identifies, closed.
