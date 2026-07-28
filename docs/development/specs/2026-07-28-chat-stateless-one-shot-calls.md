@@ -2,7 +2,7 @@
 title: "chat: a stateless one-shot mode so batch work stops paying quadratic history costs"
 description: "ChatClient accumulates conversation history across calls, so a caller doing N independent Ask calls on one client re-sends the whole prefix each time — quadratic input cost and silent cross-call contamination of independent classifications. Adds Config.Stateless, under which history is neither read nor appended across calls while the intra-call ReAct loop keeps the turns it needs; guarantees stateless provider clients are goroutine-safe so a batch caller can use a worker pool; guards the flag with a capability marker so a provider module that predates it fails loudly rather than silently billing; and fixes the Anthropic Ask history asymmetry found while verifying the report."
 date: 2026-07-28
-status: DRAFT
+status: APPROVED
 tags:
   - specification
   - chat
@@ -25,7 +25,7 @@ Date
 :   2026-07-28
 
 Status
-:   DRAFT — pending review. All five open questions from the first draft were resolved by the maintainer on 2026-07-28; see §6.
+:   APPROVED (2026-07-28). All seven open questions resolved by the maintainer on 2026-07-28; see §6. Implementation in progress.
 
 Related
 :   [chat/#2](https://gitlab.com/phpboyscout/go/chat/-/work_items/2) (the originating report),
@@ -497,25 +497,7 @@ connection setup goes with them.
 
 ## 5. Open questions
 
-**OQ-6 — Does D10 ship ahead of the stateless work, as its own patch?** The
-Anthropic `Ask` asymmetry is an independent defect with an independent fix, and
-it changes default-path behaviour, which nothing else in this spec does.
-Releasing it as a standalone `fix:` patch on `chat-anthropic` before the
-stateless minor would keep the two changes separately bisectable and give the
-behaviour change its own changelog entry and its own blast radius. The argument
-against is that it was found by this spec's investigation and reads oddly
-detached from it. Recommendation: ship it first as its own patch, and have this
-spec reference the released version.
-
-**OQ-7 — Is an env-gated integration test against a real provider worth the
-spend?** Per §1.6 no fake-backed test could have caught the original defect, and
-the criteria in §4 close that gap with request-growth assertions against fakes —
-which is genuinely sufficient. But the one thing a fake cannot confirm is that
-the provider actually bills a stateless run flat, which is the claim the whole
-spec rests on. A gated test over a small real corpus (a handful of documents,
-asserting reported input tokens grow linearly rather than quadratically) would
-confirm it once, for a few pence. Recommendation: add it under the existing
-env-gated integration-test convention, run it once at release, not in CI.
+None. All seven were resolved during review on 2026-07-28; see §6.
 
 ## 6. Resolved
 
@@ -553,3 +535,40 @@ released before the round-trip. The composite is excluded because guarding
 `active`/`readyUpTo` would serialise every call through it; an `RWMutex` fast
 path was considered and rejected as complexity in the replay path for a
 narrow gain.
+
+**2026-07-28 — OQ-6: D10 ships first, as its own patch.** The Anthropic `Ask`
+asymmetry is an independent defect and the one change here that alters
+default-path behaviour, so it lands as a standalone `fix:` on `chat-anthropic`
+ahead of the stateless minor — separately bisectable, with its own changelog
+entry and its own blast radius.
+
+**2026-07-28 — OQ-7: the gated integration test is worth the spend.** Added
+under the module's existing `skipIfNotIntegration` convention as
+`TestStatelessBilling_InputTokensGrowLinearly` in `chat-gemini`, run with
+`INT_TEST_STATELESS=1` and a real key, never in CI. The unit tests assert the
+mechanism (one turn per request); this asserts the consequence (the provider
+bills one turn per request), which is the claim the spec rests on and the one
+thing §1.6 says no fake can establish. The conversational control is gated again
+behind `INT_TEST_STATELESS_CONTROL`, because it spends money reproducing the
+defect rather than verifying the fix.
+
+---
+
+## 7. Implementation record
+
+Branches, all unpushed as of 2026-07-28:
+
+| Repo | Branch | Commits |
+|---|---|---|
+| `go-tool-base` | `spec/chat-stateless-one-shot` | this spec |
+| `go/chat-anthropic` | `feat/stateless-one-shot` | `fix(claude):` D10, then `feat(claude):` D1-D3/D5/D6/D9 |
+| `go/chat` | `feat/stateless-one-shot` | `feat(chat):` D1-D9 + docs |
+| `go/chat-openai` | `feat/stateless-one-shot` | `feat(openai):` D1-D3/D5/D6/D9 |
+| `go/chat-gemini` | `feat/stateless-one-shot` | `feat(gemini):` D1-D3/D5/D6/D9, `test(gemini):` OQ-7 |
+
+Tests, race detector and lint are green in all four modules.
+
+**Release order.** The provider modules are written against the unreleased core
+and still `require` the current `go/chat`, so their branches do not build
+standalone until it ships. Sequence: `chat-anthropic` D10 patch → `go/chat`
+minor → each provider's `go.mod` bump to that version → provider minors.
