@@ -2,7 +2,7 @@
 title: "changelog, yamldoc, workspace: medium/low follow-ups from the architectural review"
 description: "Batches the remaining MEDIUM and LOW findings for three leaf modules from the 2026-07-23 architectural review: yamldoc's unsupported-construct scanner misreading block-scalar content as flow structure (refusing valid documents) and its misleading refusal when editing through an anchored mapping; changelog's same-commit tag collision, silently-disabled WithSinceTag filter, and empty-repo error; and workspace's WithMaxDepth(0) skipping even the start directory. The changelog HIGHs and the yamldoc anchor HIGH are owned by their own specs."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - changelog
@@ -25,7 +25,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (§ controls/workspace/changelog/yamldoc),
@@ -147,13 +147,28 @@ behavioural corrections beneath stable call sites.
   correct YAML semantics but may surprise a user editing "just defaults"? If
   that surprise is deemed unacceptable, refusal-with-honest-error is the
   fallback. Should follow whatever stance the anchor-preservation spec adopts.
+  **RESOLVED — follow the shipped anchor-preservation stance.** yamldoc already
+  unwraps `*ast.AnchorNode` in `asMappingNode`, so an in-place scalar edit
+  through an anchored mapping (`Set("defaults.retries", 5)` on `defaults: &d`)
+  succeeds and preserves `&d`/`*d` byte-for-byte (covered by
+  `TestSet_InPlaceEditThroughAnchor`), while an edit that would orphan an alias
+  is refused with an anchor-specific `ErrUnsupported` message. F2's acceptance
+  is therefore already met; no further code change was needed and no
+  `ErrNotFound` "not a mapping" message can arise.
 - **Q2 — WithMaxDepth(0) semantics.** Treat 0 as "start directory only"
   (behavioural change, more intuitive) or as invalid input rejected at
   construction (preserves the current "n directories checked" reading)? The
   spec leans "start directory only" — matching how most walk APIs define
   depth — but it is a user-visible semantic choice.
+  **RESOLVED — start directory only.** `maxDepth` now counts parent levels to
+  ascend, with the start directory always checked; the loop runs `maxDepth+1`
+  times so `WithMaxDepth(0)` checks the start directory alone without ascending.
+  Documented on `WithMaxDepth`.
 - **Q3 — same-commit tag ordering.** When two tags share a commit (F3), the
   later tag's release section will contain no commits of its own. Emit it as
   an explicitly empty section (faithful), or annotate it (e.g. "no changes —
   re-tag of vX.Y.Z")? Faithful-empty is the default; annotation is a
   formatting-layer nicety.
+  **RESOLVED — faithful empty section.** The lower-semver release claims the
+  commits; the higher tag is emitted as an explicitly empty section (no
+  annotation), so both releases appear newest-first and neither disappears.

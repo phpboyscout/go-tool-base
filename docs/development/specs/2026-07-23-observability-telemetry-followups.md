@@ -2,7 +2,7 @@
 title: "Observability & telemetry follow-ups: endpoint parsing, fallback options, spill-cap contract"
 description: "Batched findings from the architectural review on the OTLP export path and the GTB telemetry spill queue: trailing-slash endpoints produce //v1/<signal> paths that strict collectors 404, Headers/Insecure are silently dropped when the endpoint comes from OTEL_* env vars, and pruneSpillFiles silently violates the documented at-least-once delivery guarantee."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - observability
@@ -23,7 +23,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (cross-cutting leaf modules section)
@@ -73,4 +73,6 @@ The 2026-07-23 architectural review flagged three follow-ups on the telemetry ex
 ## 4. Open questions
 
 1. **Fallback-path options — pass or warn?** Passing `WithHeaders`/`WithInsecure` alongside an env-var endpoint honours stated operator intent but creates a hybrid config (endpoint from env, auth from file) some may find surprising. Recommendation: pass the options — a silently unauthenticated export is strictly worse than a hybrid source split; document the merge behaviour in the module README.
+   **RESOLVED — pass the options.** `WithHeaders(s.Headers)` (when non-empty) and `WithInsecure()` (when set) are passed on the empty-endpoint fallback path across logs, metrics, and tracing; the SDK merges them over the `OTEL_EXPORTER_OTLP_*` env vars. The merge behaviour is documented in the module README and `docs/explanation/endpoint-and-config.md`.
 2. **Prune headroom:** should `pruneSpillFiles` learn the incoming chunk count and free that much room, or is documenting the one-file-per-prune behaviour enough? Recommendation: document only for now — the cap self-corrects on the next spill cycle, and threading the chunk count through adds coupling for a corner case; revisit if WARN logs show repeated same-cycle re-breaches in practice.
+   **RESOLVED — document only.** The one-file-per-prune behaviour and the multi-chunk re-breach caveat are documented on `pruneSpillFiles` and in `docs/explanation/components/telemetry/backends.md`; the chunk count is not threaded through. Revisit if WARN logs show repeated same-cycle re-breaches in practice.
