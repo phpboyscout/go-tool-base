@@ -299,8 +299,10 @@ func (i *Initialiser) authenticator(cfg config.Reader) (forgeapi.Authenticator, 
 		return nil, errors.WithStack(err)
 	}
 
-	auth, ok := provider.(forgeapi.Authenticator)
-	if !ok {
+	// forgeapi.As walks any Provider decorator chain, so a forwarding wrapper
+	// cannot silently strip the Authenticator capability.
+	var auth forgeapi.Authenticator
+	if !forgeapi.As(provider, &auth) {
 		return nil, errors.Wrapf(forgeapi.ErrNotSupported,
 			"%s provider does not support interactive login", i.profile.Provider)
 	}
@@ -514,24 +516,42 @@ func runAuthFormStage(creator func(*AuthConfig) *huh.Form, cfg *AuthConfig) erro
 	return nil
 }
 
+// manualTokenInstructions returns the stderr guidance shown before prompting
+// for a manual token. When the profile defines a token-creation URL template it
+// yields the resolved URL and (if set) the scope list; otherwise it degrades to
+// a generic message naming the host, so no forge-specific URL or scope literal
+// lives in the wizard itself.
+func manualTokenInstructions(profile Profile) string {
+	if profile.TokenCreateURLTemplate == "" {
+		return fmt.Sprintf("Create a personal access token on %s, then paste it below.", profile.Host)
+	}
+
+	url := strings.ReplaceAll(profile.TokenCreateURLTemplate, "{host}", profile.Host)
+
+	lines := []string{
+		"Open this URL on any device to create a personal access token:",
+		"",
+		"  " + url,
+	}
+
+	if profile.TokenScopes != "" {
+		lines = append(lines, "", "Required scopes: "+profile.TokenScopes)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // promptManualToken is the fallback authentication path used when the OAuth
 // device flow cannot complete — typically on headless servers where no web
 // browser is available to launch.
 //
-// The helper prints a URL the user can visit on any device to create a personal
-// access token with the scopes required by the OAuth flow (repo, read:org,
-// gist), then prompts for the token via a password input that does not echo to
-// the terminal. The resulting token is indistinguishable from one issued by
-// OAuth and is returned to the caller for mode-specific persistence.
+// It prints the profile's token-creation guidance (see [manualTokenInstructions]),
+// then prompts for the token via a password input that does not echo to the
+// terminal. The resulting token is indistinguishable from one issued by OAuth
+// and is returned to the caller for mode-specific persistence.
 func promptManualToken(profile Profile) (string, error) {
-	url := fmt.Sprintf("https://%s/settings/tokens/new?scopes=repo,read:org,gist&description=gtb-cli", profile.Host)
-
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Open this URL on any device to create a personal access token:")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "  "+url)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Required scopes: repo, read:org, gist")
+	fmt.Fprintln(os.Stderr, manualTokenInstructions(profile))
 	fmt.Fprintln(os.Stderr)
 
 	var token string

@@ -209,7 +209,8 @@ func (s *SelfUpdater) verifyAgainstTrustSet(ctx context.Context, rel forge.Relea
 // back to asset-list lookup otherwise. Returns (nil, nil) when no
 // signature is available by either route.
 func (s *SelfUpdater) fetchSignature(ctx context.Context, rel forge.Release) ([]byte, error) {
-	if sp, ok := s.releaseClient.(forge.SignatureProvider); ok {
+	var sp forge.SignatureProvider
+	if forge.As(s.releaseClient, &sp) {
 		sig, err := sp.DownloadSignature(ctx, rel, verify.MaxSignatureSize)
 		if err == nil {
 			return sig, nil

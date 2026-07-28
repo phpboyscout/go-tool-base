@@ -70,6 +70,17 @@ type Profile struct {
 	// before the manual-token fallback. SingleToken only.
 	OffersLogin bool
 
+	// TokenCreateURLTemplate is the provider's "create a personal access token"
+	// URL, with the literal "{host}" standing in for Host (so an Enterprise host
+	// is substituted). Empty degrades the manual-token wizard to a generic
+	// "create a personal access token on <host>" message — forge-specific URL
+	// paths and scope names must live here, not hard-coded in the wizard.
+	// SingleToken only.
+	TokenCreateURLTemplate string
+	// TokenScopes is the human-readable scope list shown alongside the URL
+	// (e.g. "repo, read:org, gist"). Empty omits the line. SingleToken only.
+	TokenScopes string
+
 	// UserFallbackEnv / PassFallbackEnv are the well-known env-var-name
 	// defaults for the dual flow (e.g. "BITBUCKET_USERNAME" /
 	// "BITBUCKET_APP_PASSWORD"). DualUserPass only.
@@ -126,18 +137,20 @@ func defaultForgeProvider(profile Profile) func(config.Reader) (forgeapi.Provide
 
 // gitHubProfile drives the single-token GitHub wizard: forge-driven OAuth login
 // with a manual-PAT fallback, optional SSH key generation and upload.
-var gitHubProfile = Profile{
-	Provider:        "github",
-	ConfigPrefix:    "github",
-	Label:           "GitHub",
-	DisplayName:     "GitHub integration",
-	Feature:         props.FeatureCmd("github"),
-	Host:            "github.com",
-	KeychainAccount: "github.auth",
-	Credential:      SingleToken,
-	FallbackEnv:     "GITHUB_TOKEN",
-	OffersSSH:       true,
-	OffersLogin:     true,
+var gitHubProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a PAT-creation URL, not a credential
+	Provider:               "github",
+	ConfigPrefix:           "github",
+	Label:                  "GitHub",
+	DisplayName:            "GitHub integration",
+	Feature:                props.FeatureCmd("github"),
+	Host:                   "github.com",
+	KeychainAccount:        "github.auth",
+	Credential:             SingleToken,
+	FallbackEnv:            "GITHUB_TOKEN",
+	OffersSSH:              true,
+	OffersLogin:            true,
+	TokenCreateURLTemplate: "https://{host}/settings/tokens/new?scopes=repo,read:org,gist&description=gtb-cli",
+	TokenScopes:            "repo, read:org, gist",
 }
 
 // bitbucketProfile drives the dual-credential Bitbucket wizard: username +

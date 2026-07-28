@@ -23,12 +23,13 @@ import (
 )
 
 const (
-	// dirPermUserOnly is the permission mode for user-only directories (0700).
-	dirPermUserOnly = 0o700
 	// dirPermSSH is the permission mode for SSH directories (0700).
 	dirPermSSH = 0o700
 	// dirPermPublic is the permission mode for public files (0644).
 	dirPermPublic = 0o644
+	// filePermKey is the permission mode for a private key file (0600 — owner
+	// read/write only), the conventional mode for SSH private keys.
+	filePermKey = 0o600
 	// minPassphraseLength is the minimum length required for SSH key passphrases.
 	minPassphraseLength = 12
 )
@@ -51,8 +52,10 @@ func defaultKeyManager(profile Profile) func(config.Reader) (forgeapi.KeyManager
 			return nil, errors.WithStack(err)
 		}
 
-		km, ok := provider.(forgeapi.KeyManager)
-		if !ok {
+		// forgeapi.As walks any Provider decorator chain, so a forwarding
+		// wrapper cannot silently strip the KeyManager capability.
+		var km forgeapi.KeyManager
+		if !forgeapi.As(provider, &km) {
 			return nil, errors.Wrapf(forgeapi.ErrNotSupported,
 				"%s provider does not support SSH-key upload", profile.Provider)
 		}
@@ -197,8 +200,12 @@ func isValidSSHKey(fs afero.Fs, path string) bool {
 
 	_, err = ssh.ParseRawPrivateKey(contents)
 	if err != nil {
-		// Accept passphrase-protected keys
-		return err.Error() == "ssh: this private key is passphrase protected"
+		// Accept passphrase-protected keys. Detect them by the typed error, not
+		// its message — a wording change upstream must not silently reject
+		// otherwise-valid protected keys.
+		var missing *ssh.PassphraseMissingError
+
+		return errors.As(err, &missing)
 	}
 
 	return true
@@ -257,7 +264,11 @@ func promptAndValidateSSHKey(props *props.Props, optsConfig *configureSSHKeyConf
 func validateSSHKey(contents []byte, p props.LoggerProvider) error {
 	_, err := ssh.ParseRawPrivateKey(contents)
 	if err != nil {
-		if err.Error() != "ssh: this private key is passphrase protected" {
+		// Detect a passphrase-protected key by the typed error, not its message,
+		// so an upstream wording change cannot turn a valid protected key into a
+		// hard "invalid key" failure.
+		var missing *ssh.PassphraseMissingError
+		if !errors.As(err, &missing) {
 			return errors.Newf("key is not a valid private key: %w", err)
 		}
 
@@ -431,7 +442,7 @@ func generateAndSaveSSHKey(fs afero.Fs, keypath, passphrase string) ([]byte, err
 
 	// Manually write keys to props.FS
 	privateKeyBytes := kp.RawProtectedPrivateKey()
-	if err := afero.WriteFile(fs, keypath, privateKeyBytes, dirPermUserOnly); err != nil {
+	if err := afero.WriteFile(fs, keypath, privateKeyBytes, filePermKey); err != nil {
 		return nil, errors.Newf("failed to write private key: %w", err)
 	}
 

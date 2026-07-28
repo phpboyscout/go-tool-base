@@ -140,9 +140,13 @@ Downloads and installs the target version:
 1. Detects current executable path via `os.Executable()`
 2. Handles multiple installation detection with user selection
 3. Downloads appropriate platform-specific release asset (.tar.gz)
-4. Extracts binary with decompression bomb protection
-5. Atomically replaces current binary via temporary file
-6. Updates last-checked timestamps
+4. Extracts the binary in bounded chunks, aborting if the cumulative
+   decompressed size exceeds 1 GiB — a gzip bomb cannot expand without limit
+   even when checksum/signature enforcement is off
+5. Sets the temporary file to `0o755` **before** the rename, so the installed
+   binary is never observable in an intermediate execute-only state
+6. Atomically replaces the current binary via the temporary file
+7. Updates last-checked timestamps
 
 #### Offline Update (Air-Gapped Environments)
 

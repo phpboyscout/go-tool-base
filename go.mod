@@ -41,7 +41,7 @@ require (
 	gitlab.com/phpboyscout/go/controls v0.1.3
 	gitlab.com/phpboyscout/go/credentials v0.2.2
 	gitlab.com/phpboyscout/go/errorhandling v0.1.0
-	gitlab.com/phpboyscout/go/forge v0.2.1
+	gitlab.com/phpboyscout/go/forge v0.3.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.2.2
 	gitlab.com/phpboyscout/go/forge-gitea v0.2.1
 	gitlab.com/phpboyscout/go/forge-github v0.2.2

@@ -534,8 +534,8 @@ gitlab.com/phpboyscout/go/credentials v0.2.2 h1:ucAuxiwlJkQJbcAmQxNN7ZuibKmIQFRi
 gitlab.com/phpboyscout/go/credentials v0.2.2/go.mod h1:FCgyZF0c1/55kAPylGChxmxg6sMuwM3eMLF0EhMGQ9U=
 gitlab.com/phpboyscout/go/errorhandling v0.1.0 h1:yMDXim7rsC2FBzuEXU1S79v/O2c0XXuxzOEJmNZjxzg=
 gitlab.com/phpboyscout/go/errorhandling v0.1.0/go.mod h1:rpRCIR6dFL5+yn4EXlOkvBne/EFzf8dJOgthAPBak+Q=
-gitlab.com/phpboyscout/go/forge v0.2.1 h1:eNm/XeLTI9Zl5SkjqnYmf3ECy39Y8Ndgb2KxEV7r8PU=
-gitlab.com/phpboyscout/go/forge v0.2.1/go.mod h1:8zi8tgNYwg/jhXUsXgRvLgT3aO4AyBbD+FQQ35udE/Q=
+gitlab.com/phpboyscout/go/forge v0.3.0 h1:VHC/M3ftPSKmUheB8aXRiCmf+tFoPiJ9fajLYdErHc0=
+gitlab.com/phpboyscout/go/forge v0.3.0/go.mod h1:zkstgvccsaFDjFfVeHfBeQzonYOsc+IsUTFUcu9XPio=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.2.2 h1:wjI5Wm9bgTuldIFt1DCT1wt9lZolaRr+mS8kSDwXVP0=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.2.2/go.mod h1:IemYtZbr4/QC7Z2zb4p900z3DIHu1YTnWoWITbCX+OU=
 gitlab.com/phpboyscout/go/forge-gitea v0.2.1 h1:vyHkJyQA051eDfwBg48lTBfvBbTMOLIZGeYz1xEibAI=

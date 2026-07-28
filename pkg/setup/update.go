@@ -45,8 +45,16 @@ import (
 const (
 	// copyChunkSize is the size of chunks when copying files to prevent decompression bomb attacks.
 	copyChunkSize = 1024
-	// filePermExecutable is the permission mode for executable files (0111).
-	filePermExecutable = 0o111
+	// filePermExecutable is the permission mode for the installed binary (0755).
+	// Chmod SETS the mode, so 0o111 would leave the binary execute-only
+	// (--x--x--x) — runnable, but the owner could no longer read, copy,
+	// checksum, or back it up.
+	filePermExecutable = 0o755
+	// defaultMaxExtractedBytes bounds the cumulative DECOMPRESSED size of the
+	// extracted binary (1 GiB). Any legitimate GTB-family binary is far below
+	// it; the cap exists so a crafted archive cannot expand without limit while
+	// checksum/signature enforcement is off (the compile-time default).
+	defaultMaxExtractedBytes int64 = 1 << 30
 	// releasesPerPage is the number of releases to fetch per API page.
 	releasesPerPage = 100
 	// defaultCheckInterval is the default time interval for update checks.
@@ -130,6 +138,21 @@ type SelfUpdater struct {
 	// maxChecksumsSize caps a downloaded checksums manifest. Zero means use
 	// DefaultMaxChecksumsSize.
 	maxChecksumsSize int64
+
+	// maxExtractedBytes caps the cumulative DECOMPRESSED size written while
+	// extracting the archived binary, so a gzip bomb cannot expand unbounded
+	// even when checksum/signature enforcement is off. Zero means use
+	// defaultMaxExtractedBytes.
+	maxExtractedBytes int64
+}
+
+// extractedBound returns the decompressed-size bound for this updater.
+func (s *SelfUpdater) extractedBound() int64 {
+	if s.maxExtractedBytes > 0 {
+		return s.maxExtractedBytes
+	}
+
+	return defaultMaxExtractedBytes
 }
 
 // checksumsBound returns the manifest bound for this updater.
@@ -756,7 +779,8 @@ func (s *SelfUpdater) verifyAssetChecksum(
 // manifest is available by either route — the caller distinguishes
 // "not found" from "download failed".
 func (s *SelfUpdater) fetchChecksumsManifest(ctx context.Context, rel forge.Release) ([]byte, error) {
-	if cp, ok := s.releaseClient.(forge.ChecksumProvider); ok {
+	var cp forge.ChecksumProvider
+	if forge.As(s.releaseClient, &cp) {
 		manifest, err := cp.DownloadChecksumManifest(ctx, rel, s.checksumsBound())
 		if err == nil {
 			return manifest, nil
@@ -1167,6 +1191,11 @@ func (s *SelfUpdater) GetCurrentVersion() string {
 	return s.CurrentVersion
 }
 
+// errDecompressedSizeExceeded is returned when the extracted binary grows past
+// the decompressed-size bound — the guard against a gzip bomb whose compressed
+// form fits under the download cap.
+var errDecompressedSizeExceeded = errors.New("extracted binary exceeded the decompressed-size bound")
+
 func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath string) error {
 	tempFilePath := fmt.Sprintf("%s_", targetPath)
 
@@ -1187,20 +1216,38 @@ func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath 
 		}
 	}()
 
-	// Copy file in chunks to help mitigate a decompression bomb attack
+	// Copy in chunks, tracking the cumulative decompressed size. The compressed
+	// download is capped, but gzip expansion is not — so a crafted archive is
+	// aborted here once it grows past the bound rather than filling the disk.
+	bound := s.extractedBound()
+
+	var written int64
+
 	for {
-		_, err := io.CopyN(tempFile, tarReader, copyChunkSize)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
+		n, copyErr := io.CopyN(tempFile, tarReader, copyChunkSize)
+		written += n
+
+		if written > bound {
+			return errors.Wrapf(errDecompressedSizeExceeded, "extracted binary exceeded %d bytes", bound)
+		}
+
+		if copyErr != nil {
+			if errors.Is(copyErr, io.EOF) {
 				break
 			}
 
-			return errors.Wrap(err, "failed to copy binary chunk")
+			return errors.Wrap(copyErr, "failed to copy binary chunk")
 		}
 	}
 
 	if err := tempFile.Close(); err != nil {
 		return errors.Wrap(err, "failed to close temp file")
+	}
+
+	// Chmod the temp file BEFORE the rename, so the installed binary is never
+	// observable on disk in an intermediate execute-only state.
+	if err := s.Fs.Chmod(tempFilePath, filePermExecutable); err != nil {
+		return errors.Wrap(err, "failed to set executable mode")
 	}
 
 	if err := s.Fs.Rename(tempFilePath, targetPath); err != nil {
@@ -1209,7 +1256,7 @@ func (s *SelfUpdater) extractAndInstallBinary(tarReader *tar.Reader, targetPath 
 
 	installed = true
 
-	return s.Fs.Chmod(targetPath, filePermExecutable)
+	return nil
 }
 
 // GetReleaseNotes retrieves the release notes for releases between the specified 'from' and 'to' versions (inclusive).
