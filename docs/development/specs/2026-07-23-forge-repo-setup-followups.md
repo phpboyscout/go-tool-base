@@ -2,7 +2,7 @@
 title: "Forge/repo/setup follow-ups: batched MEDIUM/LOW findings from the architectural review"
 description: "One grouped remediation spec for the eleven MEDIUM and LOW findings against the forge provider family, the repo/aferobilly modules, and GTB's setup/self-update subsystem from the 2026-07-23 architectural review — install chmod, tar decompression bounds, SSH key handling, PAT-URL profile ownership, provider pagination and config normalisation, redirect doc drift, capability discovery under wrappers, repo context plumbing and OpenLocal semantics, and aferobilly Chmod delegation. The CRITICAL and HIGH findings are handled by dedicated sibling specs."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - forge
@@ -25,7 +25,40 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED
+
+Open questions resolved
+:   **Q1 (pagination):** paginate IN the providers until `limit` is satisfied —
+    the real consumer wants "everything up to limit", and Bitbucket already
+    behaves this way. Gitea's per-page is capped at its common maximum (50);
+    GitHub/GitLab at 100. `limit <= 0` means a single natural page.
+    **Q2 (capability discovery):** added an `Unwrap() Provider` convention plus a
+    `forge.As(provider, &target)` helper (mirrors `errors.As`, composes with
+    wrapper stacks); the four GTB call sites migrated to it.
+    **Q3 (`OpenLocal` branch):** call-site audit found no consumer calls
+    `OpenLocal` directly or relies on its `branch` (only the internal `Open`
+    dispatcher and the `ThreadSafeRepo` wrapper) — so the parameter was
+    **removed**; init defaults to `main`, and `InitLocal` remains the
+    branch-explicit init entry point.
+    **Q4 (decompressed-size bound):** a fixed **1 GiB** constant.
+
+Migration note (repo ctx break)
+:   §2.3.1 is an API-breaking signature change (pre-1.0, ships as a minor bump):
+    `Open`, `OpenLocal`, `OpenInMemory`, `Clone`, `Commit`, `Push`, and
+    `CreateBranch` gain a leading `context.Context`, and `OpenLocal` drops its
+    `branch` argument. Documented in `go/repo` at
+    `docs/explanation/context-and-cancellation.md`.
+
+Implementation deviation (§2.4.1)
+:   The finding proposed delegating aferobilly's `Chmod` to `billy.Change`, on
+    the premise that osfs implements it. In go-billy v5.9.1 **no** backend
+    implements `billy.Change` (it additionally requires `Chown`/`Lchown`/
+    `Chtimes`, which exist nowhere in that release); osfs and memfs implement
+    only the narrower `billy.Chmod`. Delegation therefore targets `billy.Chmod`
+    — which fixes the osfs executable-bit bug (the primary acceptance). A
+    consequence is that memfs, which also implements `billy.Chmod`, now honours
+    the mode rather than remaining a strict no-op; this is harmless and arguably
+    more correct (go-git commits `100755` from an in-memory worktree too).
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (forge/VCS family + setup section),
