@@ -15,7 +15,7 @@
 useDefault = true
 
 [allowlist]
-description = "pkg/redact and internal/agent redaction tests intentionally contain credential-shaped inputs for the redactor to strip (the tests assert these tokens do NOT survive); the doctor report support-bundle tests and feature do the same (asserting the bundle redacts seeded credential-shaped config values); component docs carry the same illustrative strings; and the keys command's unit test plus its spec doc carry a throwaway generated private key / illustrative PEM example. None are real leaked secrets."
+description = "pkg/redact and internal/agent redaction tests intentionally contain credential-shaped inputs for the redactor to strip (the tests assert these tokens do NOT survive); the doctor report support-bundle tests and feature do the same (asserting the bundle redacts seeded credential-shaped config values); component docs carry the same illustrative strings; and the keys command's unit test plus its spec doc carry a throwaway generated private key / illustrative PEM example; and the Ed25519/KMS signing design spec cites public AWS KMS key-spec constants (e.g. ECC_NIST_EDWARDS25519) and illustrative key ARNs/aliases that generic-api-key flags in a `key:`-adjacent context. None are real leaked secrets."
 paths = [
     '''pkg/redact/redact_test\.go''',
     '''pkg/redact/redact_fuzz_test\.go''',
@@ -30,6 +30,7 @@ paths = [
     '''features/cli/keys\.feature''',
     '''features/cli/doctor-report\.feature''',
     '''internal/agent/tools_security_test\.go''',
+    '''docs/development/specs/2026-07-28-ed25519-kms-signing\.md''',
 ]
 
 # The telemetry/redact docs carry a deliberately realistic example token in a
