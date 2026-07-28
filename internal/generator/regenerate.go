@@ -65,6 +65,46 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 		return err
 	}
 
+	// Route the whole regeneration — docs migration, file writes and the
+	// manifest/hash persistence — through a staged overlay and commit it to the
+	// real filesystem only once every step succeeds. A mid-run failure then
+	// leaves the tree and manifest mutually consistent (the misclassification
+	// damage a partial real-FS write causes), rather than half-written.
+	base := g.props.FS
+	staged := newStagedFS(base)
+	g.props.FS = staged
+
+	genErr := g.stagedRegeneration(ctx)
+
+	g.props.FS = base
+
+	if genErr != nil {
+		// Nothing was materialised: base tree and manifest are untouched.
+		return genErr
+	}
+
+	if err := staged.materialise(); err != nil {
+		return errors.Wrap(err, "failed to commit regenerated project")
+	}
+
+	// Post-processing (linter, hash refresh) runs against the now-committed tree
+	// on the real filesystem only.
+	writtenSkeletonHashes, err := g.collectSkeletonHashes()
+	if err != nil {
+		g.props.Logger.Warn("skipping post-regeneration processing: failed to load skeleton hashes", "error", err)
+	} else {
+		g.runPostRegenerationProcessing(ctx, writtenSkeletonHashes)
+	}
+
+	g.props.Logger.Info("Project regeneration complete.")
+
+	return nil
+}
+
+// stagedRegeneration runs the docs migration and core regeneration against the
+// currently-installed (staged) filesystem. It is the buffered body committed
+// atomically by regenerateProject.
+func (g *Generator) stagedRegeneration(ctx context.Context) error {
 	// `regenerate project --force` migrates a flat-layout project to the Diátaxis
 	// layout before regeneration, so the re-emitted docs and indexes land in the
 	// new tree rather than recreating the old one.
@@ -74,19 +114,7 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 		}
 	}
 
-	if err := g.regenerateProjectFiles(ctx); err != nil {
-		return err
-	}
-
-	// Post-processing: run linter and refresh hashes on real filesystem only.
-	writtenSkeletonHashes, err := g.collectSkeletonHashes()
-	if err == nil {
-		g.runPostRegenerationProcessing(ctx, writtenSkeletonHashes)
-	}
-
-	g.props.Logger.Info("Project regeneration complete.")
-
-	return nil
+	return g.regenerateProjectFiles(ctx)
 }
 
 // regenerateProjectFiles performs the core regeneration: root command, recursive
@@ -589,5 +617,5 @@ func (g *Generator) persistProjectHashesAndSources(hashes map[string]string, sou
 		m.Properties.Templates = sources
 	}
 
-	return g.encodeManifestFile(manifestPath, m)
+	return g.marshalManifestFile(manifestPath, m)
 }

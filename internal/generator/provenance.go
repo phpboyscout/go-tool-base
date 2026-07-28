@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -113,8 +114,9 @@ func (g *Generator) writeProvenanceFile(m *Manifest) error {
 // signingFields serialises the recoverable signing posture. Hashes and other
 // derivable data are excluded — this is provenance/config only. Every value
 // written here is gated by validateManifestSigning (ValidateManifest), whose
-// character classes exclude whitespace and control bytes, so no field can
-// break the space-separated KV encoding or escape the comment line.
+// character classes exclude control bytes; encodeKV additionally percent-encodes
+// each value, so a field can neither break the space-separated KV framing nor
+// escape the comment line.
 func signingFields(s ManifestSigning) []kv {
 	return []kv{
 		{"enabled", strconv.FormatBool(s.Enabled)},
@@ -182,8 +184,11 @@ func boolField(b bool) string {
 }
 
 // encodeKV renders key=value pairs space-separated, skipping empty values. The
-// values recorded here (emails, ARNs, repo paths, refs, SHAs) are token-like
-// with no spaces, so a space separator is unambiguous.
+// value is percent-encoded (url.QueryEscape) so a value carrying a space — a
+// local template-source Location is a filesystem path and may legitimately
+// contain one (e.g. "/home/me/My Templates/gtb") — survives the space-separated
+// framing intact rather than being truncated at the first space. Keys are fixed
+// identifiers and need no encoding.
 func encodeKV(pairs []kv) string {
 	parts := make([]string, 0, len(pairs))
 
@@ -192,19 +197,28 @@ func encodeKV(pairs []kv) string {
 			continue
 		}
 
-		parts = append(parts, p.key+"="+p.value)
+		parts = append(parts, p.key+"="+url.QueryEscape(p.value))
 	}
 
 	return strings.Join(parts, " ")
 }
 
-// decodeKV parses the space-separated key=value form produced by encodeKV.
+// decodeKV parses the space-separated key=value form produced by encodeKV,
+// percent-decoding each value. Legacy provenance files written before values
+// were encoded carried only token-like, space-free values (emails, ARNs, SHAs,
+// refs); url.QueryUnescape is an identity for those, so it doubles as the
+// backward-compatibility fallback. A value that fails to decode is kept verbatim
+// rather than dropped.
 func decodeKV(s string) map[string]string {
 	out := map[string]string{}
 
 	for _, tok := range strings.Fields(s) {
 		if k, v, ok := strings.Cut(tok, "="); ok {
-			out[k] = v
+			if dv, err := url.QueryUnescape(v); err == nil {
+				out[k] = dv
+			} else {
+				out[k] = v
+			}
 		}
 	}
 

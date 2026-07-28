@@ -91,11 +91,11 @@ func TestKeryxBug2_NestedConversionConstDefaultResolves(t *testing.T) {
 		"a resolvable constant default must not be warned-and-unset")
 }
 
-// Round-trip — the two manifest marshalers must produce identical YAML for the
-// same manifest, otherwise the scaffold output (EncodeManifestFile, 2-space)
-// and the update/regen output (MarshalManifestFile, yaml.Marshal default
-// 4-space) disagree, so the first `generate command` / `regenerate manifest`
-// reformats the whole file — the 4-space<->2-space churn keryx reported.
+// Round-trip — every manifest write site now funnels through the single
+// EncodeManifestFile helper (the scaffold/update/regen marshalers were
+// collapsed), so two writes of the same manifest must be byte-identical. This
+// is the guard against the 4-space<->2-space reformat churn keryx reported, now
+// that a single serialiser makes divergence structurally impossible.
 func TestKeryxRoundTrip_ManifestMarshalersAgree(t *testing.T) {
 	fs := afero.NewMemMapFs()
 
@@ -107,7 +107,7 @@ func TestKeryxRoundTrip_ManifestMarshalersAgree(t *testing.T) {
 	}
 
 	require.NoError(t, EncodeManifestFile(fs, "enc.yaml", m))
-	require.NoError(t, MarshalManifestFile(fs, "mar.yaml", m, 0o644))
+	require.NoError(t, EncodeManifestFile(fs, "mar.yaml", m))
 
 	enc, err := afero.ReadFile(fs, "enc.yaml")
 	require.NoError(t, err)
@@ -115,8 +115,8 @@ func TestKeryxRoundTrip_ManifestMarshalersAgree(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, string(enc), string(mar),
-		"scaffold and update/regen manifest marshalers must produce identical YAML "+
-			"(same indentation) so write sites round-trip without reformat churn")
+		"the single manifest marshaler must produce identical YAML across write sites "+
+			"so they round-trip without reformat churn")
 }
 
 // Bug 3 — `regenerate manifest --dry-run` must NOT write manifest.yaml.

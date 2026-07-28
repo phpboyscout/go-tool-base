@@ -130,17 +130,7 @@ func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
 	seen := make(map[string]int)
 
 	appendCmd := func(c ManifestCommand) {
-		if count, ok := seen[c.Name]; ok {
-			count++
-			seen[c.Name] = count
-			oldName := c.Name
-			c.Name = fmt.Sprintf("%s-%d", c.Name, count)
-			msg := fmt.Sprintf("Duplicate command name detected: %s. Renamed to %s to avoid collision.", oldName, c.Name)
-			c.Warning = msg
-			g.props.Logger.Warn(msg)
-		} else {
-			seen[c.Name] = 1
-		}
+		g.dedupeCommandName(&c, seen)
 
 		commands = append(commands, c)
 	}
@@ -286,20 +276,30 @@ func (g *Generator) buildCmdTree(entry *commandEntry) ManifestCommand {
 	for _, child := range entry.children {
 		childCmd := g.buildCmdTree(child)
 
-		if count, ok := seen[childCmd.Name]; ok {
-			count++
-			seen[childCmd.Name] = count
-			oldName := childCmd.Name
-			childCmd.Name = fmt.Sprintf("%s-%d", childCmd.Name, count)
-			msg := fmt.Sprintf("Duplicate command name detected: %s. Renamed to %s to avoid collision.", oldName, childCmd.Name)
-			childCmd.Warning = msg
-			g.props.Logger.Warn(msg)
-		} else {
-			seen[childCmd.Name] = 1
-		}
+		g.dedupeCommandName(&childCmd, seen)
 
 		cmd.Commands = append(cmd.Commands, childCmd)
 	}
 
 	return cmd
+}
+
+// dedupeCommandName renames c in place to "<name>-<n>" when its name has already
+// been seen at this level, recording the collision warning on the command and
+// logging it. seen maps each base name to how many times it has appeared.
+func (g *Generator) dedupeCommandName(c *ManifestCommand, seen map[string]int) {
+	count, ok := seen[c.Name]
+	if !ok {
+		seen[c.Name] = 1
+
+		return
+	}
+
+	count++
+	seen[c.Name] = count
+
+	oldName := c.Name
+	c.Name = fmt.Sprintf("%s-%d", oldName, count)
+	c.Warning = fmt.Sprintf("Duplicate command name detected: %s. Renamed to %s to avoid collision.", oldName, c.Name)
+	g.props.Logger.Warn(c.Warning)
 }

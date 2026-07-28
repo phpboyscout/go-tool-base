@@ -14,6 +14,7 @@ type CommandOptions struct {
 	Name   string
 	Path   string
 	Parent string
+	Force  bool
 }
 
 func NewCmdCommand(p *props.Props) *cobra.Command {
@@ -31,6 +32,9 @@ Examples:
 
   # Remove a subcommand 'child' under 'parent'
   gtb remove command --name child --parent parent
+
+  # Force-remove a command marked protected in the manifest
+  gtb remove command --name secret --force
 `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return opts.Run(cmd.Context(), p)
@@ -40,6 +44,7 @@ Examples:
 	cmd.Flags().StringVarP(&opts.Name, "name", "n", "", "Command name (kebab-case)")
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Path to project root")
 	cmd.Flags().StringVar(&opts.Parent, "parent", "root", "Parent command name (default: root)")
+	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Remove even if the command is marked protected")
 
 	_ = cmd.MarkFlagRequired("name")
 
@@ -63,6 +68,7 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		Name:   o.Name,
 		Path:   o.Path,
 		Parent: o.Parent,
+		Force:  o.Force,
 	}
 
 	return generator.New(p, cfg).Remove(ctx)

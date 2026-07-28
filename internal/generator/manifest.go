@@ -43,11 +43,11 @@ func DecodeManifestFile(fs afero.Fs, manifestPath string) (*Manifest, error) {
 	return &m, nil
 }
 
-// EncodeManifestFile serialises m to the given manifest.yaml path on fs
-// using the streaming yaml encoder with the canonical two-space indent.
-// It is the single encode helper for the encoder-based write sites
-// (writeManifest, persistProjectHashes, the skeleton hash refresh), so
-// the Create+SetIndent+Encode boilerplate cannot drift.
+// EncodeManifestFile serialises m to the given manifest.yaml path on fs at the
+// canonical two-space indent and writes it with DefaultFileMode. It is the
+// single serialise-and-write helper for every manifest write site (scaffold,
+// generate command, regenerate, add-flag, scan), so the render+write boilerplate
+// — and the on-disk byte layout — cannot drift between sites.
 func EncodeManifestFile(fs afero.Fs, manifestPath string, m *Manifest) error {
 	out, err := marshalManifestBytes(m)
 	if err != nil {
@@ -55,25 +55,6 @@ func EncodeManifestFile(fs afero.Fs, manifestPath string, m *Manifest) error {
 	}
 
 	if err := afero.WriteFile(fs, manifestPath, out, os.FileMode(DefaultFileMode)); err != nil {
-		return errors.Newf("failed to write manifest: %w", err)
-	}
-
-	return nil
-}
-
-// MarshalManifestFile serialises m with yaml.Marshal and writes it to
-// the given manifest.yaml path on fs with the supplied file mode. This
-// is the buffered (whole-document) write flavour used by the
-// update/scan/query/flag sites; it differs from EncodeManifestFile only
-// in that it produces the yaml.Marshal default indentation, preserving
-// each site's existing on-disk output.
-func MarshalManifestFile(fs afero.Fs, manifestPath string, m *Manifest, mode os.FileMode) error {
-	updated, err := marshalManifestBytes(m)
-	if err != nil {
-		return err
-	}
-
-	if err := afero.WriteFile(fs, manifestPath, updated, mode); err != nil {
 		return errors.Newf("failed to write manifest: %w", err)
 	}
 
@@ -112,25 +93,13 @@ func (g *Generator) decodeManifestFile(manifestPath string) (*Manifest, error) {
 	return DecodeManifestFile(g.props.FS, manifestPath)
 }
 
-// encodeManifestFile is the instance wrapper over EncodeManifestFile.
-func (g *Generator) encodeManifestFile(manifestPath string, m *Manifest) error {
-	if err := EncodeManifestFile(g.props.FS, manifestPath, m); err != nil {
-		return err
-	}
-
-	// Keep the annotated provenance file in sync (see marshalManifestFile) —
-	// generate writes the manifest through this path.
-	return g.writeProvenanceFile(m)
-}
-
-// marshalManifestFile is the instance wrapper over MarshalManifestFile.
-// Every generator write uses the standard DefaultFileMode. It also keeps the
-// annotated provenance file in sync, since it is the single choke point every
-// manifest write passes through — so the not-in-source properties (signing,
-// template overlays, module_published) always have an on-disk record for a
-// from-scratch rebuild to recover.
+// marshalManifestFile is the single instance write helper: it serialises via
+// EncodeManifestFile and keeps the annotated provenance file in sync. It is the
+// choke point every generator manifest write passes through, so the
+// not-in-source properties (signing, template overlays, module_published) always
+// have an on-disk record for a from-scratch rebuild to recover.
 func (g *Generator) marshalManifestFile(manifestPath string, m *Manifest) error {
-	if err := MarshalManifestFile(g.props.FS, manifestPath, m, os.FileMode(DefaultFileMode)); err != nil {
+	if err := EncodeManifestFile(g.props.FS, manifestPath, m); err != nil {
 		return err
 	}
 
@@ -274,10 +243,7 @@ func (f ManifestFlag) MarshalYAML() (any, error) {
 		for i := 0; i < len(node.Content); i += 2 {
 			key := node.Content[i]
 			if key.Value == "default" {
-				// Add the comment to the value node
-				// node.Content[i+1].LineComment = "# " + f.Warning
-				// Actually, user wants it "in the manifest... include raw representation"
-				// A line comment is perfect.
+				// Attach the warning as a line comment on the default value.
 				node.Content[i+1].LineComment = f.Warning
 
 				break

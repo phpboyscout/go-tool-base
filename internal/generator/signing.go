@@ -284,5 +284,5 @@ func (g *Generator) regenerateGoreleaserAsset(m *Manifest) error {
 // writeManifest serialises a manifest back to .gtb/manifest.yaml,
 // preserving the project's two-space indentation.
 func (g *Generator) writeManifest(m *Manifest) error {
-	return g.encodeManifestFile(ManifestPathFor(g.config.Path), m)
+	return g.marshalManifestFile(ManifestPathFor(g.config.Path), m)
 }

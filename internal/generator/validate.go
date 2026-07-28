@@ -25,6 +25,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -629,14 +630,8 @@ func ValidateHost(host string) error {
 
 	hostname, port, hasPort := splitHostPort(h)
 	if hasPort {
-		if port == "" {
-			return rejectf("Host", "port must not be empty when `:` is present", h)
-		}
-
-		for _, r := range port {
-			if r < '0' || r > '9' {
-				return rejectf("Host", "port must be numeric", h)
-			}
+		if err := validatePort(port, h); err != nil {
+			return err
 		}
 	}
 
@@ -650,6 +645,29 @@ func ValidateHost(host string) error {
 		return rejectf("Host",
 			"host must be a valid RFC 1123 hostname: "+err.Error(),
 			h)
+	}
+
+	return nil
+}
+
+// validatePort enforces a non-empty, numeric TCP port bounded to 1–65535.
+// Checking digits alone let `host:99999` and `host:0` through — outside the
+// valid port range — so the value is parsed and range-checked, not just
+// character-classed. h is the full host[:port] value, for the error message.
+func validatePort(port, h string) error {
+	if port == "" {
+		return rejectf("Host", "port must not be empty when `:` is present", h)
+	}
+
+	for _, r := range port {
+		if r < '0' || r > '9' {
+			return rejectf("Host", "port must be numeric", h)
+		}
+	}
+
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return rejectf("Host", "port must be in the range 1-65535", h)
 	}
 
 	return nil

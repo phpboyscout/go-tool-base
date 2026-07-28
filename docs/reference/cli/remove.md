@@ -30,5 +30,12 @@ gtb remove command --name <name> [flags]
 | `--name, -n` | — | Command name to remove (kebab-case). |
 | `--parent` | `root` | Parent command name. |
 | `--path, -p` | `.` | Project root. |
+| `--force, -f` | `false` | Remove even if the command is marked protected in the manifest. |
+
+A command marked **protected** in the manifest is refused (it carries
+hand-written logic that the whole-directory removal would destroy). Pass
+`--force` to override the guard and remove it anyway. Removal also deletes the
+command's documentation page (resolved through the project's docs layout, flat
+or Diátaxis) and de-registers it from its parent.
 
 > Run with `--help` for the complete, authoritative flag set.

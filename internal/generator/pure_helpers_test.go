@@ -12,7 +12,6 @@ package generator
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
@@ -81,7 +80,7 @@ func TestDecodeManifestFile(t *testing.T) {
 	})
 }
 
-func TestEncodeAndMarshalManifestFile_RoundTrip(t *testing.T) {
+func TestEncodeManifestFile_RoundTrip(t *testing.T) {
 	t.Parallel()
 
 	fs := afero.NewMemMapFs()
@@ -96,35 +95,17 @@ func TestEncodeAndMarshalManifestFile_RoundTrip(t *testing.T) {
 	got, err := DecodeManifestFile(fs, encPath)
 	require.NoError(t, err)
 	assert.Equal(t, "round-trip", got.Properties.Name)
-
-	marPath := "/mar/manifest.yaml"
-	require.NoError(t, MarshalManifestFile(fs, marPath, m, os.FileMode(DefaultFileMode)))
-
-	got2, err := DecodeManifestFile(fs, marPath)
-	require.NoError(t, err)
-	require.Len(t, got2.Commands, 1)
-	assert.Equal(t, "child", got2.Commands[0].Name)
+	require.Len(t, got.Commands, 1)
+	assert.Equal(t, "child", got.Commands[0].Name)
 }
 
 func TestEncodeManifestFile_CreateError(t *testing.T) {
 	t.Parallel()
 
 	// A read-only filesystem makes the write fail, exercising the error branch.
-	// EncodeManifestFile now shares the single marshal+WriteFile path with
-	// MarshalManifestFile, so the failure surfaces as a write error.
 	ro := afero.NewReadOnlyFs(afero.NewMemMapFs())
 
 	err := EncodeManifestFile(ro, "/x/manifest.yaml", &Manifest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to write manifest")
-}
-
-func TestMarshalManifestFile_WriteError(t *testing.T) {
-	t.Parallel()
-
-	ro := afero.NewReadOnlyFs(afero.NewMemMapFs())
-
-	err := MarshalManifestFile(ro, "/x/manifest.yaml", &Manifest{}, os.FileMode(DefaultFileMode))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to write manifest")
 }
@@ -856,26 +837,42 @@ func TestFindCommandAt(t *testing.T) {
 	assert.Nil(t, findCommandAt(cmds, []string{"alpha"}, "missing"))
 }
 
-func TestFindCommandRecursive(t *testing.T) {
+func TestWalkCommandPath(t *testing.T) {
 	t.Parallel()
 
 	cmds := sampleTree()
 
-	// Empty parent path -> nil (root handled elsewhere).
-	assert.Nil(t, findCommandRecursive(cmds, nil, "alpha"))
+	// Empty path -> nil.
+	assert.Nil(t, walkCommandPath(cmds, nil))
 
-	got := findCommandRecursive(cmds, []string{"alpha"}, "beta")
+	// Top-level resolve.
+	got := walkCommandPath(cmds, []string{"alpha"})
 	require.NotNil(t, got)
-	assert.Equal(t, "beta", got.Name)
+	assert.Equal(t, "alpha", got.Name)
 
-	got = findCommandRecursive(cmds, []string{"alpha", "beta"}, "gamma")
+	// Nested resolve.
+	got = walkCommandPath(cmds, []string{"alpha", "beta", "gamma"})
 	require.NotNil(t, got)
 	assert.Equal(t, "gamma", got.Name)
 
-	// Wrong parent first segment.
-	assert.Nil(t, findCommandRecursive(cmds, []string{"zzz"}, "x"))
-	// Right parent, missing child.
-	assert.Nil(t, findCommandRecursive(cmds, []string{"alpha"}, "missing"))
+	// findCommandAt is the parentPath+leaf convenience.
+	got = walkCommandPath(cmds, joinCommandPath([]string{"alpha"}, "beta"))
+	require.NotNil(t, got)
+	assert.Equal(t, "beta", got.Name)
+
+	got = findCommandAt(cmds, []string{"alpha", "beta"}, "gamma")
+	require.NotNil(t, got)
+	assert.Equal(t, "gamma", got.Name)
+
+	// Wrong first segment / missing leaf.
+	assert.Nil(t, walkCommandPath(cmds, []string{"zzz", "x"}))
+	assert.Nil(t, walkCommandPath(cmds, []string{"alpha", "missing"}))
+
+	// The returned pointer aliases the tree, so mutations persist.
+	walkCommandPath(cmds, []string{"alpha", "beta", "gamma"}).Protected = boolPtr(true)
+	reread := findCommandAt(cmds, []string{"alpha", "beta"}, "gamma")
+	require.NotNil(t, reread.Protected)
+	assert.True(t, *reread.Protected)
 }
 
 func TestRemoveCommand(t *testing.T) {
@@ -907,36 +904,12 @@ func TestRemoveCommand(t *testing.T) {
 	})
 }
 
-func TestRemoveFromCommandRecursive_Misses(t *testing.T) {
+func TestRemoveCommand_Misses(t *testing.T) {
 	t.Parallel()
 
 	cmds := sampleTree()
-	assert.False(t, removeFromCommandRecursive(&cmds, nil, "x"))
-	assert.False(t, removeFromCommandRecursive(&cmds, []string{"zzz"}, "x"))
-	assert.False(t, removeFromCommandRecursive(&cmds, []string{"alpha"}, "missing"))
-}
-
-func TestUpdateProtectionRecursive(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nested target", func(t *testing.T) {
-		t.Parallel()
-
-		cmds := sampleTree()
-		assert.True(t, updateProtectionRecursive(&cmds, []string{"alpha", "beta", "gamma"}, true))
-		got := findCommandAt(cmds, []string{"alpha", "beta"}, "gamma")
-		require.NotNil(t, got)
-		require.NotNil(t, got.Protected)
-		assert.True(t, *got.Protected)
-	})
-
-	t.Run("misses", func(t *testing.T) {
-		t.Parallel()
-
-		cmds := sampleTree()
-		assert.False(t, updateProtectionRecursive(&cmds, nil, true))
-		assert.False(t, updateProtectionRecursive(&cmds, []string{"zzz"}, true))
-	})
+	assert.False(t, removeCommand(&cmds, []string{"zzz"}, "x"))
+	assert.False(t, removeCommand(&cmds, []string{"alpha"}, "missing"))
 }
 
 // ---------------------------------------------------------------------------
@@ -1004,28 +977,6 @@ func TestCreateNewManifestCommand(t *testing.T) {
 	assert.True(t, cmd.Hidden)
 	require.NotNil(t, cmd.Protected)
 	assert.True(t, *cmd.Protected)
-}
-
-func TestUpdateCommandHashRecursive(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nested sets hash", func(t *testing.T) {
-		t.Parallel()
-
-		cmds := sampleTree()
-		assert.True(t, updateCommandHashRecursive(&cmds, []string{"alpha", "beta"}, "abc123"))
-		got := findCommandAt(cmds, []string{"alpha"}, "beta")
-		require.NotNil(t, got)
-		assert.Equal(t, "abc123", got.Hashes["cmd.go"])
-	})
-
-	t.Run("misses", func(t *testing.T) {
-		t.Parallel()
-
-		cmds := sampleTree()
-		assert.False(t, updateCommandHashRecursive(&cmds, nil, "h"))
-		assert.False(t, updateCommandHashRecursive(&cmds, []string{"zzz"}, "h"))
-	})
 }
 
 // ---------------------------------------------------------------------------

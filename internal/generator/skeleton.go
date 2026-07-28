@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -116,21 +115,13 @@ type releaseProviderAccessor interface {
 	GetReleaseProvider() string
 }
 
-// extractReleaseProvider extracts the ReleaseProvider field from the data
-// struct using reflection. This avoids the fragile anonymous struct type
-// assertion that breaks silently when new fields are added.
+// extractReleaseProvider reads the release provider from the data struct via
+// the releaseProviderAccessor interface. Every caller passes a named type that
+// implements it (skeletonTemplateData, TemplateContractData), so a non-matching
+// value simply yields "".
 func extractReleaseProvider(data any) string {
 	if rp, ok := data.(releaseProviderAccessor); ok {
 		return rp.GetReleaseProvider()
-	}
-
-	// Fallback: use reflect to check for a ReleaseProvider field.
-	v := reflect.ValueOf(data)
-	if v.Kind() == reflect.Struct {
-		f := v.FieldByName("ReleaseProvider")
-		if f.IsValid() && f.Kind() == reflect.String {
-			return f.String()
-		}
 	}
 
 	return ""
@@ -378,7 +369,7 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 		m.Hashes[relPath] = calculateHash(content)
 	}
 
-	return g.encodeManifestFile(manifestPath, m)
+	return g.marshalManifestFile(manifestPath, m)
 }
 
 // loadProjectFileHashes reads the existing manifest at the given path and
@@ -847,7 +838,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 		return errors.Newf("failed to create manifest directory: %w", err)
 	}
 
-	return g.encodeManifestFile(filepath.Join(manifestDir, "manifest.yaml"), &manifest)
+	return g.marshalManifestFile(filepath.Join(manifestDir, "manifest.yaml"), &manifest)
 }
 
 func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, args ...string) error {

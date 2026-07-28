@@ -15,6 +15,18 @@ Feature: remove command and regenerate preserve a buildable, faithful project
     And the generated "pkg/cmd/root/cmd.go" file does not contain "foo.NewCmdFoo"
     And the generated "pkg/cmd/root/cmd.go" file does not contain "pkg/cmd/foo"
 
+  Scenario: remove refuses a protected command unless forced
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name guarded --agentless --short guarded-widget --protected"
+    Then the project exit code is 0
+    When I run gtb in the project with "remove command --name guarded"
+    Then the project exit code is not zero
+    And the project output contains "protected"
+    And the generated "pkg/cmd/guarded/cmd.go" file exists
+    When I run gtb in the project with "remove command --name guarded --force"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/guarded/cmd.go" file does not exist
+
   Scenario: regenerate manifest preserves command descriptions
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name social --agentless --short social-media-tools"

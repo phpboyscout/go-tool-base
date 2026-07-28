@@ -63,18 +63,22 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 
 	// When telemetry is configured, emit the otelAuth var and init() override.
 	if data.TelemetryEndpoint != "" || data.TelemetryOTelEndpoint != "" {
-		f.Comment("otelAuth is injected at compile time via ldflags.")
-		f.Comment("Falls back to OTEL_API_KEY env var for local development.")
+		f.Comment("otelAuth is injected at compile time via ldflags as a pre-encoded")
+		f.Comment("base64(\"<user>:<token>\") string for the OTLP Basic auth header.")
+		f.Comment("For local development, set OTEL_API_KEY to the raw \"<user>:<token>\"")
+		f.Comment("credential; init() base64-encodes it so the header stays RFC 7617-valid.")
 		f.Comment("")
 		f.Comment("nolint:gochecknoglobals // compile-time injection requires package-level var")
 		f.Var().Id("otelAuth").String()
 
 		f.Func().Id("init").Params().Block(
 			jen.If(
-				jen.Id("v").Op(":=").Qual("os", "Getenv").Call(jen.Lit("OTEL_API_KEY")),
-				jen.Id("v").Op("!=").Lit(""),
+				jen.Id("raw").Op(":=").Qual("os", "Getenv").Call(jen.Lit("OTEL_API_KEY")),
+				jen.Id("raw").Op("!=").Lit(""),
 			).Block(
-				jen.Id("otelAuth").Op("=").Id("v"),
+				jen.Id("otelAuth").Op("=").Qual("encoding/base64", "StdEncoding").Dot("EncodeToString").Call(
+					jen.Index().Byte().Parens(jen.Id("raw")),
+				),
 			),
 		)
 	}

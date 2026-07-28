@@ -29,6 +29,7 @@ go run main.go remove command --name my-command
 -   `--name`, `-n`: **(Required)** The name of the command to remove (kebab-case).
 -   `--parent`: The parent command name (default: `root`). Use path-like syntax for nested parents (e.g., `server/start`).
 -   `--path`, `-p`: Path to the project root (default: current directory).
+-   `--force`, `-f`: Remove even if the command is marked **protected** in the manifest (default: `false`).
 
 ### Examples
 
@@ -52,6 +53,15 @@ For `cloud -> provider -> aws`:
 
 ```bash
 go run main.go remove command --name aws --parent cloud/provider
+```
+
+**Removing a protected command:**
+
+A command marked protected in the manifest is refused, because protection signals
+it carries hand-written logic. Override the guard with `--force`:
+
+```bash
+go run main.go remove command --name secret --force
 ```
 
 !!! warning "Destructive Action"

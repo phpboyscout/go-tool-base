@@ -2,7 +2,7 @@
 title: "Generator: batched MEDIUM/LOW follow-ups from the architectural review"
 description: "Grouped remediation of the remaining internal/generator findings from the 2026-07-23 architectural review: protected-command removal, broken documentation cleanup, non-atomic real-FS generation, provenance KV corruption on spaced values, swallowed verification errors, the scaffolded telemetry Basic-auth encoding gap, and structural cleanups (duplicate tree-walkers, duplicate encode helpers, scratch comments, misleading version-gate message, unbounded port digits)."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -23,7 +23,7 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (generator §MEDIUM/LOW findings + gtb-core §LOW telemetry-auth finding),
@@ -227,20 +227,25 @@ condition; ports `99999` and `0` are rejected with a range error.
   surface except the possible `remove --force` flag, which needs a Gherkin scenario
   if added.
 
-## 4. Open questions
+## 4. Open questions — RESOLVED
 
-1. **Atomicity approach (2.2.1):** full overlay-FS generation with a single
-   materialise-at-end commit (stronger, though materialisation itself can still fail
-   partway on a real FS), or incremental per-file hash persistence (weaker guarantee,
-   much smaller change)? Or overlay for regenerate only, where the misclassification
-   damage actually occurs?
-2. **Provenance encoding (2.2.2):** percent-encoding in `encodeKV` (general fix,
-   needs a decode fallback for existing provenance files) versus rejecting spaces in
-   `validateTemplateLocation` (no format change, but forbids legitimate local paths
-   like `~/My Templates`)? Leaning percent-encoding — confirm the fallback story.
-3. **Protected removal override (2.1.1):** is `--force` acceptable as the escape
-   hatch, or should protected removal require first clearing the flag via the
-   existing protection toggle (no new flag, more friction)?
-4. **Dev-manifest gate (2.4.4):** should a release CLI hard-refuse `gtb: dev`
-   manifests (current behaviour, better message), or accept with a WARN since the dev
-   build that wrote it may predate the release?
+1. **Atomicity approach (2.2.1):** RESOLVED — overlay for **regenerate only**,
+   where the misclassification damage actually occurs. `regenerateProject` now runs
+   the docs migration + file writes + manifest/hash persistence through a staged
+   copy-on-write overlay (`stagedFS`, `internal/generator/materialise.go`) and
+   materialises to the real filesystem as a single commit step only once every step
+   succeeds; a mid-run failure leaves the tree and manifest untouched. The staged FS
+   records base-file removals (rather than EPERM-refusing) so deletion semantics
+   (e.g. dropping `signing.go`) are preserved through the buffer. `generate skeleton`
+   was deliberately left on its existing path.
+2. **Provenance encoding (2.2.2):** RESOLVED — percent-encode values in `encodeKV`
+   (`url.QueryEscape`), decode with `url.QueryUnescape`, which is an identity for the
+   legacy token-like (space-free) values, so it doubles as the backward-compat
+   fallback for provenance files written before encoding.
+3. **Protected removal override (2.1.1):** RESOLVED — `gtb remove command --force`
+   is the escape hatch. The Protected check runs first (`checkRemovalProtection`,
+   before any mutation); `--force` overrides it.
+4. **Dev-manifest gate (2.4.4):** RESOLVED — a release CLI **hard-refuses** a
+   `gtb: dev` (and version-less) manifest, but with a dedicated, clear message naming
+   the dev-build condition instead of the misleading "your gtb is lower than the
+   manifest" wording.

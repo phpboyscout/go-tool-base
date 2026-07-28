@@ -26,28 +26,48 @@ func (g *Generator) FindCommandParentPath(name string) ([]string, error) {
 	return []string{}, nil
 }
 
-// findCommandAt returns a pointer to the command named `name` whose parent
-// chain matches `parentPath`.  Unlike findCommandRecursive, it handles a root-
-// level command where parentPath is empty.
-func findCommandAt(commands []ManifestCommand, parentPath []string, name string) *ManifestCommand {
-	if len(parentPath) == 0 {
-		for i := range commands {
-			if commands[i].Name == name {
-				return &commands[i]
-			}
-		}
-
+// walkCommandPath resolves path — a slice of command names from the root of
+// commands down to a target — to a pointer to the target ManifestCommand, or
+// nil when any segment is missing or path is empty. The returned pointer aliases
+// the underlying slice element, so mutations through it (Protected, Hashes,
+// Commands) persist. This is the single walk-a-known-path primitive every
+// manifest find/update/remove helper is built on, so the G602 slice-index
+// reasoning lives in exactly one audited place.
+func walkCommandPath(commands []ManifestCommand, path []string) *ManifestCommand {
+	if len(path) == 0 {
 		return nil
 	}
 
 	for i := range commands {
-		//nolint:gosec // G602 false positive: the len(parentPath)==0 guard above proves parentPath is non-empty here.
-		if commands[i].Name == parentPath[0] {
-			return findCommandAt(commands[i].Commands, parentPath[1:], name)
+		//nolint:gosec // G602 false positive: the len(path)==0 guard above proves path is non-empty, so path[0] and path[1:] are in range.
+		if commands[i].Name != path[0] {
+			continue
 		}
+
+		if len(path) == 1 {
+			return &commands[i]
+		}
+
+		//nolint:gosec // G602 false positive: len(path)>1 here (len 0 and 1 handled above), so path[1:] is in range.
+		return walkCommandPath(commands[i].Commands, path[1:])
 	}
 
 	return nil
+}
+
+// joinCommandPath returns a fresh parentPath+leaf slice without aliasing
+// parentPath's backing array.
+func joinCommandPath(parentPath []string, leaf string) []string {
+	path := make([]string, 0, len(parentPath)+1)
+	path = append(path, parentPath...)
+
+	return append(path, leaf)
+}
+
+// findCommandAt returns a pointer to the command named `name` whose parent
+// chain matches `parentPath` (empty parentPath means a root-level command).
+func findCommandAt(commands []ManifestCommand, parentPath []string, name string) *ManifestCommand {
+	return walkCommandPath(commands, joinCommandPath(parentPath, name))
 }
 
 func findCommandPathRecursive(commands []ManifestCommand, targetName string) ([]string, bool) {
@@ -96,18 +116,7 @@ func (g *Generator) findManifestCommand() (*ManifestCommand, error) {
 		return nil, err
 	}
 
-	pathParts := g.getParentPathParts()
-	if len(pathParts) == 0 {
-		for i := range m.Commands {
-			if m.Commands[i].Name == g.config.Name {
-				return &m.Commands[i], nil
-			}
-		}
-
-		return nil, errors.New("command not found in manifest")
-	}
-
-	cmd := findCommandRecursive(m.Commands, pathParts, g.config.Name)
+	cmd := walkCommandPath(m.Commands, joinCommandPath(g.getParentPathParts(), g.config.Name))
 	if cmd == nil {
 		return nil, errors.New("command not found in manifest")
 	}
@@ -133,32 +142,9 @@ func (g *Generator) syncDisplayConfig(cmd *ManifestCommand) {
 	}
 }
 
-func findCommandRecursive(commands []ManifestCommand, parentPath []string, name string) *ManifestCommand {
-	if len(parentPath) == 0 {
-		return nil
-	}
-
-	for i := range commands {
-		//nolint:gosec // G602 false positive: the len(parentPath)==0 guard above proves parentPath is non-empty here.
-		if commands[i].Name == parentPath[0] {
-			if len(parentPath) == 1 {
-				for j := range commands[i].Commands {
-					if commands[i].Commands[j].Name == name {
-						return &commands[i].Commands[j]
-					}
-				}
-
-				return nil
-			}
-
-			return findCommandRecursive(commands[i].Commands, parentPath[1:], name)
-		}
-	}
-
-	return nil
-}
-
-func (g *Generator) setCommandProtection(name string, pathParts []string, protected bool) error {
+// setCommandProtection sets the Protected flag on the command addressed by
+// pathParts (the "/"-split command path, e.g. "kube/ctx" -> ["kube","ctx"]).
+func (g *Generator) setCommandProtection(pathParts []string, protected bool) error {
 	manifestPath := ManifestPathFor(g.config.Path)
 
 	m, err := g.decodeManifestFile(manifestPath)
@@ -166,68 +152,44 @@ func (g *Generator) setCommandProtection(name string, pathParts []string, protec
 		return err
 	}
 
-	found := false
-
-	if len(pathParts) <= 1 {
-		// Root level command relative to the context (or just a single command name provided)
-		// pathParts comes from splitting the command name, so "kube/ctx" -> ["kube", "ctx"]
-		for i, cmd := range m.Commands {
-			if cmd.Name == name {
-				m.Commands[i].Protected = &protected
-				found = true
-
-				break
-			}
-		}
-	} else {
-		// Subcommand
-		found = updateProtectionRecursive(&m.Commands, pathParts, protected)
-	}
-
-	if !found {
+	cmd := walkCommandPath(m.Commands, pathParts)
+	if cmd == nil {
 		return errors.Newf("command %s not found in manifest", strings.Join(pathParts, "/"))
 	}
+
+	cmd.Protected = &protected
 
 	return g.marshalManifestFile(manifestPath, m)
 }
 
-func updateProtectionRecursive(commands *[]ManifestCommand, pathParts []string, protected bool) bool {
-	if len(pathParts) == 0 {
-		return false
+// removeCommand removes the child named `name` from the command tree: from the
+// top level when parentPath is empty, otherwise from the command addressed by
+// parentPath. Returns false when the parent or child is absent.
+func removeCommand(commands *[]ManifestCommand, parentPath []string, name string) bool {
+	target := commands
+	if len(parentPath) > 0 {
+		parent := walkCommandPath(*commands, parentPath)
+		if parent == nil {
+			return false
+		}
+
+		target = &parent.Commands
 	}
 
-	target := pathParts[0]
+	return removeChildByName(target, name)
+}
 
-	for i := range *commands {
-		if (*commands)[i].Name == target {
-			if len(pathParts) == 1 {
-				(*commands)[i].Protected = &protected
+// removeChildByName drops the first command named `name` from *commands.
+func removeChildByName(commands *[]ManifestCommand, name string) bool {
+	for i, cmd := range *commands {
+		if cmd.Name == name {
+			*commands = append((*commands)[:i], (*commands)[i+1:]...)
 
-				return true
-			}
-
-			//nolint:gosec // G602 false positive: the len(pathParts)==0 guard above proves pathParts is non-empty here.
-			return updateProtectionRecursive(&(*commands)[i].Commands, pathParts[1:], protected)
+			return true
 		}
 	}
 
 	return false
-}
-
-func removeCommand(commands *[]ManifestCommand, pathParts []string, name string) bool {
-	if len(pathParts) == 0 {
-		for i, cmd := range *commands {
-			if cmd.Name == name {
-				*commands = append((*commands)[:i], (*commands)[i+1:]...)
-
-				return true
-			}
-		}
-
-		return false
-	}
-
-	return removeFromCommandRecursive(commands, pathParts, name)
 }
 
 func (g *Generator) removeFromManifest() error {
@@ -247,33 +209,4 @@ func (g *Generator) removeFromManifest() error {
 	}
 
 	return g.marshalManifestFile(manifestPath, m)
-}
-
-func removeFromCommandRecursive(commands *[]ManifestCommand, parentPath []string, name string) bool {
-	if len(parentPath) == 0 {
-		return false
-	}
-
-	for i := range *commands {
-		//nolint:gosec // G602 false positive: the len(parentPath)==0 guard above proves parentPath is non-empty here.
-		if (*commands)[i].Name == parentPath[0] {
-			if len(parentPath) == 1 {
-				// Found the parent
-				for j, sub := range (*commands)[i].Commands {
-					if sub.Name == name {
-						(*commands)[i].Commands = append((*commands)[i].Commands[:j], (*commands)[i].Commands[j+1:]...)
-
-						return true
-					}
-				}
-
-				return false
-			}
-			//nolint:gosec // G602 false positive: parentPath has len>1 here (len==0 and len==1 both handled above).
-			// Descend further
-			return removeFromCommandRecursive(&(*commands)[i].Commands, parentPath[1:], name)
-		}
-	}
-
-	return false
 }

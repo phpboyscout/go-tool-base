@@ -137,29 +137,18 @@ func (g *Generator) updateRootCommand(m *Manifest, mFlags []ManifestFlag, hashes
 	}
 }
 
+// updateCommandRecursive updates (or appends) command u among the children of
+// the command addressed by parentPath. Returns false when parentPath is empty
+// or does not resolve to an existing command.
 func updateCommandRecursive(commands *[]ManifestCommand, parentPath []string, u ManifestCommandUpdate) bool {
-	if len(parentPath) == 0 {
+	parent := walkCommandPath(*commands, parentPath)
+	if parent == nil {
 		return false
 	}
 
-	for i := range *commands {
-		if (*commands)[i].Name == parentPath[0] {
-			return handleCommandRecursiveUpdate(commands, i, parentPath, u)
-		}
-	}
+	updateOrAppendCommand(&parent.Commands, u)
 
-	return false
-}
-
-func handleCommandRecursiveUpdate(commands *[]ManifestCommand, idx int, parentPath []string, u ManifestCommandUpdate) bool {
-	if len(parentPath) == 1 {
-		updateOrAppendCommand(&(*commands)[idx].Commands, u)
-
-		return true
-	}
-
-	// Descend further
-	return updateCommandRecursive(&(*commands)[idx].Commands, parentPath[1:], u)
+	return true
 }
 
 func updateOrAppendCommand(commands *[]ManifestCommand, u ManifestCommandUpdate) {
@@ -252,37 +241,16 @@ func (g *Generator) updateParentCmdHash() error {
 		return err
 	}
 
-	if !updateCommandHashRecursive(&m.Commands, parentParts, hash) {
+	cmd := walkCommandPath(m.Commands, parentParts)
+	if cmd == nil {
 		return nil
 	}
 
+	if cmd.Hashes == nil {
+		cmd.Hashes = make(map[string]string)
+	}
+
+	cmd.Hashes["cmd.go"] = hash
+
 	return g.marshalManifestFile(manifestPath, m)
-}
-
-func updateCommandHashRecursive(commands *[]ManifestCommand, path []string, hash string) bool {
-	if len(path) == 0 {
-		return false
-	}
-
-	for i := range *commands {
-		//nolint:gosec // G602 false positive: the len(path)==0 guard above proves path is non-empty here.
-		if (*commands)[i].Name != path[0] {
-			continue
-		}
-
-		if len(path) == 1 {
-			if (*commands)[i].Hashes == nil {
-				(*commands)[i].Hashes = make(map[string]string)
-			}
-
-			(*commands)[i].Hashes["cmd.go"] = hash
-
-			return true
-		}
-
-		//nolint:gosec // G602 false positive: path has len>1 here (len==0 and len==1 both handled above).
-		return updateCommandHashRecursive(&(*commands)[i].Commands, path[1:], hash)
-	}
-
-	return false
 }

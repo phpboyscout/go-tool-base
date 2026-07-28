@@ -230,9 +230,7 @@ func (o *AddFlagOptions) saveManifest(p *props.Props, m *generator.Manifest, pat
 		return errors.Newf("%w for command %s", ErrUpdateManifestFailed, o.CommandName)
 	}
 
-	const permission = 0o644
-
-	return generator.MarshalManifestFile(p.FS, generator.ManifestPathFor(o.Path), m, os.FileMode(permission))
+	return generator.EncodeManifestFile(p.FS, generator.ManifestPathFor(o.Path), m)
 }
 
 func (o *AddFlagOptions) regenerateCommand(ctx context.Context, p *props.Props, cmd *generator.ManifestCommand, parentPath []string) error {

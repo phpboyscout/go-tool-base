@@ -138,13 +138,13 @@ func (g *Generator) saveManifestTemplates(sources []TemplateSource) error {
 
 	m.Properties.Templates = sources
 
-	return g.encodeManifestFile(manifestPath, m)
+	return g.marshalManifestFile(manifestPath, m)
 }
 
 // saveFullManifest persists the whole manifest (used by remove, which also
 // edits Hashes).
 func (g *Generator) saveFullManifest(m *Manifest) error {
-	return g.encodeManifestFile(ManifestPathFor(g.config.Path), m)
+	return g.marshalManifestFile(ManifestPathFor(g.config.Path), m)
 }
 
 // indexOfSource returns the index of the source matching name (by Name, or by
