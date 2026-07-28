@@ -96,7 +96,20 @@ If a documentation page already exists, the AI:
 
 1. **Reads Existing Content**: Uses your manual tweaks as context.
 2. **Preserves Customizations**: Merges new technical details with your hand-written sections.
-3. **Maintains Authorship**: Appends the AI model to the `authors` list while preserving existing human authors.
+3. **Maintains Authorship**: Authorship is **additive** — the AI model is appended to the `authors` list as a *co-author*, and your existing human author(s) are always preserved, never replaced.
+
+!!! tip "Frontmatter-first output"
+    Generated pages are guaranteed to begin with the YAML frontmatter fence (`---`). Any conversational preamble the model emits ahead of the frontmatter is stripped before the file is written, so static-site generators always parse the frontmatter. If a response contains no frontmatter at all, `generate docs` falls back to deterministic boilerplate rather than committing a broken page.
+
+### Suppressing AI Attribution 🚫🤖
+
+By default the generated frontmatter credits the AI model as an additive co-author. If your project's policy is to keep **no** AI/model attribution in committed docs, pass `--no-ai-attribution`:
+
+```bash
+go run main.go generate docs --command "az/login" --no-ai-attribution
+```
+
+This flips the generation prompt so the `authors:` field carries your project's human author(s) only — the model is instructed to add no AI, model, assistant, or tool identity. Existing human authors are still preserved.
 
 ## Advanced Usage
 

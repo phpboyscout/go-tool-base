@@ -26,6 +26,12 @@ import (
 
 var ErrInvalidPackageName = errors.Newf("invalid package name")
 
+// ErrNoFrontmatter signals that an AI documentation response contained no YAML
+// frontmatter fence at all, even after stripping any conversational preamble.
+// The generator treats this as a generation failure and falls back to
+// deterministic boilerplate rather than committing a frontmatter-less page.
+var ErrNoFrontmatter = errors.Newf("AI documentation response contained no frontmatter")
+
 var packageDocumentationSystemPrompt = `You are an expert technical writer and software engineer.
 Your goal is to generate understanding-oriented Markdown documentation for a Go package — explanation, NOT an auto-generated API dump.
 Audience: Software Engineers integrating with or maintaining this package.
@@ -37,7 +43,7 @@ STYLE GUIDELINES (CRITICAL):
    - description: A concise summary of the package.
    - date: %s
    - tags: [go, package, %s]
-   - authors: A list of authors. Append "%s" to existing.
+   - %s
 
 1. **Format**: Use Standard Markdown. Leave a blank line before and after every heading, paragraph, list, and code block.
 
@@ -50,7 +56,7 @@ Existing Documentation (content below separator):
 ================================================================================
 
 INSTRUCTIONS:
-- Preserve manual edits/tags/authors; merge existing authors with the current AI model.
+- Preserve manual edits and tags. %s
 - For the full, exhaustive API reference: %s
 
 IMPORT MAPPING:
@@ -78,7 +84,7 @@ STYLE GUIDELINES (CRITICAL):
    - description: A concise, one-sentence summary of the command.
    - date: The current date (%s).
    - tags: A list of relevant tags (e.g. [cli, command, %s]).
-   - authors: A list of authors. You MUST append the current AI model ("%s") to any existing authors.
+   - %s
 
    Do NOT wrap this frontmatter in a code block. Return it as raw text.
    Example:
@@ -87,7 +93,7 @@ STYLE GUIDELINES (CRITICAL):
    description: Authenticates the user with the system.
    date: 2023-10-27
    tags: [cli, azure, auth]
-   authors: [human-maintainer, gemini-2.0-flash-exp]
+   %s
    ---
 
 1. **MkDocs Syntax**: Use MkDocs Admonitions for callouts, warnings, or tips.
@@ -113,7 +119,7 @@ Existing Documentation (content below separator):
 INSTRUCTIONS:
 - The content above between separator lines is the EXISTING DOCUMENTATION.
 - If it is not empty, you MUST preserve any manual edits, extra sections, or custom frontmatter fields (like tags or authors).
-- You MUST merge existing authors with the current AI model.
+- %s
 - You MUST merge existing tags with any new relevant tags.
 - Update the 'date' field to the current date.
 
@@ -185,7 +191,17 @@ func (g *Generator) GenerateDocs(ctx context.Context, target string, isPackage b
 		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
 	}
 
-	return g.writeAIDocs(ctx, client, content, outputPath, isPackage)
+	err = g.writeAIDocs(ctx, client, content, outputPath, isPackage)
+	if errors.Is(err, ErrNoFrontmatter) {
+		// The model returned no frontmatter at all: rather than commit a broken,
+		// frontmatter-less page, fall back to the deterministic boilerplate that
+		// GenerateDocs would have written without an AI provider.
+		g.props.Logger.Warn("AI response had no frontmatter; writing deterministic boilerplate instead", "name", name)
+
+		return g.handleNoAIDocs(name, fullCmdName, relPath, moduleName, outputPath, isPackage)
+	}
+
+	return err
 }
 
 // aiDocsEnabled reports whether AI-assisted documentation generation should
@@ -257,6 +273,21 @@ func (g *Generator) writeAIDocs(ctx context.Context, client gochat.ChatClient, c
 	}
 
 	docsContent = g.sanitizeAIOutput(docsContent)
+
+	// Issue #7 defect 1: models emit conversational narration ahead of the YAML
+	// frontmatter, which pushes the frontmatter off byte 0 and stops any static
+	// site generator from parsing it. Discard everything before the first `---`
+	// fence, then assert the frontmatter-first invariant on the bytes we write.
+	stripped, ok := stripToFrontmatter(docsContent)
+	if !ok {
+		return ErrNoFrontmatter
+	}
+
+	docsContent = stripped
+
+	if !strings.HasPrefix(docsContent, "---") {
+		return errors.Newf("generated documentation is not frontmatter-first")
+	}
 
 	docsDir := filepath.Dir(outputPath)
 	if err := g.props.FS.MkdirAll(docsDir, os.ModePerm); err != nil {
@@ -509,15 +540,42 @@ func (g *Generator) getPromptAndOutput(name, relPath, moduleName string, isPacka
 
 	currentDate := time.Now().Format("2006-01-02")
 	provider, model := g.resolveAIConfig()
-	aiAuthor := fmt.Sprintf("%s (%s)", g.capitalize(provider), model)
+	frontmatterAuthors, mergeAuthors, exampleAuthors := g.authorsDirectives(provider, model)
 
 	if isPackage {
-		sysPrompt = fmt.Sprintf(packageDocumentationSystemPrompt, name, currentDate, name, aiAuthor, existingDocsContent, g.apiReferencePolicy(relPath, moduleName), moduleName)
+		sysPrompt = fmt.Sprintf(packageDocumentationSystemPrompt, name, currentDate, name, frontmatterAuthors, existingDocsContent, mergeAuthors, g.apiReferencePolicy(relPath, moduleName), moduleName)
 	} else {
-		sysPrompt = fmt.Sprintf(commandDocumentationSystemPrompt, fullCmdName, currentDate, name, aiAuthor, currentDate, existingDocsContent, moduleName, moduleName, moduleName, fullCmdName, fullCmdName)
+		sysPrompt = fmt.Sprintf(commandDocumentationSystemPrompt, fullCmdName, currentDate, name, frontmatterAuthors, exampleAuthors, currentDate, existingDocsContent, mergeAuthors, moduleName, moduleName, moduleName, fullCmdName, fullCmdName)
 	}
 
 	return sysPrompt, fullCmdName, outputPath
+}
+
+// authorsDirectives returns the three authors-related instructions injected into
+// the documentation system prompt: the frontmatter `authors:` field description,
+// the INSTRUCTIONS-section merge rule, and the worked-example authors line.
+//
+// By default (issue #7 maintainer decision) AI attribution in generated docs is
+// acceptable, but ADDITIVE: the model is told to preserve every existing (human)
+// author and merely append the current AI model as an extra co-author, never to
+// replace the human. When --no-ai-attribution is set the directives flip: the
+// model is told the authors field must carry the project's human author(s) only,
+// and to add no AI/model/assistant identity at all.
+func (g *Generator) authorsDirectives(provider, model string) (frontmatter, merge, example string) {
+	if g.config.NoAIAttribution {
+		frontmatter = "authors: A list of the project's human author(s). Preserve any existing authors already present in the documentation. Do NOT add, invent, or append any AI, model, assistant, or tool identity — the authors field must contain the project's human authors only."
+		merge = "Preserve the existing human author(s) exactly; do NOT add any AI, model, assistant, or tool identity to the authors field."
+		example = "authors: [human-maintainer]"
+
+		return frontmatter, merge, example
+	}
+
+	aiAuthor := fmt.Sprintf("%s (%s)", g.capitalize(provider), model)
+	frontmatter = fmt.Sprintf(`authors: A list of authors. Preserve every existing author already present in the documentation (never replace or drop the human author(s)), then additionally append the current AI model ("%s") as a co-author if it is not already listed.`, aiAuthor)
+	merge = fmt.Sprintf(`Preserve all existing authors — never replace the human author(s) — and additionally append the current AI model ("%s") as a co-author.`, aiAuthor)
+	example = "authors: [human-maintainer, gemini-2.0-flash-exp]"
+
+	return frontmatter, merge, example
 }
 
 // apiReferencePolicy returns the instruction the package-doc prompt uses for its
@@ -769,6 +827,23 @@ func (g *Generator) sanitizeAIOutput(content string) string {
 	}
 
 	return strings.TrimSpace(content)
+}
+
+// stripToFrontmatter discards any conversational preamble a model emits ahead of
+// the YAML frontmatter, returning the content from the first line that is exactly
+// `---` onward and whether such a fence was found. It strips only a leading
+// preamble; content within and after the frontmatter is left untouched. When no
+// `---` line exists the original content is returned with ok=false so the caller
+// can treat it as a generation failure rather than write a frontmatter-less page.
+func stripToFrontmatter(content string) (stripped string, ok bool) {
+	lines := strings.SplitAfter(content, "\n")
+	for i, line := range lines {
+		if strings.TrimRight(line, "\r\n") == "---" {
+			return strings.Join(lines[i:], ""), true
+		}
+	}
+
+	return content, false
 }
 
 func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sysPrompt string) (gochat.ChatClient, error) {

@@ -11,14 +11,15 @@ import (
 )
 
 type DocsOptions struct {
-	Name        string
-	Path        string
-	Parent      string
-	CommandName string
-	PackagePath string
-	LegacySrc   string
-	Agentless   bool
-	PublicAPI   bool
+	Name            string
+	Path            string
+	Parent          string
+	CommandName     string
+	PackagePath     string
+	LegacySrc       string
+	Agentless       bool
+	PublicAPI       bool
+	NoAIAttribution bool
 }
 
 func NewCmdDocs(p *props.Props) *cobra.Command {
@@ -58,6 +59,7 @@ Examples:
 	cmd.Flags().StringVar(&opts.PackagePath, "package", "", "Path to package to document (relative to project root)")
 	cmd.Flags().BoolVar(&opts.Agentless, "agentless", false, "Skip AI doc-generation and write boilerplate docs only")
 	cmd.Flags().BoolVar(&opts.PublicAPI, "public-api", false, "Module is publicly published: defer package API reference to pkg.go.dev (default: stub to a local 'go doc' hint)")
+	cmd.Flags().BoolVar(&opts.NoAIAttribution, "no-ai-attribution", false, "Do not attribute the AI model in generated doc frontmatter: authors carry the project's human author(s) only (default: AI model appended as an additive co-author)")
 
 	// --source is a deprecated alias for --command (Run() falls back to it
 	// when --command is empty). It must therefore participate in the
@@ -76,14 +78,15 @@ func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
 	o.Path = icmd.ResolveProjectPath(p, o.Path)
 
 	cfg := &generator.Config{
-		Name:       o.Name,
-		Path:       o.Path,
-		Parent:     o.Parent,
-		DryRun:     dryRun,
-		AIProvider: aiProvider,
-		AIModel:    aiModel,
-		Agentless:  o.Agentless,
-		PublicAPI:  o.PublicAPI,
+		Name:            o.Name,
+		Path:            o.Path,
+		Parent:          o.Parent,
+		DryRun:          dryRun,
+		AIProvider:      aiProvider,
+		AIModel:         aiModel,
+		Agentless:       o.Agentless,
+		PublicAPI:       o.PublicAPI,
+		NoAIAttribution: o.NoAIAttribution,
 	}
 
 	gen := generator.New(p, cfg)

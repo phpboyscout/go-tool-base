@@ -94,7 +94,14 @@ type Config struct {
 	// false: the reference is stubbed to a local `go doc` hint (no dead links for
 	// a private/unpublished module). The manifest module_published property is the
 	// persistent equivalent.
-	PublicAPI            bool
+	PublicAPI bool
+	// NoAIAttribution, when true (the --no-ai-attribution flag on `generate
+	// docs`), flips the documentation system prompt so the frontmatter `authors:`
+	// field carries the project's human author(s) only — the model is instructed
+	// to add no AI/model/assistant identity. Default false: AI attribution is
+	// additive (existing human authors preserved, AI model appended as a
+	// co-author). See docs.go authorsDirectives and issue #7.
+	NoAIAttribution      bool
 	WithAssets           bool
 	WithConfigValidation bool
 	WithInitializer      bool

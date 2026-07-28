@@ -2,7 +2,7 @@
 title: "generate docs: frontmatter-first output and non-model authorship"
 description: "gtb generate docs writes the model's conversational preamble above the YAML frontmatter (breaking it) and fills the frontmatter authors field with the AI model identity. Strip any preamble ahead of the first frontmatter fence and assert a frontmatter-first byte-0 invariant on write; populate authors from project configuration (never the model identity), optionally recording provenance in a separate field."
 date: 2026-07-28
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -25,7 +25,7 @@ Date
 :   28 July 2026
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — maintainer decisions resolved (see §4); fix landed on this branch
 
 Related
 :   [Issue #7 — generate docs: model preamble leaks above YAML frontmatter, and authors: is filled with the model identity](https://gitlab.com/phpboyscout/go-tool-base/-/work_items/7);
@@ -162,77 +162,96 @@ Red evidence (`go test ./internal/generator/ -run TestGenerateDocs_Issue7`):
   command system prompt contains
   `authors: A list of authors. You MUST append the current AI model ("Claude (claude-opus-4-8)")…`.
 
-## 4. Proposed solution direction
+## 4. Solution (maintainer decisions resolved)
 
-Not implemented here; captured for review.
+The maintainer reviewed the §1 reporter suggestions and the §2 analysis and
+resolved the two defects as follows. This section is the decision record; the
+fix implementing it landed on this branch.
 
-**Defect 1 — enforce frontmatter-first.** Extend `sanitizeAIOutput` (or add a
-dedicated step in `writeAIDocs` before write) to discard everything ahead of the
-first line that is exactly `---`. Then assert the invariant: the bytes handed to
-`afero.WriteFile` must begin with `---\n`. If, after stripping, no frontmatter
-fence is found, treat it as a generation failure (fall back to the deterministic
-boilerplate via `handleNoAIDocs`, or retry once) rather than writing a broken
-page. Apply on **both** the command and package AI write paths. A focused helper
-(e.g. `stripToFrontmatter(string) (string, bool)`) keeps this testable in
-isolation.
+**Defect 1 — enforce frontmatter-first.** Straightforward, as the reporter
+suggested. `writeAIDocs` (`docs.go`), after `sanitizeAIOutput`, now routes the
+model output through a focused helper `stripToFrontmatter(string) (string, bool)`
+that discards everything ahead of the first line that is exactly `---` and
+returns the content from that fence onward. The bytes handed to
+`afero.WriteFile` are then asserted to begin with `---` (a cheap frontmatter-first
+invariant). If, after stripping, **no** `---` fence is found at all, that is a
+generation failure worth surfacing: the helper reports `ok=false`, `writeAIDocs`
+returns the sentinel `ErrNoFrontmatter`, and `GenerateDocs` falls back to the
+deterministic boilerplate via `handleNoAIDocs` rather than committing a
+frontmatter-less page. The strip is applied on **both** the command and package
+AI write paths (they share `writeAIDocs`). Only a **leading** preamble is
+stripped; content within and after the frontmatter is untouched (§6 Q4).
 
-**Defect 2 — authorship from project, not model.** Remove the AI-identity
-injection from both prompts (`docs.go:40,53,81,90,116`) and stop computing
-`aiAuthor` for the authors field (`docs.go:512`). Populate `authors:`
-deterministically from project configuration, with a clear precedence — e.g.
-explicit `--author` flag → manifest author/maintainer field → git
-`user.name`/`user.email` — and **preserve existing authors** already present in
-the file's frontmatter (the "merge/preserve manual edits" intent stays, minus
-the AI append). If generation provenance is worth recording, add a **separate**
-`generated_by:` frontmatter field that projects can opt out of; it must never
-occupy `authors:`. Since authors then no longer depend on the model, the
-generator can set/merge it deterministically post-response rather than trusting
-the model to echo it.
+**Defect 2 — additive AI co-authorship by default, opt-out flag.** The
+maintainer **rejected** the "remove AI attribution entirely" direction. AI
+attribution in generated *docs* is acceptable — docs are a common human
+oversight and the AI genuinely contributes — but two things change:
 
-Open design points are deferred to §6.
+- **(a) Make it additive.** The prompt still names the current AI model, but the
+  instruction now tells the model to **preserve every existing (human) author**
+  and *additionally append* the AI model as a **co-author**, never to replace or
+  drop the human. This fixes the reporter's replacement + churn complaint at the
+  instruction level (the authors content is produced by the model, so the fix is
+  prompt-driven).
+- **(b) Add a `--no-ai-attribution` flag** to `generate docs`. When set, it
+  **flips the system prompt**: the `authors:` field is scoped to the project's
+  human author(s) only, and the model is explicitly instructed to add **no**
+  AI/model/assistant/tool identity. This is the opt-out for no-AI-attribution
+  projects.
+
+Implementation: the hard-coded "You MUST append the current AI model (…)"
+instructions (`docs.go` command prompt frontmatter bullet / worked example /
+INSTRUCTIONS merge line, and the package prompt equivalents) are replaced with
+`%s` placeholders filled by a new `authorsDirectives(provider, model)` helper
+that returns the frontmatter directive, the merge directive, and the example
+authors line — additive-co-author wording by default, human-only wording when
+`Config.NoAIAttribution` is set. The flag threads
+`DocsOptions.NoAIAttribution → generator.Config.NoAIAttribution`.
+
+A separate `generated_by:` provenance field (§6 Q2) was considered and **not**
+adopted: co-authorship in `authors:` already records the contribution when
+wanted, and `--no-ai-attribution` removes it entirely when not — a second field
+would be redundant.
 
 ## 5. Acceptance criteria
 
-The following tests (added red in this spec's branch,
-`internal/generator/docs_issue7_test.go`) must go **green** once the fix lands,
-and no existing generator test may regress:
+The tests in `internal/generator/docs_issue7_test.go` are **green** with the fix,
+and no existing generator test regressed:
 
 1. `TestGenerateDocs_Issue7_PreambleStrippedAboveFrontmatter` — given a mock
    chat client whose response carries conversational preamble ahead of the
-   frontmatter, the written command doc begins with `---\n` and contains none of
-   the preamble text.
-2. `TestGenerateDocs_Issue7_AuthorsNotModelIdentity` — the constructed
-   documentation prompt does not inject the AI model identity into an authors
-   instruction, and does not instruct the model to append the AI model to
-   authors.
+   frontmatter, the written command doc begins with `---\n`, contains none of the
+   preamble text, and the human author in the model output is preserved.
+2. `TestGenerateDocs_Issue7_NoFrontmatterFallsBackToBoilerplate` — a response
+   with **no** `---` fence at all does not produce a frontmatter-less committed
+   file; the generator falls back to the (frontmatter-first) deterministic
+   boilerplate.
+3. `TestGenerateDocs_Issue7_AuthorsAdditiveByDefault` — by default the prompt
+   injects the AI model as a **co-author** and instructs the model to *preserve*
+   existing (human) authors and *append* the AI model (additive, not replacing).
+4. `TestGenerateDocs_Issue7_NoAIAttributionFlag` — with `--no-ai-attribution`
+   the prompt does not inject the AI model identity, does not instruct appending
+   the AI model, and scopes authorship to the project's human author(s).
+5. `TestGenerateDocs_Issue7_NoAIAttributionPackagePrompt` — the flag applies to
+   the package doc prompt too (both prompts share `authorsDirectives`).
 
-Additional coverage to add alongside the implementation (not yet written):
+## 6. Open questions (resolved / deferred)
 
-3. A package-doc equivalent of (1) (the package AI write path shares
-   `sanitizeAIOutput`).
-4. A positive test that `authors:` is populated from project configuration and
-   that a pre-existing human author in the file's frontmatter is preserved
-   through regeneration.
-5. A test that a response with **no** frontmatter at all does not produce a
-   frontmatter-less committed file (fallback/retry path).
-
-## 6. Open questions
-
-1. **Authorship source of truth.** Which wins, and in what order — a
-   `--author` flag, a manifest author/maintainer field (does one exist, or must
-   it be added?), or git `user.name`/`user.email`? What is the fallback when
-   none is configured (empty `authors:`, omit the field, or a tool-name
-   placeholder)?
-2. **`generated_by:` provenance.** Do we want it at all? If so, is it
-   default-on or default-off, and does it carry provider+model or just "AI"?
-   (No-AI-attribution projects will want it absent entirely.)
-3. **No-frontmatter response handling.** On a response that yields no `---`
-   block after stripping, do we fall back to deterministic boilerplate, retry
-   the model once, or hard-fail the command? Retry has cost/latency
-   implications for the tool-calling loop.
-4. **Scope of the strip.** Only strip a leading preamble, or also detect and
-   drop a trailing model sign-off after the content? Issue #7 only evidences a
-   leading leak; a trailing strip risks eating legitimate content.
-5. **Existing generated pages.** Should `regenerate` proactively repair pages
-   already carrying a model identity in `authors:` / a leaked preamble, or is
-   that left to the next per-page regeneration?
+1. **Authorship source of truth.** *Resolved:* authorship stays **model-driven
+   via the prompt** — the model preserves existing frontmatter authors and, by
+   default, appends the AI model as a co-author. A deterministic `--author` /
+   manifest / git-config precedence chain was **not** adopted for this fix; the
+   defect was replacement of the human author, which the additive-co-author
+   instruction (plus the `--no-ai-attribution` opt-out) addresses without a new
+   authorship pipeline.
+2. **`generated_by:` provenance.** *Resolved (not adopted)* — see §4. Redundant
+   with additive co-authorship + `--no-ai-attribution`.
+3. **No-frontmatter response handling.** *Resolved:* fall back to the
+   deterministic boilerplate (`handleNoAIDocs`) via the `ErrNoFrontmatter`
+   sentinel. No retry loop — cheaper and deterministic.
+4. **Scope of the strip.** *Resolved:* strip only a **leading** preamble (issue
+   #7's evidenced case). A trailing sign-off strip is deliberately not done — it
+   risks eating legitimate content.
+5. **Existing generated pages.** *Deferred:* repair is left to the next
+   per-page regeneration, which now emits frontmatter-first, additive-authors
+   output. No bulk `regenerate` migration is shipped with this fix.

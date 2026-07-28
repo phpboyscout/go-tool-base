@@ -125,6 +125,7 @@ Generate Markdown docs for a command or package.
 | `--parent` | — | Parent command name (if not in the manifest). |
 | `--agentless` | `false` | Skip AI generation; write boilerplate only. |
 | `--public-api` | `false` | Module is publicly published: defer package API reference to pkg.go.dev (otherwise a local `go doc` hint). Equivalent to `module_published: true` in the manifest. |
+| `--no-ai-attribution` | `false` | Keep AI/model attribution out of the generated frontmatter `authors:` — human author(s) only. Default: the AI model is appended as an additive co-author. |
 | `--path` | `.` | Project root. |
 
 One of `--command`/`--package`/`--source` is required. (`--source` is deprecated; use `--command`.)
