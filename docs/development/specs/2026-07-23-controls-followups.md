@@ -2,7 +2,7 @@
 title: "controls: medium/low follow-ups from the architectural review"
 description: "Batches the three MEDIUM and three LOW controls findings from the 2026-07-23 architectural review into one hardening pass: enforcing the health-check Timeout with a goroutine+select and a staleness bound on cached results, guarding the Stop() channel send against a completed shutdown (the D9 pattern), releasing the services mutex during the stop sequence so health probes stay responsive, correcting documentation claims (startup ordering, phantom states), moving signal registration into Start, and clearing three supervisor/API blemishes. The HIGH Wait() finding is owned by the controls-bounded-wait spec."
 date: 2026-07-23
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - controls
@@ -24,7 +24,12 @@ Date
 :   2026-07-23
 
 Status
-:   DRAFT — pending review
+:   IMPLEMENTED — shipped in `gitlab.com/phpboyscout/go/controls` **v0.1.4**
+    (F1–F6, MR !20). Q1 and Q2 resolved (see § 4). New concurrency decisions
+    D11 (health-check timeout race + async cache staleness) and D12
+    (services-mutex release during the stop sequence) recorded in the module's
+    `docs/explanation/concurrency.md`; D9 extended to name `Stop()` as a covered
+    sender. GTB picks the fix up on its next controls dep bump.
 
 Related
 :   [architectural review](../reports/2026-07-23-architectural-review.md) (§ controls),
@@ -159,13 +164,29 @@ no exported symbol is dead per `deadcode`.
 - Items are independently mergeable; a stalled open question on one must not
   hold the others.
 
-## 4. Open questions
+## 4. Open questions (resolved)
 
-- **Q1 — staleness bound.** What multiple of `Interval` marks an async cached
-  result stale — 2× (tight, risks flapping on a slow check) or 3× (looser,
-  longer blind window)? And should staleness fail only readiness (fail-closed
-  gate) or also surface in `Status()` output?
-- **Q2 — Status message and HealthMessage fate.** Is there a planned consumer
-  for the `Status` control message and the `HealthMessage` channel (e.g. the
-  gRPC management transport), or should both be deleted as dead pre-1.0
-  surface? Deletion is the default absent a named consumer.
+- **Q1 — staleness bound. RESOLVED: 3× `Interval`; fail readiness *and* surface
+  in `Status()`.** The looser 3× multiple was chosen over 2× to avoid flapping
+  on a slow check. A cached async result older than `stalenessIntervalMultiple`
+  (3) × `Interval` is treated as stale: it fails readiness closed and is
+  reported as an `"ERROR"` entry in every aggregation, so it is surfaced in
+  `Status()` output as well as gating readiness. Implemented in the module's
+  `healthcheck.go` (`healthCheckEntry.stale`) and `controller.go`
+  (`healthCheckStatuses`); documented as D11.
+- **Q2 — Status message and HealthMessage fate. RESOLVED: DELETE both.** No
+  production consumer exists, so both were removed as dead pre-1.0 surface (the
+  `Status` control message computed and discarded `services.status()`; the
+  `HealthMessage` channel was never read or written). The `refactor(controls)`
+  commit drops `Status`, `HealthMessage`, `Health()` and `SetHealthChannel()`
+  from the public API.
+
+    **Deviation (surfaced for ratification):** the review assumed "no named
+    consumer", but GTB's E2E step definitions
+    (`test/e2e/steps/controls_steps_test.go`) *do* send `controls.Status` on the
+    message channel (a smoke poke of the now-removed no-op) and the associated
+    Gherkin scenarios exercise it. GTB itself uses none of `Health()`/
+    `SetHealthChannel()`/`HealthMessage`. So the controls-side deletion stands
+    per Q2, but the GTB dep bump that picks up controls v0.1.4 **must** also
+    remove those `controls.Status` E2E steps and their feature scenarios, or the
+    GTB E2E build will break. Tracked as required downstream follow-up.
