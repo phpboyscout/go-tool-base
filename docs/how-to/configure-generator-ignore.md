@@ -106,9 +106,22 @@ docker-compose.yml
 !go.mod
 ```
 
+## Targeted `enable` / `disable` commands honour it too
+
+`.gtb/ignore` is not just a `regenerate project` concern. The targeted commands
+that write a framework-structural asset — currently `gtb enable signing` and
+`gtb disable signing`, which touch `.goreleaser.yaml` — also load these rules
+and will **never** write an ignored path, even though they run the generator
+with an "allow" overwrite mode. When `.goreleaser.yaml` is ignored (or otherwise
+unsafe to edit), enable signing leaves it byte-for-byte untouched and instead
+prints the exact top-level `signs:` block for you to paste, while still
+scaffolding `internal/trustkeys`, wiring the root command, and updating the
+manifest. See [How-to: secure releases](secure-releases.md#customised-goreleaseryaml-and-gtbignore).
+
 ## Notes
 
 - The `--force` flag does **not** override ignore rules. Ignored files stay ignored regardless.
+- The ignore check takes precedence over the overwrite mode — an ignored path is never written even under `enable signing`'s "allow" overwrite.
 - Missing `.gtb/ignore` is valid — the generator behaves exactly as before (no files ignored).
 - Blank lines and lines starting with `#` are ignored.
 - Patterns without a `/` match by filename (basename) in any directory.

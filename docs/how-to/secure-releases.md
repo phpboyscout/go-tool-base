@@ -196,6 +196,33 @@ that both a tampered manifest and an untrusted signing key are rejected with
     What remains untested is therefore the script's argument wiring and its KMS
     round-trip, not the cryptographic contract above.
 
+### Customised `.goreleaser.yaml` and `.gtb/ignore`
+
+`gtb enable signing --key-id …` (and `gtb disable signing`) adds or removes the
+top-level `signs:` block in your `.goreleaser.yaml`. It does this **without
+re-rendering the whole file**, so a hand-customised release config — extra
+builds, `app_bundles:`, `dmg:`, deliberate platform exclusions — is preserved.
+The precedence is:
+
+1. **Listed in [`.gtb/ignore`](configure-generator-ignore.md)** → the file is
+   never written (this takes precedence over the command's overwrite mode). The
+   command prints the exact `signs:` block to paste and continues with the rest
+   of enable signing.
+2. **Present and safely editable** → only the top-level `signs:` key is
+   injected (enable) or removed (disable); every other block, comment, and
+   scalar is left byte-for-byte intact. Disable removes **only** a block gtb
+   itself wrote (identified by its `# Release signing: gtb enable signing wired
+   this.` marker); an author-written `signs:` block is never touched.
+3. **A `signs:` block already exists, the file is unparseable, or absent-then-
+   customised** → the file is not modified; the command prints the block to
+   paste (advisory) and still scaffolds `internal/trustkeys`, wires the root
+   command, and updates the manifest.
+
+Because the release-config edit can degrade to an advisory, always check the
+command output: it states clearly when `.goreleaser.yaml` was **not** modified
+and manual action is required. Only a brand-new (absent) `.goreleaser.yaml` is
+rendered from the full skeleton.
+
 ### Trust model at a glance
 
 A signature is only as trustworthy as the key used to verify it. Phase 2 uses a **composite trust set**: the verifier loads public keys from two independent sources and requires their fingerprints to agree before accepting a signature.

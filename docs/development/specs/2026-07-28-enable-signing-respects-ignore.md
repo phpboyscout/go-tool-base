@@ -2,7 +2,7 @@
 title: "enable/disable signing must respect .gtb/ignore and never clobber a customised .goreleaser.yaml"
 description: "gtb enable signing re-renders .goreleaser.yaml from the embedded skeleton, silently destroying a hand-customised release config — including files explicitly protected via .gtb/ignore. The hash-conflict guard cannot protect ignored files (their recorded hash IS the customised content's hash) and enable signing never loads the ignore rules. Honour .gtb/ignore in the targeted enable/disable commands, prefer safe YAML injection of the signs: block, and degrade to a fail-loud advisory paste-block when the file cannot be edited safely."
 date: 2026-07-28
-status: DRAFT
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -26,7 +26,7 @@ Date
 :   2026-07-28
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 Tracking
 :   GitLab issue #4 — "enable signing clobbers a customised `.goreleaser.yaml`, bypassing `.gtb/ignore`"
@@ -401,3 +401,81 @@ changed" impression that makes the current failure silent).
    should `doctor` gain a check that flags a `.goreleaser.yaml` matching the
    stock skeleton in a project whose manifest implies customisation, to catch
    silent prior damage?
+
+---
+
+## 7. Implemented approach
+
+Shipped as `fix(generator): enable/disable signing must respect .gtb/ignore and
+inject safely (#4)`. The whole-file `regenerateGoreleaserAsset` re-render is no
+longer on the enable/disable path when the file exists; `applySigningPosture`
+now calls a new orchestrator, `applyGoreleaserSigns`
+(`internal/generator/signing_goreleaser.go`), which resolves the release-config
+edit through a fixed precedence — **the ignore check runs first and is
+independent of the `Overwrite` mode**, closing factor 2d:
+
+1. **Absent file** → `regenerateGoreleaserAsset` (the retained full-skeleton
+   render). With nothing on disk there is no customisation to lose; this is the
+   only remaining full-render path and it never runs against an existing file.
+2. **Ignored path** (`LoadIgnoreRules(...).IsIgnored`) → never write. Emit the
+   fail-loud advisory and re-hash the on-disk content so drift stays tracked.
+   This gate is evaluated **before** any write and does not consult `Overwrite:
+   "allow"`, so an ignored file is protected even though the enable command
+   still constructs the generator with `Overwrite: "allow"` (needed for the
+   `regenerateRootCommand` re-render of the DO-NOT-EDIT `cmd.go`).
+3. **Unparseable** (not a single YAML mapping) → never write; advise + re-hash.
+4. **Safe injection / removal** — the happy path for a parseable, non-ignored
+   file:
+   - *enable*: if no top-level `signs:` key exists, append the rendered
+     `signs:` block as a new top-level key (`appendTopLevelBlock`), leaving all
+     existing bytes untouched (verified byte-for-byte in tests). YAML mapping
+     keys are order-independent, so appending is a valid structure-preserving
+     edit. If a `signs:` key is already present (author-written or a prior run)
+     it is **not** touched — advisory instead (open question 3: "advise, don't
+     clobber").
+   - *disable*: remove only a block gtb itself injected, identified by the
+     `# Release signing: gtb enable signing wired this.` head-comment marker
+     (`goreleaserSignsMarker`); an author-written `signs:` block is left in
+     place with an advisory (open question 4: remove only the gtb-owned block).
+
+**Injection engine (open question 1).** A **targeted textual splice** was chosen
+over a `yaml.Node` round-trip. `yaml.v3` is used only to *parse-and-validate*
+(confirm the file is a single mapping and detect an existing top-level `signs:`
+key via `parseYAMLMapping` / `topLevelKeyPresent`); the edit itself is textual
+(`appendTopLevelBlock` / `removeGtbSignsBlock`), which guarantees every other
+byte — comments, `>-` block scalars, anchors, formatting — survives verbatim, a
+guarantee a full node re-serialise cannot make. The injected/advised `signs:`
+block is derived by rendering the **same** embedded skeleton the fresh-generate
+path uses and extracting its `signs:` section (`renderGoreleaserSignsBlock` →
+`extractSignsBlock`), so there is no second copy of the block to drift.
+
+**`Overwrite: "allow"` (open question 6).** The enable command's
+`Overwrite: "allow"` is retained (it is required for the root-command
+re-render), but the goreleaser edit no longer depends on it: the ignore /
+inject / advise logic decides whether to write. A blanket-force clobber of the
+release config is no longer possible.
+
+**Advisory is non-fatal.** Every advisory path returns `nil`, so the trustkeys
+scaffold, root-command wiring and manifest update still complete; only the
+release-config edit degrades to advisory, and the summary says so loudly
+(removing the previously-silent failure). Manifest hashes for
+`.goreleaser.yaml` continue to track the on-disk content in every branch
+(`recordGoreleaserHash` after a write, `rehashGoreleaserOnDisk` after a no-write).
+
+**Tests** (`internal/generator/signing_goreleaser_ignore_test.go`): the two red
+tests (`TestEnableSigning_PreservesCustomisedIgnoredGoreleaser`,
+`TestEnableSigning_HonoursGtbIgnore`) now pass, plus
+`TestEnableSigning_InjectsIntoCustomisedNonIgnoredGoreleaser` (safe-injection
+happy path, byte-for-byte prefix preserved),
+`TestEnableSigning_AdvisesWhenSignsBlockPresent` (advisory-paste path, file
+untouched, rest of enable proceeds), and
+`TestDisableSigning_RemovesOnlyGtbInjectedBlock` (enable→disable round-trips to
+the original; an author block is left intact). The existing
+`signing_goreleaser_test.go` fresh-generate assertions continue to pass (no
+regression to the scaffold path).
+
+**Deferred.** Acceptance criterion 6 (Gherkin/E2E for the workflow) and open
+questions 2 (generalise the ignore-aware inject-or-advise helper to every
+targeted `enable`/`disable` asset write, e.g. `enable mcp`), 5 (hash-drift
+signal for the non-ignored case) and 7 (a `doctor` backfill check for
+already-damaged projects) are follow-ups, not part of this fix.

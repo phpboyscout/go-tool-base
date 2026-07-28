@@ -221,9 +221,12 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 	}
 
 	// Add or remove the GoReleaser signs block in .goreleaser.yaml to match
-	// the signing posture. Updates m.Hashes for the re-rendered asset; the
-	// writeManifest below persists both the signing block and the new hash.
-	if err := g.regenerateGoreleaserAsset(m); err != nil {
+	// the signing posture. This honours .gtb/ignore, prefers a structure-
+	// preserving injection over a whole-file re-render, and degrades to a
+	// fail-loud advisory when the file cannot be edited safely — so a
+	// customised release config is never clobbered (issue #4). Updates
+	// m.Hashes; the writeManifest below persists the signing block and hash.
+	if err := g.applyGoreleaserSigns(m); err != nil {
 		return err
 	}
 
@@ -241,12 +244,14 @@ func (g *Generator) applySigningPosture(ctx context.Context, signing ManifestSig
 	return nil
 }
 
-// regenerateGoreleaserAsset re-renders only the .goreleaser.yaml skeleton
-// asset from the manifest, so enabling/disabling signing adds or removes the
-// GoReleaser signs block. It goes through the same hash-protected render path
-// as a full regenerate, so a hand-customised .goreleaser.yaml is never
-// clobbered (a conflict is logged and skipped, matching walkSkeletonAssets),
-// and records the new hash on the manifest for the caller to persist.
+// regenerateGoreleaserAsset renders the whole .goreleaser.yaml skeleton asset
+// from the manifest. It is the absent-file fallback for applyGoreleaserSigns:
+// with no file on disk there is no customisation to lose, so a full render is
+// safe and produces a complete release config with (or without) the signs
+// block for the current posture. It records the new hash on the manifest for
+// the caller to persist. It is NOT used when the file already exists — that
+// path goes through the ignore-aware, structure-preserving injection in
+// applyGoreleaserSigns so a customised file is never clobbered (issue #4).
 func (g *Generator) regenerateGoreleaserAsset(m *Manifest) error {
 	content, err := fs.ReadFile(skeletonAssets, goreleaserAssetEmbedPath)
 	if err != nil {
