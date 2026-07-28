@@ -117,7 +117,12 @@ GTB currently tracks (**v0.19.0** at time of writing; bump in lockstep).
 
 **Conventions carried from GTB:**
 
-- `cockroachdb/errors` for all error creation/wrapping.
+- `cockroachdb/errors` for all error creation/wrapping — **with a deliberate
+  exemption for the dependency-light tier**. The entire `config` family (core +
+  the 19 source adapters), plus `aferobilly`, `redact`, and `yamldoc`,
+  intentionally use the standard library `errors`/`fmt.Errorf` so they pull in
+  no error-library dependency and keep their footprint minimal. This exemption
+  is by design: do not "correct" those modules by adding `cockroachdb/errors`.
 - `*slog.Logger` as the only logging seam (optional, nil-safe); never a concrete
   logger or `pkg/logger`.
 - Typed config structs owned by the module; **never** a GTB config type. GTB
