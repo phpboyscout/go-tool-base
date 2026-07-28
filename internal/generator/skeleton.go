@@ -326,6 +326,13 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 	// onto the manifest entries.
 	config.Templates = updatedSources
 
+	// Scaffold a commented, inert .gtb/ignore so the opt-out mechanism is
+	// discoverable in a fresh project. It is a no-op when the file already
+	// exists, so it never clobbers a user's rules on regenerate.
+	if err := ScaffoldIgnoreFile(g.props.FS, config.Path); err != nil {
+		return err
+	}
+
 	// Merge: keep stored hashes for any files the user chose to skip so that
 	// subsequent runs can still detect further modifications to those files.
 	return g.writeSkeletonManifest(config, mergeHashes(storedHashes, writtenHashes))
@@ -768,7 +775,8 @@ func (g *Generator) checkSkeletonConflict(fullPath, relPath string, newContent [
 		return nil
 	}
 
-	g.props.Logger.Warn("conflict detected: file has been manually modified", "path", fullPath)
+	g.props.Logger.Warn("conflict detected: file has been manually modified", "path", fullPath,
+		"hint", ignoreConflictHint(relPath))
 
 	if !g.promptOverwrite(fullPath, existingContent, newContent) {
 		g.props.Logger.Warn("skipping overwrite", "path", fullPath)

@@ -58,7 +58,8 @@ func (g *Generator) verifyHash(path string) error {
 
 	// If hashes differ and we are not forcing, prompt the user
 	if storedHash != "" && storedHash != currentHash && !g.config.Force {
-		g.props.Logger.Warn("conflict detected: file has been manually modified", "path", path)
+		g.props.Logger.Warn("conflict detected: file has been manually modified", "path", path,
+			"hint", ignoreConflictHint(path))
 
 		confirm := g.promptOverwrite(path, nil, nil)
 		if !confirm {

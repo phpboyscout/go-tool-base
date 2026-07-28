@@ -1,12 +1,22 @@
 package generator
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
+
+// newIgnoreTestGenerator builds a Generator over fs rooted at projectPath for
+// the command-level ignore tests (list/check/doctor).
+func newIgnoreTestGenerator(fs afero.Fs, projectPath string) *Generator {
+	return New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: projectPath})
+}
 
 // writeIgnore is a small helper that lays down a .gtb/ignore file in a
 // MemMapFs project root for the rule-evaluation tests below.
@@ -70,52 +80,249 @@ func TestIgnoreRules_EmptyAndMissing(t *testing.T) {
 		"a comments-only ignore file must ignore nothing, matching a missing file")
 }
 
-// --- Pending (red) tests for the not-yet-existing `gtb ignore` command -------
+// --- Tests for the `gtb ignore` command primitives ---------------------------
 //
-// These describe behaviour the issue specifies but which no code implements
-// yet. They are Skip-pending so the package still builds; each references the
-// helper/method the feature is expected to introduce. Remove the t.Skip and
-// wire the real call when implementing.
+// These pin the two new generator primitives issue #3 introduced: an idempotent
+// comment/order-preserving writer (AppendIgnorePattern) and a winning-rule
+// accessor (IgnoreRules.Explain).
 
-// TestIgnoreAdd_Idempotent_PreservesComments_PENDING covers `gtb ignore add`:
-// appending a pattern already present is a no-op (no duplicate line), and
-// existing comments/ordering survive the edit.
-func TestIgnoreAdd_Idempotent_PreservesComments_PENDING(t *testing.T) {
-	t.Skip("PENDING issue #3: needs a generator ignore-writer (e.g. AppendIgnorePattern) " +
-		"that appends idempotently and preserves comments/ordering")
+// TestIgnoreAdd_Idempotent_PreservesComments covers `gtb ignore add`:
+// appending a pattern already present is a no-op (no duplicate line, file
+// byte-identical), and existing comments/ordering survive the edit.
+func TestIgnoreAdd_Idempotent_PreservesComments(t *testing.T) {
+	t.Parallel()
 
-	// Expected once implemented:
-	//   fs seeded with a .gtb/ignore containing a comment + one pattern.
-	//   AppendIgnorePattern(fs, "proj", "justfile") when "justfile" already
-	//     present -> file unchanged (byte-identical), reported as a no-op.
-	//   AppendIgnorePattern(fs, "proj", "Dockerfile") -> one new line appended,
-	//     the leading comment and the pre-existing pattern still intact.
+	fs := afero.NewMemMapFs()
+	writeIgnore(t, fs, "proj", "# my rules\njustfile\n")
+
+	before, err := afero.ReadFile(fs, "proj/.gtb/ignore")
+	require.NoError(t, err)
+
+	// Re-adding an existing pattern is a reported no-op, byte-identical file.
+	changed, err := AppendIgnorePattern(fs, "proj", "justfile")
+	require.NoError(t, err)
+	assert.False(t, changed, "re-adding a present pattern must be a no-op")
+
+	after, err := afero.ReadFile(fs, "proj/.gtb/ignore")
+	require.NoError(t, err)
+	assert.Equal(t, string(before), string(after), "no-op add must leave the file byte-identical")
+
+	// Adding a new pattern appends one line, preserving comment + prior pattern.
+	changed, err = AppendIgnorePattern(fs, "proj", "Dockerfile")
+	require.NoError(t, err)
+	assert.True(t, changed)
+
+	body, err := afero.ReadFile(fs, "proj/.gtb/ignore")
+	require.NoError(t, err)
+	assert.Equal(t, "# my rules\njustfile\nDockerfile\n", string(body),
+		"append must preserve the leading comment and the pre-existing pattern")
 }
 
-// TestIgnoreAdd_WritesHeaderOnCreate_PENDING covers `gtb ignore add` creating
-// the file when absent: it must write an explanatory header so the next reader
-// understands the syntax without hunting for the how-to.
-func TestIgnoreAdd_WritesHeaderOnCreate_PENDING(t *testing.T) {
-	t.Skip("PENDING issue #3: `ignore add` on a project with no .gtb/ignore must " +
-		"create it with an explanatory header comment, then the pattern")
+// TestIgnoreAdd_WritesHeaderOnCreate covers `gtb ignore add` creating the file
+// when absent: it writes an explanatory header so the next reader understands
+// the syntax without hunting for the how-to, then the pattern.
+func TestIgnoreAdd_WritesHeaderOnCreate(t *testing.T) {
+	t.Parallel()
 
-	// Expected once implemented:
-	//   AppendIgnorePattern(fs, "proj", "justfile") on a fresh project ->
-	//     .gtb/ignore begins with a "# gtb ignore" style header (comment lines),
-	//     followed by "justfile"; LoadIgnoreRules then reports justfile ignored.
+	fs := afero.NewMemMapFs()
+
+	changed, err := AppendIgnorePattern(fs, "proj", "justfile")
+	require.NoError(t, err)
+	assert.True(t, changed)
+
+	body, err := afero.ReadFile(fs, "proj/.gtb/ignore")
+	require.NoError(t, err)
+
+	assert.True(t, strings.HasPrefix(string(body), "#"),
+		"a created ignore file must begin with an explanatory header comment")
+	assert.Contains(t, string(body), ".gtb/ignore",
+		"the header should describe the mechanism")
+	assert.Contains(t, string(body), "\njustfile\n", "the pattern follows the header")
+
+	// The header is comments-only, so the sole active rule is the pattern.
+	assert.True(t, LoadIgnoreRules(fs, "proj").IsIgnored("justfile"))
 }
 
-// TestIgnoreCheck_NamesWinningRule_PENDING covers `gtb ignore check <path>`:
-// it must report not just ignored/not-ignored but WHICH rule decided it, which
-// the current file format cannot answer on its own. This requires a new
-// last-match-wins lookup on IgnoreRules (IsIgnored returns only a bool today).
-func TestIgnoreCheck_NamesWinningRule_PENDING(t *testing.T) {
-	t.Skip("PENDING issue #3: needs an IgnoreRules accessor that returns the " +
-		"winning rule (pattern + negation) for a path, backing `ignore check`")
+// TestIgnoreCheck_NamesWinningRule covers `gtb ignore check <path>`: it reports
+// not just ignored/not-ignored but WHICH rule decided it, correct under
+// last-match-wins + ! negation.
+func TestIgnoreCheck_NamesWinningRule(t *testing.T) {
+	t.Parallel()
 
-	// Expected once implemented, against the ruleset in
-	// TestIgnoreRules_EvaluationSemantics:
-	//   check(".github/workflows/test.yml")   -> ignored, rule ".github/workflows/**"
-	//   check(".github/workflows/release.yml")-> NOT ignored, rule "!.github/workflows/release.yml"
-	//   check("cmd/tool/main.go")             -> NOT ignored, no matching rule
+	fs := afero.NewMemMapFs()
+	writeIgnore(t, fs, "proj", `# CI is hands-off
+.github/workflows/**
+!.github/workflows/release.yml
+justfile
+`)
+
+	rules := LoadIgnoreRules(fs, "proj")
+
+	cases := []struct {
+		path    string
+		rule    string
+		negated bool
+		matched bool
+	}{
+		{".github/workflows/test.yml", ".github/workflows/**", false, true},
+		{".github/workflows/release.yml", "!.github/workflows/release.yml", true, true},
+		{"cmd/tool/main.go", "", false, false},
+	}
+
+	for _, tc := range cases {
+		rule, negated, matched := rules.Explain(tc.path)
+		assert.Equalf(t, tc.rule, rule, "%s: winning rule", tc.path)
+		assert.Equalf(t, tc.negated, negated, "%s: negation", tc.path)
+		assert.Equalf(t, tc.matched, matched, "%s: matched", tc.path)
+	}
+}
+
+// TestIgnoreConflictHint confirms the regenerate conflict warning names
+// .gtb/ignore and the gtb ignore command as the remedy.
+func TestIgnoreConflictHint(t *testing.T) {
+	t.Parallel()
+
+	hint := ignoreConflictHint("cmd/tool/main.go")
+	assert.Contains(t, hint, ".gtb/ignore")
+	assert.Contains(t, hint, "gtb ignore add cmd/tool/main.go")
+}
+
+// TestScaffoldIgnoreFile confirms the scaffold writer creates an inert,
+// comment-only file and never clobbers an existing one.
+func TestScaffoldIgnoreFile(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	require.NoError(t, ScaffoldIgnoreFile(fs, "proj"))
+
+	body, err := afero.ReadFile(fs, "proj/.gtb/ignore")
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(string(body), "#"))
+	assert.False(t, LoadIgnoreRules(fs, "proj").IsIgnored("justfile"), "scaffolded file ignores nothing")
+
+	// Idempotent: a second call must not overwrite an edited file.
+	writeIgnore(t, fs, "proj", "justfile\n")
+	require.NoError(t, ScaffoldIgnoreFile(fs, "proj"))
+	after, err := afero.ReadFile(fs, "proj/.gtb/ignore")
+	require.NoError(t, err)
+	assert.Equal(t, "justfile\n", string(after), "scaffold must not clobber existing rules")
+}
+
+// TestRemoveIgnorePattern covers removal (literal-line match) and its preview,
+// including the no-op cases (absent rule, missing file).
+func TestRemoveIgnorePattern(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	writeIgnore(t, fs, "proj", "# c\njustfile\n*.yml\n")
+
+	// Preview does not write.
+	preview, changed, err := PreviewRemoveIgnorePattern(fs, "proj", "justfile")
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.NotContains(t, preview, "justfile")
+	onDisk, _ := afero.ReadFile(fs, "proj/.gtb/ignore")
+	assert.Contains(t, string(onDisk), "justfile", "preview must not write")
+
+	// Real remove drops only the literal line.
+	changed, err = RemoveIgnorePattern(fs, "proj", "justfile")
+	require.NoError(t, err)
+	assert.True(t, changed)
+	body, _ := afero.ReadFile(fs, "proj/.gtb/ignore")
+	assert.Equal(t, "# c\n*.yml\n", string(body))
+
+	// Absent rule and missing file are reported no-ops.
+	changed, err = RemoveIgnorePattern(fs, "proj", "nope")
+	require.NoError(t, err)
+	assert.False(t, changed)
+
+	changed, err = RemoveIgnorePattern(afero.NewMemMapFs(), "empty", "x")
+	require.NoError(t, err)
+	assert.False(t, changed)
+}
+
+// TestPreviewAppendIgnorePatterns confirms multiple patterns compose in the
+// dry-run preview without writing.
+func TestPreviewAppendIgnorePatterns(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+
+	content, err := PreviewAppendIgnorePatterns(fs, "proj", []string{"justfile", "Dockerfile", "justfile"})
+	require.NoError(t, err)
+	assert.True(t, strings.HasPrefix(content, "#"), "seeds a header when creating")
+	assert.Contains(t, content, "\njustfile\n")
+	assert.Contains(t, content, "\nDockerfile\n")
+	assert.Equal(t, 1, strings.Count(content, "\njustfile\n"), "duplicate pattern must not repeat")
+
+	exists, _ := afero.Exists(fs, "proj/.gtb/ignore")
+	assert.False(t, exists, "preview must not write")
+}
+
+// TestGeneratorIgnoreListAndCheck exercises the manifest-resolving list view,
+// the fresh-read check view, and the diverged-file doctor helper.
+func TestGeneratorIgnoreListAndCheck(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	writeIgnore(t, fs, "proj", "justfile\nDockerfile\n")
+
+	m := &Manifest{
+		Properties: ManifestProperties{Name: "tool"},
+		Hashes: map[string]string{
+			"justfile":         "h1",
+			"cmd/tool/main.go": "h2",
+		},
+	}
+	require.NoError(t, EncodeManifestFile(fs, ManifestPathFor("proj"), m))
+
+	gen := newIgnoreTestGenerator(fs, "proj")
+
+	listing, err := gen.ListIgnoreRules()
+	require.NoError(t, err)
+	require.Len(t, listing.Entries, 1)
+	assert.Equal(t, "justfile", listing.Entries[0].Path)
+	assert.True(t, listing.Entries[0].Ignored)
+	assert.Equal(t, []string{"Dockerfile"}, listing.StaleRules)
+
+	results := gen.CheckIgnorePaths([]string{"justfile", "cmd/tool/main.go"})
+	require.Len(t, results, 2)
+	assert.True(t, results[0].Ignored)
+	assert.Equal(t, "justfile", results[0].Rule)
+	assert.False(t, results[1].Ignored)
+	assert.False(t, results[1].Matched)
+
+	// list errors when no manifest exists.
+	_, err = newIgnoreTestGenerator(afero.NewMemMapFs(), "none").ListIgnoreRules()
+	assert.Error(t, err)
+}
+
+// TestDivergedUnignoredFiles confirms the doctor helper reports only files that
+// diverged from their manifest hash AND are not ignored.
+func TestDivergedUnignoredFiles(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+
+	// justfile diverged but ignored; README diverged and NOT ignored;
+	// config matches its stored hash; gone is tracked but missing on disk.
+	require.NoError(t, afero.WriteFile(fs, "proj/justfile", []byte("changed"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, "proj/README.md", []byte("changed"), 0o644))
+	require.NoError(t, afero.WriteFile(fs, "proj/config.yaml", []byte("same"), 0o644))
+	writeIgnore(t, fs, "proj", "justfile\n")
+
+	m := &Manifest{
+		Properties: ManifestProperties{Name: "tool"},
+		Hashes: map[string]string{
+			"justfile":    "stale",
+			"README.md":   "stale",
+			"config.yaml": calculateHash([]byte("same")),
+			"gone.txt":    "stale",
+		},
+	}
+	require.NoError(t, EncodeManifestFile(fs, ManifestPathFor("proj"), m))
+
+	diverged, err := newIgnoreTestGenerator(fs, "proj").DivergedUnignoredFiles()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"README.md"}, diverged)
 }

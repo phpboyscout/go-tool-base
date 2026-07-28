@@ -1,7 +1,7 @@
 ---
 title: "`gtb ignore` command group and `.gtb/ignore` discoverability"
 description: "The .gtb/ignore mechanism already works — it marks deliberately-diverged generated files hands-off so regenerate stops re-rendering them and stops raising conflicts — but it is undiscoverable: there is no command to manage it (unlike gtb enable/disable and gtb template add/list/remove), a fresh scaffold ships no commented .gtb/ignore, the conflict warning does not name it as the remedy, and neither the generated README nor the AI-agent guidance mentions it. Add a gtb ignore add/list/remove/check command group mirroring gtb template, plus five discoverability changes, so the feature is findable rather than rediscovered from scratch on each new project."
-status: DRAFT
+status: IMPLEMENTED
 date: 2026-07-28
 tags:
   - specification
@@ -26,10 +26,65 @@ Date
 :   2026-07-28
 
 Status
-:   DRAFT
+:   IMPLEMENTED
 
 Tracks
 :   GitLab issue #3 — *feat(generator): add an 'ignore' command to manage .gtb/ignore rules*
+
+---
+
+## 0. Implementation record (2026-07-28)
+
+Shipped in `feat(generator): add gtb ignore command and .gtb/ignore discoverability (#3)`.
+
+**Command group** — new `internal/cmd/ignore/` mirroring `internal/cmd/template/`,
+registered in `internal/cmd/root/root.go` and `cmd/e2e/main.go`:
+
+- `gtb ignore add <pattern>...` — idempotent, comment/order-preserving, writes an
+  explanatory header on create; reports `added:` / `already present (no-op):`.
+- `gtb ignore remove <pattern>` — drops the literal rule line; errors when absent.
+- `gtb ignore list` — resolves rules against the manifest's tracked files
+  (`file → status (rule)`) and flags stale rules matching nothing.
+- `gtb ignore check <path>...` — reports ignored/not and **names the winning
+  rule** under last-match-wins + `!` negation.
+- `--dry-run` on `add`/`remove` prints the resulting file without writing.
+
+**Generator primitives** (`internal/generator/ignore.go`, `ignore_command.go`):
+
+- `AppendIgnorePattern` / `RemoveIgnorePattern` — idempotent, comment/order-preserving
+  writers; `PreviewAppendIgnorePatterns` / `PreviewRemoveIgnorePattern` back `--dry-run`.
+- `ScaffoldIgnoreFile` — writes the inert commented header (no-op if present).
+- `(*IgnoreRules).Explain(relPath) (rule, negated, matched)` — the winning-rule
+  accessor; `(*IgnoreRules).Rules()` lists active rules.
+- `(*Generator).ListIgnoreRules` / `CheckIgnorePaths` / `DivergedUnignoredFiles`.
+
+**Discoverability changes:**
+
+1. **[P0]** `generate project` scaffolds a commented, inert `.gtb/ignore`
+   (wired in `skeleton.go`; `ScaffoldIgnoreFile`). Test flipped:
+   `TestScaffold_ShipsCommentedGtbIgnore`.
+2. **[P0]** Conflict warning at `hash.go` and `skeleton.go` now carries a `hint`
+   naming `.gtb/ignore` / `gtb ignore add <path>` (`ignoreConflictHint`).
+3. **[P1]** Generated `README.md` regeneration-model + Contributing sections
+   document the opt-out.
+4. **[P1]** AI-agent guidance rides in the generated `README.md` (per Q1 below,
+   option (a) — no separate `AGENTS.md` scaffold).
+5. **[P2]** `doctor` check `Generator ignore coverage` — a **gtb-only**
+   registered check (`internal/cmd/ignore/doctor.go`, under the default-enabled
+   doctor feature so scaffolded tools do not inherit it) that reports
+   diverged-and-unignored tracked files, and skips cleanly outside a project.
+
+**Tests/scenarios:** the three PENDING tests are un-skipped and green
+(`TestIgnoreAdd_Idempotent_PreservesComments`, `TestIgnoreAdd_WritesHeaderOnCreate`,
+`TestIgnoreCheck_NamesWinningRule`); new generator + command unit tests; six
+Gherkin scenarios in `features/generator/ignore-lifecycle.feature`. Docs updated
+in `docs/how-to/configure-generator-ignore.md`.
+
+**Open questions resolved:** Q1 → (a) README-only for now. Q3 → verbs stay pure
+file edits, no `--regenerate`. Q4 → `remove` matches the literal rule line.
+Q5 → patterns stored verbatim (trimmed). Q6 → `check` requires ≥1 path; `list`
+owns the whole-project view. Q2 → doctor check implemented as a gtb-only
+registered check (conditional on a manifest).
 
 ---
 

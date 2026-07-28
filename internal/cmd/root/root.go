@@ -18,6 +18,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/disable"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/enable"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
+	ignorecmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd/ignore"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/keys"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/regenerate"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/remove"
@@ -118,6 +119,7 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),
 		tmplcmd.NewCmdTemplate(p),
+		ignorecmd.NewCmdIgnore(p),
 	)
 
 	return rootCmd, p

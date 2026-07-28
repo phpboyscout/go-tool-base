@@ -112,6 +112,19 @@ before replacing it.
 > custom logic in your own packages, or accept the conflict prompt on the next
 > regenerate.
 
+If a generated file is one you *deliberately* own — a `justfile` you have
+extended, a `Dockerfile`, a real `README.md` — mark it hands-off in
+`.gtb/ignore` so `regenerate` stops re-rendering it and stops prompting:
+
+```bash
+gtb ignore add justfile      # or edit .gtb/ignore by hand
+gtb ignore check justfile    # confirm it is now ignored, and by which rule
+```
+
+The scaffold ships a commented `.gtb/ignore` explaining the syntax. See the
+[Configure Generator Ignore Rules](https://gtb.phpboyscout.uk/how-to/configure-generator-ignore/)
+how-to.
+
 ### Configuration
 
 Configuration is layered (highest precedence first): command-line flags →
@@ -183,7 +196,8 @@ See the GTB release guide for the full workflow:
   commit — the changelog and version bumps are computed from them.
 - Run `just ci` before opening a pull/merge request.
 - Do not hand-edit generated files (those tracked in `.gtb/manifest.yaml`); the
-  next `gtb regenerate` will flag them as conflicts.
+  next `gtb regenerate` will flag them as conflicts. If you mean to own a file
+  permanently, add it to `.gtb/ignore` (or run `gtb ignore add <path>`).
 
 ## Go deeper
 

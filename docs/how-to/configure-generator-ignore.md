@@ -12,11 +12,37 @@ When you run `regenerate`, the GTB generator walks all skeleton template files a
 
 The `.gtb/ignore` file lets you permanently mark files as "hands off" — the generator will skip them without prompting.
 
+A fresh `generate project` scaffold already ships a commented, inert `.gtb/ignore` (a header explaining the syntax and nothing else), so the mechanism is discoverable in every new project.
+
+---
+
+## Quickest path: the `gtb ignore` command
+
+Rather than editing the file by hand, use the `gtb ignore` command group, which manages `.gtb/ignore` for you:
+
+```bash
+gtb ignore add justfile              # append a rule (idempotent; creates the file with a header)
+gtb ignore add '.github/workflows/**'  # quote globs so your shell does not expand them
+gtb ignore check justfile            # is it ignored? and which rule decides?
+gtb ignore list                      # resolve rules against the manifest's tracked files
+gtb ignore remove justfile           # drop the literal rule line
+```
+
+Notes:
+
+- These verbs are **pure file edits** — unlike `gtb template`, they do **not** regenerate. The rule takes effect on the next `gtb regenerate`.
+- `add` is idempotent: re-adding a present pattern is a reported no-op and never duplicates a line; existing comments and ordering are preserved.
+- `remove` matches the **literal rule line**, not any path the glob happens to match — so `remove justfile` never touches an overlapping `*.yml`.
+- `check` names the **winning** rule under last-match-wins evaluation, including a `!` negation that re-includes a file — answering "why is this file still being overwritten?".
+- `--dry-run` on `add`/`remove` prints the resulting file without writing it.
+
+The rest of this guide describes the file format the command manages, for when you prefer to edit it by hand.
+
 ---
 
 ## Step 1: Create the Ignore File
 
-Create `.gtb/ignore` in your project's `.gtb/` directory (alongside `manifest.yaml`):
+The scaffold ships one already. To create it manually elsewhere, add `.gtb/ignore` in your project's `.gtb/` directory (alongside `manifest.yaml`) — or just run `gtb ignore add <pattern>`, which creates it with a header:
 
 ```bash
 touch .gtb/ignore
