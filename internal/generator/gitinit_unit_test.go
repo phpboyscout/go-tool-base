@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -87,7 +88,7 @@ func TestRunSkeletonGitInit_DefaultInitAndCommit(t *testing.T) {
 	config := seedSkeleton(t, dir)
 
 	g := newOSGenerator(t, &Config{GitInit: true, GitBranch: "main", Path: dir})
-	g.runSkeletonGitInit(config)
+	g.runSkeletonGitInit(context.Background(), config)
 
 	// A repo on main with exactly one commit.
 	gitRepo, err := git.PlainOpen(dir)
@@ -127,7 +128,7 @@ func TestRunSkeletonGitInit_NoGitSkips(t *testing.T) {
 	config := seedSkeleton(t, dir)
 
 	g := newOSGenerator(t, &Config{GitInit: false, Path: dir})
-	g.runSkeletonGitInit(config)
+	g.runSkeletonGitInit(context.Background(), config)
 
 	_, err := os.Stat(filepath.Join(dir, ".git"))
 	assert.True(t, os.IsNotExist(err), "--no-git must not create a .git directory")
@@ -153,7 +154,7 @@ func TestRunSkeletonGitInit_AlreadyRepoLeftUntouched(t *testing.T) {
 	require.NoError(t, err)
 
 	g := newOSGenerator(t, &Config{GitInit: true, Path: dir})
-	g.runSkeletonGitInit(config)
+	g.runSkeletonGitInit(context.Background(), config)
 
 	// HEAD unchanged: no new commit was made.
 	head, err := gitRepo.Head()
@@ -173,7 +174,7 @@ func TestRunSkeletonGitInit_SubdirOfRepoSkipped(t *testing.T) {
 	config := seedSkeleton(t, sub)
 
 	g := newOSGenerator(t, &Config{GitInit: true, Path: sub})
-	g.runSkeletonGitInit(config)
+	g.runSkeletonGitInit(context.Background(), config)
 
 	_, err = os.Stat(filepath.Join(sub, ".git"))
 	assert.True(t, os.IsNotExist(err), "must not init a nested repo inside an existing one")
@@ -190,7 +191,7 @@ func TestRunSkeletonGitInit_AuthorFallback(t *testing.T) {
 	// author resolver at a project with no local git config and rely on the
 	// fallback when the host has none. We assert the commit succeeds and carries
 	// a non-empty identity regardless of the host environment.
-	g.runSkeletonGitInit(config)
+	g.runSkeletonGitInit(context.Background(), config)
 
 	gitRepo, err := git.PlainOpen(dir)
 	require.NoError(t, err)
@@ -324,7 +325,7 @@ func TestPushInitialCommit_LocalBareRemote(t *testing.T) {
 	_, _, err = r.InitLocal(workDir, "main")
 	require.NoError(t, err)
 	require.NoError(t, r.AddAll())
-	_, err = r.Commit("chore: scaffold widget with gtb", &git.CommitOptions{
+	_, err = r.Commit(context.Background(), "chore: scaffold widget with gtb", &git.CommitOptions{
 		Author: &object.Signature{Name: "t", Email: "t@example.test"},
 	})
 	require.NoError(t, err)
@@ -333,7 +334,7 @@ func TestPushInitialCommit_LocalBareRemote(t *testing.T) {
 	require.NoError(t, err)
 
 	refspec := gitconfig.RefSpec("refs/heads/main:refs/heads/main")
-	err = r.Push(&git.PushOptions{RemoteName: "origin", RefSpecs: []gitconfig.RefSpec{refspec}})
+	err = r.Push(context.Background(), &git.PushOptions{RemoteName: "origin", RefSpecs: []gitconfig.RefSpec{refspec}})
 	require.NoError(t, err)
 
 	// The remote now has the commit on main.
@@ -359,7 +360,7 @@ func TestPushInitialCommit_NonFatalOnMissingRemote(t *testing.T) {
 	g := newOSGenerator(t, &Config{GitInit: true, GitPush: true, GitBranch: "main", Path: dir})
 
 	// Must not panic or error out; the commit is still made.
-	g.runSkeletonGitInit(config)
+	g.runSkeletonGitInit(context.Background(), config)
 
 	gitRepo, err := git.PlainOpen(dir)
 	require.NoError(t, err)

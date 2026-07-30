@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ type gitAuthor struct {
 // The whole step is best-effort: the skeleton has already been written, so any
 // git failure is logged as a warning and generation still succeeds. It is only
 // ever called against the real OS filesystem and never under --dry-run.
-func (g *Generator) runSkeletonGitInit(config SkeletonConfig) {
+func (g *Generator) runSkeletonGitInit(ctx context.Context, config SkeletonConfig) {
 	if !g.config.GitInit {
 		g.props.Logger.Debug("Skipping git initialisation (--no-git)")
 
@@ -83,19 +84,19 @@ func (g *Generator) runSkeletonGitInit(config SkeletonConfig) {
 		return
 	}
 
-	if !g.makeInitialCommit(r, config, branch) {
+	if !g.makeInitialCommit(ctx, r, config, branch) {
 		return
 	}
 
 	if g.config.GitPush {
-		g.pushInitialCommit(r, config, branch)
+		g.pushInitialCommit(ctx, r, config, branch)
 	}
 }
 
 // makeInitialCommit stages the worktree and records the single scaffold commit.
 // It returns false (and logs a warning) when staging or committing fails so the
 // caller can skip a subsequent push.
-func (g *Generator) makeInitialCommit(r *repo.Repo, config SkeletonConfig, branch string) bool {
+func (g *Generator) makeInitialCommit(ctx context.Context, r *repo.Repo, config SkeletonConfig, branch string) bool {
 	if err := r.AddAll(); err != nil {
 		g.props.Logger.Warn("Failed to stage skeleton for the initial commit", "error", err)
 
@@ -105,7 +106,7 @@ func (g *Generator) makeInitialCommit(r *repo.Repo, config SkeletonConfig, branc
 	author := g.resolveGitAuthor(config.Path)
 	sig := &object.Signature{Name: author.Name, Email: author.Email, When: time.Now()}
 
-	hash, err := r.Commit(initialCommitMessage(config.Name, g.currentVersion()), &git.CommitOptions{Author: sig})
+	hash, err := r.Commit(ctx, initialCommitMessage(config.Name, g.currentVersion()), &git.CommitOptions{Author: sig})
 	if err != nil {
 		g.props.Logger.Warn("Failed to record the initial commit", "error", err)
 
@@ -121,7 +122,7 @@ func (g *Generator) makeInitialCommit(r *repo.Repo, config SkeletonConfig, branc
 // origin, and pushes the default branch. Any failure (remote absent, auth
 // missing, network down) degrades to an actionable warning — push never fails
 // generation, and creating the remote on the forge is out of scope.
-func (g *Generator) pushInitialCommit(r *repo.Repo, config SkeletonConfig, branch string) {
+func (g *Generator) pushInitialCommit(ctx context.Context, r *repo.Repo, config SkeletonConfig, branch string) {
 	remoteURL, err := remoteURLFromConfig(config)
 	if err != nil {
 		g.props.Logger.Warn("Could not derive a remote URL from the release source; skipping push", "error", err)
@@ -139,7 +140,7 @@ func (g *Generator) pushInitialCommit(r *repo.Repo, config SkeletonConfig, branc
 
 	refspec := gitconfig.RefSpec(fmt.Sprintf("refs/heads/%s:refs/heads/%s", branch, branch))
 
-	if err := r.Push(&git.PushOptions{
+	if err := r.Push(ctx, &git.PushOptions{
 		RemoteName: "origin",
 		RefSpecs:   []gitconfig.RefSpec{refspec},
 	}); err != nil {

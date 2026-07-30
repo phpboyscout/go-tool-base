@@ -404,17 +404,17 @@ func goroutinesCallStopConcurrently(ctx context.Context, count int) context.Cont
 
 func aStatusMessageIsSent(ctx context.Context) context.Context {
 	w := getWorld(ctx)
-	w.Controller.Messages() <- controls.Status
-	// Give processing time
-	time.Sleep(50 * time.Millisecond)
+	// controls v0.1.4 removed the Status control message; health is now pulled
+	// synchronously via Controller.Status(), which runs each registered
+	// service's health check (the WithStatus callback).
+	w.Controller.Status()
 	return ctx
 }
 
 func multipleStatusMessagesAreSent(ctx context.Context, count int) context.Context {
 	w := getWorld(ctx)
 	for i := 0; i < count; i++ {
-		w.Controller.Messages() <- controls.Status
-		time.Sleep(50 * time.Millisecond)
+		w.Controller.Status()
 	}
 	return ctx
 }

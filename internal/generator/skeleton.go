@@ -252,7 +252,7 @@ func (g *Generator) generateSkeleton(ctx context.Context, config SkeletonConfig)
 		// The initial commit captures the fully-settled tree (post-tidy,
 		// post-lint-fix, final manifest hashes). Best-effort: any git failure is
 		// a warning, never a generation error.
-		g.runSkeletonGitInit(config)
+		g.runSkeletonGitInit(ctx, config)
 	}
 
 	g.props.Logger.Info("successfully generated skeleton", "path", config.Path)

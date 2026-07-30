@@ -27,7 +27,6 @@ package test
 
 import (
 	"context"
-	"io"
 
 	"github.com/spf13/afero"
 
@@ -189,14 +188,14 @@ func New(opts ...Option) *props.Props {
 	}
 
 	if o.errHandler == nil {
-		// A real handler wired to the noop logger, with Exit and Writer made
-		// inert so a Fatal under test neither terminates the process nor
-		// pollutes test output.
+		// A real handler wired to the noop logger, with Exit made inert so a
+		// Fatal under test does not terminate the process. All error output
+		// routes through the (noop) logger in errorhandling v0.1.1, so nothing
+		// pollutes test output — the removed WithWriter option is redundant.
 		o.errHandler = errorhandling.New(
 			logger.ToSlog(o.logger),
 			nil, // nil HelpConfig is safe — the handler nil-guards it.
 			errorhandling.WithExitFunc(func(int) {}),
-			errorhandling.WithWriter(io.Discard),
 		)
 	}
 

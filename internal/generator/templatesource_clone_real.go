@@ -8,6 +8,8 @@ package generator
 // recursed (WithRecurseSubmodules is deliberately not passed).
 
 import (
+	"context"
+
 	"github.com/cockroachdb/errors"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -43,7 +45,9 @@ func (g *Generator) realCloneTemplate(req cloneRequest) (cloneResult, error) {
 		opts = append(opts, repo.WithSingleBranch(req.Ref))
 	}
 
-	if _, _, err := r.Clone(req.URL, req.TargetDir, opts...); err != nil {
+	// context.Background(): the template clone carried no context before the
+	// go/repo API added a ctx parameter; Background preserves that behaviour.
+	if _, _, err := r.Clone(context.Background(), req.URL, req.TargetDir, opts...); err != nil {
 		return cloneResult{}, errors.Wrap(err, "failed to clone template source")
 	}
 
