@@ -61,6 +61,9 @@ A hands-on guide to implementing domain-specific logic and registering it with t
 ### [Adding Nested Subcommands](nested-subcommands.md)
 Build multi-level command trees (e.g. `tool deploy canary`) via the generator or by hand using `setup.Command.Register`.
 
+### [Attaching External Commands](attach-external-commands.md)
+Attach a whole Cobra command tree from a separate Go module onto the root with `gtb attach`, so it survives regeneration — no `main.go` hand-edit, no `.gtb/ignore` hack.
+
 ## Advanced Guides
 
 ### [Testing & Mocking](testing.md)

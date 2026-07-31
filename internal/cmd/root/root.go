@@ -16,6 +16,8 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/attach"
+	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/detach"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/disable"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/enable"
 	"gitlab.com/phpboyscout/go-tool-base/internal/cmd/generate"
@@ -117,6 +119,8 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),
+		attach.NewCmdAttach(p),
+		detach.NewCmdDetach(p),
 		tmplcmd.NewCmdTemplate(p),
 		ignorecmd.NewCmdIgnore(p),
 	)
