@@ -10,7 +10,7 @@ Feature: Bootstrap survives a child PersistentPreRunE
   PersistentPreRunE (printing a marker) and reads "probe.value" from
   props.Config in RunE. If the root bootstrap ran via root→leaf traversal,
   the value prints; if the child hook had shadowed it, the value would be
-  blank. See docs/development/specs/2026-06-12-bootstrap-prerun-traversal.md.
+  blank. See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0073-bootstrap-prerun-traversal.
 
   Background:
     Given the gtb binary is built

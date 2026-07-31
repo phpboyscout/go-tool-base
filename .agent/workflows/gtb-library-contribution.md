@@ -2,7 +2,7 @@
 description: Guide for contributing to the GTB library
 ---
 0. **Spec Check**:
-   - Check `docs/development/specs/` for an existing spec matching the feature.
+   - Check the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) for an existing spec matching the feature.
    - Only proceed with implementation if the spec status is `APPROVED` or `IN PROGRESS`.
    - For non-trivial features with no spec, run `/gtb-spec` to draft one and pause for review before continuing.
    - Update the spec status to `IN PROGRESS` before writing any code.

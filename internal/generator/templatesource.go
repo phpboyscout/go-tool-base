@@ -16,7 +16,7 @@ package generator
 // blast-radius (NOT a sandbox): write-path containment under the project root,
 // a protected-path denylist, a restricted FuncMap, a metadata-only data
 // contract, and inert fetch. See
-// docs/development/specs/2026-06-15-generator-custom-partial-templates.md and
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates and
 // docs/development/template-security.md.
 
 import (

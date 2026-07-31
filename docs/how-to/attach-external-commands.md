@@ -151,4 +151,4 @@ need arises.
   lives *in* this project.
 - [Configure Generator Ignore Rules](configure-generator-ignore.md) — for
   holding non-command files hands-off.
-- Spec: `docs/development/specs/2026-07-29-external-command-attachment.md`.
+- Spec: [`0182-external-command-attachment`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment).

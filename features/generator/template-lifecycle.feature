@@ -13,7 +13,7 @@ Feature: Custom template-overlay source lifecycle
   `template update` path needs a real clone and is exercised by the @vcs
   integration suite (internal/generator/templatesource_integration_test.go).
 
-  Covers docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
+  Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 
   Scenario: Add a local overlay, regenerate keeps it, list reports it, remove drops it
     Given a freshly generated gtb project

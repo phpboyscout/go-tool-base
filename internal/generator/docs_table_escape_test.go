@@ -1,7 +1,7 @@
 package generator
 
 // Regression tests for the boilerplate docs builder escaping
-// (docs/development/specs/2026-07-23-generator-manifest-validation-hardening.md
+// (https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0161-generator-manifest-validation-hardening
 // §MEDIUM finding): command/flag descriptions render into Markdown prose and
 // tables via fmt.Fprintf, so the templateFuncMap escape pipes never applied.
 // A `|` or newline in a description corrupted every generated table row, and

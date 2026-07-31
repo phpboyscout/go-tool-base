@@ -14,8 +14,8 @@
 //
 // This package lives under internal/cmd/ because the commands belong to the
 // framework author, not the framework's downstream consumers. See
-// docs/development/specs/2026-06-16-enable-disable-features.md and
-// docs/development/specs/2026-06-10-signing-generator-feature.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features and
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature.
 package enable
 
 import (

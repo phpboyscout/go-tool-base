@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 # Implementation notes — generator validation perimeter
 
-Spec: [2026-06-12-generator-validation-perimeter](../specs/2026-06-12-generator-validation-perimeter.md)
+Spec: [`0077-generator-validation-perimeter`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0077-generator-validation-perimeter)
 
 ## What was implemented
 

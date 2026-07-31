@@ -202,7 +202,7 @@ how-to. The short version: you sign a `rotate-keys.json` manifest
 with the rotation-authority key naming the new signing key, ship it
 alongside your next release, and existing installs adopt the new key
 on next update. Detailed runbook: TBD (Phase 4 of the parent
-[remote-update-checksum-verification](../development/specs/2026-04-02-remote-update-checksum-verification.md)
+[remote-update-checksum-verification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
 spec).
 
 The whole point of generating the rotation key now is that it

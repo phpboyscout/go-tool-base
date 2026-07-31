@@ -103,7 +103,7 @@ When `mytool update` runs, it does this (sketch):
 
 If any step fails, the update is refused with an actionable error.
 Phase 2 of the
-[`remote-update-checksum-verification`](../../development/specs/2026-04-02-remote-update-checksum-verification.md)
+[`remote-update-checksum-verification`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
 spec implements this flow.
 
 ## The trust boundary
@@ -329,5 +329,5 @@ The chain in tabular form:
   extracted into the standalone
   [signing module](https://signing.phpboyscout.uk)
   (`gitlab.com/phpboyscout/go/signing`).
-- [Phase 2 spec](../../development/specs/2026-04-02-remote-update-checksum-verification.md)
+- [Phase 2 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
   — verifier design.

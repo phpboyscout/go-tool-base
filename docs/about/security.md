@@ -99,5 +99,5 @@ Tool-author responsibility: never interpolate a credential value into a `CheckRe
 - [Configure credentials how-to](../how-to/configure-credentials.md) — end-user guide to picking a mode
 - [Migrate literal credentials how-to](../how-to/migrate-literal-credentials.md) — move off plaintext storage
 - [Custom credential backend how-to](../how-to/custom-credential-backend.md) — implement Vault / SSM / etc.
-- [Credential storage hardening spec](../development/specs/2026-04-02-credential-storage-hardening.md) — threat model and requirements
+- [Credential storage hardening spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) — threat model and requirements
 - [Security decisions / accepted risks](../development/security-decisions.md) — audit findings and their resolutions

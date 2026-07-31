@@ -94,7 +94,7 @@ var LiteralCredentialKeys = []string{
 }
 
 // checkNoLiteralCredentials implements the R6 requirement from
-// docs/development/specs/2026-04-02-credential-storage-hardening.md:
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening:
 // warn when a credential is stored as plaintext in the config file.
 // Reports key NAMES only — never values, per R1/R2.
 func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
@@ -125,7 +125,7 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 		Status:  CheckWarn,
 		Message: fmt.Sprintf("%d literal credential(s) in config", len(leaked)),
 		Details: fmt.Sprintf(
-			"Key(s): %s. Migrate to env-var references (e.g. anthropic.api.env: ANTHROPIC_API_KEY) — see docs/development/specs/2026-04-02-credential-storage-hardening.md.",
+			"Key(s): %s. Migrate to env-var references (e.g. anthropic.api.env: ANTHROPIC_API_KEY) — see https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening.",
 			strings.Join(leaked, ", ")),
 	}
 }

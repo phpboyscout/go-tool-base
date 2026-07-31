@@ -7,7 +7,7 @@ Feature: Custom template overlays CLI surface
   write.
 
   Covers the CLI half of
-  docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 
   Background:
     Given the gtb generator binary is built

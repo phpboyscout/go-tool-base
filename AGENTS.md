@@ -23,10 +23,10 @@ The `.agent/` directory contains the primary execution mechanisms for this proje
 
 **Do not write implementation code until this is complete.**
 
-1. Check `docs/development/specs/` for an existing spec matching the feature.
+1. Check the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) for an existing spec matching the feature.
 2. Only proceed if the spec status is `APPROVED` or `IN PROGRESS`.
 3. **Review open questions**: Before writing any code, review the spec for open questions, unresolved design decisions, gaps, or ambiguities. Present them to the user for resolution. Do not begin implementation until each open question is answered or explicitly deferred.
-4. For **non-trivial features** (new packages, public API changes, generator modifications, architectural changes) with no existing spec: run `/gtb-spec` to draft one, save it to `docs/development/specs/YYYY-MM-DD-<feature-name>.md` with status `DRAFT`, then pause for human review.
+4. For **non-trivial features** (new packages, public API changes, generator modifications, architectural changes) with no existing spec: run `/gtb-spec` to draft one, claim the next number from the [register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) and publish it to the wiki as `specs/NNNN-<feature-name>` with status `DRAFT`.
 5. For **quick fixes and minor changes** (bug fixes, small refactors that don't alter the public API): proceed directly.
 6. Update spec status to `IN PROGRESS` when starting, `IMPLEMENTED` when done.
 
@@ -152,7 +152,7 @@ The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GT
 
 ### Configuration
 
-Configuration is the extracted `gitlab.com/phpboyscout/go/config` Store: layered precedence (changed CLI flags > env vars > project-local `.<tool>.yaml` > config files > tool `ConfigPaths` assets > merged `assets/config.yaml` embedded defaults), snapshot-pinned reads via `store.View()`, transactional in-place writes via `Apply`, and explicit hot-reload via `Store.Watch` (wired by the root pre-run). Embedded defaults always apply and are segregated per owning package/feature bundle — see `docs/development/specs/2026-07-20-segregated-default-config.md`.
+Configuration is the extracted `gitlab.com/phpboyscout/go/config` Store: layered precedence (changed CLI flags > env vars > project-local `.<tool>.yaml` > config files > tool `ConfigPaths` assets > merged `assets/config.yaml` embedded defaults), snapshot-pinned reads via `store.View()`, transactional in-place writes via `Apply`, and explicit hot-reload via `Store.Watch` (wired by the root pre-run). Embedded defaults always apply and are segregated per owning package/feature bundle — see [`0138-segregated-default-config`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0138-segregated-default-config).
 
 ### AI Chat Client
 
@@ -210,7 +210,7 @@ Every user-influenced field flowing into a skeleton template is validated by `in
   - Gated by `INT_TEST_E2E=1`; subsystem filters: `INT_TEST_E2E_SMOKE=1`, `INT_TEST_E2E_CONTROLS=1`, `INT_TEST_E2E_CLI=1`.
   - Run via `just test-e2e` (all) or `just test-e2e-smoke` (fast).
   - **New CLI commands or service lifecycle changes must include Gherkin scenarios.** Evaluate BDD fit using the suitability assessment in the strategy spec.
-  - See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full strategy.
+  - See [`0044-godog-bdd-strategy`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0044-godog-bdd-strategy) for the full strategy.
 
 ### URL Opening
 
@@ -230,11 +230,11 @@ Use the extracted `gitlab.com/phpboyscout/go/redact` module for any free-form st
 
 ### Credential Storage
 
-Credential storage is the extracted `gitlab.com/phpboyscout/go/credentials` module (with the opt-in `go/credentials/keychain` backend). User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `go/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See the `go/credentials` and `go/credentials/keychain` modules, and `docs/development/specs/2026-04-02-credential-storage-hardening.md`.
+Credential storage is the extracted `gitlab.com/phpboyscout/go/credentials` module (with the opt-in `go/credentials/keychain` backend). User-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) are stored via one of three modes selected by the setup wizard: env-var reference (recommended default), OS keychain (opt-in blank import of `go/credentials/keychain`), or literal in config (legacy). Literal mode is refused under `CI=true`. Resolution precedence at runtime: `{provider}.api.env` or `auth.env` → env var → `{provider}.api.keychain` or `auth.keychain` → `{provider}.api.key` or `auth.value` literal → well-known fallback env var. The `doctor` command's `credentials.no-literal` check warns when any literal credential is present in config. Keychain mode is activated by a blank import of `gitlab.com/phpboyscout/go/credentials/keychain` in the tool's `main` (see `cmd/gtb/keychain.go`); regulated downstreams omit the import, and linker dead-code elimination keeps go-keyring and its transitive deps out of the linked binary. See the `go/credentials` and `go/credentials/keychain` modules, and [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening).
 
 ### Release Signing (sign / keys commands)
 
-The signing *logic* is the extracted `gitlab.com/phpboyscout/go/signing` module (backend registry) plus `go/signing/openpgpkey` and backends like `go/signing-aws-kms`. The `sign` and `keys` (`mint`/`generate`/`wkd`) **Cobra command builders** are the extracted `gitlab.com/phpboyscout/go/signing-cli` module — props-decoupled behind a narrow `Logger` interface (a `*slog.Logger` and GTB's `logger.Logger` both satisfy it), with constructors returning plain `*cobra.Command`. GTB re-attaches them in `internal/cmd/root` via `setup.Wrap("", signingcli.NewCmdSign(p.GetLogger()))` (the `gtb sign`/`gtb keys` CLI is unchanged); the standalone `sigillum` CLI (`gitlab.com/phpboyscout/sigillum`) attaches the same builders as top-level commands. Because `go/signing-cli` depends only on `go/signing` + cobra — never on GTB — there is no module cycle. Signing backends are registered by the host binary via blank import (`cmd/gtb/signing.go`); a build that omits a backend drops that SDK through dead-code elimination. See `docs/development/specs/2026-07-28-ed25519-kms-signing.md` and [signing-cli.go.phpboyscout.uk](https://signing-cli.go.phpboyscout.uk).
+The signing *logic* is the extracted `gitlab.com/phpboyscout/go/signing` module (backend registry) plus `go/signing/openpgpkey` and backends like `go/signing-aws-kms`. The `sign` and `keys` (`mint`/`generate`/`wkd`) **Cobra command builders** are the extracted `gitlab.com/phpboyscout/go/signing-cli` module — props-decoupled behind a narrow `Logger` interface (a `*slog.Logger` and GTB's `logger.Logger` both satisfy it), with constructors returning plain `*cobra.Command`. GTB re-attaches them in `internal/cmd/root` via `setup.Wrap("", signingcli.NewCmdSign(p.GetLogger()))` (the `gtb sign`/`gtb keys` CLI is unchanged); the standalone `sigillum` CLI (`gitlab.com/phpboyscout/sigillum`) attaches the same builders as top-level commands. Because `go/signing-cli` depends only on `go/signing` + cobra — never on GTB — there is no module cycle. Signing backends are registered by the host binary via blank import (`cmd/gtb/signing.go`); a build that omits a backend drops that SDK through dead-code elimination. See [`0176-ed25519-kms-signing`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0176-ed25519-kms-signing) and [signing-cli.go.phpboyscout.uk](https://signing-cli.go.phpboyscout.uk).
 
 ## Linting
 

@@ -5,7 +5,7 @@ Feature: Fresh install auxiliary commands
   tab-completion — must work in that state instead of failing the
   missing-config bootstrap gate, and a genuinely config-gated command must
   fail with a hint that names "<tool> init". See
-  docs/development/specs/2026-07-23-bootstrap-auxiliary-command-exemptions.md.
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0145-bootstrap-auxiliary-command-exemptions.
 
   Background:
     Given the gtb binary is built

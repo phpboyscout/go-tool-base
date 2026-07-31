@@ -7,7 +7,7 @@ tags: [implementation-notes, config, hot-reload, concurrency]
 
 # Implementation notes — config hot-reload rework
 
-Spec: [`docs/development/specs/2026-06-12-config-hot-reload-rework.md`](../specs/2026-06-12-config-hot-reload-rework.md)
+Spec: [`0074-config-hot-reload-rework`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0074-config-hot-reload-rework)
 
 ## What was implemented
 

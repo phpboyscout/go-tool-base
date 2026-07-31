@@ -165,7 +165,7 @@ type ManifestCommand struct {
 	// MCPEnabled is the tri-state MCP-exposure decision for this command:
 	// nil = inherit (default exposed), true = explicitly exposed, false =
 	// excluded from the MCP tool surface. Build-time only; see
-	// docs/development/specs/2026-06-19-mcp-command-exposure-gating.md.
+	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating.
 	MCPEnabled *bool `yaml:"mcp_enabled,omitempty"`
 
 	PersistentPreRun  bool              `yaml:"persistent_pre_run,omitempty"`
@@ -268,7 +268,7 @@ type ManifestTelemetry struct {
 // ManifestBootstrap holds config-bootstrap lifecycle policy for generated
 // tools — the manifest representation of props.Tool.Bootstrap. Empty scaffolds
 // nothing (framework default: a missing config is a hard error when init is
-// enabled). See docs/development/specs/2026-07-06-bootstrap-auto-initialise-skip-config-check.md.
+// enabled). See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0114-bootstrap-auto-initialise-skip-config-check.
 type ManifestBootstrap struct {
 	// AutoInitialise runs a non-interactive init to write the default config
 	// when it is missing, instead of failing. Defaults to false.
@@ -283,7 +283,7 @@ type ManifestBootstrap struct {
 // internal/trustkeys package, the props.Tool.Signing wiring, and the
 // generated signing.go enforcement defaults. Signing is disabled by
 // default — a project with no signing block scaffolds nothing
-// signing-related. See docs/development/specs/2026-06-10-signing-generator-feature.md.
+// signing-related. See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature.
 type ManifestSigning struct {
 	// Enabled gates all signing scaffolding. Defaults to false; set true
 	// by `gtb enable signing` or `gtb generate project --signing`.
@@ -329,7 +329,7 @@ type ManifestSigning struct {
 // mirrored or self-hosted downstream can repoint the include base; the
 // component versions are pinned by a generator constant kept in lockstep with
 // the framework (not manifest-driven). See
-// docs/development/specs/2026-06-15-generator-gitlab-ci-refresh.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0082-generator-gitlab-ci-refresh.
 type ManifestCI struct {
 	// ComponentSource is the include base for the phpboyscout/cicd
 	// components in the scaffolded .gitlab-ci.yml. Empty means "use the
@@ -362,7 +362,7 @@ type ManifestProperties struct {
 	// templates[1] → … (last writer wins for a shared path). Each entry is
 	// provenance + pinning only; suppression behaviour lives in the source's
 	// own gtb-template.yaml descriptor. See
-	// docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
+	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 	Templates []TemplateSource `yaml:"templates,omitempty"`
 	// DocsLayout records the documentation tree layout: [DocsLayoutDiataxis]
 	// (the default for newly generated projects) or [DocsLayoutFlat] (the legacy
@@ -379,7 +379,7 @@ type ManifestProperties struct {
 	// records the module pin + the call descriptors, and the generator renders
 	// the attach calls into pkg/cmd/root/cmd.go on every root render (so they
 	// survive regenerate / enable / disable). See
-	// docs/development/specs/2026-07-29-external-command-attachment.md.
+	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment.
 	ExternalCommands []ManifestExternalCommand `yaml:"external_commands,omitempty"`
 	// ExternalCommandsAdapter, when true, wires the user-owned adapter escape
 	// hatch (pkg/cmd/external/attach.go, exposing external.Commands(p)) into the

@@ -6,7 +6,7 @@
 # unit coverage over the whole module. A package is FLAGGED when it is below the
 # threshold AND is neither in the `excluded` list nor matched by a `not_counted`
 # prefix. This is the enforcement half of
-# docs/development/specs/2026-06-20-coverage-gap-closure.md.
+# https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0090-coverage-gap-closure.
 #
 # It exits non-zero when there are violations so the wrapping CI job surfaces
 # them; that job is `allow_failure: true`, so this is ADVISORY — it never blocks

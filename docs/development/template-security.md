@@ -152,11 +152,11 @@ When you add a new field that flows from the wizard/flags/manifest into skeleton
 4. **Decide whether the field is required or optional** and wire that into `ValidateManifest` accordingly: required fields hard-fail on empty; optional fields short-circuit to nil.
 5. **Run the existing fuzz and regression tests.** No golden-hash drift should occur for existing clean fixtures — the escape functions are identity on the safe class.
 
-See `docs/development/specs/2026-04-02-generator-template-escaping.md` for the full rationale and the complete audit of template locations.
+See [`0055-generator-template-escaping`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0055-generator-template-escaping) for the full rationale and the complete audit of template locations.
 
 ## Custom Template Overlays — A Different Threat Model
 
-The escape-at-known-sites model above protects GTB's **own** templates: GTB authors every template and escapes the **user-supplied field values** it interpolates. Custom template overlays (`docs/development/specs/2026-06-15-generator-custom-partial-templates.md`) deliberately step **outside** that perimeter — the generator renders `text/template` content **GTB did not author**, fetched (for git sources) over the network from a repository the framework does not control. The **template author controls the output directly**, so the escape helpers cannot guarantee a custom template's output is well-formed; that correctness is the **template author's responsibility**.
+The escape-at-known-sites model above protects GTB's **own** templates: GTB authors every template and escapes the **user-supplied field values** it interpolates. Custom template overlays ([`0080-generator-custom-partial-templates`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates)) deliberately step **outside** that perimeter — the generator renders `text/template` content **GTB did not author**, fetched (for git sources) over the network from a repository the framework does not control. The **template author controls the output directly**, so the escape helpers cannot guarantee a custom template's output is well-formed; that correctness is the **template author's responsibility**.
 
 GTB's guarantees for custom overlays are therefore confined to **where** output may land and **what data** a template may see — not the bytes emitted. The posture is **trusted-source with bounded blast radius**, *not* a sandbox (a true sandbox is out of scope). Adding a source **is** the trust decision; the SHA pin records exactly what was trusted.
 

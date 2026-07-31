@@ -81,4 +81,4 @@ the microsite: [the keychain opt-out](https://credentials.go.phpboyscout.uk/expl
 - **Configuration:** [Configure credentials](../../how-to/configure-credentials.md),
   [Migrate literal credentials](../../how-to/migrate-literal-credentials.md)
 - **Module docs:** [credentials.go.phpboyscout.uk](https://credentials.go.phpboyscout.uk)
-- **Trust model / spec:** [`2026-04-02-credential-storage-hardening.md`](../../development/specs/2026-04-02-credential-storage-hardening.md)
+- **Trust model / spec:** [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening)

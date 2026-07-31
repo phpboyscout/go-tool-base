@@ -161,7 +161,7 @@ delta), `env_prefix`, update policy/interval, help, telemetry, bootstrap, and
 generate → delete-manifest → `regenerate manifest` → `regenerate project` round
 trip reproduces the manifest **byte-for-byte** for a project without template
 overlays or signing. See
-`docs/development/specs/2026-07-11-manifest-feature-recovery.md`.
+[`0118-manifest-feature-recovery`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0118-manifest-feature-recovery).
 
 Template-overlay provenance and the full `signing` posture are not in the
 generated source either, so they are recorded as `// gtb:...` annotations in a

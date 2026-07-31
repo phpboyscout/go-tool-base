@@ -2,7 +2,7 @@
 description: Generator-driven workflow for CLI commands in GTB
 ---
 0. **Spec Check**:
-   - Check `docs/development/specs/` for an existing spec matching the command.
+   - Check the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) for an existing spec matching the command.
    - Only proceed if the spec status is `APPROVED` or `IN PROGRESS`.
    - For non-trivial commands with no spec, run `/gtb-spec` to draft one and pause for review.
    - Update the spec status to `IN PROGRESS` before writing any code.

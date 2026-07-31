@@ -11,7 +11,7 @@ tags:
 
 # Implementation notes — provider-aware repository auth
 
-Spec: [2026-06-12-provider-aware-repo-auth](../specs/2026-06-12-provider-aware-repo-auth.md)
+Spec: [`0078-provider-aware-repo-auth`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0078-provider-aware-repo-auth)
 Branch: `feat/provider-aware-repo-auth`
 
 ## What was implemented

@@ -8,7 +8,7 @@ import "github.com/dave/jennifer/jen"
 // external constructor call onto the generated root.
 //
 // The set is deliberately CLOSED (see
-// docs/development/specs/2026-07-29-external-command-attachment.md): keeping it a
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment): keeping it a
 // fixed vocabulary — rather than a free-form Go expression — keeps the generated
 // root type-safe and reviewable and prevents the manifest from becoming an
 // arbitrary-code injection vector. Anything the vocabulary cannot express uses

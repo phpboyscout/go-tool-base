@@ -283,7 +283,7 @@ This function is the single source of truth for mapping manifest fields — incl
 
 Each non-root command is handled by `regenerateCommandRecursive`, which calls through `performGeneration` → `postGenerate` → `CommandPipeline.Run` with `SkipRegistration: true` (children re-register themselves in step 3 of the pipeline).
 
-The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction — so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](../../../development/specs/2026-06-19-mcp-command-exposure-gating.md).
+The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction — so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating).
 
 ### 7. Templating (`templates/`)
 

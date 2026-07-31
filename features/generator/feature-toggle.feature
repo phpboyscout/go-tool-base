@@ -6,7 +6,7 @@ Feature: Enable and disable built-in features post-generation
   the change survives `gtb regenerate project`.
 
   Remediates keryx bug-report #8 part 2. Covers
-  docs/development/specs/2026-06-16-enable-disable-features.md.
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features.
 
   Scenario: Enabling an opt-in feature wires it into the root and survives regenerate
     Given a freshly generated gtb project

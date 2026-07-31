@@ -70,7 +70,7 @@ const (
 	// it for minutes on a black-holing network. The root pre-run update
 	// check currently still runs under the download-sized updateTimeout
 	// and is expected to adopt this constant in a follow-up (see
-	// docs/development/specs/2026-07-23-version-command-offline-degradation.md
+	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0173-version-command-offline-degradation
 	// §2, "Related but out of scope").
 	VersionCheckTimeout = 10 * time.Second
 )

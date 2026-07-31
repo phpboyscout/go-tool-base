@@ -84,4 +84,4 @@ from its own flag set; `disable signing` drops the `Signing` field and
 - `gtb regenerate project` renders from the manifest, so a toggle made via these
   commands persists across regenerations.
 
-See `docs/development/specs/2026-06-16-enable-disable-features.md`.
+See [`0086-enable-disable-features`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features).

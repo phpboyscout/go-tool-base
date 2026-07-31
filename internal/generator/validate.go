@@ -4,7 +4,7 @@ package generator
 // flags, interactive wizard, regenerate manifest) into the skeleton
 // templates. Validation is the primary defence against the template
 // injection class catalogued in
-// docs/development/specs/2026-04-02-generator-template-escaping.md:
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0055-generator-template-escaping:
 // most injection vectors collapse if the input character class is
 // constrained. The template_escape.go helpers provide defence-in-depth
 // on top.

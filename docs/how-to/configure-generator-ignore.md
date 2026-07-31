@@ -191,4 +191,4 @@ handled specially so hand-added prose is never silently discarded:
 ## Related Documentation
 
 - [Generator Package](../explanation/components/internal/generator.md) — full generator architecture and ignore file format
-- [Generator Ignore File Spec](../development/specs/2026-03-31-generator-ignore-file.md) — design specification
+- [Generator Ignore File Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0048-generator-ignore-file) — design specification

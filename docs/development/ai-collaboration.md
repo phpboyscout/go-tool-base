@@ -20,7 +20,7 @@ The **`gtb-dev`** skill (`.agent/skills/gtb-dev/SKILL.md`) defines the standard 
 
 Trigger these workflows to automate the heavy lifting:
 
-- **`/gtb-spec`**: Drafts a new feature specification and saves it to `docs/development/specs/`. Always start here for non-trivial features.
+- **`/gtb-spec`**: Drafts a new feature specification and publishes it to the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home). Always start here for non-trivial features.
 - **`/gtb-verify`**: The standard verification suite. Includes suite tests, race detection, and strict linting.
 - **`/gtb-library-contribution`**: A guide for adding new reusable logic to the core library.
 - **`/gtb-command-generation`**: Streamlines the process of defining and generating new CLI commands.
@@ -33,7 +33,7 @@ Feature specifications are the primary mechanism for communicating requirements 
 
 ### Why Specs Matter for AI Agents
 
-- **Persistent context**: Specs live in `docs/development/specs/` and are always available for an agent to read, eliminating the need to re-explain requirements across sessions.
+- **Persistent context**: Specs live in the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) and are always available for an agent to read, eliminating the need to re-explain requirements across sessions.
 - **Feature history**: The dated spec files (`YYYY-MM-DD-<feature-name>.md`) provide a chronological record of proposals, approvals, and design decisions that an agent can consult for precedent.
 - **Structured requirements**: Specs follow a consistent format (public API, data models, testing strategy, implementation phases) that maps directly to implementation tasks.
 
@@ -41,7 +41,7 @@ Feature specifications are the primary mechanism for communicating requirements 
 
 When asked to implement a feature:
 
-1. **Read the spec first** -- check `docs/development/specs/` for an approved spec matching the feature.
+1. **Read the spec first** -- check the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) for an approved spec matching the feature.
 2. **Read the required documentation** -- before writing any code, read the documents listed in the [Required Reading for Implementation](./specs/index.md#required-reading-for-implementation) section. This builds the context needed to follow project conventions.
 3. **Use Test-Driven Development** -- for each implementation phase, write failing tests first (derived from the spec's public API, data model, and error cases), then implement the minimum code to make them pass. See [Implementing a Specification](./specs/index.md#implementing-a-specification) for the full TDD workflow.
 4. **Follow the implementation phases** -- specs define a phased approach; implement in order.

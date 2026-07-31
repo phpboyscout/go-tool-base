@@ -63,4 +63,4 @@ context where log amplification is not a concern.
 ## Related
 
 - **Module docs:** [regexutil.go.phpboyscout.uk](https://regexutil.go.phpboyscout.uk)
-- **Trust model / spec:** [`2026-04-17-regex-hardening.md`](../../development/specs/2026-04-17-regex-hardening.md)
+- **Trust model / spec:** [`0061-regex-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0061-regex-hardening)

@@ -8,7 +8,7 @@ Feature: Attach external command trees to a generated project's root
   and `gtb enable signing` (the exact clobber that motivated the feature).
   `gtb attach adapter` scaffolds the author-owned escape hatch, and
   `gtb detach command` removes an attachment. Covers
-  docs/development/specs/2026-07-29-external-command-attachment.md.
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment.
 
   Scenario: Declaratively attaching an external constructor wires it into the root
     Given a freshly generated gtb project

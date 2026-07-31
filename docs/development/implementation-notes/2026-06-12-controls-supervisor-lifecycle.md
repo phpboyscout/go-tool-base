@@ -7,7 +7,7 @@ tags: [implementation-notes, controls, lifecycle, concurrency]
 
 # Implementation notes: controls supervisor & lifecycle hardening
 
-Spec: [2026-06-12-controls-supervisor-lifecycle.md](../specs/2026-06-12-controls-supervisor-lifecycle.md)
+Spec: [`0075-controls-supervisor-lifecycle`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0075-controls-supervisor-lifecycle)
 Branch: `fix/controls-supervisor-lifecycle`
 
 ## What was implemented

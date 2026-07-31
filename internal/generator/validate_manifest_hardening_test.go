@@ -1,7 +1,7 @@
 package generator_test
 
 // Regression tests for the manifest-validation hardening spec
-// (docs/development/specs/2026-07-23-generator-manifest-validation-hardening.md).
+// (https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0161-generator-manifest-validation-hardening).
 // Each test drives a hostile value through ValidateManifest — the gate the
 // regenerate and manifest-update paths rely on — and requires rejection
 // before any file write. On the pre-hardening generator every hostile case

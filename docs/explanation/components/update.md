@@ -74,7 +74,7 @@ high-water mark), and does not change development-build (`v0.0.0`)
 behaviour, which already requires `--force` for any update. The throttled
 background check merely *notifies* that the source reports an older latest;
 it never applies a downgrade automatically. See
-`docs/development/specs/2026-07-23-self-update-downgrade-guard.md`.
+[`0167-self-update-downgrade-guard`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0167-self-update-downgrade-guard).
 
 ## Testability via Abstraction
 
@@ -205,4 +205,4 @@ a `disabled`-policy tool — keeps being reminded to upgrade. `--ci` / `ci: true
 0 and asks you to re-run; a *failed* update (e.g. no release asset for the
 platform) propagates a non-zero exit rather than masking the failure as success.
 
-See `docs/development/specs/2026-06-16-forced-update-feature.md`.
+See [`0087-forced-update-feature`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0087-forced-update-feature).

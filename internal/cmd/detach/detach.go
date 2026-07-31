@@ -5,7 +5,7 @@
 //
 // This package lives under internal/cmd/ because the commands belong to the
 // framework author, not downstream consumers. See
-// docs/development/specs/2026-07-29-external-command-attachment.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment.
 package detach
 
 import (

@@ -6,7 +6,7 @@ Feature: MCP command exposure gating
   generated setup.ExcludeFromMCP / setup.IncludeInMCP marker matches.
   CLI behaviour is unaffected; only the MCP surface is gated.
 
-  Covers docs/development/specs/2026-06-19-mcp-command-exposure-gating.md.
+  Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating.
 
   Scenario: disable mcp withholds a command from the MCP surface
     Given a gtb project with a "post" command

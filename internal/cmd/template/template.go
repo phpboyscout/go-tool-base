@@ -6,7 +6,7 @@
 //
 // The manifest-edit + `regenerate` path is the source of truth; these
 // subcommands are ergonomics over it. See
-// docs/development/specs/2026-06-15-generator-custom-partial-templates.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 package template
 
 import (

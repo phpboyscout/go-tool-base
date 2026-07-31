@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 # Implementation notes — Flag-to-config binding
 
-Spec: [2026-06-12-flag-to-config-binding](../specs/2026-06-12-flag-to-config-binding.md) (status: IMPLEMENTED).
+Spec: [`0076-flag-to-config-binding`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0076-flag-to-config-binding) (status: IMPLEMENTED).
 
 ## What was implemented
 

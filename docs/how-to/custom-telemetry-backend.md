@@ -236,4 +236,4 @@ When a custom `Backend` factory is set, it takes the highest precedence in backe
 
 - [Telemetry Component](../explanation/components/telemetry/index.md) — architecture, events, privacy controls
 - [Telemetry Command](../reference/cli/telemetry.md) — CLI management commands
-- [Vendor Backends Specification](../development/specs/2026-03-30-telemetry-vendor-backends.md) — Datadog and PostHog reference implementations
+- [Vendor Backends Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0046-telemetry-vendor-backends) — Datadog and PostHog reference implementations

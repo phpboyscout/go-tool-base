@@ -172,7 +172,7 @@ func (o *SkeletonOptions) ValidateOrPrompt(p *props.Props) error {
 // internal/generator/validate.go to every user-influenced field.
 // Runs after both wizard and flag-driven flows so neither path
 // can smuggle adversarial input into template rendering.
-// See docs/development/specs/2026-04-02-generator-template-escaping.md
+// See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0055-generator-template-escaping
 // for the full threat model.
 func (o *SkeletonOptions) validateFields() error {
 	if err := o.validateCoreFields(); err != nil {

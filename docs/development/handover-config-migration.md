@@ -13,14 +13,14 @@ the **remaining** config-migration work.
 
 ## Status
 
-- **slog-first logging** (`docs/development/specs/2026-07-07-slog-first-extraction-seams.md`, APPROVED):
+- **slog-first logging** ([`0116-slog-first-extraction-seams`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0116-slog-first-extraction-seams), APPROVED):
   **COMPLETE**. `logger.Logger` is now a `*slog.Logger` mirror, and every
   extraction-candidate package (`chat`, `controls`, `config`, `http`, `grpc`,
   `gateway`, `telemetry` + `datadog`/`posthog`, `errorhandling`) has been
   migrated off `pkg/logger` to `*slog.Logger`. Only GTB adapter files
   (`*config_adapter.go`, `*FromProps`) and the composition layer (`pkg/cmd`,
   `pkg/setup`, `pkg/props`, `pkg/docs`, `pkg/utils`) still import `pkg/logger`.
-- **config-section-adapters** (`docs/development/specs/2026-07-07-config-section-adapters-for-extraction.md`, IN PROGRESS):
+- **config-section-adapters** ([`0115-config-section-adapters-for-extraction`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0115-config-section-adapters-for-extraction), IN PROGRESS):
   **first wave DONE** (`chat`, `tls`, `http`, `grpc`, `gateway`,
   `telemetry/otelcore`, `vcs` + providers + `repo`). Later waves remain (below).
 
@@ -70,7 +70,7 @@ Per `config-section-adapters` §8 (later waves) and §9 Phase 6:
    `forms`, `changelog`, `redact`, `regexutil`, `openapi`, `errorhandling`
    `HelpConfig`.
 2. **Root `pkg/telemetry`** — the `pkg/props` **type** coupling is now **DONE**
-   (`docs/development/specs/2026-07-10-telemetry-props-decoupling.md`,
+   ([`0117-telemetry-props-decoupling`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0117-telemetry-props-decoupling),
    IMPLEMENTED): `EventType`/`DeliveryMode` + constants moved to the
    dependency-free `pkg/telemetrytypes` leaf; `pkg/props` keeps them as type
    aliases (zero downstream break); `pkg/telemetry` core no longer imports

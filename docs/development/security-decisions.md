@@ -111,7 +111,7 @@ The machine ID transmitted in telemetry events is a SHA-256 hash of multiple sys
 - Truncation to 16 hex characters further reduces collision resistance but also limits re-identification potential.
 - The machine ID is used solely for deduplication and aggregate counting, not user identification.
 
-See also: [Telemetry design](specs/2026-03-21-opt-in-telemetry.md) for the full privacy model.
+See also: [Telemetry design](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0012-opt-in-telemetry) for the full privacy model.
 
 ---
 
@@ -129,7 +129,7 @@ Two call sites compiled caller-supplied regex patterns via `regexp.Compile` with
 
 **Tool author responsibility.** Never call `regexp.Compile` directly on a pattern that originates outside the binary. The helper is the designated entry point; bypassing it reintroduces the ReDoS class this remediation closes.
 
-Spec: [2026-04-17-regex-hardening.md](specs/2026-04-17-regex-hardening.md).
+Spec: [`0061-regex-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0061-regex-hardening).
 
 ---
 
@@ -143,7 +143,7 @@ Spec: [2026-04-17-regex-hardening.md](specs/2026-04-17-regex-hardening.md).
 
 **Tool author responsibility.** Validate `BaseURL` values at the boundary (your setup wizard, CLI flag parser, or config loader) via `chat.ValidateBaseURL` — not only at `chat.New` time — so misconfiguration is reported with context.
 
-Spec: [2026-04-17-chat-baseurl-validation.md](specs/2026-04-17-chat-baseurl-validation.md).
+Spec: [`0059-chat-baseurl-validation`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0059-chat-baseurl-validation).
 
 ---
 
@@ -157,7 +157,7 @@ Spec: [2026-04-17-chat-baseurl-validation.md](specs/2026-04-17-chat-baseurl-vali
 
 **Tool author responsibility.** Any tool-owned log line, custom telemetry event, or third-party observability payload containing free-form strings should be routed through `redact.String` / `redact.Error`. The package is the single entry point for untrusted-string redaction across GTB.
 
-Spec: [2026-04-17-telemetry-redaction.md](specs/2026-04-17-telemetry-redaction.md).
+Spec: [`0063-telemetry-redaction`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0063-telemetry-redaction).
 
 ---
 
@@ -174,7 +174,7 @@ Spec: [2026-04-17-telemetry-redaction.md](specs/2026-04-17-telemetry-redaction.m
 
 **Tool author responsibility.** When adding a new user-facing field to the generator: add a validator in `validate.go`, update `ValidateManifest`, and pipe the field through the appropriate escape helper at every non-code template call site. See `docs/development/template-security.md` for the full contributor guide.
 
-Spec: [2026-04-02-generator-template-escaping.md](specs/2026-04-02-generator-template-escaping.md).
+Spec: [`0055-generator-template-escaping`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0055-generator-template-escaping).
 
 ---
 
@@ -193,7 +193,7 @@ The interactive setup wizard for both AI providers and the VCS integrations wrot
 
 **Tool author responsibility.** New user-supplied credentials should route through the same three-mode pattern: prefer env-var references, fall back to literal only outside CI, and register a new `doctor` pattern when introducing a new config key that may hold a secret.
 
-Spec: [2026-04-02-credential-storage-hardening.md](specs/2026-04-02-credential-storage-hardening.md).
+Spec: [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening).
 
 ---
 
@@ -211,7 +211,7 @@ The project-local `.<tool>.yaml` layer (a repo-root config file, discovered by w
 
 **Tool author / user guidance.** Run `<tool> config trust` at a repository you author and control to enable its `.<tool>.yaml` security keys; `<tool> config trust --list` shows what is trusted and `--forget` revokes it. CI runs untrusted by default (safe), so a pipeline that legitimately relies on project-local security keys must either trust the file in a provisioning step or set the values through the user config / environment instead.
 
-Spec: [2026-07-23-gtb-framework-followups.md](specs/2026-07-23-gtb-framework-followups.md) §2.1.1.
+Spec: [`0162-gtb-framework-followups`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0162-gtb-framework-followups) §2.1.1.
 
 ---
 

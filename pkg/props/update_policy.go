@@ -5,7 +5,7 @@ import "strings"
 // UpdatePolicy governs how the self-update check behaves when a newer release
 // is found. It is the tool author's baseline (the [Tool.UpdatePolicy] field),
 // overridable at runtime by the `update.policy` config key. See
-// docs/development/specs/2026-06-16-forced-update-feature.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0087-forced-update-feature.
 type UpdatePolicy string
 
 const (

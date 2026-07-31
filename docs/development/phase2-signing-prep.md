@@ -8,11 +8,11 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Phase 2 Signing Prep
 
-Phase 1 of the [remote-update-checksum-verification](specs/2026-04-02-remote-update-checksum-verification.md) spec (SHA-256 checksum manifest verification) is implemented. Phase 2 adds a detached GPG signature over the manifest so a VCS-platform compromise cannot produce a passing update: the signature can only be forged by an attacker who also controls the signing key.
+Phase 1 of the [remote-update-checksum-verification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification) spec (SHA-256 checksum manifest verification) is implemented. Phase 2 adds a detached GPG signature over the manifest so a VCS-platform compromise cannot produce a passing update: the signature can only be forged by an attacker who also controls the signing key.
 
 Phase 2 has **operational prerequisites** that are out of scope for code changes — key generation inside a KMS, DNS + TLS setup for the WKD endpoint, access-policy decisions. This document captures those in order, so that when Phase 2 kicks off the only remaining work is code.
 
-> This is a planning document. Status lives in the [spec](specs/2026-04-02-remote-update-checksum-verification.md); when Phase 2 transitions to IN PROGRESS the ordered steps here become the implementation playbook.
+> This is a planning document. Status lives in the [spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification); when Phase 2 transitions to IN PROGRESS the ordered steps here become the implementation playbook.
 
 ## Decisions so far
 
@@ -432,7 +432,7 @@ This is the spec's Phase 2a/2b/2c/2d condensed into a single checklist:
 
 ## Related
 
-- [Spec: Remote Update Integrity — Checksums + GPG Signatures](specs/2026-04-02-remote-update-checksum-verification.md)
+- [Spec: Remote Update Integrity — Checksums + GPG Signatures](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
 - [How-To: Secure Releases](../how-to/secure-releases.md) — end-user documentation for both phases
 - [Component: Setup Package](../explanation/components/setup/index.md#remote-checksum-verification-phase-1)
 - [Component: VCS Release Providers](../explanation/components/vcs/release.md) — `ChecksumProvider` and (planned) `SignatureProvider` interfaces

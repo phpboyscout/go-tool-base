@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 This guide covers the three storage modes GTB supports for user-supplied secrets (AI API keys, VCS tokens, Bitbucket app passwords) and how to pick the right one for your environment.
 
-If you want the background on why we built this, see the [Credential Storage Hardening spec](../development/specs/2026-04-02-credential-storage-hardening.md).
+If you want the background on why we built this, see the [Credential Storage Hardening spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening).
 
 ## The three modes in one sentence
 

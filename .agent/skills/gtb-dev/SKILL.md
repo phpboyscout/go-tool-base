@@ -12,7 +12,7 @@ Before performing research or suggesting changes, always consult the following:
 
 - **[Contributor Guide](file://docs/development/index.md)**: Library-first principles, project structure, and quality protocols.
 - **[AI Collaboration Guide](file://docs/development/ai-collaboration.md)**: How to work with specs, workflows, and the AI toolchain.
-- **[Feature Specifications](file://docs/development/specs/index.md)**: Spec format, lifecycle, TDD workflow, and prompts.
+- **[Feature Specifications](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home)**: Spec format, lifecycle, TDD workflow, and prompts.
 - **[Verification Checklists](file://docs/development/verification-checklists.md)**: Pre-submission quality gates.
 - **Concepts**: Core framework design patterns in `docs/concepts/`.
 - **Components**: API documentation for library packages in `docs/components/`.
@@ -23,10 +23,10 @@ Before performing research or suggesting changes, always consult the following:
 
 This is the most important step. **Do not write implementation code until it is complete.**
 
-1. Check `docs/development/specs/` for an existing spec matching the feature or change.
+1. Check the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) for an existing spec matching the feature or change.
 2. **If a spec exists**: verify its `status` is `APPROVED` or `IN PROGRESS` before proceeding. Do not implement a `DRAFT` or `IN REVIEW` spec.
 3. **If no spec exists**:
-   - For **non-trivial features** (new packages, public API changes, generator modifications, architectural changes): draft a spec first using the **[Suggested Prompt](file://docs/development/specs/index.md#suggested-prompt)** and save it to `docs/development/specs/YYYY-MM-DD-<feature-name>.md` with status `DRAFT`. Pause and wait for human review and `APPROVED` status before implementing.
+   - For **non-trivial features** (new packages, public API changes, generator modifications, architectural changes): draft a spec first using the **[Suggested Prompt](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home)** and save it to `docs/development/specs/YYYY-MM-DD-<feature-name>.md` with status `DRAFT`. Pause and wait for human review and `APPROVED` status before implementing.
    - For **quick fixes and minor changes** (bug fixes, small enhancements, refactors that don't alter the public API): proceed directly to implementation without a spec.
 4. **Update the spec status** to `IN PROGRESS` when you begin implementation, and to `IMPLEMENTED` when complete (update both the frontmatter and the document header).
 
@@ -144,7 +144,7 @@ INT_TEST_E2E_CLI=1 go test ./test/e2e/... -v  # CLI scenarios only
 INT_TEST_E2E_CONTROLS=1 go test ./test/e2e/... -v  # controls scenarios only
 ```
 
-See the **[Godog BDD Strategy](file://docs/development/specs/2026-03-28-godog-bdd-strategy.md)** spec for the full strategy, suitability assessment, and directory structure.
+See the **[Godog BDD Strategy](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0044-godog-bdd-strategy)** spec for the full strategy, suitability assessment, and directory structure.
 
 If the change affects generator output, also run:
 

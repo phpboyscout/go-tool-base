@@ -102,4 +102,4 @@ The process environment is **never** enumerated (high leak surface, low triage v
 
 The doctor command is implemented in `pkg/cmd/doctor/doctor.go` with built-in checks in `pkg/cmd/doctor/checks.go`; the `report` subcommand (collector + redaction) lives in `pkg/cmd/doctor/report.go` and `report_redact.go`. The check registry lives in `pkg/setup/`; the shared OS-version string comes from `pkg/osinfo`.
 
-See the spec: `docs/development/specs/2026-06-21-bug-report-diagnostics-command.md`.
+See the spec: [`0092-bug-report-diagnostics-command`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0092-bug-report-diagnostics-command).

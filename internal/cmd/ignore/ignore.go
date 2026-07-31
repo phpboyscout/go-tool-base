@@ -7,7 +7,7 @@
 // read fresh on the next `regenerate`, and editing it changes nothing already
 // on disk. So `add`/`remove` are pure file edits and `--dry-run` means "show
 // the resulting file", not "simulate a regenerate". See
-// docs/development/specs/2026-07-28-ignore-command-and-discoverability.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0181-ignore-command-and-discoverability.
 package ignore
 
 import (

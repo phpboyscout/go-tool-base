@@ -145,7 +145,7 @@ The root pre-run then builds the store — merged `assets/config.yaml` defaults 
 the bottom, then files, env, and flags — with the full
 `flags > env > file > embedded > defaults` precedence. See
 [Configuration Precedence](../explanation/components/config/index.md) and the
-[segregated-defaults spec](../development/specs/2026-07-20-segregated-default-config.md).
+[segregated-defaults spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0138-segregated-default-config).
 Reach for a manual `config.WithReaders(config.NamedSource{…})` layer only when
 you construct a store yourself, outside the framework's root wiring.
 

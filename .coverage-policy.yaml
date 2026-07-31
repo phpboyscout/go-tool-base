@@ -4,7 +4,7 @@
 # `coverage-policy` CI job). A package must be at or above `threshold` OR appear
 # in `excluded` (with a rationale) OR match a `not_counted` prefix — otherwise it
 # is flagged. This is the enforcement half of
-# docs/development/specs/2026-06-20-coverage-gap-closure.md.
+# https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0090-coverage-gap-closure.
 #
 # To add an exclusion you MUST give a reason; keep this file and the spec's
 # Bucket A/B tables in sync.

@@ -12,7 +12,7 @@ Branch: `fix/controls-startup-shutdown-races`
 Before extracting `pkg/controls` into the standalone `gitlab.com/phpboyscout/go/controls`
 module, a fresh adversarial review of the concurrency surface turned up two latent
 defects beyond the seven closed by
-[2026-06-12-controls-supervisor-lifecycle.md](../specs/2026-06-12-controls-supervisor-lifecycle.md)
+[`0075-controls-supervisor-lifecycle`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0075-controls-supervisor-lifecycle)
 (D1–D7). Both are narrow and timing-dependent — neither was caught by the existing
 race tests — but both are cheaper to close in-tree than across a module boundary,
 so they are fixed here. They continue that spec's `D<n>` marker convention.

@@ -7,7 +7,7 @@ tags: [implementation-notes, cmd, middleware, cobra]
 
 # Implementation notes — bootstrap-prerun-traversal
 
-Spec: [`docs/development/specs/2026-06-12-bootstrap-prerun-traversal.md`](../specs/2026-06-12-bootstrap-prerun-traversal.md)
+Spec: [`0073-bootstrap-prerun-traversal`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0073-bootstrap-prerun-traversal)
 Branch: `fix/bootstrap-prerun-traversal`
 
 ## What I implemented

@@ -91,7 +91,7 @@ git checkout -b feature/my-new-feature
 
 Using an AI assistant (Cursor Agent, Claude, etc.), draft a feature spec following the **[Feature Specifications](./specs/index.md)** guide. The spec captures requirements, public API design, internal implementation, testing strategy, and implementation phases.
 
-Save it to `docs/development/specs/YYYY-MM-DD-<feature-name>.md` with status `DRAFT`.
+Claim the next number from the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) and publish it to the wiki as `specs/NNNN-<feature-name>` with status `DRAFT`. Specs live in the wiki, not in this repository.
 
 #### 3. Push and Raise a PR
 

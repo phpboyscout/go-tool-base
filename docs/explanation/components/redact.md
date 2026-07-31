@@ -84,4 +84,4 @@ allowlist?".
 ## Related
 
 - **Module docs:** [redact.go.phpboyscout.uk](https://redact.go.phpboyscout.uk)
-- **Trust model / spec:** [`2026-04-17-telemetry-redaction.md`](../../development/specs/2026-04-17-telemetry-redaction.md)
+- **Trust model / spec:** [`0063-telemetry-redaction`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0063-telemetry-redaction)

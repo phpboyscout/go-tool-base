@@ -53,7 +53,7 @@ type SkeletonConfig struct {
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
 	// default (disabled) applies; wired into the generated root command's
-	// props.Tool.UpdatePolicy. See docs/development/specs/2026-06-16-forced-update-feature.md.
+	// props.Tool.UpdatePolicy. See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0087-forced-update-feature.
 	UpdatePolicy string
 	// UpdateCheckInterval is the generated tool's baseline self-update-check
 	// throttle as a Go duration string (e.g. "24h"). Empty leaves it unset so

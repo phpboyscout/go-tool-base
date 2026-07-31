@@ -11,8 +11,8 @@ Feature: Enable and disable release-signing verification end-to-end
   The existing feature-toggle feature only asserts that `Signing:` lands in
   cmd.go on a single enable. These scenarios cover the full lifecycle —
   scaffold, survive-regenerate, tear-down (keeping trust anchors), and
-  re-enable. Covers docs/development/specs/2026-06-10-signing-generator-feature.md
-  and docs/development/specs/2026-06-16-enable-disable-features.md.
+  re-enable. Covers https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature
+  and https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features.
 
   Scenario: Enabling signing scaffolds the trust package and wiring, and survives regenerate
     Given a freshly generated gtb project

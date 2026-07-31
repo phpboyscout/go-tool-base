@@ -6,7 +6,7 @@ Feature: Generator Input Validation
   the rendered skeleton.
 
   Covers the input-validation half of
-  docs/development/specs/2026-04-02-generator-template-escaping.md.
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0055-generator-template-escaping.
 
   Background:
     Given the gtb binary is built

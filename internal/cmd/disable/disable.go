@@ -10,8 +10,8 @@
 // release-signing verification (dropping the Signing field and signing.go,
 // keeping internal/trustkeys and any *.asc keys).
 //
-// See docs/development/specs/2026-06-16-enable-disable-features.md and
-// docs/development/specs/2026-06-10-signing-generator-feature.md.
+// See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features and
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature.
 package disable
 
 import (

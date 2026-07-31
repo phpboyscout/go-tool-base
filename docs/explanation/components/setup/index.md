@@ -446,7 +446,7 @@ Related surfaces that rely on the same taxonomy:
 - **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
 - **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
 
-See the end-user guide at [How to configure credentials](../../../how-to/configure-credentials.md) for practical examples, the [Custom credential backend how-to](../../../how-to/custom-credential-backend.md) for implementing a `Backend` against Vault, AWS SSM, or any other secret store, and the [Credential Storage Hardening spec](../../../development/specs/2026-04-02-credential-storage-hardening.md) for the full design.
+See the end-user guide at [How to configure credentials](../../../how-to/configure-credentials.md) for practical examples, the [Custom credential backend how-to](../../../how-to/custom-credential-backend.md) for implementing a `Backend` against Vault, AWS SSM, or any other secret store, and the [Credential Storage Hardening spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) for the full design.
 
 ### SSH Key Handling
 - Keys are read but never logged or transmitted

@@ -56,7 +56,7 @@ type FeatureRegistry struct {
 // by all Register* and Reset/Seal helpers; acquired for read by all Get*
 // accessors. The mutex is required for memory visibility of registrySealed
 // across goroutines, not only mutual exclusion on the maps — see
-// docs/development/specs/2026-04-15-test-race-remediation.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0058-test-race-remediation.
 var (
 	registryMu     sync.RWMutex
 	registrySealed bool

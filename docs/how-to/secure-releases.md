@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 GTB's self-update flow verifies every downloaded binary against a GoReleaser-produced `checksums.txt` manifest before installing it. A tampered or truncated binary is rejected; a passing check is logged at INFO (`"checksum verified"`) and the update proceeds.
 
-This is **Phase 1** of the release-integrity work from [`2026-04-02-remote-update-checksum-verification`](../development/specs/2026-04-02-remote-update-checksum-verification.md). **Phase 2** adds a GPG signature over the manifest, closing the same-origin trust gap (an attacker who can replace the binary on the release platform can also replace `checksums.txt` — only a signature from an off-platform key defeats that). Phase 2's code is implemented and dormant; see [Phase 2 below](#phase-2-gpg-signed-manifests).
+This is **Phase 1** of the release-integrity work from [`0056-remote-update-checksum-verification`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification). **Phase 2** adds a GPG signature over the manifest, closing the same-origin trust gap (an attacker who can replace the binary on the release platform can also replace `checksums.txt` — only a signature from an off-platform key defeats that). Phase 2's code is implemented and dormant; see [Phase 2 below](#phase-2-gpg-signed-manifests).
 
 ## How it fits together
 
@@ -359,5 +359,5 @@ go test ./pkg/setup/ -run "^$" -fuzz=FuzzParseChecksumManifest -fuzztime=30s
 - [Setup Package Reference](../explanation/components/setup/index.md) — `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, and the updater options.
 - [VCS Release Providers](https://forge.go.phpboyscout.uk/reference/providers/) — the `ChecksumProvider` optional interface and per-provider behaviour.
 - [Custom Release Source](custom-release-source.md) — implementing a custom `release.Provider` (and optionally `release.ChecksumProvider`) for a proprietary release backend.
-- [Credential Storage Hardening Spec](../development/specs/2026-04-02-credential-storage-hardening.md) — the related defence-in-depth spec that covers credential storage during update and setup.
-- [Remote Update Integrity Spec](../development/specs/2026-04-02-remote-update-checksum-verification.md) — the full design including Phase 2 (GPG) and Phase 3 (cosign).
+- [Credential Storage Hardening Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) — the related defence-in-depth spec that covers credential storage during update and setup.
+- [Remote Update Integrity Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification) — the full design including Phase 2 (GPG) and Phase 3 (cosign).

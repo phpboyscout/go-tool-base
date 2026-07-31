@@ -121,4 +121,4 @@ unknown — not "behind"):
 
 ## Implementation
 
-The version command is implemented in `pkg/cmd/version/version.go` and integrates with the updater system to check for newer releases. See the spec [version command: degrade gracefully when the release source is unreachable](../../development/specs/2026-07-23-version-command-offline-degradation.md) for the offline-degradation design.
+The version command is implemented in `pkg/cmd/version/version.go` and integrates with the updater system to check for newer releases. See the spec [version command: degrade gracefully when the release source is unreachable](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0173-version-command-offline-degradation) for the offline-degradation design.

@@ -130,7 +130,7 @@ The release-provider registry (`forge.Register`) is the same kind of global muta
 
 ### Avoid `cobra.OnFinalize`
 
-`cobra.OnFinalize` mutates a package-level slice inside the cobra library. Constructing multiple root commands in parallel (common in tests) races on this slice. Use `defer` in `Execute()` or middleware instead. See [the race remediation spec](../development/specs/2026-04-15-test-race-remediation.md) for the full rationale.
+`cobra.OnFinalize` mutates a package-level slice inside the cobra library. Constructing multiple root commands in parallel (common in tests) races on this slice. Use `defer` in `Execute()` or middleware instead. See [the race remediation spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0058-test-race-remediation) for the full rationale.
 
 ### `t.Parallel()` + `t.Setenv()` are incompatible
 

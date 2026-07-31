@@ -14,7 +14,7 @@ import (
 // were removed pre-1.0 as dead API — they had zero consumers and were pure
 // ornament. Their getter methods remain on *Props for direct use; reintroduce an
 // interface only when a consumer actually narrows to it. See
-// docs/development/specs/2026-07-23-gtb-framework-followups.md §2.3.1 and
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0162-gtb-framework-followups §2.3.1 and
 // docs/migration/2026-07-23-props-interface-prune.md.
 
 // LoggerProvider provides access to the application logger.

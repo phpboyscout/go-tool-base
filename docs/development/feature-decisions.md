@@ -17,7 +17,7 @@ GTB's guiding principle: **foundation for tools, not an application framework**.
 ## Rejected Features
 
 ### Plugin / Extension System
-**Date:** 31 March 2026 | **Spec:** [`2026-03-21-plugin-extension-system.md`](specs/2026-03-21-plugin-extension-system.md) (status: REJECTED)
+**Date:** 31 March 2026 | **Spec:** [`0013-plugin-extension-system`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0013-plugin-extension-system) (status: REJECTED)
 
 **Proposal:** Script-based command plugin system allowing users to extend CLI tools with custom commands discovered from a plugins directory.
 
@@ -30,7 +30,7 @@ GTB's guiding principle: **foundation for tools, not an application framework**.
 
 **Rejection rationale:** Secrets management is highly specific to deployment context. GTB already offers config injection via multiple mechanisms (env vars, config files, embedded assets, CLI flags) with a clear precedence chain. Introducing one secrets implementation opens a rabbit hole of vendor-specific adapters. Engineers should implement secrets access as part of their config composition (CI/CD pipelines, CSI mounts, etc.) — this is a tool-author concern, not a framework concern.
 
-**Update (April 2026):** A narrower, scoped implementation did land as part of the [credential storage hardening work](specs/2026-04-02-credential-storage-hardening.md). The design respects the original rejection — GTB ships no vendor-specific adapters:
+**Update (April 2026):** A narrower, scoped implementation did land as part of the [credential storage hardening work](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening). The design respects the original rejection — GTB ships no vendor-specific adapters:
 
 - [`pkg/credentials`](../explanation/components/credentials.md) defines a minimal `Backend` interface with a stub default.
 - The opt-in [`pkg/credentials/keychain`](../explanation/components/credentials.md) subpackage (go-keyring) is the only adapter shipped in-tree.
@@ -174,7 +174,7 @@ All new features must be implemented in `pkg/` as reusable components before bei
 
 ### Spec-Driven Development
 
-Non-trivial features (new packages, public API changes, generator modifications, architectural changes) require a spec in `docs/development/specs/` with status `DRAFT` before implementation begins. Quick fixes and minor changes proceed directly. Spec and implementation live on the same branch — co-locating design rationale with code in git history.
+Non-trivial features (new packages, public API changes, generator modifications, architectural changes) require a spec in the [wiki](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) with status `DRAFT` before implementation begins. Quick fixes and minor changes proceed directly. Spec and implementation live on the same branch — co-locating design rationale with code in git history.
 
 ### Test-Driven Development
 

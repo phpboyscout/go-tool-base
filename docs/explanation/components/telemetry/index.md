@@ -64,8 +64,8 @@ mytool telemetry reset     # clear local data + request remote deletion
 - [Props](../props.md) — dependency injection container (`Collector` field)
 - [Create a Custom Telemetry Backend](../../../how-to/custom-telemetry-backend.md) — implement your own backend
 - [Create a Custom Deletion Requestor](../../../how-to/custom-deletion-requestor.md) — GDPR deletion for custom backends
-- [Telemetry Specification](../../../development/specs/2026-03-21-opt-in-telemetry.md) — full design spec
-- [Vendor Backends Specification](../../../development/specs/2026-03-30-telemetry-vendor-backends.md) — Datadog and PostHog backends
+- [Telemetry Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0012-opt-in-telemetry) — full design spec
+- [Vendor Backends Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0046-telemetry-vendor-backends) — Datadog and PostHog backends
 
 ## In this section
 

@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 This guide walks through every observable behaviour of the OS-keychain storage mode using the `cmd/e2e` binary, which exposes all feature-flagged setup flows that the shipped `gtb` binary gates behind release-time decisions. Use it to verify keychain behaviour during spec work, pre-release smoke checks, or when investigating a report from a real deployment.
 
-Each scenario maps to a requirement in [`2026-04-02-credential-storage-hardening.md`](../specs/2026-04-02-credential-storage-hardening.md). Automated coverage is in the Gherkin suite under `features/`; this guide is for the cases where a live OS keychain is easier than a mock.
+Each scenario maps to a requirement in [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening). Automated coverage is in the Gherkin suite under `features/`; this guide is for the cases where a live OS keychain is easier than a mock.
 
 ## Prerequisites
 
@@ -365,4 +365,4 @@ go run /tmp/probe_check.go
 
 - [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference.
 - [`docs/how-to/configure-credentials.md`](../../how-to/configure-credentials.md) — end-user configuration guide.
-- [`2026-04-02-credential-storage-hardening.md`](../specs/2026-04-02-credential-storage-hardening.md) — spec driving this work; each scenario maps to a requirement (R1–R6).
+- [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) — spec driving this work; each scenario maps to a requirement (R1–R6).

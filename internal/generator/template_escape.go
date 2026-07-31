@@ -4,7 +4,7 @@ package generator
 //
 // The input-validation layer in validate.go is the primary defence
 // against the template injection class catalogued in
-// docs/development/specs/2026-04-02-generator-template-escaping.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0055-generator-template-escaping.
 // These helpers provide defence-in-depth at the rendering boundary:
 // if a future change widens a validator, or an adversarial value
 // reaches template rendering through a new input path, the escape

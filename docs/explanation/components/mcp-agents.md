@@ -130,7 +130,7 @@ round-trips through both `regenerate project` (manifest → code) and `regenerat
 manifest` (code → manifest), so the gating is never silently lost.
 
 See the [generated command exposure
-spec](../../development/specs/2026-06-19-mcp-command-exposure-gating.md) for the
+spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating) for the
 full design, and `setup.IsExposedToMCP` / `setup.ExcludeFromMCP` for the API.
 
 ## Common Use Cases

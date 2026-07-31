@@ -14,7 +14,7 @@ author:
 
 # Implementation notes — signal-aware execution context
 
-Spec: [2026-06-12-signal-aware-execution-context](../specs/2026-06-12-signal-aware-execution-context.md) (now `IMPLEMENTED`).
+Spec: [`0079-signal-aware-execution-context`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0079-signal-aware-execution-context) (now `IMPLEMENTED`).
 
 ## What was implemented
 

@@ -32,7 +32,7 @@ type guardedImport struct {
 //
 // pkg/config is intentionally NOT guarded: it is itself an early extraction
 // candidate and a legitimate lightweight dependency, so packages may import it
-// directly (see docs/development/specs/2026-07-07-config-section-adapters-for-extraction.md).
+// directly (see https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0115-config-section-adapters-for-extraction).
 var guardedImports = []guardedImport{
 	{
 		pkg: "pkg/props",
@@ -42,7 +42,7 @@ var guardedImports = []guardedImport{
 	{
 		pkg: "pkg/logger",
 		remedy: "accept a *slog.Logger instead, and convert at the adapter boundary " +
-			"with logger.ToSlog (see docs/development/specs/2026-07-07-slog-first-extraction-seams.md)",
+			"with logger.ToSlog (see https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0116-slog-first-extraction-seams)",
 	},
 }
 
@@ -56,7 +56,7 @@ var guardedImports = []guardedImport{
 //
 // pkg/telemetry (root) is included: the shared telemetry value types moved to
 // the pkg/telemetrytypes leaf (see
-// docs/development/specs/2026-07-10-telemetry-props-decoupling.md), so the
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0117-telemetry-props-decoupling), so the
 // collector no longer imports pkg/props from its core. Its *_adapter.go files
 // still read config through props and remain exempt. Note the tree is not yet
 // fully extractable — the product-analytics / observability split is a separate

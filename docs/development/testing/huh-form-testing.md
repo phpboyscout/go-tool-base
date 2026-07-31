@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 Interactive prompts in GTB are built on [`charm.land/huh`](https://github.com/charmbracelet/huh). A form's `Run()` method takes over the terminal and blocks on real keyboard input, so a naive unit test either **hangs forever** (no TTY to read) or can't assert anything. This page covers the three ways to test form-driving code headlessly, when to reach for each, and the sharp edges.
 
-> This is the same class of problem behind the `gtb init` hang fix (an unguarded wizard blocking on non-TTY stdin) and the `config migrate-credentials` coverage work — see [the migrate-wizard spec](../specs/2026-06-22-config-migrate-wizard-injectability.md).
+> This is the same class of problem behind the `gtb init` hang fix (an unguarded wizard blocking on non-TTY stdin) and the `config migrate-credentials` coverage work — see [the migrate-wizard spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0106-config-migrate-wizard-injectability).
 
 ## TL;DR — pick an approach
 
@@ -178,4 +178,4 @@ Use this when you specifically need to assert **keystroke-level** behaviour (nav
 - [Testing & Mocking](../../how-to/testing.md) — the general unit-testing guide, race-avoidance rules, and `internal/exectest` fakes.
 - [`pkg/cmd/config/migrate_forms_test.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/cmd/config/migrate_forms_test.go) — the real `withScriptedStdin` tests for the migrate wizard.
 - [`pkg/setup/forge/dual.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/setup/forge/dual.go) — the `WithDualForm` injection pattern (Approach B); see [`single.go`](https://gitlab.com/phpboyscout/go-tool-base/-/blob/main/pkg/setup/forge/single.go) for the single-token `WithAuthForm` equivalent.
-- [config migrate-wizard coverage spec](../specs/2026-06-22-config-migrate-wizard-injectability.md) — the decision record behind choosing accessible mode over a seam refactor.
+- [config migrate-wizard coverage spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0106-config-migrate-wizard-injectability) — the decision record behind choosing accessible mode over a seam refactor.

@@ -217,7 +217,7 @@ E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to ex
 
 These tests require **no external credentials**. Run via `just test-e2e` or filter with `INT_TEST_E2E_CONTROLS=1` or `INT_TEST_E2E_CLI=1`.
 
-See `docs/development/specs/2026-03-28-godog-bdd-strategy.md` for the full BDD strategy and phased rollout plan.
+See [`0044-godog-bdd-strategy`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0044-godog-bdd-strategy) for the full BDD strategy and phased rollout plan.
 
 ## Just Recipes
 

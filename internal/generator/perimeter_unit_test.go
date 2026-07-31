@@ -1,7 +1,7 @@
 package generator
 
 // Regression tests for the generator validation perimeter
-// (docs/development/specs/2026-06-12-generator-validation-perimeter.md):
+// (https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0077-generator-validation-perimeter):
 //
 //   - a tampered manifest command name must never reach the
 //     filepath.Join / RemoveAll sink (skip + ERROR log, valid commands

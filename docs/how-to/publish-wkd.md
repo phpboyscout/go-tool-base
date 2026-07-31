@@ -208,7 +208,7 @@ key ever ships, redeploy a known-good staging directory in seconds.
 
 ## Related
 
-- [Spec: gtb keys wkd](../development/specs/2026-06-09-keys-wkd-command.md)
+- [Spec: gtb keys wkd](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command)
   — design decisions, RFC details, the threat-model rationale.
 - [Phase 2 signing prep doc][prep] — the upstream gate decisions for
   domain, email, and host.

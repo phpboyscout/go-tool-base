@@ -66,7 +66,7 @@ fi
 # pkg/signing aws-kms backend. The private key never leaves KMS —
 # only the public key's RSA bytes are downloaded once via GetPublicKey,
 # and the signing operation is a single kms:Sign round-trip per
-# invocation. See docs/development/specs/2026-06-09-sign-command.md.
+# invocation. See https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command.
 #
 # `go run` rather than an installed binary so this script works
 # unmodified inside the goreleaser CI image (which ships Go but not

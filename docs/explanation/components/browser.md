@@ -62,4 +62,4 @@ governs pre-open cancellation.
 ## Related
 
 - **Module docs:** [browser.go.phpboyscout.uk](https://browser.go.phpboyscout.uk)
-- **Trust model / spec:** [`2026-04-02-url-scheme-validation.md`](../../development/specs/2026-04-02-url-scheme-validation.md)
+- **Trust model / spec:** [`0057-url-scheme-validation`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0057-url-scheme-validation)

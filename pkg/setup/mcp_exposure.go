@@ -11,7 +11,7 @@ import "github.com/spf13/cobra"
 // Exposure is build-time only: the decision is baked into the binary as a
 // command annotation, with no runtime config lever — the MCP tool surface is
 // fixed and auditable in the shipped binary. See
-// docs/development/specs/2026-06-19-mcp-command-exposure-gating.md.
+// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating.
 type MCPExposure uint8
 
 const (

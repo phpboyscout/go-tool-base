@@ -5,7 +5,7 @@ Feature: Generator post-generation git step flags
   remote. The flag surface is validated before any files are written.
 
   Covers the invocation-time flags of
-  docs/development/specs/2026-06-15-generator-git-initialisation.md.
+  https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0081-generator-git-initialisation.
 
   Background:
     Given the gtb binary is built

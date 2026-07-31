@@ -20,7 +20,7 @@ plus the CI integration with OIDC) and the verification path
 
 ## Prerequisites
 
-- `gtb` ≥ the version that ships [Spec 2026-06-09-sign-command](../development/specs/2026-06-09-sign-command.md).
+- `gtb` ≥ the version that ships [Spec 2026-06-09-sign-command](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command).
 - The public-key file (`release.asc`) corresponding to the signing key, **already published** — embedded in `internal/trustkeys/keys/` and served via WKD per [How-to: publish via WKD](publish-wkd.md). `gtb sign` reads identity (creation time, UID) from this file.
 - For the `aws-kms` backend: AWS credentials in the standard SDK chain. In local terminal that means `aws login` + `aws configure export-credentials --format env`; in CI it means an OIDC assume-role step (see below).
 
@@ -200,7 +200,7 @@ See the Phase 2 prep doc for the full rotation runbook.
 
 ## Related
 
-- [Spec: gtb sign](../development/specs/2026-06-09-sign-command.md)
+- [Spec: gtb sign](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command)
   — design decisions, RFC details, threat model.
 - [`openpgpkey`](../explanation/components/openpgpkey.md)
   — the `DetachSign` library function the CLI wraps (now the standalone
