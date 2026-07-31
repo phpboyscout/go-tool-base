@@ -1,5 +1,39 @@
 # Changelog
 
+## [v0.34.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.34.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.33.0...v0.34.0)
+
+### Features
+
+- **cli**: add gtb attach/detach commands with how-to and BDD coverage ([fe96ee5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fe96ee5a61ce39ea9fb307105a72381f307cb252))
+- **generator**: render external command attachments into the root ([641443e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/641443e9fbb2cb282ddc1dad227c2c6c6eabb38a))
+- **generator**: add external_commands manifest schema and validation ([c2ca9a5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c2ca9a547925e3b9735ac2e8150885efe565ffeb))
+- **signing**: source sign/keys from the extracted go/signing-cli module ([cb73d1c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/cb73d1cf7ffee3cee2d497c393e63e6ecc5f618b))
+- **generator**: add gtb ignore command and .gtb/ignore discoverability (#3) ([fc2b1bd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fc2b1bd1decbe8bef86e52d421f8e2d6971acdcd))
+- **root**: project-local config trust, bootstrap robustness, and cleanups ([b615038](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b61503881a3b2d582d235506ed4c7b1929d829cf))
+- **props**: add validating New constructor, prune dead provider interfaces ([b6a5acb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b6a5acbccaa2798824036a47f17755d30a903479))
+- **grpc**: expose host bind-address key and warn on unknown options ([09cefec](https://gitlab.com/phpboyscout/go-tool-base/-/commit/09cefec268b89567999632662ef24d6b33c0d57d))
+- **http**: expose host bind-address key; reject invalid ports and unknown options ([df9e300](https://gitlab.com/phpboyscout/go-tool-base/-/commit/df9e3009b84648c75592f434f4385a1b1be00a32))
+
+### Bug Fixes
+
+- **deps**: update go modules ([64c9251](https://gitlab.com/phpboyscout/go-tool-base/-/commit/64c9251c3ccab3032c03de9dca56171de429c130))
+- **generator**: track scaffold version pins with Renovate and bump to head ([d76c90c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d76c90ceaf19f41039dfb06fe4588e9e66df79f7))
+- **generator**: conflict-check the CLI index and TTY-guard the conflict prompt (#6) ([84edc2f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/84edc2f9527e20a5a113e9a180aec6fad1bb6325))
+- **generator**: enable/disable signing must respect .gtb/ignore and inject safely (#4) ([f5e719a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/f5e719a9697cc2bbab1ee2188cca72485ac4e402))
+- **generator**: frontmatter-first docs output and --no-ai-attribution flag (#7) ([ff3d1ba](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ff3d1bab0516e746d8c107a6f2be03008df91690))
+- **setup**: harden self-update, SSH-key, PAT-wizard, and capability discovery ([8a7e1b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8a7e1b20a526f427655eaed58298614349ec4517))
+- **generator**: batched MEDIUM/LOW follow-ups from the architectural review ([95ec27f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/95ec27fbf78ee38576fbf0feeb0fbec90484c381))
+- **telemetry**: make the spill-cap prune part of the at-least-once contract ([b02e51f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b02e51f46bb0154774205d8d60fee1436765188f))
+- **setup**: resolve middleware Props from command context; add project trust store ([82f12bb](https://gitlab.com/phpboyscout/go-tool-base/-/commit/82f12bb906611456b78dc9aa65fb8109a6471199))
+- **deps**: update go modules ([bbd0c3d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/bbd0c3d5b8bb7a789c356849ec93d63ef8294249))
+- **cmd/root**: retain and invoke the config watcher stop handle on shutdown ([7c0c43d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7c0c43d51ec577ed969c886f78c4ae65c31bcb4a))
+- **root**: TTY-guard the pre-run telemetry consent and update prompts ([59e2e69](https://gitlab.com/phpboyscout/go-tool-base/-/commit/59e2e69dd6e6ee6fa7395baf5f277bd63e537c7e))
+- **deps**: complete go-github v89 migration ([26803ab](https://gitlab.com/phpboyscout/go-tool-base/-/commit/26803ab06920492b88687576295e61795ec22f10))
+- **deps**: update module github.com/google/go-github/v88 to v89 ([abac6e3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/abac6e32ab1aabefbf08ac83df91ac17a1147545))
+- **deps**: update go modules ([7a4fc47](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7a4fc473dd1ccf6dfe14bc701a3def41b536ab59))
+
 ## [v0.33.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.33.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.32.0...v0.33.0)
