@@ -374,6 +374,18 @@ type ManifestProperties struct {
 	// reference there. Default false: the API reference is stubbed locally, since
 	// an unpublished module has no pkg.go.dev page to link.
 	ModulePublished bool `yaml:"module_published,omitempty"`
+	// ExternalCommands declares external Cobra command trees attached to the
+	// generated project's root via the declarative channel — the manifest
+	// records the module pin + the call descriptors, and the generator renders
+	// the attach calls into pkg/cmd/root/cmd.go on every root render (so they
+	// survive regenerate / enable / disable). See
+	// docs/development/specs/2026-07-29-external-command-attachment.md.
+	ExternalCommands []ManifestExternalCommand `yaml:"external_commands,omitempty"`
+	// ExternalCommandsAdapter, when true, wires the user-owned adapter escape
+	// hatch (pkg/cmd/external/attach.go, exposing external.Commands(p)) into the
+	// generated root. The adapter file is scaffolded once and thereafter
+	// author-owned; this flag only records that the root must emit the call.
+	ExternalCommandsAdapter bool `yaml:"external_commands_adapter,omitempty"`
 }
 
 // Documentation tree layouts recorded in [ManifestProperties.DocsLayout].
@@ -444,6 +456,49 @@ type TemplateSource struct {
 	// relative path, so a source's footprint is self-contained and can be
 	// removed cleanly (D5).
 	Hashes map[string]string `yaml:"hashes,omitempty"`
+}
+
+// ManifestExternalCommand declares one external module whose Cobra command
+// builders are attached to the generated project's root (the declarative
+// channel). It carries a provenance pin (module + version) and the call
+// descriptors the generator needs to render each attachment, and holds no
+// behaviour — mirroring [TemplateSource].
+type ManifestExternalCommand struct {
+	// Module is the Go module path providing the commands, e.g.
+	// "gitlab.com/phpboyscout/go/signing-cli". Used for the go.mod require.
+	Module string `yaml:"module"`
+	// Version is the module version to require, e.g. "v0.1.0". Required — an
+	// explicit pin; there is no implicit latest resolution.
+	Version string `yaml:"version"`
+	// ImportPath is the package to import for the constructors. Defaults to
+	// Module when empty (the signing-cli case: the constructors live in the
+	// module root package).
+	ImportPath string `yaml:"import_path,omitempty"`
+	// Alias is the import alias for ImportPath in the generated root. Defaults
+	// to the import path's base name when empty.
+	Alias string `yaml:"alias,omitempty"`
+	// Attach lists the constructor calls to render onto the root. At least one
+	// entry is required — a module with nothing to attach is meaningless.
+	Attach []ManifestExternalAttach `yaml:"attach"`
+}
+
+// ManifestExternalAttach describes a single external constructor call to render
+// onto the generated root.
+type ManifestExternalAttach struct {
+	// Constructor is the exported symbol to call, e.g. "NewCmdSign".
+	Constructor string `yaml:"constructor"`
+	// Args are injection tokens from the closed vocabulary
+	// ([templates.ExternalArgTokens]), rendered in order. Empty means a
+	// zero-argument constructor.
+	Args []string `yaml:"args,omitempty"`
+	// Wrap is true when Constructor returns *cobra.Command and must be wrapped
+	// via setup.Wrap("", …); false when it returns *setup.Command and is
+	// attached directly. It describes the constructor's return type, not gating
+	// — declarative attachments are un-gated (always-on) in v1.
+	Wrap bool `yaml:"wrap"`
+	// Name, if set, is the expected top-level command name, used only for
+	// best-effort collision detection. It does not affect the rendered call.
+	Name string `yaml:"name,omitempty"`
 }
 
 type ManifestHelp struct {

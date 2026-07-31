@@ -156,6 +156,10 @@ var validFlagTypes = map[string]bool{
 var reservedCommandNames = map[string]bool{
 	"options": true,
 	"root":    true,
+	// external is reserved for the external-command adapter package
+	// (pkg/cmd/external/attach.go) — it is framework-structural, never a
+	// generated command. See the external-command-attachment spec.
+	"external": true,
 }
 
 // ValidateCommandName enforces the naming rule for generated commands —
@@ -1070,6 +1074,10 @@ func ValidateManifest(m *Manifest) error {
 	}
 
 	if err := validateManifestTemplates(m.Properties.Templates); err != nil {
+		return err
+	}
+
+	if err := validateManifestExternalCommands(m.Properties.ExternalCommands); err != nil {
 		return err
 	}
 
