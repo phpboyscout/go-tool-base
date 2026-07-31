@@ -2,7 +2,7 @@
 title: "External Command Attachment Specification"
 description: "A first-class, regeneration-safe mechanism for a gtb-generated project to attach whole Cobra command trees from an external module onto its root, via two channels — a manifest-declared vocabulary render and a user-owned adapter escape-hatch — replacing the cmd/<tool>/main.go + .gtb/ignore workaround."
 date: 2026-07-29
-status: IN PROGRESS
+status: IMPLEMENTED
 tags:
   - specification
   - generator
@@ -26,7 +26,7 @@ Date
 :   29 July 2026
 
 Status
-:   IN PROGRESS
+:   IMPLEMENTED
 
 Tracking
 :   GitLab issue #8 — "a regeneration-safe mechanism to attach custom/external commands to a generated project's root"
@@ -682,12 +682,16 @@ established concessions):
   `go/signing-cli` into a scaffolded project produces a tree that builds and runs
   `sign`/`keys` as top-level commands, and the attachment survives both
   `regenerate project` and `enable signing`.
-- **Phase 5** — migrating `sigillum` itself remains, **gated on the Friday
-  rekey** (so it does not collide with the signing release train). Promote this
-  spec to `IMPLEMENTED` once sigillum is migrated and its `main.go` hand-edit +
-  `.gtb/ignore` entry are removed.
+- **Phase 5** — **DONE.** Shipped in gtb **v0.34.0**; `sigillum` migrated to the
+  declarative mechanism (sigillum MR !15, merged): its `cmd/sigillum/main.go`
+  hand-edit and the `cmd/sigillum/main.go` `.gtb/ignore` entry are removed, the
+  `sign`/`keys` tree is now a manifest-declared `external_commands` attachment,
+  and its `go.mod` pins `go-tool-base v0.34.0` so a pinned-gtb regenerate
+  re-renders (rather than drops) the wiring. The rekey gate was withdrawn
+  (sigillum spec OQ-1), so this no longer collides with the signing release
+  train.
 
 ---
 
-All §10 decisions are resolved. Phases 1–4 are implemented and verified; Phase 5
-(the sigillum acceptance demonstration) is pending the rekey.
+All §10 decisions are resolved and all five phases are implemented, verified,
+and shipped (gtb v0.34.0 + sigillum MR !15).
