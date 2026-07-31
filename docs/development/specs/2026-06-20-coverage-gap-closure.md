@@ -116,6 +116,7 @@ not by unit tests. Their low **unit** numbers are expected.
 | `internal/cmd/sign` | 71.1 | `features/cli/sign.feature` |
 | `internal/cmd/keys` | 87.0 | `features/cli/keys.feature` |
 | `internal/cmd/{disable,regenerate,remove,root}` | 0–low | `@generator` BDD |
+| `internal/cmd/{attach,detach}` | low | `features/generator/external-command-attachment.feature` |
 | `internal/generator/verifier` | 29.7 | `verifier_integration_test.go` (`generator_build`) |
 
 **Decision (Open Question 1 → A, resolved):** these are **accepted as E2E-covered**
