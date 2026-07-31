@@ -27,6 +27,34 @@ type executeOptions struct {
 	// forceExit terminates the process when a second signal arrives while the
 	// first is still being handled. Defaults to os.Exit.
 	forceExit errorhandling.ExitFunc
+
+	// disableSignals suppresses the framework's signal handling entirely, so the
+	// tool owns SIGINT/SIGTERM itself. The zero value wires signals on.
+	disableSignals bool
+}
+
+// ExecuteOption customises how Execute runs the command tree.
+type ExecuteOption func(*executeOptions)
+
+// WithoutSignals stops the framework installing its SIGINT/SIGTERM handler, so
+// the tool owns signal disposition itself.
+//
+// Signal disposition is process-global: whichever layer registers a handler
+// becomes an owner of it, and signal.Notify is additive, so two owners means two
+// shutdown drivers racing on one Ctrl-C. The framework claims that ownership by
+// default because it has framework-wide work to do on interruption — flushing
+// buffered telemetry, cleaning up a half-written self-update — and most commands
+// have nothing of their own to run.
+//
+// Reach for this only when the tool genuinely needs to own signals; having done
+// so, it is responsible for the whole contract the framework otherwise provides:
+// cancelling the command context, flushing telemetry, and choosing an exit code.
+//
+// Note that a service supervisor such as gitlab.com/phpboyscout/go/controls is
+// NOT a reason to opt out. It observes the context the framework cancels, which
+// is exactly the intended arrangement.
+func WithoutSignals() ExecuteOption {
+	return func(o *executeOptions) { o.disableSignals = true }
 }
 
 // Execute runs the root command with centralized error handling and a
@@ -39,8 +67,14 @@ type executeOptions struct {
 // the command tree through ErrorHandler.Check at Fatal level. The buffered
 // telemetry flush runs on every path — success, error, and cancellation —
 // before any exit fires.
-func Execute(rootCmd *setup.Command, props *p.Props) {
-	execute(rootCmd, props, executeOptions{})
+func Execute(rootCmd *setup.Command, props *p.Props, opts ...ExecuteOption) {
+	var o executeOptions
+
+	for _, opt := range opts {
+		opt(&o)
+	}
+
+	execute(rootCmd, props, o)
 }
 
 func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
@@ -121,6 +155,16 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 // the registered cleanup), so it never outlives the run.
 func signalAwareContext(props *p.Props, opts executeOptions) (context.Context, func() os.Signal) {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Opted out: hand back a plain cancellable context and register nothing.
+	// The cleanup still cancels, so the watch teardown below is unaffected.
+	if opts.disableSignals {
+		return ctx, func() os.Signal {
+			cancel()
+
+			return nil
+		}
+	}
 
 	sigCh := opts.signals
 	if sigCh == nil {

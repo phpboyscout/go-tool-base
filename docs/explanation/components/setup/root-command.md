@@ -94,6 +94,24 @@ An interrupt is a deliberate user choice, not a failure, so the `interrupted by 
 
 On Windows only `os.Interrupt` is deliverable; the SIGTERM registration is harmless there, so no build tags are needed.
 
+### The framework owns signals, and why that matters
+
+Signal disposition is **process-global**: `signal.Notify` is additive, so every registered channel receives a copy of every signal. Whatever registers a handler becomes an *owner* of that global, and two owners means two shutdown drivers racing on a single Ctrl-C.
+
+The framework claims that ownership because it has framework-wide work to do on interruption — flushing buffered telemetry, cleaning up a half-written self-update — that individual commands know nothing about.
+
+The corollary is that **a component beneath the framework must not register its own handler**. A service supervisor such as [`go/controls`](https://controls.go.phpboyscout.uk) observes the context the framework cancels; it does not compete for the signal. That is the intended arrangement and needs no configuration.
+
+### Opting out
+
+A tool that genuinely needs to own signal disposition itself can decline the framework's handler:
+
+```go
+gtbRoot.Execute(rootCmd, p, gtbRoot.WithoutSignals())
+```
+
+Having opted out, the tool owns the whole contract the framework otherwise provides: cancelling the command context, flushing telemetry before exit, and choosing an exit code. This is deliberately a rare need — reach for it only when something in the tool must genuinely be the signal owner.
+
 !!! note "Interactive prompts own Ctrl-C"
     While a TUI prompt (Huh/Bubble Tea) is active, the terminal is in raw mode, so Ctrl-C arrives as a *keystroke* — it aborts the current prompt and never raises SIGINT. The outer signal context therefore only acts when no TUI is reading the keyboard. An external `kill -INT`/`kill -TERM` still cancels the whole run, which is the desired semantic for supervisors.
 
