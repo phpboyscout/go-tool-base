@@ -405,6 +405,8 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		AutoInitialise:        m.Properties.Bootstrap.AutoInitialise,
 		SkipConfigCheck:       m.Properties.Bootstrap.SkipConfigCheck,
 		Subcommands:           subcommands,
+		ExternalCommands:      buildSkeletonExternalCommands(m.Properties.ExternalCommands),
+		ExternalAdapter:       m.Properties.ExternalCommandsAdapter,
 	}
 }
 

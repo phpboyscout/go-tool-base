@@ -14,6 +14,21 @@ type SkeletonSubcommand struct {
 	Constructor string // e.g. "NewCmdServe"
 }
 
+// SkeletonExternalCommand describes one external constructor (the declarative
+// attachment channel) to render as an argument to NewCmdRoot. Args are injection
+// tokens from the closed vocabulary ([ExternalArgTokens]); the template resolves
+// each via [ExternalArgExpr]. When Wrap is true the constructor returns
+// *cobra.Command and is wrapped in setup.Wrap("", …); otherwise it returns
+// *setup.Command and is attached directly. Declarative attachments are un-gated,
+// so the wrap label is always the empty string.
+type SkeletonExternalCommand struct {
+	ImportPath  string   // e.g. "gitlab.com/phpboyscout/go/signing-cli"
+	PkgAlias    string   // e.g. "signingcli"
+	Constructor string   // e.g. "NewCmdSign"
+	Args        []string // injection tokens, e.g. ["logger"]
+	Wrap        bool     // wrap in setup.Wrap("", …)
+}
+
 type SkeletonRootData struct {
 	Name                  string
 	Description           string
@@ -52,6 +67,12 @@ type SkeletonRootData struct {
 	// (by Name() or full CommandPath()) whose missing-config gate is relaxed.
 	SkipConfigCheck []string
 	Subcommands     []SkeletonSubcommand
+	// ExternalCommands are declarative external-module attachments rendered as
+	// additional NewCmdRoot arguments (see the external-command-attachment spec).
+	ExternalCommands []SkeletonExternalCommand
+	// ExternalAdapter, when true, spreads external.Commands(p) — the user-owned
+	// adapter escape hatch at <ModulePath>/pkg/cmd/external — into NewCmdRoot.
+	ExternalAdapter bool
 }
 
 func SkeletonRoot(data SkeletonRootData) *jen.File {
@@ -90,17 +111,7 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 		jen.Id("p").Dot("Tool").Dot("Help"),
 	)
 
-	subCmdArgs := make([]jen.Code, 0, 1+len(data.Subcommands))
-	subCmdArgs = append(subCmdArgs, jen.Id("p"))
-
-	for _, sub := range data.Subcommands {
-		f.ImportAlias(sub.ImportPath, sub.PkgAlias)
-		subCmdArgs = append(subCmdArgs, jen.Qual(sub.ImportPath, sub.Constructor).Call(jen.Id("p")))
-	}
-
-	rootCmdInit := jen.Id("rootCmd").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root", "NewCmdRoot").Call(
-		subCmdArgs...,
-	)
+	rootCmdInit := buildRootCmdInit(f, data)
 
 	toolDict := buildToolDict(data)
 
@@ -134,6 +145,63 @@ func SkeletonRoot(data SkeletonRootData) *jen.File {
 	)
 
 	return f
+}
+
+const (
+	gtbRootPath  = "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	gtbSetupPath = "gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+)
+
+// buildRootCmdInit renders the `rootCmd := gtbRoot.NewCmdRoot(p, …)` statement,
+// wiring local subcommands and the two external-attachment channels.
+//
+// Local subcommands and declarative external attachments are rendered as
+// individual *setup.Command arguments. The adapter channel (external.Commands(p))
+// returns a slice, and Go forbids mixing individual args with a spread in one
+// call, so when the adapter is present the arguments are assembled with
+// append([]*setup.Command{…}, external.Commands(p)...) and spread. When there is
+// no adapter the simpler inline form is used, so a project with neither an
+// adapter nor declarative attachments renders byte-identically to before.
+func buildRootCmdInit(f *jen.File, data SkeletonRootData) *jen.Statement {
+	subExprs := make([]jen.Code, 0, len(data.Subcommands)+len(data.ExternalCommands))
+
+	for _, sub := range data.Subcommands {
+		f.ImportAlias(sub.ImportPath, sub.PkgAlias)
+		subExprs = append(subExprs, jen.Qual(sub.ImportPath, sub.Constructor).Call(jen.Id("p")))
+	}
+
+	for _, ext := range data.ExternalCommands {
+		f.ImportAlias(ext.ImportPath, ext.PkgAlias)
+
+		argExprs := make([]jen.Code, 0, len(ext.Args))
+		for _, tok := range ext.Args {
+			argExprs = append(argExprs, ExternalArgExpr(tok))
+		}
+
+		call := jen.Qual(ext.ImportPath, ext.Constructor).Call(argExprs...)
+		if ext.Wrap {
+			call = jen.Qual(gtbSetupPath, "Wrap").Call(jen.Lit(""), call)
+		}
+
+		subExprs = append(subExprs, call)
+	}
+
+	newCmdRoot := jen.Qual(gtbRootPath, "NewCmdRoot")
+
+	if !data.ExternalAdapter {
+		args := append([]jen.Code{jen.Id("p")}, subExprs...)
+
+		return jen.Id("rootCmd").Op(":=").Add(newCmdRoot).Call(args...)
+	}
+
+	adapterImport := data.ModulePath + "/pkg/cmd/external"
+	f.ImportAlias(adapterImport, "external")
+
+	subSlice := jen.Index().Op("*").Qual(gtbSetupPath, "Command").Values(subExprs...)
+	adapterSpread := jen.Qual(adapterImport, "Commands").Call(jen.Id("p")).Op("...")
+	allArgs := jen.Append(subSlice, adapterSpread).Op("...")
+
+	return jen.Id("rootCmd").Op(":=").Add(newCmdRoot).Call(jen.Id("p"), allArgs)
 }
 
 func buildToolDict(data SkeletonRootData) jen.Dict {

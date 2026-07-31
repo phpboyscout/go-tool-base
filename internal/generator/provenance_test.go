@@ -57,6 +57,50 @@ func TestProvenanceFile_RoundTrip(t *testing.T) {
 	assert.True(t, recovered.ModulePublished)
 }
 
+// TestProvenanceFile_ExternalCommandsRoundTrip is the from-scratch-reconstruction
+// guard for the external_commands block: it lives only in the manifest (the
+// generator renders it into the DO-NOT-EDIT root cmd.go), so it must survive an
+// emit-then-recover cycle through the provenance file, including the nested
+// attach list and the adapter flag.
+func TestProvenanceFile_ExternalCommandsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	original := ManifestProperties{
+		ExternalCommands: []ManifestExternalCommand{
+			{
+				Module:  "gitlab.com/phpboyscout/go/signing-cli",
+				Version: "v0.1.0",
+				Attach: []ManifestExternalAttach{
+					{Constructor: "NewCmdSign", Args: []string{"logger"}, Wrap: true},
+					{Constructor: "NewCmdKeys", Args: []string{"logger"}, Wrap: true},
+				},
+			},
+			{
+				Module:     "example.com/ext",
+				Version:    "v2.3.4",
+				ImportPath: "example.com/ext/cmd",
+				Alias:      "extcmd",
+				Attach: []ManifestExternalAttach{
+					{Constructor: "NewCmdAll", Args: []string{"props", "config", "fs"}, Wrap: false, Name: "all"},
+					{Constructor: "NewCmdBare"},
+				},
+			},
+		},
+		ExternalCommandsAdapter: true,
+	}
+
+	fs := afero.NewMemMapFs()
+	g := New(&props.Props{FS: fs, Logger: logger.NewNoop()}, &Config{Path: "/proj"})
+
+	require.NoError(t, g.writeProvenanceFile(&Manifest{Properties: original}))
+
+	var recovered ManifestProperties
+	g.applyProvenanceFile(&recovered)
+
+	assert.Equal(t, original.ExternalCommands, recovered.ExternalCommands)
+	assert.True(t, recovered.ExternalCommandsAdapter)
+}
+
 // TestProvenanceFile_RemovedWhenEmpty verifies a project with no recordable
 // provenance carries no file, and a stale one is dropped.
 func TestProvenanceFile_RemovedWhenEmpty(t *testing.T) {

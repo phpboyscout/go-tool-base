@@ -188,7 +188,7 @@ func (g *Generator) scanFileSystem(dir string, entries []os.FileInfo) []*command
 }
 
 func (g *Generator) processDirectoryEntry(dir string, entry os.FileInfo) []*commandEntry {
-	if entry.Name() == "assets" || entry.Name() == "internal" {
+	if entry.Name() == "assets" || entry.Name() == "internal" || entry.Name() == "external" {
 		return nil
 	}
 

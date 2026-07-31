@@ -44,6 +44,14 @@ func renderProvenanceFile(m *Manifest) (string, bool) {
 		ann = append(ann, "// gtb:module published=true")
 	}
 
+	for _, ec := range m.Properties.ExternalCommands {
+		ann = append(ann, "// gtb:external "+encodeKV(externalFields(ec)))
+	}
+
+	if m.Properties.ExternalCommandsAdapter {
+		ann = append(ann, "// gtb:external-adapter present=true")
+	}
+
 	if len(ann) == 0 {
 		return "", false
 	}
@@ -82,6 +90,13 @@ func (g *Generator) applyProvenanceFile(props *ManifestProperties) {
 			props.Templates = append(props.Templates, templateFromKV(decodeKV(strings.TrimPrefix(line, "// gtb:template "))))
 		case strings.HasPrefix(line, "// gtb:module "):
 			props.ModulePublished = decodeKV(strings.TrimPrefix(line, "// gtb:module "))["published"] == "true"
+		// The adapter case MUST precede the "// gtb:external " case: the latter
+		// is a prefix of "// gtb:external-adapter ".
+		case strings.HasPrefix(line, "// gtb:external-adapter "):
+			props.ExternalCommandsAdapter = decodeKV(strings.TrimPrefix(line, "// gtb:external-adapter "))["present"] == "true"
+		case strings.HasPrefix(line, "// gtb:external "):
+			props.ExternalCommands = append(props.ExternalCommands,
+				externalFromKV(decodeKV(strings.TrimPrefix(line, "// gtb:external "))))
 		}
 	}
 }
