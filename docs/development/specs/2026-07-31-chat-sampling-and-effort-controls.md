@@ -1,6 +1,6 @@
 ---
 title: "chat: expose sampling and reasoning-effort controls, and say honestly when a model will not take them"
-description: "chat.Config offers no way to influence how a model generates: no temperature, no top-p, and no reasoning effort — while Usage.ReasoningTokens already reports what reasoning cost. Adds Temperature, TopP and a provider-neutral Effort ladder. The hard part is not the fields but the support model: unlike Config.Stateless, support is per-model rather than per-provider, so a construction-time capability marker cannot express it. Distinguishes structural gaps (knowable at construction) from model-dependent rejection (only knowable at request time) and gives each its own failure mode."
+description: "chat.Config offers no way to influence how a model generates: no temperature, no top-p, and no reasoning effort — while Usage.ReasoningTokens already reports what reasoning cost. Adds Temperature, TopP and a provider-neutral five-rung Effort ladder. The hard part is not the fields but the support model: measurement shows support is per-model, not per-provider — two models from the same vendor take opposite controls — so the construction-time capability marker that Config.Stateless established cannot express it. Structural gaps become construction errors; model-dependent rejection is passed through and wrapped in a sentinel."
 date: 2026-07-31
 status: DRAFT
 tags:
@@ -25,7 +25,7 @@ Date
 :   2026-07-31
 
 Status
-:   DRAFT — pending review
+:   DRAFT — pending review. Open questions resolved by the maintainer on 2026-07-31; see §6. Revised after a measurement pass against all three live APIs, which corrected one claim in the first draft and withdrew one decision entirely.
 
 Related
 :   [chat/#3](https://gitlab.com/phpboyscout/go/chat/-/work_items/3) (the originating report),
@@ -70,14 +70,7 @@ blocked by the dependencies:
 influence it.** A caller can see the bill and cannot touch the dial.
 
 Every provider supports an effort control, including the one that supports no
-sampling control at all:
-
-| Provider | Mechanism | Shape |
-|---|---|---|
-| `openai` | `ReasoningEffort` | enum: `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
-| `gemini` | `ThinkingConfig.ThinkingLevel` | enum: `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`; plus `ThinkingBudget` (`*int32`) |
-| `claude` | `Thinking` (`ThinkingConfigParamUnion`) | token budget: `BudgetTokens int64`, or explicitly disabled |
-| `claude-local` | `--effort` | enum: `low`, `medium`, `high`, `xhigh`, `max` |
+sampling control at all.
 
 ### 1.3 Why this surfaced
 
@@ -94,51 +87,68 @@ in a downstream design spec.
 The report is explicit that it is **not** asking for determinism, and that is the
 right framing (§1.6).
 
-### 1.4 The wrinkle: support is per *model*, not per provider
+### 1.4 What the providers actually accept — measured
 
-This is the part that shapes the whole design, and the originating report does
-not anticipate it.
+Every cell below was measured against the live API on 2026-07-31, not read from
+documentation. This matters: the first draft of this spec asserted, on the
+strength of community reports about the GPT-5 family, that `gpt-5.4` rejects
+temperature. **It does not.** The correction is left visible because it is the
+reason this section exists.
 
-**`claude-local` cannot ever take sampling parameters.** The claude CLI exposes
-no temperature, top-p or top-k flag — checked across the whole of `--help`. This
-is not a version lag that an upgrade fixes; there is no such control to plumb.
+**Temperature and top-p**
 
-**The default OpenAI model rejects temperature.** `DefaultModelOpenAI =
-"gpt-5.4"` (`constants.go`). The GPT-5 reasoning family rejects any temperature
-other than the default, with *"Unsupported parameter: 'temperature' is not
-supported with this model"* or *"Only the default (1) value is supported"*. So
-`Config{Provider: ProviderOpenAI, Temperature: ptr(0.0)}` — the most obvious
-thing a caller would write — fails at **request** time.
-
-**The default Anthropic model constrains it.** Extended thinking is incompatible
-with `temperature` and `top_k`; `top_p` is restricted to 0.95–1.
-`DefaultModelClaude = "claude-opus-4-8"`.
-
-**Gemini takes it cleanly**, and validates server-side. Measured against the live
-API on 2026-07-31:
-
-```
-temperature=0     -> 200        temperature=3.0  -> 400  "temperature must be in the range [0.0, 2.0]"
-temperature=2.0   -> 200        temperature=-1   -> 400  "temperature must be in the range [0.0, 2.0]"
-topP=0.1          -> 200        topP=1.5         -> 400  "top_p must be in the range [0.0, 1.0]"
-```
-
-So the same field is: structurally impossible on one provider, rejected by the
-default model on another, conditionally invalid on a third, and fully supported
-on the fourth. **A per-provider capability marker cannot express that.**
-
-### 1.5 Ranges and types differ
-
-| Provider | Temperature | TopP |
+| Provider / model | Temperature | Notes |
 |---|---|---|
-| `claude` | 0.0–1.0 | 0.0–1.0 (0.95–1 with thinking) |
-| `openai` | 0–2 | 0–1 |
-| `gemini` | 0.0–2.0 *(measured)* | 0.0–1.0 *(measured)* |
+| `gemini-3.5-flash` | ✅ 0.0–2.0 | `400` outside range: *"temperature must be in the range [0.0, 2.0]"* |
+| `gpt-5.4` | ✅ 0–2 | `400` outside range: *"Expected a value <= 2"*. `seed` and `top_p` also accepted |
+| `claude-sonnet-4-5` | ✅ 0–1 | |
+| `claude-opus-4-8` **(default)** | ❌ | *"`temperature` is deprecated for this model."* |
+| `claude-local` | ❌ | No sampling flag exists in the CLI at all |
 
-`genai` uses `float32` where the others use `float64`, so a `*float64` field
-needs narrowing for Gemini. `TopK` is not uniform at all — `int64` on Anthropic,
-`float32` on Gemini, absent on OpenAI — which is why the report was right to ask
-only for temperature and top-p.
+**Reasoning effort**
+
+| Provider / model | Field | Levels accepted |
+|---|---|---|
+| `gpt-5.4` | `reasoning_effort` | `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` |
+| `claude-opus-4-8` **(default)** | `output_config.effort` | `low`, `medium`, `high`, `xhigh`, `max` — *"Input should be 'low', 'medium', 'high', 'xhigh' or 'max'"* |
+| `claude-sonnet-4-5` | — | ❌ *"This model does not support the effort parameter."* |
+| `gemini-3.5-flash` | `thinkingConfig.thinkingLevel` | `MINIMAL`, `LOW`, `MEDIUM`, `HIGH`; `MAX` rejected. `thinkingBudget: 0` disables |
+| `claude-local` | `--effort` | `low`, `medium`, `high`, `xhigh`, `max` |
+
+Two things fall out that neither the report nor the first draft anticipated.
+
+**Anthropic has a native effort enum, not a token budget.** The current model
+rejects `thinking.type: enabled` outright — *"Use `thinking.type.adaptive` and
+`output_config.effort` to control thinking behavior"* — and `output_config.effort`
+works standalone, with no `thinking` block required. So there is no budget-token
+mapping to invent; the levels are exactly the five the claude CLI exposes, which
+makes sense since the CLI wraps this API.
+
+**Gemini's levels are real, not nominal.** Measured on a fixed arithmetic prompt:
+`thinkingLevel: LOW` → 158 thought tokens, `HIGH` → 176, `thinkingBudget: 0` →
+exactly 0.
+
+### 1.5 The finding that shapes everything: support is per *model*
+
+The clearest evidence is two models from the same vendor:
+
+```
+claude-sonnet-4-5:   temperature ✅    effort ❌ "This model does not support the effort parameter."
+claude-opus-4-8:     temperature ❌    effort ✅ "temperature is deprecated for this model."
+```
+
+Perfectly complementary. The older generation takes temperature and not effort;
+the newer takes effort and not temperature. This is not a conflict between two
+settings — it is a generational handover, and **which control is available
+depends entirely on the model string the caller supplied.**
+
+`claude-local` adds a third case again: it can never take sampling parameters at
+any model, because the CLI has no such flag.
+
+So the same field is structurally impossible on one provider, deprecated on one
+model of another, and fully supported on a sibling model of that same provider.
+**A per-provider capability marker cannot express that**, which is why the
+`Config.Stateless` precedent does not transfer wholesale (D3).
 
 ### 1.6 What pinning the sampler does and does not buy
 
@@ -181,6 +191,11 @@ guarantee, and nothing in §4 asserts one.
 // rescaled — ranges differ (Claude 0-1, OpenAI 0-2, Gemini 0-2) and silently
 // rescaling what the caller asked for would be worse than making them read
 // the range. It is validated against the selected provider's range.
+//
+// Support is narrowing as vendors move to reasoning models: it is deprecated
+// on claude-opus-4-8, absent from claude-local entirely, and available on
+// Gemini, OpenAI and older Claude models. See Effort, which is the
+// forward-looking control and is supported everywhere.
 Temperature *float64
 
 // TopP, when non-nil, overrides the provider's default nucleus-sampling
@@ -193,58 +208,57 @@ TopP *float64
 Pass-through over a normalised scale, following the report's reasoning: a
 normalisation that quietly rescales is less honest than a documented range.
 
-### D2 — `Config.Effort`, a provider-neutral ordinal ladder
+Shipping temperature despite the narrowing support (resolved OQ-6): it works on
+Gemini across the full 0–2 range, which is where the originating measurement
+runs, so it unblocks that work today. The godoc says plainly that it is
+shrinking and points at `Effort`, which steers new code without blocking
+existing need.
+
+### D2 — `Config.Effort`, a five-rung provider-neutral ladder
 
 ```go
 // Effort is a provider-neutral reasoning-effort level.
 type Effort string
 
 const (
-    EffortNone    Effort = "none"    // do not reason at all
-    EffortMinimal Effort = "minimal"
-    EffortLow     Effort = "low"
-    EffortMedium  Effort = "medium"
-    EffortHigh    Effort = "high"
-    EffortXHigh   Effort = "xhigh"
-    EffortMax     Effort = "max"
+    EffortLow    Effort = "low"
+    EffortMedium Effort = "medium"
+    EffortHigh   Effort = "high"
+    EffortXHigh  Effort = "xhigh"
+    EffortMax    Effort = "max"
 )
 ```
 
 An ordinal ladder is genuinely provider-neutral in a way a float range is not:
 `low` means the same thing everywhere, whereas `0.5` means different things on a
-0–1 scale and a 0–2 one. The ladder mirrors OpenAI's because it is the superset;
-see OQ-1 on whether to carry the full seven or the common core.
+0–1 scale and a 0–2 one.
 
-The mapping each provider applies:
+Five rungs rather than OpenAI's seven (resolved OQ-1): `low…max` is exactly what
+Anthropic and `claude-local` accept natively, and a strict subset of OpenAI's.
+Adding `none`/`minimal` would put two values in the ladder that fail outright on
+half the providers — a neutral API whose bottom two rungs are unusable on
+Anthropic and claude-local is not neutral.
 
-| `Effort` | `openai` | `gemini` | `claude` (budget tokens) | `claude-local` |
+| `Effort` | `openai` | `claude` | `claude-local` | `gemini` |
 |---|---|---|---|---|
-| `None` | `none` | `thinkingBudget: 0` | thinking disabled | **unsupported — no way to disable** |
-| `Minimal` | `minimal` | `MINIMAL` | 1024 | `low` (clamped up) |
-| `Low` | `low` | `LOW` | 4096 | `low` |
-| `Medium` | `medium` | `MEDIUM` | 8192 | `medium` |
-| `High` | `high` | `HIGH` | 16384 | `high` |
-| `XHigh` | `xhigh` | `HIGH` (clamped) | 32768 | `xhigh` |
-| `Max` | `max` | `HIGH` (clamped) | 65536 | `max` |
+| `Low` | `low` | `low` | `low` | `LOW` |
+| `Medium` | `medium` | `medium` | `medium` | `MEDIUM` |
+| `High` | `high` | `high` | `high` | `HIGH` |
+| `XHigh` | `xhigh` | `xhigh` | `xhigh` | `HIGH` (clamped) |
+| `Max` | `max` | `max` | `max` | `HIGH` (clamped) |
 
-Gemini's levels and the disable path are measured, not assumed —
-`thinkingLevel: LOW` produced 158 thought tokens, `HIGH` 176, `thinkingBudget: 0`
-exactly 0, and `MAX` is rejected as an invalid level. The Anthropic budget
-figures are a proposal, not a measurement; see OQ-2.
-
-Note that `EffortNone` is unsupported on `claude-local` specifically — **a
-structural gap at the level of a single enum value, not the whole field.** That
-falls out of D3 rather than needing its own rule.
+Every cell except the two Gemini clamps is a native value measured as accepted.
+The clamps are documented in the godoc, not silent.
 
 ### D3 — Two kinds of "unsupported", each with its own failure mode
 
 The heart of this spec. `Config.Stateless` established a construction-time
 capability marker, and reusing it wholesale here would be wrong, because it
-models the wrong thing.
+models the wrong thing (§1.5).
 
 **Structural gaps — knowable at construction.** The provider has no such concept
-at any version or model: `claude-local` and temperature/top-p; `claude-local` and
-`EffortNone`. Nothing the caller does makes these work.
+at any version or model: `claude-local` and temperature/top-p. Nothing the caller
+does makes these work.
 
 → **Construction error**, following the `StatelessCapable` precedent. A marker
 interface per control, asserted in `New`:
@@ -265,19 +279,21 @@ type EffortCapable interface {
 ```
 
 **Model-dependent rejection — only knowable at request time.** The provider
-supports the parameter, and *this model* refuses it: `gpt-5.4` and temperature;
-Anthropic with thinking enabled and temperature. Determining this at construction
-would require the core to carry a per-model capability registry, which would be
+supports the parameter and *this model* refuses it. Anthropic is the worked
+example in both directions: `claude-opus-4-8` rejects temperature, and
+`claude-sonnet-4-5` rejects effort. Determining this at construction would
+require the core to carry a per-model capability registry, which would be
 permanently stale and is not a thing this module should own.
 
 → **Pass the parameter through and let the provider reject it**, but wrap the
 rejection in a sentinel so the caller can tell it apart from every other 4xx:
 
 ```go
-// ErrSamplingRejected wraps a provider's refusal of a sampling parameter for
-// the selected model — as distinct from the provider not supporting sampling
-// at all, which is a construction error. Inspect with errors.Is.
-var ErrSamplingRejected = errors.New("provider rejected a sampling parameter for this model")
+// ErrModelRejectedParameter wraps a provider's refusal of a sampling or effort
+// parameter for the selected model — as distinct from the provider not
+// supporting the parameter at all, which is a construction error. Inspect with
+// errors.Is.
+var ErrModelRejectedParameter = errors.New("model rejected a generation parameter")
 ```
 
 The distinction matters because the two demand different fixes: a construction
@@ -289,50 +305,65 @@ out without the temperature the caller asked for, and succeeds, reproduces
 exactly the failure that made the `scoutdm` measurement worthless — the absence
 of a control being indistinguishable from the control having no effect (§1.3).
 
-### D4 — Conflicts are a construction error
+### D4 — *Withdrawn.* No conflict rule is needed
 
-Some combinations are invalid per provider, and *that* is knowable up front:
-Anthropic cannot take `Temperature` together with any `Effort` above `None`,
-because enabling thinking disallows temperature.
+The first draft proposed rejecting `Temperature` together with `Effort` at
+construction on Anthropic, on the documented basis that enabling thinking
+disallows temperature.
 
-`New` rejects the combination, naming both fields. This is neither a structural
-gap nor a model-dependent rejection but a third case — a per-provider interaction
-rule — and it is cheap to catch before any credential reaches the wire.
+Measurement withdrew it. On Anthropic the two controls **never coexist on the
+same model** — `claude-sonnet-4-5` takes temperature and rejects effort;
+`claude-opus-4-8` takes effort and rejects temperature (§1.5). There is no
+combination to catch, because on any given model at most one of the two is
+available, and which one is a property of the model string.
+
+Kept as a numbered, withdrawn decision rather than deleted: "we proposed a
+conflict rule and measurement showed there is nothing to conflict" is the useful
+record, and it is the cleanest demonstration that this is D3's second category
+rather than a knowable-at-construction interaction.
 
 ### D5 — Validation before the wire
 
 Each provider validates the values it was given against its own documented range
-(§1.5) and returns an error before making a request.
+(§1.4) and returns an error before making a request.
 
-Gemini already validates server-side with good messages, so this is not about
-correctness — it is about failing in one round-trip fewer, with a consistent
-error shape across providers, and without spending a call to learn the caller
-typed `2.5` for Claude.
+Gemini and OpenAI both already validate server-side with good messages, so this
+is not about correctness — it is about failing in one round-trip fewer, with a
+consistent error shape across providers, and without spending a call to learn the
+caller typed `2.5` for Claude.
 
 ### D6 — `TopK` is out of scope
 
 Not uniform: `int64` on Anthropic, `float32` on Gemini, absent on OpenAI. A
 neutral field would be a lie on at least one provider. Revisit if a caller asks.
 
-### D7 — Documentation
+### D7 — `Seed` stays as it is
 
-- Godoc on all three fields, stating the per-provider ranges and that
-  `claude-local` takes no sampling parameters.
+Measured working on `gpt-5.4` (resolved OQ-3), so the existing godoc — a seed for
+providers that support one, currently OpenAI — remains accurate. No change beyond
+leaving it alone.
+
+### D8 — Documentation
+
+- Godoc on all three new fields, stating per-provider ranges, the Gemini effort
+  clamps, and that `claude-local` takes no sampling parameters.
 - New `docs/how-to/control-sampling.md`: what temperature and effort do, what
   pinning buys and what it does not (§1.6), the effort mapping table, and the two
   failure modes from D3.
 - The `Config` reference table in `docs/how-to/configure-a-provider.md`.
-- `docs/explanation/providers.md` gains a capability column, since this is now
-  the second axis on which providers differ.
+- `docs/explanation/providers.md` gains a capability column, and states plainly
+  that sampling and effort support are per-model — with the two Anthropic models
+  as the example, because a reader who assumes per-provider support will
+  otherwise be surprised exactly once, expensively.
 
 ## 3. Scope & release plan
 
 | Repo | Change | Release |
 |---|---|---|
-| `go/chat` | `Temperature`, `TopP`, `Effort` + the `Effort` constants, `SamplingCapable`, `EffortCapable`, `ErrSamplingRejected`, `New` guards (D3/D4), `claude-local` `--effort`, docs | `feat:` minor |
-| `go/chat-anthropic` | temperature/top-p, `Thinking` budget mapping, both markers, conflict rule | `feat:` minor |
+| `go/chat` | `Temperature`, `TopP`, `Effort` + constants, `SamplingCapable`, `EffortCapable`, `ErrModelRejectedParameter`, `New` guard (D3), `claude-local` `--effort`, docs | `feat:` minor |
+| `go/chat-anthropic` | temperature/top-p, `output_config.effort` + `thinking.type: adaptive`, both markers, rejection wrapping | `feat:` minor |
 | `go/chat-openai` | temperature/top-p, `ReasoningEffort`, both markers, rejection wrapping | `feat:` minor |
-| `go/chat-gemini` | temperature/top-p (narrowed to `float32`), `ThinkingLevel`, both markers | `feat:` minor |
+| `go/chat-gemini` | temperature/top-p (narrowed to `float32`), `ThinkingLevel` + clamping, both markers | `feat:` minor |
 
 `claude-local` implements `EffortCapable` but **not** `SamplingCapable` — the
 first provider to hold one marker and not the other, which is the case D3 exists
@@ -351,80 +382,105 @@ Same release order as the stateless work: core minor first, then each provider's
 2. A nil `Temperature`/`TopP`/`Effort` produces a request with no such field —
    existing behaviour byte-identical.
 3. `Effort` maps per the D2 table for each provider, asserted against a recording
-   backend.
+   backend, including the two Gemini clamps.
+4. Anthropic sends `thinking.type: adaptive` alongside `output_config.effort`
+   only where required, and the request is accepted by the live API (gated test).
 
 **The two failure modes stay distinct**
 
-4. `chat.New` with `Temperature` set and `Provider: ProviderClaudeLocal` returns
-   a construction error naming the provider — it can never carry it.
-5. `chat.New` with `Effort: EffortNone` and `ProviderClaudeLocal` returns a
-   construction error; every other `Effort` value constructs and passes `--effort`.
-6. A provider rejecting a parameter at request time returns an error satisfying
-   `errors.Is(err, ErrSamplingRejected)`, and the underlying provider error is
-   still reachable by unwrapping.
-7. **No silent drops.** For every provider, a request built from a `Config` with
-   a sampling parameter set either carries it or fails; a test asserts no
+5. `chat.New` with `Temperature` or `TopP` set and `Provider: ProviderClaudeLocal`
+   returns a construction error naming the provider — it can never carry them.
+6. `chat.New` with `Effort` set and `ProviderClaudeLocal` constructs, and the
+   argv carries `--effort <level>`.
+7. A model rejecting a parameter at request time returns an error satisfying
+   `errors.Is(err, ErrModelRejectedParameter)`, with the underlying provider
+   error still reachable by unwrapping.
+8. **No silent drops.** For every provider, a request built from a `Config` with
+   a generation parameter set either carries it or fails; a test asserts no
    request body omits a set parameter while returning success.
 
-**Conflicts and validation**
+**Validation**
 
-8. `chat.New` with `Temperature` and `Effort > None` on `ProviderClaude` returns
-   a construction error naming both fields.
 9. Out-of-range values fail before any HTTP request: Claude `Temperature: 1.5`,
    OpenAI `Temperature: 2.5`, any provider `TopP: 1.5`. Asserted with a backend
    that fails the test if it is called at all.
+10. An unrecognised `Effort` value is a construction error.
+
+**Live conformance (gated)**
+
+11. A gated integration test per provider asserts the measured matrix of §1.4
+    still holds — temperature accepted where the table says so and rejected where
+    it says so, effort likewise. This is the test that would have caught the
+    first draft's incorrect claim about `gpt-5.4`, and it is the only kind that
+    can, since every one of these facts is a property of a live model rather than
+    of our code. Run at release, not in CI.
 
 **Everything else**
 
-10. Existing suites pass untouched across all four modules; a `Config` with none
+12. Existing suites pass untouched across all four modules; a `Config` with none
     of the new fields set produces identical requests.
-11. Gemini narrowing to `float32` round-trips the values a caller can express
+13. Gemini narrowing to `float32` round-trips the values a caller can express
     without surprising precision loss.
-12. Docs from D7 land with the core release; CI green (tests, race, lint) and
+14. Docs from D8 land with the core release; CI green (tests, race, lint) and
     coverage does not regress.
 
 ## 5. Open questions
 
-**OQ-1 — Full seven-rung ladder, or the common core?** D2 mirrors OpenAI's
-`none…max` because it is the superset, but that makes the neutral API look like
-one vendor's, and two rungs (`xhigh`, `max`) clamp to `HIGH` on Gemini so the
-distinction silently vanishes there. The alternative is `none/low/medium/high` —
-honest everywhere, at the cost of a caller on OpenAI or claude-local being unable
-to reach `xhigh`/`max` through this module at all. Recommendation: ship the seven
-and document the clamping, because losing reach on two providers is worse than a
-ladder that is uneven at the top; but this is a genuine API-shape decision.
+**OQ-7 — Should the module surface which controls the selected model accepts?**
+D3 deliberately declines to carry a per-model capability registry, and §1.5 shows
+why that judgement is right — the matrix changed under us between two Claude
+generations. But it leaves a caller writing provider-agnostic code with no way to
+ask *"will this model take a temperature?"* short of sending a request and
+catching `ErrModelRejectedParameter`. A trial-and-fall-back helper in the host,
+rather than in this module, is probably the answer; worth recording that the
+question was asked and where it belongs.
 
-**OQ-2 — What budget-token values map to each effort rung on Anthropic?** The
-figures in D2 are proposed, not measured. Anthropic takes a token budget rather
-than a level, so the mapping is ours to choose and will look arbitrary unless it
-is calibrated. Worth one measured pass — run a fixed prompt at each budget and
-record actual thinking-token usage — so the table has the same standing as the
-Gemini row, which was measured. Until then the numbers should be treated as
-placeholders.
-
-**OQ-3 — Is `Seed` already dead on the default OpenAI model?** If `gpt-5.4`
-rejects `temperature`, it may reject `seed` too, which would make the existing
-field not merely partial (as its godoc says) but inert on the default model —
-worse than absent, because it reads as working. Needs one call with a real key.
-If it is dead, this spec should say so in the `Seed` godoc rather than leaving a
-field that quietly does nothing.
-
-**OQ-4 — Does `gpt-5.4` specifically reject non-default temperature?** §1.4 rests
-on documented behaviour for the GPT-5 reasoning family; `gpt-5.4` was not tested
-directly, as no OpenAI key was available. The design does not depend on the
-answer — D3 handles rejection generically — but the problem statement should not
-assert an untested specific.
-
-**OQ-5 — Should `claude-local` sampling be a construction error, or a documented
-no-op?** D3 says error, on the `Stateless` principle that silence is the failure
-mode being removed. The counter-argument is ergonomic: a caller writing
-provider-agnostic code with `Temperature` set would find `claude-local` newly
-unusable, where today it merely ignores what it cannot do. Recommendation: keep
-the error, since §1.3 is a direct account of what silent no-ops cost — but note
-that this makes `claude-local` unusable as a fallback entry for any config that
-sets temperature, which is a real ergonomic cost worth accepting deliberately
-rather than discovering.
+**OQ-8 — Does the effort ladder need a documented cost warning?** `Max` on a
+reasoning model can multiply output tokens substantially, and `Usage.ReasoningTokens`
+already exists to observe it. The how-to should probably pair the ladder with a
+note that effort is the most direct cost dial in `Config` — but quantifying it
+means a measured pass across providers, which is a bigger job than this spec
+needs. Recommendation: ship the qualitative warning, and leave the numbers to
+whoever wants them.
 
 ## 6. Resolved
 
-*(Nothing yet — this spec is DRAFT. Resolutions from review land here, dated.)*
+**2026-07-31 — OQ-1: five rungs, `low…max`.** Superseded by measurement before it
+was even answered as posed. Anthropic turned out to have a native effort enum
+(`output_config.effort`) accepting exactly `low`, `medium`, `high`, `xhigh`,
+`max` — identical to the claude CLI's `--effort`, which makes sense as the CLI
+wraps that API. So the natural neutral ladder is those five: native on two
+providers, a strict subset of OpenAI's seven, and clamped only at the top two
+rungs on Gemini. `none`/`minimal` were dropped because they fail outright on
+Anthropic and claude-local, and a ladder whose bottom rungs are unusable on half
+the providers is not neutral. See D2.
+
+**2026-07-31 — OQ-2: dissolved.** The question was what budget-token values map
+to each effort rung on Anthropic. There is no mapping to invent — Anthropic takes
+a level, not a budget, on the current model, and rejects the budget-based
+`thinking.type: enabled` shape entirely. The proposed table in the first draft
+was not merely uncalibrated, it was the wrong mechanism.
+
+**2026-07-31 — OQ-3: `Seed` is not dead.** Measured accepted on `gpt-5.4`, along
+with `top_p` and `reasoning_effort`. The existing godoc stays accurate; see D7.
+
+**2026-07-31 — OQ-4: `gpt-5.4` accepts temperature.** The first draft asserted
+otherwise, on the strength of community reports about earlier GPT-5 models.
+Measured: `temperature` 0, 0.5 and 1 all accepted, with proper range validation
+(`400` above 2 and below 0), so it is parsed and honoured rather than tolerated
+and ignored. §1.4 was rewritten around measured results, and the correction left
+visible.
+
+**2026-07-31 — OQ-5: `claude-local` + temperature is a construction error.** On
+the `Stateless` principle that a silently-ignored control is the failure mode
+being removed. Accepted cost, deliberately: `claude-local` becomes unusable as a
+fallback entry for any config that sets temperature. See D3.
+
+**2026-07-31 — OQ-6: temperature ships, with the shrinkage documented.** It works
+across the full 0–2 range on Gemini, which is where the originating measurement
+runs, so it unblocks that work now. Its godoc states that support is narrowing
+and points at `Effort` as the forward-looking control. See D1.
+
+**2026-07-31 — D4 withdrawn.** The proposed construction-time conflict rule for
+`Temperature` + `Effort` on Anthropic has nothing to catch: the two controls never
+coexist on the same Anthropic model. See D4.
