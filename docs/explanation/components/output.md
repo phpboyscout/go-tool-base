@@ -21,7 +21,7 @@ cobra binding (reading the `--output` flag and the command's writer) is the opt-
 
 - **Docs:** [output.go.phpboyscout.uk](https://output.go.phpboyscout.uk)
 - **API reference:** [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/output)
-- **Migration:** [`pkg/output` → `go/output`](../../reference/migration/v0.x-output-extracted.md)
+- **Migration:** [`go/output` → `go/output`](../../reference/migration/v0.x-output-extracted.md)
 
 ```go
 import (

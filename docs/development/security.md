@@ -96,7 +96,7 @@ Inject secrets directly as environment variables. This is the simplest method fo
 ## Server-Side Authentication
 
 When a tool exposes an HTTP or gRPC management/API surface, route caller
-authentication through [`pkg/authn`](../explanation/components/authn.md) rather than
+authentication through [`go/authn`](../explanation/components/authn.md) rather than
 hand-rolling it. The package centralises the easy-to-get-wrong primitives:
 constant-time API-key comparison, JWT/OIDC verification with an algorithm-confusion
 defence (`alg:none` and HMAC-with-JWKS rejected), a bounded single-purpose JWKS
@@ -109,6 +109,6 @@ its security model.
 
 ## Opening External URLs
 
-All URL-opening (browser or mail-client invocation) routes through [`pkg/browser`](../explanation/components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention — new call sites must use `pkg/browser.OpenURL`.
+All URL-opening (browser or mail-client invocation) routes through [`go/browser`](../explanation/components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention — new call sites must use `pkg/browser.OpenURL`.
 
 Callers that construct `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value to prevent header injection. See the `EmailDeletionRequestor` implementation in `pkg/telemetry/deletion.go` for the canonical pattern, and its test suite for the caller-contract assertion.

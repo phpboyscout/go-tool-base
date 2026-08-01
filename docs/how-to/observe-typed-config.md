@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Observe Typed Config Sections
 
 Use `config.ObserveSection` when a long-lived component needs settings from GTB
-config but the reusable package should not depend on `pkg/config`.
+config but the reusable package should not depend on `go/config`.
 
 The pattern is:
 
@@ -32,7 +32,7 @@ type SettingsSource interface {
 }
 ```
 
-The package can accept `SettingsSource` without importing `pkg/config`.
+The package can accept `SettingsSource` without importing `go/config`.
 `*config.ObservedSection[ServerSettings]` satisfies that shape from the GTB
 adapter layer.
 

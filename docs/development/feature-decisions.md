@@ -32,8 +32,8 @@ GTB's guiding principle: **foundation for tools, not an application framework**.
 
 **Update (April 2026):** A narrower, scoped implementation did land as part of the [credential storage hardening work](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening). The design respects the original rejection — GTB ships no vendor-specific adapters:
 
-- [`pkg/credentials`](../explanation/components/credentials.md) defines a minimal `Backend` interface with a stub default.
-- The opt-in [`pkg/credentials/keychain`](../explanation/components/credentials.md) subpackage (go-keyring) is the only adapter shipped in-tree.
+- [`go/credentials`](../explanation/components/credentials.md) defines a minimal `Backend` interface with a stub default.
+- The opt-in [`go/credentials/keychain`](../explanation/components/credentials.md) subpackage (go-keyring) is the only adapter shipped in-tree.
 - Vault / AWS SSM / 1Password / custom-store adapters are tool-author responsibility — the [custom credential backend how-to](../how-to/custom-credential-backend.md) shows the Vault KV v2 pattern as a worked example.
 
 So: `Backend` is the extension point; `SecretsProvider` as originally proposed (a plugin registry with vendor implementations) is still rejected.

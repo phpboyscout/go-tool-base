@@ -35,7 +35,7 @@ from its package's `init()`. Downstream binaries opt-in by
 
 This is the same activate-by-side-effect pattern used by
 `net/http/pprof`, `image/*` decoders, and the framework's own
-`pkg/credentials/keychain`.
+`go/credentials/keychain`.
 
 ## The contract is CLI-agnostic
 

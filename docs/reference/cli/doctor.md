@@ -91,12 +91,12 @@ It is available wherever `doctor` is (gated by `DoctorCmd`, default-on) — ther
 
 ### Safe by default — redaction
 
-The entire bundle passes through [`pkg/redact`](../../explanation/components/redact.md) before it is written, in **both** text and JSON. There is **no flag to disable redaction** — for a raw value, read the specific config key directly. Two layers protect the config:
+The entire bundle passes through [`go/redact`](../../explanation/components/redact.md) before it is written, in **both** text and JSON. There is **no flag to disable redaction** — for a raw value, read the specific config key directly. Two layers protect the config:
 
 1. **Credential-shaped keys are dropped to `<redacted>`** regardless of value — keys ending in `.api.key`, `.auth.value`, `.app_password`, `.password`, `.secret`, `.token`, or whose final segment is a known credential word. Even a malformed value cannot leak.
 2. **Every other value is scrubbed through `redact.String`** (best-effort): URL userinfo, well-known token prefixes (`sk-`, `ghp_`, `glpat-`, `AKIA…`), and long opaque tokens. Map **keys are preserved** so the structure stays legible.
 
-The process environment is **never** enumerated (high leak surface, low triage value); env-derived values still appear via the resolved config snapshot (`Snapshot().Values()`) under the store's precedence. See [`pkg/redact`](../../explanation/components/redact.md) for the full pattern set.
+The process environment is **never** enumerated (high leak surface, low triage value); env-derived values still appear via the resolved config snapshot (`Snapshot().Values()`) under the store's precedence. See [`go/redact`](../../explanation/components/redact.md) for the full pattern set.
 
 ## Implementation
 

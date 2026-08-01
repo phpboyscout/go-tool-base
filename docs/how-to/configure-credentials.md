@@ -217,7 +217,7 @@ Yes. The env-var reference always wins — if the referenced env var is set to a
 
 **Q: Does the tool ever write my token to the terminal or logs?**
 
-No. Setup wizards collect tokens via hidden password inputs. Every log site that might handle credentials either routes through [`pkg/redact`](../explanation/components/redact.md) or explicitly declines to log the value. The `doctor credentials.no-literal` check names offending **keys**, not values.
+No. Setup wizards collect tokens via hidden password inputs. Every log site that might handle credentials either routes through [`go/redact`](../explanation/components/redact.md) or explicitly declines to log the value. The `doctor credentials.no-literal` check names offending **keys**, not values.
 
 **Q: What if my env var is named differently on different machines?**
 

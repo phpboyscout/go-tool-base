@@ -253,7 +253,7 @@ Unset keys keep their defaults; the code-only fields (`KeyFunc`, `OnLimited`) ar
 
 ### Built-in Authentication Middleware
 
-`AuthMiddleware` authenticates (and optionally authorizes) each request from an [`pkg/authn`](authn.md) verifier — an API key, a JWT/OIDC bearer token, a session cookie, or an mTLS client certificate — storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
+`AuthMiddleware` authenticates (and optionally authorizes) each request from an [`go/authn`](authn.md) verifier — an API key, a JWT/OIDC bearer token, a session cookie, or an mTLS client certificate — storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
 
 `AuthMiddleware` and its options live in `transporthttp`.
 

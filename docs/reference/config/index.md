@@ -108,7 +108,7 @@ See the [Telemetry reference](../cli/telemetry.md) and
 
 ## Server
 
-Read by tools that use `pkg/http`, `pkg/grpc`, or `pkg/controls`. Not present in a
+Read by tools that use `pkg/http`, `pkg/grpc`, or `go/controls`. Not present in a
 plain CLI.
 
 | Key | Type | Default | Description |

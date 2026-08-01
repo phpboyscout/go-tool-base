@@ -23,13 +23,13 @@ GTB supports three storage modes for user-supplied secrets (AI API keys, VCS tok
 
 ### Trust model by deployment context
 
-**Local development (workstation).** Env-var references and the OS keychain are both safe. Pick whichever is most ergonomic — keychain if you don't want to manage shell dotfiles, env-var if you already use `direnv` / `1password-cli` / similar. Keychain activation requires the tool's `main` to blank-import `pkg/credentials/keychain`; the setup wizards detect the live backend via `credentials.Probe()` and hide the option on hosts without a reachable Secret Service provider.
+**Local development (workstation).** Env-var references and the OS keychain are both safe. Pick whichever is most ergonomic — keychain if you don't want to manage shell dotfiles, env-var if you already use `direnv` / `1password-cli` / similar. Keychain activation requires the tool's `main` to blank-import `go/credentials/keychain`; the setup wizards detect the live backend via `credentials.Probe()` and hide the option on hosts without a reachable Secret Service provider.
 
 **CI / CD pipelines.** Env-var references only. GTB refuses literal-mode configuration under `CI=true` — a plaintext token in a build artefact is the class of mistake the hardening work aims to prevent. Use your CI platform's secret injection (`${{ secrets.GITHUB_TOKEN }}`, `$ANTHROPIC_API_KEY`, etc.) and map each secret to the config's `<prefix>.env` reference.
 
 **Containerised / Kubernetes.** Env-var references only. Bake the config into the image with `<prefix>.env` pointing at the variable name the platform injects. Never ship a literal credential in a container image. The OS keychain is not applicable (no D-Bus, no Keychain daemon).
 
-**Regulated / air-gapped deployments.** Env-var references. Do **not** blank-import `pkg/credentials/keychain` from the tool's `main` — the linker will omit go-keyring, godbus, and wincred from the shipped binary, giving you an SBOM-clean artefact that cannot perform any IPC to a session bus or platform keychain service. Literal mode is technically still available for the throwaway / single-admin case, but `doctor credentials.no-literal` will warn.
+**Regulated / air-gapped deployments.** Env-var references. Do **not** blank-import `go/credentials/keychain` from the tool's `main` — the linker will omit go-keyring, godbus, and wincred from the shipped binary, giving you an SBOM-clean artefact that cannot perform any IPC to a session bus or platform keychain service. Literal mode is technically still available for the throwaway / single-admin case, but `doctor credentials.no-literal` will warn.
 
 **Throwaway / air-gapped single-user tools.** Literal mode is acceptable if you accept the plaintext-on-disk risk. The config file is written `0600` and the doctor check will still warn — the warning is informational, not a block.
 
@@ -49,8 +49,8 @@ Steps 2 and 3 return empty silently when the referenced variable is unset or the
 
 Three redaction layers protect credential values from leaking into logs and telemetry:
 
-- **`pkg/config` sensitive masker** matches any dot-segment containing `token`, `password`, `secret`, `key`, `apikey`, `auth`, `username`, or `app_password`. Values are rendered as `****<last 4>` in `config get` / `config list` / every surface that goes through `Masker.MaskIfSensitive`. Tool authors extend with `WithKeyPattern` and `WithValuePattern`.
-- **`pkg/redact` credential stripper** removes URL userinfo, Authorization headers, common token query parameters, and well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack). Used automatically by `telemetry.TrackCommandExtended` for `args` and `errMsg`. Applies to free-form strings headed to telemetry or distributed-logging backends.
+- **`go/config` sensitive masker** matches any dot-segment containing `token`, `password`, `secret`, `key`, `apikey`, `auth`, `username`, or `app_password`. Values are rendered as `****<last 4>` in `config get` / `config list` / every surface that goes through `Masker.MaskIfSensitive`. Tool authors extend with `WithKeyPattern` and `WithValuePattern`.
+- **`go/redact` credential stripper** removes URL userinfo, Authorization headers, common token query parameters, and well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack). Used automatically by `telemetry.TrackCommandExtended` for `args` and `errMsg`. Applies to free-form strings headed to telemetry or distributed-logging backends.
 - **Resolver-level contract** — no resolver in `pkg/chat`, `pkg/vcs`, or `pkg/setup` logs a credential value at any level. Errors from the credentials backend (keychain missing, Vault unreachable, permission denied) are wrapped without embedding the secret, per R2 of the hardening spec.
 
 Tool-author responsibility: never interpolate a credential value into a `CheckResult.Message`, a health-check output, or any format string that goes through `p.Logger` at INFO or higher. If a debug log genuinely needs to show something about the credential, include the **name** of the env var or keychain reference — not the value.
@@ -65,7 +65,7 @@ Tool-author responsibility: never interpolate a credential value into a `CheckRe
 
 ## Supply-chain posture
 
-**Core library has zero optional dependencies linked by default.** `pkg/credentials` and its `Backend` interface are in the root module with no external deps beyond the existing ones (`cockroachdb/errors`). The keychain implementation is a separate subpackage — importing it is an explicit decision.
+**Core library has zero optional dependencies linked by default.** `go/credentials` and its `Backend` interface are in the root module with no external deps beyond the existing ones (`cockroachdb/errors`). The keychain implementation is a separate subpackage — importing it is an explicit decision.
 
 **Release artefacts are FIPS-enabled, CGO-disabled, cross-compiled.** Shipping `gtb` with `CGO_ENABLED=0 GOLANG_FIPS=1` is load-bearing for federal deployments. The go-keyring dependency is pure-Go on all three platforms (macOS via exported C symbols, Linux via godbus, Windows via `danieljoos/wincred`) — no `libsecret-dev` build dependency at compile time.
 
@@ -77,7 +77,7 @@ Tool-author responsibility: never interpolate a credential value into a `CheckRe
 
 - **Use the existing resolver chain** (`vcs.ResolveTokenContext`, `chat.New`'s internal `resolveAPIKey`, Bitbucket's `resolveCredentials`) — don't roll your own credential plumbing.
 - **Never log credential values.** Pass them through env-var or keychain refs; let the resolver pull the value at the point of use.
-- **Decide your keychain posture once** per tool by choosing whether to blank-import `pkg/credentials/keychain` from `cmd/<tool>/main`. Regulated downstreams omit the import. For hybrid deployments, ship two binaries.
+- **Decide your keychain posture once** per tool by choosing whether to blank-import `go/credentials/keychain` from `cmd/<tool>/main`. Regulated downstreams omit the import. For hybrid deployments, ship two binaries.
 - **Don't add `//nolint` for sensitive checks.** The hardening work assumes every lint violation on `gosec`, `errcheck`, etc. is a real signal; silencing them via nolint erodes the guarantee. Refactor instead.
 - **Document your trust model** for your tool's users, following the contexts above as a template.
 

@@ -128,7 +128,7 @@ By default only `Unavailable` and `DeadlineExceeded` count as failures. **`Resou
 
 ## Built-in Authentication Interceptor
 
-`AuthInterceptor` authenticates (and optionally authorizes) each RPC from an [`pkg/authn`](authn.md) verifier — an API key or JWT/OIDC bearer token from metadata, or an mTLS client certificate from the peer — storing the verified identity in the RPC context. It is a paired unary + stream `Interceptor`; the stream check runs once at stream open.
+`AuthInterceptor` authenticates (and optionally authorizes) each RPC from an [`go/authn`](authn.md) verifier — an API key or JWT/OIDC bearer token from metadata, or an mTLS client certificate from the peer — storing the verified identity in the RPC context. It is a paired unary + stream `Interceptor`; the stream check runs once at stream open.
 
 `AuthInterceptor` and its options live in `transportgrpc`.
 

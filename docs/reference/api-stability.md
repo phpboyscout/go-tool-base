@@ -38,20 +38,26 @@ the next major version.
 | `pkg/logger` | `Logger` interface | v1.0 |
 | `pkg/logger` | `Level`, `Formatter` types and constants | v1.0 |
 | `pkg/logger` | `NewCharm`, `NewNoop` | v1.0 |
-| `pkg/controls` | `Controllable`, `Runner`, `StateAccessor`, `Configurable`, `ChannelProvider` interfaces | v0.1 |
-| `pkg/controls` | `StartFunc`, `StopFunc`, `StatusFunc` types | v0.1 |
-| `pkg/controls` | `ServiceOption`, `WithStart`, `WithStop`, `WithStatus` | v0.1 |
-| `pkg/controls` | `NewController`, `WithLogger`, `WithSignals` | v0.1 |
-| `pkg/controls` | `State`, `Message`, `HealthReport`, `CheckResult` types | v0.1 |
-| `pkg/errorhandling` | `ErrorHandler` interface | v0.1 |
-| `pkg/errorhandling` | `New`, `WithHint`, `WithHintf`, `WrapWithHint` | v0.1 |
 | `pkg/setup` | `Register*` functions | v0.1 |
-| `pkg/credentials` | `Mode` type, `ModeEnvVar`/`ModeKeychain`/`ModeLiteral` constants, `ErrCredentialNotFound`/`ErrCredentialUnsupported` sentinels | v1.11 |
-| `pkg/credentials` | `Backend` interface, `RegisterBackend`, `KeychainAvailable`, `AvailableModes`, `Probe` | v1.12 |
-| `pkg/credentials` | `Store`/`Retrieve`/`Delete` package-level helpers | v1.12 |
-| `pkg/credentials/keychain` | `Backend` struct (go-keyring implementation) | v1.12 |
-| `pkg/credentials/credtest` | `MemoryBackend`, `Install` | v1.12 |
 | `pkg/vcs` | `ConfigFromReader` (config→`forge.Config` bridge; token resolution moved to `go/forge`) | v0.x |
+
+!!! info "Extracted modules are not covered by this policy"
+    Several packages that once lived in `pkg/` are now standalone modules with
+    their own release cadence, so **GTB cannot make stability promises about
+    them** — their API is versioned by the module, not by this framework.
+
+    | Module | Docs |
+    |---|---|
+    | `gitlab.com/phpboyscout/go/controls` | [controls.go.phpboyscout.uk](https://controls.go.phpboyscout.uk) |
+    | `gitlab.com/phpboyscout/go/credentials` (+ `/keychain`, `/credtest`) | [credentials.go.phpboyscout.uk](https://credentials.go.phpboyscout.uk) |
+    | `gitlab.com/phpboyscout/go/errorhandling` | [errorhandling.go.phpboyscout.uk](https://errorhandling.go.phpboyscout.uk) |
+
+    What GTB *does* commit to is the thin adapter layer it keeps around each of
+    them — the `*FromProps` / `*FromContainable` settings constructors listed
+    above — since those are GTB's own API.
+
+    For the full list of what moved and when, see the
+    [migration guides](migration/index.md).
 
 ### Beta
 
@@ -65,7 +71,6 @@ minor versions. Changes will be documented in [migration guides](migration/v0.x-
 | `pkg/cmd/doctor` | Doctor check registration API | v0.x |
 | `pkg/http` | `Start`, `Stop`, `NewSecureClient` | v0.x |
 | `pkg/grpc` | `New`, `Start`, `Stop` | v0.x |
-| `pkg/controls` | `WithLiveness`, `WithReadiness`, `WithRestartPolicy`, `RestartPolicy` | v0.x |
 | `pkg/setup` | `NewUpdater(ctx, props, version, force)` | v1.12 (signature updated from v1.11's context-free form) |
 
 ### Experimental

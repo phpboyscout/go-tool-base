@@ -68,7 +68,7 @@ When disabled, `TrackCommandExtended` silently drops args and error messages —
 
 ### Credential Redaction
 
-Even with `ExtendedCollection` enabled, `command.args` and `command.error` values are never shipped verbatim. Every string is routed through [`pkg/redact`](../redact.md) before being attached to the outgoing event. The redactor strips URL userinfo, common credential query parameters (`apikey`, `token`, `access_token`, `password`, …), `Authorization` headers quoted in free text, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack `xoxb-`, etc.), and very long opaque tokens.
+Even with `ExtendedCollection` enabled, `command.args` and `command.error` values are never shipped verbatim. Every string is routed through [`go/redact`](../redact.md) before being attached to the outgoing event. The redactor strips URL userinfo, common credential query parameters (`apikey`, `token`, `access_token`, `password`, …), `Authorization` headers quoted in free text, well-known provider prefixes (`sk-`, `ghp_`, `AIza`, `AKIA`, Slack `xoxb-`, etc.), and very long opaque tokens.
 
 ```go
 // A command invoked as:
@@ -79,7 +79,7 @@ event.Args  = []string{"--api-token=sk-proj-***", "deploy"}
 event.Error = `failed POST https://<redacted>@api.example.co/v1?apikey=***: 401`
 ```
 
-The redactor is idempotent and never retains the original string. It catches common shapes — not every possible credential format. Tool authors accepting unusual credential formats in their own commands should either match the common shape conventions (prefix + opaque hex/base64) or contribute a pattern upstream via a PR to `pkg/redact`.
+The redactor is idempotent and never retains the original string. It catches common shapes — not every possible credential format. Tool authors accepting unusual credential formats in their own commands should either match the common shape conventions (prefix + opaque hex/base64) or contribute a pattern upstream via a PR to `go/redact`.
 
 When a custom telemetry backend is used, events arrive pre-redacted — the backend does not need to repeat the work.
 

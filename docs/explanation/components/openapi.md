@@ -22,7 +22,7 @@ the embed. The handler mounts on any `*http.ServeMux` and wraps its routes with
 
 - **Docs:** [transport-openapi.go.phpboyscout.uk](https://transport-openapi.go.phpboyscout.uk)
 - **API reference:** [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/transport-openapi)
-- **Migration:** [`pkg/openapi` → `go/transport-openapi`](../../reference/migration/v0.x-openapi-extracted.md)
+- **Migration:** [`go/transport-openapi` → `go/transport-openapi`](../../reference/migration/v0.x-openapi-extracted.md)
 
 ```go
 import openapi "gitlab.com/phpboyscout/go/transport-openapi"
