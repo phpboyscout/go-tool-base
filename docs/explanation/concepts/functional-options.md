@@ -88,9 +88,8 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
     c := &Controller{
         ctx:      ctx,
         logger:   slog.New(slog.DiscardHandler),
-        messages: make(chan Message, 100),
-        health:   make(chan HealthMessage, 100),
-        errs:     make(chan error, 100),
+        messages: make(chan Message),
+        errs:     make(chan error),
         signals:  nil, // opt-in via WithSignals; see below
         wg:       &sync.WaitGroup{},
         state:    Unknown,

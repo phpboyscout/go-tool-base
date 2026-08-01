@@ -42,7 +42,7 @@ the next major version.
 | `pkg/controls` | `StartFunc`, `StopFunc`, `StatusFunc` types | v0.1 |
 | `pkg/controls` | `ServiceOption`, `WithStart`, `WithStop`, `WithStatus` | v0.1 |
 | `pkg/controls` | `NewController`, `WithLogger`, `WithSignals` | v0.1 |
-| `pkg/controls` | `State`, `Message`, `HealthMessage`, `HealthReport` types | v0.1 |
+| `pkg/controls` | `State`, `Message`, `HealthReport`, `CheckResult` types | v0.1 |
 | `pkg/errorhandling` | `ErrorHandler` interface | v0.1 |
 | `pkg/errorhandling` | `New`, `WithHint`, `WithHintf`, `WrapWithHint` | v0.1 |
 | `pkg/setup` | `Register*` functions | v0.1 |

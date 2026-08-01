@@ -320,21 +320,28 @@ client.Ask("Analyse this code for issues", &result)
 
 #### Controllable (composed interface)
 
-**Package:** `pkg/controls`
+**Package:** [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk) (extracted from `pkg/controls`)
 **Purpose:** Manage multiple concurrent services with coordinated lifecycle.
 
-`Controllable` is a composition of four focused role interfaces:
+`Controllable` is a composition of five focused role interfaces:
 
 ```go
 // Runner: lifecycle and service registration.
 type Runner interface {
     Start()
     Stop()
-    Status() HealthReport
     IsRunning() bool
     IsStopped() bool
     IsStopping() bool
     Register(id string, opts ...ServiceOption)
+}
+
+// HealthReporter: aggregated health and per-service introspection.
+type HealthReporter interface {
+    Status() HealthReport
+    Liveness() HealthReport
+    Readiness() HealthReport
+    GetServiceInfo(name string) (ServiceInfo, bool)
 }
 
 // StateAccessor: read access to controller state and context.
@@ -342,7 +349,7 @@ type StateAccessor interface {
     GetState() State
     SetState(state State)
     GetContext() context.Context
-    GetLogger() logger.Logger
+    GetLogger() *slog.Logger
 }
 
 // Configurable: controller configuration setters (used by ControllerOpt).
@@ -350,16 +357,14 @@ type Configurable interface {
     SetErrorsChannel(errs chan error)
     SetMessageChannel(control chan Message)
     SetSignalsChannel(sigs chan os.Signal)
-    SetHealthChannel(health chan HealthMessage)
     SetWaitGroup(wg *sync.WaitGroup)
     SetShutdownTimeout(d time.Duration)
-    SetLogger(l logger.Logger)
+    SetLogger(l *slog.Logger)
 }
 
 // ChannelProvider: access to controller channels.
 type ChannelProvider interface {
     Messages() chan Message
-    Health() chan HealthMessage
     Errors() chan error
     Signals() chan os.Signal
 }
@@ -381,7 +386,7 @@ type Controllable interface {
 - Narrow role interfaces allow packages to declare only what they use — most consumers only need `Runner`, `HealthReporter`, or `ChannelProvider`
 - `ControllerOpt` functions accept `Configurable`, not `Controllable`, to enforce the narrowest dependency
 - `SetLogger` accepts `*slog.Logger`; wrap an application `logger.Logger` with `logger.ToSlog(...)` at the call site
-- Built-in OS signal handling for graceful shutdown
+- OS signal handling is **opt-in** via `controls.WithSignals()`, and belongs to a standalone `main` rather than a GTB command — inside a command the root owns signals and the controller observes `cmd.Context()`
 
 ---
 
