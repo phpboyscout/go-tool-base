@@ -54,8 +54,10 @@ The functional options pattern consists of three parts:
 Define a function type that modifies the target struct:
 
 ```go
-// Option is a function that configures a Controller
-type ControllerOpt func(Controllable)
+// Option is a function that configures a Controller.
+// Note it takes Configurable — the narrow setter interface — not the full
+// Controllable, so an option can never reach for Start/Stop or read state.
+type ControllerOpt func(Configurable)
 ```
 
 ### 2. Option Factory Functions
@@ -80,29 +82,32 @@ func WithSignals() ControllerOpt {
 
 ### 3. Constructor with Variadic Options
 
-Accept options as variadic parameters and apply them:
+Accept options as variadic parameters and apply them over a struct that is
+already valid at its defaults:
 
 ```go
-func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
-    // Create with defaults
-    c := &Controller{
-        ctx:      ctx,
-        logger:   slog.New(slog.DiscardHandler),
-        messages: make(chan Message),
-        errs:     make(chan error),
-        signals:  nil, // opt-in via WithSignals; see below
-        wg:       &sync.WaitGroup{},
-        state:    Unknown,
+func NewThing(ctx context.Context, opts ...ThingOpt) *Thing {
+    // Every field has a working default, so NewThing(ctx) is usable as-is.
+    t := &Thing{
+        ctx:    ctx,
+        logger: slog.New(slog.DiscardHandler), // no-op, never nil
+        state:  Unknown,
+        signals: nil, // process-global: opt in with WithSignals, never default
     }
-    
-    // Apply options
+
+    // Apply options in order; later options win.
     for _, opt := range opts {
-        opt(c)
+        opt(t)
     }
-    
-    return c
+
+    return t
 }
 ```
+
+The `signals` field is the one worth dwelling on. Leaving it `nil` by default
+means the zero-configuration constructor touches no process-global state, and a
+caller who wants that state has to name it. Defaults should be the *safe* choice,
+not merely the common one.
 
 ---
 

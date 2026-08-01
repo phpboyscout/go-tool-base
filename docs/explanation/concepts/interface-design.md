@@ -320,73 +320,34 @@ client.Ask("Analyse this code for issues", &result)
 
 #### Controllable (composed interface)
 
-**Package:** [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk) (extracted from `pkg/controls`)
+**Module:** [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk)
 **Purpose:** Manage multiple concurrent services with coordinated lifecycle.
 
-`Controllable` is a composition of five focused role interfaces:
+The service supervisor is an extracted module, not a GTB package, so its
+interface definitions live with it rather than being reproduced here — a copy in
+this repository has nothing compiling against it and drifts silently.
 
-```go
-// Runner: lifecycle and service registration.
-type Runner interface {
-    Start()
-    Stop()
-    IsRunning() bool
-    IsStopped() bool
-    IsStopping() bool
-    Register(id string, opts ...ServiceOption)
-}
+`Controllable` composes five narrow role interfaces — `Runner`,
+`HealthReporter`, `StateAccessor`, `Configurable` and `ChannelProvider` — so a
+consumer depends only on the part it actually uses. This is the same principle as
+GTB's own [Props provider interfaces](#props-provider-interfaces), applied to a
+lifecycle supervisor.
 
-// HealthReporter: aggregated health and per-service introspection.
-type HealthReporter interface {
-    Status() HealthReport
-    Liveness() HealthReport
-    Readiness() HealthReport
-    GetServiceInfo(name string) (ServiceInfo, bool)
-}
+- Full definitions and the narrowing guide:
+  [controls: testing](https://controls.go.phpboyscout.uk/how-to/testing/)
+- Generated API reference:
+  [pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/controls)
 
-// StateAccessor: read access to controller state and context.
-type StateAccessor interface {
-    GetState() State
-    SetState(state State)
-    GetContext() context.Context
-    GetLogger() *slog.Logger
-}
+**What GTB adds on top:**
 
-// Configurable: controller configuration setters (used by ControllerOpt).
-type Configurable interface {
-    SetErrorsChannel(errs chan error)
-    SetMessageChannel(control chan Message)
-    SetSignalsChannel(sigs chan os.Signal)
-    SetWaitGroup(wg *sync.WaitGroup)
-    SetShutdownTimeout(d time.Duration)
-    SetLogger(l *slog.Logger)
-}
-
-// ChannelProvider: access to controller channels.
-type ChannelProvider interface {
-    Messages() chan Message
-    Errors() chan error
-    Signals() chan os.Signal
-}
-
-// Controllable composes all five interfaces.
-type Controllable interface {
-    Runner
-    HealthReporter
-    StateAccessor
-    Configurable
-    ChannelProvider
-}
-```
-
-**Primary Implementation:** `*Controller`
-
-**Key Design Decisions:**
-
-- Narrow role interfaces allow packages to declare only what they use — most consumers only need `Runner`, `HealthReporter`, or `ChannelProvider`
-- `ControllerOpt` functions accept `Configurable`, not `Controllable`, to enforce the narrowest dependency
-- `SetLogger` accepts `*slog.Logger`; wrap an application `logger.Logger` with `logger.ToSlog(...)` at the call site
-- OS signal handling is **opt-in** via `controls.WithSignals()`, and belongs to a standalone `main` rather than a GTB command — inside a command the root owns signals and the controller observes `cmd.Context()`
+- `ControllerOpt` functions accept `Configurable`, not `Controllable`, to enforce
+  the narrowest dependency
+- `SetLogger` accepts `*slog.Logger`; wrap an application `logger.Logger` with
+  `logger.ToSlog(...)` at the call site
+- OS signal handling is **opt-in** via `controls.WithSignals()` and belongs to a
+  standalone `main`, never to a GTB command — inside a command the root owns
+  signals and the controller observes `cmd.Context()`. See
+  [the controls component page](../components/controls/index.md).
 
 ---
 
