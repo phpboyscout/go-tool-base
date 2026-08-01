@@ -32,31 +32,31 @@ require (
 	github.com/testcontainers/testcontainers-go v0.43.0
 	gitlab.com/phpboyscout/go/browser v0.1.1
 	gitlab.com/phpboyscout/go/changelog v0.1.3
-	gitlab.com/phpboyscout/go/chat v0.2.0
-	gitlab.com/phpboyscout/go/chat-anthropic v0.2.0
-	gitlab.com/phpboyscout/go/chat-gemini v0.2.0
-	gitlab.com/phpboyscout/go/chat-openai v0.2.0
-	gitlab.com/phpboyscout/go/config v0.12.0
+	gitlab.com/phpboyscout/go/chat v0.3.1
+	gitlab.com/phpboyscout/go/chat-anthropic v0.3.1
+	gitlab.com/phpboyscout/go/chat-gemini v0.3.0
+	gitlab.com/phpboyscout/go/chat-openai v0.3.0
+	gitlab.com/phpboyscout/go/config v0.12.1
 	gitlab.com/phpboyscout/go/config-afero v0.1.3
 	gitlab.com/phpboyscout/go/controls v0.2.0
 	gitlab.com/phpboyscout/go/credentials v0.2.2
 	gitlab.com/phpboyscout/go/errorhandling v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.4.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.3.0
-	gitlab.com/phpboyscout/go/forge-gitea v0.3.0
-	gitlab.com/phpboyscout/go/forge-github v0.3.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.3.0
+	gitlab.com/phpboyscout/go/forge v0.8.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.4.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.5.0
+	gitlab.com/phpboyscout/go/forge-github v0.5.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.5.0
 	gitlab.com/phpboyscout/go/httpclient v0.1.4
 	gitlab.com/phpboyscout/go/observability v0.2.1
 	gitlab.com/phpboyscout/go/output v0.1.2
 	gitlab.com/phpboyscout/go/redact v0.1.1
 	gitlab.com/phpboyscout/go/regexutil v0.1.1
 	gitlab.com/phpboyscout/go/repo v0.1.2
-	gitlab.com/phpboyscout/go/signing v0.4.0
+	gitlab.com/phpboyscout/go/signing v0.5.0
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.6
 	gitlab.com/phpboyscout/go/tls v0.1.2
 	gitlab.com/phpboyscout/go/transit v0.1.3
-	gitlab.com/phpboyscout/go/transport v0.2.1
+	gitlab.com/phpboyscout/go/transport v0.3.0
 	gitlab.com/phpboyscout/go/workspace v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
@@ -249,12 +249,12 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v2 v2.51.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v2 v2.52.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.1.2 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.1 // indirect
-	gitlab.com/phpboyscout/go/signing-cli v0.1.0
-	gitlab.com/phpboyscout/go/yamldoc v0.1.4 // indirect
+	gitlab.com/phpboyscout/go/signing-cli v0.3.0
+	gitlab.com/phpboyscout/go/yamldoc v0.1.5 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
@@ -265,7 +265,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.44.0 // indirect
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
