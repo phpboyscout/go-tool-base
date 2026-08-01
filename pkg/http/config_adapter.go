@@ -273,7 +273,8 @@ func RegisterFromReader(ctx context.Context, id string, controller controls.Cont
 	settings := resolveSettings(cfg, sc)
 	tlsPair := gtbtls.Resolve(cfg, prefix+".tls")
 
-	return transporthttp.Register(ctx, id, controller, logger.ToSlog(log), handler, settings, tlsPair, registerOpts...)
+	return transporthttp.Register(ctx, id, controller, logger.ToSlog(log), handler, settings,
+		append(registerOpts, transporthttp.WithTLSPair(tlsPair))...)
 }
 
 // RateLimitConfigFromConfig builds a transithttp.RateLimitConfig from the config layer

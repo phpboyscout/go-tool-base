@@ -274,7 +274,8 @@ func RegisterFromReader(_ context.Context, id string, controller controls.Contro
 	settings := portOverride(serverSettingsFromConfig(cfg, sc.resolvedPrefix(), sc.port == nil, true), sc)
 	tlsPair := gtbtls.Resolve(cfg, sc.resolvedPrefix()+".tls")
 
-	return transportgrpc.Register(id, controller, logger.ToSlog(log), settings, tlsPair, forwarded...)
+	return transportgrpc.Register(id, controller, logger.ToSlog(log), settings,
+		append(forwarded, transportgrpc.WithTLSPair(tlsPair))...)
 }
 
 // RateLimitConfigFromConfig builds a transitgrpc.RateLimitConfig from the config layer
