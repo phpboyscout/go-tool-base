@@ -145,5 +145,10 @@ func newTestRoot() (*setup.Command, *props.Props) {
 	// exercise the signal-aware execution context at the OS level.
 	rootCmd.Register(newBlockCommand())
 
+	// Register the hidden `supervise` fixture used by the signal-ownership E2E
+	// scenario to prove a real SIGINT drives exactly one shutdown when a
+	// controls.Controller runs underneath the root command.
+	rootCmd.Register(newSuperviseCommand(p))
+
 	return rootCmd, p
 }

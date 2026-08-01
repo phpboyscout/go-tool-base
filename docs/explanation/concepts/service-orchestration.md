@@ -22,7 +22,7 @@ The `go/controls` package provides a standardized way to manage long-running bac
 
 ## The Controller Pattern
 
-The `Controller` is the central orchestrator that manages a collection of `Services`. It abstracts away the manual management of goroutines, wait groups, and signal handling.
+The `Controller` is the central orchestrator that manages a collection of `Services`. It abstracts away the manual management of goroutines, wait groups, and shutdown sequencing.
 
 ### Key Components
 
@@ -32,7 +32,10 @@ The `Controller` is the central orchestrator that manages a collection of `Servi
     - **`Messages`**: Processing control signals (e.g., `Stop`, `Status`).
     - **`Health`**: Streaming host/port status and heartbeat messages.
     - **`Errors`**: Centralized reporting of background service failures.
-    - **`Signals`**: Handling OS-level signals like `SIGINT` and `SIGTERM`.
+    - **`Signals`**: Handling OS-level signals like `SIGINT` and `SIGTERM` —
+      **opt-in only**, via `controls.WithSignals()`. Inside a GTB command the
+      root command already owns signals, so the controller observes the
+      cancellation of `cmd.Context()` instead of registering a competing handler.
 
 ## Specialized Server Controls
 

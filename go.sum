@@ -526,8 +526,8 @@ gitlab.com/phpboyscout/go/config v0.12.0 h1:gra2L6kzlY9J1vORdFz/MwmVxIcaK58idEWe
 gitlab.com/phpboyscout/go/config v0.12.0/go.mod h1:y/pJgXQV5bcvrC3dMWAagTVIwYtcNLytZfOoc6K2TdY=
 gitlab.com/phpboyscout/go/config-afero v0.1.3 h1:eOozCRVm+BTktpyaZeQnYygPDM2oUIR79uf0yTR3pC0=
 gitlab.com/phpboyscout/go/config-afero v0.1.3/go.mod h1:XlLYZhaZWFXMiYC1HrukP/ZJwRjFfLtqnAHvNDAnD9c=
-gitlab.com/phpboyscout/go/controls v0.1.4 h1:B9fvZJKQoEjvRplZhMlian76UFhFt+jLqAHLPuBiZKE=
-gitlab.com/phpboyscout/go/controls v0.1.4/go.mod h1:yTDzvIlSlKvCMMbd58/71PRzEC8fYlrv36q1nUDUANE=
+gitlab.com/phpboyscout/go/controls v0.2.0 h1:pQoqoywGH2clhkxqH+PNra/e5M+tRzVN2Xa8xk8fjq8=
+gitlab.com/phpboyscout/go/controls v0.2.0/go.mod h1:yTDzvIlSlKvCMMbd58/71PRzEC8fYlrv36q1nUDUANE=
 gitlab.com/phpboyscout/go/credentials v0.2.2 h1:ucAuxiwlJkQJbcAmQxNN7ZuibKmIQFRiIhEu0A/URo0=
 gitlab.com/phpboyscout/go/credentials v0.2.2/go.mod h1:FCgyZF0c1/55kAPylGChxmxg6sMuwM3eMLF0EhMGQ9U=
 gitlab.com/phpboyscout/go/errorhandling v0.1.1 h1:ZRYxbN9w151GaF2d49du9fykeEdpoZPgTWNsRXiL3sg=

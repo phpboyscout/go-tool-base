@@ -174,7 +174,7 @@ func TestSetupTelemetryServiceRunsUnderController(t *testing.T) {
 	restoreGlobals(t)
 
 	controller := controls.NewController(context.Background(),
-		controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(logger.NewNoop())))
+		controls.WithLogger(logger.ToSlog(logger.NewNoop())))
 
 	_, err := Setup(context.Background(), testObservabilitySettings(
 		withTracing(otelcore.Settings{Enabled: true}), // no endpoint: nothing exported, fully hermetic

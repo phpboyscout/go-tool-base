@@ -70,10 +70,10 @@ func WithLogger(l *slog.Logger) ControllerOpt {
     }
 }
 
-// WithoutSignals returns an option that disables signal handling
-func WithoutSignals() ControllerOpt {
-    return func(c Controllable) {
-        c.SetSignalsChannel(nil)
+// WithSignals returns an option that opts the controller into OS signal handling
+func WithSignals() ControllerOpt {
+    return func(c Configurable) {
+        c.SetSignalsChannel(make(chan os.Signal, 1))
     }
 }
 ```
@@ -91,7 +91,7 @@ func NewController(ctx context.Context, opts ...ControllerOpt) *Controller {
         messages: make(chan Message, 100),
         health:   make(chan HealthMessage, 100),
         errs:     make(chan error, 100),
-        signals:  make(chan os.Signal, 1),
+        signals:  nil, // opt-in via WithSignals; see below
         wg:       &sync.WaitGroup{},
         state:    Unknown,
     }
@@ -125,10 +125,12 @@ controller := controls.NewController(ctx,
     controls.WithLogger(myLogger),
 )
 
-// Create controller for testing (no OS signals)
+// Opt into OS signal handling — only from a standalone main, where the
+// controller is the outermost layer. Under a GTB root command, leave this
+// off: the framework owns signals and the controller observes its context.
 controller := controls.NewController(ctx,
-    controls.WithoutSignals(),
-    controls.WithLogger(testLogger),
+    controls.WithSignals(),
+    controls.WithLogger(myLogger),
 )
 ```
 
@@ -137,7 +139,12 @@ controller := controls.NewController(ctx,
 | Option | Purpose |
 | :--- | :--- |
 | `WithLogger(l)` | Set a custom `*slog.Logger` for the controller |
-| `WithoutSignals()` | Disable OS signal handling (useful for testing) |
+| `WithSignals()` | Opt into OS signal handling (standalone mains only) |
+
+This pair is a good illustration of *why* the pattern earns its keep: `WithSignals`
+turns a `nil` field into a constructed channel, so the zero value stays the safe
+default — a controller that touches no process-global state — and taking on that
+state is something a caller has to ask for by name.
 
 ---
 
@@ -312,7 +319,7 @@ func NewServer(opts ...ServerOption) *Server {
 
 - Option types: `*Opt` or `*Option` (e.g., `ControllerOpt`, `CloneOption`)
 - Option factories: `With*` prefix (e.g., `WithLogger`, `WithPort`)
-- Negation options: `Without*` prefix (e.g., `WithoutSignals`, `WithNoTags`)
+- Negation options: `Without*` prefix (e.g., `root.WithoutSignals`, `WithNoTags`)
 
 ### Default Values
 

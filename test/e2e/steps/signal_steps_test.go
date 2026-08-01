@@ -72,6 +72,7 @@ func initSignalSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^I send SIGINT to the running gtb process$`, iSendSIGINTToRunningProcess)
 	ctx.Step(`^the gtb process exits with code (\d+)$`, theGTBProcessExitsWithCode)
 	ctx.Step(`^the running process stdout contains "([^"]*)"$`, theRunningProcessStdoutContains)
+	ctx.Step(`^the running process output contains "([^"]*)" exactly (\d+) time\(s\)$`, theRunningProcessOutputContainsNTimes)
 }
 
 const (
@@ -79,10 +80,22 @@ const (
 	// cmd.Context().Done(); waiting for it removes a signal-before-ready race.
 	blockReadyMarker = "blocking until interrupted"
 
+	// superviseReadyMarker is the equivalent for the `supervise` fixture, which
+	// is ready once its controls.Controller is running.
+	superviseReadyMarker = "supervisor running"
+
 	signalReadyTimeout = 10 * time.Second
 	signalExitTimeout  = 10 * time.Second
 	signalPollInterval = 10 * time.Millisecond
 )
+
+// readyMarkers maps each signal fixture to the line it prints when it is safe to
+// interrupt. Keyed by command so a new fixture registers its marker here rather
+// than growing a parallel "is running" step.
+var readyMarkers = map[string]string{
+	"block":     blockReadyMarker,
+	"supervise": superviseReadyMarker,
+}
 
 func theGTBBinaryIsRunningCommand(ctx context.Context, command string) (context.Context, error) {
 	w := getSignalWorld(ctx)
@@ -109,9 +122,14 @@ func theGTBBinaryIsRunningCommand(ctx context.Context, command string) (context.
 		return ctx, fmt.Errorf("failed to start gtb %q: %w", command, err)
 	}
 
-	// Wait until the fixture confirms it is blocking, so the signal can never
+	// Wait until the fixture confirms it is ready, so the signal can never
 	// arrive before the command has installed its context handler.
-	if err := w.waitForStdout(blockReadyMarker, signalReadyTimeout); err != nil {
+	marker, ok := readyMarkers[command]
+	if !ok {
+		return ctx, fmt.Errorf("no ready marker registered for fixture %q", command)
+	}
+
+	if err := w.waitForStdout(marker, signalReadyTimeout); err != nil {
 		return ctx, err
 	}
 
@@ -156,6 +174,23 @@ func theRunningProcessStdoutContains(ctx context.Context, substr string) error {
 	if !strings.Contains(w.stdout.String(), substr) {
 		return fmt.Errorf("process stdout does not contain %q\nstdout:\n%s\nstderr:\n%s",
 			substr, w.stdout.String(), w.stderr.String())
+	}
+
+	return nil
+}
+
+// theRunningProcessOutputContainsNTimes asserts an exact occurrence count across
+// the process's combined output. Counting rather than merely matching is the
+// point: it is what distinguishes one signal handler from two, which a
+// "contains" assertion would pass either way.
+func theRunningProcessOutputContainsNTimes(ctx context.Context, substr string, want int) error {
+	w := getSignalWorld(ctx)
+
+	combined := w.stdout.String() + w.stderr.String()
+
+	if got := strings.Count(combined, substr); got != want {
+		return fmt.Errorf("expected %q %d time(s) in process output, found %d\nstdout:\n%s\nstderr:\n%s",
+			substr, want, got, w.stdout.String(), w.stderr.String())
 	}
 
 	return nil

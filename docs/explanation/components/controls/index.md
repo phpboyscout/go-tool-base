@@ -30,10 +30,22 @@ GTB's transport servers are themselves controllable services registered with a
 
 - **`pkg/http`** and **`pkg/grpc`** servers register `Start`/`Stop` lifecycle
   functions and expose health probes; the controller orchestrates their startup
-  order and drives graceful shutdown on `SIGINT`/`SIGTERM`.
+  order and drives graceful shutdown when the context it was given completes.
 - **`pkg/gateway`** composes the HTTP and gRPC servers under the same controller.
 - The servers surface the controller's `Status()` / `Liveness()` / `Readiness()`
   `HealthReport`s through their own health endpoints — that endpoint wiring is a
   GTB transport concern and is documented with those packages, not here.
+
+!!! important "The framework owns signals, not the controller"
+    A controller created inside a GTB command must **not** be given
+    `controls.WithSignals()`. The root command already turns `SIGINT`/`SIGTERM`
+    into cancellation of `cmd.Context()`, and `signal.Notify` is additive — a
+    second handler races the first on a single Ctrl-C. Pass `cmd.Context()` to
+    `NewController` and the controller shuts down through its normal sequence,
+    reporting `controls.ErrShutdown` as the cause. `WithSignals` is for a
+    standalone `main` with no CLI framework above it.
+
+    See [Signal handling](../setup/root-command.md#signal-handling) for the
+    framework side, including how a tool can opt out of it entirely.
 
 For the supervisor's own concepts and API, follow the microsite above.

@@ -206,7 +206,7 @@ func TestRegisterFromConfig_PropagatesNewError(t *testing.T) {
 
 	cfg := testutil.ViewFromYAML(t, "server:\n  grpc:\n    tls:\n      enabled: true\n      cert: /nonexistent/ca.pem\n")
 
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	_, err := gateway.RegisterFromConfig(context.Background(), "test-gateway", controller, cfg,
 		logger.NewNoop(), noopRegister)
@@ -216,7 +216,7 @@ func TestRegisterFromConfig_PropagatesNewError(t *testing.T) {
 func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
 	t.Parallel()
 
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 	chain := transithttp.NewChain(headerMiddleware("X-Gateway-MW", "1"))
 
 	srv, err := gateway.RegisterFromConfig(
@@ -236,7 +236,7 @@ func TestRegisterFromConfig_ReturnsManagedServer(t *testing.T) {
 func TestRegisterFromConfig_PropagatesRegisterError(t *testing.T) {
 	t.Parallel()
 
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	_, err := gateway.RegisterFromConfig(context.Background(), "test-gateway", controller,
 		cfgWithGatewayPort(t, freePort(t)), logger.NewNoop(),

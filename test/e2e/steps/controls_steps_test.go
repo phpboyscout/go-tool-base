@@ -111,7 +111,7 @@ func initControlsSteps(ctx *godog.ScenarioContext) {
 
 func aControllerWithNoSignals(ctx context.Context) context.Context {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithoutSignals())
+	w.EnsureController()
 	return ctx
 }
 
@@ -679,7 +679,7 @@ func parseCheckType(typeName string) controls.CheckType {
 
 func aHealthCheckReturnsHealthy(ctx context.Context, name, typeName string) (context.Context, error) {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithoutSignals())
+	w.EnsureController()
 	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
 		Name: name,
 		Type: parseCheckType(typeName),
@@ -692,7 +692,7 @@ func aHealthCheckReturnsHealthy(ctx context.Context, name, typeName string) (con
 
 func aHealthCheckReturnsUnhealthy(ctx context.Context, name, typeName, msg string) (context.Context, error) {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithoutSignals())
+	w.EnsureController()
 	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
 		Name: name,
 		Type: parseCheckType(typeName),
@@ -705,7 +705,7 @@ func aHealthCheckReturnsUnhealthy(ctx context.Context, name, typeName, msg strin
 
 func aHealthCheckReturnsDegraded(ctx context.Context, name, typeName, msg string) (context.Context, error) {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithoutSignals())
+	w.EnsureController()
 	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{
 		Name: name,
 		Type: parseCheckType(typeName),
@@ -718,7 +718,7 @@ func aHealthCheckReturnsDegraded(ctx context.Context, name, typeName, msg string
 
 func anAsyncHealthCheckReturnsHealthy(ctx context.Context, name string, intervalMs int) (context.Context, error) {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithoutSignals())
+	w.EnsureController()
 	cnt := &atomic.Int64{}
 	w.CheckCounts[name] = cnt
 	err := w.Controller.RegisterHealthCheck(controls.HealthCheck{

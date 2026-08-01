@@ -70,7 +70,7 @@ func TestHTTP_AllHealthEndpoints(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
+	controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(noop)))
 
 	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestHTTP_MiddlewareAppliedToAppRoutes(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
+	controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(noop)))
 
 	var middlewareCalls atomic.Int64
 
@@ -178,7 +178,7 @@ func TestHTTP_CustomHealthCheck_AffectsEndpoints(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
+	controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(noop)))
 
 	_, err := gtbhttp.RegisterFromReader(ctx, "http", controller, newHTTPCfg(t, port), noop, http.NewServeMux())
 	require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestGRPC_HealthProbes(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
+	controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(noop)))
 
 	_, err := gtbgrpc.RegisterFromReader(ctx, "grpc", controller, newGRPCCfg(t, port), noop)
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func TestGRPC_WithInterceptors(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
+	controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(noop)))
 
 	var interceptorCalls atomic.Int64
 
@@ -327,7 +327,7 @@ func TestGracefulShutdown_StopsAcceptingConnections(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(),
+	controller := controls.NewController(ctx,
 		controls.WithLogger(logger.ToSlog(noop)),
 		controls.WithShutdownTimeout(5*time.Second))
 
@@ -365,7 +365,7 @@ func TestHTTP_AppHandlerServesRequests(t *testing.T) {
 	ctx := context.Background()
 	noop := logger.NewNoop()
 
-	controller := controls.NewController(ctx, controls.WithoutSignals(), controls.WithLogger(logger.ToSlog(noop)))
+	controller := controls.NewController(ctx, controls.WithLogger(logger.ToSlog(noop)))
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/hello", func(w http.ResponseWriter, _ *http.Request) {

@@ -197,7 +197,7 @@ func TestRegisterFromReader_ReturnsServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  grpc:\n    reflection: true\n")
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	srv, err := RegisterFromReader(
 		context.Background(),

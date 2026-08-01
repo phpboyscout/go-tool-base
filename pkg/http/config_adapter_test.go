@@ -165,7 +165,7 @@ func TestRegisterFromReader_ReturnsServer(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	srv, err := RegisterFromReader(
 		context.Background(),
@@ -221,7 +221,7 @@ func TestRegisterFromReader_InvalidPortIsHardError(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	srv, err := RegisterFromReader(
 		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
@@ -281,7 +281,7 @@ func TestRegisterFromReader_ForwardsTransportOption(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n")
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	srv, err := RegisterFromReader(
 		context.Background(), "test-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),
@@ -296,7 +296,7 @@ func TestRegisterFromReader_WithConfigPrefixSelectsBlock(t *testing.T) {
 	t.Parallel()
 
 	cfg := cfgFromYAML(t, "server:\n  http:\n    port: 18081\n  admin:\n    port: 18085\n")
-	controller := controls.NewController(context.Background(), controls.WithoutSignals())
+	controller := controls.NewController(context.Background())
 
 	srv, err := RegisterFromReader(
 		context.Background(), "admin-http", controller, cfg, logger.NewNoop(), stdhttp.NewServeMux(),

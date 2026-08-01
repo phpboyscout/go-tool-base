@@ -38,7 +38,7 @@ require (
 	gitlab.com/phpboyscout/go/chat-openai v0.2.0
 	gitlab.com/phpboyscout/go/config v0.12.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.3
-	gitlab.com/phpboyscout/go/controls v0.1.4
+	gitlab.com/phpboyscout/go/controls v0.2.0
 	gitlab.com/phpboyscout/go/credentials v0.2.2
 	gitlab.com/phpboyscout/go/errorhandling v0.1.1
 	gitlab.com/phpboyscout/go/forge v0.4.0
