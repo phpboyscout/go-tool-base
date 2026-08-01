@@ -117,13 +117,24 @@ func aControllerWithNoSignals(ctx context.Context) context.Context {
 
 func aControllerWithSignals(ctx context.Context) context.Context {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithShutdownTimeout(3 * time.Second))
+	// WithSignals is required, not optional: signals are opt-in since
+	// go/controls v0.2.0, and Signals() is nil without it — so the SIGINT
+	// injection step would block forever on a nil channel.
+	w.EnsureController(
+		controls.WithSignals(),
+		controls.WithShutdownTimeout(3*time.Second),
+	)
+
 	return ctx
 }
 
 func aControllerWithSignalsAndTimeout(ctx context.Context, seconds int) context.Context {
 	w := getWorld(ctx)
-	w.EnsureController(controls.WithShutdownTimeout(time.Duration(seconds) * time.Second))
+	w.EnsureController(
+		controls.WithSignals(),
+		controls.WithShutdownTimeout(time.Duration(seconds)*time.Second),
+	)
+
 	return ctx
 }
 
@@ -374,10 +385,24 @@ func theControllerStops(ctx context.Context) context.Context {
 	return ctx
 }
 
-func theControllerReceivesSIGINT(ctx context.Context) context.Context {
+func theControllerReceivesSIGINT(ctx context.Context) (context.Context, error) {
 	w := getWorld(ctx)
-	w.Controller.Signals() <- syscall.SIGINT
-	return ctx
+
+	// Fail fast rather than deadlocking. Signals are opt-in since go/controls
+	// v0.2.0, so a controller built without WithSignals has a nil channel — and
+	// a send on a nil channel blocks forever, turning a one-line mistake into a
+	// CI job that only fails at the global timeout with a goroutine dump.
+	sigs := w.Controller.Signals()
+	if sigs == nil {
+		return ctx, fmt.Errorf(
+			"controller has no signal channel: the scenario says %q, "+
+				"so its Given step must construct the controller with controls.WithSignals()",
+			"with OS signal handling")
+	}
+
+	sigs <- syscall.SIGINT
+
+	return ctx, nil
 }
 
 func theParentContextIsCancelled(ctx context.Context) context.Context {
