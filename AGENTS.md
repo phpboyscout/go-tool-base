@@ -4,11 +4,11 @@ This file provides guidance to AI coding agents (Claude Code, agy, codex, etc.) 
 
 ## Workflows
 
-The `.agent/` directory contains the primary execution mechanisms for this project. Always prefer these over ad-hoc steps.
+The skills and commands below ship from the [phpboyscout marketplace](https://gitlab.com/phpboyscout/claude-code-plugins) — the `phpboyscout-gtb-dev` segment and its siblings — installed as plugins rather than committed here. Always prefer them over ad-hoc steps.
 
 | Task | Workflow / Skill |
 |------|-----------------|
-| Any development or maintenance work | Read `.agent/skills/gtb-dev/SKILL.md` first |
+| Any development or maintenance work | Read the `gtb-dev` skill first |
 | Drafting a new feature specification | `/gtb-spec` |
 | Adding or modifying a reusable library component in `pkg/` | `/gtb-library-contribution` |
 | Defining or generating a new CLI command | `/gtb-command-generation` |

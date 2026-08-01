@@ -166,7 +166,7 @@ Telemetry is never enabled by default. Two-level gating: tool author enables `Te
 
 ## Development Conventions
 
-These are opinionated positions enforced across the project. They are documented in `CLAUDE.md` and `.agent/skills/gtb-dev/SKILL.md` but recorded here for completeness.
+These are opinionated positions enforced across the project. They are documented in `CLAUDE.md` and the `gtb-dev` skill but recorded here for completeness.
 
 ### Library-First Principle
 
