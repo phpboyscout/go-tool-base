@@ -39,6 +39,7 @@ func TestBuiltinsAreRegistered(t *testing.T) {
 		require.Truef(t, ok, "built-in %q is not registered", id)
 		assert.Equalf(t, w.constName, d.ConstName, "ConstName for %q", id)
 		assert.Equalf(t, KindBuiltin, d.Kind, "Kind for %q", id)
+		assert.Equalf(t, PackagePath, d.ConstPackage, "ConstPackage for %q", id)
 		assert.Equalf(t, w.enabled, d.Default, "Default for %q", id)
 	}
 
@@ -92,10 +93,11 @@ func TestRegisterFeature_RejectsDefaultOnNonBuiltin(t *testing.T) {
 	t.Parallel()
 
 	err := validateDescriptor(FeatureDescriptor{
-		ID:        FeatureID("someforge"),
-		ConstName: "SomeforgeFeature",
-		Kind:      KindForge,
-		Default:   true,
+		ID:           FeatureID("someforge"),
+		ConstName:    "SomeforgeFeature",
+		ConstPackage: "example.com/someforge",
+		Kind:         KindForge,
+		Default:      true,
 	}, nil)
 
 	require.Error(t, err)
@@ -113,22 +115,27 @@ func TestRegisterFeature_Validates(t *testing.T) {
 	}{
 		{
 			name: "empty id",
-			d:    FeatureDescriptor{ConstName: "X", Kind: KindForge},
+			d:    FeatureDescriptor{ConstName: "X", ConstPackage: "p", Kind: KindForge},
 			want: ErrInvalidDescriptor,
 		},
 		{
 			name: "empty ConstName",
-			d:    FeatureDescriptor{ID: FeatureID("x"), Kind: KindForge},
+			d:    FeatureDescriptor{ID: FeatureID("x"), ConstPackage: "p", Kind: KindForge},
+			want: ErrInvalidDescriptor,
+		},
+		{
+			name: "empty ConstPackage",
+			d:    FeatureDescriptor{ID: FeatureID("x"), ConstName: "X", Kind: KindForge},
 			want: ErrInvalidDescriptor,
 		},
 		{
 			name: "empty kind",
-			d:    FeatureDescriptor{ID: FeatureID("x"), ConstName: "X"},
+			d:    FeatureDescriptor{ID: FeatureID("x"), ConstName: "X", ConstPackage: "p"},
 			want: ErrInvalidDescriptor,
 		},
 		{
 			name: "duplicate id",
-			d:    FeatureDescriptor{ID: UpdateCmd, ConstName: "UpdateCmd", Kind: KindForge},
+			d:    FeatureDescriptor{ID: UpdateCmd, ConstName: "UpdateCmd", ConstPackage: PackagePath, Kind: KindForge},
 			want: ErrDuplicateFeature,
 		},
 	}
@@ -180,9 +187,10 @@ func TestRegisterFeature_RejectsAfterSeal(t *testing.T) {
 	SealFeatures()
 
 	err := registerFeature(FeatureDescriptor{
-		ID:        FeatureID("latecomer"),
-		ConstName: "LatecomerFeature",
-		Kind:      KindForge,
+		ID:           FeatureID("latecomer"),
+		ConstName:    "LatecomerFeature",
+		ConstPackage: "example.com/latecomer",
+		Kind:         KindForge,
 	})
 
 	require.Error(t, err)

@@ -8,6 +8,11 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
+// PackagePath is this package's import path, the ConstPackage every built-in
+// feature descriptor carries. Declared once so a generated import cannot drift
+// from the package it names.
+const PackagePath = "gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 // FeatureKind classifies what a feature is, so "every forge" becomes a query
 // rather than a list somebody has to remember to update.
 //
@@ -38,6 +43,14 @@ type FeatureDescriptor struct {
 	// the generator emits it verbatim, so it is carried rather than computed.
 	// A feature with no exported constant cannot be scaffolded.
 	ConstName string
+	// ConstPackage is the import path of the package declaring ConstName.
+	//
+	// Built-in constants live in props, but a plugin's do not — the forge
+	// features are declared by pkg/setup/forge — and generated source must
+	// qualify the reference correctly. Carrying the path here is what keeps a
+	// feature's generator handling a property of its registration rather than a
+	// special case somewhere downstream.
+	ConstPackage string
 	// Kind classifies the feature. See [FeatureKind].
 	Kind FeatureKind
 	// Default reports whether the feature is enabled when a tool expresses no
@@ -91,9 +104,9 @@ func RegisterFeature(d FeatureDescriptor) {
 // registers after any other test has enumerated gets ErrRegistrySealed instead
 // of the rule it meant to exercise.
 func validateDescriptor(d FeatureDescriptor, existing []FeatureDescriptor) error {
-	if d.ID == "" || d.ConstName == "" || d.Kind == "" {
+	if d.ID == "" || d.ConstName == "" || d.Kind == "" || d.ConstPackage == "" {
 		return errors.Wrapf(ErrInvalidDescriptor,
-			"id=%q const=%q kind=%q", d.ID, d.ConstName, d.Kind)
+			"id=%q const=%q pkg=%q kind=%q", d.ID, d.ConstName, d.ConstPackage, d.Kind)
 	}
 
 	if d.Default && d.Kind != KindBuiltin {
@@ -238,18 +251,28 @@ func isDefaultEnabled(id FeatureID) bool {
 
 //nolint:gochecknoinits // seeding the built-ins is what makes the registry the single source of truth
 func init() {
-	for _, d := range []FeatureDescriptor{
-		{UpdateCmd, "UpdateCmd", KindBuiltin, true},
-		{InitCmd, "InitCmd", KindBuiltin, true},
-		{McpCmd, "McpCmd", KindBuiltin, true},
-		{DocsCmd, "DocsCmd", KindBuiltin, true},
-		{AiCmd, "AiCmd", KindBuiltin, false},
-		{DoctorCmd, "DoctorCmd", KindBuiltin, true},
-		{ConfigCmd, "ConfigCmd", KindBuiltin, false},
-		{ChangelogCmd, "ChangelogCmd", KindBuiltin, true},
-		{ManCmd, "ManCmd", KindBuiltin, false},
-		{TelemetryCmd, "TelemetryCmd", KindBuiltin, false},
+	for _, d := range []struct {
+		id        FeatureID
+		constName string
+		enabled   bool
+	}{
+		{UpdateCmd, "UpdateCmd", true},
+		{InitCmd, "InitCmd", true},
+		{McpCmd, "McpCmd", true},
+		{DocsCmd, "DocsCmd", true},
+		{AiCmd, "AiCmd", false},
+		{DoctorCmd, "DoctorCmd", true},
+		{ConfigCmd, "ConfigCmd", false},
+		{ChangelogCmd, "ChangelogCmd", true},
+		{ManCmd, "ManCmd", false},
+		{TelemetryCmd, "TelemetryCmd", false},
 	} {
-		RegisterFeature(d)
+		RegisterFeature(FeatureDescriptor{
+			ID:           d.id,
+			ConstName:    d.constName,
+			ConstPackage: PackagePath,
+			Kind:         KindBuiltin,
+			Default:      d.enabled,
+		})
 	}
 }

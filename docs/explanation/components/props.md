@@ -103,6 +103,57 @@ const (
 - `doctor`
 - `changelog`
 
+### The feature registry
+
+Features are **registered**, not listed. `AllFeatures()` and `DefaultFeatures()` are derived from the registry, so a feature declares its identity, its kind and its default in one place and the two cannot drift.
+
+```go
+type FeatureDescriptor struct {
+    ID           FeatureID   // identity, and the config/manifest name
+    ConstName    string      // exported Go identifier, e.g. "AiCmd"
+    ConstPackage string      // import path declaring ConstName
+    Kind         FeatureKind // KindBuiltin | KindForge
+    Default      bool        // builtin-only; see below
+}
+```
+
+`ConstName` and `ConstPackage` exist because the generator **emits Go source** naming the constant. The identifier cannot be derived from the ID (`mcp` yields `McpCmd`), and a plugin's constant does not live in `props` — the forge features are declared by `pkg/setup/forge`.
+
+A package registers its own features from `init`, so a blank import is the entire mechanism:
+
+```go
+func init() {
+    props.RegisterFeature(props.FeatureDescriptor{
+        ID:           GithubFeature,
+        ConstName:    "GithubFeature",
+        ConstPackage: PackagePath,
+        Kind:         props.KindForge,
+    })
+}
+```
+
+!!! warning "Only builtin features may be default-enabled"
+    `RegisterFeature` rejects a non-builtin descriptor with `Default: true` (`ErrPluginDefaultOn`). Adding a blank import must change what is **available**, never what is **on** — otherwise an import list becomes a behavioural file, and a downstream that deliberately omits a provider cannot reason about what its remaining imports switched on behind it.
+
+#### Querying by kind
+
+`FeaturesOfKind` turns "what forges are there?" into a question with one answer, rather than a list duplicated across the generator wizard, config validation and the doctor report:
+
+```go
+for _, id := range props.FeaturesOfKind(props.KindForge) {
+    // ...
+}
+```
+
+#### Ordering and sealing
+
+Enumeration order never consults `init()` sequencing: built-ins hold their declared order and everything else sorts by `(kind, id)`. Go runs `init` in dependency-then-filename order, which is stable for one build but shifts with the import graph — and both the doctor report and the generator's golden files depend on this order.
+
+Reading the registry **seals** it. A registration afterwards fails with `ErrRegistrySealed` rather than yielding a set that depends on when it was read.
+
+!!! info "`AllFeatures()` reflects what this binary linked"
+    A tool that blank-imports fewer providers enumerates fewer features. That is the correct *runtime* answer. The generator needs the complete **possible** set instead — every feature a scaffolded project could choose, including adapters the generator itself does not link — and takes it from its own catalogue rather than from this registry.
+
 The following features are **opt-in** (disabled by default):
 - `ai` — AI provider configuration during `init`
 - `config` — programmatic config access (`config get/set/list/validate`)

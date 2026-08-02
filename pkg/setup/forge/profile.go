@@ -16,6 +16,11 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
+// PackagePath is this package's import path — the ConstPackage its feature
+// descriptors carry, so generated source qualifies these constants against the
+// package that actually declares them rather than assuming props.
+const PackagePath = "gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
+
 // Feature identities for the forge integrations this package registers.
 //
 // They carry no "Cmd" suffix: unlike the framework's built-ins, a forge feature
@@ -39,14 +44,16 @@ const (
 //nolint:gochecknoinits // blank-import registration is the mechanism
 func init() {
 	props.RegisterFeature(props.FeatureDescriptor{
-		ID:        GithubFeature,
-		ConstName: "GithubFeature",
-		Kind:      props.KindForge,
+		ID:           GithubFeature,
+		ConstName:    "GithubFeature",
+		ConstPackage: PackagePath,
+		Kind:         props.KindForge,
 	})
 	props.RegisterFeature(props.FeatureDescriptor{
-		ID:        BitbucketFeature,
-		ConstName: "BitbucketFeature",
-		Kind:      props.KindForge,
+		ID:           BitbucketFeature,
+		ConstName:    "BitbucketFeature",
+		ConstPackage: PackagePath,
+		Kind:         props.KindForge,
 	})
 }
 

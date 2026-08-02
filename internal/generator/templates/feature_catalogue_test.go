@@ -26,14 +26,26 @@ func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 		byCmd[d.Cmd] = d
 	}
 
-	assert.Lenf(t, FeatureCatalogue, len(props.AllFeatures()),
-		"FeatureCatalogue must cover exactly props.AllFeatures — a new FeatureID needs a catalogue entry")
+	// The catalogue must cover every BUILTIN feature — not every registered
+	// feature. AllFeatures() reflects what this binary linked, so a plugin's
+	// features are present or absent depending on the test binary's imports,
+	// and asserting against it would make this guard's strictness an accident
+	// of the import graph. Builtins are always registered by props itself, so
+	// scoping to them is both exact and link-independent.
+	//
+	// Plugin-kind features (forge) are deliberately not scaffoldable yet: the
+	// generator emits props.<Const>, and their constants live elsewhere. Spec
+	// 0185 makes them selectable and brings them into this catalogue.
+	builtins := props.FeaturesOfKind(props.KindBuiltin)
+
+	assert.Lenf(t, FeatureCatalogue, len(builtins),
+		"FeatureCatalogue must cover exactly the builtin features — a new one needs a catalogue entry")
 
 	defaultTool := props.Tool{Features: props.SetFeatures()}
-	for _, cmd := range props.AllFeatures() {
+	for _, cmd := range builtins {
 		d, ok := byCmd[cmd]
-		assert.Truef(t, ok, "props.AllFeatures %q is missing from FeatureCatalogue", cmd)
+		assert.Truef(t, ok, "builtin %q is missing from FeatureCatalogue", cmd)
 		assert.Equalf(t, defaultTool.IsEnabled(cmd), d.Default,
-			"catalogue Default for %q disagrees with props.DefaultFeatures", cmd)
+			"catalogue Default for %q disagrees with the registry", cmd)
 	}
 }
