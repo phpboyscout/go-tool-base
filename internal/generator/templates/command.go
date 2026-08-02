@@ -286,8 +286,8 @@ func generateNewCmdFunction(f *jen.File, data CommandData) {
 		// and friends still chain through the embedded pointer.
 		//
 		// Go implicitly converts the untyped string constant to the named
-		// props.FeatureCmd type, so we emit a literal rather than
-		// props.FeatureCmd("<name>"). The literal avoids shadowing the
+		// props.FeatureID type, so we emit a literal rather than
+		// props.FeatureID("<name>"). The literal avoids shadowing the
 		// `props` parameter with the `props` package import inside this
 		// function body.
 		g.Id("cmd").Op(":=").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Wrap").Call(
@@ -332,7 +332,7 @@ func CommandInitializer(data CommandData) *jen.File {
 	f.Line()
 	f.Func().Id("init").Params().Block(
 		jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Register").Call(
-			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "FeatureCmd").Call(jen.Lit(data.Name)),
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "FeatureID").Call(jen.Lit(data.Name)),
 			jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "InitialiserProvider").Values(
 				jen.Func().Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props")).Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Initialiser").Block(
 					jen.If(jen.Id("skip"+data.PascalName)).Block(jen.Return(jen.Nil())),

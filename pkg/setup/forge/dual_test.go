@@ -497,7 +497,7 @@ func TestRunForms_StorageStageError(t *testing.T) {
 // --- registration ---
 
 func TestInitRegistry(t *testing.T) {
-	feature := props.FeatureCmd("bitbucket")
+	feature := props.FeatureID("bitbucket")
 
 	p := &props.Props{
 		FS:     afero.NewMemMapFs(),

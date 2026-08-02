@@ -45,11 +45,11 @@ type AssetBundle struct {
 // checks for features. All access is serialised by registryMu so concurrent
 // init() calls and parallel tests are race-free.
 type FeatureRegistry struct {
-	initialisers map[props.FeatureCmd][]InitialiserProvider
-	subcommands  map[props.FeatureCmd][]SubcommandProvider
-	flags        map[props.FeatureCmd][]FeatureFlag
-	checks       map[props.FeatureCmd][]CheckProvider
-	assets       map[props.FeatureCmd][]AssetBundle
+	initialisers map[props.FeatureID][]InitialiserProvider
+	subcommands  map[props.FeatureID][]SubcommandProvider
+	flags        map[props.FeatureID][]FeatureFlag
+	checks       map[props.FeatureID][]CheckProvider
+	assets       map[props.FeatureID][]AssetBundle
 }
 
 // registryMu protects globalRegistry and registrySealed. Acquired for write
@@ -63,11 +63,11 @@ var (
 )
 
 var globalRegistry = &FeatureRegistry{
-	initialisers: make(map[props.FeatureCmd][]InitialiserProvider),
-	subcommands:  make(map[props.FeatureCmd][]SubcommandProvider),
-	flags:        make(map[props.FeatureCmd][]FeatureFlag),
-	checks:       make(map[props.FeatureCmd][]CheckProvider),
-	assets:       make(map[props.FeatureCmd][]AssetBundle),
+	initialisers: make(map[props.FeatureID][]InitialiserProvider),
+	subcommands:  make(map[props.FeatureID][]SubcommandProvider),
+	flags:        make(map[props.FeatureID][]FeatureFlag),
+	checks:       make(map[props.FeatureID][]CheckProvider),
+	assets:       make(map[props.FeatureID][]AssetBundle),
 }
 
 // SealRegistry prevents further feature registration. Called after all
@@ -81,7 +81,7 @@ func SealRegistry() {
 
 // Register adds initialisers, subcommands, and flags for a specific feature.
 // Panics if the registry has been sealed.
-func Register(feature props.FeatureCmd, ips []InitialiserProvider, sps []SubcommandProvider, fps []FeatureFlag) {
+func Register(feature props.FeatureID, ips []InitialiserProvider, sps []SubcommandProvider, fps []FeatureFlag) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
@@ -104,7 +104,7 @@ func Register(feature props.FeatureCmd, ips []InitialiserProvider, sps []Subcomm
 
 // RegisterChecks adds diagnostic check providers for a specific feature.
 // Panics if the registry has been sealed.
-func RegisterChecks(feature props.FeatureCmd, cps []CheckProvider) {
+func RegisterChecks(feature props.FeatureID, cps []CheckProvider) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
@@ -118,33 +118,33 @@ func RegisterChecks(feature props.FeatureCmd, cps []CheckProvider) {
 }
 
 // GetInitialisers returns a snapshot of all registered initialiser providers.
-func GetInitialisers() map[props.FeatureCmd][]InitialiserProvider {
+func GetInitialisers() map[props.FeatureID][]InitialiserProvider {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	cp := make(map[props.FeatureCmd][]InitialiserProvider, len(globalRegistry.initialisers))
+	cp := make(map[props.FeatureID][]InitialiserProvider, len(globalRegistry.initialisers))
 	maps.Copy(cp, globalRegistry.initialisers)
 
 	return cp
 }
 
 // GetSubcommands returns a snapshot of all registered subcommand providers.
-func GetSubcommands() map[props.FeatureCmd][]SubcommandProvider {
+func GetSubcommands() map[props.FeatureID][]SubcommandProvider {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	cp := make(map[props.FeatureCmd][]SubcommandProvider, len(globalRegistry.subcommands))
+	cp := make(map[props.FeatureID][]SubcommandProvider, len(globalRegistry.subcommands))
 	maps.Copy(cp, globalRegistry.subcommands)
 
 	return cp
 }
 
 // GetFeatureFlags returns a snapshot of all registered feature flag providers.
-func GetFeatureFlags() map[props.FeatureCmd][]FeatureFlag {
+func GetFeatureFlags() map[props.FeatureID][]FeatureFlag {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	cp := make(map[props.FeatureCmd][]FeatureFlag, len(globalRegistry.flags))
+	cp := make(map[props.FeatureID][]FeatureFlag, len(globalRegistry.flags))
 	maps.Copy(cp, globalRegistry.flags)
 
 	return cp
@@ -156,7 +156,7 @@ func GetFeatureFlags() map[props.FeatureCmd][]FeatureFlag {
 // assets/init/config.yaml (init template) participate in the merged reads only
 // when the feature is enabled — see the segregated-default-config spec.
 // Panics if the registry has been sealed.
-func RegisterAssets(feature props.FeatureCmd, name string, bundle fs.FS) {
+func RegisterAssets(feature props.FeatureID, name string, bundle fs.FS) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
@@ -168,22 +168,22 @@ func RegisterAssets(feature props.FeatureCmd, name string, bundle fs.FS) {
 }
 
 // GetAssets returns a snapshot of all registered asset bundles.
-func GetAssets() map[props.FeatureCmd][]AssetBundle {
+func GetAssets() map[props.FeatureID][]AssetBundle {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	cp := make(map[props.FeatureCmd][]AssetBundle, len(globalRegistry.assets))
+	cp := make(map[props.FeatureID][]AssetBundle, len(globalRegistry.assets))
 	maps.Copy(cp, globalRegistry.assets)
 
 	return cp
 }
 
 // GetChecks returns a snapshot of all registered check providers.
-func GetChecks() map[props.FeatureCmd][]CheckProvider {
+func GetChecks() map[props.FeatureID][]CheckProvider {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
 
-	cp := make(map[props.FeatureCmd][]CheckProvider, len(globalRegistry.checks))
+	cp := make(map[props.FeatureID][]CheckProvider, len(globalRegistry.checks))
 	maps.Copy(cp, globalRegistry.checks)
 
 	return cp
@@ -198,11 +198,11 @@ func resetFeatureRegistry() {
 	defer registryMu.Unlock()
 
 	globalRegistry = &FeatureRegistry{
-		initialisers: make(map[props.FeatureCmd][]InitialiserProvider),
-		subcommands:  make(map[props.FeatureCmd][]SubcommandProvider),
-		flags:        make(map[props.FeatureCmd][]FeatureFlag),
-		checks:       make(map[props.FeatureCmd][]CheckProvider),
-		assets:       make(map[props.FeatureCmd][]AssetBundle),
+		initialisers: make(map[props.FeatureID][]InitialiserProvider),
+		subcommands:  make(map[props.FeatureID][]SubcommandProvider),
+		flags:        make(map[props.FeatureID][]FeatureFlag),
+		checks:       make(map[props.FeatureID][]CheckProvider),
+		assets:       make(map[props.FeatureID][]AssetBundle),
 	}
 	registrySealed = false
 }

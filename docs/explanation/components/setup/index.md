@@ -257,7 +257,7 @@ The Setup package provides a comprehensive middleware system for wrapping CLI co
 - **Global & Feature Scopes**: Register middleware globally for all commands, or specifically for a feature.
 - **Built-ins**: Includes `WithTiming`, `WithRecovery` (panic protection), `WithAuthCheck` (config validation), and `WithTelemetry`.
 - **Thread-Safe Registry**: Secure registration during initialization with a "sealing" mechanism to prevent runtime modifications.
-- **Composed `Command` type**: Since v0.5, command constructors return `*setup.Command` (`{*cobra.Command, Feature props.FeatureCmd}`). Parents attach children via `cmd.Register(child...)`, which wraps each child's `RunE` exactly once with global and feature-specific middleware — no separate middleware-wiring call required. (The former `AddCommandWithMiddleware` helper was removed in v0.20.)
+- **Composed `Command` type**: Since v0.5, command constructors return `*setup.Command` (`{*cobra.Command, Feature props.FeatureID}`). Parents attach children via `cmd.Register(child...)`, which wraps each child's `RunE` exactly once with global and feature-specific middleware — no separate middleware-wiring call required. (The former `AddCommandWithMiddleware` helper was removed in v0.20.)
 
 ## Configuration Management
 

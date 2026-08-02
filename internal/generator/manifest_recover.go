@@ -48,7 +48,7 @@ func (g *Generator) applyRecoveredProperties(m *Manifest, manifestExisted bool) 
 // manifest present those fields are preserved as authored.
 //
 //   - keychain: a delta feature entry, from the presence of the blank-import
-//     artefact cmd/<name>/keychain.go (it has no FeatureCmd, so the literal
+//     artefact cmd/<name>/keychain.go (it has no FeatureID, so the literal
 //     scanner never sees it).
 //   - docs_layout: inferred from the docs tree shape.
 //   - CI component source: read from the scaffolded .gitlab-ci.yml include base.

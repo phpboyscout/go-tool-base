@@ -9,7 +9,7 @@ import (
 )
 
 // TestFeatureCatalogue_CoversAllFeatures is the anti-fragility guard: it fails
-// if a props.FeatureCmd is added without a matching FeatureCatalogue entry (so
+// if a props.FeatureID is added without a matching FeatureCatalogue entry (so
 // the generator's renderer and scanner would silently drop it), and if the
 // catalogue's default-enabled state disagrees with what SetFeatures resolves
 // from props.DefaultFeatures. Because the renderer (getFeatureCmd) and the
@@ -18,7 +18,7 @@ import (
 func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 	t.Parallel()
 
-	byCmd := make(map[props.FeatureCmd]FeatureDescriptor, len(FeatureCatalogue))
+	byCmd := make(map[props.FeatureID]FeatureDescriptor, len(FeatureCatalogue))
 	for _, d := range FeatureCatalogue {
 		assert.NotEmptyf(t, d.ConstName, "descriptor for %q needs a ConstName", d.Cmd)
 		_, dup := byCmd[d.Cmd]
@@ -27,7 +27,7 @@ func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 	}
 
 	assert.Lenf(t, FeatureCatalogue, len(props.AllFeatures),
-		"FeatureCatalogue must cover exactly props.AllFeatures — a new FeatureCmd needs a catalogue entry")
+		"FeatureCatalogue must cover exactly props.AllFeatures — a new FeatureID needs a catalogue entry")
 
 	defaultTool := props.Tool{Features: props.SetFeatures()}
 	for _, cmd := range props.AllFeatures {

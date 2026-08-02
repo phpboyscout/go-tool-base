@@ -35,7 +35,7 @@ func NewCmdExample(props *props.Props) *setup.Command {
 }
 ```
 
-`setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that **embeds** `*cobra.Command`, so every cobra method — `cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(…)`, `cmd.SetContext(…)` — keeps working through the embedded pointer. The `"example"` literal is implicitly converted to `props.FeatureCmd` (a named string type) by Go, so call sites stay readable.
+`setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that **embeds** `*cobra.Command`, so every cobra method — `cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(…)`, `cmd.SetContext(…)` — keeps working through the embedded pointer. The `"example"` literal is implicitly converted to `props.FeatureID` (a named string type) by Go, so call sites stay readable.
 
 ## Composing the tree
 

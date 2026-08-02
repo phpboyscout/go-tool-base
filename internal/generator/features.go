@@ -15,7 +15,7 @@ import (
 // complete as features are added.
 //
 // keychain is intentionally excluded: it is a build-time blank-import decision
-// (the scaffolded cmd/<name>/keychain.go), not a FeatureCmd, so it is changed by
+// (the scaffolded cmd/<name>/keychain.go), not a FeatureID, so it is changed by
 // adding/removing that file, not by a SetFeatures toggle.
 var ToggleableFeatures = featureNamesFromCatalogue()
 

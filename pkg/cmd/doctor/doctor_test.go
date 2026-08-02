@@ -169,7 +169,7 @@ func TestDefaultChecks_FeatureAware(t *testing.T) {
 
 	// AI-enabled tool: the API-key check is included.
 	ai := &p.Props{
-		Tool:   p.Tool{Name: "t", Features: []p.Feature{{Cmd: p.AiCmd, Enabled: true}}},
+		Tool:   p.Tool{Name: "t", Features: []p.Feature{{ID: p.AiCmd, Enabled: true}}},
 		Config: testutil.StoreFromYAML(t, "{}\n"),
 		FS:     afero.NewMemMapFs(),
 	}
@@ -386,7 +386,7 @@ func TestCheckPermissions_InsufficientPerms(t *testing.T) {
 func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 	t.Parallel()
 
-	customFeature := p.FeatureCmd("custom-test")
+	customFeature := p.FeatureID("custom-test")
 
 	setup.RegisterChecks(customFeature, []setup.CheckProvider{
 		func(_ *p.Props) []setup.CheckFunc {
@@ -407,7 +407,7 @@ func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 	props := &p.Props{
 		Tool: p.Tool{
 			Name:     "test-tool",
-			Features: []p.Feature{{Cmd: customFeature, Enabled: true}},
+			Features: []p.Feature{{ID: customFeature, Enabled: true}},
 		},
 		Version: ver.NewInfo("v1.0.0", "", ""),
 		Config:  mockCfg,
@@ -434,7 +434,7 @@ func TestRunChecks_WithRegisteredChecks(t *testing.T) {
 func TestDiscoverChecks_DisabledFeature(t *testing.T) {
 	t.Parallel()
 
-	disabledFeature := p.FeatureCmd("disabled-test")
+	disabledFeature := p.FeatureID("disabled-test")
 
 	setup.RegisterChecks(disabledFeature, []setup.CheckProvider{
 		func(_ *p.Props) []setup.CheckFunc {
@@ -449,7 +449,7 @@ func TestDiscoverChecks_DisabledFeature(t *testing.T) {
 	props := &p.Props{
 		Tool: p.Tool{
 			Name:     "test-tool",
-			Features: []p.Feature{{Cmd: disabledFeature, Enabled: false}},
+			Features: []p.Feature{{ID: disabledFeature, Enabled: false}},
 		},
 	}
 

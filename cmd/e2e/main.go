@@ -100,8 +100,8 @@ func newTestRoot() (*setup.Command, *props.Props) {
 				// the credential setup wizards and the chat/VCS
 				// resolvers.
 				props.Enable(props.AiCmd),
-				props.Enable(props.FeatureCmd("github")),
-				props.Enable(props.FeatureCmd("bitbucket")),
+				props.Enable(props.FeatureID("github")),
+				props.Enable(props.FeatureID("bitbucket")),
 				props.Disable(props.DocsCmd), // no embedded assets in test binary
 			),
 			Telemetry: props.TelemetryConfig{

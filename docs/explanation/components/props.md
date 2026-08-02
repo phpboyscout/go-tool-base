@@ -76,18 +76,18 @@ Props makes dependencies explicit and discoverable:
 Feature commands are identifiers used to enable or disable built-in functionality:
 
 ```go
-type FeatureCmd string
+type FeatureID string
 
 const (
-    UpdateCmd = FeatureCmd("update") // Self-update functionality
-    InitCmd   = FeatureCmd("init")   // Configuration initialisation
-    McpCmd    = FeatureCmd("mcp")    // Model Context Protocol server
-    DocsCmd   = FeatureCmd("docs")   // Interactive documentation browser
-    AiCmd        = FeatureCmd("ai")        // AI-powered features (opt-in)
-    DoctorCmd    = FeatureCmd("doctor")    // Environment health checks
-    ConfigCmd    = FeatureCmd("config")    // Programmatic config access (opt-in)
-    TelemetryCmd  = FeatureCmd("telemetry")  // Anonymous usage telemetry (opt-in)
-    ChangelogCmd  = FeatureCmd("changelog")  // Embedded changelog display
+    UpdateCmd = FeatureID("update") // Self-update functionality
+    InitCmd   = FeatureID("init")   // Configuration initialisation
+    McpCmd    = FeatureID("mcp")    // Model Context Protocol server
+    DocsCmd   = FeatureID("docs")   // Interactive documentation browser
+    AiCmd        = FeatureID("ai")        // AI-powered features (opt-in)
+    DoctorCmd    = FeatureID("doctor")    // Environment health checks
+    ConfigCmd    = FeatureID("config")    // Programmatic config access (opt-in)
+    TelemetryCmd  = FeatureID("telemetry")  // Anonymous usage telemetry (opt-in)
+    ChangelogCmd  = FeatureID("changelog")  // Embedded changelog display
 )
 ```
 
@@ -202,7 +202,7 @@ type ReleaseSource struct {
 
 // Feature represents the configuration state of a feature (Enabled/Disabled).
 type Feature struct {
-    Cmd     FeatureCmd `json:"cmd" yaml:"cmd"`
+    Cmd     FeatureID `json:"cmd" yaml:"cmd"`
     Enabled bool       `json:"enabled" yaml:"enabled"`
 }
 

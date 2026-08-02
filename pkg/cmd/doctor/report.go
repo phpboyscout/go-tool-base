@@ -57,8 +57,8 @@ type PathsSection struct {
 
 // FeatureFlag is one built-in feature's enabled/disabled state.
 type FeatureFlag struct {
-	Cmd     p.FeatureCmd `json:"cmd"`
-	Enabled bool         `json:"enabled"`
+	Cmd     p.FeatureID `json:"cmd"`
+	Enabled bool        `json:"enabled"`
 }
 
 // NewCmdReport returns the `doctor report` subcommand: it prints a single,

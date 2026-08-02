@@ -14,9 +14,9 @@ import (
 func TestDefaultEnabledDerivedFromDefaultFeatures(t *testing.T) {
 	t.Parallel()
 
-	defaults := map[FeatureCmd]bool{}
+	defaults := map[FeatureID]bool{}
 	for _, f := range SetFeatures() {
-		defaults[f.Cmd] = f.Enabled
+		defaults[f.ID] = f.Enabled
 	}
 
 	for _, feature := range AllFeatures {

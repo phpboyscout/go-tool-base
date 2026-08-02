@@ -50,7 +50,7 @@ func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {
 	// New shape: returns *setup.Command and assigns cmd directly to the
 	// wrapped value, so later attachment (parent.Register / inline subcommand
 	// wiring) goes through *setup.Command. The literal "hello" is implicitly
-	// converted to props.FeatureCmd (a named string type) by Go.
+	// converted to props.FeatureID (a named string type) by Go.
 	assert.Contains(t, src, "*setup.Command", "NewCmd<Name> must return *setup.Command")
 	assert.Contains(t, src, "cmd := setup.Wrap(\"hello\", &cobra.Command{",
 		"cmd must be *setup.Command from the start, not wrapped only at return")

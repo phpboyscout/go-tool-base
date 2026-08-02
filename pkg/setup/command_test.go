@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	childFeature  = props.FeatureCmd("child")
-	parentFeature = props.FeatureCmd("parent")
-	grandFeature  = props.FeatureCmd("grand")
+	childFeature  = props.FeatureID("child")
+	parentFeature = props.FeatureID("parent")
+	grandFeature  = props.FeatureID("grand")
 )
 
 func TestSkipConfigCheck_AnnotatesAndReads(t *testing.T) {
@@ -71,7 +71,7 @@ func TestFeatureOf_IdentifiesByAnnotationNotUseString(t *testing.T) {
 	tests := []struct {
 		name string
 		cmd  func() *cobra.Command
-		want props.FeatureCmd
+		want props.FeatureID
 	}{
 		{
 			name: "wrapped init command is identified by feature",

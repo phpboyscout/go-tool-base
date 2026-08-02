@@ -632,17 +632,17 @@ func TestShouldSkipUpdateCheck(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		toolDisabled []p.FeatureCmd
+		toolDisabled []p.FeatureID
 		redirecting  bool
 		configCI     bool
 		cmdName      string
-		cmdFeature   p.FeatureCmd
+		cmdFeature   p.FeatureID
 		cmdMarked    bool
 		expectedSkip bool
 	}{
 		{
 			name:         "skip when update command disabled in tool",
-			toolDisabled: []p.FeatureCmd{p.UpdateCmd},
+			toolDisabled: []p.FeatureID{p.UpdateCmd},
 			expectedSkip: true,
 		},
 		{

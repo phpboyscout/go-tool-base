@@ -39,7 +39,7 @@ func TestEnable_NoDuplicates(t *testing.T) {
 	f2 := Enable(UpdateCmd)(f1)
 	count := 0
 	for _, f := range f2 {
-		if f.Cmd == UpdateCmd {
+		if f.ID == UpdateCmd {
 			count++
 		}
 	}
@@ -49,11 +49,11 @@ func TestEnable_NoDuplicates(t *testing.T) {
 func TestDisable_RemovesAndDisables(t *testing.T) {
 	t.Parallel()
 
-	features := []Feature{{Cmd: UpdateCmd, Enabled: true}}
+	features := []Feature{{ID: UpdateCmd, Enabled: true}}
 	result := Disable(UpdateCmd)(features)
 
 	for _, f := range result {
-		if f.Cmd == UpdateCmd {
+		if f.ID == UpdateCmd {
 			assert.False(t, f.Enabled)
 		}
 	}
@@ -66,7 +66,7 @@ func TestDisable_NoDuplicates(t *testing.T) {
 	f2 := Disable(AiCmd)(f1)
 	count := 0
 	for _, f := range f2 {
-		if f.Cmd == AiCmd {
+		if f.ID == AiCmd {
 			count++
 		}
 	}
@@ -77,7 +77,7 @@ func TestIsDefaultEnabled(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		cmd     FeatureCmd
+		cmd     FeatureID
 		enabled bool
 	}{
 		{UpdateCmd, true},
@@ -88,7 +88,7 @@ func TestIsDefaultEnabled(t *testing.T) {
 		{AiCmd, false},
 		{ConfigCmd, false},
 		{ManCmd, false},
-		{FeatureCmd("custom"), false},
+		{FeatureID("custom"), false},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.cmd), func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestIsDefaultEnabled(t *testing.T) {
 func TestIsEnabled_FromSlice(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool{Features: []Feature{{Cmd: UpdateCmd, Enabled: false}}}
+	tool := Tool{Features: []Feature{{ID: UpdateCmd, Enabled: false}}}
 	assert.False(t, tool.IsEnabled(UpdateCmd))
 	assert.True(t, tool.IsEnabled(InitCmd)) // falls back to default
 }

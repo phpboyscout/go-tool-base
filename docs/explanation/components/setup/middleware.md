@@ -30,9 +30,9 @@ Adds middleware that will be applied to **all** commands registered via the root
 
 #### `RegisterMiddleware`
 ```go
-func RegisterMiddleware(feature props.FeatureCmd, mw ...Middleware)
+func RegisterMiddleware(feature props.FeatureID, mw ...Middleware)
 ```
-Adds middleware that will be applied only to commands associated with a specific `props.FeatureCmd`.
+Adds middleware that will be applied only to commands associated with a specific `props.FeatureID`.
 
 #### `Seal`
 ```go
@@ -44,7 +44,7 @@ Locks the middleware registry. This must be called before `Chain()` is used, typ
 
 #### `Chain`
 ```go
-func Chain(feature props.FeatureCmd, runE cobra.RunEFunc) cobra.RunEFunc
+func Chain(feature props.FeatureID, runE cobra.RunEFunc) cobra.RunEFunc
 ```
 Applies all registered global and feature-specific middleware to the provided `RunE` function, returning the final wrapped function.
 
@@ -53,7 +53,7 @@ Applies all registered global and feature-specific middleware to the provided `R
 Since v0.5 the canonical integration surface is the composed `setup.Command`
 type. (The former `AddCommandWithMiddleware` helper it replaced was deprecated
 in v0.5 and removed in v0.20.) A `setup.Command` carries its own
-`props.FeatureCmd` key alongside the underlying `*cobra.Command`, and middleware
+`props.FeatureID` key alongside the underlying `*cobra.Command`, and middleware
 is wired exactly once at attach time.
 
 
@@ -63,10 +63,10 @@ is wired exactly once at attach time.
 
 #### `setup.Wrap`
 ```go
-func Wrap(feature props.FeatureCmd, cmd *cobra.Command) *Command
+func Wrap(feature props.FeatureID, cmd *cobra.Command) *Command
 ```
 Produces a `*Command` bound to `feature`. Untyped string literals are
-implicitly converted to `props.FeatureCmd`, so call sites typically read
+implicitly converted to `props.FeatureID`, so call sites typically read
 as `setup.Wrap("serve", &cobra.Command{...})`.
 
 #### `Command.Register`
@@ -209,7 +209,7 @@ To ensure thread safety and architectural consistency, the middleware registry f
 
 ## How wrapping is wired
 
-Each `*setup.Command` carries a `Feature` field (`props.FeatureCmd`) that the wrapping path uses as the middleware-registry key:
+Each `*setup.Command` carries a `Feature` field (`props.FeatureID`) that the wrapping path uses as the middleware-registry key:
 
 
 > [!NOTE]

@@ -16,8 +16,8 @@ import (
 // in middleware_test.go), which clears both the middleware and feature state.
 
 const (
-	regFeatureA = props.FeatureCmd("feature-a")
-	regFeatureB = props.FeatureCmd("feature-b")
+	regFeatureA = props.FeatureID("feature-a")
+	regFeatureB = props.FeatureID("feature-b")
 )
 
 func newInitialiserProvider() InitialiserProvider {

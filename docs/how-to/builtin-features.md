@@ -61,7 +61,7 @@ GitHub: props.GitHub{
 
 ## Feature Reference Table
 
-The following table provides a complete reference for all `FeatureCmd` constants, showing their default state, affected commands, and typical use cases:
+The following table provides a complete reference for all `FeatureID` constants, showing their default state, affected commands, and typical use cases:
 
 | Constant | Default State | Affected Commands | Use Case |
 | :--- | :--- | :--- | :--- |
@@ -161,7 +161,7 @@ props := &props.Props{
 You can check at runtime whether a feature is enabled or disabled:
 
 ```go
-func isFeatureEnabled(p *props.Props, feature props.FeatureCmd) bool {
+func isFeatureEnabled(p *props.Props, feature props.FeatureID) bool {
     // Smart default logic is handled internally by gtb
     return p.Tool.IsEnabled(feature)
 }

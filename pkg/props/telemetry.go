@@ -8,7 +8,7 @@ import (
 
 // TelemetryCmd is the feature flag for the telemetry command group.
 // Default disabled — tool authors must explicitly enable it.
-const TelemetryCmd = FeatureCmd("telemetry")
+const TelemetryCmd = FeatureID("telemetry")
 
 // EventType identifies the category of telemetry event. It is an alias for
 // telemetrytypes.EventType — the canonical type lives in the dependency-free

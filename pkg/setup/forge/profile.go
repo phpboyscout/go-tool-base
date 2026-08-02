@@ -49,7 +49,7 @@ type Profile struct {
 	// runner (e.g. "GitHub integration").
 	DisplayName string
 	// Feature is the feature flag that gates this initialiser.
-	Feature props.FeatureCmd
+	Feature props.FeatureID
 	// Host is the default web host: the manual-token URL host and the forge
 	// provider's release-source host.
 	Host string
@@ -142,7 +142,7 @@ var gitHubProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a
 	ConfigPrefix:           "github",
 	Label:                  "GitHub",
 	DisplayName:            "GitHub integration",
-	Feature:                props.FeatureCmd("github"),
+	Feature:                props.FeatureID("github"),
 	Host:                   "github.com",
 	KeychainAccount:        "github.auth",
 	Credential:             SingleToken,
@@ -160,7 +160,7 @@ var bitbucketProfile = Profile{ //nolint:gosec // G101: PassFallbackEnv is the e
 	ConfigPrefix:    "bitbucket",
 	Label:           "Bitbucket",
 	DisplayName:     "Bitbucket authentication",
-	Feature:         props.FeatureCmd("bitbucket"),
+	Feature:         props.FeatureID("bitbucket"),
 	KeychainAccount: "bitbucket.auth",
 	Credential:      DualUserPass,
 	UserFallbackEnv: "BITBUCKET_USERNAME",

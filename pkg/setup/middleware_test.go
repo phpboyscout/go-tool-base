@@ -31,7 +31,7 @@ func testMiddleware(name string, order *[]string) Middleware {
 	}
 }
 
-const testFeature = props.FeatureCmd("test-feature")
+const testFeature = props.FeatureID("test-feature")
 
 func TestRegisterMiddleware_Single(t *testing.T) {
 

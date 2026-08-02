@@ -61,7 +61,7 @@ Use the `setup.Register` function in your package's `init()` block. This ensures
 If your feature ships embedded config — an `assets/config.yaml` defaults
 document or an `assets/init/config.yaml` template that `init` should write into
 the user's file — announce the bundle in the same `init()` with
-`setup.RegisterAssets(props.FeatureCmd("myfeature"), "myfeature", &assets)`.
+`setup.RegisterAssets(props.FeatureID("myfeature"), "myfeature", &assets)`.
 The root command applies the bundles of enabled features during construction,
 so a disabled feature's config never leaks in.
 
@@ -75,7 +75,7 @@ import (
 )
 
 func init() {
-    setup.Register(props.FeatureCmd("myfeature"),
+    setup.Register(props.FeatureID("myfeature"),
         []setup.InitialiserProvider{
             func(p *props.Props) setup.Initialiser {
                 return &MyInitialiser{skip: skipMyFeature}

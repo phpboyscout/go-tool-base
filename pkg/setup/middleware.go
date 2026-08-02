@@ -16,14 +16,14 @@ type Middleware func(next func(cmd *cobra.Command, args []string) error) func(cm
 var (
 	mu                sync.RWMutex
 	globalMiddleware  []Middleware
-	featureMiddleware = make(map[props.FeatureCmd][]Middleware)
+	featureMiddleware = make(map[props.FeatureID][]Middleware)
 	sealed            bool
 )
 
 // RegisterMiddleware adds middleware that will be applied to commands
 // belonging to the specified feature. Middleware is applied in
 // registration order.
-func RegisterMiddleware(feature props.FeatureCmd, mw ...Middleware) {
+func RegisterMiddleware(feature props.FeatureID, mw ...Middleware) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -70,7 +70,7 @@ func IsSealed() bool {
 
 // Chain applies all registered middleware (global + feature-specific)
 // to the given RunE function and returns the wrapped function.
-func Chain(feature props.FeatureCmd, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
+func Chain(feature props.FeatureID, runE func(cmd *cobra.Command, args []string) error) func(cmd *cobra.Command, args []string) error {
 	mu.RLock()
 	defer mu.RUnlock()
 
@@ -98,7 +98,7 @@ func Chain(feature props.FeatureCmd, runE func(cmd *cobra.Command, args []string
 func ResetRegistryForTesting() {
 	mu.Lock()
 	globalMiddleware = nil
-	featureMiddleware = make(map[props.FeatureCmd][]Middleware)
+	featureMiddleware = make(map[props.FeatureID][]Middleware)
 	sealed = false
 	mu.Unlock()
 

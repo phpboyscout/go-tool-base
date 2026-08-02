@@ -24,7 +24,7 @@ type Command struct {
 
 	// Feature is the middleware lookup key. The empty string means "no
 	// feature-specific middleware" (global middleware still applies).
-	Feature props.FeatureCmd
+	Feature props.FeatureID
 }
 
 // FeatureAnnotation is the cobra.Command.Annotations key under which [Wrap]
@@ -41,7 +41,7 @@ const FeatureAnnotation = "gtb.feature"
 // Wrap also stamps the feature onto the underlying command's Annotations
 // (under [FeatureAnnotation]) so the feature is recoverable from the raw
 // *cobra.Command via [FeatureOf] — even where only cobra's own type is in hand.
-func Wrap(feature props.FeatureCmd, cmd *cobra.Command) *Command {
+func Wrap(feature props.FeatureID, cmd *cobra.Command) *Command {
 	if cmd != nil && feature != "" {
 		if cmd.Annotations == nil {
 			cmd.Annotations = map[string]string{}
@@ -54,15 +54,15 @@ func Wrap(feature props.FeatureCmd, cmd *cobra.Command) *Command {
 }
 
 // FeatureOf returns the feature a command was wrapped with via [Wrap], or the
-// empty FeatureCmd when the command carries no feature annotation. It works on
+// empty FeatureID when the command carries no feature annotation. It works on
 // the raw *cobra.Command, so it is usable from hooks that never see the
 // composing *Command.
-func FeatureOf(cmd *cobra.Command) props.FeatureCmd {
+func FeatureOf(cmd *cobra.Command) props.FeatureID {
 	if cmd == nil || cmd.Annotations == nil {
 		return ""
 	}
 
-	return props.FeatureCmd(cmd.Annotations[FeatureAnnotation])
+	return props.FeatureID(cmd.Annotations[FeatureAnnotation])
 }
 
 // SkipConfigCheckAnnotation is the cobra.Command.Annotations key under which

@@ -682,7 +682,7 @@ func TestRegisteredInitialiserProvider(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	ips := setup.GetInitialisers()[props.FeatureCmd("github")]
+	ips := setup.GetInitialisers()[props.FeatureID("github")]
 	require.NotEmpty(t, ips)
 
 	// Default flags: skipLogin/skipKey both false → a real initialiser.
@@ -709,7 +709,7 @@ func TestRegisteredSubcommandProvider(t *testing.T) {
 		Tool:   props.Tool{Name: "testtool"},
 	}
 
-	sps := setup.GetSubcommands()[props.FeatureCmd("github")]
+	sps := setup.GetSubcommands()[props.FeatureID("github")]
 	require.NotEmpty(t, sps)
 
 	cmds := sps[0](p)
@@ -720,7 +720,7 @@ func TestRegisteredSubcommandProvider(t *testing.T) {
 func TestRegisteredFeatureFlag(t *testing.T) {
 	t.Parallel()
 
-	fps := setup.GetFeatureFlags()[props.FeatureCmd("github")]
+	fps := setup.GetFeatureFlags()[props.FeatureID("github")]
 	require.NotEmpty(t, fps)
 
 	cmd := &cobra.Command{Use: "init"}

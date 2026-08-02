@@ -42,8 +42,8 @@ import (
 )
 
 func init() {
-    // This middleware ONLY runs for commands wrapped with FeatureCmd("chat").
-    setup.RegisterMiddleware(props.FeatureCmd("chat"),
+    // This middleware ONLY runs for commands wrapped with FeatureID("chat").
+    setup.RegisterMiddleware(props.FeatureID("chat"),
         setup.WithAuthCheck("chat.api_key", "chat.model"),
     )
 }

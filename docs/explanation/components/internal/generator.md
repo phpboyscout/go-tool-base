@@ -296,7 +296,7 @@ We use Go's `text/template` engine to render code. Templates are stored as strin
 #### The Feature Catalogue (`templates/feature_catalogue.go`)
 
 `templates.FeatureCatalogue` is the **single source of truth** for the built-in
-feature set. It is an ordered table mapping each `props.FeatureCmd` across three
+feature set. It is an ordered table mapping each `props.FeatureID` across three
 facts that must stay aligned:
 
 - **name** — the config/manifest string (e.g. `ai`);
@@ -316,7 +316,7 @@ dropped on `regenerate manifest`. A test guards `FeatureCatalogue` against
 `props.AllFeatures`, so adding a framework feature without registering its
 generator handling fails CI.
 
-`keychain` is **deliberately absent** from the catalogue: it has no `FeatureCmd`
+`keychain` is **deliberately absent** from the catalogue: it has no `FeatureID`
 and is a build-time blank-import decision (the scaffolded
 `cmd/<name>/keychain.go`), so it is toggled by adding/removing that file and
 recovered from the artefact rather than from a `SetFeatures` call. This is why

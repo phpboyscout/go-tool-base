@@ -1232,7 +1232,7 @@ func registerFeatureCommands(rootCmd *setup.Command, props *p.Props, mcpLogLevel
 	// table stays a single uniform func() type. skipGate marks the commands
 	// that read nothing from config and must work before any config exists.
 	simple := []struct {
-		feature  p.FeatureCmd
+		feature  p.FeatureID
 		build    func() *setup.Command
 		skipGate bool
 	}{

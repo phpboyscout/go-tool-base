@@ -19,7 +19,7 @@ import (
 func TestRegister_PopulatesSnapshots(t *testing.T) {
 	resetRegistry(t)
 
-	const feature = props.FeatureCmd("registry-coverage-feature")
+	const feature = props.FeatureID("registry-coverage-feature")
 
 	ip := func(_ *props.Props) Initialiser { return nil }
 	sp := func(_ *props.Props) []*cobra.Command { return []*cobra.Command{{Use: "sub"}} }
@@ -60,7 +60,7 @@ func TestRegister_PopulatesSnapshots(t *testing.T) {
 func TestRegister_NilSlicesAreNoops(t *testing.T) {
 	resetRegistry(t)
 
-	const feature = props.FeatureCmd("registry-nil-feature")
+	const feature = props.FeatureID("registry-nil-feature")
 
 	// nil provider slices must be skipped without creating entries.
 	Register(feature, nil, nil, nil)
@@ -75,7 +75,7 @@ func TestRegister_NilSlicesAreNoops(t *testing.T) {
 func TestSealRegistry_PanicsOnRegister(t *testing.T) {
 	resetRegistry(t)
 
-	const feature = props.FeatureCmd("registry-seal-feature")
+	const feature = props.FeatureID("registry-seal-feature")
 
 	SealRegistry()
 

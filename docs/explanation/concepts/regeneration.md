@@ -53,7 +53,7 @@ path and reconstructs every property from three in-tree artefacts
     feature set. Features are recovered from the `props.SetFeatures(...)` call via
     the shared `templates.FeatureCatalogue`, so every built-in toggle round-trips.
 - **`cmd/<name>/keychain.go`** — the scaffold-only `keychain` feature has no
-    `FeatureCmd` and never appears in the `SetFeatures` literal, so its state is
+    `FeatureID` and never appears in the `SetFeatures` literal, so its state is
     recovered from the presence of this blank-import file.
 - **`pkg/cmd/root/provenance.go`** — the signing posture, custom template-overlay
     pins, and `module_published`, which are recorded nowhere else in generated

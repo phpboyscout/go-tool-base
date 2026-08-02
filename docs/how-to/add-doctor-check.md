@@ -58,7 +58,7 @@ import (
 )
 
 func init() {
-    setup.RegisterChecks(props.FeatureCmd("myfeature"),
+    setup.RegisterChecks(props.FeatureID("myfeature"),
         []setup.CheckProvider{
             func(p *props.Props) []setup.CheckFunc {
                 return []setup.CheckFunc{
@@ -90,13 +90,13 @@ If your feature already has an initialiser, you can register checks in the same 
 
 ```go
 func init() {
-    setup.Register(props.FeatureCmd("myfeature"),
+    setup.Register(props.FeatureID("myfeature"),
         []setup.InitialiserProvider{...},
         []setup.SubcommandProvider{...},
         []setup.FeatureFlag{...},
     )
 
-    setup.RegisterChecks(props.FeatureCmd("myfeature"),
+    setup.RegisterChecks(props.FeatureID("myfeature"),
         []setup.CheckProvider{
             func(p *props.Props) []setup.CheckFunc {
                 return []setup.CheckFunc{checkMyService}

@@ -113,8 +113,8 @@ the resolved configuration:
 
 ```go
 func init() {
-    setup.RegisterAssets(props.FeatureCmd("myfeature"), "myfeature", &assets)
-    setup.Register(props.FeatureCmd("myfeature"), /* initialisers, subcommands, flags */)
+    setup.RegisterAssets(props.FeatureID("myfeature"), "myfeature", &assets)
+    setup.Register(props.FeatureID("myfeature"), /* initialisers, subcommands, flags */)
 }
 ```
 

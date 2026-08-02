@@ -63,7 +63,7 @@ Initialisers are registered via the `setup.Register` function, typically in a pa
 
 ```go
 func Register(
-    feature props.FeatureCmd,
+    feature props.FeatureID,
     ips []InitialiserProvider,
     sps []SubcommandProvider,
     fps []FeatureFlag,

@@ -39,7 +39,7 @@ func NewCmdGreet(p *props.Props) *setup.Command {
 }
 ```
 
-`setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that embeds `*cobra.Command`, so every cobra method (`cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(...)`, `cmd.SetContext(...)`) keeps working through the embedded pointer. The `"greet"` literal is implicitly converted to `props.FeatureCmd` (a named string type) by Go.
+`setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that embeds `*cobra.Command`, so every cobra method (`cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(...)`, `cmd.SetContext(...)`) keeps working through the embedded pointer. The `"greet"` literal is implicitly converted to `props.FeatureID` (a named string type) by Go.
 
 If you don't need feature-specific middleware, pass the empty string: `setup.Wrap("", &cobra.Command{...})` — global middleware (timing, recovery, telemetry) still applies.
 

@@ -15,7 +15,7 @@ func ExampleSetFeatures() {
 
 	for _, f := range features {
 		if f.Enabled {
-			fmt.Println("enabled:", f.Cmd)
+			fmt.Println("enabled:", f.ID)
 		}
 	}
 }

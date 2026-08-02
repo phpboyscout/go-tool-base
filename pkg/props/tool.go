@@ -9,26 +9,26 @@ import (
 	"gitlab.com/phpboyscout/go/forge"
 )
 
-// FeatureCmd identifies a built-in feature that can be enabled or disabled.
-type FeatureCmd string
+// FeatureID identifies a built-in feature that can be enabled or disabled.
+type FeatureID string
 
 const (
-	UpdateCmd    = FeatureCmd("update")
-	InitCmd      = FeatureCmd("init")
-	McpCmd       = FeatureCmd("mcp")
-	DocsCmd      = FeatureCmd("docs")
-	AiCmd        = FeatureCmd("ai")
-	DoctorCmd    = FeatureCmd("doctor")
-	ConfigCmd    = FeatureCmd("config")
-	ChangelogCmd = FeatureCmd("changelog")
-	ManCmd       = FeatureCmd("man")
+	UpdateCmd    = FeatureID("update")
+	InitCmd      = FeatureID("init")
+	McpCmd       = FeatureID("mcp")
+	DocsCmd      = FeatureID("docs")
+	AiCmd        = FeatureID("ai")
+	DoctorCmd    = FeatureID("doctor")
+	ConfigCmd    = FeatureID("config")
+	ChangelogCmd = FeatureID("changelog")
+	ManCmd       = FeatureID("man")
 )
 
 // AllFeatures is the canonical, ordered enumeration of every built-in feature
 // flag. It is the single source of truth for "the full feature matrix" — e.g.
 // the doctor report bundle ranges over it via IsEnabled. Keep it in sync with
-// the FeatureCmd const block above (and TelemetryCmd from telemetry.go).
-var AllFeatures = []FeatureCmd{
+// the FeatureID const block above (and TelemetryCmd from telemetry.go).
+var AllFeatures = []FeatureID{
 	UpdateCmd, InitCmd, McpCmd, DocsCmd, AiCmd, DoctorCmd,
 	ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
 }
@@ -44,9 +44,16 @@ var DefaultFeatures = []FeatureState{
 }
 
 // Feature represents the state of a feature (Enabled/Disabled).
+//
+// The ID field is serialised as "cmd", which is deliberate rather than an
+// oversight: the field was named Cmd when every feature was a command, and
+// [Tool.Features] is persisted in generator manifests and tool configs. Renaming
+// the Go identifier is a compile-time event a downstream fixes once; renaming
+// the wire key would silently stop older manifests loading. So the identifier
+// moved and the tag did not.
 type Feature struct {
-	Cmd     FeatureCmd `json:"cmd" yaml:"cmd"`
-	Enabled bool       `json:"enabled" yaml:"enabled"`
+	ID      FeatureID `json:"cmd"     yaml:"cmd"`
+	Enabled bool      `json:"enabled" yaml:"enabled"`
 }
 
 // FeatureState is a functional option that mutates the list of features.
@@ -70,34 +77,34 @@ func SetFeatures(mutators ...FeatureState) []Feature {
 }
 
 // Enable returns a FeatureState that enables the given command.
-func Enable(cmd FeatureCmd) FeatureState {
+func Enable(cmd FeatureID) FeatureState {
 	return func(features []Feature) []Feature {
 		// Remove existing entry if present to avoid duplicates
 		for i, f := range features {
-			if f.Cmd == cmd {
+			if f.ID == cmd {
 				features = slices.Delete(features, i, i+1)
 
 				break
 			}
 		}
 
-		return append(features, Feature{Cmd: cmd, Enabled: true})
+		return append(features, Feature{ID: cmd, Enabled: true})
 	}
 }
 
 // Disable returns a FeatureState that disables the given command.
-func Disable(cmd FeatureCmd) FeatureState {
+func Disable(cmd FeatureID) FeatureState {
 	return func(features []Feature) []Feature {
 		// Remove existing entry if present to avoid duplicates
 		for i, f := range features {
-			if f.Cmd == cmd {
+			if f.ID == cmd {
 				features = slices.Delete(features, i, i+1)
 
 				break
 			}
 		}
 
-		return append(features, Feature{Cmd: cmd, Enabled: false})
+		return append(features, Feature{ID: cmd, Enabled: false})
 	}
 }
 
@@ -283,9 +290,9 @@ type Tool struct {
 // derived from DefaultFeatures — the single source of truth for the
 // enabled-by-default set — so the two can never drift. A feature absent from the
 // default set is disabled by default.
-func isDefaultEnabled(cmd FeatureCmd) bool {
+func isDefaultEnabled(cmd FeatureID) bool {
 	for _, f := range SetFeatures() {
-		if f.Cmd == cmd {
+		if f.ID == cmd {
 			return f.Enabled
 		}
 	}
@@ -295,9 +302,9 @@ func isDefaultEnabled(cmd FeatureCmd) bool {
 
 // IsEnabled checks if a feature is enabled.
 // It checks the Features slice first, falling back to built-in defaults.
-func (t Tool) IsEnabled(cmd FeatureCmd) bool {
+func (t Tool) IsEnabled(cmd FeatureID) bool {
 	for _, f := range t.Features {
-		if f.Cmd == cmd {
+		if f.ID == cmd {
 			return f.Enabled
 		}
 	}
@@ -306,7 +313,7 @@ func (t Tool) IsEnabled(cmd FeatureCmd) bool {
 }
 
 // IsDisabled checks if a feature is disabled.
-func (t Tool) IsDisabled(cmd FeatureCmd) bool {
+func (t Tool) IsDisabled(cmd FeatureID) bool {
 	return !t.IsEnabled(cmd)
 }
 

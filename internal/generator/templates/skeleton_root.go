@@ -396,7 +396,7 @@ func buildFeatures(data SkeletonRootData) []jen.Code {
 }
 
 // getFeatureCmd maps a feature config name to the jen expression naming its
-// props FeatureCmd constant, derived from props.FeatureCatalogue — the single
+// props FeatureID constant, derived from props.FeatureCatalogue — the single
 // source of truth shared with the manifest scanner, so the renderer and scanner
 // cannot disagree about the constant token for a feature. Returns nil for an
 // unknown name (e.g. keychain, which is not a SetFeatures toggle).
