@@ -35,6 +35,22 @@ if errors.Is(err, root.ErrNoConfigFile) {
 
 ---
 
+## `pkg/props`
+
+Raised by the feature registry while a tool's feature set is being assembled at
+`init()` time. Every one is a programming error in the tool or a plugin it
+imports, not a runtime condition — they surface as a panic through
+`RegisterFeature` rather than something a command can recover from.
+
+| Error | Message | Typical Handling |
+|-------|---------|-----------------|
+| `ErrInvalidDescriptor` | props: feature descriptor is incomplete | A `FeatureDescriptor` is missing one of `ID`, `ConstName`, `ConstPackage` or `Kind`. All four are required: the generator needs the constant's name *and* its package to emit a qualified reference. Fix the descriptor at its registration site. |
+| `ErrDuplicateFeature` | props: feature is already registered | Two registrations claim the same feature ID. Usually two plugins colliding on a name; rename one, since the ID is the key everything else keys off. |
+| `ErrRegistrySealed` | props: feature registry is sealed | Registration was attempted after the registry had been enumerated. Feature registration belongs in `init()`; anything registering later has already missed the enumeration that built the command tree. |
+| `ErrPluginDefaultOn` | props: only builtin features may be default-enabled | A non-builtin feature declared `Default: true`. Adding a blank import must change what is *available*, never what is *on* — otherwise an import list becomes a behavioural file and a downstream that omits a provider cannot reason about what its remaining imports switched on. Ship the feature default-off and let the tool enable it. |
+
+---
+
 ## `gitlab.com/phpboyscout/go/controls`
 
 Extracted into the standalone [controls module](https://controls.go.phpboyscout.uk); gtb consumes it.
@@ -156,6 +172,7 @@ Extracted into the standalone [regexutil module](https://regexutil.go.phpboyscou
 | `ErrChecksumTooLarge` | checksum too large | Returned when the checksums.txt file exceeds the maximum allowed size. |
 | `ErrBinaryTooLarge` | binary too large | Returned during extraction if the update binary is dangerously large. |
 | `ErrBinaryNotInArchive` | binary not in archive | Returned when extracting an update tarball/zip that doesn't contain the expected executable. |
+| `ErrDowngradeRefused` | refusing to downgrade | Returned by the implicit (no `--version`) update path when the resolved release is older than the running binary. Signature and checksum verification authenticate an artefact, not its recency, so a stale or rolled-back release listing must not silently downgrade the tool. Deliberate downgrades go through `update --force` or `update --version`. |
 
 The signature-verification sentinels below were extracted into `gitlab.com/phpboyscout/go/signing/verify`; gtb's `SelfUpdater` re-surfaces them during `Update()`.
 
