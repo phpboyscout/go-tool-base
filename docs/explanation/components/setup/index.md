@@ -418,7 +418,7 @@ The `gtb init ai` and `gtb init github` wizards now present a credential storage
 | Mode | Config output | When offered |
 |------|---------------|--------------|
 | Env-var reference (default) | `{provider}.api.env: ENV_NAME` / `github.auth.env: ENV_NAME` | Always. Selected by default. |
-| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `gitlab.com/phpboyscout/go/credentials/keychain` (or registers a custom [`Backend`](../credentials.md#backend-interface)) AND [`credentials.Probe`](../credentials.md#api) succeeds against that backend at wizard start. Phase 2. |
+| OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `gitlab.com/phpboyscout/go/credentials/keychain` (or registers a custom [`Backend`](https://credentials.go.phpboyscout.uk)) AND [`credentials.Probe`](https://pkg.go.dev/gitlab.com/phpboyscout/go/credentials#Probe) succeeds against that backend at wizard start. Phase 2. |
 | Literal | `{provider}.api.key: sk-...` / `github.auth.value: ghp_...` | Hidden entirely under `CI=true`; the wizard refuses to persist a plaintext credential into a config file that will almost certainly leak via CI artefacts or logs. |
 
 The AI wizard then prompts for an env var name (defaulting to the provider standard — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.
@@ -443,7 +443,7 @@ The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles
 
 Related surfaces that rely on the same taxonomy:
 
-- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Chat > Credential Resolution](../chat/index.md#credential-resolution).
+- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Credentials — per-subsystem resolution cascades](../credentials.md#per-subsystem-resolution-cascades-gtb-owned).
 - **`go/forge-bitbucket`** (external module) — the dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals. GTB adapts its config subtree via `SettingsFromConfig`.
 - **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
 - **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.

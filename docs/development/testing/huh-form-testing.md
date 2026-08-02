@@ -109,7 +109,7 @@ func TestInstructAndVerifyEnvVar_ConfirmedButUnset(t *testing.T) {
 
 ### Why these tests must be serial
 
-`withScriptedStdin` swaps **process-global** `os.Stdin`/`os.Stdout` and sets `TERM`. `t.Setenv` deliberately panics if `t.Parallel()` was called, which is the safety interlock: these tests run in `go test`'s sequential phase, where the package's parallel tests are paused, so nothing else reads `os.Stdin` concurrently. This is a contained, test-only use of global state — **not** a production mocking hook — so it does not violate the [no-package-level-hooks rule](../../how-to/testing.md#no-package-level-mocking-hooks). See also [`t.Parallel()` + `t.Setenv()` are incompatible](../../how-to/testing.md#tparallel--tsetenv-are-incompatible).
+`withScriptedStdin` swaps **process-global** `os.Stdin`/`os.Stdout` and sets `TERM`. `t.Setenv` deliberately panics if `t.Parallel()` was called, which is the safety interlock: these tests run in `go test`'s sequential phase, where the package's parallel tests are paused, so nothing else reads `os.Stdin` concurrently. This is a contained, test-only use of global state — **not** a production mocking hook — so it does not violate the [no-package-level-hooks rule](../../how-to/testing.md#no-package-level-mocking-hooks). See also [`t.Parallel()` + `t.Setenv()` are incompatible](../../how-to/testing.md#tparallel-tsetenv-are-incompatible).
 
 ## Approach B — inject the form (best for new code)
 

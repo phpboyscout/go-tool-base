@@ -72,8 +72,8 @@ in a project-local `.<tool>.yaml`** — a file that may be committed to version
 control — `config set` warns, and, in an interactive terminal, asks to confirm.
 It never blocks the write (a project-local secret can be deliberate), but it
 nudges toward env-var or keychain storage. See
-[`config set`](../../reference/cli/config.md) and
-[Configure credentials](../../how-to/configure-credentials.md).
+[`config set`](../../../reference/cli/config.md) and
+[Configure credentials](../../../how-to/configure-credentials.md).
 
 `Props.Tool.EnvPrefix` is propagated into the store as the module's
 `WithEnv` layer, so a tool's config keys resolve from `MYTOOL_*` rather than bare
@@ -108,8 +108,8 @@ means "use this one"), so this trust gate only applies to the implicitly
 discovered `.<tool>.yaml`. CI runs untrusted by default — a pipeline that
 legitimately depends on project-local security keys should trust the file in a
 provisioning step or supply those values through the user config or environment.
-See [`config trust`](../../reference/cli/config.md) and the
-[security-decisions record](../../development/security-decisions.md#m-2-project-local-toolt-yaml-could-downgrade-security-posture).
+See [`config trust`](../../../reference/cli/config.md) and the
+[security-decisions record](../../../development/security-decisions.md#m-2-project-local-toolyaml-could-downgrade-security-posture).
 
 ## Embedded defaults: the `assets/config.yaml` convention
 

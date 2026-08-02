@@ -13,9 +13,9 @@ This guide gives engineers three ways to unblock themselves, in order of how clo
 
 | Option | Real go-keyring round-trip? | Install required | Best for |
 |--------|-----------------------------|------------------|----------|
-| [1. GNOME Keyring + `dbus-run-session`](#option-1--gnome-keyring-with-dbus-run-session) | Yes | `gnome-keyring`, `libsecret-tools` | Pre-release verification on a dev server |
-| [2. Containerised Secret Service](#option-2--containerised-secret-service) | Yes | Docker or Podman | Cross-distro testing; hermetic isolation |
-| [3. In-memory backend swap](#option-3--in-memory-backend-swap) | No (exercises GTB code paths) | None | Fast iteration; CI runners without D-Bus |
+| [1. GNOME Keyring + `dbus-run-session`](#option-1-gnome-keyring-with-dbus-run-session) | Yes | `gnome-keyring`, `libsecret-tools` | Pre-release verification on a dev server |
+| [2. Containerised Secret Service](#option-2-containerised-secret-service) | Yes | Docker or Podman | Cross-distro testing; hermetic isolation |
+| [3. In-memory backend swap](#option-3-in-memory-backend-swap) | No (exercises GTB code paths) | None | Fast iteration; CI runners without D-Bus |
 
 ## Option 1 — GNOME Keyring with `dbus-run-session`
 
@@ -188,4 +188,4 @@ Never commit the swapped version — `cmd/e2e` must ship with the real backend s
 
 - [Manual credential testing](manual-credentials.md) — the scenarios this guide unblocks.
 - [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, and the stub/memory/go-keyring implementations.
-- [`go/credentials/credtest`](../../../go/credentials/credtest/memory.go) — source for the in-memory backend and its test helper.
+- [`go/credentials/credtest`](https://gitlab.com/phpboyscout/go/credentials/-/tree/main/credtest) — source for the in-memory backend and its test helper.

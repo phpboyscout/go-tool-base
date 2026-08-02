@@ -435,4 +435,4 @@ This is the spec's Phase 2a/2b/2c/2d condensed into a single checklist:
 - [Spec: Remote Update Integrity — Checksums + GPG Signatures](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
 - [How-To: Secure Releases](../how-to/secure-releases.md) — end-user documentation for both phases
 - [Component: Setup Package](../explanation/components/setup/index.md#remote-checksum-verification-phase-1)
-- [Component: VCS Release Providers](../explanation/components/vcs/release.md) — `ChecksumProvider` and (planned) `SignatureProvider` interfaces
+- [Component: VCS](../explanation/components/vcs/index.md) — `ChecksumProvider` and (planned) `SignatureProvider` interfaces

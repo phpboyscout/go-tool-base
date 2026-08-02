@@ -42,8 +42,8 @@ Feature specifications are the primary mechanism for communicating requirements 
 When asked to implement a feature:
 
 1. **Read the spec first** -- check the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) for an approved spec matching the feature.
-2. **Read the required documentation** -- before writing any code, read the documents listed in the [Required Reading for Implementation](./specs/index.md#required-reading-for-implementation) section. This builds the context needed to follow project conventions.
-3. **Use Test-Driven Development** -- for each implementation phase, write failing tests first (derived from the spec's public API, data model, and error cases), then implement the minimum code to make them pass. See [Implementing a Specification](./specs/index.md#implementing-a-specification) for the full TDD workflow.
+2. **Read the required documentation** -- before writing any code, read the context the spec names, plus this project's [development guide](./index.md). This builds the context needed to follow project conventions.
+3. **Use Test-Driven Development** -- for each implementation phase, write failing tests first (derived from the spec's public API, data model, and error cases), then implement the minimum code to make them pass. See [Implement the Feature](./index.md#5-implement-the-feature) for the full TDD workflow.
 4. **Follow the implementation phases** -- specs define a phased approach; implement in order.
 5. **Cross-reference the public API** -- interfaces, types, and constructors are defined in the spec.
 6. **Check the status** -- only implement specs with status `APPROVED` or `IN PROGRESS`.
@@ -55,7 +55,7 @@ When asked to design a new feature, follow the **[Feature Specifications](./spec
 
 ### Implementing an Approved Spec
 
-When asked to implement a spec, use the **[Implementation Prompt](./specs/index.md#implementation-prompt)** template from the Feature Specifications guide. It provides step-by-step TDD instructions and references the documentation the agent must read before writing code.
+When asked to implement a spec, work from the [spec register](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) and the TDD workflow in [Implement the Feature](./index.md#5-implement-the-feature). The [specifications index](./specs/index.md) records which specs exist and their status.
 
 ## Testing the Generator
 
@@ -72,7 +72,7 @@ Accuracy is paramount. The AI is instructed to cross-reference every documentati
 ## Best Practices for AI-Driven Development
 
 1.  **Spec First**: For non-trivial features, always check for or draft a [Feature Specification](./specs/index.md) before writing code.
-2.  **Tests Before Code**: Use [TDD](./specs/index.md#implementing-a-specification) when implementing specs -- write failing tests derived from the spec, then implement.
+2.  **Tests Before Code**: Use [TDD](./index.md#5-implement-the-feature) when implementing specs -- write failing tests derived from the spec, then implement.
 3.  **Reference the Docs**: Always consult the relevant `docs/` before suggesting changes.
 4.  **Verify Often**: Use `/gtb-verify` early and often to catch style or logic issues.
 5.  **Documentation Maintenance**: Any functional change MUST include a doc update. Cross-reference code for accuracy.

@@ -97,4 +97,4 @@ To prevent race conditions during lifecycle transitions, the `Controller` uses a
 - **Logging**: The controller accepts an optional `*slog.Logger`. Always provide a logger to ensure service transitions and background errors are visible to the user.
 - **Context Awareness**: Background services should always respect the `context.Context` provided by the controller for internal task cancellation.
 
-**See also:** the signal-aware execution lifecycle that wires `SIGINT`/`SIGTERM` into the root command's run context, documented in [Commands — Root § Signal Handling](../../reference/cli/root.md#signal-handling).
+**See also:** the signal-aware execution lifecycle that wires `SIGINT`/`SIGTERM` into the root command's run context, documented in [Commands — Root § Signal Handling](../../reference/cli/root.md#signal-handling-and-exit-codes).

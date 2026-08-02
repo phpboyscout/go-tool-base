@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The `doctor` command runs diagnostic checks to validate configuration, connectivity, and the runtime environment. It is enabled by default via the `DoctorCmd` feature flag.
 
-`doctor` is the *health verdict* (pass/warn/fail/skip). Its [`report` subcommand](#doctor-report--support-bundle) adds the *state dump* — resolved config (redacted), paths, versions, and feature flags — around that verdict.
+`doctor` is the *health verdict* (pass/warn/fail/skip). Its [`report` subcommand](#doctor-report-support-bundle) adds the *state dump* — resolved config (redacted), paths, versions, and feature flags — around that verdict.
 
 ## Usage
 

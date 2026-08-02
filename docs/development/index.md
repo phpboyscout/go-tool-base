@@ -110,7 +110,7 @@ Request review from a Subject Matter Expert (SME). The reviewer should:
 - Read the spec and assess feasibility, design decisions, and scope.
 - If **approved**: update the spec's `status` to `APPROVED` (in both frontmatter and the document header) and push the change.
 - If **changes are needed**: use GitHub's PR commenting facility to communicate required changes. The spec author iterates until the reviewer is satisfied.
-- If **rejected**: update the spec's `status` to `REJECTED`, add a `## Rejection Rationale` section (see [Handling Rejections](./specs/index.md#handling-rejections)), and merge the PR to preserve the historical record.
+- If **rejected**: update the spec's `status` to `REJECTED`, add a `## Rejection Rationale` section (see [Specifications index](./specs/index.md)), and merge the PR to preserve the historical record.
 
 !!! warning
     Do not begin implementation until the spec status is `APPROVED`.
