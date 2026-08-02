@@ -370,8 +370,16 @@ func CommandInitializer(data CommandData) *jen.File {
 		jen.Return(jen.Id("cfg").Dot("IsSet").Call(jen.Lit(data.Name))),
 	)
 
-	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"), jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Editor")).Error().Block(
-		jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("cfg"))),
+	// The leading context.Context is required by setup.Initialiser. It is
+	// forwarded to the user's Init<Name> stub rather than discarded, so a
+	// scaffolded initialiser can honour cancellation and per-operation
+	// deadlines — which is why the interface carries it at all.
+	f.Func().Params(jen.Id("i").Op("*").Id(data.PascalName+"Initialiser")).Id("Configure").Params(
+		jen.Id("ctx").Qual("context", "Context"),
+		jen.Id("p").Op("*").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "Props"),
+		jen.Id("cfg").Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "Editor"),
+	).Error().Block(
+		jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("ctx"), jen.Id("p"), jen.Id("cfg"))),
 	)
 
 	f.Line()
@@ -389,7 +397,7 @@ func CommandInitializer(data CommandData) *jen.File {
 					jen.False(),
 				),
 				jen.If(jen.Err().Op("!=").Nil()).Block(jen.Return(jen.Err())),
-				jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("p"), jen.Id("editor"))),
+				jen.Return(jen.Id("Init"+data.PascalName).Call(jen.Id("cmd").Dot("Context").Call(), jen.Id("p"), jen.Id("editor"))),
 			),
 		})),
 	)
@@ -814,7 +822,7 @@ func CommandExecution(data CommandData) string {
 
 	if data.WithInitializer {
 		sb.WriteString("\n")
-		fmt.Fprintf(&sb, "func Init%s(p *props.Props, cfg setup.Editor) error {\n", data.PascalName)
+		fmt.Fprintf(&sb, "func Init%s(ctx context.Context, p *props.Props, cfg setup.Editor) error {\n", data.PascalName)
 		sb.WriteString("\t// TODO: Implement custom initialization logic for " + data.Name + "\n")
 		sb.WriteString("\treturn nil\n")
 		sb.WriteString("}\n")

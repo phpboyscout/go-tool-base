@@ -65,7 +65,7 @@ func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data t
 			},
 			stub: func() string {
 				return fmt.Sprintf(
-					"\nfunc Init%s(p *props.Props, cfg setup.Editor) error {\n"+
+					"\nfunc Init%s(ctx context.Context, p *props.Props, cfg setup.Editor) error {\n"+
 						"\t// TODO: Implement custom initialization logic for %s\n"+
 						"\treturn nil\n"+
 						"}\n",
