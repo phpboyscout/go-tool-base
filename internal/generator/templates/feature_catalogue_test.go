@@ -26,11 +26,11 @@ func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 		byCmd[d.Cmd] = d
 	}
 
-	assert.Lenf(t, FeatureCatalogue, len(props.AllFeatures),
+	assert.Lenf(t, FeatureCatalogue, len(props.AllFeatures()),
 		"FeatureCatalogue must cover exactly props.AllFeatures — a new FeatureID needs a catalogue entry")
 
 	defaultTool := props.Tool{Features: props.SetFeatures()}
-	for _, cmd := range props.AllFeatures {
+	for _, cmd := range props.AllFeatures() {
 		d, ok := byCmd[cmd]
 		assert.Truef(t, ok, "props.AllFeatures %q is missing from FeatureCatalogue", cmd)
 		assert.Equalf(t, defaultTool.IsEnabled(cmd), d.Default,

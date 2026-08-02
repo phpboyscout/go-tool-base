@@ -19,7 +19,7 @@ func TestDefaultEnabledDerivedFromDefaultFeatures(t *testing.T) {
 		defaults[f.ID] = f.Enabled
 	}
 
-	for _, feature := range AllFeatures {
+	for _, feature := range AllFeatures() {
 		assert.Equal(t, defaults[feature], isDefaultEnabled(feature),
 			"isDefaultEnabled(%q) must agree with the default feature set", feature)
 	}

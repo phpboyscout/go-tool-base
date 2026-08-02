@@ -16,6 +16,40 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
+// Feature identities for the forge integrations this package registers.
+//
+// They carry no "Cmd" suffix: unlike the framework's built-ins, a forge feature
+// does not exist to gate a command. It gates an initialiser, a config section
+// and an embedded asset bundle — the `init <forge>` subcommand it also
+// contributes is incidental. See spec 0184 D10.
+const (
+	// GithubFeature gates the GitHub single-token setup wizard.
+	GithubFeature = props.FeatureID("github")
+	// BitbucketFeature gates the Bitbucket dual-credential setup wizard.
+	BitbucketFeature = props.FeatureID("bitbucket")
+)
+
+// Registering the forge features makes them visible to everything that
+// enumerates the feature set — most immediately the doctor support bundle,
+// which ranges over props.AllFeatures and had been silently omitting both.
+//
+// Neither may be default-enabled: a blank import changes what is available,
+// never what is on (props.ErrPluginDefaultOn).
+//
+//nolint:gochecknoinits // blank-import registration is the mechanism
+func init() {
+	props.RegisterFeature(props.FeatureDescriptor{
+		ID:        GithubFeature,
+		ConstName: "GithubFeature",
+		Kind:      props.KindForge,
+	})
+	props.RegisterFeature(props.FeatureDescriptor{
+		ID:        BitbucketFeature,
+		ConstName: "BitbucketFeature",
+		Kind:      props.KindForge,
+	})
+}
+
 // CredentialShape discriminates the credential layout a forge setup wizard
 // captures: a single API token, or a username + app-password pair.
 type CredentialShape int
@@ -142,7 +176,7 @@ var gitHubProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a
 	ConfigPrefix:           "github",
 	Label:                  "GitHub",
 	DisplayName:            "GitHub integration",
-	Feature:                props.FeatureID("github"),
+	Feature:                GithubFeature,
 	Host:                   "github.com",
 	KeychainAccount:        "github.auth",
 	Credential:             SingleToken,
@@ -160,7 +194,7 @@ var bitbucketProfile = Profile{ //nolint:gosec // G101: PassFallbackEnv is the e
 	ConfigPrefix:    "bitbucket",
 	Label:           "Bitbucket",
 	DisplayName:     "Bitbucket authentication",
-	Feature:         props.FeatureID("bitbucket"),
+	Feature:         BitbucketFeature,
 	KeychainAccount: "bitbucket.auth",
 	Credential:      DualUserPass,
 	UserFallbackEnv: "BITBUCKET_USERNAME",

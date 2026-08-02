@@ -24,23 +24,21 @@ const (
 	ManCmd       = FeatureID("man")
 )
 
-// AllFeatures is the canonical, ordered enumeration of every built-in feature
-// flag. It is the single source of truth for "the full feature matrix" — e.g.
-// the doctor report bundle ranges over it via IsEnabled. Keep it in sync with
-// the FeatureID const block above (and TelemetryCmd from telemetry.go).
-var AllFeatures = []FeatureID{
-	UpdateCmd, InitCmd, McpCmd, DocsCmd, AiCmd, DoctorCmd,
-	ConfigCmd, ChangelogCmd, ManCmd, TelemetryCmd,
-}
-
 // DefaultFeatures is the list of features enabled by default.
-var DefaultFeatures = []FeatureState{
-	Enable(UpdateCmd),
-	Enable(InitCmd),
-	Enable(McpCmd),
-	Enable(DocsCmd),
-	Enable(DoctorCmd),
-	Enable(ChangelogCmd),
+//
+// It is derived from the feature registry rather than hand-written, so a feature
+// declares its own default alongside its identity and the two cannot drift. Only
+// builtin features may be default-enabled — see [ErrPluginDefaultOn].
+func DefaultFeatures() []FeatureState {
+	var states []FeatureState
+
+	for _, d := range FeatureDescriptors() {
+		if d.Default {
+			states = append(states, Enable(d.ID))
+		}
+	}
+
+	return states
 }
 
 // Feature represents the state of a feature (Enabled/Disabled).
@@ -64,7 +62,7 @@ func SetFeatures(mutators ...FeatureState) []Feature {
 	var features []Feature
 
 	// Apply defaults first
-	for _, fn := range DefaultFeatures {
+	for _, fn := range DefaultFeatures() {
 		features = fn(features)
 	}
 
@@ -284,20 +282,6 @@ type Tool struct {
 	// message referencing Name is shown — the framework never assumes a
 	// particular installer.
 	InstallHint string `json:"install_hint,omitempty" yaml:"install_hint,omitempty"`
-}
-
-// isDefaultEnabled returns true if the feature is enabled by default. It is
-// derived from DefaultFeatures — the single source of truth for the
-// enabled-by-default set — so the two can never drift. A feature absent from the
-// default set is disabled by default.
-func isDefaultEnabled(cmd FeatureID) bool {
-	for _, f := range SetFeatures() {
-		if f.ID == cmd {
-			return f.Enabled
-		}
-	}
-
-	return false
 }
 
 // IsEnabled checks if a feature is enabled.
