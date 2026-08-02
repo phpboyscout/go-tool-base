@@ -66,3 +66,45 @@ This generates an `mcp-tools.json` file in your current directory, showing the J
 - Debugging which commands are exposed to AI agents
 - Understanding the expected input/output format
 - Validating tool definitions before deployment
+
+## Gating sensitive commands
+
+Every command in the tree is on the MCP tool surface by default. A command that
+should stay runnable on the CLI but *not* be callable by an agent is excluded at
+build time:
+
+```go
+setup.ExcludeFromMCP(mycmd.NewCmdDeploy(props))
+```
+
+Exclusion is inherited: descendants of an excluded command are excluded too,
+unless one of them opts back in.
+
+```go
+setup.IncludeInMCP(mycmd.NewCmdDeployStatus(props))
+```
+
+`IsExposedToMCP` walks a command and its ancestors and takes the nearest
+explicit decision — exposed wins for that command, excluded hides the subtree,
+and a tree with no decision anywhere is exposed.
+
+The generator carries the same tri-state through `.gtb/manifest.yaml`:
+
+```bash
+gtb generate command -n post --mcp-enabled=false
+```
+
+Omitting the flag leaves the decision unset (inherit); `--mcp-enabled=true`
+records an explicit exposure, which is how you re-expose one subcommand of an
+excluded parent.
+
+### Exposure is build-time only
+
+There is no configuration key or flag that changes the MCP surface at runtime.
+The decision is baked into the binary as a cobra annotation
+(`gtb.mcp.exposure`), so the surface a shipped binary presents is fixed and
+auditable. An operator cannot widen it, and a compromised config file cannot
+either.
+
+Confirm what a given build actually exposes with `mytool mcp tools`, which
+writes the full tool definitions to `mcp-tools.json`.
