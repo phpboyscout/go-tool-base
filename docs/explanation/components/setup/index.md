@@ -433,6 +433,8 @@ The GitHub wizard:
 6. **Literal mode → legacy write.** Runs OAuth (or manual fallback) and writes the captured token to `github.auth.value`. Refused under CI.
 7. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser — common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted via the mode chosen in step 3.
 
+    The guidance takes one of three shapes, depending on what the forge's profile knows. With a host and a URL template it prints the resolved link and the scope list. With a host but no template it names the host in a generic message. **With no host at all** — a forge that is always self-hosted has no default to print — it names the forge and lists the scopes without a link, rather than rendering one that cannot be visited.
+
 The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles Bitbucket's dual-credential model natively:
 
 - **Env-var mode** prompts for two env var names (defaults `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`) and writes both references — `bitbucket.username.env` and `bitbucket.app_password.env`.

@@ -517,21 +517,59 @@ func runAuthFormStage(creator func(*AuthConfig) *huh.Form, cfg *AuthConfig) erro
 }
 
 // manualTokenInstructions returns the stderr guidance shown before prompting
-// for a manual token. When the profile defines a token-creation URL template it
-// yields the resolved URL and (if set) the scope list; otherwise it degrades to
-// a generic message naming the host, so no forge-specific URL or scope literal
-// lives in the wizard itself.
+// for a manual token. It has three shapes, selected by what the profile knows:
+//
+//   - host and URL template — the resolved URL and (if set) the scope list;
+//   - host, no template — a generic message naming the host;
+//   - no host — see [hostlessTokenInstructions].
+//
+// No forge-specific URL or scope literal lives in the wizard itself; all of it
+// comes from the profile.
 func manualTokenInstructions(profile Profile) string {
-	if profile.TokenCreateURLTemplate == "" {
-		return fmt.Sprintf("Create a personal access token on %s, then paste it below.", profile.Host)
+	host := strings.TrimSpace(profile.Host)
+
+	// Both branches below interpolate the host, so a profile that has none must
+	// divert before either runs. Not every forge has a default host the way
+	// GitHub has github.com — Gitea instances are all self-hosted — and an empty
+	// host renders "https:///user/settings/applications" or a sentence ending in
+	// a blank. That is broken output, not degraded output.
+	if host == "" {
+		return hostlessTokenInstructions(profile)
 	}
 
-	url := strings.ReplaceAll(profile.TokenCreateURLTemplate, "{host}", profile.Host)
+	if profile.TokenCreateURLTemplate == "" {
+		return fmt.Sprintf("Create a personal access token on %s, then paste it below.", host)
+	}
+
+	url := strings.ReplaceAll(profile.TokenCreateURLTemplate, "{host}", host)
 
 	lines := []string{
 		"Open this URL on any device to create a personal access token:",
 		"",
 		"  " + url,
+	}
+
+	if profile.TokenScopes != "" {
+		lines = append(lines, "", "Required scopes: "+profile.TokenScopes)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// hostlessTokenInstructions is the guidance for a profile carrying no host.
+//
+// The URL template is deliberately left unrendered: without a host it can only
+// produce a URL nobody can visit, and a broken link is worse than no link. The
+// scope list is still worth stating — the user must select the same scopes by
+// hand wherever their instance lives.
+func hostlessTokenInstructions(profile Profile) string {
+	subject := strings.TrimSpace(profile.Label)
+	if subject == "" {
+		subject = "your forge"
+	}
+
+	lines := []string{
+		fmt.Sprintf("Create a personal access token for %s, then paste it below.", subject),
 	}
 
 	if profile.TokenScopes != "" {

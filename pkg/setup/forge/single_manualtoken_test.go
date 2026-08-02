@@ -61,6 +61,72 @@ func TestManualTokenInstructions(t *testing.T) {
 	}
 }
 
+// TestManualTokenInstructions_HostlessProfile covers the profile shape Gitea
+// introduces: a forge with no default host (there is no "gitea.com" the way
+// there is a "github.com"). Both branches of the instructions interpolate
+// Profile.Host, so an empty host produced broken output rather than degraded
+// output — "https:///user/settings/applications", or a sentence ending in a
+// blank. Neither is acceptable to show a user.
+func TestManualTokenInstructions_HostlessProfile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		profile     Profile
+		wantContain []string
+		wantAbsent  []string
+	}{
+		{
+			name: "hostless profile with a URL template renders no broken URL",
+			profile: Profile{ //nolint:gosec // G101: URL template, not a credential
+				Label:                  "Gitea",
+				TokenCreateURLTemplate: "https://{host}/user/settings/applications",
+				TokenScopes:            "write:repository, read:user",
+			},
+			wantContain: []string{"Gitea", "write:repository, read:user"},
+			wantAbsent:  []string{"https:///", "{host}"},
+		},
+		{
+			name:        "hostless profile without a template names the forge, not a blank",
+			profile:     Profile{Label: "Gitea"},
+			wantContain: []string{"Gitea"},
+			wantAbsent:  []string{"token on ,", "on , then", "  ,"},
+		},
+		{
+			name:       "hostless and label-less profile still reads as a sentence",
+			profile:    Profile{},
+			wantAbsent: []string{"https:///", "{host}", "on , then", " for , "},
+		},
+		{
+			name:        "whitespace-only host is treated as absent",
+			profile:     Profile{Label: "Gitea", Host: "   "},
+			wantContain: []string{"Gitea"},
+			wantAbsent:  []string{"on    ,", "https://   /"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := manualTokenInstructions(tt.profile)
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, got, want)
+			}
+
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, got, absent)
+			}
+
+			// Whatever branch is taken, the output must never contain an empty
+			// interpolation artefact.
+			assert.NotContains(t, got, "https:///", "empty host interpolated into a URL")
+			assert.NotRegexp(t, `\s,\s`, got, "empty host interpolated into prose")
+		})
+	}
+}
+
 // TestManualToken_NoForgeSpecificLiteralsInWizard guards the acceptance
 // criterion that the wizard body carries no forge-specific URL literal — the
 // GitHub PAT path now lives only on the Profile.
