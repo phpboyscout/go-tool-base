@@ -31,9 +31,12 @@ The credential wizards (GitHub, Bitbucket, AI) are interactive. When `init` runs
 | `-c, --clean` | Reset existing configuration and replace with defaults | `false` |
 | `-l, --skip-login` | Skip the GitHub login process | `false` (or `true` in CI) |
 | `-k, --skip-key` | Skip SSH key configuration | `false` (or `true` in CI) |
+| `--skip-gitlab` | Skip configuring GitLab credentials | `false` (or `true` in CI) |
+| `--skip-gitea` | Skip configuring Gitea credentials | `false` (or `true` in CI) |
+| `--skip-bitbucket` | Skip configuring Bitbucket credentials | `false` (or `true` in CI) |
 
 !!! info "CI Mode Detection"
-    When the `CI` environment variable is set to `true`, the `--skip-login`, `--skip-key`, and `--skip-bitbucket` flags default to `true` to avoid interactive prompts in automated environments. Independently of those flags, the credential wizards are also skipped whenever stdin is not an interactive terminal — so `init` is safe to run in pipelines and scripts without hanging.
+    When the `CI` environment variable is set to `true`, the `--skip-login`, `--skip-key`, `--skip-gitlab`, `--skip-gitea` and `--skip-bitbucket` flags default to `true` to avoid interactive prompts in automated environments. Independently of those flags, the credential wizards are also skipped whenever stdin is not an interactive terminal — so `init` is safe to run in pipelines and scripts without hanging.
 
 ## Example
 
@@ -61,6 +64,43 @@ mytool init github [--dir <path>]
 
 **Description:**
 Runs the full GitHub authentication flow (token generation and SSH key configuration) even if already configured. Useful when tokens expire or you need to switch accounts.
+
+### Init GitLab
+
+**Usage:**
+```bash
+mytool init gitlab [--dir <path>]
+```
+
+**Description:**
+Configures the GitLab token via the three-mode selector (env-var reference, OS keychain, or literal), and generates or selects an SSH key for Git operations.
+
+Login uses GitLab's OAuth device flow against an application the framework owns on `gitlab.com`, so no setup is required to authenticate there. A **self-hosted** instance needs its own OAuth application: register one on that instance and supply its client ID via the `gitlab.auth.client_id` config key or the `GITLAB_CLIENT_ID` environment variable. Without one, login degrades to manual token entry rather than failing.
+
+!!! note "Scopes"
+    The device flow requests `api` and `write_repository`. `api` is not a preference — SSH-key upload writes a user-level resource (`POST /user/keys`), and GitLab has `read_user` but no `write_user`, while `write_repository` covers Git-over-HTTP rather than API access. No narrower scope can register a key. Request less via the provider's `Scopes` setting and accept the manual SSH path if that trade is wrong for you.
+
+### Init Gitea
+
+**Usage:**
+```bash
+mytool init gitea [--dir <path>]
+```
+
+**Description:**
+Configures the Gitea token via the three-mode selector, and generates or selects an SSH key.
+
+Gitea has **no interactive browser login** — the upstream adapter is personal-access-token only by design — so this wizard goes straight to manual token entry. It also carries no default host, since every Gitea instance is self-hosted; the token-creation guidance names the forge rather than inventing a URL.
+
+### Init Bitbucket
+
+**Usage:**
+```bash
+mytool init bitbucket [--dir <path>]
+```
+
+**Description:**
+Configures Bitbucket's dual credentials (`username` + `app_password`) via the three-mode selector. Env-var mode records two variable names, keychain mode stores a single JSON blob, and literal mode writes both fields to config.
 
 ### Init AI
 

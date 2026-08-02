@@ -85,11 +85,29 @@ func Register(
 
 ## Built-in Initialisers Implementation
 
-### 1. Forge Initialiser (GitHub / Bitbucket)
+### 1. Forge Initialiser (GitHub / GitLab / Gitea / Bitbucket)
 
 **Package**: `pkg/setup/forge`
 
-The forge initialiser is a single, provider-parameterised initialiser driven by a `Profile`. `NewGitHubInitialiser` runs the GitHub profile (single-token auth + SSH keys); `NewBitbucketInitialiser` runs the Bitbucket profile (dual `username` + `app_password` credentials). The interactive login and SSH-key upload are performed against the **configured forge provider** via the optional `forge.Authenticator` and `forge.KeyManager` capabilities — type-asserted on the registered provider. A provider that does not implement a capability returns `forge.ErrNotSupported`, which the wizard treats as "skip the automated step and tell the user to do it manually" rather than a hard failure.
+The forge initialiser is a single, provider-parameterised initialiser driven by a `Profile`. Every forge adapter the framework registers has one, so a registered provider always has a way to configure it. `NewGitHubInitialiser` runs the GitHub profile; `NewBitbucketInitialiser` runs the Bitbucket profile; the remaining single-token forges are constructed generically from their profile.
+
+The interactive login and SSH-key upload are performed against the **configured forge provider** via the optional `forge.Authenticator` and `forge.KeyManager` capabilities — type-asserted on the registered provider. A provider that does not implement a capability returns `forge.ErrNotSupported`, which the wizard treats as "skip the automated step and tell the user to do it manually" rather than a hard failure.
+
+| Forge | Credentials | Login | SSH upload | Default host |
+| :--- | :--- | :--- | :--- | :--- |
+| GitHub | single token | OAuth device flow | yes | `github.com` |
+| GitLab | single token | OAuth device flow | yes | `gitlab.com` |
+| Gitea | single token | **none** — manual token only | yes | **none** — self-hosted |
+| Bitbucket | `username` + `app_password` | none | not offered | `bitbucket.org` |
+
+Two of those cells are upstream facts rather than framework choices. Gitea's adapter does not implement `Authenticator` — it is personal-access-token only by design — so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry. Bitbucket's adapter *does* implement `KeyManager`, but the dual-credential flow does not reach the SSH stage; exposing it is tracked separately.
+
+Gitea is also the only profile with no default host, because there is no public Gitea instance the way there is a `github.com`. That makes the token-creation guidance host-free rather than interpolating an empty string into a URL.
+
+!!! note "Shipped OAuth client IDs"
+    A profile may ship a client ID for its device-flow login, paired with the host that ID is registered against. GitLab ships one for `gitlab.com`. It is applied **only** when the resolved API host matches and the user's config names no client ID of its own — so a self-hosted instance still degrades to manual token entry instead of failing as an invalid client, and the provider's own environment-variable fallback stays live. Shipping the ID in the embedded config bundle instead would be simpler and would break both of those properties.
+
+**Adding a forge** means three things: a blank import of its adapter module, a `Profile`, and an embedded config bundle. Everything that enumerates forges — the feature registry, the doctor support bundle, the project generator's backend chooser — derives from those.
 
 The GitHub profile manages two distinct configuration areas: **Authentication** (OAuth device flow / token) and **SSH Keys**.
 

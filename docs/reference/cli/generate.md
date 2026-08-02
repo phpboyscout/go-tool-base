@@ -44,7 +44,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 |------|---------|-------------|
 | `--name, -n` | — | Project name (e.g. `als`). |
 | `--repo, -r` | — | Repository in `org/repo` format. |
-| `--git-backend` | `github` | Git backend: `github` or `gitlab`. |
+| `--git-backend` | `github` | Git backend: `github` or `gitlab`. Selects the skeleton asset set (CI pipelines, release automation, repository conventions), so the accepted values are the forges the generator ships a skeleton for — a narrower set than the forges a tool can authenticate against. |
 | `--host` | *(backend's canonical host)* | Git host (for self-managed instances). |
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
