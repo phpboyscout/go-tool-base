@@ -16,6 +16,7 @@ import (
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
@@ -114,7 +115,8 @@ otherwise supply the flags directly.`,
 
 	cmd.Flags().StringVarP(&opts.Name, "name", "n", "", "Project name (e.g. als)")
 	cmd.Flags().StringVarP(&opts.Repo, "repo", "r", "", "Repository in org/repo format")
-	cmd.Flags().StringVar(&opts.GitBackend, "git-backend", "github", "Git backend (github or gitlab)")
+	cmd.Flags().StringVar(&opts.GitBackend, "git-backend", defaultGitBackend,
+		"Git backend ("+strings.Join(gitBackendNames(), ", ")+")")
 	cmd.Flags().StringVar(&opts.Host, "host", "", "Git host (defaults to backend's canonical host)")
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "A tool built with gtb", "Project description")
@@ -351,40 +353,105 @@ func normalizeRepoHost(repo, host string) (string, string) {
 // underscores). It is a build-time literal, so MustCompile is safe.
 var envPrefixRe = regexp.MustCompile(`^[A-Z0-9_]+$`)
 
-// backendLabel is the human-facing name for a git backend value.
-func backendLabel(backend string) string {
-	if backend == "gitlab" {
-		return "GitLab"
+// defaultGitBackend is the backend chosen when none is given. It is also the
+// fallback when a lookup misses, which keeps every accessor below total.
+const defaultGitBackend = "github"
+
+// backendDisplay resolves a git backend value to its forge display data,
+// falling back to the default backend so the wizard never renders a blank
+// label or placeholder for a value that failed validation elsewhere.
+//
+// Previously each of these accessors was its own `if backend == "gitlab"`
+// branch. Four forges would have meant eight branches — and it was exactly
+// that duplication that let the wizard offer GitLab while the flag help,
+// validation and credential wizard disagreed about what existed.
+func backendDisplay(backend string) forge.Display {
+	// Only a scaffoldable backend resolves to itself. A registered-but-not-
+	// scaffoldable forge (Gitea, Bitbucket) falls back like any other unknown
+	// value, which is what the hand-written branches did — each was
+	// `if backend == "gitlab" { … } else { github }`, so everything that was
+	// not GitLab rendered GitHub.
+	if id := props.FeatureID(backend); scaffoldableBackends[id] {
+		if d, ok := forge.DisplayFor(id); ok {
+			return d
+		}
 	}
 
-	return "GitHub"
+	d, _ := forge.DisplayFor(props.FeatureID(defaultGitBackend))
+
+	return d
 }
+
+// backendLabel is the human-facing name for a git backend value.
+func backendLabel(backend string) string { return backendDisplay(backend).Label }
 
 // hostForBackend is the default host for a git backend value.
-func hostForBackend(backend string) string {
-	if backend == "gitlab" {
-		return "gitlab.com"
-	}
-
-	return "github.com"
-}
+func hostForBackend(backend string) string { return backendDisplay(backend).Host }
 
 // repoDescription is the repository-field help text for a git backend.
-func repoDescription(backend string) string {
-	if backend == "gitlab" {
-		return "The repository path. GitLab supports nested groups — use the full path and the last segment will be treated as the repository name (e.g. group/subgroup/repo)."
-	}
-
-	return "The repository path in org/repo format."
-}
+func repoDescription(backend string) string { return backendDisplay(backend).RepoDescription }
 
 // repoPlaceholder is the repository-field placeholder for a git backend.
-func repoPlaceholder(backend string) string {
-	if backend == "gitlab" {
-		return "group/subgroup/repo"
+func repoPlaceholder(backend string) string { return backendDisplay(backend).RepoPlaceholder }
+
+// scaffoldableBackends are the forges the generator has a skeleton asset set
+// for (internal/generator/assets/skeleton-<backend>), and therefore the ones a
+// generated project's CI, release automation and repository conventions can
+// actually be written for.
+//
+// This is a narrower axis than the forge registry, and deliberately so. A forge
+// feature gates a *credential wizard*; a git backend selects a *scaffolding
+// asset set*. Gitea and Bitbucket have the first and not the second — which is
+// also why generator.ValidateReleaseSourceType still rejects them. Offering
+// them here would scaffold a project the generator cannot complete.
+//
+// Adding skeleton-<forge> is what widens this set.
+var scaffoldableBackends = map[props.FeatureID]bool{
+	forge.GithubFeature: true,
+	forge.GitlabFeature: true,
+}
+
+// gitBackendOptions is the wizard's backend chooser: the registered forges that
+// are also scaffoldable, so the options, the flag help and the credential
+// wizards cannot drift apart the way they had.
+func gitBackendOptions() []huh.Option[string] {
+	displays := scaffoldableDisplays()
+	opts := make([]huh.Option[string], 0, len(displays))
+
+	for _, d := range displays {
+		opts = append(opts, huh.NewOption(d.Label, string(d.ID)))
 	}
 
-	return "org/repo"
+	return opts
+}
+
+// scaffoldableDisplays is the forge registry filtered to what can be
+// scaffolded, in the registry's deterministic order.
+func scaffoldableDisplays() []forge.Display {
+	all := forge.Displays()
+	out := make([]forge.Display, 0, len(all))
+
+	for _, d := range all {
+		if scaffoldableBackends[d.ID] {
+			out = append(out, d)
+		}
+	}
+
+	return out
+}
+
+// gitBackendNames lists the accepted --git-backend values, for the flag's help
+// text and its validation. Derived from the same table as the wizard, so the
+// flag cannot document a set the wizard does not offer.
+func gitBackendNames() []string {
+	displays := scaffoldableDisplays()
+	names := make([]string, 0, len(displays))
+
+	for _, d := range displays {
+		names = append(names, string(d.ID))
+	}
+
+	return names
 }
 
 // deriveEnvPrefix is the default env-var prefix for a project name: upper-case
@@ -442,10 +509,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 		huh.NewSelect[string]().
 			Title("Git Backend").
 			Description("Where the repository will be hosted.").
-			Options(
-				huh.NewOption("GitHub", "github"),
-				huh.NewOption("GitLab", "gitlab"),
-			).
+			Options(gitBackendOptions()...).
 			Value(&o.GitBackend).
 			Validate(func(s string) error {
 				if o.Host == "" {
