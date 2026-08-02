@@ -1,5 +1,22 @@
 # Changelog
 
+## [v0.35.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.35.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.34.0...v0.35.0)
+
+### Features
+
+- **controls**: adopt go/controls v0.2.0 single-owner signal handling ([dcc77d3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dcc77d32b3dcdaf10371adb5ff89ced6f5145598))
+- **root**: let a tool opt out of the framework's signal handling ([eda2247](https://gitlab.com/phpboyscout/go-tool-base/-/commit/eda22473e57eda29dfef7e9e90ca36d1e699862e))
+
+### Bug Fixes
+
+- **setup**: stop rendering an empty host in manual-token guidance ([fe9c5d5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fe9c5d5ef509ce7ba06f42b41f5556cf2c83877e))
+- **generator**: bring the gitlab skeleton back to fleet standard ([34405bf](https://gitlab.com/phpboyscout/go-tool-base/-/commit/34405bfd00fdedfe48face114e6c73206e7c1bb1))
+- **transport**: adapt to the WithTLSPair register option ([a552fa1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a552fa1737d86baf0da26282ac54b45b039752cd))
+- **deps**: update go modules ([6d482d3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6d482d356a22a0556832daea738de9856e4a4547))
+- **e2e**: give the signal scenarios their signal channel back ([9ab3b09](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9ab3b091d322ad2ce12f33c238ae4db7395b1ae3))
+
 ## [v0.34.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.34.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.33.0...v0.34.0)
