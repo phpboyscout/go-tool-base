@@ -1,7 +1,7 @@
 ---
 title: Getting Started
-description: Getting started guide for GTB, covering CLI scaffolding and manual integration.
-date: 2026-02-16
+description: The two ways into GTB — scaffold a project with the generator, or wire the library into an existing tool by hand.
+date: 2026-08-02
 tags: [getting-started, guide, setup]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 hide:
@@ -10,126 +10,222 @@ hide:
 
 # Getting Started
 
-GTB provides two primary ways to get started. Choose the route that best fits your workflow:
+There are two ways in, and the choice is mostly about whether you are starting
+fresh.
 
-| Route | Description | Best For... |
+| Route | What it gives you | Best for |
 | :--- | :--- | :--- |
-| **[Route A: CLI Generator](#route-a-the-fast-track-cli-scaffolding)** | Use our specialized CLI tool to scaffold your project in seconds. | New projects and rapid prototyping. |
-| **[Route B: Manual Integration](#route-b-manual-integration-manual-step-by-step)** | Manually integrate `gtb` as a library into an existing project. | Complex existing tools and custom layouts. |
+| **[Generate a project](#generate-a-project)** | A complete, releasable project — command tree, CI, docs site, manifest — in one command. | New tools, and prototyping. |
+| **[Wire the library by hand](#wire-the-library-by-hand)** | GTB's root command, Props and built-in commands inside a layout you already own. | Existing tools, and unusual layouts. |
 
----
+Both need the `gtb` CLI or the library installed first — see
+[Installation](installation.md).
 
-## Route A: The Fast-Track (CLI Scaffolding)
+If you would rather be walked through it,
+[Build your first CLI](tutorials/build-your-first-cli.md) is the same ground at
+tutorial pace, with the expected output at each step.
 
-This is the recommended path for most users. Our generator handles the boilerplate, directory structure, and registration logic for you.
+## Generate a project
 
-### 1. Install Global Generator
-Ensure you have the `gtb` CLI installed:
+The generator handles the boilerplate, the directory structure and the
+registration wiring.
+
+### 1. Scaffold
+
 ```bash
-go install gitlab.com/phpboyscout/go-tool-base/pkg/cmd/gtb@latest
+gtb generate project \
+  --name my-awesome-tool \
+  --repo your-org/my-awesome-tool \
+  --env-prefix MY_AWESOME_TOOL \
+  --path ./my-awesome-tool
 ```
 
-### 2. Scaffold Your Project
-Run the skeleton generator to create your new tool:
-```bash
-gtb generate skeleton --name my-awesome-tool --repo your-org/my-awesome-tool
-```
+`gtb generate cli` and `gtb generate skeleton` are aliases for the same command.
+Run it without `--name`/`--repo` in an interactive terminal and it launches a
+guided wizard instead.
 
-### 3. Add Custom Commands
-Navigate to your project and use the command generator:
+Set `--env-prefix`. Without it the generated tool has no environment-variable
+configuration layer, because an unprefixed layer would let any process on the
+machine reconfigure your tool.
+
+Pick your feature set with `--features` — `init`, `update`, `mcp`, `docs`,
+`doctor`, `changelog`, `keychain`, `ai`, `config`, `telemetry`. The default set
+is everything but `ai`, `config` and `telemetry`. Features can be added or
+removed later. Full flag list in the
+[generate reference](reference/cli/generate.md).
+
+### 2. Build and initialise
+
 ```bash
 cd my-awesome-tool
-gtb generate command --name hello
+just build            # or: go build -o bin/my-awesome-tool ./cmd/my-awesome-tool
+./bin/my-awesome-tool init
 ```
 
----
+The first build downloads a substantial dependency tree; give it a few minutes.
+`init` writes `~/.my-awesome-tool/config.yaml` from the template the tool ships
+with. Until it exists, most commands stop with `no config file found`.
 
-## Route B: Manual Integration (Manual Step-by-Step)
+### 3. Add a command
 
-If you have an existing project or prefer total control, follow these steps to integrate `gtb` as a library.
+```bash
+gtb generate command --name hello --short "Say hello"
+```
 
-### 1. Project Initialization
-Create a directory and initialize your module:
+That writes `pkg/cmd/hello/cmd.go` (generated boilerplate — do not edit) and
+`pkg/cmd/hello/main.go` (yours), registers the command in the root tree, records
+it in `.gtb/manifest.yaml`, and writes a reference page under
+`docs/reference/cli/`.
+
+Your logic goes in `main.go`. Regeneration never rewrites it — see
+[Regenerating components](how-to/framework-cli/regenerate-components.md) for the
+three mechanisms that protect your edits, and the one flag (`--force`) that does
+not.
+
+## Wire the library by hand
+
+Use this when you have an existing project or a layout the generator would fight.
+You give up the manifest, regeneration and the scaffolded CI; you keep Props, the
+root command, the built-in commands and the configuration store.
+
+### 1. Create the module
+
 ```bash
 mkdir my-awesome-tool
 cd my-awesome-tool
 go mod init github.com/your-org/my-awesome-tool
-mkdir -p cmd/tool
+mkdir -p cmd/tool/assets
 ```
 
-### 2. Basic Tool Structure
-Create your `main.go` entry point.
+### 2. Write the entry point
 
-**cmd/tool/main.go:**
+**`cmd/tool/main.go`:**
+
 ```go
 package main
 
 import (
-    "embed"
-    "os"
-    "time"
+	"embed"
+	"os"
 
-    "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/version"
-    "github.com/spf13/afero"
+	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 //go:embed assets/*
 var assets embed.FS
 
 func main() {
-    l := logger.NewCharm(os.Stderr,
-        logger.WithTimestamp(true),
-        logger.WithLevel(logger.InfoLevel),
-    )
+	l := logger.NewCharm(os.Stderr,
+		logger.WithTimestamp(true),
+		logger.WithLevel(logger.InfoLevel),
+	)
 
-    props := &props.Props{
-        Tool: props.Tool{
-            Name: "my-awesome-tool",
-            GitHub: props.GitHub{Org: "your-org", Repo: "my-awesome-tool"},
-        },
-        Logger:  l,
-        Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
-        FS:      afero.NewOsFs(),
-        Version: version.NewInfo("1.0.0", "dev", time.Now().Format(time.RFC3339)),
-    }
+	p, err := props.New(
+		props.Tool{
+			Name:      "my-awesome-tool",
+			Summary:   "My awesome CLI tool",
+			EnvPrefix: "MY_AWESOME_TOOL",
+			ReleaseSource: props.ReleaseSource{
+				Type:  "github",
+				Owner: "your-org",
+				Repo:  "my-awesome-tool",
+			},
+		},
+		l,
+		afero.NewOsFs(),
+		props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})),
+		props.WithVersion(version.NewInfo("0.1.0", "", "")),
+	)
+	if err != nil {
+		l.Error("failed to build props", "error", err)
+		os.Exit(1)
+	}
 
-    rootCmd := root.NewCmdRoot(props)
-    if err := rootCmd.Execute(); err != nil {
-        os.Exit(1)
-    }
+	root.Execute(root.NewCmdRoot(p), p)
 }
 ```
 
-### 3. Provide Default Assets
-Create the assets directory and a default configuration file.
+`root.Execute` is not the same as Cobra's `rootCmd.Execute()`. It adds the
+signal-aware context (SIGINT/SIGTERM cancel the command context, a second signal
+force-exits, an interrupted run exits 128+signum), the shared error path, and
+the telemetry flush. See the
+[root command reference](reference/cli/root.md#signal-handling-and-exit-codes).
 
-```bash
-mkdir cmd/tool/assets
-```
+### 3. Provide embedded defaults
 
-**cmd/tool/assets/config.yaml:**
+**`cmd/tool/assets/config.yaml`** — the lowest-precedence configuration layer,
+and required for the `//go:embed` directive to have something to match:
+
 ```yaml
 log:
   level: info
-vcs:
-  provider: github # Options: github, gitlab
-github:
-  url:
-    api: https://github.com/api/v3
-gitlab:
-  url:
-    api: https://gitlab.com/api/v4
 ```
 
----
+Defaults belong here and nowhere else. `default:` struct tags are treated as
+hint text and never applied.
 
-## Next Steps
+If your tool talks to a forge, add its block too — the framework's own defaults
+already supply the GitHub URLs, so you only need what differs:
 
-Regardless of which route you choose, you now have a CLI tool powered by GTB. Explore the rest of the documentation to unlock its full potential:
+```yaml
+vcs:
+  provider: gitlab
+gitlab:
+  url:
+    api: https://gitlab.example.com/api/v4
+  auth:
+    env: GITLAB_TOKEN
+```
 
-- **[Core Concepts](explanation/concepts/index.md)**: Deep dive into theory, props, and precedence.
-- **[How-to Guides](how-to/index.md)**: Practical instructions for adding commands and testing.
-- **[Component Reference](explanation/components/index.md)**: Detailed API documentation for every framework package.
+### 4. Build
+
+```bash
+go build -o bin/my-awesome-tool ./cmd/tool
+./bin/my-awesome-tool --help
+```
+
+## Which built-in commands you get
+
+Both routes give the same set, controlled by `props.Tool.Features`. `version` is
+always present; the rest can be switched off:
+
+```go
+Tool: props.Tool{
+	Features: props.SetFeatures(
+		props.Disable(props.UpdateCmd),
+		props.Disable(props.McpCmd),
+	),
+}
+```
+
+`config` and `telemetry` are opt-in and off by default. See
+[Built-in features](how-to/builtin-features.md) and the
+[commands overview](reference/cli/index.md).
+
+## What neither route does for you
+
+- **Neither writes your business logic.** The generator writes a stub that
+  returns `ErrNotImplemented`.
+- **Neither configures a forge or an AI provider.** Those are `init github`,
+  `init ai` and friends, run against a tool that already builds.
+- **Hand-wiring gives up regeneration permanently.** There is no supported path
+  from a hand-wired project to a manifest-driven one; the generator expects to
+  have written the layout it manages.
+- **The generator does not merge into an existing project.** Point `--path` at a
+  fresh directory.
+
+## Next steps
+
+- **[Build your first CLI](tutorials/build-your-first-cli.md)** — the same
+  ground, step by step, with expected output.
+- **[How-to guides](how-to/index.md)** — adding flags, binding them to config,
+  testing, nested subcommands.
+- **[Configuration keys](reference/config/index.md)** — every key, its default,
+  and what happens when it is wrong.
+- **[Concepts](explanation/concepts/index.md)** — Props, precedence, and the
+  architecture behind them.

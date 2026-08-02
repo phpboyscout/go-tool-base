@@ -1,7 +1,7 @@
 ---
 title: Installation
-description: Installation instructions for GTB.
-date: 2026-02-16
+description: Install the gtb CLI, add the go-tool-base library to a project, and verify both with a minimal tool that compiles.
+date: 2026-08-02
 tags: [installation, setup, configuration]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 hide:
@@ -10,183 +10,209 @@ hide:
 
 # Installation
 
-GTB is a Go library designed to be imported into your CLI tool projects. There are several ways to add it to your project depending on your development workflow.
+GTB is two things: a Go library you import into a CLI project, and a `gtb`
+automation CLI that scaffolds and regenerates those projects. You can use either
+without the other, though the generator is the fastest route in.
 
 ## Prerequisites
 
-Before using GTB, ensure you have:
+- **Go 1.26.5 or later.** That is the `go` directive in `go.mod`; an older
+  toolchain refuses to build the module. Generated projects default to the
+  toolchain you generate with, overridable with `--go-version`.
 
-- **Go 1.21 or later** installed (generated projects may target newer versions like Go 1.24+)
+## Install the gtb CLI
 
-!!! info "Go Version in Generated Projects"
-    While GTB itself requires Go 1.21+, the `generate skeleton` command creates projects configured for Go 1.24+ to take advantage of the latest [tool directive](https://go.dev/doc/modules/managing-dependencies#tools) features.
+The recommended route is a pre-built release binary. A source build omits the
+gitignored assets the embedded documentation browser needs, so `gtb docs` is
+degraded on one.
 
-## CLI Installation
-
-The recommended way to install the `gtb` CLI is using our pre-built release binaries. This ensures you have all necessary assets (like documentation) which are omitted by source-based builds.
-
-### Linux/macOS
+### Linux and macOS
 
 ```bash
-curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/raw/main/install.sh" | bash
+curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | bash
 ```
 
-!!! note
-    The script installs the binary to `$HOME/.local/bin`. Ensure this directory is in your `$PATH`.
+The script installs to `$HOME/.local/bin`. Make sure that is on your `$PATH`.
 
 ### Windows (PowerShell)
 
 ```powershell
-irm "https://gitlab.com/phpboyscout/go-tool-base/raw/main/install.ps1" | iex
+irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 ```
 
-### Token Permissions
-
-Releases are published to GitLab (`gitlab.com/phpboyscout/go-tool-base`), and the install scripts resolve the latest release from the GitLab API. For installing from this public project, **no token is required** — anonymous access is sufficient.
-
-The scripts accept an optional `GITLAB_TOKEN` environment variable, useful behind a private mirror or to avoid anonymous rate limits (for example inside a CI pipeline). When set, it is sent as a `PRIVATE-TOKEN` header. A token with the `read_api` scope (or a project access token with the Reporter role) is all that's needed; nothing broader is required to download a release asset.
-
-### From Source (go install)
-
-While less recommended because gitignored assets (like the TUI documentation) will be missing, you can still install from source:
+### From source
 
 ```bash
-go install gitlab.com/phpboyscout/go-tool-base@latest
+go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest
 ```
 
-Ensuring your `$GOPATH/bin` is in your `$PATH`, you can then use the `gtb` command directly.
+The `cmd/gtb` suffix matters — the module root is a library and has no `main`
+package, so `go install gitlab.com/phpboyscout/go-tool-base@latest` fails.
+Ensure `$GOPATH/bin` is on your `$PATH`.
 
-## Adding the Library to Your Project
+### Does the installer need a token?
 
-### Method 1: Go Modules (Recommended)
+No. Releases are published to `gitlab.com/phpboyscout/go-tool-base`, and the
+install scripts resolve the latest release from the GitLab API anonymously.
 
-Add GTB to your project using Go modules:
+Both scripts accept an optional `GITLAB_TOKEN`, useful behind a private mirror or
+to avoid anonymous rate limits in CI. When set it is sent as a `PRIVATE-TOKEN`
+header. A token with the `read_api` scope, or a project access token with the
+Reporter role, is enough; nothing broader is needed to download a release asset.
+
+## Add the library to a project
 
 ```bash
 go mod init your-tool-name
 go get gitlab.com/phpboyscout/go-tool-base
 ```
 
-### Method 2: Direct Import
-
-Add the import to your Go files and run `go mod tidy`:
+Or add the import and let the toolchain resolve it:
 
 ```go
 import "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
 ```
 
-Then run:
 ```bash
 go mod tidy
 ```
 
-## Project Structure
+## A minimal tool that compiles
 
-When starting a new CLI tool project, we recommend this structure:
+This is the smallest program that produces a working GTB CLI. It builds against
+v0.35.0.
 
-```
-your-tool/
-├── cmd/
-│   └── main.go              # Main entry point
-├── pkg/
-│   └── cmd/
-│       ├── root/            # Root command setup
-│       │   ├── assets/      # Embedded assets (configs, etc.)
-│       │   ├── main.go      # Root command setup
-│       └── custom/          # Your custom commands
-├── go.mod
-├── go.sum
-└── README.md
-```
+**`main.go`:**
 
-## Minimal Example
-
-Create a minimal CLI tool to verify installation:
-
-**main.go:**
 ```go
 package main
 
 import (
-    "embed"
-    "os"
+	"embed"
+	"os"
 
-    "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/logger"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/props"
-    "gitlab.com/phpboyscout/go-tool-base/pkg/version"
-    "github.com/spf13/afero"
+	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/root"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/version"
 )
 
 //go:embed assets/*
 var assets embed.FS
 
 func main() {
-    l := logger.NewCharm(os.Stderr,
-        logger.WithTimestamp(),
-        logger.WithLevel(logger.InfoLevel),
-    )
+	l := logger.NewCharm(os.Stderr,
+		logger.WithTimestamp(true),
+		logger.WithLevel(logger.InfoLevel),
+	)
 
-    props := &props.Props{
-        Tool: props.Tool{
-            Name:        "example-tool",
-            Summary:     "An example CLI tool",
-            Description: "Demonstrates GTB usage",
-            GitHub: props.GitHub{
-                Org:  "your-org",
-                Repo: "example-tool",
-            },
-        },
-        Logger:  l,
-        Assets:  props.NewAssets(&assets),
-        FS:      afero.NewOsFs(),
-        Version: version.NewInfo("0.1.0", "", ""),
-    }
+	p, err := props.New(
+		props.Tool{
+			Name:        "example-tool",
+			Summary:     "An example CLI tool",
+			Description: "Demonstrates GTB usage",
+			EnvPrefix:   "EXAMPLE_TOOL",
+			ReleaseSource: props.ReleaseSource{
+				Type:  "github",
+				Owner: "your-org",
+				Repo:  "example-tool",
+			},
+		},
+		l,
+		afero.NewOsFs(),
+		props.WithAssets(props.NewAssets(props.AssetMap{"root": &assets})),
+		props.WithVersion(version.NewInfo("0.1.0", "", "")),
+	)
+	if err != nil {
+		l.Error("failed to build props", "error", err)
+		os.Exit(1)
+	}
 
-    rootCmd := root.NewCmdRoot(props)
+	rootCmd := root.NewCmdRoot(p)
 
-    // Add your custom commands here
-    // rootCmd.AddCommand(yourCustomCommand)
+	// Add your own commands here:
+	// rootCmd.Register(mycmd.NewCmdMine(p))
 
-    if err := rootCmd.Execute(); err != nil {
-        os.Exit(1)
-    }
+	root.Execute(rootCmd, p)
 }
 ```
 
-**Build and test:**
+**`assets/config.yaml`** — the embedded defaults layer. The `//go:embed assets/*`
+directive requires the directory to exist and be non-empty:
+
+```yaml
+log:
+  level: info
+```
+
+Four details are load-bearing:
+
+- **`props.New` rather than a struct literal.** It applies the framework defaults
+  — a no-op telemetry collector, an error handler built from your logger, an
+  empty version — and returns an error if `Tool.Name`, the logger or the
+  filesystem is missing, instead of panicking later. A struct literal still
+  works, but then those defaults are yours to set.
+- **`props.NewAssets` takes an `AssetMap`,** not a bare `*embed.FS`. The key
+  names the bundle; later bundles override earlier ones.
+- **`ReleaseSource`, not a `GitHub` field.** `props.Tool` carries
+  `ReleaseSource{Type, Host, Owner, Repo, Private, Params}`, where `Type` is
+  `github`, `gitlab`, `bitbucket`, `gitea`, `codeberg` or `direct`.
+- **`root.Execute(rootCmd, p)`, not `rootCmd.Execute()`.** `root.Execute` adds
+  the signal-aware context, the shared error path and the telemetry flush.
+  Calling Cobra's `Execute` directly skips all three.
+
+Setting `EnvPrefix` is optional but worth doing: without one, the tool has no
+environment-variable configuration layer at all.
+
+**Build and run:**
+
 ```bash
 go build -o example-tool .
 ./example-tool --help
 ./example-tool version
 ```
 
-## Verification
+`--help` lists the built-in commands your feature set enables — `init`,
+`version`, `update`, `docs`, `doctor`, `changelog`, `mcp` — none of which you
+wrote.
 
-After installation, you should be able to:
+## Verifying an install
 
-1. **Build successfully**: `go build .` should complete without errors
-2. **Run basic commands**: Your tool should respond to `--help`, `version`, etc.
-3. **Access built-in functionality**: Commands like `init`, `version`, and `update` should be available
+1. `gtb version` prints a version, a commit and a build date.
+2. `go build .` completes in your project.
+3. `./your-tool --help` lists the built-in commands.
+4. `./your-tool version` prints your version.
 
-## Next Steps
+Most commands stop with `no config file found` until you run `your-tool init`.
+That is expected: the tool will not guess at configuration it does not have. See
+[Auto-initialise config](how-to/auto-initialise-config.md) to change that.
 
-Once installation is complete:
+## Common problems
 
-1. **Read the [Getting Started Guide](getting-started.md)** for a detailed tutorial
+**`module gitlab.com/phpboyscout/go-tool-base@latest found (v0.35.0), but does
+not contain package gitlab.com/phpboyscout/go-tool-base`.** The module root has
+no `main` package. Install
+`gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest` instead.
 
-- **[Components Documentation](explanation/components/props.md)** to understand the architecture
+**`go.mod requires go >= 1.26.5`.** Your toolchain is older than the module
+requires. Upgrade Go, or pin an older GTB release.
 
-## Troubleshooting
+**`pattern assets/*: no matching files found`.** The `//go:embed` directive needs
+the directory to exist and contain at least one file. Create
+`assets/config.yaml`.
 
-### Common Issues
+**`props: Tool.Name is required`** from `props.New`. The three required fields
+are `Tool.Name`, the logger and the filesystem; the rest are defaulted.
 
-**Import errors:**
+## Next steps
 
-- Ensure your Go environment is set up correctly (`go env GOPATH`)
-- Run `go mod tidy` to resolve dependencies
-
-**Build failures:**
-
-- Check that you're using Go 1.21 or later
-- Run `go mod tidy` to resolve dependencies
+- **[Build your first CLI](tutorials/build-your-first-cli.md)** — the guided
+  route, using the generator rather than hand-wiring.
+- **[Getting started](getting-started.md)** — the two integration routes side by
+  side.
+- **[Props](explanation/components/props.md)** — what the container carries and
+  why every command receives one.
+- **[Configuration keys](reference/config/index.md)** — every key, its default,
+  and what happens when it is wrong.

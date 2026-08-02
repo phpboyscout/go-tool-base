@@ -26,8 +26,8 @@ hide:
       <span class="install-copy" title="Copy to clipboard">📋</span>
     </div>
     <div class="hero-buttons">
-      <a href="getting-started.html" class="btn btn-primary">Get Started</a>
-      <a href="concepts/index.html" class="btn btn-secondary">Learn Concepts</a>
+      <a href="tutorials/build-your-first-cli/" class="btn btn-primary">Get Started</a>
+      <a href="explanation/concepts/" class="btn btn-secondary">Learn Concepts</a>
     </div>
   </div>
 </div>
@@ -43,6 +43,15 @@ Before diving into code, we highly recommend reading our positioning guides to u
 - **[What is GTB?](about/why-gtb.md)** — Core philosophy, "IS / IS NOT" framing, and the 8 key advantages.
 - **[Framework Comparison](about/comparison.md)** — Direct comparisons with Cobra, Viper, urfave/cli, and web frameworks.
 - **[Coming from other Ecosystems?](about/coming-from-other-ecosystems.md)** — A translation guide for developers migrating from PHP (Laravel), Ruby (Rails), or Python (Django).
+
+## Where the documentation lives
+
+Four sections, each answering a different kind of question:
+
+- **[Tutorials](tutorials/index.md)** — start from nothing and end with something that runs. Begin with [Build your first CLI](tutorials/build-your-first-cli.md).
+- **[How-to guides](how-to/index.md)** — you know what you want to achieve; these are the steps.
+- **[Reference](reference/index.md)** — every command, flag and [configuration key](reference/config/index.md), with defaults and failure modes.
+- **[Explanation](explanation/index.md)** — why the framework is shaped this way.
 
 ## Overview
 
@@ -155,7 +164,7 @@ See how Go Tool Base builds and executes interactive lifecycle commands in real-
   <h2>Ready to Build Next-Gen CLIs?</h2>
   <p>Whether you want to scaffold a new project in seconds or integrate into a complex enterprise tool, Go Tool Base gives you the developer-focused lifecycle infrastructure out-of-the-box.</p>
   <div class="cta-buttons">
-    <a href="getting-started.html" class="btn btn-primary">Get Started Now →</a>
-    <a href="how-to/index.html" class="btn btn-secondary">Explore 50+ How-to Guides</a>
+    <a href="getting-started/" class="btn btn-primary">Get Started Now →</a>
+    <a href="how-to/" class="btn btn-secondary">Explore 50+ How-to Guides</a>
   </div>
 </div>
