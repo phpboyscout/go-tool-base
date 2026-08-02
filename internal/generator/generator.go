@@ -43,7 +43,7 @@ const (
 	// zensical-pages, renovate-self). Mirrors the framework's own pin; kept
 	// current automatically by the Renovate customManager in renovate.json5
 	// (do not hand-bump — let Renovate propose it).
-	CICDComponentVersion = "v0.34.0"
+	CICDComponentVersion = "v0.34.1"
 
 	// ReleaserPleaserComponentVersion is the apricote/releaser-pleaser/run
 	// component version the scaffold pins. The component does not support
