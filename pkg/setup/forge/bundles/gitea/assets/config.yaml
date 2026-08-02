@@ -1,0 +1,9 @@
+# Gitea carries no url.api default: every Gitea instance is self-hosted, so the
+# API base is derived from the operator's host rather than a well-known one.
+# The section still exists so vcs.ConfigFromReader(cfg).Sub("gitea") is non-nil.
+gitea:
+  auth:
+    env: GITEA_TOKEN
+  ssh:
+    key:
+      env: GITEA_KEY

@@ -1,0 +1,8 @@
+# Bitbucket's API base is hard-pinned to api.bitbucket.org in the adapter, so
+# no url.api key appears here. The dual-credential keys mirror
+# Profile.dualCredentialKeys.
+bitbucket:
+  username:
+    env: BITBUCKET_USERNAME
+  app_password:
+    env: BITBUCKET_APP_PASSWORD

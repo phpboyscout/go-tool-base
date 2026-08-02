@@ -61,6 +61,74 @@ func RunGitHubInitCmd(ctx context.Context, p *props.Props, dir string) error {
 	return RunGitHubInit(ctx, p, editor)
 }
 
+// RunForgeInit runs a single-token forge's wizard against an existing config
+// container. ctx is the command context: it carries no deadline of its own so
+// a device-flow login can run at human pace, while Ctrl-C aborts an in-flight
+// poll.
+func RunForgeInit(ctx context.Context, p *props.Props, cfg setup.Editor, profile Profile) error {
+	return New(p, profile).Configure(ctx, p, cfg)
+}
+
+// NewCmdInitForge creates the `init <forge>` subcommand for a single-token
+// forge, deriving its wording from the profile so a new forge contributes a
+// command by existing rather than by adding a builder.
+func NewCmdInitForge(p *props.Props, profile Profile) *cobra.Command {
+	long := "Configure the " + profile.Label + ` token for API access via the three-mode
+selector (env-var reference, OS keychain, or literal)`
+
+	if profile.OffersSSH {
+		long += ", and generate or select\nan SSH key for Git operations"
+	}
+
+	long += "."
+
+	if !profile.OffersLogin {
+		long += "\n\n" + profile.Label + ` does not support an interactive browser login, so the token is
+entered by hand.`
+	}
+
+	cmd := &cobra.Command{
+		Use:   profile.ConfigPrefix,
+		Short: "Configure " + profile.Label + " authentication" + sshShortSuffix(profile),
+		Long:  long,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			dir, _ := cmd.Flags().GetString("dir")
+
+			if err := RunForgeInitCmd(cmd.Context(), p, dir, profile); err != nil {
+				return errors.Wrap(err, "failed to configure "+profile.Label)
+			}
+
+			p.Logger.Info(profile.Label + " configuration saved successfully")
+
+			return nil
+		},
+	}
+
+	cmd.Flags().String("dir", setup.GetDefaultConfigDir(p.FS, p.Tool.Name), "directory containing the config file")
+
+	return cmd
+}
+
+func sshShortSuffix(profile Profile) string {
+	if profile.OffersSSH {
+		return " and SSH keys"
+	}
+
+	return ""
+}
+
+// RunForgeInitCmd executes a single-token forge's configuration and writes the
+// results to the config file, which is seeded from the merged init template
+// when absent.
+func RunForgeInitCmd(ctx context.Context, p *props.Props, dir string, profile Profile) error {
+	editor, _, err := setup.OpenConfigEditor(ctx, p, dir, false)
+	if err != nil {
+		return err
+	}
+
+	return RunForgeInit(ctx, p, editor, profile)
+}
+
 // RunBitbucketInit executes the wizard against an existing config container,
 // typically invoked by [NewCmdInitBitbucket]. Optional [DualFormOption]s are
 // propagated into the wizard so tests can inject deterministic form creators,

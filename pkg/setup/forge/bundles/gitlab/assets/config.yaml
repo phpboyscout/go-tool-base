@@ -1,0 +1,8 @@
+gitlab:
+  url:
+    api: https://gitlab.com/api/v4
+  auth:
+    env: GITLAB_TOKEN
+  ssh:
+    key:
+      env: GITLAB_KEY
