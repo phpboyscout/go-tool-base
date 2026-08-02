@@ -28,9 +28,11 @@ const (
 // same change. The scaffolded renovate config (extending the cicd preset)
 // then keeps the pins current for the downstream tool.
 //
-// The releaser-pleaser component is pinned separately because it lives under
-// apricote/, not phpboyscout/cicd, and is referenced $CI_SERVER_FQDN-relative
-// (instance-local) per O7.
+// releaser-pleaser used to be pinned separately here, because the scaffold
+// included apricote/releaser-pleaser/run direct and $CI_SERVER_FQDN-relative
+// (instance-local) per O7. The scaffold now uses the phpboyscout/cicd wrapper
+// instead — it carries the releaser-pleaser:verify tag guard — so it rides
+// this same pin like every other component.
 const (
 	// DefaultCICDComponentSource is the default include base for the
 	// phpboyscout/cicd components. It is overridable via the manifest
@@ -40,16 +42,10 @@ const (
 
 	// CICDComponentVersion is the phpboyscout/cicd component version the
 	// scaffold pins (go-lint, go-test, go-security, goreleaser,
-	// zensical-pages, renovate-self). Mirrors the framework's own pin; kept
+	// zensical-pages, releaser-pleaser). Mirrors the framework's own pin; kept
 	// current automatically by the Renovate customManager in renovate.json5
 	// (do not hand-bump — let Renovate propose it).
 	CICDComponentVersion = "v0.34.1"
-
-	// ReleaserPleaserComponentVersion is the apricote/releaser-pleaser/run
-	// component version the scaffold pins. The component does not support
-	// floating tags, so this is always a full version (O7). Kept current by
-	// the Renovate customManager in renovate.json5.
-	ReleaserPleaserComponentVersion = "v0.9.0"
 )
 
 type Config struct {

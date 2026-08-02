@@ -1,74 +1,26 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  // Extends the public phpboyscout/cicd preset, which carries the custom
-  // manager that recognises and auto-bumps the
-  // `gitlab.com/phpboyscout/cicd/*@vX.Y.Z` component pins in .gitlab-ci.yml.
-  // Without this extend the component pins would never be bumped.
+  // Policy comes from the shared phpboyscout/cicd composable presets rather
+  // than being restated here — a scaffolded project should inherit fleet
+  // policy changes, not a point-in-time copy of them.
+  //
+  //   :go          ecosystem leaf — groups gomod updates into one MR, sets the
+  //                gomodTidy / gomodUpdateImportPaths post-update options, and
+  //                warns on major bumps of modules named in a `tool (` block.
+  //   :application role leaf — pins exact versions for reproducible builds.
+  //                A no-op for Go (go.mod is exact regardless), but it states
+  //                the project's role so any non-Go manager added later picks
+  //                up the right range strategy automatically.
+  //
+  // Both extend the base preset, which carries the automerge posture, OSV
+  // alerts, the first-party soak carve-out, the pre-commit manager, and the
+  // custom manager that auto-bumps the phpboyscout/cicd component pins in
+  // .gitlab-ci.yml. Without that last one the pins would never move.
+  //
+  // Renovate itself is run by the group-wide autodiscover bot, so this project
+  // needs no renovate job or pipeline schedule of its own.
   extends: [
-    'config:recommended',
-    ':semanticCommits',
-    ':disableDependencyDashboard',
-    'gitlab>phpboyscout/cicd',
-  ],
-  enabledManagers: [
-    'gomod',
-    'gitlabci',
-    'pre-commit',
-  ],
-  rangeStrategy: 'bump',
-  automerge: false,
-  prHourlyLimit: 10,
-  prConcurrentLimit: 10,
-  branchConcurrentLimit: 20,
-  'pre-commit': {
-    enabled: true,
-  },
-  labels: [
-    'renovate:{{ "{{" }}depName{{ "}}" }}',
-    'renovate:{{ "{{" }}depName{{ "}}" }}/{{ "{{" }}newVersion{{ "}}" }}',
-    'datasource:{{ "{{" }}datasource{{ "}}" }}',
-  ],
-  ignorePaths: [
-    '**/vendor/**',
-    '**/assets/**',
-  ],
-  gomod: {
-    managerFilePatterns: [
-      '/go\\.mod$/',
-    ],
-  },
-  semanticCommitType: 'chore',
-  packageRules: [
-    {
-      // Patch + minor go dependencies land grouped to keep go.sum churn low.
-      matchDatasources: [
-        'go',
-      ],
-      matchUpdateTypes: [
-        'patch',
-        'minor',
-      ],
-      groupName: 'go dependencies',
-      groupSlug: 'go-deps',
-      automerge: true,
-      automergeType: 'pr',
-    },
-    {
-      // Major go dependencies require explicit human review.
-      matchDatasources: [
-        'go',
-      ],
-      matchUpdateTypes: [
-        'major',
-      ],
-      groupName: 'go dependencies (major)',
-      groupSlug: 'go-deps-major',
-      automerge: false,
-      dependencyDashboardApproval: true,
-      labels: [
-        'major-update',
-      ],
-      semanticCommitType: 'fix',
-    },
+    'gitlab>phpboyscout/cicd:go',
+    'gitlab>phpboyscout/cicd:application',
   ],
 }

@@ -81,19 +81,6 @@
     },
     {
       customType: 'regex',
-      description: 'Track the apricote/releaser-pleaser component/action version the generator bakes into scaffolded pipelines (ReleaserPleaserComponentVersion constant). Same tag drives the GitLab component and the GitHub Action.',
-      managerFilePatterns: [
-        '/^internal/generator/generator\\.go$/',
-      ],
-      matchStrings: [
-        'ReleaserPleaserComponentVersion\\s*=\\s*"(?<currentValue>v[\\d.]+)"',
-      ],
-      datasourceTemplate: 'github-releases',
-      depNameTemplate: 'apricote/releaser-pleaser',
-      extractVersionTemplate: '^(?<version>v[\\d.]+)$',
-    },
-    {
-      customType: 'regex',
       description: 'Track the Python version pinned in the generator GitHub-workflow skeleton (setup-python input; a plain value the github-actions manager does not follow, unlike the uses: pins it already bumps).',
       managerFilePatterns: [
         '/^internal/generator/assets/skeleton-github/\\.github/workflows/.*\\.ya?ml$/',

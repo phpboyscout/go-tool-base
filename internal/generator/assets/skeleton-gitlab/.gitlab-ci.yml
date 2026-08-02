@@ -3,7 +3,6 @@
 #   merge_request_event → lint, test, security        (the merge gate)
 #   tag v*.*.*          → goreleaser, pages docs       (the release fan-out)
 #   default branch      → releaser-pleaser, zensical-pages deploy
-#   schedule            → renovate
 #
 # Quality gates live exclusively at the MR level — pushing to the default
 # branch runs nothing except releaser-pleaser (which itself opens an MR that
@@ -18,13 +17,17 @@
 #     role and the api, read_repository, write_repository scopes, set as a
 #     CI/CD variable. releaser-pleaser uses it to open/update the Release MR
 #     and cut the tag. The component does not support floating tags.
-#   • Merge method: fast-forward + squash (so the tested commit is what lands
-#     on the default branch).
+#   • Merge method: fast-forward, with "automatic rebase before merge" on.
+#   • Squash: allowed but not encouraged — meaningful commits should survive.
+#     releaser-pleaser:verify sets squash on the Release MR specifically, which
+#     is a content no-op there (it is a single commit) and is what keeps the
+#     cut tag on the release branch.
 #   • Pipelines must succeed (so the MR gates actually block merge).
 #
-# The phpboyscout/cicd components are version-pinned below; Renovate (also via
-# this pipeline) keeps the pins current via the cicd preset extended in
-# renovate.json5. Bump deliberately through the Renovate MRs rather than
+# The phpboyscout/cicd components are version-pinned below. Renovate keeps the
+# pins current via the cicd preset extended in renovate.json5 — run by the
+# group-wide autodiscover bot, so this project needs no Renovate job or
+# schedule of its own. Bump deliberately through the Renovate MRs rather than
 # floating the tags.
 
 include:
@@ -41,20 +44,13 @@ include:
   - component: {{ .CIComponentSource }}/goreleaser@{{ .CICDComponentVersion }}
   - component: {{ .CIComponentSource }}/zensical-pages@{{ .CICDComponentVersion }}
 
-  # Release MR machinery (external). Referenced $CI_SERVER_FQDN-relative so it
-  # resolves on whichever GitLab instance hosts this project.
-  - component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@{{ .ReleaserPleaserVersion }}
-    inputs:
-      token: $RELEASER_PLEASER_TOKEN
-      branch: main
-      stage: release
-
-  # Scheduled Renovate run — wires its own schedule gate
-  # ($RENOVATE_TASK=scan); the cicd preset (extended in renovate.json5)
-  # carries the custom manager that auto-bumps the component pins above.
-  - component: {{ .CIComponentSource }}/renovate-self@{{ .CICDComponentVersion }}
-    inputs:
-      repositories: '["{{ .Repo }}"]'
+  # Release MR machinery. The cicd wrapper rather than apricote/releaser-pleaser
+  # direct: it adds releaser-pleaser:verify, which sets `squash: true` on the
+  # open Release MR and then asserts the cut tag is an ancestor of the release
+  # branch. Without it, a project using GitLab's automatic-rebase-before-merge
+  # can tag a commit that no longer exists on main and silently lose the
+  # release. token/branch/stage are the component defaults.
+  - component: {{ .CIComponentSource }}/releaser-pleaser@{{ .CICDComponentVersion }}
 
 stages:
   - lint
@@ -62,25 +58,25 @@ stages:
   - security
   - release
   - pages
-  - renovate
 
 # Pipeline-source gating: MR pipelines are primary; tag pipelines run the
 # release fan-out; default-branch pipelines exist only so releaser-pleaser can
 # maintain its MR. The `never` rule suppresses duplicate branch pipelines when
 # a feature branch already has an open MR (otherwise every push to a branch
 # with an open MR would build twice).
+#
+# That rule MUST be guarded on $CI_COMMIT_BRANCH. Keying it on
+# `$CI_PIPELINE_SOURCE == "push"` instead also matches TAG pipelines — a tag
+# push is a push — so the release fan-out is silently suppressed whenever any
+# MR happens to be open. See phpboyscout/cicd issue #2.
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
       when: never
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 variables:
   # releaser-pleaser + goreleaser walk the full commit history.
   GIT_DEPTH: "0"
-
-default:
-  tags: [saas-linux-medium-amd64]

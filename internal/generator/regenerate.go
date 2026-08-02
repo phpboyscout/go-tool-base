@@ -505,11 +505,10 @@ type skeletonTemplateData struct {
 	// the scaffolded GitLab pipeline (defaulted to DefaultCICDComponentSource
 	// when the manifest carries no override).
 	CIComponentSource string
-	// CICDComponentVersion / ReleaserPleaserVersion are the pinned component
-	// versions sourced from the generator constants (lockstep with the
-	// framework), interpolated into the pipeline includes.
-	CICDComponentVersion   string
-	ReleaserPleaserVersion string
+	// CICDComponentVersion is the pinned phpboyscout/cicd component version
+	// sourced from the generator constant (lockstep with the framework),
+	// interpolated into the pipeline includes.
+	CICDComponentVersion string
 	// CIEnableE2E controls the go-test component's enable_e2e input. A freshly
 	// generated tool has no E2E suite, so this is false.
 	CIEnableE2E bool
@@ -527,35 +526,34 @@ func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 	_, org, repoName := m.GetReleaseSource()
 
 	return skeletonTemplateData{
-		Name:                   m.Properties.Name,
-		Repo:                   org + "/" + repoName,
-		Host:                   m.ReleaseSource.Host,
-		ModulePath:             m.ReleaseSource.Host + "/" + org + "/" + repoName,
-		Description:            string(m.Properties.Description),
-		Org:                    org,
-		RepoName:               repoName,
-		ReleaseProvider:        m.ReleaseSource.Type,
-		GoToolBaseVersion:      g.currentVersion(),
-		GoVersion:              resolveGoVersion(""),
-		DisabledFeatures:       calculateDisabledFeatures(m.Properties.Features),
-		EnabledFeatures:        calculateEnabledFeatures(m.Properties.Features),
-		Private:                m.ReleaseSource.Private,
-		HelpType:               m.Properties.Help.Type,
-		SlackChannel:           m.Properties.Help.SlackChannel,
-		SlackTeam:              m.Properties.Help.SlackTeam,
-		TeamsChannel:           m.Properties.Help.TeamsChannel,
-		TeamsTeam:              m.Properties.Help.TeamsTeam,
-		TelemetryEndpoint:      m.Properties.Telemetry.Endpoint,
-		TelemetryOTelEndpoint:  m.Properties.Telemetry.OTelEndpoint,
-		EnvPrefix:              m.Properties.EnvPrefix,
-		UpdatePolicy:           m.Properties.UpdatePolicy,
-		UpdateCheckInterval:    m.Properties.UpdateCheckInterval,
-		Signing:                m.Properties.Signing,
-		Bootstrap:              m.Properties.Bootstrap,
-		CIComponentSource:      resolveCIComponentSource(m.Properties.CI.ComponentSource),
-		CICDComponentVersion:   CICDComponentVersion,
-		ReleaserPleaserVersion: ReleaserPleaserComponentVersion,
-		CIEnableE2E:            false,
+		Name:                  m.Properties.Name,
+		Repo:                  org + "/" + repoName,
+		Host:                  m.ReleaseSource.Host,
+		ModulePath:            m.ReleaseSource.Host + "/" + org + "/" + repoName,
+		Description:           string(m.Properties.Description),
+		Org:                   org,
+		RepoName:              repoName,
+		ReleaseProvider:       m.ReleaseSource.Type,
+		GoToolBaseVersion:     g.currentVersion(),
+		GoVersion:             resolveGoVersion(""),
+		DisabledFeatures:      calculateDisabledFeatures(m.Properties.Features),
+		EnabledFeatures:       calculateEnabledFeatures(m.Properties.Features),
+		Private:               m.ReleaseSource.Private,
+		HelpType:              m.Properties.Help.Type,
+		SlackChannel:          m.Properties.Help.SlackChannel,
+		SlackTeam:             m.Properties.Help.SlackTeam,
+		TeamsChannel:          m.Properties.Help.TeamsChannel,
+		TeamsTeam:             m.Properties.Help.TeamsTeam,
+		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
+		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
+		EnvPrefix:             m.Properties.EnvPrefix,
+		UpdatePolicy:          m.Properties.UpdatePolicy,
+		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
+		Signing:               m.Properties.Signing,
+		Bootstrap:             m.Properties.Bootstrap,
+		CIComponentSource:     resolveCIComponentSource(m.Properties.CI.ComponentSource),
+		CICDComponentVersion:  CICDComponentVersion,
+		CIEnableE2E:           false,
 	}
 }
 

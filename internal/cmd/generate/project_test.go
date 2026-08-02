@@ -202,9 +202,7 @@ func TestSkeletonRunGitLab(t *testing.T) {
 	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/go-security@"+generator.CICDComponentVersion)
 	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/goreleaser@"+generator.CICDComponentVersion)
 	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/zensical-pages@"+generator.CICDComponentVersion)
-	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/renovate-self@"+generator.CICDComponentVersion)
-	assert.Contains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@"+generator.ReleaserPleaserComponentVersion)
-	assert.Contains(t, ci, `repositories: '["mygroup/my-tool"]'`)
+	assert.Contains(t, ci, "component: gitlab.com/phpboyscout/cicd/releaser-pleaser@"+generator.CICDComponentVersion)
 	assert.Contains(t, ci, "enable_e2e: false")
 	assert.NotContains(t, ci, "local: .gitlab/ci/")
 

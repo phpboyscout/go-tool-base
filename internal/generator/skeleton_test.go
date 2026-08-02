@@ -342,14 +342,26 @@ func TestGenerateSkeletonGitLabCIComponents(t *testing.T) {
 	var doc any
 	require.NoError(t, yaml.Unmarshal(raw, &doc))
 
-	for _, comp := range []string{"go-lint", "go-test", "go-security", "goreleaser", "zensical-pages", "renovate-self"} {
+	for _, comp := range []string{"go-lint", "go-test", "go-security", "goreleaser", "zensical-pages", "releaser-pleaser"} {
 		assert.Contains(t, ci, "component: "+DefaultCICDComponentSource+"/"+comp+"@"+CICDComponentVersion)
 	}
 
-	assert.Contains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@"+ReleaserPleaserComponentVersion)
-	assert.Contains(t, ci, `repositories: '["mygroup/my-tool"]'`)
 	assert.Contains(t, ci, "enable_e2e: false")
 	assert.NotContains(t, ci, "local: .gitlab/ci/")
+
+	// Fleet-standard guarantees. Each of these drifted out of the fleet by
+	// hand and was then re-scaffolded straight back in by this template, so
+	// they are asserted negatively rather than left to review.
+	assert.NotContains(t, ci, "saas-linux-medium-amd64",
+		"scaffold must not pin a runner tag; no runner in the fleet carries one")
+	assert.NotContains(t, ci, "renovate-self",
+		"Renovate is run by the group-wide autodiscover bot, not a per-repo job")
+	assert.NotContains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser",
+		"must use the cicd wrapper, which adds the releaser-pleaser:verify tag guard")
+	assert.Contains(t, ci, `- if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'`,
+		"MR-dedup rule must be guarded on CI_COMMIT_BRANCH or it also suppresses tag pipelines")
+	assert.NotContains(t, ci, `$CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"`,
+		"the push-keyed dedup form swallows release tag pipelines (cicd issue #2)")
 
 	// The four local CI job files must not be rendered.
 	for _, f := range []string{"test.yml", "lint.yml", "release.yml", "pages.yml"} {
@@ -386,10 +398,10 @@ func TestGenerateSkeletonGitLabCIComponentSourceOverride(t *testing.T) {
 
 	assert.Contains(t, ci, "component: "+src+"/go-lint@"+CICDComponentVersion)
 	assert.NotContains(t, ci, DefaultCICDComponentSource+"/go-lint")
-	// releaser-pleaser stays instance-local regardless of the source.
-	assert.Contains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser/run@")
-	// nested group path threads into the repositories input.
-	assert.Contains(t, ci, `repositories: '["myorg/mygroup/my-tool"]'`)
+	// releaser-pleaser is a cicd component now, so it follows the override
+	// like every other include rather than staying instance-local.
+	assert.Contains(t, ci, "component: "+src+"/releaser-pleaser@"+CICDComponentVersion)
+	assert.NotContains(t, ci, "component: $CI_SERVER_FQDN/apricote/releaser-pleaser")
 
 	// Manifest persists the override.
 	mraw, err := afero.ReadFile(fs, "/work/.gtb/manifest.yaml")
