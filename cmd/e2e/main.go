@@ -46,6 +46,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 
 	// Register telemetry initialiser with the setup system.
 	_ "gitlab.com/phpboyscout/go-tool-base/pkg/setup/telemetry"
@@ -95,13 +96,20 @@ func newTestRoot() (*setup.Command, *props.Props) {
 				props.Enable(props.ConfigCmd),
 				props.Enable(props.TelemetryCmd),
 				props.Enable(props.ManCmd), // hidden; enabled here for BDD coverage
-				// AiCmd + github + bitbucket are not enabled by
-				// default but are needed for BDD / manual testing of
-				// the credential setup wizards and the chat/VCS
-				// resolvers.
+				// AiCmd and the forges are not enabled by default but
+				// are needed for BDD / manual testing of the credential
+				// setup wizards and the chat/VCS resolvers.
+				//
+				// The forge constants come from pkg/setup/forge rather
+				// than being rebuilt inline as props.FeatureID("github").
+				// Constructing them inline is what let github and
+				// bitbucket exist everywhere except the enumeration —
+				// see spec 0184.
 				props.Enable(props.AiCmd),
-				props.Enable(props.FeatureID("github")),
-				props.Enable(props.FeatureID("bitbucket")),
+				props.Enable(forge.GithubFeature),
+				props.Enable(forge.GitlabFeature),
+				props.Enable(forge.GiteaFeature),
+				props.Enable(forge.BitbucketFeature),
 				props.Disable(props.DocsCmd), // no embedded assets in test binary
 			),
 			Telemetry: props.TelemetryConfig{
