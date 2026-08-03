@@ -66,6 +66,16 @@ func TestInitialiser_Name(t *testing.T) {
 	assert.Equal(t, "Bitbucket authentication", i.Name())
 }
 
+// sshAlreadyRecorded is a config view in which the SSH stage has nothing left to
+// do. Bitbucket reaches that stage now (0186 D1), so a test asserting only the
+// credential writes seeds a recorded key to stay on its own subject — the stage
+// itself has dedicated coverage in ssh_dual_test.go.
+func sshAlreadyRecorded(t *testing.T) *config.View {
+	t.Helper()
+
+	return testutil.ViewFromYAML(t, "bitbucket:\n  ssh:\n    key:\n      path: /home/u/.ssh/id_x\n")
+}
+
 // --- Configure flows ---
 
 // TestConfigure_EnvVarMode pins the two-env-var write path: one transactional
@@ -75,6 +85,7 @@ func TestConfigure_EnvVarMode(t *testing.T) {
 	p := newDualTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(sshAlreadyRecorded(t))
 	cfg.EXPECT().Apply([]config.Change{
 		config.Remove("bitbucket.app_password"),
 		config.Set("bitbucket.app_password.env", "BB_APP_PW"),
@@ -101,6 +112,7 @@ func TestConfigure_KeychainMode(t *testing.T) {
 	p := newDualTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(sshAlreadyRecorded(t))
 	cfg.EXPECT().Apply([]config.Change{
 		config.Set("bitbucket.keychain", "testtool/bitbucket.auth"),
 		config.Remove("bitbucket.username.env"),
@@ -134,6 +146,7 @@ func TestConfigure_LiteralMode(t *testing.T) {
 	p := newDualTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(sshAlreadyRecorded(t))
 	cfg.EXPECT().Apply([]config.Change{
 		config.Remove("bitbucket.app_password.env"),
 		config.Set("bitbucket.app_password", "s3cret"),
@@ -174,24 +187,47 @@ func TestConfigure_CIRefusesLiteral(t *testing.T) {
 
 // --- IsConfigured ---
 
+// TestIsConfigured covers 0186 D5. Bitbucket now offers SSH, so it is only
+// "configured" once both the credential and the key are recorded. Credentials
+// alone used to suffice — correctly, because the dual flow could never reach the
+// SSH stage, so there was never a key to have. Now that it can, treating
+// credentials alone as done would mean never offering the key on a re-run.
 func TestIsConfigured(t *testing.T) {
+	const sshRecorded = "  ssh:\n    key:\n      path: /home/u/.ssh/id_x\n"
+
 	tests := []struct {
 		name    string
 		yaml    string
+		skipKey bool
 		wantYes bool
 	}{
-		{"empty", "", false},
-		{"env-var username", "bitbucket:\n  username:\n    env: BB_USER\n", true},
-		{"env-var app_password", "bitbucket:\n  app_password:\n    env: BB_APP_PW\n", true},
-		{"keychain ref", "bitbucket:\n  keychain: tool/bitbucket.auth\n", true},
-		{"literal username", "bitbucket:\n  username: alice\n", true},
-		{"literal app_password", "bitbucket:\n  app_password: s3cret\n", true},
+		{name: "empty", yaml: "", wantYes: false},
+		{name: "credential alone is not enough", yaml: "bitbucket:\n  username: alice\n", wantYes: false},
+		{name: "ssh alone is not enough", yaml: "bitbucket:\n" + sshRecorded, wantYes: false},
+
+		{name: "env-var username + ssh", yaml: "bitbucket:\n  username:\n    env: BB_USER\n" + sshRecorded, wantYes: true},
+		{name: "env-var app_password + ssh", yaml: "bitbucket:\n  app_password:\n    env: BB_APP_PW\n" + sshRecorded, wantYes: true},
+		{name: "keychain ref + ssh", yaml: "bitbucket:\n  keychain: tool/bitbucket.auth\n" + sshRecorded, wantYes: true},
+		{name: "literal username + ssh", yaml: "bitbucket:\n  username: alice\n" + sshRecorded, wantYes: true},
+		{name: "literal app_password + ssh", yaml: "bitbucket:\n  app_password: s3cret\n" + sshRecorded, wantYes: true},
+
+		{
+			name:    "an agent key satisfies the ssh half",
+			yaml:    "bitbucket:\n  username: alice\n  ssh:\n    key:\n      type: agent\n",
+			wantYes: true,
+		},
+		{
+			name:    "--skip-key removes the ssh requirement",
+			yaml:    "bitbucket:\n  username: alice\n",
+			skipKey: true,
+			wantYes: true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			view := testutil.ViewFromYAML(t, tc.yaml)
-			i := &Initialiser{profile: bitbucketProfile}
+			i := &Initialiser{profile: bitbucketProfile, SkipKey: tc.skipKey}
 
 			assert.Equal(t, tc.wantYes, i.IsConfigured(view))
 		})
@@ -571,6 +607,7 @@ func TestRunBitbucketInit_Success(t *testing.T) {
 	p := newDualTestProps(t)
 
 	cfg := setupmocks.NewMockEditor(t)
+	cfg.EXPECT().View().Return(sshAlreadyRecorded(t))
 	cfg.EXPECT().Apply([]config.Change{
 		config.Remove("bitbucket.app_password"),
 		config.Set("bitbucket.app_password.env", "BB_APP_PW"),
@@ -605,7 +642,10 @@ func TestRunInitCmd_LoadedConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	target := filepath.Join(dir, setup.DefaultConfigFilename)
-	require.NoError(t, afero.WriteFile(fs, target, []byte("foo: bar\n"), 0o600))
+	// A recorded SSH key so the stage Bitbucket now reaches (0186 D1) has
+	// nothing to do — this test is about the credential reaching disk.
+	require.NoError(t, afero.WriteFile(fs, target,
+		[]byte("foo: bar\nbitbucket:\n  ssh:\n    key:\n      path: /home/u/.ssh/id_x\n"), 0o600))
 
 	p := &props.Props{
 		FS:     fs,

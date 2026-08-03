@@ -186,7 +186,9 @@ func TestConfigureDual_KeychainStoreScopedPerOperation(t *testing.T) {
 		Logger: logger.NewNoop(),
 		Tool:   props.Tool{Name: "testtool"},
 	}
-	cfg := newTestEditor(t, p, "")
+	// Seed a recorded SSH key: Bitbucket reaches the SSH stage now (0186 D1),
+	// and this test is about the keychain store's ctx scoping, not the key.
+	cfg := newTestEditor(t, p, "bitbucket:\n  ssh:\n    key:\n      path: /home/u/.ssh/id_x\n")
 
 	init := NewBitbucketInitialiser(p, WithDualForms(mockForms(func(c *DualConfig) {
 		c.StorageMode = credentials.ModeKeychain

@@ -382,47 +382,67 @@ func generateKey(profile Profile, props *props.Props, cfg config.Reader, opts ..
 		return keypath, err
 	}
 
-	var upload bool
-
-	if err := runForm(optsConfig.uploadConfirmFormCreator(&upload)); err != nil {
-		return keypath, errors.WithStack(err)
-	}
-
-	if upload {
-		if err := uploadSSHKey(profile, props, cfg, keyname, publicKeyBytes, optsConfig.keyManagerFactory); err != nil {
-			return keypath, err
-		}
-	} else {
-		props.Logger.Warn("You must ensure your SSH key is added to the forge")
-	}
-
-	return keypath, err
+	return keypath, maybeUploadKey(profile, props, cfg, optsConfig, keyname, publicKeyBytes)
 }
 
-func uploadSSHKey(
+// maybeUploadKey resolves the key manager, asks whether to upload only when an
+// upload is actually possible, and performs it.
+//
+// The resolution happens BEFORE the prompt (spec 0186 D7). The capability is
+// knowable at that point, and asking a question the program can already answer —
+// then overruling the "yes" with an add-it-manually warning — is the shape of
+// prompt that teaches people to distrust a wizard. The resolved manager is then
+// reused rather than constructed a second time.
+//
+// The stage is not skipped wholesale when upload is impossible: the key has
+// already been generated, saved and recorded, all of which stand on their own.
+func maybeUploadKey(
 	profile Profile,
-	p props.LoggerProvider,
+	p *props.Props,
 	cfg config.Reader,
+	optsConfig *generateKeyConfig,
 	keyname string,
 	publicKey []byte,
-	keyManagerFactory func(config.Reader) (forgeapi.KeyManager, error),
 ) error {
-	log := p.GetLogger()
-	log.Info("Uploading SSH public key", "provider", profile.Label, "key", string(publicKey))
-
-	km, err := keyManagerFactory(cfg)
+	km, err := optsConfig.keyManagerFactory(cfg)
 	if err != nil {
-		// A provider that cannot upload keys (ErrNotSupported) is not a hard
-		// failure: the key is already on disk, so instruct the user to add it
-		// manually rather than aborting setup.
 		if errors.Is(err, forgeapi.ErrNotSupported) {
-			log.Warn("provider does not support SSH-key upload; add the key manually", "provider", profile.Label)
+			p.Logger.Warn("provider does not support SSH-key upload; add the key manually",
+				"provider", profile.Label)
 
 			return nil
 		}
 
 		return errors.WithStack(err)
 	}
+
+	var upload bool
+
+	if err := runForm(optsConfig.uploadConfirmFormCreator(&upload)); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if !upload {
+		p.Logger.Warn("You must ensure your SSH key is added to the forge")
+
+		return nil
+	}
+
+	return uploadSSHKey(profile, p, km, keyname, publicKey)
+}
+
+// uploadSSHKey posts an already-generated public key using an already-resolved
+// KeyManager. Resolution happens in the caller, before the upload prompt, so a
+// provider that cannot upload is never asked about — see [generateKey].
+func uploadSSHKey(
+	profile Profile,
+	p props.LoggerProvider,
+	km forgeapi.KeyManager,
+	keyname string,
+	publicKey []byte,
+) error {
+	log := p.GetLogger()
+	log.Info("Uploading SSH public key", "provider", profile.Label, "key", string(publicKey))
 
 	if err := km.UploadKey(context.Background(), keyname, publicKey); err != nil {
 		return errors.WithStack(err)
@@ -465,7 +485,7 @@ func runForm(form *huh.Form) error {
 // configureSSH runs the SSH key configuration stage and records the selected
 // key type and path under the profile's SSH config keys.
 func (i *Initialiser) configureSSH(p *props.Props, cfg setup.Editor) error {
-	keyType, keyPath, err := ConfigureSSHKey(i.profile, p, cfg.View())
+	keyType, keyPath, err := ConfigureSSHKey(i.profile, p, cfg.View(), i.sshOpts...)
 	if err != nil {
 		return err
 	}

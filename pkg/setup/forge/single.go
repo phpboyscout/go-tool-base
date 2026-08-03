@@ -97,24 +97,14 @@ func authFormAtIndex(creator func(*AuthConfig) []*huh.Form, i int) func(*AuthCon
 	}
 }
 
-// configureSingle runs the interactive login and/or SSH configuration for a
-// single-token profile.
+// configureSingle runs the interactive login for a single-token profile.
+//
+// The SSH stage is not called here: it is shared with the dual-credential shape
+// and runs from [Initialiser.Configure] once the credential is captured. Keeping
+// one call site is what stops the two shapes drifting apart again.
 func (i *Initialiser) configureSingle(ctx context.Context, p *props.Props, cfg setup.Editor) error {
 	if !i.SkipLogin && !hasAnySingleCredential(i.profile, cfg.View()) {
 		if err := i.configureAuth(ctx, p, cfg); err != nil {
-			return err
-		}
-	}
-
-	// A fresh view: configureAuth may have written keys this must observe.
-	view := cfg.View()
-	if i.profile.OffersSSH && !i.SkipKey &&
-		view.GetString(i.profile.sshKeyPathKey()) == "" &&
-		view.GetString(i.profile.sshKeyTypeKey()) != "agent" {
-		// configureSSH stays ctx-free for now: its upload path bounds itself
-		// and is outside the credential-stage scoping fix (see the
-		// forge-repo-setup follow-ups spec).
-		if err := i.configureSSH(p, cfg); err != nil { //nolint:contextcheck // SSH stage deliberately ctx-free; upload bounds itself, plumbing tracked in the forge-repo-setup follow-ups spec
 			return err
 		}
 	}

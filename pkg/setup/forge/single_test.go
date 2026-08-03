@@ -110,10 +110,12 @@ func TestConfigure_SkipBoth(t *testing.T) {
 	t.Parallel()
 
 	p := newTestProps(t)
-	// A mock editor proves both stages are skipped: only the unconditional
-	// post-auth View read happens.
+	// A strict mock editor with no expectations proves both stages are skipped:
+	// a run that skips login and keys must not read the config at all. The SSH
+	// gate checks SkipKey before taking a view, so hoisting the stage out of
+	// configureSingle removed the unconditional post-auth read this test used
+	// to assert.
 	cfg := setupmocks.NewMockEditor(t)
-	cfg.EXPECT().View().Return(testutil.ViewFromYAML(t, ""))
 	i := &Initialiser{profile: gitHubProfile, SkipLogin: true, SkipKey: true}
 	require.NoError(t, i.Configure(t.Context(), p, cfg))
 }

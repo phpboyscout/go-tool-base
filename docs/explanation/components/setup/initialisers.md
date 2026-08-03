@@ -98,9 +98,15 @@ The interactive login and SSH-key upload are performed against the **configured 
 | GitHub | single token | OAuth device flow | yes | `github.com` |
 | GitLab | single token | OAuth device flow | yes | `gitlab.com` |
 | Gitea | single token | **none** — manual token only | yes | **none** — self-hosted |
-| Bitbucket | `username` + `app_password` | none | not offered | `bitbucket.org` |
+| Bitbucket | `username` + `app_password` | none | yes | `bitbucket.org` |
 
-Two of those cells are upstream facts rather than framework choices. Gitea's adapter does not implement `Authenticator` — it is personal-access-token only by design — so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry. Bitbucket's adapter *does* implement `KeyManager`, but the dual-credential flow does not reach the SSH stage; exposing it is tracked separately.
+Gitea's "none" is an upstream fact rather than a framework choice: its adapter does not implement `Authenticator` — it is personal-access-token only by design — so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry.
+
+**SSH is a capability, not a credential shape.** `OffersSSH` means "this forge can accept an SSH key", and the stage runs from the shared dispatch for either shape. Bitbucket's adapter has always implemented `KeyManager`; GTB simply could not reach it, because the call sat inside the single-token flow. The stage itself was already shape-agnostic — it takes a `Profile` and nothing else — so this was a gate to remove rather than a flow to build.
+
+The stage runs **after** credential capture, on every profile. That ordering is load-bearing for a dual-credential forge: Bitbucket's `UploadKey` is authorised by the username and app password, so an upload attempted before capture could not succeed. `--skip-key` suppresses the stage for any profile that offers SSH.
+
+When a provider cannot upload, the wizard does not ask. The key manager is resolved before the confirm prompt, so a forge without `KeyManager` skips straight to the add-it-manually note rather than being asked a question whose answer is then overruled. The key is still generated, saved and recorded in `<forge>.ssh.key.path` — that part stands on its own.
 
 Gitea is also the only profile with no default host, because there is no public Gitea instance the way there is a `github.com`. That makes the token-creation guidance host-free rather than interpolating an empty string into a URL.
 

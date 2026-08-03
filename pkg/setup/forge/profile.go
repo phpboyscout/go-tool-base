@@ -144,7 +144,10 @@ type Profile struct {
 	// (e.g. "GITHUB_TOKEN"). SingleToken only.
 	FallbackEnv string
 	// OffersSSH enables the SSH key discovery/generation/upload stage.
-	// SingleToken only.
+	//
+	// It is a capability claim — "this forge can accept an SSH key" — not a
+	// statement about the credential shape. The stage takes a Profile and
+	// nothing else, and runs from Configure for either shape.
 	OffersSSH bool
 	// OffersLogin enables the forge [forgeapi.Authenticator] login attempt
 	// before the manual-token fallback. SingleToken only.

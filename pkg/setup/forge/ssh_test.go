@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
@@ -616,37 +617,108 @@ func TestConfigureSSHKey_DiscoverError(t *testing.T) {
 
 // --- uploadSSHKey error paths ---
 
-func TestUploadSSHKey_ClientError(t *testing.T) {
-	t.Parallel()
-
-	p := newTestProps(t)
-	cfg := testutil.ViewFromYAML(t, "")
-	err := uploadSSHKey(gitHubProfile, p, cfg, "keyname", []byte("pubkey"), keyManagerFactory(nil, assert.AnError))
-	require.Error(t, err)
-}
-
-// TestUploadSSHKey_NotSupported pins the graceful fallback: a provider that
-// cannot upload keys (ErrNotSupported) is not a hard failure — the user is told
-// to add the key manually and setup continues.
-func TestUploadSSHKey_NotSupported(t *testing.T) {
-	t.Parallel()
-
-	p := newTestProps(t)
-	cfg := testutil.ViewFromYAML(t, "")
-	err := uploadSSHKey(gitHubProfile, p, cfg, "keyname", []byte("pubkey"),
-		keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API")))
-	require.NoError(t, err)
-}
-
 func TestUploadSSHKey_UploadError(t *testing.T) {
 	t.Parallel()
 
 	km := &fakeKeyManager{err: assert.AnError}
 
 	p := newTestProps(t)
-	cfg := testutil.ViewFromYAML(t, "")
-	err := uploadSSHKey(gitHubProfile, p, cfg, "keyname", []byte("pubkey"), keyManagerFactory(km, nil))
+	err := uploadSSHKey(gitHubProfile, p, km, "keyname", []byte("pubkey"))
 	require.Error(t, err)
+}
+
+// --- key-manager resolution happens before the upload prompt (0186 D7) ---
+
+// TestGenerateKey_NotSupported_SkipsTheUploadPrompt is the D7 guard. The old
+// order asked "upload this key?", then discovered the provider could not upload
+// and overruled the answer with an add-it-manually warning. Resolution now
+// happens first, so the question is never asked — and the key is still
+// generated and saved, because that stands on its own.
+func TestGenerateKey_NotSupported_SkipsTheUploadPrompt(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
+
+	fs := afero.NewMemMapFs()
+	p := &props.Props{
+		FS:     fs,
+		Logger: logger.NewNoop(),
+		Tool:   props.Tool{Name: "testtool"},
+	}
+
+	promptShown := false
+
+	keyPath, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
+		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
+		WithUploadConfirmForm(func(b *bool) *huh.Form {
+			promptShown = true
+			*b = true
+
+			return nil
+		}),
+		WithKeyManager(keyManagerFactory(nil, errors.Wrap(forge.ErrNotSupported, "no key API"))),
+	)
+
+	require.NoError(t, err, "an unsupported upload is not a hard failure")
+	assert.False(t, promptShown, "the upload prompt must not be shown when upload cannot work")
+
+	exists, _ := afero.Exists(fs, keyPath)
+	assert.True(t, exists, "the key is still generated and saved")
+}
+
+// TestGenerateKey_KeyManagerError_IsFatal separates a real resolution failure
+// from the ErrNotSupported degradation above: anything else must surface.
+func TestGenerateKey_KeyManagerError_IsFatal(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
+
+	p := &props.Props{
+		FS:     afero.NewMemMapFs(),
+		Logger: logger.NewNoop(),
+		Tool:   props.Tool{Name: "testtool"},
+	}
+
+	promptShown := false
+
+	_, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
+		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
+		WithUploadConfirmForm(func(b *bool) *huh.Form {
+			promptShown = true
+
+			return nil
+		}),
+		WithKeyManager(keyManagerFactory(nil, assert.AnError)),
+	)
+
+	require.Error(t, err)
+	assert.False(t, promptShown, "a failed resolution must not reach the prompt either")
+}
+
+// TestGenerateKey_ResolvesTheKeyManagerOnce pins the other half of D7: the
+// manager resolved for the capability check is the one used for the upload,
+// rather than being constructed a second time.
+func TestGenerateKey_ResolvesTheKeyManagerOnce(t *testing.T) {
+	t.Setenv("HOME", "/home/testuser")
+
+	p := &props.Props{
+		FS:     afero.NewMemMapFs(),
+		Logger: logger.NewNoop(),
+		Tool:   props.Tool{Name: "testtool"},
+	}
+
+	km := &fakeKeyManager{}
+	calls := 0
+
+	_, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
+		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
+		WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
+		WithKeyManager(func(config.Reader) (forge.KeyManager, error) {
+			calls++
+
+			return km, nil
+		}),
+	)
+
+	require.NoError(t, err)
+	assert.True(t, km.uploaded)
+	assert.Equal(t, 1, calls, "the key manager must be constructed once, not once to test and once to upload")
 }
 
 // --- generateAndSaveSSHKey ---

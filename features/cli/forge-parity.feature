@@ -53,6 +53,32 @@ Feature: CLI Forge Credential Commands
     Then the exit code is 0
     And stdout does not contain "does not support an interactive browser login"
 
+  # ----- SSH is a capability, not a credential shape (0186) -----------
+
+  # forge-bitbucket implements KeyManager, but GTB could not reach it: the SSH
+  # stage was called only from the single-token flow. Whether a forge is offered
+  # a key is now a property of its profile.
+  @smoke
+  Scenario: A dual-credential forge offers SSH keys too
+    When I run gtb with "init bitbucket --help"
+    Then the exit code is 0
+    And stdout contains "SSH key"
+    And stdout contains "--skip-key"
+
+  # The summary line comes from each command's Short, which appears in the
+  # parent's subcommand listing rather than in the subcommand's own --help.
+  Scenario Outline: Every forge that offers SSH says so in the init listing
+    When I run gtb with "init --help"
+    Then the exit code is 0
+    And stdout contains "<summary>"
+
+    Examples:
+      | summary                                                                   |
+      | Configure GitHub authentication and SSH keys                              |
+      | Configure GitLab authentication and SSH keys                              |
+      | Configure Gitea authentication and SSH keys                               |
+      | Configure Bitbucket authentication (username + app password) and SSH keys |
+
   # ----- skip flags keep init non-interactive -------------------------
 
   Scenario: Non-interactive init skips every forge wizard

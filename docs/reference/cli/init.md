@@ -30,7 +30,7 @@ The credential wizards (GitHub, Bitbucket, AI) are interactive. When `init` runs
 | `-d, --dir` | Directory to initialize the config in | `~/.mytool/` |
 | `-c, --clean` | Reset existing configuration and replace with defaults | `false` |
 | `-l, --skip-login` | Skip the GitHub login process | `false` (or `true` in CI) |
-| `-k, --skip-key` | Skip SSH key configuration | `false` (or `true` in CI) |
+| `-k, --skip-key` | Skip SSH key configuration, for every forge that offers it | `false` (or `true` in CI) |
 | `--skip-gitlab` | Skip configuring GitLab credentials | `false` (or `true` in CI) |
 | `--skip-gitea` | Skip configuring Gitea credentials | `false` (or `true` in CI) |
 | `--skip-bitbucket` | Skip configuring Bitbucket credentials | `false` (or `true` in CI) |
@@ -101,6 +101,8 @@ mytool init bitbucket [--dir <path>]
 
 **Description:**
 Configures Bitbucket's dual credentials (`username` + `app_password`) via the three-mode selector. Env-var mode records two variable names, keychain mode stores a single JSON blob, and literal mode writes both fields to config.
+
+An SSH key is then configured, as for the single-token forges — Bitbucket's adapter accepts key uploads, and offering one is a capability question rather than a consequence of the credential shape. The key stage runs **after** the credentials are captured, because the upload is authorised by them. Pass `--skip-key` to leave keys alone.
 
 ### Init AI
 

@@ -143,14 +143,17 @@ func RunBitbucketInit(ctx context.Context, p *props.Props, cfg setup.Editor, opt
 func NewCmdInitBitbucket(p *props.Props) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bitbucket",
-		Short: "Configure Bitbucket authentication (username + app password)",
+		Short: "Configure Bitbucket authentication (username + app password)" + sshShortSuffix(bitbucketProfile),
 		Long: `Configure Bitbucket credentials via the three-mode selector: environment
 variable references (recommended default), OS keychain (single JSON blob), or
 literal values in the config file.
 
 Bitbucket's dual-credential model (username + app_password) is handled natively:
 env-var mode records two env-var names, keychain mode stores a single JSON blob,
-and literal mode writes both fields to config.`,
+and literal mode writes both fields to config.
+
+An SSH key for Git operations is configured afterwards, and uploaded using the
+credentials just captured. Pass --skip-key to leave keys alone.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, _ := cmd.Flags().GetString("dir")
 
