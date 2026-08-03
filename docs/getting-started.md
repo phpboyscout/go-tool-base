@@ -49,10 +49,12 @@ configuration layer, because an unprefixed layer would let any process on the
 machine reconfigure your tool.
 
 Pick your feature set with `--features` — `init`, `update`, `mcp`, `docs`,
-`doctor`, `changelog`, `keychain`, `ai`, `config`, `telemetry`. The default set
-is everything but `ai`, `config` and `telemetry`. Features can be added or
-removed later. Full flag list in the
-[generate reference](reference/cli/generate.md).
+`doctor`, `changelog`, `keychain`, `ai`, `config`, `telemetry`, `man`, and a
+forge to configure credentials for (`github`, `gitlab`, `gitea`, `bitbucket`).
+The default set is the first seven. Note that `--features` *replaces* that
+default rather than adding to it, so name every feature you want. Everything
+except `keychain` can be added or removed later. Full list in the
+[generate reference](reference/cli/generate.md#features).
 
 ### 2. Build and initialise
 
