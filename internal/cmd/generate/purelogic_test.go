@@ -11,6 +11,7 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup/forge"
 )
 
 // -- boolToStr ----------------------------------------------------------------
@@ -290,6 +291,48 @@ func TestHostForBackend_GitHub(t *testing.T) {
 func TestHostForBackend_GitLab(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, "gitlab.com", hostForBackend("gitlab"))
+}
+
+// -- featureOptions -----------------------------------------------------------
+
+// TestFeatureOptions_MatchesTheFlag is the guard that keeps the two entry points
+// honest: the wizard checklist must offer exactly what the --features flag
+// accepts, each with a display label. The hand-written option list this replaced
+// had silently fallen behind by four forges and man pages, so a user could not
+// select interactively what the flag accepted.
+//
+// The default-selected state is not asserted: huh.Option keeps it unexported,
+// and featureOptions derives it directly from DefaultSelectedFeatures, so a test
+// could only restate the implementation.
+func TestFeatureOptions_MatchesTheFlag(t *testing.T) {
+	t.Parallel()
+
+	opts := featureOptions()
+	require.Len(t, opts, len(generator.SelectableFeatures))
+
+	offered := make(map[string]string, len(opts))
+	for _, o := range opts {
+		offered[o.Value] = o.Key
+	}
+
+	for _, name := range generator.SelectableFeatures {
+		label, ok := offered[name]
+		require.Truef(t, ok, "selectable feature %q is missing from the wizard", name)
+		assert.NotEmptyf(t, label, "feature %q needs a display label", name)
+	}
+}
+
+// TestFeatureOptions_ForgesAreLabelledFromTheRegistry proves the forge labels
+// are not hand-maintained here: they resolve through forge.DisplayFor, so a new
+// forge is offered with its real name and no entry in featureLabels.
+func TestFeatureOptions_ForgesAreLabelledFromTheRegistry(t *testing.T) {
+	t.Parallel()
+
+	for _, d := range forge.Displays() {
+		name := string(d.ID)
+		assert.NotContainsf(t, featureLabels, name, "forge %q should not need a hand-written label", name)
+		assert.Equalf(t, d.Label, featureLabel(name), "forge %q label should come from the registry", name)
+	}
 }
 
 // -- resolveFeatures ----------------------------------------------------------

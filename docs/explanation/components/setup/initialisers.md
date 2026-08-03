@@ -109,6 +109,10 @@ Gitea is also the only profile with no default host, because there is no public 
 
 **Adding a forge** means three things: a blank import of its adapter module, a `Profile`, and an embedded config bundle. Everything that enumerates forges — the feature registry, the doctor support bundle, the project generator's backend chooser — derives from those.
 
+A fourth is needed to make it *scaffoldable*: an entry in the generator's feature catalogue (`internal/generator/templates/feature_catalogue.go`), carrying the constant's declaring package as well as its name. Forge constants live in `pkg/setup/forge`, not `props`, so the emitter qualifies each one against the package recorded in its descriptor — hard-coding `props` is what previously made a selected forge vanish between the manifest and the generated root. A guard test holds the catalogue against the registry, so a new forge fails the build until it is listed.
+
+Selecting one at generation time is then `gtb generate project --features …,gitlab`, which emits `props.Enable(forge.GitlabFeature)` into the generated root and survives `gtb regenerate project`. Because `--features` replaces the default set rather than extending it, a forge has to be named alongside the built-ins the tool should keep. See the [generate reference](../../../reference/cli/generate.md#features).
+
 The GitHub profile manages two distinct configuration areas: **Authentication** (OAuth device flow / token) and **SSH Keys**.
 
 #### Configuration Keys

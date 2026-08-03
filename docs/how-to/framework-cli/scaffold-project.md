@@ -197,7 +197,7 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | `--private` | | Mark the repository as private (requires a token for updates) | `false` |
 | `--description` | `-d` | Short description of the tool | `A tool built with gtb` |
 | `--path` | `-p` | Destination path for the generated project | `.` |
-| `--features` | `-f` | Features to enable (`init`, `update`, `mcp`, `docs`, `doctor`, `changelog`, `keychain`, `ai`, `config`, `telemetry`) | `init, update, mcp, docs, doctor, changelog, keychain` |
+| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`), forges (`github`, `gitlab`, `gitea`, `bitbucket`), and `keychain`. Replaces the default set rather than extending it — see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
 | `--go-version` | | Go version for `go.mod` | running toolchain version |
 | `--help-type` | | Help channel type (`slack`, `teams`, or `none`) | `none` |
 | `--overwrite` | | How to handle file conflicts (`allow`, `deny`, or `ask`) | `ask` |

@@ -48,7 +48,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 | `--host` | *(backend's canonical host)* | Git host (for self-managed instances). |
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
-| `--features, -f` | `init,update,mcp,docs,doctor,changelog,keychain` | Features to enable (also `ai`, `config`, `telemetry`). |
+| `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable — see [below](#features). The flag **replaces** the default set rather than adding to it. |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
@@ -60,6 +60,24 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 | `--template` | — | Custom template overlay source `<src>@<ref>` (local path or forge repo); repeatable, layered in order. |
 
 **Help channel** (used when `--help-type` is `slack`/`teams`): `--slack-channel`, `--slack-team`, `--teams-channel`, `--teams-team`.
+
+<a id="features"></a>
+**Features** accepted by `--features`:
+
+| Group | Values | Notes |
+|-------|--------|-------|
+| Built-in commands (default on) | `update`, `init`, `mcp`, `docs`, `doctor`, `changelog` | Wired via `props.SetFeatures`. |
+| Built-in commands (opt-in) | `ai`, `config`, `telemetry`, `man` | |
+| Forges (opt-in) | `github`, `gitlab`, `gitea`, `bitbucket` | Each adds that forge's `init <forge>` credential wizard, config section and embedded asset bundle. Constants live in `pkg/setup/forge`, not `props`. |
+| Build-time | `keychain` | Not a `SetFeatures` toggle — selects the `cmd/<name>/keychain.go` blank import. Cannot be flipped later by `gtb enable`/`gtb disable`. |
+
+`--features` replaces the default set rather than extending it, so a selection
+must name every feature the tool should ship with: `--features gitlab` alone
+yields a tool with the six default built-ins **off**. An unrecognised name is
+rejected before anything is written.
+
+Everything except `keychain` can also be toggled after generation with
+[`gtb enable`/`gtb disable`](enable-disable.md).
 
 **Git lifecycle** (the new project is git-initialised with an initial commit by default):
 

@@ -19,6 +19,40 @@ import (
 // adding/removing that file, not by a SetFeatures toggle.
 var ToggleableFeatures = featureNamesFromCatalogue()
 
+// KeychainFeature is the one `--features` value with no FeatureID behind it: it
+// selects the scaffolded cmd/<name>/keychain.go blank import rather than a
+// SetFeatures toggle, which is why it is absent from the catalogue and from
+// ToggleableFeatures.
+const KeychainFeature = "keychain"
+
+// SelectableFeatures is the set `gtb generate project --features` accepts — every
+// toggleable feature plus keychain. It is deliberately wider than
+// ToggleableFeatures: at generation time keychain is a real choice, whereas
+// `gtb enable`/`gtb disable` cannot flip it in an existing project.
+var SelectableFeatures = append(slices.Clone(ToggleableFeatures), KeychainFeature)
+
+// DefaultSelectedFeatures is what `gtb generate project` selects when --features
+// is omitted: every catalogue feature that is default-enabled in the framework,
+// plus keychain. It is derived rather than written out so a change to a
+// framework default cannot leave the generator's default set stale — and so the
+// flag default and resolveFeatures cannot disagree about what "default" means.
+//
+// Forge features are Default:false, so they are correctly absent: a scaffolded
+// tool opts into a forge explicitly.
+var DefaultSelectedFeatures = defaultSelectedFromCatalogue()
+
+func defaultSelectedFromCatalogue() []string {
+	names := make([]string, 0, len(templates.FeatureCatalogue)+1)
+
+	for _, d := range templates.FeatureCatalogue {
+		if d.Default {
+			names = append(names, string(d.Cmd))
+		}
+	}
+
+	return append(names, KeychainFeature)
+}
+
 func featureNamesFromCatalogue() []string {
 	names := make([]string, 0, len(templates.FeatureCatalogue))
 	for _, d := range templates.FeatureCatalogue {

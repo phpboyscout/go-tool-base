@@ -448,7 +448,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 	// interactive multi-select. Deleting the scaffolded file later is
 	// the escape hatch for regulated builds — linker dead-code elimination
 	// then keeps go-keyring, godbus, and wincred out of the linked artefact.
-	if !slices.Contains(data.DisabledFeatures, "keychain") {
+	if !slices.Contains(data.DisabledFeatures, KeychainFeature) {
 		goFiles[filepath.Join("cmd", data.Name, "keychain.go")] = templates.SkeletonKeychain()
 	}
 

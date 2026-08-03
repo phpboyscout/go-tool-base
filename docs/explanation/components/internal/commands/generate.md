@@ -42,24 +42,23 @@ Global Flags:
 
 Generates a new project structure from scratch.
 
-**Help (`generate skeleton --help`):**
+**Help (`generate project --help`, core flags — the full set is in the
+[generate reference](../../../../reference/cli/generate.md)):**
 
 ```text
-Generate a new cli project skeleton
-
 Aliases:
-  skeleton, project, cli
+  project, cli, skeleton
 
 Flags:
   -d, --description string   Project description (default "A tool built with gtb")
-  -f, --features strings     Features to enable (init, update, mcp, docs, doctor, changelog, keychain, ai, config, telemetry) (default [init,update,mcp,docs,doctor,changelog,keychain])
-      --git-backend string   Git backend (github or gitlab) (default "github")
+  -f, --features strings     Features to enable (update, init, mcp, docs, doctor, changelog, ai, config, telemetry, man, github, gitlab, gitea, bitbucket, keychain) (default [update,init,mcp,docs,doctor,changelog,keychain])
+      --git-backend string   Git backend (github, gitlab) (default "github")
       --go-version string    Go version for go.mod (defaults to the running toolchain version)
-  -h, --help                 help for skeleton
-      --host string          Git Host (e.g. github.com) (default "github.com")
-  -n, --name string          Project name (e.g. mytool)
+  -h, --help                 help for project
+      --host string          Git host (defaults to backend's canonical host)
+  -n, --name string          Project name (e.g. als)
   -p, --path string          Destination path (default ".")
-  -r, --repo string          Git repository (e.g. myorg/mytool)
+  -r, --repo string          Repository in org/repo format
 ```
 
 #### Feature flags

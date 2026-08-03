@@ -58,7 +58,7 @@ func (g *Generator) recoverNonLiteralProperties(props *ManifestProperties) {
 	if g.keychainArtefactExists() {
 		// keychain defaults off; its presence is a delta entry, matching what
 		// generate writes (normaliseManifestFeatures keeps it).
-		props.Features = append(props.Features, ManifestFeature{Name: "keychain", Enabled: true})
+		props.Features = append(props.Features, ManifestFeature{Name: KeychainFeature, Enabled: true})
 	}
 
 	// Canonical (name-sorted) order so the from-scratch feature list matches

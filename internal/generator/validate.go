@@ -776,12 +776,27 @@ func ValidateUpdatePolicy(policy string) error {
 // `gtb disable <feature>` so an unknown name fails fast with the valid set
 // listed, rather than silently writing a junk manifest entry.
 func ValidateFeatureName(name string) error {
-	if slices.Contains(ToggleableFeatures, name) {
+	return validateFeatureNameIn(name, ToggleableFeatures)
+}
+
+// ValidateSelectableFeatureName rejects any name that `gtb generate project
+// --features` cannot act on. Its valid set is wider than ValidateFeatureName's:
+// keychain is a real choice at generation time but cannot be flipped afterwards.
+//
+// Without it an unknown name was written verbatim into the manifest and then
+// silently dropped at emission, so the generated tool quietly lacked the feature
+// the operator asked for.
+func ValidateSelectableFeatureName(name string) error {
+	return validateFeatureNameIn(name, SelectableFeatures)
+}
+
+func validateFeatureNameIn(name string, valid []string) error {
+	if slices.Contains(valid, name) {
 		return nil
 	}
 
 	return rejectf("Feature",
-		"unknown feature (valid: "+strings.Join(ToggleableFeatures, ", ")+")",
+		"unknown feature (valid: "+strings.Join(valid, ", ")+")",
 		name)
 }
 

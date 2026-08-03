@@ -95,12 +95,12 @@ func NewCmdSkeleton(p *props.Props) *cobra.Command {
 		Long: `Scaffold a complete new GTB-based CLI project.
 
 Generates the full module layout: go.mod, the root command and main entry
-point, the .gtb manifest, embedded default config and assets, selected feature
-commands (init, update, mcp, docs, doctor, changelog, keychain, and optionally
-ai/config/telemetry), and the CI pipeline for the chosen Git backend (GitHub or
-GitLab). Optional release-signing and custom template overlays can be layered
-in. By default the new project is git-initialised with an initial commit; pass
---no-git to skip that or --push to also add the remote and push.
+point, the .gtb manifest, embedded default config and assets, the feature
+commands selected by --features (see that flag for the full set), and the CI
+pipeline for the chosen Git backend (GitHub or GitLab). Optional release-signing
+and custom template overlays can be layered in. By default the new project is
+git-initialised with an initial commit; pass --no-git to skip that or --push to
+also add the remote and push.
 
 Run without --name/--repo in an interactive terminal to launch a guided wizard;
 otherwise supply the flags directly.`,
@@ -121,7 +121,11 @@ otherwise supply the flags directly.`,
 	cmd.Flags().BoolVar(&opts.Private, "private", false, "Mark the repository as private (requires a token for updates)")
 	cmd.Flags().StringVarP(&opts.Description, "description", "d", "A tool built with gtb", "Project description")
 	cmd.Flags().StringVarP(&opts.Path, "path", "p", ".", "Destination path")
-	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", []string{"init", "update", "mcp", "docs", "doctor", "changelog", "keychain"}, "Features to enable (init, update, mcp, docs, doctor, changelog, keychain, ai, config, telemetry)")
+	// Clone the default: the flag value is handed to pflag, and every command
+	// instance must get its own backing array rather than sharing the package
+	// var's.
+	cmd.Flags().StringSliceVarP(&opts.Features, "features", "f", slices.Clone(generator.DefaultSelectedFeatures),
+		"Features to enable ("+strings.Join(generator.SelectableFeatures, ", ")+")")
 	cmd.Flags().StringVar(&opts.GoVersion, "go-version", "", "Go version for go.mod (defaults to the running toolchain version)")
 	cmd.Flags().StringVar(&opts.HelpType, "help-type", "none", "Help channel type (slack, teams, or none)")
 	cmd.Flags().StringVar(&opts.Overwrite, "overwrite", "ask", "How to handle file conflicts: allow, deny, or ask")
@@ -414,6 +418,55 @@ var scaffoldableBackends = map[props.FeatureID]bool{
 // gitBackendOptions is the wizard's backend chooser: the registered forges that
 // are also scaffoldable, so the options, the flag help and the credential
 // wizards cannot drift apart the way they had.
+// featureLabels are the human-facing names for the features the wizard offers.
+// Forge labels are not listed: they come from the forge registry via
+// forge.DisplayFor, so a new forge needs no entry here.
+var featureLabels = map[string]string{ //nolint:gochecknoglobals // static presentation table
+	"init":      "Initialization",
+	"update":    "Self-Update",
+	"mcp":       "MCP Server",
+	"docs":      "Documentation",
+	"doctor":    "Doctor",
+	"changelog": "Changelog",
+	"ai":        "AI Chat",
+	"config":    "Config Management",
+	"telemetry": "Telemetry",
+	"man":       "Man Pages",
+
+	generator.KeychainFeature: "OS Keychain (credentials via go-keyring)",
+}
+
+// featureOptions builds the wizard's feature checklist from the same set the
+// --features flag accepts and defaults to, so the two entry points cannot
+// disagree about what is selectable. The hand-written list this replaced had
+// already fallen behind: it offered neither man pages nor any forge.
+func featureOptions() []huh.Option[string] {
+	opts := make([]huh.Option[string], 0, len(generator.SelectableFeatures))
+
+	for _, name := range generator.SelectableFeatures {
+		opts = append(opts,
+			huh.NewOption(featureLabel(name), name).
+				Selected(slices.Contains(generator.DefaultSelectedFeatures, name)))
+	}
+
+	return opts
+}
+
+// featureLabel resolves a feature's display name, preferring the static table,
+// then the forge registry, and finally the raw config name so an unlabelled
+// feature is still selectable rather than blank.
+func featureLabel(name string) string {
+	if label, ok := featureLabels[name]; ok {
+		return label
+	}
+
+	if d, ok := forge.DisplayFor(props.FeatureID(name)); ok {
+		return d.Label
+	}
+
+	return name
+}
+
 func gitBackendOptions() []huh.Option[string] {
 	displays := scaffoldableDisplays()
 	opts := make([]huh.Option[string], 0, len(displays))
@@ -493,18 +546,7 @@ func (o *SkeletonOptions) basicsGroup() *huh.Group {
 			Value(&o.Path),
 		huh.NewMultiSelect[string]().
 			Title("Features").
-			Options(
-				huh.NewOption("Initialization", "init").Selected(true),
-				huh.NewOption("Self-Update", "update").Selected(true),
-				huh.NewOption("MCP Server", "mcp").Selected(true),
-				huh.NewOption("Documentation", "docs").Selected(true),
-				huh.NewOption("Doctor", "doctor").Selected(true),
-				huh.NewOption("Changelog", "changelog").Selected(true),
-				huh.NewOption("OS Keychain (credentials via go-keyring)", "keychain").Selected(true),
-				huh.NewOption("AI Chat", "ai"),
-				huh.NewOption("Config Management", "config"),
-				huh.NewOption("Telemetry", "telemetry"),
-			).
+			Options(featureOptions()...).
 			Value(&o.Features),
 		huh.NewSelect[string]().
 			Title("Git Backend").
@@ -752,14 +794,14 @@ func (o *SkeletonOptions) signingDetailGroup() *huh.Group {
 // resolveFeatures builds the full feature list from the selected set,
 // marking unselected defaults as explicitly disabled.
 func resolveFeatures(selected []string) []generator.ManifestFeature {
-	defaultFeatures := []string{"init", "update", "mcp", "docs", "doctor", "changelog", "keychain"}
+	defaultFeatures := generator.DefaultSelectedFeatures
 
 	selectedMap := make(map[string]bool, len(selected))
 	for _, f := range selected {
 		selectedMap[f] = true
 	}
 
-	features := make([]generator.ManifestFeature, 0, len(defaultFeatures))
+	features := make([]generator.ManifestFeature, 0, len(selected)+len(defaultFeatures))
 	for _, f := range selected {
 		features = append(features, generator.ManifestFeature{Name: f, Enabled: true})
 	}
@@ -773,7 +815,10 @@ func resolveFeatures(selected []string) []generator.ManifestFeature {
 	return features
 }
 
-func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
+// preflight applies flag defaults and rejects contradictory or unknown values
+// before Run touches the filesystem, so a bad invocation fails without leaving a
+// half-scaffolded directory behind.
+func (o *SkeletonOptions) preflight() error {
 	if o.Overwrite == "" {
 		o.Overwrite = "ask"
 	}
@@ -786,6 +831,24 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	// contradictory, so reject the combination rather than silently dropping one.
 	if o.NoGit && o.Push {
 		return ErrGitFlagsConflict
+	}
+
+	// Reject unknown --features names before anything is cloned or written.
+	// Previously an unrecognised name was copied verbatim into the manifest and
+	// then silently dropped at emission, so `--features bogus` exited 0 having
+	// produced a tool that lacked the feature and recorded that it had it.
+	for _, f := range o.Features {
+		if err := generator.ValidateSelectableFeatureName(f); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
+	if err := o.preflight(); err != nil {
+		return err
 	}
 
 	templates, err := o.resolveTemplateSources(p)

@@ -57,6 +57,14 @@ Feature: Enable and disable built-in features post-generation
     Then the project exit code is 0
     And the generated "pkg/cmd/root/cmd.go" file contains "props.Enable(forge.GiteaFeature)"
 
+  # generate used to accept any --features value verbatim: an unknown name was
+  # written into the manifest and dropped at emission, so the operator got a
+  # zero exit for a tool missing what they asked for. enable/disable validated
+  # all along; this closes the gap between the two paths.
+  Scenario: An unknown feature is rejected at generation time
+    When I generate a gtb project with features "init,bogus"
+    Then the project exit code is not zero
+
   Scenario: signing remains a scoped subcommand, not a feature
     Given a freshly generated gtb project
     When I run gtb in the project with "enable signing --email release@acme.test"
