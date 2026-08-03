@@ -364,6 +364,17 @@ type ManifestProperties struct {
 	// own gtb-template.yaml descriptor. See
 	// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates.
 	Templates []TemplateSource `yaml:"templates,omitempty"`
+	// ConfigLayers records which layers of the configuration stack the project
+	// wires (see props.ConfigLayer). Empty means the project states nothing and
+	// inherits the framework default — the reading every project generated
+	// before this field existed depends on.
+	//
+	// It is declared here rather than hand-wired in the scaffolded main because
+	// the manifest reconstructs byte-exactly from scratch: a hand-wired layer
+	// set would be a hole reconstruction cannot fill, and `regenerate` would
+	// silently emit a project wiring different layers from the one it ran
+	// against. See spec 0183 D8.
+	ConfigLayers []string `yaml:"config_layers,omitempty"`
 	// DocsLayout records the documentation tree layout: [DocsLayoutDiataxis]
 	// (the default for newly generated projects) or [DocsLayoutFlat] (the legacy
 	// docs/commands + docs/packages tree). Empty is treated as flat for backward

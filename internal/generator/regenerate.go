@@ -398,6 +398,7 @@ func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcomman
 		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
+		ConfigLayers:          m.Properties.ConfigLayers,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		SigningEnabled:        m.Properties.Signing.Enabled,
@@ -497,6 +498,7 @@ type skeletonTemplateData struct {
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
+	ConfigLayers          []string
 	UpdatePolicy          string
 	UpdateCheckInterval   string
 	Signing               ManifestSigning
@@ -547,6 +549,7 @@ func (g *Generator) buildSkeletonTemplateData(m Manifest) skeletonTemplateData {
 		TelemetryEndpoint:     m.Properties.Telemetry.Endpoint,
 		TelemetryOTelEndpoint: m.Properties.Telemetry.OTelEndpoint,
 		EnvPrefix:             m.Properties.EnvPrefix,
+		ConfigLayers:          m.Properties.ConfigLayers,
 		UpdatePolicy:          m.Properties.UpdatePolicy,
 		UpdateCheckInterval:   m.Properties.UpdateCheckInterval,
 		Signing:               m.Properties.Signing,

@@ -45,11 +45,15 @@ type SkeletonConfig struct {
 	SlackTeam             string
 	TeamsChannel          string
 	TeamsTeam             string
-	TelemetryEndpoint     string            // populated from manifest telemetry.endpoint
-	TelemetryOTelEndpoint string            // populated from manifest telemetry.otel_endpoint
-	EnvPrefix             string            // environment variable prefix for config overrides
-	Signing               ManifestSigning   // self-update signature-verification posture (disabled by default)
-	Bootstrap             ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
+	TelemetryEndpoint     string // populated from manifest telemetry.endpoint
+	TelemetryOTelEndpoint string // populated from manifest telemetry.otel_endpoint
+	EnvPrefix             string // environment variable prefix for config overrides
+	// ConfigLayers declares which config-stack layers the project wires. Empty
+	// inherits the framework default, which is what every project generated
+	// before this field existed does.
+	ConfigLayers []string
+	Signing      ManifestSigning   // self-update signature-verification posture (disabled by default)
+	Bootstrap    ManifestBootstrap // config-bootstrap lifecycle policy (auto-init / skip-config-check)
 	// UpdatePolicy is the generated tool's self-update posture baseline
 	// (disabled / prompt / enabled). Empty leaves it unset so the framework
 	// default (disabled) applies; wired into the generated root command's
@@ -298,6 +302,7 @@ func (g *Generator) generateSkeletonFiles(config SkeletonConfig) error {
 		TelemetryEndpoint:     config.TelemetryEndpoint,
 		TelemetryOTelEndpoint: config.TelemetryOTelEndpoint,
 		EnvPrefix:             config.EnvPrefix,
+		ConfigLayers:          config.ConfigLayers,
 		Signing:               config.Signing,
 		Bootstrap:             config.Bootstrap,
 		UpdatePolicy:          config.UpdatePolicy,
@@ -420,6 +425,7 @@ func (g *Generator) generateSkeletonGoFiles(destPath string, data skeletonTempla
 			TelemetryEndpoint:     data.TelemetryEndpoint,
 			TelemetryOTelEndpoint: data.TelemetryOTelEndpoint,
 			EnvPrefix:             data.EnvPrefix,
+			ConfigLayers:          data.ConfigLayers,
 			UpdatePolicy:          data.UpdatePolicy,
 			UpdateCheckInterval:   data.UpdateCheckInterval,
 			SigningEnabled:        data.Signing.Enabled,
@@ -802,6 +808,7 @@ func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[
 			Description:         MultilineString(config.Description),
 			Features:            normaliseManifestFeatures(config.Features),
 			EnvPrefix:           config.EnvPrefix,
+			ConfigLayers:        config.ConfigLayers,
 			UpdatePolicy:        config.UpdatePolicy,
 			UpdateCheckInterval: config.UpdateCheckInterval,
 			DocsLayout:          DocsLayoutDiataxis,

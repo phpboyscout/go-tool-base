@@ -31,6 +31,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+
 	"github.com/cockroachdb/errors"
 	"golang.org/x/net/idna"
 	"golang.org/x/text/unicode/norm"
@@ -800,6 +802,36 @@ func validateFeatureNameIn(name string, valid []string) error {
 		name)
 }
 
+// ValidateConfigLayers rejects any layer name the framework does not know, and
+// any duplicate.
+//
+// An unknown name would otherwise reach the emitter and render a props constant
+// that does not exist, failing the generated project's build with an error
+// pointing at generated source rather than at the manifest that caused it.
+func ValidateConfigLayers(layers []string) error {
+	seen := make(map[string]bool, len(layers))
+
+	valid := make([]string, 0, len(props.AllConfigLayers()))
+	for _, l := range props.AllConfigLayers() {
+		valid = append(valid, string(l))
+	}
+
+	for _, l := range layers {
+		if seen[l] {
+			return rejectf("ConfigLayers", "duplicate config layer", l)
+		}
+
+		seen[l] = true
+
+		if !props.IsValidConfigLayer(props.ConfigLayer(l)) {
+			return rejectf("ConfigLayers",
+				"unknown config layer (valid: "+strings.Join(valid, ", ")+")", l)
+		}
+	}
+
+	return nil
+}
+
 // ValidateUpdateCheckInterval accepts an empty string (meaning "use the
 // framework default of 24h") and otherwise requires a valid, non-negative Go
 // duration (as understood by time.ParseDuration, e.g. "24h", "168h", "30m").
@@ -1217,6 +1249,10 @@ func validateManifestProperties(p *ManifestProperties) error {
 	}
 
 	if err := ValidateUpdateCheckInterval(p.UpdateCheckInterval); err != nil {
+		return err
+	}
+
+	if err := ValidateConfigLayers(p.ConfigLayers); err != nil {
 		return err
 	}
 

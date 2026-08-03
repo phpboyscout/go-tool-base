@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"strings"
 	"time"
 
 	"github.com/dave/jennifer/jen"
@@ -47,6 +48,11 @@ type SkeletonRootData struct {
 	TelemetryEndpoint     string
 	TelemetryOTelEndpoint string
 	EnvPrefix             string
+	// ConfigLayers wires props.Tool.ConfigLayers in the generated root. Empty
+	// means the project states nothing and inherits the framework default, so
+	// no field is emitted — keeping generated output byte-identical for every
+	// project that does not care.
+	ConfigLayers []string
 	// UpdatePolicy wires props.Tool.UpdatePolicy in the generated root. Empty
 	// (or "disabled") leaves the field off so the framework default applies;
 	// "prompt"/"enabled" emit the matching props.UpdatePolicy* constant.
@@ -216,6 +222,13 @@ func buildToolDict(data SkeletonRootData) jen.Dict {
 		toolDict[jen.Id("EnvPrefix")] = jen.Lit(data.EnvPrefix)
 	}
 
+	// Only a stated layer set emits a field. An unstated one resolves to the
+	// framework default at runtime, so emitting it would add noise that says
+	// nothing — and would change existing generated output.
+	if len(data.ConfigLayers) > 0 {
+		toolDict[jen.Id("ConfigLayers")] = buildConfigLayers(data.ConfigLayers)
+	}
+
 	// Wire a non-default update policy. "disabled" is the framework default, so
 	// only "prompt"/"enabled" emit a field (keeps the generated Tool minimal).
 	if c := updatePolicyConst(data.UpdatePolicy); c != "" {
@@ -375,6 +388,28 @@ func buildReleaseSourceDict(data SkeletonRootData) jen.Dict {
 	}
 
 	return d
+}
+
+// buildConfigLayers renders the declared layer set as props.ConfigLayer
+// constants rather than string literals, so a layer name that no longer exists
+// fails the generated project's build instead of silently resolving to nothing
+// at runtime.
+func buildConfigLayers(layers []string) jen.Code {
+	items := make([]jen.Code, 0, len(layers))
+
+	for _, l := range layers {
+		items = append(items,
+			jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", ConfigLayerConstName(l)))
+	}
+
+	return jen.Index().Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", "ConfigLayer").Values(items...)
+}
+
+// ConfigLayerConstName maps a manifest layer name to its exported props
+// constant. Exported so the mapping can be asserted directly rather than only
+// through rendered output.
+func ConfigLayerConstName(name string) string {
+	return "Layer" + strings.ToUpper(name[:1]) + name[1:]
 }
 
 func buildFeatures(data SkeletonRootData) []jen.Code {
