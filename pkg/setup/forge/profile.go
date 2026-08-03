@@ -51,6 +51,10 @@ const (
 //
 // It is applied only when the target really is gitlab.com; see
 // [Profile.LoginClientID] for why that condition is load-bearing.
+// Being 64 hex characters it trips gitleaks' generic-api-key entropy rule, so
+// the literal is allowlisted by value in .gitleaks.toml. An inline
+// //gitleaks:allow would not do: CI scans the commit range, and the commit that
+// introduced this line would still carry the un-annotated version.
 const gitLabOAuthClientID = "78d6c73fc80d2ad37bc3ec34a53aaed8dc517abbb824d9035d5735a977429376"
 
 // gitLabAPIHost is the API host the shipped client ID is valid against. A

@@ -39,6 +39,16 @@ paths = [
 # (telemetry.md, the telemetry/ subsection, the reference/api/concepts variants).
 # Allowlist the fake token itself — a real key would never be "abc123def456" — so
 # the suppression is precise and path-independent.
+#
+# The second value is the OAuth client ID of the application GTB owns on
+# gitlab.com (pkg/setup/forge). A client ID is a public identifier for a public
+# client — shipping it is the point of registering the application — but at 64
+# hex characters it trips generic-api-key on entropy. The paired client secret is
+# unused and recorded nowhere. Allowlisted by value rather than by path for the
+# same reason as above: CI scans a commit range, so a //gitleaks:allow added
+# later does not reach the commit that introduced the line, and a path entry
+# would mask a genuine credential landing in that file in future.
 regexes = [
     '''sk-proj-abc123def456''',
+    '''78d6c73fc80d2ad37bc3ec34a53aaed8dc517abbb824d9035d5735a977429376''',
 ]
