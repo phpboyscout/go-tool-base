@@ -401,13 +401,21 @@ var giteaProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a 
 // bitbucketProfile drives the dual-credential Bitbucket wizard: username +
 // app-password, no login, no SSH.
 var bitbucketProfile = Profile{ //nolint:gosec // G101: PassFallbackEnv is the env-var NAME to read, not a credential value
-	Provider:        "bitbucket",
-	ConfigPrefix:    "bitbucket",
-	Label:           "Bitbucket",
-	DisplayName:     "Bitbucket authentication",
-	Feature:         BitbucketFeature,
+	Provider:     "bitbucket",
+	ConfigPrefix: "bitbucket",
+	Label:        "Bitbucket",
+	DisplayName:  "Bitbucket authentication",
+	Feature:      BitbucketFeature,
+	// Host is required by defaultKeyManager, which builds the provider with
+	// forgeapi.ReleaseSourceConfig{Host: profile.Host}. Its absence here was
+	// latent rather than harmless.
+	Host:            "bitbucket.org",
 	KeychainAccount: "bitbucket.auth",
 	Credential:      DualUserPass,
+	// forge-bitbucket implements forge.KeyManager: UploadKey posts an
+	// OpenSSH-format public key, authorised by the configured username and app
+	// password. GTB could not reach it while the stage was single-token only.
+	OffersSSH:       true,
 	UserFallbackEnv: "BITBUCKET_USERNAME",
 	PassFallbackEnv: "BITBUCKET_APP_PASSWORD",
 	RepoDescription: "The repository path in workspace/repo format.",
@@ -475,7 +483,13 @@ func registerSingleTokenForge(profile Profile, skip *bool, flagName, flagUsage s
 					return nil
 				}
 
-				return New(p, profile)
+				init := New(p, profile)
+				// --skip-key is a global init flag, so it must reach every
+				// profile that offers SSH — not just GitHub, which was the
+				// only one wired to it while the stage was single-token only.
+				init.SkipKey = skipKey
+
+				return init
 			},
 		},
 		[]setup.SubcommandProvider{
@@ -531,7 +545,12 @@ func registerBitbucket() {
 					return nil
 				}
 
-				return NewBitbucketInitialiser(p)
+				i := NewBitbucketInitialiser(p)
+				// Bitbucket reaches the SSH stage now (0186 D1), so it honours
+				// --skip-key like every other profile that offers SSH.
+				i.SkipKey = skipKey
+
+				return i
 			},
 		},
 		[]setup.SubcommandProvider{

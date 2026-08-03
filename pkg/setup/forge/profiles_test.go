@@ -6,6 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
 // TestGiteaProfile_OffersNoLogin pins spec 0185 D1. forge-gitea deliberately
@@ -100,5 +103,40 @@ func TestSingleTokenProfilesHaveDistinctConfigPrefixes(t *testing.T) {
 		}
 
 		seen[p.ConfigPrefix] = p.Label
+	}
+}
+
+// TestSkipKeyFlagReachesEveryForgeThatOffersSSH pins the wiring, not the field.
+//
+// --skip-key is a global `init` flag, but it was passed only to
+// NewGitHubInitialiser — correct while the SSH stage was single-token only, and
+// wrong the moment GitLab, Gitea and Bitbucket started reaching it. A test that
+// sets Initialiser.SkipKey directly passes either way, so this drives the
+// registered provider the flag actually feeds.
+func TestSkipKeyFlagReachesEveryForgeThatOffersSSH(t *testing.T) {
+	t.Setenv("CI", "")
+
+	p := newTestProps(t)
+
+	previous := skipKey
+	skipKey = true
+
+	t.Cleanup(func() { skipKey = previous })
+
+	for _, id := range []props.FeatureID{GithubFeature, GitlabFeature, GiteaFeature, BitbucketFeature} {
+		providers := setup.GetInitialisers()[id]
+		require.NotEmptyf(t, providers, "forge %q has no initialiser", id)
+
+		built := providers[0](p)
+		require.NotNilf(t, built, "forge %q yielded no initialiser", id)
+
+		i, ok := built.(*Initialiser)
+		require.Truef(t, ok, "forge %q did not yield a *Initialiser", id)
+
+		if !i.profile.OffersSSH {
+			continue
+		}
+
+		assert.Truef(t, i.SkipKey, "--skip-key must reach forge %q, which offers SSH", id)
 	}
 }
