@@ -71,7 +71,11 @@ func (g *Generator) runSkeletonGitInit(ctx context.Context, config SkeletonConfi
 
 	g.props.Logger.Info("initialising git repository", "branch", branch)
 
-	r, err := gtbrepo.NewRepoFromProps(g.props)
+	// No ctx to pass: the settings' token source is repo.TokenSource, which is
+	// func() string by the module's contract and resolves at git-authentication
+	// time rather than here. Capturing this construction-time context would be
+	// worse than using none — see pkg/vcs/repo.SettingsFromReader.
+	r, err := gtbrepo.NewRepoFromProps(g.props) //nolint:contextcheck // repo.TokenSource takes no ctx by contract
 	if err != nil {
 		g.props.Logger.Warn("Failed to construct repository; skipping git initialisation", "error", err)
 

@@ -40,14 +40,14 @@ const (
 // only Host is set on the release source. A provider that does not implement
 // KeyManager yields [forgeapi.ErrNotSupported], which the caller treats as
 // "skip automated upload and tell the user to add the key manually".
-func defaultKeyManager(profile Profile) func(config.Reader) (forgeapi.KeyManager, error) {
-	return func(cfg config.Reader) (forgeapi.KeyManager, error) {
+func defaultKeyManager(profile Profile) func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
+	return func(ctx context.Context, cfg config.Reader) (forgeapi.KeyManager, error) {
 		factory, err := forgeapi.Lookup(profile.Provider)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
 
-		provider, err := factory(forgeapi.ReleaseSourceConfig{Host: profile.Host}, vcs.ConfigFromReader(cfg))
+		provider, err := factory(ctx, forgeapi.ReleaseSourceConfig{Host: profile.Host}, vcs.ConfigFromReader(cfg))
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -283,7 +283,7 @@ func validateSSHKey(contents []byte, p props.LoggerProvider) error {
 type generateKeyConfig struct {
 	passphraseFormCreator    func(*string) *huh.Form
 	uploadConfirmFormCreator func(*bool) *huh.Form
-	keyManagerFactory        func(config.Reader) (forgeapi.KeyManager, error)
+	keyManagerFactory        func(context.Context, config.Reader) (forgeapi.KeyManager, error)
 }
 
 // GenerateKeyOption is a functional option for SSH key generation.
@@ -306,7 +306,7 @@ func WithUploadConfirmForm(creator func(*bool) *huh.Form) GenerateKeyOption {
 // WithKeyManager overrides the [forgeapi.KeyManager] constructor used when
 // uploading SSH keys. Tests pass a factory returning a fake; production callers
 // omit it to get the registered provider's key-upload capability.
-func WithKeyManager(factory func(config.Reader) (forgeapi.KeyManager, error)) GenerateKeyOption {
+func WithKeyManager(factory func(context.Context, config.Reader) (forgeapi.KeyManager, error)) GenerateKeyOption {
 	return func(c *generateKeyConfig) {
 		c.keyManagerFactory = factory
 	}
@@ -382,7 +382,11 @@ func generateKey(profile Profile, props *props.Props, cfg config.Reader, opts ..
 		return keypath, err
 	}
 
-	return keypath, maybeUploadKey(profile, props, cfg, optsConfig, keyname, publicKeyBytes)
+	// The SSH stage is ctx-free by design — its upload bounds itself, and
+	// plumbing a context through it is tracked in the forge-repo-setup
+	// follow-ups spec. maybeUploadKey takes one so it is ready when that lands;
+	// until then this is the same Background the upload already used.
+	return keypath, maybeUploadKey(context.Background(), profile, props, cfg, optsConfig, keyname, publicKeyBytes)
 }
 
 // maybeUploadKey resolves the key manager, asks whether to upload only when an
@@ -397,6 +401,7 @@ func generateKey(profile Profile, props *props.Props, cfg config.Reader, opts ..
 // The stage is not skipped wholesale when upload is impossible: the key has
 // already been generated, saved and recorded, all of which stand on their own.
 func maybeUploadKey(
+	ctx context.Context,
 	profile Profile,
 	p *props.Props,
 	cfg config.Reader,
@@ -404,7 +409,7 @@ func maybeUploadKey(
 	keyname string,
 	publicKey []byte,
 ) error {
-	km, err := optsConfig.keyManagerFactory(cfg)
+	km, err := optsConfig.keyManagerFactory(ctx, cfg)
 	if err != nil {
 		if errors.Is(err, forgeapi.ErrNotSupported) {
 			p.Logger.Warn("provider does not support SSH-key upload; add the key manually",
@@ -428,13 +433,14 @@ func maybeUploadKey(
 		return nil
 	}
 
-	return uploadSSHKey(profile, p, km, keyname, publicKey)
+	return uploadSSHKey(ctx, profile, p, km, keyname, publicKey)
 }
 
 // uploadSSHKey posts an already-generated public key using an already-resolved
 // KeyManager. Resolution happens in the caller, before the upload prompt, so a
 // provider that cannot upload is never asked about — see [generateKey].
 func uploadSSHKey(
+	ctx context.Context,
 	profile Profile,
 	p props.LoggerProvider,
 	km forgeapi.KeyManager,
@@ -444,7 +450,7 @@ func uploadSSHKey(
 	log := p.GetLogger()
 	log.Info("Uploading SSH public key", "provider", profile.Label, "key", string(publicKey))
 
-	if err := km.UploadKey(context.Background(), keyname, publicKey); err != nil {
+	if err := km.UploadKey(ctx, keyname, publicKey); err != nil {
 		return errors.WithStack(err)
 	}
 

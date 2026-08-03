@@ -145,8 +145,14 @@ func (i *Initialiser) configureAuth(ctx context.Context, p *props.Props, cfg set
 	defer cancel()
 
 	view := cfg.View()
-	if token := forgeapi.ResolveTokenContext(resolveCtx,
-		vcs.ConfigFromReader(view).Sub(profile.Provider), profile.FallbackEnv); token != "" {
+
+	credential := vcs.ForgeCredential(
+		vcs.ConfigFromReader(view).Sub(profile.Provider), profile.FallbackEnv)
+
+	// A resolution error here is not fatal: this only asks "is one already
+	// configured?", and the answer on failure is "assume not" — the wizard then
+	// captures one, which is the recovery anyway.
+	if token, _ := credential(resolveCtx); token != "" {
 		p.Logger.Info("credential already configured; skipping OAuth token capture",
 			"provider", profile.Label, "env_ref", view.GetString(profile.authEnvKey()))
 
@@ -258,7 +264,7 @@ func (i *Initialiser) runEnvVarAuth(
 func (i *Initialiser) captureToken(ctx context.Context, p props.LoggerProvider, cfg config.Reader) (string, error) {
 	log := p.GetLogger()
 
-	auth, err := i.authenticator(cfg)
+	auth, err := i.authenticator(ctx, cfg)
 	if err != nil {
 		log.Warn("interactive login unavailable, falling back to manual token entry",
 			"provider", i.profile.Label, "reason", err)
@@ -283,8 +289,8 @@ func (i *Initialiser) captureToken(ctx context.Context, p props.LoggerProvider, 
 // [forgeapi.Authenticator] capability. A provider that does not implement it (or
 // is not configured for interactive login) yields [forgeapi.ErrNotSupported],
 // which the caller treats as "fall back to manual entry".
-func (i *Initialiser) authenticator(cfg config.Reader) (forgeapi.Authenticator, error) {
-	provider, err := i.providerFactory(cfg)
+func (i *Initialiser) authenticator(ctx context.Context, cfg config.Reader) (forgeapi.Authenticator, error) {
+	provider, err := i.providerFactory(ctx, cfg)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

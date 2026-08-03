@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -336,7 +337,7 @@ func TestDefaultKeyManager(t *testing.T) {
 	t.Parallel()
 
 	cfg := testutil.ViewFromYAML(t, "")
-	km, err := defaultKeyManager(gitHubProfile)(cfg)
+	km, err := defaultKeyManager(gitHubProfile)(t.Context(), cfg)
 	require.NoError(t, err)
 	assert.NotNil(t, km)
 }
@@ -623,7 +624,7 @@ func TestUploadSSHKey_UploadError(t *testing.T) {
 	km := &fakeKeyManager{err: assert.AnError}
 
 	p := newTestProps(t)
-	err := uploadSSHKey(gitHubProfile, p, km, "keyname", []byte("pubkey"))
+	err := uploadSSHKey(t.Context(), gitHubProfile, p, km, "keyname", []byte("pubkey"))
 	require.Error(t, err)
 }
 
@@ -709,7 +710,7 @@ func TestGenerateKey_ResolvesTheKeyManagerOnce(t *testing.T) {
 	_, err := generateKey(gitHubProfile, p, testutil.ViewFromYAML(t, ""),
 		WithPassphraseForm(func(s *string) *huh.Form { *s = ""; return nil }),
 		WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
-		WithKeyManager(func(config.Reader) (forge.KeyManager, error) {
+		WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
 			calls++
 
 			return km, nil

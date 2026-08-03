@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"net/url"
@@ -237,14 +238,15 @@ func (p Profile) dualCredentialKeys() []string {
 // config. Auth and SSH-key upload target the profile's Host (or the Enterprise
 // host carried in the config's url.api); the release-source owner/repo are
 // irrelevant to account-level capabilities, so only Host is set.
-func defaultForgeProvider(profile Profile) func(config.Reader) (forgeapi.Provider, error) {
-	return func(cfg config.Reader) (forgeapi.Provider, error) {
+func defaultForgeProvider(profile Profile) func(context.Context, config.Reader) (forgeapi.Provider, error) {
+	return func(ctx context.Context, cfg config.Reader) (forgeapi.Provider, error) {
 		factory, err := forgeapi.Lookup(profile.Provider)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
 
 		return factory(
+			ctx,
 			forgeapi.ReleaseSourceConfig{Host: profile.Host},
 			withShippedClientID(vcs.ConfigFromReader(cfg), profile),
 		)

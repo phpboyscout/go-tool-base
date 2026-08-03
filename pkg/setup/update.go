@@ -462,7 +462,7 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		Params:  p.Tool.ReleaseSource.Params,
 	}
 
-	releaseClient, err := factory(sourceCfg, vcs.ConfigFromReader(cfg))
+	releaseClient, err := factory(ctx, sourceCfg, vcs.ConfigFromReader(cfg))
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -586,14 +586,23 @@ func requireReleaseToken(ctx context.Context, vcsProvider string, p props.Config
 		fallbackEnv = "GITHUB_TOKEN"
 	}
 
-	if forge.ResolveTokenContext(ctx, cfg, fallbackEnv) == "" {
-		return errors.WithHint(
-			errors.Newf("no %s token available for private repository", strings.ToUpper(vcsProvider)),
-			fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable updates", fallbackEnv, vcsProvider),
-		)
+	token, err := vcs.ForgeCredential(cfg, fallbackEnv)(ctx)
+	if token != "" {
+		return nil
 	}
 
-	return nil
+	// FirstCredential retains why each rung failed when none produced a value.
+	// Surfacing that turns a malformed keychain reference into a diagnosis
+	// rather than something indistinguishable from having no token at all.
+	problem := errors.Newf("no %s token available for private repository", strings.ToUpper(vcsProvider))
+	if err != nil {
+		problem = errors.Wrapf(err, "resolving %s credential for private repository", vcsProvider)
+	}
+
+	return errors.WithHint(
+		problem,
+		fmt.Sprintf("Set %s or configure %s.auth.env in your config to enable updates", fallbackEnv, vcsProvider),
+	)
 }
 
 // SkipUpdateCheck reports whether the update check should be skipped this

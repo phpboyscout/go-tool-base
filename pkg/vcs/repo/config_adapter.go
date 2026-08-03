@@ -10,6 +10,7 @@
 package repo
 
 import (
+	"context"
 	"strings"
 
 	"github.com/spf13/afero"
@@ -91,12 +92,33 @@ func SettingsFromReader(
 
 	forgeName := settings.Forge
 
-	// Bind the config subtree now, but defer resolution: ResolveToken walks the
-	// env → keychain → literal chain, and a repository authenticating over SSH
-	// must never trigger a keychain lookup it does not need.
+	// Bind the config subtree now, but defer resolution: the chain walks
+	// env → keychain → literal, and a repository authenticating over SSH must
+	// never trigger a keychain lookup it does not need. repo.TokenSource is
+	// called only on the path that actually authenticates with a token, so the
+	// laziness survives the adaptation.
 	authCfg := vcs.ConfigFromReader(cfg).Sub(forgeName)
 	fallbackEnv := strings.ToUpper(forgeName) + "_TOKEN"
-	settings.Token = func() string { return forge.ResolveToken(authCfg, fallbackEnv) }
+	credential := vcs.ForgeCredential(authCfg, fallbackEnv)
+
+	settings.Token = func() string {
+		// TokenSource is func() string by the module's contract, and is called
+		// at git-authentication time rather than here — so there is no context
+		// to thread. Capturing the construction-time one would be worse: it may
+		// be cancelled or scoped to something unrelated by the time this runs.
+		//
+		// TokenSource also cannot report an error, so a resolution failure is
+		// logged and reported as "no token" — the caller then fails at the
+		// operation that needed it, with this line explaining why.
+		token, err := credential(context.Background()) //nolint:contextcheck // repo.TokenSource takes no ctx and resolves after construction
+		if err != nil {
+			log.Warn("could not resolve forge credential", "forge", forgeName, "error", err)
+
+			return ""
+		}
+
+		return token
+	}
 
 	if !cfg.Has(forgeName + ".ssh") {
 		return settings

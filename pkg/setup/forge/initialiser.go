@@ -31,7 +31,7 @@ type Initialiser struct {
 	// providerFactory builds the registered forge provider from the resolved
 	// config; the flow type-asserts it for the optional [forgeapi.Authenticator]
 	// capability. Overridable for tests.
-	providerFactory func(config.Reader) (forgeapi.Provider, error)
+	providerFactory func(context.Context, config.Reader) (forgeapi.Provider, error)
 	// prompter surfaces the interactive device-code step of an Authenticator's
 	// Login flow. Presentation lives here in the CLI, never in the forge module.
 	prompter forgeapi.Prompter
@@ -51,7 +51,7 @@ type InitialiserOption func(*Initialiser)
 // interactive login. Tests pass a factory returning a fake provider (optionally
 // implementing [forgeapi.Authenticator]); production callers omit it to get the
 // registered provider.
-func WithProviderFactory(fn func(config.Reader) (forgeapi.Provider, error)) InitialiserOption {
+func WithProviderFactory(fn func(context.Context, config.Reader) (forgeapi.Provider, error)) InitialiserOption {
 	return func(i *Initialiser) { i.providerFactory = fn }
 }
 

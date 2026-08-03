@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"testing"
 
 	"charm.land/huh/v2"
@@ -102,7 +103,7 @@ func TestDualSSHRunsAfterCredentialCapture(t *testing.T) {
 				WithUploadConfirmForm(func(b *bool) *huh.Form { *b = true; return nil }),
 				// The factory receives the config the stage was handed: if the
 				// credential stage ran first, its writes are visible here.
-				WithKeyManager(func(c config.Reader) (forge.KeyManager, error) {
+				WithKeyManager(func(_ context.Context, c config.Reader) (forge.KeyManager, error) {
 					credentialSeenAtUpload = c.GetString("bitbucket.username.env") != ""
 
 					return km, nil
@@ -159,7 +160,7 @@ func TestProfileWithoutSSHNeverConstructsAKeyManager(t *testing.T) {
 			c.AppPasswordEnvName = "BB_APP_PW"
 		})),
 		WithSSHForms(WithGenerateKeyOptions(
-			WithKeyManager(func(config.Reader) (forge.KeyManager, error) {
+			WithKeyManager(func(context.Context, config.Reader) (forge.KeyManager, error) {
 				factoryCalled = true
 
 				return nil, nil //nolint:nilnil // unreachable; the assertion is that it is never called

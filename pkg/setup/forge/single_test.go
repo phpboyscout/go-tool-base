@@ -1,6 +1,7 @@
 package forge
 
 import (
+	"context"
 	"testing"
 
 	"charm.land/huh/v2"
@@ -339,7 +340,7 @@ func TestCaptureToken_NotSupportedFallsBack(t *testing.T) {
 
 	p := newTestProps(t)
 	cfg := testutil.ViewFromYAML(t, "")
-	g := &Initialiser{profile: gitHubProfile, providerFactory: func(config.Reader) (forge.Provider, error) {
+	g := &Initialiser{profile: gitHubProfile, providerFactory: func(context.Context, config.Reader) (forge.Provider, error) {
 		return noAuthProvider{}, nil
 	}}
 	_, err := g.captureToken(t.Context(), p, cfg)

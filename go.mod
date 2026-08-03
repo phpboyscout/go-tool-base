@@ -39,23 +39,23 @@ require (
 	gitlab.com/phpboyscout/go/config v0.12.1
 	gitlab.com/phpboyscout/go/config-afero v0.1.3
 	gitlab.com/phpboyscout/go/controls v0.2.0
-	gitlab.com/phpboyscout/go/credentials v0.2.2
+	gitlab.com/phpboyscout/go/credentials v0.3.0
 	gitlab.com/phpboyscout/go/errorhandling v0.1.1
-	gitlab.com/phpboyscout/go/forge v0.4.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.3.0
-	gitlab.com/phpboyscout/go/forge-gitea v0.3.0
-	gitlab.com/phpboyscout/go/forge-github v0.3.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.3.0
-	gitlab.com/phpboyscout/go/httpclient v0.1.4
+	gitlab.com/phpboyscout/go/forge v0.9.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.0
+	gitlab.com/phpboyscout/go/forge-gitea v0.7.0
+	gitlab.com/phpboyscout/go/forge-github v0.6.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.6.0
+	gitlab.com/phpboyscout/go/httpclient v0.2.0
 	gitlab.com/phpboyscout/go/observability v0.2.1
 	gitlab.com/phpboyscout/go/output v0.1.2
 	gitlab.com/phpboyscout/go/redact v0.1.1
-	gitlab.com/phpboyscout/go/regexutil v0.1.1
+	gitlab.com/phpboyscout/go/regexutil v0.2.0
 	gitlab.com/phpboyscout/go/repo v0.1.2
 	gitlab.com/phpboyscout/go/signing v0.5.0
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.2.6
-	gitlab.com/phpboyscout/go/tls v0.1.2
-	gitlab.com/phpboyscout/go/transit v0.1.3
+	gitlab.com/phpboyscout/go/tls v0.2.0
+	gitlab.com/phpboyscout/go/transit v0.2.0
 	gitlab.com/phpboyscout/go/transport v0.3.0
 	gitlab.com/phpboyscout/go/workspace v0.1.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
@@ -68,13 +68,15 @@ require (
 	golang.org/x/mod v0.38.0
 	golang.org/x/net v0.57.0
 	golang.org/x/text v0.40.0
-	google.golang.org/grpc v1.82.1
+	google.golang.org/grpc v1.83.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require gitlab.com/phpboyscout/go/errors v0.1.0 // indirect
+
 require (
 	cloud.google.com/go v0.116.0 // indirect
-	cloud.google.com/go/auth v0.18.1 // indirect
+	cloud.google.com/go/auth v0.18.2 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	gitea.dev/sdk v1.2.0 // indirect
 	github.com/42wim/httpsig v1.2.4 // indirect
@@ -249,7 +251,7 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v2 v2.52.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v2 v2.54.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.1.2 // indirect
 	gitlab.com/phpboyscout/go/authn v0.1.1 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.1.1 // indirect

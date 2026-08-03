@@ -34,8 +34,8 @@ func (f ctxCapturingAuthProvider) Login(ctx context.Context, _ forgeapi.Prompter
 	return f.token, nil
 }
 
-func ctxCapturingProviderFactory(token string, invoked, hasDeadline *bool) func(config.Reader) (forgeapi.Provider, error) {
-	return func(config.Reader) (forgeapi.Provider, error) {
+func ctxCapturingProviderFactory(token string, invoked, hasDeadline *bool) func(context.Context, config.Reader) (forgeapi.Provider, error) {
+	return func(context.Context, config.Reader) (forgeapi.Provider, error) {
 		return ctxCapturingAuthProvider{token: token, invoked: invoked, hasDeadline: hasDeadline}, nil
 	}
 }

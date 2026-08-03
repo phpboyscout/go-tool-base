@@ -24,8 +24,8 @@ func (f fakeAuthProvider) Login(_ context.Context, _ forgeapi.Prompter) (string,
 
 // authProviderFactory builds a WithProviderFactory input yielding a
 // fakeAuthProvider with the given Login result.
-func authProviderFactory(token string, err error) func(config.Reader) (forgeapi.Provider, error) {
-	return func(config.Reader) (forgeapi.Provider, error) {
+func authProviderFactory(token string, err error) func(context.Context, config.Reader) (forgeapi.Provider, error) {
+	return func(context.Context, config.Reader) (forgeapi.Provider, error) {
 		return fakeAuthProvider{token: token, err: err}, nil
 	}
 }
@@ -51,10 +51,10 @@ func (f fatalAuthProvider) Login(context.Context, forgeapi.Prompter) (string, er
 
 // fatalOnLoginProvider builds a WithProviderFactory input whose Login fails the
 // test if invoked.
-func fatalOnLoginProvider(t *testing.T) func(config.Reader) (forgeapi.Provider, error) {
+func fatalOnLoginProvider(t *testing.T) func(context.Context, config.Reader) (forgeapi.Provider, error) {
 	t.Helper()
 
-	return func(config.Reader) (forgeapi.Provider, error) {
+	return func(context.Context, config.Reader) (forgeapi.Provider, error) {
 		return fatalAuthProvider{t: t}, nil
 	}
 }
@@ -77,8 +77,8 @@ func (f *fakeKeyManager) UploadKey(_ context.Context, name string, publicKey []b
 }
 
 // keyManagerFactory builds a WithKeyManager input yielding km.
-func keyManagerFactory(km forgeapi.KeyManager, err error) func(config.Reader) (forgeapi.KeyManager, error) {
-	return func(config.Reader) (forgeapi.KeyManager, error) {
+func keyManagerFactory(km forgeapi.KeyManager, err error) func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
+	return func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
 		return km, err
 	}
 }
