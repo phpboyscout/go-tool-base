@@ -235,6 +235,12 @@ type Tool struct {
 	// safe and reproduces historical behaviour. See BootstrapPolicy.
 	Bootstrap BootstrapPolicy `json:"bootstrap,omitempty" yaml:"bootstrap,omitempty"`
 
+	// ConfigLayers declares which layers of the configuration stack this tool
+	// wires. Empty means "unstated" and resolves to DefaultConfigLayers — the
+	// set the framework wired before this became declarable — so an existing
+	// tool keeps resolving exactly as it did. See ResolveConfigLayers.
+	ConfigLayers []ConfigLayer `json:"config_layers,omitempty" yaml:"config_layers,omitempty"`
+
 	// ReleaseSource is the source of truth for the tool's releases (GitHub or GitLab)
 	ReleaseSource ReleaseSource `json:"release_source" yaml:"release_source"`
 

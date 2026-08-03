@@ -185,12 +185,20 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 
 	storeOpts := []config.StoreOption{}
 
-	if defaults := setup.AssetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
-		storeOpts = append(storeOpts, config.WithReaders(*defaults))
-	}
+	// A tool declares which layers it wires; an undeclared set resolves to the
+	// framework default, so this is a no-op for every existing tool. Declining
+	// a layer removes it without reordering the rest — precedence is fixed by
+	// the order these options are appended, not by the declaration.
+	tool := opts.Props.Tool
 
-	if embedded := embeddedSources(opts); len(embedded) > 0 {
-		storeOpts = append(storeOpts, config.WithReaders(embedded...))
+	if tool.WiresConfigLayer(p.LayerDefaults) {
+		if defaults := setup.AssetSource(opts.Props, setup.DefaultsAssetPath); defaults != nil {
+			storeOpts = append(storeOpts, config.WithReaders(*defaults))
+		}
+
+		if embedded := embeddedSources(opts); len(embedded) > 0 {
+			storeOpts = append(storeOpts, config.WithReaders(embedded...))
+		}
 	}
 
 	fileOpts, err := fileLayerOpts(fsys, opts)
@@ -200,14 +208,16 @@ func buildConfigStore(ctx context.Context, opts ConfigLoadOptions) (*config.Stor
 
 	storeOpts = append(storeOpts, fileOpts...)
 
-	if prefix := opts.Props.Tool.EnvPrefix; prefix != "" {
-		storeOpts = append(storeOpts, config.WithEnv(prefix))
+	if tool.WiresConfigLayer(p.LayerEnv) {
+		if prefix := tool.EnvPrefix; prefix != "" {
+			storeOpts = append(storeOpts, config.WithEnv(prefix))
+		}
 	}
 
 	// Flags are the highest-precedence layer. Only flags the user actually
 	// changed contribute (the backend walks pflag's Visit), so a flag at its
 	// default never clobbers configuration.
-	if opts.Flags != nil {
+	if tool.WiresConfigLayer(p.LayerFlags) && opts.Flags != nil {
 		storeOpts = append(storeOpts, config.WithFlags(opts.Flags, flagBindings(opts.BoundFlags)...))
 	}
 
@@ -246,20 +256,22 @@ func fileLayerOpts(fsys config.FS, opts ConfigLoadOptions) ([]config.StoreOption
 		return nil, ErrNoConfigFile
 	}
 
+	layerOpts := []config.StoreOption{}
+
 	// The one deliberate exception to the existence rule: the write target —
 	// the highest-precedence path — is always declared so a write has somewhere
 	// to land and can create the file. It never triggers the missing-file
 	// re-read that other absent layers would, because it is the written
 	// backend (staged, not reloaded).
-	layerOpts := []config.StoreOption{
-		config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...),
+	if opts.Props.Tool.WiresConfigLayer(p.LayerFiles) {
+		layerOpts = append(layerOpts, config.WithFiles(fsys, declaredConfigPaths(existing, opts.CfgPaths)...))
 	}
 
 	// The project-local layer sits above the user's config files but below env
 	// and flags, and is subject to the trust filter: an untrusted file has its
 	// security-sensitive keys stripped and is read-only (writes route to the
 	// user's own config instead of the repository file).
-	if projectExists {
+	if projectExists && opts.Props.Tool.WiresConfigLayer(p.LayerProject) {
 		layerOpts = append(layerOpts, config.WithBackend(projectLayerBackend(opts.Props, fsys, opts.ProjectConfigPath)))
 	}
 
