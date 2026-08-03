@@ -720,7 +720,9 @@ func TestRegisteredSubcommandProvider(t *testing.T) {
 }
 
 func TestRegisteredFeatureFlag(t *testing.T) {
-	t.Parallel()
+	// Not parallel: registering these flags writes their CI-derived defaults
+	// into package-level variables the rest of the suite reads.
+	preserveSkipFlags(t)
 
 	fps := setup.GetFeatureFlags()[props.FeatureID("github")]
 	require.NotEmpty(t, fps)

@@ -533,6 +533,8 @@ func TestRunForms_StorageStageError(t *testing.T) {
 // --- registration ---
 
 func TestInitRegistry(t *testing.T) {
+	preserveSkipFlags(t)
+
 	feature := props.FeatureID("bitbucket")
 
 	p := &props.Props{

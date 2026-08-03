@@ -118,10 +118,9 @@ func TestSkipKeyFlagReachesEveryForgeThatOffersSSH(t *testing.T) {
 
 	p := newTestProps(t)
 
-	previous := skipKey
-	skipKey = true
+	preserveSkipFlags(t)
 
-	t.Cleanup(func() { skipKey = previous })
+	skipKey = true
 
 	for _, id := range []props.FeatureID{GithubFeature, GitlabFeature, GiteaFeature, BitbucketFeature} {
 		providers := setup.GetInitialisers()[id]

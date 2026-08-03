@@ -79,3 +79,24 @@ func passphraseProtectedKeyPEM(t *testing.T) []byte {
 
 	return kp.RawProtectedPrivateKey()
 }
+
+// preserveSkipFlags restores the package-level skip flags after a test that
+// registers them onto a command.
+//
+// cobra's BoolVar writes its default into the target variable immediately, and
+// these flags default to os.Getenv("CI") == "true" — so under CI, merely
+// registering them sets the flags for the rest of the process. A later test
+// that builds an initialiser then gets nil, from a skip it never asked for.
+// That is the package-level-mutable-state hazard AGENTS.md warns about, reached
+// through cobra rather than through a test hook.
+func preserveSkipFlags(t *testing.T) {
+	t.Helper()
+
+	login, key := skipLogin, skipKey
+	bitbucket, gitlab, gitea := skipBitbucket, skipGitlab, skipGitea
+
+	t.Cleanup(func() {
+		skipLogin, skipKey = login, key
+		skipBitbucket, skipGitlab, skipGitea = bitbucket, gitlab, gitea
+	})
+}
