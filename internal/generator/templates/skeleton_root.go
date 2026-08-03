@@ -396,14 +396,19 @@ func buildFeatures(data SkeletonRootData) []jen.Code {
 }
 
 // getFeatureCmd maps a feature config name to the jen expression naming its
-// props FeatureID constant, derived from props.FeatureCatalogue — the single
-// source of truth shared with the manifest scanner, so the renderer and scanner
-// cannot disagree about the constant token for a feature. Returns nil for an
-// unknown name (e.g. keychain, which is not a SetFeatures toggle).
+// FeatureID constant, derived from FeatureCatalogue — the single source of
+// truth shared with the manifest scanner, so the renderer and scanner cannot
+// disagree about the constant token for a feature. Returns nil for an unknown
+// name (e.g. keychain, which is not a SetFeatures toggle).
+//
+// The qualifier comes from the descriptor rather than being hard-coded to
+// props: forge features declare their constants in pkg/setup/forge, and
+// assuming props emitted an identifier that does not exist there. jennifer adds
+// whichever import the qualifier needs.
 func getFeatureCmd(feature string) jen.Code {
 	for _, d := range FeatureCatalogue {
 		if string(d.Cmd) == feature {
-			return jen.Qual("gitlab.com/phpboyscout/go-tool-base/pkg/props", d.ConstName)
+			return jen.Qual(d.ConstPackage, d.ConstName)
 		}
 	}
 

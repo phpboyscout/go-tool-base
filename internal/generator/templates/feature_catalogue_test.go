@@ -21,31 +21,49 @@ func TestFeatureCatalogue_CoversAllFeatures(t *testing.T) {
 	byCmd := make(map[props.FeatureID]FeatureDescriptor, len(FeatureCatalogue))
 	for _, d := range FeatureCatalogue {
 		assert.NotEmptyf(t, d.ConstName, "descriptor for %q needs a ConstName", d.Cmd)
+		assert.NotEmptyf(t, d.ConstPackage, "descriptor for %q needs a ConstPackage", d.Cmd)
 		_, dup := byCmd[d.Cmd]
 		assert.Falsef(t, dup, "duplicate catalogue entry for %q", d.Cmd)
 		byCmd[d.Cmd] = d
 	}
 
-	// The catalogue must cover every BUILTIN feature — not every registered
-	// feature. AllFeatures() reflects what this binary linked, so a plugin's
-	// features are present or absent depending on the test binary's imports,
-	// and asserting against it would make this guard's strictness an accident
-	// of the import graph. Builtins are always registered by props itself, so
-	// scoping to them is both exact and link-independent.
+	// The catalogue must cover every builtin AND every forge feature. Builtins
+	// are always registered by props itself; the forge features are registered
+	// by pkg/setup/forge, which this package imports for its catalogue entries
+	// — so both sets are present here by construction rather than by accident
+	// of the import graph, which is what previously kept this guard scoped to
+	// builtins alone.
 	//
-	// Plugin-kind features (forge) are deliberately not scaffoldable yet: the
-	// generator emits props.<Const>, and their constants live elsewhere. Spec
-	// 0185 makes them selectable and brings them into this catalogue.
-	builtins := props.FeaturesOfKind(props.KindBuiltin)
+	// Ranging over AllFeatures() would still be wrong: a downstream tool may
+	// register features of its own, and those are not GTB's to scaffold.
+	scaffoldable := append(
+		props.FeaturesOfKind(props.KindBuiltin),
+		props.FeaturesOfKind(props.KindForge)...,
+	)
 
-	assert.Lenf(t, FeatureCatalogue, len(builtins),
-		"FeatureCatalogue must cover exactly the builtin features — a new one needs a catalogue entry")
+	assert.Lenf(t, FeatureCatalogue, len(scaffoldable),
+		"FeatureCatalogue must cover exactly the builtin and forge features — a new one needs a catalogue entry")
 
 	defaultTool := props.Tool{Features: props.SetFeatures()}
-	for _, cmd := range builtins {
+
+	for _, cmd := range scaffoldable {
 		d, ok := byCmd[cmd]
-		assert.Truef(t, ok, "builtin %q is missing from FeatureCatalogue", cmd)
+		if !assert.Truef(t, ok, "feature %q is missing from FeatureCatalogue", cmd) {
+			continue
+		}
+
 		assert.Equalf(t, defaultTool.IsEnabled(cmd), d.Default,
 			"catalogue Default for %q disagrees with the registry", cmd)
+
+		// The registry already records where each constant is declared. Cross-
+		// checking it here means the emitter's qualifier cannot drift from the
+		// package that actually declares the identifier.
+		reg, found := props.DescriptorFor(cmd)
+		if assert.Truef(t, found, "feature %q is not in the props registry", cmd) {
+			assert.Equalf(t, reg.ConstPackage, d.ConstPackage,
+				"catalogue ConstPackage for %q disagrees with the registry", cmd)
+			assert.Equalf(t, reg.ConstName, d.ConstName,
+				"catalogue ConstName for %q disagrees with the registry", cmd)
+		}
 	}
 }

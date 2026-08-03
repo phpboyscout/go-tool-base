@@ -45,6 +45,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^a gtb project with a "([^"]*)" command that has aliases, a required shorthand flag, and a pre-run hook$`,
 		aGTBProjectWithACommandWithMetadata)
 	ctx.Step(`^a freshly generated gtb project$`, aFreshlyGeneratedGTBProject)
+	ctx.Step(`^I generate a gtb project with features "([^"]*)"$`, iGenerateAGTBProjectWithFeatures)
 	ctx.Step(`^a gtb project with a "([^"]*)" command$`, aGTBProjectWithACommand)
 	ctx.Step(`^I run gtb in the project with "([^"]*)"$`, iRunGTBInTheProjectWith)
 	ctx.Step(`^the project exit code is (\d+)$`, theProjectExitCodeIs)
@@ -147,42 +148,89 @@ commands:
 // (the same binary the enable/disable verbs run against), so the manifest and
 // generated root command are exactly what a user starts from.
 func aFreshlyGeneratedGTBProject(ctx context.Context) (context.Context, error) {
+	if err := scaffoldProject(ctx, "gtb-e2e-feat-*"); err != nil {
+		return ctx, err
+	}
+
+	w := getGeneratorWorld(ctx)
+	if w.exitCode != 0 {
+		return ctx, fmt.Errorf("generate project exited %d\nstdout: %s\nstderr: %s", w.exitCode, w.stdout, w.stderr)
+	}
+
+	return ctx, nil
+}
+
+// iGenerateAGTBProjectWithFeatures scaffolds into a fresh directory with an
+// explicit --features set, leaving the exit code for the scenario to assert.
+// Unlike aFreshlyGeneratedGTBProject this is a When, not a Given: the generate
+// invocation is the behaviour under test, so a rejected feature set has to reach
+// the exit-code assertion instead of aborting the scenario.
+func iGenerateAGTBProjectWithFeatures(ctx context.Context, features string) (context.Context, error) {
+	return ctx, scaffoldProject(ctx, "gtb-e2e-featsel-*", "--features", features)
+}
+
+// scaffoldProject runs `generate project` into a fresh temp directory and
+// records the binary path, project dir, output and exit code on the world. It
+// returns an error only for a harness failure (binary build, temp dir) — a
+// non-zero generate exit is recorded, not raised, so a caller can either assert
+// on it or treat it as fatal.
+func scaffoldProject(ctx context.Context, dirPattern string, extraArgs ...string) error {
 	w := getGeneratorWorld(ctx)
 
 	path, err := support.GeneratorBinaryPath()
 	if err != nil {
-		return ctx, fmt.Errorf("build gtb binary: %w", err)
+		return fmt.Errorf("build gtb binary: %w", err)
 	}
 
 	w.binaryPath = path
 
-	dir, err := os.MkdirTemp("", "gtb-e2e-feat-*")
+	dir, err := os.MkdirTemp("", dirPattern)
 	if err != nil {
-		return ctx, fmt.Errorf("create project dir: %w", err)
+		return fmt.Errorf("create project dir: %w", err)
 	}
 
 	w.projectDir = dir
 
-	cmd := exec.CommandContext(ctx, path,
+	args := append([]string{
 		"generate", "project",
 		"--name", "feattool",
 		"--repo", "acme/feattool",
 		"--path", dir,
 		"--no-git",
 		"--ci",
-	) //nolint:gosec // test-only: fixed args
+	}, extraArgs...)
+
+	cmd := exec.CommandContext(ctx, path, args...) //nolint:gosec // test-only: args from Gherkin steps
 	cmd.Dir = dir
 
+	recordRun(w, cmd)
+
+	return nil
+}
+
+// recordRun executes cmd and folds its result onto the world: stdout, stderr and
+// an exit code (-1 for a failure that carries none, e.g. the binary not running
+// at all).
+func recordRun(w *generatorWorld, cmd *exec.Cmd) {
 	var stdout, stderr strings.Builder
 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		return ctx, fmt.Errorf("generate project: %w\nstdout: %s\nstderr: %s", err, stdout.String(), stderr.String())
-	}
+	err := cmd.Run()
+	w.stdout = stdout.String()
+	w.stderr = stderr.String()
 
-	return ctx, nil
+	var exitErr *exec.ExitError
+
+	switch {
+	case err == nil:
+		w.exitCode = 0
+	case errors.As(err, &exitErr):
+		w.exitCode = exitErr.ExitCode()
+	default:
+		w.exitCode = -1
+	}
 }
 
 // aGTBProjectWithACommand scaffolds a minimal-but-valid gtb project whose
@@ -262,24 +310,7 @@ func iRunGTBInTheProjectWith(ctx context.Context, args string) context.Context {
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 	cmd.Dir = w.projectDir
 
-	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	w.stdout = stdout.String()
-	w.stderr = stderr.String()
-
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			w.exitCode = exitErr.ExitCode()
-		} else {
-			w.exitCode = -1
-		}
-	} else {
-		w.exitCode = 0
-	}
+	recordRun(w, cmd)
 
 	return ctx
 }
