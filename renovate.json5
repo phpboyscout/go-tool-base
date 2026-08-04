@@ -29,27 +29,6 @@
   // preset's .gitlab-ci.yml component tracker (from gitlab>phpboyscout/cicd
   // default.json) that this repo's OWN pipeline relies on. Keep it in sync
   // with the preset if that ever changes.
-  // TEMPORARY HOLD — go/forge v0.8.0 is a behavioural break, not just a signature
-  // change: it stopped reading `auth.env` and `auth.keychain`, moving credential
-  // ordering out of the module and into the consumer's config stack. GTB documents
-  // a five-rung precedence built on exactly those keys, and adopting the new model
-  // needs a config-keychain layer this framework does not yet wire — so it is being
-  // specced rather than folded into a dependency bump.
-  //
-  // Remove this block when that spec is implemented. Until then the hold is stated
-  // here rather than left implicit, so the bot does not silently re-open the break.
-  packageRules: [
-    {
-      matchPackageNames: [
-        'gitlab.com/phpboyscout/go/forge',
-        'gitlab.com/phpboyscout/go/forge-bitbucket',
-        'gitlab.com/phpboyscout/go/forge-gitea',
-        'gitlab.com/phpboyscout/go/forge-github',
-        'gitlab.com/phpboyscout/go/forge-gitlab',
-      ],
-      enabled: false,
-    },
-  ],
   customManagers: [
     {
       customType: 'regex',
