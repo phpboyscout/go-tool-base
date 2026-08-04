@@ -1,5 +1,35 @@
 # Changelog
 
+## [v0.36.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.36.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.35.0...v0.36.0)
+
+### Features
+
+- **logger**: present an error's hints where a person can read them ([ef46e81](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ef46e81d856c37d2ed3ff3e18f15eb2c80e1ed08))
+- **errors**: adopt go/errors and errorhandling v0.2.0 ([ac93b15](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ac93b1568eb01047ddaca5b7e7a5a40085a2f8b5))
+- **doctor**: report whether a forge credential resolves, and from which rung ([506e62d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/506e62d958f36f37873e0a5ef59e2fdec752e388))
+- **forge**: add Codeberg as a first-class forge with its own credentials ([c9efc47](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c9efc470dcc0f2c4426a0736e953bf25db445e79))
+- **generator**: declare a project's config layer set in the manifest ([8300a5d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8300a5d3d701ffdb977ca6e27cf21de1497ce92d))
+- **props**: let a tool declare which config layers it wires ([b1ccad7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b1ccad748f4879d0bdf8462f84b0f23353a82ac9))
+- **vcs**: own forge credential precedence in GTB's config stack ([a00a9df](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a00a9df2800f29e87ef172eb1d0728262ae0ec47))
+- **forge**: offer SSH keys to every forge that can accept them ([111dd9a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/111dd9ae13a3141126fa292b8d11991d7e760267))
+- **generator**: make forge features scaffoldable ([a92428f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a92428ff6773a620be9cef7391109fdd138ca7de))
+- **setup**: add GitLab and Gitea forge profiles with per-forge config bundles ([4cebb19](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4cebb1938a88c0fc0130d687759f807f4b2a3000))
+- **props**: complete the feature descriptor and scope the catalogue guard ([c688fc4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c688fc4bd0fea96921011c08eb2c833b6ee99537))
+- **props**: make features self-registering, and fix the doctor blind spot ([a76696e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a76696e834b519358484f4bfaf82d8fcd7ceb821))
+- **props**: rename FeatureCmd to FeatureID ([8502185](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8502185aac1635533cd7c5d98aa9cb49af8b7834))
+
+### Bug Fixes
+
+- **deps**: update go modules ([948ada5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/948ada54583c5e27cb74860c65085f8940b4b816))
+- **generator**: build scaffolded releases with -trimpath ([ed22af4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ed22af4b1869b109de6d799bfab64937bf3ac37c))
+- **deps**: update go modules ([28847ea](https://gitlab.com/phpboyscout/go-tool-base/-/commit/28847eabec37bd0d343c1e3ce0b6fa57752e780a))
+- **root**: stop warning that a subtree-shaped credential is empty ([0b57e56](https://gitlab.com/phpboyscout/go-tool-base/-/commit/0b57e56baec5d47ce9b91c0532e18caf99f5c0b7))
+- **forge**: honour --skip-key for every forge that offers SSH ([e8fc9f0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e8fc9f0a7fe8f7b24447673f93bc8d6cb1c63dbc))
+- **generate**: validate --features and derive the selectable set ([e7041b1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e7041b1838d051253691f626d9e0e6a41ee60c85))
+- **generator**: give the scaffolded initialiser its context parameter ([b59ae5a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b59ae5a6862470723cf2fc952cf86dc871b466ff))
+
 ## [v0.35.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.35.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.34.0...v0.35.0)
