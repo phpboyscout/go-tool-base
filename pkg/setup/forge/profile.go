@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 

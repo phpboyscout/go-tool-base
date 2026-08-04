@@ -7,10 +7,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // NavNode represents a node in the documentation navigation tree.

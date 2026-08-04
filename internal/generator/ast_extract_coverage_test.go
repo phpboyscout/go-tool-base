@@ -271,6 +271,28 @@ func TestExtractCallTarget(t *testing.T) {
 		assert.Equal(t, "InnerCall", id.Name)
 	})
 
+	// errorhandling v0.2.0 put a context first. A scanner that reads Args[0]
+	// picks cmd.Context out of this and silently loses the hook — the defect
+	// this case exists to catch, since nothing else about it goes red.
+	t.Run("Fatal with a leading context still finds the hook", func(t *testing.T) {
+		t.Parallel()
+
+		call := parseExpr(t, `eh.Fatal(cmd.Context(), PreRunSetup(p))`).(*dst.CallExpr)
+		target := g.extractCallTarget(call)
+		id, ok := target.(*dst.Ident)
+		require.True(t, ok, "the pre-run hook must still be found past the context")
+		assert.Equal(t, "PreRunSetup", id.Name)
+	})
+
+	t.Run("Fatal carrying only a context finds no hook", func(t *testing.T) {
+		t.Parallel()
+
+		call := parseExpr(t, `eh.Fatal(cmd.Context(), err)`).(*dst.CallExpr)
+		target := g.extractCallTarget(call)
+		_, ok := target.(*dst.Ident)
+		assert.False(t, ok, "a method call is not a pre-run hook")
+	})
+
 	t.Run("Fatal with no args returns Fatal selector", func(t *testing.T) {
 		t.Parallel()
 

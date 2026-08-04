@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/credentials"
 

@@ -6,9 +6,8 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/cockroachdb/errors"
-
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/output"
 

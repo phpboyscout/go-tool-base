@@ -61,6 +61,7 @@ func TestExecute_WithoutSignals_LeavesTheContextAlone(t *testing.T) {
 
 	execute(setup.Wrap("", cmd), props, executeOptions{
 		signals:        sigCh,
+		exitProcess:    spy.exit,
 		disableSignals: true,
 	})
 
@@ -97,7 +98,7 @@ func TestExecute_DefaultStillHandlesSignals(t *testing.T) {
 		},
 	}
 
-	execute(setup.Wrap("", cmd), props, executeOptions{signals: sigCh})
+	execute(setup.Wrap("", cmd), props, executeOptions{signals: sigCh, exitProcess: spy.exit})
 
 	select {
 	case <-cancelled:

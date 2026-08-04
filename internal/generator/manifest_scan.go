@@ -8,9 +8,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 func (g *Generator) RegenerateManifest(ctx context.Context) error {

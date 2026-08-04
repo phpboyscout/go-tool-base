@@ -20,6 +20,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/httpclient"
 
 	"gitlab.com/phpboyscout/go/forge"
@@ -32,7 +33,6 @@ import (
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -1016,7 +1016,7 @@ func (s *SelfUpdater) shouldSkipUpdate(ctx context.Context) (bool, error) {
 // checksum verification authenticate an artefact, not its recency, so a
 // stale or rolled-back release listing must not silently downgrade the tool
 // (see the 2026-07-23 self-update downgrade guard spec).
-var ErrDowngradeRefused = errors.New("refusing to downgrade")
+var ErrDowngradeRefused = errors.NewSentinel("gtb.setup.downgrade_refused", "refusing to downgrade")
 
 // refuseImplicitDowngrade rejects the implicit "install latest" path when the
 // release source reports a "latest" release older than the running binary.

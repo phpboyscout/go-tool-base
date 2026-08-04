@@ -10,10 +10,10 @@ package generator
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/repo"
 
 	gtbrepo "gitlab.com/phpboyscout/go-tool-base/pkg/vcs/repo"

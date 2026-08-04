@@ -9,11 +9,11 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/charmbracelet/keygen"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"golang.org/x/crypto/ssh"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 

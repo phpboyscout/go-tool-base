@@ -6,9 +6,9 @@ import (
 	"io/fs"
 
 	"charm.land/lipgloss/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/output"
 
 	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
@@ -31,10 +31,18 @@ Requires a configured AI provider; use --provider to override the default.
 Answers are derived only from the bundled docs, so a binary built without the
 documentation assets cannot answer.`,
 		Args: cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		// RunE, like every other command in the tree. This was the last Run:
+		// holdout, reporting its own failure through ErrorHandler.Fatal because
+		// that call used to terminate the process. errorhandling v0.2.0 makes
+		// Fatal RETURN an exit code instead of calling os.Exit, so reporting
+		// here and discarding the result would print the error and then exit 0.
+		// Returning it hands the error to Execute, which already routes the
+		// command tree's errors through the handler and owns the exit code.
+		RunE: func(cmd *cobra.Command, args []string) error {
 			question := args[0]
 			provider, _ := cmd.Flags().GetString("provider")
-			p.ErrorHandler.Fatal(runAsk(cmd.Context(), p, question, noStyle, provider))
+
+			return runAsk(cmd.Context(), p, question, noStyle, provider)
 		},
 	}
 	cmd.Flags().BoolVarP(&noStyle, "no-style", "n", false, "Disable markdown styling")

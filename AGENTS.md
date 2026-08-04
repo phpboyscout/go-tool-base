@@ -35,7 +35,7 @@ The skills and commands below ship from the [phpboyscout marketplace](https://gi
 - Write failing tests first, derived from the spec's public API, error cases, and edge cases.
 - For features with **CLI commands, multi-step user workflows, or service lifecycle coordination**, also write Gherkin feature files in `features/` as E2E BDD scenarios. These are not optional for user-facing behaviour — they complement unit tests by expressing workflows in Given/When/Then format.
 - Implement the minimum code to pass. Refactor. Re-run tests.
-- Use `github.com/cockroachdb/errors` for all error creation and wrapping — `go-errors/errors` has been removed.
+- Use `gitlab.com/phpboyscout/go/errors` for all error creation and wrapping. It is the estate's own package — stdlib-only, so it adds nothing to the dependency graph — and every symbol GTB used from `cockroachdb/errors` has a same-named equivalent. Package-level sentinels use `NewSentinel(kind, msg)` rather than `New`: at package scope `New` captures its stack at initialisation, which points at `runtime.doInit` instead of anywhere the error was returned. Kinds are namespaced `gtb.<package>.<name>`.
 - New `pkg/` features must have **≥90% test coverage**.
 - Address the root cause first; do not silence a linter to avoid fixing real issues. When a suppression is **genuinely unavoidable** (e.g. gosec G204 for an intentional dev-tooling subprocess, G304 for an operator-named file path, gochecknoglobals for an ldflags injection target), use a **narrowly-scoped inline `//nolint:<linter> // <justification>`** on the exact line — never a file-scoped `.golangci.yaml` exclusion, which would also mask new, unintended violations of that linter in the same file.
 
@@ -173,7 +173,9 @@ Service lifecycle orchestration — startup ordering, health monitoring, and gra
 
 ### Error Handling
 
-Error handling is the extracted `gitlab.com/phpboyscout/go/errorhandling` module: it wraps `cockroachdb/errors` with user-facing hints (`WithHint`/`WithHintf`), help channel config (Slack/Teams), and stack traces in debug mode.
+Error handling is the extracted `gitlab.com/phpboyscout/go/errorhandling` module, built over `gitlab.com/phpboyscout/go/errors`: user-facing hints (`WithHint`/`WithHintf`), help channel config (Slack/Teams), and stack traces in debug mode.
+
+**Nothing in it exits the process.** `Fatal` reports and *returns* the exit code it believes the process should use; `pkg/cmd/root`'s `Execute` owns termination. A terminal-but-successful error carries an `Outcome` rather than earning a branch in `Execute` — see `ErrUpdateComplete`, which exits zero and reports at warn because its `Outcome` says so.
 
 ### Version Control (VCS)
 

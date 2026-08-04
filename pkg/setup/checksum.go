@@ -11,8 +11,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // Default size bounds on untrusted inputs. Generous, but they stop a hostile
@@ -49,7 +50,7 @@ const requireChecksumDefault = false
 // created without GoReleaser or with a non-default checksums layout.
 //
 //nolint:gochecknoglobals // sentinel error
-var ErrChecksumAssetNotFound = errors.New("asset not found in checksums manifest")
+var ErrChecksumAssetNotFound = errors.NewSentinel("gtb.setup.checksum_asset_not_found", "asset not found in checksums manifest")
 
 // ErrChecksumManifestMalformed is returned when the checksums
 // manifest does not conform to the expected GoReleaser format
@@ -58,7 +59,7 @@ var ErrChecksumAssetNotFound = errors.New("asset not found in checksums manifest
 // truncated or corrupted download never produces a false pass.
 //
 //nolint:gochecknoglobals // sentinel error
-var ErrChecksumManifestMalformed = errors.New("checksums manifest is malformed")
+var ErrChecksumManifestMalformed = errors.NewSentinel("gtb.setup.checksum_manifest_malformed", "checksums manifest is malformed")
 
 // ErrChecksumManifestDuplicate is returned when a filename appears more
 // than once in the checksums manifest. A duplicate entry is ambiguous —
@@ -67,23 +68,23 @@ var ErrChecksumManifestMalformed = errors.New("checksums manifest is malformed")
 // rejected.
 //
 //nolint:gochecknoglobals // sentinel error
-var ErrChecksumManifestDuplicate = errors.New("checksums manifest contains a duplicate filename")
+var ErrChecksumManifestDuplicate = errors.NewSentinel("gtb.setup.checksum_manifest_duplicate", "checksums manifest contains a duplicate filename")
 
 // ErrChecksumTooLarge is returned when either the checksums manifest
 // or the binary download exceeds its configured size bound. Indicates
 // a hostile or misbehaving server; the update aborts before hashing.
 //
 //nolint:gochecknoglobals // sentinel error
-var ErrChecksumTooLarge = errors.New("download exceeds maximum size")
+var ErrChecksumTooLarge = errors.NewSentinel("gtb.setup.checksum_too_large", "download exceeds maximum size")
 
 // ErrBinaryTooLarge is returned when a downloaded release binary exceeds
 // MaxBinaryDownloadSize. Indicates a hostile or misbehaving server.
-var ErrBinaryTooLarge = errors.New("binary download exceeds maximum size")
+var ErrBinaryTooLarge = errors.NewSentinel("gtb.setup.binary_too_large", "binary download exceeds maximum size")
 
 // ErrBinaryNotInArchive is returned when the release archive does not
 // contain a binary matching the tool name. Without this, extraction
 // silently reported success while leaving the old binary in place.
-var ErrBinaryNotInArchive = errors.New("expected binary not found in archive")
+var ErrBinaryNotInArchive = errors.NewSentinel("gtb.setup.binary_not_in_archive", "expected binary not found in archive")
 
 // checksumLinePattern matches a single GoReleaser manifest entry:
 // 64 hex chars, any whitespace run, then a non-whitespace filename.

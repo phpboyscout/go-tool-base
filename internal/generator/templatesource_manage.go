@@ -9,7 +9,7 @@ package generator
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // ListTemplateSources returns the template sources recorded in the project

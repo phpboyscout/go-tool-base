@@ -8,10 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/cockroachdb/errors"
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )

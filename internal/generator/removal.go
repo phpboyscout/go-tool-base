@@ -4,8 +4,9 @@ import (
 	"context"
 	"path/filepath"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 func (g *Generator) Remove(ctx context.Context) error {

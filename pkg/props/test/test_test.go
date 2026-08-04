@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errorhandling"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -102,10 +103,12 @@ func TestNew_ErrorHandlerDoesNotExitOnFatal(t *testing.T) {
 
 	p := test.New()
 
-	// The default error handler's Exit and Writer are inert: a Fatal call
-	// neither terminates the test process nor panics.
+	// errorhandling v0.2.0 never exits: Fatal reports and returns the code it
+	// thinks the process should use, so a Fatal under test cannot terminate the
+	// test binary and needs no inert-exit seam to make it safe.
 	assert.NotPanics(t, func() {
-		p.ErrorHandler.Fatal(assert.AnError, "test")
+		code := p.ErrorHandler.Fatal(t.Context(), assert.AnError, errorhandling.WithPrefix("test"))
+		assert.Equal(t, 1, code, "an error with no attached code exits 1")
 	})
 }
 
@@ -162,7 +165,7 @@ func TestNew_WithErrorHandlerOverride(t *testing.T) {
 	called := false
 	p := test.New(test.WithErrorHandler(&recordingHandler{onError: func() { called = true }}))
 
-	p.ErrorHandler.Error(assert.AnError)
+	p.ErrorHandler.Error(t.Context(), assert.AnError)
 	assert.True(t, called, "custom error handler should be used")
 }
 
@@ -171,8 +174,15 @@ type recordingHandler struct {
 	onError func()
 }
 
-func (h *recordingHandler) Check(error, string, string) {}
-func (h *recordingHandler) Fatal(error, ...string)      {}
-func (h *recordingHandler) Error(error, ...string)      { h.onError() }
-func (h *recordingHandler) Warn(error, ...string)       {}
-func (h *recordingHandler) SetUsage(func() error)       {}
+// Mirrors errorhandling.ErrorHandler as of v0.2.0: Check is gone, and Fatal
+// returns the exit code it wants rather than exiting.
+func (h *recordingHandler) Fatal(context.Context, error, ...errorhandling.ReportOption) int {
+	return 0
+}
+
+func (h *recordingHandler) Error(context.Context, error, ...errorhandling.ReportOption) {
+	h.onError()
+}
+
+func (h *recordingHandler) Warn(context.Context, error, ...errorhandling.ReportOption) {}
+func (h *recordingHandler) SetUsage(func() error)                                      {}

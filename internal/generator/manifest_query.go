@@ -3,7 +3,7 @@ package generator
 import (
 	"strings"
 
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 func (g *Generator) FindCommandParentPath(name string) ([]string, error) {

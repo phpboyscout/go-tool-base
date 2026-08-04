@@ -9,8 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cockroachdb/errors"
-
+	"gitlab.com/phpboyscout/go/errors"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 )
 

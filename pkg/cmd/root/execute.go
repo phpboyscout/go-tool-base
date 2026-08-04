@@ -7,10 +7,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
+	"gitlab.com/phpboyscout/go/errors"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -26,7 +26,20 @@ type executeOptions struct {
 
 	// forceExit terminates the process when a second signal arrives while the
 	// first is still being handled. Defaults to os.Exit.
-	forceExit errorhandling.ExitFunc
+	forceExit func(int)
+
+	// exitProcess terminates the process with the exit code a reported fatal
+	// error asked for. Defaults to os.Exit.
+	//
+	// This used to belong to the error handler, which called os.Exit itself;
+	// errorhandling v0.2.0 reports and returns the code instead, leaving the
+	// exit to its caller.
+	//
+	// It is deliberately NOT the same seam as forceExit. The two mark different
+	// events — "the user insisted, abandon ship" versus "the run finished and
+	// failed" — and a test that distinguishes them needs to keep doing so; one
+	// shared hook would fire twice on an interrupted run.
+	exitProcess func(int)
 
 	// disableSignals suppresses the framework's signal handling entirely, so the
 	// tool owns SIGINT/SIGTERM itself. The zero value wires signals on.
@@ -61,10 +74,13 @@ func WithoutSignals() ExecuteOption {
 // signal-aware execution context. SIGINT/SIGTERM cancel cmd.Context() so
 // commands can unwind gracefully; a second signal force-exits immediately
 // (kubectl/docker UX); a signal-terminated run exits 128+signum (130 for
-// SIGINT, 143 for SIGTERM) through the ErrorHandler's exit path.
+// SIGINT, 143 for SIGTERM).
 //
-// It silences Cobra's default error output and routes any error returned by
-// the command tree through ErrorHandler.Check at Fatal level. The buffered
+// It silences Cobra's default error output and reports any error returned by
+// the command tree through ErrorHandler.Fatal. Since errorhandling v0.2.0 the
+// handler reports and returns an exit code rather than exiting itself, so THIS
+// function owns process termination — which keeps the decision at the outermost
+// frame, where a deferred cleanup can still run before it. The buffered
 // telemetry flush runs on every path — success, error, and cancellation —
 // before any exit fires.
 func Execute(rootCmd *setup.Command, props *p.Props, opts ...ExecuteOption) {
@@ -93,13 +109,25 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 		return errors.WithHintf(err, "Run '%s --help' for usage.", cmd.CommandPath())
 	})
 
-	// The ErrorHandler's fatal path calls os.Exit, which skips deferred calls.
-	// Flush exactly once: explicitly before every fatal exit below, and via
-	// defer for the non-exiting paths.
+	// Flush exactly once: explicitly before each exit below, and via defer for
+	// the paths that return normally.
+	//
+	// The once-guard is still load-bearing after errorhandling v0.2.0, for a
+	// different reason than before. A real os.Exit skips the defer, so the
+	// fatal paths must flush themselves; but the injected test exit RETURNS,
+	// and then the defer also runs. Without the guard that is a double flush
+	// on every fatal path a test drives.
 	var flushOnce sync.Once
 
 	flush := func() { flushOnce.Do(func() { flushTelemetry(props) }) }
 	defer flush()
+
+	// exit terminates the process with a reported error's code. Injectable so
+	// tests can observe the code instead of ending the test binary.
+	exit := opts.exitProcess
+	if exit == nil {
+		exit = os.Exit
+	}
 
 	ctx, receivedSignal := signalAwareContext(props, opts)
 
@@ -120,28 +148,35 @@ func execute(rootCmd *setup.Command, props *p.Props, opts executeOptions) {
 		// The run was interrupted: exit 128+signum regardless of what the
 		// command tree returned (usually context.Canceled). An interrupt is a
 		// deliberate user choice, not a failure — the non-zero exit code is the
-		// signal, so the notice is logged at debug (LevelFatalQuiet), not error.
-		// The exit path is otherwise identical to LevelFatal: the flush above has
-		// already run, and the attached 128+signum code is honoured.
-		flush()
-		props.ErrorHandler.Check(
+		// signal, so the notice is logged at debug (Quietly), not error. The
+		// attached 128+signum code is what Fatal hands back.
+		code := props.ErrorHandler.Fatal(
+			ctx,
 			errorhandling.WithExitCode(
 				errors.Newf("interrupted by signal: %v", sig),
 				signalExitCode(sig),
-			), "", errorhandling.LevelFatalQuiet)
+			),
+			errorhandling.Quietly(),
+		)
+
+		flush()
+		exit(code)
 
 		return
 	}
 
 	if err != nil {
-		if errors.Is(err, ErrUpdateComplete) {
-			props.Logger.Warn("update complete — please run the command again")
-
-			return
-		}
+		// No special case for ErrUpdateComplete. It carries an Outcome saying
+		// "exit zero, report at warn, and use this message", which Fatal honours
+		// — so a completed self-update reports itself and returns 0 through the
+		// same path as anything else. See spec 0002 D10.
+		code := props.ErrorHandler.Fatal(ctx, err)
 
 		flush()
-		props.ErrorHandler.Check(err, "", errorhandling.LevelFatal)
+
+		if code != 0 {
+			exit(code)
+		}
 	}
 }
 

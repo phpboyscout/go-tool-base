@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -17,9 +18,9 @@ import (
 // ErrFeatureNameRequired is returned when `gtb enable`/`gtb disable` is run with
 // no feature name in a context where the interactive picker cannot run (CI or a
 // non-interactive session).
-var ErrFeatureNameRequired = errors.New(
-	"a feature name is required in non-interactive/CI mode (one of: " +
-		strings.Join(generator.ToggleableFeatures, ", ") + ")")
+var ErrFeatureNameRequired = errors.NewSentinel("gtb.cmd.feature_name_required",
+	"a feature name is required in non-interactive/CI mode (one of: "+
+		strings.Join(generator.ToggleableFeatures, ", ")+")")
 
 // RunFeatureToggle is the shared implementation behind the positional feature
 // arguments of `gtb enable [feature...]` and `gtb disable [feature...]`. With one

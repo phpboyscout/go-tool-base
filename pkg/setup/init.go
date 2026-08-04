@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
