@@ -240,9 +240,48 @@ import (
 
 The blank import registers a `go-keyring`-backed backend during package init. From that point on, `credentials.KeychainAvailable()` reports true and the setup wizard offers keychain mode when the OS backend is reachable. To strip keychain support from a regulated build, remove the import (or put it in a `//go:build !nokeychain`-tagged file and build with `-tags nokeychain`).
 
-## Configuring GitHub and Bitbucket credentials
+## How a forge credential resolves
 
-The same three-mode UX appears in `init github` and `init bitbucket`, with storage-specific wrinkles worth knowing about.
+The three modes above describe where a secret is *stored*. This describes how it is *read back* — a different question, and the one you need when a token is configured but something still returns 401.
+
+For a forge (`github`, `gitlab`, `gitea`, `codeberg`), the chain is tried in this order, and the first rung that produces a non-empty value wins:
+
+| # | Rung | What the config holds |
+|---|------|-----------------------|
+| 1 | `<forge>.auth.env` | The **name** of an environment variable, dereferenced at use time |
+| 2 | `<forge>.auth.keychain` | A `service/account` keychain reference, dereferenced at use time |
+| 3 | `<forge>.auth.value` | The credential itself |
+| 4 | Well-known fallback | e.g. `GITHUB_TOKEN`, read directly |
+
+Rungs 1 and 2 are **pointers, not values**. That is what lets one committed config file serve both a developer machine and a CI runner: set `github.auth.env: CI_JOB_TOKEN` and the job supplies the secret under its own name, with nothing tool-specific to rewrite.
+
+A named variable that is *unset* is not an error — it falls through to the next rung. A keychain reference that is *malformed* is an error, and is reported as one, because silently treating it as "no credential" is what turns a typo into an unexplained 401.
+
+!!! note "Why you will rarely see the fallback rung"
+    Every forge ships `<forge>.auth.env: <FORGE>_TOKEN` in its embedded config defaults. Rung 1 therefore already reads the variable rung 4 would read, so exporting `GITHUB_TOKEN` and configuring nothing resolves through **`auth.env`**, not through the fallback. Same variable, same value, same outcome — but worth knowing before you read a diagnostic and conclude the fallback is broken.
+
+### Checking what resolves, without printing the secret
+
+`doctor` reports the winning rung by name:
+
+```
+$ mytool doctor
+  [OK] GitHub credential: resolves from auth.env
+  [!!] GitLab credential: credential configured but does not resolve
+       malformed keychain reference "no-slash-here": want "service/account". …
+  [SKIP] Gitea credential: no credential configured
+       Run `init gitea` to configure one, or set GITEA_TOKEN.
+```
+
+It never prints a credential, so the output is safe to paste into an issue or a support bundle. `[SKIP]` is not a failure — a tool may legitimately never talk to that forge.
+
+Resolution is also **lazy**: nothing is read, and no keychain is touched, until something actually needs the credential. A repository that authenticates over SSH will never trigger an OS unlock prompt for a token it does not use.
+
+## Configuring forge credentials
+
+The same three-mode UX appears in `init github`, `init gitlab`, `init gitea`, `init codeberg` and `init bitbucket`. The single-token forges behave alike; the wrinkles below are the ones worth knowing.
+
+Gitea and Codeberg offer no interactive browser login — the upstream adapter is personal-access-token only by design — so those wizards go straight to manual token entry. Gitea additionally has no default host, since every instance is self-hosted; Codeberg has one, because there is exactly one `codeberg.org`. Each forge writes its own config section, so a token configured for Gitea is not shared with Codeberg.
 
 ### `init github`
 

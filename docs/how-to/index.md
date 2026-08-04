@@ -194,7 +194,7 @@ Securely rotate your cryptographic keys without breaking backwards compatibility
 ## Credentials
 
 ### [Configure Credentials](configure-credentials.md)
-Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords — env-var reference (recommended default), OS keychain (opt-in), or literal config (legacy) — and migrate between them safely.
+Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords — env-var reference (recommended default), OS keychain (opt-in), or literal config (legacy) — and migrate between them safely. Also covers how a forge credential is *resolved* at runtime, which rung wins, and how to check what resolves without printing the secret.
 
 ### [Implement a Custom Credential Backend](custom-credential-backend.md)
 Plug Hashicorp Vault, AWS Secrets Manager, 1Password Connect, or any other secret store into your tool by implementing the `credentials.Backend` interface and registering it at startup.
