@@ -36,16 +36,16 @@ require (
 	gitlab.com/phpboyscout/go/chat-gemini v0.8.1
 	gitlab.com/phpboyscout/go/chat-openai v0.8.1
 	gitlab.com/phpboyscout/go/config v0.13.1
-	gitlab.com/phpboyscout/go/config-afero v0.1.4
+	gitlab.com/phpboyscout/go/config-afero v0.1.5
 	gitlab.com/phpboyscout/go/controls v0.3.0
 	gitlab.com/phpboyscout/go/credentials v0.3.0
 	gitlab.com/phpboyscout/go/errorhandling v0.3.0
 	gitlab.com/phpboyscout/go/errors v0.2.0
-	gitlab.com/phpboyscout/go/forge v0.9.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.0
-	gitlab.com/phpboyscout/go/forge-gitea v0.7.0
-	gitlab.com/phpboyscout/go/forge-github v0.6.0
-	gitlab.com/phpboyscout/go/forge-gitlab v0.6.1
+	gitlab.com/phpboyscout/go/forge v0.9.1
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.1
+	gitlab.com/phpboyscout/go/forge-gitea v0.7.1
+	gitlab.com/phpboyscout/go/forge-github v0.6.1
+	gitlab.com/phpboyscout/go/forge-gitlab v0.6.2
 	gitlab.com/phpboyscout/go/httpclient v0.2.1
 	gitlab.com/phpboyscout/go/observability v0.3.0
 	gitlab.com/phpboyscout/go/output v0.2.0
@@ -53,7 +53,7 @@ require (
 	gitlab.com/phpboyscout/go/regexutil v0.2.0
 	gitlab.com/phpboyscout/go/repo v0.2.1
 	gitlab.com/phpboyscout/go/signing v0.6.1
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.4.0
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.4.1
 	gitlab.com/phpboyscout/go/tls v0.2.0
 	gitlab.com/phpboyscout/go/transit v0.2.1
 	gitlab.com/phpboyscout/go/transport v0.5.2
