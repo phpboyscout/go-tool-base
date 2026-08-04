@@ -39,6 +39,10 @@ func TestResolvingHandler_ResolvesLogValuer(t *testing.T) {
 // TestResolvingHandler_ErrorReachesTheRecordWhole is what the migration turned
 // on. errorhandling v0.2.0 hands the error to slog and expects the handler to
 // take it apart; unresolved, everything below the message was lost.
+//
+// Asserted at debug: NewPresentingHandler sits above this one and hides the
+// error group at lower levels, so debug is where the resolved group is visible
+// to assert on at all.
 func TestResolvingHandler_ErrorReachesTheRecordWhole(t *testing.T) {
 	t.Parallel()
 
@@ -46,7 +50,7 @@ func TestResolvingHandler_ErrorReachesTheRecordWhole(t *testing.T) {
 
 	err := errors.WithHint(errors.New("boom"), "try the other thing")
 
-	l := logger.ToSlog(logger.NewCharm(&buf, logger.WithLevel(logger.InfoLevel)))
+	l := logger.ToSlog(logger.NewCharm(&buf, logger.WithLevel(logger.DebugLevel)))
 	l.Log(t.Context(), slog.LevelError, "it failed", "err", err)
 
 	out := buf.String()

@@ -66,12 +66,22 @@ func NewCharm(w io.Writer, opts ...CharmOption) Logger {
 
 	inner := log.NewWithOptions(w, o)
 
-	// charm's text formatter does not Resolve attribute values, though its JSON
-	// one does, so a slog.LogValuer reaching the terminal renders as its bare Go
-	// value. Since errorhandling v0.2.0 that means an error's hints, kind and
-	// details silently disappear. Tracked upstream as charmbracelet/log#96; see
-	// NewResolvingHandler for the deletion condition.
-	return &charmLogger{Logger: slog.New(NewResolvingHandler(inner)), inner: inner}
+	// Two wrappers, two jobs.
+	//
+	// NewResolvingHandler makes the record correct. Charm resolves structured
+	// values in its JSON formatter and not in its text one, so a slog.LogValuer
+	// reaching the terminal would otherwise render as its bare Go value. That is
+	// a defect being tracked upstream as charmbracelet/log#96, and the wrapper
+	// goes when it lands.
+	//
+	// NewPresentingHandler then decides what a person should be shown of an
+	// error. That is GTB's own choice rather than a workaround, and it stands
+	// whether or not #96 is ever fixed. It wraps resolution because it reads the
+	// error before anything turns it into a group.
+	return &charmLogger{
+		Logger: slog.New(NewPresentingHandler(NewResolvingHandler(inner))),
+		inner:  inner,
+	}
 }
 
 // SetLevel implements Leveller. charmbracelet/log's Level shares slog.Level's

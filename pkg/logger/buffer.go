@@ -36,7 +36,13 @@ type bufferLogger struct {
 func NewBuffer() *bufferLogger {
 	capture := NewCaptureHandler()
 
-	return &bufferLogger{Logger: slog.New(capture), capture: capture}
+	// Wrapped exactly as the charm logger is. Without this the test double
+	// renders errors differently from production: a test asserting on a hint
+	// would find nothing and say so, or worse, assert its absence and pass.
+	return &bufferLogger{
+		Logger:  slog.New(NewPresentingHandler(NewResolvingHandler(capture))),
+		capture: capture,
+	}
 }
 
 // Entries returns all captured log entries, in order.
