@@ -4,7 +4,7 @@
 # and the current working tree, for developer visibility.
 #
 # PRE-1.0 POLICY: GTB is currently v0.x. Breaking changes are permitted
-# and ship as a MINOR bump (see docs/about/api-stability.md). This script
+# and ship as a MINOR bump (see docs/reference/api-stability.md). This script
 # is therefore ADVISORY only — it always exits 0 so it never fails a build
 # or an MR pipeline. Its job is to make API changes *visible* so they are
 # seen and intentional. From v1.0 the wrapping CI job becomes a BLOCKING

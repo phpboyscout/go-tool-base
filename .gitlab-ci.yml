@@ -179,7 +179,7 @@ goreleaser:
 # ----------------------------------------------------------------------
 # Public-API diff — ADVISORY (non-blocking) while pre-1.0.
 #
-# GTB is currently v0.x. Per docs/about/api-stability.md, breaking
+# GTB is currently v0.x. Per docs/reference/api-stability.md, breaking
 # changes are *permitted* and ship as a MINOR bump during this phase, so
 # a hard gate here would (correctly) reject legitimate, intentional
 # breaks. This job therefore exists for VISIBILITY, not enforcement: it

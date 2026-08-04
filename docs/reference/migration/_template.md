@@ -6,7 +6,7 @@ search:
 ---
 
 !!! warning "This is a template, not a migration guide"
-    Copy this file to `docs/migration/vX.Y-to-vX.Z.md`, replace all
+    Copy this file to `docs/reference/migration/vX.Y-to-vX.Z.md`, replace all
     placeholder text, and remove this admonition before publishing.
 
 # Migrating from vX.Y to vX.Z

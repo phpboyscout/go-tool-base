@@ -89,7 +89,7 @@ depend on them in production code without pinning to a specific version.
 
 | Version range | Policy |
 |---------------|--------|
-| `v0.x` (current) | **Unstable — pre-1.0:** Breaking changes to any public API are permitted and ship as a **minor** bump. The tier tables above describe the *intended* v1.0 commitment, not a current guarantee. Prefer backward-compatible changes where cheap; document any break in `docs/migration/`. |
+| `v0.x` (current) | **Unstable — pre-1.0:** Breaking changes to any public API are permitted and ship as a **minor** bump. The tier tables above describe the *intended* v1.0 commitment, not a current guarantee. Prefer backward-compatible changes where cheap; document any break in `docs/reference/migration/`. |
 | `v1.0.0+` | **Guaranteed Stability (future):** From the first `v1.0.0` release, standard Go semver applies — breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+), and the advisory CI `apidiff` job becomes a blocking gate. |
 
 The `internal/` directory is always unstable regardless of version — it is not

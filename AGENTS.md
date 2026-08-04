@@ -136,17 +136,17 @@ Default-enabled: `UpdateCmd`, `InitCmd`, `McpCmd`, `DocsCmd`, `DoctorCmd`, `Chan
 
 ### API Stability (pre-1.0)
 
-GTB is currently **pre-1.0** (`v0.x`). During this phase the public `pkg/` API is **not** frozen: breaking changes are permitted and ship as a **minor** bump (the project has made several deliberate ones). The stability tiers and "no breaking changes without a major bump" guarantees described in `docs/about/api-stability.md` are **aspirational and take effect from v1.0** — do not treat them as binding while the module is `v0.x`.
+GTB is currently **pre-1.0** (`v0.x`). During this phase the public `pkg/` API is **not** frozen: breaking changes are permitted and ship as a **minor** bump (the project has made several deliberate ones). The stability tiers and "no breaking changes without a major bump" guarantees described in `docs/reference/api-stability.md` are **aspirational and take effect from v1.0** — do not treat them as binding while the module is `v0.x`.
 
 What this means in practice today:
 
 - A breaking change to a `pkg/` type, interface, signature, or exported constant is allowed; it ships as a `feat`/`fix` minor/patch (no `BREAKING CHANGE:` footer is used on the v0 line — a major bump is not desired yet).
 - Still prefer backward-compatible changes where the cost is low, and reach for a clean break over a long-lived shim when a break is warranted.
-- When you do break a public API, note it in the commit body and add a migration note in `docs/migration/` so the v1.0 migration guide stays accurate.
+- When you do break a public API, note it in the commit body and add a migration note in `docs/reference/migration/` so the v1.0 migration guide stays accurate.
 - Deprecations should still be annotated with `// Deprecated:` so downstreams get a transition window.
 - `internal/` packages are unstable and never subject to this policy.
 
-For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/about/api-stability.md` applies.
+For **visibility** (not enforcement) of API changes pre-1.0, run `just apidiff`, which compares the working tree against the latest release tag (`apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`). The CI `apidiff` job runs this on MRs as an **advisory, non-blocking** check (`allow_failure: true`) so reviewers can see and confirm an API change is intentional. **From v1.0 this gate becomes blocking** and the full stability policy in `docs/reference/api-stability.md` applies.
 
 The binary entry point is `cmd/gtb/main.go`. The `internal/cmd/` packages add GTB-specific commands (`generate`, `regenerate`, `remove`) for scaffolding new CLI tools based on this framework.
 

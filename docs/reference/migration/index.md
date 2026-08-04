@@ -44,7 +44,7 @@ provides before/after code examples with a clear migration path.
 
 Use the `_template.md` file in this directory as a starting point:
 
-1. Copy it to `docs/migration/vX.Y-to-vX.Z.md`.
+1. Copy it to `docs/reference/migration/vX.Y-to-vX.Z.md`.
 2. Replace all placeholder text.
 3. Group changes by package.
 4. Include before/after code blocks and a prose migration path for each change.
