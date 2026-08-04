@@ -34,7 +34,7 @@ irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 ```
 
 > [!NOTE]
-> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base@latest`. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
+> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest` — note the `/cmd/gtb` suffix, as the `main` package is not at the module root. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
 
 ## 🚀 Key Advantages & Features
 
@@ -49,17 +49,21 @@ irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 
 ## 🏗️ Core Architecture
 
-The framework is built around a centralized **Props** container that provides type-safe access to all system dependencies:
+The framework is built around a centralized **Props** container that provides type-safe access to all system dependencies.
 
-| Component | Responsibility |
-| :--- | :--- |
-| **[pkg/props](docs/explanation/components/props.md)** | Central dependency injection container for logger, config, and assets. |
-| **[go/config](docs/explanation/components/config.md)** | Layered, snapshot-coherent configuration via the extracted [go/config](https://config.go.phpboyscout.uk) Store — provenance-aware reads, comment-preserving writes, hot reload, and published mocks. |
-| **[pkg/chat](docs/explanation/components/chat.md)** | Unified multi-provider AI client (Claude, OpenAI, Gemini, Claude Local). |
-| **[pkg/controls](docs/explanation/components/controls.md)** | Service lifecycle management and message-based coordination. |
-| **[pkg/setup](docs/explanation/components/setup/)** | Bootstrap logic: auth, key management, and pluggable self-updating. |
-| **[pkg/vcs](docs/explanation/components/version-control.md)** | Pluggable GitHub/GitLab API and Git operations abstraction. |
-| **[pkg/errorhandling](docs/explanation/components/error-handling.md)** | Structured errors with stack traces and log integration. |
+Much of what GTB once implemented now lives in the standalone [phpboyscout Go toolkit](https://go.phpboyscout.uk) — small, framework-free modules under `gitlab.com/phpboyscout/go/`, so a tool can take one without taking all of GTB. Where that happened, the `pkg/` package that remains is a **thin config adapter** that wires the module from `Props`.
+
+| Component | Implementation | Responsibility |
+| :--- | :--- | :--- |
+| **[pkg/props](docs/explanation/components/props.md)** | GTB | Central dependency injection container for logger, config, assets, filesystem, version and error handling. |
+| **[config](docs/explanation/components/config/)** | [go/config](https://config.go.phpboyscout.uk) | Layered, snapshot-coherent configuration — provenance-aware reads, comment-preserving writes, explicit hot reload, and published mocks. |
+| **[pkg/chat](docs/explanation/components/chat/)** | [go/chat](https://chat.go.phpboyscout.uk) + provider modules | Unified multi-provider AI client (Claude, OpenAI, Gemini, Claude Local). `pkg/chat` owns the GTB config-key schema and registers the providers. |
+| **[controls](docs/explanation/components/controls/)** | [go/controls](https://controls.go.phpboyscout.uk) | Service lifecycle: startup ordering, health probes, graceful shutdown. |
+| **[pkg/http](docs/explanation/components/http.md), [pkg/grpc](docs/explanation/components/grpc.md), [pkg/gateway](docs/explanation/components/gateway.md)** | [go/transport](https://transport.go.phpboyscout.uk) | Hardened HTTP/gRPC servers and the REST gateway; the `pkg/` packages are the config adapters. |
+| **[pkg/setup](docs/explanation/components/setup/)** | GTB | Bootstrap logic: auth, key management, command middleware, and pluggable self-updating. |
+| **[pkg/vcs](docs/explanation/components/version-control.md)** | [go/forge](https://forge.go.phpboyscout.uk) + [go/repo](https://repo.go.phpboyscout.uk) | GitHub/GitLab/Gitea/Bitbucket releases and auth; `pkg/vcs` wires them from resolved config. |
+| **[errorhandling](docs/explanation/components/error-handling.md)** | [go/errorhandling](https://errorhandling.go.phpboyscout.uk) | Structured errors with user-facing hints, exit codes, stack traces and log integration. |
+| **[pkg/docs](docs/explanation/components/docs.md)**, **[output](docs/explanation/components/output.md)** | GTB / [go/output](https://output.go.phpboyscout.uk) | Interactive TUI documentation browser; structured text/JSON/YAML/CSV output. |
 
 ## 🛠️ Built-in Commands
 
@@ -71,6 +75,10 @@ Every tool built on GTB inherits these essential capabilities:
 - **`mcp`**: Exposes CLI commands as Model Context Protocol (MCP) tools for use in IDEs.
 - **`docs`**: Interactive terminal browser for documentation with built-in AI Q&A.
 - **`doctor`**: Runs diagnostic checks to validate configuration, connectivity, and runtime environment.
+- **`changelog`**: Shows the tool's version history.
+- **`telemetry`** *(opt-in)*: Manages pseudonymous usage telemetry.
+- **`config`** *(opt-in)*: Reads and writes the tool's configuration.
+- **`man`** *(opt-in)*: Generates roff man pages for the command tree.
 
 Commands can be selectively enabled or disabled at bootstrap time via feature flags — see [Feature Flags](#-feature-flags) below.
 
@@ -112,7 +120,7 @@ gtb generate project --name mytool --repo myorg/mygroup/mytool --git-backend git
 
 The scaffold produces a fully wired project. The key entry points are:
 
-**`cmd/mytool/main.go`** — entry point, reads version from `internal/version`:
+**`cmd/mytool/main.go`** — entry point, reads version from `internal/version`. `Execute` runs the tree with a signal-aware context: SIGINT/SIGTERM cancel `cmd.Context()` for graceful shutdown, a second signal force-exits, and a signal-terminated run exits `128+signum`:
 ```go
 func main() {
     rootCmd, p := root.NewCmdRoot(version.Get())
@@ -125,13 +133,14 @@ func main() {
 //go:embed assets/*
 var assets embed.FS
 
-func NewCmdRoot(v pkgversion.Info) (*cobra.Command, *props.Props) {
+func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
     l := logger.NewCharm(os.Stderr, logger.WithTimestamp(true))
 
     p := &props.Props{
         Tool: props.Tool{
             Name:        "mytool",
             Description: "My CLI tool",
+            EnvPrefix:   "MYTOOL",
             ReleaseSource: props.ReleaseSource{
                 Type:  "gitlab",
                 Host:  "gitlab.com",
@@ -144,11 +153,14 @@ func NewCmdRoot(v pkgversion.Info) (*cobra.Command, *props.Props) {
         Version: v,
         Assets:  props.NewAssets(props.AssetMap{"root": &assets}),
     }
-    p.ErrorHandler = errorhandling.New(l, p.Tool.Help)
+    p.ErrorHandler = errorhandling.New(logger.ToSlog(l), p.Tool.Help)
 
-    return gtbRoot.NewCmdRoot(p), p
+    return gtbRoot.NewCmdRoot(p, NewCmdServe(p)), p
 }
 ```
+
+> [!NOTE]
+> Command constructors return **`*setup.Command`**, not `*cobra.Command`. It embeds `*cobra.Command` and carries the feature the command belongs to, so it behaves as a cobra command everywhere; `.Command` exposes the raw pointer when a cobra API needs one. Register child commands with `parent.Register(child)` rather than `AddCommand`, so the feature middleware chain is applied.
 
 **`internal/version/version.go`** — populated from GoReleaser ldflags at release, or from `runtime/debug` VCS info in development:
 ```go
@@ -170,7 +182,13 @@ Commands can be selectively disabled or opt-in features enabled via the `Tool` c
 | `mcp` | **enabled** | Model Context Protocol server |
 | `docs` | **enabled** | Documentation browser |
 | `doctor` | **enabled** | Diagnostic health checks |
+| `changelog` | **enabled** | Version history command |
 | `ai` | disabled | AI-powered features (opt-in) |
+| `config` | disabled | Configuration read/write command |
+| `telemetry` | disabled | Pseudonymous usage telemetry |
+| `man` | disabled | roff man-page generation |
+
+`version` is always present and is not gated. Only builtin features may be default-enabled; a plugin feature that declares itself default-on is rejected with `ErrPluginDefaultOn`.
 
 ```go
 p := &props.Props{
