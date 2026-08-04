@@ -132,7 +132,10 @@ homebrew_casks:
     commit_author:
       name: goreleaserbot
       email: matt@phpboyscout.com
-    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    # commit_msg_template is deliberately unset. GoReleaser's default for a cask
+    # is "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"; the
+    # override that used to sit here was the *formula* default, so every tap
+    # commit called this a formula.
     homepage: "https://gitlab.com/phpboyscout/go-tool-base"
     description: "A helper utility for interacting and managing gtb repos and resources"
     dependencies:
