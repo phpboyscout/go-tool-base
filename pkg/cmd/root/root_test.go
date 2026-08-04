@@ -1165,6 +1165,41 @@ func TestValidateConfig_StaleGithubTokenKeyNotChecked(t *testing.T) {
 	assert.False(t, log.Contains("github.token"))
 }
 
+// TestValidateConfig_SubtreeIsNotAnEmptyScalar pins the papercut this warning
+// shipped for real: IsSet is true for a key that merely PARENTS a set key, and
+// GetString of a mapping is "" — so a credential stored as an env-var reference
+// looked identical to one set to the empty string.
+//
+// bitbucket.app_password is the live case. Its bundle ships
+// bitbucket.app_password.env, so every tool with the Bitbucket feature enabled
+// warned about a credential it had configured correctly, on every command it
+// ran. The exact shape is used here rather than a synthetic one, because the
+// shipped default is what made this reachable.
+func TestValidateConfig_SubtreeIsNotAnEmptyScalar(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewBuffer()
+	cfg := testutil.ViewFromYAML(t,
+		"bitbucket:\n  app_password:\n    env: BITBUCKET_APP_PASSWORD\n")
+	validateConfig(cfg, log)
+
+	assert.False(t, log.Contains("bitbucket.app_password"),
+		"a key holding a mapping is not a key set to the empty string")
+}
+
+// TestValidateConfig_StillWarnsOnAnEmptyDualCredential is the other half: the
+// fix must not silence the case the warning exists for. An app_password set to
+// an empty scalar is still a misconfiguration.
+func TestValidateConfig_StillWarnsOnAnEmptyDualCredential(t *testing.T) {
+	t.Parallel()
+
+	log := logger.NewBuffer()
+	cfg := testutil.ViewFromYAML(t, "bitbucket:\n  app_password: \"\"\n")
+	validateConfig(cfg, log)
+
+	assert.True(t, log.Contains("bitbucket.app_password is set but empty"))
+}
+
 func TestValidateConfig_NoWarningForMissingKeys(t *testing.T) {
 	t.Parallel()
 

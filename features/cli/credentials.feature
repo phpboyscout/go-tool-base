@@ -112,6 +112,25 @@ Feature: Credential storage hardening
     Then the exit code is 0
     And stdout contains "No literal credentials found"
 
+  # A credential stored as an env-var reference must not be mistaken for one set
+  # to the empty string. Every forge ships its keys as a subtree
+  # (bitbucket.app_password.env), and startup validation asked "is this key set
+  # and empty?" — which a mapping answers yes to. The result was a warning on
+  # every command, about a credential that was configured correctly.
+  #
+  # Asserted through the CLI because that is where it was visible: the unit test
+  # pins the predicate, this pins that nothing reaches the operator's terminal.
+  @smoke
+  Scenario: A subtree-shaped credential produces no empty-key warning
+    Given a temporary directory with a config file:
+      """
+      log:
+        level: info
+      """
+    When I run gtb with "config get log.level"
+    Then the exit code is 0
+    And stderr does not contain "is set but empty"
+
   # ----- credential RESOLUTION (spec 0183) ----------------------------
 
   # Storage and resolution are different questions, and only the first had a

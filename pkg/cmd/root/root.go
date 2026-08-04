@@ -1545,6 +1545,19 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 // "github.auth.value").
 func validateConfig(cfg config.Reader, l logger.Logger) {
 	for _, key := range doctor.LiteralCredentialKeys {
+		// IsSet is true for a key that merely PARENTS a set key, and GetString
+		// of a mapping is "" — so a key holding a subtree looked exactly like a
+		// key set to the empty string. bitbucket.app_password is the case that
+		// bites: its bundle ships bitbucket.app_password.env, so every tool
+		// with the Bitbucket feature warned about a credential it had
+		// configured correctly, on every command it ran.
+		//
+		// A mapping is never an empty scalar, so it is never this warning's
+		// business.
+		if cfg.SectionExists(key) {
+			continue
+		}
+
 		if cfg.IsSet(key) && cfg.GetString(key) == "" {
 			l.Warn(key + " is set but empty — operations using this key will fail")
 		}
