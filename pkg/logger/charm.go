@@ -66,10 +66,11 @@ func NewCharm(w io.Writer, opts ...CharmOption) Logger {
 
 	inner := log.NewWithOptions(w, o)
 
-	// charmbracelet/log's handler does not Resolve attribute values, so a
-	// slog.LogValuer reaching it renders as its bare Go value — which since
-	// errorhandling v0.2.0 means an error's hints, kind and details silently
-	// disappear. See NewResolvingHandler.
+	// charm's text formatter does not Resolve attribute values, though its JSON
+	// one does, so a slog.LogValuer reaching the terminal renders as its bare Go
+	// value. Since errorhandling v0.2.0 that means an error's hints, kind and
+	// details silently disappear. Tracked upstream as charmbracelet/log#96; see
+	// NewResolvingHandler for the deletion condition.
 	return &charmLogger{Logger: slog.New(NewResolvingHandler(inner)), inner: inner}
 }
 

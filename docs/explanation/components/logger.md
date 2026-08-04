@@ -211,6 +211,82 @@ thirdPartyLib.SetLogger(slogLogger)
 
 ---
 
+## Structured values, and why the Charm backend is wrapped
+
+The Charm backend's handler is wrapped by `logger.NewResolvingHandler`. That
+wrapper exists to work around a specific upstream defect, and it is meant to be
+deleted, so it is worth writing down what it is for.
+
+### The defect
+
+`log/slog` requires a handler to call `Value.Resolve()` on every attribute. That
+is the call which turns a `slog.LogValuer` into the value it wants logged.
+
+`charmbracelet/log` does this in **one of its three formatters**. Its JSON
+formatter resolves structured values and renders them as nested objects; its
+text and logfmt formatters do neither, because `Handle` passes the raw
+`slog.Value` on and leaves each formatter to decide. The same record therefore
+carries less information as text than as JSON:
+
+```
+text    err="no config file found"
+json    {"err":{"msg":"no config file found","kind":"...","hint":["Run 'gtb init' ..."]}}
+```
+
+This became load-bearing when `errorhandling` v0.2.0 stopped taking errors apart
+and began handing them to slog whole, expecting the handler to resolve them.
+Everything an error carries, **including the hints that tell a user what to do
+next**, arrives through `LogValue`. Against the text formatter it silently
+disappeared.
+
+### Watch this issue
+
+<https://github.com/charmbracelet/log/issues/96>
+
+**When it is fixed, delete `pkg/logger/resolve.go` and its wiring in `NewCharm`.**
+Nothing else depends on it.
+
+The asymmetry looks accidental rather than deliberate: PR #127 ("support slog
+attributes") touched `json.go` and the handler, not the two text formatters. A
+patch exists and was deliberately **not** proposed upstream, because resolving
+properly changes output for anyone pinning the old rendering, and that is the
+maintainers' call to make. The findings are recorded on the issue, and the patch
+is kept at `~/patches/charmbracelet-log/` in case they ask for it.
+
+### Why Charm was kept rather than swapped out
+
+The obvious alternative was to drop Charm and standardise on a conformant
+`slog.Handler`. The ecosystem was surveyed and none of the alternatives carried
+the features GTB actually relies on:
+
+| Candidate | Outcome |
+|---|---|
+| `lmittmann/tint` | Escapes multi-line values onto one line. A stack trace becomes unreadable |
+| `golang-cz/devslog` | Renders multi-line, but with no gutter the value bleeds into the left margin |
+| `phuslu/log` | Its only `slog.Handler` is JSON. No text handler exists |
+| `coder/slog` (`cdr.dev/slog`) | Predates the standard library and implements its own `slog.Sink`, not `log/slog.Handler` |
+| `phsym/console-slog` | Unmaintained since January 2024 |
+| `dpotapov/slogpfx` | The only dedicated prefix handler, unmaintained since 2023 |
+
+What Charm provides and the alternatives do not:
+
+- **Multi-line values with a gutter.** A stack trace stays readable and stays
+  visibly attached to its key, with the following attribute correctly outdented.
+  Nothing else in the ecosystem does this.
+- **Prefixes**, for labelling a logger by subsystem.
+- **`Helper()`**, which skips a wrapper frame in caller reporting the way
+  `testing.TB.Helper()` does.
+
+One apparent requirement turned out not to be one: an adapter to the older
+`*log.Logger` API is in the standard library as `slog.NewLogLogger`, and works
+with any handler.
+
+So Charm is kept. It is the most actively maintained of the options and the
+defect is one code path, against a wrapper of about fifty lines that is tested
+and reversible.
+
+---
+
 ## Integration with Props
 
 The logger is injected through `Props`:
