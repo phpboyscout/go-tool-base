@@ -39,6 +39,7 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | **Git** | `git` binary is available and the current directory is a repository |
 | **API keys** | At least one AI provider API key is configured |
 | **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config — warns and lists the offending key *names* (never values), pointing to env-var migration |
+| **`<Forge>` credential** | Whether that forge's credential actually **resolves**, and from which rung — `auth.env`, `auth.keychain`, `auth.value`, or the well-known fallback variable. One per enabled single-token forge. Reports the key name only, never the value |
 | **Permissions** | Config directory exists with correct owner permissions (rwx) |
 
 ## Output Example
@@ -51,9 +52,23 @@ mytool v1.2.3
   [OK] Git: repository accessible
   [!!] API keys: no AI provider API keys configured
   [OK] Permissions: config dir: /home/user/.config/mytool (drwxr-xr-x)
+  [OK] GitHub credential: resolves from auth.env
+  [!!] GitLab credential: credential configured but does not resolve
+       malformed keychain reference "no-slash-here": want "service/account". …
+  [SKIP] Gitea credential: no credential configured
+       Run `init gitea` to configure one, or set GITEA_TOKEN.
 ```
 
 JSON output (`--output json`) returns a `DoctorReport` struct with the tool name, version, and an array of check results.
+
+!!! note "Why the fallback rung rarely appears"
+    Each forge's embedded config bundle ships `<forge>.auth.env: <FORGE>_TOKEN` as a
+    default. Rung 1 therefore already reads the same variable the well-known fallback
+    rung would read, so a credential supplied purely as `GITHUB_TOKEN` reports as
+    `resolves from auth.env` rather than from the fallback. Same variable, same value,
+    same outcome — but worth knowing before reading a report and concluding the
+    fallback is broken. To reach the fallback rung, a tool must ship a bundle that
+    sets no `auth.env` default.
 
 ## Extensibility
 

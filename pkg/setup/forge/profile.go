@@ -528,6 +528,7 @@ func init() {
 // fixed.
 func registerSingleTokenForge(profile Profile, skip *bool, flagName, flagUsage string) {
 	setup.RegisterAssets(profile.Feature, profile.ConfigPrefix, bundleFor(profile.ConfigPrefix))
+	registerCredentialCheck(profile)
 	setup.Register(profile.Feature,
 		[]setup.InitialiserProvider{
 			func(p *props.Props) setup.Initialiser {
@@ -561,6 +562,7 @@ func registerSingleTokenForge(profile Profile, skip *bool, flagName, flagUsage s
 // the --skip-login / --skip-key flags, and its embedded asset bundle.
 func registerGitHub() {
 	setup.RegisterAssets(gitHubProfile.Feature, "github", bundleFor("github"))
+	registerCredentialCheck(gitHubProfile)
 	setup.Register(gitHubProfile.Feature,
 		[]setup.InitialiserProvider{
 			func(p *props.Props) setup.Initialiser {

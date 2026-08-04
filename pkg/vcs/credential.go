@@ -47,12 +47,86 @@ import (
 // returned source is called — so a repository authenticating over SSH never
 // triggers an unlock prompt for a token it does not need.
 func ForgeCredential(sub forge.Config, fallbackEnv string) forge.CredentialSource {
-	return forge.FirstCredential(
-		envRefCredential(sub, authEnvKey),
-		keychainCredential(sub, authKeychainKey),
-		literalCredential(sub, authValueKey),
-		forge.EnvCredential(fallbackEnv),
-	)
+	rungs := forgeRungs(sub, fallbackEnv)
+
+	sources := make([]forge.CredentialSource, 0, len(rungs))
+	for _, r := range rungs {
+		sources = append(sources, r.source)
+	}
+
+	return forge.FirstCredential(sources...)
+}
+
+// CredentialOrigin names the rung that supplied a credential. It is a key name
+// or a variable role — never a value — so it is safe to print.
+type CredentialOrigin string
+
+const (
+	// OriginNone means no rung produced a credential.
+	OriginNone CredentialOrigin = "none"
+	// OriginEnvRef is {forge}.auth.env, dereferenced.
+	OriginEnvRef CredentialOrigin = "auth.env"
+	// OriginKeychain is {forge}.auth.keychain, dereferenced.
+	OriginKeychain CredentialOrigin = "auth.keychain"
+	// OriginLiteral is the {forge}.auth.value literal.
+	OriginLiteral CredentialOrigin = "auth.value"
+	// OriginFallbackEnv is the well-known fallback variable (e.g. GITHUB_TOKEN).
+	OriginFallbackEnv CredentialOrigin = "fallback environment variable"
+)
+
+// credentialRung pairs a source with the name of the rung it represents, so
+// precedence is declared once and both the resolver and the reporter read it.
+type credentialRung struct {
+	origin CredentialOrigin
+	source forge.CredentialSource
+}
+
+// forgeRungs is the precedence, stated once. [ForgeCredential] composes it into
+// a chain; [ResolveForgeCredentialOrigin] walks it to report which rung won.
+// Neither restates the order, so the two cannot disagree.
+func forgeRungs(sub forge.Config, fallbackEnv string) []credentialRung {
+	return []credentialRung{
+		{OriginEnvRef, envRefCredential(sub, authEnvKey)},
+		{OriginKeychain, keychainCredential(sub, authKeychainKey)},
+		{OriginLiteral, literalCredential(sub, authValueKey)},
+		{OriginFallbackEnv, forge.EnvCredential(fallbackEnv)},
+	}
+}
+
+// ResolveForgeCredentialOrigin reports WHICH rung supplies a forge's credential,
+// without returning the credential itself.
+//
+// It exists so a diagnostic can tell an operator that their configuration
+// resolves, and from where, without printing a secret to a terminal or a support
+// bundle. "It resolves, from auth.env" and "nothing resolves" are the two facts
+// worth having, and neither needs the value.
+//
+// Error handling mirrors [forge.FirstCredential] deliberately: a rung that fails
+// does not stop the walk, because a later rung may still supply a working
+// credential — and in that case the configuration genuinely does work. The
+// retained error is reported only when nothing resolved at all, which is exactly
+// when a bare "no credential" would otherwise hide the reason.
+func ResolveForgeCredentialOrigin(
+	ctx context.Context,
+	sub forge.Config,
+	fallbackEnv string,
+) (CredentialOrigin, error) {
+	var retained error
+
+	for _, rung := range forgeRungs(sub, fallbackEnv) {
+		value, err := rung.source(ctx)
+		if err != nil {
+			retained = errors.CombineErrors(retained, err)
+
+			continue
+		}
+
+		if value != "" {
+			return rung.origin, nil
+		}
+	}
+
+	return OriginNone, retained
 }
 
 // Relative to the forge subtree; the Sub supplies the "github." part.

@@ -112,6 +112,103 @@ Feature: Credential storage hardening
     Then the exit code is 0
     And stdout contains "No literal credentials found"
 
+  # ----- credential RESOLUTION (spec 0183) ----------------------------
+
+  # Storage and resolution are different questions, and only the first had a
+  # command behind it. The scenarios above cover where a credential is written;
+  # these cover whether it can be read back and from which rung — the precedence
+  # GTB has owned since go/forge v0.8.0 moved ordering out of the module and
+  # into the consumer's config stack.
+  #
+  # Every scenario scrubs the well-known fallback variable first. Without that
+  # they pass for the wrong reason on any developer machine whose shell exports
+  # a real GITHUB_TOKEN, while failing in CI where it is absent — which is the
+  # worst combination a test can have.
+
+  @smoke
+  Scenario: An environment-variable reference resolves, and the rung is named
+    Given a temporary directory with a config file:
+      """
+      log:
+        level: info
+      github:
+        auth:
+          env: MY_FORGE_TOKEN
+      """
+    And I set environment variable "GITHUB_TOKEN" to ""
+    And I set environment variable "MY_FORGE_TOKEN" to "tok-scenario-secret"
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "GitHub credential: resolves from auth.env"
+    And stdout does not contain "tok-scenario-secret"
+
+  Scenario: A literal credential resolves, and is still reported as a literal
+    Given a temporary directory with a config file:
+      """
+      log:
+        level: info
+      github:
+        auth:
+          value: tok-scenario-secret
+      """
+    And I set environment variable "GITHUB_TOKEN" to ""
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "GitHub credential: resolves from auth.value"
+    And stdout contains "[!!] Credential storage"
+    And stdout does not contain "tok-scenario-secret"
+
+  # GITHUB_TOKEN still works with nothing in the user's config — but it arrives
+  # through auth.env, not through the fallback rung, because the forge's own
+  # embedded bundle ships `github.auth.env: GITHUB_TOKEN` as a default. Rung 1
+  # therefore already reads the variable rung 4 would have read, and reports
+  # itself as the origin.
+  #
+  # This is the documented precedence behaving correctly, not a bug: same
+  # variable, same value, same outcome. It does mean the fallback rung is
+  # effectively shadowed for every forge that ships that default, which is worth
+  # knowing before reading a report and concluding the fallback is broken.
+  Scenario: The well-known variable resolves with nothing in the user's config
+    Given a temporary directory with a config file:
+      """
+      log:
+        level: info
+      """
+    And I set environment variable "GITHUB_TOKEN" to "tok-scenario-secret"
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "GitHub credential: resolves from auth.env"
+    And stdout does not contain "tok-scenario-secret"
+
+  # The case the check exists for. Before it, a broken reference was
+  # indistinguishable from having no credential at all until something tried to
+  # authenticate and came back with a bare 401.
+  Scenario: A broken keychain reference is diagnosed rather than reported as absent
+    Given a temporary directory with a config file:
+      """
+      log:
+        level: info
+      github:
+        auth:
+          keychain: no-slash-here
+      """
+    And I set environment variable "GITHUB_TOKEN" to ""
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "GitHub credential: credential configured but does not resolve"
+    And stdout contains "malformed keychain reference"
+
+  Scenario: A forge with no credential is skipped, not failed
+    Given a temporary directory with a config file:
+      """
+      log:
+        level: info
+      """
+    And I set environment variable "GITHUB_TOKEN" to ""
+    When I run gtb with "doctor"
+    Then the exit code is 0
+    And stdout contains "GitHub credential: no credential configured"
+
   Scenario: Keychain target dry-run prints keychain destination in the plan
     Given a temporary directory with a config file:
       """

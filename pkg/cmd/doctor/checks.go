@@ -90,6 +90,7 @@ var LiteralCredentialKeys = []string{
 	"github.auth.value",
 	"gitlab.auth.value",
 	"gitea.auth.value",
+	"codeberg.auth.value",
 	"bitbucket.app_password",
 }
 
