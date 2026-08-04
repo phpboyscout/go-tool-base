@@ -5,7 +5,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // PackagePath is this package's import path, the ConstPackage every built-in
@@ -60,11 +60,11 @@ type FeatureDescriptor struct {
 
 var (
 	// ErrInvalidDescriptor reports a descriptor missing a required field.
-	ErrInvalidDescriptor = errors.New("props: feature descriptor is incomplete")
+	ErrInvalidDescriptor = errors.NewSentinel("gtb.props.invalid_descriptor", "props: feature descriptor is incomplete")
 	// ErrDuplicateFeature reports a second registration for one ID.
-	ErrDuplicateFeature = errors.New("props: feature is already registered")
+	ErrDuplicateFeature = errors.NewSentinel("gtb.props.duplicate_feature", "props: feature is already registered")
 	// ErrRegistrySealed reports a registration attempted after enumeration began.
-	ErrRegistrySealed = errors.New("props: feature registry is sealed")
+	ErrRegistrySealed = errors.NewSentinel("gtb.props.registry_sealed", "props: feature registry is sealed")
 
 	// ErrPluginDefaultOn reports a non-builtin feature declaring itself
 	// default-enabled.
@@ -73,7 +73,7 @@ var (
 	// Without that rule an import list becomes a behavioural file, and a
 	// downstream that deliberately omits a provider cannot reason about what its
 	// remaining imports switched on behind it.
-	ErrPluginDefaultOn = errors.New("props: only builtin features may be default-enabled")
+	ErrPluginDefaultOn = errors.NewSentinel("gtb.props.plugin_default_on", "props: only builtin features may be default-enabled")
 )
 
 //nolint:gochecknoglobals // process-wide registry, the point of the blank-import pattern

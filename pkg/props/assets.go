@@ -15,9 +15,10 @@ import (
 	"time"
 
 	"dario.cat/mergo"
-	"github.com/cockroachdb/errors"
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 )

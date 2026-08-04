@@ -16,8 +16,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // resolvedSource is the outcome of resolving a TemplateSource: a read FS

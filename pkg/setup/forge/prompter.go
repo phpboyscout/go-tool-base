@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 
 	"gitlab.com/phpboyscout/go/browser"
+	"gitlab.com/phpboyscout/go/errors"
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 )
 

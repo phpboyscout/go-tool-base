@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // DryRunResult contains the preview of planned file operations.

@@ -31,9 +31,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"gitlab.com/phpboyscout/go/errors"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 
-	"github.com/cockroachdb/errors"
 	"golang.org/x/net/idna"
 	"golang.org/x/text/unicode/norm"
 )
@@ -57,7 +58,7 @@ const (
 // ErrInvalidInput is the sentinel wrapped by every Validate* failure.
 // Discriminate with errors.Is in callers that need to distinguish
 // validation failures from other error shapes.
-var ErrInvalidInput = errors.New("invalid generator input")
+var ErrInvalidInput = errors.NewSentinel("gtb.generator.invalid_input", "invalid generator input")
 
 var (
 	nameRe         = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)

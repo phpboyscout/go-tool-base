@@ -5,9 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/cockroachdb/errors"
-
 	"gitlab.com/phpboyscout/go/credentials"
+	"gitlab.com/phpboyscout/go/errors"
 	forge "gitlab.com/phpboyscout/go/forge"
 )
 
@@ -116,7 +115,7 @@ func ResolveForgeCredentialOrigin(
 	for _, rung := range forgeRungs(sub, fallbackEnv) {
 		value, err := rung.source(ctx)
 		if err != nil {
-			retained = errors.CombineErrors(retained, err)
+			retained = errors.Join(retained, err)
 
 			continue
 		}

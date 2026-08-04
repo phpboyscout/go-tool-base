@@ -9,7 +9,7 @@ package generator
 // before this runs.
 
 import (
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // resolveAllSources resolves every source to a readable tree + descriptor +

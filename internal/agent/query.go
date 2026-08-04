@@ -4,15 +4,15 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // ErrQueryQuestionRequired is returned when the model calls query_user without
 // a question.
-var ErrQueryQuestionRequired = errors.New("query_user requires a question")
+var ErrQueryQuestionRequired = errors.NewSentinel("gtb.agent.query_question_required", "query_user requires a question")
 
 // UserPrompter asks the user a question, offering the model's suggested
 // answers, and returns the reply (a chosen suggestion or free text). It backs

@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	configafero "gitlab.com/phpboyscout/go/config-afero"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/config"
 

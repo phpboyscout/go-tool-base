@@ -3,13 +3,13 @@ package telemetry
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"go.opentelemetry.io/otel"
 	otellogglobal "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 
 	"gitlab.com/phpboyscout/go/controls"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/observability/logs"
 	"gitlab.com/phpboyscout/go/observability/metrics"
@@ -55,7 +55,7 @@ func Setup(ctx context.Context, settings ObservabilitySettings, controller contr
 	shutdown := func(ctx context.Context) error {
 		var errs error
 		for _, fn := range shutdowns {
-			errs = errors.CombineErrors(errs, fn(ctx))
+			errs = errors.Join(errs, fn(ctx))
 		}
 
 		return errs

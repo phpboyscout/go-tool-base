@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/controls"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"

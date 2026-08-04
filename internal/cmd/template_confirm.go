@@ -4,7 +4,8 @@ import (
 	"os"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -13,7 +14,7 @@ import (
 
 // ErrRemoteTemplateDeclined is returned when the operator declines the
 // first-use trust confirmation for a remote template source.
-var ErrRemoteTemplateDeclined = errors.New("remote template source not confirmed")
+var ErrRemoteTemplateDeclined = errors.NewSentinel("gtb.cmd.remote_template_declined", "remote template source not confirmed")
 
 // ConfirmRemoteTemplate runs the first-use trust confirmation for a remote
 // (git) template source. Adding a remote source IS the trust decision — GTB

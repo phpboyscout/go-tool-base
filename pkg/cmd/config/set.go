@@ -8,11 +8,11 @@ import (
 	"strconv"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 
 	cfg "gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/redact"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"

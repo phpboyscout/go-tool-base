@@ -9,8 +9,6 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/cockroachdb/errors"
-
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -19,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
@@ -1312,7 +1311,7 @@ func TestExecute_Success(t *testing.T) {
 	var buf strings.Builder
 	l := logger.NewCharm(&buf)
 	exitCalled := false
-	eh := errorhandling.New(logger.ToSlog(l), nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(logger.ToSlog(l), nil)
 
 	props := &p.Props{
 		Logger:       l,
@@ -1326,7 +1325,7 @@ func TestExecute_Success(t *testing.T) {
 		},
 	}
 
-	Execute(setup.Wrap("", cmd), props)
+	execute(setup.Wrap("", cmd), props, executeOptions{exitProcess: func(int) { exitCalled = true }})
 	assert.False(t, exitCalled)
 }
 
@@ -1337,7 +1336,7 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 
 	log := logger.NewBuffer()
 	exitCalled := false
-	eh := errorhandling.New(logger.ToSlog(log), nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(logger.ToSlog(log), nil)
 
 	props := &p.Props{
 		Logger:       log,
@@ -1351,7 +1350,7 @@ func TestExecute_ErrUpdateComplete(t *testing.T) {
 		},
 	}
 
-	Execute(setup.Wrap("", cmd), props)
+	execute(setup.Wrap("", cmd), props, executeOptions{exitProcess: func(int) { exitCalled = true }})
 	assert.False(t, exitCalled)
 	assert.True(t, log.Contains("update complete"))
 }
@@ -1363,7 +1362,7 @@ func TestExecute_FatalError(t *testing.T) {
 
 	log := logger.NewBuffer()
 	exitCalled := false
-	eh := errorhandling.New(logger.ToSlog(log), nil, errorhandling.WithExitFunc(func(int) { exitCalled = true }))
+	eh := errorhandling.New(logger.ToSlog(log), nil)
 
 	props := &p.Props{
 		Logger:       log,
@@ -1377,7 +1376,7 @@ func TestExecute_FatalError(t *testing.T) {
 		},
 	}
 
-	Execute(setup.Wrap("", cmd), props)
+	execute(setup.Wrap("", cmd), props, executeOptions{exitProcess: func(int) { exitCalled = true }})
 	assert.True(t, exitCalled)
 	assert.True(t, log.Contains("fatal test error"))
 }

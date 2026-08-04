@@ -9,9 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // goreleaserManifest returns a valid multi-entry manifest in

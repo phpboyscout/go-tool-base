@@ -3,8 +3,9 @@ package regenerate
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"

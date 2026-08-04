@@ -188,14 +188,16 @@ func New(opts ...Option) *props.Props {
 	}
 
 	if o.errHandler == nil {
-		// A real handler wired to the noop logger, with Exit made inert so a
-		// Fatal under test does not terminate the process. All error output
-		// routes through the (noop) logger in errorhandling v0.1.1, so nothing
-		// pollutes test output — the removed WithWriter option is redundant.
+		// A real handler wired to the noop logger. All error output routes
+		// through the (noop) logger, so nothing pollutes test output.
+		//
+		// No exit seam is needed any more: errorhandling v0.2.0 never calls
+		// os.Exit — Fatal RETURNS the exit code and leaves the decision to
+		// main — so a Fatal under test cannot terminate the process and the
+		// old WithExitFunc(func(int){}) has nothing left to suppress.
 		o.errHandler = errorhandling.New(
 			logger.ToSlog(o.logger),
 			nil, // nil HelpConfig is safe — the handler nil-guards it.
-			errorhandling.WithExitFunc(func(int) {}),
 		)
 	}
 

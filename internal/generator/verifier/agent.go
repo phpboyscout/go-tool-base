@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/agent"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
@@ -16,7 +16,7 @@ import (
 )
 
 // AgentVerifier implements the Verifier interface using an autonomous agent loop.
-var ErrVerificationFailed = errors.New("verification failed or incomplete")
+var ErrVerificationFailed = errors.NewSentinel("gtb.verifier.verification_failed", "verification failed or incomplete")
 
 // queryOtherValue is the sentinel select value that routes the user to a
 // free-text answer in the query_user prompt.

@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // stagedFS buffers every write and removal of a multi-step generation against an

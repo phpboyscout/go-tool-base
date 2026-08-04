@@ -5,11 +5,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	cfg "gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

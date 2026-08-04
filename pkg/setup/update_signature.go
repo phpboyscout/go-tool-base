@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/signing/verify"
 
 	"gitlab.com/phpboyscout/go/forge"

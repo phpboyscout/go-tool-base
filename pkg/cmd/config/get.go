@@ -3,9 +3,9 @@ package config
 import (
 	"fmt"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/output"
 	ocobra "gitlab.com/phpboyscout/go/output/cobra"
 

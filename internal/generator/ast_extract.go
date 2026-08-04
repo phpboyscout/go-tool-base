@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/dave/dst"
 	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )
@@ -363,18 +364,45 @@ func (g *Generator) containsCall(body *dst.BlockStmt, prefix string) bool {
 	return false
 }
 
+// extractCallTarget finds the function a statement really calls, seeing through
+// an ErrorHandler.Fatal wrapper around it.
+//
+// It scans EVERY argument rather than the first, because the position moved.
+// Before errorhandling v0.2.0 the wrapper read
+//
+//	eh.Fatal(PreRunSetup(p), "msg")
+//
+// and since v0.2.0 Fatal takes a context first:
+//
+//	eh.Fatal(cmd.Context(), PreRunSetup(p))
+//
+// This scanner reads projects of both vintages — regenerate runs against
+// whatever a user already has on disk — so it cannot assume either. Taking
+// Args[0] unconditionally would pick `cmd.Context` out of the newer form and
+// silently drop the pre-run hook: no compile error, no failing test, just a
+// manifest missing an entry. See spec 0002 D9 in the errorhandling wiki.
+//
+// Only a plain identifier call qualifies, which is what separates the two: a
+// pre-run hook is `PreRunSetup(p)`, while the context is the method call
+// `cmd.Context()`. Anything else falls back to the call's own target.
 func (g *Generator) extractCallTarget(call *dst.CallExpr) dst.Expr {
-	var target = call.Fun
-	// Handle potential ErrorHandler.Fatal(PreRun...(..), "...")
-	if sel, ok := call.Fun.(*dst.SelectorExpr); ok && sel.Sel.Name == "Fatal" {
-		if len(call.Args) > 0 {
-			if subCall, ok := call.Args[0].(*dst.CallExpr); ok {
-				target = subCall.Fun
-			}
+	sel, ok := call.Fun.(*dst.SelectorExpr)
+	if !ok || sel.Sel.Name != "Fatal" {
+		return call.Fun
+	}
+
+	for _, arg := range call.Args {
+		subCall, ok := arg.(*dst.CallExpr)
+		if !ok {
+			continue
+		}
+
+		if _, isIdent := subCall.Fun.(*dst.Ident); isIdent {
+			return subCall.Fun
 		}
 	}
 
-	return target
+	return call.Fun
 }
 
 func (g *Generator) detectAssets(path string, f *dst.File, cmd *ManifestCommand) {

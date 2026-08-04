@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	cfg "gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/output"
 	ocobra "gitlab.com/phpboyscout/go/output/cobra"

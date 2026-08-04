@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // migrateFlatDocsToDiataxis converts a project on the legacy flat docs layout

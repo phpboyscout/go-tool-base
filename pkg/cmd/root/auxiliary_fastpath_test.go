@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"

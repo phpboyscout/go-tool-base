@@ -11,23 +11,23 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/redact"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
 )
 
 var (
-	ErrBuildFailed        = errors.New("build failed")
-	ErrTestFailed         = errors.New("tests failed")
-	ErrGoGetFailed        = errors.New("go get failed")
-	ErrLinterFailed       = errors.New("lint issues found")
-	ErrGoModTidyFailed    = errors.New("go mod tidy failed")
-	ErrPathInvalid        = errors.New("path is outside of allowed directory")
-	ErrInvalidPackageName = errors.New("invalid package name")
+	ErrBuildFailed        = errors.NewSentinel("gtb.agent.build_failed", "build failed")
+	ErrTestFailed         = errors.NewSentinel("gtb.agent.test_failed", "tests failed")
+	ErrGoGetFailed        = errors.NewSentinel("gtb.agent.go_get_failed", "go get failed")
+	ErrLinterFailed       = errors.NewSentinel("gtb.agent.linter_failed", "lint issues found")
+	ErrGoModTidyFailed    = errors.NewSentinel("gtb.agent.go_mod_tidy_failed", "go mod tidy failed")
+	ErrPathInvalid        = errors.NewSentinel("gtb.agent.path_invalid", "path is outside of allowed directory")
+	ErrInvalidPackageName = errors.NewSentinel("gtb.agent.invalid_package_name", "invalid package name")
 )
 
 const maxSymlinkDepth = 255

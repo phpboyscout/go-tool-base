@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // trustStoreFilename is the per-user record of project-local config files the

@@ -7,8 +7,9 @@ package generator
 import (
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // ParseTemplateSpec parses a `<src>@<ref>` spec into a TemplateSource. The

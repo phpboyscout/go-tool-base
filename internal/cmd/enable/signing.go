@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/signing"
 
 	icmd "gitlab.com/phpboyscout/go-tool-base/internal/cmd"
@@ -19,11 +19,11 @@ import (
 
 // ErrInvalidKeySource is returned when --key-source is not one of the
 // accepted values.
-var ErrInvalidKeySource = errors.New("invalid --key-source: must be embedded, external, or both")
+var ErrInvalidKeySource = errors.NewSentinel("gtb.enable.invalid_key_source", "invalid --key-source: must be embedded, external, or both")
 
 // ErrInvalidBackend is returned when --backend is not a registered signing
 // backend.
-var ErrInvalidBackend = errors.New("invalid --backend: not a registered signing backend")
+var ErrInvalidBackend = errors.NewSentinel("gtb.enable.invalid_backend", "invalid --backend: not a registered signing backend")
 
 // validKeySources lists the accepted --key-source values.
 var validKeySources = map[string]bool{"embedded": true, "external": true, "both": true}

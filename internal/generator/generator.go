@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cockroachdb/errors"
-
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/version"

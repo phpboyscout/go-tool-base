@@ -20,7 +20,7 @@ import (
 	"io/fs"
 	"path"
 
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 )
 
 // keyFS embeds the keys directory. `all:` is required so the directory

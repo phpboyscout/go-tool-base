@@ -7,13 +7,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
 	"gitlab.com/phpboyscout/go/controls"
+	"gitlab.com/phpboyscout/go/errors"
 	transportgateway "gitlab.com/phpboyscout/go/transport/gateway"
 	transportgrpc "gitlab.com/phpboyscout/go/transport/grpc"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"

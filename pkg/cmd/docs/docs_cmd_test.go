@@ -8,12 +8,12 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
 
@@ -197,22 +197,24 @@ func TestNewCmdDocsAsk_Structure(t *testing.T) {
 	require.NoError(t, cmd.Args(cmd, []string{"one"}))
 }
 
-// TestNewCmdDocsAsk_Run_FatalOnError drives the cobra Run handler through the
+// TestNewCmdDocsAsk_Run_ReturnsError drives the cobra handler through the
 // failure path: an unsupported --provider makes gochat.New (inside runAsk) fail
-// fast with no network. A no-op exit function lets the test observe that the
-// handler was invoked without terminating the process.
-func TestNewCmdDocsAsk_Run_FatalOnError(t *testing.T) {
+// fast with no network.
+//
+// It used to assert cmd.Execute() returned NIL, because the handler reported
+// the failure itself through ErrorHandler.Fatal and a no-op exit swallowed it.
+// Since errorhandling v0.2.0 stopped exiting, this command returns its error
+// like every other one and Execute owns the exit — so the error must now
+// surface here. That is the point of the change: a failing `docs ask` used to
+// be able to exit 0.
+func TestNewCmdDocsAsk_Run_ReturnsError(t *testing.T) {
 	t.Parallel()
 
 	assets := props.NewAssets(props.AssetMap{
 		"docs": fstest.MapFS{"assets/docs/index.md": {Data: []byte("# Docs")}},
 	})
 
-	handler := errorhandling.New(
-		logger.ToSlog(logger.NewNoop()),
-		nil,
-		errorhandling.WithExitFunc(func(int) {}),
-	)
+	handler := errorhandling.New(logger.ToSlog(logger.NewNoop()), nil)
 
 	p := &props.Props{
 		Assets:       assets,
@@ -221,15 +223,16 @@ func TestNewCmdDocsAsk_Run_FatalOnError(t *testing.T) {
 	}
 
 	cmd := NewCmdDocsAsk(p)
-	// Provide the --provider flag the Run handler reads via cmd.Flags().
+	// Provide the --provider flag the handler reads via cmd.Flags().
 	cmd.Flags().String("provider", "definitely-not-a-real-provider", "")
 	cmd.SetArgs([]string{"what is gtb?"})
 	cmd.SetContext(context.Background())
+	cmd.SilenceErrors = true
+	cmd.SilenceUsage = true
 
-	// Execute routes through Args validation then Run. The no-op exit means
-	// the Fatal call returns instead of exiting; the test passes if no panic
-	// and no process exit occurs.
-	require.NoError(t, cmd.Execute())
+	// Execute routes through Args validation then RunE, which returns the
+	// failure rather than reporting and swallowing it.
+	require.Error(t, cmd.Execute())
 }
 
 // TestRunAsk_UnsupportedProvider exercises runAsk's error path directly: an

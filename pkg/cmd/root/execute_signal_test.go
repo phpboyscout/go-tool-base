@@ -29,14 +29,17 @@ type exitSpy struct {
 
 func (s *exitSpy) exit(code int) { s.codes = append(s.codes, code) }
 
-// newSignalTestProps builds a minimal Props whose ErrorHandler routes exits
-// through the returned spy instead of os.Exit.
+// newSignalTestProps builds a minimal Props and the spy that records the exit
+// codes execute asks for.
+//
+// The spy used to be handed to the ErrorHandler, which did the exiting.
+// errorhandling v0.2.0 reports and RETURNS a code instead, so the seam moved to
+// execute itself — wire the spy through executeOptions.exitProcess.
 func newSignalTestProps() (*p.Props, *exitSpy) {
 	spy := &exitSpy{}
 	props := &p.Props{
-		Logger: logger.NewNoop(),
-		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil,
-			errorhandling.WithExitFunc(spy.exit)),
+		Logger:       logger.NewNoop(),
+		ErrorHandler: errorhandling.New(logger.ToSlog(logger.NewNoop()), nil),
 	}
 
 	return props, spy
@@ -107,7 +110,7 @@ func TestExecute_SignalCancelsContextAndSetsExitCode(t *testing.T) {
 				sigCh <- tt.signal
 			}()
 
-			runExecute(t, rootCmd, props, executeOptions{signals: sigCh})
+			runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit})
 
 			assert.Equal(t, []int{tt.wantCode}, spy.codes,
 				"a signal-terminated run must exit 128+signum via the ErrorHandler")
@@ -125,9 +128,8 @@ func TestExecute_InterruptNoticeIsDebugNotError(t *testing.T) {
 	buf := logger.NewBuffer()
 	spy := &exitSpy{}
 	props := &p.Props{
-		Logger: buf,
-		ErrorHandler: errorhandling.New(logger.ToSlog(buf), nil,
-			errorhandling.WithExitFunc(spy.exit)),
+		Logger:       buf,
+		ErrorHandler: errorhandling.New(logger.ToSlog(buf), nil),
 	}
 
 	started := make(chan struct{})
@@ -139,7 +141,7 @@ func TestExecute_InterruptNoticeIsDebugNotError(t *testing.T) {
 		sigCh <- syscall.SIGINT
 	}()
 
-	runExecute(t, rootCmd, props, executeOptions{signals: sigCh})
+	runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit})
 
 	assert.Equal(t, []int{130}, spy.codes, "interrupted run still exits 130")
 
@@ -193,7 +195,8 @@ func TestExecute_SecondSignalForcesExit(t *testing.T) {
 	}()
 
 	opts := executeOptions{
-		signals: sigCh,
+		signals:     sigCh,
+		exitProcess: spy.exit,
 		forceExit: func(code int) {
 			forceExited <- code
 			close(unblock) // let the hung command return so the test can finish
@@ -233,7 +236,7 @@ func TestExecute_FlushRunsOnCancellationPath(t *testing.T) {
 		sigCh <- syscall.SIGINT
 	}()
 
-	runExecute(t, rootCmd, props, executeOptions{signals: sigCh})
+	runExecute(t, rootCmd, props, executeOptions{signals: sigCh, exitProcess: spy.exit})
 
 	assert.True(t, backend.closed, "telemetry must be flushed on the cancellation path")
 	assert.Equal(t, []int{130}, spy.codes)
@@ -252,12 +255,15 @@ func TestExecute_FlushRunsBeforeFatalErrorExit(t *testing.T) {
 		"tool", "1.0.0", nil, logger.ToSlog(logger.NewNoop()), "", p.DeliveryAtLeastOnce, false)
 
 	flushedAtExit := false
-	props.ErrorHandler = errorhandling.New(logger.ToSlog(logger.NewNoop()), nil,
-		errorhandling.WithExitFunc(func(code int) {
-			spy.exit(code)
 
-			flushedAtExit = backend.closed
-		}))
+	// Observe at the moment execute terminates: had the flush already run?
+	// That question used to be asked from the handler's exit hook, because the
+	// handler did the exiting. It now belongs to execute's own exit seam.
+	exitProbe := func(code int) {
+		spy.exit(code)
+
+		flushedAtExit = backend.closed
+	}
 
 	cmd := &cobra.Command{
 		Use:  "failing",
@@ -265,7 +271,7 @@ func TestExecute_FlushRunsBeforeFatalErrorExit(t *testing.T) {
 	}
 	cmd.SetArgs([]string{})
 
-	runExecute(t, setup.Wrap("", cmd), props, executeOptions{})
+	runExecute(t, setup.Wrap("", cmd), props, executeOptions{exitProcess: exitProbe})
 
 	require.Equal(t, []int{1}, spy.codes, "a normal error still exits 1")
 	assert.True(t, flushedAtExit, "telemetry must be flushed before the fatal exit fires")
@@ -289,7 +295,7 @@ func TestExecute_SuccessDoesNotExit(t *testing.T) {
 	}
 	cmd.SetArgs([]string{})
 
-	runExecute(t, setup.Wrap("", cmd), props, executeOptions{})
+	runExecute(t, setup.Wrap("", cmd), props, executeOptions{exitProcess: spy.exit})
 
 	assert.True(t, ran)
 	assert.Empty(t, spy.codes, "a successful run must not invoke the exit function")
@@ -308,9 +314,36 @@ func TestExecute_UpdateCompleteReturnsCleanly(t *testing.T) {
 	}
 	cmd.SetArgs([]string{})
 
-	runExecute(t, setup.Wrap("", cmd), props, executeOptions{})
+	runExecute(t, setup.Wrap("", cmd), props, executeOptions{exitProcess: spy.exit})
 
 	assert.Empty(t, spy.codes, "ErrUpdateComplete must not be treated as a fatal error")
+}
+
+// TestExecute_ErrUpdateCompleteStillTellsTheUser pins the user-visible half of
+// spec 0002 D10. The message used to come from an explicit Logger.Warn in
+// execute; it now travels on the sentinel as an Outcome, and Fatal reports it.
+// Exit code and log line are separate promises, and only the code was covered.
+func TestExecute_ErrUpdateCompleteStillTellsTheUser(t *testing.T) {
+	t.Parallel()
+
+	buf := logger.NewBuffer()
+	props := &p.Props{
+		Logger:       buf,
+		ErrorHandler: errorhandling.New(logger.ToSlog(buf), nil),
+	}
+
+	cmd := &cobra.Command{
+		Use:  "root",
+		RunE: func(*cobra.Command, []string) error { return ErrUpdateComplete },
+	}
+	cmd.SetArgs([]string{})
+
+	exited := false
+	execute(setup.Wrap("", cmd), props, executeOptions{exitProcess: func(int) { exited = true }})
+
+	assert.False(t, exited, "a completed update exits zero, so nothing terminates")
+	assert.True(t, buf.Contains("update complete — please run the command again"),
+		"the outcome's message must still reach the user")
 }
 
 // TestSignalExitCode covers the 128+signum mapping, including the fallback

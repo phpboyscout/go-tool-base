@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cockroachdb/errors"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/browser"
+	"gitlab.com/phpboyscout/go/errors"
 
 	docslib "gitlab.com/phpboyscout/go-tool-base/pkg/docs"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

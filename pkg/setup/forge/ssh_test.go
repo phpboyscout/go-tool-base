@@ -12,13 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-
-	"github.com/cockroachdb/errors"
 )
 
 // --- discoverSSHKeys ---

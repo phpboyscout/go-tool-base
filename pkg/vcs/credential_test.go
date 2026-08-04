@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
 	credtest "gitlab.com/phpboyscout/go/credentials/test"
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"

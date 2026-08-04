@@ -4,8 +4,9 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"

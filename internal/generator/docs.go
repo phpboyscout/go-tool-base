@@ -12,25 +12,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/errors"
-	"github.com/invopop/jsonschema"
 	"github.com/spf13/afero"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v3"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
 )
 
-var ErrInvalidPackageName = errors.Newf("invalid package name")
+var ErrInvalidPackageName = errors.NewSentinel("gtb.generator.invalid_package_name", "invalid package name")
 
 // ErrNoFrontmatter signals that an AI documentation response contained no YAML
 // frontmatter fence at all, even after stripping any conversational preamble.
 // The generator treats this as a generation failure and falls back to
 // deterministic boilerplate rather than committing a frontmatter-less page.
-var ErrNoFrontmatter = errors.Newf("AI documentation response contained no frontmatter")
+var ErrNoFrontmatter = errors.NewSentinel("gtb.generator.no_frontmatter", "AI documentation response contained no frontmatter")
 
 var packageDocumentationSystemPrompt = `You are an expert technical writer and software engineer.
 Your goal is to generate understanding-oriented Markdown documentation for a Go package — explanation, NOT an auto-generated API dump.
@@ -863,22 +862,16 @@ func (g *Generator) createAIDocsClient(ctx context.Context, provider, model, sys
 		return nil, errors.Newf("failed to create AI client: %w", err)
 	}
 
-	pathSchema := gochat.GenerateSchema[struct {
+	// go/chat v0.9.0 types GenerateSchema as returning *jsonschema.Schema
+	// rather than any, so the assertions these values used to need are gone —
+	// and with them the "failed to generate tool schema" branches, which could
+	// only ever have fired on a type mismatch the compiler now rules out.
+	jsonSchema := gochat.GenerateSchema[struct {
 		Path string `json:"path" jsonschema:"description=Relative path to the file or directory"`
 	}]()
-	pkgSchema := gochat.GenerateSchema[struct {
+	pkgJsonSchema := gochat.GenerateSchema[struct {
 		Package string `json:"package" jsonschema:"description=Go package path (e.g. fmt, github.com/foo/bar)"`
 	}]()
-
-	jsonSchema, ok := pathSchema.(*jsonschema.Schema)
-	if !ok {
-		return nil, errors.New("failed to generate tool schema")
-	}
-
-	pkgJsonSchema, ok := pkgSchema.(*jsonschema.Schema)
-	if !ok {
-		return nil, errors.New("failed to generate pkg tool schema")
-	}
 
 	ReadFileTool := gochat.Tool{
 		Name:        "read_file",

@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/cockroachdb/errors"
-
 	"gitlab.com/phpboyscout/go/controls"
+	"gitlab.com/phpboyscout/go/errors"
 	transithttp "gitlab.com/phpboyscout/go/transit/http"
 	transporthttp "gitlab.com/phpboyscout/go/transport/http"
 

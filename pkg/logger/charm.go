@@ -66,7 +66,11 @@ func NewCharm(w io.Writer, opts ...CharmOption) Logger {
 
 	inner := log.NewWithOptions(w, o)
 
-	return &charmLogger{Logger: slog.New(inner), inner: inner}
+	// charmbracelet/log's handler does not Resolve attribute values, so a
+	// slog.LogValuer reaching it renders as its bare Go value — which since
+	// errorhandling v0.2.0 means an error's hints, kind and details silently
+	// disappear. See NewResolvingHandler.
+	return &charmLogger{Logger: slog.New(NewResolvingHandler(inner)), inner: inner}
 }
 
 // SetLevel implements Leveller. charmbracelet/log's Level shares slog.Level's

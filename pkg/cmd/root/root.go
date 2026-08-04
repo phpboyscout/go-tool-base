@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/errorhandling"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go/output"
 
@@ -35,7 +37,6 @@ import (
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -45,10 +46,27 @@ import (
 // Compile-time check: *telemetry.Collector implements props.TelemetryCollector.
 var _ p.TelemetryCollector = (*telemetry.Collector)(nil)
 
-// ErrUpdateComplete is returned by PersistentPreRunE when a self-update
-// has completed successfully. The Execute wrapper handles this by exiting
-// cleanly without logging an error.
-var ErrUpdateComplete = errors.New("update complete — restart required")
+// ErrUpdateComplete is returned by PersistentPreRunE when a self-update has
+// completed successfully.
+//
+// It is terminal AND successful, which is why it carries an Outcome rather than
+// a special case in Execute. Everything about how it should be reported — exit
+// zero, say so at warn level, and say this instead of the error's own text —
+// travels with the sentinel that means it, so Execute needs no branch and a
+// downstream tool can declare its own terminal errors the same way. See spec
+// 0002 D10 in the errorhandling wiki.
+//
+// NewSentinel rather than New: a package-level New captures its stack at
+// package initialisation, which points at runtime.doInit rather than anywhere
+// the error was returned from.
+var ErrUpdateComplete = errorhandling.WithOutcome(
+	errors.NewSentinel("gtb.update_complete", "update complete — restart required"),
+	errorhandling.Outcome{
+		Code:    0,
+		Level:   slog.LevelWarn,
+		Message: "update complete — please run the command again",
+	},
+)
 
 // rootState holds per-command mutable state, avoiding package-level variables
 // that would be shared across multiple NewCmdRoot calls in the same process.
@@ -160,7 +178,7 @@ func projectConfigLayer(props *p.Props, cmd *cobra.Command) string {
 // file is an empty layer, not an error, because in a layered model there is
 // nothing unusual about a layer being absent. GTB still needs the distinction —
 // it is what gates auto-initialise — so the sentinel is owned here.
-var ErrNoConfigFile = errors.New("no config file found")
+var ErrNoConfigFile = errors.NewSentinel("gtb.root.no_config_file", "no config file found")
 
 // buildConfigStore constructs the configuration store for a command.
 //

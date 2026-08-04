@@ -8,8 +8,9 @@ import (
 	"path/filepath"
 
 	"charm.land/huh/v2"
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )

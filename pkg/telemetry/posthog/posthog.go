@@ -12,8 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cockroachdb/errors"
-
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/httpclient"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"

@@ -14,10 +14,11 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/cockroachdb/errors"
 	"github.com/dave/jennifer/jen"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 )

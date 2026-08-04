@@ -6,9 +6,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/errors"
 	"gitlab.com/phpboyscout/go/output"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"

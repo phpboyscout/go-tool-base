@@ -3,10 +3,11 @@ package generate
 import (
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"

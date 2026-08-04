@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/afero"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
+	"gitlab.com/phpboyscout/go/errors"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/verifier"
@@ -55,7 +55,7 @@ REQUIREMENTS:
 - Generate the ENTIRE file content, including 'package' declaration and 'import' block.
 - You MUST import "context" and "gitlab.com/phpboyscout/go-tool-base/pkg/props".
 - You can optionally import other packages if needed (e.g., standard library), but consolidated imports are preferred.
-- Use 'github.com/cockroachdb/errors' for ALL error handling (aliased as 'errors').
+- Use 'gitlab.com/phpboyscout/go/errors' for ALL error handling (imported as 'errors').
 - Define any helper functions as unexported top-level functions in the same file.
 - DO NOT define the options struct '%s'. It is already defined in another file.
 - DO NOT access fields in 'opts' that are not listed above. If the script uses variables that are not flags, define them as local variables.
@@ -237,7 +237,7 @@ func (g *Generator) finalizeProject(ctx context.Context, data templates.CommandD
 	return nil
 }
 
-var ErrCommandProtected = errors.New("command is protected")
+var ErrCommandProtected = errors.NewSentinel("gtb.generator.command_protected", "command is protected")
 
 func (g *Generator) checkProtection() error {
 	// We need to check if the command already exists in the manifest
