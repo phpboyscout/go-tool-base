@@ -125,10 +125,14 @@ snapshot:
 # CI variable scoped to the tap repo only — a separate token from
 # GITLAB_TOKEN so a compromise of one cannot cross to the other.
 homebrew_casks:
+  # binary: is deprecated in favour of binaries:, and is omitted rather than
+  # migrated — unset, GoReleaser defaults binaries to [name], which is already
+  # "gtb". conflicts: is dropped entirely: it declared a conflict with a *gtb
+  # formula*, and no such formula exists in this tap (Casks/ only) or in
+  # homebrew-core. HomebrewCaskConflict.Formula is deprecated by homebrew in
+  # any case; the replacement field is cask:, which here would only have made
+  # the cask conflict with itself.
   - name: gtb
-    binary: gtb
-    conflicts:
-      - formula: gtb
     commit_author:
       name: goreleaserbot
       email: matt@phpboyscout.com
