@@ -214,6 +214,12 @@ func TestForgeCredential_SectionFromEnvLayerAlone(t *testing.T) {
 //
 // The scan tolerates the word in a comment — pkg/vcs/credential.go explains at
 // length why it is absent — and looks for a call.
+//
+// It scans GTB's OWN source only. CI sets GOMODCACHE inside the build directory
+// (.go/pkg/mod), so a naive walk from the repo root descends into the forge
+// modules themselves and reports their legitimate calls — green locally, red in
+// CI, for a reason that has nothing to do with GTB. Dependency source is not
+// this guard's business: the property is that GTB does not call it.
 func TestConfigCredentialIsNotUsed(t *testing.T) {
 	t.Parallel()
 
@@ -224,17 +230,36 @@ func TestConfigCredentialIsNotUsed(t *testing.T) {
 	// it literally here made this test fail on itself.
 	needle := "ConfigCredential" + "("
 
-	var found []string
+	var (
+		found   []string
+		scanned int
+	)
 
 	require.NoError(t, filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") {
+		if err != nil {
 			return err //nolint:wrapcheck // walk error is returned verbatim by contract
+		}
+
+		if d.IsDir() {
+			// Skip dot-directories (.git, and CI's .go module cache) and any
+			// vendored dependency tree. Everything left is GTB's own source.
+			if name := d.Name(); path != root && (strings.HasPrefix(name, ".") || name == "vendor") {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		if !strings.HasSuffix(path, ".go") {
+			return nil
 		}
 
 		src, err := os.ReadFile(path) //nolint:gosec // path comes from walking this repo
 		if err != nil {
 			return errors.WithStack(err)
 		}
+
+		scanned++
 
 		for i, line := range strings.Split(string(src), "\n") {
 			code, _, _ := strings.Cut(line, "//")
@@ -247,10 +272,143 @@ func TestConfigCredentialIsNotUsed(t *testing.T) {
 		return nil
 	}))
 
+	// A skip rule that excluded everything would make the assertion below pass
+	// while checking nothing. GTB has hundreds of Go files; this only has to be
+	// high enough to prove the walk still reaches the tree.
+	require.Greaterf(t, scanned, 100,
+		"only %d Go files scanned — the skip rules have excluded GTB's own source, "+
+			"so this guard is no longer checking anything", scanned)
+
 	assert.Emptyf(t, found,
 		"forge.ConfigCredential is called at %v — see spec 0183 D10: its stale-key "+
 			"report fires on GTB's own shipped defaults, reporting working config as stale",
 		found)
+}
+
+// TestResolveForgeCredentialOrigin reports WHICH rung won, and is what makes
+// resolution observable to `doctor` without printing a secret. It shares one
+// rung list with [vcs.ForgeCredential], so these cases double as an assertion
+// that the reporter and the resolver cannot disagree about precedence.
+func TestResolveForgeCredentialOrigin(t *testing.T) {
+	tests := []struct {
+		name     string
+		yaml     string
+		envRef   string
+		fallback string
+		keychain string
+		want     vcs.CredentialOrigin
+	}{
+		{
+			name: "nothing configured",
+			yaml: "",
+			want: vcs.OriginNone,
+		},
+		{
+			name:     "the fallback variable",
+			yaml:     "github: {}\n",
+			fallback: "from-fallback",
+			want:     vcs.OriginFallbackEnv,
+		},
+		{
+			name: "the literal",
+			yaml: "github:\n  auth:\n    value: from-literal\n",
+			want: vcs.OriginLiteral,
+		},
+		{
+			name:     "the keychain reference beats the literal",
+			yaml:     "github:\n  auth:\n    keychain: testtool/github.auth\n    value: from-literal\n",
+			keychain: "from-keychain",
+			want:     vcs.OriginKeychain,
+		},
+		{
+			name:   "the env reference beats everything below it",
+			yaml:   "github:\n  auth:\n    env: " + envRefName + "\n    value: from-literal\n",
+			envRef: "from-env-ref",
+			want:   vcs.OriginEnvRef,
+		},
+		{
+			// The pointer semantics again: a named variable that is unset must
+			// fall through, and the report must name the rung that actually won.
+			name:   "a named env var that is unset falls through to the literal",
+			yaml:   "github:\n  auth:\n    env: " + envRefName + "\n    value: from-literal\n",
+			envRef: "",
+			want:   vcs.OriginLiteral,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(envRefName, tc.envRef)
+			t.Setenv(fallbackName, tc.fallback)
+
+			if tc.keychain != "" {
+				credtest.Install(t)
+				require.NoError(t, credentials.Store(t.Context(), service, account, tc.keychain))
+			}
+
+			got, err := vcs.ResolveForgeCredentialOrigin(t.Context(), sub(t, tc.yaml), fallbackName)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// TestResolveForgeCredentialOrigin_BrokenRungIsReportedOnlyWhenNothingResolves
+// pins the error semantics, which mirror forge.FirstCredential deliberately: a
+// broken rung does not stop the walk, because a later rung may still supply a
+// working credential — and then the configuration genuinely does work, so
+// reporting a failure would be wrong.
+func TestResolveForgeCredentialOrigin_BrokenRungIsReportedOnlyWhenNothingResolves(t *testing.T) {
+	const yaml = "github:\n  auth:\n    keychain: no-slash-here\n    value: from-literal\n"
+
+	t.Run("a lower rung rescues it", func(t *testing.T) {
+		t.Setenv(envRefName, "")
+		t.Setenv(fallbackName, "")
+
+		got, err := vcs.ResolveForgeCredentialOrigin(t.Context(), sub(t, yaml), fallbackName)
+		require.NoError(t, err, "a working literal means the configuration works")
+		assert.Equal(t, vcs.OriginLiteral, got)
+	})
+
+	t.Run("nothing rescues it, so the reason surfaces", func(t *testing.T) {
+		t.Setenv(envRefName, "")
+		t.Setenv(fallbackName, "")
+
+		_, err := vcs.ResolveForgeCredentialOrigin(
+			t.Context(), sub(t, "github:\n  auth:\n    keychain: no-slash-here\n"), fallbackName)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "malformed keychain reference",
+			"a bare 'no credential' would hide why")
+	})
+}
+
+// TestForgeCredential_CancelledContextStopsEveryRung covers the ctx guard each
+// rung opens with. A cancelled context must abort resolution rather than read
+// an environment variable or reach a keychain.
+func TestForgeCredential_CancelledContextStopsEveryRung(t *testing.T) {
+	t.Parallel()
+
+	// Scoped up front rather than inside each subtest: building a store takes
+	// the testing context, and contextcheck reads a call made in a scope that
+	// already holds a ctx as one that should have been given it.
+	cases := map[string]forge.Config{
+		"env reference": sub(t, "github:\n  auth:\n    env: "+envRefName+"\n"),
+		"keychain":      sub(t, "github:\n  auth:\n    keychain: testtool/github.auth\n"),
+		"literal":       sub(t, "github:\n  auth:\n    value: from-literal\n"),
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	for name, scoped := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := vcs.ForgeCredential(scoped, fallbackName)(ctx)
+			require.ErrorIs(t, err, context.Canceled)
+		})
+	}
 }
 
 // TestForgeCredential_IsLazy is the regression this spec is most likely to
