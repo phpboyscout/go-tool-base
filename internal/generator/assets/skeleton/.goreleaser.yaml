@@ -17,6 +17,11 @@ builds:
     goarch:
       - amd64
       - arm64
+    flags:
+      # Rewrites file paths in stack traces to be module-relative, so a trace a
+      # user pastes reads "example.com/mod@v1.2.3/file.go:42" rather than naming
+      # the directory the release happened to be built in.
+      - -trimpath
     ldflags:
       - -s -w
       - -X {{ .ModulePath }}/internal/version.version={{ "{{" }}.Version{{ "}}" }}
