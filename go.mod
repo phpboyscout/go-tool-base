@@ -39,8 +39,8 @@ require (
 	gitlab.com/phpboyscout/go/config-afero v0.1.4
 	gitlab.com/phpboyscout/go/controls v0.3.0
 	gitlab.com/phpboyscout/go/credentials v0.3.0
-	gitlab.com/phpboyscout/go/errorhandling v0.2.0
-	gitlab.com/phpboyscout/go/errors v0.1.0
+	gitlab.com/phpboyscout/go/errorhandling v0.3.0
+	gitlab.com/phpboyscout/go/errors v0.2.0
 	gitlab.com/phpboyscout/go/forge v0.9.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.0
 	gitlab.com/phpboyscout/go/forge-gitea v0.7.0

@@ -493,10 +493,10 @@ gitlab.com/phpboyscout/go/controls v0.3.0 h1:khhFZ9bODBemPfI+arjWfO1GtzKpgalXfAM
 gitlab.com/phpboyscout/go/controls v0.3.0/go.mod h1:/EfXURqeAW92aSbNFdDhCJRM9s4ls8Ua7cwGDcBaAMQ=
 gitlab.com/phpboyscout/go/credentials v0.3.0 h1:goElVUUHoKD5qCOpO8RXoHzpGSVdTbbkM5VfVhgnghs=
 gitlab.com/phpboyscout/go/credentials v0.3.0/go.mod h1:dc+QMugDW2OEHiZyQLChAOCFDaSJshXQuckOxviEO20=
-gitlab.com/phpboyscout/go/errorhandling v0.2.0 h1:Lha4qvwsVRAUxaiumuk9cyolMYxgK7fyRV2b94uQlsc=
-gitlab.com/phpboyscout/go/errorhandling v0.2.0/go.mod h1:A1+ap1bLIL8lGySjJa5+34EcgEzZ++DNfzuxVs3M09w=
-gitlab.com/phpboyscout/go/errors v0.1.0 h1:xv47mBwOxVB3MznoUKXFohSB+K3BNIFTnHysJw/rnUg=
-gitlab.com/phpboyscout/go/errors v0.1.0/go.mod h1:PXvnIO9P3Vanx1n0KYGr5s0rD0eKrrKBdbNfWUQWDjw=
+gitlab.com/phpboyscout/go/errorhandling v0.3.0 h1:mRpbLiQFqj+1P9ocvQTgTMDX0N3cUXl3kuIVVulgWW8=
+gitlab.com/phpboyscout/go/errorhandling v0.3.0/go.mod h1:czdB/NQMmcg9Yu3Na/1AC/UfqQkc4ZEjCXgxkzkt2KE=
+gitlab.com/phpboyscout/go/errors v0.2.0 h1:m/I+1oI2Qr77JBAVUvIsj7bNnExh+/yrdfHLmVg4nUg=
+gitlab.com/phpboyscout/go/errors v0.2.0/go.mod h1:PXvnIO9P3Vanx1n0KYGr5s0rD0eKrrKBdbNfWUQWDjw=
 gitlab.com/phpboyscout/go/forge v0.9.0 h1:OIhoprpOYEVFBP8of3xiKsaywYtKI8CwXnSYQUh5B20=
 gitlab.com/phpboyscout/go/forge v0.9.0/go.mod h1:4ArDHTFfbJeMTMELjx6bV0wvKJKpxQxCURvpLHJ2+44=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.5.0 h1:3thE+XBPleuWfnlUx/wS6wg0Dcpb6ONZ20OEqGtUJtI=
