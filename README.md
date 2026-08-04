@@ -33,6 +33,22 @@ curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | 
 irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 ```
 
+### Homebrew (macOS)
+
+Every release publishes a **cask** to the GitLab-hosted tap at [`phpboyscout/homebrew`](https://gitlab.com/phpboyscout/homebrew), so Homebrew handles upgrades for you:
+
+```bash
+brew tap phpboyscout/homebrew https://gitlab.com/phpboyscout/homebrew.git
+brew install --cask gtb
+```
+
+Upgrade later with `brew upgrade --cask gtb`.
+
+> [!NOTE]
+> **Pass the tap URL.** The shorthand `brew tap phpboyscout/homebrew` resolves to `github.com/phpboyscout/homebrew-homebrew`, which does not exist — the tap is on GitLab, so the URL is required.
+>
+> If you tapped the pre-migration GitHub tap before it was withdrawn, remove it with `brew untap phpboyscout/homebrew`, or `brew update` will fail against it.
+
 > [!NOTE]
 > For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest` — note the `/cmd/gtb` suffix, as the `main` package is not at the module root. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
 
