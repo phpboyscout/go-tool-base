@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"gitlab.com/phpboyscout/go/config"
+	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/forge"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
@@ -107,6 +109,85 @@ github:
 	assert.True(t, settings.SSH.HasKey)
 	// An explicit path wins over the named environment variable.
 	assert.Equal(t, "/id_ed25519", settings.SSH.Path)
+}
+
+// countingKeychain records reaches so laziness can be asserted rather than
+// assumed.
+type countingKeychain struct{ retrieves int }
+
+func (b *countingKeychain) Store(context.Context, string, string, string) error { return nil }
+
+func (b *countingKeychain) Retrieve(context.Context, string, string) (string, error) {
+	b.retrieves++
+
+	return "from-keychain", nil
+}
+
+func (b *countingKeychain) Delete(context.Context, string, string) error { return nil }
+func (b *countingKeychain) Available() bool                              { return true }
+
+// unavailableKeychain restores the default stub after a test swaps one in:
+// RegisterBackend has no undo and the real stub type is unexported.
+type unavailableKeychain struct{}
+
+func (unavailableKeychain) Store(context.Context, string, string, string) error {
+	return credentials.ErrCredentialUnsupported
+}
+
+func (unavailableKeychain) Retrieve(context.Context, string, string) (string, error) {
+	return "", credentials.ErrCredentialUnsupported
+}
+
+func (unavailableKeychain) Delete(context.Context, string, string) error {
+	return credentials.ErrCredentialUnsupported
+}
+
+func (unavailableKeychain) Available() bool { return false }
+
+// TestSettingsFromReader_SSHRepoNeverReachesTheKeychain is the regression spec
+// 0183 D7 names as the most likely one to introduce: the config-layer API leads
+// towards eager resolution, and a config-keychain layer resolves at STORE
+// CONSTRUCTION — which would put an OS unlock prompt on the startup path of a
+// repository that authenticates over SSH and needs no token at all. On a
+// headless box that is a bounded hang; on a desktop, a dialog for `--help`.
+//
+// The mechanism is that Settings.Token is a closure resolved at
+// git-authentication time. This asserts the consequence at the adapter, where
+// the eager version would actually be written — pkg/vcs covers the composition
+// itself, but a future refactor resolving here would leave that test green.
+func TestSettingsFromReader_SSHRepoNeverReachesTheKeychain(t *testing.T) {
+	probe := &countingKeychain{}
+	credentials.RegisterBackend(probe)
+
+	t.Cleanup(func() { credentials.RegisterBackend(unavailableKeychain{}) })
+
+	// Both a keychain reference and SSH configured: the repository will
+	// authenticate over SSH, so the token must never be resolved.
+	cfg := repoViewFromYAML(t, `
+github:
+  auth:
+    keychain: testtool/github.auth
+  ssh:
+    key:
+      path: /id_ed25519
+`)
+
+	settings := SettingsFromReader(
+		forge.ReleaseSourceConfig{Type: "github"},
+		cfg,
+		logger.NewNoop(),
+		afero.NewMemMapFs(),
+	)
+
+	require.True(t, settings.SSH.Configured, "fixture assumption: this repo authenticates over SSH")
+	assert.Zero(t, probe.retrieves,
+		"building settings for an SSH repository must not reach the keychain")
+
+	// And the other half: the token path still works when something does ask
+	// for it, so the assertion above is laziness rather than a broken chain.
+	require.NotNil(t, settings.Token)
+	assert.Equal(t, "from-keychain", settings.Token())
+	assert.Equal(t, 1, probe.retrieves, "asking for the token resolves it exactly once")
 }
 
 // TestSettingsFromReader_SSHKeyFromEnv proves the adapter — not the repo

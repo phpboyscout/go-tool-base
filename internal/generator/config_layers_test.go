@@ -8,6 +8,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/generator/templates"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -93,6 +94,54 @@ func TestConfigLayers_UnstatedEmitsNothing(t *testing.T) {
 
 	assert.NotContains(t, src, "ConfigLayers",
 		"an unstated layer set must not emit a field")
+}
+
+// TestConfigLayers_SurviveTheManifestRoundTrip is the assertion the rest of
+// this file only claims: that a declared layer set makes it out of a manifest
+// and back into generated source.
+//
+// This is what D8 is actually for. The layer set lives in the manifest rather
+// than in the scaffolded main precisely so `regenerate` can recover it — and if
+// it could not, regenerate would quietly emit a project wiring the framework
+// default over one that had declined a layer. Serialising through YAML rather
+// than building the struct inline is deliberate: the field carries a yaml tag,
+// and a tag that stops matching would not show up in a struct-only test.
+func TestConfigLayers_SurviveTheManifestRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	const doc = `properties:
+  name: layered
+  description: a tool
+  config_layers:
+    - defaults
+    - files
+    - env
+release_source:
+  type: github
+  host: github.com
+  org: acme
+  repo: layered
+`
+
+	var m Manifest
+	require.NoError(t, yaml.Unmarshal([]byte(doc), &m))
+	require.Equal(t, []string{"defaults", "files", "env"}, m.Properties.ConfigLayers,
+		"fixture assumption: the yaml tag still binds config_layers")
+
+	data := buildSkeletonRootData(m, nil)
+	require.Equal(t, m.Properties.ConfigLayers, data.ConfigLayers,
+		"the declared set must reach the render data unchanged")
+
+	src, err := renderRoot(t, data)
+	require.NoError(t, err)
+
+	assert.Contains(t, src, "props.LayerDefaults")
+	assert.Contains(t, src, "props.LayerFiles")
+	assert.Contains(t, src, "props.LayerEnv")
+	assert.NotContains(t, src, "props.LayerProject",
+		"a layer the project declined must not reappear on regenerate")
+	assert.NotContains(t, src, "props.LayerFlags",
+		"a layer the project declined must not reappear on regenerate")
 }
 
 // TestConfigLayerConst covers the manifest-name to constant-name mapping every

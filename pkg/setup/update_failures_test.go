@@ -98,6 +98,14 @@ func TestRequireReleaseToken(t *testing.T) {
 	ctx := context.Background()
 	p := &props.Props{Logger: logger.NewNoop(), Config: testutil.StoreFromYAML(t, "{}\n")}
 
+	// Built here rather than inside the subtest: the store construction takes
+	// the testing context, and contextcheck reads a call made in a scope that
+	// already holds a ctx as one that should have been given it.
+	brokenKey := &props.Props{
+		Logger: logger.NewNoop(),
+		Config: testutil.StoreFromYAML(t, "github:\n  auth:\n    keychain: no-slash-here\n"),
+	}
+
 	t.Run("bitbucket needs no single token", func(t *testing.T) {
 		require.NoError(t, requireReleaseToken(ctx, "bitbucket", p))
 	})
@@ -118,5 +126,21 @@ func TestRequireReleaseToken(t *testing.T) {
 	t.Run("gitlab without a token errors", func(t *testing.T) {
 		t.Setenv("GITLAB_TOKEN", "")
 		require.Error(t, requireReleaseToken(ctx, "gitlab", p))
+	})
+
+	// Spec 0183 D5: a key that is present but BROKEN must be diagnosed, not
+	// folded into the same "no token available" message an absent key gives.
+	// The two need different fixes — one is "set a credential", the other is
+	// "the credential you set cannot be read" — and reporting them identically
+	// is what sends an operator looking for a token they already configured.
+	t.Run("a broken key is diagnosed rather than reported as absent", func(t *testing.T) {
+		t.Setenv("GITHUB_TOKEN", "")
+
+		err := requireReleaseToken(ctx, "github", brokenKey)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "resolving github credential",
+			"a malformed reference must name the resolution failure")
+		assert.Contains(t, err.Error(), "malformed keychain reference",
+			"and carry the underlying cause, so the operator knows which key is wrong")
 	})
 }

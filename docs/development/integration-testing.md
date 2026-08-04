@@ -49,6 +49,7 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_GENERATOR_BUILD=1` | Enables only tests tagged `"generator_build"` — the toolchain-backed generator tests that scaffold a project and run `go build`/`go test`/`golangci-lint` against it (also enabled by `INT_TEST_GENERATOR`) |
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
+| `INT_TEST_DEPS=1` | Enables only tests tagged `"deps"` — dependency-footprint assertions that shell out to `go list -deps`. Gated because they need the build toolchain, not because they need credentials or a network |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
@@ -123,6 +124,12 @@ These tests require **no external credentials** — only local network access.
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `root_integration_test.go` | Command registration based on feature flags, tool metadata propagation | None |
+
+### `pkg/props/` — Dependency Footprint
+
+| File | Tests | Dependencies |
+| :--- | :--- | :--- |
+| `keychain_footprint_integration_test.go` | No framework package reaches `go-keyring`, so a downstream that declines the keychain blank-import genuinely links none of it — and `cmd/gtb`, which does import it, genuinely does | **Go toolchain** (`go list -deps`) — tagged `"deps"` |
 
 ### `pkg/setup/` — Init Flow
 
