@@ -32,10 +32,10 @@ require (
 	gitlab.com/phpboyscout/go/browser v0.2.0
 	gitlab.com/phpboyscout/go/changelog v0.2.0
 	gitlab.com/phpboyscout/go/chat v0.9.1
-	gitlab.com/phpboyscout/go/chat-anthropic v0.8.0
-	gitlab.com/phpboyscout/go/chat-gemini v0.8.0
-	gitlab.com/phpboyscout/go/chat-openai v0.8.0
-	gitlab.com/phpboyscout/go/config v0.13.0
+	gitlab.com/phpboyscout/go/chat-anthropic v0.8.1
+	gitlab.com/phpboyscout/go/chat-gemini v0.8.1
+	gitlab.com/phpboyscout/go/chat-openai v0.8.1
+	gitlab.com/phpboyscout/go/config v0.13.1
 	gitlab.com/phpboyscout/go/config-afero v0.1.4
 	gitlab.com/phpboyscout/go/controls v0.3.0
 	gitlab.com/phpboyscout/go/credentials v0.3.0
@@ -46,17 +46,17 @@ require (
 	gitlab.com/phpboyscout/go/forge-gitea v0.7.0
 	gitlab.com/phpboyscout/go/forge-github v0.6.0
 	gitlab.com/phpboyscout/go/forge-gitlab v0.6.1
-	gitlab.com/phpboyscout/go/httpclient v0.2.0
+	gitlab.com/phpboyscout/go/httpclient v0.2.1
 	gitlab.com/phpboyscout/go/observability v0.3.0
 	gitlab.com/phpboyscout/go/output v0.2.0
 	gitlab.com/phpboyscout/go/redact v0.2.0
 	gitlab.com/phpboyscout/go/regexutil v0.2.0
-	gitlab.com/phpboyscout/go/repo v0.2.0
-	gitlab.com/phpboyscout/go/signing v0.6.0
+	gitlab.com/phpboyscout/go/repo v0.2.1
+	gitlab.com/phpboyscout/go/signing v0.6.1
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.4.0
 	gitlab.com/phpboyscout/go/tls v0.2.0
 	gitlab.com/phpboyscout/go/transit v0.2.1
-	gitlab.com/phpboyscout/go/transport v0.5.1
+	gitlab.com/phpboyscout/go/transport v0.5.2
 	gitlab.com/phpboyscout/go/workspace v0.2.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
@@ -244,11 +244,11 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/gitlab-org/api/client-go/v2 v2.55.1 // indirect
-	gitlab.com/phpboyscout/go/aferobilly v0.1.2 // indirect
+	gitlab.com/phpboyscout/go/aferobilly v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/signing-cli v0.5.0
-	gitlab.com/phpboyscout/go/yamldoc v0.1.5 // indirect
+	gitlab.com/phpboyscout/go/yamldoc v0.2.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.69.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
