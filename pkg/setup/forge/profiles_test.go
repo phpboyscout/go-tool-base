@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	forgeapi "gitlab.com/phpboyscout/go/forge"
+
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -22,6 +24,46 @@ func TestGiteaProfile_OffersNoLogin(t *testing.T) {
 		"Gitea has no Authenticator upstream; offering login would always fail")
 	assert.True(t, giteaProfile.OffersSSH,
 		"Gitea does implement KeyManager, so SSH upload is offered")
+}
+
+// TestCodebergProfile_IsGiteaShapedWithItsOwnSection pins what Codeberg
+// inherits from Gitea and what it deliberately does not.
+//
+// One forge-gitea provider serves both, so the capability claims must match its
+// implementation exactly as Gitea's do: KeyManager yes, Authenticator no. What
+// must NOT match is the config prefix — sharing gitea's section is precisely
+// what deferred this forge in 0185 D2 — nor the host, since Codeberg has the
+// well-known instance a self-hosted Gitea cannot have.
+func TestCodebergProfile_IsGiteaShapedWithItsOwnSection(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, codebergProfile.OffersLogin,
+		"Codeberg runs Forgejo through forge-gitea, which implements no Authenticator")
+	assert.True(t, codebergProfile.OffersSSH,
+		"forge-gitea implements KeyManager, so SSH upload is offered")
+
+	assert.NotEqual(t, giteaProfile.ConfigPrefix, codebergProfile.ConfigPrefix,
+		"a shared section means a token stored for one forge is stored for both")
+	assert.NotEqual(t, giteaProfile.FallbackEnv, codebergProfile.FallbackEnv,
+		"each source type has its own well-known variable upstream")
+
+	assert.Equal(t, "codeberg.org", codebergProfile.Host,
+		"unlike a self-hosted Gitea, there is exactly one Codeberg")
+}
+
+// TestEveryProfileProviderIsRegistered guards the seam a profile cannot declare
+// its way out of: Provider is a registry key, and both defaultForgeProvider and
+// the SSH stage resolve it through forgeapi.Lookup at runtime. A key naming no
+// registered factory builds and passes every other guard in this package, then
+// fails the first time a user runs the wizard.
+func TestEveryProfileProviderIsRegistered(t *testing.T) {
+	t.Parallel()
+
+	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, codebergProfile, bitbucketProfile} {
+		_, err := forgeapi.Lookup(p.Provider)
+		assert.NoErrorf(t, err,
+			"%s names provider %q, which no linked adapter registers", p.Label, p.Provider)
+	}
 }
 
 // TestGiteaProfile_HasNoDefaultHost pins the property that makes Gitea the
@@ -88,15 +130,17 @@ func TestGitLabProfile_ShipsTheClientIDForGitLabDotComOnly(t *testing.T) {
 }
 
 // TestSingleTokenProfilesHaveDistinctConfigPrefixes guards the invariant that
-// the deferred Codeberg profile would have broken: two forges sharing a config
-// prefix share one credential slot, so configuring either silently overwrites
-// the other. See spec 0185 D2 and forge-gitea#1.
+// held Codeberg back: two forges sharing a config prefix share one credential
+// slot, so configuring either silently overwrites the other. Codeberg is now
+// here because forge-gitea v0.7.0 gave it a `codeberg` section of its own —
+// this test is what says the wait was for that and not for something else. See
+// spec 0185 D2 and forge-gitea#1.
 func TestSingleTokenProfilesHaveDistinctConfigPrefixes(t *testing.T) {
 	t.Parallel()
 
 	seen := map[string]string{}
 
-	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, bitbucketProfile} {
+	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, codebergProfile, bitbucketProfile} {
 		if prior, clash := seen[p.ConfigPrefix]; clash {
 			t.Fatalf("%s and %s both write config prefix %q — one would overwrite the other",
 				prior, p.Label, p.ConfigPrefix)

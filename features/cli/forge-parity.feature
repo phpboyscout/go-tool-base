@@ -30,6 +30,7 @@ Feature: CLI Forge Credential Commands
       | github    | GitHub    |
       | gitlab    | GitLab    |
       | gitea     | Gitea     |
+      | codeberg  | Codeberg  |
       | bitbucket | Bitbucket |
 
   @smoke
@@ -39,12 +40,20 @@ Feature: CLI Forge Credential Commands
     And stdout contains "github"
     And stdout contains "gitlab"
     And stdout contains "gitea"
+    And stdout contains "codeberg"
     And stdout contains "bitbucket"
 
   # ----- Gitea has no interactive login -------------------------------
 
   Scenario: Gitea's help states the token is entered by hand
     When I run gtb with "init gitea --help"
+    Then the exit code is 0
+    And stdout contains "does not support an interactive browser login"
+
+  # Codeberg runs through the same forge-gitea adapter, so the same upstream
+  # fact applies: no Authenticator, therefore no browser login to offer.
+  Scenario: Codeberg's help states the token is entered by hand
+    When I run gtb with "init codeberg --help"
     Then the exit code is 0
     And stdout contains "does not support an interactive browser login"
 
@@ -77,12 +86,13 @@ Feature: CLI Forge Credential Commands
       | Configure GitHub authentication and SSH keys                              |
       | Configure GitLab authentication and SSH keys                              |
       | Configure Gitea authentication and SSH keys                               |
+      | Configure Codeberg authentication and SSH keys                            |
       | Configure Bitbucket authentication (username + app password) and SSH keys |
 
   # ----- skip flags keep init non-interactive -------------------------
 
   Scenario: Non-interactive init skips every forge wizard
-    When I run gtb with "init --skip-login --skip-key --skip-ai --skip-gitlab --skip-gitea --skip-bitbucket --dir {init_dir}"
+    When I run gtb with "init --skip-login --skip-key --skip-ai --skip-gitlab --skip-gitea --skip-codeberg --skip-bitbucket --dir {init_dir}"
     Then the exit code is 0
     And the file "config.yaml" exists in the init directory
 

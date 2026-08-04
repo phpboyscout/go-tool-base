@@ -38,7 +38,7 @@ var profilesByFeature = map[props.FeatureID]Profile{}
 
 //nolint:gochecknoinits // index the profiles the other init registers
 func init() {
-	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, bitbucketProfile} {
+	for _, p := range []Profile{gitHubProfile, gitLabProfile, giteaProfile, codebergProfile, bitbucketProfile} {
 		profilesByFeature[p.Feature] = p
 	}
 }

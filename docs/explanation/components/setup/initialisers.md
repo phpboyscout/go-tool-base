@@ -85,7 +85,7 @@ func Register(
 
 ## Built-in Initialisers Implementation
 
-### 1. Forge Initialiser (GitHub / GitLab / Gitea / Bitbucket)
+### 1. Forge Initialiser (GitHub / GitLab / Gitea / Codeberg / Bitbucket)
 
 **Package**: `pkg/setup/forge`
 
@@ -98,9 +98,12 @@ The interactive login and SSH-key upload are performed against the **configured 
 | GitHub | single token | OAuth device flow | yes | `github.com` |
 | GitLab | single token | OAuth device flow | yes | `gitlab.com` |
 | Gitea | single token | **none** — manual token only | yes | **none** — self-hosted |
+| Codeberg | single token | **none** — manual token only | yes | `codeberg.org` |
 | Bitbucket | `username` + `app_password` | none | yes | `bitbucket.org` |
 
-Gitea's "none" is an upstream fact rather than a framework choice: its adapter does not implement `Authenticator` — it is personal-access-token only by design — so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry.
+Gitea's "none" is an upstream fact rather than a framework choice: its adapter does not implement `Authenticator` — it is personal-access-token only by design — so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry. Codeberg inherits that fact rather than restating it: one `forge-gitea` provider serves both source types, so its capability claims must match Gitea's exactly.
+
+**Codeberg is its own feature, not a Gitea variant.** It resolves from a `codeberg.*` config section of its own, which is the whole reason it waited on `forge-gitea` v0.7.0: while both source types shared Gitea's section, a token stored for either forge was stored for both, and `gitea.url.api` would redirect a Codeberg lookup at somebody's self-hosted instance. `TestSingleTokenProfilesHaveDistinctConfigPrefixes` is what holds that separation in place.
 
 **SSH is a capability, not a credential shape.** `OffersSSH` means "this forge can accept an SSH key", and the stage runs from the shared dispatch for either shape. Bitbucket's adapter has always implemented `KeyManager`; GTB simply could not reach it, because the call sat inside the single-token flow. The stage itself was already shape-agnostic — it takes a `Profile` and nothing else — so this was a gate to remove rather than a flow to build.
 
@@ -108,7 +111,7 @@ The stage runs **after** credential capture, on every profile. That ordering is 
 
 When a provider cannot upload, the wizard does not ask. The key manager is resolved before the confirm prompt, so a forge without `KeyManager` skips straight to the add-it-manually note rather than being asked a question whose answer is then overruled. The key is still generated, saved and recorded in `<forge>.ssh.key.path` — that part stands on its own.
 
-Gitea is also the only profile with no default host, because there is no public Gitea instance the way there is a `github.com`. That makes the token-creation guidance host-free rather than interpolating an empty string into a URL.
+Gitea is also the only profile with no default host, because there is no public Gitea instance the way there is a `github.com`. That makes the token-creation guidance host-free rather than interpolating an empty string into a URL. Codeberg, sharing the adapter but not that property, does carry one — there is exactly one `codeberg.org`.
 
 !!! note "Shipped OAuth client IDs"
     A profile may ship a client ID for its device-flow login, paired with the host that ID is registered against. GitLab ships one for `gitlab.com`. It is applied **only** when the resolved API host matches and the user's config names no client ID of its own — so a self-hosted instance still degrades to manual token entry instead of failing as an invalid client, and the provider's own environment-variable fallback stays live. Shipping the ID in the embedded config bundle instead would be simpler and would break both of those properties.

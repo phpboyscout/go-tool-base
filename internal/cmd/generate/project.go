@@ -405,9 +405,9 @@ func repoPlaceholder(backend string) string { return backendDisplay(backend).Rep
 //
 // This is a narrower axis than the forge registry, and deliberately so. A forge
 // feature gates a *credential wizard*; a git backend selects a *scaffolding
-// asset set*. Gitea and Bitbucket have the first and not the second — which is
-// also why generator.ValidateReleaseSourceType still rejects them. Offering
-// them here would scaffold a project the generator cannot complete.
+// asset set*. Gitea, Codeberg and Bitbucket have the first and not the second —
+// which is also why generator.ValidateReleaseSourceType still rejects them.
+// Offering them here would scaffold a project the generator cannot complete.
 //
 // Adding skeleton-<forge> is what widens this set.
 var scaffoldableBackends = map[props.FeatureID]bool{

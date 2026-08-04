@@ -108,7 +108,7 @@ func TestNewForgeFeaturesAreRegistered(t *testing.T) {
 
 	all := props.AllFeatures()
 
-	for _, id := range []props.FeatureID{forge.GitlabFeature, forge.GiteaFeature} {
+	for _, id := range []props.FeatureID{forge.GitlabFeature, forge.GiteaFeature, forge.CodebergFeature} {
 		assert.Containsf(t, all, id, "%q must appear in the feature enumeration", id)
 
 		d, ok := props.DescriptorFor(id)

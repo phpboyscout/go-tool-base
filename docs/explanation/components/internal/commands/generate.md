@@ -51,7 +51,7 @@ Aliases:
 
 Flags:
   -d, --description string   Project description (default "A tool built with gtb")
-  -f, --features strings     Features to enable (update, init, mcp, docs, doctor, changelog, ai, config, telemetry, man, github, gitlab, gitea, bitbucket, keychain) (default [update,init,mcp,docs,doctor,changelog,keychain])
+  -f, --features strings     Features to enable (update, init, mcp, docs, doctor, changelog, ai, config, telemetry, man, github, gitlab, gitea, codeberg, bitbucket, keychain) (default [update,init,mcp,docs,doctor,changelog,keychain])
       --git-backend string   Git backend (github, gitlab) (default "github")
       --go-version string    Go version for go.mod (defaults to the running toolchain version)
   -h, --help                 help for project

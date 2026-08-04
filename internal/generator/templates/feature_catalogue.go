@@ -74,5 +74,6 @@ var FeatureCatalogue = []FeatureDescriptor{
 	{forge.GithubFeature, forge.PackagePath, "GithubFeature", false},
 	{forge.GitlabFeature, forge.PackagePath, "GitlabFeature", false},
 	{forge.GiteaFeature, forge.PackagePath, "GiteaFeature", false},
+	{forge.CodebergFeature, forge.PackagePath, "CodebergFeature", false},
 	{forge.BitbucketFeature, forge.PackagePath, "BitbucketFeature", false},
 }

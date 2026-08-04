@@ -109,6 +109,7 @@ func newTestRoot() (*setup.Command, *props.Props) {
 				props.Enable(forge.GithubFeature),
 				props.Enable(forge.GitlabFeature),
 				props.Enable(forge.GiteaFeature),
+				props.Enable(forge.CodebergFeature),
 				props.Enable(forge.BitbucketFeature),
 				props.Disable(props.DocsCmd), // no embedded assets in test binary
 			),

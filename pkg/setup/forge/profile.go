@@ -38,6 +38,14 @@ const (
 	GitlabFeature = props.FeatureID("gitlab")
 	// GiteaFeature gates the Gitea single-token setup wizard.
 	GiteaFeature = props.FeatureID("gitea")
+	// CodebergFeature gates the Codeberg single-token setup wizard.
+	//
+	// Codeberg is a Forgejo instance and forge-gitea serves both, but it is its
+	// own feature rather than a flag on Gitea's: it resolves from its own
+	// `codeberg` config section, so a token stored for one is not stored for
+	// the other, and gitea.url.api cannot redirect a Codeberg lookup at a
+	// self-hosted instance. See spec 0185 D2.
+	CodebergFeature = props.FeatureID("codeberg")
 	// BitbucketFeature gates the Bitbucket dual-credential setup wizard.
 	BitbucketFeature = props.FeatureID("bitbucket")
 )
@@ -86,6 +94,12 @@ func init() {
 	props.RegisterFeature(props.FeatureDescriptor{
 		ID:           GiteaFeature,
 		ConstName:    "GiteaFeature",
+		ConstPackage: PackagePath,
+		Kind:         props.KindForge,
+	})
+	props.RegisterFeature(props.FeatureDescriptor{
+		ID:           CodebergFeature,
+		ConstName:    "CodebergFeature",
 		ConstPackage: PackagePath,
 		Kind:         props.KindForge,
 	})
@@ -403,6 +417,37 @@ var giteaProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a 
 	RepoPlaceholder:        "owner/repo",
 }
 
+// codebergProfile drives the single-token Codeberg wizard.
+//
+// It is Gitea-shaped because Codeberg runs Forgejo and forge-gitea registers
+// both source types from one implementation — so it offers SSH (the provider
+// implements forge.KeyManager) and no login (it implements no
+// forge.Authenticator), exactly as Gitea does.
+//
+// The two differences from giteaProfile are the ones that made Codeberg its own
+// feature rather than a Gitea variant: a Host, because unlike a self-hosted
+// Gitea there is exactly one codeberg.org; and its own ConfigPrefix, so the
+// credential slot is not shared. Host is bare rather than the module's
+// scheme-qualified CodebergHost because every profile's Host is bare and the
+// adapter canonicalises through forge.NormalizeHostURL either way.
+var codebergProfile = Profile{ //nolint:gosec // G101: TokenCreateURLTemplate is a PAT-creation URL, not a credential
+	Provider:               "codeberg",
+	ConfigPrefix:           "codeberg",
+	Label:                  "Codeberg",
+	DisplayName:            "Codeberg integration",
+	Feature:                CodebergFeature,
+	Host:                   "codeberg.org",
+	KeychainAccount:        "codeberg.auth",
+	Credential:             SingleToken,
+	FallbackEnv:            "CODEBERG_TOKEN",
+	OffersSSH:              true,
+	OffersLogin:            false,
+	TokenCreateURLTemplate: "https://{host}/user/settings/applications",
+	TokenScopes:            "write:repository, read:user",
+	RepoDescription:        "The repository path in owner/repo format.",
+	RepoPlaceholder:        "owner/repo",
+}
+
 // bitbucketProfile drives the dual-credential Bitbucket wizard: username +
 // app-password, no login, no SSH.
 var bitbucketProfile = Profile{ //nolint:gosec // G101: PassFallbackEnv is the env-var NAME to read, not a credential value
@@ -463,12 +508,14 @@ var (
 	skipBitbucket bool
 	skipGitlab    bool
 	skipGitea     bool
+	skipCodeberg  bool
 )
 
 func init() {
 	registerGitHub()
 	registerSingleTokenForge(gitLabProfile, &skipGitlab, "skip-gitlab", "skip configuring GitLab credentials")
 	registerSingleTokenForge(giteaProfile, &skipGitea, "skip-gitea", "skip configuring Gitea credentials")
+	registerSingleTokenForge(codebergProfile, &skipCodeberg, "skip-codeberg", "skip configuring Codeberg credentials")
 	registerBitbucket()
 }
 

@@ -1,0 +1,12 @@
+# Codeberg carries no url.api default even though, unlike a self-hosted Gitea,
+# it has a well-known host. The host is supplied twice already — the profile's
+# Host, and forge-gitea's own pre-seeded default for the codeberg source type —
+# and a third copy here would be the one an operator pointing at a Forgejo
+# mirror had to find and clear. The section still exists so
+# vcs.ConfigFromReader(cfg).Sub("codeberg") is non-nil.
+codeberg:
+  auth:
+    env: CODEBERG_TOKEN
+  ssh:
+    key:
+      env: CODEBERG_KEY
