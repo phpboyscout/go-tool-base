@@ -509,8 +509,8 @@ gitlab.com/phpboyscout/go/forge-gitlab v0.6.4 h1:YEwVNVvB70uzh/1RKb68iz8SOrp2M2P
 gitlab.com/phpboyscout/go/forge-gitlab v0.6.4/go.mod h1:E/g3179Qhe5H0cAxl70lcpF4MWEgp7I4Ra9z9qdgBOw=
 gitlab.com/phpboyscout/go/grpcclient v0.2.0 h1:OvsKMT8bDP0w+KSkWtN9Okfu0w/D/InVC/0E1/hILNg=
 gitlab.com/phpboyscout/go/grpcclient v0.2.0/go.mod h1:wxQhrAyeWtkSwb8KiEptA3U0yjubIED85gptLdxVDtA=
-gitlab.com/phpboyscout/go/httpclient v0.2.1 h1:aJOmQtTDrhnWsgouH03jMhOgTRtnmeWmQMF/zewYl0M=
-gitlab.com/phpboyscout/go/httpclient v0.2.1/go.mod h1:ngKToAAz7PdP9xwgKLIKgQ6zRSZaGQRmYFg/YT96Psw=
+gitlab.com/phpboyscout/go/httpclient v0.2.2 h1:+BiDG5JHynFnNum9M1ElFPpOy1OONCTCiv5vok5COGk=
+gitlab.com/phpboyscout/go/httpclient v0.2.2/go.mod h1:uSFgcZYK6XmrPw1AOXyRuxYCg82V+udNPOH+dVw5MVw=
 gitlab.com/phpboyscout/go/observability v0.3.1 h1:0cwyX1VArknyYcQmOzLAXX+H6Xg/9DFcWHy9vmd+pUs=
 gitlab.com/phpboyscout/go/observability v0.3.1/go.mod h1:AP8p2z1JhFgTj/XaGjRu/7Ead/Q7SmNjnqvHv4aV0Wo=
 gitlab.com/phpboyscout/go/output v0.2.1 h1:kBc+Dt1ggOnGqHdNTguUNsCqrtJzNrDql6YUaCkXft4=
@@ -529,12 +529,12 @@ gitlab.com/phpboyscout/go/signing-cli v0.5.0 h1:og5g2mr+3LtoaYEapYiT8GqfnC97zgI2
 gitlab.com/phpboyscout/go/signing-cli v0.5.0/go.mod h1:Ewo9CXflM8ZEvO6lZ589AkvjW1u4pqD9xsfEs9691aI=
 gitlab.com/phpboyscout/go/tls v0.2.1 h1:YaEVXYy650PMvi8bSXmGVB44wC3ERamk70T/k2nxxLQ=
 gitlab.com/phpboyscout/go/tls v0.2.1/go.mod h1:g3yjpOVOx2ObtiEZJQzP+dgBqSjB+lmlEZfmDWXgQp0=
-gitlab.com/phpboyscout/go/transit v0.2.1 h1:lWbC0h+XdPbWDCt+QOGmOws/U8MCM7r2DDr79uQHeKg=
-gitlab.com/phpboyscout/go/transit v0.2.1/go.mod h1:Kx9XTDiutj5dBOvhXFHMnKzvsCUjfqv/31fuF0H123I=
+gitlab.com/phpboyscout/go/transit v0.2.2 h1:UXJD6j33USeY/CLmmJukJkmg9MzLA0p9GjpvC7Adfb8=
+gitlab.com/phpboyscout/go/transit v0.2.2/go.mod h1:KP2vgRYCD5HXXt7++mKInUr+ezzH3T8KA1l9k3YoAJg=
 gitlab.com/phpboyscout/go/transport v0.5.3 h1:ezQsXx97BwkTBSYfGTaEyAYRCJ4ly8C6/cGAt1pUs4s=
 gitlab.com/phpboyscout/go/transport v0.5.3/go.mod h1:VP+nV373LJgr9GzsuwDGUQn8d74RlqhsJcy1Ugl5t2M=
-gitlab.com/phpboyscout/go/workspace v0.2.0 h1:LDR28T2MaKuWYhcwO7oMJOnNn7gbGhb+M7PwQArsML4=
-gitlab.com/phpboyscout/go/workspace v0.2.0/go.mod h1:4dz8NKeynA9AbMDo92xHwIxDHXVwexlwupcafQbA3+U=
+gitlab.com/phpboyscout/go/workspace v0.2.1 h1:AkpyNazOtNyy2gMkmATxhkW3QPpDNNbdBUxJzETv2FQ=
+gitlab.com/phpboyscout/go/workspace v0.2.1/go.mod h1:eBokug0mQ/9RcpO3u1TIUTz7VQeM7oLljCRJ6KEx0/0=
 gitlab.com/phpboyscout/go/yamldoc v0.2.0 h1:Rdcb+hmD5YOcp/RS9ITH4WOyqpfItT0pAy7wXXiM3JA=
 gitlab.com/phpboyscout/go/yamldoc v0.2.0/go.mod h1:UmEuCfEwgkRbnFLVBuxALm7aIjHn2SArpTtoc+gTRug=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
