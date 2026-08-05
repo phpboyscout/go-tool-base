@@ -29,34 +29,34 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
-	gitlab.com/phpboyscout/go/browser v0.2.0
-	gitlab.com/phpboyscout/go/changelog v0.2.0
-	gitlab.com/phpboyscout/go/chat v0.9.1
-	gitlab.com/phpboyscout/go/chat-anthropic v0.8.1
-	gitlab.com/phpboyscout/go/chat-gemini v0.8.1
-	gitlab.com/phpboyscout/go/chat-openai v0.8.1
-	gitlab.com/phpboyscout/go/config v0.13.1
+	gitlab.com/phpboyscout/go/browser v0.2.1
+	gitlab.com/phpboyscout/go/changelog v0.2.1
+	gitlab.com/phpboyscout/go/chat v0.9.2
+	gitlab.com/phpboyscout/go/chat-anthropic v0.8.2
+	gitlab.com/phpboyscout/go/chat-gemini v0.8.2
+	gitlab.com/phpboyscout/go/chat-openai v0.8.2
+	gitlab.com/phpboyscout/go/config v0.13.2
 	gitlab.com/phpboyscout/go/config-afero v0.1.5
-	gitlab.com/phpboyscout/go/controls v0.3.0
-	gitlab.com/phpboyscout/go/credentials v0.3.0
+	gitlab.com/phpboyscout/go/controls v0.3.1
+	gitlab.com/phpboyscout/go/credentials v0.3.1
 	gitlab.com/phpboyscout/go/errorhandling v0.3.0
 	gitlab.com/phpboyscout/go/errors v0.2.0
 	gitlab.com/phpboyscout/go/forge v0.9.2
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.2
-	gitlab.com/phpboyscout/go/forge-gitea v0.8.0
-	gitlab.com/phpboyscout/go/forge-github v0.6.2
-	gitlab.com/phpboyscout/go/forge-gitlab v0.6.3
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.3
+	gitlab.com/phpboyscout/go/forge-gitea v0.8.1
+	gitlab.com/phpboyscout/go/forge-github v0.6.3
+	gitlab.com/phpboyscout/go/forge-gitlab v0.6.4
 	gitlab.com/phpboyscout/go/httpclient v0.2.1
-	gitlab.com/phpboyscout/go/observability v0.3.0
-	gitlab.com/phpboyscout/go/output v0.2.0
-	gitlab.com/phpboyscout/go/redact v0.2.0
-	gitlab.com/phpboyscout/go/regexutil v0.2.0
-	gitlab.com/phpboyscout/go/repo v0.2.1
-	gitlab.com/phpboyscout/go/signing v0.6.1
-	gitlab.com/phpboyscout/go/signing-aws-kms v0.4.1
-	gitlab.com/phpboyscout/go/tls v0.2.0
+	gitlab.com/phpboyscout/go/observability v0.3.1
+	gitlab.com/phpboyscout/go/output v0.2.1
+	gitlab.com/phpboyscout/go/redact v0.2.1
+	gitlab.com/phpboyscout/go/regexutil v0.2.1
+	gitlab.com/phpboyscout/go/repo v0.2.2
+	gitlab.com/phpboyscout/go/signing v0.6.2
+	gitlab.com/phpboyscout/go/signing-aws-kms v0.4.2
+	gitlab.com/phpboyscout/go/tls v0.2.1
 	gitlab.com/phpboyscout/go/transit v0.2.1
-	gitlab.com/phpboyscout/go/transport v0.5.2
+	gitlab.com/phpboyscout/go/transport v0.5.3
 	gitlab.com/phpboyscout/go/workspace v0.2.0
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
