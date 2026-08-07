@@ -3,6 +3,7 @@ package ignore
 import (
 	"bytes"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -249,4 +250,86 @@ func TestPrintCheck_ReportsTheTier(t *testing.T) {
 	assert.Contains(t, out, "ignored")
 	assert.Contains(t, out, "sealed")
 	assert.Contains(t, out, "(rule: c.go sealed)")
+}
+
+// Spec 0188 D8 — seal writes the attributed rule, is idempotent, and states the
+// version floor at the point the hazard is created.
+func TestIgnoreSeal_WritesTheAttributeAndStatesTheFloor(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := newTestProps(fs)
+	root := "/project"
+
+	out := runSub(t, newCmdIgnoreSeal(p), root, "pkg/cmd/p/cmd.go")
+	assert.Contains(t, out, "sealed: pkg/cmd/p/cmd.go")
+	assert.Contains(t, out, sealedRuleMinVersion,
+		"the silent-on-older-gtb hazard must be stated where the seal is written")
+
+	body, err := afero.ReadFile(fs, filepath.Join(root, ".gtb", "ignore"))
+	require.NoError(t, err)
+	assert.Contains(t, string(body), "pkg/cmd/p/cmd.go sealed")
+
+	assert.Equal(t, generator.StateSealed,
+		generator.LoadIgnoreRules(fs, root).State("pkg/cmd/p/cmd.go"))
+
+	out = runSub(t, newCmdIgnoreSeal(p), root, "pkg/cmd/p/cmd.go")
+	assert.Contains(t, out, "already sealed (no-op)")
+}
+
+// D8 — unseal leaves the path ignored rather than handing it back.
+func TestIgnoreUnseal_LeavesThePathIgnored(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := newTestProps(fs)
+	root := "/project"
+
+	runSub(t, newCmdIgnoreSeal(p), root, "pkg/cmd/p/cmd.go")
+
+	out := runSub(t, newCmdIgnoreUnseal(p), root, "pkg/cmd/p/cmd.go")
+	assert.Contains(t, out, "unsealed (still ignored): pkg/cmd/p/cmd.go")
+
+	assert.Equal(t, generator.StateIgnored,
+		generator.LoadIgnoreRules(fs, root).State("pkg/cmd/p/cmd.go"),
+		"unsealing must not silently re-manage the file")
+
+	out = runSub(t, newCmdIgnoreUnseal(p), root, "pkg/cmd/p/cmd.go")
+	assert.Contains(t, out, "not sealed (no-op)")
+}
+
+// D8 — `add --sealed` is the same operation for people who reach for add first.
+func TestIgnoreAdd_SealedFlagSealsInstead(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := newTestProps(fs)
+	root := "/project"
+
+	c := newCmdIgnoreAdd(p).Command
+	require.NoError(t, c.Flags().Set("path", root))
+	require.NoError(t, c.Flags().Set("sealed", "true"))
+
+	var out bytes.Buffer
+	c.SetOut(&out)
+	require.NoError(t, c.RunE(c, []string{"pkg/cmd/p/cmd.go"}))
+
+	assert.Contains(t, out.String(), "sealed: pkg/cmd/p/cmd.go")
+	assert.Equal(t, generator.StateSealed,
+		generator.LoadIgnoreRules(fs, root).State("pkg/cmd/p/cmd.go"))
+}
+
+// Sealing several paths in one invocation reports each and prints the floor once.
+func TestIgnoreSeal_MultiplePathsPrintTheFloorOnce(t *testing.T) {
+	t.Parallel()
+
+	fs := afero.NewMemMapFs()
+	p := newTestProps(fs)
+	root := "/project"
+
+	out := runSub(t, newCmdIgnoreSeal(p), root, "a.go", "b.go")
+
+	assert.Contains(t, out, "sealed: a.go")
+	assert.Contains(t, out, "sealed: b.go")
+	assert.Equal(t, 1, strings.Count(out, sealedRuleMinVersion))
 }
