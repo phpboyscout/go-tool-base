@@ -12,6 +12,10 @@ When you run `regenerate`, the GTB generator walks every file it owns — the sk
 
 The `.gtb/ignore` file lets you permanently mark files as "hands off" — the generator will skip them without prompting.
 
+**A rule stops the generator *regenerating* a file, not touching it.** Those are
+different things, and the difference matters — see
+[Two kinds of write](#two-kinds-of-write-regenerate-versus-wiring) below.
+
 A fresh `generate project` scaffold already ships a commented, inert `.gtb/ignore` (a header explaining the syntax and nothing else), so the mechanism is discoverable in every new project.
 
 ---
@@ -23,7 +27,9 @@ Rather than editing the file by hand, use the `gtb ignore` command group, which 
 ```bash
 gtb ignore add justfile              # append a rule (idempotent; creates the file with a header)
 gtb ignore add '.github/workflows/**'  # quote globs so your shell does not expand them
-gtb ignore check justfile            # is it ignored? and which rule decides?
+gtb ignore seal pkg/cmd/x/cmd.go     # stronger: forbid every write, wiring included
+gtb ignore unseal pkg/cmd/x/cmd.go   # back to a plain ignore
+gtb ignore check justfile            # managed, ignored or sealed? and which rule decides?
 gtb ignore list                      # resolve rules against the manifest's tracked files
 gtb ignore remove justfile           # drop the literal rule line
 ```
@@ -37,6 +43,73 @@ Notes:
 - `--dry-run` on `add`/`remove` prints the resulting file without writing it.
 
 The rest of this guide describes the file format the command manages, for when you prefer to edit it by hand.
+
+---
+
+## Two kinds of write: regenerate versus wiring
+
+The generator does two quite different things to a generated file.
+
+**Regenerating** rewrites it from source: the generator authors the whole
+content and whatever was there is gone. That is what an ignore rule refuses, and
+refusing costs nothing — the file simply stays as it is.
+
+**Wiring** is a small, surgical edit that leaves everything around it intact:
+registering a subcommand in its parent's `cmd.go`, or injecting a hook stub into
+`main.go`. A plain rule does **not** refuse these, because the cost of refusing
+lands on your program rather than on the file:
+
+- an unregistered subcommand still **compiles** — it is simply **absent from
+  your CLI**, with nothing to tell you why;
+- a missing hook stub leaves `cmd.go` calling a function that does not exist,
+  which is a compile error.
+
+So a hand-tuned `cmd.go` with an ignore rule keeps your edits *and* keeps
+picking up new subcommands. That is almost always what you want.
+
+### When you really do mean "never touch this"
+
+Add the `sealed` attribute:
+
+```bash
+gtb ignore seal pkg/cmd/deploy/cmd.go
+```
+
+which writes:
+
+```
+pkg/cmd/deploy/cmd.go sealed
+```
+
+A sealed path is never rendered, never wired, never created and never deleted.
+Sealing implies ignoring, so one rule is enough.
+
+When a sealed file would have been wired, the run says so and names what it
+could not register, then exits 0 — you asked for this:
+
+```
+WARN sealed, not wired path=pkg/cmd/deploy/cmd.go skipped="registering subcommand push"
+WARN sealed file is out of step with the manifest path=pkg/cmd/deploy/cmd.go
+     detail="subcommand 'push' in the manifest but cannot be registered in a sealed file — it will be missing from the CLI"
+```
+
+Expect to wire it yourself. `gtb ignore unseal <path>` drops back to a plain
+ignore (the path stays ignored — use `gtb ignore remove` to hand it back to the
+generator entirely).
+
+`-sealed` carves an exception out of a broader rule:
+
+```
+docs/**            sealed
+docs/index.md      -sealed   # ignored, but the generator may still wire it
+```
+
+!!! warning "Sealed rules need gtb v0.37.0 or newer"
+
+    An older gtb does not understand the attribute. It reads
+    `pkg/cmd/deploy/cmd.go sealed` as a single pattern containing a space,
+    matches nothing, and therefore **regenerates a path you sealed** — silently.
+    If your project pins gtb, check the pin before relying on a seal.
 
 ---
 
@@ -76,6 +149,8 @@ docker-compose.yml
 | `.github/**` | Everything under `.github/` |
 | `.github/workflows/test.yml` | Exact path only |
 | `!pattern` | Re-includes a file excluded by an earlier pattern |
+| `pattern sealed` | Forbids **every** generator write, wiring included |
+| `pattern -sealed` | Ignored, but wiring is allowed again (undoes a broader `sealed`) |
 | `# comment` | Ignored (comment line) |
 
 Patterns are evaluated top-to-bottom. Later patterns override earlier ones — this is how negation works.
@@ -122,13 +197,30 @@ covered by a rule, command files included.
 
 ## How Hashing Works
 
-Ignored files are **still tracked** in the manifest. The generator reads the current on-disk content of each ignored file and records its hash. This means:
+Ignored files stay **tracked** in the manifest, and their recorded hash is
+**frozen** at whatever it was when the rule was added. The generator does not
+refresh it from disk while the rule is in place.
 
-- The manifest stays accurate — it reflects what's actually on disk
-- Future regenerations know the file exists and hasn't been touched by the generator
-- If you remove a file from `.gtb/ignore` later, the generator can detect whether you've modified it since the last regeneration
+That is deliberate, and it changed in gtb v0.37.0. Previously the hash tracked
+the file on disk, which made this sequence destroy work silently:
 
-If an ignored file doesn't exist on disk (e.g. you deleted it), no hash is recorded.
+```bash
+# edit a generated file, then:
+gtb ignore add pkg/cmd/deploy/cmd.go
+gtb regenerate project          # hash refreshed to match your edit
+gtb ignore remove pkg/cmd/deploy/cmd.go
+gtb regenerate project          # looks unmodified -> overwritten, no prompt
+```
+
+Freezing the hash means un-ignoring raises a conflict and asks you, which is the
+safe outcome. The trade is that while a rule is in place the manifest's hash no
+longer reflects what is on disk — it reflects the last content the generator
+itself wrote.
+
+One consequence worth knowing: a file ignored before it was ever tracked has no
+recorded hash at all. There is no baseline to compare against, so the first
+regenerate after you un-ignore it will write it. Copy anything you want to keep
+before removing such a rule.
 
 ## Common Patterns
 
@@ -204,6 +296,11 @@ handled specially so hand-added prose is never silently discarded:
 
 ## Notes
 
+- A pattern may contain spaces. Trailing words are only read as attributes when
+  **every** one of them is a known attribute (`sealed`, `-sealed`), so a rule
+  like `my file.yaml` still matches that path. An unrecognised trailing word
+  makes the whole line the pattern — `gtb ignore check` will show it matching
+  nothing.
 - The `--force` flag does **not** override ignore rules. Ignored files stay ignored regardless.
 - The ignore check takes precedence over the overwrite mode — an ignored path is never written, even under `--overwrite allow` or `enable signing`'s "allow" overwrite.
 - Rules cover command files as well as skeleton files: `pkg/cmd/deploy/cmd.go` is

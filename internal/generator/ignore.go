@@ -17,6 +17,45 @@ func ignoreConflictHint(relPath string) string {
 		filepath.ToSlash(relPath) + ") to keep your changes"
 }
 
+// RuleState is what the rules say may be done to a path. The generator does two
+// different things to a generated file and they warrant different answers (spec
+// 0188): rendering rewrites it from source, while wiring is the localised,
+// structure-aware edit that registers a subcommand in its parent or injects a
+// hook stub into main.go.
+type RuleState int
+
+const (
+	// StateManaged: the generator owns the path. Render and wiring both proceed.
+	StateManaged RuleState = iota
+	// StateIgnored: a bare rule matched. Rendering is refused. Wiring still
+	// proceeds where refusing it would leave the project unbuildable — see
+	// IsSealed and spec 0188 D2.
+	StateIgnored
+	// StateSealed: a rule set the `sealed` attribute. No write of any kind.
+	StateSealed
+)
+
+// String renders the state as it appears in `gtb ignore check` / `list`.
+func (s RuleState) String() string {
+	switch s {
+	case StateSealed:
+		return "sealed"
+	case StateIgnored:
+		return "ignored"
+	case StateManaged:
+		return "managed"
+	}
+
+	return "managed"
+}
+
+// Rule attribute vocabulary. A trailing token is only treated as an attribute
+// when it is one of these — see parseIgnoreRule for why that matters.
+const (
+	attrSealed   = "sealed"
+	attrUnsealed = "-sealed"
+)
+
 // ignoreRule is a single pattern from the .gtb/ignore file.
 type ignoreRule struct {
 	raw      string // the original rule line as written (trimmed), including any ! or trailing /
@@ -24,6 +63,9 @@ type ignoreRule struct {
 	negate   bool
 	dirOnly  bool // trailing / means directory-only match
 	hasSlash bool // contains path separator — anchored match
+	// sealed is the tri-state `sealed` attribute: nil when the rule says
+	// nothing about sealing, so an earlier rule's decision survives.
+	sealed *bool
 }
 
 // IgnoreRules holds compiled ignore patterns from a .gtb/ignore file.
@@ -62,26 +104,69 @@ func LoadIgnoreRules(fs afero.Fs, projectPath string) *IgnoreRules {
 	return &IgnoreRules{rules: rules}
 }
 
-// IsIgnored evaluates all rules top-to-bottom and returns whether the
-// given relative path should be ignored. Negation patterns (!) can
-// re-include files excluded by earlier patterns.
-func (r *IgnoreRules) IsIgnored(relPath string) bool {
+// State evaluates all rules top-to-bottom and returns what may be done to the
+// path: managed, ignored, or sealed. Later rules override earlier ones, and a
+// negation (!) returns a path all the way to managed.
+//
+// The `sealed` attribute is tracked separately from the ignore decision so that
+// a rule which says nothing about sealing leaves an earlier rule's decision
+// standing, and `-sealed` can drop a path from sealed back to ignored without
+// re-managing it (spec 0188 D4).
+func (r *IgnoreRules) State(relPath string) RuleState {
 	if len(r.rules) == 0 {
-		return false
+		return StateManaged
 	}
 
 	// Normalise to forward slashes for consistent matching
 	relPath = filepath.ToSlash(relPath)
 
-	ignored := false
+	ignored, sealed := false, false
 
 	for _, rule := range r.rules {
-		if matchesRule(relPath, rule) {
-			ignored = !rule.negate
+		if !matchesRule(relPath, rule) {
+			continue
+		}
+
+		if rule.negate {
+			ignored, sealed = false, false
+
+			continue
+		}
+
+		ignored = true
+
+		if rule.sealed != nil {
+			sealed = *rule.sealed
 		}
 	}
 
-	return ignored
+	switch {
+	case sealed:
+		return StateSealed
+	case ignored:
+		return StateIgnored
+	default:
+		return StateManaged
+	}
+}
+
+// IsIgnored reports whether the generator must not *render* the path — rewrite
+// it wholesale from source. A sealed path is also ignored: sealing is a superset.
+//
+// It deliberately does not answer the wiring question. A caller that performs a
+// localised, structure-aware edit asks IsSealed instead (spec 0188 D2).
+func (r *IgnoreRules) IsIgnored(relPath string) bool {
+	return r.State(relPath) != StateManaged
+}
+
+// IsSealed reports whether the generator must not touch the path at all, wiring
+// included. This is the predicate the localised writers consult — subcommand
+// registration, child re-registration, hook-stub injection — because refusing
+// those leaves a manifest declaring a child its parent never registers, or a
+// cmd.go referencing a hook stub that does not exist: a project that does not
+// build. A plain ignore rule is not enough to ask for that; `sealed` is.
+func (r *IgnoreRules) IsSealed(relPath string) bool {
+	return r.State(relPath) == StateSealed
 }
 
 // Explain evaluates all rules top-to-bottom and returns the winning rule for
@@ -131,8 +216,21 @@ const ignoreFileHeader = `# .gtb/ignore — mark generated files hands-off for '
 #   .github/workflows/ci.yml      an exact path
 #   !.github/workflows/release.yml  keep this one managed by the generator
 #
-# Manage it with 'gtb ignore add|remove|list|check', or edit it by hand.
-# See https://gtb.phpboyscout.uk/how-to/configure-generator-ignore/
+# A rule stops the generator REGENERATING a file — rewriting it from source. It
+# does not stop the small edits that wire a subcommand into its parent, because
+# refusing those leaves the command missing from your CLI. To forbid every
+# write, add the 'sealed' attribute:
+#
+#   pkg/cmd/deploy/cmd.go sealed  never written, wiring included
+#   docs/** sealed                the same, for a whole tree
+#   docs/index.md -sealed         ignored, but the generator may still wire it
+#
+# Expect to wire a sealed file yourself; the run says what it could not do.
+# Sealed rules need gtb v0.37.0 or newer — an older gtb does not understand the
+# attribute and will regenerate the path.
+#
+# Manage it with 'gtb ignore add|remove|seal|unseal|list|check', or edit it by
+# hand. See https://gtb.phpboyscout.uk/how-to/configure-generator-ignore/
 `
 
 // ignorePath returns the .gtb/ignore path for a project root.
@@ -185,6 +283,57 @@ func AppendIgnorePattern(fs afero.Fs, projectPath, pattern string) (changed bool
 	}
 
 	return true, nil
+}
+
+// SealIgnorePattern appends a sealed rule for pattern — "<pattern> sealed" —
+// which forbids every generator write to the path, wiring included (spec 0188
+// D3). Sealing implies ignoring, so one line is enough. Idempotent and
+// comment-preserving, like AppendIgnorePattern.
+func SealIgnorePattern(fs afero.Fs, projectPath, pattern string) (changed bool, err error) {
+	pattern = strings.TrimSpace(pattern)
+	if pattern == "" {
+		return false, nil
+	}
+
+	return AppendIgnorePattern(fs, projectPath, pattern+" "+attrSealed)
+}
+
+// UnsealIgnorePattern rewrites a sealed rule back to a bare one, so the path
+// stays *ignored* rather than becoming fully managed again. Dropping the line
+// outright would silently hand the file back to the generator, which is
+// unlikely to be what someone unsealing wants (D8).
+//
+// It reports changed=false when no sealed rule for pattern exists.
+func UnsealIgnorePattern(fs afero.Fs, projectPath, pattern string) (changed bool, err error) {
+	pattern = strings.TrimSpace(pattern)
+
+	existing, existed, err := readIgnoreBytes(fs, projectPath)
+	if err != nil || !existed {
+		return false, err
+	}
+
+	lines := strings.Split(string(existing), "\n")
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		rule := parseIgnoreRule(trimmed)
+		if rule.pattern != pattern || rule.sealed == nil || !*rule.sealed {
+			continue
+		}
+
+		lines[i] = pattern
+		changed = true
+	}
+
+	if !changed {
+		return false, nil
+	}
+
+	return true, writeIgnoreBytes(fs, projectPath, []byte(strings.Join(lines, "\n")))
 }
 
 // RemoveIgnorePattern drops the exact literal rule line matching pattern from a
@@ -351,8 +500,23 @@ func ignoreLinePresent(existing []byte, pattern string) bool {
 	return false
 }
 
+// parseIgnoreRule compiles one rule line: an optional `!`, a pattern, and an
+// optional trailing attribute list (spec 0188 D3, after .gitattributes).
+//
+// Trailing tokens become attributes only when *every* one of them is a known
+// attribute. Before attributes existed the whole trimmed line was the pattern,
+// so a path containing a space was a valid rule; splitting on whitespace
+// unconditionally would silently reinterpret `my file.yaml` as the pattern `my`
+// with an attribute `file.yaml` and break a file that parses correctly today.
+// gitattributes solves this by quoting; requiring a known vocabulary is chosen
+// instead because it cannot break an existing file (D5).
+//
+// The same rule means an unknown attribute is never silently dropped: the line
+// stays a pattern, which `gtb ignore check` will show matches nothing.
 func parseIgnoreRule(line string) ignoreRule {
 	rule := ignoreRule{raw: line}
+
+	line = splitRuleAttributes(line, &rule)
 
 	if strings.HasPrefix(line, "!") {
 		rule.negate = true
@@ -368,6 +532,43 @@ func parseIgnoreRule(line string) ignoreRule {
 	rule.pattern = line
 
 	return rule
+}
+
+// splitRuleAttributes strips a trailing run of known attributes off line,
+// recording them on rule, and returns the remaining pattern text. A line whose
+// trailing tokens are not all known attributes is returned unchanged, so it
+// stays a single pattern.
+func splitRuleAttributes(line string, rule *ignoreRule) string {
+	// A rule needs at least a pattern and one attribute to be splittable.
+	const minAttributedFields = 2
+
+	fields := strings.Fields(line)
+	if len(fields) < minAttributedFields {
+		return line
+	}
+
+	// Walk back over the trailing known attributes.
+	cut := len(fields)
+	for cut > 1 && isKnownAttribute(fields[cut-1]) {
+		cut--
+	}
+
+	if cut == len(fields) {
+		return line // nothing attribute-shaped at the end
+	}
+
+	for _, attr := range fields[cut:] {
+		sealed := attr == attrSealed
+		rule.sealed = &sealed
+	}
+
+	// Rejoin the pattern fields. A pattern containing whitespace is preserved
+	// because it can only reach here if the trailing tokens were attributes.
+	return strings.Join(fields[:cut], " ")
+}
+
+func isKnownAttribute(token string) bool {
+	return token == attrSealed || token == attrUnsealed
 }
 
 // matchesRule checks if a relative path matches a single ignore rule.

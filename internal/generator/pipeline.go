@@ -149,6 +149,12 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 		return nil
 	}
 
+	// Every child re-registers into this same parent cmd.go, so a sealed parent
+	// is checked once here rather than once per child.
+	if g.wiringSealed(filepath.Join(cmdDir, "cmd.go"), "re-registering child commands") {
+		return nil
+	}
+
 	// The child's parent path is: parentParts + [current command name]
 	childParentPath := append(append([]string{}, parentParts...), g.config.Name)
 

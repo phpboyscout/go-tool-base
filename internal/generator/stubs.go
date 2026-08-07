@@ -19,6 +19,10 @@ import (
 // silently leave the required function absent. Existing code is never modified or
 // removed. Any extra imports required by injected stubs are also inserted.
 func (g *Generator) ensureHookStubs(ctx context.Context, mainPath string, data templates.CommandData) error {
+	if g.wiringSealed(mainPath, "injecting hook stubs") {
+		return nil
+	}
+
 	src, err := afero.ReadFile(g.props.FS, mainPath)
 	if err != nil {
 		return errors.Newf("failed to read %s: %w", mainPath, err)

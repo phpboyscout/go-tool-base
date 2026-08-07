@@ -78,6 +78,7 @@ type pendingChildCheck struct {
 type conflictLog struct {
 	kept          []keptFile
 	ignored       []string
+	sealed        []string
 	pendingChecks []pendingChildCheck
 }
 
@@ -89,6 +90,19 @@ func (l *conflictLog) recordKeep(relPath, reason string) {
 	}
 
 	l.kept = append(l.kept, keptFile{RelPath: relPath, Reason: reason})
+}
+
+// recordSealed notes a wiring write refused because the path is sealed, so the
+// end-of-run summary can name the consequence rather than leaving it to a build
+// failure (D6).
+func (l *conflictLog) recordSealed(relPath string) {
+	for _, p := range l.sealed {
+		if p == relPath {
+			return
+		}
+	}
+
+	l.sealed = append(l.sealed, relPath)
 }
 
 func (l *conflictLog) recordIgnored(relPath string) {
@@ -112,20 +126,24 @@ func (l *conflictLog) wasKept(relPath string) bool {
 	return false
 }
 
-// annotate attaches a structural note to an already-recorded kept file.
-func (l *conflictLog) annotate(relPath, note string) {
+// annotate attaches a structural note to an already-recorded kept file,
+// reporting whether it found one to attach to.
+func (l *conflictLog) annotate(relPath, note string) bool {
 	for i, k := range l.kept {
 		if k.RelPath == relPath {
 			l.kept[i].Note = note
 
-			return
+			return true
 		}
 	}
+
+	return false
 }
 
 func (l *conflictLog) reset() {
 	l.kept = nil
 	l.ignored = nil
+	l.sealed = nil
 	l.pendingChecks = nil
 }
 
@@ -153,6 +171,33 @@ func (g *Generator) relProjectPath(fullPath string) string {
 	return filepath.ToSlash(rel)
 }
 
+// wiringSealed reports whether a localised, structure-aware write to fullPath is
+// forbidden, logging the skip when it is.
+//
+// This is the wiring half of spec 0188's split. A plain ignore rule does NOT
+// stop these writers, because the cost of refusing them is borne by the program
+// rather than by the file — in two different ways, both verified:
+//
+//   - refusing to register a subcommand still compiles, and the command is
+//     simply absent from the built CLI, which is worse than a build failure
+//     because nothing announces it;
+//   - refusing a hook stub leaves cmd.go referencing a function main.go never
+//     defines, which is a hard compile error.
+//
+// Only the explicit `sealed` attribute stops them (D2).
+func (g *Generator) wiringSealed(fullPath, what string) bool {
+	relPath := g.relProjectPath(fullPath)
+
+	if !g.ignoreRules().IsSealed(relPath) {
+		return false
+	}
+
+	g.props.Logger.Warn("sealed, not wired", "path", relPath, "skipped", what)
+	g.conflicts.recordSealed(relPath)
+
+	return true
+}
+
 // resolveConflict is the single conflict decision for both write paths — the
 // skeleton walk and the per-command registration files. It decides whether an
 // existing generated file may be overwritten, and what hash the manifest should
@@ -170,15 +215,12 @@ func (g *Generator) resolveConflict(fullPath, relPath, storedHash string, newCon
 		g.props.Logger.Debug("ignored by .gtb/ignore, leaving untouched", "path", relPath)
 		g.conflicts.recordIgnored(relPath)
 
-		// Track the hash of what is actually on disk, so removing the rule
-		// later resumes conflict detection against current content rather than
-		// against a baseline that predates every edit the rule allowed.
-		existing, err := afero.ReadFile(g.props.FS, fullPath)
-		if err != nil {
-			return conflictDecision{Outcome: conflictIgnored}
-		}
-
-		return conflictDecision{Outcome: conflictIgnored, RecordHash: calculateHash(existing)}
+		// The stored hash is preserved, NOT refreshed from disk (spec 0188 D9).
+		// Refreshing adopted the developer's edit as the new baseline, so
+		// removing the rule later found stored == disk, judged the file
+		// unmodified, and overwrote it with no conflict and no prompt. Keeping
+		// the old hash means un-ignoring raises a conflict and they are asked.
+		return conflictDecision{Outcome: conflictIgnored, RecordHash: storedHash}
 	}
 
 	existing, err := afero.ReadFile(g.props.FS, fullPath)
@@ -236,11 +278,11 @@ func (g *Generator) reportConflicts() {
 		g.props.Logger.Debug("ignored (covered by .gtb/ignore)", "path", path)
 	}
 
-	if len(kept) == 0 && len(ignored) == 0 {
+	if len(kept) == 0 && len(ignored) == 0 && len(g.conflicts.sealed) == 0 {
 		return
 	}
 
-	g.props.Logger.Info(pluraliseConflictSummary(len(ignored), len(kept)))
+	g.props.Logger.Info(pluraliseConflictSummary(len(ignored), len(kept), len(g.conflicts.sealed)))
 
 	sorted := append([]keptFile{}, kept...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].RelPath < sorted[j].RelPath })
@@ -258,8 +300,8 @@ func (g *Generator) reportConflicts() {
 }
 
 // pluraliseConflictSummary renders the one-line summary counts, e.g.
-// "3 files ignored, 1 file kept".
-func pluraliseConflictSummary(ignored, kept int) string {
+// "3 files ignored, 1 file kept, 1 file sealed".
+func pluraliseConflictSummary(ignored, kept, sealed int) string {
 	var parts []string
 
 	if ignored > 0 {
@@ -268,6 +310,10 @@ func pluraliseConflictSummary(ignored, kept int) string {
 
 	if kept > 0 {
 		parts = append(parts, fmt.Sprintf("%s kept", plural(kept, "file")))
+	}
+
+	if sealed > 0 {
+		parts = append(parts, fmt.Sprintf("%s sealed", plural(sealed, "file")))
 	}
 
 	return strings.Join(parts, ", ")
@@ -289,7 +335,11 @@ func (g *Generator) recordChildCheck(cmdDir string, cmd ManifestCommand) {
 	}
 
 	relPath := g.relProjectPath(filepath.Join(cmdDir, "cmd.go"))
-	if !g.conflicts.wasKept(relPath) {
+
+	// A sealed parent is checked for the same reason a kept one is: the
+	// developer is owed the consequence by name rather than a build failure.
+	sealed := g.ignoreRules().IsSealed(relPath)
+	if !g.conflicts.wasKept(relPath) && !sealed {
 		return
 	}
 
@@ -338,9 +388,26 @@ func (g *Generator) evaluateChildChecks() {
 			continue
 		}
 
-		g.conflicts.annotate(check.RelPath, fmt.Sprintf(
-			"%s in the manifest but not registered in the file you kept — the project may not build",
-			quotedList(missing)))
+		subject := "it"
+		if len(missing) > 1 {
+			subject = "they"
+		}
+
+		detail := fmt.Sprintf(
+			"%s in the manifest but not registered in the file you kept — %s will be missing from the CLI",
+			quotedList(missing), subject)
+		if g.ignoreRules().IsSealed(check.RelPath) {
+			detail = fmt.Sprintf(
+				"%s in the manifest but cannot be registered in a sealed file — %s will be missing from the CLI",
+				quotedList(missing), subject)
+		}
+
+		if !g.conflicts.annotate(check.RelPath, detail) {
+			// A sealed path is never "kept", so it has no summary entry to hang
+			// the note on. Say it directly instead of dropping it.
+			g.props.Logger.Warn("sealed file is out of step with the manifest",
+				"path", check.RelPath, "detail", detail)
+		}
 	}
 }
 

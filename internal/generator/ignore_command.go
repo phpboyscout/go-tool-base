@@ -28,6 +28,10 @@ type IgnoreCheckResult struct {
 	Matched bool   // whether any rule matched at all
 	Rule    string // the winning rule line as written (empty when Matched is false)
 	Negated bool   // whether the winning rule was a negation
+	// State is the resolved tier: managed, ignored or sealed. Ignored stays for
+	// the render question specifically; State is what distinguishes a path the
+	// generator may still wire from one it must not touch at all (spec 0188 D7).
+	State RuleState
 }
 
 // IgnoreListEntry is one tracked file and its ignore status, attributed to the
@@ -36,6 +40,7 @@ type IgnoreListEntry struct {
 	Path    string
 	Ignored bool
 	Rule    string // winning rule line (empty when no rule matched)
+	State   RuleState
 }
 
 // IgnoreListing is the resolved view `gtb ignore list` prints: every active
@@ -56,12 +61,15 @@ func (g *Generator) CheckIgnorePaths(paths []string) []IgnoreCheckResult {
 
 	for _, path := range paths {
 		rule, negated, matched := rules.Explain(path)
+		state := rules.State(path)
+
 		results = append(results, IgnoreCheckResult{
 			Path:    path,
-			Ignored: rules.IsIgnored(path),
+			Ignored: state != StateManaged,
 			Matched: matched,
 			Rule:    rule,
 			Negated: negated,
+			State:   state,
 		})
 	}
 
@@ -106,10 +114,13 @@ func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 
 		matchedRule[rule] = true
 
+		state := rules.State(path)
+
 		listing.Entries = append(listing.Entries, IgnoreListEntry{
 			Path:    path,
-			Ignored: rules.IsIgnored(path),
+			Ignored: state != StateManaged,
 			Rule:    rule,
+			State:   state,
 		})
 	}
 
@@ -120,6 +131,34 @@ func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 	}
 
 	return listing, nil
+}
+
+// SealedTrackedFiles returns the manifest-tracked files a `sealed` rule covers.
+//
+// They are reported separately from drift: a sealed path is not a file that has
+// wandered, it is one the generator has been told never to write. What makes it
+// worth surfacing is that sealing also blocks the wiring, so a sealed parent
+// silently loses any subcommand added since — the command compiles away to
+// nothing rather than failing loudly (spec 0188 D7).
+func (g *Generator) SealedTrackedFiles() ([]string, error) {
+	manifest, err := g.loadManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	rules := LoadIgnoreRules(g.props.FS, g.config.Path)
+
+	var sealed []string
+
+	for relPath := range manifest.TrackedFiles() {
+		if rules.IsSealed(relPath) {
+			sealed = append(sealed, relPath)
+		}
+	}
+
+	sort.Strings(sealed)
+
+	return sealed, nil
 }
 
 // DivergedUnignoredFiles returns the tracked files whose on-disk content no

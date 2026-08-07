@@ -138,9 +138,13 @@ func TestIssue13_OverwriteDenyKeepsAndContinues(t *testing.T) {
 	assert.True(t, exists)
 }
 
-// D4 — an ignore rule covering a command file suppresses the conflict entirely,
-// and the recorded hash tracks what is on disk so removing the rule later
-// resumes detection against current content.
+// D4 — an ignore rule covering a command file suppresses the conflict entirely.
+//
+// The hash assertion here originally required the recorded hash to track disk.
+// Spec 0188 D9 overrules that: adopting the on-disk content as the baseline is
+// what let `ignore add` → `ignore remove` destroy an edit silently. The stored
+// hash is now preserved, and TestSealed_IgnoringAPathDoesNotAdoptItsContentAsTheBaseline
+// guards it.
 func TestIssue13_IgnoreRuleGatesCommandFiles(t *testing.T) {
 	t.Setenv("GTB_NON_INTERACTIVE", "true")
 
@@ -155,8 +159,8 @@ func TestIssue13_IgnoreRuleGatesCommandFiles(t *testing.T) {
 	assert.False(t, buf.ContainsLevel(logger.WarnLevel, "conflict detected"),
 		"an ignored file must not raise a conflict at all, got: %v", buf.Messages())
 
-	assert.Equal(t, CalculateHash([]byte(issue13HandEdited)), alphaRecordedHash(t, fs),
-		"an ignored file's recorded hash tracks disk, so removing the rule resumes detection from current content")
+	assert.Equal(t, issue13StaleHash, alphaRecordedHash(t, fs),
+		"an ignored file keeps its stored hash (0188 D9), so un-ignoring still detects the edit")
 
 	exists, _ := afero.Exists(fs, "/work/pkg/cmd/beta/cmd.go")
 	assert.True(t, exists)
@@ -490,7 +494,7 @@ func TestIssue13_PreRenderSkeletonSkipsAreCounted(t *testing.T) {
 	g, fs, _ := newIssue13Project(t, "ask", "justfile\n")
 	require.NoError(t, afero.WriteFile(fs, "/work/justfile", []byte("hand-written\n"), 0o644))
 
-	g.hashIgnoredFile("/work", "justfile", map[string]string{})
+	g.hashIgnoredFile("justfile")
 
 	assert.Contains(t, g.conflicts.ignored, "justfile",
 		"a skeleton file skipped before render must still be counted as ignored")

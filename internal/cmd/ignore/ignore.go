@@ -45,6 +45,8 @@ Available subcommands:
 	group.Register(
 		newCmdIgnoreAdd(p),
 		newCmdIgnoreRemove(p),
+		newCmdIgnoreSeal(p),
+		newCmdIgnoreUnseal(p),
 		newCmdIgnoreList(p),
 		newCmdIgnoreCheck(p),
 	)
