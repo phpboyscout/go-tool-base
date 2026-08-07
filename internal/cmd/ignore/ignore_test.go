@@ -229,3 +229,24 @@ func TestPrintListing_EmptyRulesAndNoGovernedEntries(t *testing.T) {
 	assert.Contains(t, out.String(), "No tracked files are governed by an ignore rule.")
 	assert.Contains(t, out.String(), "stale rule (matches no tracked file): Dockerfile")
 }
+
+// Spec 0188 D7 — check must report the tier, since "not ignored" and "ignored"
+// can no longer describe the three states a path can be in.
+func TestPrintCheck_ReportsTheTier(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+
+	printCheck(&buf, []generator.IgnoreCheckResult{
+		{Path: "a.go", State: generator.StateManaged},
+		{Path: "b.go", State: generator.StateIgnored, Matched: true, Rule: "b.go"},
+		{Path: "c.go", State: generator.StateSealed, Matched: true, Rule: "c.go sealed"},
+	})
+
+	out := buf.String()
+	assert.Contains(t, out, "a.go")
+	assert.Contains(t, out, "managed")
+	assert.Contains(t, out, "ignored")
+	assert.Contains(t, out, "sealed")
+	assert.Contains(t, out, "(rule: c.go sealed)")
+}

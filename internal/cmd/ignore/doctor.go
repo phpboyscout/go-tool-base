@@ -39,14 +39,30 @@ func checkDivergedUnignored(_ context.Context, p *props.Props) setup.CheckResult
 		return setup.CheckResult{Name: name, Status: "skip", Message: "no .gtb/manifest.yaml in the current directory"}
 	}
 
+	// Sealed paths are counted, never listed as drift: they are not files that
+	// wandered, they are files the generator has been told not to write. The
+	// count is worth showing because sealing also blocks wiring, so a sealed
+	// parent quietly drops subcommands added since (spec 0188 D7).
+	sealed, _ := gen.SealedTrackedFiles()
+
 	if len(diverged) == 0 {
-		return setup.CheckResult{Name: name, Status: "pass", Message: "no diverged, unignored generated files"}
+		msg := "no diverged, unignored generated files"
+		if len(sealed) > 0 {
+			msg = fmt.Sprintf("%s (%d sealed)", msg, len(sealed))
+		}
+
+		return setup.CheckResult{Name: name, Status: "pass", Message: msg}
+	}
+
+	message := fmt.Sprintf("%d generated file(s) diverged and not ignored; regenerate will prompt on each", len(diverged))
+	if len(sealed) > 0 {
+		message = fmt.Sprintf("%s (%d sealed)", message, len(sealed))
 	}
 
 	return setup.CheckResult{
 		Name:    name,
 		Status:  "warn",
-		Message: fmt.Sprintf("%d generated file(s) diverged and not ignored; regenerate will prompt on each", len(diverged)),
+		Message: message,
 		Details: "mark them hands-off with 'gtb ignore add <path>': " + strings.Join(diverged, ", "),
 	}
 }

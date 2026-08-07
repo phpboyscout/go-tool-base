@@ -564,7 +564,7 @@ func (g *Generator) generateSkeletonTemplateFilesWithSources(destPath string, da
 
 	for relPath, tmplStr := range tmplFiles {
 		if rules.IsIgnored(relPath) {
-			g.hashIgnoredFile(destPath, relPath, collectedHashes)
+			g.hashIgnoredFile(relPath)
 
 			continue
 		}
@@ -639,7 +639,7 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 		// Check ignore rules — skip generation but hash on-disk content
 		if rules.IsIgnored(relPath) {
 			g.props.Logger.Debug("ignored by .gtb/ignore", "path", relPath)
-			g.hashIgnoredFile(destPath, relPath, collectedHashes)
+			g.hashIgnoredFile(relPath)
 
 			return nil
 		}
@@ -662,24 +662,26 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 	})
 }
 
-// hashIgnoredFile reads the current on-disk content of an ignored file and
-// records its hash. If the file doesn't exist on disk, it's skipped silently.
+// hashIgnoredFile notes an ignored file in the run's conflict log. These
+// skeleton paths are skipped before the template renders, so they never reach
+// the shared resolver — without this the end-of-run "N files ignored" count
+// silently omitted every one of them.
 //
-// It also records the file in the run's conflict log. These skeleton paths are
-// skipped before the template is rendered, so they never reach the shared
-// resolver — without this the end-of-run "N files ignored" count silently
-// omitted every one of them.
-func (g *Generator) hashIgnoredFile(destPath, relPath string, collectedHashes map[string]string) {
+// It deliberately does NOT refresh the stored hash from disk (spec 0188 D9).
+// Doing so made this sequence destroy work silently:
+//
+//	edit a generated file → gtb ignore add <path> → regenerate
+//	→ gtb ignore remove <path> → regenerate      # the edit is gone
+//
+// because on un-ignoring the recorded hash equalled the on-disk content, so the
+// file looked unmodified and was rewritten with no conflict and no prompt. That
+// is the same failure 0187 D3 forbids for kept files. The stored hash is left
+// exactly as it was, so un-ignoring raises a conflict and the developer is asked.
+//
+// A path ignored before it was ever tracked still has no hash; there is no
+// baseline to conflict against and inventing one would be a guess.
+func (g *Generator) hashIgnoredFile(relPath string) {
 	g.conflicts.recordIgnored(relPath)
-
-	fullPath := filepath.Join(destPath, relPath)
-
-	content, err := afero.ReadFile(g.props.FS, fullPath)
-	if err != nil {
-		return // file doesn't exist on disk — skip silently
-	}
-
-	collectedHashes[relPath] = calculateHash(content)
 }
 
 // renderAndHashSkeletonTemplate renders a template to disk, checking the

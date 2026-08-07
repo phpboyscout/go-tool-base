@@ -64,6 +64,12 @@ not compared, prompted about or written at all, and outranks both `--force` and
 `--overwrite allow`. To find diverged files before regenerating, run
 `gtb doctor`.
 
+A plain rule stops the file being **regenerated**. It does not stop the
+localised edits that wire a subcommand into its parent — refusing those would
+leave the command absent from the built CLI with nothing to say why. Add the
+`sealed` attribute (`gtb ignore seal <path>`) to forbid every write; the run
+then names what it could not register and still exits 0.
+
 ### `regenerate manifest`
 
 | Flag | Default | Description |

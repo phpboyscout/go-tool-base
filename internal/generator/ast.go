@@ -43,6 +43,10 @@ func (g *Generator) registerSubcommand() error {
 		return err
 	}
 
+	if g.wiringSealed(ctx.parentFile, "registering subcommand "+g.config.Name) {
+		return nil
+	}
+
 	g.props.Logger.Debug("reading parent command file", "path", ctx.parentFile)
 
 	fsrc, err := afero.ReadFile(g.props.FS, ctx.parentFile)
@@ -697,6 +701,10 @@ func (g *Generator) deregisterSubcommand() error {
 	ctx, err := g.prepareSubcommandContext()
 	if err != nil {
 		return err
+	}
+
+	if g.wiringSealed(ctx.parentFile, "deregistering subcommand "+g.config.Name) {
+		return nil
 	}
 
 	g.props.Logger.Debug("reading parent command file for deregistration", "path", ctx.parentFile)
