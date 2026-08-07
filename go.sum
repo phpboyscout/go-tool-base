@@ -471,8 +471,8 @@ gitlab.com/gitlab-org/api/client-go/v2 v2.55.1 h1:eX0iBhJ9GWP2XqQOH/pkmSvPosFS3r
 gitlab.com/gitlab-org/api/client-go/v2 v2.55.1/go.mod h1:6GcBiCVrZBtOvl6HiahZ3nq5eBs7JMUARJeLN4/RgZU=
 gitlab.com/phpboyscout/go/aferobilly v0.2.0 h1:Bnle+Jksy6RWwID4GA5QC4cBx3h23B8wn3kbggmLIcA=
 gitlab.com/phpboyscout/go/aferobilly v0.2.0/go.mod h1:3ubOzilL/4P//veSRIvqhzggvJmHqV9erhziaC4XOOk=
-gitlab.com/phpboyscout/go/authn v0.2.0 h1:N0CIrK4atKGXrJYzPoKBv2Ps24x14Q7ByEoaLdDe1jo=
-gitlab.com/phpboyscout/go/authn v0.2.0/go.mod h1:KiSUrA1aregP2apaE0JKt7DLn9uV/e3dwVJSVZ2crMQ=
+gitlab.com/phpboyscout/go/authn v0.2.1 h1:GAAuDRW7Q90Ff6PMn699cDn1qaekEX0M1TatwLJ7M3Q=
+gitlab.com/phpboyscout/go/authn v0.2.1/go.mod h1:5O8JliWpEr6vNBGU6SxbkAN18XO1W6kWXgttGRnXzzY=
 gitlab.com/phpboyscout/go/browser v0.2.1 h1:h+AdBLoamhnLsbgNdG6Ua0Gir+TUaZlvrz1pFAAOVM0=
 gitlab.com/phpboyscout/go/browser v0.2.1/go.mod h1:0sCwwbE0Z3HG+hgYMyem9UADjFlc58lLSNZ2mB8fAts=
 gitlab.com/phpboyscout/go/changelog v0.2.1 h1:jGjo8mtpDD+psqPVBfKntwkK0b7OaUWb64yvWS8+bBY=
@@ -497,8 +497,8 @@ gitlab.com/phpboyscout/go/errorhandling v0.3.0 h1:mRpbLiQFqj+1P9ocvQTgTMDX0N3cUX
 gitlab.com/phpboyscout/go/errorhandling v0.3.0/go.mod h1:czdB/NQMmcg9Yu3Na/1AC/UfqQkc4ZEjCXgxkzkt2KE=
 gitlab.com/phpboyscout/go/errors v0.2.0 h1:m/I+1oI2Qr77JBAVUvIsj7bNnExh+/yrdfHLmVg4nUg=
 gitlab.com/phpboyscout/go/errors v0.2.0/go.mod h1:PXvnIO9P3Vanx1n0KYGr5s0rD0eKrrKBdbNfWUQWDjw=
-gitlab.com/phpboyscout/go/forge v0.10.0 h1:GFrrzapXNlx+I39xG47Wek9Awvpo1VjqbMKjFjfGn+0=
-gitlab.com/phpboyscout/go/forge v0.10.0/go.mod h1:udwEap3omuL7K0MbDKv8WdFGEwKcIbqMy1T2EPmYSSM=
+gitlab.com/phpboyscout/go/forge v0.11.0 h1:/YUUQ/co7z0eTNf+AzX2XmnGBeAr8BiTJnOhZqIopTo=
+gitlab.com/phpboyscout/go/forge v0.11.0/go.mod h1:udwEap3omuL7K0MbDKv8WdFGEwKcIbqMy1T2EPmYSSM=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4 h1:PR0mpPp54SNEKGlnsFoU5+5WVg73Un0dwUcNpXv32xI=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4/go.mod h1:NdfpoMLnHxIOJg2hVDaaXuLRWMwVRGYBsFfabHDGBrQ=
 gitlab.com/phpboyscout/go/forge-gitea v0.9.0 h1:EVCcWEtPr4zRy7qjPGH/jmkvBo0Z+BP209oTxKpFNuM=
@@ -507,8 +507,8 @@ gitlab.com/phpboyscout/go/forge-github v0.7.0 h1:HCep4A/NB0y3hsHappyiXC8j22KGwo9
 gitlab.com/phpboyscout/go/forge-github v0.7.0/go.mod h1:a1KXyCugpxx+xUmJQGPTWKQfW7LIdnZaZiwP7FEgS2A=
 gitlab.com/phpboyscout/go/forge-gitlab v0.7.0 h1:uRZYvNoetJvlT8c1ZAwqmas6tncXAzvGOjl6DiaPdp8=
 gitlab.com/phpboyscout/go/forge-gitlab v0.7.0/go.mod h1:KTUizRPpTk1FsYO5GsyiXwEtX2PRD0eb0Z1kQy4lR04=
-gitlab.com/phpboyscout/go/grpcclient v0.2.0 h1:OvsKMT8bDP0w+KSkWtN9Okfu0w/D/InVC/0E1/hILNg=
-gitlab.com/phpboyscout/go/grpcclient v0.2.0/go.mod h1:wxQhrAyeWtkSwb8KiEptA3U0yjubIED85gptLdxVDtA=
+gitlab.com/phpboyscout/go/grpcclient v0.2.1 h1:CuCVzodFFAgsaZoe9g7b9tdhz12xMUVAY4DVluEWGBE=
+gitlab.com/phpboyscout/go/grpcclient v0.2.1/go.mod h1:866gJ78pe/76n8/uiR6hUTnpbNb1FEn9YrYyn56t+V8=
 gitlab.com/phpboyscout/go/httpclient v0.2.2 h1:+BiDG5JHynFnNum9M1ElFPpOy1OONCTCiv5vok5COGk=
 gitlab.com/phpboyscout/go/httpclient v0.2.2/go.mod h1:uSFgcZYK6XmrPw1AOXyRuxYCg82V+udNPOH+dVw5MVw=
 gitlab.com/phpboyscout/go/observability v0.3.1 h1:0cwyX1VArknyYcQmOzLAXX+H6Xg/9DFcWHy9vmd+pUs=
@@ -531,8 +531,8 @@ gitlab.com/phpboyscout/go/tls v0.2.1 h1:YaEVXYy650PMvi8bSXmGVB44wC3ERamk70T/k2nx
 gitlab.com/phpboyscout/go/tls v0.2.1/go.mod h1:g3yjpOVOx2ObtiEZJQzP+dgBqSjB+lmlEZfmDWXgQp0=
 gitlab.com/phpboyscout/go/transit v0.2.2 h1:UXJD6j33USeY/CLmmJukJkmg9MzLA0p9GjpvC7Adfb8=
 gitlab.com/phpboyscout/go/transit v0.2.2/go.mod h1:KP2vgRYCD5HXXt7++mKInUr+ezzH3T8KA1l9k3YoAJg=
-gitlab.com/phpboyscout/go/transport v0.5.3 h1:ezQsXx97BwkTBSYfGTaEyAYRCJ4ly8C6/cGAt1pUs4s=
-gitlab.com/phpboyscout/go/transport v0.5.3/go.mod h1:VP+nV373LJgr9GzsuwDGUQn8d74RlqhsJcy1Ugl5t2M=
+gitlab.com/phpboyscout/go/transport v0.6.0 h1:GsUlfRnmWWllmPgPElsurGLAhdhuANrSIE2hzd3o1t0=
+gitlab.com/phpboyscout/go/transport v0.6.0/go.mod h1:SOfz1g9kn8pmN1HGKH+eKvgveQFQc7u1uOuVZalXK/c=
 gitlab.com/phpboyscout/go/workspace v0.2.1 h1:AkpyNazOtNyy2gMkmATxhkW3QPpDNNbdBUxJzETv2FQ=
 gitlab.com/phpboyscout/go/workspace v0.2.1/go.mod h1:eBokug0mQ/9RcpO3u1TIUTz7VQeM7oLljCRJ6KEx0/0=
 gitlab.com/phpboyscout/go/yamldoc v0.2.0 h1:Rdcb+hmD5YOcp/RS9ITH4WOyqpfItT0pAy7wXXiM3JA=

@@ -41,7 +41,7 @@ require (
 	gitlab.com/phpboyscout/go/credentials v0.3.1
 	gitlab.com/phpboyscout/go/errorhandling v0.3.0
 	gitlab.com/phpboyscout/go/errors v0.2.0
-	gitlab.com/phpboyscout/go/forge v0.10.0
+	gitlab.com/phpboyscout/go/forge v0.11.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4
 	gitlab.com/phpboyscout/go/forge-gitea v0.9.0
 	gitlab.com/phpboyscout/go/forge-github v0.7.0
@@ -56,7 +56,7 @@ require (
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.4.2
 	gitlab.com/phpboyscout/go/tls v0.2.1
 	gitlab.com/phpboyscout/go/transit v0.2.2
-	gitlab.com/phpboyscout/go/transport v0.5.3
+	gitlab.com/phpboyscout/go/transport v0.6.0
 	gitlab.com/phpboyscout/go/workspace v0.2.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.19.0
 	go.opentelemetry.io/otel v1.44.0
@@ -245,8 +245,8 @@ require (
 	github.com/zalando/go-keyring v0.2.8 // indirect
 	gitlab.com/gitlab-org/api/client-go/v2 v2.55.1 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.0 // indirect
-	gitlab.com/phpboyscout/go/authn v0.2.0 // indirect
-	gitlab.com/phpboyscout/go/grpcclient v0.2.0 // indirect
+	gitlab.com/phpboyscout/go/authn v0.2.1 // indirect
+	gitlab.com/phpboyscout/go/grpcclient v0.2.1 // indirect
 	gitlab.com/phpboyscout/go/signing-cli v0.5.0
 	gitlab.com/phpboyscout/go/yamldoc v0.2.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
