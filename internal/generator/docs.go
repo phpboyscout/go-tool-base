@@ -288,6 +288,10 @@ func (g *Generator) writeAIDocs(ctx context.Context, client gochat.ChatClient, c
 		return errors.Newf("generated documentation is not frontmatter-first")
 	}
 
+	if g.docPathIgnored(outputPath) {
+		return nil
+	}
+
 	docsDir := filepath.Dir(outputPath)
 	if err := g.props.FS.MkdirAll(docsDir, os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to create docs directory")
@@ -501,7 +505,28 @@ func appendSubcommandsTable(sb *strings.Builder, fullCmdName string, cmd *Manife
 	sb.WriteString("\n")
 }
 
+// docPathIgnored reports whether a documentation output path is covered by a
+// .gtb/ignore rule. The commands index has consulted the rules since issue #6,
+// but the per-command pages never did — a project ignoring `docs/**` still had
+// a full docs tree written into it on every run. It was rarely observed because
+// a drifted project aborted before reaching the docs step (issue #13).
+func (g *Generator) docPathIgnored(outputPath string) bool {
+	relPath := g.relProjectPath(outputPath)
+
+	if !g.ignoreRules().IsIgnored(relPath) {
+		return false
+	}
+
+	g.props.Logger.Debug("documentation ignored by .gtb/ignore; leaving as-is", "path", relPath)
+
+	return true
+}
+
 func (g *Generator) writeDocFile(outputPath string, content []byte) error {
+	if g.docPathIgnored(outputPath) {
+		return nil
+	}
+
 	docsDir := filepath.Dir(outputPath)
 	if err := g.props.FS.MkdirAll(docsDir, os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to create docs directory")
@@ -1390,6 +1415,14 @@ func (g *Generator) generateDocs() error {
 
 	// Create directory for the command
 	docsDir = filepath.Join(docsDir, g.config.Name)
+
+	// This legacy fallback writes straight to the filesystem rather than
+	// through writeDocFile, so it needs the ignore check of its own — it is the
+	// path that actually runs whenever GenerateDocs errors, which on a project
+	// with many commands is every command.
+	if g.docPathIgnored(filepath.Join(docsDir, "index.md")) {
+		return nil
+	}
 
 	if err := g.props.FS.MkdirAll(docsDir, os.ModePerm); err != nil {
 		return errors.Wrap(err, "failed to create docs directory")

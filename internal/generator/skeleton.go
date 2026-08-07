@@ -370,6 +370,18 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 	}
 
 	for relPath := range writtenKeys {
+		// A file the developer kept was never written, so re-hashing it here
+		// would adopt their edit as the new baseline: the divergence would be
+		// forgotten and the next run would overwrite it without asking —
+		// precisely what preserving the stored hash exists to prevent (0187 D3).
+		// writtenKeys is the manifest's whole skeleton map, not just this run's
+		// writes, so the kept paths have to be excluded explicitly.
+		if g.conflicts.wasKept(relPath) {
+			g.props.Logger.Debug("not refreshing hash for a file you kept", "path", relPath)
+
+			continue
+		}
+
 		content, readErr := afero.ReadFile(g.props.FS, filepath.Join(projectPath, relPath))
 		if readErr != nil {
 			// File removed by post-processing; drop it from tracking.
@@ -652,7 +664,14 @@ func (g *Generator) walkSkeletonAssets(fsys fs.FS, assetRoot, destPath string, d
 
 // hashIgnoredFile reads the current on-disk content of an ignored file and
 // records its hash. If the file doesn't exist on disk, it's skipped silently.
+//
+// It also records the file in the run's conflict log. These skeleton paths are
+// skipped before the template is rendered, so they never reach the shared
+// resolver — without this the end-of-run "N files ignored" count silently
+// omitted every one of them.
 func (g *Generator) hashIgnoredFile(destPath, relPath string, collectedHashes map[string]string) {
+	g.conflicts.recordIgnored(relPath)
+
 	fullPath := filepath.Join(destPath, relPath)
 
 	content, err := afero.ReadFile(g.props.FS, fullPath)

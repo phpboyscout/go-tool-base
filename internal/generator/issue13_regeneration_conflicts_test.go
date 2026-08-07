@@ -399,3 +399,99 @@ func TestIssue13_DryRunDoesNotClaimAManifestWrite(t *testing.T) {
 	assert.False(t, buf.ContainsLevel(logger.DebugLevel, "manifest updated successfully"),
 		"a dry run must not report the manifest as updated, got: %v", buf.Messages())
 }
+
+// D3 on the skeleton path — post-run hash refresh must not adopt a kept file's
+// content as the new baseline. `collectSkeletonHashes` hands
+// `refreshProjectFileHashes` the manifest's whole skeleton map, not just this
+// run's writes, so without an explicit exclusion a kept file's divergence is
+// forgotten and the next run overwrites it without asking.
+func TestIssue13_KeptSkeletonFileKeepsItsStoredHashAfterPostProcessing(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newPerimeterTestProject(t, issue13Manifest)
+
+	const rel = "justfile"
+
+	stored := "cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe"
+	require.NoError(t, afero.WriteFile(fs, "/work/"+rel, []byte("hand-edited\n"), 0o644))
+
+	m := readIssue13Manifest(t, fs)
+	m.Hashes = map[string]string{rel: stored}
+	raw, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	require.NoError(t, afero.WriteFile(fs, "/work/.gtb/manifest.yaml", raw, 0o644))
+
+	g.conflicts.recordKeep(rel, keepReasonDeclined)
+
+	require.NoError(t, g.refreshProjectFileHashes("/work", map[string]string{rel: stored}))
+
+	assert.Equal(t, stored, readIssue13Manifest(t, fs).Hashes[rel],
+		"a kept file must keep its stored hash, so it still conflicts next run")
+}
+
+// An ignore rule must gate the per-command documentation pages, not just the
+// commands index. A project ignoring docs/** had a full docs tree written into
+// it regardless; the abort simply hid it on a drifted project.
+func TestIssue13_IgnoredDocsAreNotWritten(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newIssue13Project(t, "ask", "docs/**\n")
+
+	require.NoError(t, g.writeDocFile("/work/docs/commands/alpha/index.md", []byte("generated\n")))
+
+	exists, _ := afero.Exists(fs, "/work/docs/commands/alpha/index.md")
+	assert.False(t, exists, "an ignored documentation path must not be written")
+}
+
+func TestIssue13_UnignoredDocsAreStillWritten(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newIssue13Project(t, "ask", "docs/reference/**\n")
+
+	require.NoError(t, g.writeDocFile("/work/docs/commands/alpha/index.md", []byte("generated\n")))
+
+	exists, _ := afero.Exists(fs, "/work/docs/commands/alpha/index.md")
+	assert.True(t, exists, "a rule that does not cover the path must not suppress the write")
+}
+
+// The legacy boilerplate fallback writes straight to the filesystem rather than
+// through writeDocFile, and it is the path that actually runs whenever
+// GenerateDocs errors — on keryx, for every one of 67 commands. It needs the
+// ignore check of its own.
+func TestIssue13_LegacyDocsFallbackHonoursIgnore(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newIssue13Project(t, "ask", "docs/**\n")
+	g.config.Name = "alpha"
+
+	require.NoError(t, g.generateDocs())
+
+	exists, _ := afero.Exists(fs, "/work/docs/commands/alpha/index.md")
+	assert.False(t, exists, "the legacy docs fallback must honour .gtb/ignore too")
+}
+
+func TestIssue13_LegacyDocsFallbackWritesWhenNotIgnored(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newIssue13Project(t, "ask", "")
+	g.config.Name = "alpha"
+
+	require.NoError(t, g.generateDocs())
+
+	exists, _ := afero.Exists(fs, "/work/docs/commands/alpha/index.md")
+	assert.True(t, exists, "an unignored docs path must still be written")
+}
+
+// Skeleton files are skipped before their template renders, so they never reach
+// the shared resolver. They must still be counted in the run summary.
+func TestIssue13_PreRenderSkeletonSkipsAreCounted(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newIssue13Project(t, "ask", "justfile\n")
+	require.NoError(t, afero.WriteFile(fs, "/work/justfile", []byte("hand-written\n"), 0o644))
+
+	g.hashIgnoredFile("/work", "justfile", map[string]string{})
+
+	assert.Contains(t, g.conflicts.ignored, "justfile",
+		"a skeleton file skipped before render must still be counted as ignored")
+}
