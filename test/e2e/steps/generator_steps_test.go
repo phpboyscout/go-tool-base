@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/cucumber/godog"
 
@@ -19,10 +20,77 @@ type generatorWorldKey struct{}
 type generatorWorld struct {
 	binaryPath string
 	projectDir string
-	stdout     string
-	stderr     string
-	exitCode   int
+	// configDir isolates HOME for every gtb invocation in the scenario.
+	configDir string
+	stdout    string
+	stderr    string
+	exitCode  int
 }
+
+// isolatedEnv returns the environment for a gtb invocation: the real
+// environment with HOME redirected at the scenario's own directory.
+//
+// Without this the generator steps resolve the *developer's* gtb config, and
+// that silently changes which code path runs. `GenerateDocs` branches on
+// whether an AI chat provider is configured: with none (CI) it writes
+// boilerplate through writeDocFile and updates the commands index; with one
+// configured but unreachable (a dev machine) the AI call fails and the legacy
+// fallback runs instead, writing elsewhere and never touching the index. A
+// defect on the first path is then invisible locally and red in CI — which is
+// exactly how the commands-index hash bug reached a green `just ci` and failed
+// the pipeline (!371). The cli and signal steps have always isolated HOME; the
+// generator steps had not.
+//
+// Only gtb's *configuration* is isolated. Every build cache is pinned back to
+// the real one, because they all live under HOME and letting them move makes
+// each scenario pay for a cold cache:
+//
+//   - GOMODCACHE — every scaffolded project re-downloads its dependencies;
+//   - GOCACHE — every compile starts from nothing;
+//   - GOLANGCI_LINT_CACHE — the generator runs `golangci-lint run --fix` as
+//     post-processing, and a cold lint cache costs ~11s *per scenario*. This one
+//     is easy to miss: the Go caches are obvious, and lint is invisible until
+//     the suite quietly takes four times as long.
+//
+// Measured: isolating HOME without pinning these took the generator suite from
+// 193s to 809s, and the cost landed on every scenario that regenerates and none
+// of the pure-CLI ones.
+func (w *generatorWorld) isolatedEnv() []string {
+	env := append(os.Environ(), "HOME="+w.configDir)
+
+	for name, value := range sharedCaches() {
+		env = append(env, name+"="+value)
+	}
+
+	return env
+}
+
+// sharedCaches resolves the cache locations once per test binary; resolving them
+// per invocation would spawn `go env` for every gtb command the suite runs.
+var sharedCaches = sync.OnceValue(func() map[string]string {
+	resolved := map[string]string{}
+
+	for _, name := range []string{"GOMODCACHE", "GOCACHE"} {
+		out, err := exec.Command("go", "env", name).Output() //nolint:gosec // test-only: name is a package constant
+		if err != nil {
+			continue
+		}
+
+		if v := strings.TrimSpace(string(out)); v != "" {
+			resolved[name] = v
+		}
+	}
+
+	// golangci-lint has no `go env` equivalent: honour an explicit override,
+	// otherwise its documented default under the real HOME.
+	if v := os.Getenv("GOLANGCI_LINT_CACHE"); v != "" {
+		resolved["GOLANGCI_LINT_CACHE"] = v
+	} else if home, err := os.UserHomeDir(); err == nil {
+		resolved["GOLANGCI_LINT_CACHE"] = filepath.Join(home, ".cache", "golangci-lint")
+	}
+
+	return resolved
+})
 
 func getGeneratorWorld(ctx context.Context) *generatorWorld {
 	return ctx.Value(generatorWorldKey{}).(*generatorWorld)
@@ -30,13 +98,22 @@ func getGeneratorWorld(ctx context.Context) *generatorWorld {
 
 func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
-		return context.WithValue(ctx, generatorWorldKey{}, &generatorWorld{}), nil
+		configDir, err := os.MkdirTemp("", "gtb-e2e-home-*")
+		if err != nil {
+			return ctx, fmt.Errorf("create isolated HOME: %w", err)
+		}
+
+		return context.WithValue(ctx, generatorWorldKey{}, &generatorWorld{configDir: configDir}), nil
 	})
 
 	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		w := getGeneratorWorld(ctx)
 		if w.projectDir != "" {
 			_ = os.RemoveAll(w.projectDir)
+		}
+
+		if w.configDir != "" {
+			_ = os.RemoveAll(w.configDir)
 		}
 
 		return ctx, nil
@@ -204,6 +281,7 @@ func scaffoldProject(ctx context.Context, dirPattern string, extraArgs ...string
 
 	cmd := exec.CommandContext(ctx, path, args...) //nolint:gosec // test-only: args from Gherkin steps
 	cmd.Dir = dir
+	cmd.Env = w.isolatedEnv()
 
 	recordRun(w, cmd)
 
@@ -328,6 +406,7 @@ func iRunGTBInTheProjectWith(ctx context.Context, args string) context.Context {
 
 	cmd := exec.CommandContext(ctx, w.binaryPath, parts...) //nolint:gosec // test-only: args from Gherkin steps
 	cmd.Dir = w.projectDir
+	cmd.Env = w.isolatedEnv()
 
 	recordRun(w, cmd)
 
