@@ -72,6 +72,11 @@ func (g *Generator) CheckIgnorePaths(paths []string) []IgnoreCheckResult {
 // in the manifest: each tracked file is attributed to its winning rule, and any
 // rule matching no tracked file is surfaced as stale. It errors when no
 // manifest exists (there is nothing to resolve against).
+//
+// "Tracked" means Manifest.TrackedFiles — both hash namespaces. Resolving
+// against the project-level map alone made a live rule covering a command's
+// cmd.go report as stale while `ignore check` reported the same path ignored
+// (issue #13).
 func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 	manifest, err := g.loadManifest()
 	if err != nil {
@@ -84,8 +89,10 @@ func (g *Generator) ListIgnoreRules() (*IgnoreListing, error) {
 
 	matchedRule := make(map[string]bool, len(listing.Rules))
 
-	tracked := make([]string, 0, len(manifest.Hashes))
-	for path := range manifest.Hashes {
+	files := manifest.TrackedFiles()
+
+	tracked := make([]string, 0, len(files))
+	for path := range files {
 		tracked = append(tracked, path)
 	}
 
@@ -130,7 +137,7 @@ func (g *Generator) DivergedUnignoredFiles() ([]string, error) {
 
 	var diverged []string
 
-	for relPath, storedHash := range manifest.Hashes {
+	for relPath, storedHash := range manifest.TrackedFiles() {
 		if storedHash == "" || rules.IsIgnored(relPath) {
 			continue
 		}

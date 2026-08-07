@@ -55,9 +55,11 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the generated "([^"]*)" file exists$`, theGeneratedFileExists)
 	ctx.Step(`^the generated "([^"]*)" file does not exist$`, theGeneratedFileDoesNotExist)
 	ctx.Step(`^the project output contains "([^"]*)"$`, theProjectOutputContains)
+	ctx.Step(`^the project output does not contain "([^"]*)"$`, theProjectOutputDoesNotContain)
 	ctx.Step(`^the project manifest contains "([^"]*)"$`, theProjectManifestContains)
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
+	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
 }
 
 // aGTBProjectWithACommandWithMetadata scaffolds a minimal-but-valid gtb
@@ -301,6 +303,23 @@ commands:
 	return ctx, nil
 }
 
+// iHandEditTheGeneratedFile appends a marker comment to a generated file so its
+// on-disk content no longer matches the hash the manifest recorded — the drift
+// that used to make `regenerate project` unable to finish (issue #13).
+func iHandEditTheGeneratedFile(ctx context.Context, relPath string) error {
+	w := getGeneratorWorld(ctx)
+
+	full := filepath.Join(w.projectDir, relPath)
+
+	content, err := os.ReadFile(full) //nolint:gosec // test-only: path from a Gherkin step
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
+	return os.WriteFile(full, append(content, []byte("\n// hand-edited, do not clobber\n")...), 0o644)
+}
+
 func iRunGTBInTheProjectWith(ctx context.Context, args string) context.Context {
 	w := getGeneratorWorld(ctx)
 
@@ -394,6 +413,16 @@ func theProjectOutputContains(ctx context.Context, substr string) error {
 
 	if !strings.Contains(w.stdout, substr) && !strings.Contains(w.stderr, substr) {
 		return fmt.Errorf("expected project output to contain %q\nstdout: %s\nstderr: %s", substr, w.stdout, w.stderr)
+	}
+
+	return nil
+}
+
+func theProjectOutputDoesNotContain(ctx context.Context, substr string) error {
+	w := getGeneratorWorld(ctx)
+
+	if strings.Contains(w.stdout, substr) || strings.Contains(w.stderr, substr) {
+		return fmt.Errorf("expected project output not to contain %q\nstdout: %s\nstderr: %s", substr, w.stdout, w.stderr)
 	}
 
 	return nil

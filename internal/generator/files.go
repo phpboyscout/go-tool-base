@@ -141,13 +141,10 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 	content := buf.Bytes()
 	newHash := calculateHash(content)
 
-	// Check if file exists to perform hash verification
-	if exists, _ := afero.Exists(g.props.FS, cmdPath); exists {
-		g.props.Logger.Debug("verifying hash for existing file", "path", cmdPath)
-
-		if err := g.verifyHash(cmdPath); err != nil {
-			return "", err
-		}
+	if decision := g.resolveCommandFileConflict(cmdPath, content); !decision.Write() {
+		// Kept or ignored: leave the file alone and carry on. The recorded
+		// hash is the resolver's, not this render's — see D3/D4 of spec 0187.
+		return decision.RecordHash, nil
 	}
 
 	g.props.Logger.Debug("writing registration file", "path", cmdPath, "bytes", len(content), "hash", newHash)
@@ -302,13 +299,8 @@ func (g *Generator) generateInitializerFile(cmdDir string, data templates.Comman
 
 	content := buf.Bytes()
 
-	// Check if file exists to perform hash verification
-	if exists, _ := afero.Exists(g.props.FS, cmdPath); exists {
-		g.props.Logger.Debug("verifying hash for existing file", "path", cmdPath)
-
-		if err := g.verifyHash(cmdPath); err != nil {
-			return "", err
-		}
+	if decision := g.resolveCommandFileConflict(cmdPath, content); !decision.Write() {
+		return decision.RecordHash, nil
 	}
 
 	out, err := g.props.FS.Create(cmdPath)
@@ -340,13 +332,8 @@ func (g *Generator) generateTestFile(ctx context.Context, cmdDir string, data te
 
 	g.props.Logger.Debug("generating test file", "path", testPath)
 
-	// Check if file exists to perform hash verification
-	if exists, _ := afero.Exists(g.props.FS, testPath); exists {
-		g.props.Logger.Debug("verifying hash for existing file", "path", testPath)
-
-		if err := g.verifyHash(testPath); err != nil {
-			return "", err
-		}
+	if decision := g.resolveCommandFileConflict(testPath, []byte(data.TestCode)); !decision.Write() {
+		return decision.RecordHash, nil
 	}
 
 	out, err := g.props.FS.Create(testPath)

@@ -129,6 +129,12 @@ type Generator struct {
 	// local-remote/fake; production wires the real provider-aware clone via
 	// WithTemplateClone / EnableRealTemplateClone.
 	cloneTemplate templateCloneFunc
+	// rules caches the project's .gtb/ignore for the run, so both write paths
+	// resolve against the same set. Loaded lazily by ignoreRules.
+	rules *IgnoreRules
+	// conflicts accumulates the files this run left alone, for the
+	// end-of-run summary. Reset at the start of each regeneration.
+	conflicts conflictLog
 }
 
 // WithTemplateClone injects the git template-source clone implementation.

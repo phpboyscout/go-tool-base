@@ -160,13 +160,11 @@ func TestIssue6_ConflictPrompt_NonInteractiveEmitsTTYNoise(t *testing.T) {
 	// Stored hash differs from on-disk content -> conflict.
 	storedHashes := map[string]string{rel: calculateHash([]byte("original template content\n"))}
 
-	type outcome struct {
-		err error
-	}
-	done := make(chan outcome, 1)
+	done := make(chan struct{}, 1)
 
 	go func() {
-		done <- outcome{err: g.checkSkeletonConflict(full, rel, []byte("incoming template content\n"), storedHashes)}
+		g.resolveConflict(full, rel, storedHashes[rel], []byte("incoming template content\n"))
+		done <- struct{}{}
 	}()
 
 	select {

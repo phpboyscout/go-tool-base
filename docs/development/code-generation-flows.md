@@ -68,7 +68,7 @@ flowchart TD
     %% ── Shared command pipeline ───────────────────────────────────
     subgraph SHARED ["⬡  Shared command pipeline  (generate command + regenerate project)"]
         PERF["performGeneration()"]
-        GCF["GenerateCommandFile()\n├ generateRegistrationFile() → cmd.go\n│  └ verifyHash()\n├ handleExecutionFile() → main.go\n│  └ ensureHookStubs() if exists\n└ handleInitializerFile() → init.go"]
+        GCF["GenerateCommandFile()\n├ generateRegistrationFile() → cmd.go\n│  └ resolveCommandFileConflict()\n├ handleExecutionFile() → main.go\n│  └ ensureHookStubs() if exists\n└ handleInitializerFile() → init.go"]
         POST["postGenerate()\n↳ CommandPipeline.Run()"]
         PIPE["CommandPipeline steps\n1. generateAssetFiles()  (if WithAssets)\n2. registerSubcommand() + updateParentCmdHash()\n3. reRegisterChildCommands()\n4. updateManifest()\n5. handleDocumentationGeneration()"]
     end
@@ -175,7 +175,7 @@ This is the second intersection. Every command that writes individual command fi
 performGeneration(ctx, cmdDir, data)             [commands.go]
   └─ GenerateCommandFile(ctx, cmdDir, data)       [files.go]
        ├─ generateRegistrationFile()   → cmd.go   (Jennifer AST → Go source)
-       │    └─ verifyHash()            → guards user-modified files
+       │    └─ resolveCommandFileConflict()  → guards user-modified files
        ├─ handleExecutionFile()        → main.go  (create new OR inject stubs into existing)
        │    └─ ensureHookStubs()
        └─ handleInitializerFile()      → init.go  (create OR delete based on WithInitializer)
@@ -286,7 +286,7 @@ These functions are called by more than one command path.
 | `performGeneration()` | `commands.go` | generate command, regenerate project |
 | `GenerateCommandFile()` | `files.go` | generate command, regenerate project |
 | `generateRegistrationFile()` | `files.go` | generate command, regenerate project |
-| `verifyHash()` | `hash.go` | generate command, regenerate project |
+| `resolveCommandFileConflict()` → `resolveConflict()` | `hash.go` / `conflict.go` | generate command, regenerate project |
 | `handleExecutionFile()` | `files.go` | generate command, regenerate project |
 | `ensureHookStubs()` | `stubs.go` | generate command, regenerate project |
 | `handleInitializerFile()` | `files.go` | generate command, regenerate project |
@@ -341,7 +341,8 @@ The `internal/generator` package is split into focused files:
 | `context.go` | `CommandContext` value type, `buildCommandContext`, `ToConfig` |
 | `files.go` | `GenerateCommandFile`, `generateRegistrationFile`, `handleExecutionFile`, `handleInitializerFile`, `generateAssetFiles` |
 | `stubs.go` | `ensureHookStubs`, `ensureImport` |
-| `hash.go` | `calculateHash`, `verifyHash`, `promptOverwrite` |
+| `hash.go` | `calculateHash`, `resolveCommandFileConflict`, `promptOverwrite` |
+| `conflict.go` | `resolveConflict` (the shared decision), `conflictDecision`, `conflictLog`, `reportConflicts`, `isNonInteractive`, `recordChildCheck` |
 | `regenerate.go` | `RegenerateProject`, `regenerateCommandRecursive`, `regenerateRootCommand`, `buildSkeletonRootData`, `buildSkeletonSubcommands`, `regenerateSkeletonFiles`, `persistProjectHashes` |
 | `removal.go` | `Remove`, `performRemoval`, `cleanupDocumentation` |
 | `manifest.go` | `Manifest` types, `loadManifest`, `MarshalYAML` implementations |
@@ -371,7 +372,11 @@ The `internal/generator` package is split into focused files:
 
 **Project skeleton files are now hash-tracked and protected.** `Manifest.Hashes` (top-level `map[string]string`, keyed by relative file path) records the SHA256 of every file written by `generateSkeletonTemplateFiles`. Before overwriting any existing file, `renderAndHashSkeletonTemplate` compares the current content hash against the stored value. A mismatch means the user has customised the file — the generator prompts before overwriting and skips non-interactively. Both `generate project` (via `writeSkeletonManifest`) and `regenerate project` (via `persistProjectHashes`) update `Manifest.Hashes` after each run, so customisation state is tracked across invocations.
 
-**The conflict prompt is TTY-guarded.** `promptOverwrite` (`hash.go`) resolves a conflict by policy — `--overwrite=allow`/`deny` short-circuit, and the default `ask` degrades to *skip* whenever the run is non-interactive. `isNonInteractive` treats `GTB_NON_INTERACTIVE=true`, `CI=true`, a non-terminal stdin (`utils.IsInteractive`), or an unopenable controlling terminal (`/dev/tty` on unix, `CONIN$` on Windows — probed in `tty_unix.go`/`tty_windows.go`) as non-interactive. This is checked **before** any `huh` call, so a headless/CI run no longer emits the per-file `Prompt failed … open /dev/tty` warning or blocks on a prompt (issue #6.2). This mirrors the `pkg/cmd/root` pre-run prompt TTY guard.
+**One conflict resolver serves both write paths.** `resolveConflict` (`conflict.go`) is the single decision for every generated file — the skeleton walk and the per-command `cmd.go`/`init.go`/`main_test.go` alike. It returns `write`, `keep` or `ignored` plus the hash the manifest should record, and it **never returns an error**: a declined file is a skip, so the run continues to every remaining command. Before this there were two handlers, and only the skeleton one loaded `.gtb/ignore`, hinted a matchable path, or let a skip continue — the command path signalled "keep" by returning an error that unwound the whole regeneration at the first conflict (issue #13).
+
+Precedence inside the resolver: `.gtb/ignore` first (outranking both `--force` and `--overwrite allow`), then the stored-hash comparison, then the policy prompt. A kept file retains its *stored* hash so it conflicts again next run; an ignored file's hash tracks disk. `reportConflicts` prints one end-of-run summary naming what was kept, with the `gtb ignore add <path>` remedy, and counting what a rule already covered. Keeping is exit 0.
+
+**The conflict prompt is TTY-guarded.** `promptOverwrite` (`hash.go`) resolves a conflict by policy — `--overwrite=allow`/`deny` short-circuit, and the default `ask` degrades to *skip* whenever the run is non-interactive. `(*Generator).isNonInteractive` treats `GTB_NON_INTERACTIVE=true`, `CI=true`, the resolved `ci` config key (which the `--ci` flag feeds — agreeing with `pkg/cmd/root.isCIEnvironment`, which the standalone function did not), a non-terminal stdin (`utils.IsInteractive`), or an unopenable controlling terminal (`/dev/tty` on unix, `CONIN$` on Windows — probed in `tty_unix.go`/`tty_windows.go`) as non-interactive. This is checked **before** any `huh` call, so a headless/CI run no longer emits the per-file `Prompt failed … open /dev/tty` warning or blocks on a prompt (issue #6.2). This mirrors the `pkg/cmd/root` pre-run prompt TTY guard.
 
 **The generated CLI commands index is conflict-aware.** `generateCommandsIndex` no longer writes `docs/reference/cli/index.md` (or the flat `docs/commands/index.md`) unconditionally. It consults `.gtb/ignore` first, then splices the freshly rendered command table into the `gtb:commands:start`/`:end` markers via `mergeCommandsIndex`, preserving any surrounding hand-added prose. A purely-generated legacy index (no markers, no prose) is migrated to the marker form; a diverged index (markers removed, prose present) is preserved untouched with a warning. The scaffolded index ships with an empty marker pair (issue #6).
 

@@ -997,7 +997,7 @@ func TestBuildCommandContext_And_ToConfig(t *testing.T) {
 		Protected:       boolPtr(true),
 	}
 
-	ctx := buildCommandContext("/proj", true, false, true, cmd, []string{"parent"})
+	ctx := buildCommandContext(&Config{Path: "/proj", DryRun: true, UpdateDocs: true}, cmd, []string{"parent"})
 	assert.Equal(t, "child", ctx.Name)
 	assert.Equal(t, []string{"parent"}, ctx.ParentPath)
 	assert.Equal(t, "short", ctx.Short)
@@ -1011,7 +1011,7 @@ func TestBuildCommandContext_And_ToConfig(t *testing.T) {
 	assert.True(t, cfg.WithAssets)
 
 	// Empty parent path -> "root".
-	rootCtx := buildCommandContext("/proj", false, false, false, cmd, nil)
+	rootCtx := buildCommandContext(&Config{Path: "/proj"}, cmd, nil)
 	assert.Equal(t, "root", rootCtx.ToConfig().Parent)
 }
 

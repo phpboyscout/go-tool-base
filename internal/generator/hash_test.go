@@ -140,11 +140,14 @@ func TestVerifyHash(t *testing.T) {
 	hashValue := CalculateHash(content)
 
 	tests := []struct {
-		name        string
-		setup       func()
-		force       bool
-		wantError   bool
-		errContains string
+		name  string
+		setup func()
+		force bool
+		// A declined file is a skip, not a failure: the resolver reports the
+		// outcome and the run carries on (spec 0187 D2).
+		wantOutcome conflictOutcome
+		// wantRecordHash is the hash the manifest should carry afterwards.
+		wantRecordHash string
 	}{
 		{
 			name: "No conflict (hashes match)",
@@ -156,8 +159,8 @@ func TestVerifyHash(t *testing.T) {
 				require.NoError(t, fs.MkdirAll(".gtb", 0755))
 				require.NoError(t, afero.WriteFile(fs, ".gtb/manifest.yaml", []byte(manifestContent), 0644))
 			},
-			force:     false,
-			wantError: false,
+			force:       false,
+			wantOutcome: conflictWrite,
 		},
 		{
 			name: "Conflict detected (manual change)",
@@ -167,16 +170,18 @@ func TestVerifyHash(t *testing.T) {
 				// Manifest still has original hash
 			},
 			force:       false,
-			wantError:   true,
-			errContains: "overwrite skipped by user", // Default behavior without interactive prompt is fail
+			wantOutcome: conflictKeep,
+			// The stored hash is preserved, not refreshed to the on-disk
+			// content: the file must still conflict next run (D3).
+			wantRecordHash: hashValue,
 		},
 		{
 			name: "Conflict ignored with Force",
 			setup: func() {
 				// Same as above
 			},
-			force:     true,
-			wantError: false,
+			force:       true,
+			wantOutcome: conflictWrite,
 		},
 	}
 
@@ -184,14 +189,12 @@ func TestVerifyHash(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 			g := New(p, &Config{Path: ".", Name: cmdName, Force: tt.force})
-			err := VerifyHash(g, cmdPath)
-			if tt.wantError {
-				require.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
-				}
-			} else {
-				assert.NoError(t, err)
+			decision := ResolveCommandFileConflict(g, cmdPath, content)
+			assert.Equal(t, tt.wantOutcome, decision.Outcome)
+			assert.Equal(t, tt.wantOutcome == conflictWrite, decision.Write())
+
+			if tt.wantRecordHash != "" {
+				assert.Equal(t, tt.wantRecordHash, decision.RecordHash)
 			}
 		})
 	}

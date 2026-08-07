@@ -50,7 +50,7 @@ func (g *Generator) applyGoreleaserSigns(m *Manifest) error {
 	}
 
 	// .gtb/ignore takes precedence over everything, including Overwrite:"allow".
-	if LoadIgnoreRules(g.props.FS, g.config.Path).IsIgnored(relPath) {
+	if g.ignoreRules().IsIgnored(relPath) {
 		g.adviseGoreleaserSigns(relPath, m, enable, "it is listed in .gtb/ignore")
 		g.rehashGoreleaserOnDisk(fullPath, relPath, m)
 

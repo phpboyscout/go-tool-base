@@ -155,7 +155,7 @@ func (g *Generator) reRegisterChildCommands(cmdDir string, hashes map[string]str
 	for _, child := range cmd.Commands {
 		// Use buildCommandContext so the child generator carries full project
 		// settings (Path, Force, UpdateDocs) rather than a bare minimal Config.
-		childCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, child, childParentPath)
+		childCtx := buildCommandContext(g.config, child, childParentPath)
 		childGen := New(g.props, childCtx.ToConfig())
 
 		if err := childGen.registerSubcommand(); err != nil {

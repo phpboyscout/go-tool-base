@@ -1233,17 +1233,12 @@ func (g *Generator) generateCommandsIndex() error {
 		indexPath = filepath.Join(g.config.Path, "docs", "reference", "cli", "index.md")
 	}
 
-	relPath, err := filepath.Rel(g.config.Path, indexPath)
-	if err != nil {
-		relPath = indexPath
-	}
-
-	relPath = filepath.ToSlash(relPath)
+	relPath := g.relProjectPath(indexPath)
 
 	// A downstream can protect a hand-maintained index with .gtb/ignore, exactly
 	// like a skeleton file — honour it and leave the file entirely untouched
 	// (issue #6: the index writer must consult the same ignore rules).
-	if LoadIgnoreRules(g.props.FS, g.config.Path).IsIgnored(relPath) {
+	if g.ignoreRules().IsIgnored(relPath) {
 		g.props.Logger.Debug("commands index ignored by .gtb/ignore; leaving as-is", "path", relPath)
 
 		return nil

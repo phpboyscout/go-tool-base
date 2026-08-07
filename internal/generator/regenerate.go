@@ -66,6 +66,8 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 		return err
 	}
 
+	g.conflicts.reset()
+
 	// Route the whole regeneration — docs migration, file writes and the
 	// manifest/hash persistence — through a staged overlay and commit it to the
 	// real filesystem only once every step succeeds. A mid-run failure then
@@ -96,6 +98,8 @@ func (g *Generator) regenerateProject(ctx context.Context) error {
 	} else {
 		g.runPostRegenerationProcessing(ctx, writtenSkeletonHashes)
 	}
+
+	g.reportConflicts()
 
 	g.props.Logger.Info("Project regeneration complete.")
 
@@ -277,7 +281,7 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 // regenerated cmd.go are preserved by the pipeline's reRegisterChildCommands
 // step.
 func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, parentPath []string) error {
-	cmdCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
+	cmdCtx := buildCommandContext(g.config, cmd, parentPath)
 
 	savedConfig := g.config
 	g.config = cmdCtx.ToConfig()
@@ -312,7 +316,7 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 	g.props.Logger.Debug("building command context", "name", cmd.Name, "parent", parentPath)
 
 	// Build an immutable CommandContext for this command — no shared-state mutation.
-	cmdCtx := buildCommandContext(g.config.Path, g.config.DryRun, g.config.Force, g.config.UpdateDocs, cmd, parentPath)
+	cmdCtx := buildCommandContext(g.config, cmd, parentPath)
 
 	// Swap g.config to the context-derived config for the duration of this
 	// call. Downstream methods (getCommandPath, prepareGenerationData, etc.)
@@ -343,6 +347,10 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 	if err := g.postGenerate(ctx, data, cmdDir); err != nil {
 		return err
 	}
+
+	// If this command's cmd.go was kept, queue the end-of-run check for
+	// whether keeping it leaves any of its manifest children unregistered.
+	g.recordChildCheck(cmdDir, cmd)
 
 	// Recurse for subcommands — each gets its own CommandContext via the
 	// recursive call, so sibling state can never leak.
@@ -579,7 +587,9 @@ func (g *Generator) regenerateSkeletonFiles(m Manifest) (map[string]string, erro
 		storedHashes = make(map[string]string)
 	}
 
-	ignoreRules := LoadIgnoreRules(g.props.FS, g.config.Path)
+	// The same set the conflict resolver uses, so a rule cannot cover a file
+	// at one stage of the run and miss it at another.
+	ignoreRules := g.ignoreRules()
 
 	writtenHashes, updatedSources, err := g.generateSkeletonTemplateFilesWithSources(g.config.Path, data, storedHashes, ignoreRules, m.Properties.Templates)
 	if err != nil {

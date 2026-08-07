@@ -26,16 +26,25 @@ type CommandContext struct {
 	MCPEnabled           *bool // tri-state MCP exposure; mirrors Protected
 	Hidden               bool
 
-	// Project-level settings (carried from the originating generator)
+	// Project-level settings (carried from the originating generator).
+	//
+	// Every one of these must be threaded through ToConfig as well as named
+	// here. Overwrite was declared on Config but missing from this type, so
+	// swapping g.config for a command context silently reset --overwrite to
+	// its "ask" default for every command file in the run (issue #13). Taking
+	// the whole *Config in buildCommandContext keeps the omission visible in
+	// one place rather than spread across four call sites.
 	ProjectPath string
 	DryRun      bool
 	Force       bool
 	UpdateDocs  bool
+	Overwrite   string
 }
 
 // buildCommandContext constructs a CommandContext from a ManifestCommand and
-// the parent path accumulated during recursive regeneration.
-func buildCommandContext(projectPath string, dryRun, force, updateDocs bool, cmd ManifestCommand, parentPath []string) CommandContext {
+// the parent path accumulated during recursive regeneration, carrying the
+// originating generator's project-level settings.
+func buildCommandContext(cfg *Config, cmd ManifestCommand, parentPath []string) CommandContext {
 	return CommandContext{
 		Name:                 cmd.Name,
 		ParentPath:           parentPath,
@@ -51,10 +60,11 @@ func buildCommandContext(projectPath string, dryRun, force, updateDocs bool, cmd
 		Protected:            cmd.Protected,
 		MCPEnabled:           cmd.MCPEnabled,
 		Hidden:               cmd.Hidden,
-		ProjectPath:          projectPath,
-		DryRun:               dryRun,
-		Force:                force,
-		UpdateDocs:           updateDocs,
+		ProjectPath:          cfg.Path,
+		DryRun:               cfg.DryRun,
+		Force:                cfg.Force,
+		UpdateDocs:           cfg.UpdateDocs,
+		Overwrite:            cfg.Overwrite,
 	}
 }
 
@@ -85,5 +95,6 @@ func (c CommandContext) ToConfig() *Config {
 		DryRun:               c.DryRun,
 		Force:                c.Force,
 		UpdateDocs:           c.UpdateDocs,
+		Overwrite:            c.Overwrite,
 	}
 }

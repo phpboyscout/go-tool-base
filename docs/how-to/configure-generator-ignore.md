@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Configure Generator Ignore Rules
 
-When you run `regenerate`, the GTB generator walks all skeleton template files and either writes or prompts to overwrite each one. If you've heavily customised certain files (CI workflows, build configs, Dockerfiles), you'll be prompted to decline overwrites every time.
+When you run `regenerate`, the GTB generator walks every file it owns — the skeleton assets (CI workflows, build configs, `.goreleaser.yaml`, docs) *and* each command's generated `cmd.go`, `init.go` and `main_test.go` — and either writes or prompts to overwrite each one. If you've heavily customised certain files, you'll be prompted to decline overwrites every time.
 
 The `.gtb/ignore` file lets you permanently mark files as "hands off" — the generator will skip them without prompting.
 
@@ -88,12 +88,37 @@ Run `regenerate` as normal:
 gtb regenerate project
 ```
 
-Ignored files will be skipped silently. You'll see debug output for each skipped file if you run with `--debug`:
+Ignored files are skipped without a conflict warning. The run reports a count
+at the end, and names each one at debug level:
 
 ```
-DEBU Ignored by .gtb/ignore: justfile
-DEBU Ignored by .gtb/ignore: .github/workflows/test.yml
+INFO 2 files ignored
+DEBU ignored (covered by .gtb/ignore) path=justfile
+DEBU ignored (covered by .gtb/ignore) path=.github/workflows/test.yml
 ```
+
+## What happens to a diverged file you have *not* ignored
+
+Declining an overwrite keeps that one file and the run carries on — it does not
+abort, and later commands still regenerate. Whatever is kept is named in a
+summary at the end, with the rule that would make the decision permanent:
+
+```
+INFO 1 file kept
+WARN kept your version path=pkg/cmd/deploy/cmd.go reason="declined at the prompt" remedy="gtb ignore add pkg/cmd/deploy/cmd.go"
+```
+
+A kept file keeps the hash the manifest already had, so it conflicts again next
+time — that is the prompt still doing its job. Adding the rule is what stops the
+question being asked.
+
+If keeping a parent command's `cmd.go` would leave one of its subcommands
+unregistered, the summary names the subcommand rather than leaving you to find
+out from a build failure.
+
+To see which files will conflict before you regenerate, run `gtb doctor` — its
+generator-coverage check reports every tracked file that has diverged and is not
+covered by a rule, command files included.
 
 ## How Hashing Works
 
@@ -180,7 +205,10 @@ handled specially so hand-added prose is never silently discarded:
 ## Notes
 
 - The `--force` flag does **not** override ignore rules. Ignored files stay ignored regardless.
-- The ignore check takes precedence over the overwrite mode — an ignored path is never written even under `enable signing`'s "allow" overwrite.
+- The ignore check takes precedence over the overwrite mode — an ignored path is never written, even under `--overwrite allow` or `enable signing`'s "allow" overwrite.
+- Rules cover command files as well as skeleton files: `pkg/cmd/deploy/cmd.go` is
+  a valid pattern, and `gtb ignore check`, `gtb ignore list`, `gtb doctor` and
+  `regenerate` all resolve it the same way.
 - Missing `.gtb/ignore` is valid — the generator behaves exactly as before (no files ignored).
 - Blank lines and lines starting with `#` are ignored.
 - Patterns without a `/` match by filename (basename) in any directory.

@@ -1,10 +1,55 @@
 package generator
 
 import (
+	"path/filepath"
 	"strings"
 
 	"gitlab.com/phpboyscout/go/errors"
 )
+
+// TrackedFiles returns every file the manifest records a hash for, keyed by
+// project-relative, slash-separated path.
+//
+// A manifest keeps hashes in two places: project-level skeleton files in
+// Hashes, and per-command generated files (cmd.go, init.go, main_test.go) in
+// each command's own Hashes map, keyed by bare filename. Consumers that walked
+// only the first — `gtb ignore list` and the `doctor` diverged-files check —
+// were structurally blind to exactly the files that raise a conflict on
+// regenerate, so a live ignore rule covering a command file was reported stale
+// and doctor passed a project that could not be regenerated (issue #13).
+//
+// The deprecated per-command Hash field is folded in as cmd.go, matching what
+// the conflict resolver reads.
+func (m *Manifest) TrackedFiles() map[string]string {
+	tracked := make(map[string]string, len(m.Hashes))
+
+	for path, hash := range m.Hashes {
+		tracked[filepath.ToSlash(path)] = hash
+	}
+
+	collectCommandHashes(m.Commands, nil, tracked)
+
+	return tracked
+}
+
+// collectCommandHashes walks the command tree, resolving each command's
+// filename-keyed hashes to pkg/cmd/<parents...>/<name>/<filename>.
+func collectCommandHashes(cmds []ManifestCommand, parents []string, into map[string]string) {
+	for _, cmd := range cmds {
+		path := append(append([]string{}, parents...), cmd.Name)
+		dir := "pkg/cmd/" + strings.Join(path, "/")
+
+		if cmd.Hash != "" {
+			into[dir+"/cmd.go"] = cmd.Hash
+		}
+
+		for filename, hash := range cmd.Hashes {
+			into[dir+"/"+filename] = hash
+		}
+
+		collectCommandHashes(cmd.Commands, path, into)
+	}
+}
 
 func (g *Generator) FindCommandParentPath(name string) ([]string, error) {
 	m, err := g.decodeManifestFile(ManifestPathFor(g.config.Path))

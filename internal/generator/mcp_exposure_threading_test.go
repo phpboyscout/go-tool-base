@@ -70,7 +70,7 @@ func TestBuildCommandContext_CarriesMCPEnabled(t *testing.T) {
 
 			cmd := ManifestCommand{Name: "post", MCPEnabled: tc.in}
 
-			ctx := buildCommandContext("/proj", false, false, false, cmd, nil)
+			ctx := buildCommandContext(&Config{Path: "/proj"}, cmd, nil)
 			assert.Equal(t, tc.in, ctx.MCPEnabled, "context carries the manifest decision")
 
 			cfg := ctx.ToConfig()

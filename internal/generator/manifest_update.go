@@ -34,7 +34,7 @@ type ManifestCommandUpdate struct {
 func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes map[string]string) error {
 	manifestPath := ManifestPathFor(g.config.Path)
 
-	g.props.Logger.Debug("updating manifest", "path", manifestPath, "command", g.config.Name)
+	g.props.Logger.Debug(g.manifestWriteVerb()+" manifest", "path", manifestPath, "command", g.config.Name)
 
 	m, err := g.decodeManifestFile(manifestPath)
 	if err != nil {
@@ -78,7 +78,7 @@ func (g *Generator) updateManifest(parsedFlags []templates.CommandFlag, hashes m
 		return err
 	}
 
-	g.props.Logger.Debug("manifest updated successfully", "path", manifestPath)
+	g.props.Logger.Debug("manifest "+g.manifestWritePast()+" successfully", "path", manifestPath)
 
 	return nil
 }
@@ -254,4 +254,25 @@ func (g *Generator) updateParentCmdHash() error {
 	cmd.Hashes["cmd.go"] = hash
 
 	return g.marshalManifestFile(manifestPath, m)
+}
+
+// manifestWriteVerb and manifestWritePast keep the manifest step's own logs
+// honest under --dry-run. The write is staged on an overlay and never reaches
+// disk, but the DEBUG lines announced it in the past tense regardless — read
+// while diagnosing exactly the kind of problem a dry run is used to diagnose
+// (issue #13, finding 5).
+func (g *Generator) manifestWriteVerb() string {
+	if g.config.DryRun {
+		return "would update"
+	}
+
+	return "updating"
+}
+
+func (g *Generator) manifestWritePast() string {
+	if g.config.DryRun {
+		return "update previewed"
+	}
+
+	return "updated"
 }

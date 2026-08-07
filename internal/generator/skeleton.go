@@ -725,8 +725,8 @@ func (g *Generator) writeRenderedSkeletonFile(fullPath, relPath string, newConte
 	if exists {
 		g.props.Logger.Debug("checking for conflicts on existing file", "path", relPath)
 
-		if err := g.checkSkeletonConflict(fullPath, relPath, newContent, storedHashes); err != nil {
-			return "", err
+		if decision := g.resolveConflict(fullPath, relPath, storedHashes[relPath], newContent); !decision.Write() {
+			return decision.RecordHash, nil
 		}
 	}
 
@@ -765,34 +765,6 @@ func isUserOwnedSeedFile(relPath string) bool {
 
 	// Seeded assets the operator fills in, e.g. pkg/cmd/root/assets/init/config.yaml.
 	return strings.HasPrefix(rel, "pkg/cmd/") && strings.Contains(rel, "/assets/")
-}
-
-// checkSkeletonConflict compares the on-disk file against its stored hash. If
-// the file has been manually modified it prompts the user; it returns a
-// non-nil error when the write should be skipped.
-func (g *Generator) checkSkeletonConflict(fullPath, relPath string, newContent []byte, storedHashes map[string]string) error {
-	existingContent, err := afero.ReadFile(g.props.FS, fullPath)
-	if err != nil {
-		return errors.Newf("failed to read existing file %s: %w", fullPath, err)
-	}
-
-	storedHash := storedHashes[relPath]
-	if storedHash == "" || storedHash == calculateHash(existingContent) || g.config.Force {
-		return nil
-	}
-
-	g.props.Logger.Warn("conflict detected: file has been manually modified", "path", fullPath,
-		"hint", ignoreConflictHint(relPath))
-
-	if !g.promptOverwrite(fullPath, existingContent, newContent) {
-		g.props.Logger.Warn("skipping overwrite", "path", fullPath)
-
-		return errors.Newf("overwrite skipped by user")
-	}
-
-	g.props.Logger.Warn("overwriting modified file", "path", fullPath)
-
-	return nil
 }
 
 func (g *Generator) writeSkeletonManifest(config SkeletonConfig, fileHashes map[string]string) error {

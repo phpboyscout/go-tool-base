@@ -4,15 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"charm.land/huh/v2"
 	"github.com/spf13/afero"
-
-	"gitlab.com/phpboyscout/go/errors"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/utils"
 )
 
 // mergeHashes returns a new map containing all entries from base, with entries
@@ -37,19 +32,33 @@ func calculateHash(content []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func (g *Generator) verifyHash(path string) error {
-	existingContent, err := afero.ReadFile(g.props.FS, path)
-	if err != nil {
-		return errors.Wrap(err, "failed to read file for hash verification")
+// resolveCommandFileConflict decides what to do with an existing generated
+// command file (cmd.go, init.go, main_test.go) whose stored hash lives on the
+// manifest command entry rather than in the project-level Hashes map.
+//
+// It is the command path's thin caller of the shared resolver: it looks the
+// stored hash up in the right namespace, converts the path to the
+// project-relative form ignore rules match against, and returns the hash the
+// manifest should carry.
+//
+// A declined file yields Write() == false rather than an error. Signalling
+// "keep the developer's file" as an error is what used to unwind the whole
+// regeneration at the first conflict (issue #13).
+func (g *Generator) resolveCommandFileConflict(fullPath string, newContent []byte) conflictDecision {
+	relPath := g.relProjectPath(fullPath)
+
+	// A file that is not there yet cannot conflict, and looking up its stored
+	// hash means decoding the manifest. Skip that for a fresh write — but only
+	// once an ignore rule is ruled out, since an ignored path is never written
+	// even when it is absent.
+	if exists, _ := afero.Exists(g.props.FS, fullPath); !exists && !g.ignoreRules().IsIgnored(relPath) {
+		return conflictDecision{Outcome: conflictWrite}
 	}
 
-	currentHash := calculateHash(existingContent)
-
-	// Retrieve stored hash from manifest if available
 	var storedHash string
 
 	if cmd, err := g.findManifestCommand(); err == nil && cmd != nil {
-		filename := filepath.Base(path)
+		filename := filepath.Base(fullPath)
 
 		storedHash = cmd.Hashes[filename]
 		if storedHash == "" && filename == "cmd.go" {
@@ -57,22 +66,7 @@ func (g *Generator) verifyHash(path string) error {
 		}
 	}
 
-	// If hashes differ and we are not forcing, prompt the user
-	if storedHash != "" && storedHash != currentHash && !g.config.Force {
-		g.props.Logger.Warn("conflict detected: file has been manually modified", "path", path,
-			"hint", ignoreConflictHint(path))
-
-		confirm := g.promptOverwrite(path, nil, nil)
-		if !confirm {
-			g.props.Logger.Warn("skipping overwrite", "path", path)
-
-			return errors.Newf("overwrite skipped by user")
-		}
-
-		g.props.Logger.Warn("overwriting modified file", "path", path)
-	}
-
-	return nil
+	return g.resolveConflict(fullPath, relPath, storedHash, newContent)
 }
 
 // promptOverwrite returns true if the file at path should be overwritten.
@@ -91,37 +85,11 @@ func (g *Generator) promptOverwrite(path string, existing, newContent []byte) bo
 	// /dev/tty and emit a per-file, stack-flavoured "Prompt failed" warning
 	// (issue #6.2). Detect it up front and resolve by the safe default — skip —
 	// mirroring the pkg/cmd/root pre-run prompt TTY guard.
-	if isNonInteractive() {
+	if g.isNonInteractive() {
 		return false
 	}
 
 	return g.askOverwriteAction(path, existing, newContent)
-}
-
-// isNonInteractive reports whether the generator is running without a usable
-// controlling terminal, so interactive huh prompts must be skipped rather than
-// attempted. It honours the explicit GTB_NON_INTERACTIVE=true opt-out, the
-// CI=true signal the rest of the toolchain treats as non-interactive
-// (pkg/cmd/root.isCIEnvironment), and finally the absence of a TTY on stdin.
-func isNonInteractive() bool {
-	if os.Getenv("GTB_NON_INTERACTIVE") == "true" {
-		return true
-	}
-
-	if os.Getenv("CI") == "true" {
-		return true
-	}
-
-	if !utils.IsInteractive() {
-		return true
-	}
-
-	// stdin looks like a terminal, but huh/bubbletea drives the controlling
-	// terminal (/dev/tty on unix, the console on Windows), not stdin. In some
-	// headless containers a char-device stdin (e.g. /dev/null) coexists with no
-	// attachable controlling terminal, so probe it directly and skip cleanly
-	// rather than letting huh fail with an "open /dev/tty" error (issue #6.2).
-	return !controllingTerminalAvailable()
 }
 
 // askOverwriteAction presents an interactive select to the user and returns
