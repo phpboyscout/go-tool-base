@@ -495,3 +495,30 @@ func TestIssue13_PreRenderSkeletonSkipsAreCounted(t *testing.T) {
 	assert.Contains(t, g.conflicts.ignored, "justfile",
 		"a skeleton file skipped before render must still be counted as ignored")
 }
+
+// The commands index is rewritten by every `generate command`. Its manifest
+// hash must be rewritten with it, or the next `regenerate project` reports a
+// conflict on purely generated content and advises `gtb ignore add` on a file
+// the generator owns — manufacturing exactly the drift 0187 exists to recover
+// from. Caught by CI, where no AI provider is configured so the boilerplate
+// docs path (which updates the index) actually runs.
+func TestIssue13_CommandsIndexHashIsPersisted(t *testing.T) {
+	t.Parallel()
+
+	g, fs, _ := newIssue13Project(t, "ask", "")
+
+	// The fixture manifest declares no docs_layout, so it resolves to flat.
+	const idx = "docs/commands/index.md"
+
+	require.NoError(t, fs.MkdirAll("/work/docs/commands", 0o755))
+	require.NoError(t, afero.WriteFile(fs, "/work/"+idx,
+		[]byte("# CLI\n\n<!-- gtb:commands:start -->\n<!-- gtb:commands:end -->\n"), 0o644))
+
+	require.NoError(t, g.generateCommandsIndex())
+
+	written, err := afero.ReadFile(fs, "/work/"+idx)
+	require.NoError(t, err)
+
+	assert.Equal(t, CalculateHash(written), readIssue13Manifest(t, fs).Hashes[idx],
+		"the rewritten index must not be left diverged from its recorded hash")
+}

@@ -522,6 +522,15 @@ func (g *Generator) docPathIgnored(outputPath string) bool {
 	return true
 }
 
+// rehashCommandsIndex refreshes the manifest hash for the commands index after
+// it has been rewritten. Failures are logged, not returned: the docs step is
+// advisory and must not fail a generation.
+func (g *Generator) rehashCommandsIndex(relPath string) {
+	if err := g.refreshProjectFileHashes(g.config.Path, map[string]string{relPath: ""}); err != nil {
+		g.props.Logger.Debug("could not refresh the commands index hash", "path", relPath, "error", err)
+	}
+}
+
 func (g *Generator) writeDocFile(outputPath string, content []byte) error {
 	if g.docPathIgnored(outputPath) {
 		return nil
@@ -1279,6 +1288,13 @@ func (g *Generator) generateCommandsIndex() error {
 	if err := g.props.FS.MkdirAll(filepath.Dir(indexPath), DefaultDirMode); err != nil {
 		return errors.Wrap(err, "failed to create commands index dir")
 	}
+
+	// Record the rewritten index's hash. Without this the index is left
+	// diverged from the manifest by every `generate command`, so the next
+	// `regenerate project` reports a conflict on purely generated content and
+	// advises `gtb ignore add` on a file the generator owns — manufacturing the
+	// drift that spec 0187 exists to let projects recover from.
+	defer g.rehashCommandsIndex(relPath)
 
 	if err := afero.WriteFile(g.props.FS, indexPath, []byte(next), DefaultFileMode); err != nil {
 		return errors.Wrap(err, "failed to write commands index")

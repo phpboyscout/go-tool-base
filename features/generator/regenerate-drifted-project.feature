@@ -27,7 +27,7 @@ Feature: regenerate project completes on a project with hand-modified files
     And I run gtb in the project with "regenerate project"
     Then the project exit code is 0
     And the generated "pkg/cmd/alpha/cmd.go" file contains "hand-edited, do not clobber"
-    And the project output does not contain "conflict detected"
+    And the project output does not contain "gtb ignore add pkg/cmd/alpha/cmd.go"
 
   Scenario: --overwrite allow reaches command files
     Given a freshly generated gtb project
