@@ -50,7 +50,7 @@ require (
 	golang.org/x/mod v0.34.0
 	golang.org/x/net v0.52.0
 	golang.org/x/text v0.36.0
-	google.golang.org/genai v1.51.0
+	google.golang.org/genai v1.66.0
 	google.golang.org/grpc v1.80.0
 	gopkg.in/yaml.v3 v3.0.1
 )
