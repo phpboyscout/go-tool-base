@@ -34,7 +34,17 @@ include:
       # go-tool-base's full dependency graph. After the 2026-06 dependency bump
       # (larger OTel/grpc/SDK trees) the cumulative build cost exceeds the 5m
       # default on the shared runner, so allow generous headroom.
-      e2e_timeout: "15m"
+      #
+      # Raised 5m -> 15m -> 25m. The suite measured ~846s of scenario time
+      # against the 15m ceiling, i.e. under a minute of headroom, and a
+      # testcontainers bump tipped it over on a slower runner while an
+      # otherwise identical pipeline passed. That is runner luck deciding
+      # whether CI is green, which is worse than a slow job.
+      #
+      # This is headroom, not a licence for the suite to keep growing into it.
+      # If a run approaches 25m, cut scenario cost rather than raising this
+      # again: the previous rise was already absorbed within two months.
+      e2e_timeout: "25m"
   - component: gitlab.com/phpboyscout/cicd/go-security@v0.35.0
 
   # Release — tag-gated goreleaser + main-branch zensical-pages deploy.
