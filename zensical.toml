@@ -88,21 +88,34 @@ icon = "fontawesome/solid/globe"
 link = "https://phpboyscout.uk"
 
 [[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/phpboyscout"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/dev"
+link = "https://dev.to/phpboyscout"
+
+[[project.extra.social]]
 icon = "fontawesome/brands/instagram"
-link = "https://instagram.com/matt.cockayne"
+link = "https://www.instagram.com/matt.cockayne/"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/tiktok"
-link = "https://tiktok.com/@phpboyscout"
+link = "https://www.tiktok.com/@phpboyscout"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/youtube"
-link = "https://youtube.com/@phpboyscout"
+link = "https://www.youtube.com/@phpboyscout"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/linkedin"
-link = "https://linkedin.com/in/matthewcockayne"
+link = "https://www.linkedin.com/in/matthewcockayne/"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/discord"
-link = "https://discord.gg/3DM8G9wFq"
+link = "https://discord.gg/mQzGbmGyzZ"
+
+[[project.extra.social]]
+icon = "fontawesome/solid/book"
+link = "https://phpboyscout.uk/topics/building-a-cli-in-go/"
+name = "Building a command-line tool in Go — the guide on the blog"
