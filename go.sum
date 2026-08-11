@@ -236,8 +236,6 @@ github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-github.com/google/go-github/v89 v89.0.0 h1:35bEK5XoEcF3PZrlVbl9XN63f5BcJRA/UGkxeC9xPg0=
-github.com/google/go-github/v89 v89.0.0/go.mod h1:QLcbU0ipeAqQuR5KSg8c2lql4Qk1EwJ2dWz/0rP4Nho=
 github.com/google/go-github/v90 v90.0.0 h1:EnX9HvTfqvuJbUSWu1/jLrYH6JJLMz0w0qfQVbTxPzE=
 github.com/google/go-github/v90 v90.0.0/go.mod h1:pLzt1FZURZyoTHT5/Z1UQY3b9fYyrbXH6aj7X+qgID4=
 github.com/google/go-querystring v1.2.0 h1:yhqkPbu2/OH+V9BfpCVPZkNmUXhb2gBxJArfhIxNtP0=
@@ -505,8 +503,8 @@ gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4 h1:PR0mpPp54SNEKGlnsFoU5+5WVg73
 gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4/go.mod h1:NdfpoMLnHxIOJg2hVDaaXuLRWMwVRGYBsFfabHDGBrQ=
 gitlab.com/phpboyscout/go/forge-gitea v0.9.0 h1:EVCcWEtPr4zRy7qjPGH/jmkvBo0Z+BP209oTxKpFNuM=
 gitlab.com/phpboyscout/go/forge-gitea v0.9.0/go.mod h1:Z1ZMaLYpCKSVCUMOewQ8bcqRJOvl6O+y0aONQsjkbtI=
-gitlab.com/phpboyscout/go/forge-github v0.7.0 h1:HCep4A/NB0y3hsHappyiXC8j22KGwo9PBQvGP87Oju4=
-gitlab.com/phpboyscout/go/forge-github v0.7.0/go.mod h1:a1KXyCugpxx+xUmJQGPTWKQfW7LIdnZaZiwP7FEgS2A=
+gitlab.com/phpboyscout/go/forge-github v0.8.1 h1:pGEWqwbz0+d+oZofT25WXG0Ibpp6B+Rj3S4OHtgDd/A=
+gitlab.com/phpboyscout/go/forge-github v0.8.1/go.mod h1:Z7wO8V9QA9cDgSZWYQ3CcmIgc/1S7+rEaCyHsYgXu/Y=
 gitlab.com/phpboyscout/go/forge-gitlab v0.7.0 h1:uRZYvNoetJvlT8c1ZAwqmas6tncXAzvGOjl6DiaPdp8=
 gitlab.com/phpboyscout/go/forge-gitlab v0.7.0/go.mod h1:KTUizRPpTk1FsYO5GsyiXwEtX2PRD0eb0Z1kQy4lR04=
 gitlab.com/phpboyscout/go/grpcclient v0.2.1 h1:CuCVzodFFAgsaZoe9g7b9tdhz12xMUVAY4DVluEWGBE=

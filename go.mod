@@ -44,7 +44,7 @@ require (
 	gitlab.com/phpboyscout/go/forge v0.11.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4
 	gitlab.com/phpboyscout/go/forge-gitea v0.9.0
-	gitlab.com/phpboyscout/go/forge-github v0.7.0
+	gitlab.com/phpboyscout/go/forge-github v0.8.1
 	gitlab.com/phpboyscout/go/forge-gitlab v0.7.0
 	gitlab.com/phpboyscout/go/httpclient v0.2.2
 	gitlab.com/phpboyscout/go/observability v0.3.1
@@ -75,7 +75,6 @@ require (
 require (
 	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
 	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
-	github.com/google/go-github/v89 v89.0.0 // indirect
 )
 
 require (
