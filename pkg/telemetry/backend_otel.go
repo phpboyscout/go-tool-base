@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -162,32 +163,32 @@ func (o *otelBackend) Send(ctx context.Context, events []Event) error {
 		var rec log.Record
 		rec.SetTimestamp(e.Timestamp)
 		rec.SetSeverity(log.SeverityInfo)
-		rec.SetBody(log.StringValue(e.Name))
+		rec.SetBody(attribute.StringValue(e.Name))
 		rec.AddAttributes(
-			log.String("event.name", e.Name),
-			log.String("event.type", string(e.Type)),
-			log.String("tool.name", e.ToolName),
-			log.String("tool.version", e.Version),
-			log.String("host.arch", e.Arch),
-			log.String("os.type", e.OS),
-			log.String("os.version", e.OSVersion),
-			log.String("go.version", e.GoVersion),
-			log.String("machine.id", e.MachineID),
-			log.Int64("command.duration_ms", e.DurationMs),
-			log.Int("command.exit_code", e.ExitCode),
+			attribute.String("event.name", e.Name),
+			attribute.String("event.type", string(e.Type)),
+			attribute.String("tool.name", e.ToolName),
+			attribute.String("tool.version", e.Version),
+			attribute.String("host.arch", e.Arch),
+			attribute.String("os.type", e.OS),
+			attribute.String("os.version", e.OSVersion),
+			attribute.String("go.version", e.GoVersion),
+			attribute.String("machine.id", e.MachineID),
+			attribute.Int64("command.duration_ms", e.DurationMs),
+			attribute.Int("command.exit_code", e.ExitCode),
 		)
 
 		// Extended collection fields — only present when the tool author enables them
 		if len(e.Args) > 0 {
-			rec.AddAttributes(log.String("command.args", strings.Join(e.Args, " ")))
+			rec.AddAttributes(attribute.String("command.args", strings.Join(e.Args, " ")))
 		}
 
 		if e.Error != "" {
-			rec.AddAttributes(log.String("command.error", e.Error))
+			rec.AddAttributes(attribute.String("command.error", e.Error))
 		}
 
 		for k, v := range e.Metadata {
-			rec.AddAttributes(log.String(k, v))
+			rec.AddAttributes(attribute.String(k, v))
 		}
 
 		l.Emit(ctx, rec)
