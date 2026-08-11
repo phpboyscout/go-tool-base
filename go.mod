@@ -17,7 +17,7 @@ require (
 	github.com/dave/dst v0.27.4
 	github.com/dave/jennifer v1.7.1
 	github.com/go-git/go-git/v5 v5.19.2
-	github.com/google/go-github/v89 v89.0.0
+	github.com/google/go-github/v90 v90.0.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
 	github.com/invopop/jsonschema v0.14.0
@@ -75,6 +75,7 @@ require (
 require (
 	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
 	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
+	github.com/google/go-github/v89 v89.0.0 // indirect
 )
 
 require (
