@@ -45,7 +45,7 @@ require (
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4
 	gitlab.com/phpboyscout/go/forge-gitea v0.9.0
 	gitlab.com/phpboyscout/go/forge-github v0.8.1
-	gitlab.com/phpboyscout/go/forge-gitlab v0.7.0
+	gitlab.com/phpboyscout/go/forge-gitlab v0.8.0
 	gitlab.com/phpboyscout/go/httpclient v0.2.2
 	gitlab.com/phpboyscout/go/observability v0.3.1
 	gitlab.com/phpboyscout/go/output v0.2.1
@@ -243,7 +243,7 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v2 v2.55.1 // indirect
+	gitlab.com/gitlab-org/api/client-go/v2 v2.56.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.1 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.1 // indirect
