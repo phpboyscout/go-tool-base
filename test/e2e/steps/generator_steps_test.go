@@ -20,11 +20,9 @@ type generatorWorldKey struct{}
 type generatorWorld struct {
 	binaryPath string
 	projectDir string
-	// configDir isolates HOME for every gtb invocation in the scenario.
-	configDir string
-	stdout    string
-	stderr    string
-	exitCode  int
+	stdout     string
+	stderr     string
+	exitCode   int
 }
 
 // isolatedEnv returns the environment for a gtb invocation: the real
@@ -56,7 +54,7 @@ type generatorWorld struct {
 // 193s to 809s, and the cost landed on every scenario that regenerates and none
 // of the pure-CLI ones.
 func (w *generatorWorld) isolatedEnv() []string {
-	env := append(os.Environ(), "HOME="+w.configDir)
+	env := append(os.Environ(), "HOME="+isolatedHome())
 
 	for name, value := range sharedCaches() {
 		env = append(env, name+"="+value)
@@ -64,6 +62,31 @@ func (w *generatorWorld) isolatedEnv() []string {
 
 	return env
 }
+
+// isolatedHome is created once per test binary and shared by every scenario.
+//
+// Per-scenario homes were the obvious first shape and cost about 11% of the
+// suite's wall clock on CI, because a home accumulates warm state that a
+// scaffold depends on and a fresh one throws away — the pinned caches above
+// cover the expensive ones, but enumerating every cache a toolchain might keep
+// under HOME is a losing game. Sharing one home warms that state exactly once,
+// as the real HOME used to, while still keeping the developer's gtb config out
+// of the run.
+//
+// Sharing is safe here because gtb writes a generated project's state into the
+// project itself (.gtb/), not into HOME. The cli and signal steps keep a home
+// per scenario, because those exercise commands that deliberately persist to
+// ~/.<tool>/ and would leak across scenarios.
+var isolatedHome = sync.OnceValue(func() string {
+	dir, err := os.MkdirTemp("", "gtb-e2e-home-*")
+	if err != nil {
+		// Fall back to the real HOME rather than failing the suite; the run is
+		// then less hermetic but still correct.
+		return os.Getenv("HOME")
+	}
+
+	return dir
+})
 
 // sharedCaches resolves the cache locations once per test binary; resolving them
 // per invocation would spawn `go env` for every gtb command the suite runs.
@@ -98,22 +121,13 @@ func getGeneratorWorld(ctx context.Context) *generatorWorld {
 
 func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
-		configDir, err := os.MkdirTemp("", "gtb-e2e-home-*")
-		if err != nil {
-			return ctx, fmt.Errorf("create isolated HOME: %w", err)
-		}
-
-		return context.WithValue(ctx, generatorWorldKey{}, &generatorWorld{configDir: configDir}), nil
+		return context.WithValue(ctx, generatorWorldKey{}, &generatorWorld{}), nil
 	})
 
 	ctx.After(func(ctx context.Context, _ *godog.Scenario, _ error) (context.Context, error) {
 		w := getGeneratorWorld(ctx)
 		if w.projectDir != "" {
 			_ = os.RemoveAll(w.projectDir)
-		}
-
-		if w.configDir != "" {
-			_ = os.RemoveAll(w.configDir)
 		}
 
 		return ctx, nil
