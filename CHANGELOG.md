@@ -1,5 +1,31 @@
 # Changelog
 
+## [v0.37.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.37.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.36.1...v0.37.0)
+
+### Features
+
+- **generator**: split regeneration from wiring in .gtb/ignore, and add sealed rules ([fd0d7a3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/fd0d7a31778702c0b215a43f11bc95175cf2b02a))
+- **ci**: announce releases to Discord ([89d4d8c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/89d4d8c6e54edde78e995dc0a5a4e34d8dabee47))
+
+### Bug Fixes
+
+- **deps**: update forge-gitlab to v0.8.0, pairing it with forge core v0.11.0 ([41ccf06](https://gitlab.com/phpboyscout/go-tool-base/-/commit/41ccf0669499dbdd778dea34cfd54f3fed23e501))
+- **deps**: update forge-github to v0.8.1, dropping the duplicated go-github major ([dff2590](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dff25905c56056498a39beba92e3bd98a31e6d3c))
+- **deps**: update module github.com/testcontainers/testcontainers-go to v0.44.0 ([175f918](https://gitlab.com/phpboyscout/go-tool-base/-/commit/175f91851164ab19747bd70811b4b1815810d077))
+- **deps**: bump the otel core and contrib families together ([7174bfe](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7174bfe294929f5f0c134d56192db625d12abc29))
+- **deps**: update module github.com/google/go-github/v89 to v90 ([576776f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/576776f1ddd2e1ef83e13ba06da09343d911e2c3))
+- **deps**: update module github.com/grpc-ecosystem/grpc-gateway/v2 to v2.30.0 ([517158b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/517158b9a6ab4b67800970eea7a876bab1fcd522))
+- **deps**: update go modules ([d7c2e17](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d7c2e173310350f0f5282770ab6f7d370b887ae6))
+- **generator**: record the commands index hash when it is rewritten ([821ad81](https://gitlab.com/phpboyscout/go-tool-base/-/commit/821ad8125f696593b718a7f5d221f7cef94157ef))
+- **generator**: honour .gtb/ignore in docs writes and keep a kept file's hash ([43341de](https://gitlab.com/phpboyscout/go-tool-base/-/commit/43341def92272842a89ac57508f9566b4ccda0a6))
+- **generator**: complete regeneration on a project with hand-modified files ([e9c0284](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e9c02841be93f9752c1d12a43cc7e03e694e6014))
+- **deps**: update the forge family to forge v0.10.0 ([4a70c21](https://gitlab.com/phpboyscout/go-tool-base/-/commit/4a70c21763ca88d93b981c3c8baa34f46707c84c))
+- **deps**: update go modules ([07d5a5e](https://gitlab.com/phpboyscout/go-tool-base/-/commit/07d5a5e16d695e9f91b4cc49d5b7d462f7164151))
+- **deps**: update go modules ([dda8084](https://gitlab.com/phpboyscout/go-tool-base/-/commit/dda808431dbd470978f58a2bca814f8e38a3b628))
+- **deps**: update go modules ([9f90479](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9f90479e0110ea8f13809dbc7aa486f0de2297bf))
+
 ## [v0.36.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.36.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.36.0...v0.36.1)
