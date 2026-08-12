@@ -61,7 +61,7 @@ Exits with a non-zero status code if any validation errors are found.`,
 }
 
 // buildBaseSchema returns the minimum schema that every GTB-based tool must satisfy.
-func buildBaseSchema() (*cfg.Schema, error) {
+func buildBaseSchema() (*cfg.StructSchema, error) {
 	type baseConfig struct {
 		LogLevel string `config:"log.level" validate:"required" enum:"debug,info,warn,error" description:"log verbosity level"`
 	}
