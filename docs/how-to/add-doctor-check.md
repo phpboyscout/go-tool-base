@@ -117,6 +117,29 @@ Use the following status strings in your `CheckResult`:
 | `"fail"` | Critical problem                  |
 | `"skip"` | Check not applicable              |
 
+**Your status decides whether the run fails.** `doctor` exits non-zero when a
+check is as bad as the run's threshold, or worse:
+
+| threshold | fails on | when it applies |
+|---|---|---|
+| `warn` | `warn`, `fail` | the default **under CI** |
+| `fail` | `fail` | the default **interactively** |
+| `none` | nothing | only when asked for |
+
+```bash
+gtb doctor                  # warn gates in CI; a failure gates anywhere
+gtb doctor --fail-on=warn   # opt a local run in
+gtb doctor --fail-on=none   # escape hatch for a pipeline not ready yet
+```
+
+`skip` never fails a run, whatever the threshold. A check that could not run has
+not found a problem, and failing a pipeline because something was unavailable is
+the fastest way to have the gate switched off. If your check cannot reach what
+it needs, return `skip` and say why — never `pass`.
+
+The report always prints in full before the exit code is decided, so a gated run
+still shows what gated it.
+
 ---
 
 !!! tip

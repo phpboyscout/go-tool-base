@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/output"
 
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -39,8 +40,33 @@ type DoctorReport struct {
 	Checks  []CheckResult `json:"checks"`
 }
 
+// cmdSettings holds what the doctor command needs injected.
+type cmdSettings struct {
+	ci func() bool
+}
+
+// CmdOption configures [NewCmdDoctor].
+type CmdOption func(*cmdSettings)
+
+// WithCI fixes whether this is an automated run, instead of reading it from the
+// environment.
+//
+// Tests need this. The default threshold differs under CI, so a test asserting
+// on the exit behaviour otherwise passes or fails on whether CI happens to be
+// set where it runs.
+func WithCI(ci bool) CmdOption {
+	return func(s *cmdSettings) { s.ci = func() bool { return ci } }
+}
+
 // NewCmdDoctor creates the doctor command.
-func NewCmdDoctor(props *p.Props) *setup.Command {
+func NewCmdDoctor(props *p.Props, options ...CmdOption) *setup.Command {
+	settings := cmdSettings{ci: credentials.IsCI}
+	for _, o := range options {
+		o(&settings)
+	}
+
+	var failOnFlag string
+
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check environment and configuration health",
@@ -49,20 +75,45 @@ credentials, Git availability, and feature-specific health, then print a
 per-check pass/warn/fail/skip report. Run it when a tool misbehaves to
 pinpoint a misconfigured or missing dependency.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			threshold := DefaultFailThreshold(settings.ci())
+
+			if failOnFlag != "" {
+				parsed, err := ParseFailThreshold(failOnFlag)
+				if err != nil {
+					return err
+				}
+
+				threshold = parsed
+			}
+
 			format, _ := cmd.Flags().GetString("output")
 			out := output.New(output.WithWriter(os.Stdout), output.WithFormat(output.Format(format)))
 
 			report := RunChecks(cmd.Context(), props)
 
-			return out.Write(output.Response{
+			// The report is printed whatever the verdict — a gate that
+			// suppresses the diagnosis it is gating on would be useless.
+			if err := out.Write(output.Response{
 				Status:  output.StatusSuccess,
 				Command: "doctor",
 				Data:    report,
 			}, func(w io.Writer) {
 				PrintReport(w, report)
-			})
+			}); err != nil {
+				return err
+			}
+
+			if threshold.Exceeded(report) {
+				return ErrDoctorFoundProblems
+			}
+
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&failOnFlag, "fail-on", "",
+		"exit non-zero when a check is this bad or worse: none, fail, warn "+
+			"(default: warn under CI, fail otherwise)")
 
 	// A diagnostics run inspects the install it has; a pre-run network update
 	// check (and its spinner) would only obscure the report. The stamp covers
