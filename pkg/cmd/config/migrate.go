@@ -2,10 +2,12 @@ package config
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"charm.land/huh/v2"
@@ -72,7 +74,43 @@ type MigrateOptions struct {
 
 // MigrationAction describes a single migration the command will
 // perform (dry-run) or has performed.
+// Verification records what was proved about a migrated credential before its
+// literal was destroyed.
+//
+// It exists because "migrated" meant different things per target mode and the
+// difference was invisible: the env-var path confirmed the replacement
+// resolved, the keychain path confirmed only that a write returned nil.
+type Verification string
+
+const (
+	// VerifiedNone means nothing was proved — the operator passed --skip-verify.
+	VerifiedNone Verification = "not verified"
+	// VerifiedEnvVarSet means the named environment variable was readable in
+	// this process before the literal was staged for removal.
+	VerifiedEnvVarSet Verification = "environment variable resolves"
+	// VerifiedKeychainReadBack means the secret was written to the keychain and
+	// read back unchanged before the literal was staged for removal.
+	VerifiedKeychainReadBack Verification = "keychain entry reads back"
+	// VerifiedResolvesAfterRewrite means the credential still resolved from its
+	// new home once the rewritten config was re-read.
+	//
+	// Named for what it proves rather than what was asked for. The issue this
+	// closes wanted proof that a fresh process AUTHENTICATES; that needs
+	// per-provider knowledge GTB does not have, so this is the weaker,
+	// truthful claim.
+	VerifiedResolvesAfterRewrite Verification = "resolves from its new home"
+)
+
 type MigrationAction struct {
+	// Verified records what was proved before the literal was removed.
+	Verified Verification
+
+	// RotationRequired is always true for a migrated literal: the value has
+	// already been on disk, so wherever that config travelled — a dotfile
+	// repository, a backup, a support bundle — it is still there. Moving which
+	// copy WINS does not retire the one that leaked.
+	RotationRequired bool
+
 	// SourceKey is the config key currently holding the literal
 	// credential (e.g. `anthropic.api.key`, `github.auth.value`).
 	// For dual credentials this is the "primary" half (username).
@@ -176,7 +214,74 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 
 	result.WroteConfig = true
 
+	confirmPostCommitResolution(ctx, props, result)
+
 	return result, nil
+}
+
+// confirmPostCommitResolution re-reads the rewritten configuration and checks
+// each migrated credential still resolves — from its NEW home, with the literal
+// gone.
+//
+// It runs against a freshly loaded view rather than the one held in memory,
+// which is the whole point: the in-memory config still remembers the literal
+// that was just removed, so re-resolving through it would prove nothing. This
+// catches a rewrite that parsed but resolved differently than intended.
+//
+// **This is deliberately NOT an authentication check**, and the distinction is
+// worth stating because the issue this closes asked for one. Proving a
+// credential AUTHENTICATES needs per-provider knowledge GTB does not have — a
+// forge token and an Anthropic key are checked in entirely different ways — so
+// what is proved is that the credential resolves from where the migration put
+// it. That is a weaker claim than "it works", and reporting it as anything
+// stronger would be worse than not checking.
+//
+// Failure downgrades the recorded verification and warns. It does not roll
+// back: restoring the literal would rewrite the plaintext secret to disk,
+// undoing the only irreversible good the command does.
+func confirmPostCommitResolution(ctx context.Context, props *p.Props, result *MigrateResult) {
+	if props == nil || props.Config == nil {
+		return
+	}
+
+	view := props.Config.View()
+
+	for i := range result.Actions {
+		action := &result.Actions[i]
+		if action.Skipped {
+			continue
+		}
+
+		desc, ok := descriptorForKey(action.SourceKey)
+		if !ok {
+			continue
+		}
+
+		posture, err := credentialposture.Resolve(ctx, view, desc)
+		if err != nil || posture.Origin == credentialposture.OriginNone {
+			props.Logger.Warn("migrated credential does not resolve from its new home",
+				"key", action.SourceKey, "target", action.DestKey, "error", err)
+
+			action.Verified = VerifiedNone
+
+			continue
+		}
+
+		action.Verified = VerifiedResolvesAfterRewrite
+	}
+}
+
+// descriptorForKey finds the declared credential whose literal key matches, so
+// the post-commit check reuses the same precedence walk everything else does
+// rather than re-deriving one.
+func descriptorForKey(literalKey string) (credentialposture.Descriptor, bool) {
+	for _, d := range credentialposture.Registered() {
+		if d.LiteralKey == literalKey {
+			return d, true
+		}
+	}
+
+	return credentialposture.Descriptor{}, false
 }
 
 // rewritePlan accumulates the mutations to apply in a single atomic
@@ -293,18 +398,26 @@ func migrateToEnvVar(opts MigrateOptions, c literalCredential, plan *rewritePlan
 		return MigrationAction{}, err
 	}
 
+	verified := VerifiedNone
+
 	if !opts.AssumeYes && !opts.DryRun {
 		if err := instructAndVerifyEnvVar(envName, c, opts.SkipVerify); err != nil {
 			return MigrationAction{}, err
 		}
+
+		if !opts.SkipVerify {
+			verified = VerifiedEnvVarSet
+		}
 	}
 
 	action := MigrationAction{
-		SourceKey:  c.Key,
-		PartnerKey: c.PartnerKey,
-		Target:     credentials.ModeEnvVar,
-		DestKey:    c.EnvTargetKey,
-		DestValue:  envName,
+		SourceKey:        c.Key,
+		PartnerKey:       c.PartnerKey,
+		Target:           credentials.ModeEnvVar,
+		DestKey:          c.EnvTargetKey,
+		DestValue:        envName,
+		Verified:         verified,
+		RotationRequired: true,
 	}
 
 	if opts.DryRun {
@@ -354,11 +467,13 @@ func migrateToKeychain(
 
 	ref := service + "/" + c.KeychainAccount
 	action := MigrationAction{
-		SourceKey:  c.Key,
-		PartnerKey: c.PartnerKey,
-		Target:     credentials.ModeKeychain,
-		DestKey:    c.KeychainTargetKey,
-		DestValue:  ref,
+		SourceKey:        c.Key,
+		PartnerKey:       c.PartnerKey,
+		Target:           credentials.ModeKeychain,
+		DestKey:          c.KeychainTargetKey,
+		DestValue:        ref,
+		Verified:         VerifiedNone,
+		RotationRequired: true,
 	}
 
 	if opts.DryRun {
@@ -375,6 +490,19 @@ func migrateToKeychain(
 		)
 	}
 
+	// R7: read it back before staging the literal's removal. A Store that
+	// returned nil is not proof the secret can be READ — a write-only sink, a
+	// backend that accepted and dropped it, a keychain that locks between the
+	// two calls all look like success from the write alone. Destroying the only
+	// remaining copy on that evidence is how a migration loses a credential
+	// outright, and the plan is staged precisely so this can refuse before
+	// anything is committed.
+	if err := verifyKeychainReadBack(ctx, opts, service, c.KeychainAccount, secret); err != nil {
+		return MigrationAction{}, err
+	}
+
+	action.Verified = VerifiedKeychainReadBack
+
 	plan.remove(c.Key)
 
 	if c.PartnerKey != "" {
@@ -384,6 +512,40 @@ func migrateToKeychain(
 	plan.set(c.KeychainTargetKey, ref)
 
 	return action, nil
+}
+
+// verifyKeychainReadBack confirms the stored secret comes back out unchanged.
+//
+// It compares rather than merely checking for an error, because a backend that
+// returns a DIFFERENT value is worse than one that returns none: the literal
+// would be removed and the tool would then authenticate with something else.
+// The comparison is constant-time so a timing signal cannot leak the secret,
+// and neither value is ever logged or wrapped into the error.
+func verifyKeychainReadBack(ctx context.Context, opts MigrateOptions, service, account, want string) error {
+	if opts.SkipVerify {
+		return nil
+	}
+
+	readCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+	defer cancel()
+
+	got, err := credentials.Retrieve(readCtx, service, account)
+	if err != nil {
+		return errors.WithHint(
+			errors.Wrapf(err, "reading back %s/%s from the OS keychain", service, account),
+			"The secret was written but could not be read back, so the literal has NOT been removed. "+
+				"Unlock the keychain and re-run, or use --target=env.",
+		)
+	}
+
+	if subtle.ConstantTimeCompare([]byte(got), []byte(want)) != 1 {
+		return errors.WithHint(
+			errors.Newf("keychain entry %s/%s did not return the value written to it", service, account),
+			"The literal has NOT been removed. Check the keychain backend, or use --target=env.",
+		)
+	}
+
+	return nil
 }
 
 // secretForKeychain returns the value to store in the keychain for
@@ -609,6 +771,60 @@ func PrintResult(w io.Writer, result *MigrateResult, dryRun bool) {
 	for _, a := range result.Actions {
 		printAction(w, a)
 	}
+
+	printRotationNotice(w, result, dryRun)
+}
+
+// printRotationNotice says the thing the command cannot do for you.
+//
+// R9. Every step before this narrows FUTURE exposure: it changes which copy
+// wins, and removes the one on disk. None of it retires the copy that already
+// leaked — a literal credential has been in a config file, so wherever that
+// file travelled (a dotfile repository, a backup, a diagnostic bundle, a
+// support ticket) the secret is still there and still valid.
+//
+// GTB cannot rotate a third-party credential and does not pretend to. Saying so
+// plainly is the difference between a migration that reduced the blast radius
+// and one the operator believes closed the incident.
+func printRotationNotice(w io.Writer, result *MigrateResult, dryRun bool) {
+	var keys []string
+
+	for _, a := range result.Actions {
+		if a.Skipped || !a.RotationRequired {
+			continue
+		}
+
+		keys = append(keys, a.SourceKey)
+
+		if a.PartnerKey != "" {
+			keys = append(keys, a.PartnerKey)
+		}
+	}
+
+	if len(keys) == 0 {
+		return
+	}
+
+	sort.Strings(keys)
+
+	_, _ = fmt.Fprintln(w)
+
+	if dryRun {
+		_, _ = fmt.Fprintf(w,
+			"  Note: these credentials would still be live after migrating. Moving a\n"+
+				"  credential does not retire the copy that has already been on disk.\n")
+
+		return
+	}
+
+	_, _ = fmt.Fprintf(w,
+		"  ⚠ The old credentials are STILL LIVE. Rotate or revoke them now:\n"+
+			"      %s\n"+
+			"  They have been in a config file, so they are still in whatever that file\n"+
+			"  reached — dotfile repositories, backups, diagnostic bundles. Moving which\n"+
+			"  copy wins does not retire the one that leaked, and this command cannot\n"+
+			"  rotate a third-party credential for you.\n",
+		strings.Join(keys, "\n      "))
 }
 
 func printAction(w io.Writer, a MigrationAction) {
@@ -623,7 +839,12 @@ func printAction(w io.Writer, a MigrationAction) {
 		return
 	}
 
-	_, _ = fmt.Fprintf(w, "  %s → %s = %s (target: %s)\n", keys, a.DestKey, a.DestValue, a.Target)
+	verified := ""
+	if a.Verified != "" && a.Verified != VerifiedNone {
+		verified = fmt.Sprintf(" [verified: %s]", a.Verified)
+	}
+
+	_, _ = fmt.Fprintf(w, "  %s → %s = %s (target: %s)%s\n", keys, a.DestKey, a.DestValue, a.Target, verified)
 }
 
 // migrateCmdSettings holds what the command needs injected. Only the

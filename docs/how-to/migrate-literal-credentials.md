@@ -122,6 +122,56 @@ credentials:
 
 Explicit `--target` on the command line still wins over the cascade.
 
+## Migrating is not the end of the exposure
+
+A migration changes which copy of a credential *wins*, and removes the one on
+disk. It does not retire the copy that already leaked — a literal credential has
+been in a config file, so wherever that file travelled it is still there and
+still valid: dotfile repositories, backups, diagnostic bundles, a support
+ticket.
+
+So the run ends by saying so:
+
+```text
+  ⚠ The old credentials are STILL LIVE. Rotate or revoke them now:
+      anthropic.api.key
+```
+
+**Rotate at the provider.** This command cannot rotate a third-party credential
+and does not pretend to; that step is yours, and it is the only one that ends
+the exposure rather than narrowing future exposure.
+
+## What is verified before the literal is destroyed
+
+Nothing is removed on the strength of a write returning success:
+
+| target | what is proved first |
+|---|---|
+| `env` | the named variable is readable |
+| `keychain` | the secret was written **and read back unchanged** |
+
+The keychain read-back compares values, not just the absence of an error: a
+backend returning a *different* secret is worse than one returning none, because
+the literal would be gone and the tool would then authenticate with something
+else. If either check fails, the literal is **not** removed — the mutations are
+staged and committed in one step precisely so a failure changes nothing.
+
+After the rewrite commits, the configuration is re-read from disk and each
+migrated credential is resolved again, which catches a rewrite that parsed but
+resolved differently than intended. That check reports `resolves from its new
+home`.
+
+**It is not an authentication check.** Proving a credential *works* needs
+per-provider knowledge — a forge token and an AI key are validated in entirely
+different ways — so what is proved is that it resolves from where the migration
+put it. That is a weaker claim than "it works", and reporting it as anything
+stronger would be worse than not checking at all.
+
+Failure does not roll back. Restoring the literal would rewrite the plaintext
+secret to disk, undoing the only irreversible good the command does — so it
+warns, records the credential as unverified, and leaves the safer state in
+place.
+
 ## What if it's interrupted?
 
 The config file rewrite is atomic (temp-file + rename), so a SIGINT mid-migration leaves the original `config.yaml` in place. Re-run the command to resume — already-migrated credentials skip cleanly, and partial-progress (e.g. the keychain Store succeeded but the rewrite didn't) is visible in the second run's dry-run preview.
