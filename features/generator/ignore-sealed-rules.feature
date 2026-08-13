@@ -67,3 +67,32 @@ Feature: .gtb/ignore distinguishes regeneration from wiring
     Then the project exit code is 0
     And the project output contains "conflict detected"
     And the generated "pkg/cmd/alpha/cmd.go" file contains "hand-edited, do not clobber"
+
+  Scenario: A sealed file the developer removed is not recreated
+    # D3 says a sealed path is "never rendered, never wired, never created and
+    # never deleted". Creation was the case it did not cover: the execution-file
+    # branch gated only on whether the file existed and on --force, so deleting a
+    # sealed main.go got it written back on the next run while `ignore check`
+    # still reported `sealed`. Tracks issue #17.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name lexicon --short lexicon-cmd"
+    And I run gtb in the project with "ignore seal pkg/cmd/lexicon/main.go"
+    And I run gtb in the project with "ignore check pkg/cmd/lexicon/main.go"
+    Then the project output contains "sealed"
+    When I delete the generated "pkg/cmd/lexicon/main.go" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/lexicon/main.go" file does not exist
+
+  Scenario: A plain rule does not block creation, because refusing would break the build
+    # The counterpart to D2's wiring carve-out: the rendered cmd.go references
+    # RunLexicon, so refusing to write main.go leaves a package that does not
+    # compile. Only an explicit seal, where that consequence has been accepted,
+    # stops it.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name lexicon --short lexicon-cmd"
+    And I run gtb in the project with "ignore add pkg/cmd/lexicon/main.go"
+    And I delete the generated "pkg/cmd/lexicon/main.go" file
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/lexicon/main.go" file exists

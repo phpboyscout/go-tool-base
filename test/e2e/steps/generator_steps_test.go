@@ -157,6 +157,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
+	ctx.Step(`^I delete the generated "([^"]*)" file$`, iDeleteTheGeneratedFile)
 	ctx.Step(`^I record the state of the generated project$`, iRecordTheStateOfTheGeneratedProject)
 	ctx.Step(`^the generated project is unchanged$`, theGeneratedProjectIsUnchanged)
 }
@@ -509,6 +510,12 @@ func iHandEditTheGeneratedFile(ctx context.Context, relPath string) error {
 
 	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
 	return os.WriteFile(full, append(content, []byte("\n// hand-edited, do not clobber\n")...), 0o644)
+}
+
+func iDeleteTheGeneratedFile(ctx context.Context, relPath string) error {
+	w := getGeneratorWorld(ctx)
+
+	return os.Remove(filepath.Join(w.projectDir, relPath))
 }
 
 func iRunGTBInTheProjectWith(ctx context.Context, args string) context.Context {

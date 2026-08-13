@@ -67,6 +67,11 @@ lands on your program rather than on the file:
 So a hand-tuned `cmd.go` with an ignore rule keeps your edits *and* keeps
 picking up new subcommands. That is almost always what you want.
 
+The same carve-out covers **creating** a command's `main.go`. If you delete one
+that a plain rule covers, the generator writes it back — the rendered `cmd.go`
+references the `Run…` function that file defines, so refusing would leave a
+package that does not compile. Use `sealed` when you mean it should stay gone.
+
 ### When you really do mean "never touch this"
 
 Add the `sealed` attribute:
