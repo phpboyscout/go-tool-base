@@ -17,8 +17,9 @@ const (
 	FailOnNone FailThreshold = "none"
 	// FailOnFail fails only on a check that outright failed.
 	FailOnFail FailThreshold = "fail"
-	// FailOnWarn fails on a warning too — which is where deprecated credential
-	// storage lands, so this is what makes a compatibility window close.
+	// FailOnWarn additionally fails on a GATING warning — one a check has
+	// marked as a policy violation, such as deprecated credential storage.
+	// Advisory warnings never fail a run at any threshold.
 	FailOnWarn FailThreshold = "warn"
 )
 
@@ -71,6 +72,12 @@ func ParseFailThreshold(v string) (FailThreshold, error) {
 // CheckSkip never counts. A check that could not run has not found a problem,
 // and failing a pipeline because something was unavailable would make the gate
 // untrustworthy — which is the fastest way to have it turned off.
+//
+// Neither does an ADVISORY warning. Keying the exit code on severity alone made
+// "no AI provider API keys configured" fail the pipeline of any tool that does
+// not use AI — it turned a diagnostic into a tripwire. Only a warning a check
+// has marked Gating counts, so a check author opts into being able to stop a
+// build rather than inheriting it from a status string.
 func (t FailThreshold) Exceeded(report *DoctorReport) bool {
 	if report == nil || t == FailOnNone {
 		return false
@@ -81,7 +88,7 @@ func (t FailThreshold) Exceeded(report *DoctorReport) bool {
 		case CheckFail:
 			return true
 		case CheckWarn:
-			if t == FailOnWarn {
+			if t == FailOnWarn && c.Gating {
 				return true
 			}
 		case CheckPass, CheckSkip:

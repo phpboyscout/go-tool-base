@@ -26,6 +26,19 @@ type CheckResult struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 	Details string `json:"details,omitempty"`
+	// Gating marks a WARN that is a policy violation rather than an advisory,
+	// so it can fail a run under a warn threshold.
+	//
+	// Most warnings are advice: "no AI provider API keys configured" is a
+	// perfectly good state for a tool that does not use AI, and failing its
+	// pipeline over that would be absurd — which is exactly what happened when
+	// the exit code keyed on severity alone. A warning gates only when the
+	// check says the condition is a policy failure, and a check author has to
+	// opt in deliberately.
+	//
+	// It has no effect on a pass, a skip, or a fail: a failed check gates
+	// regardless, because there is nothing advisory about one.
+	Gating bool `json:"gating,omitempty"`
 }
 
 // CheckFunc is the signature for individual diagnostic checks.

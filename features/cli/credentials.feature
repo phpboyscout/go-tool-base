@@ -21,7 +21,10 @@ Feature: Credential storage hardening
         auth:
           value: ghp_scenario_secret
       """
-    When I run gtb with "doctor"
+    # --fail-on is stated rather than inherited: the default differs under CI,
+    # and a scenario whose expected exit code depends on where it runs is a
+    # scenario that will disagree with the pipeline eventually.
+    When I run gtb with "doctor --fail-on=none"
     Then the exit code is 0
     And stdout contains "[!!] Credential storage"
     And stdout contains "2 literal credential"
@@ -29,6 +32,32 @@ Feature: Credential storage hardening
     And stdout contains "github.auth.value"
     And stdout does not contain "sk-ant-scenario-secret"
     And stdout does not contain "ghp_scenario_secret"
+
+  Scenario: Literal credentials fail a gated run
+    # R3: deprecated storage must be able to stop a pipeline, or the
+    # compatibility window never closes. This is the default under CI.
+    Given a temporary directory with a config file:
+      """
+      anthropic:
+        api:
+          key: sk-ant-scenario-secret
+      """
+    When I run gtb with "doctor --fail-on=warn"
+    Then the exit code is 1
+    And stdout contains "[!!] Credential storage"
+
+  Scenario: An advisory warning does not fail a gated run
+    # Only a warning a check marks as a policy violation gates. "No AI provider
+    # configured" is a fine state for a tool that does not use AI, and failing
+    # its pipeline over that would turn a diagnostic into a tripwire.
+    Given a temporary directory with a config file:
+      """
+      anthropic:
+        api:
+          env: SOME_ANTHROPIC_VAR
+      """
+    When I run gtb with "doctor --fail-on=warn"
+    Then the exit code is 0
 
   Scenario: Doctor passes when credentials use env-var references
     Given a temporary directory with a config file:
@@ -39,7 +68,7 @@ Feature: Credential storage hardening
         api:
           env: ANTHROPIC_API_KEY
       """
-    When I run gtb with "doctor"
+    When I run gtb with "doctor --fail-on=none"
     Then the exit code is 0
     And stdout contains "[OK] Credential storage"
 
@@ -171,7 +200,9 @@ Feature: Credential storage hardening
           value: tok-scenario-secret
       """
     And I set environment variable "GITHUB_TOKEN" to ""
-    When I run gtb with "doctor"
+    # The literal is the point of this scenario, so the gate is stated off:
+    # what is being asserted is the REPORT, not the exit code.
+    When I run gtb with "doctor --fail-on=none"
     Then the exit code is 0
     And stdout contains "GitHub credential: resolves from auth.value"
     And stdout contains "[!!] Credential storage"

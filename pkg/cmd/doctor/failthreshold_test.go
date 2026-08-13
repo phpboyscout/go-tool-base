@@ -11,10 +11,17 @@ import (
 // with a [FAIL] on screen — so no pipeline could gate on it and a compatibility
 // window became permanent by default.
 
+// reportWith builds a report whose warnings are GATING, so the table below
+// exercises the threshold logic itself. Whether an advisory warning gates is a
+// separate question, pinned by its own test.
 func reportWith(statuses ...CheckStatus) *DoctorReport {
 	r := &DoctorReport{Tool: "t", Version: "v"}
 	for i, s := range statuses {
-		r.Checks = append(r.Checks, CheckResult{Name: string(rune('a' + i)), Status: s})
+		r.Checks = append(r.Checks, CheckResult{
+			Name:   string(rune('a' + i)),
+			Status: s,
+			Gating: s == CheckWarn,
+		})
 	}
 
 	return r
@@ -77,4 +84,38 @@ func TestParseFailThreshold(t *testing.T) {
 	_, err := ParseFailThreshold("sometimes")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "none, fail, warn")
+}
+
+func TestFailThreshold_AdvisoryWarningsNeverGate(t *testing.T) {
+	t.Parallel()
+
+	advisory := &DoctorReport{Checks: []CheckResult{
+		// The real one: a tool that does not use AI is in a perfectly good
+		// state, and failing its pipeline over this would turn a diagnostic
+		// into a tripwire.
+		{Name: "API keys", Status: CheckWarn, Message: "no AI provider API keys configured"},
+	}}
+
+	assert.False(t, FailOnWarn.Exceeded(advisory),
+		"an advisory warning must not fail a build at any threshold")
+
+	policy := &DoctorReport{Checks: []CheckResult{
+		{Name: "Credential storage", Status: CheckWarn, Gating: true},
+	}}
+
+	assert.True(t, FailOnWarn.Exceeded(policy),
+		"a warning a check marked as a policy violation is what the gate is for")
+	assert.False(t, FailOnFail.Exceeded(policy),
+		"and it still only gates at the warn threshold")
+}
+
+func TestFailThreshold_GatingIsIrrelevantToAFailure(t *testing.T) {
+	t.Parallel()
+
+	// There is nothing advisory about a failed check, so it gates either way.
+	for _, gating := range []bool{true, false} {
+		r := &DoctorReport{Checks: []CheckResult{{Status: CheckFail, Gating: gating}}}
+		assert.True(t, FailOnFail.Exceeded(r))
+		assert.True(t, FailOnWarn.Exceeded(r))
+	}
 }

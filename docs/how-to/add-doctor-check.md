@@ -117,12 +117,31 @@ Use the following status strings in your `CheckResult`:
 | `"fail"` | Critical problem                  |
 | `"skip"` | Check not applicable              |
 
-**Your status decides whether the run fails.** `doctor` exits non-zero when a
-check is as bad as the run's threshold, or worse:
+**A failing check fails the run; a warning only does so if you say it should.**
+Set `Gating: true` on a `CheckResult` when a warning is a *policy violation*
+rather than advice:
+
+```go
+return CheckResult{
+    Name:    "Credential storage",
+    Status:  "warn",
+    Gating:  true, // this is a policy failure, not advice
+    Message: "2 literal credential(s) in config",
+}
+```
+
+Most warnings are advice. "No AI provider configured" is a perfectly good state
+for a tool that does not use AI, and failing its pipeline over that would turn a
+diagnostic into a tripwire — so an advisory warning never fails a run, at any
+threshold. `Gating` has no effect on a pass, a skip, or a fail: a failed check
+gates regardless, because there is nothing advisory about one.
+
+`doctor` exits non-zero when a check is as bad as the run's threshold, or
+worse:
 
 | threshold | fails on | when it applies |
 |---|---|---|
-| `warn` | `warn`, `fail` | the default **under CI** |
+| `warn` | **gating** `warn`, and any `fail` | the default **under CI** |
 | `fail` | `fail` | the default **interactively** |
 | `none` | nothing | only when asked for |
 

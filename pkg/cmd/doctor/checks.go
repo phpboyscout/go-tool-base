@@ -111,8 +111,12 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 	}
 
 	return CheckResult{
-		Name:    "Credential storage",
-		Status:  CheckWarn,
+		Name:   "Credential storage",
+		Status: CheckWarn,
+		// The one warning that gates a run. Spec 0189 R3 exists so a pipeline
+		// can stop deprecated storage becoming permanent; every other warning
+		// here is advice and must not fail anybody's build.
+		Gating:  true,
 		Message: fmt.Sprintf("%d literal credential(s) in config", len(leaked)),
 		Details: fmt.Sprintf(
 			"Key(s): %s. Migrate to env-var references (e.g. anthropic.api.env: ANTHROPIC_API_KEY) — see https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening.",
