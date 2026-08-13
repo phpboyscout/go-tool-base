@@ -1,5 +1,19 @@
 # Changelog
 
+## [v0.37.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.37.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.37.0...v0.37.1)
+
+### Bug Fixes
+
+- **generator**: call the Run stub a command group is given ([f3ef266](https://gitlab.com/phpboyscout/go-tool-base/-/commit/f3ef266237bd554ea917bfd3a01aa1c1ba50f120))
+- **deps**: update go modules ([b367af1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b367af1de65aabd8046bb6de6d6bedd83ed0fc8b))
+- **deps**: update config to v0.14.0 ([5ce9020](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5ce9020df5c0c1e2f1849f486b4cf7a4c671851c))
+- **generator**: stop a sealed rule being ignored when creating main.go ([1e455da](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1e455dade96f1274c10be7220882184444444120))
+- **generator**: reconcile the manifest rebuild instead of replacing it ([8c914b0](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8c914b0436393c6d33b2caba80379932bc73432d))
+- **generator**: record command file hashes after post-processing ([3577ed2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3577ed2be360191619dbb8ffb95febed916ba1e3))
+- **deps**: update go modules ([e7143c4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e7143c47a06d3656b8260ba593bced72bf00211b))
+
 ## [v0.37.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.37.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.36.1...v0.37.0)
