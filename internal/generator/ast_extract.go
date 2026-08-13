@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/token"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/dave/dst"
@@ -92,10 +93,41 @@ func (g *Generator) extractCommandMetadata(path string) (*ManifestCommand, strin
 	return cmd, constructorName, subcommandFuncs, nil
 }
 
+// unquoteLiteral decodes a Go string literal into the value it denotes. It is
+// the single decoder every literal read in this file goes through.
+//
+// It must decode rather than trim. A double-quoted literal carries its content
+// escaped, so trimming the delimiters leaves `\n` as a backslash followed by an
+// n. Written into a YAML plain scalar those two characters survive verbatim,
+// and a command's long description then reaches the user's terminal through
+// --help with literal backslash-n where the line breaks should be — 23 of 67
+// commands on keryx (issue #16). Every other escape (`\t`, `\"`, `\\`) was
+// mangled the same way.
+//
+// Trimming was also lossy at the edges: strings.Trim removes *every* leading
+// and trailing quote or backtick, so a value that legitimately ends in one lost
+// it silently.
+func unquoteLiteral(raw string) string {
+	if unquoted, err := strconv.Unquote(raw); err == nil {
+		return unquoted
+	}
+
+	// Not a well-formed literal — an unresolved constant, or a fragment a
+	// caller has already flattened. Remove at most one matched pair of
+	// delimiters, which is the most a malformed value can safely give up.
+	for _, delim := range []string{"`", `"`} {
+		if len(raw) >= 2 && strings.HasPrefix(raw, delim) && strings.HasSuffix(raw, delim) {
+			return raw[1 : len(raw)-1]
+		}
+	}
+
+	return raw
+}
+
 // Helper to resolve string values from literals or constants.
 func resolveStringValue(expr dst.Expr, constants map[string]string) (string, bool) {
 	if lit, ok := expr.(*dst.BasicLit); ok {
-		return strings.Trim(lit.Value, "`\""), true
+		return unquoteLiteral(lit.Value), true
 	}
 
 	if id, ok := expr.(*dst.Ident); ok {
@@ -187,7 +219,7 @@ func (g *Generator) applyCobraLiteralFields(composite *dst.CompositeLit, cmd *Ma
 
 		val := ""
 		if lit, ok := kve.Value.(*dst.BasicLit); ok {
-			val = strings.Trim(lit.Value, "`\"")
+			val = unquoteLiteral(lit.Value)
 		}
 
 		g.processCobraKey(key.Name, val, kve.Value, cmd)
@@ -225,7 +257,7 @@ func (g *Generator) extractAliases(expr dst.Expr, cmd *ManifestCommand) {
 	if comp, ok := expr.(*dst.CompositeLit); ok {
 		for _, elt := range comp.Elts {
 			if lit, ok := elt.(*dst.BasicLit); ok {
-				cmd.Aliases = append(cmd.Aliases, strings.Trim(lit.Value, "`\""))
+				cmd.Aliases = append(cmd.Aliases, unquoteLiteral(lit.Value))
 			}
 		}
 	}
@@ -509,7 +541,7 @@ func extractConstants(f *dst.File) map[string]string {
 
 func resolveConstantValue(expr dst.Expr) (string, bool) {
 	if lit, ok := expr.(*dst.BasicLit); ok {
-		return strings.Trim(lit.Value, "`\""), true
+		return unquoteLiteral(lit.Value), true
 	}
 
 	// Unwrap a conversion like int(0) or the nested int(int64(0)) the
@@ -789,7 +821,7 @@ func (g *Generator) extractMarkFlagsMutuallyExclusive(call *dst.CallExpr, cmd *M
 
 	for _, arg := range call.Args {
 		if lit, ok := arg.(*dst.BasicLit); ok {
-			group = append(group, strings.Trim(lit.Value, "`\""))
+			group = append(group, unquoteLiteral(lit.Value))
 		}
 	}
 
@@ -803,7 +835,7 @@ func (g *Generator) extractMarkFlagsRequiredTogether(call *dst.CallExpr, cmd *Ma
 
 	for _, arg := range call.Args {
 		if lit, ok := arg.(*dst.BasicLit); ok {
-			group = append(group, strings.Trim(lit.Value, "`\""))
+			group = append(group, unquoteLiteral(lit.Value))
 		}
 	}
 
@@ -838,7 +870,7 @@ func (g *Generator) markFlagHidden(call *dst.CallExpr, cmd *ManifestCommand) {
 		return
 	}
 
-	flagName := strings.Trim(lit.Value, "`\"")
+	flagName := unquoteLiteral(lit.Value)
 	for i := range cmd.Flags {
 		if cmd.Flags[i].Name == flagName {
 			cmd.Flags[i].Hidden = true
@@ -856,7 +888,7 @@ func (g *Generator) markFlagRequired(call *dst.CallExpr, cmd *ManifestCommand) {
 		return
 	}
 
-	flagName := strings.Trim(lit.Value, "`\"")
+	flagName := unquoteLiteral(lit.Value)
 	for i := range cmd.Flags {
 		if cmd.Flags[i].Name == flagName {
 			cmd.Flags[i].Required = true
@@ -889,7 +921,7 @@ func (g *Generator) markFlagRequiredOrHiddenComplex(call *dst.CallExpr, cmd *Man
 		return
 	}
 
-	flagName := strings.Trim(lit.Value, "`\"")
+	flagName := unquoteLiteral(lit.Value)
 	g.updateFlagStatus(cmd, flagName, target)
 }
 
@@ -1241,5 +1273,5 @@ func stringLitValue(expr dst.Expr) (string, bool) {
 		return "", false
 	}
 
-	return strings.Trim(lit.Value, "`\""), true
+	return unquoteLiteral(lit.Value), true
 }

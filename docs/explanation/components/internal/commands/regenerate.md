@@ -48,6 +48,23 @@ middleware helper, so descriptions survive the rebuild. (Without this, a
 following `regenerate project` would render the blanked descriptions back into
 every `cmd.go`, wiping the help text.)
 
+**The rebuild reconciles; it does not replace.** The scan is authoritative for
+everything it can read out of `cmd.go` — structure, nesting, descriptions,
+flags, hooks, argument contracts — and the existing manifest keeps the
+per-command state no generated file carries:
+
+- `hashes`, the drift-detection baseline `doctor` reads;
+- `hidden`, which is written into `cmd.go` but not read back out;
+- `protected`, which is manifest-only and reaches no generated file at all.
+
+A command the scan finds but the manifest did not know about starts with none of
+these, which is what a newly-discovered command should have.
+
+Descriptions survive the trip intact, including multi-line ones. A value spanning
+several lines is written back as a YAML block scalar rather than a plain scalar
+with escaped newlines — a plain scalar does not interpret `\n`, so escaping there
+would put a literal backslash-n into the command's help output.
+
 Feature-state handling depends on whether a manifest already exists:
 
 - **Manifest present** (the common case): `properties.features` is **preserved**

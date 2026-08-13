@@ -47,7 +47,7 @@ func (g *Generator) RegenerateManifest(ctx context.Context) error {
 		return errors.Newf("failed to read manifest: %w", readErr)
 	}
 
-	m.Commands = commands
+	m.Commands = mergeScannedCommands(m.Commands, commands)
 
 	// The generated root cmd.go is the source of truth ONLY for name,
 	// description, and release_source. Every other property is manifest-only
@@ -115,6 +115,54 @@ type commandEntry struct {
 	constructorName string
 	subcommandFuncs []string
 	children        []*commandEntry
+}
+
+// mergeScannedCommands overlays the freshly scanned command tree onto the
+// existing one, carrying forward the per-command state the source cannot
+// express.
+//
+// The scan is authoritative for structure and for everything it reads out of
+// cmd.go — names, nesting, descriptions, flags, hooks, argument contracts. It
+// cannot recover the bookkeeping the manifest alone holds:
+//
+//   - hashes, the drift-detection baseline that 0187 D10 taught doctor to read;
+//   - hidden, which the template writes into cmd.go but the extractor never
+//     reads back;
+//   - protected, which is manifest-only and reaches no generated file at all.
+//
+// Assigning the scan result wholesale discarded every one of them. On keryx
+// that was all 67 command hashes in a single run, leaving nothing tracked and
+// the next regenerate treating every file as new (issue #16).
+//
+// This is the same merge-in-place shape applyRecoveredProperties already
+// applies to Properties, adopted for the same reason and after the same defect
+// — a manifest is authored state, and a rebuild reconciles what the code can
+// prove rather than replacing what it cannot see.
+//
+// A command the scan found but the manifest did not know about picks up the
+// zero value for each of these, which is what a newly-discovered command
+// should have.
+func mergeScannedCommands(existing, scanned []ManifestCommand) []ManifestCommand {
+	prior := make(map[string]ManifestCommand, len(existing))
+	for _, cmd := range existing {
+		prior[cmd.Name] = cmd
+	}
+
+	merged := make([]ManifestCommand, 0, len(scanned))
+
+	for _, cmd := range scanned {
+		old := prior[cmd.Name]
+
+		cmd.Hash = old.Hash
+		cmd.Hashes = old.Hashes
+		cmd.Hidden = old.Hidden
+		cmd.Protected = old.Protected
+		cmd.Commands = mergeScannedCommands(old.Commands, cmd.Commands)
+
+		merged = append(merged, cmd)
+	}
+
+	return merged
 }
 
 func (g *Generator) scanCommands(dir string) ([]ManifestCommand, error) {
