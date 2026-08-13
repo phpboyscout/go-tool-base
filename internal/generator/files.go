@@ -168,6 +168,22 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 	mainFile := filepath.Join(cmdDir, "main.go")
 
+	// A seal forbids every write to the path, creation included (0188 D3). The
+	// preserve branch below already checks this inside ensureHookStubs; without
+	// the same check here, sealing a main.go and deleting it got the file
+	// recreated on the next run, and `ignore check` reported `sealed` while the
+	// generator wrote anyway (issue #17).
+	//
+	// wiringSealed rather than IsIgnored, deliberately: 0188 D2 lets a *plain*
+	// ignore rule through here, because the rendered cmd.go references a RunX
+	// this file defines and refusing to write it is a hard compile error. Only
+	// the explicit `sealed` attribute — where the developer has accepted that
+	// consequence — stops it, and the refusal is recorded so the end-of-run
+	// summary names it (D6).
+	if g.wiringSealed(mainFile, "creating the execution file") {
+		return nil
+	}
+
 	exists, _ := afero.Exists(g.props.FS, mainFile)
 	if !exists || g.config.Force {
 		g.props.Logger.Info(fmt.Sprintf("%s execution file: %s", g.writeVerb(), mainFile))
