@@ -626,11 +626,39 @@ func printAction(w io.Writer, a MigrationAction) {
 	_, _ = fmt.Fprintf(w, "  %s → %s = %s (target: %s)\n", keys, a.DestKey, a.DestValue, a.Target)
 }
 
+// migrateCmdSettings holds what the command needs injected. Only the
+// environment discovery so far.
+type migrateCmdSettings struct {
+	discover func(context.Context) credentialposture.ModeEnvironment
+}
+
+// MigrateCmdOption configures [NewCmdMigrate].
+type MigrateCmdOption func(*migrateCmdSettings)
+
+// WithModeEnvironment fixes the environment the command uses to pick a default
+// target, instead of discovering it from the process.
+//
+// Tests need this. Discovery reads whether stdin is a terminal and whether a
+// keychain answers, and a test asserting on the default target otherwise passes
+// or fails on facts about the machine running it — which is how this landed a
+// red pipeline: GitLab's runners allocate a TTY, so a command test that was
+// green here was not there.
+func WithModeEnvironment(env credentialposture.ModeEnvironment) MigrateCmdOption {
+	return func(s *migrateCmdSettings) {
+		s.discover = func(context.Context) credentialposture.ModeEnvironment { return env }
+	}
+}
+
 // NewCmdMigrate returns the `config migrate-credentials` subcommand.
 // The command is wired into NewCmdConfig alongside get / set / list
 // / validate.
-func NewCmdMigrate(props *p.Props) *cobra.Command {
+func NewCmdMigrate(props *p.Props, options ...MigrateCmdOption) *cobra.Command {
 	opts := MigrateOptions{}
+
+	settings := migrateCmdSettings{discover: credentialposture.DiscoverModeEnvironment}
+	for _, o := range options {
+		o(&settings)
+	}
 
 	var (
 		targetFlag      string
@@ -702,7 +730,7 @@ Re-running the command is safe: credentials that already have a target configura
 			// not vary with whether stdin happens to be a terminal. Bounded
 			// because the probe is a live keychain round-trip.
 			probeCtx, cancel := context.WithTimeout(cmd.Context(), credentials.KeychainOpTimeout)
-			opts.ModeEnv = credentialposture.DiscoverModeEnvironment(probeCtx)
+			opts.ModeEnv = settings.discover(probeCtx)
 
 			cancel()
 

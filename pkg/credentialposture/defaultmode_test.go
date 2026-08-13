@@ -116,3 +116,26 @@ func TestStorageModeOptions_OffersAndDefaultsConsistently(t *testing.T) {
 	assert.Equal(t, credentials.ModeEnvVar, defaultMode)
 	assert.Contains(t, choices[0].Label, "(recommended)")
 }
+
+func TestDefaultStorageMode_CIIsExcludedEvenWithATerminal(t *testing.T) {
+	t.Parallel()
+
+	// The case that turned a pipeline red. A terminal is not evidence of a
+	// human: GitLab's runners allocate a TTY, so IsInteractive reports true
+	// inside CI. The keychain probe happened to mask it — a runner has no
+	// keychain — but a rule that is only right because a second condition
+	// rescues it is a rule waiting to be wrong.
+	ciWithTerminalAndKeychain := credentialposture.ModeEnvironment{
+		CI:             true,
+		Interactive:    true,
+		KeychainUsable: true,
+	}
+
+	assert.Equal(t, credentials.ModeEnvVar,
+		credentialposture.DefaultStorageMode(ciWithTerminalAndKeychain),
+		"a CI run takes the CI default however interactive it looks")
+
+	assert.Empty(t, credentialposture.RecommendedLabel(ciWithTerminalAndKeychain, credentials.ModeKeychain))
+	assert.Equal(t, " (recommended)",
+		credentialposture.RecommendedLabel(ciWithTerminalAndKeychain, credentials.ModeEnvVar))
+}

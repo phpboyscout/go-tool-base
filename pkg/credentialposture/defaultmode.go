@@ -16,6 +16,13 @@ import (
 // and passing what they know avoids a second probe and keeps the decision
 // testable without mocking anything.
 type ModeEnvironment struct {
+	// CI reports whether this is an automated run.
+	//
+	// It is checked separately from Interactive because a terminal is NOT
+	// evidence of a human: GitLab's runners allocate a TTY, so IsInteractive
+	// reports true inside a pipeline. Relying on the terminal alone made a
+	// pipeline pick the interactive default, which is exactly backwards.
+	CI bool
 	// Interactive reports whether a human is at the terminal.
 	Interactive bool
 	// KeychainUsable reports whether a keychain backend is registered AND
@@ -37,12 +44,19 @@ type ModeEnvironment struct {
 //
 // The test is deliberately the same one the setup wizard already applies when
 // deciding whether to offer keychain at all, rather than a second rule that can
-// disagree with it. CI needs no special case: a pipeline has no terminal.
+// disagree with it — plus an explicit CI exclusion.
+//
+// That exclusion is not belt-and-braces. This design originally rested on "CI
+// needs no special case, because a pipeline has no terminal", and that is
+// false: GitLab's runners allocate a TTY, so IsInteractive reports true inside
+// a pipeline. The keychain probe happened to save it — a runner has no keychain
+// — but a rule that is right only because a second condition rescues it is a
+// rule waiting to be wrong. A CI run takes the CI default outright.
 //
 // An explicit choice always wins over this, and so does a configured default —
 // this is only consulted when nothing has been stated.
 func DefaultStorageMode(env ModeEnvironment) credentials.Mode {
-	if env.Interactive && env.KeychainUsable {
+	if !env.CI && env.Interactive && env.KeychainUsable {
 		return credentials.ModeKeychain
 	}
 
@@ -85,10 +99,7 @@ type ModeLabels struct {
 // The probe is a live round-trip and the caller's context should be bounded;
 // credentials.KeychainOpTimeout is the bound the wizards already use.
 func StorageModeOptions(ctx context.Context, labels ModeLabels) ([]credentials.ModeChoice, credentials.Mode) {
-	env := ModeEnvironment{
-		Interactive:    utils.IsInteractive(),
-		KeychainUsable: credentials.Probe(ctx),
-	}
+	env := DiscoverModeEnvironment(ctx)
 
 	choices := credentials.ModeChoices(
 		credentials.IsCI(),
@@ -112,6 +123,7 @@ func StorageModeOptions(ctx context.Context, labels ModeLabels) ([]credentials.M
 // The caller should bound ctx: the probe is a live keychain round-trip.
 func DiscoverModeEnvironment(ctx context.Context) ModeEnvironment {
 	return ModeEnvironment{
+		CI:             credentials.IsCI(),
 		Interactive:    utils.IsInteractive(),
 		KeychainUsable: credentials.Probe(ctx),
 	}

@@ -85,3 +85,15 @@ func TestResolveMigrateTarget_StillRefusesLiteral(t *testing.T) {
 
 	require.Error(t, err, "migrate moves credentials OFF literal mode, never onto it")
 }
+
+func TestResolveMigrateTarget_CIKeepsTheEnvVarDefault(t *testing.T) {
+	t.Parallel()
+
+	// A CI runner with a TTY and (hypothetically) a keychain must still get the
+	// env-var reference. This is the assertion the red pipeline earned.
+	got, err := resolveMigrateTarget("", testutil.ViewFromYAML(t, "other: value\n"),
+		credentialposture.ModeEnvironment{CI: true, Interactive: true, KeychainUsable: true})
+
+	require.NoError(t, err)
+	assert.Equal(t, credentials.ModeEnvVar, got)
+}

@@ -59,7 +59,7 @@ When nobody says which storage mode to use, the choice follows the environment:
 
 | | |
 |---|---|
-| a terminal, and a keychain that answers a live probe | **OS keychain** |
+| not CI, a terminal, and a keychain that answers a live probe | **OS keychain** |
 | anything else — CI, a pipe, a headless box, a locked keychain | **environment-variable reference** |
 
 An environment reference is an excellent CI interface and a poor interactive
@@ -67,10 +67,14 @@ default: an exported variable is inherited by every process the shell spawns, so
 the secret is readable by everything the developer runs. A keychain entry stays
 put until something asks for it.
 
-CI needs no special case — a pipeline has no terminal. The keychain is only
-chosen when a live `credentials.Probe` round-trip succeeds, so a machine with no
-Secret Service, or a keychain locked at that moment, falls back rather than
-picking a store that will not work.
+**CI is excluded explicitly, not by implication.** A terminal is not evidence of
+a human — GitLab's runners allocate a TTY, so an "is stdin a terminal" test
+reports true inside a pipeline. A CI run takes the CI default outright rather
+than relying on the keychain probe to rescue it.
+
+The keychain is only chosen when a live `credentials.Probe` round-trip succeeds,
+so a machine with no Secret Service, or a keychain locked at that moment, falls
+back rather than picking a store that will not work.
 
 **An explicit choice always wins**, and so does a configured default
 (`credentials.migrate.default_target`). This only applies when nothing has been

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
@@ -324,7 +325,7 @@ func TestNewCmdMigrate_DryRunFlag(t *testing.T) {
 	t.Parallel()
 
 	p := newMigrateFixture(t, anthropicSeed("sk-ant-cmd"))
-	cmd := NewCmdMigrate(p)
+	cmd := NewCmdMigrate(p, WithModeEnvironment(credentialposture.ModeEnvironment{}))
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -344,7 +345,7 @@ func TestNewCmdMigrate_EnvVarFlag(t *testing.T) {
 	t.Parallel()
 
 	p := newMigrateFixture(t, anthropicSeed("sk-ant-flag"))
-	cmd := NewCmdMigrate(p)
+	cmd := NewCmdMigrate(p, WithModeEnvironment(credentialposture.ModeEnvironment{}))
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -360,7 +361,7 @@ func TestNewCmdMigrate_BadEnvVarFlag(t *testing.T) {
 	t.Parallel()
 
 	p := newMigrateFixture(t, anthropicSeed("sk-ant"))
-	cmd := NewCmdMigrate(p)
+	cmd := NewCmdMigrate(p, WithModeEnvironment(credentialposture.ModeEnvironment{}))
 	cmd.SetArgs([]string{"--yes", "--env-var", "noequalshere"})
 
 	err := cmd.Execute()
@@ -374,7 +375,7 @@ func TestNewCmdMigrate_TargetFlagInvalid(t *testing.T) {
 	t.Parallel()
 
 	p := newMigrateFixture(t, anthropicSeed("sk-ant"))
-	cmd := NewCmdMigrate(p)
+	cmd := NewCmdMigrate(p, WithModeEnvironment(credentialposture.ModeEnvironment{}))
 	cmd.SetArgs([]string{"--yes", "--target", "bogus"})
 
 	err := cmd.Execute()
@@ -388,7 +389,7 @@ func TestNewCmdMigrate_NoCandidates(t *testing.T) {
 	t.Parallel()
 
 	p := newMigrateFixture(t, nil)
-	cmd := NewCmdMigrate(p)
+	cmd := NewCmdMigrate(p, WithModeEnvironment(credentialposture.ModeEnvironment{}))
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
