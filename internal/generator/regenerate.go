@@ -303,7 +303,7 @@ func (g *Generator) RegenerateCommand(ctx context.Context, cmd ManifestCommand, 
 		return errors.Newf("failed to create command directory: %w", err)
 	}
 
-	data := g.prepareRegenerationData(cmd, cmdDir)
+	data := g.prepareRegenerationData(cmd)
 
 	if err := g.performGeneration(ctx, cmdDir, &data); err != nil {
 		return err
@@ -344,7 +344,7 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 		return errors.Newf("failed to create command directory: %w", err)
 	}
 
-	data := g.prepareRegenerationData(cmd, cmdDir)
+	data := g.prepareRegenerationData(cmd)
 
 	if err := g.performGeneration(ctx, cmdDir, &data); err != nil {
 		return err
@@ -375,7 +375,7 @@ func (g *Generator) regenerateCommandRecursive(ctx context.Context, cmd Manifest
 	return nil
 }
 
-func (g *Generator) prepareRegenerationData(cmd ManifestCommand, cmdDir string) templates.CommandData {
+func (g *Generator) prepareRegenerationData(cmd ManifestCommand) templates.CommandData {
 	flags := g.resolveGenerationFlags()
 	data := g.prepareGenerationData(flags)
 	data.Aliases = g.config.Aliases
@@ -383,8 +383,6 @@ func (g *Generator) prepareRegenerationData(cmd ManifestCommand, cmdDir string) 
 	data.Hidden = g.config.Hidden
 	data.MutuallyExclusive = cmd.MutuallyExclusive
 	data.RequiredTogether = cmd.RequiredTogether
-
-	data.OmitRun = g.shouldOmitRun(data, cmdDir)
 
 	return data
 }

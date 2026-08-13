@@ -40,7 +40,6 @@ func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {
 		Name:       "hello",
 		Short:      "say hi",
 		Long:       "say hi",
-		OmitRun:    true,
 	}
 
 	var buf bytes.Buffer

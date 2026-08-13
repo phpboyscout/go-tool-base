@@ -19,7 +19,6 @@ func renderCommand(t *testing.T, exposure setup.MCPExposure) string {
 		Name:        "post",
 		Short:       "publish",
 		Long:        "publish",
-		OmitRun:     true,
 		MCPExposure: exposure,
 	}
 
@@ -80,7 +79,7 @@ func TestCommandRegistration_MCPExposureInherit_EmitsNoMarker(t *testing.T) {
 func TestCommandRegistration_MCPExposureZeroValueIsInherit(t *testing.T) {
 	t.Parallel()
 
-	data := CommandData{Package: "x", PascalName: "X", Name: "x", Short: "x", Long: "x", OmitRun: true}
+	data := CommandData{Package: "x", PascalName: "X", Name: "x", Short: "x", Long: "x"}
 
 	var buf bytes.Buffer
 	require.NoError(t, CommandRegistration(data).Render(&buf))

@@ -127,6 +127,13 @@ actually ran:
 props.ErrorHandler.SetUsage(cmd.Usage)
 ```
 
+You rarely return it by hand. A generated command with subcommands gets it as its
+`Run<Name>` stub, and the generated `cmd.go` wires a `RunE` that calls it — so a
+bare `tool group` prints usage, warns `subcommand required`, and exits with the
+usage exit code rather than succeeding silently. A command that gains its first
+child has its stub upgraded from `ErrNotImplemented`, provided you have not
+written anything into it yourself.
+
 `Check` is the lower-level method used when you want to choose the level dynamically:
 
 ```go

@@ -56,7 +56,6 @@ func TestCommandInitializer_InitStubTakesContext(t *testing.T) {
 		Name:            "foo",
 		PascalName:      "Foo",
 		WithInitializer: true,
-		OmitRun:         true,
 	}
 
 	body := CommandExecution(data)

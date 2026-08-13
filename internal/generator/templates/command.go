@@ -46,7 +46,6 @@ type CommandData struct {
 	PersistentPreRun         bool
 	PreRun                   bool
 	HasSubcommands           bool
-	OmitRun                  bool
 	WithInitializer          bool
 	WithConfigValidation     bool
 	Hashes                   map[string]string
@@ -406,7 +405,10 @@ func CommandInitializer(data CommandData) *jen.File {
 }
 
 func needsOpts(data CommandData) bool {
-	return !data.OmitRun || data.PersistentPreRun || data.PreRun || len(data.Flags) > 0 || len(data.PersistentFlags) > 0 || len(data.AncestralPersistentFlags) > 0
+	// Every command wires a RunE that takes opts, so opts is always needed.
+	// The other terms are kept because a hook or a flag needs it too, and that
+	// stays true regardless of how the run field is emitted.
+	return true
 }
 
 func generateCommandFields(data CommandData) []jen.Code {
@@ -461,21 +463,25 @@ func generateCommandFields(data CommandData) []jen.Code {
 
 	cmdFields = append(cmdFields, generatePreRunField(data))
 
-	if !data.OmitRun {
-		cmdFields = append(cmdFields, jen.Id("RunE").Op(":").Func().Params(
-			jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
-			jen.Id("args").Index().String(),
-		).Error().Block(
-			jen.Return(
-				jen.Id("Run"+data.PascalName).Call(
-					jen.Id("cmd").Dot("Context").Call(),
-					jen.Id("props"),
-					jen.Id("opts"),
-					jen.Id("args"),
-				),
+	// Every command wires RunE, groups included. A group's Run<Name> returns
+	// errorhandling.ErrRunSubCommand, whose Outcome prints usage and exits
+	// ExitCodeUsage — the contract go/errorhandling documents the generator as
+	// producing. Suppressing RunE for groups left that stub unreachable and a
+	// bare group exiting 0 (issue #21). ensureHookStubs guarantees the callee
+	// exists in a preserved main.go, so this reference is always resolvable.
+	cmdFields = append(cmdFields, jen.Id("RunE").Op(":").Func().Params(
+		jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
+		jen.Id("args").Index().String(),
+	).Error().Block(
+		jen.Return(
+			jen.Id("Run"+data.PascalName).Call(
+				jen.Id("cmd").Dot("Context").Call(),
+				jen.Id("props"),
+				jen.Id("opts"),
+				jen.Id("args"),
 			),
-		).Op(","))
-	}
+		),
+	).Op(","))
 
 	return cmdFields
 }

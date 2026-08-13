@@ -141,7 +141,7 @@ func (g *Generator) generate(ctx context.Context) error {
 // registration path leaves the parent's leaf-shaped cmd.go (boilerplate
 // RunE/opts) in place, which a later `regenerate project` would strip; applying
 // the canonical render here via RegenerateCommand makes the two paths converge.
-// RegenerateCommand applies shouldOmitRun, so a custom Run<Name> is preserved
+// RegenerateCommand preserves a custom Run<Name>
 // and only boilerplate is dropped. No-op for root, dry-run, or non-transition
 // adds. It is invoked from generate() (not the shared pipeline) so the parent's
 // own regeneration does not re-trigger it.
@@ -467,11 +467,8 @@ func (g *Generator) performGeneration(ctx context.Context, cmdDir string, data *
 		return errors.Newf("failed to create directory %s: %w", cmdDir, err)
 	}
 
-	data.OmitRun = g.shouldOmitRun(*data, cmdDir)
-
 	g.props.Logger.Debug("command generation settings",
 		"command", data.Name,
-		"omit_run", data.OmitRun,
 		"with_assets", data.WithAssets,
 		"with_initializer", data.WithInitializer,
 		"has_subcommands", data.HasSubcommands)
