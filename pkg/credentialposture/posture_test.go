@@ -301,3 +301,85 @@ func TestResolve_CancellationIsHonouredAtEveryRung(t *testing.T) {
 		assert.ErrorIs(t, err, context.Canceled)
 	}
 }
+
+// Spec 0189 R5/D7: a credential established in a secure store must not silently
+// resolve from a plaintext copy below it.
+
+func TestResolveCredential_RefusesWhenAKeychainRegressesToALiteral(t *testing.T) {
+	t.Parallel()
+
+	// All three conditions: a keychain is configured, it will not answer (no
+	// backend is linked in this binary), and a literal sits below it.
+	cfg := fakeReader{
+		"github.auth.keychain": "svc/acct",
+		"github.auth.value":    "a-plaintext-token",
+	}
+
+	value, got, err := credentialposture.ResolveCredential(context.Background(), cfg, noFallbackDescriptor())
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, credentialposture.ErrSecureStoreRegressed)
+	assert.Empty(t, value, "the plaintext credential must not be handed out")
+	assert.Equal(t, credentialposture.OriginNone, got.Origin)
+	assert.NotContains(t, err.Error(), "a-plaintext-token", "the refusal must not quote the secret")
+}
+
+func TestResolveCredential_LeavesTheOrdinaryCasesAlone(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		config fakeReader
+		want   credentialposture.Origin
+	}{
+		{
+			// A first run: no keychain was ever established, so a literal is
+			// the credential, not a regression. Incremental migration depends
+			// on this staying silent.
+			name:   "a literal with no keychain configured is not a regression",
+			config: fakeReader{"github.auth.value": "s3cret"},
+			want:   credentialposture.OriginLiteral,
+		},
+		{
+			// The keychain is broken but there is nothing plaintext to fall
+			// back to, so nothing regressed — the credential is simply absent,
+			// which the error already says.
+			name:   "a broken keychain with no literal below it is not a regression",
+			config: fakeReader{"github.auth.keychain": "svc/acct"},
+			want:   credentialposture.OriginNone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, got, err := credentialposture.ResolveCredential(
+				context.Background(), tt.config, noFallbackDescriptor())
+
+			if tt.want != credentialposture.OriginNone {
+				require.NoError(t, err)
+			}
+
+			require.NotErrorIs(t, err, credentialposture.ErrSecureStoreRegressed)
+			assert.Equal(t, tt.want, got.Origin)
+		})
+	}
+}
+
+func TestResolveCredential_AHigherRungMeansTheKeychainIsNeverConsulted(t *testing.T) {
+	t.Setenv("INVARIANT_TEST_VAR", "s3cret")
+
+	// The env reference wins before the keychain is reached, so a broken
+	// keychain and a literal below it are both irrelevant — the invariant must
+	// not fire on a configuration that is working.
+	cfg := fakeReader{
+		"github.auth.env":      "INVARIANT_TEST_VAR",
+		"github.auth.keychain": "svc/acct",
+		"github.auth.value":    "a-plaintext-token",
+	}
+
+	value, got, err := credentialposture.ResolveCredential(context.Background(), cfg, noFallbackDescriptor())
+
+	require.NoError(t, err)
+	assert.Equal(t, credentialposture.OriginEnvRef, got.Origin)
+	assert.Equal(t, "s3cret", value)
+}

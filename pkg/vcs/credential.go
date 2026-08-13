@@ -47,17 +47,17 @@ func ForgeCredential(sub forge.Config, fallbackEnv string) forge.CredentialSourc
 	desc := forgeDescriptor(fallbackEnv)
 	reader := readerFor(sub)
 
-	rungs := desc.Rungs()
+	// One walk, not a chain of independent sources. The secure-store invariant
+	// (spec 0189 R5/D7) is a judgement ACROSS rungs — a keychain that was
+	// configured and failed, with a plaintext copy below it — which a chain of
+	// first-non-empty sources cannot express, because each source only knows
+	// about itself. Composing them here would have left the supplying path
+	// falling through to the literal while the reporting path refused it.
+	return func(ctx context.Context) (string, error) {
+		value, _, err := credentialposture.ResolveCredential(ctx, reader, desc)
 
-	sources := make([]forge.CredentialSource, 0, len(rungs))
-
-	for _, rung := range rungs {
-		sources = append(sources, func(ctx context.Context) (string, error) {
-			return rung.Read(ctx, reader, desc)
-		})
+		return value, err
 	}
-
-	return forge.FirstCredential(sources...)
 }
 
 // CredentialOrigin names the rung that supplied a credential. It is an alias

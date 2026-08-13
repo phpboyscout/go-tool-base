@@ -53,6 +53,42 @@ subsystem walks:
 | `pkg/vcs` | `auth.env` → `auth.keychain` → `auth.value` → fallback env (GitHub/GitLab/Gitea/direct) |
 | `go/forge-bitbucket` (external module) | `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt blob aborts resolution rather than falling through to stale literals. |
 
+## A secure store does not silently stop being used
+
+Resolution precedence — env reference, keychain, literal, fallback variable — is
+what makes incremental migration safe: configure a safer mode and it
+transparently wins. But it also meant a tool resolving from the keychain dropped
+to a plaintext literal the moment the keychain became unavailable — a locked
+session, a container without the Secret Service, a rebuild without the backend.
+Nothing distinguished "always was a literal" from "regressed to one", so the
+safest configuration failed the most quietly.
+
+A credential is now **refused** rather than resolved from plaintext when all
+three of these hold:
+
+1. a keychain entry is configured for it;
+2. that entry could not be read;
+3. a plaintext copy below it would otherwise win.
+
+```text
+ERROR keychain unavailable; refusing to fall back to a plaintext credential: GitHub credential
+      The keychain entry named by github.auth.keychain could not be read, and
+      github.auth.value holds a plaintext copy. Unlock the keychain, or run
+      `config unset github.auth.keychain` if you meant to stop using it.
+```
+
+**No new state was needed.** Config naming a keychain entry *is* the record that
+a secure store was deliberately established, so a first run, a config with no
+keychain reference, or a keychain that answers are all untouched. The precedence
+order is unchanged.
+
+It applies **per credential**: one provider's entry being unreadable says nothing
+about another's, so only the affected credential refuses.
+
+A fallback *environment variable* below a broken keychain is not a regression and
+does not refuse — it is not a plaintext copy somebody configured, and telling an
+operator to remove something they never wrote would be wrong.
+
 ## Choosing where a credential goes
 
 When nobody says which storage mode to use, the choice follows the environment:

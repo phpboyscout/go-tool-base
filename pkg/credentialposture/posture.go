@@ -48,6 +48,20 @@ const (
 	OriginFallbackEnv Origin = "fallback environment variable"
 )
 
+// ErrSecureStoreRegressed reports a credential that was established in a secure
+// store and has silently fallen back to a plaintext copy.
+//
+// The precedence order — env reference, keychain, literal, fallback variable —
+// is what makes incremental migration safe, and it stays. But it also means a
+// tool resolving from the keychain drops to a literal the moment the keychain
+// is unavailable: a locked session, a container without the Secret Service, a
+// rebuild without the backend. Nothing distinguished "always was a literal"
+// from "regressed to one", so the safest configuration failed the most quietly.
+var ErrSecureStoreRegressed = errors.NewSentinel(
+	"gtb.credentialposture.secure_store_regressed",
+	"keychain unavailable; refusing to fall back to a plaintext credential",
+)
+
 // Reader is the narrow config surface a posture walk needs. Both
 // `config.View` and `forge.Config` satisfy it, which is what lets this package
 // serve forges and AI providers without depending on either.
@@ -178,20 +192,49 @@ func (p Posture) String() string {
 // a bare "no credential" would otherwise hide the reason. That is what keeps a
 // configured-but-broken credential diagnosed rather than reported as absent.
 func Resolve(ctx context.Context, cfg Reader, d Descriptor) (Posture, error) {
+	_, p, err := ResolveCredential(ctx, cfg, d)
+
+	return p, err
+}
+
+// ResolveCredential walks the precedence chain and returns the credential
+// alongside its posture, enforcing the secure-store invariant.
+//
+// Error handling mirrors the forge resolver deliberately: a rung that fails
+// does not stop the walk, because a later rung may still supply a working
+// credential — and in that case the configuration genuinely does work. The
+// retained error is returned only when nothing resolved, which is exactly when
+// a bare "no credential" would otherwise hide the reason. That is what keeps a
+// configured-but-broken credential diagnosed rather than reported as absent.
+//
+// The one exception is the invariant below, where falling through IS the fault.
+func ResolveCredential(ctx context.Context, cfg Reader, d Descriptor) (string, Posture, error) {
 	p := Posture{Owner: d.Owner, Label: d.Label, Origin: OriginNone}
 
 	var (
-		retained error
-		rungs    = d.Rungs()
+		retained      error
+		keychainBroke bool
+		rungs         = d.Rungs()
 	)
 
 	for i, rung := range rungs {
 		value, err := rung.read(ctx, cfg, d)
 		if err != nil {
-			// A cancelled or expired context is about the caller, not the
-			// configuration, and every later rung would fail the same way.
+			// Caller cancellation stops the walk: it is about the caller, not
+			// the configuration, and every later rung would fail the same way.
+			// A rung's OWN deadline is not this — readKeychain bounds itself,
+			// so a locked keychain is a rung failure the walk carries on past.
 			if ctx.Err() != nil {
-				return p, err
+				return "", p, err
+			}
+
+			// A keychain that was configured and would not answer is the
+			// precondition for the invariant below. Config naming a keychain
+			// entry IS the record that a secure store was deliberately
+			// established, so no extra state is needed to tell this from a
+			// first run.
+			if rung.Origin == OriginKeychain {
+				keychainBroke = true
 			}
 
 			retained = errors.Join(retained, err)
@@ -203,14 +246,30 @@ func Resolve(ctx context.Context, cfg Reader, d Descriptor) (Posture, error) {
 			continue
 		}
 
+		// Spec 0189 R5/D7. All three conditions must hold: a keychain was
+		// configured, it failed, and a plaintext copy below it would now win.
+		// A first run, a config with no keychain reference, or a keychain that
+		// answers is untouched — so the precedence order that makes incremental
+		// migration safe is intact, and only the case where a secure store has
+		// demonstrably regressed is refused.
+		if keychainBroke && rung.Origin == OriginLiteral {
+			p.Origin = OriginNone
+
+			return "", p, errors.WithHintf(
+				errors.Newf("%w: %s", ErrSecureStoreRegressed, d.Label),
+				"The keychain entry named by %s could not be read, and %s holds a plaintext copy. "+
+					"Unlock the keychain, or run `config unset %s` if you meant to stop using it.",
+				d.KeychainKey, d.LiteralKey, d.KeychainKey)
+		}
+
 		p.Origin = rung.Origin
 		p.Key = rung.Key
 		p.Shadowed = shadowsBelow(ctx, cfg, d, rungs[i+1:])
 
-		return p, nil
+		return value, p, nil
 	}
 
-	return p, retained
+	return "", p, retained
 }
 
 // shadowsBelow reports which lower-precedence rungs still hold a credential.
@@ -258,8 +317,17 @@ func readEnvRef(ctx context.Context, cfg Reader, d Descriptor) (string, error) {
 
 // readKeychain resolves a "service/account" keychain reference.
 //
-// The caller is expected to bound the context — a keychain read can block on an
-// OS unlock prompt, and a diagnostic must report rather than hang.
+// It bounds its own read rather than relying on the caller to bound the whole
+// walk, and that distinction is load-bearing. A keychain read is the one rung
+// that can block — an OS unlock prompt, an unreachable Secret Service — so with
+// a walk-wide deadline the read would exhaust it and every later rung would
+// then fail with a context error.
+//
+// The effect was that the invariant could never fire in the case it exists for:
+// a locked keychain blocked until the deadline, the walk aborted on ctx.Err()
+// before reaching the literal below it, and the run reported "does not resolve"
+// instead of refusing to fall back to plaintext. Timing out here makes an
+// unavailable keychain an ordinary rung failure, which is what it is.
 func readKeychain(ctx context.Context, cfg Reader, d Descriptor) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
@@ -269,6 +337,11 @@ func readKeychain(ctx context.Context, cfg Reader, d Descriptor) (string, error)
 	if ref == "" {
 		return "", nil
 	}
+
+	readCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
+	defer cancel()
+
+	ctx = readCtx
 
 	service, account, ok := strings.Cut(ref, "/")
 	if !ok || service == "" || account == "" {

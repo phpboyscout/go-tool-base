@@ -19,6 +19,7 @@ import (
 	"gitlab.com/phpboyscout/go/forge"
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
 )
 
@@ -358,16 +359,34 @@ func TestResolveForgeCredentialOrigin(t *testing.T) {
 // broken rung does not stop the walk, because a later rung may still supply a
 // working credential — and then the configuration genuinely does work, so
 // reporting a failure would be wrong.
+//
+// One case is now carved out of that, deliberately. A broken KEYCHAIN rescued
+// by a PLAINTEXT literal is the silent regression spec 0189 R5 exists to stop,
+// so it refuses instead of falling through. Every other rescue is unchanged —
+// this test previously used the literal to demonstrate the rescue, and now uses
+// the fallback variable, because the literal case has a different contract.
 func TestResolveForgeCredentialOrigin_BrokenRungIsReportedOnlyWhenNothingResolves(t *testing.T) {
-	const yaml = "github:\n  auth:\n    keychain: no-slash-here\n    value: from-literal\n"
-
 	t.Run("a lower rung rescues it", func(t *testing.T) {
+		t.Setenv(envRefName, "")
+		t.Setenv(fallbackName, "from-fallback")
+
+		got, err := vcs.ResolveForgeCredentialOrigin(
+			t.Context(), sub(t, "github:\n  auth:\n    keychain: no-slash-here\n"), fallbackName)
+
+		require.NoError(t, err, "a working fallback means the configuration works")
+		assert.Equal(t, vcs.OriginFallbackEnv, got)
+	})
+
+	t.Run("a plaintext literal does NOT rescue a broken keychain", func(t *testing.T) {
 		t.Setenv(envRefName, "")
 		t.Setenv(fallbackName, "")
 
-		got, err := vcs.ResolveForgeCredentialOrigin(t.Context(), sub(t, yaml), fallbackName)
-		require.NoError(t, err, "a working literal means the configuration works")
-		assert.Equal(t, vcs.OriginLiteral, got)
+		_, err := vcs.ResolveForgeCredentialOrigin(t.Context(),
+			sub(t, "github:\n  auth:\n    keychain: no-slash-here\n    value: from-literal\n"),
+			fallbackName)
+
+		require.Error(t, err, "a secure store that stopped working must not silently become plaintext")
+		assert.ErrorIs(t, err, credentialposture.ErrSecureStoreRegressed)
 	})
 
 	t.Run("nothing rescues it, so the reason surfaces", func(t *testing.T) {

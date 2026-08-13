@@ -4,8 +4,6 @@ import (
 	"context"
 	"sort"
 	"sync"
-
-	"gitlab.com/phpboyscout/go/credentials"
 )
 
 // The registry is the extension point spec 0189 Q6 settled on: a bundle
@@ -63,10 +61,12 @@ func Registered() []Descriptor {
 
 // ReportAll resolves posture for every registered credential.
 //
-// Each credential is walked under its own bounded deadline, because a keychain
-// rung can block on an OS unlock prompt and a diagnostic must report rather
-// than hang — the same bound the forge check and the setup wizard already use.
-// One credential timing out therefore does not stop the rest being reported.
+// The keychain rung bounds its own read (see readKeychain), so there is no
+// deadline around the whole walk here. There used to be, with the same
+// duration — and it meant a locked keychain consumed the credential's entire
+// budget, so the walk aborted on a context error before it could judge the
+// rungs below. The invariant that refuses a plaintext fallback could never fire
+// in the one case it exists for.
 //
 // A resolution error is attached to its own credential rather than aborting the
 // run: "this one is configured but broken" is a finding, and losing the other
@@ -76,11 +76,7 @@ func ReportAll(ctx context.Context, cfg Reader) []Result {
 	results := make([]Result, 0, len(descriptors))
 
 	for _, d := range descriptors {
-		resolveCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
-
-		posture, err := Resolve(resolveCtx, cfg, d)
-
-		cancel()
+		posture, err := Resolve(ctx, cfg, d)
 
 		results = append(results, Result{Posture: posture, Err: err})
 	}

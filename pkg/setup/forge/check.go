@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/phpboyscout/go/credentials"
-
 	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
@@ -107,13 +105,11 @@ func checkForgeCredential(profile Profile) setup.CheckFunc {
 
 		sub := vcs.ConfigFromReader(p.Config.View()).Sub(profile.Provider)
 
-		// The same bound deadline the setup wizard uses for its own resolve: a
-		// keychain rung may block on an OS unlock prompt, and `doctor` must
-		// report rather than hang.
-		resolveCtx, cancel := context.WithTimeout(ctx, credentials.KeychainOpTimeout)
-		defer cancel()
-
-		origin, err := vcs.ResolveForgeCredentialOrigin(resolveCtx, sub, profile.FallbackEnv)
+		// No deadline around the whole resolve: the keychain rung bounds its own
+		// read. A wrapper here with the same duration meant a locked keychain
+		// exhausted the budget and the walk aborted before judging the rungs
+		// below it, which hid the plaintext-fallback refusal behind a timeout.
+		origin, err := vcs.ResolveForgeCredentialOrigin(ctx, sub, profile.FallbackEnv)
 
 		switch {
 		case err != nil:
