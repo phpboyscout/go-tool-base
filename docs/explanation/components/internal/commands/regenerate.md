@@ -122,6 +122,22 @@ covered by a `.gtb/ignore` rule, keeps its previously stored hash rather than
 adopting what is on disk. That is deliberate — adopting it would silently make
 your edit the new baseline and overwrite it without asking next time.
 
+**Regenerating inside a git worktree is safe.** It used not to be: the
+post-generation `golangci-lint --fix` could rewrite files in the *original*
+checkout, silently, while the generated output landed correctly in the worktree.
+
+The cause is upstream. golangci-lint caches findings against absolute paths and
+returns them from a later run in a different directory, so run from a worktree
+of a repo that has been linted elsewhere, `--fix` writes to the paths in the
+cache — files in the other checkout. Nothing in the generator misresolved
+anything; the leaked files were simply whatever lint had analysed there before.
+
+gtb therefore gives golangci-lint a cache keyed to the directory being linted. A
+worktree cannot inherit entries belonging to another checkout, and repeat runs
+in the same directory still hit a warm cache. If you have set
+`GOLANGCI_LINT_CACHE` yourself it is left alone — that is an explicit choice —
+but be aware it reopens the behaviour above.
+
 **Help (`regenerate project --help`):**
 
 ```text
