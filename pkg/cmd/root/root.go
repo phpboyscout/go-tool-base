@@ -30,6 +30,7 @@ import (
 	cmdtelemetry "gitlab.com/phpboyscout/go-tool-base/pkg/cmd/telemetry"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/update"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/cmd/version"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/telemetry"
@@ -1555,14 +1556,20 @@ func selectTelemetryBackend(ctx context.Context, props *p.Props, cfg telemetry.C
 
 // validateConfig warns about common misconfigurations.
 //
-// The keys checked are the credential-resolution literals — the same list
-// doctor's credentials.no-literal check uses (doctor.LiteralCredentialKeys) —
-// so the warning tracks the current credential schema instead of a hardcoded,
-// pre-forge-migration list. The stale "github.token" key it once checked can
-// never fire against today's schema (the forge migration moved to
-// "github.auth.value").
+// The keys checked are the credential-resolution literals, read from what
+// bundles have DECLARED rather than from a list kept somewhere — so the warning
+// tracks the credential schema automatically, including a downstream tool's own
+// credentials, instead of a hardcoded list that goes stale. The "github.token"
+// key it once checked could never fire against today's schema (the forge
+// migration moved to "github.auth.value"), which is what a hand-maintained list
+// costs.
 func validateConfig(cfg config.Reader, l logger.Logger) {
-	for _, key := range doctor.LiteralCredentialKeys {
+	for _, d := range credentialposture.Registered() {
+		key := d.LiteralKey
+		if key == "" {
+			continue
+		}
+
 		// IsSet is true for a key that merely PARENTS a set key, and GetString
 		// of a mapping is "" — so a key holding a subtree looked exactly like a
 		// key set to the empty string. bitbucket.app_password is the case that

@@ -592,6 +592,11 @@ func registerGitHub() {
 // subcommand, and the --skip-bitbucket flag.
 func registerBitbucket() {
 	setup.RegisterAssets(bitbucketProfile.Feature, "bitbucket", bundleFor("bitbucket"))
+	// Bitbucket does not route through registerCredentialCheck (its dual shape
+	// has no single-token resolution check), so it declares its credentials
+	// here — otherwise its username and app password would be the one pair no
+	// reporting surface knows about.
+	declareCredentials(bitbucketProfile)
 	setup.Register(bitbucketProfile.Feature,
 		[]setup.InitialiserProvider{
 			func(p *props.Props) setup.Initialiser {

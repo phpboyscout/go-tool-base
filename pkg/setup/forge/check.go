@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/phpboyscout/go/credentials"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -34,6 +35,14 @@ import (
 // auth.value — would report "no credential configured" for a Bitbucket that is
 // perfectly well configured. A dual-shape check is worth having and is not this.
 func registerCredentialCheck(profile Profile) {
+	// Declaration first, and NOT gated on the credential shape. A dual-
+	// credential forge's username and app password are secrets in config
+	// whether or not the single-token resolution check can report on them — and
+	// gating the declaration on the check is how bitbucket.app_password would
+	// have quietly stopped being warned about when the hardcoded key list was
+	// retired. Spec 0189 R4.
+	declareCredentials(profile)
+
 	if profile.Credential != SingleToken {
 		return
 	}
@@ -42,6 +51,45 @@ func registerCredentialCheck(profile Profile) {
 
 	setup.RegisterChecks(profile.Feature, []setup.CheckProvider{
 		func(*props.Props) []setup.CheckFunc { return []setup.CheckFunc{check} },
+	})
+}
+
+// declareCredentials registers a forge's credential keys so every reporting
+// surface — the resolution report, the literal-credential warning, and the
+// support-bundle redaction — sees them without keeping a list of its own.
+//
+// The dual shape declares both halves: they are separate secrets under separate
+// keys, and reporting one without the other would be a half-answer.
+func declareCredentials(profile Profile) {
+	if profile.Credential == SingleToken {
+		credentialposture.Register(credentialposture.Descriptor{
+			Owner:       "forge:" + profile.Provider,
+			Label:       profile.Label + " credential",
+			EnvKey:      profile.ConfigPrefix + ".auth.env",
+			KeychainKey: profile.ConfigPrefix + ".auth.keychain",
+			LiteralKey:  profile.ConfigPrefix + ".auth.value",
+			FallbackEnv: profile.FallbackEnv,
+		})
+
+		return
+	}
+
+	// Both halves share the one keychain entry, which holds a JSON blob rather
+	// than a bare secret — so neither declares a KeychainKey it could resolve
+	// alone.
+	credentialposture.Register(credentialposture.Descriptor{
+		Owner:       "forge:" + profile.Provider,
+		Label:       profile.Label + " username",
+		EnvKey:      profile.ConfigPrefix + ".username.env",
+		LiteralKey:  profile.ConfigPrefix + ".username",
+		FallbackEnv: profile.UserFallbackEnv,
+	})
+	credentialposture.Register(credentialposture.Descriptor{
+		Owner:       "forge:" + profile.Provider,
+		Label:       profile.Label + " app password",
+		EnvKey:      profile.ConfigPrefix + ".app_password.env",
+		LiteralKey:  profile.ConfigPrefix + ".app_password",
+		FallbackEnv: profile.PassFallbackEnv,
 	})
 }
 

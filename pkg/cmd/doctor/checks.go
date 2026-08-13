@@ -6,9 +6,11 @@ import (
 	goversion "go/version"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -73,31 +75,6 @@ func checkAPIKeys(_ context.Context, props *p.Props) CheckResult {
 	}
 }
 
-// LiteralCredentialKeys enumerates the config keys that store secrets
-// as plaintext. Populated entries trigger a WARN in [checkNoLiteralCredentials]
-// directing the user to migrate to env-var mode. It is the single source of
-// truth for "a credential stored as a literal" — the root pre-run's
-// validateConfig shares it so its empty-but-set warning tracks the current
-// credential schema instead of a hardcoded, pre-forge-migration key list.
-//
-// The spec calls for a dedicated `config migrate-credentials` command
-// (Phase 3) to automate the migration. For now the hint text points
-// at the spec and the env-var config keys.
-var LiteralCredentialKeys = []string{
-	chat.ConfigKeyClaudeKey,
-	chat.ConfigKeyOpenAIKey,
-	chat.ConfigKeyGeminiKey,
-	"github.auth.value",
-	"gitlab.auth.value",
-	"gitea.auth.value",
-	"codeberg.auth.value",
-	"bitbucket.app_password",
-}
-
-// checkNoLiteralCredentials implements the R6 requirement from
-// https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening:
-// warn when a credential is stored as plaintext in the config file.
-// Reports key NAMES only — never values, per R1/R2.
 func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 	if props.Config == nil {
 		return CheckResult{Name: "Credential storage", Status: CheckSkip, Message: "no configuration loaded"}
@@ -107,11 +84,23 @@ func checkNoLiteralCredentials(_ context.Context, props *p.Props) CheckResult {
 
 	var leaked []string
 
-	for _, key := range LiteralCredentialKeys {
-		if strings.TrimSpace(cfg.GetString(key)) != "" {
-			leaked = append(leaked, key)
+	// The inventory comes from what bundles declared, not from a list kept
+	// here. Three such lists existed — this one, config migrate's
+	// knownCredentials (whose own comment asked the reader to keep them in sync
+	// by hand), and the forge profiles — and a credential stored under a key
+	// nobody had remembered to add was invisible to all of them. A downstream
+	// tool's own credentials were invisible by construction. Spec 0189 R4.
+	for _, d := range credentialposture.Registered() {
+		if d.LiteralKey == "" {
+			continue
+		}
+
+		if strings.TrimSpace(cfg.GetString(d.LiteralKey)) != "" {
+			leaked = append(leaked, d.LiteralKey)
 		}
 	}
+
+	sort.Strings(leaked)
 
 	if len(leaked) == 0 {
 		return CheckResult{

@@ -16,6 +16,7 @@ import (
 
 	"gitlab.com/phpboyscout/go-tool-base/internal/testutil"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	ver "gitlab.com/phpboyscout/go-tool-base/pkg/version"
@@ -165,9 +166,25 @@ func TestCheckNoLiteralCredentials_Clean(t *testing.T) {
 // more literal credentials are present. It also asserts the details name the
 // leaked KEYS only and never echo the secret VALUE.
 func TestCheckNoLiteralCredentials_Leaked(t *testing.T) {
-	t.Parallel()
-
 	const secret = "super-secret-value"
+
+	// The inventory is what bundles declared, so this test declares the forge
+	// credential it asserts on rather than relying on pkg/setup/forge being
+	// linked into doctor's own test binary. That coupling is the point: a
+	// credential is reported because something declared it, which is also why a
+	// tool with no GitLab feature is no longer warned about gitlab.auth.value.
+	credentialposture.Register(credentialposture.Descriptor{
+		Owner:      "forge:gitlab",
+		Label:      "GitLab credential",
+		EnvKey:     "gitlab.auth.env",
+		LiteralKey: "gitlab.auth.value",
+	})
+	credentialposture.Register(credentialposture.Descriptor{
+		Owner:      "chat:anthropic",
+		Label:      "Anthropic API key",
+		EnvKey:     chat.ConfigKeyClaudeEnv,
+		LiteralKey: chat.ConfigKeyClaudeKey,
+	})
 
 	// Whitespace-padded values still count as leaked (the check trims).
 	store := testutil.StoreFromYAML(t,

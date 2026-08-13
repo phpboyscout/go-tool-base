@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"gitlab.com/phpboyscout/go/redact"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 )
 
 // redactedSentinel replaces any value whose key is credential-shaped, so even a
@@ -39,12 +41,13 @@ var credentialKeySegments = map[string]struct{}{
 func isCredentialKey(keyPath string) bool {
 	lk := strings.ToLower(keyPath)
 
-	// Exact match against doctor's own credential-key list (same package), so the
-	// "literal credential" WARN check and this redaction never disagree about a
-	// known key. The generic suffix/segment net below additionally catches keys
-	// the fixed list doesn't enumerate (e.g. a downstream tool's own provider).
-	for _, known := range LiteralCredentialKeys {
-		if lk == strings.ToLower(known) {
+	// Exact match against every DECLARED credential, so the "literal credential"
+	// WARN check and this redaction cannot disagree about a known key — they now
+	// read the same inventory rather than two lists someone has to keep in step.
+	// It also means a downstream tool's own credential is redacted because the
+	// tool declared it, not because it happened to match the generic net below.
+	for _, d := range credentialposture.Registered() {
+		if d.LiteralKey != "" && lk == strings.ToLower(d.LiteralKey) {
 			return true
 		}
 	}
