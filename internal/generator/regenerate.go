@@ -260,11 +260,17 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
 	}
 
-	// Post-processing (tidy, lint) may have modified tracked skeleton files.
-	// Refresh their hashes so the next run does not flag those changes as user
-	// customisations.
+	// Post-processing (tidy, lint) may have modified tracked files in either
+	// namespace. Refresh both so the next run does not flag those changes as
+	// user customisations: project-level files in Manifest.Hashes, and command
+	// files in ManifestCommand.Hashes. Refreshing only the first left command
+	// files diverged from their own record (issue #14).
 	if err := g.refreshProjectFileHashes(g.config.Path, writtenHashes); err != nil {
 		g.props.Logger.Warn("Failed to refresh project file hashes after post-processing", "error", err)
+	}
+
+	if err := g.refreshCommandFileHashes(g.config.Path); err != nil {
+		g.props.Logger.Warn("Failed to refresh command file hashes after post-processing", "error", err)
 	}
 }
 

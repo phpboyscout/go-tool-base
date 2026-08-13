@@ -47,6 +47,27 @@ Feature: regenerate project completes on a project with hand-modified files
     And I run gtb in the project with "doctor"
     Then the project output does not contain "pkg/cmd/alpha/cmd.go"
 
+  Scenario: A second regeneration is a no-op
+    # Convergence guard: a file gtb writes must end the run recorded with the
+    # hash of the bytes on disk, so an unchanged project regenerates to itself.
+    #
+    # Related to issue #14 but NOT a regression guard for it: this scenario
+    # passes against the unfixed code, because the pass that rewrote command
+    # files on keryx does not fire on a freshly scaffolded project. The guard
+    # for the fix itself is in internal/generator/regenerate_command_hash_test.go.
+    # It earns its place by covering the whole-project convergence property that
+    # no unit test can reach — do not read a green run here as evidence that the
+    # keryx divergence is fixed.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name alpha --short alpha-cmd"
+    And I run gtb in the project with "generate command --name beta --short beta-cmd --parent alpha"
+    And I run gtb in the project with "regenerate project"
+    And I record the state of the generated project
+    And I run gtb in the project with "regenerate project"
+    Then the project exit code is 0
+    And the generated project is unchanged
+    And the project output does not contain "kept your version"
+
   Scenario: ignore list and ignore check agree about a command file
     Given a freshly generated gtb project
     When I run gtb in the project with "generate command --name alpha --short alpha-cmd"

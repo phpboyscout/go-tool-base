@@ -92,6 +92,19 @@ landing page (`docs/index.md`), and the `justfile` — are preserved on every
 files (the generated `cmd.go`, CI pipelines, `.goreleaser.yaml`) remain
 gtb-managed and continue to update. Use `--dry-run` to preview the blast radius.
 
+**A regeneration converges: running it twice changes nothing the second time.**
+The manifest tracks hashes in two places — project-level files under
+`hashes:`, and each command's files under that command's `hashes:` — and both
+are re-read from disk once post-processing (`go mod tidy`, `golangci-lint
+run --fix`) has finished. A file is therefore recorded with the bytes that
+actually landed, not the bytes as first rendered, so a later pass reformatting
+gtb's own output does not read as developer drift on the next run.
+
+Files you have declared yours are exempt: a path kept at the conflict prompt, or
+covered by a `.gtb/ignore` rule, keeps its previously stored hash rather than
+adopting what is on disk. That is deliberate — adopting it would silently make
+your edit the new baseline and overwrite it without asking next time.
+
 **Help (`regenerate project --help`):**
 
 ```text

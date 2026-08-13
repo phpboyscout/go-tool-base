@@ -2,11 +2,14 @@ package steps_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -23,6 +26,9 @@ type generatorWorld struct {
 	stdout     string
 	stderr     string
 	exitCode   int
+	// snapshot is the recorded project tree, relative path → SHA256, taken by
+	// the "I record the state of the generated project" step.
+	snapshot map[string]string
 }
 
 // isolatedEnv returns the environment for a gtb invocation: the real
@@ -151,6 +157,99 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
+	ctx.Step(`^I record the state of the generated project$`, iRecordTheStateOfTheGeneratedProject)
+	ctx.Step(`^the generated project is unchanged$`, theGeneratedProjectIsUnchanged)
+}
+
+// snapshotProject hashes every file in the project tree, keyed by its
+// project-relative path. `.git` is skipped: the git-init step commits during
+// scaffolding, and index/log churn is not the project's own state.
+func snapshotProject(root string) (map[string]string, error) {
+	files := map[string]string{}
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		rel, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+
+		if d.IsDir() {
+			if rel == ".git" {
+				return filepath.SkipDir
+			}
+
+			return nil
+		}
+
+		content, readErr := os.ReadFile(path) //nolint:gosec // test-only: path is inside the scenario's temp project
+		if readErr != nil {
+			return readErr
+		}
+
+		files[filepath.ToSlash(rel)] = fmt.Sprintf("%x", sha256.Sum256(content))
+
+		return nil
+	})
+
+	return files, err
+}
+
+func iRecordTheStateOfTheGeneratedProject(ctx context.Context) error {
+	w := getGeneratorWorld(ctx)
+
+	snapshot, err := snapshotProject(w.projectDir)
+	if err != nil {
+		return fmt.Errorf("snapshot project: %w", err)
+	}
+
+	w.snapshot = snapshot
+
+	return nil
+}
+
+// theGeneratedProjectIsUnchanged compares the tree against the recorded
+// snapshot and reports every difference, so a failure names the files rather
+// than only that a count differed.
+func theGeneratedProjectIsUnchanged(ctx context.Context) error {
+	w := getGeneratorWorld(ctx)
+
+	if w.snapshot == nil {
+		return errors.New("no snapshot recorded: the scenario must record the project state first")
+	}
+
+	now, err := snapshotProject(w.projectDir)
+	if err != nil {
+		return fmt.Errorf("snapshot project: %w", err)
+	}
+
+	var changes []string
+
+	for rel, before := range w.snapshot {
+		switch after, present := now[rel]; {
+		case !present:
+			changes = append(changes, "removed: "+rel)
+		case after != before:
+			changes = append(changes, "rewritten: "+rel)
+		}
+	}
+
+	for rel := range now {
+		if _, present := w.snapshot[rel]; !present {
+			changes = append(changes, "added: "+rel)
+		}
+	}
+
+	if len(changes) > 0 {
+		sort.Strings(changes)
+
+		return fmt.Errorf("the project changed on a repeat run:\n  %s", strings.Join(changes, "\n  "))
+	}
+
+	return nil
 }
 
 // aGTBProjectWithACommandWithMetadata scaffolds a minimal-but-valid gtb

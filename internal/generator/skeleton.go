@@ -171,6 +171,17 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 	if err := g.runSkeletonCommand(ctx, path, "golangci-lint", "run", "--fix"); err != nil {
 		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
 	}
+
+	// The lint pass rewrites command files as readily as skeleton ones, so the
+	// command-hash refresh belongs to the shared post-processing step rather
+	// than to each of its callers. Every path that lints — skeleton generation,
+	// external templates, feature toggles, signing scaffolds — is then correct
+	// by construction, instead of correct only where somebody remembered
+	// (issue #14). Callers refresh the project namespace themselves, because
+	// only they know which files this run actually wrote.
+	if err := g.refreshCommandFileHashes(path); err != nil {
+		g.props.Logger.Warn("Failed to refresh command file hashes after post-processing", "error", err)
+	}
 }
 
 func (g *Generator) GenerateSkeleton(ctx context.Context, config SkeletonConfig) error {
@@ -394,6 +405,125 @@ func (g *Generator) refreshProjectFileHashes(projectPath string, writtenKeys map
 	}
 
 	return g.marshalManifestFile(manifestPath, m)
+}
+
+// refreshCommandFileHashes re-reads every manifest-tracked command file and
+// records the hash of the bytes now on disk. It is the command-namespace
+// counterpart to refreshProjectFileHashes, and both are needed: a project
+// file's hash lives in Manifest.Hashes, a command's in ManifestCommand.Hashes,
+// and post-processing rewrites files in both.
+//
+// Refreshing only the project namespace is what stopped a regenerated project
+// converging (issue #14). A command's cmd.go is hashed at render time and a
+// later pass in the same run rewrote it — on keryx, 17 files ended the run
+// recorded at a hash matching their content minus a whitespace-only edit that
+// arrived after hashing. Nothing re-recorded them, so every later run raised a
+// conflict on gtb's own output and doctor reported permanent drift.
+//
+// Which pass wrote last is deliberately NOT encoded here. It was not
+// established on keryx and did not reproduce on a fresh scaffold, and this
+// refresh does not need to know: it records what is on disk when the run ends,
+// so it is correct for any writer that runs before it. Resist narrowing this to
+// a specific pass without evidence — a targeted fix would silently stop
+// covering the next one.
+func (g *Generator) refreshCommandFileHashes(projectPath string) error {
+	manifestPath := ManifestPathFor(projectPath)
+
+	// Post-processing also runs on paths that have no manifest yet. Nothing to
+	// refresh is not a failure, and warning about it would be noise on every
+	// scaffold.
+	if exists, _ := afero.Exists(g.props.FS, manifestPath); !exists {
+		return nil
+	}
+
+	m, err := g.decodeManifestFile(manifestPath)
+	if err != nil {
+		return err
+	}
+
+	if !g.refreshCommandTree(m.Commands, nil) {
+		return nil
+	}
+
+	return g.marshalManifestFile(manifestPath, m)
+}
+
+// refreshCommandTree walks the manifest command tree depth-first, refreshing
+// each command's tracked files, and reports whether any hash changed. Commands
+// are addressed by index so the refresh mutates the manifest in place rather
+// than a copy.
+func (g *Generator) refreshCommandTree(cmds []ManifestCommand, parents []string) bool {
+	changed := false
+
+	for i := range cmds {
+		cmd := &cmds[i]
+
+		path := make([]string, 0, len(parents)+1)
+		path = append(path, parents...)
+		path = append(path, cmd.Name)
+
+		if g.refreshOneCommandFiles(cmd, path) {
+			changed = true
+		}
+
+		if g.refreshCommandTree(cmd.Commands, path) {
+			changed = true
+		}
+	}
+
+	return changed
+}
+
+// refreshOneCommandFiles re-hashes the files already tracked for a single
+// command, reporting whether any recorded hash changed. It adds nothing to the
+// tracked set: a file the manifest does not describe is not this function's to
+// start tracking.
+func (g *Generator) refreshOneCommandFiles(cmd *ManifestCommand, path []string) bool {
+	if len(cmd.Hashes) == 0 {
+		return false
+	}
+
+	cmdDir, err := g.containedCommandPath(filepath.Join(path...))
+	if err != nil {
+		g.props.Logger.Debug("not refreshing hashes for a command outside pkg/cmd",
+			"command", strings.Join(path, "/"), "error", err)
+
+		return false
+	}
+
+	changed := false
+
+	for filename := range cmd.Hashes {
+		fullPath := filepath.Join(cmdDir, filename)
+		relPath := g.relProjectPath(fullPath)
+
+		// The same rule refreshProjectFileHashes states: a file the developer
+		// kept was never written this run, so adopting its bytes as the new
+		// baseline would forget the divergence and overwrite it next run with
+		// no prompt (0187 D3). An ignored or sealed path is likewise not ours
+		// to re-baseline.
+		if g.conflicts.wasKept(relPath) || g.ignoreRules().IsIgnored(relPath) {
+			g.props.Logger.Debug("not refreshing hash for a file we did not write", "path", relPath)
+
+			continue
+		}
+
+		content, readErr := afero.ReadFile(g.props.FS, fullPath)
+		if readErr != nil {
+			// Absent, so there is nothing to record. The stored hash is left
+			// alone rather than dropped: unlike a project file, a command's
+			// entry is keyed by the command that still exists in the manifest,
+			// and a missing file is simply written afresh on the next run.
+			continue
+		}
+
+		if hash := calculateHash(content); hash != cmd.Hashes[filename] {
+			cmd.Hashes[filename] = hash
+			changed = true
+		}
+	}
+
+	return changed
 }
 
 // loadProjectFileHashes reads the existing manifest at the given path and
