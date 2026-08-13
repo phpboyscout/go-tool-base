@@ -133,6 +133,7 @@ func DefaultChecks(props *p.Props) []CheckFunc {
 		checkGoVersion,
 		checkConfig,
 		checkNoLiteralCredentials,
+		checkCredentialResolution,
 		checkPermissions,
 	}
 

@@ -53,6 +53,61 @@ subsystem walks:
 | `pkg/vcs` | `auth.env` → `auth.keychain` → `auth.value` → fallback env (GitHub/GitLab/Gitea/direct) |
 | `go/forge-bitbucket` (external module) | `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt blob aborts resolution rather than falling through to stale literals. |
 
+## Reporting posture, not just storage
+
+A credential's *posture* is three separate facts, and running them together is
+what made the earlier checks hard to act on:
+
+- where it is **stored** — an environment reference, a keychain entry, or a
+  literal in a config file;
+- where it **resolves from** — which of those actually supplied the value,
+  given the precedence above;
+- what is **shadowed** — the lower-precedence copies still present, which would
+  win if the one above them went away.
+
+`doctor` used to report only the first, and only for a hardcoded list of keys.
+So "a literal credential is in use" and "a literal credential is dead
+configuration underneath a working environment reference" read identically —
+while being an active exposure and a tidy-up respectively.
+
+`pkg/credentialposture` reports all three, for every declared credential rather
+than forges alone:
+
+```text
+[!!] Credential resolution: 1 of 3 credential(s) have shadowed copies still in config
+     Anthropic API key: resolves from auth.env; shadowed copies still present in anthropic.api.key
+     Gemini API key: resolves from fallback environment variable
+     OpenAI API key: resolves from auth.value
+     A shadowed copy is not in use, but it is still a secret on disk. Remove it with `config unset <key>`.
+```
+
+Nothing in that report is a credential value, which is what makes it safe to
+paste into a support bundle.
+
+### Declaring a credential
+
+A bundle declares the credential it owns, and every reporting surface picks it
+up — rather than each surface keeping its own list, which is how three
+hand-synchronised lists came to exist. A tool built on GTB declares its own the
+same way:
+
+```go
+credentialposture.Register(credentialposture.Descriptor{
+    Owner:       "mytool:elevenlabs",
+    Label:       "ElevenLabs API key",
+    EnvKey:      "elevenlabs.api.env",
+    KeychainKey: "elevenlabs.api.keychain",
+    LiteralKey:  "elevenlabs.api.key",
+    FallbackEnv: "ELEVENLABS_API_KEY",
+})
+```
+
+The precedence chain is stated once, in `Descriptor.Rungs()`, and both the
+reporting path and `pkg/vcs`'s credential-supplying path compose from it — so
+the two cannot disagree about which rung wins.
+
+See [spec 0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-credential-lifecycle).
+
 ## Consumers
 
 | Subsystem | Relationship to `go/credentials` |
