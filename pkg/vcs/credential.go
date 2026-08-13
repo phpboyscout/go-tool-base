@@ -2,12 +2,10 @@ package vcs
 
 import (
 	"context"
-	"os"
-	"strings"
 
-	"gitlab.com/phpboyscout/go/credentials"
-	"gitlab.com/phpboyscout/go/errors"
 	forge "gitlab.com/phpboyscout/go/forge"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 )
 
 // GTB states forge-credential precedence here, once, and composes it from
@@ -46,49 +44,53 @@ import (
 // returned source is called — so a repository authenticating over SSH never
 // triggers an unlock prompt for a token it does not need.
 func ForgeCredential(sub forge.Config, fallbackEnv string) forge.CredentialSource {
-	rungs := forgeRungs(sub, fallbackEnv)
+	desc := forgeDescriptor(fallbackEnv)
+	reader := readerFor(sub)
+
+	rungs := desc.Rungs()
 
 	sources := make([]forge.CredentialSource, 0, len(rungs))
-	for _, r := range rungs {
-		sources = append(sources, r.source)
+
+	for _, rung := range rungs {
+		sources = append(sources, func(ctx context.Context) (string, error) {
+			return rung.Read(ctx, reader, desc)
+		})
 	}
 
 	return forge.FirstCredential(sources...)
 }
 
-// CredentialOrigin names the rung that supplied a credential. It is a key name
-// or a variable role — never a value — so it is safe to print.
-type CredentialOrigin string
+// CredentialOrigin names the rung that supplied a credential. It is an alias
+// for the general vocabulary in pkg/credentialposture rather than a second
+// copy: forges and AI providers report the same facts, and two enumerations
+// that mean the same thing eventually disagree. Spec 0189 D4.
+type CredentialOrigin = credentialposture.Origin
 
 const (
 	// OriginNone means no rung produced a credential.
-	OriginNone CredentialOrigin = "none"
+	OriginNone = credentialposture.OriginNone
 	// OriginEnvRef is {forge}.auth.env, dereferenced.
-	OriginEnvRef CredentialOrigin = "auth.env"
+	OriginEnvRef = credentialposture.OriginEnvRef
 	// OriginKeychain is {forge}.auth.keychain, dereferenced.
-	OriginKeychain CredentialOrigin = "auth.keychain"
+	OriginKeychain = credentialposture.OriginKeychain
 	// OriginLiteral is the {forge}.auth.value literal.
-	OriginLiteral CredentialOrigin = "auth.value"
+	OriginLiteral = credentialposture.OriginLiteral
 	// OriginFallbackEnv is the well-known fallback variable (e.g. GITHUB_TOKEN).
-	OriginFallbackEnv CredentialOrigin = "fallback environment variable"
+	OriginFallbackEnv = credentialposture.OriginFallbackEnv
 )
 
-// credentialRung pairs a source with the name of the rung it represents, so
-// precedence is declared once and both the resolver and the reporter read it.
-type credentialRung struct {
-	origin CredentialOrigin
-	source forge.CredentialSource
-}
-
-// forgeRungs is the precedence, stated once. [ForgeCredential] composes it into
-// a chain; [ResolveForgeCredentialOrigin] walks it to report which rung won.
-// Neither restates the order, so the two cannot disagree.
-func forgeRungs(sub forge.Config, fallbackEnv string) []credentialRung {
-	return []credentialRung{
-		{OriginEnvRef, envRefCredential(sub, authEnvKey)},
-		{OriginKeychain, keychainCredential(sub, authKeychainKey)},
-		{OriginLiteral, literalCredential(sub, authValueKey)},
-		{OriginFallbackEnv, forge.EnvCredential(fallbackEnv)},
+// forgeDescriptor states the forge credential shape in the shared vocabulary.
+//
+// The keys are relative because sub is already scoped to the forge — the Sub
+// supplies the "github." part — so the per-forge namespacing is stated by the
+// caller and never repeated in a key literal here.
+func forgeDescriptor(fallbackEnv string) credentialposture.Descriptor {
+	return credentialposture.Descriptor{
+		Owner:       "forge",
+		EnvKey:      authEnvKey,
+		KeychainKey: authKeychainKey,
+		LiteralKey:  authValueKey,
+		FallbackEnv: fallbackEnv,
 	}
 }
 
@@ -100,32 +102,30 @@ func forgeRungs(sub forge.Config, fallbackEnv string) []credentialRung {
 // bundle. "It resolves, from auth.env" and "nothing resolves" are the two facts
 // worth having, and neither needs the value.
 //
-// Error handling mirrors [forge.FirstCredential] deliberately: a rung that fails
-// does not stop the walk, because a later rung may still supply a working
-// credential — and in that case the configuration genuinely does work. The
-// retained error is reported only when nothing resolved at all, which is exactly
-// when a bare "no credential" would otherwise hide the reason.
+// The walk itself lives in pkg/credentialposture, shared with every other
+// credential GTB reports on. Error handling is that package's: a rung that
+// fails does not stop the walk, because a later rung may still supply a working
+// credential — and the retained error is returned only when nothing resolved,
+// which is exactly when a bare "no credential" would otherwise hide the reason.
 func ResolveForgeCredentialOrigin(
 	ctx context.Context,
 	sub forge.Config,
 	fallbackEnv string,
 ) (CredentialOrigin, error) {
-	var retained error
+	posture, err := credentialposture.Resolve(ctx, readerFor(sub), forgeDescriptor(fallbackEnv))
 
-	for _, rung := range forgeRungs(sub, fallbackEnv) {
-		value, err := rung.source(ctx)
-		if err != nil {
-			retained = errors.Join(retained, err)
+	return posture.Origin, err
+}
 
-			continue
-		}
-
-		if value != "" {
-			return rung.origin, nil
-		}
+// readerFor adapts a forge subtree to the narrow reader the shared walk needs.
+// A nil sub (absent section) is not an error: the environment fallback still
+// applies, which is what lets a tool be configured purely by environment.
+func readerFor(sub forge.Config) credentialposture.Reader {
+	if sub == nil {
+		return nil
 	}
 
-	return OriginNone, retained
+	return sub
 }
 
 // Relative to the forge subtree; the Sub supplies the "github." part.
@@ -134,90 +134,3 @@ const (
 	authKeychainKey = "auth.keychain"
 	authValueKey    = "auth.value"
 )
-
-// envRefCredential dereferences a config-named environment variable: the config
-// holds the variable's NAME, and this reads its value.
-func envRefCredential(sub forge.Config, key string) forge.CredentialSource {
-	return func(ctx context.Context) (string, error) {
-		if err := ctx.Err(); err != nil {
-			return "", err
-		}
-
-		name := configString(sub, key)
-		if name == "" {
-			return "", nil
-		}
-
-		// A named variable that is unset is not an error: it falls through to
-		// the next rung, which is how a developer machine and a CI runner share
-		// one config file.
-		return strings.TrimSpace(os.Getenv(name)), nil
-	}
-}
-
-// keychainCredential resolves a "service/account" keychain reference.
-//
-// It is composed as a caller-supplied source rather than wired as a
-// config-keychain layer precisely so it stays lazy: that layer resolves eagerly
-// at store construction, which would put an unlock prompt on the startup path
-// of commands needing no credential at all — a bounded hang on a headless box,
-// a dialog on a desktop, for `--help`. See spec 0183 D7.
-func keychainCredential(sub forge.Config, key string) forge.CredentialSource {
-	return func(ctx context.Context) (string, error) {
-		if err := ctx.Err(); err != nil {
-			return "", err
-		}
-
-		ref := configString(sub, key)
-		if ref == "" {
-			return "", nil
-		}
-
-		service, account, ok := splitKeychainRef(ref)
-		if !ok {
-			return "", errors.Newf("malformed keychain reference %q: want \"service/account\"", ref)
-		}
-
-		value, err := credentials.Retrieve(ctx, service, account)
-		if err != nil {
-			return "", errors.Wrapf(err, "keychain lookup %q", ref)
-		}
-
-		return strings.TrimSpace(value), nil
-	}
-}
-
-// literalCredential reads a credential written straight into config.
-func literalCredential(sub forge.Config, key string) forge.CredentialSource {
-	return func(ctx context.Context) (string, error) {
-		if err := ctx.Err(); err != nil {
-			return "", err
-		}
-
-		return configString(sub, key), nil
-	}
-}
-
-// configString reads a key from a possibly-nil subtree. Sub returns nil when the
-// section is absent, and a tool configured purely by environment may legitimately
-// have no section at all.
-func configString(sub forge.Config, key string) string {
-	if sub == nil {
-		return ""
-	}
-
-	return strings.TrimSpace(sub.GetString(key))
-}
-
-// splitKeychainRef parses the "service/account" form the setup wizards write
-// (toolName + "/" + KeychainAccount). A bare account is rejected rather than
-// guessed at: without a service there is nothing to look the entry up under,
-// and silently choosing one would read the wrong entry.
-func splitKeychainRef(ref string) (service, account string, ok bool) {
-	idx := strings.Index(ref, "/")
-	if idx <= 0 || idx == len(ref)-1 {
-		return "", "", false
-	}
-
-	return ref[:idx], ref[idx+1:], true
-}
