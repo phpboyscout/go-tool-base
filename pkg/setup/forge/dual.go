@@ -10,6 +10,7 @@ import (
 	"gitlab.com/phpboyscout/go/credentials"
 	"gitlab.com/phpboyscout/go/errors"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
@@ -105,10 +106,11 @@ func dualStorageModeForm(profile Profile, cfg *DualConfig) *huh.Form {
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	choices := credentials.ModeChoices(credentials.IsCI(), credentials.Probe(ctx),
-		"Environment variable references (recommended)",
-		"OS keychain (single JSON blob)",
-		"Literal values in config file (plaintext)")
+	choices, defaultMode := credentialposture.StorageModeOptions(ctx, credentialposture.ModeLabels{
+		Env:      "Environment variable references",
+		Keychain: "OS keychain (single JSON blob)",
+		Literal:  "Literal values in config file (plaintext)",
+	})
 
 	options := make([]huh.Option[credentials.Mode], len(choices))
 	for i, c := range choices {
@@ -116,7 +118,7 @@ func dualStorageModeForm(profile Profile, cfg *DualConfig) *huh.Form {
 	}
 
 	if cfg.StorageMode == "" {
-		cfg.StorageMode = credentials.ModeEnvVar
+		cfg.StorageMode = defaultMode
 	}
 
 	return huh.NewForm(

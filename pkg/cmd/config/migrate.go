@@ -17,6 +17,7 @@ import (
 	"gitlab.com/phpboyscout/go/config"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/chat"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	p "gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
@@ -54,6 +55,13 @@ type MigrateOptions struct {
 	// of the <service>/<account> reference). Defaults to the tool's
 	// name (`props.Tool.Name`), matching the setup wizards.
 	KeychainService string
+
+	// ModeEnv describes the environment used to pick a default target when
+	// neither --target nor the config key states one. The zero value means
+	// "non-interactive, no usable keychain", which resolves to an
+	// environment-variable reference. Commands populate it with
+	// [credentialposture.DiscoverModeEnvironment]; tests state it outright.
+	ModeEnv credentialposture.ModeEnvironment
 
 	// SkipVerify disables the post-export verification step in
 	// interactive env-var mode. Useful for headless automation
@@ -120,7 +128,7 @@ func Migrate(ctx context.Context, props *p.Props, opts MigrateOptions) (*Migrate
 	// resolution and keychain payloads must come from the same snapshot.
 	view := props.Config.View()
 
-	target, err := resolveMigrateTarget(opts.Target, view)
+	target, err := resolveMigrateTarget(opts.Target, view, opts.ModeEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +203,31 @@ func (p *rewritePlan) remove(key string) {
 	p.changes = append(p.changes, config.Remove(key))
 }
 
-// resolveMigrateTarget picks the effective target: explicit
-// opts.Target wins; otherwise the config's `credentials.migrate.default_target`
-// key if valid; otherwise [credentials.ModeEnvVar].
-func resolveMigrateTarget(explicit credentials.Mode, cfg config.Reader) (credentials.Mode, error) {
+// resolveMigrateTarget picks the effective target: explicit opts.Target wins;
+// otherwise the config's `credentials.migrate.default_target` key if valid;
+// otherwise whichever mode suits this environment.
+//
+// That last step used to be [credentials.ModeEnvVar] unconditionally, on a
+// workstation as in CI. An exported variable is a good CI interface and a poor
+// interactive default — every process the shell spawns inherits the secret —
+// so where a human is present and a keychain actually works, the keychain is
+// the better place to migrate to and the operator should not have to know to
+// ask. Spec 0189 R6/D8.
+//
+// Both earlier rungs are untouched: an explicit --target and a configured
+// default still win, so anyone who has stated a preference keeps deterministic
+// behaviour.
+//
+// The environment arrives as data rather than being discovered here. The zero
+// value — not interactive, no usable keychain — yields the environment-variable
+// reference this always returned, so a caller that says nothing gets the old
+// behaviour rather than something that varies with whether stdin happens to be
+// a terminal.
+func resolveMigrateTarget(
+	explicit credentials.Mode,
+	cfg config.Reader,
+	env credentialposture.ModeEnvironment,
+) (credentials.Mode, error) {
 	if explicit != "" {
 		return validateMigrateTarget(explicit)
 	}
@@ -207,7 +236,7 @@ func resolveMigrateTarget(explicit credentials.Mode, cfg config.Reader) (credent
 		return validateMigrateTarget(credentials.Mode(v))
 	}
 
-	return credentials.ModeEnvVar, nil
+	return credentialposture.DefaultStorageMode(env), nil
 }
 
 func validateMigrateTarget(m credentials.Mode) (credentials.Mode, error) {
@@ -667,6 +696,15 @@ Re-running the command is safe: credentials that already have a target configura
 			}
 
 			opts.EnvVarOverrides = overrides
+
+			// The command is the process, so this is where the environment is
+			// discovered — the library takes it as data so its behaviour does
+			// not vary with whether stdin happens to be a terminal. Bounded
+			// because the probe is a live keychain round-trip.
+			probeCtx, cancel := context.WithTimeout(cmd.Context(), credentials.KeychainOpTimeout)
+			opts.ModeEnv = credentialposture.DiscoverModeEnvironment(probeCtx)
+
+			cancel()
 
 			result, err := Migrate(cmd.Context(), props, opts)
 			if err != nil {

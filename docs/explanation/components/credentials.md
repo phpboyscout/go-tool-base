@@ -53,6 +53,35 @@ subsystem walks:
 | `pkg/vcs` | `auth.env` → `auth.keychain` → `auth.value` → fallback env (GitHub/GitLab/Gitea/direct) |
 | `go/forge-bitbucket` (external module) | `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{username, app_password}`) → literals → well-known env. A corrupt blob aborts resolution rather than falling through to stale literals. |
 
+## Choosing where a credential goes
+
+When nobody says which storage mode to use, the choice follows the environment:
+
+| | |
+|---|---|
+| a terminal, and a keychain that answers a live probe | **OS keychain** |
+| anything else — CI, a pipe, a headless box, a locked keychain | **environment-variable reference** |
+
+An environment reference is an excellent CI interface and a poor interactive
+default: an exported variable is inherited by every process the shell spawns, so
+the secret is readable by everything the developer runs. A keychain entry stays
+put until something asks for it.
+
+CI needs no special case — a pipeline has no terminal. The keychain is only
+chosen when a live `credentials.Probe` round-trip succeeds, so a machine with no
+Secret Service, or a keychain locked at that moment, falls back rather than
+picking a store that will not work.
+
+**An explicit choice always wins**, and so does a configured default
+(`credentials.migrate.default_target`). This only applies when nothing has been
+stated. The setup wizard's "(recommended)" marker follows the same rule, so a
+prompt never recommends one option while pre-selecting another.
+
+The rule itself is a pure function over `ModeEnvironment`; only a command
+discovers what the process looks like, via `DiscoverModeEnvironment`. Library
+code takes the environment as data — a library that probed for itself would
+behave differently under `go test`, under a pipe and under a terminal.
+
 ## Reporting posture, not just storage
 
 A credential's *posture* is three separate facts, and running them together is

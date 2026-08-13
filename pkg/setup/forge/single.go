@@ -15,6 +15,7 @@ import (
 
 	forgeapi "gitlab.com/phpboyscout/go/forge"
 
+	"gitlab.com/phpboyscout/go-tool-base/pkg/credentialposture"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 	"gitlab.com/phpboyscout/go-tool-base/pkg/vcs"
@@ -375,10 +376,11 @@ func singleStorageModeForm(profile Profile, cfg *AuthConfig) *huh.Form {
 	ctx, cancel := context.WithTimeout(context.Background(), credentials.KeychainOpTimeout)
 	defer cancel()
 
-	choices := credentials.ModeChoices(credentials.IsCI(), credentials.Probe(ctx),
-		"Environment variable reference (recommended)",
-		"OS keychain",
-		"Literal value in config file (plaintext)")
+	choices, defaultMode := credentialposture.StorageModeOptions(ctx, credentialposture.ModeLabels{
+		Env:      "Environment variable reference",
+		Keychain: "OS keychain",
+		Literal:  "Literal value in config file (plaintext)",
+	})
 
 	options := make([]huh.Option[credentials.Mode], len(choices))
 	for i, c := range choices {
@@ -386,7 +388,7 @@ func singleStorageModeForm(profile Profile, cfg *AuthConfig) *huh.Form {
 	}
 
 	if cfg.StorageMode == "" {
-		cfg.StorageMode = credentials.ModeEnvVar
+		cfg.StorageMode = defaultMode
 	}
 
 	return huh.NewForm(
