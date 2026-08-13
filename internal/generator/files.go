@@ -8,8 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/dave/dst"
-	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/errors"
@@ -376,67 +374,4 @@ func (g *Generator) generateTestFile(ctx context.Context, cmdDir string, data te
 	}
 
 	return calculateHash([]byte(data.TestCode)), nil
-}
-
-func (g *Generator) shouldOmitRun(data templates.CommandData, cmdDir string) bool {
-	// Only consider omitting Run for commands with subcommands
-	if !data.HasSubcommands {
-		return false
-	}
-
-	// If we are currently generating logic via script or prompt, do NOT omit Run
-	if g.config.ScriptPath != "" || g.config.Prompt != "" {
-		return false
-	}
-
-	// Check if main.go exists
-	mainPath := filepath.Join(cmdDir, "main.go")
-
-	fsrc, err := afero.ReadFile(g.props.FS, mainPath)
-	if err != nil {
-		// If it doesn't exist, it's a new command with subcommands,
-		// so it will get the default logic. In this case, we SHOULD omit Run.
-		return true
-	}
-
-	// Parse main.go to check for custom logic in the Run function
-	f, err := decorator.Parse(fsrc)
-	if err != nil {
-		// If we can't parse it, assume it has custom logic (play it safe)
-		return false
-	}
-
-	runFuncName := "Run" + data.PascalName
-	for _, decl := range f.Decls {
-		if fn, ok := decl.(*dst.FuncDecl); ok && fn.Name.Name == runFuncName {
-			return checkRunFunc(fn)
-		}
-	}
-
-	return false
-}
-
-func checkRunFunc(fn *dst.FuncDecl) bool {
-	// If the function has more than one statement, it's custom
-	if len(fn.Body.List) != 1 {
-		return false
-	}
-
-	// If it's a return statement, check what it returns
-	ret, ok := fn.Body.List[0].(*dst.ReturnStmt)
-	if !ok || len(ret.Results) != 1 {
-		return false
-	}
-
-	sel, ok := ret.Results[0].(*dst.SelectorExpr)
-	if !ok {
-		return false
-	}
-
-	x, ok := sel.X.(*dst.Ident)
-	if !ok || x.Name != "errorhandling" {
-		return false
-	}
-
-	return sel.Sel.Name == "ErrNotImplemented" || sel.Sel.Name == "ErrRunSubCommand"
 }

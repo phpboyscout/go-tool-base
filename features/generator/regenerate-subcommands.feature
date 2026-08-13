@@ -21,3 +21,19 @@ Feature: regenerate preserves nested subcommands
     When I run gtb in the project with "regenerate project --overwrite allow"
     Then the project exit code is 0
     And the generated "pkg/cmd/reel/cmd.go" file contains "Register(build.NewCmdBuild"
+
+  Scenario: A command group calls its own Run stub
+    # The generator writes a Run<Name> stub returning ErrRunSubCommand for a
+    # command with children, then suppressed the RunE that would call it — so
+    # the stub was unreachable and a bare group exited 0 instead of reporting a
+    # usage error. errorhandling documents the generator as the producer of
+    # that sentinel, and its Outcome prints usage and exits ExitCodeUsage.
+    # Tracks issue #21.
+    Given a freshly generated gtb project
+    When I run gtb in the project with "generate command --name parent --short parent-cmd"
+    And I run gtb in the project with "generate command --name child --parent parent --short child-cmd"
+    And I run gtb in the project with "regenerate project --overwrite allow"
+    Then the project exit code is 0
+    And the generated "pkg/cmd/parent/cmd.go" file contains "RunParent(cmd.Context()"
+    And the generated "pkg/cmd/parent/main.go" file contains "errorhandling.ErrRunSubCommand"
+    And the generated "pkg/cmd/parent/child/main.go" file contains "errorhandling.ErrNotImplemented"

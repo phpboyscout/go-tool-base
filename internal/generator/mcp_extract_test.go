@@ -25,7 +25,6 @@ func renderPostCmd(t *testing.T, exposure setup.MCPExposure) []byte {
 		Name:        "post",
 		Short:       "publish",
 		Long:        "publish",
-		OmitRun:     true,
 		MCPExposure: exposure,
 	}
 
