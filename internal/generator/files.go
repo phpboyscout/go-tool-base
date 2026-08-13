@@ -89,6 +89,13 @@ func (g *Generator) seedAssetFile(path, content string) error {
 func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 	data.Hashes = make(map[string]string)
 
+	// Decided BEFORE cmd.go is rendered, because cmd.go is what would carry the
+	// dangling reference. A sealed main.go that is absent can be neither created
+	// nor stubbed, so Run<Name> cannot be made to exist and cmd.go must not call
+	// it — otherwise the package stops compiling, which is the outcome
+	// wiringSealed exists to avoid.
+	data.OmitRunWiring = g.runTargetUnreachable(cmdDir)
+
 	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go")))
 
 	hash, err := g.generateRegistrationFile(cmdDir, *data)
@@ -161,6 +168,22 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 	}
 
 	return newHash, nil
+}
+
+// runTargetUnreachable reports whether Run<Name> can never exist for this
+// command: main.go is absent and a seal forbids creating it.
+//
+// A plain ignore rule is not this. That rule still allows creation precisely so
+// the reference stays resolvable (spec 0188 D2), so only a seal — where the
+// developer has stated the file is untouchable — leaves nothing to call.
+func (g *Generator) runTargetUnreachable(cmdDir string) bool {
+	mainFile := filepath.Join(cmdDir, "main.go")
+
+	if exists, _ := afero.Exists(g.props.FS, mainFile); exists {
+		return false
+	}
+
+	return g.ignoreRules().IsSealed(g.relProjectPath(mainFile))
 }
 
 func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {

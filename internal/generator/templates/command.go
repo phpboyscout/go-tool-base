@@ -46,9 +46,13 @@ type CommandData struct {
 	PersistentPreRun         bool
 	PreRun                   bool
 	HasSubcommands           bool
-	WithInitializer          bool
-	WithConfigValidation     bool
-	Hashes                   map[string]string
+	// OmitRunWiring suppresses the RunE that calls Run<Name>, for the one case
+	// where that function cannot exist: main.go is sealed and absent, so the
+	// generator may neither create it nor inject a stub into it.
+	OmitRunWiring        bool
+	WithInitializer      bool
+	WithConfigValidation bool
+	Hashes               map[string]string
 	// MCPExposure controls whether the generated command stamps a
 	// setup.ExcludeFromMCP / setup.IncludeInMCP marker. The zero value
 	// (Inherit) emits nothing.
@@ -405,10 +409,9 @@ func CommandInitializer(data CommandData) *jen.File {
 }
 
 func needsOpts(data CommandData) bool {
-	// Every command wires a RunE that takes opts, so opts is always needed.
-	// The other terms are kept because a hook or a flag needs it too, and that
-	// stays true regardless of how the run field is emitted.
-	return true
+	// A command that wires RunE needs opts; so does one with a hook or a flag.
+	return !data.OmitRunWiring || data.PersistentPreRun || data.PreRun ||
+		len(data.Flags) > 0 || len(data.PersistentFlags) > 0 || len(data.AncestralPersistentFlags) > 0
 }
 
 func generateCommandFields(data CommandData) []jen.Code {
@@ -468,20 +471,28 @@ func generateCommandFields(data CommandData) []jen.Code {
 	// ExitCodeUsage — the contract go/errorhandling documents the generator as
 	// producing. Suppressing RunE for groups left that stub unreachable and a
 	// bare group exiting 0 (issue #21). ensureHookStubs guarantees the callee
-	// exists in a preserved main.go, so this reference is always resolvable.
-	cmdFields = append(cmdFields, jen.Id("RunE").Op(":").Func().Params(
-		jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
-		jen.Id("args").Index().String(),
-	).Error().Block(
-		jen.Return(
-			jen.Id("Run"+data.PascalName).Call(
-				jen.Id("cmd").Dot("Context").Call(),
-				jen.Id("props"),
-				jen.Id("opts"),
-				jen.Id("args"),
+	// exists in a preserved main.go, so this reference is normally resolvable.
+	//
+	// The exception is a SEALED and absent main.go: the seal forbids creating
+	// it and forbids injecting a stub into it, so Run<Name> cannot be made to
+	// exist and referencing it would leave a package that does not compile.
+	// Emitting nothing is the only option that keeps the project buildable —
+	// the outcome wiringSealed's own documentation calls the worst one.
+	if !data.OmitRunWiring {
+		cmdFields = append(cmdFields, jen.Id("RunE").Op(":").Func().Params(
+			jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
+			jen.Id("args").Index().String(),
+		).Error().Block(
+			jen.Return(
+				jen.Id("Run"+data.PascalName).Call(
+					jen.Id("cmd").Dot("Context").Call(),
+					jen.Id("props"),
+					jen.Id("opts"),
+					jen.Id("args"),
+				),
 			),
-		),
-	).Op(","))
+		).Op(","))
+	}
 
 	return cmdFields
 }
