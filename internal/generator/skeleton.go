@@ -3,7 +3,9 @@ package generator
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
@@ -990,8 +992,65 @@ func (g *Generator) runSkeletonCommand(ctx context.Context, dir, name string, ar
 	cmd.Dir = dir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = commandEnv(name, dir)
 
 	return cmd.Run()
+}
+
+// commandEnv returns the environment for a post-processing subprocess.
+//
+// It exists for one command: golangci-lint gets a cache keyed to the directory
+// being linted.
+//
+// golangci-lint caches findings against ABSOLUTE paths, and returns them from a
+// later run in a different directory. Run under `--fix` from a git worktree of
+// a repo that has been linted elsewhere, it then writes to the paths in the
+// cache — which are files in the OTHER checkout. That is issue #15: a user's
+// working tree quietly rewritten by a regeneration they ran in a worktree
+// precisely to avoid touching it.
+//
+// The reproduction is unambiguous. Same worktree, same command, same moment:
+// with a fresh cache the reported paths are clean; with the machine's shared
+// cache they point at a scratchpad worktree that no longer exists.
+//
+// Keying the cache to the linted directory removes the class: a worktree can
+// never inherit entries keyed to another checkout, while repeat runs in the
+// same directory still hit a warm cache. An operator who has set
+// GOLANGCI_LINT_CACHE themselves keeps it — that is an explicit choice, and
+// overriding it would be worse than the risk it carries.
+func commandEnv(name, dir string) []string {
+	env := os.Environ()
+
+	if name != "golangci-lint" || os.Getenv("GOLANGCI_LINT_CACHE") != "" {
+		return env
+	}
+
+	cache, err := lintCacheDir(dir)
+	if err != nil {
+		return env
+	}
+
+	return append(env, "GOLANGCI_LINT_CACHE="+cache)
+}
+
+// lintCacheDir returns a cache directory unique to the linted path.
+//
+// Hashed rather than embedded: the path is long, may contain characters a
+// directory name cannot carry, and only needs to be distinct — not readable.
+func lintCacheDir(dir string) (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
+	}
+
+	sum := sha256.Sum256([]byte(abs))
+
+	return filepath.Join(base, "gtb", "golangci-lint", hex.EncodeToString(sum[:])[:16]), nil
 }
 
 // calculateDisabledFeatures returns the default-on features whose effective
