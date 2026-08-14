@@ -1,5 +1,27 @@
 # Changelog
 
+## [v0.38.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.38.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.37.1...v0.38.0)
+
+### Features
+
+- **config**: finish a credential migration properly ([f87f70c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/f87f70c73c47073f391cc1cb21ef631e87008984))
+- **doctor**: let health checks decide the exit code ([a2f9114](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a2f91145d3184c6524011071e83e021a9805e29e))
+- **credentials**: refuse a plaintext fallback when a keychain regresses ([55dba9d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/55dba9da099d416c1db5bf71b001d0123c410391))
+- **credentials**: choose the default storage mode from the environment ([db9fc1a](https://gitlab.com/phpboyscout/go-tool-base/-/commit/db9fc1a9e1488c432d43e087f94e6055e86f54ae))
+- **doctor**: read the credential inventory from declarations, not a list ([1d5095c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/1d5095cde7caf4142c787e5518606072cf328e6e))
+- **credentialposture**: report which source supplies each credential ([577496b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/577496be2500d4b879f87af1558d5272301ac460))
+
+### Bug Fixes
+
+- **deps**: take golang.org/x/mod to v0.40.0 ([ada049d](https://gitlab.com/phpboyscout/go-tool-base/-/commit/ada049d8cbc90c6243abef0696faaee42ba0b360))
+- **ci**: bump the cicd components to v0.36.0 for Go 1.26.6 ([e6833b2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e6833b250387ddf68b2980befdc90e95a0a8f4ae))
+- **generator**: give golangci-lint a cache scoped to the linted directory ([d75e0a7](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d75e0a72b235b5e661ee7c7ca5f6edf18882e145))
+- **generator**: do not call a Run stub a seal prevents from existing ([5253e59](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5253e592cb43fc829ce3da9d44bc8bd1a8d0aa43))
+- **doctor**: only a gating warning fails a run ([c0c35b4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c0c35b4ef3c13c80a16b30906f1254f526f36b04))
+- **credentials**: exclude CI from the interactive storage-mode default ([e28a7c2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/e28a7c28a887ba6090f232cb13b61b63b780c801))
+
 ## [v0.37.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.37.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.37.0...v0.37.1)
