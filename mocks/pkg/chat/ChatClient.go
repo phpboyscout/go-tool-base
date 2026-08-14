@@ -70,9 +70,9 @@ type MockChatClient_Add_Call struct {
 //   - ctx context.Context
 //   - prompt string
 //   - media ...chat.Media
-func (_e *MockChatClient_Expecter) Add(ctx interface{}, prompt interface{}, media ...interface{}) *MockChatClient_Add_Call {
+func (_e *MockChatClient_Expecter) Add(ctx any, prompt any, media ...any) *MockChatClient_Add_Call {
 	return &MockChatClient_Add_Call{Call: _e.mock.On("Add",
-		append([]interface{}{ctx, prompt}, media...)...)}
+		append([]any{ctx, prompt}, media...)...)}
 }
 
 func (_c *MockChatClient_Add_Call) Run(run func(ctx context.Context, prompt string, media ...chat.Media)) *MockChatClient_Add_Call {
@@ -143,9 +143,9 @@ type MockChatClient_Ask_Call struct {
 //   - question string
 //   - target any
 //   - media ...chat.Media
-func (_e *MockChatClient_Expecter) Ask(ctx interface{}, question interface{}, target interface{}, media ...interface{}) *MockChatClient_Ask_Call {
+func (_e *MockChatClient_Expecter) Ask(ctx any, question any, target any, media ...any) *MockChatClient_Ask_Call {
 	return &MockChatClient_Ask_Call{Call: _e.mock.On("Ask",
-		append([]interface{}{ctx, question, target}, media...)...)}
+		append([]any{ctx, question, target}, media...)...)}
 }
 
 func (_c *MockChatClient_Ask_Call) Run(run func(ctx context.Context, question string, target any, media ...chat.Media)) *MockChatClient_Ask_Call {
@@ -229,9 +229,9 @@ type MockChatClient_Chat_Call struct {
 //   - ctx context.Context
 //   - prompt string
 //   - media ...chat.Media
-func (_e *MockChatClient_Expecter) Chat(ctx interface{}, prompt interface{}, media ...interface{}) *MockChatClient_Chat_Call {
+func (_e *MockChatClient_Expecter) Chat(ctx any, prompt any, media ...any) *MockChatClient_Chat_Call {
 	return &MockChatClient_Chat_Call{Call: _e.mock.On("Chat",
-		append([]interface{}{ctx, prompt}, media...)...)}
+		append([]any{ctx, prompt}, media...)...)}
 }
 
 func (_c *MockChatClient_Chat_Call) Run(run func(ctx context.Context, prompt string, media ...chat.Media)) *MockChatClient_Chat_Call {
@@ -269,6 +269,50 @@ func (_c *MockChatClient_Chat_Call) RunAndReturn(run func(ctx context.Context, p
 	return _c
 }
 
+// History provides a mock function for the type MockChatClient
+func (_mock *MockChatClient) History() chat.History {
+	ret := _mock.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for History")
+	}
+
+	var r0 chat.History
+	if returnFunc, ok := ret.Get(0).(func() chat.History); ok {
+		r0 = returnFunc()
+	} else {
+		r0 = ret.Get(0).(chat.History)
+	}
+	return r0
+}
+
+// MockChatClient_History_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'History'
+type MockChatClient_History_Call struct {
+	*mock.Call
+}
+
+// History is a helper method to define mock.On call
+func (_e *MockChatClient_Expecter) History() *MockChatClient_History_Call {
+	return &MockChatClient_History_Call{Call: _e.mock.On("History")}
+}
+
+func (_c *MockChatClient_History_Call) Run(run func()) *MockChatClient_History_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockChatClient_History_Call) Return(history chat.History) *MockChatClient_History_Call {
+	_c.Call.Return(history)
+	return _c
+}
+
+func (_c *MockChatClient_History_Call) RunAndReturn(run func() chat.History) *MockChatClient_History_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetTools provides a mock function for the type MockChatClient
 func (_mock *MockChatClient) SetTools(tools []chat.Tool) error {
 	ret := _mock.Called(tools)
@@ -293,7 +337,7 @@ type MockChatClient_SetTools_Call struct {
 
 // SetTools is a helper method to define mock.On call
 //   - tools []chat.Tool
-func (_e *MockChatClient_Expecter) SetTools(tools interface{}) *MockChatClient_SetTools_Call {
+func (_e *MockChatClient_Expecter) SetTools(tools any) *MockChatClient_SetTools_Call {
 	return &MockChatClient_SetTools_Call{Call: _e.mock.On("SetTools", tools)}
 }
 

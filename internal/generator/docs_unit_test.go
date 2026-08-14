@@ -46,6 +46,11 @@ func (m *MockChatClient) Usage() gochat.Usage {
 	return gochat.Usage{}
 }
 
+// History satisfies gochat.ChatClient, which gained the method in chat v0.10.0.
+// This mock records calls rather than holding a conversation, so it reports
+// none with Known false.
+func (m *MockChatClient) History() gochat.History { return gochat.History{} }
+
 func TestGenerateDocs_Command(t *testing.T) {
 	fs := afero.NewMemMapFs()
 	l := logger.NewNoop()

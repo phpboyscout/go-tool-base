@@ -36,6 +36,11 @@ func (f *fakeChatClient) Chat(context.Context, string, ...gochat.Media) (string,
 }
 func (f *fakeChatClient) Usage() gochat.Usage { return gochat.Usage{} }
 
+// History satisfies gochat.ChatClient, which gained the method in chat v0.10.0.
+// This fake answers from a fixed string and keeps no conversation, so it
+// reports none with Known false.
+func (f *fakeChatClient) History() gochat.History { return gochat.History{} }
+
 func (f *fakeChatClient) StreamChat(_ context.Context, _ string, cb gochat.StreamCallback, _ ...gochat.Media) (string, error) {
 	if err := cb(gochat.StreamEvent{Type: gochat.EventTextDelta, Delta: f.answer}); err != nil {
 		return "", err
@@ -56,6 +61,9 @@ func (p *plainChatClient) Chat(context.Context, string, ...gochat.Media) (string
 	return p.answer, nil
 }
 func (p *plainChatClient) Usage() gochat.Usage { return gochat.Usage{} }
+
+// History satisfies gochat.ChatClient, which gained the method in chat v0.10.0.
+func (p *plainChatClient) History() gochat.History { return gochat.History{} }
 
 // registerFakeProvider registers a uniquely-named fake provider for the
 // duration of the test. The chat provider registry is a process-global, so

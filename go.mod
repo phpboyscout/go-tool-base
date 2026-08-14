@@ -1,6 +1,6 @@
 module gitlab.com/phpboyscout/go-tool-base
 
-go 1.26.5
+go 1.26.6
 
 require (
 	charm.land/bubbles/v2 v2.1.1
@@ -31,10 +31,10 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	gitlab.com/phpboyscout/go/browser v0.2.1
 	gitlab.com/phpboyscout/go/changelog v0.2.1
-	gitlab.com/phpboyscout/go/chat v0.9.2
-	gitlab.com/phpboyscout/go/chat-anthropic v0.8.2
-	gitlab.com/phpboyscout/go/chat-gemini v0.8.2
-	gitlab.com/phpboyscout/go/chat-openai v0.8.2
+	gitlab.com/phpboyscout/go/chat v0.10.1
+	gitlab.com/phpboyscout/go/chat-anthropic v0.9.1
+	gitlab.com/phpboyscout/go/chat-gemini v0.9.1
+	gitlab.com/phpboyscout/go/chat-openai v0.9.1
 	gitlab.com/phpboyscout/go/config v0.16.0
 	gitlab.com/phpboyscout/go/config-afero v0.1.8
 	gitlab.com/phpboyscout/go/controls v0.3.1
@@ -86,7 +86,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.20.0 // indirect
-	github.com/anthropics/anthropic-sdk-go v1.61.0 // indirect
+	github.com/anthropics/anthropic-sdk-go v1.62.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.43.3 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.34 // indirect
@@ -136,7 +136,6 @@ require (
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
-	github.com/dlclark/regexp2/v2 v2.5.1 // indirect
 	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -207,7 +206,7 @@ require (
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.4.1 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/openai/openai-go/v3 v3.49.0 // indirect
+	github.com/openai/openai-go/v3 v3.50.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
@@ -229,7 +228,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
-	github.com/tiktoken-go/tokenizer v0.8.1 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/vektra/mockery/v3 v3.7.2 // indirect
@@ -268,7 +266,7 @@ require (
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
-	google.golang.org/genai v1.66.0 // indirect
+	google.golang.org/genai v1.67.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

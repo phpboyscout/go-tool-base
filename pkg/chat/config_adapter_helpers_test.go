@@ -21,6 +21,11 @@ func (f *fakeClient) Chat(context.Context, string, ...gochat.Media) (string, err
 }
 func (f *fakeClient) Usage() gochat.Usage { return gochat.Usage{} }
 
+// History satisfies gochat.ChatClient, which gained the method in chat v0.10.0.
+// A fake with no conversation reports none, and Known is false — this stands in
+// for a provider rather than owning a transcript.
+func (f *fakeClient) History() gochat.History { return gochat.History{} }
+
 // registerTestProviders registers fake "fbt-ok" / "fbt-ok2" providers used by the
 // fallback-chain adapter tests. The names are test-only, so they do not collide
 // with the real blank-imported providers; the module registry exposes no removal,
