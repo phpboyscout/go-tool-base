@@ -58,14 +58,16 @@ include:
   # ("compile: signal: killed") and publishes zero assets. Sequential builds
   # cap peak memory at the cost of a longer release job.
   #
-  # image: pinned to dev-tools v0.2.0, the first tag that bakes `syft` —
-  # goreleaser's sboms: stanza shells out to it. The component's default
-  # (v0.1.2) lacks syft, so the release failed at the SBOM step ("exec:
-  # syft: not found") after the binaries built.
+  # image: pinned explicitly because this release job needs `syft` on PATH —
+  # goreleaser's sboms: stanza shells out to it. Originally pinned to v0.2.0,
+  # the first tag that baked syft; it then sat there for five releases because
+  # an image passed as a component INPUT is not a job-level `image:`, so
+  # Renovate's gitlabci manager never saw it. The mirrored customManager in
+  # renovate.json5 now tracks it (0065 D3/D4).
   - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.36.0
     inputs:
       args: "release --clean --parallelism=1"
-      image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.2.0"
+      image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4"
   - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.36.0
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
