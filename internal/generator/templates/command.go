@@ -49,7 +49,16 @@ type CommandData struct {
 	// OmitRunWiring suppresses the RunE that calls Run<Name>, for the one case
 	// where that function cannot exist: main.go is sealed and absent, so the
 	// generator may neither create it nor inject a stub into it.
-	OmitRunWiring        bool
+	//
+	// Spec 0190 retires this: once a pure group's RunE stops referring to
+	// Run<Name>, the case it guards cannot arise. It is still read for now
+	// because removing it before the emission change would restore the dangling
+	// reference issue #22 reported.
+	OmitRunWiring bool
+	// PureGroup marks a command that only groups its subcommands and so has no
+	// run logic of its own — see Generator.pureGroup for how it is decided.
+	// Such a command gets no Run<Name>, and its RunE is the framework's.
+	PureGroup            bool
 	WithInitializer      bool
 	WithConfigValidation bool
 	Hashes               map[string]string

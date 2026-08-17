@@ -206,13 +206,35 @@ func upgradeLeafStubToGroup(content string, data templates.CommandData) (string,
 }
 
 // isUntouchedStub reports whether the named function's body is exactly
-// `return errorhandling.<sentinel>` — the single statement the generator emits
-// and nothing else.
-func isUntouchedStub(f *dst.File, funcName, sentinel string) bool {
+// `return errorhandling.<sentinel>` for one of the given sentinels — the single
+// statement the generator emits and nothing else.
+//
+// More than one sentinel is accepted because which one a stub carries depends on
+// what the command was when it was scaffolded, not on what it is now: a command
+// created as a leaf has ErrNotImplemented and keeps it after gaining children.
+// Both are equally untouched, and an untouched stub expresses no intent.
+func isUntouchedStub(f *dst.File, funcName string, sentinels ...string) bool {
 	for _, d := range f.Decls {
 		fn, ok := d.(*dst.FuncDecl)
 		if ok && fn.Name.Name == funcName {
-			return bodyIsSentinelReturn(fn, sentinel)
+			for _, sentinel := range sentinels {
+				if bodyIsSentinelReturn(fn, sentinel) {
+					return true
+				}
+			}
+
+			return false
+		}
+	}
+
+	return false
+}
+
+// declaresFunc reports whether f declares a function with the given name.
+func declaresFunc(f *dst.File, funcName string) bool {
+	for _, d := range f.Decls {
+		if fn, ok := d.(*dst.FuncDecl); ok && fn.Name.Name == funcName {
+			return true
 		}
 	}
 

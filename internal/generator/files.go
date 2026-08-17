@@ -96,6 +96,11 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	// wiringSealed exists to avoid.
 	data.OmitRunWiring = g.runTargetUnreachable(cmdDir)
 
+	// Also decided before cmd.go is rendered, and for the opposite reason: a pure
+	// group's RunE refers to nothing in main.go, so this is what will make the
+	// case above impossible rather than something to work around.
+	data.PureGroup = g.pureGroup(cmdDir, *data)
+
 	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go")))
 
 	hash, err := g.generateRegistrationFile(cmdDir, *data)
