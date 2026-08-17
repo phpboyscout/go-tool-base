@@ -39,7 +39,7 @@ require (
 	gitlab.com/phpboyscout/go/config-afero v0.1.8
 	gitlab.com/phpboyscout/go/controls v0.3.1
 	gitlab.com/phpboyscout/go/credentials v0.3.1
-	gitlab.com/phpboyscout/go/errorhandling v0.3.0
+	gitlab.com/phpboyscout/go/errorhandling v0.4.0
 	gitlab.com/phpboyscout/go/errors v0.2.0
 	gitlab.com/phpboyscout/go/forge v0.11.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4

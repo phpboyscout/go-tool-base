@@ -491,6 +491,8 @@ gitlab.com/phpboyscout/go/credentials v0.3.1 h1:fLzJEO4jHoV2ErPcsyJIAn6eJklLR1OZ
 gitlab.com/phpboyscout/go/credentials v0.3.1/go.mod h1:OTQipiDzlkouwqJvV7qcADNaKMbrl04waqUS+8iWY0A=
 gitlab.com/phpboyscout/go/errorhandling v0.3.0 h1:mRpbLiQFqj+1P9ocvQTgTMDX0N3cUXl3kuIVVulgWW8=
 gitlab.com/phpboyscout/go/errorhandling v0.3.0/go.mod h1:czdB/NQMmcg9Yu3Na/1AC/UfqQkc4ZEjCXgxkzkt2KE=
+gitlab.com/phpboyscout/go/errorhandling v0.4.0 h1:JI/72hUKUH5QChymMCuASkrZqzktNbyQWS5W/fCBP6s=
+gitlab.com/phpboyscout/go/errorhandling v0.4.0/go.mod h1:VbNyrWBoAMX+VnTKGkKKxRNTalYOM2JOgSQEszG2i18=
 gitlab.com/phpboyscout/go/errors v0.2.0 h1:m/I+1oI2Qr77JBAVUvIsj7bNnExh+/yrdfHLmVg4nUg=
 gitlab.com/phpboyscout/go/errors v0.2.0/go.mod h1:PXvnIO9P3Vanx1n0KYGr5s0rD0eKrrKBdbNfWUQWDjw=
 gitlab.com/phpboyscout/go/forge v0.11.0 h1:/YUUQ/co7z0eTNf+AzX2XmnGBeAr8BiTJnOhZqIopTo=
