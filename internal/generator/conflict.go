@@ -80,6 +80,54 @@ type conflictLog struct {
 	ignored       []string
 	sealed        []string
 	pendingChecks []pendingChildCheck
+	// behaviourChanges records a command whose regenerated cmd.go changed what
+	// the built tool does, not merely how it is written (spec 0190 D7).
+	behaviourChanges []behaviourChange
+	// adoptable names working groups that could take the new model but were left
+	// alone, so the run that changes one group can offer the choice for the rest.
+	adoptable []string
+}
+
+// behaviourChange is one command whose runtime behaviour a regeneration altered.
+//
+// cmd.go is generated, so rewriting it needs no permission — but this rewrite
+// changes an exit code, and a silent behaviour change arriving on an unrelated
+// regeneration is the complaint issue #22 was filed about. Reporting it is how
+// the fix avoids reproducing the surprise it exists to remove.
+type behaviourChange struct {
+	Command string
+	RelPath string
+	Was     string
+	Now     string
+	KeepOld string
+}
+
+// recordBehaviourChange notes that a command's regenerated cmd.go changed what
+// the built tool does. It fires on the TRANSITION only: a project already on the
+// new model, or generated fresh into it, records nothing — a summary line that
+// fires on every run is one nobody reads, and it would then hide the next real
+// one printed beside it.
+func (l *conflictLog) recordBehaviourChange(change behaviourChange) {
+	for _, c := range l.behaviourChanges {
+		if c.RelPath == change.RelPath {
+			return
+		}
+	}
+
+	l.behaviourChanges = append(l.behaviourChanges, change)
+}
+
+// recordAdoptable notes a working group that kept its own behaviour. Whether it
+// SHOULD adopt the group model is the developer's call, which is why this ends up
+// as a sentence in the summary rather than a rewrite of their main.go.
+func (l *conflictLog) recordAdoptable(command string) {
+	for _, c := range l.adoptable {
+		if c == command {
+			return
+		}
+	}
+
+	l.adoptable = append(l.adoptable, command)
 }
 
 func (l *conflictLog) recordKeep(relPath, reason string) {
@@ -278,11 +326,16 @@ func (g *Generator) reportConflicts() {
 		g.props.Logger.Debug("ignored (covered by .gtb/ignore)", "path", path)
 	}
 
-	if len(kept) == 0 && len(ignored) == 0 && len(g.conflicts.sealed) == 0 {
+	changes := g.conflicts.behaviourChanges
+
+	if len(kept) == 0 && len(ignored) == 0 && len(g.conflicts.sealed) == 0 && len(changes) == 0 {
 		return
 	}
 
-	g.props.Logger.Info(pluraliseConflictSummary(len(ignored), len(kept), len(g.conflicts.sealed)))
+	g.props.Logger.Info(pluraliseConflictSummary(
+		len(ignored), len(kept), len(g.conflicts.sealed), len(changes)))
+
+	g.reportBehaviourChanges()
 
 	sorted := append([]keptFile{}, kept...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].RelPath < sorted[j].RelPath })
@@ -301,7 +354,7 @@ func (g *Generator) reportConflicts() {
 
 // pluraliseConflictSummary renders the one-line summary counts, e.g.
 // "3 files ignored, 1 file kept, 1 file sealed".
-func pluraliseConflictSummary(ignored, kept, sealed int) string {
+func pluraliseConflictSummary(ignored, kept, sealed, changed int) string {
 	var parts []string
 
 	if ignored > 0 {
@@ -316,7 +369,47 @@ func pluraliseConflictSummary(ignored, kept, sealed int) string {
 		parts = append(parts, fmt.Sprintf("%s sealed", plural(sealed, "file")))
 	}
 
+	if changed > 0 {
+		parts = append(parts, fmt.Sprintf("%s changed behaviour", plural(changed, "command")))
+	}
+
 	return strings.Join(parts, ", ")
+}
+
+// reportBehaviourChanges names each command whose runtime behaviour this run
+// altered, and — on the same run, once — the working groups that could adopt the
+// same model but were left alone.
+//
+// The transition report is a WARN and factual: it describes something that
+// happened. The adoption list is INFO and advisory: it describes something
+// available. Both hang off the same trigger, which is what keeps the second from
+// becoming noise.
+func (g *Generator) reportBehaviourChanges() {
+	changes := g.conflicts.behaviourChanges
+	if len(changes) == 0 {
+		return
+	}
+
+	sorted := append([]behaviourChange{}, changes...)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Command < sorted[j].Command })
+
+	for _, c := range sorted {
+		g.props.Logger.Warn("group no longer returns a usage error",
+			"command", c.Command,
+			"path", c.RelPath,
+			"was", c.Was,
+			"now", c.Now,
+			"keep-old", c.KeepOld)
+	}
+
+	if adoptable := g.conflicts.adoptable; len(adoptable) > 0 {
+		names := append([]string{}, adoptable...)
+		sort.Strings(names)
+
+		g.props.Logger.Info(fmt.Sprintf("%s could adopt the group model", plural(len(names), "command")),
+			"commands", strings.Join(names, ","),
+			"how", "delete the Run<Name> body to get usage + unknown-verb reporting")
+	}
 }
 
 func plural(n int, noun string) string {

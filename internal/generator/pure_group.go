@@ -2,6 +2,7 @@ package generator
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/dave/dst/decorator"
 	"github.com/spf13/afero"
@@ -76,4 +77,50 @@ func (g *Generator) pureGroup(cmdDir string, data templates.CommandData) bool {
 // the command asked for — and with none of those, an empty file.
 func mainFileHasContent(data templates.CommandData) bool {
 	return !data.PureGroup || data.PersistentPreRun || data.PreRun
+}
+
+// noteGroupBehaviourChange records that this run is about to change what a
+// command does, not merely how its registration file is written.
+//
+// The transition is detectable only from the cmd.go already on disk: one that
+// wires RunE to Run<Name> for a command now classified pure is one whose built
+// binary answered a bare invocation with the usage error, and will now answer it
+// with usage and success. Once rewritten, nothing distinguishes it from a command
+// generated into the new model — which is exactly why this reports once and then
+// stays quiet forever.
+//
+// A working group is also noted here, as adoptable: it keeps its own behaviour,
+// so the developer never hears about the new model unless something tells them.
+func (g *Generator) noteGroupBehaviourChange(cmdDir string, data templates.CommandData) {
+	if !data.HasSubcommands {
+		return
+	}
+
+	relPath := g.relProjectPath(filepath.Join(cmdDir, "cmd.go"))
+
+	if !data.PureGroup {
+		g.conflicts.recordAdoptable(data.Name)
+
+		return
+	}
+
+	src, err := afero.ReadFile(g.props.FS, filepath.Join(cmdDir, "cmd.go"))
+	if err != nil {
+		// No cmd.go yet: a fresh command has never had the old behaviour, and
+		// announcing a change would be announcing a fiction.
+		return
+	}
+
+	if !strings.Contains(string(src), "Run"+data.PascalName+"(cmd.Context()") {
+		return
+	}
+
+	g.conflicts.recordBehaviourChange(behaviourChange{
+		Command: data.Name,
+		RelPath: relPath,
+		Was:     "exit 2 (subcommand required)",
+		Now:     "exit 0 (usage), exit 2 on an unknown subcommand",
+		KeepOld: "give Run" + data.PascalName +
+			" a body returning errorhandling.ErrRunSubCommand",
+	})
 }

@@ -99,6 +99,10 @@ func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data
 	// according to the ignore file. With nothing referenced, neither happens.
 	data.PureGroup = g.pureGroup(cmdDir, *data)
 
+	// Recorded before the render replaces the evidence: the cmd.go on disk is the
+	// only thing that says what this command did a moment ago.
+	g.noteGroupBehaviourChange(cmdDir, *data)
+
 	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go")))
 
 	hash, err := g.generateRegistrationFile(cmdDir, *data)
