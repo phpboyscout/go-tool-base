@@ -15,24 +15,22 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
-// Issue #21: the generator writes a Run<Name> stub returning ErrRunSubCommand
-// for a command with children, and then suppressed the RunE that would call it.
-// The stub was unreachable in every generated tool, and a bare group invocation
-// fell through to cobra's default — help printed, exit 0.
+// Issue #21: the generator wrote a Run<Name> stub returning ErrRunSubCommand for
+// a command with children, and then suppressed the RunE that would call it. The
+// stub was unreachable in every generated tool, and a bare group invocation fell
+// through to cobra's default — help printed, exit 0.
 //
-// errorhandling v0.3.0 states the contract the generator was half-implementing:
+// It was first answered by wiring the RunE, making the stub reachable and a bare
+// group a usage error. Spec 0190 answers it the other way instead: a command with
+// no run logic gets no run function at all, and its RunE is setup.GroupRunE. The
+// tests here cover what remains of that machinery — a WORKING group, which still
+// calls its own Run<Name>, and the stub injection that keeps a preserved main.go
+// compiling.
 //
-//	// ErrRunSubCommand marks a parent command invoked without a subcommand. The
-//	// generator emits `return errorhandling.ErrRunSubCommand` for a command
-//	// that has children.
-//	ErrRunSubCommand = WithOutcome(
-//		errors.NewSentinel("errorhandling.run_subcommand", "subcommand required"),
-//		Outcome{Code: ExitCodeUsage, Level: slog.LevelWarn, Usage: true},
-//	)
-//
-// so a bare group is a usage error that prints usage and exits non-zero. The
-// PreRunE the generator already emits installs the usage printer via
-// props.ErrorHandler.SetUsage — the half that was wired.
+// The stub no longer varies by whether the command has children. Only a command
+// that calls Run<Name> gets one, and for such a command "not implemented yet" is
+// the accurate thing to say; a group that would have said "subcommand required"
+// now says it by wiring GroupRunE, which needs no stub to say anything.
 
 func groupWiringFixture(t *testing.T) (*Generator, string) {
 	t.Helper()
@@ -69,15 +67,18 @@ func groupData() templates.CommandData {
 	}
 }
 
-func TestCommandRegistration_WiresRunEForACommandGroup(t *testing.T) {
+func TestCommandRegistration_WiresRunEForAWorkingGroup(t *testing.T) {
 	t.Parallel()
 
 	rendered := renderRegistration(t, groupData())
 
 	assert.Contains(t, rendered, "RunE:",
-		"a group must call its Run stub, or the stub is unreachable and a bare "+
-			"invocation exits 0 instead of reporting a usage error")
-	assert.Contains(t, rendered, "RunGamma(cmd.Context()")
+		"a group must wire RunE either way: a command that is not Runnable never "+
+			"evaluates Args, so cobra answers a mistyped subcommand with help and success")
+	assert.Contains(t, rendered, "RunGamma(cmd.Context()",
+		"a group with run logic of its own still calls it")
+	assert.NotContains(t, rendered, "GroupRunE",
+		"and the framework default does not displace it")
 }
 
 func TestCommandRegistration_StillWiresRunEForALeaf(t *testing.T) {
@@ -121,8 +122,9 @@ type GammaOptions struct{}
 
 	assert.Contains(t, string(got), "func RunGamma(",
 		"a preserved main.go missing the function cmd.go calls must have it injected")
-	assert.Contains(t, string(got), "errorhandling.ErrRunSubCommand",
-		"a group's stub reports that a subcommand is required")
+	assert.Contains(t, string(got), "errorhandling.ErrNotImplemented",
+		"the injected stub says what is true of any command that has one: nothing is "+
+			"implemented there yet")
 	assert.Contains(t, string(got), `"gitlab.com/phpboyscout/go/errorhandling"`,
 		"the injected stub needs its import")
 }
@@ -180,46 +182,13 @@ func RunGamma(ctx context.Context, props *props.Props, opts *GammaOptions, args 
 	assert.Equal(t, custom, string(got), "a developer's own Run must not be touched")
 }
 
-func TestEnsureHookStubs_UpgradesAnUntouchedLeafStubWhenTheCommandGainsChildren(t *testing.T) {
-	t.Parallel()
-
-	// The transition that produced the report: gamma was generated as a leaf,
-	// so its stub says "not implemented"; adding a child makes it a group, and
-	// what is true is that a subcommand is required.
-	g, cmdDir := groupWiringFixture(t)
-	mainFile := filepath.Join(cmdDir, "main.go")
-
-	leafStub := `package gamma
-
-import (
-	"context"
-
-	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
-	"gitlab.com/phpboyscout/go/errorhandling"
-)
-
-type GammaOptions struct{}
-
-func RunGamma(ctx context.Context, props *props.Props, opts *GammaOptions, args []string) error {
-	return errorhandling.ErrNotImplemented
-}
-`
-	require.NoError(t, afero.WriteFile(g.props.FS, mainFile, []byte(leafStub), DefaultFileMode))
-
-	require.NoError(t, g.ensureHookStubs(context.Background(), mainFile, groupData()))
-
-	got, err := afero.ReadFile(g.props.FS, mainFile)
-	require.NoError(t, err)
-
-	assert.Contains(t, string(got), "errorhandling.ErrRunSubCommand")
-	assert.NotContains(t, string(got), "errorhandling.ErrNotImplemented")
-}
-
-func TestEnsureHookStubs_DoesNotUpgradeAStubTheDeveloperHasTouched(t *testing.T) {
+func TestEnsureHookStubs_LeavesATouchedStubAlone(t *testing.T) {
 	t.Parallel()
 
 	// Anything beyond the single generated return is intent, and is kept — the
-	// same rule the hash refresh follows for a file the developer edited.
+	// same rule the hash refresh follows for a file the developer edited. Note
+	// this also keeps the command classified as WORKING, which is the seam a
+	// developer uses to opt out of the group default.
 	g, cmdDir := groupWiringFixture(t)
 	mainFile := filepath.Join(cmdDir, "main.go")
 
@@ -250,7 +219,7 @@ func RunGamma(ctx context.Context, props *props.Props, opts *GammaOptions, args 
 	assert.Equal(t, touched, string(got))
 }
 
-func TestEnsureHookStubs_DoesNotUpgradeALeafThatStayedALeaf(t *testing.T) {
+func TestEnsureHookStubs_LeavesALeafStubAlone(t *testing.T) {
 	t.Parallel()
 
 	g, cmdDir := groupWiringFixture(t)
@@ -282,4 +251,43 @@ func RunGamma(ctx context.Context, props *props.Props, opts *GammaOptions, args 
 	require.NoError(t, err)
 
 	assert.Equal(t, leafStub, string(got))
+}
+
+// A pure group's cmd.go wires setup.GroupRunE and calls nothing in main.go, so
+// injecting a Run stub would put back exactly what issue #21 objected to: an
+// exported function nobody calls.
+func TestEnsureHookStubs_InjectsNoRunStubForAPureGroup(t *testing.T) {
+	t.Parallel()
+
+	g, cmdDir := groupWiringFixture(t)
+	mainFile := filepath.Join(cmdDir, "main.go")
+
+	// main.go exists for a hook, and has no Run of its own.
+	existing := `package gamma
+
+import (
+	"context"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
+)
+
+type GammaOptions struct{}
+
+func PreRunGamma(ctx context.Context, props *props.Props, opts *GammaOptions, args []string) error {
+	return nil
+}
+`
+	require.NoError(t, afero.WriteFile(g.props.FS, mainFile, []byte(existing), DefaultFileMode))
+
+	data := groupData()
+	data.PureGroup = true
+	data.PreRun = true
+
+	require.NoError(t, g.ensureHookStubs(context.Background(), mainFile, data))
+
+	got, err := afero.ReadFile(g.props.FS, mainFile)
+	require.NoError(t, err)
+
+	assert.Equal(t, existing, string(got), "nothing is injected and nothing is rewritten")
+	assert.NotContains(t, string(got), "func RunGamma(")
 }

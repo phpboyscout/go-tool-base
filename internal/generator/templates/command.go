@@ -46,15 +46,6 @@ type CommandData struct {
 	PersistentPreRun         bool
 	PreRun                   bool
 	HasSubcommands           bool
-	// OmitRunWiring suppresses the RunE that calls Run<Name>, for the one case
-	// where that function cannot exist: main.go is sealed and absent, so the
-	// generator may neither create it nor inject a stub into it.
-	//
-	// Spec 0190 retires this: once a pure group's RunE stops referring to
-	// Run<Name>, the case it guards cannot arise. It is still read for now
-	// because removing it before the emission change would restore the dangling
-	// reference issue #22 reported.
-	OmitRunWiring bool
 	// PureGroup marks a command that only groups its subcommands and so has no
 	// run logic of its own — see Generator.pureGroup for how it is decided.
 	// Such a command gets no Run<Name>, and its RunE is the framework's.
@@ -418,8 +409,10 @@ func CommandInitializer(data CommandData) *jen.File {
 }
 
 func needsOpts(data CommandData) bool {
-	// A command that wires RunE needs opts; so does one with a hook or a flag.
-	return !data.OmitRunWiring || data.PersistentPreRun || data.PreRun ||
+	// A command that calls its own Run<Name> needs opts to pass it; so does one
+	// with a hook or a flag. A pure group's RunE is setup.GroupRunE, which takes
+	// neither props nor opts, so it declares neither.
+	return !data.PureGroup || data.PersistentPreRun || data.PreRun ||
 		len(data.Flags) > 0 || len(data.PersistentFlags) > 0 || len(data.AncestralPersistentFlags) > 0
 }
 
@@ -475,19 +468,20 @@ func generateCommandFields(data CommandData) []jen.Code {
 
 	cmdFields = append(cmdFields, generatePreRunField(data))
 
-	// Every command wires RunE, groups included. A group's Run<Name> returns
-	// errorhandling.ErrRunSubCommand, whose Outcome prints usage and exits
-	// ExitCodeUsage — the contract go/errorhandling documents the generator as
-	// producing. Suppressing RunE for groups left that stub unreachable and a
-	// bare group exiting 0 (issue #21). ensureHookStubs guarantees the callee
-	// exists in a preserved main.go, so this reference is normally resolvable.
+	// Every command wires RunE, groups included — a command that is not Runnable
+	// never evaluates Args, so cobra answers a mistyped subcommand with help and
+	// success (spec 0190).
 	//
-	// The exception is a SEALED and absent main.go: the seal forbids creating
-	// it and forbids injecting a stub into it, so Run<Name> cannot be made to
-	// exist and referencing it would leave a package that does not compile.
-	// Emitting nothing is the only option that keeps the project buildable —
-	// the outcome wiringSealed's own documentation calls the worst one.
-	if !data.OmitRunWiring {
+	// What it wires depends on whether the command has run logic of its own. A
+	// PURE group has none, so its RunE is the framework's: usage and success when
+	// bare, a named error on a verb it does not have. Nothing in the developer's
+	// own package is referenced, which is what makes this immune both to the dead
+	// stub of issue #21 and to the seal that produced issue #22 — a seal governs
+	// what the generator writes, and can no longer reach what the tool does.
+	if data.PureGroup {
+		cmdFields = append(cmdFields, jen.Id("RunE").Op(":").
+			Qual("gitlab.com/phpboyscout/go-tool-base/pkg/setup", "GroupRunE").Op(","))
+	} else {
 		cmdFields = append(cmdFields, jen.Id("RunE").Op(":").Func().Params(
 			jen.Id("cmd").Op("*").Qual("github.com/spf13/cobra", "Command"),
 			jen.Id("args").Index().String(),
@@ -801,7 +795,7 @@ func CommandExecution(data CommandData) string {
 		return data.FullFileContent
 	}
 
-	cleanImports := getCleanImports(data.Imports, data.WithInitializer)
+	cleanImports := getCleanImports(data.Imports, data.WithInitializer, !data.PureGroup)
 
 	var sb strings.Builder
 	sb.WriteString("package " + data.Package + "\n\n")
@@ -831,20 +825,20 @@ func CommandExecution(data CommandData) string {
 		sb.WriteString("}\n\n")
 	}
 
-	fmt.Fprintf(&sb, "func Run%s(ctx context.Context, props *props.Props, opts *%sOptions, args []string) error {\n", data.PascalName, data.PascalName)
+	// A pure group has no run function at all: its cmd.go wires setup.GroupRunE,
+	// so there is nothing here to call and nothing to leave unreachable.
+	if !data.PureGroup {
+		fmt.Fprintf(&sb, "func Run%s(ctx context.Context, props *props.Props, opts *%sOptions, args []string) error {\n", data.PascalName, data.PascalName)
 
-	if data.Logic != "" {
-		sb.WriteString(data.Logic)
-		sb.WriteString("\n")
-	} else {
-		if data.HasSubcommands {
-			sb.WriteString("\treturn errorhandling.ErrRunSubCommand\n")
+		if data.Logic != "" {
+			sb.WriteString(data.Logic)
+			sb.WriteString("\n")
 		} else {
 			sb.WriteString("\treturn errorhandling.ErrNotImplemented\n")
 		}
-	}
 
-	sb.WriteString("}\n")
+		sb.WriteString("}\n")
+	}
 
 	if data.WithInitializer {
 		sb.WriteString("\n")
@@ -857,7 +851,7 @@ func CommandExecution(data CommandData) string {
 	return sb.String()
 }
 
-func getCleanImports(rawImports []string, withInitializer bool) []string {
+func getCleanImports(rawImports []string, withInitializer, withRunStub bool) []string {
 	uniqueImports := make(map[string]bool)
 
 	var cleanImports []string
@@ -866,7 +860,12 @@ func getCleanImports(rawImports []string, withInitializer bool) []string {
 	baseImports := []string{
 		"context",
 		"gitlab.com/phpboyscout/go-tool-base/pkg/props",
-		"gitlab.com/phpboyscout/go/errorhandling",
+	}
+
+	// Only the generated Run<Name> stub names a sentinel, and a pure group has
+	// no Run<Name>. Importing it anyway would not compile.
+	if withRunStub {
+		baseImports = append(baseImports, "gitlab.com/phpboyscout/go/errorhandling")
 	}
 
 	// The generated Init<Name> stub takes a setup.Editor, so pkg/setup is

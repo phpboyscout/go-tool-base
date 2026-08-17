@@ -68,3 +68,12 @@ func (g *Generator) pureGroup(cmdDir string, data templates.CommandData) bool {
 
 	return isUntouchedStub(f, runFunc, runStubSentinels...)
 }
+
+// mainFileHasContent reports whether main.go would define anything at all.
+//
+// Every command used to define at least Run<Name>, so the question never arose.
+// A pure group has no run function, which leaves main.go holding only the hooks
+// the command asked for — and with none of those, an empty file.
+func mainFileHasContent(data templates.CommandData) bool {
+	return !data.PureGroup || data.PersistentPreRun || data.PreRun
+}

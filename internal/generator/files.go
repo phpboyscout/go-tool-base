@@ -89,16 +89,14 @@ func (g *Generator) seedAssetFile(path, content string) error {
 func (g *Generator) GenerateCommandFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 	data.Hashes = make(map[string]string)
 
-	// Decided BEFORE cmd.go is rendered, because cmd.go is what would carry the
-	// dangling reference. A sealed main.go that is absent can be neither created
-	// nor stubbed, so Run<Name> cannot be made to exist and cmd.go must not call
-	// it — otherwise the package stops compiling, which is the outcome
-	// wiringSealed exists to avoid.
-	data.OmitRunWiring = g.runTargetUnreachable(cmdDir)
-
-	// Also decided before cmd.go is rendered, and for the opposite reason: a pure
-	// group's RunE refers to nothing in main.go, so this is what will make the
-	// case above impossible rather than something to work around.
+	// Decided BEFORE cmd.go is rendered, because cmd.go is what changes shape as a
+	// result: a pure group wires setup.GroupRunE and refers to nothing in main.go.
+	//
+	// That reference is what used to make this fragile. cmd.go called Run<Name>,
+	// so a sealed-and-absent main.go — which can be neither created nor stubbed —
+	// left a package that did not compile (issue #22), and the workaround was to
+	// suppress the RunE, which silently changed the built tool's exit code
+	// according to the ignore file. With nothing referenced, neither happens.
 	data.PureGroup = g.pureGroup(cmdDir, *data)
 
 	g.props.Logger.Info(fmt.Sprintf("%s registration file: %s", g.writeVerb(), filepath.Join(cmdDir, "cmd.go")))
@@ -175,22 +173,6 @@ func (g *Generator) generateRegistrationFile(cmdDir string, data templates.Comma
 	return newHash, nil
 }
 
-// runTargetUnreachable reports whether Run<Name> can never exist for this
-// command: main.go is absent and a seal forbids creating it.
-//
-// A plain ignore rule is not this. That rule still allows creation precisely so
-// the reference stays resolvable (spec 0188 D2), so only a seal — where the
-// developer has stated the file is untouchable — leaves nothing to call.
-func (g *Generator) runTargetUnreachable(cmdDir string) bool {
-	mainFile := filepath.Join(cmdDir, "main.go")
-
-	if exists, _ := afero.Exists(g.props.FS, mainFile); exists {
-		return false
-	}
-
-	return g.ignoreRules().IsSealed(g.relProjectPath(mainFile))
-}
-
 func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data *templates.CommandData) error {
 	mainFile := filepath.Join(cmdDir, "main.go")
 
@@ -211,6 +193,17 @@ func (g *Generator) handleExecutionFile(ctx context.Context, cmdDir string, data
 	}
 
 	exists, _ := afero.Exists(g.props.FS, mainFile)
+
+	// A pure group has no run function, so main.go exists only to hold whatever
+	// hooks the command asked for. With none, there is nothing to put in it and
+	// creating it would leave a file defining nothing.
+	if !exists && !mainFileHasContent(*data) {
+		g.props.Logger.Debug("no execution file needed: the command defines no functions of its own",
+			"path", mainFile)
+
+		return nil
+	}
+
 	if !exists || g.config.Force {
 		g.props.Logger.Info(fmt.Sprintf("%s execution file: %s", g.writeVerb(), mainFile))
 

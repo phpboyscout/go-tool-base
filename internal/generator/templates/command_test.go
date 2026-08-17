@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetCleanImports_Initializer(t *testing.T) {
-	imps := getCleanImports(nil, true)
+	imps := getCleanImports(nil, true, true)
 
 	// The generated Init<Name> stub takes a setup.Editor parameter.
 	assert.Contains(t, imps, "gitlab.com/phpboyscout/go-tool-base/pkg/setup",
@@ -20,7 +20,7 @@ func TestGetCleanImports_Initializer(t *testing.T) {
 }
 
 func TestGetCleanImports_NoInitializer(t *testing.T) {
-	imps := getCleanImports(nil, false)
+	imps := getCleanImports(nil, false, true)
 
 	// Without an initializer, main.go consumes none of config/viper.
 	assert.NotContains(t, imps, "gitlab.com/phpboyscout/go/config",
@@ -31,6 +31,16 @@ func TestGetCleanImports_NoInitializer(t *testing.T) {
 	assert.Contains(t, imps, "context")
 	assert.Contains(t, imps, "gitlab.com/phpboyscout/go-tool-base/pkg/props")
 	assert.Contains(t, imps, "gitlab.com/phpboyscout/go/errorhandling")
+}
+
+// A pure group's main.go has no Run<Name>, so nothing in it names a sentinel.
+// Importing errorhandling anyway would leave an unused import and fail to build.
+func TestGetCleanImports_NoRunStub(t *testing.T) {
+	imps := getCleanImports(nil, false, false)
+
+	assert.NotContains(t, imps, "gitlab.com/phpboyscout/go/errorhandling",
+		"only the Run<Name> stub names a sentinel")
+	assert.Contains(t, imps, "context", "the hooks that remain still take a context")
 }
 
 func TestCommandRegistration_ReturnsSetupCommand(t *testing.T) {
