@@ -481,8 +481,8 @@ gitlab.com/phpboyscout/go/chat-gemini v0.9.1 h1:RGt5hniPOu+S9609N/pvb7QO0m3vrqXX
 gitlab.com/phpboyscout/go/chat-gemini v0.9.1/go.mod h1:L7X5x30R9sWN9LfIQInsddfhPjG/Du2xzj2JfdZSrrU=
 gitlab.com/phpboyscout/go/chat-openai v0.9.1 h1:nv0gxGpSZJA+r88YqNKcksxIQX/XWOSSVfc+0Ii2qZQ=
 gitlab.com/phpboyscout/go/chat-openai v0.9.1/go.mod h1:YXtzjB5MTj/CStES5G7s8jt9ux6VyWzI6o+D9HHW9Mc=
-gitlab.com/phpboyscout/go/config v0.16.0 h1:hYEbvJ+GsLD/DkmeYed1Kvr633g0c8zczuz/J0i+ZIQ=
-gitlab.com/phpboyscout/go/config v0.16.0/go.mod h1:2qFykVyjeOwor7YEyEArzZdOyl+HeG6XLdS1U2hhhzs=
+gitlab.com/phpboyscout/go/config v0.17.0 h1:gMxK2qMK3VyYFaPTSV7KeF8DVDg32gdnu2+VA+YIIug=
+gitlab.com/phpboyscout/go/config v0.17.0/go.mod h1:ZqBcwWoNUl8XJcY3XbRwgx722wQPgOt2uF5QO1kW3Z0=
 gitlab.com/phpboyscout/go/config-afero v0.1.8 h1:CFyvX6uZ9g86whAr4u/O+llttTQYjT/NT2V20QgDMWY=
 gitlab.com/phpboyscout/go/config-afero v0.1.8/go.mod h1:NUObIID03Hv0N1Lwp/hCIZlIgmCIWAYe39SYYaYDxbU=
 gitlab.com/phpboyscout/go/controls v0.3.1 h1:0HRA3nsjAHisQXBnXf4i2+eGtZTqZR6MC1yGTQkeU5w=
