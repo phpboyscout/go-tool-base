@@ -43,6 +43,29 @@ a CLI on GTB. They are not shipped in your generated tool.
 
 ---
 
+## What a command group does
+
+Several commands above exist only to group their subcommands — `generate`,
+`regenerate`, `remove`, `keys`, `template`, `attach`, `detach`, `ignore`, and
+`telemetry`. All of them behave the same way:
+
+| Invocation | Result |
+| :--- | :--- |
+| `gtb <group>` | prints its usage on stderr, exits `0` — a bare invocation is a request for help |
+| `gtb <group> <verb>` | runs the verb |
+| `gtb <group> <unrecognised>` | `unknown command "x" for "gtb <group>"`, exits `2` |
+
+The last row **changed**: it used to print help and exit `0`, which told the user
+nothing and left a script unable to tell a typo from a command that ran. See the
+[migration note](../migration/v0.x-command-group-behaviour.md).
+
+`docs`, `doctor`, `enable` and `disable` have subcommands *and* do work of their
+own, so they answer their own arguments. `gtb mcp` is built by the `ophis` library
+and is unchanged. The root command is cobra's: `gtb zzbogus` reports an unknown
+command and exits `1`.
+
+---
+
 ## Feature flags
 
 Built-in commands are registered automatically by `root.NewCmdRoot`. Each is gated

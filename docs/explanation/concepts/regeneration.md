@@ -100,6 +100,37 @@ Regeneration provides a robust mechanism for validating the framework itself. By
 !!! tip "The Verification Loop"
     This cyclical sync is used internally by GTB to ensure that the code we generate today will always be correctly understood and manageable by the framework tomorrow.
 
+## What a regeneration may and may not change
+
+A regeneration rewrites generated files and leaves yours alone. `.gtb/ignore`
+governs which is which — and **only that**. It has no business deciding what your
+built tool *does*.
+
+That distinction was learned the hard way. A generated `cmd.go` used to call a
+`Run<Name>` in your `main.go`; where a `sealed` rule forbade creating that file,
+the call could not resolve, and the fix — omitting the call in that one case — made
+the exit code of a built binary depend on the ignore file. The same command exited
+`0` or `2` according to whether a seal happened to cover a file that was not there.
+A group's registration now refers to nothing in your package, so a seal can only
+affect what is written. See the
+[migration note](../../reference/migration/v0.x-command-group-behaviour.md).
+
+Where a regeneration *does* change behaviour, it says so. The end-of-run summary
+reports four categories:
+
+| Category | Meaning |
+|---|---|
+| `ignored` | covered by a rule in `.gtb/ignore`, so not rendered |
+| `kept` | your version was preserved on a conflict, with the remedy named |
+| `sealed` | a write was refused outright, including wiring a child in |
+| `changed behaviour` | the rewrite altered what the built tool does, not just how it is written |
+
+The last one fires on the **transition only**: the run that changes a command
+reports it, and every run afterwards is silent. A summary line that appears every
+time is one people learn to scroll past — and it would then hide the next real one
+printed beside it. `--dry-run` shows all four, which is how you check before
+committing to a run.
+
 ## Summary
 
 Regeneration transforms the `manifest.yaml` from a static configuration file into a **Living Design Document**. It gives you the freedom to evolve your tool's interface without the overhead of manual boilerplate management, while providing a mathematically verifiable guarantee of architectural consistency.

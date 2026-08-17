@@ -98,6 +98,35 @@ This pattern is natively supported by the [Framework CLI](../../../reference/cli
 - **Pass Props Down**: If a command has subcommands, pass the `Props` pointer down to their respective constructors.
 - **Wrap once, at the top of the constructor**: assign `cmd := setup.Wrap(...)` immediately so every later mutation (`cmd.Flags()`, `cmd.Register(child)`, …) operates on the composed type.
 - **Use the empty feature `""` for non-feature-gated commands**: root and pure command-group containers (with no feature-specific middleware) typically pass `setup.Wrap("", &cobra.Command{...})`. Feature keys are middleware lookup keys, not display labels.
+- **Wire `RunE: setup.GroupRunE` on a command that only groups its children** — see below.
+
+## A command group needs a RunE
+
+A command that exists only to group subcommands still has to wire a `RunE`:
+
+```go
+cmd := setup.Wrap("config", &cobra.Command{
+    Use:   "config",
+    Short: "Manage configuration",
+    RunE:  setup.GroupRunE,
+})
+```
+
+[`setup.GroupRunE`](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup#GroupRunE)
+prints usage and succeeds when the command is invoked bare — a request for help is
+not a failure — and reports a verb the group does not have, exiting `2`.
+
+**Leaving `RunE` unset does not get you the second half.** Cobra's `execute()`
+returns `flag.ErrHelp` when a command is not `Runnable()`, *before* it reaches
+`ValidateArgs`, so `Args: cobra.NoArgs` on a group is silently inert. And cobra's
+own unknown-command report is produced for the **root** command only
+(`legacyArgs`, gated on `!cmd.HasParent()`). A group that wires nothing answers
+`tool config sett` with help and exit `0` — telling the user nothing, and leaving a
+script unable to tell a typo from a command that ran.
+
+A group that does work of its own — one that takes positional arguments, say —
+keeps its own `RunE`. The distinction is whether the command has anything to do
+besides route.
 
 ## Why the typed return matters
 

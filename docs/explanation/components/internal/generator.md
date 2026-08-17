@@ -113,6 +113,38 @@ The following files are copied verbatim (or rendered as templates) from the embe
 
 The command generation process is significantly more complex as it involves modifying existing code (AST manipulation) ensuring we don't break user logic. The post-generation steps are encapsulated in `CommandPipeline` (`pipeline.go`).
 
+### Pure and working groups
+
+A command with children is one of two things, and the generator emits differently
+for each (`pure_group.go`, spec 0190):
+
+| | Definition | Emitted `cmd.go` | `main.go` |
+|---|---|---|---|
+| **Pure** | has children, and its `Run<Name>` is absent or is an untouched generated stub | `RunE: setup.GroupRunE` | not created, unless a hook needs it |
+| **Working** | has children *and* a hand-written run body | `RunE` calls `Run<Name>` | as before |
+
+The classification reads the run function's **body**, not whether `main.go`
+exists. Deciding on file presence is what made a built binary's exit code depend on
+`.gtb/ignore`: the same command exited `0` or `2` according to whether a seal had
+stopped `main.go` being created (issue #22). A body is the developer stating
+intent; a file's presence is an accident of the ignore file.
+
+`isUntouchedStub` accepts **either** sentinel, because which one a stub carries
+depends on what the command was when it was scaffolded rather than what it is now —
+a command created as a leaf keeps `ErrNotImplemented` after gaining children, and
+both bodies are equally untouched.
+
+Two things the generator deliberately does **not** do:
+
+- **Rewrite `main.go` on the leaf-to-group transition.** The file is the
+  developer's. The now-uncalled stub stays exactly as it is, and is a live seam:
+  give it a body and the next run classifies the group as working.
+- **Recognise a "printer-shaped" body.** A parent whose body only prints its own
+  verb list is semantically pure and classified working, because telling that apart
+  from real work is guesswork about intent. Such groups are *offered* the change in
+  the run summary instead — see
+  [regeneration](../../concepts/regeneration.md#what-a-regeneration-may-and-may-not-change).
+
 ```mermaid
 flowchart TD
     Start([Generate Command]) --> Verify{Verify Project}

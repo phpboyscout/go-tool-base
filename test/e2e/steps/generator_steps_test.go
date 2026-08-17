@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -157,6 +158,7 @@ func initGeneratorSteps(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the project manifest does not contain "([^"]*)"$`, theProjectManifestDoesNotContain)
 	ctx.Step(`^a local template overlay directory "([^"]*)" providing a "([^"]*)" file$`, aLocalTemplateOverlayDirectory)
 	ctx.Step(`^I hand-edit the generated "([^"]*)" file$`, iHandEditTheGeneratedFile)
+	ctx.Step(`^I give the generated "([^"]*)" command a hand-written run body$`, iGiveTheCommandAHandWrittenRunBody)
 	ctx.Step(`^I delete the generated "([^"]*)" file$`, iDeleteTheGeneratedFile)
 	ctx.Step(`^I record the state of the generated project$`, iRecordTheStateOfTheGeneratedProject)
 	ctx.Step(`^the generated project is unchanged$`, theGeneratedProjectIsUnchanged)
@@ -510,6 +512,37 @@ func iHandEditTheGeneratedFile(ctx context.Context, relPath string) error {
 
 	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
 	return os.WriteFile(full, append(content, []byte("\n// hand-edited, do not clobber\n")...), 0o644)
+}
+
+// iGiveTheCommandAHandWrittenRunBody replaces the generated sentinel return in a
+// command's main.go with real logic, which is how a developer turns a group from
+// PURE into WORKING (spec 0190 D2).
+//
+// It is a distinct step from hand-editing a file because the distinction is the
+// point: appending a comment leaves the run body untouched, so the group stays
+// pure. Only a body expresses intent.
+func iGiveTheCommandAHandWrittenRunBody(ctx context.Context, command string) error {
+	w := getGeneratorWorld(ctx)
+
+	relPath := filepath.Join("pkg", "cmd", command, "main.go")
+	full := filepath.Join(w.projectDir, relPath)
+
+	content, err := os.ReadFile(full) //nolint:gosec // test-only: path from a Gherkin step
+	if err != nil {
+		return fmt.Errorf("read %s: %w", relPath, err)
+	}
+
+	body := regexp.MustCompile(`return errorhandling\.Err\w+`)
+	if !body.Match(content) {
+		return fmt.Errorf("%s has no generated sentinel return to replace", relPath)
+	}
+
+	updated := body.ReplaceAll(content, []byte(`props.Logger.Info("my own implementation")
+
+	return nil`))
+
+	//nolint:gosec // test-only: full is derived from the scenario's own temp project dir
+	return os.WriteFile(full, updated, 0o644)
 }
 
 func iDeleteTheGeneratedFile(ctx context.Context, relPath string) error {

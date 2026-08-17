@@ -161,4 +161,10 @@ The `errorhandling` package exports common errors that trigger specific behavior
 
 - **`ErrNotImplemented`**: Logged as a warning to indicate a stubbed command.
 - **`NewErrNotImplemented(issueURL)`**: Creates a richer not-implemented error that includes a link to the tracking issue. `ErrorHandler` detects this and logs the URL so users know where to follow progress.
-- **`ErrRunSubCommand`**: Triggers the `Usage()` output for the command, helpful for parent commands that shouldn't be run directly.
+- **`ErrRunSubCommand`**: Triggers the `Usage()` output for the command and exits `2`, for a parent command where being invoked without a subcommand is itself the mistake. **The generator no longer emits it.** A command that only groups its children wires [`setup.GroupRunE`](../how-to/nested-subcommands.md) instead, which treats a bare invocation as a request for help and succeeds — see the [migration note](../reference/migration/v0.x-command-group-behaviour.md). Return the sentinel by hand when a bare invocation genuinely should fail.
+- **`ErrUnknownSubCommand`**: A parent given a verb it does not have. Prints usage and exits `2`, like the above, but says something different and carries its own kind. Cobra reports an unknown command for the root only, so a group has to do this itself; `setup.GroupRunE` is where GTB does it. Wrap it with the offending verb:
+
+    ```go
+    errors.Wrapf(errorhandling.ErrUnknownSubCommand,
+        "unknown command %q for %q", args[0], cmd.CommandPath())
+    ```

@@ -89,6 +89,7 @@ func NewCmdDeploy(p *props.Props) *setup.Command {
     cmd := setup.Wrap("deploy", &cobra.Command{
         Use:   "deploy",
         Short: "Deploy stuff",
+        RunE:  setup.GroupRunE,
     })
 
     cmd.Register(canary.NewCmdCanary(p))
@@ -97,7 +98,15 @@ func NewCmdDeploy(p *props.Props) *setup.Command {
 }
 ```
 
-Two important details:
+Three important details:
+
+- `RunE: setup.GroupRunE` is what a command that only groups its children should
+  wire. Bare, it prints usage and succeeds; given a verb it does not have, it says
+  so and exits `2`. **Leaving `RunE` unset does not get you that** — a command with
+  no `Run`/`RunE` returns `flag.ErrHelp` before cobra evaluates `Args`, so
+  `cobra.NoArgs` is silently inert on a group, and cobra's own unknown-command
+  report is produced for the root command only. A group that wires nothing answers
+  `my-tool deploy canry` with help and exit `0`.
 
 - `cmd := setup.Wrap(...)` assigns the **composed** type to `cmd` from the start. Every later mutation — `cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(...)`, `cmd.Register(child)` — flows through the embedded `*cobra.Command`.
 - The parent does **not** thread a feature key into `Register`. Each child owns its own feature via its own `setup.Wrap` call — siblings can have completely different middleware stacks without the parent knowing.
