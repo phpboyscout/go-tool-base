@@ -111,11 +111,20 @@ func NewCmdRoot(v ver.Info) (*setup.Command, *props.Props) {
 	// Create root command using the library functionality, with gtb-specific
 	// subcommands registered through the new composed Register pipeline so they
 	// pick up global middleware automatically.
+	// `keys` is a pure group built by go/signing-cli, which cannot import
+	// pkg/setup — it depends only on go/signing and cobra, deliberately, so that
+	// sigillum can attach the same builders without pulling in this framework.
+	// Wiring the group default here is the smaller of the two costs: the
+	// alternative is a second copy of that body in signing-cli and a release to
+	// carry it. Worth doing there eventually so sigillum's `keys` agrees.
+	keysCmd := signingcli.NewCmdKeys(p.GetLogger())
+	keysCmd.RunE = setup.GroupRunE
+
 	rootCmd := root.NewCmdRoot(p,
 		generate.NewCmdGenerate(p),
 		remove.NewCmdRemove(p),
 		regenerate.NewCmdRegenerate(p),
-		setup.Wrap("", signingcli.NewCmdKeys(p.GetLogger())),
+		setup.Wrap("", keysCmd),
 		setup.Wrap("", signingcli.NewCmdSign(p.GetLogger())),
 		enable.NewCmdEnable(p),
 		disable.NewCmdDisable(p),

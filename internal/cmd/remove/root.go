@@ -15,9 +15,7 @@ func NewCmdRemove(p *props.Props) *setup.Command {
 
 The "command" subcommand deletes a command's files, updates the manifest, and
 de-registers it from its parent.`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return cmd.Usage()
-		},
+		RunE: setup.GroupRunE,
 	}
 
 	removeCmd := setup.Wrap("", cmd)

@@ -27,6 +27,7 @@ individual configuration keys without directly editing YAML files.
 
 For interactive guided reconfiguration of a subsystem (AI provider, GitHub
 authentication, etc.), use "init <subsystem>" instead.`,
+		RunE: setup.GroupRunE,
 	}
 
 	configCmd := setup.Wrap(p.ConfigCmd, cmd)

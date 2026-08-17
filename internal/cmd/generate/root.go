@@ -22,9 +22,7 @@ func NewCmdGenerate(p *props.Props) *setup.Command {
 Subcommands cover the full scaffolding surface: "project" generates a fresh
 project skeleton, "command" adds a command or subcommand, "add-flag" appends a
 flag to an existing command, and "docs" writes command documentation.`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return cmd.Usage()
-		},
+		RunE: setup.GroupRunE,
 	}
 
 	cmd.PersistentFlags().StringVar(&aiProvider, "provider", "", "AI provider to use (openai/gemini/claude)")

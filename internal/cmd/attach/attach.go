@@ -56,6 +56,7 @@ Available subcommands:
   command   Declaratively attach an external constructor (module + version pin).
   adapter   Scaffold the author-owned adapter escape hatch for arbitrary shapes.
   list      Show the declared attachments.`,
+		RunE: setup.GroupRunE,
 	}
 
 	group := setup.Wrap("", cmd)

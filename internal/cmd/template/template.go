@@ -35,6 +35,7 @@ Available subcommands:
   update   Re-resolve a git source's ref to a new commit and regenerate.
   remove   Remove a source and restore any scaffold it replaced.
   list     Show recorded sources, refs, and resolved commits.`,
+		RunE: setup.GroupRunE,
 	}
 
 	group := setup.Wrap("", cmd)

@@ -31,6 +31,7 @@ tidy' then prunes the now-unused module require.
 
 Available subcommands:
   command   Detach an external module's attachment by module path.`,
+		RunE: setup.GroupRunE,
 	}
 
 	group := setup.Wrap("", cmd)

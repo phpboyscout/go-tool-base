@@ -18,6 +18,7 @@ func NewCmdRegenerate(p *props.Props) *setup.Command {
 "project" rewrites command registration files from the manifest, while
 "manifest" does the reverse, rebuilding the manifest by scanning the project's
 existing source code.`,
+		RunE: setup.GroupRunE,
 	}
 
 	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without writing files")

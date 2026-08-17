@@ -39,6 +39,7 @@ Available subcommands:
   remove   Drop a literal rule line from .gtb/ignore.
   list     Resolve rules against the manifest: which tracked file each governs.
   check    Report whether path(s) are ignored, and which rule decides it.`,
+		RunE: setup.GroupRunE,
 	}
 
 	group := setup.Wrap("", cmd)

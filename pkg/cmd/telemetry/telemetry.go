@@ -35,6 +35,7 @@ func NewCmdTelemetry(p *props.Props) *setup.Command {
 Telemetry is off unless you opt in. Use the enable, disable, status, and reset
 subcommands to turn collection on or off, inspect the current state, and clear
 local data while requesting remote deletion.`,
+		RunE: setup.GroupRunE,
 	}
 
 	telCmd := setup.Wrap(props.TelemetryCmd, cmd)
