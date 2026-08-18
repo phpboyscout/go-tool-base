@@ -1,5 +1,24 @@
 # Changelog
 
+## [v0.39.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.39.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.38.0...v0.39.0)
+
+### Features
+
+- **setup**: add GroupRunE, the behaviour of a pure command group ([c600671](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c600671e8abed95b93705cbf3271041b21b8b841))
+- adopt the chat family at chat v0.10.1 and adapters v0.9.1 ([3e8130f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/3e8130f0ebd880da0a71deae0e3633b647091dd6))
+
+### Bug Fixes
+
+- **cmd**: wire the group default into gtb's own command groups ([6211f2c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/6211f2c4fc784eb34299c827f5077281e875d51e))
+- **generator**: say so when a regeneration changes what a command does ([9ff7af2](https://gitlab.com/phpboyscout/go-tool-base/-/commit/9ff7af2d2e0d289ad667b37ad2823b7d86d00f22))
+- **generator**: emit the framework default for a group with no run logic ([2b90739](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2b907399f3c8d644baad35ba17d5fe0a01a077d1))
+- **generator**: classify a command group that has no run logic of its own ([d0f9f58](https://gitlab.com/phpboyscout/go-tool-base/-/commit/d0f9f586c6dd8ffdac7c231d09af48a8315d5390))
+- **deps**: update module gitlab.com/phpboyscout/go/config to v0.17.0 ([5aec217](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5aec217f0ad18697cc4cc2bf47c41766c09874b2))
+- **deps**: update go modules ([a1ef6a9](https://gitlab.com/phpboyscout/go-tool-base/-/commit/a1ef6a93a4f23fad6216d00b12974145fca13372))
+- **deps**: track the image pinned as a component input, and bump it ([aa39cd8](https://gitlab.com/phpboyscout/go-tool-base/-/commit/aa39cd81838e5cf6d5f724bba0795bbb4dfd44a0))
+
 ## [v0.38.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.38.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.37.1...v0.38.0)
