@@ -55,9 +55,17 @@ var foreignGroups = map[string]string{
 	"gtb mcp vscode": "ophis",
 }
 
+// Not t.Parallel(), and neither are the two below. NewCmdRoot builds the whole
+// command tree, and internal/cmd/generate binds its persistent flags to
+// PACKAGE-LEVEL variables — so two goroutines building a root at once write the
+// same addresses and the race detector says so.
+//
+// That is a pre-existing hazard rather than anything these tests introduce (gtb
+// builds its root once, in main), but it is the pattern AGENTS.md forbids for
+// exactly this reason. Running sequentially costs nothing here — the whole file
+// is three tree walks — and re-adding t.Parallel() will fail under -race until
+// those globals move into the constructor.
 func TestEveryCommandGroupWiresARunE(t *testing.T) {
-	t.Parallel()
-
 	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
 	require.NotNil(t, rootCmd)
 
@@ -89,8 +97,6 @@ func TestEveryCommandGroupWiresARunE(t *testing.T) {
 // decision rather than an accident. This fails when a new group is added without
 // either wiring GroupRunE or being declared as a working group above.
 func TestEveryCommandGroupIsAccountedFor(t *testing.T) {
-	t.Parallel()
-
 	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
 
 	var undeclared []string
@@ -146,8 +152,6 @@ func walk(cmd *cobra.Command, visit func(*cobra.Command)) {
 // as a covered case while covering nothing. If ophis renames or drops one of
 // these, this fails and the entry should go.
 func TestForeignGroupExemptionsStillMatchSomething(t *testing.T) {
-	t.Parallel()
-
 	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
 
 	present := map[string]bool{}
