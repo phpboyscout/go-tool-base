@@ -11,6 +11,10 @@ import (
 )
 
 type DocsOptions struct {
+	// shared carries `generate`'s persistent flags, injected by the
+	// constructor rather than read from package state.
+	shared *SharedFlags
+
 	Name            string
 	Path            string
 	Parent          string
@@ -22,8 +26,8 @@ type DocsOptions struct {
 	NoAIAttribution bool
 }
 
-func NewCmdDocs(p *props.Props) *cobra.Command {
-	opts := DocsOptions{}
+func NewCmdDocs(p *props.Props, shared *SharedFlags) *cobra.Command {
+	opts := DocsOptions{shared: shared}
 
 	cmd := &cobra.Command{
 		Use:   "docs",
@@ -81,9 +85,9 @@ func (o *DocsOptions) Run(ctx context.Context, p *props.Props) error {
 		Name:            o.Name,
 		Path:            o.Path,
 		Parent:          o.Parent,
-		DryRun:          dryRun,
-		AIProvider:      aiProvider,
-		AIModel:         aiModel,
+		DryRun:          o.shared.dryRun(),
+		AIProvider:      o.shared.aiProvider(),
+		AIModel:         o.shared.aiModel(),
 		Agentless:       o.Agentless,
 		PublicAPI:       o.PublicAPI,
 		NoAIAttribution: o.NoAIAttribution,

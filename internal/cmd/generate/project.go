@@ -21,6 +21,10 @@ import (
 )
 
 type SkeletonOptions struct {
+	// shared carries `generate`'s persistent flags, injected by the
+	// constructor rather than read from package state.
+	shared *SharedFlags
+
 	Name         string
 	GitBackend   string
 	Repo         string
@@ -82,8 +86,9 @@ type SkeletonOptions struct {
 	Templates []string
 }
 
-func NewCmdSkeleton(p *props.Props) *cobra.Command {
+func NewCmdSkeleton(p *props.Props, shared *SharedFlags) *cobra.Command {
 	opts := SkeletonOptions{
+		shared:     shared,
 		GitBackend: "github",
 		HelpType:   "none",
 	}
@@ -857,7 +862,7 @@ func (o *SkeletonOptions) Run(ctx context.Context, p *props.Props) error {
 	}
 
 	gen := generator.New(p, &generator.Config{
-		DryRun:    dryRun,
+		DryRun:    o.shared.dryRun(),
 		Path:      o.Path,
 		Overwrite: o.Overwrite,
 		GitInit:   !o.NoGit,

@@ -48,7 +48,7 @@ func TestMCPEnabledFlag_DefaultAndTriState(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			cmd := NewCmdCommand(&props.Props{})
+			cmd := NewCmdCommand(&props.Props{}, &SharedFlags{})
 			require.NoError(t, cmd.ParseFlags(tc.args))
 
 			assert.Equal(t, tc.wantChanged, cmd.Flags().Changed("mcp-enabled"))

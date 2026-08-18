@@ -11,11 +11,15 @@ import (
 )
 
 type ManifestOptions struct {
+	// shared carries `regenerate`'s persistent flags, injected by the
+	// constructor rather than read from package state.
+	shared *SharedFlags
+
 	Path string
 }
 
-func NewCmdManifest(p *props.Props) *cobra.Command {
-	opts := ManifestOptions{}
+func NewCmdManifest(p *props.Props, shared *SharedFlags) *cobra.Command {
+	opts := ManifestOptions{shared: shared}
 
 	cmd := &cobra.Command{
 		Use:   "manifest",
@@ -40,7 +44,7 @@ func (o *ManifestOptions) Run(ctx context.Context, p *props.Props) error {
 
 	cfg := &generator.Config{
 		Path:   o.Path,
-		DryRun: dryRun,
+		DryRun: o.shared.dryRun(),
 	}
 
 	return generator.New(p, cfg).RegenerateManifest(ctx)

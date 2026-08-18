@@ -18,7 +18,7 @@ import (
 func TestNewCmdMan_FlagDefaults(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewCmdMan(&props.Props{Logger: logger.NewNoop()})
+	cmd := NewCmdMan(&props.Props{Logger: logger.NewNoop()}, &SharedFlags{})
 
 	dir, _ := cmd.Flags().GetString("dir")
 	section, _ := cmd.Flags().GetString("section")
@@ -40,7 +40,7 @@ func TestManOptions_Run_GeneratesPages(t *testing.T) {
 
 	// Attach the man command under a fake root so cmd.Root() has a tree.
 	root := &cobra.Command{Use: "demo"}
-	man := NewCmdMan(p)
+	man := NewCmdMan(p, &SharedFlags{})
 	root.AddCommand(man)
 
 	dir := t.TempDir()

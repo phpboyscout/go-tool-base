@@ -7,9 +7,23 @@ import (
 	"gitlab.com/phpboyscout/go-tool-base/pkg/setup"
 )
 
-var dryRun bool
+// SharedFlags carries `regenerate`'s persistent flags to the subcommands that
+// read them. See generate.SharedFlags for why this is not a package-level
+// variable: pflag writes to whatever it is given, so a package-level target
+// makes building two command trees a data race.
+type SharedFlags struct {
+	DryRun bool
+}
+
+// dryRun tolerates a nil receiver, so a zero-value Options struct built directly
+// by a test reads the default rather than panicking.
+func (f *SharedFlags) dryRun() bool {
+	return f != nil && f.DryRun
+}
 
 func NewCmdRegenerate(p *props.Props) *setup.Command {
+	shared := &SharedFlags{}
+
 	cmd := &cobra.Command{
 		Use:   "regenerate",
 		Short: "Regenerate project or manifest",
@@ -21,12 +35,12 @@ existing source code.`,
 		RunE: setup.GroupRunE,
 	}
 
-	cmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "preview changes without writing files")
+	cmd.PersistentFlags().BoolVar(&shared.DryRun, "dry-run", false, "preview changes without writing files")
 
 	regenerateCmd := setup.Wrap("", cmd)
 	regenerateCmd.Register(
-		setup.Wrap("", NewCmdProject(p)),
-		setup.Wrap("", NewCmdManifest(p)),
+		setup.Wrap("", NewCmdProject(p, shared)),
+		setup.Wrap("", NewCmdManifest(p, shared)),
 	)
 
 	return regenerateCmd

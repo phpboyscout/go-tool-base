@@ -16,6 +16,10 @@ import (
 
 // ManOptions holds the flags for "gtb generate man".
 type ManOptions struct {
+	// shared carries `generate`'s persistent flags, injected by the
+	// constructor rather than read from package state.
+	shared *SharedFlags
+
 	Dir     string
 	Section string
 	Source  string
@@ -27,8 +31,8 @@ type ManOptions struct {
 // pages for the running binary's own command tree into <dir>/man<section>/, the
 // artefact path Linux packagers and CI consume. It documents gtb's own tree;
 // a scaffolded downstream tool runs its own "man" command instead.
-func NewCmdMan(p *props.Props) *cobra.Command {
-	opts := ManOptions{}
+func NewCmdMan(p *props.Props, shared *SharedFlags) *cobra.Command {
+	opts := ManOptions{shared: shared}
 
 	cmd := &cobra.Command{
 		Use:   "man",
@@ -70,7 +74,7 @@ func (o *ManOptions) Run(cmd *cobra.Command, p *props.Props) error {
 		section = "1"
 	}
 
-	if dryRun {
+	if o.shared.dryRun() {
 		return listManFiles(cmd.OutOrStdout(), root, o.Dir, section)
 	}
 

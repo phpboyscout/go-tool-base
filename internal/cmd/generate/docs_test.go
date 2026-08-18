@@ -16,7 +16,7 @@ import (
 func TestNewCmdDocs_SourceFlagDeprecated(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()})
+	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()}, &SharedFlags{})
 
 	f := cmd.Flags().Lookup("source")
 	require.NotNil(t, f, "--source flag must still exist (it is a deprecated alias for --command)")
@@ -30,7 +30,7 @@ func TestNewCmdDocs_SourceFlagDeprecated(t *testing.T) {
 func TestNewCmdDocs_SourceOnlySatisfiesRequiredGroup(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()})
+	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()}, &SharedFlags{})
 
 	require.NoError(t, cmd.Flags().Set("source", "./internal/cmd/mycmd"))
 
@@ -44,7 +44,7 @@ func TestNewCmdDocs_SourceOnlySatisfiesRequiredGroup(t *testing.T) {
 func TestNewCmdDocs_NoTargetFlagsFailsRequiredGroup(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()})
+	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()}, &SharedFlags{})
 
 	assert.Error(t, cmd.ValidateFlagGroups(),
 		"with no command/package/source the one-required group must reject")
@@ -55,7 +55,7 @@ func TestNewCmdDocs_NoTargetFlagsFailsRequiredGroup(t *testing.T) {
 func TestNewCmdDocs_SourceAndPackageMutuallyExclusive(t *testing.T) {
 	t.Parallel()
 
-	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()})
+	cmd := NewCmdDocs(&props.Props{Logger: logger.NewNoop()}, &SharedFlags{})
 
 	require.NoError(t, cmd.Flags().Set("source", "./a"))
 	require.NoError(t, cmd.Flags().Set("package", "./b"))

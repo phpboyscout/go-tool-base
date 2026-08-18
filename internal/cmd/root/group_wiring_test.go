@@ -55,16 +55,18 @@ var foreignGroups = map[string]string{
 	"gtb mcp vscode": "ophis",
 }
 
-// Not t.Parallel(), and neither are the two below. NewCmdRoot builds the whole
-// command tree, and internal/cmd/generate binds its persistent flags to
-// PACKAGE-LEVEL variables — so two goroutines building a root at once write the
-// same addresses and the race detector says so.
+// Not t.Parallel(), and neither are the two below: NewCmdRoot cannot safely be
+// called concurrently.
 //
-// That is a pre-existing hazard rather than anything these tests introduce (gtb
-// builds its root once, in main), but it is the pattern AGENTS.md forbids for
-// exactly this reason. Running sequentially costs nothing here — the whole file
-// is three tree walks — and re-adding t.Parallel() will fail under -race until
-// those globals move into the constructor.
+// The first reason is fixed — generate and regenerate used to bind their
+// persistent flags to package-level variables, so two goroutines building a root
+// wrote the same addresses and -race said so. They inject a *SharedFlags now.
+//
+// The second is not. pkg/setup keeps the middleware registry in package state
+// behind a `sealed` flag, and a second concurrent build panics with "cannot
+// register global middleware after command registration is complete". That is a
+// design question about a public package rather than a test concern, so these
+// stay sequential — which costs nothing, the file being three tree walks.
 func TestEveryCommandGroupWiresARunE(t *testing.T) {
 	rootCmd, _ := root.NewCmdRoot(ver.Info{Version: "test"})
 	require.NotNil(t, rootCmd)

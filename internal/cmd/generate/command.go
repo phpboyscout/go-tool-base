@@ -25,6 +25,10 @@ const (
 )
 
 type CommandOptions struct {
+	// shared carries `generate`'s persistent flags, injected by the
+	// constructor rather than read from package state.
+	shared *SharedFlags
+
 	Name                 string
 	Short                string
 	Long                 string
@@ -89,8 +93,8 @@ func boolToStr(b bool) string {
 	return "false"
 }
 
-func NewCmdCommand(p *props.Props) *cobra.Command {
-	opts := CommandOptions{}
+func NewCmdCommand(p *props.Props, shared *SharedFlags) *cobra.Command {
+	opts := CommandOptions{shared: shared}
 
 	var (
 		protectedFlag  bool
@@ -670,12 +674,12 @@ func (o *CommandOptions) Run(ctx context.Context, p *props.Props) error {
 		WithAssets:           o.WithAssets,
 		Parent:               o.Parent,
 		Args:                 o.Args,
-		DryRun:               dryRun,
+		DryRun:               o.shared.dryRun(),
 		Flags:                o.Flags,
 		ScriptPath:           o.ScriptPath,
 		Prompt:               o.Prompt,
-		AIProvider:           aiProvider,
-		AIModel:              aiModel,
+		AIProvider:           o.shared.aiProvider(),
+		AIModel:              o.shared.aiModel(),
 		Agentless:            o.Agentless,
 		MaxSteps:             o.MaxSteps,
 		NonInteractive:       o.NonInteractive || !utils.IsInteractive(),

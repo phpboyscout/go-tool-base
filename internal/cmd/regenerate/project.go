@@ -13,14 +13,18 @@ import (
 )
 
 type ProjectOptions struct {
+	// shared carries `regenerate`'s persistent flags, injected by the
+	// constructor rather than read from package state.
+	shared *SharedFlags
+
 	Path       string
 	Force      bool
 	Overwrite  string
 	UpdateDocs bool
 }
 
-func NewCmdProject(p *props.Props) *cobra.Command {
-	opts := ProjectOptions{}
+func NewCmdProject(p *props.Props, shared *SharedFlags) *cobra.Command {
+	opts := ProjectOptions{shared: shared}
 
 	cmd := &cobra.Command{
 		Use:   "project",
@@ -53,7 +57,7 @@ func (o *ProjectOptions) Run(ctx context.Context, p *props.Props) error {
 
 	cfg := &generator.Config{
 		Path:       o.Path,
-		DryRun:     dryRun,
+		DryRun:     o.shared.dryRun(),
 		Force:      o.Force,
 		Overwrite:  o.Overwrite,
 		UpdateDocs: o.UpdateDocs,
