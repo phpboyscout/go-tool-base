@@ -418,7 +418,7 @@ func needsOpts(data CommandData) bool {
 
 func generateCommandFields(data CommandData) []jen.Code {
 	cmdFields := []jen.Code{
-		jen.Id("Use").Op(":").Lit(data.Name).Op(","),
+		jen.Id("Use").Op(":").Lit(commandUse(data)).Op(","),
 		jen.Id("Short").Op(":").Add(litOrRaw(data.Short)).Op(","),
 		jen.Id("Long").Op(":").Add(litOrRaw(data.Long)).Op(","),
 	}
