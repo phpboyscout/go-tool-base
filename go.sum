@@ -424,6 +424,8 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+github.com/stretchr/testify v1.12.0 h1:K6Mr6jO9JICuend/5xzTM03ydSV3vdNRYAdPSukj8uI=
+github.com/stretchr/testify v1.12.0/go.mod h1:bOYBZb5qJ00vPzWfIqBUZPaxK8jWiXc6d3ErP4Ca9Gw=
 github.com/testcontainers/testcontainers-go v0.44.0 h1:/Fwh6HY1mIikhnm9e7HwoxGycx0lzRAE0f5VQpjFxzI=
 github.com/testcontainers/testcontainers-go v0.44.0/go.mod h1:IcnwQrYTO86xHXu5bvMaBH7ATlbS3Qn1M1QWW3c66rE=
 github.com/tidwall/gjson v1.14.2/go.mod h1:/wbyibRr2FHMks5tjHJ5F8dMZh3AcwJEMf5vlfC0lxk=
@@ -493,8 +495,12 @@ gitlab.com/phpboyscout/go/errorhandling v0.3.0 h1:mRpbLiQFqj+1P9ocvQTgTMDX0N3cUX
 gitlab.com/phpboyscout/go/errorhandling v0.3.0/go.mod h1:czdB/NQMmcg9Yu3Na/1AC/UfqQkc4ZEjCXgxkzkt2KE=
 gitlab.com/phpboyscout/go/errorhandling v0.4.0 h1:JI/72hUKUH5QChymMCuASkrZqzktNbyQWS5W/fCBP6s=
 gitlab.com/phpboyscout/go/errorhandling v0.4.0/go.mod h1:VbNyrWBoAMX+VnTKGkKKxRNTalYOM2JOgSQEszG2i18=
+gitlab.com/phpboyscout/go/errorhandling v0.5.0 h1:Pkudy4MmXeECtMrFi28EV7h8v/EMcUnvtkOrfIfpuio=
+gitlab.com/phpboyscout/go/errorhandling v0.5.0/go.mod h1:NRzaiW5/YahyhHzU1J4Oz+8sDXiPJr1L/ukXccr4Wjs=
 gitlab.com/phpboyscout/go/errors v0.2.0 h1:m/I+1oI2Qr77JBAVUvIsj7bNnExh+/yrdfHLmVg4nUg=
 gitlab.com/phpboyscout/go/errors v0.2.0/go.mod h1:PXvnIO9P3Vanx1n0KYGr5s0rD0eKrrKBdbNfWUQWDjw=
+gitlab.com/phpboyscout/go/errors v0.3.0 h1:MNCCEGdWGj8rpaDFfcufBQZPPMqGY9HbHg8L13mfSVQ=
+gitlab.com/phpboyscout/go/errors v0.3.0/go.mod h1:Nzx3wIKEwQd5DlKGFgcFlaUptL9XTqWEFtBN1pAgi78=
 gitlab.com/phpboyscout/go/forge v0.11.0 h1:/YUUQ/co7z0eTNf+AzX2XmnGBeAr8BiTJnOhZqIopTo=
 gitlab.com/phpboyscout/go/forge v0.11.0/go.mod h1:udwEap3omuL7K0MbDKv8WdFGEwKcIbqMy1T2EPmYSSM=
 gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4 h1:PR0mpPp54SNEKGlnsFoU5+5WVg73Un0dwUcNpXv32xI=

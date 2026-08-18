@@ -27,7 +27,7 @@ require (
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.0
 	github.com/testcontainers/testcontainers-go v0.44.0
 	gitlab.com/phpboyscout/go/browser v0.2.1
 	gitlab.com/phpboyscout/go/changelog v0.2.1
@@ -39,8 +39,8 @@ require (
 	gitlab.com/phpboyscout/go/config-afero v0.1.8
 	gitlab.com/phpboyscout/go/controls v0.3.1
 	gitlab.com/phpboyscout/go/credentials v0.3.1
-	gitlab.com/phpboyscout/go/errorhandling v0.4.0
-	gitlab.com/phpboyscout/go/errors v0.2.0
+	gitlab.com/phpboyscout/go/errorhandling v0.5.0
+	gitlab.com/phpboyscout/go/errors v0.3.0
 	gitlab.com/phpboyscout/go/forge v0.11.0
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4
 	gitlab.com/phpboyscout/go/forge-gitea v0.9.0

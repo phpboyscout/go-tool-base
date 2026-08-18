@@ -4,7 +4,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"gitlab.com/phpboyscout/go/errorhandling"
-	"gitlab.com/phpboyscout/go/errors"
 )
 
 // GroupRunE is the RunE for a command that only groups subcommands: it prints
@@ -29,6 +28,12 @@ import (
 // root command (`!cmd.HasParent()`), so every group below the root answers a
 // mistyped verb with help and success unless it checks for itself.
 //
+// The message itself comes from [errorhandling.UnknownSubCommand], so that CLIs
+// in this estate that build cobra commands without this framework — go/signing-cli
+// does, deliberately — report a mistyped verb in the same words. What is shared is
+// the message and the sentinel; the three lines of cobra glue are not, and cannot
+// be, since go/errorhandling imports no CLI framework.
+//
 // # Why the generator emits a call to this rather than a copy of it
 //
 // A generated cmd.go is a wiring file that calls into this package for
@@ -42,8 +47,7 @@ import (
 // See spec 0190.
 func GroupRunE(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
-		return errors.Wrapf(errorhandling.ErrUnknownSubCommand,
-			"unknown command %q for %q", args[0], cmd.CommandPath())
+		return errorhandling.UnknownSubCommand(args[0], cmd.CommandPath())
 	}
 
 	return cmd.Usage()
