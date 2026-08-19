@@ -1,5 +1,18 @@
 # Changelog
 
+## [v0.39.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.39.1)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.39.0...v0.39.1)
+
+### Bug Fixes
+
+- **deps**: take the signing modules to the named-instance releases ([508a8e1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/508a8e1cd1937a3ae2589ac5d0b174a9b3b08dd1))
+- **deps**: take moby/go-archive to v0.3.0 for GHSA-hfg8-hc9c-6c3h ([b42456f](https://gitlab.com/phpboyscout/go-tool-base/-/commit/b42456f850d38af8f96fa1d69494556fb1465316))
+- **cmd**: drop the local group wiring for keys, now upstream carries it ([97d205b](https://gitlab.com/phpboyscout/go-tool-base/-/commit/97d205b8f31168d534e14bd06c60aa3295f84881))
+- **setup**: take the unknown-verb wording from errorhandling ([50a6de4](https://gitlab.com/phpboyscout/go-tool-base/-/commit/50a6de4d9c0f5c850fc4dd10e7efac4208296ca2))
+- **generator**: state a command's positional arguments in its usage line ([5fb23a3](https://gitlab.com/phpboyscout/go-tool-base/-/commit/5fb23a360bde72134376779f1f61298462641717))
+- **cmd**: inject generate and regenerate's persistent flags ([2ab8559](https://gitlab.com/phpboyscout/go-tool-base/-/commit/2ab8559f643faba25cccd32cbc0cb69811a76ad7))
+
 ## [v0.39.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.39.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.38.0...v0.39.0)
