@@ -531,6 +531,8 @@ gitlab.com/phpboyscout/go/signing-aws-kms v0.4.2 h1:htLqma3jwVs5lNyJm7gShSc97KzP
 gitlab.com/phpboyscout/go/signing-aws-kms v0.4.2/go.mod h1:8oFmj3tPhbpzAOWsKqdwNJ5IBfaaDV9KEQyVrMZKTnc=
 gitlab.com/phpboyscout/go/signing-cli v0.5.0 h1:og5g2mr+3LtoaYEapYiT8GqfnC97zgI2Kgho24Qn5L0=
 gitlab.com/phpboyscout/go/signing-cli v0.5.0/go.mod h1:Ewo9CXflM8ZEvO6lZ589AkvjW1u4pqD9xsfEs9691aI=
+gitlab.com/phpboyscout/go/signing-cli v0.5.1 h1:wtMAr51Sswf3YZ30mhzQkpCBi/1cHpWGOhxux6AvXoU=
+gitlab.com/phpboyscout/go/signing-cli v0.5.1/go.mod h1:WYcOjA+MogSlmeY9TdWME/panjk6SJPSH/6r2SGL/IE=
 gitlab.com/phpboyscout/go/tls v0.2.1 h1:YaEVXYy650PMvi8bSXmGVB44wC3ERamk70T/k2nxxLQ=
 gitlab.com/phpboyscout/go/tls v0.2.1/go.mod h1:g3yjpOVOx2ObtiEZJQzP+dgBqSjB+lmlEZfmDWXgQp0=
 gitlab.com/phpboyscout/go/transit v0.2.2 h1:UXJD6j33USeY/CLmmJukJkmg9MzLA0p9GjpvC7Adfb8=

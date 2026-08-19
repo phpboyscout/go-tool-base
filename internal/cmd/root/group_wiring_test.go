@@ -45,9 +45,10 @@ var workingGroups = map[string]string{
 // walker would then never see. They are named so the exemption is a stated
 // ownership boundary rather than a hole.
 //
-// `keys` is NOT here. It comes from go/signing-cli, which is ours, so gtb wires
-// the group default where it attaches it (see internal/cmd/root/root.go). That
-// belongs upstream eventually, so sigillum's `keys` agrees with gtb's.
+// `keys` is NOT here, and no longer needs to be. It comes from go/signing-cli,
+// which is ours, so the behaviour went upstream (v0.5.1) rather than being patched
+// on at gtb's attachment site — which means sigillum's `keys`, attaching the same
+// builder, agrees with gtb's instead of silently differing.
 var foreignGroups = map[string]string{
 	"gtb mcp":        "the ophis library builds this tree",
 	"gtb mcp claude": "ophis",
