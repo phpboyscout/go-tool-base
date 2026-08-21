@@ -246,6 +246,14 @@ apidiff:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   allow_failure: true
+  variables:
+    # The image pins a Go PATCH version; go.mod's directive does not stand still.
+    # When the directive passed the image (v0.39.0 took it to 1.26.6), the default
+    # GOTOOLCHAIN=local refused to fetch one and every module load failed —
+    # silently, because this job is advisory and the script exits 0. `auto` lets
+    # Go fetch whatever go.mod asks for, so the next directive bump self-heals
+    # instead of switching the job off without telling anyone.
+    GOTOOLCHAIN: auto
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - ./scripts/apidiff.sh
@@ -266,6 +274,11 @@ coverage-policy:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   allow_failure: true
+  variables:
+    # Same trap as apidiff above, and it bit harder here: with the toolchain
+    # refused, `go test` produced nothing, and this job reported every package
+    # above threshold rather than reporting that it had measured none.
+    GOTOOLCHAIN: auto
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
     - ./scripts/coverage-policy.sh

@@ -71,7 +71,29 @@ is_excluded() {
 }
 
 echo "coverage-policy: running unit coverage over ./... (this can take a few minutes)"
-cover_out=$(go test ./... -cover 2>/dev/null | grep "coverage:")
+
+# stderr is captured rather than discarded, and an empty result is fatal.
+#
+# This used to be `go test ./... -cover 2>/dev/null | grep "coverage:"`. When the
+# test run itself failed — as it did from v0.39.0, when go.mod's directive
+# outran the job image's Go and GOTOOLCHAIN=local refused to fetch one — stdout
+# was empty, the reason was gone, the loop below never ran, and the script
+# reported "every countable package is >= 90%". A gate that answers OK because it
+# measured nothing is worse than one that is switched off, because nobody goes
+# looking.
+test_err=$(mktemp)
+trap 'rm -f "$test_err"' EXIT
+
+cover_out=$(go test ./... -cover 2>"$test_err" | grep "coverage:") || true
+
+if [ -z "$cover_out" ]; then
+	echo "coverage-policy: the coverage run produced no package results." >&2
+	echo "coverage-policy: ---- go test stderr ----" >&2
+	cat "$test_err" >&2
+	echo "coverage-policy: ------------------------" >&2
+	echo "coverage-policy: refusing to report a pass on no data." >&2
+	exit 1
+fi
 
 violations=0
 while IFS= read -r line; do
