@@ -81,23 +81,49 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if ! git worktree add --detach "$WORK" "$BASELINE" >/dev/null 2>&1; then
+# The worktree lives outside the repository, so it is a separate path as far as
+# git's ownership check is concerned. CI marks only $CI_PROJECT_DIR as a
+# safe.directory, which leaves this one unmarked — a difference invisible on a
+# developer's machine, where the repository is already owned by the user running
+# the script. Mark it here rather than relying on the caller to know.
+#
+# Deliberately not fatal: `git config` can fail when HOME is unset or read-only,
+# and on a machine where the check never fires that failure would be noise.
+git config --global --add safe.directory "$WORK" >/dev/null 2>&1 || true
+
+WT_ERR="$(git worktree add --detach "$WORK" "$BASELINE" 2>&1 >/dev/null)" || {
   echo "apidiff: could not create a worktree for ${BASELINE}; skipping (advisory)." >&2
+  echo "apidiff: git said: ${WT_ERR}" >&2
   exit 0
-fi
+}
 
 # --- 4. Export module API for baseline and current tree ------------------
 # `-m -w FILE MODULE` must run from the module root so its go.mod (and
-# therefore its dependencies) resolve. stderr carries "Ignoring internal
-# package ..." noise we discard.
-( cd "$WORK" && "$APIDIFF" -m -w "$OLD_API" "$MODULE" 2>/dev/null ) || {
-  echo "apidiff: failed to read baseline API at ${BASELINE}; skipping (advisory)." >&2
-  exit 0
+# therefore its dependencies) resolve.
+#
+# stderr is CAPTURED, not discarded. It carries "Ignoring internal package ..."
+# noise on the happy path, which is why it used to be sent to /dev/null — but
+# that also swallowed the reason on the sad path, so a skip reported that it had
+# failed and never why. The noise is worth printing on the rare failure; silence
+# is not, because this script always exits 0 and a silent skip is
+# indistinguishable from "no API changes".
+export_api() {
+  local dir="$1" out="$2" label="$3" err
+
+  if ! err="$( cd "$dir" && "$APIDIFF" -m -w "$out" "$MODULE" 2>&1 >/dev/null )"; then
+    echo "apidiff: failed to read ${label}; skipping (advisory)." >&2
+    echo "apidiff: ---- stderr from ${label} ----" >&2
+    echo "${err}" >&2
+    echo "apidiff: --------------------------------" >&2
+
+    return 1
+  fi
+
+  return 0
 }
-"$APIDIFF" -m -w "$NEW_API" "$MODULE" 2>/dev/null || {
-  echo "apidiff: failed to read current-tree API; skipping (advisory)." >&2
-  exit 0
-}
+
+export_api "$WORK" "$OLD_API" "the baseline API at ${BASELINE}" || exit 0
+export_api "$REPO_ROOT" "$NEW_API" "the current-tree API" || exit 0
 
 # --- 5. Print the diff ----------------------------------------------------
 echo "===================================================================" >&2
