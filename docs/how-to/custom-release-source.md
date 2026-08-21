@@ -59,12 +59,21 @@ props.Tool.ReleaseSource = props.ReleaseSource{
     Type:  "s3",
     Owner: "my-org",
     Repo:  "my-tool",
-    Params: map[string]string{"bucket": "releases"},
 }
 ```
 
-`Params` is free-form, so your factory reads whatever keys it needs. The
-`vcs.provider` config key overrides `Type` at runtime.
+Settings your provider needs beyond the connection go in configuration, under a
+subtree named for the source type:
+
+```yaml
+s3:
+  bucket: releases
+```
+
+Your factory receives a `forge.Endpoint` and the whole configuration, and scopes
+it itself — `ep.Section(cfg)` resolves `s3`, or `s3.<name>` for a named source —
+so it reads whatever keys it needs without a shared struct growing a field for
+each one. The `vcs.provider` config key overrides `Type` at runtime.
 
 ## Injecting directly, without the registry
 

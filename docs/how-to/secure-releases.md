@@ -50,16 +50,18 @@ Upload `checksums.txt` to the repository's **Downloads** alongside the binaries 
 
 ### Direct HTTP releases
 
-Set `checksum_url_template` in your `ReleaseSource.Params` to a URL template that expands to the manifest location:
+Set `checksum_url_template` in the `direct` configuration subtree to a URL template that expands to the manifest location:
+
+```yaml
+direct:
+  url_template: https://releases.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}
+  checksum_url_template: https://releases.example.com/{tool}/{version}/checksums.txt
+```
+
+The release source itself names only the connection:
 
 ```go
-props.Tool.ReleaseSource = props.ReleaseSource{
-    Type: "direct",
-    Params: map[string]string{
-        "url_template":          "https://releases.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}",
-        "checksum_url_template": "https://releases.example.com/{tool}/{version}/checksums.txt",
-    },
-}
+props.Tool.ReleaseSource = props.ReleaseSource{Type: "direct"}
 ```
 
 The same placeholders (`{version}`, `{version_bare}`, `{os}`, `{arch}`, `{tool}`, `{ext}`) are available.

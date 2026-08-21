@@ -56,7 +56,7 @@ ReleaseSource: props.ReleaseSource{
 | `"bitbucket"` | Bitbucket Cloud Downloads | Version inferred from asset filenames |
 | `"gitea"` | Gitea / Forgejo | `Host` is required |
 | `"codeberg"` | Codeberg (Forgejo) | `Host` defaults to `https://codeberg.org` |
-| `"direct"` | Arbitrary HTTP / S3 / CDN | URL template required in `Params` |
+| `"direct"` | Arbitrary HTTP / S3 / CDN | URL template required in configuration |
 
 For a self-managed GitLab instance, also set `Host`:
 
@@ -80,20 +80,29 @@ ReleaseSource: props.ReleaseSource{
 },
 ```
 
-For a direct download server:
+For a direct download server, the release source names only the connection:
 
 ```go
 ReleaseSource: props.ReleaseSource{
     Type: "direct",
     Repo: "mytool",
-    Params: map[string]string{
-        "url_template": "https://dl.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}",
-        "version_url":  "https://dl.example.com/latest.json",
-    },
 },
 ```
 
-See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/) for a full `Params` reference for each provider.
+Its URL templates are configuration, under the `direct` subtree:
+
+```yaml
+direct:
+  url_template: https://dl.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}
+  version_url: https://dl.example.com/latest.json
+```
+
+They live in configuration rather than in a struct field so that two sources of
+one type can coexist, each reading its own subtree. These were previously a
+`ReleaseSource.Params` map; see the
+[migration note](../reference/migration/v0.x-release-source-params-removed.md).
+
+See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/) for the configuration keys each provider reads.
 
 ---
 
@@ -259,7 +268,7 @@ The `--from-file` flag is mutually exclusive with `--version`. The `--force` fla
 ## Related Documentation
 
 - **[Auto-Update Lifecycle](../explanation/components/update.md)** — how the update loop works
-- **[Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/)** — all built-in providers, registry API, and `Params` reference
+- **[Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/)** — all built-in providers, registry API, and per-provider configuration keys
 - **[Add a Custom Release Source](custom-release-source.md)** — register your own provider for any backend
 - **[GitHub provider](https://gitlab.com/phpboyscout/go/forge-github)** — GitHub release provider and token resolution (external `go/forge-github` module)
 - **[GitLab component](https://forge.go.phpboyscout.uk/reference/providers/#gitlab)** — `NewReleaseProvider` for GitLab

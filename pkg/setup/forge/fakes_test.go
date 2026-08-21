@@ -76,6 +76,15 @@ func (f *fakeKeyManager) UploadKey(_ context.Context, name string, publicKey []b
 	return f.err
 }
 
+// capturingProvider satisfies forgeapi.Provider (via the embedded nil interface,
+// whose release methods are never reached) and the optional forgeapi.KeyManager
+// capability, so one fake serves both account-level construction sites.
+type capturingProvider struct {
+	forgeapi.Provider
+}
+
+func (capturingProvider) UploadKey(context.Context, string, []byte) error { return nil }
+
 // keyManagerFactory builds a WithKeyManager input yielding km.
 func keyManagerFactory(km forgeapi.KeyManager, err error) func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
 	return func(context.Context, config.Reader) (forgeapi.KeyManager, error) {

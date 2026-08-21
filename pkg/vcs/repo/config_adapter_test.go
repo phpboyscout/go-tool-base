@@ -10,7 +10,6 @@ import (
 
 	"gitlab.com/phpboyscout/go/config"
 	"gitlab.com/phpboyscout/go/credentials"
-	"gitlab.com/phpboyscout/go/forge"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
@@ -36,7 +35,7 @@ func repoViewFromYAML(t *testing.T, yaml string) *config.View {
 func TestSettingsFromReader_Nil(t *testing.T) {
 	t.Parallel()
 
-	source := forge.ReleaseSourceConfig{Type: "github"}
+	source := props.ReleaseSource{Type: "github"}
 
 	settings := SettingsFromReader(source, nil, logger.NewNoop(), afero.NewMemMapFs())
 
@@ -53,7 +52,7 @@ func TestSettingsFromReader_TokenAuth(t *testing.T) {
 	cfg := repoViewFromYAML(t, `github: {auth: {value: tok-from-config}}`)
 
 	settings := SettingsFromReader(
-		forge.ReleaseSourceConfig{Type: "github"},
+		props.ReleaseSource{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -75,7 +74,7 @@ gitlab: {auth: {value: gl-tok-from-config}}
 `)
 
 	settings := SettingsFromReader(
-		forge.ReleaseSourceConfig{Type: "github"},
+		props.ReleaseSource{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -99,7 +98,7 @@ github:
 `)
 
 	settings := SettingsFromReader(
-		forge.ReleaseSourceConfig{Type: "github"},
+		props.ReleaseSource{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -173,7 +172,7 @@ github:
 `)
 
 	settings := SettingsFromReader(
-		forge.ReleaseSourceConfig{Type: "github"},
+		props.ReleaseSource{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -204,7 +203,7 @@ github:
 `)
 
 	settings := SettingsFromReader(
-		forge.ReleaseSourceConfig{Type: "github"},
+		props.ReleaseSource{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),
@@ -219,7 +218,7 @@ func TestSettingsFromReader_ScalarSSH(t *testing.T) {
 	cfg := repoViewFromYAML(t, `github: {ssh: true}`)
 
 	settings := SettingsFromReader(
-		forge.ReleaseSourceConfig{Type: "github"},
+		props.ReleaseSource{Type: "github"},
 		cfg,
 		logger.NewNoop(),
 		afero.NewMemMapFs(),

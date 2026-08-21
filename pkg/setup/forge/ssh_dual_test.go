@@ -173,9 +173,10 @@ func TestProfileWithoutSSHNeverConstructsAKeyManager(t *testing.T) {
 }
 
 // TestBitbucketProfileHasAHost covers D4 directly. defaultKeyManager builds the
-// provider with forgeapi.ReleaseSourceConfig{Host: profile.Host}, so an empty
-// Host is the same hazard 0185 D3 records for token instructions, reached by a
-// different path — and it is required whether or not SSH is offered.
+// provider with forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host},
+// so an empty Host is the same hazard 0185 D3 records for token instructions,
+// reached by a different path — and it is required whether or not SSH is
+// offered. Spec 0192 added the Type half; this test still owns the Host half.
 func TestBitbucketProfileHasAHost(t *testing.T) {
 	t.Parallel()
 

@@ -155,7 +155,9 @@ Integration tests use `testutil.SkipIfNotIntegration(t, "tag")` with `INT_TEST=1
 ### Release Providers: Global Registry Pattern
 **Spec:** `2026-03-29-extended-release-sources.md`
 
-Providers register via `release.Register(sourceType, factory)` in `init()` functions. Written once at startup, read-only thereafter. `ReleaseSource.Params` (`map[string]string`) provides provider-specific config without polluting the shared struct. This pattern should be replicated for future extensibility points.
+Providers register via `forge.Register(sourceType, factory)` in `init()` functions. Written once at startup, read-only thereafter. The registry half of this pattern is worth replicating for future extensibility points.
+
+The `ReleaseSource.Params` map that used to carry provider-specific config is **not**: spec 0192 removed it when `go/forge` stopped reading one. A single map on a shared struct can describe exactly one source per type, so it could never express two `direct` sources with different templates. Provider settings now live in a configuration subtree the endpoint scopes into, which can. Prefer that shape for a new extensibility point.
 
 ### Telemetry: Opt-In with Privacy by Design
 **Spec:** `2026-03-21-opt-in-telemetry.md`

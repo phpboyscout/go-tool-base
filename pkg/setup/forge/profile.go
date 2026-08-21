@@ -251,7 +251,13 @@ func (p Profile) dualCredentialKeys() []string {
 // defaultForgeProvider builds the registered forge provider from the resolved
 // config. Auth and SSH-key upload target the profile's Host (or the Enterprise
 // host carried in the config's url.api); the release-source owner/repo are
-// irrelevant to account-level capabilities, so only Host is set.
+// irrelevant to account-level capabilities, so the endpoint carries only the
+// provider type and the host.
+//
+// Type is not optional decoration. [forge.Endpoint.Section] scopes the config
+// subtree a provider reads BY Type, so an endpoint that omits it reads the wrong
+// subtree rather than failing — which is what this code did before spec 0192,
+// harmlessly only because nothing validated it.
 func defaultForgeProvider(profile Profile) func(context.Context, config.Reader) (forgeapi.Provider, error) {
 	return func(ctx context.Context, cfg config.Reader) (forgeapi.Provider, error) {
 		factory, err := forgeapi.Lookup(profile.Provider)
@@ -259,11 +265,9 @@ func defaultForgeProvider(profile Profile) func(context.Context, config.Reader) 
 			return nil, errors.WithStack(err)
 		}
 
-		return factory(
-			ctx,
-			forgeapi.ReleaseSourceConfig{Host: profile.Host},
-			withShippedClientID(vcs.ConfigFromReader(cfg), profile),
-		)
+		endpoint := forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host}
+
+		return factory(ctx, endpoint, withShippedClientID(vcs.ConfigFromReader(cfg), profile))
 	}
 }
 
@@ -457,8 +461,8 @@ var bitbucketProfile = Profile{ //nolint:gosec // G101: PassFallbackEnv is the e
 	DisplayName:  "Bitbucket authentication",
 	Feature:      BitbucketFeature,
 	// Host is required by defaultKeyManager, which builds the provider with
-	// forgeapi.ReleaseSourceConfig{Host: profile.Host}. Its absence here was
-	// latent rather than harmless.
+	// forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host}. Its
+	// absence here was latent rather than harmless.
 	Host:            "bitbucket.org",
 	KeychainAccount: "bitbucket.auth",
 	Credential:      DualUserPass,

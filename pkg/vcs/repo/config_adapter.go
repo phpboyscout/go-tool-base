@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/afero"
 
 	"gitlab.com/phpboyscout/go/config"
-	"gitlab.com/phpboyscout/go/forge"
 	gorepo "gitlab.com/phpboyscout/go/repo"
 
 	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
@@ -30,18 +29,9 @@ func SettingsFromProps(p *props.Props) gorepo.Settings {
 		return gorepo.Settings{}
 	}
 
-	source := forge.ReleaseSourceConfig{
-		Type:    p.Tool.ReleaseSource.Type,
-		Host:    p.Tool.ReleaseSource.Host,
-		Owner:   p.Tool.ReleaseSource.Owner,
-		Repo:    p.Tool.ReleaseSource.Repo,
-		Private: p.Tool.ReleaseSource.Private,
-		Params:  p.Tool.ReleaseSource.Params,
-	}
-
 	// Props built without a store (tests, hand-constructed Props) resolve to
 	// the same no-auth settings a nil reader does, not a panic on View.
-	return SettingsFromReader(source, props.ViewOrNil(p), p.Logger, p.FS)
+	return SettingsFromReader(p.Tool.ReleaseSource, props.ViewOrNil(p), p.Logger, p.FS)
 }
 
 // resolveForge normalises a release source type into the forge name GTB uses
@@ -66,8 +56,14 @@ func resolveForge(forge string) string {
 
 // SettingsFromReader adapts GTB config into typed repo settings. Runtime
 // config remains a framework boundary; the module itself does not depend on it.
+//
+// It takes [props.ReleaseSource] rather than a forge type because it reads Type
+// and Private, and forge.Endpoint carries no Private — that is connection
+// identity only. The forge type this used to take existed, by its own doc
+// comment, "to avoid a circular import between pkg/vcs/release and pkg/props";
+// that cycle is long gone, and SettingsFromProps above already imports props.
 func SettingsFromReader(
-	source forge.ReleaseSourceConfig,
+	source props.ReleaseSource,
 	cfg config.Reader,
 	log gorepo.Logger,
 	fs afero.Fs,

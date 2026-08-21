@@ -368,22 +368,31 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
 | `"codeberg"` | Codeberg (Forgejo) | `CODEBERG_TOKEN` |
 | `"direct"` | Arbitrary HTTP / S3 / CDN | `DIRECT_TOKEN` |
 
-### Provider-specific parameters
+### Provider-specific settings
 
-The `props.ReleaseSource.Params` field (`map[string]string`) passes provider-specific configuration:
+`props.ReleaseSource` carries connection identity only — `Type` and `Host` address
+the forge, `Owner` and `Repo` name what to operate on. Everything a provider needs
+beyond that is configuration, read from a subtree named for the source type:
 
 ```go
 ReleaseSource: props.ReleaseSource{
     Type: "direct",
     Repo: "mytool",
-    Params: map[string]string{
-        "url_template": "https://dl.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}",
-        "version_url":  "https://dl.example.com/latest.json",
-    },
 },
 ```
 
-See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/) for a full `Params` reference for each built-in provider.
+```yaml
+direct:
+  url_template: https://dl.example.com/{tool}/{version}/{tool}_{os}_{arch}.{ext}
+  version_url: https://dl.example.com/latest.json
+```
+
+GTB passes the factory a `forge.Endpoint` and the whole resolved configuration;
+`Endpoint.Section` scopes it to `<type>`, or `<type>.<name>` for a named source.
+That indirection is what lets two sources of one type coexist, each with its own
+settings — which a single struct field could not express.
+
+See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/) for the configuration keys each built-in provider reads.
 
 ### Custom providers
 

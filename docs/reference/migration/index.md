@@ -38,6 +38,7 @@ provides before/after code examples with a clear migration path.
 | v0.x | v0.x | [`errorhandling.Fatal` exits non-zero on usage/special errors](v0.x-errorhandling-fatal-exit-code.md) |
 | v0.x | v0.x | [`props.FeatureCmd` renamed to `props.FeatureID`](v0.x-featurecmd-to-featureid.md) |
 | v0.x | v0.x | [Forge credential precedence moved into GTB](v0.x-forge-credential-precedence.md) |
+| v0.x | v0.x | [`ReleaseSource.Params` removed; provider settings move to configuration](v0.x-release-source-params-removed.md) |
 | v1.x | v1.12 | [Secure credential storage](v1.12-credential-storage.md) |
 | v1.x | v1.x | [Context-aware credentials Backend](v1.x-credentials-context.md) |
 

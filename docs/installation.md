@@ -157,8 +157,10 @@ Four details are load-bearing:
 - **`props.NewAssets` takes an `AssetMap`,** not a bare `*embed.FS`. The key
   names the bundle; later bundles override earlier ones.
 - **`ReleaseSource`, not a `GitHub` field.** `props.Tool` carries
-  `ReleaseSource{Type, Host, Owner, Repo, Private, Params}`, where `Type` is
+  `ReleaseSource{Type, Host, Owner, Repo, Private}`, where `Type` is
   `github`, `gitlab`, `bitbucket`, `gitea`, `codeberg` or `direct`.
+  Provider-specific settings are not fields here; they live in your
+  configuration under the source's own subtree.
 - **`root.Execute(rootCmd, p)`, not `rootCmd.Execute()`.** `root.Execute` adds
   the signal-aware context, the shared error path and the telemetry flush.
   Calling Cobra's `Execute` directly skips all three.

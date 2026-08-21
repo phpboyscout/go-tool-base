@@ -27,25 +27,25 @@ require (
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	gitlab.com/phpboyscout/go/browser v0.2.1
 	gitlab.com/phpboyscout/go/changelog v0.2.1
-	gitlab.com/phpboyscout/go/chat v0.10.1
-	gitlab.com/phpboyscout/go/chat-anthropic v0.9.1
-	gitlab.com/phpboyscout/go/chat-gemini v0.9.1
-	gitlab.com/phpboyscout/go/chat-openai v0.9.1
-	gitlab.com/phpboyscout/go/config v0.17.0
-	gitlab.com/phpboyscout/go/config-afero v0.1.8
+	gitlab.com/phpboyscout/go/chat v0.11.0
+	gitlab.com/phpboyscout/go/chat-anthropic v0.10.0
+	gitlab.com/phpboyscout/go/chat-gemini v0.10.0
+	gitlab.com/phpboyscout/go/chat-openai v0.10.0
+	gitlab.com/phpboyscout/go/config v0.17.2
+	gitlab.com/phpboyscout/go/config-afero v0.1.9
 	gitlab.com/phpboyscout/go/controls v0.3.1
 	gitlab.com/phpboyscout/go/credentials v0.3.1
 	gitlab.com/phpboyscout/go/errorhandling v0.5.0
 	gitlab.com/phpboyscout/go/errors v0.3.0
-	gitlab.com/phpboyscout/go/forge v0.11.0
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.5.4
-	gitlab.com/phpboyscout/go/forge-gitea v0.9.0
-	gitlab.com/phpboyscout/go/forge-github v0.8.1
-	gitlab.com/phpboyscout/go/forge-gitlab v0.8.0
+	gitlab.com/phpboyscout/go/forge v0.14.1
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.8.1
+	gitlab.com/phpboyscout/go/forge-gitea v0.13.1
+	gitlab.com/phpboyscout/go/forge-github v0.12.1
+	gitlab.com/phpboyscout/go/forge-gitlab v0.12.1
 	gitlab.com/phpboyscout/go/httpclient v0.2.2
 	gitlab.com/phpboyscout/go/observability v0.3.1
 	gitlab.com/phpboyscout/go/output v0.2.1
@@ -76,7 +76,7 @@ require (
 	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
 	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
 	gitlab.com/phpboyscout/go/awsclient v0.1.0 // indirect
-	gitlab.com/phpboyscout/go/clientlifecycle v0.1.0 // indirect
+	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 )
 
 require (
@@ -88,7 +88,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.20.0 // indirect
-	github.com/anthropics/anthropic-sdk-go v1.62.0 // indirect
+	github.com/anthropics/anthropic-sdk-go v1.63.1 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.43.6 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.37 // indirect
@@ -134,7 +134,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
@@ -208,7 +207,7 @@ require (
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.4.1 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
-	github.com/openai/openai-go/v3 v3.50.0 // indirect
+	github.com/openai/openai-go/v3 v3.51.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
@@ -243,11 +242,11 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v2 v2.56.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v2 v2.58.0 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.1 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.1 // indirect
-	gitlab.com/phpboyscout/go/signing-cli v0.6.0
+	gitlab.com/phpboyscout/go/signing-cli v0.6.1
 	gitlab.com/phpboyscout/go/yamldoc v0.2.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0 // indirect
@@ -268,7 +267,7 @@ require (
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
-	google.golang.org/genai v1.67.0 // indirect
+	google.golang.org/genai v1.68.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/protobuf v1.36.11 // indirect

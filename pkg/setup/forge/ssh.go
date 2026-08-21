@@ -37,9 +37,13 @@ const (
 // defaultKeyManager builds the registered forge provider and type-asserts it
 // for the optional [forgeapi.KeyManager] capability. SSH-key upload targets the
 // profile's Host (or the Enterprise host carried in the config's url.api), so
-// only Host is set on the release source. A provider that does not implement
-// KeyManager yields [forgeapi.ErrNotSupported], which the caller treats as
-// "skip automated upload and tell the user to add the key manually".
+// the endpoint carries only the provider type and the host. A provider that does
+// not implement KeyManager yields [forgeapi.ErrNotSupported], which the caller
+// treats as "skip automated upload and tell the user to add the key manually".
+//
+// Type comes from the same profile field that selected the factory, so the two
+// cannot drift; see defaultForgeProvider for why an untyped endpoint is worse
+// than a failing one.
 func defaultKeyManager(profile Profile) func(context.Context, config.Reader) (forgeapi.KeyManager, error) {
 	return func(ctx context.Context, cfg config.Reader) (forgeapi.KeyManager, error) {
 		factory, err := forgeapi.Lookup(profile.Provider)
@@ -47,7 +51,9 @@ func defaultKeyManager(profile Profile) func(context.Context, config.Reader) (fo
 			return nil, errors.WithStack(err)
 		}
 
-		provider, err := factory(ctx, forgeapi.ReleaseSourceConfig{Host: profile.Host}, vcs.ConfigFromReader(cfg))
+		endpoint := forgeapi.Endpoint{Type: profile.Provider, Host: profile.Host}
+
+		provider, err := factory(ctx, endpoint, vcs.ConfigFromReader(cfg))
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

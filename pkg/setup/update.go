@@ -453,16 +453,21 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		return err
 	}
 
-	sourceCfg := forge.ReleaseSourceConfig{
-		Type:    p.Tool.ReleaseSource.Type,
-		Host:    p.Tool.ReleaseSource.Host,
-		Owner:   p.Tool.ReleaseSource.Owner,
-		Repo:    p.Tool.ReleaseSource.Repo,
-		Private: p.Tool.ReleaseSource.Private,
-		Params:  p.Tool.ReleaseSource.Params,
+	// Only connection identity reaches the factory. Owner and Repo are
+	// arguments to the operations that need them (GetLatestRelease and its
+	// siblings all take them), and Private is consumed above, where it decides
+	// whether a token is required at all.
+	//
+	// Type is set from vcsProvider rather than from ReleaseSource.Type: config
+	// may override the provider, and Lookup was already given the overridden
+	// value. Endpoint.Section scopes a provider's config subtree by Type, so
+	// disagreeing here would hand the provider the wrong subtree.
+	endpoint := forge.Endpoint{
+		Type: vcsProvider,
+		Host: p.Tool.ReleaseSource.Host,
 	}
 
-	releaseClient, err := factory(ctx, sourceCfg, vcs.ConfigFromReader(cfg))
+	releaseClient, err := factory(ctx, endpoint, vcs.ConfigFromReader(cfg))
 	if err != nil {
 		return errors.WithStack(err)
 	}

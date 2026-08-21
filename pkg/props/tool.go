@@ -110,15 +110,22 @@ func Disable(cmd FeatureID) FeatureState {
 // releases are published. Used by the self-update system to check for and
 // download new versions. Supported types: "github", "gitlab", "bitbucket",
 // "gitea", "codeberg", "direct".
+//
+// Type and Host address the connection, and become a [forge.Endpoint] at
+// construction. Owner and Repo name what a provider is asked to operate on, and
+// are passed per call rather than baked into the provider.
+//
+// Provider-specific settings — the direct provider's url_template and its
+// siblings — are NOT here. They live in the tool's configuration under the
+// source's own subtree (direct.url_template, and so on), which is what lets two
+// sources of one type coexist. A Params map used to carry them; spec 0192
+// removed it when go/forge v0.12.0 stopped reading one.
 type ReleaseSource struct {
 	Type    string `json:"type"    yaml:"type"`
 	Host    string `json:"host"    yaml:"host"`
 	Owner   string `json:"owner"   yaml:"owner"`
 	Repo    string `json:"repo"    yaml:"repo"`
 	Private bool   `json:"private" yaml:"private"`
-	// Params holds provider-specific configuration key/value pairs.
-	// Keys use snake_case. Valid keys are documented per provider.
-	Params map[string]string `json:"params,omitempty" yaml:"params,omitempty"`
 }
 
 // SigningConfig holds tool-author configuration for self-update
