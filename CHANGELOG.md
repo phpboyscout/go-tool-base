@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.40.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.40.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.39.1...v0.40.0)
+
+### Features
+
+- **vcs**: address a release source by forge endpoint ([7f0c036](https://gitlab.com/phpboyscout/go-tool-base/-/commit/7f0c03636b7f4e604986528936c76354d2d52d66))
+
 ## [v0.39.1](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.39.1)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.39.0...v0.39.1)
