@@ -26,8 +26,8 @@ include:
   # cicd dev-tools image baked into the components (Go 1.26.4, govulncheck,
   # golangci-lint) — no per-component image overrides needed since cicd
   # v0.14.0.
-  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.38.0
-  - component: gitlab.com/phpboyscout/cicd/go-test@v0.38.0
+  - component: gitlab.com/phpboyscout/cicd/go-lint@v0.39.1
+  - component: gitlab.com/phpboyscout/cicd/go-test@v0.39.1
     inputs:
       enable_e2e: true
       # The e2e generator scenarios scaffold projects and compile them against
@@ -45,7 +45,7 @@ include:
       # If a run approaches 25m, cut scenario cost rather than raising this
       # again: the previous rise was already absorbed within two months.
       e2e_timeout: "25m"
-  - component: gitlab.com/phpboyscout/cicd/go-security@v0.38.0
+  - component: gitlab.com/phpboyscout/cicd/go-security@v0.39.1
 
   # Release — tag-gated goreleaser + main-branch zensical-pages deploy.
   # goreleaser runs on the dev-tools image (Go 1.26.4), so it builds with
@@ -64,16 +64,16 @@ include:
   # an image passed as a component INPUT is not a job-level `image:`, so
   # Renovate's gitlabci manager never saw it. The mirrored customManager in
   # renovate.json5 now tracks it (0065 D3/D4).
-  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.38.0
+  - component: gitlab.com/phpboyscout/cicd/goreleaser@v0.39.1
     inputs:
       args: "release --clean --parallelism=1"
       image: "registry.gitlab.com/phpboyscout/images/dev-tools:v0.3.4"
-  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.38.0
+  - component: gitlab.com/phpboyscout/cicd/zensical-pages@v0.39.1
 
   # Release MR machinery — our wrapper over apricote/releaser-pleaser
   # (carries the schedule-never guard, so it no longer fires on the
   # Renovate schedule).
-  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.38.0
+  - component: gitlab.com/phpboyscout/cicd/releaser-pleaser@v0.39.1
     inputs:
       token: $RELEASER_PLEASER_TOKEN
       branch: main
@@ -87,7 +87,7 @@ include:
   # major cuts only by default; the webhook comes from the
   # DISCORD_RELEASE_WEBHOOK group variable, which is protected and so
   # reaches this job because `v*` is a protected tag here.
-  - component: gitlab.com/phpboyscout/cicd/discord-release@v0.38.0
+  - component: gitlab.com/phpboyscout/cicd/discord-release@v0.39.1
     inputs:
       # Headline project: patch releases are news here too.
       announce_patches: true
