@@ -241,18 +241,19 @@ osv-scanner:
 
 apidiff:
   stage: test
-  image: golang:1.26.5-bookworm
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.1.1
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   allow_failure: true
   variables:
-    # The image pins a Go PATCH version; go.mod's directive does not stand still.
-    # When the directive passed the image (v0.39.0 took it to 1.26.6), the default
-    # GOTOOLCHAIN=local refused to fetch one and every module load failed —
-    # silently, because this job is advisory and the script exits 0. `auto` lets
-    # Go fetch whatever go.mod asks for, so the next directive bump self-heals
-    # instead of switching the job off without telling anyone.
+    # Belt and braces behind the image, which already satisfies go.mod's
+    # directive. These two jobs pinned a raw `golang:` tag until now, which made
+    # them invisible to the component rollout and let them drift: v0.39.0 took
+    # the directive to 1.26.6 while the image stayed on 1.26.5, and with the
+    # default GOTOOLCHAIN=local every module load failed. `auto` does nothing
+    # while the image keeps up, and rescues the job if it ever falls behind
+    # again.
     GOTOOLCHAIN: auto
   script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
@@ -269,7 +270,7 @@ apidiff:
 # package to .coverage-policy.yaml `excluded:` with a rationale.
 coverage-policy:
   stage: test
-  image: golang:1.26.5-bookworm
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.1.1
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
