@@ -1,6 +1,6 @@
 module gitlab.com/phpboyscout/go-tool-base
 
-go 1.26.6
+go 1.27.0
 
 require (
 	charm.land/bubbles/v2 v2.1.1
@@ -41,11 +41,11 @@ require (
 	gitlab.com/phpboyscout/go/credentials v0.3.1
 	gitlab.com/phpboyscout/go/errorhandling v0.5.0
 	gitlab.com/phpboyscout/go/errors v0.3.0
-	gitlab.com/phpboyscout/go/forge v0.14.1
-	gitlab.com/phpboyscout/go/forge-bitbucket v0.8.1
-	gitlab.com/phpboyscout/go/forge-gitea v0.13.1
-	gitlab.com/phpboyscout/go/forge-github v0.12.1
-	gitlab.com/phpboyscout/go/forge-gitlab v0.12.1
+	gitlab.com/phpboyscout/go/forge v0.16.0
+	gitlab.com/phpboyscout/go/forge-bitbucket v0.8.2
+	gitlab.com/phpboyscout/go/forge-gitea v0.13.2
+	gitlab.com/phpboyscout/go/forge-github v0.12.2
+	gitlab.com/phpboyscout/go/forge-gitlab v0.13.0
 	gitlab.com/phpboyscout/go/httpclient v0.2.2
 	gitlab.com/phpboyscout/go/observability v0.3.1
 	gitlab.com/phpboyscout/go/output v0.2.1
@@ -54,6 +54,7 @@ require (
 	gitlab.com/phpboyscout/go/repo v0.2.2
 	gitlab.com/phpboyscout/go/signing v0.8.0
 	gitlab.com/phpboyscout/go/signing-aws-kms v0.6.0
+	gitlab.com/phpboyscout/go/signing-cli v0.6.1
 	gitlab.com/phpboyscout/go/tls v0.2.1
 	gitlab.com/phpboyscout/go/transit v0.2.2
 	gitlab.com/phpboyscout/go/transport v0.6.0
@@ -70,13 +71,6 @@ require (
 	golang.org/x/text v0.41.0
 	google.golang.org/grpc v1.83.0
 	gopkg.in/yaml.v3 v3.0.1
-)
-
-require (
-	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
-	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
-	gitlab.com/phpboyscout/go/awsclient v0.1.0 // indirect
-	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 )
 
 require (
@@ -132,6 +126,8 @@ require (
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
+	github.com/cucumber/gherkin/go/v42 v42.0.0 // indirect
+	github.com/cucumber/messages/go/v34 v34.2.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
@@ -242,11 +238,12 @@ require (
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zalando/go-keyring v0.2.8 // indirect
-	gitlab.com/gitlab-org/api/client-go/v2 v2.58.0 // indirect
+	gitlab.com/gitlab-org/api/client-go/v2 v2.58.1 // indirect
 	gitlab.com/phpboyscout/go/aferobilly v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/authn v0.2.1 // indirect
+	gitlab.com/phpboyscout/go/awsclient v0.1.0 // indirect
+	gitlab.com/phpboyscout/go/clientlifecycle v0.2.0 // indirect
 	gitlab.com/phpboyscout/go/grpcclient v0.2.1 // indirect
-	gitlab.com/phpboyscout/go/signing-cli v0.6.1
 	gitlab.com/phpboyscout/go/yamldoc v0.2.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.70.0 // indirect
@@ -270,7 +267,7 @@ require (
 	google.golang.org/genai v1.68.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
