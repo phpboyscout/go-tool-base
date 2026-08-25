@@ -174,22 +174,32 @@ signs:
     output: true
 ```
 
-`scripts/sign-release.sh` signs with whatever key gpg resolves for the `GTB_SIGNING_KEY` env var. Key custody is deliberately indirect so the same script works for local development (an ordinary gpg secret key) and production (a KMS/HSM-backed key exposed to gpg), only the key source changes.
+`scripts/sign-release.sh` does not touch a local gpg keyring. It shells out to
+`gtb sign --backend aws-kms`, so the private half never leaves KMS and nothing on
+the runner can export it. Three variables select the key, all with defaults:
 
-**Gating (dormant until provisioned).** The release job runs GoReleaser with `--skip=sign` unless `GTB_SIGNING_KEY` is set, mirroring the existing notarize gate on `APPLE_DEV_CERT`:
+| Variable | Default | What it is |
+| :--- | :--- | :--- |
+| `GTB_SIGNING_KEY_ID` | `alias/gtb-release-signing-v1` | the KMS key alias to sign with |
+| `GTB_SIGNING_KEY_PUBLIC` | `internal/trustkeys/keys/signing-key-v1.asc` | the public half, which must be present in the working tree |
+| `AWS_REGION` | `eu-west-2` | where the key lives |
 
-```yaml
-# .gitlab-ci.yml (goreleaser job)
-script:
-  - |
-    if [ -n "${GTB_SIGNING_KEY:-}" ]; then
-      goreleaser release --clean
-    else
-      goreleaser release --clean --skip=sign
-    fi
-```
+**There is no signing gate, and the script fails closed.** If neither
+`AWS_ACCESS_KEY_ID` nor `AWS_WEB_IDENTITY_TOKEN_FILE` is set, `sign-release.sh`
+refuses to sign and exits non-zero rather than quietly producing an unsigned
+release. A tag pipeline that cannot reach KMS fails; it does not degrade.
 
-So until a signing key is configured in CI, releases ship unsigned exactly as before; once `GTB_SIGNING_KEY` is set, every release gains a `checksums.txt.sig`.
+CI resolves credentials through **OIDC web identity** rather than a stored
+secret. GitLab injects a token with `aud: sts.amazonaws.com`, the job writes it to
+a file, and the AWS SDK assumes the signer role. That role's trust policy pins it
+to `project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*`, so a leaked role
+ARN still only lets this project's **tag** pipelines sign anything.
+
+> **Dual-signing window.** Since the 2026-07-24 key rotation the job also sets
+> `GTB_SIGNING_KEY_ID_2` and `AWS_ROLE_ARN_2`, and `sign-release.sh` merges the
+> second signature into the same `checksums.txt.sig`. Binaries already in the
+> field trust v1 only; new ones trust v1 and v2, so both verify. The window
+> closes by deleting those variables from the `goreleaser` job.
 
 The **sign→verify contract**. That a signature `gtb sign` produces is accepted by
 the same trust set self-update enforces, is covered by

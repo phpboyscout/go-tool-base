@@ -84,11 +84,18 @@ checksum:
   algorithm: sha256
 
 # Detached, ASCII-armored OpenPGP signature over checksums.txt
-# (-> checksums.txt.sig), consumed by Phase 2 self-update signature
-# verification in pkg/setup. Dormant until a signing key is provisioned:
-# the release job runs goreleaser with `--skip=sign` unless
-# GTB_SIGNING_KEY is set (see .gitlab-ci.yml), mirroring the notarize
-# gate on APPLE_DEV_CERT. See docs/development/phase2-signing-prep.md.
+# (-> checksums.txt.sig), consumed by self-update signature verification
+# in pkg/setup.
+#
+# Live, and not gated. scripts/sign-release.sh signs via `gtb sign
+# --backend aws-kms` using the OIDC role the goreleaser job assumes, and
+# it EXITS NON-ZERO when no AWS credentials resolve rather than letting an
+# unsigned release through. There is no --skip=sign branch and no
+# GTB_SIGNING_KEY variable; both were described here long after they
+# stopped existing.
+#
+# See docs/how-to/secure-releases.md for the key variables and the
+# dual-signing window.
 signs:
   - id: checksums
     cmd: scripts/sign-release.sh

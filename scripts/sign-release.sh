@@ -27,10 +27,14 @@
 #                              Default: internal/trustkeys/keys/signing-key-v1.asc.
 #   AWS_REGION                 KMS region. Default: eu-west-2.
 #
-# The release pipeline gates invocation on AWS_WEB_IDENTITY_TOKEN
-# being set (i.e. CI is in an OIDC-capable context); goreleaser runs
-# with `--skip=sign` when it isn't, so this script erroring on a
-# missing token is a safety net, not the gate.
+# The credential check below IS the gate, not a safety net behind one.
+#
+# This comment used to say the pipeline skipped signing when no OIDC
+# token was present. It does not: there is no `--skip=sign` branch in
+# .gitlab-ci.yml, so a tag pipeline that cannot reach KMS fails here
+# rather than publishing an unsigned release. That is the behaviour we
+# want, and it is worth stating plainly, because a "safety net" reads as
+# something you may remove.
 
 set -euo pipefail
 
