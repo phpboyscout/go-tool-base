@@ -254,11 +254,7 @@ func (g *Generator) runPostRegenerationProcessing(ctx context.Context, writtenHa
 		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
 	}
 
-	g.props.Logger.Info("Running golangci-lint run --fix...")
-
-	if err := g.runSkeletonCommand(ctx, g.config.Path, "golangci-lint", "run", "--fix"); err != nil {
-		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
-	}
+	g.runLintPass(ctx, g.config.Path)
 
 	// Post-processing (tidy, lint) may have modified tracked files in either
 	// namespace. Refresh both so the next run does not flag those changes as

@@ -161,11 +161,37 @@ func resolveCIComponentSource(configured string) string {
 	return DefaultCICDComponentSource
 }
 
-func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) {
-	g.props.Logger.Info("Running go mod tidy...")
+// SkipLintEnv opts a generation out of the golangci-lint pass.
+//
+// The pass is best-effort already — a failure is logged and generation
+// continues — so skipping it changes no outcome a caller can observe, only how
+// long a generation takes. That matters because it is by far the most expensive
+// step: a full lint of a real Go project, and golangci-lint keys its findings
+// cache on ABSOLUTE paths, so a project generated into a fresh directory is a
+// cold cache however the cache directory is shared.
+//
+// It exists for the e2e suite, which scaffolds or regenerates a project in 38 of
+// its scenarios and is asserting what the generator WRITES, not that
+// golangci-lint approves of it. Lint-cleanliness of generated output is a
+// property worth holding, but it is one scenario's job rather than every
+// scenario's tax.
+//
+// Deliberately an environment variable and not a flag: the seven code paths that
+// lint are reached from as many commands, and a switch for a test concern does
+// not belong in a user's --help. It follows GTB_NON_INTERACTIVE's convention —
+// the literal string "true", nothing else.
+const SkipLintEnv = "GTB_SKIP_LINT"
 
-	if err := g.runSkeletonCommand(ctx, path, "go", "mod", "tidy"); err != nil {
-		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+// runLintPass runs golangci-lint --fix over a generated project unless
+// [SkipLintEnv] says otherwise.
+//
+// Shared by generation and regeneration, which each carried their own copy of
+// this three-line block and would each have needed the same gate.
+func (g *Generator) runLintPass(ctx context.Context, path string) {
+	if os.Getenv(SkipLintEnv) == "true" {
+		g.props.Logger.Debug("Skipping golangci-lint pass", "reason", SkipLintEnv+"=true")
+
+		return
 	}
 
 	g.props.Logger.Info("Running golangci-lint run --fix...")
@@ -173,6 +199,16 @@ func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) 
 	if err := g.runSkeletonCommand(ctx, path, "golangci-lint", "run", "--fix"); err != nil {
 		g.props.Logger.Warn("Failed to run golangci-lint", "error", err)
 	}
+}
+
+func (g *Generator) runSkeletonPostProcessing(ctx context.Context, path string) {
+	g.props.Logger.Info("Running go mod tidy...")
+
+	if err := g.runSkeletonCommand(ctx, path, "go", "mod", "tidy"); err != nil {
+		g.props.Logger.Warn("Failed to run go mod tidy", "error", err)
+	}
+
+	g.runLintPass(ctx, path)
 
 	// The lint pass rewrites command files as readily as skeleton ones, so the
 	// command-hash refresh belongs to the shared post-processing step rather

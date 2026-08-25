@@ -55,6 +55,30 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
 | `INT_TEST_E2E_CLI=1` | Enables only `@cli`-tagged E2E scenarios |
 | `INT_TEST_E2E_CHAT=1` | Enables only `@chat`-tagged E2E scenarios |
+| `INT_TEST_E2E_GENERATOR=1` | Enables only `@generator`-tagged E2E scenarios |
+| `GTB_SKIP_LINT=true` | Skips the generator's `golangci-lint run --fix` pass. The E2E suite sets this for itself (see below); set it by hand to scaffold quickly. Only the literal `true` counts |
+
+#### Why the E2E suite skips the generator's lint pass
+
+38 of the E2E scenarios scaffold or regenerate a project, and each one used to
+run a full `golangci-lint run --fix` over the result. That single step dominated
+the suite: golangci-lint keys its findings cache on **absolute paths**, and every
+scenario generates into a fresh `os.MkdirTemp`, so a shared cache directory warms
+nothing and each run pays a cold lint of a real Go project.
+
+It is what took the suite past its 25-minute CI ceiling. With the pass skipped
+the full suite runs in about **two minutes**.
+
+Nothing was lost by skipping it, and the reason is worth knowing: the generator
+treats the pass as best-effort and only logs a warning if it fails, so **no
+scenario ever asserted the result**. Those 38 runs were cost without signal.
+
+That generated output lints clean is still a property worth holding — it is just
+one nobody currently holds. Do not read this switch as having dropped it.
+
+`test/e2e/steps` sets `GTB_SKIP_LINT` for itself unless it is already set, so
+running the suite by hand needs no extra setup. Unset it deliberately (with
+`GTB_SKIP_LINT=` explicitly empty) if you want the pass back for a run.
 
 When neither `INT_TEST` nor the relevant `INT_TEST_<TAG>` is set, the test is skipped with a message explaining how to enable it:
 

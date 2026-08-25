@@ -6,8 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/phpboyscout/go-tool-base/pkg/logger"
+	"gitlab.com/phpboyscout/go-tool-base/pkg/props"
 )
 
 // Issue #15. golangci-lint caches findings against absolute paths and returns
@@ -86,4 +90,52 @@ func TestCommandEnv_LeavesOtherCommandsAlone(t *testing.T) {
 	env := commandEnv("go", t.TempDir())
 
 	assert.Equal(t, os.Environ(), env, "only golangci-lint needs this")
+}
+
+// The golangci-lint pass is the single most expensive step a generation takes —
+// a full lint of a real Go project, on a cold findings cache because
+// golangci-lint keys on absolute paths and every generation writes to a new
+// directory. The e2e suite paid it 38 times per run and it is what pushed that
+// suite past its 25-minute CI ceiling.
+//
+// These two guard the switch that turns it off, because a skip that silently
+// stops skipping restores the cost without anything going red — the suite would
+// simply get slow again, which is exactly how it got slow the first time.
+
+func TestRunLintPass_SkippedWhenEnvSaysSo(t *testing.T) {
+	t.Setenv(SkipLintEnv, "true")
+
+	buf := logger.NewBuffer()
+	g := &Generator{props: &props.Props{Logger: buf, FS: afero.NewOsFs()}}
+
+	g.runLintPass(t.Context(), t.TempDir())
+
+	assert.True(t, buf.Contains("Skipping golangci-lint pass"),
+		"the skip must say so, so a slow suite can be traced to it")
+	assert.False(t, buf.Contains("Running golangci-lint"),
+		"golangci-lint must not be announced, let alone run")
+}
+
+func TestRunLintPass_OnlyTheLiteralTrueSkips(t *testing.T) {
+	// No t.Parallel: t.Setenv below is incompatible with it.
+	//
+	// Follows GTB_NON_INTERACTIVE's convention. Anything other than the literal
+	// "true" means "not set" — so a stray "1" or "yes" in a CI file cannot
+	// silently disable the pass for real users, which is the direction that
+	// matters: failing to skip is slow, failing to lint is a changed artefact.
+	for _, value := range []string{"1", "yes", "TRUE", "True", ""} {
+		t.Run("value="+value, func(t *testing.T) {
+			t.Setenv(SkipLintEnv, value)
+
+			buf := logger.NewBuffer()
+			g := &Generator{props: &props.Props{Logger: buf, FS: afero.NewOsFs()}}
+
+			// A directory with no Go module: golangci-lint exits non-zero, the
+			// pass logs a Warn and returns. What is asserted is that it TRIED.
+			g.runLintPass(t.Context(), t.TempDir())
+
+			assert.True(t, buf.Contains("Running golangci-lint"),
+				"%q is not the literal \"true\" and must not skip the pass", value)
+		})
+	}
 }

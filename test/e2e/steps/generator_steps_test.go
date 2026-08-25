@@ -16,6 +16,7 @@ import (
 
 	"github.com/cucumber/godog"
 
+	"gitlab.com/phpboyscout/go-tool-base/internal/generator"
 	"gitlab.com/phpboyscout/go-tool-base/test/e2e/support"
 )
 
@@ -117,6 +118,24 @@ var sharedCaches = sync.OnceValue(func() map[string]string {
 		resolved["GOLANGCI_LINT_CACHE"] = v
 	} else if home, err := os.UserHomeDir(); err == nil {
 		resolved["GOLANGCI_LINT_CACHE"] = filepath.Join(home, ".cache", "golangci-lint")
+	}
+
+	// Skip the generator's golangci-lint pass by default.
+	//
+	// 38 of this suite's scenarios scaffold or regenerate a project, and each
+	// paid a full cold lint: golangci-lint keys findings on absolute paths, and
+	// every scenario generates into a fresh os.MkdirTemp, so sharing the cache
+	// directory above warms nothing. That one step dominated the suite and is
+	// what took it past the 25-minute CI ceiling.
+	//
+	// Nothing is lost by skipping it, and that is worth stating precisely: the
+	// generator treats the pass as best-effort and only logs a Warn if it
+	// fails, so no scenario has ever asserted the result. The 38 runs were cost
+	// without signal. That generated output lints clean is a real property, and
+	// one nothing currently holds — see the follow-up issue rather than
+	// assuming this switch dropped it.
+	if _, set := os.LookupEnv(generator.SkipLintEnv); !set {
+		resolved[generator.SkipLintEnv] = "true"
 	}
 
 	return resolved
