@@ -144,7 +144,20 @@ Phase 1 defends against accidental corruption and single-asset tampering, but a 
     See the [Signature Verification component reference][svdocs] and the
     [signing module docs](https://signing.phpboyscout.uk).
 
-> **Status**: the **verification side** (`TrustSet`, the `KeyResolver` chain, the `SelfUpdater` verify-before-parse gate) and the **build side** (a GoReleaser `signs` block + `scripts/sign-release.sh`) are **implemented**. They are **dormant by default**: signing only runs when a signing key is provisioned, and `setup.DefaultRequireSignature` stays `false` until the rollout completes. What remains is **operational provisioning** — generating the KMS-held key, publishing it via WKD, embedding the public key, and flipping the require-signature default — per the [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist. See also the [Signature Verification component](../explanation/components/setup/signature-verification.md) for the full verifier API.
+> **Status**: the rollout is complete for `gtb` itself. Every release carries a
+> detached `checksums.txt.sig` alongside the manifest, produced by the GoReleaser
+> `signs` block in `.goreleaser.yaml`, and `internal/cmd/root/signing.go` sets
+> `verify.DefaultRequireSignature = true`, so `gtb update` refuses an unsigned
+> release rather than warning about one.
+>
+> **For a tool you build on GTB, the default is still off.** The framework ships
+> `verify.DefaultRequireSignature = false` deliberately: a tool that demanded a
+> signature before its users had received an embedded key in a prior release
+> would lock those users out of the very update that fixes it. Flip it in your own
+> `main()` once a signed release is out and a key has shipped ahead of it. The
+> [Phase 2 Signing Prep](../development/phase2-signing-prep.md) checklist has the
+> N+1 / N+2 / N+3 ordering, and the [Signature Verification component](../explanation/components/setup/signature-verification.md)
+> has the verifier API.
 
 ### Producing signed releases
 
