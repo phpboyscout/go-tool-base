@@ -1,5 +1,5 @@
 ---
-title: "TEMPLATE — Migration Guide: vX.Y to vX.Z"
+title: "TEMPLATE, Migration Guide: vX.Y to vX.Z"
 description: "Template for authoring GTB migration guides. Not a real migration guide."
 search:
   exclude: true

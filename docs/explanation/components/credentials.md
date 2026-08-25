@@ -1,6 +1,6 @@
 ---
 title: "Credentials"
-description: "go-tool-base's integration of the standalone go/credentials storage-mode abstraction — the GTB config-key schema, per-subsystem resolution cascades, the doctor check, and the config masker."
+description: "go-tool-base's integration of the standalone go/credentials storage-mode abstraction: the GTB config-key schema, per-subsystem resolution cascades, the doctor check, and the config masker."
 date: 2026-07-18
 tags: [component, security, credentials, setup]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -10,9 +10,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The credential storage-mode abstraction has been **extracted into the standalone
 [`gitlab.com/phpboyscout/go/credentials`](https://gitlab.com/phpboyscout/go/credentials)
-module**. Its full documentation — the three storage modes, the pluggable
+module**. Its full documentation, the three storage modes, the pluggable
 `Backend` and its stub/keychain/custom implementations, `Probe`, the `Prompter`
-seam, the `credtest` helper, the trust model, and the auditable keychain opt-out —
+seam, the `credtest` helper, the trust model, and the auditable keychain opt-out:
 now lives at:
 
 > **[credentials.go.phpboyscout.uk](https://credentials.go.phpboyscout.uk)**
@@ -22,7 +22,7 @@ See the [migration note](../../reference/migration/v0.x-credentials-extracted.md
 for the module map and how to consume it directly.
 
 go-tool-base imports the module directly (no adapter package); this page documents
-only the **GTB-specific integration** layered on top — the config-key schema, the
+only the **GTB-specific integration** layered on top, the config-key schema, the
 per-subsystem resolution cascades, the doctor check, and the config masker. Those
 are GTB concerns the config-agnostic module deliberately knows nothing about.
 
@@ -34,13 +34,13 @@ a config-key shape:
 | Mode | Value | What GTB writes to config | Where the secret lives |
 |------|-------|---------------------------|-----------------------|
 | `ModeEnvVar` | `"env"` | the **name** of an env var (`GITHUB_TOKEN`, `ANTHROPIC_API_KEY`, …) | process environment / shell profile / CI secret injection |
-| `ModeKeychain` | `"keychain"` | a `<service>/<account>` reference | OS keychain — **only when the tool blank-imports `go/credentials/keychain`** |
+| `ModeKeychain` | `"keychain"` | a `<service>/<account>` reference | OS keychain: **only when the tool blank-imports `go/credentials/keychain`** |
 | `ModeLiteral` | `"literal"` | the secret itself | the config file |
 
 `ModeEnvVar` is the default and the only mode permitted under `CI=true`. The setup
 wizards build their storage-mode selectors from `credentials.ModeChoices` (the
 UI-agnostic replacement for the module's old huh helper) and render them with GTB's
-own `huh` forms — the module carries no TUI dependency.
+own `huh` forms. The module carries no TUI dependency.
 
 ## Per-subsystem resolution cascades (GTB-owned)
 
@@ -55,10 +55,10 @@ subsystem walks:
 
 ## A secure store does not silently stop being used
 
-Resolution precedence — env reference, keychain, literal, fallback variable — is
+Resolution precedence (env reference, keychain, literal, fallback variable) is
 what makes incremental migration safe: configure a safer mode and it
 transparently wins. But it also meant a tool resolving from the keychain dropped
-to a plaintext literal the moment the keychain became unavailable — a locked
+to a plaintext literal the moment the keychain became unavailable, a locked
 session, a container without the Secret Service, a rebuild without the backend.
 Nothing distinguished "always was a literal" from "regressed to one", so the
 safest configuration failed the most quietly.
@@ -86,7 +86,7 @@ It applies **per credential**: one provider's entry being unreadable says nothin
 about another's, so only the affected credential refuses.
 
 A fallback *environment variable* below a broken keychain is not a regression and
-does not refuse — it is not a plaintext copy somebody configured, and telling an
+does not refuse. It is not a plaintext copy somebody configured, and telling an
 operator to remove something they never wrote would be wrong.
 
 ## Choosing where a credential goes
@@ -96,7 +96,7 @@ When nobody says which storage mode to use, the choice follows the environment:
 | | |
 |---|---|
 | not CI, a terminal, and a keychain that answers a live probe | **OS keychain** |
-| anything else — CI, a pipe, a headless box, a locked keychain | **environment-variable reference** |
+| anything else: CI, a pipe, a headless box, a locked keychain | **environment-variable reference** |
 
 An environment reference is an excellent CI interface and a poor interactive
 default: an exported variable is inherited by every process the shell spawns, so
@@ -104,7 +104,7 @@ the secret is readable by everything the developer runs. A keychain entry stays
 put until something asks for it.
 
 **CI is excluded explicitly, not by implication.** A terminal is not evidence of
-a human — GitLab's runners allocate a TTY, so an "is stdin a terminal" test
+a human: GitLab's runners allocate a TTY, so an "is stdin a terminal" test
 reports true inside a pipeline. A CI run takes the CI default outright rather
 than relying on the keychain probe to rescue it.
 
@@ -119,7 +119,7 @@ prompt never recommends one option while pre-selecting another.
 
 The rule itself is a pure function over `ModeEnvironment`; only a command
 discovers what the process looks like, via `DiscoverModeEnvironment`. Library
-code takes the environment as data — a library that probed for itself would
+code takes the environment as data. A library that probed for itself would
 behave differently under `go test`, under a pipe and under a terminal.
 
 ## Reporting posture, not just storage
@@ -127,16 +127,16 @@ behave differently under `go test`, under a pipe and under a terminal.
 A credential's *posture* is three separate facts, and running them together is
 what made the earlier checks hard to act on:
 
-- where it is **stored** — an environment reference, a keychain entry, or a
+- where it is **stored**: an environment reference, a keychain entry, or a
   literal in a config file;
-- where it **resolves from** — which of those actually supplied the value,
+- where it **resolves from**, which of those actually supplied the value,
   given the precedence above;
-- what is **shadowed** — the lower-precedence copies still present, which would
+- what is **shadowed**: the lower-precedence copies still present, which would
   win if the one above them went away.
 
 `doctor` used to report only the first, and only for a hardcoded list of keys.
 So "a literal credential is in use" and "a literal credential is dead
-configuration underneath a working environment reference" read identically —
+configuration underneath a working environment reference" read identically,
 while being an active exposure and a tidy-up respectively.
 
 `pkg/credentialposture` reports all three, for every declared credential rather
@@ -156,7 +156,7 @@ paste into a support bundle.
 ### Declaring a credential
 
 A bundle declares the credential it owns, and every reporting surface picks it
-up — rather than each surface keeping its own list, which is how three
+up: rather than each surface keeping its own list, which is how three
 hand-synchronised lists came to exist. A tool built on GTB declares its own the
 same way:
 
@@ -172,7 +172,7 @@ credentialposture.Register(credentialposture.Descriptor{
 ```
 
 The precedence chain is stated once, in `Descriptor.Rungs()`, and both the
-reporting path and `pkg/vcs`'s credential-supplying path compose from it — so
+reporting path and `pkg/vcs`'s credential-supplying path compose from it, so
 the two cannot disagree about which rung wins.
 
 See [spec 0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-credential-lifecycle).
@@ -181,7 +181,7 @@ See [spec 0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-c
 
 | Subsystem | Relationship to `go/credentials` |
 |-----------|----------------------------------|
-| `pkg/setup/ai` | Storage-mode selector via `ModeChoices` gated on `Probe`; the chosen mode decides whether `<provider>.api.env`, `.keychain`, or `.key` is written. Keychain mode stores the secret via `credentials.Store` — never in config. |
+| `pkg/setup/ai` | Storage-mode selector via `ModeChoices` gated on `Probe`; the chosen mode decides whether `<provider>.api.env`, `.keychain`, or `.key` is written. Keychain mode stores the secret via `credentials.Store`: never in config. |
 | `pkg/setup/forge` (GitHub profile) | CI refusal for `ModeLiteral`; OAuth device flow (via the provider's `forge.Authenticator` capability) with a manual-PAT fallback on headless hosts. |
 | `pkg/setup/forge` (Bitbucket profile) | Dual-credential model; keychain mode serialises `{username, app_password}` into one JSON-blob entry. |
 | `pkg/cmd/config` | `migrate-credentials` moves literals to env/keychain; the config masker renders literal secrets as `****<tail>`. |

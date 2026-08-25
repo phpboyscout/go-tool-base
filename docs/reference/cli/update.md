@@ -30,7 +30,7 @@ Downloads and installs the latest version of the tool. After updating, it automa
 
 If the release source reports a "latest" version that is **older** than the
 running binary (a stale or rolled-back release listing), the implicit
-`update` refuses to install it and exits non-zero — signature and checksum
+`update` refuses to install it and exits non-zero, signature and checksum
 verification authenticate an artefact, not its recency, so an implicit
 downgrade is treated as a potential rollback attack. To downgrade
 intentionally, either:

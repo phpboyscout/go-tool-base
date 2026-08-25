@@ -25,7 +25,7 @@ When you build a CLI with GTB, the framework automatically maps your **Cobra com
 ## Exposing your Tool
 
 Every GTB application includes a built-in `mcp` command group. `mcp start` runs a
-JSON-RPC server over standard I/O — the default transport for editor and desktop
+JSON-RPC server over standard I/O, the default transport for editor and desktop
 integrations such as Claude Desktop:
 
 ```bash
@@ -64,7 +64,7 @@ To use your tool as an agent, you simply configure your preferred AI client (lik
 By default **every runnable command is exposed as an MCP tool**. For tools with
 commands that publish, spend irreversibly, or touch secrets (`post`, `approve`,
 `auth`, `deploy`, …), you usually want those **off the MCP surface** so an
-assistant cannot invoke them unprompted — while keeping them fully usable on the
+assistant cannot invoke them unprompted, while keeping them fully usable on the
 CLI. GTB provides per-command, **build-time** exposure control for exactly this.
 
 ### The model
@@ -79,10 +79,10 @@ CLI. GTB provides per-command, **build-time** exposure control for exactly this.
   ancestor (and that descendant's own subtree follows it, until some deeper
   command excludes again). Resolution takes the **nearest explicit decision**
   walking up the command tree, defaulting to exposed.
-- **Build-time only — no runtime toggle.** Exposure is baked into the binary as
+- **Build-time only: no runtime toggle.** Exposure is baked into the binary as
   a command annotation; no config file, env var, or flag can re-expose an
   excluded command at runtime. The MCP tool surface is therefore **fixed and
-  auditable in the shipped binary** — a deliberate security property, not an
+  auditable in the shipped binary**, a deliberate security property, not an
   oversight. Changing it requires re-generating from an updated manifest (or the
   `gtb enable/disable mcp` verbs below) and shipping a new build.
 
@@ -90,7 +90,7 @@ CLI. GTB provides per-command, **build-time** exposure control for exactly this.
 
 For a tool built with GTB's generator, use the framework verbs (they update
 `.gtb/manifest.yaml` and re-render the affected command's `cmd.go`). `gtb
-enable/disable mcp` is **dual-purpose** — with **no argument** it toggles the
+enable/disable mcp` is **dual-purpose**, with **no argument** it toggles the
 `mcp` *feature* (the MCP server subsystem); with **one or more command paths** it
 gates those commands' exposure:
 
@@ -118,7 +118,7 @@ gtb generate command -n post --mcp-enabled=false
 The interactive `gtb generate command` wizard asks **"Expose to MCP?"** as a
 dedicated step (defaulting to expose), so the decision is a conscious one.
 
-A protected command is refused by `enable/disable mcp` — unprotect it first.
+A protected command is refused by `enable/disable mcp`, unprotect it first.
 
 ### How it works
 

@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Config Command
 
 The `config` command provides programmatic read/write access to individual configuration values.
-Its primary audience is CI pipelines and tool authors automating setup — not humans doing
+Its primary audience is CI pipelines and tool authors automating setup, not humans doing
 interactive reconfiguration (use `init <subsystem>` for that instead).
 
 For the catalogue of keys the framework reads (types, defaults, env mapping), see the
@@ -29,7 +29,7 @@ mytool config trust [path] [--list] [--forget]
 ```
 
 !!! note "File-layer-only operations"
-    `set`, `unset`, and `edit` mutate **only the writable config file** — the
+    `set`, `unset`, and `edit` mutate **only the writable config file**, the
     layer `path` reports as `writable`. Values resolved from environment
     variables or CLI flags are not file-backed and cannot be unset or edited;
     `unset` refuses with *not found* for a key that is present only via those
@@ -47,7 +47,7 @@ props.SetFeatures(props.Enable(props.ConfigCmd))
 
 !!! info "When to enable"
     Enable `ConfigCmd` for developer-facing CLI tools where local YAML config management
-    is relevant. For containerized services, leave it disabled — configuration arrives via
+    is relevant. For containerized services, leave it disabled, configuration arrives via
     environment variables or mounted secrets, not YAML files.
 
 ## Subcommands
@@ -88,12 +88,12 @@ mytool config set feature.enabled true
 ```
 
 **Credential safety.** When the write would place a recognised credential in a
-project-local `.<tool>.yaml` — the repo-root config layer, which the store
-writes to ahead of your private config when one is present — `set` warns that
+project-local `.<tool>.yaml`, the repo-root config layer, which the store
+writes to ahead of your private config when one is present, `set` warns that
 the file may be committed to version control. In an interactive terminal it
 asks you to confirm; declining aborts and leaves the file untouched. In a
 non-interactive session (CI, a pipe) it warns and proceeds. The write is never
-blocked outright — a project-local secret can be deliberate — but prefer
+blocked outright (a project-local secret can be deliberate) but prefer
 env-var or OS-keychain storage (see the tool's `init`) for anything sensitive.
 A credential is recognised by a token-shaped value or a known credential key;
 env-var and keychain *references* (`…​.env`, `…​.keychain`) are not secrets and
@@ -101,7 +101,7 @@ never trip the warning.
 
 ### `config unset <key>`
 
-Remove a single configuration value — the inverse of `config set`. Only the writable
+Remove a single configuration value, the inverse of `config set`. Only the writable
 file layer is affected. The post-removal config is re-validated **layered over the
 tool's embedded defaults** before it is written: removing a key the defaults supply
 (e.g. `log.level`) succeeds and the resolved value falls back to the shipped default,
@@ -135,7 +135,7 @@ mytool config path --output json
 ```
 
 When no config file is currently loaded, `path` prints only the writable target (the path a
-future `set` would create) and notes that no file is loaded — it does not error.
+future `set` would create) and notes that no file is loaded. It does not error.
 
 **Flags:**
 
@@ -186,14 +186,14 @@ mytool config validate
 Unknown-key warnings are reserved for keys that look like genuine mistakes. A
 key under a framework section (`log.*`, `update.*`, `server.*`, the provider and
 forge sections, …) or one the tool declares in its own embedded defaults is a
-recognised key, not flagged — the schema cannot enumerate every feature and
+recognised key, not flagged. The schema cannot enumerate every feature and
 tool key. A key matching neither still warns as a possible typo.
 
 ### `config trust`
 
 Trust a project-local `.<tool>.yaml` so its **security-sensitive keys** apply.
 Until a project-local file is trusted, the framework ignores its self-update
-verification, telemetry-consent, and credential keys — so a repository you clone
+verification, telemetry-consent, and credential keys, so a repository you clone
 cannot silently weaken security posture. Workflow-tuning keys (logging, output,
 feature toggles) always apply, trusted or not. See
 [Project-local trust](../../explanation/components/config/index.md#project-local-trust-security-keys-are-ignored-until-you-trust-the-file).

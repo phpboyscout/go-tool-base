@@ -33,7 +33,7 @@ type Backend interface {
 **Key requirements:**
 
 - `Send` receives a batch of events. It must be safe for concurrent use.
-- `Send` should be non-blocking or short-timeout — telemetry must never slow down the CLI.
+- `Send` should be non-blocking or short-timeout: telemetry must never slow down the CLI.
 - Network errors should be silently dropped (return `nil`). Only return errors for conditions that warrant logging (e.g. marshalling failures).
 - `Close` is called during process shutdown. Use it to flush internal buffers or close connections.
 
@@ -84,7 +84,7 @@ func NewBackend(amqpURL, queue string, log logger.Logger) (telemetry.Backend, er
 
 ## Step 2: Implement Send
 
-Map `telemetry.Event` to your platform's format and publish. Handle errors gracefully — telemetry should never block the user.
+Map `telemetry.Event` to your platform's format and publish. Handle errors gracefully, telemetry should never block the user.
 
 ```go
 func (b *backend) Send(ctx context.Context, events []telemetry.Event) error {
@@ -129,7 +129,7 @@ func (b *backend) Close() error {
 
 ## Step 3: Wire It Into Your Tool
 
-Use `TelemetryConfig.Backend` to supply a factory function. The factory receives `*props.Props` so you can read configuration values, and returns `any` (to avoid import cycles). The returned value must implement `telemetry.Backend` — a failed type assertion falls back to noop with a warning.
+Use `TelemetryConfig.Backend` to supply a factory function. The factory receives `*props.Props` so you can read configuration values, and returns `any` (to avoid import cycles). The returned value must implement `telemetry.Backend`: a failed type assertion falls back to noop with a warning.
 
 ```go
 import "myorg/pkg/telemetry/rabbitmq"
@@ -224,7 +224,7 @@ func TestBackend_Close(t *testing.T) {
 
 When a custom `Backend` factory is set, it takes the highest precedence in backend selection:
 
-1. **Custom backend** (`TelemetryConfig.Backend`) — your factory
+1. **Custom backend** (`TelemetryConfig.Backend`), your factory
 2. Local-only (file backend)
 3. OTLP (`TelemetryConfig.OTelEndpoint`)
 4. HTTP (`TelemetryConfig.Endpoint`)
@@ -234,6 +234,6 @@ When a custom `Backend` factory is set, it takes the highest precedence in backe
 
 ## Related Documentation
 
-- [Telemetry Component](../explanation/components/telemetry/index.md) — architecture, events, privacy controls
-- [Telemetry Command](../reference/cli/telemetry.md) — CLI management commands
-- [Vendor Backends Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0046-telemetry-vendor-backends) — Datadog and PostHog reference implementations
+- [Telemetry Component](../explanation/components/telemetry/index.md): architecture, events, privacy controls
+- [Telemetry Command](../reference/cli/telemetry.md): CLI management commands
+- [Vendor Backends Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0046-telemetry-vendor-backends): Datadog and PostHog reference implementations

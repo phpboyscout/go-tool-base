@@ -16,11 +16,11 @@ It provides the "batteries included" experience of a macro-framework (like Rails
 
 ## ✅ What GTB IS
 
-- **A full-lifecycle application framework** for Go — covering configuration, versioning, auto-updates, embedded documentation, error handling, and AI integration.
-- **A CLI-first framework** — its default mode is building command-line tools with a rich set of built-in commands (`init`, `version`, `update`, `docs`, `mcp`).
-- **A dependency injection container** — the `Props` struct orchestrates services (config, assets, logging, VCS, AI) and is explicitly passed to commands for ultimate testability.
-- **A scaffold and generator** — `gtb generate skeleton` creates a ready-to-ship, robustly structured project in seconds.
-- **A general-purpose application bootstrap** — while CLI is the primary interface, GTB's `Props` container and lifecycle management can power **any** Go application: web services, daemons, background workers, or hybrid tools.
+- **A full-lifecycle application framework** for Go: covering configuration, versioning, auto-updates, embedded documentation, error handling, and AI integration.
+- **A CLI-first framework**: its default mode is building command-line tools with a rich set of built-in commands (`init`, `version`, `update`, `docs`, `mcp`).
+- **A dependency injection container**: the `Props` struct orchestrates services (config, assets, logging, VCS, AI) and is explicitly passed to commands for ultimate testability.
+- **A scaffold and generator**: `gtb generate skeleton` creates a ready-to-ship, robustly structured project in seconds.
+- **A general-purpose application bootstrap**, while CLI is the primary interface, GTB's `Props` container and lifecycle management can power **any** Go application: web services, daemons, background workers, or hybrid tools.
 
 ## ❌ What GTB is NOT
 
@@ -34,13 +34,13 @@ It provides the "batteries included" experience of a macro-framework (like Rails
 ## 🚀 Key Advantages & "Wow" Factors
 
 1. **Integrated AI Assistant (`docs ask`)**  
-   Your tool ships with a built-in expert. Users ask questions in natural language, and the AI answers using only your embedded docs—zero hallucination by design.
+   Your tool ships with a built-in expert. Users ask questions in natural language, and the AI answers using only your embedded docs, zero hallucination by design.
 2. **Autonomous Tool Calling (Agentic Workflows)**  
    The AI can call local Go functions, inspect state, and iterate. This allows for true ReAct-style agent loops, not just text generation.
 3. **Built-in Lifecycle Management**  
    Version checking via GitHub/GitLab, auto-updates (`update`), and environment bootstrapping (`init`) are zero-config.
 4. **Rich TUI Documentation**  
-   Interactive, searchable, Markdown-rendered documentation directly in the terminal—no browser needed.
+   Interactive, searchable, Markdown-rendered documentation directly in the terminal, no browser needed.
 5. **Model Context Protocol (MCP)**  
    Expose your tool's capabilities to external AI agents out-of-the-box. Your CLI becomes an AI-native building block.
 6. **Zero Lock-in (The "Eject Path")**  

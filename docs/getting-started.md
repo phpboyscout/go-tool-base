@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: The two ways into GTB — scaffold a project with the generator, or wire the library into an existing tool by hand.
+description: The two ways into GTB: scaffold a project with the generator, or wire the library into an existing tool by hand.
 date: 2026-08-02
 tags: [getting-started, guide, setup]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -15,10 +15,10 @@ fresh.
 
 | Route | What it gives you | Best for |
 | :--- | :--- | :--- |
-| **[Generate a project](#generate-a-project)** | A complete, releasable project — command tree, CI, docs site, manifest — in one command. | New tools, and prototyping. |
+| **[Generate a project](#generate-a-project)** | A complete, releasable project (command tree, CI, docs site, manifest) in one command. | New tools, and prototyping. |
 | **[Wire the library by hand](#wire-the-library-by-hand)** | GTB's root command, Props and built-in commands inside a layout you already own. | Existing tools, and unusual layouts. |
 
-Both need the `gtb` CLI or the library installed first — see
+Both need the `gtb` CLI or the library installed first. See
 [Installation](installation.md).
 
 If you would rather be walked through it,
@@ -48,7 +48,7 @@ Set `--env-prefix`. Without it the generated tool has no environment-variable
 configuration layer, because an unprefixed layer would let any process on the
 machine reconfigure your tool.
 
-Pick your feature set with `--features` — `init`, `update`, `mcp`, `docs`,
+Pick your feature set with `--features`, `init`, `update`, `mcp`, `docs`,
 `doctor`, `changelog`, `keychain`, `ai`, `config`, `telemetry`, `man`, and a
 forge to configure credentials for (`github`, `gitlab`, `gitea`, `bitbucket`).
 The default set is the first seven. Note that `--features` *replaces* that
@@ -74,12 +74,12 @@ with. Until it exists, most commands stop with `no config file found`.
 gtb generate command --name hello --short "Say hello"
 ```
 
-That writes `pkg/cmd/hello/cmd.go` (generated boilerplate — do not edit) and
+That writes `pkg/cmd/hello/cmd.go` (generated boilerplate, do not edit) and
 `pkg/cmd/hello/main.go` (yours), registers the command in the root tree, records
 it in `.gtb/manifest.yaml`, and writes a reference page under
 `docs/reference/cli/`.
 
-Your logic goes in `main.go`. Regeneration never rewrites it — see
+Your logic goes in `main.go`. Regeneration never rewrites it. See
 [Regenerating components](how-to/framework-cli/regenerate-components.md) for the
 three mechanisms that protect your edits, and the one flag (`--force`) that does
 not.
@@ -160,7 +160,7 @@ the telemetry flush. See the
 
 ### 3. Provide embedded defaults
 
-**`cmd/tool/assets/config.yaml`** — the lowest-precedence configuration layer,
+**`cmd/tool/assets/config.yaml`**, the lowest-precedence configuration layer,
 and required for the `//go:embed` directive to have something to match:
 
 ```yaml
@@ -171,7 +171,7 @@ log:
 Defaults belong here and nowhere else. `default:` struct tags are treated as
 hint text and never applied.
 
-If your tool talks to a forge, add its block too — the framework's own defaults
+If your tool talks to a forge, add its block too, the framework's own defaults
 already supply the GitHub URLs, so you only need what differs:
 
 ```yaml
@@ -223,11 +223,11 @@ Tool: props.Tool{
 
 ## Next steps
 
-- **[Build your first CLI](tutorials/build-your-first-cli.md)** — the same
+- **[Build your first CLI](tutorials/build-your-first-cli.md)**: the same
   ground, step by step, with expected output.
-- **[How-to guides](how-to/index.md)** — adding flags, binding them to config,
+- **[How-to guides](how-to/index.md)**: adding flags, binding them to config,
   testing, nested subcommands.
-- **[Configuration keys](reference/config/index.md)** — every key, its default,
+- **[Configuration keys](reference/config/index.md)**: every key, its default,
   and what happens when it is wrong.
-- **[Concepts](explanation/concepts/index.md)** — Props, precedence, and the
+- **[Concepts](explanation/concepts/index.md)**: Props, precedence, and the
   architecture behind them.

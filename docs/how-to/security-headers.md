@@ -106,7 +106,7 @@ Not every header is appropriate for every tool. Use this table as a starting poi
 Use the OWASP Secure Headers Project to check that your header configuration meets current best practices:
 
 - [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/)
-- [Security Headers Scanner](https://securityheaders.com/) — test a deployed endpoint
+- [Security Headers Scanner](https://securityheaders.com/): test a deployed endpoint
 
 For local testing, inspect response headers with `curl`:
 

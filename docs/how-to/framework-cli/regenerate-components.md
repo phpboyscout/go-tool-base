@@ -67,7 +67,7 @@ This produces a summary of:
 - **Files to create**: New files that would be generated.
 - **Files to modify**: Existing files that would change, shown as unified diffs.
 
-Under the hood, the dry-run materialises all generated files into a temporary directory, runs the same post-processing steps as a real regeneration (`go mod tidy`, `golangci-lint run --fix`), and diffs the result against your current project. This ensures the preview is accurate — including formatting and import tidying.
+Under the hood, the dry-run materialises all generated files into a temporary directory, runs the same post-processing steps as a real regeneration (`go mod tidy`, `golangci-lint run --fix`), and diffs the result against your current project. This ensures the preview is accurate, including formatting and import tidying.
 
 !!! tip
     Dry-run is particularly useful after editing `manifest.yaml` to verify that a `regenerate project` will produce the changes you expect before committing to them.
@@ -93,7 +93,7 @@ go run main.go regenerate manifest
 
 ### How it works
 
-It parses your project's AST to find `cobra.Command` definitions and reconstructs the manifest — command names/descriptions/aliases/args, flag definitions, parent/child relationships, per-command options (`withAssets`, `preRun` hooks, `withInitializer`), and project-level properties. For the full extraction rules, see the [regenerate command explanation](../../explanation/components/internal/commands/regenerate.md).
+It parses your project's AST to find `cobra.Command` definitions and reconstructs the manifest: command names/descriptions/aliases/args, flag definitions, parent/child relationships, per-command options (`withAssets`, `preRun` hooks, `withInitializer`), and project-level properties. For the full extraction rules, see the [regenerate command explanation](../../explanation/components/internal/commands/regenerate.md).
 
 !!! tip "Source of Truth"
     While `regenerate manifest` is a powerful recovery tool, we recommend treating the **Manifest** as your source of truth and driving changes through it (or `generate` commands) rather than the other way around.

@@ -58,9 +58,9 @@ func registerFlags(cmd *cobra.Command) {
 
 Use the `setup.Register` function in your package's `init()` block. This ensures that when your package is imported, the initialiser becomes available to the framework.
 
-If your feature ships embedded config — an `assets/config.yaml` defaults
+If your feature ships embedded config, an `assets/config.yaml` defaults
 document or an `assets/init/config.yaml` template that `init` should write into
-the user's file — announce the bundle in the same `init()` with
+the user's file, announce the bundle in the same `init()` with
 `setup.RegisterAssets(props.FeatureID("myfeature"), "myfeature", &assets)`.
 The root command applies the bundles of enabled features during construction,
 so a disabled feature's config never leaks in.

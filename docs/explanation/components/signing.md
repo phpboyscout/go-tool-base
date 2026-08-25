@@ -17,7 +17,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing)
     - **Module documentation:** [signing.phpboyscout.uk](https://signing.phpboyscout.uk)
 
-    The `gtb` CLI behaviour is unchanged — only the Go import paths moved.
+    The `gtb` CLI behaviour is unchanged, only the Go import paths moved.
 
     The `sign` / `keys` **commands** that drive this registry now live in the
     shareable [`go/signing-cli`](https://signing-cli.go.phpboyscout.uk) module,
@@ -40,7 +40,7 @@ This is the same activate-by-side-effect pattern used by
 ## The contract is CLI-agnostic
 
 As part of the extraction the `Backend` contract was narrowed to two
-methods — it no longer references any CLI types:
+methods, it no longer references any CLI types:
 
 ```go
 // gitlab.com/phpboyscout/go/signing
@@ -61,15 +61,15 @@ module free of any dependency on Cobra/pflag or go-tool-base.
 
 The standard `gtb` binary blank-imports both built-in backends:
 
-- **`aws-kms`** — a **separate module**,
+- **`aws-kms`**: a **separate module**,
   **`gitlab.com/phpboyscout/go/signing-aws-kms`** (package `awskms`).
   Wraps an AWS KMS asymmetric RSA-4096 `SIGN_VERIFY` key. Kept in its
   own module so a regulated downstream that omits the blank import keeps
   the AWS SDK out of the linked binary (linker dead-code elimination).
-- **`local`** — **`gitlab.com/phpboyscout/go/signing/local`**. Loads an
+- **`local`**: **`gitlab.com/phpboyscout/go/signing/local`**. Loads an
   RSA private key from an unencrypted PKCS#1 or PKCS#8 PEM file. Intended
   for the onboarding tutorial, local development, and the
-  rotation-authority signing path — not production CI.
+  rotation-authority signing path, not production CI.
 
 ## Reference
 
@@ -87,6 +87,6 @@ See [How-to: add a signing backend](../../how-to/add-signing-backend.md).
 ## Related
 
 - [Release-binary signing concept](../concepts/release-binary-signing.md)
-- [`openpgpkey`](openpgpkey.md) — the consumer that turns a
+- [`openpgpkey`](openpgpkey.md): the consumer that turns a
   `crypto.Signer` into an OpenPGP packet.
 </content>

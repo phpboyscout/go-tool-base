@@ -33,12 +33,12 @@ gtb keys <subcommand> [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--algorithm` | *(required)* | Key algorithm: `ed25519` or `rsa`. No default — must be supplied. |
+| `--algorithm` | *(required)* | Key algorithm: `ed25519` or `rsa`. No default: must be supplied. |
 | `--rsa-bits` | `4096` | RSA modulus size when `--algorithm rsa` (2048/3072/4096 accepted; ignored for Ed25519). |
 | `--name` | *(required)* | OpenPGP user-id real name. |
 | `--email` | *(required)* | OpenPGP user-id email. |
 | `--output` | `<algorithm>.asc` | Path to write the armored public key. |
-| `--private-output` | *(derived from `--output`)* | Path to write the private half — `.asc` → `.priv.asc` for Ed25519, `.asc` → `.pem` for RSA. |
+| `--private-output` | *(derived from `--output`)* | Path to write the private half: `.asc` → `.priv.asc` for Ed25519, `.asc` → `.pem` for RSA. |
 | `--created` | *(now)* | Fixed creation timestamp (RFC3339) for reproducible keys. |
 | `--force` | `false` | Overwrite existing output files. |
 
@@ -67,6 +67,6 @@ Takes one or more public-key files as arguments.
 | `--email` | *(all emails found in the input keys)* | Email(s) to publish (repeatable). |
 | `--output` | `./wkd-staging` | Staging directory for the generated tree. |
 | `--method` | `advanced` | URL layout: `advanced` (served from `openpgpkey.<domain>`) or `direct` (from `<domain>`). |
-| `--submission-address` | *(none — file omitted)* | Address written to the WKD submission-address file. Empty omits the file; pass `auto` to use the first `--email`, or an explicit address to override. |
+| `--submission-address` | *(none, file omitted)* | Address written to the WKD submission-address file. Empty omits the file; pass `auto` to use the first `--email`, or an explicit address to override. |
 
 > Run any subcommand with `--help` for the complete, authoritative flag set.

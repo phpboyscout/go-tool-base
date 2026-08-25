@@ -11,12 +11,12 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 This is the step that turns a private key (held in AWS KMS or on disk
 as a PEM file) into the **ASCII-armored OpenPGP public key file** you
 ship inside your tool's binary and publish at your WKD endpoint.
-You'll run this command once per signing key — at initial setup and
+You'll run this command once per signing key, at initial setup and
 again whenever you rotate.
 
 `gtb keys mint` does the bridging from "a `crypto.Signer` somewhere"
 to "a valid OpenPGP entity on disk". It does not generate the
-private key — that came from either Terraform (KMS) or
+private key, that came from either Terraform (KMS) or
 `gtb keys generate` (local PEM).
 
 ## Prerequisites
@@ -27,7 +27,7 @@ private key — that came from either Terraform (KMS) or
 - For the AWS KMS path: AWS credentials that can call
   `kms:GetPublicKey` and `kms:Sign` on the target key. Usually that
   means assuming the signer IAM role via OIDC or, for a local
-  one-off mint, a temporary trust-policy widening — see the
+  one-off mint, a temporary trust-policy widening. See the
   [`terraform-aws-signing-kms`](https://gitlab.com/phpboyscout/terraform-aws-signing-kms)
   module's `scripts/mint-signing-key/README.md` for the canonical
   recipe.
@@ -78,7 +78,7 @@ INFO  Minted OpenPGP key  backend=aws-kms  key_id=alias/mytool-release-signing-v
 | `--email` | yes | — | OpenPGP UID email. |
 | `--output` | no | `release.asc` | Output path for the armored public key. |
 | `--force` | no | `false` | Overwrite the output file if it already exists. Without it, `mint` refuses to clobber an existing file and exits with an error. |
-| `--created` | no | now | RFC3339 creation time. Pin only when re-minting an existing key — different creation times produce different fingerprints. |
+| `--created` | no | now | RFC3339 creation time. Pin only when re-minting an existing key: different creation times produce different fingerprints. |
 
 !!! warning "No silent overwrites"
     `gtb keys mint` refuses to overwrite an existing `--output` file. If you
@@ -109,7 +109,7 @@ What this does:
 1. Reads `signing.pem` from disk. Supports unencrypted PKCS#1
    (`-----BEGIN RSA PRIVATE KEY-----`) and unencrypted PKCS#8
    (`-----BEGIN PRIVATE KEY-----`). Encrypted PEMs are not
-   supported — decrypt out of band first, or use the `aws-kms`
+   supported, decrypt out of band first, or use the `aws-kms`
    backend, which never exposes key material.
 2. Builds the OpenPGP entity using the in-memory `*rsa.PrivateKey`
    as the signer.
@@ -118,7 +118,7 @@ What this does:
 The PEM file pairs naturally with `gtb keys generate --algorithm rsa`,
 which produces exactly this format on the private-output path. The
 two commands together give you a complete signing chain without any
-cloud dependency — perfect for blog posts and integration tests.
+cloud dependency, perfect for blog posts and integration tests.
 
 ## Reproducibility: `--created`
 
@@ -138,7 +138,7 @@ gtb keys mint ... --created 2026-06-08T00:00:00Z
 The same KMS material + same UID + same creation time = same
 fingerprint. This is also how `gtb keys generate --algorithm rsa`
 and `gtb keys mint --backend local` produce identical fingerprints
-when chained — see the
+when chained. See the
 [concept doc](../explanation/concepts/release-binary-signing.md) for the
 end-to-end flow.
 
@@ -154,7 +154,7 @@ gpg --show-key --with-fingerprint release.asc
 ```
 
 If `gpg` reports `unknown_<n> [INVALID_ALGO]`, you've hit a
-version-incompatibility — file a bug; the framework deliberately
+version-incompatibility, file a bug; the framework deliberately
 produces v4 RSA packets that every modern OpenPGP implementation
 accepts.
 
@@ -171,7 +171,7 @@ Two destinations:
    The recipe for the Cloudflare Pages Direct Upload pattern is in
    the [phase2-signing-prep doc](../development/phase2-signing-prep.md).
 
-Both copies must contain the **same fingerprint** — the verifier's
+Both copies must contain the **same fingerprint**, the verifier's
 CompositeResolver cross-checks them and refuses to proceed if they
 disagree.
 
@@ -189,17 +189,17 @@ gtb keys mint --backend aws-kms \
 
 Both `release.asc` (v1) and `release-v2.asc` go into
 `internal/trustkeys/keys/` together for the rotation overlap window
-— old releases verify against v1, new releases against v2. Drop the
+: old releases verify against v1, new releases against v2. Drop the
 v1 file once your supported-version window has cleared.
 
 ## See also
 
-- [Generate a rotation-authority key](generate-rotation-key.md) — the
+- [Generate a rotation-authority key](generate-rotation-key.md): the
   offline-storage flow for the break-glass key.
-- [Adding a signing backend](add-signing-backend.md) — recipes for
+- [Adding a signing backend](add-signing-backend.md): recipes for
   GCP KMS, Vault, YubiKey.
 - [Release-binary signing concept](../explanation/concepts/release-binary-signing.md)
-  — the end-to-end trust model.
-- [`openpgpkey`](../explanation/components/openpgpkey.md) — the underlying
+, the end-to-end trust model.
+- [`openpgpkey`](../explanation/components/openpgpkey.md): the underlying
   packet-assembly API if you need it programmatically (now the standalone
   `gitlab.com/phpboyscout/go/signing/openpgpkey` module).

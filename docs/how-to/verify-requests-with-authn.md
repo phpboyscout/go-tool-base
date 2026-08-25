@@ -97,7 +97,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 ## Authorize, not just authenticate
 
 Authentication proves *who* the caller is; authorization decides *what they may
-do*. Pass an `AuthorizeFunc` to gate on claims or scopes — it runs after a
+do*. Pass an `AuthorizeFunc` to gate on claims or scopes. It runs after a
 successful verify, and a `false` result yields `403`:
 
 ```go
@@ -113,7 +113,7 @@ auth, err := transporthttp.AuthMiddleware(
 
 ## Notes
 
-- **Fail-closed.** `AuthMiddleware` returns an error if you pass no verifier — it
+- **Fail-closed.** `AuthMiddleware` returns an error if you pass no verifier: it
   never silently allows unauthenticated traffic.
 - **Combine methods.** Pass several `With…Verifier` options to accept a bearer
   token *or* an API key; the first that matches the request wins.
@@ -122,6 +122,6 @@ auth, err := transporthttp.AuthMiddleware(
 
 ## Related
 
-- [Auth component](../explanation/components/authn.md) — threat model, JWKS caching, the `AuthorizeFunc` policy seam
-- [Use middleware](use-middleware.md) — how middleware composes on the server
+- [Auth component](../explanation/components/authn.md): threat model, JWKS caching, the `AuthorizeFunc` policy seam
+- [Use middleware](use-middleware.md): how middleware composes on the server
 - [Add security headers](security-headers.md)

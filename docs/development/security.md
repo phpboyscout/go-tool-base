@@ -20,7 +20,7 @@ development and production.
 Configuration keys resolve in the following priority order (highest to lowest):
 
 1. **Changed CLI Flags**: e.g., `--server-port 9090` (`server.port` by the
-   hyphen-to-dot convention). Only flags the user actually set contribute — a
+   hyphen-to-dot convention). Only flags the user actually set contribute, a
    flag at its default never overrides configuration.
 2. **Environment Variables**: e.g., `MYTOOL_SERVER_PORT=9090` under the tool's
    `EnvPrefix`.
@@ -31,17 +31,17 @@ Configuration keys resolve in the following priority order (highest to lowest):
    win), otherwise `~/.<tool>/config.yaml` then `/etc/<tool>/config.yaml`.
 5. **The tool's explicit embedded config assets** (`ConfigPaths`).
 6. **Embedded Defaults**: `assets/config.yaml` merged across every registered
-   asset bundle — the framework baseline, enabled features, and the tool's
+   asset bundle: the framework baseline, enabled features, and the tool's
    own. Defaults always apply: a key omitted from your file resolves to the
    shipped default rather than a zero value.
 
-`config get`/`doctor` can explain any resolved value's provenance — the store
+`config get`/`doctor` can explain any resolved value's provenance, the store
 records which layer supplied every key.
 
 ## Environment Variable Mapping
 
-Environment variables reach configuration only under the tool's `EnvPrefix` —
-an unprefixed variable on a shared runner cannot silently reconfigure a tool.
+Environment variables reach configuration only under the tool's `EnvPrefix`.
+An unprefixed variable on a shared runner cannot silently reconfigure a tool.
 The name after the prefix maps onto the configuration key, resolved against
 the keys the lower layers define:
 
@@ -62,7 +62,7 @@ configuration layer.
 In local development, secrets (like API keys or database passwords) are typically stored in local configuration files (`config.yaml` or `.env` files).
 
 - **Key Practice**: Ensure local config files containing secrets are added to your `.gitignore`.
-- **Threat Model**: Local file secrets are equivalent to environment variables in your shell profile—they are secure provided the local machine is not compromised.
+- **Threat Model**: Local file secrets are equivalent to environment variables in your shell profile: they are secure provided the local machine is not compromised.
 
 ### Production (Containers/Kubernetes)
 
@@ -103,12 +103,12 @@ defence (`alg:none` and HMAC-with-JWKS rejected), a bounded single-purpose JWKS
 cache, mTLS client-certificate identity, and non-leaky failure surfacing (a
 generic `401`/`403` or `Unauthenticated`/`PermissionDenied`, with the cause logged
 [redacted](../explanation/components/redact.md)). It is opt-in and ships no policy engine or
-token-issuance flow — authorization is a single tool-supplied predicate. See the
+token-issuance flow. Authorization is a single tool-supplied predicate. See the
 [Authentication & Authorization](../explanation/components/authn.md) component reference and
 its security model.
 
 ## Opening External URLs
 
-All URL-opening (browser or mail-client invocation) routes through [`go/browser`](../explanation/components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention — new call sites must use `pkg/browser.OpenURL`.
+All URL-opening (browser or mail-client invocation) routes through [`go/browser`](../explanation/components/browser.md). The package enforces a scheme allowlist (`https`, `http`, `mailto`), an 8 KiB length bound, and control-character rejection before the URL reaches the platform handler. Direct use of `github.com/cli/browser.OpenURL` or `exec.Command` with `open`/`xdg-open`/`rundll32` is forbidden by convention, new call sites must use `pkg/browser.OpenURL`.
 
 Callers that construct `mailto:` URLs from user-influenced data must additionally `url.QueryEscape` every parameter value to prevent header injection. See the `EmailDeletionRequestor` implementation in `pkg/telemetry/deletion.go` for the canonical pattern, and its test suite for the caller-contract assertion.

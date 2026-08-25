@@ -24,7 +24,7 @@ This is the **Design-First** workflow.
     - It **never overwrites** your custom logic in `main.go` (which is excluded from hashing and generation if it exists).
     - It protects manual changes in `init.go` and `cmd.go` by verifying their content hashes against the manifest before regeneration.
     - **Child command registrations are preserved.** When a parent `cmd.go` is overwritten, the pipeline's re-registration step reads the manifest to find all existing children and re-injects their `AddCommand` calls. You will not lose child registrations across a regeneration.
-    - **Project-level settings (including help channel configuration) are fully preserved.** The root `cmd.go` is rebuilt via `buildSkeletonRootData`, which maps all manifest fields — including Slack/Teams help-channel settings — into the rendered file. No settings are silently dropped.
+    - **Project-level settings (including help channel configuration) are fully preserved.** The root `cmd.go` is rebuilt via `buildSkeletonRootData`, which maps all manifest fields (including Slack/Teams help-channel settings) into the rendered file. No settings are silently dropped.
 
 ### 2. Code -> Manifest (`regenerate manifest`)
 
@@ -41,21 +41,21 @@ This is the **Code-First** workflow.
 The headline guarantee of the code-first path is that **`.gtb/manifest.yaml` is
 disposable**. Delete the entire `.gtb/` directory and run `regenerate manifest`,
 and the generator rebuilds the *full* property set **byte-for-byte** from what is
-already committed in your source tree — you are not left with a lossy skeleton.
+already committed in your source tree. You are not left with a lossy skeleton.
 Treat the manifest as a cache of the source, not as an irreplaceable original.
 
 When no manifest is present, `applyRecoveredProperties` takes the from-scratch
 path and reconstructs every property from three in-tree artefacts
 (`recoverNonLiteralProperties`):
 
-- **The root `cmd.go` `Tool` literal (AST scan)** — name, description, release
+- **The root `cmd.go` `Tool` literal (AST scan)**: name, description, release
     source, env prefix, update policy/interval, help channel, telemetry, and the
     feature set. Features are recovered from the `props.SetFeatures(...)` call via
     the shared `templates.FeatureCatalogue`, so every built-in toggle round-trips.
-- **`cmd/<name>/keychain.go`** — the scaffold-only `keychain` feature has no
+- **`cmd/<name>/keychain.go`**: the scaffold-only `keychain` feature has no
     `FeatureID` and never appears in the `SetFeatures` literal, so its state is
     recovered from the presence of this blank-import file.
-- **`pkg/cmd/root/provenance.go`** — the signing posture, custom template-overlay
+- **`pkg/cmd/root/provenance.go`**: the signing posture, custom template-overlay
     pins, and `module_published`, which are recorded nowhere else in generated
     source (see [The Manifest](manifest.md#why-provenancego-exists)). The docs
     layout and any non-default CI component source are likewise re-derived from
@@ -68,7 +68,7 @@ bytes that `generate` would have written, which is exactly what makes the
 !!! note "When a manifest already exists"
     When `.gtb/manifest.yaml` *is* present, `regenerate manifest` treats it as
     authoritative for author-set fields and refreshes only the source-of-truth
-    fields (name, description, release source) from `cmd.go` — it does **not**
+    fields (name, description, release source) from `cmd.go`. It does **not**
     re-derive features and other posture from source on this path. The
     byte-exact full reconstruction described above is the *from-scratch*
     (manifest-absent) behaviour.
@@ -103,12 +103,12 @@ Regeneration provides a robust mechanism for validating the framework itself. By
 ## What a regeneration may and may not change
 
 A regeneration rewrites generated files and leaves yours alone. `.gtb/ignore`
-governs which is which — and **only that**. It has no business deciding what your
+governs which is which, and **only that**. It has no business deciding what your
 built tool *does*.
 
 That distinction was learned the hard way. A generated `cmd.go` used to call a
 `Run<Name>` in your `main.go`; where a `sealed` rule forbade creating that file,
-the call could not resolve, and the fix — omitting the call in that one case — made
+the call could not resolve, and the fix (omitting the call in that one case) made
 the exit code of a built binary depend on the ignore file. The same command exited
 `0` or `2` according to whether a seal happened to cover a file that was not there.
 A group's registration now refers to nothing in your package, so a seal can only
@@ -127,7 +127,7 @@ reports four categories:
 
 The last one fires on the **transition only**: the run that changes a command
 reports it, and every run afterwards is silent. A summary line that appears every
-time is one people learn to scroll past — and it would then hide the next real one
+time is one people learn to scroll past, and it would then hide the next real one
 printed beside it. `--dry-run` shows all four, which is how you check before
 committing to a run.
 

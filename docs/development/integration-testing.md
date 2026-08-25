@@ -7,9 +7,9 @@ tags: [testing, integration, ci, environment]
 # Integration Testing
 
 !!! tip "See also"
-    [Manual credential testing](testing/manual-credentials.md) — hands-on walkthrough of the OS-keychain storage mode against a real workstation, for scenarios that are awkward to mock.
+    [Manual credential testing](testing/manual-credentials.md): hands-on walkthrough of the OS-keychain storage mode against a real workstation, for scenarios that are awkward to mock.
 
-GTB includes integration tests that exercise real external services — GitHub APIs, git operations over the network, and multi-service lifecycle coordination. These tests are **excluded from the default test suite** and must be explicitly enabled via environment variables.
+GTB includes integration tests that exercise real external services: GitHub APIs, git operations over the network, and multi-service lifecycle coordination. These tests are **excluded from the default test suite** and must be explicitly enabled via environment variables.
 
 ## Quick Start
 
@@ -34,9 +34,9 @@ just coverage-full
 
 Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` from `internal/testutil/`. This approach was chosen over `//go:build` tags for:
 
-- **Compile-time safety** — integration tests are always compiled, so breakages are caught by `go build` and `go vet` even when not running them.
-- **Discoverability** — tests appear in IDE test explorers and `go test -list` output.
-- **Granular control** — targeted `INT_TEST_*` variables allow running specific test groups without all-or-nothing gating.
+- **Compile-time safety**: integration tests are always compiled, so breakages are caught by `go build` and `go vet` even when not running them.
+- **Discoverability**: tests appear in IDE test explorers and `go test -list` output.
+- **Granular control**: targeted `INT_TEST_*` variables allow running specific test groups without all-or-nothing gating.
 
 ### Environment Variables
 
@@ -46,10 +46,10 @@ Integration tests are gated at runtime using `testutil.SkipIfNotIntegration` fro
 | `INT_TEST_VCS=1` | Enables only tests tagged `"vcs"` |
 | `INT_TEST_CONTROLS=1` | Enables only tests tagged `"controls"` |
 | `INT_TEST_GENERATOR=1` | Enables only tests tagged `"generator"` |
-| `INT_TEST_GENERATOR_BUILD=1` | Enables only tests tagged `"generator_build"` — the toolchain-backed generator tests that scaffold a project and run `go build`/`go test`/`golangci-lint` against it (also enabled by `INT_TEST_GENERATOR`) |
+| `INT_TEST_GENERATOR_BUILD=1` | Enables only tests tagged `"generator_build"`: the toolchain-backed generator tests that scaffold a project and run `go build`/`go test`/`golangci-lint` against it (also enabled by `INT_TEST_GENERATOR`) |
 | `INT_TEST_SETUP=1` | Enables only tests tagged `"setup"` |
 | `INT_TEST_CMD=1` | Enables only tests tagged `"cmd"` |
-| `INT_TEST_DEPS=1` | Enables only tests tagged `"deps"` — dependency-footprint assertions that shell out to `go list -deps`. Gated because they need the build toolchain, not because they need credentials or a network |
+| `INT_TEST_DEPS=1` | Enables only tests tagged `"deps"`: dependency-footprint assertions that shell out to `go list -deps`. Gated because they need the build toolchain, not because they need credentials or a network |
 | `INT_TEST_E2E=1` | Enables all E2E BDD tests (Godog) |
 | `INT_TEST_E2E_SMOKE=1` | Enables only `@smoke`-tagged E2E scenarios |
 | `INT_TEST_E2E_CONTROLS=1` | Enables only `@controls`-tagged E2E scenarios |
@@ -73,7 +73,7 @@ Nothing was lost by skipping it, and the reason is worth knowing: the generator
 treats the pass as best-effort and only logs a warning if it fails, so **no
 scenario ever asserted the result**. Those 38 runs were cost without signal.
 
-That generated output lints clean is still a property worth holding — it is just
+That generated output lints clean is still a property worth holding. It is just
 one nobody currently holds. Do not read this switch as having dropped it.
 
 `test/e2e/steps` sets `GTB_SKIP_LINT` for itself unless it is already set, so
@@ -124,11 +124,11 @@ Integration tests **must** live in dedicated `*_integration_test.go` files to ke
 The `.env` file is loaded automatically by `just` via `dotenv-load`. You can also export these variables directly in your shell.
 
 !!! warning "Never commit `.env`"
-    The `.env` file is git-ignored. Use `.env.example` as the template — it contains no secrets.
+    The `.env` file is git-ignored. Use `.env.example` as the template, it contains no secrets.
 
 ## Test Inventory
 
-### `test/integration/controls/` — Service Lifecycle
+### `test/integration/controls/`: Service Lifecycle
 
 The `controls` package itself was extracted to
 [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk), but
@@ -141,50 +141,50 @@ module's own behaviour.
 | `shutdown_integration_test.go` | Graceful shutdown via signals, context cancellation, and timeout | Local network, OS signals |
 | `server_integration_test.go` | Health endpoints, middleware bypass, custom health checks, gRPC probes, interceptors, graceful shutdown, app handlers | Local network |
 
-These tests require **no external credentials** — only local network access.
+These tests require **no external credentials**, only local network access.
 
-### `pkg/cmd/root/` — Feature Flags
+### `pkg/cmd/root/`: Feature Flags
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `root_integration_test.go` | Command registration based on feature flags, tool metadata propagation | None |
 
-### `pkg/props/` — Dependency Footprint
+### `pkg/props/`: Dependency Footprint
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
-| `keychain_footprint_integration_test.go` | No framework package reaches `go-keyring`, so a downstream that declines the keychain blank-import genuinely links none of it — and `cmd/gtb`, which does import it, genuinely does | **Go toolchain** (`go list -deps`) — tagged `"deps"` |
+| `keychain_footprint_integration_test.go` | No framework package reaches `go-keyring`, so a downstream that declines the keychain blank-import genuinely links none of it (and `cmd/gtb`, which does import it, genuinely does | **Go toolchain** (`go list -deps`)) tagged `"deps"` |
 
-### `pkg/setup/` — Init Flow
+### `pkg/setup/`: Init Flow
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `init_integration_test.go` | Directory creation, config merge/clean, gitignore, initialisers, API key warnings | Filesystem (in-memory) |
 
-### `pkg/vcs/repo/` — Git Operations
+### `pkg/vcs/repo/`: Git Operations
 
-!!! info "Moved — now in the `go/repo` module"
+!!! info "Moved, now in the `go/repo` module"
 
     Git operations were extracted to
     [`gitlab.com/phpboyscout/go/repo`](https://repo.go.phpboyscout.uk), and
     `repo_integration_test.go` moved with them. It is gated and run in that
     module's own pipeline, not GTB's.
 
-    What remains here is `config_adapter_test.go`, which is a **pure unit test** —
+    What remains here is `config_adapter_test.go`, which is a **pure unit test**:
     it exercises the props/config→`Settings` mapping with an in-memory filesystem
     and needs no network, token or SSH key.
 
-### Forge VCS (GitHub/GitLab) — moved out of GTB
+### Forge VCS (GitHub/GitLab): moved out of GTB
 
 !!! info "Now owned by the forge provider modules"
     `pkg/vcs/github` no longer exists in this repository. The forge auth, SSH and
     API clients were extracted to
     [`gitlab.com/phpboyscout/go/forge`](https://forge.go.phpboyscout.uk) and its
     per-provider `forge-<forge>` modules, so any live GitHub/GitLab VCS
-    integration coverage — with a real token and a throwaway test repo — now
+    integration coverage (with a real token and a throwaway test repo) now
     belongs to those modules' own pipelines, not GTB's.
 
-### Release providers — moved out of GTB
+### Release providers: moved out of GTB
 
 !!! info "Now owned by the provider modules"
     The GitLab, Gitea, Bitbucket and GitHub **release providers** no longer live in
@@ -194,12 +194,12 @@ These tests require **no external credentials** — only local network access.
 
     GTB retains only the `forge.Provider` **consumers** (`pkg/setup`), which are
     exercised against the in-memory conformance harness at
-    `gitlab.com/phpboyscout/go/forge/test` — no network, no credentials.
+    `gitlab.com/phpboyscout/go/forge/test`, no network, no credentials.
 
     See [`forge.go.phpboyscout.uk`](https://forge.go.phpboyscout.uk) for the
     contract every provider must satisfy.
 
-### Extracted suites — chat, config, errorhandling, signing
+### Extracted suites: chat, config, errorhandling, signing
 
 !!! info "Now owned by their modules"
     These suites left GTB with their packages and run in each module's own
@@ -213,22 +213,22 @@ These tests require **no external credentials** — only local network access.
     | signing coverage | [`go/signing`](https://signing.go.phpboyscout.uk) |
 
     Their `INT_TEST_CHAT`, `INT_TEST_CONFIG`, `INT_TEST_ERRORHANDLING` and
-    `INT_TEST_SIGNING` gates no longer exist in this repository — setting them
+    `INT_TEST_SIGNING` gates no longer exist in this repository, setting them
     here has no effect.
 
-### `internal/generator/` — Code Generation Pipeline
+### `internal/generator/`: Code Generation Pipeline
 
 | File | Tests | Dependencies |
 | :--- | :--- | :--- |
 | `pipeline_integration_test.go` | Full lifecycle, deep hierarchy, manifest consistency, protection, command options, dry-run, manifest recovery, feature flags | Filesystem (in-memory) |
-| `templatesource_integration_test.go` | The provider-aware template clone leg (`realCloneTemplate` → `pkg/vcs/repo`) against a real on-disk git repo: resolves a ref to a concrete commit, checks it out, returns the matching SHA | Local git repo — **no network**; tagged `"vcs"` (`INT_TEST_VCS=1`) |
-| `compile_integration_test.go` | Scaffold a project and compile it (`go build`) | **Go toolchain** — tagged `"generator_build"` |
-| `signing_integration_test.go`, `signing_enable_integration_test.go` | Generate with signing enabled, then build/verify the scaffolded tree | **Go toolchain** — tagged `"generator_build"` |
-| `verifier/verifier_integration_test.go` | The post-generation verifier runs the real `go build`/`go test`/`golangci-lint` toolchain over a scaffold | **Go toolchain** (+ `golangci-lint` on PATH) — tagged `"generator_build"` |
+| `templatesource_integration_test.go` | The provider-aware template clone leg (`realCloneTemplate` → `pkg/vcs/repo`) against a real on-disk git repo: resolves a ref to a concrete commit, checks it out, returns the matching SHA | Local git repo: **no network**; tagged `"vcs"` (`INT_TEST_VCS=1`) |
+| `compile_integration_test.go` | Scaffold a project and compile it (`go build`) | **Go toolchain**: tagged `"generator_build"` |
+| `signing_integration_test.go`, `signing_enable_integration_test.go` | Generate with signing enabled, then build/verify the scaffolded tree | **Go toolchain**: tagged `"generator_build"` |
+| `verifier/verifier_integration_test.go` | The post-generation verifier runs the real `go build`/`go test`/`golangci-lint` toolchain over a scaffold | **Go toolchain** (+ `golangci-lint` on PATH): tagged `"generator_build"` |
 
-The `"generator_build"` tag marks the project's strongest real-dependency coverage — it actually compiles and lints the generated output. These tests also run under `INT_TEST_GENERATOR=1`; use `INT_TEST_GENERATOR_BUILD=1` to run only them.
+The `"generator_build"` tag marks the project's strongest real-dependency coverage: it actually compiles and lints the generated output. These tests also run under `INT_TEST_GENERATOR=1`; use `INT_TEST_GENERATOR_BUILD=1` to run only them.
 
-### `test/e2e/` — E2E BDD Tests (Godog)
+### `test/e2e/`: E2E BDD Tests (Godog)
 
 E2E tests use [Godog](https://github.com/cucumber/godog) (Cucumber for Go) to express multi-step behavioural scenarios in Gherkin feature files. Feature files live in `features/`, step definitions in `test/e2e/steps/`.
 
@@ -259,13 +259,13 @@ See [`0044-godog-bdd-strategy`](https://gitlab.com/phpboyscout/go-tool-base/-/wi
 | `just test` | `go test ./... -v -cover` | Unit tests only (default) |
 | `just test-e2e` | `INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 5m` | E2E BDD tests via Godog |
 | `just test-e2e-smoke` | `INT_TEST_E2E=1 INT_TEST_E2E_SMOKE=1 go test ./test/e2e/... -v -timeout 2m` | E2E smoke tests only (fast) |
-| `just ci` | `tidy, generate, test, test-race, lint` | CI suite — unit tests only |
+| `just ci` | `tidy, generate, test, test-race, lint` | CI suite: unit tests only |
 
 ## CI Configuration
 
 This repository runs on **GitLab CI** (`.gitlab-ci.yml`, assembled from the
 `phpboyscout/cicd` components). The default `test` stage runs **unit tests
-only** — the same `just ci` suite — so integration tests never gate a normal
+only** (the same `just ci` suite) so integration tests never gate a normal
 merge request. Because the gating is env-var-based rather than build-tag-based,
 enabling a group in CI is just a matter of exporting the matching variable on a
 dedicated job:
@@ -288,16 +288,16 @@ Jobs that talk to the GitLab API can authenticate with the pipeline-provided
 `CI_JOB_TOKEN` (or a project/group access token exposed as a masked CI/CD
 variable) rather than a hardcoded secret. Several groups (VCS, chat-live,
 keychain, WKD) additionally require real credentials or a desktop environment
-and are intentionally left to run locally — see the desktop-gated integration
+and are intentionally left to run locally. See the desktop-gated integration
 tests spec for the rationale.
 
 ## Writing New Integration Tests
 
 When adding integration tests:
 
-1. **Use the shared helper** — call `testutil.SkipIfNotIntegration(t, "tag")` at the top of every integration test function, choosing an appropriate tag for the test group.
-2. **Place in dedicated files** — integration tests must live in `*_integration_test.go` files, separate from unit tests.
+1. **Use the shared helper**. Call `testutil.SkipIfNotIntegration(t, "tag")` at the top of every integration test function, choosing an appropriate tag for the test group.
+2. **Place in dedicated files**: integration tests must live in `*_integration_test.go` files, separate from unit tests.
 3. **Document dependencies** in this guide's test inventory.
 4. **Use `t.Cleanup`** for teardown (remove branches, labels, temp files).
-5. **Don't hardcode credentials** — always read from environment variables.
-6. **Keep tests idempotent** — they should be safe to re-run without manual cleanup.
+5. **Don't hardcode credentials**. Always read from environment variables.
+6. **Keep tests idempotent**. They should be safe to re-run without manual cleanup.

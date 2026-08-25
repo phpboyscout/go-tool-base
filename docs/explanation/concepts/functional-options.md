@@ -147,7 +147,7 @@ controller := controls.NewController(ctx,
 
 This pair is a good illustration of *why* the pattern earns its keep: `WithSignals`
 turns a `nil` field into a constructed channel, so the zero value stays the safe
-default — a controller that touches no process-global state — and taking on that
+default (a controller that touches no process-global state) and taking on that
 state is something a caller has to ask for by name.
 
 ---
@@ -249,7 +249,7 @@ log := logger.NewCharm(os.Stderr,
 
 This is also the seam a config-driven host uses: `logger.Config` carries the
 same knobs and produces the option slice, so you build from config rather than
-setting fields after the fact — `logger.NewCharm(w, cfg.CharmOptions()...)`.
+setting fields after the fact, `logger.NewCharm(w, cfg.CharmOptions()...)`.
 That matters because `Timestamp`/`Caller` are construction-time only (no runtime
 setter), so they *must* be passed as options. See the
 [logger component](../components/logger.md#config-driven-construction).

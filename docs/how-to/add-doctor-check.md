@@ -72,7 +72,7 @@ func init() {
 
 ## Step 3: Import your package
 
-As with initialisers, ensure your package is imported somewhere in the dependency graph — typically via a blank import in your command package:
+As with initialisers, ensure your package is imported somewhere in the dependency graph: typically via a blank import in your command package:
 
 ```go
 package command
@@ -132,7 +132,7 @@ return CheckResult{
 
 Most warnings are advice. "No AI provider configured" is a perfectly good state
 for a tool that does not use AI, and failing its pipeline over that would turn a
-diagnostic into a tripwire — so an advisory warning never fails a run, at any
+diagnostic into a tripwire, so an advisory warning never fails a run, at any
 threshold. `Gating` has no effect on a pass, a skip, or a fail: a failed check
 gates regardless, because there is nothing advisory about one.
 
@@ -154,7 +154,7 @@ gtb doctor --fail-on=none   # escape hatch for a pipeline not ready yet
 `skip` never fails a run, whatever the threshold. A check that could not run has
 not found a problem, and failing a pipeline because something was unavailable is
 the fastest way to have the gate switched off. If your check cannot reach what
-it needs, return `skip` and say why — never `pass`.
+it needs, return `skip` and say why. Never `pass`.
 
 The report always prints in full before the exit code is decided, so a gated run
 still shows what gated it.

@@ -28,7 +28,7 @@ the **remaining** config-migration work.
 
 ### Logger boundary
 - Packages accept `*slog.Logger`; a nil logger resolves to
-  `slog.New(slog.DiscardHandler)` (quiet by default — the app wires logging).
+  `slog.New(slog.DiscardHandler)` (quiet by default, the app wires logging).
 - GTB adapters convert `props.Logger` (the `logger.Logger` interface) to
   `*slog.Logger` with **`logger.ToSlog(props.Logger)`** at the boundary. `ToSlog`
   is nil-safe, returns a `*slog.Logger` unchanged, else builds one over the
@@ -49,7 +49,7 @@ the **remaining** config-migration work.
   - **`UnmarshalSection`** for self-contained sections (`chat`, `http`/`grpc`
     server settings).
   - **Narrow lookup interface** (`release.Config`/`vcs.TokenConfig`) for provider
-    registries with dynamic, provider-specific keys (`vcs`) — do NOT force typed
+    registries with dynamic, provider-specific keys (`vcs`). Do NOT force typed
     decode there; it already imports zero GTB packages.
   - **Manual `IsSet`-override** for shared↔transport/signal fallback (`tls`,
     `telemetry/otelcore`).
@@ -62,32 +62,32 @@ the **remaining** config-migration work.
 
 Per `config-section-adapters` §8 (later waves) and §9 Phase 6:
 
-1. **Packages that currently need no config** — add typed structs only if/when
+1. **Packages that currently need no config**. Add typed structs only if/when
    GTB introduces config-driven behaviour (deferred, not speculative):
    `authn` (API-key/JWT/mTLS config in the transports), `output.Config`
-   (deferred — output resolves format from the `--output` flag, not a config
+   (deferred, output resolves format from the `--output` flag, not a config
    section; adding it now would be dead surface), `browser`, `workspace`,
    `forms`, `changelog`, `redact`, `regexutil`, `openapi`, `errorhandling`
    `HelpConfig`.
-2. **Root `pkg/telemetry`** — the `pkg/props` **type** coupling is now **DONE**
+2. **Root `pkg/telemetry`**. The `pkg/props` **type** coupling is now **DONE**
    ([`0117-telemetry-props-decoupling`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0117-telemetry-props-decoupling),
    IMPLEMENTED): `EventType`/`DeliveryMode` + constants moved to the
    dependency-free `pkg/telemetrytypes` leaf; `pkg/props` keeps them as type
    aliases (zero downstream break); `pkg/telemetry` core no longer imports
    `pkg/props`. **Still remaining before extraction**: the larger
    product-analytics/consent ↔ observability split (see the extraction report's
-   telemetry section) — a separate effort, not a config/props-type concern.
-3. **Phase 6 — automated import-boundary check**: **DONE**.
+   telemetry section): a separate effort, not a config/props-type concern.
+3. **Phase 6, automated import-boundary check**: **DONE**.
    `test/architecture/boundary_test.go` is now a table-driven guard over
    `pkg/props` **and** `pkg/logger`, covering all first-wave cores plus
-   `pkg/telemetry`. No separate CI job is needed — `go test ./...` (the cicd
+   `pkg/telemetry`. No separate CI job is needed, `go test ./...` (the cicd
    `go-test` MR component) already runs `test/architecture`; the earlier
    `just ci` worry was moot.
-4. **Open questions still deferred**: Q1 `SectionInConfig` (not shipped —
+4. **Open questions still deferred**: Q1 `SectionInConfig` (not shipped:
    `SectionExists` + `IsSet` cover the telemetry-consent case); Q5 the extracted
    `pkg/config` module name (defer to the config-extraction spec).
 5. **`vcs/release`** received a registry-signature narrowing rather than a full
-   typed adapter (judged adequate since its providers own the typed settings) —
+   typed adapter (judged adequate since its providers own the typed settings):
    revisit if/when extracting the releases module.
 
 ## Gotchas & conventions
@@ -97,12 +97,12 @@ Per `config-section-adapters` §8 (later waves) and §9 Phase 6:
   ONLY the affected package's mocks (`git checkout`/`git clean` the rest).
 - **slog `int`→`int64`**: slog normalises integer attributes to `int64`; tests
   asserting on captured integer key/values must use `assert.EqualValues`.
-- **`contextcheck`**: request/RPC logging uses `l.Log(ctx, level, msg)` — thread
+- **`contextcheck`**: request/RPC logging uses `l.Log(ctx, level, msg)`: thread
   the request/RPC context through, never `context.Background()`.
 - **Adding imports**: prefer `goimports -w`; ad-hoc `sed` insertion can misorder
   the group or leave a stray blank line (run `gofmt -w` after).
 - **`internal/agent` test**: `TestGoBuildTool_SuccessOnTrivialModule` fails with
-  `error obtaining VCS status: exit status 128` — an environmental Go
+  `error obtaining VCS status: exit status 128`, an environmental Go
   build-stamp failure in this sandbox, pre-existing on `main` and unrelated to
   this work. Exclude it: `go test $(go list ./... | grep -v internal/agent)`.
 

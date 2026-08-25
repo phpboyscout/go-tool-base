@@ -1,13 +1,13 @@
 ---
 title: Testing the keychain on a headless host
-description: Three ways to exercise the OS-keychain credential storage mode on a server, container, or CI runner — where no desktop session or registered Secret Service provider is available.
+description: Three ways to exercise the OS-keychain credential storage mode on a server, container, or CI runner: where no desktop session or registered Secret Service provider is available.
 tags: [testing, development, credentials, keychain, headless]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
 # Testing the keychain on a headless host
 
-The keychain backend relies on a reachable OS credential store — macOS Keychain, Windows Credential Manager, or a freedesktop Secret Service provider on Linux. On a headless Linux server (dev box, SSH-only host, CI runner), the session bus is often present but no Secret Service is registered, so `credentials.Probe()` correctly returns `false` and the setup wizard hides the keychain option. Scenarios 1, 2, and 5 in [Manual credential testing](manual-credentials.md) all depend on the probe passing.
+The keychain backend relies on a reachable OS credential store: macOS Keychain, Windows Credential Manager, or a freedesktop Secret Service provider on Linux. On a headless Linux server (dev box, SSH-only host, CI runner), the session bus is often present but no Secret Service is registered, so `credentials.Probe()` correctly returns `false` and the setup wizard hides the keychain option. Scenarios 1, 2, and 5 in [Manual credential testing](manual-credentials.md) all depend on the probe passing.
 
 This guide gives engineers three ways to unblock themselves, in order of how close each one is to the real thing.
 
@@ -17,9 +17,9 @@ This guide gives engineers three ways to unblock themselves, in order of how clo
 | [2. Containerised Secret Service](#option-2-containerised-secret-service) | Yes | Docker or Podman | Cross-distro testing; hermetic isolation |
 | [3. In-memory backend swap](#option-3-in-memory-backend-swap) | No (exercises GTB code paths) | None | Fast iteration; CI runners without D-Bus |
 
-## Option 1 — GNOME Keyring with `dbus-run-session`
+## Option 1: GNOME Keyring with `dbus-run-session`
 
-Spawns a transient session bus, runs an unlocked `gnome-keyring-daemon` inside it, and runs your test command against the live Secret Service. When the outer shell exits, the bus and keyring are discarded — no persistent state.
+Spawns a transient session bus, runs an unlocked `gnome-keyring-daemon` inside it, and runs your test command against the live Secret Service. When the outer shell exits, the bus and keyring are discarded, no persistent state.
 
 ### Prerequisites
 
@@ -31,7 +31,7 @@ sudo apt-get install -y gnome-keyring libsecret-tools dbus-user-session
 
 ### One-off test
 
-Use this for a single scripted command — the daemon starts, your command runs, everything is torn down:
+Use this for a single scripted command. The daemon starts, your command runs, everything is torn down:
 
 ```bash
 dbus-run-session -- bash -c '
@@ -58,8 +58,8 @@ dbus-run-session -- bash -c '
 
 !!! note "Why `--login` and not `--unlock`?"
     On modern gnome-keyring (42+), `--start` and `--unlock` are mutually
-    exclusive, and `--unlock` alone requires an existing keyring file —
-    a fresh `dbus-run-session` has none. Using `--unlock` in that state
+    exclusive, and `--unlock` alone requires an existing keyring file.
+    A fresh `dbus-run-session` has none. Using `--unlock` in that state
     triggers the graphical `gcr-prompter` to ask for a creation
     password, which fails on a headless host with
     `Gtk-WARNING: cannot open display`. `--login` bypasses the prompter
@@ -90,9 +90,9 @@ exit
 
 - `dbus-run-session` must run from a real login session (SSH, tmux, screen). Running under `sudo -u someoneelse` or from a daemon context often fails with "Failed to open connection to bus".
 - The daemon runs with the password you gave on stdin. Don't reuse a production password; a throwaway string like `test-pass` is the convention.
-- Entries written under `dbus-run-session` are NOT visible from the same user's normal login session — they live in a separate transient keyring. That's the point: nothing leaks between test runs.
+- Entries written under `dbus-run-session` are NOT visible from the same user's normal login session: they live in a separate transient keyring. That's the point: nothing leaks between test runs.
 
-## Option 2 — Containerised Secret Service
+## Option 2: Containerised Secret Service
 
 A throwaway container with `gnome-keyring` installed, running a dedicated Secret Service instance. Useful when:
 
@@ -119,9 +119,9 @@ docker run --rm -it \
 
 For interactive use, replace the final `bash -c \"…\"` with `bash` and drive the scenarios from the container shell.
 
-## Option 3 — In-memory backend swap
+## Option 3: In-memory backend swap
 
-The `go/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and reports `Available() == true`, so the wizard thinks a real keychain is present. Everything GTB does downstream — storage-mode selector, `Probe()` round-trip, config writes, resolver cascade — runs unchanged.
+The `go/credentials/credtest.MemoryBackend` satisfies `credentials.Backend` and reports `Available() == true`, so the wizard thinks a real keychain is present. Everything GTB does downstream (storage-mode selector, `Probe()` round-trip, config writes, resolver cascade) runs unchanged.
 
 **What this covers:**
 
@@ -182,10 +182,10 @@ git checkout -- cmd/e2e/keychain.go
 git diff cmd/e2e/keychain.go   # should be empty
 ```
 
-Never commit the swapped version — `cmd/e2e` must ship with the real backend so the Gherkin suite in CI exercises the full go-keyring path.
+Never commit the swapped version: `cmd/e2e` must ship with the real backend so the Gherkin suite in CI exercises the full go-keyring path.
 
 ## Related
 
-- [Manual credential testing](manual-credentials.md) — the scenarios this guide unblocks.
-- [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference for `Backend`, `RegisterBackend`, and the stub/memory/go-keyring implementations.
-- [`go/credentials/credtest`](https://gitlab.com/phpboyscout/go/credentials/-/tree/main/credtest) — source for the in-memory backend and its test helper.
+- [Manual credential testing](manual-credentials.md): the scenarios this guide unblocks.
+- [`docs/components/credentials.md`](../../explanation/components/credentials.md): architecture reference for `Backend`, `RegisterBackend`, and the stub/memory/go-keyring implementations.
+- [`go/credentials/credtest`](https://gitlab.com/phpboyscout/go/credentials/-/tree/main/credtest): source for the in-memory backend and its test helper.

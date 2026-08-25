@@ -33,7 +33,7 @@ A persistent `--dry-run` previews changes without writing files.
 |------|---------|-------------|
 | `--path, -p` | `.` | Project root. |
 | `--force` | `false` | Overwrite existing `main.go` implementation files. On a flat-layout project, also migrates the docs to the [Diátaxis layout](../../explanation/concepts/documentation-layout.md). |
-| `--overwrite` | `ask` | Conflict handling: `allow`, `deny`, or `ask`. Applies to every generated file — skeleton assets and per-command `cmd.go`/`init.go`/`main_test.go` alike. |
+| `--overwrite` | `ask` | Conflict handling: `allow`, `deny`, or `ask`. Applies to every generated file: skeleton assets and per-command `cmd.go`/`init.go`/`main_test.go` alike. |
 | `--update-docs` | `false` | Use AI to update existing documentation. |
 | `--dry-run` | `false` | Preview changes without writing. |
 
@@ -49,11 +49,11 @@ it permanent.
 WARN kept your version path=pkg/cmd/deploy/cmd.go reason="declined at the prompt" remedy="gtb ignore add pkg/cmd/deploy/cmd.go"
 ```
 
-The exit code is **0** — you asked for your changes to be kept and they were
+The exit code is **0**. You asked for your changes to be kept and they were
 kept. Only a genuine failure (an unreadable file, a render fault) aborts the run.
 
-- `--overwrite ask` (default) prompts per file. With no usable terminal — under
-  `--ci`, `CI=true`, `GTB_NON_INTERACTIVE=true`, or no TTY — nothing is
+- `--overwrite ask` (default) prompts per file. With no usable terminal: under
+  `--ci`, `CI=true`, `GTB_NON_INTERACTIVE=true`, or no TTY. Nothing is
   prompted and every conflict resolves to keep.
 - `--overwrite allow` rebuilds everything, `.gtb/ignore` still excepted. This is
   the deterministic mode for a pipeline that regenerates.
@@ -65,7 +65,7 @@ not compared, prompted about or written at all, and outranks both `--force` and
 `gtb doctor`.
 
 A plain rule stops the file being **regenerated**. It does not stop the
-localised edits that wire a subcommand into its parent — refusing those would
+localised edits that wire a subcommand into its parent, refusing those would
 leave the command absent from the built CLI with nothing to say why. Add the
 `sealed` attribute (`gtb ignore seal <path>`) to forbid every write; the run
 then names what it could not register and still exits 0.

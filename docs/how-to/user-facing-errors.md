@@ -16,7 +16,7 @@ The `ErrorHandler` in `Props` bridges these errors to the logger with the right 
 
 ## Basic Error Creation and Wrapping
 
-Use `cockroachdb/errors` everywhere — not `fmt.Errorf`, not `errors.New` from the standard library:
+Use `cockroachdb/errors` everywhere, not `fmt.Errorf`, not `errors.New` from the standard library:
 
 ```go
 import "github.com/cockroachdb/errors"
@@ -95,8 +95,8 @@ p.ErrorHandler.Error(err)
 p.ErrorHandler.Warn(err, "config")
 ```
 
-For an **expected, user-initiated termination** — a SIGINT/SIGTERM interrupt, where the
-non-zero exit code *is* the signal — use `LevelFatalQuiet`. It exits identically to
+For an **expected, user-initiated termination**, a SIGINT/SIGTERM interrupt, where the
+non-zero exit code *is* the signal. Use `LevelFatalQuiet`. It exits identically to
 `LevelFatal` (honouring any attached exit code) but logs at debug, so an interrupt does
 not surface to the user as an error:
 
@@ -107,7 +107,7 @@ p.ErrorHandler.Check(err, "", errorhandling.LevelFatalQuiet)
 ### Custom exit codes
 
 A fatal error exits `1` by default. Attach a different code to the error itself and the
-fatal path honours it — keeping every exit on one path instead of scattering `os.Exit`:
+fatal path honours it: keeping every exit on one path instead of scattering `os.Exit`:
 
 ```go
 return errorhandling.WithExitCode(err, 3)
@@ -119,7 +119,7 @@ See the [module guide](https://errorhandling.go.phpboyscout.uk/how-to/exit-codes
 ### Printing usage for a parent command
 
 Returning `errorhandling.ErrRunSubCommand` prints the command's usage. The handler has
-no Cobra dependency, so the printer is supplied through `SetUsage` — GTB's generated
+no Cobra dependency, so the printer is supplied through `SetUsage`, GTB's generated
 commands do this in their `PreRunE`, so the usage shown belongs to the command that
 actually ran:
 
@@ -128,7 +128,7 @@ props.ErrorHandler.SetUsage(cmd.Usage)
 ```
 
 You rarely return it by hand. A generated command with subcommands gets it as its
-`Run<Name>` stub, and the generated `cmd.go` wires a `RunE` that calls it — so a
+`Run<Name>` stub, and the generated `cmd.go` wires a `RunE` that calls it, so a
 bare `tool group` prints usage, warns `subcommand required`, and exits with the
 usage exit code rather than succeeding silently. A command that gains its first
 child has its stub upgraded from `ErrNotImplemented`, provided you have not
@@ -207,7 +207,7 @@ if len(items) == 0 {
 ```
 
 `ErrorHandler` logs these as `Internal error (assertion failure)` at error level. The
-full `%+v` detail — including the stack trace — is emitted at debug, like every other
+full `%+v` detail (including the stack trace) is emitted at debug, like every other
 diagnostic, so enable debug logging to see it.
 
 ---
@@ -277,6 +277,6 @@ assert.Equal(t, 1, exitCode)
 
 ## Related Documentation
 
-- **[Error Handling component](../explanation/components/error-handling.md)** — `ErrorHandler` interface and `StandardErrorHandler`
-- **[Centralized Error Handling](../explanation/components/error-handling.md)** — architectural rationale
-- **[Sentinel errors](../explanation/components/errors.md)** — catalogue of framework sentinel errors
+- **[Error Handling component](../explanation/components/error-handling.md)**: `ErrorHandler` interface and `StandardErrorHandler`
+- **[Centralized Error Handling](../explanation/components/error-handling.md)**: architectural rationale
+- **[Sentinel errors](../explanation/components/errors.md)**: catalogue of framework sentinel errors

@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 If you are transitioning to Go from a highly productive, convention-driven ecosystem like **PHP (Laravel, Silverstripe)**, **Ruby (Rails)**, or **Python (Django)**, you have likely experienced the "onboarding gap."
 
-In those frameworks, a `scaffold` or `make` command instantly provides authentication, configuration, and structural sanity. In idiomatic Go, developers are traditionally expected to hand-pick every library—a router, a config parser, an injection strategy—and wire them manually.
+In those frameworks, a `scaffold` or `make` command instantly provides authentication, configuration, and structural sanity. In idiomatic Go, developers are traditionally expected to hand-pick every library (a router, a config parser, an injection strategy) and wire them manually.
 
 **Go Tool Base (GTB)** bridges this gap. It provides the **Convention-over-Configuration** experience you are used to, without sacrificing Go's raw performance, strict typing, or composability.
 
@@ -24,7 +24,7 @@ Here is how common concepts from RAD frameworks map to GTB's architecture:
 | :--- | :--- | :--- |
 | `artisan make:command` / `rails g` | `gtb generate command` | Automatically scaffolds new CLI commands with tests and wiring. |
 | Service Container / DI | The `Props` struct | Provides global access to config, logger, filesystem, and AI clients, passed explicitly to every command constructor. |
-| `.env` & `config/app.php` | The Config Store | A unified, layered configuration system (the extracted go/config module) that seamlessly merges embedded defaults, YAML files, environment variables, and flags — and can explain which layer any value came from. |
+| `.env` & `config/app.php` | The Config Store | A unified, layered configuration system (the extracted go/config module) that seamlessly merges embedded defaults, YAML files, environment variables, and flags, and can explain which layer any value came from. |
 | `php artisan serve` | Custom commands | Add your own `serve` command to start an HTTP server using the GTB architecture. |
 | Framework "Magic" | Code Generation | Instead of slow runtime reflection, GTB uses generators (`gtb generate skeleton`) to produce explicitly typed boilerplate code at compile time. |
 

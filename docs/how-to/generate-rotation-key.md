@@ -9,8 +9,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Generate the rotation-authority key
 
 The rotation-authority key is your **break-glass key**. It's never
-used in normal operation. It exists so that — if the primary signing
-key is ever lost or compromised — you can authorise a new signing key
+used in normal operation. It exists so that, if the primary signing
+key is ever lost or compromised. You can authorise a new signing key
 without breaking the chain of trust for installs that already have
 your tool.
 
@@ -20,7 +20,7 @@ half offline, and forget about it (until you don't have to).
 ## Prerequisites
 
 - `gtb` installed.
-- A trusted workstation. Anywhere is fine — the private key is
+- A trusted workstation. Anywhere is fine: the private key is
   encrypted and the operator's workstation is the only place it
   briefly exists in memory. No `gpg` install, no `openssl`, no
   external tools.
@@ -40,11 +40,11 @@ gtb keys generate \
 
 Two files appear in the current directory:
 
-- `rotation-authority.asc` — the **armored OpenPGP public** half. Safe to
+- `rotation-authority.asc`: the **armored OpenPGP public** half. Safe to
   commit. You'll embed this in your tool's
   `internal/trustkeys/keys/` and publish it alongside your signing
   key via WKD.
-- `rotation-authority.priv.asc` — the **armored OpenPGP secret** half.
+- `rotation-authority.priv.asc`: the **armored OpenPGP secret** half.
   Compatible with `gpg --import` for inspection. **This file is
   what needs to go offline.**
 
@@ -67,7 +67,7 @@ WARN  Move the private-half file to offline storage now.  private_output=rotatio
 
 ## Move the private half offline
 
-Take the recommended belt-and-braces approach — two storage
+Take the recommended belt-and-braces approach, two storage
 locations to survive a single-medium failure:
 
 ### 1. Encrypted USB stick (covers USB bit-rot via the paper backup)
@@ -97,8 +97,8 @@ unlocking it first.
 
 Install `paperkey` once on your operating system (Debian/Ubuntu:
 `apt install paperkey`; macOS: `brew install paperkey`). It also
-needs `gpg` available, only to strip ASCII armor from the input —
-no keyring is created.
+needs `gpg` available, only to strip ASCII armor from the input.
+No keyring is created.
 
 ```sh
 # paperkey only accepts binary OpenPGP packets, not ASCII armor, so
@@ -132,7 +132,7 @@ rotation"**:
 - The fingerprint of the rotation-authority key.
 
 Both are needed to recover. Don't put them in the same vault folder
-as your everyday secrets — clutter is the enemy of "I know what
+as your everyday secrets. Clutter is the enemy of "I know what
 this is when I haven't looked at it in 3 years".
 
 ## Test the paper backup once, before you walk away
@@ -210,7 +210,7 @@ exists *before* you need it. The runbook can come later.
 
 ## See also
 
-- [Mint the signing key](mint-signing-key.md) — the everyday signing
+- [Mint the signing key](mint-signing-key.md): the everyday signing
   key flow, paired with this rotation key in the trust set.
 - [Release-binary signing concept](../explanation/concepts/release-binary-signing.md)
-  — why two keys, what each protects against.
+, why two keys, what each protects against.

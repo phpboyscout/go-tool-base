@@ -24,14 +24,14 @@ the round-trip with `gpg --auto-key-locate`.
 
 - A live WKD endpoint at `https://openpgpkey.<yourdomain>/.well-known/openpgpkey/<yourdomain>/hu/<hash>`
 - A Cloudflare Pages project deploying via Direct Upload (no Git, no
-  webhook — explicitly disjoint from your code-hosting and signing
+  webhook: explicitly disjoint from your code-hosting and signing
   trust anchors)
 - A `gpg --locate-keys release@<yourdomain>` lookup that returns the
   same keys you embedded in the binary
 
 !!! info "Why `openpgpkey.<yourdomain>`?"
     The `openpgpkey.` subdomain literal is fixed by
-    [draft-koch-openpgp-webkey-service §3.1][wkd-draft] — it is the
+    [draft-koch-openpgp-webkey-service §3.1][wkd-draft]. It is the
     spec's "advanced" URL form. Every WKD client (GnuPG, GTB's
     verifier, Sequoia, etc.) hardcodes this prefix when constructing
     the lookup URL, so we don't choose it. The verifier configuration
@@ -53,7 +53,7 @@ account boundaries:
 
 1. **Cloudflare account** on a fresh email (not the address tied to
    your code-hosting or cloud accounts). Set MFA with a different
-   authenticator app than your existing accounts — ideally a
+   authenticator app than your existing accounts, ideally a
    hardware key. Holding two of the three anchors must still leave
    the third uncompromisable.
 2. **API token** under `My Profile → API Tokens → Create Token` with
@@ -62,7 +62,7 @@ account boundaries:
 3. **Pages project** at `Workers & Pages → Create → Pages → Upload
    assets`. Name it after the subdomain (e.g.
    `openpgpkey-yourdomain-uk`). **Do not connect a Git
-   repository** — that's what would re-introduce GitHub/GitLab as a
+   repository**. That's what would re-introduce GitHub/GitLab as a
    trust dependency.
 4. **Custom domain**: in the project's settings, bind
    `openpgpkey.<yourdomain>`. Cloudflare provisions TLS and gives
@@ -70,7 +70,7 @@ account boundaries:
 5. **DNS** (Cloudflare or whichever provider hosts your apex
    domain): add `openpgpkey CNAME <project>.pages.dev`. TLS
    provisioning typically takes <2 minutes. Verify with
-   `curl -I https://openpgpkey.<yourdomain>/` — expect a 404 with
+   `curl -I https://openpgpkey.<yourdomain>/`, expect a 404 with
    valid TLS.
 
 You also need `wrangler` locally:
@@ -97,7 +97,7 @@ gtb keys wkd \
     rotation-authority.asc signing-key-v1.asc
 ```
 
-Result (advanced layout — the default and what Cloudflare Pages
+Result (advanced layout, the default and what Cloudflare Pages
 serves under `openpgpkey.<yourdomain>`):
 
 ```
@@ -118,9 +118,9 @@ written.
 `--submission-address` controls the optional WKS `submission-address`
 file:
 
-- **omitted / empty** (the default) — the file is **not** written.
-- **`--submission-address auto`** — writes the first `--email` value.
-- **`--submission-address <email>`** — writes that address verbatim.
+- **omitted / empty** (the default): the file is **not** written.
+- **`--submission-address auto`**: writes the first `--email` value.
+- **`--submission-address <email>`**: writes that address verbatim.
 
 Pass `auto` (as opposed to leaving the flag unset) when you want the
 file populated from your first `--email` without spelling the address
@@ -159,7 +159,7 @@ wrangler pages deploy ./wkd-staging \
 ```
 
 The `--commit-dirty=true` flag tells Wrangler not to require a Git
-working tree (which we don't have for WKD — the source of truth is
+working tree (which we don't have for WKD, the source of truth is
 the offline-stored signing keys, not a Git repo).
 
 ## Verify the round-trip
@@ -174,7 +174,7 @@ You should see both fingerprints (the rotation-authority and the
 signing-key) printed, matching what `gtb keys mint` reported and what
 you embedded in `internal/trustkeys/keys/`.
 
-Direct HTTP fetch also works for spot-checking — the hash is logged
+Direct HTTP fetch also works for spot-checking. The hash is logged
 by the `gtb keys wkd` run that produced the file. Copy it from there:
 
 ```sh
@@ -191,7 +191,7 @@ key) and matching `:user ID packet:` entries for
 When you mint a new signing key (or rotation key), re-run `gtb keys
 wkd` against the **new public-key file set** plus any keys you want
 to keep serving, and `wrangler pages deploy` again. There's no
-manual surgery on Cloudflare — the directory is fully reproducible
+manual surgery on Cloudflare. The directory is fully reproducible
 from the `.asc` files.
 
 The Pages project's deploy history makes rollback trivial: if a bad
@@ -209,14 +209,14 @@ key ever ships, redeploy a known-good staging directory in seconds.
 ## Related
 
 - [Spec: gtb keys wkd](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command)
-  — design decisions, RFC details, the threat-model rationale.
-- [Phase 2 signing prep doc][prep] — the upstream gate decisions for
+: design decisions, RFC details, the threat-model rationale.
+- [Phase 2 signing prep doc][prep]: the upstream gate decisions for
   domain, email, and host.
-- [`openpgpkey`](../explanation/components/openpgpkey.md) — the library
+- [`openpgpkey`](../explanation/components/openpgpkey.md): the library
   function `WriteWKDTree` that the CLI wraps (now the standalone
   `gitlab.com/phpboyscout/go/signing/openpgpkey` module).
 - [`gitlab.com/phpboyscout/go/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify)
-  — the client-side `WKDResolver` that pairs with this generator (consumed
+: the client-side `WKDResolver` that pairs with this generator (consumed
   by gtb's self-updater).
 
 [prep]: ../development/phase2-signing-prep.md

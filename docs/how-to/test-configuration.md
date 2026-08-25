@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The `go/config` Store is built for testability: reads go through the
 `config.Reader` interface (which the published mocks implement), and a store
-can be fed entirely from an in-memory document — no files on disk. This guide
+can be fed entirely from an in-memory document, no files on disk. This guide
 covers the common recipes. For general test scaffolding (test `Props`,
 filesystem mocking, race avoidance), see [How to Test Components](testing.md);
 for the design, see the [Config component](../explanation/components/config/index.md).
@@ -58,7 +58,7 @@ Inside this repository, `internal/testutil` wraps both recipes as
 ## Use the generated mocks
 
 The config module publishes mockery-generated mocks in `go/config/mocks`.
-**Prefer these over hand-written fakes** — they are generated from the real
+**Prefer these over hand-written fakes**. They are generated from the real
 interfaces (`MockReader`, `MockObservable`, `MockBinder`), stay in sync, and
 verify expectations on cleanup. A `MockReader` is the right double for any
 function that takes `config.Reader`:
@@ -94,9 +94,9 @@ to populate the target struct.
 
 Observers often carry critical logic (restarting services, changing log
 levels) and signal validation errors via their returned `error`. You don't
-need file watching — drive a reload deliberately.
+need file watching, drive a reload deliberately.
 
-**Observer logic in isolation** — `Run` takes `config.Observed`, and a store
+**Observer logic in isolation**, `Run` takes `config.Observed`, and a store
 satisfies the read surface, so hand it a pinned snapshot however you like and
 call it directly.
 
@@ -137,14 +137,14 @@ func TestObserverFiresOnReload(t *testing.T) {
 }
 ```
 
-An unchanged reload does not notify — observers fire only when the resolved
+An unchanged reload does not notify, observers fire only when the resolved
 configuration actually changed. Inside this repository the mutable-source
 recipe is available as `testutil.MutableStoreFromYAML`.
 
 ## Inspect and debug configuration in a test
 
 When values aren't resolving as expected, ask the store where a value came
-from — provenance is first-class:
+from. Provenance is first-class:
 
 ```go
 view := store.View()
@@ -164,6 +164,6 @@ for general runtime issues see the
 
 ## Related
 
-- [How to Test Components](testing.md) — test `Props`, filesystem mocking, race avoidance
-- [Config component](../explanation/components/config/index.md) — the Store design and GTB integration
-- [How to React to Configuration Changes](config-hot-reload.md) — production hot-reload
+- [How to Test Components](testing.md): test `Props`, filesystem mocking, race avoidance
+- [Config component](../explanation/components/config/index.md): the Store design and GTB integration
+- [How to React to Configuration Changes](config-hot-reload.md): production hot-reload

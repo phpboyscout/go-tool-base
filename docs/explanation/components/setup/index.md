@@ -85,16 +85,16 @@ func Initialise(ctx context.Context, props *props.Props, opts InitOptions) (stri
 - `Initialisers` - Additional `Initialiser` implementations to run
 - `Interactive` - Overrides terminal detection for the credential wizards
   (`*bool`; when `nil`, interactivity is detected from stdin). Non-interactive
-  runs skip the credential wizards and write only the base configuration —
+  runs skip the credential wizards and write only the base configuration,
   which is how the `--skip-*` flags take effect (the wizard providers return
   `nil` when their flag is set), not via deleted `InitOptions` fields.
 
 **Process Flow:**
 
 1.  **Directory Creation**: Creates the target directory (0755); the config file itself is written `0600`, since it may hold credentials.
-2.  **Template Materialisation**: Loads the init template — `assets/init/config.yaml` merged across every registered asset bundle — and writes it to the config file (existing values are merged over the template unless `Clean=true`), so there is a document to edit in place.
+2.  **Template Materialisation**: Loads the init template (`assets/init/config.yaml` merged across every registered asset bundle) and writes it to the config file (existing values are merged over the template unless `Clean=true`), so there is a document to edit in place.
 3.  **Registration**: Discovers registered Initialisers (including built-ins like GitHub and AI).
-4.  **Execution**: Opens a `setup.Editor` over the config file and runs each Initialiser that reports it is not yet configured. Each writes its keys through the Editor's transactional `Apply`, which edits the target document **in place** — comments survive and only the named keys change — so values land in the file as they happen. There is no separate final merge-and-write step.
+4.  **Execution**: Opens a `setup.Editor` over the config file and runs each Initialiser that reports it is not yet configured. Each writes its keys through the Editor's transactional `Apply`, which edits the target document **in place** (comments survive and only the named keys change) so values land in the file as they happen. There is no separate final merge-and-write step.
 
 ### Initialisers
 
@@ -141,7 +141,7 @@ Downloads and installs the target version:
 2. Handles multiple installation detection with user selection
 3. Downloads appropriate platform-specific release asset (.tar.gz)
 4. Extracts the binary in bounded chunks, aborting if the cumulative
-   decompressed size exceeds 1 GiB — a gzip bomb cannot expand without limit
+   decompressed size exceeds 1 GiB. A gzip bomb cannot expand without limit
    even when checksum/signature enforcement is off
 5. Sets the temporary file to `0o755` **before** the rename, so the installed
    binary is never observable in an intermediate execute-only state
@@ -185,13 +185,13 @@ Remote updates via `Update()` automatically verify the downloaded binary against
 **How it works:**
 
 1. After downloading the target binary, `Update()` looks for a `checksums.txt` asset in the same release.
-2. The manifest is downloaded (capped at `setup.DefaultMaxChecksumsSize`, 1 MiB, raisable per updater with `setup.WithMaxChecksumsSize`) and parsed line-by-line. A single malformed line rejects the whole manifest (`ErrChecksumManifestMalformed`), and a filename listed **more than once** rejects it too (`ErrChecksumManifestDuplicate`) — a duplicate is never silently resolved last-wins, since that would let a tampered manifest shadow the genuine hash with an attacker-chosen one.
+2. The manifest is downloaded (capped at `setup.DefaultMaxChecksumsSize`, 1 MiB, raisable per updater with `setup.WithMaxChecksumsSize`) and parsed line-by-line. A single malformed line rejects the whole manifest (`ErrChecksumManifestMalformed`), and a filename listed **more than once** rejects it too (`ErrChecksumManifestDuplicate`). A duplicate is never silently resolved last-wins, since that would let a tampered manifest shadow the genuine hash with an attacker-chosen one.
 3. The binary's SHA-256 is compared against the manifest entry in constant time.
 4. A mismatch aborts the update; a match logs `"checksum verified"` at INFO and proceeds to extraction.
 
 **Fail-open by default, fail-closed by opt-in:**
 
-The library defaults to fail-open — a release without `checksums.txt` logs a warning and proceeds, preserving backward compatibility with legacy releases. Tool authors who want fail-closed verification from day one set:
+The library defaults to fail-open: a release without `checksums.txt` logs a warning and proceeds, preserving backward compatibility with legacy releases. Tool authors who want fail-closed verification from day one set:
 
 ```go
 func main() {
@@ -212,13 +212,13 @@ Or via env var (respects the tool's env prefix): `MYTOOL_UPDATE_REQUIRE_CHECKSUM
 
 **Non-standard asset layouts:**
 
-Providers that don't publish `checksums.txt` as a release asset — notably the Direct HTTP provider and Bitbucket Downloads — opt in to the optional `release.ChecksumProvider` interface, retrieving the manifest via an alternate path (a URL template for Direct, an exact-name lookup in the downloads list for Bitbucket). The `Update()` flow prefers this interface when implemented and falls back to the asset-list scan otherwise.
+Providers that don't publish `checksums.txt` as a release asset (notably the Direct HTTP provider and Bitbucket Downloads) opt in to the optional `release.ChecksumProvider` interface, retrieving the manifest via an alternate path (a URL template for Direct, an exact-name lookup in the downloads list for Bitbucket). The `Update()` flow prefers this interface when implemented and falls back to the asset-list scan otherwise.
 
 See [Secure Releases How-To](../../../how-to/secure-releases.md) for the full setup and config story.
 
 #### Signature Verification (Phase 2)
 
-Phase 1 proves a download matches its manifest, but not that the manifest itself is authentic. Phase 2 adds OpenPGP signature verification of `checksums.txt` against a trust set whose anchor is diffused away from the VCS — an embedded key cross-checked against a Web Key Directory key. The verification primitives (`TrustSet`, the `KeyResolver` chain, `BuildKeyResolver`, the `DefaultRequireSignature` family) now live in the standalone [`gitlab.com/phpboyscout/go/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify) module; `SelfUpdater` consumes them, injecting an `*slog.Logger` and a hardened `*http.Client`. (`DefaultRequireChecksum` for Phase 1 stays in `pkg/setup`.) See [Signature Verification — Trust Anchors & Key Resolvers](signature-verification.md) for the minimum-strength policy and the pluggable `KeyResolver` chain (embedded, WKD, composite).
+Phase 1 proves a download matches its manifest, but not that the manifest itself is authentic. Phase 2 adds OpenPGP signature verification of `checksums.txt` against a trust set whose anchor is diffused away from the VCS: an embedded key cross-checked against a Web Key Directory key. The verification primitives (`TrustSet`, the `KeyResolver` chain, `BuildKeyResolver`, the `DefaultRequireSignature` family) now live in the standalone [`gitlab.com/phpboyscout/go/signing/verify`](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify) module; `SelfUpdater` consumes them, injecting an `*slog.Logger` and a hardened `*http.Client`. (`DefaultRequireChecksum` for Phase 1 stays in `pkg/setup`.) See [Signature Verification: Trust Anchors & Key Resolvers](signature-verification.md) for the minimum-strength policy and the pluggable `KeyResolver` chain (embedded, WKD, composite).
 
 #### Release Information
 ```go
@@ -257,7 +257,7 @@ The Setup package provides a comprehensive middleware system for wrapping CLI co
 - **Global & Feature Scopes**: Register middleware globally for all commands, or specifically for a feature.
 - **Built-ins**: Includes `WithTiming`, `WithRecovery` (panic protection), `WithAuthCheck` (config validation), and `WithTelemetry`.
 - **Thread-Safe Registry**: Secure registration during initialization with a "sealing" mechanism to prevent runtime modifications.
-- **Composed `Command` type**: Since v0.5, command constructors return `*setup.Command` (`{*cobra.Command, Feature props.FeatureID}`). Parents attach children via `cmd.Register(child...)`, which wraps each child's `RunE` exactly once with global and feature-specific middleware — no separate middleware-wiring call required. (The former `AddCommandWithMiddleware` helper was removed in v0.20.)
+- **Composed `Command` type**: Since v0.5, command constructors return `*setup.Command` (`{*cobra.Command, Feature props.FeatureID}`). Parents attach children via `cmd.Register(child...)`, which wraps each child's `RunE` exactly once with global and feature-specific middleware: no separate middleware-wiring call required. (The former `AddCommandWithMiddleware` helper was removed in v0.20.)
 
 ## Configuration Management
 
@@ -269,7 +269,7 @@ func GetDefaultConfigDir(fs afero.Fs, name string) string
 Resolves and returns the standard configuration directory path:
 
 - Linux/macOS: `~/.toolname/`
-- **Pure** — computes and returns the path only; it never creates the directory. Building the command tree (`--help`, completions, default flag values) resolves this path, so a hidden `MkdirAll` here would create `~/.toolname` as a side effect of merely running `--help`. Directory creation is deferred to the writers that actually persist a file under it (the init flow, the update-timestamp marker, and the config writers in `pkg/cmd/config`), each of which `MkdirAll`s its parent at write time.
+- **Pure**: computes and returns the path only; it never creates the directory. Building the command tree (`--help`, completions, default flag values) resolves this path, so a hidden `MkdirAll` here would create `~/.toolname` as a side effect of merely running `--help`. Directory creation is deferred to the writers that actually persist a file under it (the init flow, the update-timestamp marker, and the config writers in `pkg/cmd/config`), each of which `MkdirAll`s its parent at write time.
 - Returns empty string if the home directory is unavailable (callers must treat this as "no config dir" and skip the read/write rather than joining a relative path).
 - The `fs` parameter is retained for API compatibility and is unused.
 
@@ -355,7 +355,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
 
 ## Release Provider Registry
 
-`NewUpdater` resolves the `forge.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry in the external `gitlab.com/phpboyscout/go/forge` module. All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go` — no manual wiring is needed.
+`NewUpdater` resolves the `forge.Provider` from `props.Tool.ReleaseSource.Type` via the provider registry in the external `gitlab.com/phpboyscout/go/forge` module. All built-in providers are pre-registered by the blank imports in `pkg/setup/providers.go`. No manual wiring is needed.
 
 ### Supported source types
 
@@ -370,7 +370,7 @@ func checkForUpdates(ctx context.Context, cmd *cobra.Command, props *props.Props
 
 ### Provider-specific settings
 
-`props.ReleaseSource` carries connection identity only — `Type` and `Host` address
+`props.ReleaseSource` carries connection identity only, `Type` and `Host` address
 the forge, `Owner` and `Repo` name what to operate on. Everything a provider needs
 beyond that is configuration, read from a subtree named for the source type:
 
@@ -390,7 +390,7 @@ direct:
 GTB passes the factory a `forge.Endpoint` and the whole resolved configuration;
 `Endpoint.Section` scopes it to `<type>`, or `<type>.<name>` for a named source.
 That indirection is what lets two sources of one type coexist, each with its own
-settings — which a single struct field could not express.
+settings, which a single struct field could not express.
 
 See the [Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/) for the configuration keys each built-in provider reads.
 
@@ -430,32 +430,32 @@ The `gtb init ai` and `gtb init github` wizards now present a credential storage
 | OS keychain | `{provider}.api.keychain: service/account` | Only when the tool's `main` imports `gitlab.com/phpboyscout/go/credentials/keychain` (or registers a custom [`Backend`](https://credentials.go.phpboyscout.uk)) AND [`credentials.Probe`](https://pkg.go.dev/gitlab.com/phpboyscout/go/credentials#Probe) succeeds against that backend at wizard start. Phase 2. |
 | Literal | `{provider}.api.key: sk-...` / `github.auth.value: ghp_...` | Hidden entirely under `CI=true`; the wizard refuses to persist a plaintext credential into a config file that will almost certainly leak via CI artefacts or logs. |
 
-The AI wizard then prompts for an env var name (defaulting to the provider standard — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.
+The AI wizard then prompts for an env var name (defaulting to the provider standard, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`). The literal key is never written to disk in env-var mode.
 
 The GitHub wizard:
 
-1. **Short-circuits** when a credential is already configured at any resolution layer — env-var reference, literal config (including prefix-aware env via the store's `WithEnv` layer), keychain reference, or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run does not overwrite an existing mode with a fresh OAuth token.
+1. **Short-circuits** when a credential is already configured at any resolution layer: env-var reference, literal config (including prefix-aware env via the store's `WithEnv` layer), keychain reference, or the unprefixed `GITHUB_TOKEN` ecosystem fallback. Re-running `init` after a successful prior run does not overwrite an existing mode with a fresh OAuth token.
 2. **Refuses literal mode under `CI=true`** with a hint directing the user to the CI platform's secret-injection mechanism.
 3. **Presents the same three-mode selector as the AI wizard**, gated on CI (hides literal) and on `credentials.Probe` (hides keychain when no backend is reachable).
-4. **Env-var mode → OAuth + display-once.** The wizard prompts for an env var name (default `GITHUB_TOKEN`) then asks whether to run OAuth now. If yes, it captures a token via `gh auth login` (or the manual PAT entry fallback on headless hosts), displays the token once inside a protected note with instructions to `export GITHUB_TOKEN=<token>` in the shell profile, and waits for the user to acknowledge before continuing. Only the env-var reference is written to config — the token itself never hits disk.
+4. **Env-var mode → OAuth + display-once.** The wizard prompts for an env var name (default `GITHUB_TOKEN`) then asks whether to run OAuth now. If yes, it captures a token via `gh auth login` (or the manual PAT entry fallback on headless hosts), displays the token once inside a protected note with instructions to `export GITHUB_TOKEN=<token>` in the shell profile, and waits for the user to acknowledge before continuing. Only the env-var reference is written to config, the token itself never hits disk.
 5. **Keychain mode → Store + ref.** Runs OAuth (or manual fallback) to capture a token, writes it via `credentials.Store(ctx, <toolname>, "github.auth", token)`, and records `github.auth.keychain: <toolname>/github.auth` in the config. No plaintext on disk.
 6. **Literal mode → legacy write.** Runs OAuth (or manual fallback) and writes the captured token to `github.auth.value`. Refused under CI.
-7. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser — common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted via the mode chosen in step 3.
+7. **Falls back to manual token entry** when the OAuth device flow cannot launch a browser: common on dev servers, containers, and SSH-only hosts. The wizard prints a personal-access-token creation URL with the required scopes (`repo,read:org,gist`) pre-populated and reads the pasted token via a hidden input. The captured token is persisted via the mode chosen in step 3.
 
-    The guidance takes one of three shapes, depending on what the forge's profile knows. With a host and a URL template it prints the resolved link and the scope list. With a host but no template it names the host in a generic message. **With no host at all** — a forge that is always self-hosted has no default to print — it names the forge and lists the scopes without a link, rather than rendering one that cannot be visited.
+    The guidance takes one of three shapes, depending on what the forge's profile knows. With a host and a URL template it prints the resolved link and the scope list. With a host but no template it names the host in a generic message. **With no host at all** (a forge that is always self-hosted has no default to print) it names the forge and lists the scopes without a link, rather than rendering one that cannot be visited.
 
 The Bitbucket wizard (`init bitbucket`) mirrors the same three modes but handles Bitbucket's dual-credential model natively:
 
-- **Env-var mode** prompts for two env var names (defaults `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`) and writes both references — `bitbucket.username.env` and `bitbucket.app_password.env`.
+- **Env-var mode** prompts for two env var names (defaults `BITBUCKET_USERNAME`, `BITBUCKET_APP_PASSWORD`) and writes both references: `bitbucket.username.env` and `bitbucket.app_password.env`.
 - **Keychain mode** collects the username and app password in one form (app password input uses a hidden echo mode), serialises the pair as `{"username": "...", "app_password": "..."}`, and stores it under a single `bitbucket.keychain` entry via the registered backend.
 - **Literal mode** collects both fields and writes them as plaintext (`bitbucket.username`, `bitbucket.app_password`). Refused under CI.
 
 Related surfaces that rely on the same taxonomy:
 
-- **`pkg/chat`** — `resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Credentials — per-subsystem resolution cascades](../credentials.md#per-subsystem-resolution-cascades-gtb-owned).
-- **`go/forge-bitbucket`** (external module) — the dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals. GTB adapts its config subtree via `SettingsFromConfig`.
-- **`pkg/cmd/doctor`** — the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
-- **`pkg/cmd/config`** — the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
+- **`pkg/chat`** (`resolveAPIKey` honours `{provider}.api.env` before `{provider}.api.key` before the unprefixed ecosystem env. See [Credentials) per-subsystem resolution cascades](../credentials.md#per-subsystem-resolution-cascades-gtb-owned).
+- **`go/forge-bitbucket`** (external module): the dual-credential resolver (`username` + `app_password`) walks the full chain per field: `bitbucket.<field>.env` → shared `bitbucket.keychain` JSON blob (`{"username": ..., "app_password": ...}`) → literal `bitbucket.<field>` → well-known `BITBUCKET_<FIELD>` env. Corrupt or incomplete keychain blobs abort resolution rather than silently falling back to stale literals. GTB adapts its config subtree via `SettingsFromConfig`.
+- **`pkg/cmd/doctor`**: the `credentials.no-literal` check warns when any literal credential remains in config, with a migration hint.
+- **`pkg/cmd/config`**: the sensitive masker now matches mid-path segments so `github.auth.value`, `bitbucket.username`, and `bitbucket.app_password` are rendered as `****<tail>` in `config list` / `config get`.
 
 See the end-user guide at [How to configure credentials](../../../how-to/configure-credentials.md) for practical examples, the [Custom credential backend how-to](../../../how-to/custom-credential-backend.md) for implementing a `Backend` against Vault, AWS SSM, or any other secret store, and the [Credential Storage Hardening spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) for the full design.
 
@@ -486,8 +486,8 @@ See the end-user guide at [How to configure credentials](../../../how-to/configu
 
 ## In this section
 
-- **[Command Constructors & Tree](command-tree.md)** — the `NewCmd*` pattern and building the command tree
-- **[Root Command](root-command.md)** — root architecture, `PersistentPreRunE`, signal handling
-- **[Command Middleware](middleware.md)** — chain semantics and execution order
-- **[Initialisers](initialisers.md)** — modular, self-registering feature configuration
-- **[Signature Verification](signature-verification.md)** — interpreting verifier log output
+- **[Command Constructors & Tree](command-tree.md)**: the `NewCmd*` pattern and building the command tree
+- **[Root Command](root-command.md)**: root architecture, `PersistentPreRunE`, signal handling
+- **[Command Middleware](middleware.md)**: chain semantics and execution order
+- **[Initialisers](initialisers.md)**: modular, self-registering feature configuration
+- **[Signature Verification](signature-verification.md)**: interpreting verifier log output

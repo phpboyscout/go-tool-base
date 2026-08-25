@@ -1,6 +1,6 @@
 ---
 title: Error Handling
-description: go-tool-base's integration of the standalone go/errorhandling module — the Execute wrapper, signal-aware exits, help-channel implementations, and the generated command patterns.
+description: go-tool-base's integration of the standalone go/errorhandling module: the Execute wrapper, signal-aware exits, help-channel implementations, and the generated command patterns.
 date: 2026-07-18
 tags: [components, error-handling, errors, logging]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -10,9 +10,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The error-reporting layer has been **extracted into the standalone
 [`gitlab.com/phpboyscout/go/errorhandling`](https://gitlab.com/phpboyscout/go/errorhandling)
-module**. Its full documentation — the `ErrorHandler` interface, hints, exit codes
+module**. Its full documentation, the `ErrorHandler` interface, hints, exit codes
 carried on the error value, `LevelFatalQuiet`, debug-gated stack traces, assertion
-failures, the sentinels, and `HelpConfig` — now lives at:
+failures, the sentinels, and `HelpConfig`. Now lives at:
 
 > **[errorhandling.go.phpboyscout.uk](https://errorhandling.go.phpboyscout.uk)**
 
@@ -23,7 +23,7 @@ the import-path change and the `Check` signature change.
 GTB imports the module directly (no adapter package). This page documents only what
 **GTB layers on top**.
 
-## The `Execute` wrapper — one funnel for every error
+## The `Execute` wrapper: one funnel for every error
 
 GTB's commands use Cobra's `RunE` and return errors idiomatically. A single wrapper in
 `pkg/cmd/root` is where they all land:
@@ -37,7 +37,7 @@ func main() {
 
 `Execute` does four things the module cannot do for you:
 
-1. Sets `SilenceErrors` and `SilenceUsage` so **Cobra never prints errors itself** — all
+1. Sets `SilenceErrors` and `SilenceUsage` so **Cobra never prints errors itself**, all
    output comes from the structured logger.
 2. Adds a `--help` hint to flag-parse errors via `SetFlagErrorFunc`.
 3. Runs the command tree under a **signal-aware context** (see below).
@@ -51,20 +51,20 @@ reported the same way, and there is exactly one place in the process that exits.
 `Execute` runs the command tree under a context cancelled by `SIGINT`/`SIGTERM`. The
 first signal cancels gracefully; a **second forces an immediate exit** so a hung cleanup
 cannot trap the user. The run exits `128+signum` (130 for SIGINT, 143 for SIGTERM)
-through the module's `LevelFatalQuiet` path — the correct code, logged at debug rather
+through the module's `LevelFatalQuiet` path, the correct code, logged at debug rather
 than as an error, because an interrupt is a deliberate choice, not a failure.
 
 !!! warning "Flush before the fatal call, not in a `defer`"
     `Check(..., LevelFatal)` exits the process, so **deferred cleanup in the calling
     frames never runs**. GTB's telemetry flush is therefore `sync.Once`-guarded and
     invoked *explicitly* before the fatal call, with its own bounded background context
-    — a cancelled context would abort the flush itself. Any pre-exit work you add must
+. A cancelled context would abort the flush itself. Any pre-exit work you add must
     follow the same pattern.
 
 ## Help channels
 
 The module defines the `HelpConfig` interface and deliberately ships no
-implementations — where a team's support channel lives is a framework concern, not an
+implementations: where a team's support channel lives is a framework concern, not an
 error library's. GTB provides the two common ones in `pkg/props`:
 
 ```go
@@ -88,7 +88,7 @@ RunE: func(cmd *cobra.Command, args []string) error {
 ```
 
 - **Return errors; don't report them in place.** `Execute` reports. A `Fatal` buried in
-  business logic skips deferred cleanup — see the module's
+  business logic skips deferred cleanup. See the module's
   [reporting model](https://errorhandling.go.phpboyscout.uk/explanation/reporting-model/).
 - **`SetUsage` is set per command.** Generated commands call
   `props.ErrorHandler.SetUsage(cmd.Usage)` in their `PreRunE`, so a parent command that

@@ -28,7 +28,7 @@ type Initialiser interface {
 ```
 
 `Configure` receives the caller's (command) context. It deliberately carries
-no deadline of its own: interactive stages — forms, OAuth device flows — run
+no deadline of its own: interactive stages (forms, OAuth device flows) run
 at human pace, and cancelling the context (Ctrl-C) aborts any in-flight
 network or keychain call. Implementations must derive short per-operation
 deadlines (`credentials.KeychainOpTimeout`) at each backend call site rather
@@ -40,7 +40,7 @@ that killed OAuth logins before the 2026-07-23 context-scoping fix (spec
 `View()` returns a pinned `*config.View` whose reads resolve the target file
 over the tool's embedded defaults, `Set(key, value)` writes one key, and
 `Apply(changes...)` stages several `config.Change`s as one transactional
-write — all through the store's `Apply`, editing the target document in place
+write: all through the store's `Apply`, editing the target document in place
 so template comments survive the wizards. Credential wizards commit a
 storage-mode switch through `setup.WriteExclusive`, which sets the winning
 keys and removes every stale sibling in a single batch (the
@@ -55,7 +55,7 @@ single-credential-key invariant).
 
 1.  **Idempotency**: `IsConfigured` must be robust. It is called every time `init` is run. If it returns `false` incorrectly, the user will be prompted unnecessarily.
 2.  **Configuration Isolation**: While the `setup.Editor` can write any key, an initialiser should ideally only modify keys relevant to its feature domain (e.g., `github.*` or `ai.*`).
-3.  **Error Handling**: An error returned from `Configure` is logged as a warning ("configuration skipped") and the run continues with the next initialiser — the base config is still written. Return errors with explanatory context so that warning is actionable.
+3.  **Error Handling**: An error returned from `Configure` is logged as a warning ("configuration skipped") and the run continues with the next initialiser. The base config is still written. Return errors with explanatory context so that warning is actionable.
 
 ## Registration Lifecycle
 
@@ -91,34 +91,34 @@ func Register(
 
 The forge initialiser is a single, provider-parameterised initialiser driven by a `Profile`. Every forge adapter the framework registers has one, so a registered provider always has a way to configure it. `NewGitHubInitialiser` runs the GitHub profile; `NewBitbucketInitialiser` runs the Bitbucket profile; the remaining single-token forges are constructed generically from their profile.
 
-The interactive login and SSH-key upload are performed against the **configured forge provider** via the optional `forge.Authenticator` and `forge.KeyManager` capabilities — type-asserted on the registered provider. A provider that does not implement a capability returns `forge.ErrNotSupported`, which the wizard treats as "skip the automated step and tell the user to do it manually" rather than a hard failure.
+The interactive login and SSH-key upload are performed against the **configured forge provider** via the optional `forge.Authenticator` and `forge.KeyManager` capabilities: type-asserted on the registered provider. A provider that does not implement a capability returns `forge.ErrNotSupported`, which the wizard treats as "skip the automated step and tell the user to do it manually" rather than a hard failure.
 
 | Forge | Credentials | Login | SSH upload | Default host |
 | :--- | :--- | :--- | :--- | :--- |
 | GitHub | single token | OAuth device flow | yes | `github.com` |
 | GitLab | single token | OAuth device flow | yes | `gitlab.com` |
-| Gitea | single token | **none** — manual token only | yes | **none** — self-hosted |
-| Codeberg | single token | **none** — manual token only | yes | `codeberg.org` |
+| Gitea | single token | **none** (manual token only | yes | **none**) self-hosted |
+| Codeberg | single token | **none**: manual token only | yes | `codeberg.org` |
 | Bitbucket | `username` + `app_password` | none | yes | `bitbucket.org` |
 
-Gitea's "none" is an upstream fact rather than a framework choice: its adapter does not implement `Authenticator` — it is personal-access-token only by design — so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry. Codeberg inherits that fact rather than restating it: one `forge-gitea` provider serves both source types, so its capability claims must match Gitea's exactly.
+Gitea's "none" is an upstream fact rather than a framework choice: its adapter does not implement `Authenticator` (it is personal-access-token only by design) so its profile sets `OffersLogin: false` and the wizard goes straight to manual entry. Codeberg inherits that fact rather than restating it: one `forge-gitea` provider serves both source types, so its capability claims must match Gitea's exactly.
 
 **Codeberg is its own feature, not a Gitea variant.** It resolves from a `codeberg.*` config section of its own, which is the whole reason it waited on `forge-gitea` v0.7.0: while both source types shared Gitea's section, a token stored for either forge was stored for both, and `gitea.url.api` would redirect a Codeberg lookup at somebody's self-hosted instance. `TestSingleTokenProfilesHaveDistinctConfigPrefixes` is what holds that separation in place.
 
-**SSH is a capability, not a credential shape.** `OffersSSH` means "this forge can accept an SSH key", and the stage runs from the shared dispatch for either shape. Bitbucket's adapter has always implemented `KeyManager`; GTB simply could not reach it, because the call sat inside the single-token flow. The stage itself was already shape-agnostic — it takes a `Profile` and nothing else — so this was a gate to remove rather than a flow to build.
+**SSH is a capability, not a credential shape.** `OffersSSH` means "this forge can accept an SSH key", and the stage runs from the shared dispatch for either shape. Bitbucket's adapter has always implemented `KeyManager`; GTB simply could not reach it, because the call sat inside the single-token flow. The stage itself was already shape-agnostic (it takes a `Profile` and nothing else) so this was a gate to remove rather than a flow to build.
 
 The stage runs **after** credential capture, on every profile. That ordering is load-bearing for a dual-credential forge: Bitbucket's `UploadKey` is authorised by the username and app password, so an upload attempted before capture could not succeed. `--skip-key` suppresses the stage for any profile that offers SSH.
 
-When a provider cannot upload, the wizard does not ask. The key manager is resolved before the confirm prompt, so a forge without `KeyManager` skips straight to the add-it-manually note rather than being asked a question whose answer is then overruled. The key is still generated, saved and recorded in `<forge>.ssh.key.path` — that part stands on its own.
+When a provider cannot upload, the wizard does not ask. The key manager is resolved before the confirm prompt, so a forge without `KeyManager` skips straight to the add-it-manually note rather than being asked a question whose answer is then overruled. The key is still generated, saved and recorded in `<forge>.ssh.key.path`, that part stands on its own.
 
-Gitea is also the only profile with no default host, because there is no public Gitea instance the way there is a `github.com`. That makes the token-creation guidance host-free rather than interpolating an empty string into a URL. Codeberg, sharing the adapter but not that property, does carry one — there is exactly one `codeberg.org`.
+Gitea is also the only profile with no default host, because there is no public Gitea instance the way there is a `github.com`. That makes the token-creation guidance host-free rather than interpolating an empty string into a URL. Codeberg, sharing the adapter but not that property, does carry one. There is exactly one `codeberg.org`.
 
 !!! note "Shipped OAuth client IDs"
-    A profile may ship a client ID for its device-flow login, paired with the host that ID is registered against. GitLab ships one for `gitlab.com`. It is applied **only** when the resolved API host matches and the user's config names no client ID of its own — so a self-hosted instance still degrades to manual token entry instead of failing as an invalid client, and the provider's own environment-variable fallback stays live. Shipping the ID in the embedded config bundle instead would be simpler and would break both of those properties.
+    A profile may ship a client ID for its device-flow login, paired with the host that ID is registered against. GitLab ships one for `gitlab.com`. It is applied **only** when the resolved API host matches and the user's config names no client ID of its own, so a self-hosted instance still degrades to manual token entry instead of failing as an invalid client, and the provider's own environment-variable fallback stays live. Shipping the ID in the embedded config bundle instead would be simpler and would break both of those properties.
 
-**Adding a forge** means three things: a blank import of its adapter module, a `Profile`, and an embedded config bundle. Everything that enumerates forges — the feature registry, the doctor support bundle, the project generator's backend chooser — derives from those.
+**Adding a forge** means three things: a blank import of its adapter module, a `Profile`, and an embedded config bundle. Everything that enumerates forges (the feature registry, the doctor support bundle, the project generator's backend chooser) derives from those.
 
-A fourth is needed to make it *scaffoldable*: an entry in the generator's feature catalogue (`internal/generator/templates/feature_catalogue.go`), carrying the constant's declaring package as well as its name. Forge constants live in `pkg/setup/forge`, not `props`, so the emitter qualifies each one against the package recorded in its descriptor — hard-coding `props` is what previously made a selected forge vanish between the manifest and the generated root. A guard test holds the catalogue against the registry, so a new forge fails the build until it is listed.
+A fourth is needed to make it *scaffoldable*: an entry in the generator's feature catalogue (`internal/generator/templates/feature_catalogue.go`), carrying the constant's declaring package as well as its name. Forge constants live in `pkg/setup/forge`, not `props`, so the emitter qualifies each one against the package recorded in its descriptor: hard-coding `props` is what previously made a selected forge vanish between the manifest and the generated root. A guard test holds the catalogue against the registry, so a new forge fails the build until it is listed.
 
 Selecting one at generation time is then `gtb generate project --features …,gitlab`, which emits `props.Enable(forge.GitlabFeature)` into the generated root and survives `gtb regenerate project`. Because `--features` replaces the default set rather than extending it, a forge has to be named alongside the built-ins the tool should keep. See the [generate reference](../../../reference/cli/generate.md#features).
 
@@ -243,7 +243,7 @@ graph TD
 1. When you run `mytool init`, the framework fetches all registered items from the **Global Setup Registry**.
 2. It filters these items based on `props.Tool.IsEnabled(feature)`.
 3. It dynamically attaches any registered **Flags** to the `init` command.
-4. Before any initialiser runs, it materialises the config file from the init template (`assets/init/config.yaml`, merged across every registered bundle) — seeding it when absent, or merging new template keys under an existing file.
+4. Before any initialiser runs, it materialises the config file from the init template (`assets/init/config.yaml`, merged across every registered bundle): seeding it when absent, or merging new template keys under an existing file.
 5. During execution, it iterates through the **Initialisers**. If `IsConfigured()` returns false (and the feature isn't explicitly skipped via a flag), it calls `Configure()`; each `Set` is applied to the file in place as it happens, preserving the template's comments.
 
 ---

@@ -42,7 +42,7 @@ Global Flags:
 
 Generates a new project structure from scratch.
 
-**Help (`generate project --help`, core flags — the full set is in the
+**Help (`generate project --help`, core flags, the full set is in the
 [generate reference](../../../../reference/cli/generate.md)):**
 
 ```text
@@ -73,12 +73,12 @@ The `--features` flag controls which subsystems and side-effect activations appe
 | `docs` | on | built-in docs browser |
 | `doctor` | on | `doctor` subsystem |
 | `changelog` | on | changelog subsystem |
-| `keychain` | on | `cmd/<name>/keychain.go` blank-importing `go/credentials/keychain` — activates the OS keychain backend by default. Delete the scaffolded file for a regulated build (no go-keyring / godbus / wincred linked). See [How to configure credentials](../../../../how-to/configure-credentials.md) and [How to implement a custom credential backend](../../../../how-to/custom-credential-backend.md). |
+| `keychain` | on | `cmd/<name>/keychain.go` blank-importing `go/credentials/keychain`: activates the OS keychain backend by default. Delete the scaffolded file for a regulated build (no go-keyring / godbus / wincred linked). See [How to configure credentials](../../../../how-to/configure-credentials.md) and [How to implement a custom credential backend](../../../../how-to/custom-credential-backend.md). |
 | `ai` | off (opt-in) | AI chat subsystem |
 | `config` | off (opt-in) | `config` subsystem with get/set/list |
 | `telemetry` | off (opt-in) | telemetry subsystem |
 
-Example — generate a regulated build with no keychain code linked:
+Example: generate a regulated build with no keychain code linked:
 
 ```bash
 gtb generate project -n mytool -r myorg/mytool \
@@ -102,11 +102,11 @@ Behaviour details:
 
 - **Already a repo.** If the destination is already inside a git repository
   (discovery walks upward for an enclosing `.git`), the whole step is skipped
-  with an info log — the scaffold is never committed into someone else's tree,
+  with an info log. The scaffold is never committed into someone else's tree,
   and a subdirectory of an existing repo is treated as already-a-repo.
 - **Staging.** The tree is staged honouring the generated `.gitignore`, so build
   artefacts are excluded while the `.gitignore` itself is committed.
-- **Commit message.** `chore: scaffold <tool> with gtb` — the non-releasing
+- **Commit message.** `chore: scaffold <tool> with gtb`: the non-releasing
   `chore:` type means the empty scaffold does not make releaser-pleaser cut a
   release.
 - **Author identity.** Resolved in order: host git config (`user.name` /
@@ -117,20 +117,20 @@ Behaviour details:
 - **Push target.** Derived from the release source as
   `https://{host}/{owner}/{repo}.git` (GitLab nested group paths are preserved),
   using `pkg/vcs/repo`'s provider-aware auth. **Creating the remote on the forge
-  is out of scope** — the push assumes the remote exists.
+  is out of scope**. The push assumes the remote exists.
 - **Best-effort.** Every git action is non-fatal: any failure (init, commit,
   missing remote, auth, network) logs a warning and generation still succeeds.
   A failed push prints the manual `git push -u origin <branch>` to run once the
   remote exists.
-- **Conflicting flags.** `--no-git` with `--push` is rejected — push has no
+- **Conflicting flags.** `--no-git` with `--push` is rejected: push has no
   commit to publish without the git step.
 - **Dry-run.** `--dry-run` performs no git actions; the would-be init/commit
   (and push under `--push`) is listed under "Post-generation actions".
-- **`regenerate` / `remove`** never init, stage, commit, or push — the git step
+- **`regenerate` / `remove`** never init, stage, commit, or push: the git step
   is exclusive to initial scaffolding via `generate project`.
 
 The step is built on the `pkg/vcs/repo` `Initializer` primitives
-(`DiscoverRepository`, `InitLocal`, `AddAll`) plus `CreateRemote` / `Push` — see
+(`DiscoverRepository`, `InitLocal`, `AddAll`) plus `CreateRemote` / `Push`. See
 [vcs/repo](../../vcs/repo.md).
 
 ```bash
@@ -147,14 +147,14 @@ gtb generate project -n mytool -r myorg/mytool --push
 #### Self-update policy
 
 The `--update-policy` flag (interactive: the **Self-Update Policy** wizard step)
-sets the generated tool's `props.Tool.UpdatePolicy` baseline — how it behaves
+sets the generated tool's `props.Tool.UpdatePolicy` baseline, how it behaves
 when a newer release is found. The value is persisted to the manifest so
 `gtb regenerate` preserves it, and end users can override it at runtime via the
 `update.policy` config key.
 
 | `--update-policy` | Emitted `props.Tool.UpdatePolicy` | Behaviour when a newer release exists |
 |-------------------|-----------------------------------|----------------------------------------|
-| `disabled` / *(empty)* | *(field omitted — framework default)* | Logs that an update is available, then continues the command. |
+| `disabled` / *(empty)* | *(field omitted, framework default)* | Logs that an update is available, then continues the command. |
 | `prompt` | `props.UpdatePolicyPrompt` | Prompts the user to update; declining continues the command. |
 | `enabled` | `props.UpdatePolicyEnabled` | Blocks every command until the tool is updated. |
 
@@ -166,7 +166,7 @@ for the full resolution order.
 
 The `--update-check-interval` flag (interactive: the **Update Check Interval**
 wizard step) sets the generated tool's `props.Tool.UpdateCheckInterval` baseline
-— how often it checks for a newer release, as a [Go duration](https://pkg.go.dev/time#ParseDuration)
+: how often it checks for a newer release, as a [Go duration](https://pkg.go.dev/time#ParseDuration)
 (e.g. `24h`, `168h`, `30m`). Like the policy, it is persisted to the manifest
 (`update_check_interval`) so `gtb regenerate` preserves it, rendered into the
 `props.Tool` literal as a `time.Duration` expression (`168 * time.Hour`), and
@@ -174,9 +174,9 @@ overridable at runtime via the `update.check_interval` config key.
 
 | `--update-check-interval` | Emitted `props.Tool.UpdateCheckInterval` | Effect |
 |---------------------------|------------------------------------------|--------|
-| *(empty)* | *(field omitted — framework default)* | Checks at most once every 24h. |
+| *(empty)* | *(field omitted, framework default)* | Checks at most once every 24h. |
 | `168h` | `168 * time.Hour` | Checks at most once a week. |
-| `0`/`0s` | *(field omitted)* | A zero baseline is treated as "unset" → 24h. To check on **every** invocation, set `update.check_interval: "0"` in config at runtime — a compiled-in "every run" baseline is intentionally not offered. |
+| `0`/`0s` | *(field omitted)* | A zero baseline is treated as "unset" → 24h. To check on **every** invocation, set `update.check_interval: "0"` in config at runtime: a compiled-in "every run" baseline is intentionally not offered. |
 
 Resolution precedence at runtime: a valid `update.check_interval` config value
 (where `0` means "every run") → the `props.Tool.UpdateCheckInterval` baseline (if
@@ -261,10 +261,10 @@ Injects a new flag into an existing command file.
 
 **Targeting nested subcommands.** `-c/--command` accepts a **slash-delimited
 command path** (`parent/child/leaf`). To add a flag to a nested subcommand,
-pass the full path — a leaf name alone resolves only a top-level command, and
+pass the full path. A leaf name alone resolves only a top-level command, and
 neither a space-joined (`"reel create now"`) nor a dotted (`reel.now`) form is
 accepted. `-p/--path` is the **filesystem project root** (which project's
-`.gtb/manifest.yaml` to edit), **not** a command path — a common source of
+`.gtb/manifest.yaml` to edit), **not** a command path, a common source of
 confusion. When `-c` does not resolve, the error now hints at the slash-path
 form (e.g. `did you mean -c parent/<name>?`).
 
@@ -323,8 +323,8 @@ of corrupting `.gtb/manifest.yaml`.
 
 Generates documentation for a command. **AI doc-generation is opt-in:** it runs
 only when an AI provider is explicitly configured (via `--provider` or the
-`ai.provider` config key) and `--agentless` is not set. Otherwise — and this is
-the default — GTB writes deterministic **boilerplate** documentation from the
+`ai.provider` config key) and `--agentless` is not set. Otherwise, and this is
+the default. GTB writes deterministic **boilerplate** documentation from the
 manifest with **no API call**. A configured-but-failing AI call (e.g. no API
 credit) degrades quietly to the same boilerplate rather than erroring loudly.
 The same gate governs the docs step of `generate command`, so scaffolding a new

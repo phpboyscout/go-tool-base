@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 `gtb sign` produces an armored OpenPGP detached signature over a
 single file using the same backend abstraction `gtb keys mint`
-uses. In CI, that's typically AWS KMS via OIDC — no operator ever
+uses. In CI, that's typically AWS KMS via OIDC, no operator ever
 holds the signing-key secret, no `gpg` install needed on the
 runner.
 
@@ -21,10 +21,10 @@ plus the CI integration with OIDC) and the verification path
 ## Prerequisites
 
 - `gtb` ≥ the version that ships [Spec 2026-06-09-sign-command](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command).
-- The public-key file (`release.asc`) corresponding to the signing key, **already published** — embedded in `internal/trustkeys/keys/` and served via WKD per [How-to: publish via WKD](publish-wkd.md). `gtb sign` reads identity (creation time, UID) from this file.
+- The public-key file (`release.asc`) corresponding to the signing key, **already published**: embedded in `internal/trustkeys/keys/` and served via WKD per [How-to: publish via WKD](publish-wkd.md). `gtb sign` reads identity (creation time, UID) from this file.
 - For the `aws-kms` backend: AWS credentials in the standard SDK chain. In local terminal that means `aws login` + `aws configure export-credentials --format env`; in CI it means an OIDC assume-role step (see below).
 
-## One file, one sig — local invocation
+## One file, one sig: local invocation
 
 ```sh
 gtb sign \
@@ -57,7 +57,7 @@ clobbering the input.
 
 Add `--created <rfc3339>` to pin the signature's creation timestamp.
 Two re-runs of `gtb sign` over the same content with the same key
-and the same `--created` produce **byte-identical** `.sig` files —
+and the same `--created` produce **byte-identical** `.sig` files:
 useful when you want to reproduce-from-scratch a previous release's
 artefacts in a SLSA-style chain.
 
@@ -87,14 +87,14 @@ gtb sign \
     checksums.txt
 ```
 
-`local` accepts PKCS#1 and PKCS#8 PEM private keys (unencrypted —
-the local backend does not decrypt encrypted PEMs; protect the key
+`local` accepts PKCS#1 and PKCS#8 PEM private keys (unencrypted.
+The local backend does not decrypt encrypted PEMs; protect the key
 file with filesystem-level encryption like LUKS or `age`, or use
 the `aws-kms` backend so the key never leaves the HSM).
 
 ## Verify
 
-`gtb sign` produces what `gpg --verify` consumes — and what the
+`gtb sign` produces what `gpg --verify` consumes, and what the
 in-tool verifier (`TrustSet.VerifyManifestSignature`, now in the
 `gitlab.com/phpboyscout/go/signing/verify` module that gtb consumes)
 checks during a self-update.
@@ -119,7 +119,7 @@ The setup is split into two layers:
    - An IAM signer role with `kms:Sign` + `kms:GetPublicKey` on the
      release key only.
    - A trust policy pinning the role to
-     `project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*` —
+     `project_path:phpboyscout/go-tool-base:ref_type:tag:ref:v*`:
      only **tag pipelines** on the specific project may assume it.
      MR/branch pipelines and non-`v*` tags fail the OIDC subject filter.
 
@@ -153,7 +153,7 @@ The setup is split into two layers:
    `scripts/sign-release.sh checksums.txt checksums.txt.sig`
    which is a thin wrapper around `gtb sign --backend aws-kms`. The
    AWS env vars set by the `before_script` are picked up by the
-   AWS SDK's default credential chain — `gtb sign` itself knows
+   AWS SDK's default credential chain, `gtb sign` itself knows
    nothing about OIDC, which keeps it portable across CI platforms.
 
 ## Cross-tool compatibility
@@ -201,11 +201,11 @@ See the Phase 2 prep doc for the full rotation runbook.
 ## Related
 
 - [Spec: gtb sign](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command)
-  — design decisions, RFC details, threat model.
+, design decisions, RFC details, threat model.
 - [`openpgpkey`](../explanation/components/openpgpkey.md)
-  — the `DetachSign` library function the CLI wraps (now the standalone
+: the `DetachSign` library function the CLI wraps (now the standalone
   `gitlab.com/phpboyscout/go/signing/openpgpkey` module).
-- [How-to: publish via WKD](publish-wkd.md) — the matching
+- [How-to: publish via WKD](publish-wkd.md): the matching
   trust-anchor publication step.
-- [How-to: add a signing backend](add-signing-backend.md) — for
+- [How-to: add a signing backend](add-signing-backend.md): for
   consumers who want GCP KMS, Vault, YubiKey, etc.

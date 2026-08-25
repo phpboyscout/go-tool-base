@@ -1,36 +1,36 @@
 ---
-title: "Implementation notes — Flag-to-config binding"
+title: "Implementation notes, Flag-to-config binding"
 description: "What shipped for the flag-to-config-binding spec, deviations, and open questions for review."
 date: 2026-06-13
 tags: [implementation-notes, config, cmd, flags]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---
 
-# Implementation notes — Flag-to-config binding
+# Implementation notes: Flag-to-config binding
 
 Spec: [`0076-flag-to-config-binding`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0076-flag-to-config-binding) (status: IMPLEMENTED).
 
 ## What was implemented
 
-### D1 — `WithBoundFlags` + convention helper (`pkg/cmd/root/options.go`)
+### D1: `WithBoundFlags` + convention helper (`pkg/cmd/root/options.go`)
 
 - New `RootOption` functional-option type and an extensible constructor
   `NewCmdRootWithOptions(props, opts ...RootOption)`. The existing
   `NewCmdRoot` and `NewCmdRootWithConfig` are now thin wrappers over it, so all
   existing call sites and the generator's AST injection into `NewCmdRoot` are
   unchanged.
-- `WithBoundFlags(map[string]*pflag.Flag)` — explicit config-key → flag map.
-- `WithConventionBoundFlags(*pflag.FlagSet)` — derives keys from flag names via
+- `WithBoundFlags(map[string]*pflag.Flag)`: explicit config-key → flag map.
+- `WithConventionBoundFlags(*pflag.FlagSet)`: derives keys from flag names via
   the hyphen-to-dot convention.
-- `ConventionKey(name)` — exported `strings.ReplaceAll(name, "-", ".")` so
+- `ConventionKey(name)`: exported `strings.ReplaceAll(name, "-", ".")` so
   downstreams can compute the same keys.
 - `WithSubcommands` and `WithConfigPaths` were added so the wrapper constructors
   compose cleanly through options.
 - Both flag options register the supplied flags onto the root command's
   persistent flag set (so cobra parses them) in addition to recording them for
-  binding. This is the key ergonomic decision — see deviations below.
+  binding. This is the key ergonomic decision. See deviations below.
 
-### D2 — Bind during config load, changed flags only (`pkg/cmd/root/root.go`)
+### D2: Bind during config load, changed flags only (`pkg/cmd/root/root.go`)
 
 - Binding happens in `newRootPreRunE`, immediately after `props.Config = cfg`
   (i.e. after the file + env layers are established) via the new
@@ -40,7 +40,7 @@ Spec: [`0076-flag-to-config-binding`](https://gitlab.com/phpboyscout/go-tool-bas
   clobbers config. Bind errors are logged at debug and skipped (one bad flag
   never aborts startup).
 
-### D3 — Built-ins folded through the same path
+### D3: Built-ins folded through the same path
 
 - `--ci` and `--debug` are bound to config keys `ci` / `debug` through the same
   `bindChangedFlags` path (`builtinBoundFlags`). `Config.GetBool("ci")` now
@@ -49,7 +49,7 @@ Spec: [`0076-flag-to-config-binding`](https://gitlab.com/phpboyscout/go-tool-bas
   still reads `flags.Debug` from `extractFlags` independently of binding. Only
   config-visibility changed, exactly as the spec required.
 
-### D4 — Docs reconciled
+### D4: Docs reconciled
 
 - `docs/concepts/config.md` previously listed **env > .env > flags > files**.
   Corrected to the canonical **flags > env > file > embedded > defaults**, with
@@ -60,7 +60,7 @@ Spec: [`0076-flag-to-config-binding`](https://gitlab.com/phpboyscout/go-tool-bas
 - New how-to: `docs/how-to/bind-flags-to-config.md` (linked from
   `docs/how-to/index.md`).
 
-### D5 — Per-command binding
+### D5: Per-command binding
 
 - `bindCommandFlags` binds the dispatched command's **local** flags
   (`cmd.LocalFlags()`) by the hyphen-to-dot convention, filtered by `Changed`.
@@ -107,7 +107,7 @@ Spec: [`0076-flag-to-config-binding`](https://gitlab.com/phpboyscout/go-tool-bas
   packages (`pkg/cmd/root`, `pkg/config`, `mocks/pkg/config`) reports **0 issues**.
 - NOTE: a full-module `just lint` fails on **pre-existing** wsl_v5 findings in
   committed mock files (and leakage from a sibling git worktree in this
-  environment); this is unrelated to and not introduced by this change — the
+  environment); this is unrelated to and not introduced by this change, the
   baseline (`git stash` of this branch) fails identically.
 
 ## Open questions for review

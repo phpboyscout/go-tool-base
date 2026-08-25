@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Generating a CLI Skeleton
 
-The journey of a thousand miles begins with a single step—and for your new tool, that step is `generate skeleton`. 🛠️
+The journey of a thousand miles begins with a single step, and for your new tool, that step is `generate skeleton`. 🛠️
 
 Scaffolding a project from scratch can be tedious. `generate skeleton` fast-tracks this process by setting up a robust, industry-standard project structure that's ready for high-scale development.
 
@@ -150,7 +150,7 @@ Releasing, and links into the GTB documentation site. Every command and path it
 mentions exists in the generated tree.
 
 Only one block is a placeholder: the **"What is this?"** section. Replace it with
-your product's description — everything else is accurate framework prose you can
+your product's description: everything else is accurate framework prose you can
 keep or trim. Because the README is hash-tracked in `.gtb/manifest.yaml`, the
 README is *yours to edit*: a later `gtb regenerate` detects your edit as a
 conflict and prompts before overwriting it, so your product blurb survives
@@ -175,13 +175,13 @@ gtb generate cli \
 
 You don't have to remember all the flags! If you run it without `--name` and `--repo`, the CLI will guide you through a three-stage interactive form:
 
-**Stage 1 — Project Setup**
+**Stage 1, Project Setup**
 : Name, Description, Destination Path, Features, Git Backend (GitHub/GitLab), Help Channel (Slack/Teams/None).
 
-**Stage 2 — Git Repository**
+**Stage 2, Git Repository**
 : Git Host (pre-filled from your backend selection, editable for self-hosted instances) and Repository in `org/repo` format.
 
-**Stage 3 — Help Channel** *(skipped if None selected)*
+**Stage 3, Help Channel** *(skipped if None selected)*
 : Slack Channel + Slack Team, or Teams Channel + Teams Team, depending on your Stage 1 selection.
 
 Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** to cancel.
@@ -197,7 +197,7 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | `--private` | | Mark the repository as private (requires a token for updates) | `false` |
 | `--description` | `-d` | Short description of the tool | `A tool built with gtb` |
 | `--path` | `-p` | Destination path for the generated project | `.` |
-| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`), forges (`github`, `gitlab`, `gitea`, `bitbucket`), and `keychain`. Replaces the default set rather than extending it — see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
+| `--features` | `-f` | Features to enable: built-ins (`update`, `init`, `mcp`, `docs`, `doctor`, `changelog`, `ai`, `config`, `telemetry`, `man`), forges (`github`, `gitlab`, `gitea`, `bitbucket`), and `keychain`. Replaces the default set rather than extending it: see the [generate reference](../../reference/cli/generate.md#features) | `update, init, mcp, docs, doctor, changelog, keychain` |
 | `--go-version` | | Go version for `go.mod` | running toolchain version |
 | `--help-type` | | Help channel type (`slack`, `teams`, or `none`) | `none` |
 | `--overwrite` | | How to handle file conflicts (`allow`, `deny`, or `ask`) | `ask` |
@@ -225,7 +225,7 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 
 ### Custom Template Overlays
 
-`--template <src>@<ref>` layers a [custom template overlay](../custom-templates.md) over the embedded skeleton — your own `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline, etc. The flag is repeatable (sources layer in order, last writer wins). Manage sources on an existing project with the [`gtb template`](apply-templates.md) command group.
+`--template <src>@<ref>` layers a [custom template overlay](../custom-templates.md) over the embedded skeleton. Your own `SECURITY.md`, `CODEOWNERS`, a bespoke CI pipeline, etc. The flag is repeatable (sources layer in order, last writer wins). Manage sources on an existing project with the [`gtb template`](apply-templates.md) command group.
 
 ### Dry-Run Mode
 
@@ -244,12 +244,12 @@ This materialises all generated files into a temporary directory, runs `go mod t
 
 The skeleton generator supports two built-in help channel types, which populate the `Tool.Help` field in the generated root command:
 
-**Slack** — users are directed to a Slack channel in error messages:
+**Slack**. Users are directed to a Slack channel in error messages:
 ```
 For assistance, contact My Team via Slack channel #support
 ```
 
-**Microsoft Teams** — users are directed to a Teams channel:
+**Microsoft Teams**. Users are directed to a Teams channel:
 ```
 For assistance, contact My Team via Microsoft Teams channel Support
 ```

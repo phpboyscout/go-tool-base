@@ -10,13 +10,13 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 !!! info "The server, client and middleware now live in standalone modules"
     Everything below `pkg/http`'s config adapters has moved out of GTB, and the earlier
-    re-export facade has been **removed** — import the owning module directly:
+    re-export facade has been **removed**. Import the owning module directly:
 
     - **HTTP server** (`NewServer`, `Register`, `Start`/`Stop`, health handlers, `AuthMiddleware`, `SecurityHeadersMiddleware`, lifecycle glue) → [`gitlab.com/phpboyscout/go/transport/http`](https://transport.go.phpboyscout.uk) (alias `transporthttp`).
     - **Transport middleware** (`NewChain`, `Chain`, `LoggingMiddleware`, `RateLimitMiddleware`, `OTelMiddleware`, the client-middleware chain and its `With…` builders) → [`gitlab.com/phpboyscout/go/transit/http`](https://transit.go.phpboyscout.uk) (alias `transithttp`).
     - **HTTP client factory** (`NewClient`, `NewTransport`, the client `With…` options) → [`gitlab.com/phpboyscout/go/httpclient`](https://httpclient.go.phpboyscout.uk) (alias `httpclient`).
 
-    `pkg/http` (alias `gtbhttp`) keeps **only** the `config.Reader` adapters — `ServerSettingsFromConfig`, `ObserveServerSettingsFromConfig`, `NewServerFromReader`, `StartFromReader`, `RegisterFromReader`, `RateLimitConfigFromConfig`, `CircuitBreakerConfigFromConfig`, with the GTB config-selection options `WithConfigPrefix`/`WithPort`. See the [facades-removed migration note](../../reference/migration/v0.x-facades-removed.md) and the [transport-extraction note](../../reference/migration/v0.x-transport-extracted.md). Behaviour is unchanged; only the import paths moved.
+    `pkg/http` (alias `gtbhttp`) keeps **only** the `config.Reader` adapters: `ServerSettingsFromConfig`, `ObserveServerSettingsFromConfig`, `NewServerFromReader`, `StartFromReader`, `RegisterFromReader`, `RateLimitConfigFromConfig`, `CircuitBreakerConfigFromConfig`, with the GTB config-selection options `WithConfigPrefix`/`WithPort`. See the [facades-removed migration note](../../reference/migration/v0.x-facades-removed.md) and the [transport-extraction note](../../reference/migration/v0.x-transport-extracted.md). Behaviour is unchanged; only the import paths moved.
 
 The `pkg/http` package provides hardened HTTP components for both server-side and client-side operations. It enforces secure TLS defaults, provides built-in observability endpoints, and mirrors the security posture required for production environments.
 
@@ -32,7 +32,7 @@ The HTTP server implementation integrates seamlessly with the `controls` lifecyc
 
 ### TLS Configuration
 
-TLS configuration cascades — transport-specific keys override the shared defaults:
+TLS configuration cascades: transport-specific keys override the shared defaults:
 
 | Key | Shared Default | HTTP Override |
 |-----|---------------|--------------|
@@ -60,7 +60,7 @@ The core server constructors take package-owned typed settings. GTB config is
 adapted at the framework boundary with `ServerSettingsFromConfig` for one-shot
 construction or `ObserveServerSettingsFromConfig` for reload-aware snapshots.
 
-By default `RegisterFromReader` reads server settings from the `server.http` config prefix. To run more than one HTTP server in the same process — for example a public API server plus an internal/admin server — pass a `ServerOption` so each reads its own config block or binds an explicit port. `RegisterFromReader` builds the server, wires its start/stop into the controller, and returns it in one call:
+By default `RegisterFromReader` reads server settings from the `server.http` config prefix. To run more than one HTTP server in the same process (for example a public API server plus an internal/admin server) pass a `ServerOption` so each reads its own config block or binds an explicit port. `RegisterFromReader` builds the server, wires its start/stop into the controller, and returns it in one call:
 
 ```go
 view := props.Config.View() // pin one snapshot for the reads below
@@ -80,7 +80,7 @@ gtbhttp.RegisterFromReader(ctx, "debug", controller, view, props.Logger, dbgHand
 
 `WithConfigPrefix` threads the prefix through both construction and start, so the listen port and TLS settings stay consistent. When the resolved port is `0`, the OS assigns an ephemeral port and start logs the actually-bound address.
 
-Need the server without controller integration? `NewServerFromReader` + `StartFromReader` split the same config-driven flow, and for config-free construction from explicit typed settings the core constructors live in the transport module — `transporthttp.NewServer(ctx, settings, handler)`, `transporthttp.StartWithTLSPair(slogLog, srv, tlsPair)`, `transporthttp.Stop(slogLog, srv)`. `ServerSettingsFromConfig(view, prefix)` resolves a `transporthttp.ServerSettings` from GTB config when you want to bridge the two.
+Need the server without controller integration? `NewServerFromReader` + `StartFromReader` split the same config-driven flow, and for config-free construction from explicit typed settings the core constructors live in the transport module: `transporthttp.NewServer(ctx, settings, handler)`, `transporthttp.StartWithTLSPair(slogLog, srv, tlsPair)`, `transporthttp.Stop(slogLog, srv)`. `ServerSettingsFromConfig(view, prefix)` resolves a `transporthttp.ServerSettings` from GTB config when you want to bridge the two.
 
 ### Observing Server Settings
 
@@ -125,14 +125,14 @@ servers or explicit package-level reconfiguration logic.
 ### Bind address, invalid ports & option safety
 
 The server reads a **bind address** from `<prefix>.host` (e.g. `server.http.host`).
-It defaults to `""` — **all interfaces** (`0.0.0.0` / `[::]`), unchanged from prior
-releases — so set it to `127.0.0.1` to restrict a listener (admin, metrics) to
+It defaults to `""`: **all interfaces** (`0.0.0.0` / `[::]`), unchanged from prior
+releases, so set it to `127.0.0.1` to restrict a listener (admin, metrics) to
 loopback. The transport also exposes `transporthttp.WithHost` / `WithBindAddress`.
 See the [bind-address migration note](../../reference/migration/v0.x-server-bind-address.md).
 
 An **out-of-range explicit port** passed via `WithPort` (e.g. `70000`) is now a
 hard error from `NewServerFromReader`/`RegisterFromReader`, not a silent ephemeral
-(`:0`) bind — it is forwarded to the transport's validated port resolution. Pass
+(`:0`) bind. It is forwarded to the transport's validated port resolution. Pass
 `WithPort(0)` explicitly if you genuinely want an OS-assigned ephemeral port.
 
 An **unsupported option type** (a value that is neither a GTB `ServerOption` nor a
@@ -150,7 +150,7 @@ transport `ServerOption`) is rejected rather than silently dropped:
 - **`NewServerFromReader`, `StartFromReader`, `RegisterFromReader`**: GTB adapters that read the existing config structure through a `config.Reader` (typically `props.Config.View()`) and delegate to the typed constructors.
 - **`Stop(logger *slog.Logger, srv *http.Server) controls.StopFunc`**: Returns a controller stop function. It calls `srv.Shutdown(ctx)` to drain in-flight requests; if the shutdown context deadline expires (a handler outlives it), the server is **force-closed** via `srv.Close()` so a hung handler cannot leave the listener and connections open. This mirrors the gRPC transport's graceful-then-force-stop behaviour.
 
-**Drain semantics**: the server's per-request `BaseContext` is detached from the construction context with `context.WithoutCancel`. Cancelling the construction context (typically at shutdown) therefore does **not** cancel already-accepted requests mid-drain — `Shutdown` is left to drain them within its deadline. Context *values* on the construction context are still propagated to each request.
+**Drain semantics**: the server's per-request `BaseContext` is detached from the construction context with `context.WithoutCancel`. Cancelling the construction context (typically at shutdown) therefore does **not** cancel already-accepted requests mid-drain: `Shutdown` is left to drain them within its deadline. Context *values* on the construction context are still propagated to each request.
 
 ### Middleware Chaining
 
@@ -208,27 +208,27 @@ The alice-style middleware chaining API lives in [`gitlab.com/phpboyscout/go/tra
 | `WithFrameOptions(v)` | Override `X-Frame-Options` (empty omits the header). |
 | `WithReferrerPolicy(v)` | Override `Referrer-Policy` (empty omits the header). |
 | `WithContentSecurityPolicy(p)` | Set a full CSP, replacing the frame-ancestors-only default. An empty value falls back to the default so the clickjacking control is never silently dropped. |
-| `WithHSTS(maxAge, includeSubdomains, preload)` | Enable `Strict-Transport-Security`. **Off by default** — HSTS is only meaningful (and only safe) over TLS. A non-positive `maxAge` leaves it disabled. |
+| `WithHSTS(maxAge, includeSubdomains, preload)` | Enable `Strict-Transport-Security`. **Off by default**: HSTS is only meaningful (and only safe) over TLS. A non-positive `maxAge` leaves it disabled. |
 
 Headers are set **before** the wrapped handler runs, so a handler that writes its own response still emits them; a handler may override any value by setting its own.
 
-**Applied to the built-in surfaces by default.** The interactive docs/OpenAPI handlers (the standalone `go/transport-openapi` module's `Register`) and the documentation server (`pkg/docs.Serve`) wrap their handlers with this middleware automatically — the docs UI serves a "try-it" console that benefits from `nosniff`/frame/referrer protections. Customise via `openapi.WithSecurityHeaderOptions(...)` or opt out with `openapi.WithoutSecurityHeaders()`. The middleware is **not** forced onto user-supplied handlers; add it to your own chain where you want it.
+**Applied to the built-in surfaces by default.** The interactive docs/OpenAPI handlers (the standalone `go/transport-openapi` module's `Register`) and the documentation server (`pkg/docs.Serve`) wrap their handlers with this middleware automatically: the docs UI serves a "try-it" console that benefits from `nosniff`/frame/referrer protections. Customise via `openapi.WithSecurityHeaderOptions(...)` or opt out with `openapi.WithoutSecurityHeaders()`. The middleware is **not** forced onto user-supplied handlers; add it to your own chain where you want it.
 
 ### Built-in Rate-Limit Middleware
 
-`RateLimitMiddleware` protects a server from overload by admitting requests under a token-bucket limiter and rejecting excess traffic with **`429 Too Many Requests`** plus a `Retry-After` header (which a GTB client's retry layer honours — a pleasing closed loop). It is an ordinary `Middleware`, so it composes into any `Chain`.
+`RateLimitMiddleware` protects a server from overload by admitting requests under a token-bucket limiter and rejecting excess traffic with **`429 Too Many Requests`** plus a `Retry-After` header (which a GTB client's retry layer honours, a pleasing closed loop). It is an ordinary `Middleware`, so it composes into any `Chain`.
 
 - **`transithttp.RateLimitMiddleware(log *slog.Logger, cfg RateLimitConfig) Middleware`**
-- **`transithttp.DefaultRateLimitConfig() RateLimitConfig`** — 50 rps sustained, burst 100, single global bucket
-- **`transithttp.ClientIPKey(r *http.Request) string`** — a ready-made per-client `KeyFunc`
-- **`gtbhttp.RateLimitConfigFromConfig(cfg config.Reader, prefix string) transithttp.RateLimitConfig`** — GTB config adapter that reads policy from config (stays in `pkg/http`)
+- **`transithttp.DefaultRateLimitConfig() RateLimitConfig`**: 50 rps sustained, burst 100, single global bucket
+- **`transithttp.ClientIPKey(r *http.Request) string`**: a ready-made per-client `KeyFunc`
+- **`gtbhttp.RateLimitConfigFromConfig(cfg config.Reader, prefix string) transithttp.RateLimitConfig`**: GTB config adapter that reads policy from config (stays in `pkg/http`)
 
 **`RateLimitConfig` fields:**
 
 | Field | Default | Description |
 |-------|---------|-------------|
 | `RequestsPerSecond` | 50 | Sustained token-bucket fill rate |
-| `Burst` | 100 | Bucket capacity — max instantaneous spike admitted |
+| `Burst` | 100 | Bucket capacity: max instantaneous spike admitted |
 | `KeyFunc` | nil | Derives a per-client key; nil = one global bucket |
 | `MaxTrackedKeys` | 8192 | Bound on the per-key bucket store (ignored when `KeyFunc` is nil) |
 | `OnLimited` | nil | Optional callback invoked on each rejection (metrics/telemetry) |
@@ -237,7 +237,7 @@ Admission is **non-blocking** (`Allow`, not `Wait`): ingress must *reject* exces
 
 **Scoping is composition, not configuration.** A *global* limiter is one entry in the server chain; a *per-route* limiter wraps a single handler; a *per-client* limiter sets `KeyFunc`. The per-key bucket store is **bounded and LRU-evicting** (capped at `MaxTrackedKeys`) so an attacker rotating source keys cannot exhaust memory.
 
-> **Security note on `ClientIPKey`.** It keys on the connection's `RemoteAddr` and **deliberately ignores `X-Forwarded-For`/`X-Real-IP`** — those headers are spoofable by any direct client, so keying on them would let an attacker both evade their own bucket and churn the key store. A server behind a *trusted* reverse proxy that terminates XFF should supply its own `KeyFunc` that reads the proxy-set header.
+> **Security note on `ClientIPKey`.** It keys on the connection's `RemoteAddr` and **deliberately ignores `X-Forwarded-For`/`X-Real-IP`**: those headers are spoofable by any direct client, so keying on them would let an attacker both evade their own bucket and churn the key store. A server behind a *trusted* reverse proxy that terminates XFF should supply its own `KeyFunc` that reads the proxy-set header.
 
 Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted **outside** the `WithMiddleware` chain, so a global limiter never throttles liveness/readiness probes.
 
@@ -249,16 +249,16 @@ Health endpoints (`/healthz`, `/livez`, `/readyz`) are mounted **outside** the `
 | `server.http.ratelimit.burst` | `Burst` |
 | `server.http.ratelimit.max_tracked_keys` | `MaxTrackedKeys` |
 
-Unset keys keep their defaults; the code-only fields (`KeyFunc`, `OnLimited`) are never read from config — wiring stays explicit.
+Unset keys keep their defaults; the code-only fields (`KeyFunc`, `OnLimited`) are never read from config. Wiring stays explicit.
 
 ### Built-in Authentication Middleware
 
-`AuthMiddleware` authenticates (and optionally authorizes) each request from an [`go/authn`](authn.md) verifier — an API key, a JWT/OIDC bearer token, a session cookie, or an mTLS client certificate — storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
+`AuthMiddleware` authenticates (and optionally authorizes) each request from an [`go/authn`](authn.md) verifier (an API key, a JWT/OIDC bearer token, a session cookie, or an mTLS client certificate) storing the verified identity in the request context. It is an ordinary `Middleware`, so it composes into any `Chain`.
 
 `AuthMiddleware` and its options live in `transporthttp`.
 
-- **`transporthttp.AuthMiddleware(opts ...AuthOption) (transithttp.Middleware, error)`** — with no verifier configured it is a construction error (fail-closed)
-- **`transporthttp.IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`** — read the verified identity in a handler (same context key as the gRPC interceptor)
+- **`transporthttp.AuthMiddleware(opts ...AuthOption) (transithttp.Middleware, error)`**: with no verifier configured it is a construction error (fail-closed)
+- **`transporthttp.IdentityFromContext(ctx context.Context) (*authn.Identity, bool)`**: read the verified identity in a handler (same context key as the gRPC interceptor)
 
 ```go
 keys, _ := authn.NewAPIKeyVerifier(authn.KeyEntry{Key: ciKey, Subject: "ci"})
@@ -270,9 +270,9 @@ authMW, _ := transporthttp.AuthMiddleware(
 chain := transithttp.NewChain(transithttp.LoggingMiddleware(logger.ToSlog(props.Logger)), authMW)
 ```
 
-Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithCookieVerifier`, `WithMTLSVerifier`, `WithAuthorize`, `WithAuthLogger`, `WithAuthSkipper`. On failure it writes a generic `401` (with `WWW-Authenticate`) or `403` and logs the cause with the credential redacted — never disclosing why to the client. Health endpoints are outside the chain, so a global auth middleware never gates probes. **See [Authentication & Authorization](authn.md) for the full reference**, including the verifiers, the authorization seam, credential precedence, and the security model.
+Options: `WithBearerVerifier`, `WithAPIKeyHeader`, `WithCookieVerifier`, `WithMTLSVerifier`, `WithAuthorize`, `WithAuthLogger`, `WithAuthSkipper`. On failure it writes a generic `401` (with `WWW-Authenticate`) or `403` and logs the cause with the credential redacted. Never disclosing why to the client. Health endpoints are outside the chain, so a global auth middleware never gates probes. **See [Authentication & Authorization](authn.md) for the full reference**, including the verifiers, the authorization seam, credential precedence, and the security model.
 
-`WithCookieVerifier(name, v)` reads the credential from a named cookie. The cookie is an **ambient** credential — the browser sends it on every request, including `<img>`/`<audio>`/`<video>` sub-resource loads that cannot set an `Authorization` header — so it sits **below** the explicit header schemes in precedence (an explicit bearer or API-key header always wins; the cookie is consulted only when no header credential is presented). This makes a browser session authenticate sub-resources while leaving explicit API clients unaffected; typically paired with a token-in-URL bootstrap that sets the cookie on first load (Jupyter-style).
+`WithCookieVerifier(name, v)` reads the credential from a named cookie. The cookie is an **ambient** credential: the browser sends it on every request, including `<img>`/`<audio>`/`<video>` sub-resource loads that cannot set an `Authorization` header, so it sits **below** the explicit header schemes in precedence (an explicit bearer or API-key header always wins; the cookie is consulted only when no header credential is presented). This makes a browser session authenticate sub-resources while leaving explicit API clients unaffected; typically paired with a token-in-URL bootstrap that sets the cookie on first load (Jupyter-style).
 
 ### Usage Example
 
@@ -323,10 +323,10 @@ All `httpclient` `ClientOption` values:
 - `httpclient.WithTimeout(d time.Duration)`
 - `httpclient.WithMaxRedirects(n int)`
 - `httpclient.WithTLSConfig(cfg *tls.Config)`
-- `httpclient.WithCertPool(pool *x509.CertPool)` — trusts a custom root CA pool (private CA / self-signed) while preserving the hardened TLS defaults; build the pool with `tls.CertPool`
+- `httpclient.WithCertPool(pool *x509.CertPool)`: trusts a custom root CA pool (private CA / self-signed) while preserving the hardened TLS defaults; build the pool with `tls.CertPool`
 - `httpclient.WithTransport(rt http.RoundTripper)`
-- `httpclient.WithRetry(cfg transithttp.RetryConfig)` — enables automatic retry with exponential backoff (`RetryConfig` is a `transithttp` type)
-- `httpclient.WithClientMiddleware(chain transithttp.ClientChain)` — applies a `transithttp` middleware chain to the transport
+- `httpclient.WithRetry(cfg transithttp.RetryConfig)`: enables automatic retry with exponential backoff (`RetryConfig` is a `transithttp` type)
+- `httpclient.WithClientMiddleware(chain transithttp.ClientChain)`: applies a `transithttp` middleware chain to the transport
 
 ### Retry with Exponential Backoff
 
@@ -342,11 +342,11 @@ The client supports opt-in retry for transient failures via `WithRetry`. Retry i
 | `RetryableStatusCodes` | 429, 502, 503, 504 | HTTP status codes that trigger a retry |
 | `ShouldRetry` | nil | Optional custom predicate replacing default logic |
 
-**Backoff strategy**: Full jitter — `uniform random in [0, min(cap, base × 2^attempt)]`. This reduces thundering-herd effects compared to fixed or equal-jitter backoff. The exponential term is clamped to `MaxBackoff` *before* the doubling so the computed delay can never overflow. Invalid `RetryConfig` values (negative `MaxRetries`, non-positive backoff durations, `MaxBackoff` below `InitialBackoff`) are normalised to safe defaults at client construction.
+**Backoff strategy**: Full jitter: `uniform random in [0, min(cap, base × 2^attempt)]`. This reduces thundering-herd effects compared to fixed or equal-jitter backoff. The exponential term is clamped to `MaxBackoff` *before* the doubling so the computed delay can never overflow. Invalid `RetryConfig` values (negative `MaxRetries`, non-positive backoff durations, `MaxBackoff` below `InitialBackoff`) are normalised to safe defaults at client construction.
 
 ### Client Middleware Chain
 
-The client supports composable `RoundTripper` middleware, mirroring the server-side chain pattern. The chain type and its built-in middleware live in `transithttp`; `httpclient.WithClientMiddleware` applies the assembled chain. Middleware wraps the transport — the first in the chain executes first on the request and last on the response.
+The client supports composable `RoundTripper` middleware, mirroring the server-side chain pattern. The chain type and its built-in middleware live in `transithttp`; `httpclient.WithClientMiddleware` applies the assembled chain. Middleware wraps the transport: the first in the chain executes first on the request and last on the response.
 
 ```go
 // transithttp.ClientMiddleware wraps an http.RoundTripper with additional behaviour.
@@ -355,9 +355,9 @@ type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 
 **Chain API (`transithttp`):**
 
-- **`transithttp.NewClientChain(middlewares ...ClientMiddleware) ClientChain`** — creates a chain
-- **`(c ClientChain) Append(middlewares ...ClientMiddleware) ClientChain`** — returns a new chain with additional middleware (immutable)
-- **`(c ClientChain) Then(rt http.RoundTripper) http.RoundTripper`** — applies the chain to a transport
+- **`transithttp.NewClientChain(middlewares ...ClientMiddleware) ClientChain`**: creates a chain
+- **`(c ClientChain) Append(middlewares ...ClientMiddleware) ClientChain`**: returns a new chain with additional middleware (immutable)
+- **`(c ClientChain) Then(rt http.RoundTripper) http.RoundTripper`**: applies the chain to a transport
 
 **Built-in middleware:**
 
@@ -365,7 +365,7 @@ type ClientMiddleware func(next http.RoundTripper) http.RoundTripper
 |-----------|-------------|
 | `WithRequestLogging(log)` | Logs method, URL, status code, and duration at debug level. Headers and body are NOT logged (security). |
 | `WithBearerToken(token)` | Injects `Authorization: Bearer {token}`. Sent only to the first host the client addresses, so a cross-host redirect cannot capture the token. |
-| `WithBasicAuth(user, pass)` | Injects `Authorization: Basic {base64}`. Host-pinned like `WithBearerToken` — not re-sent across a cross-host redirect. |
+| `WithBasicAuth(user, pass)` | Injects `Authorization: Basic {base64}`. Host-pinned like `WithBearerToken`: not re-sent across a cross-host redirect. |
 | `WithRateLimit(rps)` | Token bucket rate limiting. Blocks until a token is available or the request context is cancelled. |
 
 **Usage example:**
@@ -390,9 +390,9 @@ The middleware chain is applied after retry wrapping, so retry operates on the r
 `WithCircuitBreaker` is a `ClientMiddleware` that **fails fast** while a downstream is consistently failing, avoiding wasted retry/backoff cycles against a service that will not answer. It is the partner primitive to retry: retry handles *transient* flakiness, the breaker handles a *hard* outage.
 
 - **`transithttp.WithCircuitBreaker(log *slog.Logger, cfg CircuitBreakerConfig) ClientMiddleware`**
-- **`transithttp.DefaultCircuitBreakerConfig() CircuitBreakerConfig`** — threshold 5, cooldown 30s, half-open trial 1
-- **`transithttp.ErrCircuitOpen`** — sentinel error returned (wrapped) while open; test with `errors.Is`
-- **`gtbhttp.CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) transithttp.CircuitBreakerConfig`** — GTB config adapter (stays in `pkg/http`)
+- **`transithttp.DefaultCircuitBreakerConfig() CircuitBreakerConfig`**: threshold 5, cooldown 30s, half-open trial 1
+- **`transithttp.ErrCircuitOpen`**: sentinel error returned (wrapped) while open; test with `errors.Is`
+- **`gtbhttp.CircuitBreakerConfigFromConfig(cfg config.Reader, prefix string) transithttp.CircuitBreakerConfig`**: GTB config adapter (stays in `pkg/http`)
 
 **States:** `StateClosed` (admit all, count failures) → `StateOpen` (reject immediately with `ErrCircuitOpen` until the cooldown elapses) → `StateHalfOpen` (admit a bounded number of trials; the first success closes the breaker, any failure re-opens it).
 
@@ -406,7 +406,7 @@ The middleware chain is applied after retry wrapping, so retry operates on the r
 | `IsFailure` | nil | Classifier; default = transport errors + 5xx are failures |
 | `OnStateChange` | nil | Optional transition callback (metrics/telemetry) |
 
-By default, **transport errors and 5xx responses count as failures; 4xx do not** — in particular a **429 does not trip the breaker** (that is the retry/backoff layer's concern, not a downstream-health signal).
+By default, **transport errors and 5xx responses count as failures; 4xx do not**: in particular a **429 does not trip the breaker** (that is the retry/backoff layer's concern, not a downstream-health signal).
 
 **Ordering (composition with retry).** Place the breaker in the `ClientChain` so it sits outside the retry transport:
 
@@ -414,7 +414,7 @@ By default, **transport errors and 5xx responses count as failures; 4xx do not**
 request → [circuit breaker] → [retry (backoff)] → [base transport] → network
 ```
 
-The breaker sees the **final post-retry verdict**: one logical call that exhausts its retry budget against a dead service counts as **one** breaker failure, not N. Once Open, calls are rejected **before** entering the retry layer — so no backoff sleeps are spent on a service known to be down (exactly the waste the retry design flagged). The breaker **never** serves a cached response; an open breaker returns an error, never a stored body.
+The breaker sees the **final post-retry verdict**: one logical call that exhausts its retry budget against a dead service counts as **one** breaker failure, not N. Once Open, calls are rejected **before** entering the retry layer, so no backoff sleeps are spent on a service known to be down (exactly the waste the retry design flagged). The breaker **never** serves a cached response; an open breaker returns an error, never a stored body.
 
 ```go
 client := httpclient.NewClient(
@@ -430,7 +430,7 @@ client := httpclient.NewClient(
 
 **Retry-After support**: When a 429 or 503 response includes a `Retry-After` header (seconds or HTTP-date), that value is used as the delay instead of the computed backoff. The header value is **clamped to `MaxBackoff`**, so a hostile or misconfigured server cannot stall the client beyond the configured cap.
 
-**Body rewind**: Request bodies are rewound via `GetBody` between attempts. Response bodies from failed attempts are drained and closed to allow connection reuse. A request whose body has already been consumed and that has **no `GetBody`** to rewind it (e.g. a streamed `io.Reader` body) is **not retried** — resending it would silently send an empty or partial body. A `nil` body (e.g. `GET`) is always safe to retry.
+**Body rewind**: Request bodies are rewound via `GetBody` between attempts. Response bodies from failed attempts are drained and closed to allow connection reuse. A request whose body has already been consumed and that has **no `GetBody`** to rewind it (e.g. a streamed `io.Reader` body) is **not retried**: resending it would silently send an empty or partial body. A `nil` body (e.g. `GET`) is always safe to retry.
 
 **Context cancellation**: If the request context is cancelled during a backoff wait, the retry loop exits immediately with the context error.
 

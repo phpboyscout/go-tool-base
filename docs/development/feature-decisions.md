@@ -8,9 +8,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Architectural Decisions & Conventions
 
-This page records the architectural decisions, development conventions, and feature evaluations that shape the GTB project. It serves as institutional memory for contributors — both to maintain consistency with established patterns and to reconsider past decisions when circumstances change.
+This page records the architectural decisions, development conventions, and feature evaluations that shape the GTB project. It serves as institutional memory for contributors: both to maintain consistency with established patterns and to reconsider past decisions when circumstances change.
 
-GTB's guiding principle: **foundation for tools, not an application framework**. Features that belong in the tools built on GTB — not in GTB itself — are rejected.
+GTB's guiding principle: **foundation for tools, not an application framework**. Features that belong in the tools built on GTB (not in GTB itself) are rejected.
 
 ---
 
@@ -28,13 +28,13 @@ GTB's guiding principle: **foundation for tools, not an application framework**.
 
 **Proposal:** A `SecretsProvider` interface with implementations for OS keychain, HashiCorp Vault, and environment variable fallback.
 
-**Rejection rationale:** Secrets management is highly specific to deployment context. GTB already offers config injection via multiple mechanisms (env vars, config files, embedded assets, CLI flags) with a clear precedence chain. Introducing one secrets implementation opens a rabbit hole of vendor-specific adapters. Engineers should implement secrets access as part of their config composition (CI/CD pipelines, CSI mounts, etc.) — this is a tool-author concern, not a framework concern.
+**Rejection rationale:** Secrets management is highly specific to deployment context. GTB already offers config injection via multiple mechanisms (env vars, config files, embedded assets, CLI flags) with a clear precedence chain. Introducing one secrets implementation opens a rabbit hole of vendor-specific adapters. Engineers should implement secrets access as part of their config composition (CI/CD pipelines, CSI mounts, etc.). This is a tool-author concern, not a framework concern.
 
-**Update (April 2026):** A narrower, scoped implementation did land as part of the [credential storage hardening work](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening). The design respects the original rejection — GTB ships no vendor-specific adapters:
+**Update (April 2026):** A narrower, scoped implementation did land as part of the [credential storage hardening work](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening). The design respects the original rejection, GTB ships no vendor-specific adapters:
 
 - [`go/credentials`](../explanation/components/credentials.md) defines a minimal `Backend` interface with a stub default.
 - The opt-in [`go/credentials/keychain`](../explanation/components/credentials.md) subpackage (go-keyring) is the only adapter shipped in-tree.
-- Vault / AWS SSM / 1Password / custom-store adapters are tool-author responsibility — the [custom credential backend how-to](../how-to/custom-credential-backend.md) shows the Vault KV v2 pattern as a worked example.
+- Vault / AWS SSM / 1Password / custom-store adapters are tool-author responsibility: the [custom credential backend how-to](../how-to/custom-credential-backend.md) shows the Vault KV v2 pattern as a worked example.
 
 So: `Backend` is the extension point; `SecretsProvider` as originally proposed (a plugin registry with vendor implementations) is still rejected.
 
@@ -50,7 +50,7 @@ So: `Backend` is the extension point; `SecretsProvider` as originally proposed (
 
 **Proposal:** A `pkg/cache` with file-based caching and TTL for API responses, version checks, etc.
 
-**Rejection rationale:** Caching is a minefield — cache invalidation is one of the hardest problems in computer science. Engineers should implement caching according to their specific needs and invalidation strategies. GTB provides the building blocks (filesystem abstraction, config) but should not opinionate on caching.
+**Rejection rationale:** Caching is a minefield: cache invalidation is one of the hardest problems in computer science. Engineers should implement caching according to their specific needs and invalidation strategies. GTB provides the building blocks (filesystem abstraction, config) but should not opinionate on caching.
 
 ### Command Aliases
 **Date:** 31 March 2026
@@ -64,7 +64,7 @@ So: `Backend` is the extension point; `SecretsProvider` as originally proposed (
 
 **Proposal:** A minimal interface-based abstraction for database connections.
 
-**Rejection rationale:** This is an application-level concern that belongs in tools built on GTB, not in the foundation. Different tools need different data stores — imposing a database pattern would pull GTB into application framework territory.
+**Rejection rationale:** This is an application-level concern that belongs in tools built on GTB, not in the foundation. Different tools need different data stores: imposing a database pattern would pull GTB into application framework territory.
 
 ### Event Bus / Pub-Sub
 **Date:** 31 March 2026
@@ -92,7 +92,7 @@ So: `Backend` is the extension point; `SecretsProvider` as originally proposed (
 
 **Proposal:** OpenTelemetry-compatible span/trace correlation at the framework level.
 
-**Rejection rationale:** The telemetry system covers CLI analytics needs (command invocations, errors, feature usage). Distributed tracing with spans is a service-level concern — tools that need it should use OpenTelemetry directly.
+**Rejection rationale:** The telemetry system covers CLI analytics needs (command invocations, errors, feature usage). Distributed tracing with spans is a service-level concern: tools that need it should use OpenTelemetry directly.
 
 ### Query DSL
 **Date:** 31 March 2026
@@ -110,7 +110,7 @@ These are project-wide choices established through implemented specs. Future wor
 ### Error Library: cockroachdb/errors
 **Spec:** `2026-02-18-cockroachdb-errors-migration.md`
 
-Chosen over standard library `errors`. Provides structured hints (`WithHint`), details, assertion failures, and stack traces — essential for user-facing error messaging. All error creation and wrapping must use `cockroachdb/errors`; do not mix with `fmt.Errorf` or standard `errors.New`.
+Chosen over standard library `errors`. Provides structured hints (`WithHint`), details, assertion failures, and stack traces: essential for user-facing error messaging. All error creation and wrapping must use `cockroachdb/errors`; do not mix with `fmt.Errorf` or standard `errors.New`.
 
 ### Logging: Unified Logger Interface
 **Spec:** `2026-03-23-unified-logger-abstraction.md`
@@ -120,12 +120,12 @@ Replaced dual-library logging (charmbracelet/log + slog) with a unified `Logger`
 ### DI Pattern: Narrow Interfaces + Props God Object
 **Spec:** `2026-03-21-props-interface-narrowing.md`
 
-Props is an intentional god object — this is by design. Narrow role-based interfaces (`LoggerProvider`, `ConfigProvider`, etc.) allow consumers to declare minimal dependencies without replacing Props. New code should accept the narrowest interface that satisfies its needs.
+Props is an intentional god object. This is by design. Narrow role-based interfaces (`LoggerProvider`, `ConfigProvider`, etc.) allow consumers to declare minimal dependencies without replacing Props. New code should accept the narrowest interface that satisfies its needs.
 
 ### Middleware: Function Wrappers with Sealed Registry
 **Spec:** `2026-03-24-command-middleware-system.md`
 
-Middleware uses `func(next RunEFunc) RunEFunc` — the same pattern as Go HTTP middleware. Global middleware runs before feature-specific. The registry is sealed after command registration to prevent race conditions. No late registration is allowed.
+Middleware uses `func(next RunEFunc) RunEFunc`. The same pattern as Go HTTP middleware. Global middleware runs before feature-specific. The registry is sealed after command registration to prevent race conditions. No late registration is allowed.
 
 ### Security: Shared TLS Config, Scheme Protection
 **Specs:** `2026-03-24-secure-http-client.md`, `2026-03-24-security-server-hardening.md`
@@ -145,7 +145,7 @@ Each package defines and validates its own config schema via struct tags. No cen
 ### Testing: Strategic Godog BDD
 **Spec:** `2026-03-28-godog-bdd-strategy.md`
 
-Godog is used strategically for CLI workflows and state machine scenarios (controls lifecycle, telemetry commands, chat persistence). Table-driven unit tests remain the baseline. BDD is not universal — packages where httptest mocks are effective (chat, HTTP) or AST manipulation (generator) use standard tests.
+Godog is used strategically for CLI workflows and state machine scenarios (controls lifecycle, telemetry commands, chat persistence). Table-driven unit tests remain the baseline. BDD is not universal: packages where httptest mocks are effective (chat, HTTP) or AST manipulation (generator) use standard tests.
 
 ### Integration Tests: Env-Var Gating
 **Spec:** `2026-03-24-test-coverage-follow-up.md`
@@ -176,23 +176,23 @@ All new features must be implemented in `pkg/` as reusable components before bei
 
 ### Spec-Driven Development
 
-Non-trivial features (new packages, public API changes, generator modifications, architectural changes) require a spec in the [wiki](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) with status `DRAFT` before implementation begins. Quick fixes and minor changes proceed directly. Spec and implementation live on the same branch — co-locating design rationale with code in git history.
+Non-trivial features (new packages, public API changes, generator modifications, architectural changes) require a spec in the [wiki](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home) with status `DRAFT` before implementation begins. Quick fixes and minor changes proceed directly. Spec and implementation live on the same branch: co-locating design rationale with code in git history.
 
 ### Test-Driven Development
 
-Write failing tests first, derived from the spec's public API and edge cases. New `pkg/` features must have 90%+ test coverage. Table-driven tests with `t.Parallel()` is the standard pattern. Use `logger.NewNoop()` for test loggers. CLI commands and multi-step workflows must include Gherkin BDD scenarios — these are not optional for user-facing behaviour.
+Write failing tests first, derived from the spec's public API and edge cases. New `pkg/` features must have 90%+ test coverage. Table-driven tests with `t.Parallel()` is the standard pattern. Use `logger.NewNoop()` for test loggers. CLI commands and multi-step workflows must include Gherkin BDD scenarios. These are not optional for user-facing behaviour.
 
 ### No Linting Bypasses
 
-Never add `//nolint` decorators — always address the root cause. Lint resolution order (simplest to most complex): `errcheck` → `gocritic` → `staticcheck` → `exhaustive` → `nestif` → `cyclop`. Run tests after every structural fix.
+Never add `//nolint` decorators. Always address the root cause. Lint resolution order (simplest to most complex): `errcheck` → `gocritic` → `staticcheck` → `exhaustive` → `nestif` → `cyclop`. Run tests after every structural fix.
 
 ### Error Bubbling via RunE
 
-Errors bubble up through `cobra.Command.RunE` to the central `Execute()` wrapper. Avoid early exit with `ErrorHandler.Fatal()` or `os.Exit()` inside business logic — forced exits prevent `defer` functions from executing, causing resource leaks or corrupted state.
+Errors bubble up through `cobra.Command.RunE` to the central `Execute()` wrapper. Avoid early exit with `ErrorHandler.Fatal()` or `os.Exit()` inside business logic: forced exits prevent `defer` functions from executing, causing resource leaks or corrupted state.
 
 ### Interface Design: Accept Interfaces, Return Structs
 
-Functions accept interface parameters for flexibility but return concrete types for clarity. Interfaces are defined where they're consumed, not where they're implemented. Keep interfaces small and focused — never create "kitchen sink" interfaces. All interfaces are designed with testing (Mockery) in mind.
+Functions accept interface parameters for flexibility but return concrete types for clarity. Interfaces are defined where they're consumed, not where they're implemented. Keep interfaces small and focused. Never create "kitchen sink" interfaces. All interfaces are designed with testing (Mockery) in mind.
 
 ### Command Constructor Pattern
 
@@ -216,14 +216,14 @@ Any functional change must include a doc update in `docs/components/` or `docs/c
 
 ### Automated Releases
 
-Releases use the Release-MR pattern via releaser-pleaser — never manually tag. Merges to `main` update a "Release" MR; merging it creates the tag + GitLab Release and triggers GoReleaser to attach binaries. Conventional Commits determine version bumps (feat/fix/breaking; other types do not release). No AI attribution in commits. Each commit represents one coherent change with a scope identifying the functional area.
+Releases use the Release-MR pattern via releaser-pleaser. Never manually tag. Merges to `main` update a "Release" MR; merging it creates the tag + GitLab Release and triggers GoReleaser to attach binaries. Conventional Commits determine version bumps (feat/fix/breaking; other types do not release). No AI attribution in commits. Each commit represents one coherent change with a scope identifying the functional area.
 
 ### Three-Layer Project Structure
 
-Discovery (`.gtb/manifest.yaml`), Orchestration (`cmd/` — wiring), Implementation (`pkg/cmd/` — logic). The manifest is the source of truth, enabling `regenerate` to update code while preserving custom logic. Assets are co-located with the code that consumes them.
+Discovery (`.gtb/manifest.yaml`), Orchestration (`cmd/` (wiring), Implementation (`pkg/cmd/`) logic). The manifest is the source of truth, enabling `regenerate` to update code while preserving custom logic. Assets are co-located with the code that consumes them.
 
 ---
 
 ## Review Protocol
 
-When proposing a new feature, check this log first to see if it has been previously considered. If circumstances have changed (new use case, ecosystem shift, user demand), the decision can be revisited — reference this log entry and explain what changed.
+When proposing a new feature, check this log first to see if it has been previously considered. If circumstances have changed (new use case, ecosystem shift, user demand), the decision can be revisited: reference this log entry and explain what changed.

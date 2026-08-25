@@ -1,6 +1,6 @@
 ---
 title: openpgpkey
-description: OpenPGP packet assembly from a `crypto.Signer` — the primitive that wraps an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. Now a standalone module.
+description: OpenPGP packet assembly from a `crypto.Signer`: the primitive that wraps an HSM/KMS-held RSA key as an ASCII-armored OpenPGP public key. Now a standalone module.
 date: 2026-06-08
 tags: [components, openpgp, signing, kms, rsa]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -17,24 +17,24 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
     - **API reference:** [pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/openpgpkey)
     - **Module documentation:** [signing.phpboyscout.uk](https://signing.phpboyscout.uk)
 
-    The `gtb` CLI behaviour is unchanged — only the Go import path moved.
+    The `gtb` CLI behaviour is unchanged, only the Go import path moved.
     The change is relevant to anyone writing Go against the package.
 
 ## What it does
 
 Mints an ASCII-armored OpenPGP public key from any `crypto.Signer`
 whose `Public()` returns `*rsa.PublicKey`. The OpenPGP self-signature
-is produced by calling `signer.Sign(...)` exactly once — so an opaque
+is produced by calling `signer.Sign(...)` exactly once, so an opaque
 HSM-backed signer (AWS KMS, GCP KMS, YubiKey) works without the
 private key ever leaving the HSM.
 
 It also exposes:
 
-- **`DetachSign`** — armored OpenPGP detached signatures over arbitrary
+- **`DetachSign`**: armored OpenPGP detached signatures over arbitrary
   data (the per-release `checksums.txt` → `checksums.txt.sig` step),
   verifiable with `gpg --verify` and by the in-tool verifier.
 - **Web Key Directory (WKD) tree generation** (`WriteWKDTree`,
-  `WKDHash`) — the publish-side layout per
+  `WKDHash`), the publish-side layout per
   [draft-koch-openpgp-webkey-service §3.1][wkd], paired with the
   client-side `WKDResolver` in `gitlab.com/phpboyscout/go/signing/verify`.
 
@@ -61,8 +61,8 @@ For the operator-facing recipes, see:
 ## Related
 
 - [Release-binary signing concept](../concepts/release-binary-signing.md)
-  — the big-picture story.
-- [`signing`](signing.md) — the backend registry that drives
+, the big-picture story.
+- [`signing`](signing.md): the backend registry that drives
   `gtb keys mint`.
 </content>
 </invoke>

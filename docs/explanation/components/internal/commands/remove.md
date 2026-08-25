@@ -38,7 +38,7 @@ Global Flags:
 Deletes a command's implementation (`pkg/cmd/<name>`) and registration, and removes it from `manifest.yaml`.
 
 De-registration removes **both** the parent's import and its registration of the
-command — whether that registration is a standalone `cmd.Register(child…)` /
+command: whether that registration is a standalone `cmd.Register(child…)` /
 `AddCommand(child)` statement (a subcommand parent) or a variadic argument inside
 the root's `NewCmdRoot(p, child…)` call (a top-level command). Removing only one
 of the two would leave the project uncompilable; both go together.

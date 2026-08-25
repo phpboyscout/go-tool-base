@@ -13,7 +13,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 Props serves as the primary data structure that carries essential information about your tool and provides access to various services and configurations. It's designed to be passed to all major components and commands in your CLI application.
 
 !!! note "What's in a Name?"
-    The name **Props** is not merely a shorthand for 'properties' (though we do shove plenty of those in there). It’s a direct reference to a **prop**, the heavy-duty timber or steel beam that prevents a structure from an embarrassing collapse. For the sports fans, it’s also a lovingly crafted nod to the rugby position: the broad-shouldered stalwarts who provide the primary structural support for the scrum. Much like its on-field namesake, our `Props` struct isn't here to score the flashy tries; it's here to do the unsung heavy lifting that keeps the entire framework from falling over.
+    The name **Props** is not merely a shorthand for 'properties' (though we do shove plenty of those in there). It's a direct reference to a **prop**, the heavy-duty timber or steel beam that prevents a structure from an embarrassing collapse. For the sports fans, it's also a lovingly crafted nod to the rugby position: the broad-shouldered stalwarts who provide the primary structural support for the scrum. Much like its on-field namesake, our `Props` struct isn't here to score the flashy tries; it's here to do the unsung heavy lifting that keeps the entire framework from falling over.
 
 ## Design Rationale
 
@@ -64,7 +64,7 @@ Props makes dependencies explicit and discoverable:
 !!! note "Collector is always non-nil"
     When telemetry is disabled, `Collector` is a noop implementation. Commands can safely call `p.Collector.Track(...)` without checking whether telemetry is enabled.
 
-    The root bootstrap upholds this invariant automatically: building the command tree (`NewCmdRoot`) defaults the field to `props.NoopCollector{}`, and the resolved `*telemetry.Collector` replaces it once config loads. A `Props` constructed directly as a struct literal — for example in tests that exercise a command without going through the bootstrap — should set `Collector: props.NoopCollector{}` itself, or run the command via `root.Execute` (which also defaults it).
+    The root bootstrap upholds this invariant automatically: building the command tree (`NewCmdRoot`) defaults the field to `props.NoopCollector{}`, and the resolved `*telemetry.Collector` replaces it once config loads. A `Props` constructed directly as a struct literal (for example in tests that exercise a command without going through the bootstrap) should set `Collector: props.NoopCollector{}` itself, or run the command via `root.Execute` (which also defaults it).
 
 !!! note "ErrorHandler is an Interface"
     The `ErrorHandler` field is an interface type, not a pointer. This enables easy mocking and custom implementations for testing.
@@ -117,7 +117,7 @@ type FeatureDescriptor struct {
 }
 ```
 
-`ConstName` and `ConstPackage` exist because the generator **emits Go source** naming the constant. The identifier cannot be derived from the ID (`mcp` yields `McpCmd`), and a plugin's constant does not live in `props` — the forge features are declared by `pkg/setup/forge`.
+`ConstName` and `ConstPackage` exist because the generator **emits Go source** naming the constant. The identifier cannot be derived from the ID (`mcp` yields `McpCmd`), and a plugin's constant does not live in `props`. The forge features are declared by `pkg/setup/forge`.
 
 A package registers its own features from `init`, so a blank import is the entire mechanism:
 
@@ -133,7 +133,7 @@ func init() {
 ```
 
 !!! warning "Only builtin features may be default-enabled"
-    `RegisterFeature` rejects a non-builtin descriptor with `Default: true` (`ErrPluginDefaultOn`). Adding a blank import must change what is **available**, never what is **on** — otherwise an import list becomes a behavioural file, and a downstream that deliberately omits a provider cannot reason about what its remaining imports switched on behind it.
+    `RegisterFeature` rejects a non-builtin descriptor with `Default: true` (`ErrPluginDefaultOn`). Adding a blank import must change what is **available**, never what is **on**: otherwise an import list becomes a behavioural file, and a downstream that deliberately omits a provider cannot reason about what its remaining imports switched on behind it.
 
 #### Querying by kind
 
@@ -147,17 +147,17 @@ for _, id := range props.FeaturesOfKind(props.KindForge) {
 
 #### Ordering and sealing
 
-Enumeration order never consults `init()` sequencing: built-ins hold their declared order and everything else sorts by `(kind, id)`. Go runs `init` in dependency-then-filename order, which is stable for one build but shifts with the import graph — and both the doctor report and the generator's golden files depend on this order.
+Enumeration order never consults `init()` sequencing: built-ins hold their declared order and everything else sorts by `(kind, id)`. Go runs `init` in dependency-then-filename order, which is stable for one build but shifts with the import graph, and both the doctor report and the generator's golden files depend on this order.
 
 Reading the registry **seals** it. A registration afterwards fails with `ErrRegistrySealed` rather than yielding a set that depends on when it was read.
 
 !!! info "`AllFeatures()` reflects what this binary linked"
-    A tool that blank-imports fewer providers enumerates fewer features. That is the correct *runtime* answer. The generator needs the complete **possible** set instead — every feature a scaffolded project could choose, including adapters the generator itself does not link — and takes it from its own catalogue rather than from this registry.
+    A tool that blank-imports fewer providers enumerates fewer features. That is the correct *runtime* answer. The generator needs the complete **possible** set instead. Every feature a scaffolded project could choose, including adapters the generator itself does not link, and takes it from its own catalogue rather than from this registry.
 
 The following features are **opt-in** (disabled by default):
-- `ai` — AI provider configuration during `init`
-- `config` — programmatic config access (`config get/set/list/validate`)
-- `telemetry` — anonymous usage telemetry collection and CLI management commands
+- `ai`: AI provider configuration during `init`
+- `config`: programmatic config access (`config get/set/list/validate`)
+- `telemetry`: anonymous usage telemetry collection and CLI management commands
 
 #### The `SetFeatures` Constructor
 
@@ -218,7 +218,7 @@ func generateDocs(p props.LoggingConfigProvider) error {
 }
 ```
 
-Migration is optional and incremental — `*Props` continues to work everywhere.
+Migration is optional and incremental, `*Props` continues to work everywhere.
 
 ## Components
 
@@ -262,11 +262,11 @@ type FeatureState func([]Feature) []Feature
 ```
 
 !!! info "Help Configuration"
-    `Tool.Help` accepts any value that implements the `errorhandling.HelpConfig` interface (`SupportMessage() string`). Use `props.SlackHelp` or `props.TeamsHelp` for built-in support channel messages, or pass `nil` for no help message. The field is set programmatically — it is not read from YAML/JSON config files.
+    `Tool.Help` accepts any value that implements the `errorhandling.HelpConfig` interface (`SupportMessage() string`). Use `props.SlackHelp` or `props.TeamsHelp` for built-in support channel messages, or pass `nil` for no help message. The field is set programmatically. It is not read from YAML/JSON config files.
 
 #### Bootstrap Policy
 
-`Tool.Bootstrap` groups config-bootstrap lifecycle policy. Its zero value reproduces the historical behaviour: when the `init` feature is enabled, a missing configuration file is a hard error ("please run init"). Because the root bootstrap always runs first (see [command bootstrap ordering](../concepts/feature-setup.md)), that error aborts the invocation before any subcommand's own `PreRunE` can run — so these two opt-ins let a tool control first-run behaviour instead.
+`Tool.Bootstrap` groups config-bootstrap lifecycle policy. Its zero value reproduces the historical behaviour: when the `init` feature is enabled, a missing configuration file is a hard error ("please run init"). Because the root bootstrap always runs first (see [command bootstrap ordering](../concepts/feature-setup.md)), that error aborts the invocation before any subcommand's own `PreRunE` can run, so these two opt-ins let a tool control first-run behaviour instead.
 
 ```go
 type BootstrapPolicy struct {
@@ -282,7 +282,7 @@ type BootstrapPolicy struct {
 }
 ```
 
-Neither knob skips the framework bootstrap itself (config load, telemetry, update check) — they relax only the missing-config *outcome*, so `props.Config` is always populated. A command may alternatively be marked robustly (rename-safe) with the `setup.SkipConfigCheck(cmd)` annotation instead of naming it in the list; either mechanism relaxes the gate. `SkipConfigCheck` takes precedence over `AutoInitialise` for a given command. See [Auto-initialise configuration on first run](../../how-to/auto-initialise-config.md).
+Neither knob skips the framework bootstrap itself (config load, telemetry, update check). They relax only the missing-config *outcome*, so `props.Config` is always populated. A command may alternatively be marked robustly (rename-safe) with the `setup.SkipConfigCheck(cmd)` annotation instead of naming it in the list; either mechanism relaxes the gate. `SkipConfigCheck` takes precedence over `AutoInitialise` for a given command. See [Auto-initialise configuration on first run](../../how-to/auto-initialise-config.md).
 
 **Example:**
 ```go
@@ -497,7 +497,7 @@ props.FS = cowFs
 
 ### `test.New` (recommended)
 
-The `pkg/props/test` package — public, so tools built on GTB can use it too — distils the common "construct a fully-wired `*props.Props`" pattern into a single call. Every field gets a hermetic, safe default, so the documented invariants (notably non-nil `Collector` and a usable `Config`) hold without hand-assembly:
+The `pkg/props/test` package (public, so tools built on GTB can use it too) distils the common "construct a fully-wired `*props.Props`" pattern into a single call. Every field gets a hermetic, safe default, so the documented invariants (notably non-nil `Collector` and a usable `Config`) hold without hand-assembly:
 
 ```go
 import "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
@@ -524,11 +524,11 @@ Defaults applied by `test.New`:
 | `Logger` | `logger.NewNoop()` |
 | `FS` | `afero.NewMemMapFs()` (in-memory, isolated) |
 | `Collector` | `props.NoopCollector{}` (upholds the non-nil invariant) |
-| `ErrorHandler` | `errorhandling.New(...)` with an inert `Exit` and `io.Discard` writer — a `Fatal` under test never terminates the process |
+| `ErrorHandler` | `errorhandling.New(...)` with an inert `Exit` and `io.Discard` writer: a `Fatal` under test never terminates the process |
 | `Tool` | benign valid metadata (`testtool`, `EnvPrefix: TESTTOOL`, a GitHub `ReleaseSource`) |
 | `Version` | deterministic `version.NewInfo("v0.0.0-test", ...)` |
 | `Assets` | empty-but-valid `props.NewAssets()` |
-| `Config` | writable `*config.Store` over an empty in-memory file — reads via `.View()`, `Apply` is safe |
+| `Config` | writable `*config.Store` over an empty in-memory file: reads via `.View()`, `Apply` is safe |
 
 Each call returns a fresh, independent instance with no real filesystem, network, keychain or `os.Exit` side effects, so it is safe under `t.Parallel()`. Override options are: `WithTool`, `WithLogger`, `WithFS`, `WithCollector`, `WithVersion`, `WithAssets`, `WithConfig`, and `WithErrorHandler`.
 

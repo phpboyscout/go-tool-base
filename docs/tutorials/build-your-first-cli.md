@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 By the end of this you'll have a real, buildable CLI: configuration, structured
 logging, a consistent error path, self-update, embedded docs and a release
-pipeline — none of it written by you — plus one command that is yours.
+pipeline (none of it written by you) plus one command that is yours.
 
 Allow about twenty minutes. Most of that is Go downloading dependencies the
 first time; the scaffolding itself takes seconds.
@@ -21,8 +21,8 @@ first time; the scaffolding itself takes seconds.
   will refuse to build.
 - **A terminal you can install to.** The install script drops a binary in
   `~/.local/bin`.
-- Nothing else. You do not need a GitHub or GitLab account for this tutorial —
-  the generator writes a release pipeline for one, but never contacts it.
+- Nothing else. You do not need a GitHub or GitLab account for this tutorial.
+  The generator writes a release pipeline for one, but never contacts it.
 
 ## Install the gtb CLI
 
@@ -32,7 +32,7 @@ GTB ships an automation CLI called `gtb`. Install it with the script:
 curl -sSL "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.sh" | bash
 ```
 
-That fetches a pre-built release — embedded docs and all — and puts `gtb` in
+That fetches a pre-built release (embedded docs and all) and puts `gtb` in
 `~/.local/bin`, so make sure that directory is on your `$PATH`. Check it landed:
 
 ```bash
@@ -47,7 +47,7 @@ Date:    2026-08-02T13:13:34Z
 
 Everything below is verified against **v0.35.0**. GTB is pre-1.0 and moving, and
 the install script always pulls the latest release, so if something does not line
-up, a newer version is the likeliest reason — check the
+up, a newer version is the likeliest reason. Check the
 [migration notes](../reference/migration/index.md).
 
 `go install` also works, but the [installation guide](../installation.md)
@@ -69,7 +69,7 @@ gtb generate project \
 ```
 
 Set `--env-prefix` now. It is the prefix for the environment variables that can
-override your configuration later — `MYTOOL_LOG_LEVEL` rather than a bare
+override your configuration later, `MYTOOL_LOG_LEVEL` rather than a bare
 `LOG_LEVEL` that would collide with every other tool on the machine. A tool with
 no prefix has no environment layer at all.
 
@@ -81,8 +81,8 @@ The generator git-initialises the new project and makes an initial commit. Pass
 `--no-git` to skip that.
 
 One choice is worth knowing about before you see the result: **features**. GTB
-bundles ready-made commands — self-update, embedded docs, a doctor health check,
-an MCP server, a changelog, OS-keychain storage — and you pick which ones your
+bundles ready-made commands: self-update, embedded docs, a doctor health check,
+an MCP server, a changelog, OS-keychain storage, and you pick which ones your
 tool ships with at generation time, through `--features` or the wizard's
 checklist. That is why your brand-new tool answers `--help` with commands you
 never wrote. The full list is in the
@@ -137,7 +137,7 @@ func main() {
 }
 ```
 
-Two lines of body. `root.NewCmdRoot` — in your own `pkg/cmd/root/cmd.go` —
+Two lines of body. `root.NewCmdRoot` (in your own `pkg/cmd/root/cmd.go`) 
 builds the `Props` container that carries the logger, config, filesystem and
 version to every command. `gtbRoot.Execute` runs the tree under a signal-aware
 context and routes any failure through one error handler, so there is no
@@ -223,11 +223,11 @@ mytool vnone
 ```
 
 `init` is itself a feature. A tool that should run straight from its built-in
-defaults with no file at all can switch it off, or relax the check per command —
-see [Auto-initialise config](../how-to/auto-initialise-config.md). Leave it on
+defaults with no file at all can switch it off, or relax the check per command.
+See [Auto-initialise config](../how-to/auto-initialise-config.md). Leave it on
 for now.
 
-The file it wrote is `~/.mytool/config.yaml` — note the leading dot on the
+The file it wrote is `~/.mytool/config.yaml`. Note the leading dot on the
 directory; it is not `~/.config/`. The
 [configuration reference](../reference/config/index.md) covers every key and the
 order the layers resolve in.
@@ -243,10 +243,10 @@ gtb generate command --name hello --short "Say hello"
 
 That writes two files:
 
-- **`pkg/cmd/hello/cmd.go`** — generated, `DO NOT EDIT`. The options struct, the
+- **`pkg/cmd/hello/cmd.go`**: generated, `DO NOT EDIT`. The options struct, the
   flag wiring, and the `NewCmdHello(props *props.Props) *setup.Command`
   constructor.
-- **`pkg/cmd/hello/main.go`** — yours. A `RunHello` function, where the real
+- **`pkg/cmd/hello/main.go`**: yours. A `RunHello` function, where the real
   logic goes.
 
 It also registers the command in the root tree, updates `.gtb/manifest.yaml`,
@@ -290,7 +290,7 @@ shows that route; this tutorial follows the generated one.
 ## Regenerate without losing your work
 
 This is the part people are right to be wary of. If the generator owns `cmd.go`
-and the root wiring, what happens when it runs again — which it does on every
+and the root wiring, what happens when it runs again, which it does on every
 `gtb generate command`?
 
 ```bash
@@ -323,13 +323,13 @@ and the confidence to regenerate as the tool grows.
 
 ## What to read next
 
-- [Configuration keys](../reference/config/index.md) — every key, its default,
+- [Configuration keys](../reference/config/index.md): every key, its default,
   and what happens when it is wrong.
-- [Bind flags to config](../how-to/bind-flags-to-config.md) — let a flag override
+- [Bind flags to config](../how-to/bind-flags-to-config.md): let a flag override
   a configuration value.
-- [Generating commands](../how-to/framework-cli/generate-commands.md) — nested
+- [Generating commands](../how-to/framework-cli/generate-commands.md): nested
   subcommands, flags, and the eight-field flag spec.
-- [Built-in features](../how-to/builtin-features.md) — turning the optional
+- [Built-in features](../how-to/builtin-features.md): turning the optional
   commands on and off.
-- [Architecture fundamentals](../explanation/concepts/architecture.md) — what
+- [Architecture fundamentals](../explanation/concepts/architecture.md): what
   `Props` is and why every command receives one.

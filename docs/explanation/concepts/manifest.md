@@ -90,7 +90,7 @@ commands:
 ### Properties: the recorded project posture
 
 `properties` records more than the tool's name and repo. It is where GTB keeps
-the author-set posture that has no other home — the settings a human chose that
+the author-set posture that has no other home, the settings a human chose that
 the generated Go source does not fully encode:
 
 - **features**: The built-in feature toggles (e.g. `ai`, `config`, `telemetry`,
@@ -98,7 +98,7 @@ the generated Go source does not fully encode:
     framework default are recorded, so the block stays minimal.
 - **signing**: The self-update signing posture (backend, key id/region, public
     key path, enforcement flags).
-- **templates**: Custom template-overlay provenance and pins — `{name, type,
+- **templates**: Custom template-overlay provenance and pins: `{name, type,
     location, ref, resolved, fingerprint, hashes}` per source.
 - **telemetry**: Endpoint configuration for the analytics/observability
     surfaces.
@@ -108,14 +108,14 @@ the generated Go source does not fully encode:
 - **docs_layout**: Which documentation tree shape (Diátaxis vs the legacy flat
     layout) the project uses.
 
-Per-command, the manifest also records **`mcp_enabled`** — whether a command is
-exposed over MCP — so that gating round-trips through both regeneration
+Per-command, the manifest also records **`mcp_enabled`**, whether a command is
+exposed over MCP, so that gating round-trips through both regeneration
 directions.
 
 ### Why `provenance.go` exists
 
-A handful of those recorded properties — the **signing posture**, the
-**template-overlay pins**, and **`module_published`** — appear *nowhere else* in
+A handful of those recorded properties, the **signing posture**, the
+**template-overlay pins**, and **`module_published`**, appear *nowhere else* in
 the generated Go source. They are not encoded in `cmd.go`, `main.go`, or any
 other artefact the scanner can read. This is a problem for recovery: the whole
 point of the manifest is that it can be rebuilt from in-tree source after
@@ -157,7 +157,7 @@ You rarely need to edit this file manually! The `generate` commands handle it fo
 
 ### Manual Edits 🛠️
 
-If you need to make a quick text change—like fixing a typo in a description—you can edit `manifest.yaml` directly.
+If you need to make a quick text change (like fixing a typo in a description) you can edit `manifest.yaml` directly.
 
 !!! warning "Manual Updates"
     Changes made manually to the manifest won't be reflected in your Go code until you run a regeneration command. For structural changes, always rely on `generate add-flag` to ensure your code stays in sync!

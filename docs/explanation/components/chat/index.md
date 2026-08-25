@@ -11,9 +11,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 The multi-provider AI chat client has been **extracted into the standalone
 [`gitlab.com/phpboyscout/go/chat`](https://gitlab.com/phpboyscout/go/chat)
 module** (plus per-provider modules for Anthropic, OpenAI, and Gemini). Its full
-documentation — the `ChatClient` API, the ReAct tool-calling loop, streaming,
+documentation: the `ChatClient` API, the ReAct tool-calling loop, streaming,
 cross-provider fallback, conversation persistence, multimodal input, token-usage
-accounting, and the provider capability matrix — now lives at:
+accounting, and the provider capability matrix. Now lives at:
 
 > **[chat.go.phpboyscout.uk](https://chat.go.phpboyscout.uk)**
 

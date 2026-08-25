@@ -12,15 +12,15 @@ GTB provides the foundational `chat` package for interacting with LLMs.
 
 ## Design Philosophy
 
-`pkg/chat` is a **thin, purpose-built abstraction** for CLI tooling — not a general-purpose AI framework. Before selecting this approach, a comprehensive evaluation of alternatives (LangChain Go, go-openai, vercel/ai-sdk, and ~10 others) was performed.
+`pkg/chat` is a **thin, purpose-built abstraction** for CLI tooling: not a general-purpose AI framework. Before selecting this approach, a comprehensive evaluation of alternatives (LangChain Go, go-openai, vercel/ai-sdk, and ~10 others) was performed.
 
 The conclusion was clear: no existing library matched GTB's specific requirements:
 
-- **Minimal interface surface** — the `ChatClient` interface exposes exactly four methods: `Add`, `Chat`, `Ask`, and `SetTools`. Downstream code never needs to know which provider is active.
-- **Tool calling + structured output** — both capabilities are required together across providers, a combination that most thin wrappers do not handle uniformly.
-- **CLI-first design** — features like token chunking, history management, and subprocess providers (e.g., `ProviderClaudeLocal`) are CLI concerns that general AI frameworks don't address.
-- **Extensible without forking** — the `RegisterProvider` registry allows third-party packages to add providers without modifying `pkg/chat`.
-- **Testable by default** — generated mocks in `pkg/mocks/chat` allow downstream applications to stub the entire AI layer without network calls.
+- **Minimal interface surface**: the `ChatClient` interface exposes exactly four methods: `Add`, `Chat`, `Ask`, and `SetTools`. Downstream code never needs to know which provider is active.
+- **Tool calling + structured output**: both capabilities are required together across providers, a combination that most thin wrappers do not handle uniformly.
+- **CLI-first design**: features like token chunking, history management, and subprocess providers (e.g., `ProviderClaudeLocal`) are CLI concerns that general AI frameworks don't address.
+- **Extensible without forking**: the `RegisterProvider` registry allows third-party packages to add providers without modifying `pkg/chat`.
+- **Testable by default**: generated mocks in `pkg/mocks/chat` allow downstream applications to stub the entire AI layer without network calls.
 
 This positioning makes `pkg/chat` a "right-sized" component: large enough to solve real provider-abstraction complexity, small enough that its full interface fits on a single screen.
 
@@ -45,7 +45,7 @@ All five built-in providers implement this interface:
 - **OpenAI** (and compatible APIs via `ProviderOpenAICompatible`)
 - **Google Gemini**
 - **Anthropic Claude** (API)
-- **Claude Local** — via the locally installed `claude` CLI binary
+- **Claude Local**: via the locally installed `claude` CLI binary
 
 ### Structured Output
 
@@ -53,7 +53,7 @@ The `chat` package supports structured output via JSON schemas. When adding new 
 
 ### Multimodal Input
 
-`Add`, `Ask`, `Chat` and `StreamChat` take a trailing variadic of `Media` — images (and, on Gemini, PDF and A/V) sent alongside the text prompt. The parameter is variadic, so **text-only calls are unchanged** and the media path never affects them.
+`Add`, `Ask`, `Chat` and `StreamChat` take a trailing variadic of `Media`: images (and, on Gemini, PDF and A/V) sent alongside the text prompt. The parameter is variadic, so **text-only calls are unchanged** and the media path never affects them.
 
 ```go
 img, _ := os.ReadFile("frame.jpg")
@@ -80,7 +80,7 @@ type Media struct {
 }
 ```
 
-`MIMEType` is an **optional cross-check**, not an override. The type is always sniffed from `Data`, and the sniffed type is what gets sent. If you set `MIMEType`, it must match the sniffed family (e.g. `image/*`) or the attachment is rejected — this catches disguised content (a ZIP labelled `image/png`) and your own bugs. Leave it empty to let detection do the work.
+`MIMEType` is an **optional cross-check**, not an override. The type is always sniffed from `Data`, and the sniffed type is what gets sent. If you set `MIMEType`, it must match the sniffed family (e.g. `image/*`) or the attachment is rejected: this catches disguised content (a ZIP labelled `image/png`) and your own bugs. Leave it empty to let detection do the work.
 
 #### Safety filtering
 
@@ -88,16 +88,16 @@ Every attachment is validated **before any network call**:
 
 1. **Sniff** the type from the bytes with `net/http.DetectContentType` (never from a filename).
 2. **Reconcile** against a declared `MIMEType` (family mismatch → rejected).
-3. **Allowlist** — the sniffed type must be a recognised media type; anything else (executables, scripts, archives, HTML, `application/octet-stream`) is refused.
-4. **Provider support** — the type must be accepted by the selected provider (matrix below).
-5. **Limits** — at most **16 attachments** per request, **20 MiB** each.
+3. **Allowlist**. The sniffed type must be a recognised media type; anything else (executables, scripts, archives, HTML, `application/octet-stream`) is refused.
+4. **Provider support**. The type must be accepted by the selected provider (matrix below).
+5. **Limits**: at most **16 attachments** per request, **20 MiB** each.
 
 Nothing is uploaded on failure. Two error sentinels distinguish the causes (test with `errors.Is`):
 
 | Error | Meaning |
 | :--- | :--- |
 | `ErrMediaRejected` | Failed the safety filter: empty, oversize, over-count, an unidentifiable/disallowed type, or a declared-vs-sniffed mismatch. |
-| `ErrMediaUnsupported` | The type is valid but the selected provider (or model) doesn't accept it — including any media sent to `ProviderClaudeLocal`. |
+| `ErrMediaUnsupported` | The type is valid but the selected provider (or model) doesn't accept it: including any media sent to `ProviderClaudeLocal`. |
 
 #### Provider support matrix
 
@@ -108,11 +108,11 @@ Nothing is uploaded on failure. Two error sentinels distinguish the causes (test
 | OpenAI (+ compatible) | ✅ | ✅ | — |
 | Claude Local | — | — | — |
 
-Each type maps to the provider's native shape: images to a Gemini inline blob / Claude base64 image block / OpenAI `image_url` data URI, and PDF to a Gemini inline blob / Claude base64 document block / OpenAI file part. The v1 accepted range is what stdlib detection can positively identify — common images, PDF, and the common A/V containers (`mp4`/`webm`/`avi`; `mp3`/`wav`/`ogg`/`aiff`). Long-tail formats stdlib cannot name (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer lands.
+Each type maps to the provider's native shape: images to a Gemini inline blob / Claude base64 image block / OpenAI `image_url` data URI, and PDF to a Gemini inline blob / Claude base64 document block / OpenAI file part. The v1 accepted range is what stdlib detection can positively identify: common images, PDF, and the common A/V containers (`mp4`/`webm`/`avi`; `mp3`/`wav`/`ogg`/`aiff`). Long-tail formats stdlib cannot name (`mov`, `flv`, `wmv`, `flac`, `m4a`) are rejected until a richer sniffer lands.
 
 #### Persistence
 
-Media survives snapshots. When a `ConversationStore` (e.g. `FileStore`) saves a snapshot, large media in the messages is **externalised to a content-addressed cache** (`<store>/media/<sha256>`, deduplicated, and encrypted with the store key when one is set) and replaced with a short reference; `Load` resolves the references back, so a restored conversation keeps its attachments and the snapshot file itself stays small. This is generic (provider-agnostic) and fully reversible — a provider's `Restore` sees byte-identical messages.
+Media survives snapshots. When a `ConversationStore` (e.g. `FileStore`) saves a snapshot, large media in the messages is **externalised to a content-addressed cache** (`<store>/media/<sha256>`, deduplicated, and encrypted with the store key when one is set) and replaced with a short reference; `Load` resolves the references back, so a restored conversation keeps its attachments and the snapshot file itself stays small. This is generic (provider-agnostic) and fully reversible: a provider's `Restore` sees byte-identical messages.
 
 #### Known limitations (v1)
 
@@ -149,7 +149,7 @@ func newMyBackend(ctx context.Context, p *props.Props, cfg chat.Config) (chat.Ch
 
 After importing your package (e.g., via a blank import in `main.go`), `chat.New(ctx, p, chat.Config{Provider: "my-backend"})` routes to your factory. No changes to `pkg/chat` are required.
 
-Built-in providers follow the same pattern — each file registers itself in its own `init()`:
+Built-in providers follow the same pattern, each file registers itself in its own `init()`:
 
 | File | Registers |
 | :--- | :--- |

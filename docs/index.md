@@ -40,22 +40,22 @@ hide:
 
 Before diving into code, we highly recommend reading our positioning guides to understand if GTB is the right fit for your next project:
 
-- **[What is GTB?](about/why-gtb.md)** — Core philosophy, "IS / IS NOT" framing, and the 8 key advantages.
-- **[Framework Comparison](about/comparison.md)** — Direct comparisons with Cobra, Viper, urfave/cli, and web frameworks.
-- **[Coming from other Ecosystems?](about/coming-from-other-ecosystems.md)** — A translation guide for developers migrating from PHP (Laravel), Ruby (Rails), or Python (Django).
+- **[What is GTB?](about/why-gtb.md)**: Core philosophy, "IS / IS NOT" framing, and the 8 key advantages.
+- **[Framework Comparison](about/comparison.md)**: Direct comparisons with Cobra, Viper, urfave/cli, and web frameworks.
+- **[Coming from other Ecosystems?](about/coming-from-other-ecosystems.md)**: A translation guide for developers migrating from PHP (Laravel), Ruby (Rails), or Python (Django).
 
 ## Where the documentation lives
 
 Four sections, each answering a different kind of question:
 
-- **[Tutorials](tutorials/index.md)** — start from nothing and end with something that runs. Begin with [Build your first CLI](tutorials/build-your-first-cli.md).
-- **[How-to guides](how-to/index.md)** — you know what you want to achieve; these are the steps.
-- **[Reference](reference/index.md)** — every command, flag and [configuration key](reference/config/index.md), with defaults and failure modes.
-- **[Explanation](explanation/index.md)** — why the framework is shaped this way.
+- **[Tutorials](tutorials/index.md)**: start from nothing and end with something that runs. Begin with [Build your first CLI](tutorials/build-your-first-cli.md).
+- **[How-to guides](how-to/index.md)**: you know what you want to achieve; these are the steps.
+- **[Reference](reference/index.md)**: every command, flag and [configuration key](reference/config/index.md), with defaults and failure modes.
+- **[Explanation](explanation/index.md)**: why the framework is shaped this way.
 
 ## Overview
 
-GTB accelerates development by providing a standardized Dependency Injection (`Props`) container pre-wired with essential features. It includes multi-source configuration, automatic version checking, structured logging, and an AI service layer—allowing you to focus entirely on your unique business logic.
+GTB accelerates development by providing a standardized Dependency Injection (`Props`) container pre-wired with essential features. It includes multi-source configuration, automatic version checking, structured logging, and an AI service layer: allowing you to focus entirely on your unique business logic.
 
 ## Key Features
 

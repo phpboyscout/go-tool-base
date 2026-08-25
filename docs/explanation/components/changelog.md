@@ -13,7 +13,7 @@ Conventional-Commits changelog **generation** (`GenerateFromRepo`, via go-git) a
 / `Entry` / `Category` model) now live in the standalone module
 **[`gitlab.com/phpboyscout/go/changelog`](https://gitlab.com/phpboyscout/go/changelog)**.
 
-It is framework-free — its graph is go-git, the leodido conventional-commits parser,
+It is framework-free. Its graph is go-git, the leodido conventional-commits parser,
 `x/mod`, and `cockroachdb/errors`.
 
 - **Docs:** [changelog.go.phpboyscout.uk](https://changelog.go.phpboyscout.uk)
@@ -38,8 +38,8 @@ Three GTB surfaces consume the module; none changed behaviour in the move:
   ```
 
 - **Self-update** (`pkg/setup`): `SelfUpdater.GetStructuredReleaseNotes` fetches release
-  notes — preferring a `CHANGELOG.md` bundled in the release archive via
-  `ParseFromArchive`, falling back to per-release API calls — and renders breaking changes
+  notes: preferring a `CHANGELOG.md` bundled in the release archive via
+  `ParseFromArchive`, falling back to per-release API calls, and renders breaking changes
   prominently with `FormatSummary`.
 
   ```go
@@ -51,5 +51,5 @@ Three GTB surfaces consume the module; none changed behaviour in the move:
 
 ## Related
 
-- **[Setup / Update](../../reference/cli/update.md)** — the self-update lifecycle that consumes the parser.
-- **[Version](version.md)** — version comparison utilities used alongside changelog diffing.
+- **[Setup / Update](../../reference/cli/update.md)**: the self-update lifecycle that consumes the parser.
+- **[Version](version.md)**: version comparison utilities used alongside changelog diffing.

@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 If your tool's config still holds secrets in `*.api.key` / `*.auth.value` / `bitbucket.username` + `bitbucket.app_password` form, `config migrate-credentials` moves each of them to an environment-variable reference or to the OS keychain in a single pass.
 
-The command is deliberately safe to run anywhere — dry-run produces a plan without mutation, and re-runs skip already-migrated entries. It is the same tool for interactive workstations and for automated pipelines; only the flags differ.
+The command is deliberately safe to run anywhere: dry-run produces a plan without mutation, and re-runs skip already-migrated entries. It is the same tool for interactive workstations and for automated pipelines; only the flags differ.
 
 ## TL;DR
 
@@ -47,7 +47,7 @@ Migration plan (dry run — no changes written):
   bitbucket.username + bitbucket.app_password → bitbucket.username.env = BITBUCKET_USERNAME (target: env)
 ```
 
-If the plan looks wrong — missing entries, or a credential listed that isn't actually in your config — re-check the loaded config path with `mytool config list` before running for real.
+If the plan looks wrong (missing entries, or a credential listed that isn't actually in your config) re-check the loaded config path with `mytool config list` before running for real.
 
 ### 2. Run interactively
 
@@ -61,7 +61,7 @@ For each credential the command:
 2. Prints the `export <NAME>=...` instructions.
 3. Waits for you to confirm you've exported the variable.
 4. Verifies the variable is set in the current process.
-5. Rewrites the config atomically — the literal is removed and the `.env` reference is added in a single file write.
+5. Rewrites the config atomically. The literal is removed and the `.env` reference is added in a single file write.
 
 If you bail at step 3 by answering "No, cancel migration", the config is left untouched for that credential and you can re-run later.
 
@@ -89,7 +89,7 @@ Drop every prompt:
 mytool config migrate-credentials --yes
 ```
 
-`--yes` implies `--skip-verify` — the command trusts that the CI platform has injected the required env vars before the tool runs. Combine with `--env-var` to pin names explicitly, or with `--target` to pick a different destination mode.
+`--yes` implies `--skip-verify`. The command trusts that the CI platform has injected the required env vars before the tool runs. Combine with `--env-var` to pin names explicitly, or with `--target` to pick a different destination mode.
 
 ### 5. Migrate to the OS keychain
 
@@ -125,7 +125,7 @@ Explicit `--target` on the command line still wins over the cascade.
 ## Migrating is not the end of the exposure
 
 A migration changes which copy of a credential *wins*, and removes the one on
-disk. It does not retire the copy that already leaked — a literal credential has
+disk. It does not retire the copy that already leaked. A literal credential has
 been in a config file, so wherever that file travelled it is still there and
 still valid: dotfile repositories, backups, diagnostic bundles, a support
 ticket.
@@ -153,7 +153,7 @@ Nothing is removed on the strength of a write returning success:
 The keychain read-back compares values, not just the absence of an error: a
 backend returning a *different* secret is worse than one returning none, because
 the literal would be gone and the tool would then authenticate with something
-else. If either check fails, the literal is **not** removed — the mutations are
+else. If either check fails, the literal is **not** removed. The mutations are
 staged and committed in one step precisely so a failure changes nothing.
 
 After the rewrite commits, the configuration is re-read from disk and each
@@ -162,40 +162,40 @@ resolved differently than intended. That check reports `resolves from its new
 home`.
 
 **It is not an authentication check.** Proving a credential *works* needs
-per-provider knowledge — a forge token and an AI key are validated in entirely
-different ways — so what is proved is that it resolves from where the migration
+per-provider knowledge. A forge token and an AI key are validated in entirely
+different ways, so what is proved is that it resolves from where the migration
 put it. That is a weaker claim than "it works", and reporting it as anything
 stronger would be worse than not checking at all.
 
 Failure does not roll back. Restoring the literal would rewrite the plaintext
-secret to disk, undoing the only irreversible good the command does — so it
+secret to disk, undoing the only irreversible good the command does, so it
 warns, records the credential as unverified, and leaves the safer state in
 place.
 
 ## What if it's interrupted?
 
-The config file rewrite is atomic (temp-file + rename), so a SIGINT mid-migration leaves the original `config.yaml` in place. Re-run the command to resume — already-migrated credentials skip cleanly, and partial-progress (e.g. the keychain Store succeeded but the rewrite didn't) is visible in the second run's dry-run preview.
+The config file rewrite is atomic (temp-file + rename), so a SIGINT mid-migration leaves the original `config.yaml` in place. Re-run the command to resume: already-migrated credentials skip cleanly, and partial-progress (e.g. the keychain Store succeeded but the rewrite didn't) is visible in the second run's dry-run preview.
 
 ## FAQ
 
 **Q: Can I migrate back to literal mode?**
 
-No — that's by design. Literal storage is what the command moves *away* from. If you genuinely need a literal value (throwaway environment, reproducing a bug) set it manually with `config set <key> <value>`.
+No. That's by design. Literal storage is what the command moves *away* from. If you genuinely need a literal value (throwaway environment, reproducing a bug) set it manually with `config set <key> <value>`.
 
 **Q: Does the command touch secrets that were already env-refs or keychain-refs?**
 
 No. Only plaintext literals (`*.api.key`, `*.auth.value`, Bitbucket literals) are scanned. Existing `.env` / `.keychain` entries are preserved verbatim.
 
-**Q: My Bitbucket username has no app_password or vice versa — what happens?**
+**Q: My Bitbucket username has no app_password or vice versa, what happens?**
 
 The command still migrates the half you have (to env-var mode), but the keychain target requires both halves to be present. Partial-pair keychain migration errors with a message explaining which half is missing.
 
 **Q: What permissions does the rewritten config file have?**
 
-`0600` — owner read/write, nothing for group or world. Matches the initial setup-wizard invariant (R4 in the hardening spec).
+`0600`: owner read/write, nothing for group or world. Matches the initial setup-wizard invariant (R4 in the hardening spec).
 
 ## Related
 
-- [Configure credentials](configure-credentials.md) — pick the storage mode when running `init`
-- [Custom credential backend](custom-credential-backend.md) — implement a Vault / AWS SSM / 1Password backend
-- [Migration guide for v1.12](../reference/migration/v1.12-credential-storage.md) — full version upgrade notes
+- [Configure credentials](configure-credentials.md): pick the storage mode when running `init`
+- [Custom credential backend](custom-credential-backend.md): implement a Vault / AWS SSM / 1Password backend
+- [Migration guide for v1.12](../reference/migration/v1.12-credential-storage.md): full version upgrade notes

@@ -49,8 +49,8 @@ The `--skip-telemetry` flag (default `true` when `CI=true`) suppresses the promp
 
 Independently of `init`, the root pre-run shows the same one-time opt-in prompt
 the first time a `TelemetryCmd`-enabled tool runs with `telemetry.enabled` still
-unset. That prompt is **TTY-gated**: it is skipped — without ever reading
-stdin — when the run is in CI (`--ci` / `ci: true` / `CI=true`), when stdin is
+unset. That prompt is **TTY-gated**: it is skipped, without ever reading
+stdin: when the run is in CI (`--ci` / `ci: true` / `CI=true`), when stdin is
 not a terminal (cron, piped input), or under the `mcp` command (whose stdout
 carries JSON-RPC frames). A skipped prompt **persists nothing**: absence of
 consent is not refusal, so `telemetry.enabled` stays unset and the opt-in

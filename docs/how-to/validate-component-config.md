@@ -10,8 +10,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 When building a new feature package for a GTB-based tool, you need to handle two concerns:
 
-1. **Config defaults** — what values should exist if the user doesn't provide them
-2. **Config validation** — catching typos, missing required fields, and invalid values at startup
+1. **Config defaults**: what values should exist if the user doesn't provide them
+2. **Config validation**: catching typos, missing required fields, and invalid values at startup
 
 GTB separates these responsibilities deliberately. Defaults live in embedded assets. Validation lives in struct tags. This guide shows how to wire both.
 
@@ -51,11 +51,11 @@ This creates a `config.go` file in your command package containing:
 
 **After scaffolding, you need to:**
 
-1. **Edit the `Config` struct** in `config.go` — replace the TODO comments with your actual config fields and tags
+1. **Edit the `Config` struct** in `config.go`: replace the TODO comments with your actual config fields and tags
 2. **Add your config defaults** to `assets/config.yaml` (seeded by the generator beside the `assets/init/` template)
 3. **Call `ValidateConfig`** from your command's `RunE` or initialiser (see [Step 4](#step-4-call-validation-at-the-right-time) below)
 
-The generated `config.go` is yours to customise. Subsequent `regenerate` runs will **never overwrite** it — your changes are preserved. The rest of this guide explains each piece in detail.
+The generated `config.go` is yours to customise. Subsequent `regenerate` runs will **never overwrite** it. Your changes are preserved. The rest of this guide explains each piece in detail.
 
 ---
 
@@ -63,7 +63,7 @@ The generated `config.go` is yours to customise. Subsequent `regenerate` runs wi
 
 Create an `assets/config.yaml` file in your package with sensible defaults.
 This is the **defaults document**; the sibling `assets/init/config.yaml` is a
-different thing — the human-facing template `init` writes into the user's
+different thing. The human-facing template `init` writes into the user's
 config file:
 
 ```
@@ -123,7 +123,7 @@ the root bootstrap loads that merged document as the store's lowest layer.
 These defaults **always apply**: a key omitted from the user's file resolves
 to your default rather than a zero value, and users override them in their
 config file, environment, or flags. **Do not duplicate these values in struct
-tags** — the `default` tag is for documentation and hints only.
+tags**. The `default` tag is for documentation and hints only.
 
 ---
 
@@ -153,7 +153,7 @@ type Config struct {
 | `config:"myfeature.api_key"` | Maps to the dot-separated config key |
 | `validate:"required"` | Fails if the key is absent or zero-valued |
 | `enum:"debug,info,warn,error"` | Fails if the value is not in the allowed set |
-| `default:"info"` | Appears in error hints — does **not** set the value |
+| `default:"info"` | Appears in error hints: does **not** set the value |
 | `config:"-"` | Skips the field entirely |
 
 ---
@@ -175,9 +175,9 @@ func ValidateConfig(cfg config.Reader) error {
 type), runs it against the resolved configuration, and returns a formatted
 error if anything fails. It takes the `config.Reader` interface, so callers
 pass `props.Config.View()` in production and the published `MockReader` in
-tests — never a concrete store type.
+tests. Never a concrete store type.
 
-If you need the `ValidationResult` itself — to inspect warnings, say — build the
+If you need the `ValidationResult` itself (to inspect warnings, say) build the
 schema with `SchemaOf[T]` and validate by hand:
 
 ```go
@@ -259,7 +259,7 @@ See [React to Configuration Changes at Runtime](config-hot-reload.md) for the fu
 
 ## Step 6: Strict Mode (Optional)
 
-By default, unknown keys produce warnings. If your package needs tighter control — for example, a user-facing config file where typos should be caught — enable strict mode by passing the option straight through:
+By default, unknown keys produce warnings. If your package needs tighter control (for example, a user-facing config file where typos should be caught) enable strict mode by passing the option straight through:
 
 ```go
 if err := config.ValidateStruct[Config](cfg, config.WithStrictMode()); err != nil {
@@ -315,8 +315,8 @@ myfeature:
 }
 ```
 
-`configafero.Wrap` bridges an `afero.Fs` to the store's filesystem interface —
-see [Test Configuration](test-configuration.md) for the reader-based variant.
+`configafero.Wrap` bridges an `afero.Fs` to the store's filesystem interface.
+See [Test Configuration](test-configuration.md) for the reader-based variant.
 
 ---
 
@@ -326,13 +326,13 @@ see [Test Configuration](test-configuration.md) for the reader-based variant.
 
 **Don't create a single global schema for the whole config.** Each package validates its own slice. A global schema would need to know which features are active and would couple packages together.
 
-**Don't reach for the concrete store to validate.** `ValidateStruct[T]` and `View.Validate` both work through the `config.Reader` interface, so a package never needs the concrete `*config.Store` — a pinned view (or a mock) is enough.
+**Don't reach for the concrete store to validate.** `ValidateStruct[T]` and `View.Validate` both work through the `config.Reader` interface, so a package never needs the concrete `*config.Store`. A pinned view (or a mock) is enough.
 
 ---
 
 ## Related Documentation
 
-- **[Configuration component](../explanation/components/config/index.md)** — the Store, views, layers, and schema validation reference
-- **[Embed and Register Custom Assets](embed-custom-assets.md)** — how to ship config defaults with your package
-- **[React to Configuration Changes at Runtime](config-hot-reload.md)** — hot-reload and observer patterns
-- **[Add an Initialiser](add-initialiser.md)** — the full feature registration pattern including `IsConfigured` checks
+- **[Configuration component](../explanation/components/config/index.md)**: the Store, views, layers, and schema validation reference
+- **[Embed and Register Custom Assets](embed-custom-assets.md)**: how to ship config defaults with your package
+- **[React to Configuration Changes at Runtime](config-hot-reload.md)**: hot-reload and observer patterns
+- **[Add an Initialiser](add-initialiser.md)**: the full feature registration pattern including `IsConfigured` checks

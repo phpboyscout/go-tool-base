@@ -23,7 +23,7 @@ The `FeatureRegistry` (found in `pkg/setup/registry.go`) acts as a central clear
 Features register themselves using the `Register` function, typically called from a feature's package `init()` function or a high-level command constructor.
 
 > [!WARNING]
-> **Thread Safety**: The `FeatureRegistry` (and the `Register` functions) are NOT safe for concurrent use. All `Register*` calls MUST happen during `init()` — before `main()` starts and before any goroutines are spawned. Reading from the registry later is safe because the Go memory model guarantees that `init()` happens-before `main()`.
+> **Thread Safety**: The `FeatureRegistry` (and the `Register` functions) are NOT safe for concurrent use. All `Register*` calls MUST happen during `init()`: before `main()` starts and before any goroutines are spawned. Reading from the registry later is safe because the Go memory model guarantees that `init()` happens-before `main()`.
 
 ```go
 func init() {
@@ -55,11 +55,11 @@ type Initialiser interface {
 
 When a user runs the `init` command, the `setup.Initialise` function (context first: `Initialise(ctx, p, opts)`) performs the following steps:
 
-1.  **Bootstrap**: Creates the config directory and materialises the base `config.yaml` from the init template (`assets/init/config.yaml`, merged across every registered asset bundle) — seeding a missing file, or merging new template keys under an existing one.
+1.  **Bootstrap**: Creates the config directory and materialises the base `config.yaml` from the init template (`assets/init/config.yaml`, merged across every registered asset bundle): seeding a missing file, or merging new template keys under an existing one.
 2.  **Open an editor**: Opens a `setup.Editor` over the target file, whose reads resolve the file layered over the tool's embedded defaults.
 3.  **Discovery**: The `init` command retrieves all registered `InitialiserProvider` functions from the `globalRegistry` and passes the resulting initialisers in.
 4.  **Execution**: Iterates through each initialiser, checking if it's already configured and running the `Configure` step if necessary.
-5.  **Persistence**: Each `Set` is applied to the file in place as it happens (via the store's `Apply`), preserving template comments — there is no separate final write-back.
+5.  **Persistence**: Each `Set` is applied to the file in place as it happens (via the store's `Apply`), preserving template comments. There is no separate final write-back.
 
 ## Why use this pattern?
 

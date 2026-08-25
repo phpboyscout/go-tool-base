@@ -8,8 +8,8 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 # Workspace
 
-Project-root detection — walking up from a starting directory to find a marker file
-(`.gtb/manifest.yaml`, `go.mod`, `.git`) over an injected `afero.Fs` — now lives in the
+Project-root detection: walking up from a starting directory to find a marker file
+(`.gtb/manifest.yaml`, `go.mod`, `.git`) over an injected `afero.Fs`. Now lives in the
 standalone module **[`gitlab.com/phpboyscout/go/workspace`](https://gitlab.com/phpboyscout/go/workspace)**.
 
 It is a framework-free utility with no Props or command-lifecycle coupling. GTB's own

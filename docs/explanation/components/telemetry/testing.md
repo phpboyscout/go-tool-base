@@ -12,7 +12,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 ### Unit Tests
 
-Use the noop collector — `Props.Collector` is always non-nil:
+Use the noop collector, `Props.Collector` is always non-nil:
 
 ```go
 p := &props.Props{

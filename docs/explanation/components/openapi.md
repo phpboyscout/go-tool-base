@@ -33,5 +33,5 @@ if err := openapi.Register(mux, spec, openapi.WithTitle("Widget API")); err != n
 }
 ```
 
-GTB itself does not consume this module — it is a downstream-facing feature for
+GTB itself does not consume this module. It is a downstream-facing feature for
 tools built on GTB. Import it directly alongside `go/transport`.

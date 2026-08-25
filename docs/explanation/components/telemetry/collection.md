@@ -61,7 +61,7 @@ Telemetry: props.TelemetryConfig{
 },
 ```
 
-When disabled, `TrackCommandExtended` silently drops args and error messages — callers do not need to check the flag. Duration and exit code are always recorded regardless of this setting.
+When disabled, `TrackCommandExtended` silently drops args and error messages. Callers do not need to check the flag. Duration and exit code are always recorded regardless of this setting.
 
 !!! warning "Privacy consideration"
     Only enable `ExtendedCollection` in tools deployed within controlled enterprise environments where data handling is governed by employment contracts and security policies. Never enable it for public-facing or open-source tools.
@@ -79,9 +79,9 @@ event.Args  = []string{"--api-token=sk-proj-***", "deploy"}
 event.Error = `failed POST https://<redacted>@api.example.co/v1?apikey=***: 401`
 ```
 
-The redactor is idempotent and never retains the original string. It catches common shapes — not every possible credential format. Tool authors accepting unusual credential formats in their own commands should either match the common shape conventions (prefix + opaque hex/base64) or contribute a pattern upstream via a PR to `go/redact`.
+The redactor is idempotent and never retains the original string. It catches common shapes: not every possible credential format. Tool authors accepting unusual credential formats in their own commands should either match the common shape conventions (prefix + opaque hex/base64) or contribute a pattern upstream via a PR to `go/redact`.
 
-When a custom telemetry backend is used, events arrive pre-redacted — the backend does not need to repeat the work.
+When a custom telemetry backend is used, events arrive pre-redacted. The backend does not need to repeat the work.
 
 ### OTel Exporter Header Advisories
 
@@ -93,7 +93,7 @@ WARN  OTel header Authorization appears to carry credentials; ensure the
       redacts this name. See docs/components/telemetry.md.
 ```
 
-The warning is advisory — the header is still honoured. It exists so operators can audit which headers carry credentials and confirm their exporter uses TLS. Header **values** never appear in the warning text.
+The warning is advisory. The header is still honoured. It exists so operators can audit which headers carry credentials and confirm their exporter uses TLS. Header **values** never appear in the warning text.
 
 ### What Is NOT Collected
 
@@ -111,16 +111,16 @@ By default, the following are never collected:
 
 The machine ID is a privacy-preserving identifier derived from four system signals:
 
-1. **OS machine ID** — `/etc/machine-id` (Linux), `IOPlatformUUID` (macOS), `MachineGuid` (Windows)
-2. **MAC address** — first non-loopback network interface
+1. **OS machine ID**, `/etc/machine-id` (Linux), `IOPlatformUUID` (macOS), `MachineGuid` (Windows)
+2. **MAC address**, first non-loopback network interface
 3. **Hostname**
 4. **Username**
 
 All four are concatenated and hashed with SHA-256. The first 8 bytes (16 hex chars) are used. Each signal degrades gracefully if unavailable.
 
-The machine ID is **pseudonymous, not anonymous**. The SHA-256 hash is one-way (you cannot directly read the source signals back out of it), but because the inputs are stable per machine, the resulting identifier is itself stable and therefore *correlatable*: the same machine produces the same ID, and — because no per-tool salt is applied — every GTB-based tool on that machine produces the *same* ID. An observer holding event streams from multiple tools can link them to a single machine, and anyone who can enumerate the (small) input space for a known machine could confirm a match by recomputing the hash. Treat it as a stable per-machine pseudonym, not as anonymised data.
+The machine ID is **pseudonymous, not anonymous**. The SHA-256 hash is one-way (you cannot directly read the source signals back out of it), but because the inputs are stable per machine, the resulting identifier is itself stable and therefore *correlatable*: the same machine produces the same ID, and (because no per-tool salt is applied) every GTB-based tool on that machine produces the *same* ID. An observer holding event streams from multiple tools can link them to a single machine, and anyone who can enumerate the (small) input space for a known machine could confirm a match by recomputing the hash. Treat it as a stable per-machine pseudonym, not as anonymised data.
 
-The machine ID is computed fresh on every invocation — it is not persisted to config.
+The machine ID is computed fresh on every invocation. It is not persisted to config.
 
 ```bash
 $ mytool telemetry status

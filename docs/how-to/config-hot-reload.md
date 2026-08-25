@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 GTB's configuration is a layered [go/config](https://config.go.phpboyscout.uk)
 Store. **Watching is explicit**: nothing reloads until someone calls
-`Store.Watch`. For a GTB tool you don't have to — the root command's bootstrap
+`Store.Watch`. For a GTB tool you don't have to, the root command's bootstrap
 wires `Watch` (scoped to the command context) and `OnReloadError` for you, so
 by the time your `RunE` runs, external file changes already reach the store.
 What's left for your code is deciding how to *react*, and that is what
@@ -18,13 +18,13 @@ observers and typed sections are for.
 
 The bootstrap also **retains the stop handle** `Watch` returns and invokes it on
 shutdown, so the fsnotify/poll goroutines are torn down deterministically once
-the command tree returns — context cancellation is only the backstop. This
+the command tree returns: context cancellation is only the backstop. This
 matters for an embedder that drives the reusable command tree with a background
 context (`ExecuteContext(context.Background())`): the watcher no longer outlives
 the run.
 
 On a change the store re-reads the file layers, builds a candidate snapshot,
-validates it, and — only if the candidate is good — publishes it and notifies
+validates it, and (only if the candidate is good) publishes it and notifies
 observers. A rejected reload keeps the last-known-good snapshot and fires
 `OnReloadError` (the root bootstrap logs it as a warning). The store's own
 `Apply` writes never travel the watch path, so a write can't come back around
@@ -35,7 +35,7 @@ as a spurious reload.
 ## Step 1: Implement the `Observable` Interface
 
 Create a struct that implements `config.Observable`. `Run` receives a
-`config.Observed` — a read surface **pinned to the snapshot that triggered the
+`config.Observed`: a read surface **pinned to the snapshot that triggered the
 notification**, so every value you read belongs to the same coherent
 configuration:
 
@@ -137,7 +137,7 @@ current := section.Value()
 ```
 
 The transport adapters (`pkg/http`, `pkg/grpc`, `pkg/gateway`) and the
-observability adapter in `pkg/telemetry` are built on exactly this — see
+observability adapter in `pkg/telemetry` are built on exactly this. See
 [Observe Typed Config](observe-typed-config.md).
 
 ---
@@ -162,8 +162,8 @@ stall future reloads.
 
 ## Reacting to a Rejected Reload
 
-Observers see **applied changes** only. When a reload is rejected — a parse
-error, or a candidate that fails schema validation — the store keeps the
+Observers see **applied changes** only. When a reload is rejected, a parse
+error, or a candidate that fails schema validation. The store keeps the
 last-known-good snapshot and observers are not called, because nothing
 changed.
 
@@ -182,7 +182,7 @@ p.Config.OnReloadError(func(err error) {
 ## Watching Outside the Root Command
 
 A library context that builds its own store (tests, a service embedding the
-store directly) must start the watcher itself — it is never implicit:
+store directly) must start the watcher itself. It is never implicit:
 
 ```go
 stop, err := store.Watch(ctx)
@@ -196,7 +196,7 @@ defer stop()
 ```
 
 `Watch` fails loudly when it cannot function rather than silently doing
-nothing — an application that believes it will hear about changes and never
+nothing. An application that believes it will hear about changes and never
 does is worse off than one that knows it must restart. Full watcher semantics
 (poll fallback, settle window, injectable watchers for tests) are documented
 in the [go/config module docs](https://config.go.phpboyscout.uk).

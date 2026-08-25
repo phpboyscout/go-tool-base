@@ -70,7 +70,7 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `justfile`: Development task runner definitions (replaces the legacy `Taskfile.yml`).
 -   `go.mod`: Go module definition (templated).
 
-#### CI/CD & Automation — GitHub (`.github/`)
+#### CI/CD & Automation: GitHub (`.github/`)
 -   `CODEOWNERS`: Default ownership rules.
 -   `renovate.json5`: Dependency update configuration.
 -   `workflows/lint.yaml`: CI linting checks.
@@ -79,7 +79,7 @@ The following files are copied verbatim (or rendered as templates) from the embe
 -   `workflows/releaser-pleaser.yaml`: Version + changelog management via the Release-PR pattern.
 -   `workflows/docs.yaml`: Documentation publishing.
 
-#### CI/CD & Automation — GitLab (`.gitlab/`, `.gitlab-ci.yml`)
+#### CI/CD & Automation: GitLab (`.gitlab/`, `.gitlab-ci.yml`)
 -   `.gitlab/CODEOWNERS`: Default ownership rules.
 -   `renovate.json5`: Dependency update configuration. Extends the public
     `gitlab>phpboyscout/cicd` preset so the custom manager auto-bumps the
@@ -130,8 +130,8 @@ stopped `main.go` being created (issue #22). A body is the developer stating
 intent; a file's presence is an accident of the ignore file.
 
 `isUntouchedStub` accepts **either** sentinel, because which one a stub carries
-depends on what the command was when it was scaffolded rather than what it is now —
-a command created as a leaf keeps `ErrNotImplemented` after gaining children, and
+depends on what the command was when it was scaffolded rather than what it is now.
+A command created as a leaf keeps `ErrNotImplemented` after gaining children, and
 both bodies are equally untouched.
 
 Two things the generator deliberately does **not** do:
@@ -142,7 +142,7 @@ Two things the generator deliberately does **not** do:
 - **Recognise a "printer-shaped" body.** A parent whose body only prints its own
   verb list is semantically pure and classified working, because telling that apart
   from real work is guesswork about intent. Such groups are *offered* the change in
-  the run summary instead — see
+  the run summary instead. See
   [regeneration](../../concepts/regeneration.md#what-a-regeneration-may-and-may-not-change).
 
 ```mermaid
@@ -311,11 +311,11 @@ Manifest file I/O lives in `manifest_io.go`; hash calculation in `manifest_hash.
 func buildSkeletonRootData(m Manifest, subcommands []templates.SkeletonSubcommand) templates.SkeletonRootData
 ```
 
-This function is the single source of truth for mapping manifest fields — including the full `ManifestHelp` struct (help type, Slack channel/team, Teams channel/team) — to `SkeletonRootData`. Keeping this mapping in one place prevents settings from being silently dropped when the root command is regenerated.
+This function is the single source of truth for mapping manifest fields (including the full `ManifestHelp` struct (help type, Slack channel/team, Teams channel/team)) to `SkeletonRootData`. Keeping this mapping in one place prevents settings from being silently dropped when the root command is regenerated.
 
 Each non-root command is handled by `regenerateCommandRecursive`, which calls through `performGeneration` → `postGenerate` → `CommandPipeline.Run` with `SkipRegistration: true` (children re-register themselves in step 3 of the pipeline).
 
-The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction — so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating).
+The per-command `mcp_enabled` decision round-trips through both directions: `regenerate project` (manifest → code) renders the `setup.ExcludeFromMCP` / `setup.IncludeInMCP` marker from the field, and `regenerate manifest` (code → manifest) recovers it via `detectMCPMarker` during AST extraction, so a command's MCP-exposure gating is never silently lost. See the [MCP command gating section](../../../reference/cli/mcp.md#gating-sensitive-commands) and the [exposure spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating).
 
 ### 7. Templating (`templates/`)
 
@@ -331,11 +331,11 @@ We use Go's `text/template` engine to render code. Templates are stored as strin
 feature set. It is an ordered table mapping each `props.FeatureID` across three
 facts that must stay aligned:
 
-- **name** — the config/manifest string (e.g. `ai`);
-- **`ConstName`** — the exported Go identifier as it appears in generated source
+- **name**: the config/manifest string (e.g. `ai`);
+- **`ConstName`**: the exported Go identifier as it appears in generated source
     (e.g. `AiCmd`). This cannot be derived reliably from the value (`mcp` →
     `McpCmd`), so it is recorded explicitly;
-- **`Default`** — the framework default-enabled state, mirroring
+- **`Default`**: the framework default-enabled state, mirroring
     `props.DefaultFeatures`.
 
 Both directions of feature handling derive from this one table: the
@@ -356,7 +356,7 @@ recovered from the artefact rather than from a `SetFeatures` call. This is why
 
 ### 8. Custom Template Overlays (`templatesource*.go`)
 
-Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files — `README.md` and `gtb-template.yaml` — are excluded from rendering.
+Beyond the embedded skeleton, operators can layer **custom template overlays** from a local folder or a git repo. The generator walks every file in a source and renders it through `text/template` to the **identical relative path**: a new path adds a file; a path that also exists in the skeleton is overwritten (user wins). The two reserved root meta files (`README.md` and `gtb-template.yaml`) are excluded from rendering.
 
 | File | Responsibility |
 |------|----------------|
@@ -368,9 +368,9 @@ Beyond the embedded skeleton, operators can layer **custom template overlays** f
 | `templatesource_spec.go` | Parsing the CLI `<src>@<ref>` spec and inferring local vs git |
 | `templatesource_manage.go` | The `gtb template add/update/remove/list` manifest-edit + regenerate operations (with add rollback on a rejected overlay) |
 
-The consumer manifest's `properties.templates:` block is **provenance + pinning only** — `{name, type, location, ref, resolved, fingerprint, hashes}` per source. Suppression behaviour (`replaces:`) lives with the template set in its `gtb-template.yaml`, not in the consumer manifest. A git source records the resolved commit SHA for byte-stable `regenerate`; a local source records a content fingerprint and `regenerate` warns on drift.
+The consumer manifest's `properties.templates:` block is **provenance + pinning only**: `{name, type, location, ref, resolved, fingerprint, hashes}` per source. Suppression behaviour (`replaces:`) lives with the template set in its `gtb-template.yaml`, not in the consumer manifest. A git source records the resolved commit SHA for byte-stable `regenerate`; a local source records a content fingerprint and `regenerate` warns on drift.
 
-The overlay deliberately steps outside the escape-at-known-sites model — see the threat model in [Template Security](../../../development/template-security.md#custom-template-overlays-a-different-threat-model) and the how-to [Author and Apply Custom Template Overlays](../../../how-to/custom-templates.md).
+The overlay deliberately steps outside the escape-at-known-sites model. See the threat model in [Template Security](../../../development/template-security.md#custom-template-overlays-a-different-threat-model) and the how-to [Author and Apply Custom Template Overlays](../../../how-to/custom-templates.md).
 
 ## Development Workflows
 
@@ -397,8 +397,8 @@ The generator relies heavily on **integration tests** that simulate a real files
 
 The `pipeline_test.go` file provides two shared helpers:
 
-- `setupTestProject(t, path)` — scaffolds a minimal in-memory project via `GenerateSkeleton` with a mocked `runCommand` and a `config.NewFilesContainer` so AI config resolution does not panic.
-- `generateCmd(t, p, path, name, parent)` — pre-creates a doc stub at the correct nested path (e.g. `docs/commands/start/stop/index.md`) before calling `Generate`. This prevents `handleDocumentationGeneration` from making live AI API calls that would hang tests.
+- `setupTestProject(t, path)`: scaffolds a minimal in-memory project via `GenerateSkeleton` with a mocked `runCommand` and a `config.NewFilesContainer` so AI config resolution does not panic.
+- `generateCmd(t, p, path, name, parent)`: pre-creates a doc stub at the correct nested path (e.g. `docs/commands/start/stop/index.md`) before calling `Generate`. This prevents `handleDocumentationGeneration` from making live AI API calls that would hang tests.
 
 ```go
 func TestGenerateCommand(t *testing.T) {
@@ -418,7 +418,7 @@ func TestGenerateCommand(t *testing.T) {
 
 ## Ignore File (`.gtb/ignore`)
 
-The generator supports a `.gtb/ignore` file in the project's `.gtb/` directory (alongside `manifest.yaml`). Files matching ignore patterns are skipped during generation and regeneration — the generator will not write them or prompt to overwrite. However, their current on-disk content is still hashed and recorded in the manifest for tracking.
+The generator supports a `.gtb/ignore` file in the project's `.gtb/` directory (alongside `manifest.yaml`). Files matching ignore patterns are skipped during generation and regeneration. The generator will not write them or prompt to overwrite. However, their current on-disk content is still hashed and recorded in the manifest for tracking.
 
 ### Format
 
@@ -453,14 +453,14 @@ Dockerfile
 | `*.yml` | Extension glob (any directory) | `foo.yml`, `.github/workflows/test.yml` |
 | `.github/**` | Everything under directory | `.github/CODEOWNERS`, `.github/workflows/release.yml` |
 | `.github/workflows/release.yml` | Exact path (anchored) | Only `.github/workflows/release.yml` |
-| `!pattern` | Negation — re-includes a previously excluded file | `!.github/CODEOWNERS` |
+| `!pattern` | Negation: re-includes a previously excluded file | `!.github/CODEOWNERS` |
 
 ### Behaviour
 
 - Patterns are evaluated top-to-bottom; later patterns override earlier ones
 - Negation (`!`) re-includes a file excluded by an earlier pattern
-- Missing `.gtb/ignore` file is valid — no files are ignored (fully backwards compatible)
-- The Force flag does **not** override ignore rules — ignored files stay ignored
+- Missing `.gtb/ignore` file is valid: no files are ignored (fully backwards compatible)
+- The Force flag does **not** override ignore rules: ignored files stay ignored
 - Ignored files that exist on disk have their hash recorded in the manifest
 - Ignored files that don't exist on disk are skipped silently (no hash recorded)
 

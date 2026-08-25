@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Documentation Layout (Diátaxis)
 
 When `gtb` scaffolds a project and generates documentation for it, the output is
-organised according to [Diátaxis](https://diataxis.fr/) — a systematic way of
+organised according to [Diátaxis](https://diataxis.fr/), a systematic way of
 structuring technical documentation around what the reader is actually trying to
 do. This page explains *what* that structure is and *why* GTB generates into it,
 so you understand the shape of your tool's `docs/` tree rather than just following
@@ -40,12 +40,12 @@ useful if it is consistent and lands in a predictable place. Generating into the
 Diátaxis structure gives three concrete benefits:
 
 - **Each generated artefact has a correct home.** A CLI command is *reference*
-  material — terse, factual, exhaustive. A package overview is *explanation* —
+  material (terse, factual, exhaustive. A package overview is *explanation*) 
   narrative, about purpose and design. Putting them in the same flat bucket
   (`docs/commands/`, `docs/packages/`) blurs that distinction; the quadrants make
   it explicit.
 - **Consistency across every tool.** Anyone who has read the docs for one
-  GTB-based tool can navigate any other, because the top-level shape is the same —
+  GTB-based tool can navigate any other, because the top-level shape is the same:
   the same property that GTB already enforces for the [project filesystem
   layout](project-structure.md).
 - **It composes with the static site.** The scaffolded `zensical.toml` derives the
@@ -67,26 +67,26 @@ command is a single flat file, while a command with subcommands becomes a sectio
 whose `index.md` sits beside the child pages.
 
 The generator deliberately fills only the two quadrants it can author truthfully
-from your code — **reference** (what your commands are) and the
+from your code: **reference** (what your commands are) and the
 **explanation of components** (what your packages do). The remaining quadrants are
 scaffolded as neutral stubs and left to you:
 
 - **Tutorials** and **how-to guides** are yours to write; the generator never
   invents a learning path it cannot verify. (GTB's own tutorials live off-site on
-  the project blog, and your tool is free to do the same — the scaffolded stubs are
+  the project blog, and your tool is free to do the same. The scaffolded stubs are
   neutral about where the long-form learning content ultimately lives.)
 - The **landing page** is a marketing-shaped hole for you to fill, not something
   the generator fakes.
 
 ## Package API reference: pkg.go.dev vs `go doc`
 
-The generated package page is *explanation*, not an API dump — it describes the
+The generated package page is *explanation*, not an API dump, it describes the
 package's purpose and key types narratively, then points at the full API reference
 rather than pasting it. Where it points depends on whether your module is
 published:
 
 - **Published** (you pass `--public-api`, or set `module_published: true` in the
-  manifest): the page links the package's `pkg.go.dev` page — the canonical home
+  manifest): the page links the package's `pkg.go.dev` page, the canonical home
   for the full Go API reference.
 - **Unpublished / private** (the default): the page suggests `go doc` locally, so a
   module with no registry page never gets a dead link.
@@ -98,12 +98,12 @@ choice survives future regenerations.
 
 The layout is recorded as `docs_layout` in `.gtb/manifest.yaml`:
 
-- **`diataxis`** — the default for newly scaffolded projects.
-- **`flat`** — the legacy layout (`docs/commands/`, `docs/packages/`), kept for
+- **`diataxis`**: the default for newly scaffolded projects.
+- **`flat`**: the legacy layout (`docs/commands/`, `docs/packages/`), kept for
   projects generated before this became the default. Projects with no
   `docs_layout` recorded are treated as flat.
 
-A flat-layout project keeps its layout on every ordinary `regenerate` — GTB never
+A flat-layout project keeps its layout on every ordinary `regenerate`, GTB never
 moves a downstream author's docs tree out from under them. To migrate, run
 `regenerate project --force`, which relocates existing pages into the quadrant
 tree (preserving your hand-written content), stamps `docs_layout: diataxis`, and
@@ -113,6 +113,6 @@ for the procedure.
 
 ## See also
 
-- [Generating Documentation](../../how-to/framework-cli/generate-docs.md) — the how-to for `generate docs`.
-- [Integrated Documentation](../components/docs.md) — the docs engine, TUI browser, and `docs serve`.
-- [Diátaxis](https://diataxis.fr/) — the framework itself, by Daniele Procida.
+- [Generating Documentation](../../how-to/framework-cli/generate-docs.md): the how-to for `generate docs`.
+- [Integrated Documentation](../components/docs.md): the docs engine, TUI browser, and `docs serve`.
+- [Diátaxis](https://diataxis.fr/): the framework itself, by Daniele Procida.

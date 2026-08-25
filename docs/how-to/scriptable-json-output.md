@@ -15,7 +15,7 @@ and styled markdown rendering for terminal display. Both are controlled by the
 
 Everything hangs off a single configured `Renderer` (`output.New(...)`). For cobra
 commands, the opt-in `go/output/cobra` subpackage reads the `--output` flag and the
-command's writer for you — import it aliased to avoid the clash with `spf13/cobra`:
+command's writer for you. Import it aliased to avoid the clash with `spf13/cobra`:
 
 ```go
 import (
@@ -39,7 +39,7 @@ All built-in GTB commands wrap their JSON output in a standard `Response` envelo
 ```
 
 Using this envelope means your command's JSON output follows the same schema as
-`version`, `doctor`, `update`, and `init` — consumers know where to look for the
+`version`, `doctor`, `update`, and `init`, consumers know where to look for the
 payload and can check `status` without parsing `data`.
 
 ---
@@ -61,7 +61,7 @@ type DeployResult struct {
 ## Step 2: Build a Renderer with the Response Envelope
 
 The `--output` flag is already registered on the root command. `ocobra.NewRenderer`
-builds a `Renderer` from the command — its writer is `cmd.OutOrStdout()` and its
+builds a `Renderer` from the command. Its writer is `cmd.OutOrStdout()` and its
 format is the `--output` value:
 
 ```go
@@ -179,7 +179,7 @@ if !ocobra.IsJSONOutput(cmd) {
 
 ## Rendering Markdown in Terminal Output
 
-Many commands receive markdown content — AI responses, release notes, changelogs —
+Many commands receive markdown content (AI responses, release notes, changelogs) 
 and need to display it styled in the terminal. Use `output.RenderMarkdown`:
 
 ```go
@@ -222,7 +222,7 @@ func runChangelog(cmd *cobra.Command, p *props.Props) error {
 ## Testing Both Formats
 
 Because the `Renderer` takes its writer and format as injected values, tests drive
-it with a `bytes.Buffer` — no TTY, no globals, fully parallel-safe:
+it with a `bytes.Buffer`, no TTY, no globals, fully parallel-safe:
 
 ```go
 func TestDeploy_JSONOutput(t *testing.T) {
@@ -289,7 +289,7 @@ mytool deploy staging --output json | jq '.data.environment'
 
 ## Related Documentation
 
-- **[Output component](../explanation/components/output.md)** — the extracted module and its GTB wiring
-- **[Module docs](https://output.go.phpboyscout.uk)** — full guides, and the [API reference on pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/output)
-- **[Adding Custom Commands](custom-commands.md)** — command wiring patterns
-- **[Switch to Structured JSON Logging for Containers](structured-json-logging.md)** — complement to JSON output for daemon/container deployments
+- **[Output component](../explanation/components/output.md)**: the extracted module and its GTB wiring
+- **[Module docs](https://output.go.phpboyscout.uk)**: full guides, and the [API reference on pkg.go.dev](https://pkg.go.dev/gitlab.com/phpboyscout/go/output)
+- **[Adding Custom Commands](custom-commands.md)**: command wiring patterns
+- **[Switch to Structured JSON Logging for Containers](structured-json-logging.md)**: complement to JSON output for daemon/container deployments

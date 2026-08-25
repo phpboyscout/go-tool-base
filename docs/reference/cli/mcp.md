@@ -85,7 +85,7 @@ setup.IncludeInMCP(mycmd.NewCmdDeployStatus(props))
 ```
 
 `IsExposedToMCP` walks a command and its ancestors and takes the nearest
-explicit decision — exposed wins for that command, excluded hides the subtree,
+explicit decision: exposed wins for that command, excluded hides the subtree,
 and a tree with no decision anywhere is exposed.
 
 The generator carries the same tri-state through `.gtb/manifest.yaml`:

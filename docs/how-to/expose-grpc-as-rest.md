@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Expose a gRPC Service as REST
 
-You already have a gRPC service. Now you want a JSON/REST surface over it — for browsers, `curl`, or callers that don't speak gRPC — without hand-writing a translation layer.
+You already have a gRPC service. Now you want a JSON/REST surface over it (for browsers, `curl`, or callers that don't speak gRPC) without hand-writing a translation layer.
 
 GTB's `pkg/gateway` package makes a [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway) a first-class transport. It dials the local gRPC server itself (matching the server's own transport security) and serves the generated REST handlers, either mounted on an existing HTTP server or as its own controller-managed server. The only gateway-specific code you write is a single registration function.
 
@@ -16,7 +16,7 @@ GTB's `pkg/gateway` package makes a [grpc-gateway](https://github.com/grpc-ecosy
 
 ## Prerequisites
 
-You need an existing gRPC service registered with the controller. If you're starting from scratch, see **[Add a gRPC Management Service](add-grpc-service.md)** first — this guide picks up from a working gRPC server.
+You need an existing gRPC service registered with the controller. If you're starting from scratch, see **[Add a gRPC Management Service](add-grpc-service.md)** first: this guide picks up from a working gRPC server.
 
 You'll also need the grpc-gateway code generator on your path. Install it as a `buf` plugin (next step) or as a binary (`protoc-gen-grpc-gateway`).
 
@@ -76,7 +76,7 @@ Regenerate:
 buf generate
 ```
 
-This emits a `*.pb.gw.go` file next to your generated Go code, containing `RegisterWidgetServiceHandler` — the function the gateway uses to wire the REST handlers onto its mux.
+This emits a `*.pb.gw.go` file next to your generated Go code, containing `RegisterWidgetServiceHandler`: the function the gateway uses to wire the REST handlers onto its mux.
 
 ---
 
@@ -130,7 +130,7 @@ Do **not** wrap it in `http.StripPrefix("/v1", gwHandler)`. Stripping the prefix
 You don't dial the gRPC server yourself. `gateway.New` opens the connection internally via `grpc.DialLocal`, which reads the same config the gRPC server started from. The gateway's transport security therefore *matches the server's* automatically:
 
 - gRPC server running plaintext? The gateway dials plaintext.
-- gRPC server running TLS (even a single shared self-signed cert across all transports)? The gateway dials TLS, trusting that same certificate — no extra client setup, no cert pool to assemble by hand.
+- gRPC server running TLS (even a single shared self-signed cert across all transports)? The gateway dials TLS, trusting that same certificate: no extra client setup, no cert pool to assemble by hand.
 
 This is why a gateway "just works" over the shared `server.tls` certificate that the rest of your stack already uses.
 
@@ -159,7 +159,7 @@ If you get a `404` on a path you know is annotated, check Step 4: a stray `http.
 
 ## Alternative: run the gateway as its own server
 
-Mounting on an existing mux (above) is the right call when the REST surface should share an origin with other routes — the OpenAPI docs, say. But the gateway can also stand up as its own controller-managed HTTP server, a peer of the gRPC and HTTP servers. Use `gateway.Register`:
+Mounting on an existing mux (above) is the right call when the REST surface should share an origin with other routes. The OpenAPI docs, say. But the gateway can also stand up as its own controller-managed HTTP server, a peer of the gRPC and HTTP servers. Use `gateway.Register`:
 
 ```go
 srv, err := gateway.RegisterFromConfig(ctx, "gateway", controller, p.Config.View(), p.Logger,
@@ -183,13 +183,13 @@ server:
     key: /etc/certs/server.key
 ```
 
-Internally `Register` builds the handler with `New`, then hosts it through `pkg/http` — so the prefix-matching behaviour from Step 4 is identical; you just don't write the `mux.Handle` line yourself.
+Internally `Register` builds the handler with `New`, then hosts it through `pkg/http`, so the prefix-matching behaviour from Step 4 is identical; you just don't write the `mux.Handle` line yourself.
 
 ---
 
 ## Related Documentation
 
-- **[Gateway component](../explanation/components/gateway.md)** — `New`, `Register`, `RegisterFunc`, the options, and the config block
-- **[gRPC component](../explanation/components/grpc.md)** — `NewServer`, `Register`, and `DialLocal` (the in-process dial the gateway uses)
-- **[Add a gRPC Management Service](add-grpc-service.md)** — register the gRPC server this gateway sits in front of
-- **[Serve API Docs](serve-api-docs.md)** — serve an OpenAPI spec and docs site on the same mux as the gateway
+- **[Gateway component](../explanation/components/gateway.md)**: `New`, `Register`, `RegisterFunc`, the options, and the config block
+- **[gRPC component](../explanation/components/grpc.md)**: `NewServer`, `Register`, and `DialLocal` (the in-process dial the gateway uses)
+- **[Add a gRPC Management Service](add-grpc-service.md)**: register the gRPC server this gateway sits in front of
+- **[Serve API Docs](serve-api-docs.md)**: serve an OpenAPI spec and docs site on the same mux as the gateway

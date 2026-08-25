@@ -10,17 +10,17 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The hardened TLS plumbing has been **extracted into the standalone
 [`gitlab.com/phpboyscout/go/tls`](https://gitlab.com/phpboyscout/go/tls) module**
-(framework-free — its only dependency is `cockroachdb/errors`). Its full
-documentation — the `DefaultConfig` hardening, the typed `Pair`, the
+(framework-free, its only dependency is `cockroachdb/errors`). Its full
+documentation, the `DefaultConfig` hardening, the typed `Pair`, the
 `ServerConfig`/`ClientConfig` builders, the `CertPool` helper, and the **security
-threat model** — now lives at:
+threat model**. Now lives at:
 
 > **[tls.go.phpboyscout.uk](https://tls.go.phpboyscout.uk)**
 
 Unlike the pure-repoint extractions, `pkg/tls` **remains** in go-tool-base as a thin
 **facade**: it re-exports the module's core (so `gtbtls.Pair`, `gtbtls.DefaultConfig`,
 `gtbtls.ClientConfig`, `gtbtls.CertPool` are unchanged) and keeps the one piece that
-belongs to the framework — the config-key adapter `Resolve`. See the
+belongs to the framework, the config-key adapter `Resolve`. See the
 [migration note](../../reference/migration/v0.x-tls-extracted.md).
 
 ## What go-tool-base adds: config resolution
@@ -37,7 +37,7 @@ prefixes are `server.grpc.tls`, `server.http.tls` and `server.gateway.tls`.
 
 ### Cascade
 
-TLS configuration cascades — transport-specific keys override the shared defaults
+TLS configuration cascades: transport-specific keys override the shared defaults
 field by field:
 
 | Key | Shared Default | gRPC Override | HTTP Override | Gateway Override |
@@ -68,7 +68,7 @@ cfg, err := pair.ServerConfig("h2") // core builder, from go/tls
 
 ## See also
 
-TLS answers *"is the channel private?"* — the transport's confidentiality layer. The
+TLS answers *"is the channel private?"*, the transport's confidentiality layer. The
 other shared, cross-cutting transport concern is request handling: logging, auth, rate
 limiting, and circuit breaking, configured via middleware/interceptor chains with the
 same shared-then-per-transport config cascade. See

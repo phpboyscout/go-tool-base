@@ -1,6 +1,6 @@
 ---
 title: Telemetry Command
-description: CLI commands for managing anonymous usage telemetry — enable, disable, status, and GDPR data reset.
+description: CLI commands for managing anonymous usage telemetry, enable, disable, status, and GDPR data reset.
 date: 2026-03-31
 tags: [components, commands, telemetry, privacy]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -29,7 +29,7 @@ props.SetFeatures(props.Enable(props.TelemetryCmd))
 ```
 
 The feature flag controls command availability. Even when enabled, telemetry collection
-requires explicit user consent — it is never active by default.
+requires explicit user consent. It is never active by default.
 
 !!! info "When to enable"
     Enable `TelemetryCmd` when you want anonymous usage data to prioritise features,
@@ -135,5 +135,5 @@ TELEMETRY_ENABLED=true mytool init
 
 ## Related Documentation
 
-- [Telemetry Component](../../explanation/components/telemetry/index.md) — backends, privacy controls, event types, and architecture
-- [Props](../../explanation/components/props.md) — `Collector` field and `TelemetryConfig`
+- [Telemetry Component](../../explanation/components/telemetry/index.md): backends, privacy controls, event types, and architecture
+- [Props](../../explanation/components/props.md): `Collector` field and `TelemetryConfig`

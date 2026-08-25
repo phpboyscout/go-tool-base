@@ -12,7 +12,7 @@ GTB resolves configuration through a single precedence chain:
 
 > **flags > env > file > embedded > defaults**
 
-For a CLI flag to take part in that chain, it must be **bound** to a configuration key. Once bound, `props.Config.GetInt("server.port")` returns the flag value when the user passed `--server-port`, the environment value when they didn't but `MYTOOL_SERVER_PORT` is set, and the file value otherwise — with no manual `if flag == ""` plumbing.
+For a CLI flag to take part in that chain, it must be **bound** to a configuration key. Once bound, `props.Config.GetInt("server.port")` returns the flag value when the user passed `--server-port`, the environment value when they didn't but `MYTOOL_SERVER_PORT` is set, and the file value otherwise, with no manual `if flag == ""` plumbing.
 
 ## Bind a flag explicitly
 
@@ -64,7 +64,7 @@ serve.Flags().Int("server-port", 8080, "server port for serve")
 ## What gets bound
 
 - **Only flags the user explicitly set.** A flag left at its default never
-  contributes — the flags layer walks pflag's `Visit`, which covers changed
+  contributes: the flags layer walks pflag's `Visit`, which covers changed
   flags only, so a defaulted flag can never silently mask file/env values.
 - **Every changed flag participates.** The dispatched command's full flag set
   (local and inherited) becomes the store's highest-precedence layer at
@@ -78,10 +78,10 @@ serve.Flags().Int("server-port", 8080, "server port for serve")
 There is no post-hoc binding step: flags are declared as a store layer when the
 root pre-run builds the configuration (`config.WithFlags`), so the precedence
 is a property of layer order rather than a sequence of bind calls. The
-`RootOption`s above are the whole author-facing surface — they feed the
+`RootOption`s above are the whole author-facing surface, they feed the
 flag-name-to-key mappings that construction uses.
 
 ## Related
 
-- [Configuration System](../explanation/components/config/index.md) — precedence and the observer pattern.
-- [Bind CLI flags](https://config.go.phpboyscout.uk/how-to/bind-cli-flags/) — the module guide.
+- [Configuration System](../explanation/components/config/index.md): precedence and the observer pattern.
+- [Bind CLI flags](https://config.go.phpboyscout.uk/how-to/bind-cli-flags/): the module guide.

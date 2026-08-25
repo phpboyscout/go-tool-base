@@ -1,6 +1,6 @@
 ---
 title: gtb template
-description: Manage custom template-overlay sources on a generated project — add, update, remove, and list the sources recorded in .gtb/manifest.yaml.
+description: Manage custom template-overlay sources on a generated project. Add, update, remove, and list the sources recorded in .gtb/manifest.yaml.
 date: 2026-06-16
 tags: [cli, generator, templates, overlay]
 authors: [Matt Cockayne <matt@phpboyscout.com>]

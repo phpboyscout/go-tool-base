@@ -10,27 +10,27 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 GTB owns the `*http.Server`, the `*grpc.Server`, their outbound clients, and the
 grpc-gateway that bridges them. Every cross-cutting concern that wraps a request
-on the way in or out — logging, security headers, authentication, rate limiting,
-retry, circuit breaking, OpenTelemetry — is expressed as **one pattern**: a
+on the way in or out: logging, security headers, authentication, rate limiting,
+retry, circuit breaking, OpenTelemetry, is expressed as **one pattern**: a
 composable middleware (HTTP) or interceptor (gRPC) added to a chain at
 registration time. Learn the pattern once and it applies to all four transport
 surfaces.
 
 !!! info "The middleware lives in `go/transit`; the servers in `go/transport`"
-    The HTTP/gRPC middleware and interceptors described here — logging, OpenTelemetry,
-    circuit breaking, rate limiting, client retry — plus the circuit-breaker and
+    The HTTP/gRPC middleware and interceptors described here, logging, OpenTelemetry,
+    circuit breaking, rate limiting, client retry, plus the circuit-breaker and
     rate-limiter primitives, live in the standalone, framework-free module
     **[`gitlab.com/phpboyscout/go/transit`](https://transit.go.phpboyscout.uk)** (`v0.1.0`),
     under its `transit/http` and `transit/grpc` subpackages. The hardened servers that
     apply them (`Register`, `WithMiddleware`, `SecurityHeadersMiddleware`, `AuthMiddleware`,
     `AuthInterceptor`) live in **[`gitlab.com/phpboyscout/go/transport`](https://transport.go.phpboyscout.uk)**,
     and the outbound clients in `go/httpclient` / `go/grpcclient`. GTB's `pkg/http` and
-    `pkg/grpc` keep only the `config.Reader` adapters — the earlier re-export facade has
+    `pkg/grpc` keep only the `config.Reader` adapters. The earlier re-export facade has
     been removed, so import the owning module directly. See the
     [facades-removed migration note](../../reference/migration/v0.x-facades-removed.md).
 
 !!! note "This is the transport sibling of [Command Middleware](../components/setup/middleware.md)"
-    [Command Middleware](../components/setup/middleware.md) covers the cobra **CLI** chain —
+    [Command Middleware](../components/setup/middleware.md) covers the cobra **CLI** chain:
     cross-cutting concerns for command execution (`RunE`). *This* doc covers the
     **HTTP/gRPC transport** chains. They share a philosophy (a wrapping chain of
     composable units) but are entirely separate systems with separate types. If
@@ -56,7 +56,7 @@ Every chain follows the same rules, so muscle memory transfers between transport
 
 - **Immutable composition.** `NewChain(...)` / `NewInterceptorChain(...)` build a
   chain; `Append`/`Extend` return a *new* chain rather than mutating. The first
-  unit in the list is the outermost wrapper — first to see the request, last to
+  unit in the list is the outermost wrapper, first to see the request, last to
   see the response.
 - **`With*` builders.** Each concern ships as a `With*`/`*Middleware` constructor
   returning a unit value (`SecurityHeadersMiddleware()`, `RateLimitMiddleware(...)`,
@@ -64,7 +64,7 @@ Every chain follows the same rules, so muscle memory transfers between transport
   listing the units you want.
 - **Applied at registration.** Chains reach a server through a single
   `RegisterOption`; nothing is wired implicitly. A server that registers no chain
-  behaves exactly as it does today — **all middleware is opt-in**.
+  behaves exactly as it does today: **all middleware is opt-in**.
 - **Health endpoints sit outside the chain.** `http.Register` mounts `/healthz`,
   `/livez`, `/readyz` *outside* `WithMiddleware`, so a global rate limiter or auth
   middleware never gates liveness/readiness probes. The gRPC limiter/auth
@@ -91,13 +91,13 @@ Rate limiting, retry, and circuit breaking are three primitives that complete
 each other. Get the topology and ordering right and they form a closed loop;
 get them wrong and they fight.
 
-**Topology — limiter at ingress, breaker at egress.** A *rate limiter* protects
+**Topology: limiter at ingress, breaker at egress.** A *rate limiter* protects
 the thing receiving load, so it lives on the **server** (ingress). A *circuit
 breaker* protects the caller from a sick callee, so it lives on the **client**
-(egress). GTB does not offer the inverted variants — putting either on the wrong
+(egress). GTB does not offer the inverted variants, putting either on the wrong
 side is a category error.
 
-**Ordering — the breaker sits outside retry.** Place the breaker in the client
+**Ordering: the breaker sits outside retry.** Place the breaker in the client
 chain so the layering is:
 
 ```
@@ -110,21 +110,21 @@ This is load-bearing:
   exhausts its retry budget against a dead service counts as **one** breaker
   failure, not N.
 - Once the breaker is **Open**, calls are rejected *before* entering the retry
-  layer — no backoff sleeps are spent on a service already known to be down.
+  layer. No backoff sleeps are spent on a service already known to be down.
 
-**The closed loop — 429 / Retry-After.** A server-side rate limiter rejects with
+**The closed loop: 429 / Retry-After.** A server-side rate limiter rejects with
 `429 Too Many Requests` + `Retry-After`; the client's retry layer *honours* that
 header (clamped to its `MaxBackoff`). Ingress back-pressure and egress retry
 cooperate without any shared state.
 
 **A rate-limit signal is not a health signal.** By deliberate default, a **429
 does not trip the breaker** (HTTP), and neither does gRPC **`ResourceExhausted`**
-— they mean "slow down", which is retry's domain, not "the downstream is
+. They mean "slow down", which is retry's domain, not "the downstream is
 unhealthy". This keeps a server's own rate limiter from tripping its callers'
 circuit breakers. Both are overridable via the `IsFailure` classifier.
 
 **The breaker never caches.** An open breaker returns an error (`ErrCircuitOpen`
-on HTTP, `codes.Unavailable` on gRPC) — it never serves a stored response. GTB
+on HTTP, `codes.Unavailable` on gRPC), it never serves a stored response. GTB
 ships no response cache; resilience and caching are separate stories.
 
 ## Configuration shape
@@ -140,8 +140,8 @@ GTB supplies the *mechanism* and sane defaults; the operator supplies the
 | `server.grpc.ratelimit.*` | `grpc.RateLimitConfigFromConfig` |
 | `server.grpc.circuitbreaker.*` | `grpc.CircuitBreakerConfigFromConfig` |
 
-Only the **policy numbers** are config-driven. Code-only fields — `KeyFunc`,
-`OnLimited`, `OnStateChange`, `IsFailure` — are never read from config; wiring
+Only the **policy numbers** are config-driven. Code-only fields, `KeyFunc`,
+`OnLimited`, `OnStateChange`, `IsFailure`, are never read from config; wiring
 stays explicit, consistent with "no implicit config activation".
 
 ## The gateway is just an `http.Handler`
@@ -155,14 +155,14 @@ the returned handler for mounting on your own server.
 
 ## See also
 
-- [HTTP Transport](../components/http.md) — full reference for every server and
+- [HTTP Transport](../components/http.md): full reference for every server and
   client middleware, retry, and the circuit breaker
-- [gRPC Transport](../components/grpc.md) — interceptors, the rate-limit
+- [gRPC Transport](../components/grpc.md): interceptors, the rate-limit
   interceptor, and the client circuit breaker
-- [Observability](../components/observability.md) — OTel as a chain entry
-- [TLS](../components/tls.md) — the *other* shared transport concern
-- [Service Orchestration](service-orchestration.md) — how these servers attach to
+- [Observability](../components/observability.md): OTel as a chain entry
+- [TLS](../components/tls.md): the *other* shared transport concern
+- [Service Orchestration](service-orchestration.md): how these servers attach to
   the controller lifecycle
-- [Command Middleware](../components/setup/middleware.md) — the CLI sibling of this pattern
-- [Functional Options](functional-options.md) — the option pattern the `With*`
+- [Command Middleware](../components/setup/middleware.md): the CLI sibling of this pattern
+- [Functional Options](functional-options.md): the option pattern the `With*`
   builders are built on

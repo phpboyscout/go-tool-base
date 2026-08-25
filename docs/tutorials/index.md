@@ -38,7 +38,7 @@ under `tutorials/`, the post is the only copy.
 Part 1 of the CLI series is the exception: it has been migrated, and
 [Build your first CLI](build-your-first-cli.md) is the current version of it.
 
-Those posts were written against earlier releases — the CLI series against
-v0.6.0 — so a step may not match what you see. Check the
+Those posts were written against earlier releases, the CLI series against
+v0.6.0, so a step may not match what you see. Check the
 [migration notes](../reference/migration/index.md) when it does not. Where both a
 post and a page under `tutorials/` exist, the page here is canonical.

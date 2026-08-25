@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Serve Interactive API Docs
 
-The standalone [`go/transport-openapi`](https://transport-openapi.go.phpboyscout.uk) module — a companion to `go/transport` — serves an OpenAPI specification alongside an interactive [Stoplight Elements](https://stoplight.io/open-source/elements) docs site, complete with a "try it" console, from a single `Register` call. The Stoplight Elements UI is embedded in the module, so your project ships only its generated spec. There is no per-project vendoring of the UI.
+The standalone [`go/transport-openapi`](https://transport-openapi.go.phpboyscout.uk) module (a companion to `go/transport`) serves an OpenAPI specification alongside an interactive [Stoplight Elements](https://stoplight.io/open-source/elements) docs site, complete with a "try it" console, from a single `Register` call. The Stoplight Elements UI is embedded in the module, so your project ships only its generated spec. There is no per-project vendoring of the UI.
 
 This guide takes you from a `.proto` file to a browsable, runnable docs site mounted alongside your REST API.
 
@@ -16,13 +16,13 @@ This guide takes you from a `.proto` file to a browsable, runnable docs site mou
 
 ## Prerequisites
 
-You need an existing REST/gateway server (an `*http.ServeMux` exposing your grpc-gateway routes). If you're starting from gRPC, see **[Expose a gRPC Service as REST](expose-grpc-as-rest.md)** first — the docs mount onto the same mux.
+You need an existing REST/gateway server (an `*http.ServeMux` exposing your grpc-gateway routes). If you're starting from gRPC, see **[Expose a gRPC Service as REST](expose-grpc-as-rest.md)** first, the docs mount onto the same mux.
 
 ---
 
 ## Step 1: Install the v3 Generator Plugin
 
-grpc-gateway ships its own OpenAPI generator (`protoc-gen-openapiv2`), but it emits OpenAPI v2 (Swagger). Stoplight Elements wants OpenAPI v3, so we use a v3 generator instead — [`kollalabs/protoc-gen-openapi`](https://github.com/kollalabs/protoc-gen-openapi), which understands the same `google.api.http` annotations as the gateway and emits OpenAPI 3.x.
+grpc-gateway ships its own OpenAPI generator (`protoc-gen-openapiv2`), but it emits OpenAPI v2 (Swagger). Stoplight Elements wants OpenAPI v3, so we use a v3 generator instead: [`kollalabs/protoc-gen-openapi`](https://github.com/kollalabs/protoc-gen-openapi), which understands the same `google.api.http` annotations as the gateway and emits OpenAPI 3.x.
 
 Install it:
 
@@ -95,7 +95,7 @@ import (
 var spec []byte
 ```
 
-Embedding only your own spec keeps the project lean — the Stoplight Elements assets (the JavaScript and CSS) ship inside the `go/transport-openapi` module, not your repository. Add it with `go get gitlab.com/phpboyscout/go/transport-openapi`.
+Embedding only your own spec keeps the project lean: the Stoplight Elements assets (the JavaScript and CSS) ship inside the `go/transport-openapi` module, not your repository. Add it with `go get gitlab.com/phpboyscout/go/transport-openapi`.
 
 ---
 
@@ -134,7 +134,7 @@ if err := docs.Register(mux); err != nil {
 }
 ```
 
-When the spec and the docs site are served from the same origin as the API, Stoplight's "try it" console can call your endpoints directly — no CORS configuration, no proxy, nothing. (Internally the Elements UI is configured with `tryItCredentialsPolicy="same-origin"`, which is what that buys you.) Split the docs onto a separate server or port and the browser's same-origin policy will block the console's requests, and you'd be back to writing CORS rules to undo it.
+When the spec and the docs site are served from the same origin as the API, Stoplight's "try it" console can call your endpoints directly. No CORS configuration, no proxy, nothing. (Internally the Elements UI is configured with `tryItCredentialsPolicy="same-origin"`, which is what that buys you.) Split the docs onto a separate server or port and the browser's same-origin policy will block the console's requests, and you'd be back to writing CORS rules to undo it.
 
 ---
 
@@ -156,13 +156,13 @@ Then open the docs site in a browser:
 http://localhost:8080/docs/
 ```
 
-You should see the Stoplight Elements UI with your operations in the sidebar. Pick an endpoint, fill in the request, and hit **Send** — the call goes to your live API on the same origin and the response comes back in the console.
+You should see the Stoplight Elements UI with your operations in the sidebar. Pick an endpoint, fill in the request, and hit **Send**. The call goes to your live API on the same origin and the response comes back in the console.
 
 ---
 
 ## Related Documentation
 
-- **[OpenAPI component](../explanation/components/openapi.md)** — `Register`, the `WithSpecPath`/`WithDocsPath`/`WithTitle` options, and the embedded Stoplight assets
-- **[Gateway component](../explanation/components/gateway.md)** — the grpc-gateway REST mux the docs are mounted alongside
-- **[Expose a gRPC Service as REST](expose-grpc-as-rest.md)** — wire the gateway routes the spec documents
-- **[Add a gRPC Management Service](add-grpc-service.md)** — register the gRPC server the gateway fronts
+- **[OpenAPI component](../explanation/components/openapi.md)**: `Register`, the `WithSpecPath`/`WithDocsPath`/`WithTitle` options, and the embedded Stoplight assets
+- **[Gateway component](../explanation/components/gateway.md)**: the grpc-gateway REST mux the docs are mounted alongside
+- **[Expose a gRPC Service as REST](expose-grpc-as-rest.md)**: wire the gateway routes the spec documents
+- **[Add a gRPC Management Service](add-grpc-service.md)**: register the gRPC server the gateway fronts

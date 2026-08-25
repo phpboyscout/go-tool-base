@@ -202,7 +202,7 @@ export AI_PROVIDER=claude-local
 
 **Requirements:**
 - `BaseURL` must be set (the endpoint's base URL)
-- `Model` must be set (no default — model names are backend-specific)
+- `Model` must be set (no default, model names are backend-specific)
 
 #### Ollama (Local)
 
@@ -302,8 +302,8 @@ func analyzeErrorStructured(ctx context.Context, p *props.Props, errorLog string
 | "Invalid API key" | Incorrect or expired key | Verify key in provider dashboard, reconfigure |
 | "Rate limit exceeded" | Too many requests | Wait or upgrade API plan |
 | "Model not found" | Incorrect model name | Check provider docs for valid model names |
-| "`claude` binary not found" | Claude Local — binary not installed or not in PATH | Install with `npm install -g @anthropic-ai/claude-code` and run `claude login` |
-| "Model is required for ProviderOpenAICompatible" | Missing model in config | Set `model` in config — no default exists for compatible endpoints |
+| "`claude` binary not found" | Claude Local: binary not installed or not in PATH | Install with `npm install -g @anthropic-ai/claude-code` and run `claude login` |
+| "Model is required for ProviderOpenAICompatible" | Missing model in config | Set `model` in config: no default exists for compatible endpoints |
 
 ### Testing Configuration
 

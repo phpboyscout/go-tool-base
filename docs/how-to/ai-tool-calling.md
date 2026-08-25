@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Add Tool Calling to an AI Command
 
-Tool calling lets the AI decide, during a conversation, which of your Go functions to invoke. GTB's `chat` package handles the ReAct (Reason → Act → Observe) loop automatically — you define the tools, and the framework manages the back-and-forth until the AI produces a final text answer.
+Tool calling lets the AI decide, during a conversation, which of your Go functions to invoke. GTB's `chat` package handles the ReAct (Reason → Act → Observe) loop automatically: you define the tools, and the framework manages the back-and-forth until the AI produces a final text answer.
 
 ---
 
@@ -20,7 +20,7 @@ When you call `client.Chat(ctx, prompt)`:
 2. If it calls a tool, GTB invokes your `Handler` function and feeds the result back.
 3. Steps 1–2 repeat until the AI produces a final response (no more tool calls) or `MaxSteps` is reached (default 20).
 
-`Chat` returns the final text response. Tool errors are returned to the AI as error strings — the loop continues rather than aborting.
+`Chat` returns the final text response. Tool errors are returned to the AI as error strings, the loop continues rather than aborting.
 
 ---
 
@@ -133,13 +133,13 @@ DEBUG Tool Parameters  tool=read_file args={"path":"pkg/db/client.go"}
 INFO  Tool executed successfully  tool=read_file
 ```
 
-This requires no extra wiring — the `executeTool` function in `pkg/chat/tools.go` handles it.
+This requires no extra wiring, the `executeTool` function in `pkg/chat/tools.go` handles it.
 
 ---
 
 ## Using Props in Tool Handlers
 
-Handlers are plain closures — capture `props` (or any dependency) from the outer scope:
+Handlers are plain closures: capture `props` (or any dependency) from the outer scope:
 
 ```go
 func makeConfigTool(p *props.Props) chat.Tool {
@@ -221,6 +221,6 @@ mockClient.EXPECT().
 
 ## Related Documentation
 
-- **[Structured AI Responses](structured-ai-responses.md)** — using `Ask` for typed output without tool calling
-- **[AI Provider Setup](ai-integration.md)** — token and provider configuration
-- **[Chat component](../explanation/components/chat/index.md)** — full `ChatClient` and `Tool` API reference
+- **[Structured AI Responses](structured-ai-responses.md)**: using `Ask` for typed output without tool calling
+- **[AI Provider Setup](ai-integration.md)**: token and provider configuration
+- **[Chat component](../explanation/components/chat/index.md)**: full `ChatClient` and `Tool` API reference

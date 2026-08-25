@@ -17,7 +17,7 @@ GTB interfaces follow these key principles:
 **Interface Segregation**
 :   Interfaces are kept small and focused on specific behaviours rather than encompassing all possible methods.
 
-**Accept Interfaces, Return Concrete — Except Provider Factories**
+**Accept Interfaces, Return Concrete, Except Provider Factories**
 :   Functions accept interface parameters for flexibility. The default return is a concrete type for clarity. The deliberate exception is a *factory constructor* that selects among several interchangeable implementations behind one contract (the provider pattern): these return the interface, because the concrete type is an implementation detail the caller must not depend on. `chat.New` returns `ChatClient`, `errorhandling.New` returns `ErrorHandler`, and the `logger.New*` constructors return `Logger` for exactly this reason. A constructor with a single concrete implementation still returns that concrete type.
 
 **Consumer-Defined Interfaces**
@@ -57,7 +57,7 @@ type Logger interface {
 
 **Key Design Decisions:**
 
-- Mirrors `*slog.Logger` exactly, so a plain `*slog.Logger` satisfies it directly and any type with the same method set works as a custom backend — no adapter needed
+- Mirrors `*slog.Logger` exactly, so a plain `*slog.Logger` satisfies it directly and any type with the same method set works as a custom backend: no adapter needed
 - Structured-only: format-string helpers (`Infof`) and `Fatal` were dropped; use `log.Info("msg", "key", val)` and return errors for exit paths
 - `Handler()` provides slog ecosystem interoperability; runtime level/format are set via the `logger.SetLevel(log, slog.Level)` / `logger.SetFormatter(log, f)` helpers rather than interface methods
 
@@ -104,7 +104,7 @@ type ErrorHandlerProvider interface {
 #### Reader
 
 **Package:** `go/config`  
-**Purpose:** The read surface a consumer depends on — deliberately small and
+**Purpose:** The read surface a consumer depends on, deliberately small and
 free of any dependency's types, so what sits behind it can be replaced (as the
 Store replaced Viper) without touching consumers.
 
@@ -130,14 +130,14 @@ type Reader interface {
 }
 ```
 
-**Primary Implementation:** `*View` — a read surface **pinned to one
+**Primary Implementation:** `*View`, a read surface **pinned to one
 snapshot**, obtained from the live store with `store.View()`.
 
 **Key Design Decisions:**
 
 - Reads are snapshot-coherent: two values read from one view always belong to
   the same resolved configuration, even under hot reload
-- Provenance is part of the read surface — `Origin`/`Shadowed`/`Explain`
+- Provenance is part of the read surface: `Origin`/`Shadowed`/`Explain`
   report which layer supplied a value
 - Writes are deliberately absent: they go through the Store's transactional
   `Apply`, which edits the target document in place
@@ -324,11 +324,11 @@ client.Ask("Analyse this code for issues", &result)
 **Purpose:** Manage multiple concurrent services with coordinated lifecycle.
 
 The service supervisor is an extracted module, not a GTB package, so its
-interface definitions live with it rather than being reproduced here — a copy in
+interface definitions live with it rather than being reproduced here, a copy in
 this repository has nothing compiling against it and drifts silently.
 
-`Controllable` composes five narrow role interfaces — `Runner`,
-`HealthReporter`, `StateAccessor`, `Configurable` and `ChannelProvider` — so a
+`Controllable` composes five narrow role interfaces, `Runner`,
+`HealthReporter`, `StateAccessor`, `Configurable` and `ChannelProvider`, so a
 consumer depends only on the part it actually uses. This is the same principle as
 GTB's own [Props provider interfaces](#props-provider-interfaces), applied to a
 lifecycle supervisor.
@@ -345,7 +345,7 @@ lifecycle supervisor.
 - `SetLogger` accepts `*slog.Logger`; wrap an application `logger.Logger` with
   `logger.ToSlog(...)` at the call site
 - OS signal handling is **opt-in** via `controls.WithSignals()` and belongs to a
-  standalone `main`, never to a GTB command — inside a command the root owns
+  standalone `main`, never to a GTB command, inside a command the root owns
   signals and the controller observes `cmd.Context()`. See
   [the controls component page](../components/controls/index.md).
 
@@ -410,7 +410,7 @@ type Initialiser interface {
 **Key Design Decisions:**
 
 - Self-registration via feature registry
-- Idempotent—checks existing config before prompting
+- Idempotent: checks existing config before prompting
 - Decoupled from core init command logic
 
 ---
@@ -548,7 +548,7 @@ func NewService(cfg config.Reader) ServiceInterface {
 
 The exception is a **factory constructor** that picks one of several
 interchangeable implementations behind a shared contract. Here returning the
-interface is correct — the concrete type is intentionally hidden so the caller
+interface is correct. The concrete type is intentionally hidden so the caller
 cannot couple to a specific provider:
 
 ```go

@@ -140,7 +140,7 @@ Even without `ldflags`, a `go build`/`go install` binary is not versionless.
 `internal/version` reads Go's embedded build metadata (`debug.ReadBuildInfo`) at
 package init and fills in what ldflags would have: the VCS revision
 (`vcs.revision`, suffixed `-dirty` when the working tree was modified), the
-commit time (`vcs.time`), and — when no ldflags version was injected — the
+commit time (`vcs.time`), and (when no ldflags version was injected) the
 module version or, failing that, the short commit hash. So `IsDevelopment()`
 stays honest (an untagged local build still reports as development) while
 `version`, `doctor`, and the update check all have a real commit to show. This
@@ -168,6 +168,6 @@ func runVersionCmd(p *props.Props) {
 
 ## Related Documentation
 
-- **[Props](props.md)** — dependency injection container
-- **[Setup](setup/index.md)** — self-updater that uses version comparison
-- **[Auto-Update Lifecycle](update.md)** — how update checks use version info
+- **[Props](props.md)**: dependency injection container
+- **[Setup](setup/index.md)**: self-updater that uses version comparison
+- **[Auto-Update Lifecycle](update.md)**: how update checks use version info

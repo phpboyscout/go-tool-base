@@ -11,7 +11,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 Background services (API listeners, file watchers, long-running workers) need
 ordered start-up, health monitoring, and graceful shutdown. This guide uses the
 standalone [`gitlab.com/phpboyscout/go/controls`](https://controls.go.phpboyscout.uk)
-module — GTB consumes it directly — to orchestrate them, with GTB-specific glue
+module (GTB consumes it directly) to orchestrate them, with GTB-specific glue
 (`Props`, `logger.ToSlog`). For the full supervisor API, interface contracts, and
 lifecycle states, see the module docs at
 [controls.go.phpboyscout.uk](https://controls.go.phpboyscout.uk).
@@ -34,7 +34,7 @@ func setupController(ctx context.Context, l logger.Logger) *controls.Controller 
 
 Each service is registered by id with functional options: `WithStart` runs it
 (blocking work returns an error), `WithStop` shuts it down with the shutdown
-context, and `WithStatus` is a `func() error` health probe — return `nil` for
+context, and `WithStatus` is a `func() error` health probe, return `nil` for
 healthy, or an error describing the failure.
 
 ```go
@@ -147,8 +147,8 @@ func handleHealthChecks(controller *controls.Controller, props *props.Props) {
 
 ## 5. Handle signals and shut down
 
-The controller traps `SIGINT`/`SIGTERM` itself. To react to additional signals —
-or to trigger a programmatic shutdown — read the signal channel:
+The controller traps `SIGINT`/`SIGTERM` itself. To react to additional signals,
+or to trigger a programmatic shutdown. Read the signal channel:
 
 ```go
 func handleSignals(controller *controls.Controller, props *props.Props, cancel context.CancelFunc) {
@@ -204,6 +204,6 @@ func main() {
 
 ## Related
 
-- [Controls component](../explanation/components/controls/index.md) — how GTB consumes the external module
-- [controls.go.phpboyscout.uk](https://controls.go.phpboyscout.uk) — the full supervisor API, service types, health model, and testing guide
+- [Controls component](../explanation/components/controls/index.md): how GTB consumes the external module
+- [controls.go.phpboyscout.uk](https://controls.go.phpboyscout.uk): the full supervisor API, service types, health model, and testing guide
 - [Register health checks](register-health-checks.md)

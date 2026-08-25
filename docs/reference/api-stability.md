@@ -12,8 +12,8 @@ GTB uses a three-tier stability classification to set clear expectations for
 consumers and contributors. Each public type, interface, and function belongs
 to one of the tiers below.
 
-!!! warning "Pre-1.0 — tiers describe *intent*, not a current guarantee"
-    GTB is currently **pre-1.0** (`v0.x`). While the module is `v0.x` the public API is **not** frozen: breaking changes are permitted and ship as a **minor** version bump (`v0.N` → `v0.N+1`). The version annotations and tier guarantees in the tables below describe the stability commitment that **takes effect from v1.0** — they are not in force yet. Use them to understand which APIs are *intended* to be stable, and expect that any of them may still change before v1.0. The `just apidiff` target and the advisory (non-blocking) CI `apidiff` job exist to make pre-1.0 API changes **visible** so they are seen and intentional; that gate becomes **blocking at v1.0**.
+!!! warning "Pre-1.0: tiers describe *intent*, not a current guarantee"
+    GTB is currently **pre-1.0** (`v0.x`). While the module is `v0.x` the public API is **not** frozen: breaking changes are permitted and ship as a **minor** version bump (`v0.N` → `v0.N+1`). The version annotations and tier guarantees in the tables below describe the stability commitment that **takes effect from v1.0**. They are not in force yet. Use them to understand which APIs are *intended* to be stable, and expect that any of them may still change before v1.0. The `just apidiff` target and the advisory (non-blocking) CI `apidiff` job exist to make pre-1.0 API changes **visible** so they are seen and intentional; that gate becomes **blocking at v1.0**.
 
     The `Since` columns below record when each symbol first appeared in its current shape; some annotations (e.g. `v1.11`, `v1.12`) predate the move to `v0.x` versioning and should be read as relative ordering, not literal released tags.
 
@@ -44,7 +44,7 @@ the next major version.
 !!! info "Extracted modules are not covered by this policy"
     Several packages that once lived in `pkg/` are now standalone modules with
     their own release cadence, so **GTB cannot make stability promises about
-    them** — their API is versioned by the module, not by this framework.
+    them**. Their API is versioned by the module, not by this framework.
 
     | Module | Docs |
     |---|---|
@@ -53,8 +53,8 @@ the next major version.
     | `gitlab.com/phpboyscout/go/errorhandling` | [errorhandling.go.phpboyscout.uk](https://errorhandling.go.phpboyscout.uk) |
 
     What GTB *does* commit to is the thin adapter layer it keeps around each of
-    them — the `*FromProps` / `*FromContainable` settings constructors listed
-    above — since those are GTB's own API.
+    them, the `*FromProps` / `*FromContainable` settings constructors listed
+    above, since those are GTB's own API.
 
     For the full list of what moved and when, see the
     [migration guides](migration/index.md).
@@ -80,7 +80,7 @@ depend on them in production code without pinning to a specific version.
 
 | Package | Scope | Note |
 |---------|-------|------|
-| `internal/*` | All packages | Always unstable — import not supported |
+| `internal/*` | All packages | Always unstable: import not supported |
 | `pkg/setup/ai`, `pkg/setup/forge` | All types and functions | Configuration UX still evolving |
 
 ---
@@ -89,10 +89,10 @@ depend on them in production code without pinning to a specific version.
 
 | Version range | Policy |
 |---------------|--------|
-| `v0.x` (current) | **Unstable — pre-1.0:** Breaking changes to any public API are permitted and ship as a **minor** bump. The tier tables above describe the *intended* v1.0 commitment, not a current guarantee. Prefer backward-compatible changes where cheap; document any break in `docs/reference/migration/`. |
-| `v1.0.0+` | **Guaranteed Stability (future):** From the first `v1.0.0` release, standard Go semver applies — breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+), and the advisory CI `apidiff` job becomes a blocking gate. |
+| `v0.x` (current) | **Unstable: pre-1.0:** Breaking changes to any public API are permitted and ship as a **minor** bump. The tier tables above describe the *intended* v1.0 commitment, not a current guarantee. Prefer backward-compatible changes where cheap; document any break in `docs/reference/migration/`. |
+| `v1.0.0+` | **Guaranteed Stability (future):** From the first `v1.0.0` release, standard Go semver applies: breaking changes to Stable and Beta tier APIs require a major version bump (v2.0.0+), and the advisory CI `apidiff` job becomes a blocking gate. |
 
-The `internal/` directory is always unstable regardless of version — it is not
+The `internal/` directory is always unstable regardless of version. It is not
 part of the public API surface.
 
 ---
@@ -120,7 +120,7 @@ just apidiff   # compares the working tree against the latest release tag
 `apidiff -m gitlab.com/phpboyscout/go-tool-base <latest-tag> .`. The CI
 `apidiff` job runs the same comparison on every merge request.
 
-**Pre-1.0:** the comparison is **advisory** — incompatible changes are expected
+**Pre-1.0:** the comparison is **advisory**, incompatible changes are expected
 (they ship as minor bumps) and the CI job is non-blocking (`allow_failure:
 true`). Its purpose is visibility: an API change should be *seen* and
 *intentional*, reflected in the diff a reviewer reads.

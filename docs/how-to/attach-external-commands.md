@@ -9,12 +9,12 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Attach External Commands
 
 A gtb-generated CLI sometimes needs to expose a **whole command tree that lives
-in a separate module** — commands you did not create with `gtb generate command`
+in a separate module**, commands you did not create with `gtb generate command`
 and whose logic lives elsewhere. The canonical example is the `sign`/`keys` tree
 from `gitlab.com/phpboyscout/go/signing-cli`.
 
 The wrong way is to hand-edit the generated root (or `cmd/<tool>/main.go`) and
-mark it `.gtb/ignore` — the customisation is either re-rendered away, or the file
+mark it `.gtb/ignore`. The customisation is either re-rendered away, or the file
 stops receiving generator improvements. `gtb attach` makes external-command
 attachment a **first-class, manifest-declared entity**: it is re-rendered into
 the root on every `regenerate`, so it survives `gtb regenerate` and
@@ -48,7 +48,7 @@ The rendered call for the example above is:
 setup.Wrap("", signingcli.NewCmdSign(p.GetLogger()))
 ```
 
-Re-run the command for each additional constructor from the same module — a
+Re-run the command for each additional constructor from the same module, a
 second attach for the same module **appends** to it:
 
 ```bash
@@ -59,7 +59,7 @@ gtb attach command gitlab.com/phpboyscout/go/signing-cli@v0.1.0 \
 ### The injection vocabulary
 
 `--arg` names a dependency the generator derives from the props value `p`. It is
-a **closed set** — this keeps the generated root type-safe and reviewable:
+a **closed set**. This keeps the generated root type-safe and reviewable:
 
 | `--arg` token | Rendered expression |
 |---------------|---------------------|
@@ -74,11 +74,11 @@ takes no `--arg`.
 
 ### `--wrap`: return type, not gating
 
-Use `--wrap` when the constructor returns a `*cobra.Command` — it is wrapped in
+Use `--wrap` when the constructor returns a `*cobra.Command`. It is wrapped in
 `setup.Wrap("", …)` so it joins the framework's middleware pipeline. **Omit**
 `--wrap` when the constructor already returns a `*setup.Command`; it is attached
 directly. `--wrap` describes the return type only; declarative attachments are
-always on (there is no feature gate — see [Gating](#gating-an-attachment)).
+always on (there is no feature gate, see [Gating](#gating-an-attachment)).
 
 ### Other flags
 
@@ -99,7 +99,7 @@ your own config), scaffold the adapter:
 gtb attach adapter
 ```
 
-This creates `pkg/cmd/external/attach.go` — **once** — and wires
+This creates `pkg/cmd/external/attach.go` (**once**) and wires
 `external.Commands(p)` into the root. The file is author-owned: gtb never
 overwrites it, so it is safe to edit and survives `regenerate`. Fill in
 `Commands`:
@@ -130,16 +130,16 @@ gtb detach command gitlab.com/phpboyscout/go/signing-cli     # remove one
 ## Why it survives regeneration
 
 The attachment lives in the manifest, and the generator re-renders the root from
-the manifest on **every** operation that touches it — `regenerate project`,
+the manifest on **every** operation that touches it, `regenerate project`,
 `enable`/`disable` of any feature, and `enable signing`. There is no file to hold
 `.gtb/ignore`, and nothing to clobber: the wiring is re-emitted, not preserved.
-This is the exact failure the feature fixes — `gtb enable signing` used to
+This is the exact failure the feature fixes, `gtb enable signing` used to
 re-render the root and silently drop a hand-wired external command.
 
 ## Gating an attachment
 
 Declarative attachments are always on. If you need a command that can be toggled,
-use the adapter channel and gate it yourself inside `Commands` — for example on a
+use the adapter channel and gate it yourself inside `Commands`, for example on a
 config key or an environment variable. First-class `enable`/`disable` integration
 for external attachments is deliberately out of scope (it would open gtb's curated
 feature catalogue to arbitrary downstream names); revisit it via a spec if a real
@@ -147,8 +147,8 @@ need arises.
 
 ## Related
 
-- [Generate a New CLI Command](nested-subcommands.md) — for commands whose logic
+- [Generate a New CLI Command](nested-subcommands.md): for commands whose logic
   lives *in* this project.
-- [Configure Generator Ignore Rules](configure-generator-ignore.md) — for
+- [Configure Generator Ignore Rules](configure-generator-ignore.md): for
   holding non-command files hands-off.
 - Spec: [`0182-external-command-attachment`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment).

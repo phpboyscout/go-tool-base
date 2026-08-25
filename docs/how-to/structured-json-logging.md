@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Switch to Structured JSON Logging for Containers
 
-GTB defaults to `logger.NewCharm` for beautiful terminal output. When you deploy your tool as a daemon or container, you want structured JSON logs instead — one JSON object per line, readable by Datadog, Loki, CloudWatch, or any other log aggregator.
+GTB defaults to `logger.NewCharm` for beautiful terminal output. When you deploy your tool as a daemon or container, you want structured JSON logs instead: one JSON object per line, readable by Datadog, Loki, CloudWatch, or any other log aggregator.
 
 This is a one-line change in `main.go`.
 
@@ -81,7 +81,7 @@ if lvl, err := logger.ParseLevel(os.Getenv("LOG_LEVEL")); err == nil {
 ```
 
 GTB's own root command drives this for `Props.Logger` via the
-`logger.SetLevel(log, slog.Level)` helper — it takes effect on the default
+`logger.SetLevel(log, slog.Level)` helper. It takes effect on the default
 Charm-backed logger (which implements `Leveller`) and is a harmless no-op on a
 plain `*slog.Logger`.
 
@@ -129,7 +129,7 @@ otelHandler := otelslog.NewHandler("mytool",
 l = logger.NewSlog(otelHandler)
 ```
 
-The rest of your code is unchanged — all calls to `p.Logger.Info(...)` etc. flow through to the OTEL exporter.
+The rest of your code is unchanged: all calls to `p.Logger.Info(...)` etc. flow through to the OTEL exporter.
 
 ---
 
@@ -172,7 +172,7 @@ reqLogger.Warn("validation failed", "field", "email")
 ## Differences from the Charm Backend
 
 Both constructors produce a `logger.Logger` with the same `*slog.Logger` method
-set — the differences are in construction and runtime capabilities:
+set. The differences are in construction and runtime capabilities:
 
 | Behaviour | `NewCharm` | `NewSlog` |
 |-----------|-----------|-----------|
@@ -185,7 +185,7 @@ set — the differences are in construction and runtime capabilities:
 
 ## Testing
 
-Tests should always use `logger.NewNoop()` — it discards all output with zero allocations:
+Tests should always use `logger.NewNoop()`, it discards all output with zero allocations:
 
 ```go
 p := &props.Props{
@@ -206,5 +206,5 @@ ml.EXPECT().Info("server started", "addr", ":8080").Once()
 
 ## Related Documentation
 
-- **[Logger component](../explanation/components/logger.md)** — all backends, `CharmOption` functions, `Handler()` interop
-- **[Logging concepts](../explanation/components/logger.md)** — when to use each backend
+- **[Logger component](../explanation/components/logger.md)**: all backends, `CharmOption` functions, `Handler()` interop
+- **[Logging concepts](../explanation/components/logger.md)**: when to use each backend

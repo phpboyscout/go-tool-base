@@ -13,7 +13,7 @@ clone and interact with a repository without leaving files on the host disk.
 
 Git operations live in the standalone
 [`go/repo`](https://repo.go.phpboyscout.uk) module. This page covers the GTB
-half — constructing a repository from your tool's props — and links to the
+half (constructing a repository from your tool's props) and links to the
 module docs for everything after that.
 
 ## 1. Construct from props
@@ -47,8 +47,8 @@ func analyseRepo(p *props.Props, url string) error {
 `NewThreadSafeRepoFromProps(p)` is the equivalent when the repository will be
 shared across goroutines.
 
-Everything after construction is module API — `FileExists`, `GetFile`,
-`WalkTree`, `WorkFS`, `AddAll`, `Commit` — called on `r` exactly as documented
+Everything after construction is module API, `FileExists`, `GetFile`,
+`WalkTree`, `WorkFS`, `AddAll`, `Commit`, called on `r` exactly as documented
 on the module site.
 
 ## 2. Read the module guides
@@ -62,21 +62,21 @@ on the module site.
 
 ## 3. Why in-memory?
 
-- **Cleanup** — no temporary directories to create, track, or delete, and none
+- **Cleanup**: no temporary directories to create, track, or delete, and none
   left behind when a process dies mid-run.
-- **Speed** — all I/O stays in memory, markedly faster for small and medium
+- **Speed**: all I/O stays in memory, markedly faster for small and medium
   repositories.
-- **Security** — nothing sensitive is written to shared disk, which matters on
+- **Security**: nothing sensitive is written to shared disk, which matters on
   CI runners and multi-tenant hosts where a temp directory may outlive the job.
 
 !!! warning "Memory constraints"
-    Large repositories — especially those with heavy binary history — can consume
+    Large repositories (especially those with heavy binary history) can consume
     all available RAM. Past a few hundred megabytes, prefer a local shallow clone
     (`WithShallowClone(1)`).
 
 ## Related
 
-- **[Repo](../explanation/components/vcs/repo.md)** — how GTB wires the module:
+- **[Repo](../explanation/components/vcs/repo.md)**: how GTB wires the module:
   forge resolution, deferred token resolution, SSH key paths
-- **[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk)** — full module
+- **[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk)**: full module
   documentation

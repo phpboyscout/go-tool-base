@@ -1,32 +1,32 @@
 ---
-title: "Signature Verification — Trust Anchors & Key Resolvers"
+title: "Signature Verification, Trust Anchors & Key Resolvers"
 description: "Phase 2 self-update signature verification: an immutable TrustSet with a minimum-strength policy, a detached-signature verifier, and a pluggable KeyResolver chain (embedded, WKD, composite cross-check) that diffuses the signing trust anchor away from the VCS. The verification primitives now live in the standalone signing/verify module; gtb consumes them."
 date: 2026-05-21
 tags: [component, security, signing, self-update, openpgp, wkd]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
-# Signature Verification — Trust Anchors & Key Resolvers
+# Signature Verification: Trust Anchors & Key Resolvers
 
-Phase 1 of secure self-update verifies a downloaded binary against the release's `checksums.txt` manifest (see [Remote Checksum Verification](index.md#remote-checksum-verification-phase-1)). That defends against a corrupted or truncated download, but it does **not** defend against an attacker who can publish a *replacement* `checksums.txt` — anyone who compromises the VCS platform can swap both the binary and the manifest.
+Phase 1 of secure self-update verifies a downloaded binary against the release's `checksums.txt` manifest (see [Remote Checksum Verification](index.md#remote-checksum-verification-phase-1)). That defends against a corrupted or truncated download, but it does **not** defend against an attacker who can publish a *replacement* `checksums.txt`: anyone who compromises the VCS platform can swap both the binary and the manifest.
 
 Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an OpenPGP key, and the updater verifies that detached signature against a **trust set** of vetted public keys before the manifest is ever parsed. This page documents the cryptographic primitives that make up the trust layer.
 
-!!! success "Status — Phase 2 shipped"
+!!! success "Status, Phase 2 shipped"
     Both the verification primitives and the production wiring are live:
 
-    - **v0.12.2** (2026-06-09) — first signed release. `checksums.txt.sig` attached to every release going forward; signature produced by an AWS-KMS-held RSA-4096 key via OIDC-federated CI.
-    - **v0.13.0** (2026-06-09) — `verify.DefaultRequireSignature = true`. Every update now refuses to install an unsigned release.
-    - **v0.13.1** (2026-06-10) — wired `verify.DefaultExternalKeyEmail = "release@phpboyscout.uk"` so the resolver chain becomes `CompositeResolver{Embedded, WKD}` by default. Before this, the verifier silently degraded to embedded-only — see [Interpreting verifier log output](#interpreting-verifier-log-output) below.
+    - **v0.12.2** (2026-06-09): first signed release. `checksums.txt.sig` attached to every release going forward; signature produced by an AWS-KMS-held RSA-4096 key via OIDC-federated CI.
+    - **v0.13.0** (2026-06-09): `verify.DefaultRequireSignature = true`. Every update now refuses to install an unsigned release.
+    - **v0.13.1** (2026-06-10): wired `verify.DefaultExternalKeyEmail = "release@phpboyscout.uk"` so the resolver chain becomes `CompositeResolver{Embedded, WKD}` by default. Before this, the verifier silently degraded to embedded-only: see [Interpreting verifier log output](#interpreting-verifier-log-output) below.
 
     Downstream tools using `pkg/setup` get the same wiring out of the box by setting `verify.DefaultExternalKeyEmail` in their own `main()` (or by passing `update.external_key_email` via config). The [phase2-signing-prep doc](../../../development/phase2-signing-prep.md) and the [remote-update-checksum-verification spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification) cover the rollout history end-to-end.
 
 !!! info "Verification primitives extracted into the signing module"
-    The verification implementation — `TrustSet`, the `KeyResolver` chain
+    The verification implementation, `TrustSet`, the `KeyResolver` chain
     (embedded, WKD, composite), `BuildKeyResolver`, the minimum-strength
     policy, the sentinel errors, the `Max*` bounds, and the
     `DefaultRequireSignature` / `DefaultKeySource` / `DefaultExternalKeyEmail`
-    / `DefaultRequireExternalCrosscheck` package variables — now lives in the
+    / `DefaultRequireExternalCrosscheck` package variables. Now lives in the
     standalone, independently-versioned **signing** module at
     **`gitlab.com/phpboyscout/go/signing/verify`** (v0.1.0). Those symbols are
     shown below with the `verify.` prefix; the `SelfUpdater` constructor and
@@ -38,7 +38,7 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
     stdlib seams: an `*slog.Logger` built via `slog.New(logger.Handler())`
     and the hardened `*http.Client` from [`pkg/http`](../http.md) for WKD
     fetches. `DefaultRequireChecksum` (the Phase 1 checksum gate) stays in
-    `pkg/setup` — only the signature-verification `Default*` variables moved.
+    `pkg/setup`: only the signature-verification `Default*` variables moved.
 
     The `gtb` CLI behaviour is unchanged. The canonical reference for the
     verifier API is the
@@ -49,7 +49,7 @@ Phase 2 closes that gap: the release pipeline signs `checksums.txt` with an Open
 
 ## Threat Model
 
-A signature is only as trustworthy as the key used to check it. If the public key travels through the same channel as the binary — baked into source on the VCS — then a single VCS compromise lets an attacker replace the binary, the manifest, the signature, *and* the key. The signature would still "verify", against the attacker's own key.
+A signature is only as trustworthy as the key used to check it. If the public key travels through the same channel as the binary (baked into source on the VCS) then a single VCS compromise lets an attacker replace the binary, the manifest, the signature, *and* the key. The signature would still "verify", against the attacker's own key.
 
 The defence is to **diffuse the trust anchor**: publish the public key at an independent service whose compromise is uncorrelated with a VCS compromise, and require the two to agree. GTB publishes its release key via [Web Key Directory (WKD)](https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/) under a domain it controls, and cross-checks the embedded key against the WKD-served key on every update.
 
@@ -76,13 +76,13 @@ func (t *TrustSet) VerifyManifestSignatureSigner(manifest, signature []byte) (st
 ```
 
 - **`LoadTrustSet`** parses one or more ASCII-armored public-key blobs and enforces the [minimum-strength policy](#minimum-strength-policy) at construction time. Any weak key in the input aborts the load, so a weak key never enters a trust set even transiently.
-- **`Fingerprints`** returns the 40-character uppercase hex fingerprint of every key, sorted ascending — so two trust sets can be compared for equality by their fingerprint slices (this is what [`CompositeResolver`](#compositeresolver) uses to cross-check).
+- **`Fingerprints`** returns the 40-character uppercase hex fingerprint of every key, sorted ascending, so two trust sets can be compared for equality by their fingerprint slices (this is what [`CompositeResolver`](#compositeresolver) uses to cross-check).
 - **`VerifyManifestSignature`** verifies an ASCII-armored detached signature over the manifest using any key in the set. It returns `nil` on the first key that validates, and `ErrSignatureInvalid` for an empty, malformed, or non-validating signature. The failure path deliberately does **not** name the keys tried, so a caller that logs only the sentinel does not leak which key rejected the signature.
 - **`VerifyManifestSignatureSigner`** is the fingerprint-returning form: on success it returns the 40-char uppercase hex fingerprint of the key that validated the signature (empty on any error), so the updater can record which key authorised the update for the audit trail. `VerifyManifestSignature` delegates to it.
 
 ### Minimum-Strength Policy
 
-Every key entering a trust set — embedded or fetched — is checked against a short, explicit accept-list. The check covers the primary key **and every signing-capable subkey**, because signature verification resolves issuers including subkeys; the RSA floor is also enforced at verification time (`MinRSABits`) as defense-in-depth.
+Every key entering a trust set (embedded or fetched) is checked against a short, explicit accept-list. The check covers the primary key **and every signing-capable subkey**, because signature verification resolves issuers including subkeys; the RSA floor is also enforced at verification time (`MinRSABits`) as defense-in-depth.
 
 | Algorithm | Decision |
 |-----------|----------|
@@ -90,7 +90,7 @@ Every key entering a trust set — embedded or fetched — is checked against a 
 | RSA ≥ 3072 bits | **Accepted** |
 | RSA < 3072 bits | Rejected (`ErrWeakKey`) |
 | DSA, ElGamal, ECDH, ECDSA, X25519, X448, Ed448, RSA-encrypt-only | Rejected (`ErrWeakKey`) |
-| Any unknown / future algorithm | Rejected (`ErrWeakKey`) — fails closed |
+| Any unknown / future algorithm | Rejected (`ErrWeakKey`): fails closed |
 
 The policy fails closed: an algorithm a future `go-crypto` release might add is rejected by the `default` branch rather than slipping through. A weak **embedded** key surfaces at binary startup (the binary refuses to start); a weak **WKD** key fails the individual update with `ErrWeakKey`. This is fail-loud at whichever layer introduced the weak key.
 
@@ -142,7 +142,7 @@ func NewWKDResolver(cfg WKDResolverConfig) (KeyResolver, error)
 func WKDURLs(email string) (advanced, direct, advancedHost string, err error)
 ```
 
-#### URL derivation — the only configurable input is the email
+#### URL derivation: the only configurable input is the email
 
 URL derivation follows [draft-koch-openpgp-webkey-service §3.1][wkd-draft]. Given a release email `release@example.org`, the resolver computes:
 
@@ -154,23 +154,23 @@ URL derivation follows [draft-koch-openpgp-webkey-service §3.1][wkd-draft]. Giv
 | **Advanced URL** | `https://openpgpkey.<domain>/.well-known/openpgpkey/<domain>/hu/<hash>?l=<localpart>` |
 | **Direct URL** (fallback on 404) | `https://<domain>/.well-known/openpgpkey/hu/<hash>?l=<localpart>` |
 
-The `openpgpkey.` subdomain prefix is **not configurable** — it is part of the WKD wire format. Every WKD client (GnuPG, our `WKDResolver`, Sequoia, etc.) hardcodes this prefix when constructing the advanced URL, so a WKD-publishing domain serves the key under that fixed pattern.
+The `openpgpkey.` subdomain prefix is **not configurable**. It is part of the WKD wire format. Every WKD client (GnuPG, our `WKDResolver`, Sequoia, etc.) hardcodes this prefix when constructing the advanced URL, so a WKD-publishing domain serves the key under that fixed pattern.
 
-Before deriving any URL, `WKDURLs` validates the email domain with the same hostname rules the publish side (`signing/openpgpkey.WriteWKDTree`) applies: the domain must be a plain DNS hostname (letters, digits, hyphens, dot separators) with no path separator, no `..`, and no leading/trailing dot. A domain that fails this check is rejected with an error rather than spliced into an `https://<domain>/…` URL — so an operator-supplied email cannot reshape the request target or escape the WKD path.
+Before deriving any URL, `WKDURLs` validates the email domain with the same hostname rules the publish side (`signing/openpgpkey.WriteWKDTree`) applies: the domain must be a plain DNS hostname (letters, digits, hyphens, dot separators) with no path separator, no `..`, and no leading/trailing dot. A domain that fails this check is rejected with an error rather than spliced into an `https://<domain>/…` URL, so an operator-supplied email cannot reshape the request target or escape the WKD path.
 
-In practice: **the only thing a tool author aligns across the framework, the DNS, and the hosting account is the release email.** Setting `verify.DefaultExternalKeyEmail` (or `update.external_key_email` via config) is sufficient — the verifier derives the URLs, the operator stands up the matching `openpgpkey.<domain>` endpoint, the keys flow.
+In practice: **the only thing a tool author aligns across the framework, the DNS, and the hosting account is the release email.** Setting `verify.DefaultExternalKeyEmail` (or `update.external_key_email` via config) is sufficient: the verifier derives the URLs, the operator stands up the matching `openpgpkey.<domain>` endpoint, the keys flow.
 
 [wkd-draft]: https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/
 
 !!! info "SHA-1 here is a directory lookup hash, not a security mechanism"
-    The WKD wire format mandates SHA-1 to locate the key file. It is **not** used for integrity — signature verification runs on Ed25519/RSA via go-crypto. The `gosec` G401/G505 findings on this single use are exempted by path in `.golangci.yaml` for exactly this reason.
+    The WKD wire format mandates SHA-1 to locate the key file. It is **not** used for integrity: signature verification runs on Ed25519/RSA via go-crypto. The `gosec` G401/G505 findings on this single use are exempted by path in `.golangci.yaml` for exactly this reason.
 
 `Resolve` behaviour:
 
 - Tries the **advanced** URL first; falls back to the **direct** URL only on HTTP 404. Any other failure (network, non-200, TLS, oversize, weak key) returns to the caller without falling through.
-- Requires a hardened `*http.Client` — wire [`pkg/http.NewClient`](../http.md) so TLS 1.2+, certificate validation, the request timeout, and the HTTPS-downgrade redirect policy are all enforced. Non-HTTPS targets are refused outright.
+- Requires a hardened `*http.Client`: wire [`pkg/http.NewClient`](../http.md) so TLS 1.2+, certificate validation, the request timeout, and the HTTPS-downgrade redirect policy are all enforced. Non-HTTPS targets are refused outright.
 - Caps the response body at `MaxWKDResponseSize` (64 KiB, accommodates multiple keys per identity) → `ErrWKDResponseTooLarge`.
-- Parses the binary OpenPGP wire format and **filters the returned entities by UID-to-email match**: only keys carrying a User ID for the resolved address (`release@example.org`) are trusted. A WKD endpoint is addressed by the local-part hash, but the server still controls the returned bytes — without this filter a hostile or misconfigured directory could smuggle an off-address key into the trust set. When no returned key matches, `Resolve` fails with `ErrKeyResolverUnavailable`. This gives the single-source (`key_source=external`) path the same anchoring guarantee that the composite path gets from its fingerprint cross-check.
+- Parses the binary OpenPGP wire format and **filters the returned entities by UID-to-email match**: only keys carrying a User ID for the resolved address (`release@example.org`) are trusted. A WKD endpoint is addressed by the local-part hash, but the server still controls the returned bytes: without this filter a hostile or misconfigured directory could smuggle an off-address key into the trust set. When no returned key matches, `Resolve` fails with `ErrKeyResolverUnavailable`. This gives the single-source (`key_source=external`) path the same anchoring guarantee that the composite path gets from its fingerprint cross-check.
 - Runs the same [strength policy](#minimum-strength-policy) as the embedded path on the surviving (UID-matching) keys.
 - Surfaces network and HTTP failures as `ErrKeyResolverUnavailable`.
 
@@ -215,16 +215,16 @@ INFO update signature verification configured resolver=<name>
 
 ### `signature verified`
 
-Emitted after the detached signature has been verified against the resolved trust set — i.e. after a successful signature check.
+Emitted after the detached signature has been verified against the resolved trust set, i.e. after a successful signature check.
 
 ```
 INFO signature verified resolver=<name> fingerprint=<40-char-hex>
 ```
 
-The `fingerprint` field records the **verifying key's** 40-character uppercase hex fingerprint — exactly which trust-anchor key authorised this update. It is the primary audit-trail field: cross-reference it against `Fingerprints()` of the embedded/WKD key to confirm which anchor was used. The `resolver` value matches the one logged at `configured` (verification runs against the trust set the resolver produced). Seeing this line means:
+The `fingerprint` field records the **verifying key's** 40-character uppercase hex fingerprint: exactly which trust-anchor key authorised this update. It is the primary audit-trail field: cross-reference it against `Fingerprints()` of the embedded/WKD key to confirm which anchor was used. The `resolver` value matches the one logged at `configured` (verification runs against the trust set the resolver produced). Seeing this line means:
 
 1. `update.require_signature` was enabled (or the release happened to ship a sig anyway).
-2. The trust set resolved successfully — including, for `composite[…]`, that all configured anchors **agreed on the same fingerprint set**.
+2. The trust set resolved successfully: including, for `composite[…]`, that all configured anchors **agreed on the same fingerprint set**.
 3. The OpenPGP signature over `checksums.txt` validated against at least one key in that trust set.
 
 ### Failure-side log lines
@@ -247,9 +247,9 @@ ERROR ErrKeyResolverMismatch: composite: resolvers returned divergent fingerprin
 
 For tickets where a user asks "is my update actually being verified?", read the `resolver=` value:
 
-- `resolver=composite[embedded,wkd:openpgpkey.phpboyscout.uk]` — full two-of-three trust-anchor independence. Both `internal/trustkeys/keys/*.asc` (embedded) and the live key served from Cloudflare Pages were consulted and agreed.
-- `resolver=embedded` — single-anchor verification. The embedded key alone was authoritative. **Cryptographically sound, but lower defence-in-depth.** This was the state of v0.13.0 binaries between 2026-06-09 (Phase 2 ship) and 2026-06-10 (the `DefaultExternalKeyEmail` fix in v0.13.1). Tell the customer: their next `gtb update` (from v0.13.1+) will upgrade to the composite resolver automatically.
-- `resolver=wkd:…` — single-anchor verification via WKD only. The customer's tool was built without an embedded key; the externally-served key is the sole trust anchor.
+- `resolver=composite[embedded,wkd:openpgpkey.phpboyscout.uk]`: full two-of-three trust-anchor independence. Both `internal/trustkeys/keys/*.asc` (embedded) and the live key served from Cloudflare Pages were consulted and agreed.
+- `resolver=embedded`: single-anchor verification. The embedded key alone was authoritative. **Cryptographically sound, but lower defence-in-depth.** This was the state of v0.13.0 binaries between 2026-06-09 (Phase 2 ship) and 2026-06-10 (the `DefaultExternalKeyEmail` fix in v0.13.1). Tell the customer: their next `gtb update` (from v0.13.1+) will upgrade to the composite resolver automatically.
+- `resolver=wkd:…`: single-anchor verification via WKD only. The customer's tool was built without an embedded key; the externally-served key is the sole trust anchor.
 
 ## Sentinel Errors
 
@@ -263,7 +263,7 @@ Match on these with `errors.Is`; the underlying cause is wrapped for diagnostics
 | `ErrSignatureTooLarge` | The detached-signature download exceeded `MaxSignatureSize`. |
 | `ErrWKDResponseTooLarge` | A WKD response exceeded `MaxWKDResponseSize`. |
 | `ErrKeyResolverUnavailable` | A resolver could not produce a trust set (network/HTTP failure, or all children failed). |
-| `ErrKeyResolverMismatch` | Successful resolvers returned divergent fingerprint sets — a tampering alarm. |
+| `ErrKeyResolverMismatch` | Successful resolvers returned divergent fingerprint sets: a tampering alarm. |
 
 ## Tunable Bounds & Defaults
 
@@ -293,7 +293,7 @@ updater, err := setup.NewUpdater(ctx, props, version, force,
 )
 ```
 
-`WithEmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`verify.BuildKeyResolver`](#buildkeyresolver) (in `signing/verify`) with the resolved `update.key_source` family to produce the resolver. For full control — a custom resolver chain, a DNS resolver, or Sigstore in a later phase — build it yourself and pass `setup.WithKeyResolver(r)`, which bypasses the config-driven default entirely.
+`WithEmbeddedKeys` hands the framework the raw armored keys; `NewUpdater` calls [`verify.BuildKeyResolver`](#buildkeyresolver) (in `signing/verify`) with the resolved `update.key_source` family to produce the resolver. For full control (a custom resolver chain, a DNS resolver, or Sigstore in a later phase) build it yourself and pass `setup.WithKeyResolver(r)`, which bypasses the config-driven default entirely.
 
 ### BuildKeyResolver
 
@@ -329,7 +329,7 @@ update:
 
 During `Update()`, after the checksums manifest is downloaded but **before** it is parsed:
 
-1. The trust set is resolved (the composite cross-check runs here — the earliest failure point).
+1. The trust set is resolved (the composite cross-check runs here, the earliest failure point).
 2. The detached signature is fetched (via [`SignatureProvider`](https://forge.go.phpboyscout.uk/explanation/optional-capabilities/) when the provider opts in, else by asset-name lookup).
 3. The signature is verified over the **raw manifest bytes**. Only on success is the manifest parsed for checksum comparison.
 
@@ -337,8 +337,8 @@ Failure handling is deliberately asymmetric:
 
 | Condition | Outcome |
 |-----------|---------|
-| Signature present but does not verify | **Always fatal** (`ErrSignatureInvalid`) — a forged/corrupt signature is never accepted |
-| Trust anchors disagree (`ErrKeyResolverMismatch`) | **Always fatal** — active-tampering signal |
+| Signature present but does not verify | **Always fatal** (`ErrSignatureInvalid`): a forged/corrupt signature is never accepted |
+| Trust anchors disagree (`ErrKeyResolverMismatch`) | **Always fatal**: active-tampering signal |
 | Signature absent, resolver unreachable, or no resolver configured | Gated by `require_signature`: fail-closed aborts, fail-open logs a warning and proceeds |
 
 ## Key Rotation
@@ -347,8 +347,8 @@ Trust sets hold multiple keys, and verification passes if **any** key validates 
 
 ## See Also
 
-- [signing module documentation](https://signing.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify) — the canonical reference for the extracted verifier API.
-- [Setup Package](index.md) — the surrounding self-update system and Phase 1 checksum verification.
-- [Secure Releases How-To](../../../how-to/secure-releases.md) — operator-facing setup story.
-- [HTTP client](../http.md) — the hardened client `WKDResolver` expects.
-- [remote-update-checksum-verification spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification) — full design, decisions, and rollout phases.
+- [signing module documentation](https://signing.phpboyscout.uk) and [pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify](https://pkg.go.dev/gitlab.com/phpboyscout/go/signing/verify): the canonical reference for the extracted verifier API.
+- [Setup Package](index.md): the surrounding self-update system and Phase 1 checksum verification.
+- [Secure Releases How-To](../../../how-to/secure-releases.md): operator-facing setup story.
+- [HTTP client](../http.md): the hardened client `WKDResolver` expects.
+- [remote-update-checksum-verification spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification): full design, decisions, and rollout phases.

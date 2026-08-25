@@ -63,12 +63,12 @@ go run main.go generate command -n mouse --parent dog/cat
     `dog` was scaffolded as a leaf, so it got a `RunDog` returning
     `errorhandling.ErrNotImplemented`. Adding `cat` beneath it makes `dog` a
     **group**, and a group with no run logic of its own wires
-    `RunE: setup.GroupRunE` instead — usage and exit `0` when invoked bare, a named
+    `RunE: setup.GroupRunE` instead, usage and exit `0` when invoked bare, a named
     error and exit `2` on a verb it does not have.
 
     `main.go` is yours, so the generator does not touch it: `RunDog` stays exactly
     where it is, simply no longer called. That stub is a live seam rather than dead
-    weight — **give it a body and `dog` is a working command again**, and the next
+    weight: **give it a body and `dog` is a working command again**, and the next
     run wires `RunE` back to it. The
     [migration note](../../reference/migration/v0.x-command-group-behaviour.md)
     covers the exit codes.
@@ -139,7 +139,7 @@ go run main.go generate command -n serve --persistent-pre-run --with-initializer
 
 ### 5. Command Protection 🛡️
 
-Once you've generated a command, you might want to prevent it from being overwritten by future `generate` calls—especially if you've made manual modifications to the boilerplate (though we recommend strictly keeping logic in `main.go`!).
+Once you've generated a command, you might want to prevent it from being overwritten by future `generate` calls: especially if you've made manual modifications to the boilerplate (though we recommend strictly keeping logic in `main.go`!).
 
 **Protection Tri-State Logic:**
 
@@ -177,7 +177,7 @@ This shows you:
 - **Files to create**: New files that would be generated, with their paths listed.
 - **Files to modify**: Existing files that would change, with a unified diff showing exactly what would be different.
 
-Dry-run mode runs the full generation pipeline—including `go mod tidy` and `golangci-lint run --fix`—in a temporary directory to ensure the preview is accurate. The only step skipped is AI-powered documentation generation, since that requires an API call.
+Dry-run mode runs the full generation pipeline (including `go mod tidy` and `golangci-lint run --fix`) in a temporary directory to ensure the preview is accurate. The only step skipped is AI-powered documentation generation, since that requires an API call.
 
 !!! tip "Use with regenerate too"
     The `--dry-run` flag is also available on `regenerate project` and `generate skeleton`. See the [Regeneration](../../explanation/components/internal/commands/regenerate.md) and [Skeleton](scaffold-project.md) docs for details.

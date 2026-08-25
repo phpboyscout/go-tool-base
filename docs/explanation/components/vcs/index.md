@@ -1,6 +1,6 @@
 ---
 title: VCS
-description: How GTB wires the extracted forge and repo modules — release-source config, provider registration, and the config adapters that stay.
+description: How GTB wires the extracted forge and repo modules: release-source config, provider registration, and the config adapters that stay.
 date: 2026-07-19
 tags: [components, vcs, forge, releases, git]
 ---
@@ -21,17 +21,17 @@ The VCS layer has been **extracted** into standalone modules. What remains in
 
 ## What stays in GTB
 
-**`pkg/vcs`** — `ConfigFromReader`, adapting a GTB config view (`config.Reader`,
+**`pkg/vcs`**, `ConfigFromReader`, adapting a GTB config view (`config.Reader`,
 typically `props.Config.View()`) to the narrow `forge.Config` seam. The seam is
 two methods wide precisely so a provider needs no config library; this bridge is
 the one place that knows about both. This config glue is **all** that remains in
-GTB — the forge clients themselves (GitHub, GitLab, Gitea/Codeberg, Bitbucket,
+GTB: the forge clients themselves (GitHub, GitLab, Gitea/Codeberg, Bitbucket,
 plus the built-in `direct` source) now live in the external `go/forge` and
 `go/forge-<name>` modules. The interactive auth and SSH-key operations GTB used
 to reach for on GitHub are now optional `forge.Authenticator` / `forge.KeyManager`
 provider capabilities, driven from [setup](../setup/index.md).
 
-**`pkg/vcs/repo`** — the props/config adapters for the `go/repo` module. See
+**`pkg/vcs/repo`**: the props/config adapters for the `go/repo` module. See
 [Repo](repo.md).
 
 ---
@@ -53,7 +53,7 @@ import (
 ```
 
 A tool that supports one forge can import only that provider and shed the other
-clients entirely — which is the point of the per-provider split. `direct` is not
+clients entirely, which is the point of the per-provider split. `direct` is not
 a forge, so it ships inside the `forge` module.
 
 Registering a source type twice **panics at init**, naming the module at fault.
@@ -67,12 +67,12 @@ The config-key layout is unchanged: `<forge>.auth.{env,keychain,value}`,
 and capabilities are documented on the
 [providers reference](https://forge.go.phpboyscout.uk/reference/providers/).
 
-Self-update wiring — `props.Tool.ReleaseSource`, `setup.NewUpdater`, the
-`update.require_checksum` / `require_signature` policy — is GTB's and is
+Self-update wiring, `props.Tool.ReleaseSource`, `setup.NewUpdater`, the
+`update.require_checksum` / `require_signature` policy, is GTB's and is
 documented under [setup](../setup/index.md).
 
 ## Related
 
-- [Repo](repo.md) — GTB's adapters for the git module
-- [forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk) — the release contract, credential chain, and every provider client
-- [Version control](../version-control.md) — the component family
+- [Repo](repo.md): GTB's adapters for the git module
+- [forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk): the release contract, credential chain, and every provider client
+- [Version control](../version-control.md): the component family

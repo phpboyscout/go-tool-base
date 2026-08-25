@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # `enable` / `disable` Commands
 
-`gtb enable` and `gtb disable` toggle capabilities on a generated project — either
+`gtb enable` and `gtb disable` toggle capabilities on a generated project, either
 named features, or the dedicated `signing` and `mcp` capabilities. Part of the
 **framework-developer** CLI. For runtime feature flags in your tool's own code,
 see [Configuring Built-in Features](../../how-to/builtin-features.md).

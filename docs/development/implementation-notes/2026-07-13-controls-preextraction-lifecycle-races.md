@@ -1,5 +1,5 @@
 ---
-title: "Implementation notes — controls pre-extraction lifecycle races (D8, D9)"
+title: "Implementation notes: controls pre-extraction lifecycle races (D8, D9)"
 description: "Two concurrency defects found in a fresh-eyes review before extracting pkg/controls to a standalone module: a data race on the async health-check CancelFunc during startup, and an unguarded blocking error-channel send during shutdown."
 date: 2026-07-13
 tags: [implementation-notes, controls, lifecycle, concurrency, extraction]
@@ -13,17 +13,17 @@ Before extracting `pkg/controls` into the standalone `gitlab.com/phpboyscout/go/
 module, a fresh adversarial review of the concurrency surface turned up two latent
 defects beyond the seven closed by
 [`0075-controls-supervisor-lifecycle`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0075-controls-supervisor-lifecycle)
-(D1–D7). Both are narrow and timing-dependent — neither was caught by the existing
-race tests — but both are cheaper to close in-tree than across a module boundary,
+(D1–D7). Both are narrow and timing-dependent. Neither was caught by the existing
+race tests, but both are cheaper to close in-tree than across a module boundary,
 so they are fixed here. They continue that spec's `D<n>` marker convention.
 
-## D8 — Data race on `healthCheckEntry.cancel` when shutdown lands mid-startup
+## D8: Data race on `healthCheckEntry.cancel` when shutdown lands mid-startup
 
 `Start()` launched the control goroutines (`go c.controls()`, which starts the
 signal handler and the message processor) **before** `startAsyncHealthChecks()`
 recorded each async check's `context.CancelFunc` in `entry.cancel`. A shutdown
-triggered in that window — an OS signal, a parent-context cancellation, both of
-which the freshly-launched goroutines can act on — reaches `cancelHealthChecks()`,
+triggered in that window: an OS signal, a parent-context cancellation, both of
+which the freshly-launched goroutines can act on, reaches `cancelHealthChecks()`,
 which reads `entry.cancel` while `startAsyncCheck` is still writing it. The two
 accesses have no happens-before edge: an unsynchronised read/write data race.
 
@@ -38,13 +38,13 @@ before `Start()` so the signal handler fires at the earliest possible moment aft
 the control goroutines launch, maximally overlapping the two accesses; run under
 `-race` it reliably flagged the race before the fix and is clean after.
 
-## D9 — Unguarded blocking send on the error channel after the handler exits
+## D9: Unguarded blocking send on the error channel after the handler exits
 
 The supervisor forwards genuine service errors on the unbuffered `errs` channel
 (`runOnce`, `runWithRestartPolicy`). The error/context handler that drains `errs`
 exits once `handleStopMessage` closes `shutdownComplete`. A supervisor goroutine
-that reaches its `errs <- err` after the handler has exited would block forever —
-a goroutine leak. In practice this is near-unreachable (the controller context is
+that reaches its `errs <- err` after the handler has exited would block forever.
+A goroutine leak. In practice this is near-unreachable (the controller context is
 cancelled at the very start of shutdown, so a run producing an error after that
 classifies as `outcomeCancelled` and never forwards), but the send is not provably
 non-blocking, which is an undesirable property to ship in a standalone module.

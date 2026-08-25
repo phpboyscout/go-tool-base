@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The `doctor` command runs diagnostic checks to validate configuration, connectivity, and the runtime environment. It is enabled by default via the `DoctorCmd` feature flag.
 
-`doctor` is the *health verdict* (pass/warn/fail/skip). Its [`report` subcommand](#doctor-report-support-bundle) adds the *state dump* — resolved config (redacted), paths, versions, and feature flags — around that verdict.
+`doctor` is the *health verdict* (pass/warn/fail/skip). Its [`report` subcommand](#doctor-report-support-bundle) adds the *state dump* (resolved config (redacted), paths, versions, and feature flags) around that verdict.
 
 ## Usage
 
@@ -38,8 +38,8 @@ Runs a series of built-in and feature-registered health checks, then reports the
 | **Configuration** | Config is loaded and accessible |
 | **Git** | `git` binary is available and the current directory is a repository |
 | **API keys** | At least one AI provider API key is configured |
-| **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config — warns and lists the offending key *names* (never values), pointing to env-var migration |
-| **`<Forge>` credential** | Whether that forge's credential actually **resolves**, and from which rung — `auth.env`, `auth.keychain`, `auth.value`, or the well-known fallback variable. One per enabled single-token forge. Reports the key name only, never the value |
+| **Credential storage** | No secrets (AI keys, VCS tokens, Bitbucket app password) are stored as literal plaintext in config: warns and lists the offending key *names* (never values), pointing to env-var migration |
+| **`<Forge>` credential** | Whether that forge's credential actually **resolves**, and from which rung: `auth.env`, `auth.keychain`, `auth.value`, or the well-known fallback variable. One per enabled single-token forge. Reports the key name only, never the value |
 | **Permissions** | Config directory exists with correct owner permissions (rwx) |
 
 ## Output Example
@@ -66,7 +66,7 @@ JSON output (`--output json`) returns a `DoctorReport` struct with the tool name
     default. Rung 1 therefore already reads the same variable the well-known fallback
     rung would read, so a credential supplied purely as `GITHUB_TOKEN` reports as
     `resolves from auth.env` rather than from the fallback. Same variable, same value,
-    same outcome — but worth knowing before reading a report and concluding the
+    same outcome, but worth knowing before reading a report and concluding the
     fallback is broken. To reach the fallback rung, a tool must ship a bundle that
     sets no `auth.env` default.
 
@@ -82,7 +82,7 @@ func init() {
 }
 ```
 
-## `doctor report` — support bundle
+## `doctor report`: support bundle
 
 `doctor report` emits a single, **secret-redacted, paste-ready support bundle** a user can drop straight into a GitLab/GitHub issue. It wraps the health verdict above with a state dump, so a maintainer gets *what version*, *what config*, *what paths*, *what flags*, and *what doctor says* in one block.
 
@@ -91,7 +91,7 @@ mytool doctor report                       # human-readable
 mytool doctor report --output json > bug.json
 ```
 
-It is available wherever `doctor` is (gated by `DoctorCmd`, default-on) — there is no separate feature flag.
+It is available wherever `doctor` is (gated by `DoctorCmd`, default-on). There is no separate feature flag.
 
 ### What it collects
 
@@ -99,16 +99,16 @@ It is available wherever `doctor` is (gated by `DoctorCmd`, default-on) — ther
 |---------|----------|
 | **Tool** | Name, summary, version, commit, build date |
 | **Runtime** | Go version, host OS string (`pkg/osinfo`), arch |
-| **Paths** | Resolved config directory and config file in use — the highest-precedence *loaded* file layer in the store, the same answer Viper's `ConfigFileUsed()` gave (no cache dir — GTB has none) |
+| **Paths** | Resolved config directory and config file in use: the highest-precedence *loaded* file layer in the store, the same answer Viper's `ConfigFileUsed()` gave (no cache dir, GTB has none) |
 | **Features** | Every built-in feature flag, enabled/disabled |
 | **Config** | The *effective* merged configuration, **redacted** |
 | **Doctor** | The full report above, reused verbatim |
 
-### Safe by default — redaction
+### Safe by default: redaction
 
-The entire bundle passes through [`go/redact`](../../explanation/components/redact.md) before it is written, in **both** text and JSON. There is **no flag to disable redaction** — for a raw value, read the specific config key directly. Two layers protect the config:
+The entire bundle passes through [`go/redact`](../../explanation/components/redact.md) before it is written, in **both** text and JSON. There is **no flag to disable redaction**: for a raw value, read the specific config key directly. Two layers protect the config:
 
-1. **Credential-shaped keys are dropped to `<redacted>`** regardless of value — keys ending in `.api.key`, `.auth.value`, `.app_password`, `.password`, `.secret`, `.token`, or whose final segment is a known credential word. Even a malformed value cannot leak.
+1. **Credential-shaped keys are dropped to `<redacted>`** regardless of value: keys ending in `.api.key`, `.auth.value`, `.app_password`, `.password`, `.secret`, `.token`, or whose final segment is a known credential word. Even a malformed value cannot leak.
 2. **Every other value is scrubbed through `redact.String`** (best-effort): URL userinfo, well-known token prefixes (`sk-`, `ghp_`, `glpat-`, `AKIA…`), and long opaque tokens. Map **keys are preserved** so the structure stays legible.
 
 The process environment is **never** enumerated (high leak surface, low triage value); env-derived values still appear via the resolved config snapshot (`Snapshot().Values()`) under the store's precedence. See [`go/redact`](../../explanation/components/redact.md) for the full pattern set.

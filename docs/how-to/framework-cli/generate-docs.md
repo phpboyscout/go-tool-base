@@ -12,7 +12,7 @@ The `generate docs` command is your secret weapon for maintaining world-class do
 
 ## Generate docs
 
-Document a **command** or a **package** — exactly one of `--command` / `--package`:
+Document a **command** or a **package**, exactly one of `--command` / `--package`:
 
 ```bash
 # A command (by manifest path):
@@ -33,10 +33,10 @@ New projects scaffold a [Diátaxis](https://diataxis.fr/)-structured `docs/` tre
 | CLI commands | Reference | `docs/reference/cli/<command>.md` (a leaf), or `docs/reference/cli/<command>/index.md` (a command with subcommands) |
 | Library packages | Explanation | `docs/explanation/components/<package>.md` |
 
-The layout is recorded as `docs_layout: diataxis` in `.gtb/manifest.yaml`. Projects generated before this feature default to the legacy **flat** layout (`docs/commands/`, `docs/packages/`); run `regenerate project --force` to migrate them — it moves existing pages into the quadrant tree (preserving your content), updates the manifest, and removes the old trees.
+The layout is recorded as `docs_layout: diataxis` in `.gtb/manifest.yaml`. Projects generated before this feature default to the legacy **flat** layout (`docs/commands/`, `docs/packages/`); run `regenerate project --force` to migrate them: it moves existing pages into the quadrant tree (preserving your content), updates the manifest, and removes the old trees.
 
 !!! note "No AI? Still structured"
-    With `--agentless` (or no AI provider configured), `generate docs` writes deterministic boilerplate — a reference-shaped command page (description, usage, flags/subcommands tables, `--help` pointer) or an explanation skeleton for packages — so the docset is coherent without an API call.
+    With `--agentless` (or no AI provider configured), `generate docs` writes deterministic boilerplate: a reference-shaped command page (description, usage, flags/subcommands tables, `--help` pointer) or an explanation skeleton for packages, so the docset is coherent without an API call.
 
 ## Core Features
 
@@ -66,7 +66,7 @@ This command:
 
 ### Package Documentation 📦
 
-For developers building libraries, the `--package` flag generates **explanation-oriented** package docs (the Diátaxis explanation quadrant) — understanding, not an exhaustive API dump:
+For developers building libraries, the `--package` flag generates **explanation-oriented** package docs (the Diátaxis explanation quadrant), understanding, not an exhaustive API dump:
 
 ```bash
 go run main.go generate docs --path . --package "pkg/utils"
@@ -77,13 +77,13 @@ The page lands in the `docs/explanation/components/` hierarchy and includes:
 - A high-level overview of what the package is for and the problem it solves.
 - The main exported types and their roles, described narratively.
 - A short usage sketch synthesized from your code.
-- An **API Reference** pointer — by default a local `go doc ./pkg/utils` hint, so a private or unpublished module never gets a dead link.
+- An **API Reference** pointer: by default a local `go doc ./pkg/utils` hint, so a private or unpublished module never gets a dead link.
 
 !!! tip "Published modules: link pkg.go.dev"
-    Pass `--public-api` (or set `module_published: true` in `.gtb/manifest.yaml`) when your module is published. The API reference then links the package's `pkg.go.dev` page — the canonical home for the full Go API reference — instead of the `go doc` hint.
+    Pass `--public-api` (or set `module_published: true` in `.gtb/manifest.yaml`) when your module is published. The API reference then links the package's `pkg.go.dev` page (the canonical home for the full Go API reference) instead of the `go doc` hint.
 
 !!! warning "Required Flags"
-    You must provide exactly one of `--command` or `--package` (the deprecated `--source` is the third member of the same one-required group) — they are mutually exclusive. The `--path` flag (project root) is optional and defaults to the current directory (`.`).
+    You must provide exactly one of `--command` or `--package` (the deprecated `--source` is the third member of the same one-required group). They are mutually exclusive. The `--path` flag (project root) is optional and defaults to the current directory (`.`).
 
 !!! note "Deprecated Flag"
     The `--source` flag is deprecated. Use `--command` instead.
@@ -96,7 +96,7 @@ If a documentation page already exists, the AI:
 
 1. **Reads Existing Content**: Uses your manual tweaks as context.
 2. **Preserves Customizations**: Merges new technical details with your hand-written sections.
-3. **Maintains Authorship**: Authorship is **additive** — the AI model is appended to the `authors` list as a *co-author*, and your existing human author(s) are always preserved, never replaced.
+3. **Maintains Authorship**: Authorship is **additive**. The AI model is appended to the `authors` list as a *co-author*, and your existing human author(s) are always preserved, never replaced.
 
 !!! tip "Frontmatter-first output"
     Generated pages are guaranteed to begin with the YAML frontmatter fence (`---`). Any conversational preamble the model emits ahead of the frontmatter is stripped before the file is written, so static-site generators always parse the frontmatter. If a response contains no frontmatter at all, `generate docs` falls back to deterministic boilerplate rather than committing a broken page.
@@ -109,7 +109,7 @@ By default the generated frontmatter credits the AI model as an additive co-auth
 go run main.go generate docs --command "az/login" --no-ai-attribution
 ```
 
-This flips the generation prompt so the `authors:` field carries your project's human author(s) only — the model is instructed to add no AI, model, assistant, or tool identity. Existing human authors are still preserved.
+This flips the generation prompt so the `authors:` field carries your project's human author(s) only. The model is instructed to add no AI, model, assistant, or tool identity. Existing human authors are still preserved.
 
 ## Advanced Usage
 
@@ -134,6 +134,6 @@ go run main.go generate docs --command "az/keyvault/get"
 
 ## Why Automated Documentation?
 
-Your code is the single source of truth and the docs are its reflection — generate them as part of your workflow and keep them in sync for free. For the design and how the generator fits the framework, see the [Docs component](../../explanation/components/docs.md).
+Your code is the single source of truth and the docs are its reflection: generate them as part of your workflow and keep them in sync for free. For the design and how the generator fits the framework, see the [Docs component](../../explanation/components/docs.md).
 
 Focus on building great software, and let `gtb` handle the story of how to use it! 🚀

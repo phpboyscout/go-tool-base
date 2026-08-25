@@ -56,7 +56,7 @@ The conversion engine supports multiple AI providers, giving you the flexibility
 | **Claude** | `claude` | `claude-opus-4-8` | `ANTHROPIC_API_KEY` |
 | **Gemini** | `gemini` | `gemini-3.5-flash` | `GEMINI_API_KEY` |
 | **Claude Local** | `claude-local` | uses local `claude` binary default | none required |
-| **OpenAI-Compatible** | `openai-compatible` | none — must be set explicitly | backend-specific |
+| **OpenAI-Compatible** | `openai-compatible` | none: must be set explicitly | backend-specific |
 
 See [Providers](https://chat.go.phpboyscout.uk/explanation/providers/#capability-comparison) for the full capability matrix and the canonical provider details.
 
@@ -92,7 +92,7 @@ go run main.go generate command -n backup --script ./backup.sh
 
 We don't just generate code and hope for the best. Every AI-generated command is verified by an **Autonomous Agent** that uses a self-correcting ReAct (Reasoning and Acting) loop to ensure it meets our high standards for quality and stability.
 
-The agent drafts the implementation and tests, then iterates — building, running
+The agent drafts the implementation and tests, then iterates, building, running
 tests, resolving dependencies, and linting, analysing each failure and applying
 targeted fixes until the project is stable or it hits its step budget. For the full
 mechanism (the tool set and the ReAct loop), see the

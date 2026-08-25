@@ -33,9 +33,9 @@ The root command automatically registers the following subcommands:
 | `mcp` | Expose tool as a Model Context Protocol server | :material-check: Yes |
 | `doctor` | Environment and configuration health checks, plus `doctor report` | :material-check: Yes |
 | `changelog` | Display the embedded changelog | :material-check: Yes |
-| `config` | Programmatic config access (`get`/`set`/`list`/`validate`) — opt-in, off by default | :material-check: Yes |
-| `telemetry` | Opt-in usage telemetry status and management — off by default | :material-check: Yes |
-| `man` | Hidden roff man-page emitter for packaging — opt-in, off by default | :material-check: Yes |
+| `config` | Programmatic config access (`get`/`set`/`list`/`validate`): opt-in, off by default | :material-check: Yes |
+| `telemetry` | Opt-in usage telemetry status and management: off by default | :material-check: Yes |
+| `man` | Hidden roff man-page emitter for packaging: opt-in, off by default | :material-check: Yes |
 
 See the [Commands Overview](index.md) for the full list and which commands are default-enabled versus opt-in.
 
@@ -65,7 +65,7 @@ them. The exact defaults for a given tool are printed by `<tool> --help`.
 
 ### `--config`: naming a file replaces the defaults
 
-`--config` does not add to the default list, it replaces it — and it also
+`--config` does not add to the default list, it replaces it, and it also
 suppresses the project-local `.<tool>.yaml` layer. Repeat the flag to declare
 several files; the last one wins.
 
@@ -75,8 +75,8 @@ can actually write to.
 
 A path that does not exist is skipped rather than failing, with one exception:
 the last path in the list is always declared so a first write has somewhere to
-land. A path that exists but cannot be read — a permissions problem, a broken
-mount — is a hard error, because falling back to defaults would hide a real
+land. A path that exists but cannot be read, a permissions problem, a broken
+mount: is a hard error, because falling back to defaults would hide a real
 fault.
 
 Full detail in the [configuration reference](../config/index.md#which-layer-wins-the-precedence-order).
@@ -101,8 +101,8 @@ Either one:
 - removes literal-value storage from the credential wizards, leaving env-var and
   keychain modes.
 
-`CI` is compared against the literal string `true`. `CI=1` does **not** count —
-pass `--ci` on those runners.
+`CI` is compared against the literal string `true`. `CI=1` does **not** count.
+Pass `--ci` on those runners.
 
 ### `--output`: supported values, and what a wrong one does
 
@@ -110,7 +110,7 @@ The flag's help text says `text, json`, but the renderer behind it accepts
 `text`, `json`, `yaml`, `csv`, `tsv` and `markdown`.
 
 Which of those actually work depends on the command. `text`, `json` and `yaml`
-render any result. The tabular formats — `csv`, `tsv`, `markdown` — need a
+render any result. The tabular formats (`csv`, `tsv`, `markdown`) need a
 command whose result type carries table tags; on one that does not, the command
 fails with `no table tags found on struct`.
 
@@ -132,15 +132,15 @@ from the `ci` config key, so a config file or environment variable can set it.
 `root.Execute` runs the command tree under a signal-aware context. On SIGINT or
 SIGTERM:
 
-1. The first signal cancels `cmd.Context()`, logs `received signal — shutting
+1. The first signal cancels `cmd.Context()`, logs `received signal, shutting
    down gracefully (press again to force quit)`, and lets the command unwind.
 2. A second signal force-exits immediately, so a hung cleanup can never trap the
    user.
-3. Buffered telemetry is flushed on every path — success, error and cancellation.
+3. Buffered telemetry is flushed on every path, success, error and cancellation.
 
 An interrupted run exits **128 + signum**: `130` for SIGINT, `143` for SIGTERM.
 That code is used regardless of what the command tree returned, because an
-interrupt is a deliberate user choice rather than a failure — which is also why
+interrupt is a deliberate user choice rather than a failure, which is also why
 the notice is logged at debug rather than error. Any other command failure exits
 `1` unless the error carries an explicit code.
 
@@ -152,7 +152,7 @@ not a reason to take over signals.
 
 `root.Execute(rootCmd, props, root.WithoutSignals())` stops the framework
 installing its handler. Signal disposition is process-global and `signal.Notify`
-is additive, so two owners means two shutdown drivers racing on one Ctrl-C —
+is additive, so two owners means two shutdown drivers racing on one Ctrl-C,
 which is why this is opt-in rather than composable.
 
 A tool that opts out owns the whole contract the framework otherwise provides:

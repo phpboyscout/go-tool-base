@@ -46,7 +46,7 @@ irm "https://gitlab.com/phpboyscout/go-tool-base/-/raw/main/install.ps1" | iex
 go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest
 ```
 
-The `cmd/gtb` suffix matters — the module root is a library and has no `main`
+The `cmd/gtb` suffix matters. The module root is a library and has no `main`
 package, so `go install gitlab.com/phpboyscout/go-tool-base@latest` fails.
 Ensure `$GOPATH/bin` is on your `$PATH`.
 
@@ -139,7 +139,7 @@ func main() {
 }
 ```
 
-**`assets/config.yaml`** — the embedded defaults layer. The `//go:embed assets/*`
+**`assets/config.yaml`**, the embedded defaults layer. The `//go:embed assets/*`
 directive requires the directory to exist and be non-empty:
 
 ```yaml
@@ -150,8 +150,8 @@ log:
 Four details are load-bearing:
 
 - **`props.New` rather than a struct literal.** It applies the framework defaults
-  — a no-op telemetry collector, an error handler built from your logger, an
-  empty version — and returns an error if `Tool.Name`, the logger or the
+: a no-op telemetry collector, an error handler built from your logger, an
+  empty version, and returns an error if `Tool.Name`, the logger or the
   filesystem is missing, instead of panicking later. A struct literal still
   works, but then those defaults are yours to set.
 - **`props.NewAssets` takes an `AssetMap`,** not a bare `*embed.FS`. The key
@@ -176,8 +176,8 @@ go build -o example-tool .
 ./example-tool version
 ```
 
-`--help` lists the built-in commands your feature set enables — `init`,
-`version`, `update`, `docs`, `doctor`, `changelog`, `mcp` — none of which you
+`--help` lists the built-in commands your feature set enables, `init`,
+`version`, `update`, `docs`, `doctor`, `changelog`, `mcp`, none of which you
 wrote.
 
 ## Verifying an install
@@ -210,11 +210,11 @@ are `Tool.Name`, the logger and the filesystem; the rest are defaulted.
 
 ## Next steps
 
-- **[Build your first CLI](tutorials/build-your-first-cli.md)** — the guided
+- **[Build your first CLI](tutorials/build-your-first-cli.md)**: the guided
   route, using the generator rather than hand-wiring.
-- **[Getting started](getting-started.md)** — the two integration routes side by
+- **[Getting started](getting-started.md)**: the two integration routes side by
   side.
-- **[Props](explanation/components/props.md)** — what the container carries and
+- **[Props](explanation/components/props.md)**: what the container carries and
   why every command receives one.
-- **[Configuration keys](reference/config/index.md)** — every key, its default,
+- **[Configuration keys](reference/config/index.md)**: every key, its default,
   and what happens when it is wrong.

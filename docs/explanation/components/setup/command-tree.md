@@ -12,7 +12,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Command Constructor Pattern
 
-In GTB, we consistently use the `NewCmd*` constructor pattern for instantiating commands. Since v0.5 the constructor returns `*setup.Command` — a typed wrapper around `*cobra.Command` that also carries the command's middleware feature key. This architectural choice is fundamental to the framework's goals of testability, modularity, and explicit dependency management, and it removes a class of regressions where the parent had to know how to wrap each child.
+In GTB, we consistently use the `NewCmd*` constructor pattern for instantiating commands. Since v0.5 the constructor returns `*setup.Command`. A typed wrapper around `*cobra.Command` that also carries the command's middleware feature key. This architectural choice is fundamental to the framework's goals of testability, modularity, and explicit dependency management, and it removes a class of regressions where the parent had to know how to wrap each child.
 
 ## The Pattern
 
@@ -35,7 +35,7 @@ func NewCmdExample(props *props.Props) *setup.Command {
 }
 ```
 
-`setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that **embeds** `*cobra.Command`, so every cobra method — `cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(…)`, `cmd.SetContext(…)` — keeps working through the embedded pointer. The `"example"` literal is implicitly converted to `props.FeatureID` (a named string type) by Go, so call sites stay readable.
+`setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that **embeds** `*cobra.Command`, so every cobra method (`cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(…)`, `cmd.SetContext(…)`) keeps working through the embedded pointer. The `"example"` literal is implicitly converted to `props.FeatureID` (a named string type) by Go, so call sites stay readable.
 
 ## Composing the tree
 
@@ -54,7 +54,7 @@ func NewCmdRoot(p *props.Props) *setup.Command {
 }
 ```
 
-`Register` wires global middleware *and* any feature-specific middleware registered for the child's key. Each command is wrapped exactly once with **its own** feature — the parent's feature is never propagated downward.
+`Register` wires global middleware *and* any feature-specific middleware registered for the child's key. Each command is wrapped exactly once with **its own** feature. The parent's feature is never propagated downward.
 
 ## Rationale
 
@@ -98,7 +98,7 @@ This pattern is natively supported by the [Framework CLI](../../../reference/cli
 - **Pass Props Down**: If a command has subcommands, pass the `Props` pointer down to their respective constructors.
 - **Wrap once, at the top of the constructor**: assign `cmd := setup.Wrap(...)` immediately so every later mutation (`cmd.Flags()`, `cmd.Register(child)`, …) operates on the composed type.
 - **Use the empty feature `""` for non-feature-gated commands**: root and pure command-group containers (with no feature-specific middleware) typically pass `setup.Wrap("", &cobra.Command{...})`. Feature keys are middleware lookup keys, not display labels.
-- **Wire `RunE: setup.GroupRunE` on a command that only groups its children** — see below.
+- **Wire `RunE: setup.GroupRunE` on a command that only groups its children**: see below.
 
 ## A command group needs a RunE
 
@@ -113,18 +113,18 @@ cmd := setup.Wrap("config", &cobra.Command{
 ```
 
 [`setup.GroupRunE`](https://pkg.go.dev/gitlab.com/phpboyscout/go-tool-base/pkg/setup#GroupRunE)
-prints usage and succeeds when the command is invoked bare — a request for help is
-not a failure — and reports a verb the group does not have, exiting `2`.
+prints usage and succeeds when the command is invoked bare. A request for help is
+not a failure, and reports a verb the group does not have, exiting `2`.
 
 **Leaving `RunE` unset does not get you the second half.** Cobra's `execute()`
 returns `flag.ErrHelp` when a command is not `Runnable()`, *before* it reaches
 `ValidateArgs`, so `Args: cobra.NoArgs` on a group is silently inert. And cobra's
 own unknown-command report is produced for the **root** command only
 (`legacyArgs`, gated on `!cmd.HasParent()`). A group that wires nothing answers
-`tool config sett` with help and exit `0` — telling the user nothing, and leaving a
+`tool config sett` with help and exit `0`, telling the user nothing, and leaving a
 script unable to tell a typo from a command that ran.
 
-A group that does work of its own — one that takes positional arguments, say —
+A group that does work of its own (one that takes positional arguments, say) 
 keeps its own `RunE`. The distinction is whether the command has anything to do
 besides route.
 
@@ -133,7 +133,7 @@ besides route.
 Returning `*setup.Command` (rather than `*cobra.Command`) is what lets `parent.Register(child)` be the single, idiomatic attachment call:
 
 - It can wrap the child's `RunE` with the child's own feature middleware.
-- It can stay idempotent on regeneration — re-running the generator does not double-wrap.
+- It can stay idempotent on regeneration: re-running the generator does not double-wrap.
 - It is type-checked at compile time: a caller cannot accidentally attach an unwrapped `*cobra.Command` and skip middleware.
 
 The previous API exposed this via a free function (`setup.AddCommandWithMiddleware(parent, child, props.<Name>Cmd)`) that required the parent to know the child's feature key. That coupling is removed; the child owns its own identity. See the [v0.4-to-v0.5 migration guide](../../../reference/migration/v0.4-to-v0.5.md) for the before/after diff and the [command middleware concept](middleware.md) for how the wrapping interacts with the middleware registry.

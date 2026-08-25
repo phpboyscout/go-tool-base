@@ -16,8 +16,8 @@ GTB's `Assets` system lets you bundle files (YAML configs, templates, CSV data, 
 
 The `Assets` interface maintains a named, ordered registry of `fs.FS` values:
 
-- **Structured files** (`.yaml`, `.yml`, `.json`, `.toml`, `.csv`, etc.) — merged in registration order, with later registrations overriding earlier ones (forward merge).
-- **Static files** (everything else) — last registered wins (shadowing).
+- **Structured files** (`.yaml`, `.yml`, `.json`, `.toml`, `.csv`, etc.): merged in registration order, with later registrations overriding earlier ones (forward merge).
+- **Static files** (everything else): last registered wins (shadowing).
 
 This means you can ship sane defaults and let users or feature packages override only the keys they care about.
 
@@ -116,16 +116,16 @@ f, err := featureOnly.Open("config/defaults.yaml")
 You almost never hand-wire embedded defaults into the store. GTB uses a
 filename convention so defaults are picked up automatically:
 
-- **`assets/config.yaml`** — your package's config **defaults**. Every bundle's
+- **`assets/config.yaml`**: your package's config **defaults**. Every bundle's
   copy is merged and declared as the store's lowest-precedence layer, so a key
   absent from the user's file resolves to the shipped default. These *always
   apply*.
-- **`assets/init/config.yaml`** — the **init template**: the document (comments
+- **`assets/init/config.yaml`**: the **init template**: the document (comments
   included) written to the user's config file by `init`. Seed only meaningful
   values here; an empty placeholder like `api.key: ""` reads as "configured but
   blank" and is noise.
 
-A **command** feature's bundle rides along whenever the feature is enabled — no
+A **command** feature's bundle rides along whenever the feature is enabled, no
 extra wiring. A **non-command** feature package announces its bundle with
 `setup.RegisterAssets`, and the root command applies it for enabled features at
 construction (the framework baseline registers first, via `props.NewAssets`):
@@ -141,8 +141,8 @@ func init() {
 }
 ```
 
-The root pre-run then builds the store — merged `assets/config.yaml` defaults at
-the bottom, then files, env, and flags — with the full
+The root pre-run then builds the store, merged `assets/config.yaml` defaults at
+the bottom, then files, env, and flags, with the full
 `flags > env > file > embedded > defaults` precedence. See
 [Configuration Precedence](../explanation/components/config/index.md) and the
 [segregated-defaults spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0138-segregated-default-config).
@@ -241,5 +241,5 @@ p.Assets.Register("test", testFS)
 
 ## Related Documentation
 
-- **[Universal Asset Management](../explanation/components/assets.md)** — merging strategy and design rationale
-- **[Props component](../explanation/components/props.md)** — how `Assets` fits into the Props container
+- **[Universal Asset Management](../explanation/components/assets.md)**: merging strategy and design rationale
+- **[Props component](../explanation/components/props.md)**: how `Assets` fits into the Props container

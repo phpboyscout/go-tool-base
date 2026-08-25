@@ -35,7 +35,7 @@ The generation engine is invoked via `generate docs`. It uses an agentic AI loop
 The run-time interface resides in the generated binary and provides:
 
 - **TUI Browser**: A Bubbles-based terminal UI for navigating embedded markdown. Features include split-pane view, asynchronous background search, and sidebar resizing.
-- **Chat Integration**: RAG (Retrieval-Augmented Generation) over the embedded assets — all documentation is injected into the system prompt for accurate, context-aware answers.
+- **Chat Integration**: RAG (Retrieval-Augmented Generation) over the embedded assets: all documentation is injected into the system prompt for accurate, context-aware answers.
 - **Streaming Responses**: When the selected provider supports streaming (Claude, OpenAI, Gemini), the AI answer appears in the TUI viewport as it is generated rather than after a full round-trip. `ProviderClaudeLocal` falls back to a non-streaming response.
 - **AI Response Engine**: Specialized prompt engineering ensures high-quality Markdown responses with clear headings, lists, and consistent terminology.
 
@@ -46,7 +46,7 @@ When the binary embeds a pre-built Material/Zensical static site (`assets/site`)
 - **Loopback by default**: the server binds `127.0.0.1` so the locally-served site is **not** reachable from the network. The startup log reports the address the listener actually bound to (including the resolved port when `--port 0` is used) rather than a hard-coded `localhost`.
 - **Widening the bind**: pass `--host 0.0.0.0` (or another interface, e.g. `--host ::`) to expose the server on all interfaces. Only do this on a trusted network. The library equivalent is the additive `docs.WithHost` option to `docs.Serve`.
 - **Flags**: `--port` / `-p` (default `8080`, `0` for a random port), `--host` (default `127.0.0.1`), and `--open` (auto-open the browser; skipped when `--port 0` since the bound port is not known to the caller).
-- **Security headers**: the served site is wrapped with [`SecurityHeadersMiddleware`](http.md#built-in-security-headers-middleware) automatically — one of the few places GTB applies HTTP transport middleware for you (see the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept).
+- **Security headers**: the served site is wrapped with [`SecurityHeadersMiddleware`](http.md#built-in-security-headers-middleware) automatically: one of the few places GTB applies HTTP transport middleware for you (see the [Transport Middleware & Resilience](../concepts/transport-middleware.md) concept).
 - **Standard error path**: the command runs as `RunE` and flows through the recovery/timing/telemetry middleware chain like every other built-in, surfacing failures via the structured `ErrorHandler`. (Note this is the **CLI** [command-middleware](setup/middleware.md) chain, distinct from the HTTP server chain above.)
 
 ## Man-page generation
@@ -76,17 +76,17 @@ func GenerateManTree(root *cobra.Command, opts docs.ManOptions) error
 
 Two thin command surfaces call this one seam:
 
-- **`gtb generate man [--dir ./man] [--section] [--source] [--manual] [--date]`** —
+- **`gtb generate man [--dir ./man] [--section] [--source] [--manual] [--date]`**:
   the build-time step for CI and packaging. Respects the generator's
   `--dry-run` (lists intended files instead of writing). A `just man` recipe
   wraps it.
-- **`<tool> man [--dir]`** — a hidden, opt-in runtime command (default-off
+- **`<tool> man [--dir]`**: a hidden, opt-in runtime command (default-off
   `props.ManCmd` feature). With `--dir` it writes the tree; without it, the
   tool's top-level page is printed to stdout for preview
   (`mytool man | man -l -`). Enable it with
   `props.SetFeatures(props.Enable(props.ManCmd))`.
 
-Man-page generation is **deterministic** — there is no AI involvement, unlike
+Man-page generation is **deterministic**. There is no AI involvement, unlike
 `generate docs`. Long descriptions come from each command's existing
 `Long`/`Short`/`Example` fields.
 

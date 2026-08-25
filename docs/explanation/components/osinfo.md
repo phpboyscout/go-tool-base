@@ -1,12 +1,12 @@
 ---
-title: "osinfo — Shared OS-version string"
+title: "osinfo, Shared OS-version string"
 description: "pkg/osinfo reports a human-readable operating-system version string. It is the single shared implementation behind the telemetry OS field and the doctor report support bundle, so neither imports the other's internals."
 date: 2026-06-22
 tags: [component, diagnostics, telemetry]
 authors: [Matt Cockayne <matt@phpboyscout.uk>]
 ---
 
-# osinfo — Shared OS-version string
+# osinfo: Shared OS-version string
 
 `pkg/osinfo` exposes one function:
 

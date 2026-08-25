@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Create a Custom Deletion Requestor
 
-When a user runs `telemetry reset`, the framework sends a data deletion request to the remote backend. GTB ships three built-in requestors (HTTP, email, event-based), but your backend may require a different mechanism — a GraphQL mutation, a queue message, or a vendor-specific API call.
+When a user runs `telemetry reset`, the framework sends a data deletion request to the remote backend. GTB ships three built-in requestors (HTTP, email, event-based), but your backend may require a different mechanism: a GraphQL mutation, a queue message, or a vendor-specific API call.
 
 This guide walks through:
 
@@ -31,8 +31,8 @@ type DeletionRequestor interface {
 
 **Key requirements:**
 
-- `machineID` is the SHA-256-derived anonymised identifier (16 hex chars). This is the only identifier available for deletion — it's what appears in every telemetry event.
-- Return an error if the deletion request fails — the framework will inform the user and suggest contacting the help channel.
+- `machineID` is the SHA-256-derived anonymised identifier (16 hex chars). This is the only identifier available for deletion: it's what appears in every telemetry event.
+- Return an error if the deletion request fails: the framework will inform the user and suggest contacting the help channel.
 - Deletion is best-effort. Not all backends can guarantee deletion (e.g. append-only logs). The requestor should make a reasonable attempt.
 
 Create a requestor, e.g. for a GraphQL API:
@@ -261,6 +261,6 @@ Local telemetry data cleared. Telemetry disabled.
 
 ## Related Documentation
 
-- [Telemetry Component](../explanation/components/telemetry/index.md) — architecture, GDPR deletion, privacy controls
-- [Create a Custom Telemetry Backend](custom-telemetry-backend.md) — the `Backend` interface
-- [Telemetry Command](../reference/cli/telemetry.md) — the `reset` command
+- [Telemetry Component](../explanation/components/telemetry/index.md): architecture, GDPR deletion, privacy controls
+- [Create a Custom Telemetry Backend](custom-telemetry-backend.md): the `Backend` interface
+- [Telemetry Command](../reference/cli/telemetry.md): the `reset` command

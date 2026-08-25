@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Adding Custom Commands
 
-While the CLI generator handles most of the boilerplate, it's important to understand how to implement and register commands manually. GTB v0.5+ uses a composed `*setup.Command` type that carries its own middleware feature key — the steps below show the idiomatic shape for hand-written commands.
+While the CLI generator handles most of the boilerplate, it's important to understand how to implement and register commands manually. GTB v0.5+ uses a composed `*setup.Command` type that carries its own middleware feature key: the steps below show the idiomatic shape for hand-written commands.
 
 ## 1. Implement the command
 
@@ -41,7 +41,7 @@ func NewCmdGreet(p *props.Props) *setup.Command {
 
 `setup.Wrap(feature, cobraCmd)` returns a `*setup.Command` that embeds `*cobra.Command`, so every cobra method (`cmd.Flags()`, `cmd.MarkFlagsMutuallyExclusive(...)`, `cmd.SetContext(...)`) keeps working through the embedded pointer. The `"greet"` literal is implicitly converted to `props.FeatureID` (a named string type) by Go.
 
-If you don't need feature-specific middleware, pass the empty string: `setup.Wrap("", &cobra.Command{...})` — global middleware (timing, recovery, telemetry) still applies.
+If you don't need feature-specific middleware, pass the empty string: `setup.Wrap("", &cobra.Command{...})`: global middleware (timing, recovery, telemetry) still applies.
 
 ## 2. Register the command
 
@@ -57,7 +57,7 @@ func main() {
 }
 ```
 
-Both forms work and have the same effect — pick whichever reads better in your tree:
+Both forms work and have the same effect, pick whichever reads better in your tree:
 
 | Style | When to use |
 |---|---|
@@ -81,19 +81,19 @@ func NewCmdDeploy(p *props.Props) *setup.Command {
 }
 ```
 
-Each child is wrapped exactly once with **its own** feature key. The parent's feature is never propagated downward — siblings can carry completely different middleware stacks.
+Each child is wrapped exactly once with **its own** feature key. The parent's feature is never propagated downward: siblings can carry completely different middleware stacks.
 
 ## 4. Best practices
 
 - **Use the logger**: Always use `p.Logger` instead of `fmt.Println`. This ensures your output respects global flags like `--debug` or `--output json`.
 - **Use `RunE`, not `Run`**: Return errors from `RunE` so middleware (and `props.ErrorHandler`) can format them consistently.
-- **Handle errors via `ErrorHandler`**: For fatal exits use `p.ErrorHandler.Fatal(err)` — it adds hints, support-channel suggestions, and stack traces when `--debug` is set.
+- **Handle errors via `ErrorHandler`**: For fatal exits use `p.ErrorHandler.Fatal(err)`: it adds hints, support-channel suggestions, and stack traces when `--debug` is set.
 - **Leverage config**: Use `p.Config` for any user-adjustable settings.
-- **Wrap once**: `cmd := setup.Wrap(...)` at the top of the constructor — every later mutation operates on the composed type, so flag setup and subcommand registration all chain naturally.
+- **Wrap once**: `cmd := setup.Wrap(...)` at the top of the constructor: every later mutation operates on the composed type, so flag setup and subcommand registration all chain naturally.
 
 ## See also
 
-- [Command Constructor Pattern](../explanation/concepts/functional-options.md) — rationale for `NewCmd*` and `*setup.Command`.
-- [Command Middleware System](../explanation/components/setup/middleware.md) — how `Register` wires global and feature middleware.
-- [`gtb generate command`](../explanation/components/internal/commands/generate.md) — the generator emits exactly this shape, so adding commands via the generator is the same as writing them by hand.
-- [Migration from v0.4 to v0.5](../reference/migration/v0.4-to-v0.5.md) — diff vs. the old `*cobra.Command` + `AddCommandWithMiddleware` pattern.
+- [Command Constructor Pattern](../explanation/concepts/functional-options.md): rationale for `NewCmd*` and `*setup.Command`.
+- [Command Middleware System](../explanation/components/setup/middleware.md): how `Register` wires global and feature middleware.
+- [`gtb generate command`](../explanation/components/internal/commands/generate.md): the generator emits exactly this shape, so adding commands via the generator is the same as writing them by hand.
+- [Migration from v0.4 to v0.5](../reference/migration/v0.4-to-v0.5.md): diff vs. the old `*cobra.Command` + `AddCommandWithMiddleware` pattern.

@@ -22,7 +22,7 @@ Each entry includes the finding identifier, a description of the behaviour, the 
 
 **Severity:** Medium | **Status:** Accepted
 
-Health endpoint responses (`/healthz`, `/livez`, `/readyz`) include error detail messages returned by `StatusFunc` and `ProbeFunc` callbacks. This is intentional — health responses must convey enough information for operators to diagnose issues without requiring log access.
+Health endpoint responses (`/healthz`, `/livez`, `/readyz`) include error detail messages returned by `StatusFunc` and `ProbeFunc` callbacks. This is intentional: health responses must convey enough information for operators to diagnose issues without requiring log access.
 
 **Tool author responsibility:** Sanitize error messages before returning them from health check callbacks. Do not pass raw database connection strings, internal hostnames, credentials, or stack traces through `CheckResult.Message`. Return a descriptive but non-sensitive summary instead.
 
@@ -73,7 +73,7 @@ The `update --from-file <path>` command accepts any filesystem path the user pro
 
 **Severity:** Low | **Status:** Accepted (by design)
 
-When the log level is set to `DEBUG`, error responses include full stack traces via `cockroachdb/errors`. This is intentional for development troubleshooting — stack traces are essential for diagnosing error origins.
+When the log level is set to `DEBUG`, error responses include full stack traces via `cockroachdb/errors`. This is intentional for development troubleshooting: stack traces are essential for diagnosing error origins.
 
 **Guidance for tool authors:** Ensure production deployments do not run with the log level set to `DEBUG`. Use `INFO` or `WARN` as the default, and document that `DEBUG` is for development use only.
 
@@ -93,9 +93,9 @@ The resolved AI provider name (e.g., `"anthropic"`, `"openai"`) is logged at `DE
 
 **Severity:** Low | **Status:** Accepted (by design)
 
-The TUI key selection during `init` reads filenames from `~/.ssh` to present an interactive list of available keys. This is a directory listing only — file contents are never read unless the user explicitly selects a key.
+The TUI key selection during `init` reads filenames from `~/.ssh` to present an interactive list of available keys. This is a directory listing only: file contents are never read unless the user explicitly selects a key.
 
-**Rationale:** SSH key discovery is a standard requirement for the initialisation workflow. Keys from unrelated systems (personal keys, keys for other services) may appear in the list but are never accessed unless explicitly selected. The alternative — requiring users to type the full path manually — would degrade the setup experience without improving security.
+**Rationale:** SSH key discovery is a standard requirement for the initialisation workflow. Keys from unrelated systems (personal keys, keys for other services) may appear in the list but are never accessed unless explicitly selected. The alternative (requiring users to type the full path manually) would degrade the setup experience without improving security.
 
 ---
 
@@ -107,7 +107,7 @@ The machine ID transmitted in telemetry events is a SHA-256 hash of multiple sys
 
 **Privacy properties:**
 
-- The hash is one-way — the original values cannot be recovered.
+- The hash is one-way: the original values cannot be recovered.
 - Truncation to 16 hex characters further reduces collision resistance but also limits re-identification potential.
 - The machine ID is used solely for deduplication and aggregate counting, not user identification.
 
@@ -123,9 +123,9 @@ See also: [Telemetry design](https://gitlab.com/phpboyscout/go-tool-base/-/wikis
 
 **Severity:** High | **Status:** Remediated
 
-Two call sites compiled caller-supplied regex patterns via `regexp.Compile` without length or timeout bounds: `pkg/vcs/bitbucket/release.go` (the `filename_pattern` config key) and `pkg/docs/tui.go` (the docs-browser search query). Go's RE2 engine mitigates classical catastrophic backtracking at match time, but compile time is not guaranteed linear — a sufficiently large or pathological pattern can still stall the compile step long enough to be user-visible.
+Two call sites compiled caller-supplied regex patterns via `regexp.Compile` without length or timeout bounds: `pkg/vcs/bitbucket/release.go` (the `filename_pattern` config key) and `pkg/docs/tui.go` (the docs-browser search query). Go's RE2 engine mitigates classical catastrophic backtracking at match time, but compile time is not guaranteed linear. A sufficiently large or pathological pattern can still stall the compile step long enough to be user-visible.
 
-**Mitigation.** Introduced [`go/regexutil`](../explanation/components/regexutil.md) with `CompileBounded` and `CompileBoundedTimeout` helpers enforcing a 1 KiB length cap and a 100 ms wall-clock compile timeout. Both affected call sites route through the helper. Tool authors accepting patterns in their own config should use the same helper — see [the component doc](../explanation/components/regexutil.md#how-go-tool-base-uses-it) and `CLAUDE.md` § Regex Compilation.
+**Mitigation.** Introduced [`go/regexutil`](../explanation/components/regexutil.md) with `CompileBounded` and `CompileBoundedTimeout` helpers enforcing a 1 KiB length cap and a 100 ms wall-clock compile timeout. Both affected call sites route through the helper. Tool authors accepting patterns in their own config should use the same helper. See [the component doc](../explanation/components/regexutil.md#how-go-tool-base-uses-it) and `CLAUDE.md` § Regex Compilation.
 
 **Tool author responsibility.** Never call `regexp.Compile` directly on a pattern that originates outside the binary. The helper is the designated entry point; bypassing it reintroduces the ReDoS class this remediation closes.
 
@@ -137,11 +137,11 @@ Spec: [`0061-regex-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wik
 
 **Severity:** Medium | **Status:** Remediated
 
-`chat.Config.BaseURL` was accepted by the OpenAI-compatible and Gemini paths without validation. An operator who could influence config — tampered file, hostile environment variable, compromised setup wizard — could redirect API traffic (and its `Authorization` header) to an attacker-controlled HTTPS host. URLs of the form `https://user:pass@host/` were particularly risky: some HTTP libraries propagate the userinfo as Basic auth, others log the full URL.
+`chat.Config.BaseURL` was accepted by the OpenAI-compatible and Gemini paths without validation. An operator who could influence config (tampered file, hostile environment variable, compromised setup wizard) could redirect API traffic (and its `Authorization` header) to an attacker-controlled HTTPS host. URLs of the form `https://user:pass@host/` were particularly risky: some HTTP libraries propagate the userinfo as Basic auth, others log the full URL.
 
 **Mitigation.** Every `chat.New` call now routes through `chat.ValidateBaseURL`, which rejects non-HTTPS schemes, URLs with userinfo, oversize or control-character-bearing inputs, and placeholder hosts (`example.com` and subdomains). The test-only `Config.AllowInsecureBaseURL` opt-out is tagged `json:"-"` so configuration files cannot downgrade HTTPS enforcement. Every successful provider init logs the endpoint hostname at INFO for operational audit trail.
 
-**Tool author responsibility.** Validate `BaseURL` values at the boundary (your setup wizard, CLI flag parser, or config loader) via `chat.ValidateBaseURL` — not only at `chat.New` time — so misconfiguration is reported with context.
+**Tool author responsibility.** Validate `BaseURL` values at the boundary (your setup wizard, CLI flag parser, or config loader) via `chat.ValidateBaseURL` (not only at `chat.New` time) so misconfiguration is reported with context.
 
 Spec: [`0059-chat-baseurl-validation`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0059-chat-baseurl-validation).
 
@@ -151,7 +151,7 @@ Spec: [`0059-chat-baseurl-validation`](https://gitlab.com/phpboyscout/go-tool-ba
 
 **Severity:** Medium | **Status:** Remediated
 
-`TrackCommandExtended` shipped `errMsg` and `args` verbatim to the configured telemetry backend when `ExtendedCollection` was enabled. A typical error message such as `failed GET https://api.example.co/?apikey=sk-abc123: 401` embedded an API key in the outgoing event. Separately, `WithOTelHeaders` accepted arbitrary headers — tool authors routinely place bearer tokens in `Authorization` or `X-API-Key` — and the surrounding HTTP middleware could log those values at DEBUG.
+`TrackCommandExtended` shipped `errMsg` and `args` verbatim to the configured telemetry backend when `ExtendedCollection` was enabled. A typical error message such as `failed GET https://api.example.co/?apikey=sk-abc123: 401` embedded an API key in the outgoing event. Separately, `WithOTelHeaders` accepted arbitrary headers (tool authors routinely place bearer tokens in `Authorization` or `X-API-Key`) and the surrounding HTTP middleware could log those values at DEBUG.
 
 **Mitigation.** Introduced [`go/redact`](../explanation/components/redact.md) with `String`, `Error`, `SensitiveHeaderKeys`, and `IsSensitiveHeaderKey`. `TrackCommandExtended` now applies `redact.String` unconditionally to both `errMsg` and every entry of `args` before the event is appended to the buffer. `WithOTelHeaders` records an advisory `WARN` per caller-supplied header key that matches the sensitive pattern, emitted at backend construction time via the configured logger. The HTTP middleware header-redaction map in `pkg/http/logging.go` is now sourced from `redact.SensitiveHeaderKeys` so all three surfaces share one catalogue.
 
@@ -169,8 +169,8 @@ Spec: [`0063-telemetry-redaction`](https://gitlab.com/phpboyscout/go-tool-base/-
 
 **Mitigation.** Two-layer defence in `internal/generator/`:
 
-1. **Input validation** (`validate.go`) — every user-influenced field is NFC-normalised and checked against a tight character-class rule: `Name ^[a-z][a-z0-9-]{0,63}$`, `Description ≤ 500 bytes + no control chars + no `{{`/`}}``, `Repo` Go-module-path shape, RFC 1123 `Host` (punycode-only), GitHub- or GitLab-specific `Org` rules, `EnvPrefix ^[A-Z][A-Z0-9_]{0,31}$`, Slack/Teams naming rules, and HTTP/HTTPS `URL.Parse` for telemetry endpoints. Rejections wrap `ErrInvalidInput`. Runs at wizard, flag, and manifest-load entry points.
-2. **Output escaping** (`template_escape.go`) — context-aware helpers (`escapeYAML`, `escapeMarkdown`, `escapeMarkdownCodeBlock`, `escapeTOML`, `escapeComment`, `escapeShellArg`) registered via `templateFuncMap` on every `text/template`. Non-code template sites in skeleton templates pipe values through the appropriate helper. Every helper is pure, infallible, idempotent-where-applicable, and identity on the safe character class `[a-zA-Z0-9 _.,/-]`.
+1. **Input validation** (`validate.go`). Every user-influenced field is NFC-normalised and checked against a tight character-class rule: `Name ^[a-z][a-z0-9-]{0,63}$`, `Description ≤ 500 bytes + no control chars + no `{{`/`}}``, `Repo` Go-module-path shape, RFC 1123 `Host` (punycode-only), GitHub- or GitLab-specific `Org` rules, `EnvPrefix ^[A-Z][A-Z0-9_]{0,31}$`, Slack/Teams naming rules, and HTTP/HTTPS `URL.Parse` for telemetry endpoints. Rejections wrap `ErrInvalidInput`. Runs at wizard, flag, and manifest-load entry points.
+2. **Output escaping** (`template_escape.go`): context-aware helpers (`escapeYAML`, `escapeMarkdown`, `escapeMarkdownCodeBlock`, `escapeTOML`, `escapeComment`, `escapeShellArg`) registered via `templateFuncMap` on every `text/template`. Non-code template sites in skeleton templates pipe values through the appropriate helper. Every helper is pure, infallible, idempotent-where-applicable, and identity on the safe character class `[a-zA-Z0-9 _.,/-]`.
 
 **Tool author responsibility.** When adding a new user-facing field to the generator: add a validator in `validate.go`, update `ValidateManifest`, and pipe the field through the appropriate escape helper at every non-code template call site. See `docs/development/template-security.md` for the full contributor guide.
 
@@ -180,13 +180,13 @@ Spec: [`0055-generator-template-escaping`](https://gitlab.com/phpboyscout/go-too
 
 #### H-1 (2026-04-02 audit): Plaintext Credentials in Config Files
 
-**Severity:** High | **Status:** Remediated — Phases 1 and 2 of 3
+**Severity:** High | **Status:** Remediated, Phases 1 and 2 of 3
 
 The interactive setup wizard for both AI providers and the VCS integrations wrote API keys and tokens to `~/.<tool>/config.yaml` as plaintext. Config file permissions are restricted to `0600`, but plaintext secrets on disk remain exposed to backups, dotfile sync, shared workstations, compromised local accounts, and accidental commits to public repositories.
 
 **Mitigation (Phase 1 of 3).** Introduced [`go/credentials`](../explanation/components/credentials.md) with a `Mode` taxonomy (`ModeEnvVar`, `ModeKeychain`, `ModeLiteral`), sentinel errors, and a keychain-capability probe. The AI setup wizard presents a storage-mode selector defaulting to env-var mode; the config now records `{provider}.api.env: <VAR_NAME>` instead of the literal key when env-var mode is chosen. The chat client's credential resolution checks `{provider}.api.env` before the literal key, so env-var mode is honoured at runtime. The GitHub wizard refuses to write a literal token when `CI=true` and short-circuits when a `GITHUB_TOKEN`-style env-var is already configured. The Bitbucket dual-credential resolver (`pkg/vcs/bitbucket`) gained `bitbucket.{username,app_password}.env` env-var reference precedence. A new `doctor` check `credentials.no-literal` warns when literal credentials remain in the loaded config.
 
-**Mitigation (Phase 2).** Added a pluggable [`credentials.Backend`](https://credentials.go.phpboyscout.uk) with a stub default and an opt-in `go/credentials/keychain` subpackage wrapping `github.com/zalando/go-keyring`. Downstream tools activate keychain support with a blank import from their `cmd/<tool>/main`; regulated or compliance-audited deployments omit the import and ship a binary with zero IPC-to-keychain code (verifiable via SBOM against the linked artefact). The resolver cascade now includes an `auth.keychain` / `{provider}.api.keychain` step for single-value secrets, and a shared `bitbucket.keychain` JSON-blob entry for Bitbucket's dual-credential pair — corrupt or incomplete blobs abort resolution rather than falling through to stale literals (R3). The `Backend` interface takes `context.Context` on every method so third-party implementations (Vault, AWS SSM, 1Password Connect) can honour caller deadlines and cancellation — see the [custom credential backend how-to](../how-to/custom-credential-backend.md). Originally proposed as a `-tags keychain` build-tag split; the blank-import pattern was adopted instead during implementation (cleaner separation from the release matrix, avoids two-variant release artefacts).
+**Mitigation (Phase 2).** Added a pluggable [`credentials.Backend`](https://credentials.go.phpboyscout.uk) with a stub default and an opt-in `go/credentials/keychain` subpackage wrapping `github.com/zalando/go-keyring`. Downstream tools activate keychain support with a blank import from their `cmd/<tool>/main`; regulated or compliance-audited deployments omit the import and ship a binary with zero IPC-to-keychain code (verifiable via SBOM against the linked artefact). The resolver cascade now includes an `auth.keychain` / `{provider}.api.keychain` step for single-value secrets, and a shared `bitbucket.keychain` JSON-blob entry for Bitbucket's dual-credential pair: corrupt or incomplete blobs abort resolution rather than falling through to stale literals (R3). The `Backend` interface takes `context.Context` on every method so third-party implementations (Vault, AWS SSM, 1Password Connect) can honour caller deadlines and cancellation. See the [custom credential backend how-to](../how-to/custom-credential-backend.md). Originally proposed as a `-tags keychain` build-tag split; the blank-import pattern was adopted instead during implementation (cleaner separation from the release matrix, avoids two-variant release artefacts).
 
 **Deferred to Phase 3.**
 - **Phase 3**: `config migrate-credentials` command, GitHub OAuth+display-once flow, BDD coverage, migration guide, optional SSH-key keychain storage.
@@ -207,7 +207,7 @@ Spec: [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-to
 
 The project-local `.<tool>.yaml` layer (a repo-root config file, discovered by walking up from the working directory) was layered above the user's own config and fed directly into security-relevant resolution: self-update signature/checksum enforcement (`update.require_signature`, `update.require_checksum`, `update.policy`, `update.key_source`, `update.external_key_email`), telemetry consent (`telemetry.enabled`), and credential resolution (`*.auth.*`, `*.api.*`). Cloning a hostile repository that shipped `.<tool>.yaml` with `update: {require_signature: false}` silently weakened self-update verification for every command run inside that tree, and `telemetry.enabled: true` flipped consent the user never gave.
 
-**Mitigation — allowlist + trust-acknowledgement hybrid.** Security-sensitive keys from a project-local layer are now **ignored** unless the directory is explicitly trusted, while non-security workflow keys (logging, output, feature toggles) always apply. Trust is direnv-style: a per-user store (`~/.<tool>/trusted-projects.yaml`, owner-only) records the absolute path and the SHA-256 of the exact trusted content, so editing a trusted file — or a fresh clone replacing it — revokes trust until the user re-runs `<tool> config trust`. An untrusted project-local file is also read-only, so writes route to the user's own config rather than the repository file. Ignored keys are logged at WARN naming the file and the keys, never silently dropped. An explicit `--config` still suppresses the project layer entirely (naming a file means "use this one").
+**Mitigation: allowlist + trust-acknowledgement hybrid.** Security-sensitive keys from a project-local layer are now **ignored** unless the directory is explicitly trusted, while non-security workflow keys (logging, output, feature toggles) always apply. Trust is direnv-style: a per-user store (`~/.<tool>/trusted-projects.yaml`, owner-only) records the absolute path and the SHA-256 of the exact trusted content, so editing a trusted file (or a fresh clone replacing it) revokes trust until the user re-runs `<tool> config trust`. An untrusted project-local file is also read-only, so writes route to the user's own config rather than the repository file. Ignored keys are logged at WARN naming the file and the keys, never silently dropped. An explicit `--config` still suppresses the project layer entirely (naming a file means "use this one").
 
 **Tool author / user guidance.** Run `<tool> config trust` at a repository you author and control to enable its `.<tool>.yaml` security keys; `<tool> config trust --list` shows what is trusted and `--forget` revokes it. CI runs untrusted by default (safe), so a pipeline that legitimately relies on project-local security keys must either trust the file in a provisioning step or set the values through the user config / environment instead.
 

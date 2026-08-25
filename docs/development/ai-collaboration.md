@@ -24,8 +24,8 @@ Trigger these workflows to automate the heavy lifting:
 - **`/gtb-verify`**: The standard verification suite. Includes suite tests, race detection, and strict linting.
 - **`/gtb-library-contribution`**: A guide for adding new reusable logic to the core library.
 - **`/gtb-command-generation`**: Streamlines the process of defining and generating new CLI commands.
-- **`/gtb-docs`**: Documentation-only updates — cross-references docs against source and verifies accuracy.
-- **`/gtb-release`**: Release preparation — validates commits, goreleaser config, and snapshot builds.
+- **`/gtb-docs`**: Documentation-only updates: cross-references docs against source and verifies accuracy.
+- **`/gtb-release`**: Release preparation: validates commits, goreleaser config, and snapshot builds.
 
 ## Spec-Driven Development
 

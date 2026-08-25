@@ -12,7 +12,7 @@ One of the primary goals of GTB is to make CLI tools easily testable. By using t
 
 ## Building a test `Props` in one call
 
-The fastest way to get a fully-wired `*props.Props` for a test — with a noop logger, in-memory filesystem, noop telemetry collector, inert error handler and a usable empty config — is the public `test.New` helper:
+The fastest way to get a fully-wired `*props.Props` for a test: with a noop logger, in-memory filesystem, noop telemetry collector, inert error handler and a usable empty config, is the public `test.New` helper:
 
 ```go
 import "gitlab.com/phpboyscout/go-tool-base/pkg/props/test"
@@ -59,8 +59,8 @@ require.NoError(t, err)
 props.Config = store
 ```
 
-For the config-specific recipes — the published `MockReader`/`MockObservable`
-mocks, file-layer provenance fixtures, and testing observer behaviour — see
+For the config-specific recipes, the published `MockReader`/`MockObservable`
+mocks, file-layer provenance fixtures, and testing observer behaviour. See
 [How to Test Code That Uses Configuration](test-configuration.md).
 
 ## Best Practices for Tests
@@ -116,17 +116,17 @@ The `internal/exectest` package provides common fakes for `exec.LookPath` and `e
 | `exectest.TrackingCommand(&log)` | Records invocations into a string slice |
 | `exectest.FakeExecutable(path)` | Fake `os.Executable` returning the given path |
 
-`internal/exectest` lives under `internal/`, so it is a GTB-internal test helper that downstream tools built on GTB cannot import — copy the functional-options pattern (inject the `func(string) (string, error)` / `func(context.Context, string, ...string) *exec.Cmd` seam) into your own test helper instead.
+`internal/exectest` lives under `internal/`, so it is a GTB-internal test helper that downstream tools built on GTB cannot import: copy the functional-options pattern (inject the `func(string) (string, error)` / `func(context.Context, string, ...string) *exec.Cmd` seam) into your own test helper instead.
 
 ### Registry-aware tests
 
-The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegistry`) are package-level shared state protected by mutexes. Tests that call `ResetRegistryForTesting()` wipe this state, making them logically incompatible with `t.Parallel()` against other tests in the same package — the mutex prevents data races but does not prevent state interleaving.
+The `pkg/setup` registries (`globalMiddleware`, `featureMiddleware`, `globalRegistry`) are package-level shared state protected by mutexes. Tests that call `ResetRegistryForTesting()` wipe this state, making them logically incompatible with `t.Parallel()` against other tests in the same package. The mutex prevents data races but does not prevent state interleaving.
 
 **Rule**: tests that call `setup.ResetRegistryForTesting()` or `setup.RegisterMiddleware()` / `setup.RegisterChecks()` must **not** use `t.Parallel()` unless they register to unique feature names and do not reset.
 
-Tests that only _read_ from the registry (e.g. `setup.GetChecks()`) with distinct feature names _can_ use `t.Parallel()` safely — the mutex guarantees memory visibility.
+Tests that only _read_ from the registry (e.g. `setup.GetChecks()`) with distinct feature names _can_ use `t.Parallel()` safely, the mutex guarantees memory visibility.
 
-The release-provider registry (`forge.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`setup.WithReleaseProvider` / `props.Tool.ReleaseProvider`) and drive it with the in-memory double from `forge/test` — see [Release Provider › `releasetest`](https://forge.go.phpboyscout.uk/how-to/testing/).
+The release-provider registry (`forge.Register`) is the same kind of global mutable state. To test self-update without mutating it, inject a provider through the parallel-safe DI seam (`setup.WithReleaseProvider` / `props.Tool.ReleaseProvider`) and drive it with the in-memory double from `forge/test`. See [Release Provider › `releasetest`](https://forge.go.phpboyscout.uk/how-to/testing/).
 
 ### Avoid `cobra.OnFinalize`
 
@@ -138,4 +138,4 @@ Go's testing framework panics if a test calls both `t.Parallel()` and `t.Setenv(
 
 ## Testing interactive (huh / charm) forms
 
-Code that drives a `charm.land/huh` form calls `form.Run()`, which blocks on a real TTY — a naive unit test hangs. huh's **accessible mode** (auto-enabled by `TERM=dumb`) turns the form into line-based prompts that read `os.Stdin`, so you can drive the *real* form with scripted input; alternatively inject the form (the `WithForm` pattern) or drive it as a Bubble Tea model. The full guide, with copy-paste helpers and a decision table, is in [Testing huh / charm interactive forms](../development/testing/huh-form-testing.md).
+Code that drives a `charm.land/huh` form calls `form.Run()`, which blocks on a real TTY: a naive unit test hangs. huh's **accessible mode** (auto-enabled by `TERM=dumb`) turns the form into line-based prompts that read `os.Stdin`, so you can drive the *real* form with scripted input; alternatively inject the form (the `WithForm` pattern) or drive it as a Bubble Tea model. The full guide, with copy-paste helpers and a decision table, is in [Testing huh / charm interactive forms](../development/testing/huh-form-testing.md).

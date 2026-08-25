@@ -58,7 +58,7 @@ The machine ID is computed fresh on every invocation from four system signals: O
 - GDPR deletion requests sent via `telemetry reset` may not match all historical events if the machine ID has changed since those events were recorded.
 - De-duplication on the backend side should use a time window in addition to machine ID.
 
-Persisting the ID to config was considered but rejected — a stored identity that follows the user across machines is a greater privacy risk than occasional ID drift.
+Persisting the ID to config was considered but rejected. A stored identity that follows the user across machines is a greater privacy risk than occasional ID drift.
 
 ### Thread Safety of Spill Files
 
@@ -66,7 +66,7 @@ The spill file mechanism trades strict thread safety for simplicity. `flushSpill
 
 - Filesystem operations are atomic at the OS level.
 - The worst case is missing a freshly-written spill file (caught on the next flush) or attempting to read a file that was concurrently deleted (handled gracefully with a `continue`).
-- `Drop()` deleting spill files during concurrent `Track()` is safe — `os.Remove` on a non-existent file succeeds silently, and `OnFinalize` re-checks the enabled state before flushing.
+- `Drop()` deleting spill files during concurrent `Track()` is safe: `os.Remove` on a non-existent file succeeds silently, and `OnFinalize` re-checks the enabled state before flushing.
 
 ### Backend Error Semantics
 
@@ -80,7 +80,7 @@ The spill file mechanism trades strict thread safety for simplicity. `flushSpill
 | HTTP | Returned from `Send` (wrapped) | Non-2xx returned + logged at debug |
 | OTLP | Surfaced via OTel error handler | Returns `nil` from `Send` |
 
-The HTTP backend now **returns** transport and non-2xx failures from `Send` so the at-least-once spill/retry layer can honour the delivery guarantee. This does not block the CLI: `Flush()` and the spill replay log the error (at warn/debug) and continue — under `DeliveryAtLeastOnce` the failed batch is retained (spill file kept, in-memory batch re-spilled) for the next attempt. The OTLP backend still routes its transport failures through the OTel SDK error handler (its batch processor owns retry/queueing internally). Tool authors debugging delivery should enable debug logging.
+The HTTP backend now **returns** transport and non-2xx failures from `Send` so the at-least-once spill/retry layer can honour the delivery guarantee. This does not block the CLI: `Flush()` and the spill replay log the error (at warn/debug) and continue: under `DeliveryAtLeastOnce` the failed batch is retained (spill file kept, in-memory batch re-spilled) for the next attempt. The OTLP backend still routes its transport failures through the OTel SDK error handler (its batch processor owns retry/queueing internally). Tool authors debugging delivery should enable debug logging.
 
 ### Backend Fallback on Misconfiguration
 
@@ -92,7 +92,7 @@ The in-memory buffer is capped at 1000 events. This is not currently configurabl
 
 ### Local-Only Mode
 
-When `telemetry.local_only` is true in config (or `TELEMETRY_LOCAL=true`), the file backend is selected and no data is transmitted remotely. This is mutually exclusive with HTTP/OTLP backends — setting both does not produce dual-write. If you need both local logging and remote transmission, use a custom backend that tees to both.
+When `telemetry.local_only` is true in config (or `TELEMETRY_LOCAL=true`), the file backend is selected and no data is transmitted remotely. This is mutually exclusive with HTTP/OTLP backends: setting both does not produce dual-write. If you need both local logging and remote transmission, use a custom backend that tees to both.
 
 ### Metadata Merge Precedence
 

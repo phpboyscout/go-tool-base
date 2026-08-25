@@ -1,6 +1,6 @@
 ---
 title: Repo
-description: How GTB wires the standalone go/repo module — config-derived settings, forge auth resolution, and the props adapters.
+description: How GTB wires the standalone go/repo module: config-derived settings, forge auth resolution, and the props adapters.
 date: 2026-07-19
 tags: [components, vcs, git, repo, memfs, afero]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -21,7 +21,7 @@ remains GTB's concern: **turning GTB configuration into the module's
 `Settings`.**
 
 The billy↔afero bridge behind the worktree view was extracted alongside it, to
-[`aferobilly`](https://aferobilly.go.phpboyscout.uk) — see
+[`aferobilly`](https://aferobilly.go.phpboyscout.uk). See
 [aferobilly](aferobilly.md).
 
 ---
@@ -29,8 +29,8 @@ The billy↔afero bridge behind the worktree view was extracted alongside it, to
 ## Package: `pkg/vcs/repo`
 
 What remains in GTB is a **composition root**, not a wrapper. It resolves the
-framework concerns the module deliberately refuses to know about — the release
-source, the config subtree, the credential chain, the SSH key location — and
+framework concerns the module deliberately refuses to know about, the release
+source, the config subtree, the credential chain, the SSH key location, and
 hands the module plain data.
 
 Nothing is re-exported. Import the module directly for its own types, and this
@@ -60,7 +60,7 @@ found, err := repo.DiscoverRepository(path) // module API, used directly
 
 The forge is derived from `Tool.ReleaseSource.Type` (`github`, `gitlab`,
 `bitbucket`, `gitea`, `codeberg`), overridable with the `vcs.provider` config
-key. An empty or `direct` type falls back to `github` — the `direct` release
+key. An empty or `direct` type falls back to `github`, the `direct` release
 source is a download URL with no git remote, so it has no forge of its own.
 
 The adapter normalises the name **once** and stores the result in
@@ -89,7 +89,7 @@ changing it:
   repository authenticating over SSH therefore never walks the credential chain,
   so it never triggers a keychain unlock prompt it does not need.
 - **Environment reading happens here, not in the module.** The module reads no
-  environment of its own — every input arrives through `Settings`. The adapter
+  environment of its own, every input arrives through `Settings`. The adapter
   calls the module's `repo.KeyPath` helper to apply the documented "explicit
   path, else named env var" precedence for `<forge>.ssh.key`.
 
@@ -98,7 +98,7 @@ resolves and `ReleaseSource.Private` is false, construction proceeds with
 unauthenticated access. Only `Private: true` enforces a token, failing fast with
 a hint naming the fallback env var.
 
-Existing `github.*` configs keep working unchanged — `github` was always the
+Existing `github.*` configs keep working unchanged, `github` was always the
 GitHub forge subtree; other forges' subtrees are simply read alongside. No
 migration is required.
 
@@ -106,11 +106,11 @@ migration is required.
 
 ## Related Documentation
 
-- **[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk)** — module guides:
+- **[repo.go.phpboyscout.uk](https://repo.go.phpboyscout.uk)**: module guides:
   clone and commit, authentication, in-memory repositories, the worktree
   filesystem, concurrency, and testing with the role mocks
-- **[aferobilly](aferobilly.md)** — the extracted billy↔afero bridge
-- **[VCS index](index.md)** — package overview and authentication helper
-- **[forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk)** — the forge provider clients (separate from git operations)
-- **[Generator](../internal/generator.md)** — GTB's main consumer, for scaffold
+- **[aferobilly](aferobilly.md)**: the extracted billy↔afero bridge
+- **[VCS index](index.md)**: package overview and authentication helper
+- **[forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk)**: the forge provider clients (separate from git operations)
+- **[Generator](../internal/generator.md)**: GTB's main consumer, for scaffold
   git initialisation and template-source clones

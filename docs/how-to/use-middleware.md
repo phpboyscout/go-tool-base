@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Using Command Middleware
 
-GTB's middleware system lets you add cross-cutting behaviour (logging, timing, authentication checks, telemetry) to your CLI commands without duplicating code in every handler. Since v0.5 middleware is wired automatically when a parent attaches a child via `setup.Command.Register` — there is no separate "wrap with middleware" call.
+GTB's middleware system lets you add cross-cutting behaviour (logging, timing, authentication checks, telemetry) to your CLI commands without duplicating code in every handler. Since v0.5 middleware is wired automatically when a parent attaches a child via `setup.Command.Register`. There is no separate "wrap with middleware" call.
 
 ## Registering global middleware
 
@@ -27,7 +27,7 @@ func init() {
 }
 ```
 
-The framework calls `setup.Seal()` once before building the command tree, so further `Register*Middleware` calls after sealing panic — register at process start (`init()` or before `NewCmdRoot`).
+The framework calls `setup.Seal()` once before building the command tree, so further `Register*Middleware` calls after sealing panic. Register at process start (`init()` or before `NewCmdRoot`).
 
 ## Registering feature middleware
 
@@ -60,7 +60,7 @@ func NewCmdChat(p *props.Props) *setup.Command {
 ## Built-in middleware
 
 ### `WithRecovery`
-Catches panics and converts them into errors. Without it, an unhandled panic terminates the process — with it, you get a clean `Error: panic: ...` log line and a non-zero exit.
+Catches panics and converts them into errors. Without it, an unhandled panic terminates the process: with it, you get a clean `Error: panic: ...` log line and a non-zero exit.
 
 ```go
 setup.WithRecovery(logger)
@@ -74,7 +74,7 @@ setup.WithTiming(logger)
 ```
 
 ### `WithAuthCheck`
-Validates that required configuration keys are non-empty before running the command — short-circuiting with a useful error instead of failing partway through.
+Validates that required configuration keys are non-empty before running the command: short-circuiting with a useful error instead of failing partway through.
 
 ```go
 setup.WithAuthCheck("github.token")
@@ -113,7 +113,7 @@ rootCmd := root.NewCmdRoot(p,
 )
 ```
 
-Either form works — `Register` is what runs under the hood for both.
+Either form works, `Register` is what runs under the hood for both.
 
 !!! warning "Avoid the raw cobra `AddCommand`"
     Calling `rootCmd.Command.AddCommand(unwrappedCobraCmd)` attaches a command without wrapping its `RunE`. The command runs without timing, recovery, or feature middleware. Always go through `setup.Command.Register` (or pass `*setup.Command` to the variadic root constructor).
@@ -124,12 +124,12 @@ Either form works — `Register` is what runs under the hood for both.
 
 1. If the child has a `RunE`, replace it with `setup.Chain(child.Feature, child.RunE)`. `Chain` wraps with all registered global middleware first, then any middleware registered for `child.Feature`.
 2. Call the embedded `(*cobra.Command).AddCommand` to splice the child into the cobra tree.
-3. Leave the child's own `Register` calls (its grandchildren) untouched — those wrap themselves with their own feature when *they* were constructed.
+3. Leave the child's own `Register` calls (its grandchildren) untouched: those wrap themselves with their own feature when *they* were constructed.
 
 The result: every command in the tree is wrapped exactly once with its own feature, regardless of how deep the nesting goes.
 
 ## See also
 
-- [Command Middleware System](../explanation/components/setup/middleware.md) — chain semantics, execution order.
-- [Adding Custom Commands](custom-commands.md) — full custom-command walkthrough.
-- [Writing Custom Middleware](custom-middleware.md) — how to build your own.
+- [Command Middleware System](../explanation/components/setup/middleware.md): chain semantics, execution order.
+- [Adding Custom Commands](custom-commands.md): full custom-command walkthrough.
+- [Writing Custom Middleware](custom-middleware.md): how to build your own.

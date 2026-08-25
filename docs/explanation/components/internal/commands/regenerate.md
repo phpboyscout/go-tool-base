@@ -49,8 +49,8 @@ following `regenerate project` would render the blanked descriptions back into
 every `cmd.go`, wiping the help text.)
 
 **The rebuild reconciles; it does not replace.** The scan is authoritative for
-everything it can read out of `cmd.go` — structure, nesting, descriptions,
-flags, hooks, argument contracts — and the existing manifest keeps the
+everything it can read out of `cmd.go`, structure, nesting, descriptions,
+flags, hooks, argument contracts, and the existing manifest keeps the
 per-command state no generated file carries:
 
 - `hashes`, the drift-detection baseline `doctor` reads;
@@ -62,7 +62,7 @@ these, which is what a newly-discovered command should have.
 
 Descriptions survive the trip intact, including multi-line ones. A value spanning
 several lines is written back as a YAML block scalar rather than a plain scalar
-with escaped newlines — a plain scalar does not interpret `\n`, so escaping there
+with escaped newlines. A plain scalar does not interpret `\n`, so escaping there
 would put a literal backslash-n into the command's help output.
 
 Feature-state handling depends on whether a manifest already exists:
@@ -75,8 +75,8 @@ Feature-state handling depends on whether a manifest already exists:
 - **From scratch** (`.gtb/` deleted, no manifest): feature state is **fully
   re-derived** from in-tree source. The built-in features come from the root
   command's `props.SetFeatures(...)` literal via the shared
-  `templates.FeatureCatalogue`, and the scaffold-only `keychain` feature — which
-  has no `FeatureID` and so never appears in that literal — is recovered from
+  `templates.FeatureCatalogue`, and the scaffold-only `keychain` feature, which
+  has no `FeatureID` and so never appears in that literal, is recovered from
   the presence of `cmd/<name>/keychain.go` (`recoverNonLiteralProperties`).
 
 So the manifest is a convenience, not the only record: a from-scratch rebuild
@@ -102,16 +102,16 @@ Flags:
 Re-renders all `cmd.go` boilerplate files based on the structure defined in `manifest.yaml`. This is non-destructive to `main.go` files unless `--force` is used.
 
 **Operator-owned seed files are never overwritten.** Files gtb scaffolds once and
-then hands to the developer — the init assets it seeds (`pkg/cmd/**/assets/**`,
+then hands to the developer, the init assets it seeds (`pkg/cmd/**/assets/**`,
 e.g. the `init/config.yaml` you fill in), the project `README.md`, the docs
-landing page (`docs/index.md`), and the `justfile` — are preserved on every
+landing page (`docs/index.md`), and the `justfile`, are preserved on every
 `regenerate project`, **even under `--overwrite allow`**. Framework-structural
 files (the generated `cmd.go`, CI pipelines, `.goreleaser.yaml`) remain
 gtb-managed and continue to update. Use `--dry-run` to preview the blast radius.
 
 **A regeneration converges: running it twice changes nothing the second time.**
-The manifest tracks hashes in two places — project-level files under
-`hashes:`, and each command's files under that command's `hashes:` — and both
+The manifest tracks hashes in two places, project-level files under
+`hashes:`, and each command's files under that command's `hashes:`, and both
 are re-read from disk once post-processing (`go mod tidy`, `golangci-lint
 run --fix`) has finished. A file is therefore recorded with the bytes that
 actually landed, not the bytes as first rendered, so a later pass reformatting
@@ -119,7 +119,7 @@ gtb's own output does not read as developer drift on the next run.
 
 Files you have declared yours are exempt: a path kept at the conflict prompt, or
 covered by a `.gtb/ignore` rule, keeps its previously stored hash rather than
-adopting what is on disk. That is deliberate — adopting it would silently make
+adopting what is on disk. That is deliberate, adopting it would silently make
 your edit the new baseline and overwrite it without asking next time.
 
 **Regenerating inside a git worktree is safe.** It used not to be: the
@@ -129,13 +129,13 @@ checkout, silently, while the generated output landed correctly in the worktree.
 The cause is upstream. golangci-lint caches findings against absolute paths and
 returns them from a later run in a different directory, so run from a worktree
 of a repo that has been linted elsewhere, `--fix` writes to the paths in the
-cache — files in the other checkout. Nothing in the generator misresolved
+cache: files in the other checkout. Nothing in the generator misresolved
 anything; the leaked files were simply whatever lint had analysed there before.
 
 gtb therefore gives golangci-lint a cache keyed to the directory being linted. A
 worktree cannot inherit entries belonging to another checkout, and repeat runs
 in the same directory still hit a warm cache. If you have set
-`GOLANGCI_LINT_CACHE` yourself it is left alone — that is an explicit choice —
+`GOLANGCI_LINT_CACHE` yourself it is left alone (that is an explicit choice) 
 but be aware it reopens the behaviour above.
 
 **Help (`regenerate project --help`):**

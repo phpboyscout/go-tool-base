@@ -11,8 +11,8 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 GTB's `UpdateCmd` feature lets your tool check for newer releases and replace its own binary. This guide covers how to wire it up with a release backend. Six built-in source types are available out of the box: `github`, `gitlab`, `bitbucket`, `gitea`, `codeberg`, and `direct`. For anything else, see [Add a Custom Release Source](custom-release-source.md).
 
 The update system has two parts:
-1. **`props.Tool.ReleaseSource`** — tells the framework *where* to find releases at compile time
-2. **Config (provider-specific subtree)** — provides the API token and endpoint at runtime
+1. **`props.Tool.ReleaseSource`**: tells the framework *where* to find releases at compile time
+2. **Config (provider-specific subtree)**: provides the API token and endpoint at runtime
 
 ---
 
@@ -36,7 +36,7 @@ tool := props.Tool{
 }
 ```
 
-For private repositories, set `Private: true` — the framework will require a token and error early if none is found:
+For private repositories, set `Private: true`. The framework will require a token and error early if none is found:
 
 ```go
 ReleaseSource: props.ReleaseSource{
@@ -189,7 +189,7 @@ func main() {
 }
 ```
 
-For a development build (a non-semver version, or one containing `-dev`/`-dirty` — `version.IsDevelopment()`), the update check is automatically skipped, so no API calls are made during local development.
+For a development build (a non-semver version, or one containing `-dev`/`-dirty`, `version.IsDevelopment()`), the update check is automatically skipped, so no API calls are made during local development.
 
 ---
 
@@ -260,16 +260,16 @@ The `--from-file` flag is mutually exclusive with `--version`. The `--force` fla
 !!! warning "Interaction with `require_*` flags"
     The offline path enforces the same verification contract as the online path:
 
-    - **`update.require_checksum: true`** — the install **fails** if the `.sha256` sidecar is missing. Always transfer both files.
-    - **`update.require_signature: true`** — the offline path **cannot** verify an OpenPGP signature (there is no manifest+signature flow for a local archive), so it **refuses** the update. Use the online path for signature-verified updates, or disable `require_signature` for air-gapped installs.
+    - **`update.require_checksum: true`**: the install **fails** if the `.sha256` sidecar is missing. Always transfer both files.
+    - **`update.require_signature: true`**: the offline path **cannot** verify an OpenPGP signature (there is no manifest+signature flow for a local archive), so it **refuses** the update. Use the online path for signature-verified updates, or disable `require_signature` for air-gapped installs.
 
 ---
 
 ## Related Documentation
 
-- **[Auto-Update Lifecycle](../explanation/components/update.md)** — how the update loop works
-- **[Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/)** — all built-in providers, registry API, and per-provider configuration keys
-- **[Add a Custom Release Source](custom-release-source.md)** — register your own provider for any backend
-- **[GitHub provider](https://gitlab.com/phpboyscout/go/forge-github)** — GitHub release provider and token resolution (external `go/forge-github` module)
-- **[GitLab component](https://forge.go.phpboyscout.uk/reference/providers/#gitlab)** — `NewReleaseProvider` for GitLab
-- **[Configuring Built-in Features](builtin-features.md)** — enabling and disabling UpdateCmd
+- **[Auto-Update Lifecycle](../explanation/components/update.md)**: how the update loop works
+- **[Release Provider component](https://forge.go.phpboyscout.uk/reference/providers/)**: all built-in providers, registry API, and per-provider configuration keys
+- **[Add a Custom Release Source](custom-release-source.md)**: register your own provider for any backend
+- **[GitHub provider](https://gitlab.com/phpboyscout/go/forge-github)**: GitHub release provider and token resolution (external `go/forge-github` module)
+- **[GitLab component](https://forge.go.phpboyscout.uk/reference/providers/#gitlab)**: `NewReleaseProvider` for GitLab
+- **[Configuring Built-in Features](builtin-features.md)**: enabling and disabling UpdateCmd

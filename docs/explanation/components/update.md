@@ -30,8 +30,8 @@ graph TD
 
 - **Markers**: Status files (e.g., `last_checked`) are stored in the tool's config directory.
 - **Throttling**: By default, checks occur at most once every 24 hours.
-- **Command exemptions**: some commands never trigger the check, decided by typed command metadata rather than command names: anything wrapped with the `UpdateCmd`/`InitCmd` feature, and anything stamped with `setup.MarkSkipUpdateCheck` (`version`, `doctor`, `mcp` stamp themselves; a stamped group covers its whole subtree). Cobra's generated `help`/`completion`/`__complete` commands never reach the check at all — they take the root pre-run's [auxiliary fast path](setup/root-command.md#the-auxiliary-fast-path).
-- **Consent default**: the update prompt defaults to **No**. If it cannot be answered — no TTY (cron, CI, piped stdin), or the user aborts — the update is declined rather than run. The tool continues with the current version; use the explicit `update` command (or `--ci`/`CI=true` to skip the check) for non-interactive environments.
+- **Command exemptions**: some commands never trigger the check, decided by typed command metadata rather than command names: anything wrapped with the `UpdateCmd`/`InitCmd` feature, and anything stamped with `setup.MarkSkipUpdateCheck` (`version`, `doctor`, `mcp` stamp themselves; a stamped group covers its whole subtree). Cobra's generated `help`/`completion`/`__complete` commands never reach the check at all: they take the root pre-run's [auxiliary fast path](setup/root-command.md#the-auxiliary-fast-path).
+- **Consent default**: the update prompt defaults to **No**. If it cannot be answered (no TTY (cron, CI, piped stdin), or the user aborts) the update is declined rather than run. The tool continues with the current version; use the explicit `update` command (or `--ci`/`CI=true` to skip the check) for non-interactive environments.
 
 ### 2. Execution (Atomic Installation)
 
@@ -44,7 +44,7 @@ The installation follows these steps to bypass this limitation:
 3.  **Temp Buffer**: The new binary is written to a temporary file (e.g., `mytool_`) in the same directory as the current executable.
 4.  **Swap**: The temporary file is renamed to the target filename (overwriting the old one), and permissions are set.
 
-By writing to a temporary file first and then performing a rename, we ensure that the update is atomic—either it succeeds completely, or the old binary remains untouched.
+By writing to a temporary file first and then performing a rename, we ensure that the update is atomic: either it succeeds completely, or the old binary remains untouched.
 
 ## Key Components
 
@@ -57,7 +57,7 @@ A method on `SelfUpdater` that compares the `CurrentVersion` (compiled into the 
 ### Downgrade guard
 
 Checksum and signature verification authenticate that an artefact is a
-genuine release — they say nothing about its **recency**. If the release
+genuine release: they say nothing about its **recency**. If the release
 source reports a "latest" version *older* than the running binary (a stale
 listing, a deleted newest release, or a rollback attack re-serving an old,
 validly signed release), the implicit update path (`update` with no
@@ -65,9 +65,9 @@ validly signed release), the implicit update path (`update` with no
 downgrading. The refusal names both versions and hints at the sanctioned
 routes:
 
-- `update --version <tag>` — an explicit version is sufficient intent on its
+- `update --version <tag>`: an explicit version is sufficient intent on its
   own, so a pinned downgrade needs no extra flag;
-- `update --force` — overrides the guard on the implicit path.
+- `update --force`: overrides the guard on the implicit path.
 
 The guard compares against the running binary version only (no persisted
 high-water mark), and does not change development-build (`v0.0.0`)
@@ -84,7 +84,7 @@ The update system is designed to be fully testable despite its heavy reliance on
 
 ## Offline Update Path
 
-For air-gapped or restricted environments, the update system supports installing from a local `.tar.gz` archive via `UpdateFromFile`. This path skips both the Discovery and Download stages entirely — the binary is extracted directly from a pre-downloaded archive using the same atomic installation flow.
+For air-gapped or restricted environments, the update system supports installing from a local `.tar.gz` archive via `UpdateFromFile`. This path skips both the Discovery and Download stages entirely. The binary is extracted directly from a pre-downloaded archive using the same atomic installation flow.
 
 When a `.sha256` sidecar file exists alongside the archive, `VerifyChecksum` validates the file integrity before extraction. This matches the GoReleaser checksum output format.
 
@@ -125,7 +125,7 @@ The update command is implemented in `cmd/update/update.go`. Online updates use 
 
 ### Injecting updater factories (testing)
 
-`NewCmdUpdate`, `Update`, and the offline path accept `UpdateConfigOption`s. To substitute the updater in tests — without touching any package-level state — pass a factory option:
+`NewCmdUpdate`, `Update`, and the offline path accept `UpdateConfigOption`s. To substitute the updater in tests (without touching any package-level state) pass a factory option:
 
 ```go
 cmd := update.NewCmdUpdate(props,
@@ -145,9 +145,9 @@ Each call site receives its own factory, so concurrent (`t.Parallel`) tests cann
 
 ### Error handling in `init` subcommands
 
-The `init ai`, `init github`, and `init bitbucket` subcommands use cobra `RunE` and **return** configuration errors rather than calling `logger.Fatalf`. Returning the error routes it through the framework's standard error path — user-facing hints, the configurable `ExitFunc`, and the deferred telemetry flush all apply — instead of terminating the process abruptly and bypassing them.
+The `init ai`, `init github`, and `init bitbucket` subcommands use cobra `RunE` and **return** configuration errors rather than calling `logger.Fatalf`. Returning the error routes it through the framework's standard error path (user-facing hints, the configurable `ExitFunc`, and the deferred telemetry flush all apply) instead of terminating the process abruptly and bypassing them.
 
-## Background update checks — the ForcedUpdate policy
+## Background update checks: the ForcedUpdate policy
 
 On every non-`--ci` invocation the root command may run a throttled update
 check. Its behaviour is governed by a **three-state policy** so a background
@@ -166,8 +166,8 @@ flag/config key and the `CI=true` environment variable are treated identically,
 so a CI run that forgets `--ci` is still recognised.
 
 **The prompt is TTY-gated.** When stdin is not a terminal (cron, piped input,
-MCP stdio), the `prompt` policy skips the confirm entirely — deterministically,
-without ever reading stdin — and continues with a warning; the `enabled` policy
+MCP stdio), the `prompt` policy skips the confirm entirely, deterministically,
+without ever reading stdin, and continues with a warning; the `enabled` policy
 returns its "update required" error immediately. The prompt is only rendered on
 a real interactive terminal.
 
@@ -195,10 +195,10 @@ reachable via runtime config, never as a compiled-in baseline.
 
 **Persistent out-of-date reminder.** The latest version discovered by a check is
 cached in the `last_checked` marker's body (its modtime still drives the
-`check_interval` throttle — one file, two jobs). While the running binary is
+`check_interval` throttle. One file, two jobs). While the running binary is
 behind that cached version, a single `WARN` is emitted on **every** invocation
-(even when the network check is throttled), so a user who declined — or who runs
-a `disabled`-policy tool — keeps being reminded to upgrade. `--ci` / `ci: true`
+(even when the network check is throttled), so a user who declined, or who runs
+a `disabled`-policy tool, keeps being reminded to upgrade. `--ci` / `ci: true`
 / `CI=true` suppress it, for full flag/environment parity with the check itself.
 
 **Failed updates exit non-zero.** A successful update that needs a restart exits

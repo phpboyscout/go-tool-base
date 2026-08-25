@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Build a Command with Structured AI Responses
 
-`chat.Ask` lets you send a question to an AI and receive the answer unmarshalled directly into a Go struct. This is the right approach when you need deterministic, parseable output — code analysis, classification, extraction, or any workflow where you can't rely on free-form text.
+`chat.Ask` lets you send a question to an AI and receive the answer unmarshalled directly into a Go struct. This is the right approach when you need deterministic, parseable output: code analysis, classification, extraction, or any workflow where you can't rely on free-form text.
 
 ---
 
@@ -227,6 +227,6 @@ func TestAnalyseCode(t *testing.T) {
 
 ## Related Documentation
 
-- **[AI Tool Calling](ai-tool-calling.md)** — letting the AI call functions in a ReAct loop
-- **[AI Provider Setup](ai-integration.md)** — provider configuration and API keys
-- **[Chat component](../explanation/components/chat/index.md)** — full `ChatClient` interface reference
+- **[AI Tool Calling](ai-tool-calling.md)**: letting the AI call functions in a ReAct loop
+- **[AI Provider Setup](ai-integration.md)**: provider configuration and API keys
+- **[Chat component](../explanation/components/chat/index.md)**: full `ChatClient` interface reference

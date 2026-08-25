@@ -3,7 +3,7 @@
 Specs live in the [project wiki](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/home),
 not in this repository.
 
-A spec is a point-in-time decision record — written once, true of a moment, read
+A spec is a point-in-time decision record, written once, true of a moment, read
 later for its conclusions. Keeping them here buried the living documentation they
 sat beside, so they moved. Contributor guides, engineering standards and testing
 conventions stay in `docs/`, because those change with the code.
@@ -53,7 +53,7 @@ conventions stay in `docs/`, because those change with the code.
 | [0041](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0041-output-table-formatter) | Output Table Formatter Specification | `IMPLEMENTED` |
 | [0042](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0042-structured-changelog-diffing) | Structured Changelog Diffing Specification | `IMPLEMENTED` |
 | [0043](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0043-transport-logging-middleware) | Transport Middleware and Logging Specification | `IMPLEMENTED` |
-| [0044](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0044-godog-bdd-strategy) | Godog BDD Strategy — Evaluation & Phased Rollout | `IMPLEMENTED` |
+| [0044](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0044-godog-bdd-strategy) | Godog BDD Strategy: Evaluation & Phased Rollout | `IMPLEMENTED` |
 | [0045](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0045-extended-release-sources) | Extended Release Sources Specification | `IMPLEMENTED` |
 | [0046](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0046-telemetry-vendor-backends) | Telemetry Vendor Backends: Datadog & PostHog | `IMPLEMENTED` |
 | [0047](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0047-embedded-changelog-command) | Embedded Changelog Command | `IMPLEMENTED` |
@@ -76,44 +76,44 @@ conventions stay in `docs/`, because those change with the code.
 | [0064](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0064-config-generic-validation) | Generic Config Validation Helper Specification | `IMPLEMENTED` |
 | [0065](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0065-command-composition-registration) | Command Composition: setup.Command wrapper with Register | `IMPLEMENTED` |
 | [0066](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0066-otel-observability) | OpenTelemetry Observability Specification | `IMPLEMENTED` |
-| [0067](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0067-keys-mint-command) | `gtb keys mint` — pluggable OpenPGP-from-HSM minter | `IMPLEMENTED` |
+| [0067](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0067-keys-mint-command) | `gtb keys mint`: pluggable OpenPGP-from-HSM minter | `IMPLEMENTED` |
 | [0068](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0068-server-options) | Functional Options for HTTP and gRPC Server Construction | `IMPLEMENTED` |
-| [0069](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command) | `gtb keys wkd` — generate the Web Key Directory tree from one or more public keys | `IMPLEMENTED` |
-| [0070](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command) | `gtb sign` — detached OpenPGP signing via a pluggable backend | `IMPLEMENTED` |
-| [0071](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature) | Generator signing support — `gtb enable signing`, scaffold `internal/trustkeys`, wire `props.Signing` | `IMPLEMENTED` |
-| [0072](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0072-signing-release-pipeline) | Generator release-signing pipeline — `gtb enable signing` writes the GoReleaser `signs:` block | `IMPLEMENTED` |
-| [0073](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0073-bootstrap-prerun-traversal) | Framework bootstrap vs child PersistentPreRunE — stop downstream hooks silently disabling setup | `IMPLEMENTED` |
-| [0074](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0074-config-hot-reload-rework) | Config hot-reload rework — a container-owned watcher that actually reloads merged config | `IMPLEMENTED` |
-| [0075](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0075-controls-supervisor-lifecycle) | Controls supervisor & lifecycle hardening — idempotent start, real restart semantics, no busy-spin | `IMPLEMENTED` |
-| [0076](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0076-flag-to-config-binding) | Flag-to-config binding — implement the documented flags precedence layer | `IMPLEMENTED` |
-| [0077](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0077-generator-validation-perimeter) | Generator validation perimeter — close the manifest/signing/AI-tool input gaps | `IMPLEMENTED` |
-| [0078](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0078-provider-aware-repo-auth) | Provider-aware repository auth — stop hard-coding GitHub for clone/push credentials | `IMPLEMENTED` |
-| [0079](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0079-signal-aware-execution-context) | Signal-aware execution context — flow Ctrl-C through cmd.Context() and the cleanup path | `IMPLEMENTED` |
+| [0069](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0069-keys-wkd-command) | `gtb keys wkd`: generate the Web Key Directory tree from one or more public keys | `IMPLEMENTED` |
+| [0070](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0070-sign-command) | `gtb sign`: detached OpenPGP signing via a pluggable backend | `IMPLEMENTED` |
+| [0071](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0071-signing-generator-feature) | Generator signing support: `gtb enable signing`, scaffold `internal/trustkeys`, wire `props.Signing` | `IMPLEMENTED` |
+| [0072](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0072-signing-release-pipeline) | Generator release-signing pipeline: `gtb enable signing` writes the GoReleaser `signs:` block | `IMPLEMENTED` |
+| [0073](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0073-bootstrap-prerun-traversal) | Framework bootstrap vs child PersistentPreRunE: stop downstream hooks silently disabling setup | `IMPLEMENTED` |
+| [0074](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0074-config-hot-reload-rework) | Config hot-reload rework: a container-owned watcher that actually reloads merged config | `IMPLEMENTED` |
+| [0075](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0075-controls-supervisor-lifecycle) | Controls supervisor & lifecycle hardening: idempotent start, real restart semantics, no busy-spin | `IMPLEMENTED` |
+| [0076](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0076-flag-to-config-binding) | Flag-to-config binding: implement the documented flags precedence layer | `IMPLEMENTED` |
+| [0077](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0077-generator-validation-perimeter) | Generator validation perimeter: close the manifest/signing/AI-tool input gaps | `IMPLEMENTED` |
+| [0078](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0078-provider-aware-repo-auth) | Provider-aware repository auth: stop hard-coding GitHub for clone/push credentials | `IMPLEMENTED` |
+| [0079](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0079-signal-aware-execution-context) | Signal-aware execution context: flow Ctrl-C through cmd.Context() and the cleanup path | `IMPLEMENTED` |
 | [0080](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0080-generator-custom-partial-templates) | Generator custom/extensible template overlays (local folder or git repo, ref-pinned, manifest-tracked) | `IMPLEMENTED` |
 | [0081](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0081-generator-git-initialisation) | Generator git initialisation & initial commit (opt-out), optional remote push | `IMPLEMENTED` |
 | [0082](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0082-generator-gitlab-ci-refresh) | Refresh the generator's GitLab CI to the phpboyscout/cicd component model | `IMPLEMENTED` |
 | [0083](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0083-generator-readme-improvement) | Improve the generated project's default README.md | `IMPLEMENTED` |
-| [0084](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0084-props-provider-interface-adoption) | Provider-interface adoption — make GTB eat its own dogfood | `IMPLEMENTED` |
-| [0085](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0085-repolike-role-interface-split) | RepoLike role-interface split — break the 23-method kitchen sink into focused roles | `IMPLEMENTED` |
-| [0086](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features) | `gtb enable/disable <feature>` — manifest-driven feature toggles that survive regeneration | `IMPLEMENTED` |
-| [0087](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0087-forced-update-feature) | Opt-in ForcedUpdate — three-state self-update gating with a configurable interval | `IMPLEMENTED` |
-| [0088](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0088-injectable-release-source) | Injectable Release Source — a parallel-safe DI seam and reusable test double for self-update | `IMPLEMENTED` |
+| [0084](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0084-props-provider-interface-adoption) | Provider-interface adoption: make GTB eat its own dogfood | `IMPLEMENTED` |
+| [0085](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0085-repolike-role-interface-split) | RepoLike role-interface split: break the 23-method kitchen sink into focused roles | `IMPLEMENTED` |
+| [0086](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0086-enable-disable-features) | `gtb enable/disable <feature>`: manifest-driven feature toggles that survive regeneration | `IMPLEMENTED` |
+| [0087](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0087-forced-update-feature) | Opt-in ForcedUpdate: three-state self-update gating with a configurable interval | `IMPLEMENTED` |
+| [0088](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0088-injectable-release-source) | Injectable Release Source: a parallel-safe DI seam and reusable test double for self-update | `IMPLEMENTED` |
 | [0089](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0089-mcp-command-exposure-gating) | Per-command MCP exposure gating (build-time, default-on, explicitly excluded) | `IMPLEMENTED` |
-| [0090](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0090-coverage-gap-closure) | Coverage gap closure — the remaining sub-90% packages | `IMPLEMENTED` |
-| [0091](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0091-desktop-gated-integration-tests) | Desktop-gated integration tests — keychain, WKD, live VCS, live chat | `APPROVED` |
-| [0092](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0092-bug-report-diagnostics-command) | `doctor report` — redacted support-bundle subcommand | `IMPLEMENTED` |
+| [0090](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0090-coverage-gap-closure) | Coverage gap closure: the remaining sub-90% packages | `IMPLEMENTED` |
+| [0091](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0091-desktop-gated-integration-tests) | Desktop-gated integration tests: keychain, WKD, live VCS, live chat | `APPROVED` |
+| [0092](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0092-bug-report-diagnostics-command) | `doctor report`: redacted support-bundle subcommand | `IMPLEMENTED` |
 | [0093](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0093-chat-provider-fallback) | Cross-Provider Fallback & Routing for the Chat Client | `IMPLEMENTED` |
-| [0094](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0094-config-edit-path-unset) | `config edit` / `config path` / `config unset` — rounding out the config command surface (B3) | `IMPLEMENTED` |
-| [0095](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0095-credential-phase3-oauth-ssh-keychain) | Credential Hardening Phase 3 — OAuth Display-Once Closeout & SSH-Key Keychain Storage | `DRAFT` |
+| [0094](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0094-config-edit-path-unset) | `config edit` / `config path` / `config unset`: rounding out the config command surface (B3) | `IMPLEMENTED` |
+| [0095](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0095-credential-phase3-oauth-ssh-keychain) | Credential Hardening Phase 3: OAuth Display-Once Closeout & SSH-Key Keychain Storage | `DRAFT` |
 | [0096](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0096-gcp-azure-kms-signing-backends) | GCP KMS & Azure Key Vault signing backends (item C1) | `DRAFT` |
-| [0097](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0097-linux-package-signing) | Linux package signing & packaging — GPG-signed .deb/.rpm via nfpm and signed repository metadata | `DRAFT` |
+| [0097](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0097-linux-package-signing) | Linux package signing & packaging: GPG-signed .deb/.rpm via nfpm and signed repository metadata | `DRAFT` |
 | [0098](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0098-man-page-generation) | Man-page generation from the Cobra command tree (roff via cobra/doc) | `IMPLEMENTED` |
 | [0099](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0099-resilience-middleware) | Resilience Middleware: Server-Side Rate Limiting and Client-Side Circuit Breaking | `IMPLEMENTED` |
 | [0100](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0100-server-auth-middleware) | Server-Side Authentication & Authorization Middleware | `IMPLEMENTED` |
 | [0101](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0101-signing-key-rotation) | Emergency signing-key rotation (A5) | `DRAFT` |
-| [0102](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0102-sigstore-rekor-transparency) | Sigstore/Rekor Transparency-Log Signing — additive keyless verification path (Phase 3) | `DRAFT` |
-| [0103](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0103-slsa-build-provenance) | SLSA Build Provenance — signed in-toto attestation per release artifact | `DRAFT` |
-| [0104](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0104-update-channels-rollback) | Update Channels (stable/beta/canary) + Rollback / Pin — opt-in release-channel selection with safe downgrades | `DRAFT` |
+| [0102](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0102-sigstore-rekor-transparency) | Sigstore/Rekor Transparency-Log Signing: additive keyless verification path (Phase 3) | `DRAFT` |
+| [0103](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0103-slsa-build-provenance) | SLSA Build Provenance: signed in-toto attestation per release artifact | `DRAFT` |
+| [0104](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0104-update-channels-rollback) | Update Channels (stable/beta/canary) + Rollback / Pin: opt-in release-channel selection with safe downgrades | `DRAFT` |
 | [0105](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0105-windows-authenticode-signing) | Windows Authenticode code-signing for release binaries | `DRAFT` |
 | [0106](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0106-config-migrate-wizard-injectability) | config coverage hardening via huh accessible-mode form tests | `IMPLEMENTED` |
 | [0107](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0107-vcs-repo-afero-worktree) | Afero view of a vcs/repo worktree (safe billy→afero adapter) | `IMPLEMENTED` |
@@ -132,7 +132,7 @@ conventions stay in `docs/`, because those change with the code.
 | [0120](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0120-local-ca-truststore) | Local development CA with automatic trust-store installation | `DRAFT` |
 | [0121](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0121-telemetry-analytics-observability-split) | Split product analytics from observability in pkg/telemetry | `DRAFT` |
 | [0122](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0122-controls-module-extraction) | Extract pkg/controls into a standalone go/controls module | `IMPLEMENTED` |
-| [0123](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0123-transport-stack-extraction-plan) | Transport stack & foundations — extraction sequence plan | `IMPLEMENTED` |
+| [0123](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0123-transport-stack-extraction-plan) | Transport stack & foundations: extraction sequence plan | `IMPLEMENTED` |
 | [0124](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0124-observability-module-extraction) | Extract the OTel observability group into a standalone go/observability module | `IMPLEMENTED` |
 | [0125](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0125-tls-module-extraction) | Extract pkg/tls into a standalone go/tls module | `IMPLEMENTED` |
 | [0126](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0126-transit-module-extraction) | Extract the shared transport middleware & resilience into go/transit | `IMPLEMENTED` |
@@ -143,7 +143,7 @@ conventions stay in `docs/`, because those change with the code.
 | [0131](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0131-credentials-module-extraction) | Extract pkg/credentials into a standalone go/credentials module | `IMPLEMENTED` |
 | [0132](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0132-errorhandling-module-extraction) | Extract pkg/errorhandling into a standalone go/errorhandling module | `IMPLEMENTED` |
 | [0133](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0133-forge-module-extraction) | Extract the forge/release layer into go/forge and per-provider modules | `IMPLEMENTED` |
-| [0134](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0134-vcs-stack-extraction-plan) | VCS stack extraction plan — go/repo, go/forge and the forge providers | `IN PROGRESS` |
+| [0134](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0134-vcs-stack-extraction-plan) | VCS stack extraction plan: go/repo, go/forge and the forge providers | `IN PROGRESS` |
 | [0135](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0135-config-chain-scope) | Change scope: the configuration chain | `IMPLEMENTED` |
 | [0136](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0136-config-v0.3-migration) | Migrate GTB to go/config v0.3.x | `IMPLEMENTED` |
 | [0137](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0137-config-write-batching-followups) | Config write batching and provenance follow-ups | `IMPLEMENTED` |
@@ -193,12 +193,12 @@ conventions stay in `docs/`, because those change with the code.
 | [0181](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0181-ignore-command-and-discoverability) | `gtb ignore` command group and `.gtb/ignore` discoverability | `IMPLEMENTED` |
 | [0182](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment) | External Command Attachment Specification | `IMPLEMENTED` |
 
-Reports — audits and reviews — moved with them: see the
+Reports (audits and reviews) moved with them: see the
 [reports index](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/reports/home).
 
 ## Referring to a spec
 
-By **number and name** — "0020, the explainable-cull spec" — never by date. The
+By **number and name** ("0020, the explainable-cull spec") never by date. The
 number is a stable handle; a date is not something anyone remembers.
 
 ## Writing a new one

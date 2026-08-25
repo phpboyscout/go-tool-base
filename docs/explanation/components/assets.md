@@ -20,7 +20,7 @@ Shipping assets inside the binary ensures that:
 
 ## Asset Merging
 
-The framework supports a hierarchical, variadic asset system. This allows different parts of your application—from the root entry point to individual sub-plugins—to contribute their own embedded files.
+The framework supports a hierarchical, variadic asset system. This allows different parts of your application (from the root entry point to individual sub-plugins) to contribute their own embedded files.
 
 ### 1. Root Initialization
 In your `main.go`, you typically initialize the global `Assets` container with your tool's base configuration or templates by providing an `AssetMap`:

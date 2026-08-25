@@ -1,15 +1,15 @@
 ---
-title: Secure Releases — Checksum Verification
+title: Secure Releases, Checksum Verification
 description: How to publish and consume cryptographically-verifiable releases so self-updates reject tampered binaries. Phase 1 covers same-origin SHA-256 checksum verification; Phase 2 (GPG signature verification) is a planned extension.
 tags: [how-to, update, security, checksum, releases]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
 
-# Secure Releases — Checksum Verification
+# Secure Releases: Checksum Verification
 
 GTB's self-update flow verifies every downloaded binary against a GoReleaser-produced `checksums.txt` manifest before installing it. A tampered or truncated binary is rejected; a passing check is logged at INFO (`"checksum verified"`) and the update proceeds.
 
-This is **Phase 1** of the release-integrity work from [`0056-remote-update-checksum-verification`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification). **Phase 2** adds a GPG signature over the manifest, closing the same-origin trust gap (an attacker who can replace the binary on the release platform can also replace `checksums.txt` — only a signature from an off-platform key defeats that). Phase 2's code is implemented and dormant; see [Phase 2 below](#phase-2-gpg-signed-manifests).
+This is **Phase 1** of the release-integrity work from [`0056-remote-update-checksum-verification`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification). **Phase 2** adds a GPG signature over the manifest, closing the same-origin trust gap (an attacker who can replace the binary on the release platform can also replace `checksums.txt`, only a signature from an off-platform key defeats that). Phase 2's code is implemented and dormant; see [Phase 2 below](#phase-2-gpg-signed-manifests).
 
 ## How it fits together
 
@@ -20,7 +20,7 @@ Update() →  findReleaseAsset()           = target binary
          →  extract()                    = only reached when verify succeeds
 ```
 
-`checksums.txt` is GoReleaser's default manifest — one `<hex-sha256>  <filename>` entry per line. If your `.goreleaser.yaml` uses the defaults, no changes are needed; the file is already attached to every release.
+`checksums.txt` is GoReleaser's default manifest. One `<hex-sha256>  <filename>` entry per line. If your `.goreleaser.yaml` uses the defaults, no changes are needed; the file is already attached to every release.
 
 ## Producing verifiable releases
 
@@ -46,7 +46,7 @@ Blank lines at end-of-file are tolerated; **every other line must match** or the
 
 ### Bitbucket
 
-Upload `checksums.txt` to the repository's **Downloads** alongside the binaries (same upload flow as your release assets). The Bitbucket provider looks it up by exact filename — not via the asset-name regex that the binary uses.
+Upload `checksums.txt` to the repository's **Downloads** alongside the binaries (same upload flow as your release assets). The Bitbucket provider looks it up by exact filename: not via the asset-name regex that the binary uses.
 
 ### Direct HTTP releases
 
@@ -105,7 +105,7 @@ export MYTOOL_UPDATE_REQUIRE_CHECKSUM=true
 
 Config wins over env var; env var wins over the tool-author baseline in `props.Tool.Signing.RequireChecksum`.
 
-> **GTB itself** sets `Signing.RequireChecksum` — every `gtb update` verifies. Override with `GTB_UPDATE_REQUIRE_CHECKSUM=false` or `update.require_checksum: false` in config only if you need to update across a legacy release that predates the manifest (all GoReleaser-built releases have it, so this should rarely apply).
+> **GTB itself** sets `Signing.RequireChecksum`: every `gtb update` verifies. Override with `GTB_UPDATE_REQUIRE_CHECKSUM=false` or `update.require_checksum: false` in config only if you need to update across a legacy release that predates the manifest (all GoReleaser-built releases have it, so this should rarely apply).
 
 ### Size bounds
 
@@ -127,19 +127,19 @@ the whole process rather than to the updater that needed it.
 
 ## Phase 2: GPG-signed manifests
 
-Phase 1 defends against accidental corruption and single-asset tampering, but a full VCS compromise can replace both the binary and `checksums.txt` on the release. Phase 2 closes that gap by signing the manifest with a project-controlled GPG key — an attacker who replaces the files on the VCS still cannot produce a valid `checksums.txt.sig` without access to the private key.
+Phase 1 defends against accidental corruption and single-asset tampering, but a full VCS compromise can replace both the binary and `checksums.txt` on the release. Phase 2 closes that gap by signing the manifest with a project-controlled GPG key. An attacker who replaces the files on the VCS still cannot produce a valid `checksums.txt.sig` without access to the private key.
 
 !!! info "Verifier API extracted into the signing module"
-    The verification primitives — `TrustSet`, the `KeyResolver` chain
+    The verification primitives, `TrustSet`, the `KeyResolver` chain
     (embedded, WKD, composite), `LoadTrustSet`, the minimum-strength
     policy, and the `DefaultRequireSignature` / `DefaultKeySource` /
     `DefaultExternalKeyEmail` / `DefaultRequireExternalCrosscheck`
-    variables — now live in the standalone **signing** module at
+    variables: now live in the standalone **signing** module at
     **`gitlab.com/phpboyscout/go/signing/verify`** (v0.1.0). go-tool-base's
     `SelfUpdater` (still in `pkg/setup`) consumes them, injecting an
     `*slog.Logger` and a hardened `*http.Client`. Where the snippets
     below show these symbols with a `setup.` prefix, read them as
-    `verify.` — `setup.NewUpdater` / `setup.WithKeyResolver` remain in
+    `verify.`, `setup.NewUpdater` / `setup.WithKeyResolver` remain in
     `pkg/setup`, and `DefaultRequireChecksum` (Phase 1) stays there too.
     See the [Signature Verification component reference][svdocs] and the
     [signing module docs](https://signing.phpboyscout.uk).
@@ -174,7 +174,7 @@ signs:
     output: true
 ```
 
-`scripts/sign-release.sh` signs with whatever key gpg resolves for the `GTB_SIGNING_KEY` env var. Key custody is deliberately indirect so the same script works for local development (an ordinary gpg secret key) and production (a KMS/HSM-backed key exposed to gpg) — only the key source changes.
+`scripts/sign-release.sh` signs with whatever key gpg resolves for the `GTB_SIGNING_KEY` env var. Key custody is deliberately indirect so the same script works for local development (an ordinary gpg secret key) and production (a KMS/HSM-backed key exposed to gpg), only the key source changes.
 
 **Gating (dormant until provisioned).** The release job runs GoReleaser with `--skip=sign` unless `GTB_SIGNING_KEY` is set, mirroring the existing notarize gate on `APPLE_DEV_CERT`:
 
@@ -191,16 +191,16 @@ script:
 
 So until a signing key is configured in CI, releases ship unsigned exactly as before; once `GTB_SIGNING_KEY` is set, every release gains a `checksums.txt.sig`.
 
-The **sign→verify contract** — that a signature `gtb sign` produces is accepted by
-the same trust set self-update enforces — is covered by
+The **sign→verify contract**. That a signature `gtb sign` produces is accepted by
+the same trust set self-update enforces, is covered by
 `TestSignVerifyContract_*` in `internal/cmd/sign`. Those tests sign a manifest
 through the real `runSign` path, verify it via `verify.LoadTrustSet`, and assert
 that both a tampered manifest and an untrusted signing key are rejected with
 `ErrSignatureInvalid`. They need no credentials and run in the normal unit suite.
 
 !!! warning "Coverage gap: the KMS path in `scripts/sign-release.sh`"
-    The script itself is not exercised by any test. It is KMS-only — it shells out
-    to `gtb sign --backend aws-kms` and refuses to run without AWS credentials — so
+    The script itself is not exercised by any test. It is KMS-only, it shells out
+    to `gtb sign --backend aws-kms` and refuses to run without AWS credentials, so
     covering it requires a real KMS key and OIDC-derived credentials.
 
     The previous end-to-end test (`TestSignReleaseScript_VerifiesViaTrustSet`, gated
@@ -215,8 +215,8 @@ that both a tampered manifest and an untrusted signing key are rejected with
 
 `gtb enable signing --key-id …` (and `gtb disable signing`) adds or removes the
 top-level `signs:` block in your `.goreleaser.yaml`. It does this **without
-re-rendering the whole file**, so a hand-customised release config — extra
-builds, `app_bundles:`, `dmg:`, deliberate platform exclusions — is preserved.
+re-rendering the whole file**, so a hand-customised release config, extra
+builds, `app_bundles:`, `dmg:`, deliberate platform exclusions, is preserved.
 The precedence is:
 
 1. **Listed in [`.gtb/ignore`](configure-generator-ignore.md)** → the file is
@@ -255,8 +255,8 @@ A signature is only as trustworthy as the key used to verify it. Phase 2 uses a 
                               TrustSet ──► verify(checksums.txt.sig)
 ```
 
-- **Embedded key** — baked into each binary at build time via `//go:embed`. Works offline and in air-gapped environments. Rotates only when a new binary is shipped.
-- **External key (third-party source)** — fetched from an HTTPS endpoint under a domain you control. For a VCS compromise to produce a valid signature, the attacker must *also* control your DNS and TLS termination; the two trust anchors are administered independently. The canonical implementation is [Web Key Directory (WKD)](https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/), an OpenPGP RFC-draft serving public keys from a well-known path. Other HTTPS endpoints (self-hosted, Vault, a static S3 bucket) are supported via a custom `KeyResolver`.
+- **Embedded key**: baked into each binary at build time via `//go:embed`. Works offline and in air-gapped environments. Rotates only when a new binary is shipped.
+- **External key (third-party source)**: fetched from an HTTPS endpoint under a domain you control. For a VCS compromise to produce a valid signature, the attacker must *also* control your DNS and TLS termination; the two trust anchors are administered independently. The canonical implementation is [Web Key Directory (WKD)](https://datatracker.ietf.org/doc/draft-koch-openpgp-webkey-service/), an OpenPGP RFC-draft serving public keys from a well-known path. Other HTTPS endpoints (self-hosted, Vault, a static S3 bucket) are supported via a custom `KeyResolver`.
 
 ### Resolver implementations
 
@@ -299,11 +299,11 @@ verify.DefaultRequireExternalCrosscheck = true
 ### Publishing a public key
 
 1. **Generate** an Ed25519 signing keypair (RSA-4096 is acceptable if your KMS doesn't support Ed25519). DSA, 1024-bit RSA, and weak curves are refused at load time.
-2. **Embed** the public half. Drop the ASCII-armored file at `internal/trustkeys/keys/signing-key-v1.asc` in your repo — `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
+2. **Embed** the public half. Drop the ASCII-armored file at `internal/trustkeys/keys/signing-key-v1.asc` in your repo: `go:embed` picks it up at build time. Tests gate a CI check that refuses any accidentally committed private key.
 3. **Publish** the same key via your chosen external source:
-   - **WKD** — serve the ASCII-armored key at the WKD path under `openpgpkey.<yourdomain>`. DNS and TLS cert are your trust anchors, administered independently from your VCS.
-   - **Custom HTTPS** — implement `KeyResolver` with your own endpoint (Vault, static S3, internal CA-served HTTPS). Register it via `setup.WithKeyResolver` on `SelfUpdater`.
-4. **Store** the private half in a KMS (AWS/GCP/Azure), Vault Transit, or a hardware token. GitHub encrypted secrets are a last resort — see the spec's Key Management section.
+   - **WKD**: serve the ASCII-armored key at the WKD path under `openpgpkey.<yourdomain>`. DNS and TLS cert are your trust anchors, administered independently from your VCS.
+   - **Custom HTTPS**: implement `KeyResolver` with your own endpoint (Vault, static S3, internal CA-served HTTPS). Register it via `setup.WithKeyResolver` on `SelfUpdater`.
+4. **Store** the private half in a KMS (AWS/GCP/Azure), Vault Transit, or a hardware token. GitHub encrypted secrets are a last resort. See the spec's Key Management section.
 
 ### Diagnosing live updates from logs
 
@@ -314,7 +314,7 @@ INFO update signature verification configured resolver=composite[embedded,wkd:op
 INFO signature verified resolver=composite[embedded,wkd:openpgpkey.<yourdomain>]
 ```
 
-The `resolver=` value is the most useful single field for support triage. `composite[embedded,wkd:…]` means both trust anchors were consulted and agreed; `embedded` or `wkd:…` alone means only one anchor was consulted (cryptographically sound but lower defence-in-depth). Full interpretation table — including failure-side log shapes for active-tampering signals — lives in the [Signature Verification component reference][svdocs].
+The `resolver=` value is the most useful single field for support triage. `composite[embedded,wkd:…]` means both trust anchors were consulted and agreed; `embedded` or `wkd:…` alone means only one anchor was consulted (cryptographically sound but lower defence-in-depth). Full interpretation table (including failure-side log shapes for active-tampering signals) lives in the [Signature Verification component reference][svdocs].
 
 [svdocs]: ../explanation/components/setup/signature-verification.md#interpreting-verifier-log-output
 
@@ -345,7 +345,7 @@ Any implementation must:
 - Return a `*TrustSet` containing only keys that passed the minimum-strength policy.
 - Honour the context's deadline and cancellation.
 - Cap response bodies at `setup.MaxWKDResponseSize` (64 KiB) or an equivalent bound.
-- Not leak private material anywhere — `log.Fatal` if it ever sees a secret key at load time.
+- Not leak private material anywhere: `log.Fatal` if it ever sees a secret key at load time.
 
 ### Key rotation
 
@@ -371,8 +371,8 @@ go test ./pkg/setup/ -run "^$" -fuzz=FuzzParseChecksumManifest -fuzztime=30s
 
 ## Related
 
-- [Setup Package Reference](../explanation/components/setup/index.md) — `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, and the updater options.
-- [VCS Release Providers](https://forge.go.phpboyscout.uk/reference/providers/) — the `ChecksumProvider` optional interface and per-provider behaviour.
-- [Custom Release Source](custom-release-source.md) — implementing a custom `release.Provider` (and optionally `release.ChecksumProvider`) for a proprietary release backend.
-- [Credential Storage Hardening Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) — the related defence-in-depth spec that covers credential storage during update and setup.
-- [Remote Update Integrity Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification) — the full design including Phase 2 (GPG) and Phase 3 (cosign).
+- [Setup Package Reference](../explanation/components/setup/index.md): `VerifyChecksumFromManifest`, `VerifyChecksumFromManifestReader`, and the updater options.
+- [VCS Release Providers](https://forge.go.phpboyscout.uk/reference/providers/): the `ChecksumProvider` optional interface and per-provider behaviour.
+- [Custom Release Source](custom-release-source.md): implementing a custom `release.Provider` (and optionally `release.ChecksumProvider`) for a proprietary release backend.
+- [Credential Storage Hardening Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening): the related defence-in-depth spec that covers credential storage during update and setup.
+- [Remote Update Integrity Spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification): the full design including Phase 2 (GPG) and Phase 3 (cosign).

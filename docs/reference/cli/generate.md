@@ -9,7 +9,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # `generate` Command
 
 `gtb generate` scaffolds new projects and commands. It is part of the
-**framework-developer** CLI (the `gtb` binary), used while building a tool — not a
+**framework-developer** CLI (the `gtb` binary), used while building a tool, not a
 runtime command shipped in your tool. See the
 [Scaffolding](../../how-to/framework-cli/scaffold-project.md) and
 [Generating Commands](../../how-to/framework-cli/generate-commands.md) how-tos for
@@ -44,11 +44,11 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 |------|---------|-------------|
 | `--name, -n` | — | Project name (e.g. `als`). |
 | `--repo, -r` | — | Repository in `org/repo` format. |
-| `--git-backend` | `github` | Git backend: `github` or `gitlab`. Selects the skeleton asset set (CI pipelines, release automation, repository conventions), so the accepted values are the forges the generator ships a skeleton for — a narrower set than the forges a tool can authenticate against. |
+| `--git-backend` | `github` | Git backend: `github` or `gitlab`. Selects the skeleton asset set (CI pipelines, release automation, repository conventions), so the accepted values are the forges the generator ships a skeleton for: a narrower set than the forges a tool can authenticate against. |
 | `--host` | *(backend's canonical host)* | Git host (for self-managed instances). |
 | `--private` | `false` | Mark the repository private (requires a token for updates). |
 | `--description, -d` | `A tool built with gtb` | Project description. |
-| `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable — see [below](#features). The flag **replaces** the default set rather than adding to it. |
+| `--features, -f` | `update,init,mcp,docs,doctor,changelog,keychain` | Features to enable: see [below](#features). The flag **replaces** the default set rather than adding to it. |
 | `--go-version` | *(running toolchain)* | Go version for `go.mod`. |
 | `--help-type` | `none` | Help channel type: `slack`, `teams`, or `none` (with `--slack-*`/`--teams-*`). |
 | `--path, -p` | `.` | Destination path. |
@@ -69,7 +69,7 @@ terminal to launch the guided wizard; otherwise supply the flags directly.
 | Built-in commands (default on) | `update`, `init`, `mcp`, `docs`, `doctor`, `changelog` | Wired via `props.SetFeatures`. |
 | Built-in commands (opt-in) | `ai`, `config`, `telemetry`, `man` | |
 | Forges (opt-in) | `github`, `gitlab`, `gitea`, `bitbucket` | Each adds that forge's `init <forge>` credential wizard, config section and embedded asset bundle. Constants live in `pkg/setup/forge`, not `props`. |
-| Build-time | `keychain` | Not a `SetFeatures` toggle — selects the `cmd/<name>/keychain.go` blank import. Cannot be flipped later by `gtb enable`/`gtb disable`. |
+| Build-time | `keychain` | Not a `SetFeatures` toggle: selects the `cmd/<name>/keychain.go` blank import. Cannot be flipped later by `gtb enable`/`gtb disable`. |
 
 `--features` replaces the default set rather than extending it, so a selection
 must name every feature the tool should ship with: `--features gitlab` alone
@@ -143,7 +143,7 @@ Generate Markdown docs for a command or package.
 | `--parent` | — | Parent command name (if not in the manifest). |
 | `--agentless` | `false` | Skip AI generation; write boilerplate only. |
 | `--public-api` | `false` | Module is publicly published: defer package API reference to pkg.go.dev (otherwise a local `go doc` hint). Equivalent to `module_published: true` in the manifest. |
-| `--no-ai-attribution` | `false` | Keep AI/model attribution out of the generated frontmatter `authors:` — human author(s) only. Default: the AI model is appended as an additive co-author. |
+| `--no-ai-attribution` | `false` | Keep AI/model attribution out of the generated frontmatter `authors:`: human author(s) only. Default: the AI model is appended as an additive co-author. |
 | `--path` | `.` | Project root. |
 
 One of `--command`/`--package`/`--source` is required. (`--source` is deprecated; use `--command`.)
@@ -160,7 +160,7 @@ Generate roff man pages for the command tree.
 | `--section` | `1` | Man section number. |
 | `--source` | *(`<tool> <version>`)* | `TH` source footer. |
 | `--manual` | *(`<Tool> Manual`)* | `TH` manual title. |
-| `--date` | *(none — reproducible)* | Stamp this date (`YYYY-MM-DD` or RFC3339) into the `.TH` header. Omit for reproducible output with no date trailer. |
+| `--date` | *(none, reproducible)* | Stamp this date (`YYYY-MM-DD` or RFC3339) into the `.TH` header. Omit for reproducible output with no date trailer. |
 
 ### `generate protect` / `generate unprotect`
 

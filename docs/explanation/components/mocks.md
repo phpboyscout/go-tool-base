@@ -32,7 +32,7 @@ Configuration mocks are published by the standalone
 (the old catch-all container mock is gone along with its interface).
 
 #### **Reader Mock**
-`MockReader` fakes `config.Reader` — the read-only surface the GTB adapter
+`MockReader` fakes `config.Reader`, the read-only surface the GTB adapter
 functions accept (a real `*config.View` satisfies it too):
 
 ```go
@@ -54,7 +54,7 @@ func TestSettingsResolution(t *testing.T) {
 
 #### **A real store instead of a mock**
 `props.Props.Config` is a concrete `*config.Store`, so it cannot hold a mock.
-When code under test needs a whole `Props`, build a real in-memory store — or
+When code under test needs a whole `Props`, build a real in-memory store, or
 use the `pkg/props/test` fixture helper, which wires one for you:
 
 ```go
@@ -77,9 +77,9 @@ fakes the reload-notification surface. Both follow the same
 
 GTB generates mocks for its own configuration-adjacent interfaces:
 
-- **`mocks/pkg/setup`** — `MockEditor` (the `setup.Editor` read/write surface an
+- **`mocks/pkg/setup`**: `MockEditor` (the `setup.Editor` read/write surface an
   initialiser receives during `init`) and `MockInitialiser`.
-- **`mocks/pkg/props`** — `MockConfigProvider` (`GetConfig()` returns the
+- **`mocks/pkg/props`**: `MockConfigProvider` (`GetConfig()` returns the
   concrete `*config.Store`), `MockConfigReader` (`GetConfigView()` returns a
   `*config.View`) and `MockConfigFSProvider`.
 
@@ -98,7 +98,7 @@ GTB no longer ships forge (GitHub/GitLab/Gitea/Bitbucket) client mocks. The
 forge release and auth/SSH clients were extracted to the standalone
 [`gitlab.com/phpboyscout/go/forge`](https://forge.go.phpboyscout.uk) module plus
 its per-provider `forge-github`, `forge-gitlab`, `forge-gitea`, and
-`forge-bitbucket` modules; each ships its own `mocks` subpackage — fake those
+`forge-bitbucket` modules; each ships its own `mocks` subpackage, fake those
 through the owning module's published `mocks` package rather than a GTB mock.
 
 Repository (git) operations were extracted to the standalone
@@ -135,7 +135,7 @@ func TestMyFunction(t *testing.T) {
 }
 ```
 
-For code that takes a whole `*props.Props`, mock nothing — build a hermetic
+For code that takes a whole `*props.Props`, mock nothing, build a hermetic
 fixture with `pkg/props/test` (`propstest.New(...)`), which wires a real
 in-memory `*config.Store` alongside a noop logger, in-memory filesystem, and
 inert error handler.
@@ -209,7 +209,7 @@ packages:
 
 `dir` uses `{{ .InterfaceDirRelative }}`, so an interface in `pkg/setup`
 generates into `mocks/pkg/setup/` (mirroring the source tree under `mocks/`).
-Configuration mocks are not generated here at all — they ship with the
+Configuration mocks are not generated here at all, they ship with the
 `go/config` module.
 
 ### Regenerating Mocks
@@ -224,7 +224,7 @@ just mocks        # regenerate every mock (preferred)
 go tool mockery
 ```
 
-Mockery v3 selects interfaces from `.mockery.yml`, not CLI flags — the v2
+Mockery v3 selects interfaces from `.mockery.yml`, not CLI flags, the v2
 `--dir`/`--name` selectors no longer exist.
 
 ## Best Practices

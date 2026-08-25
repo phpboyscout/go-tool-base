@@ -258,8 +258,8 @@ func TestSomethingIntegration(t *testing.T) {
 
 The helper lives in `internal/testutil/` and supports:
 
-- **`INT_TEST=1`** — enables all integration tests globally.
-- **`INT_TEST_<TAG>=1`** — enables only tests matching that tag (e.g. `INT_TEST_VCS=1`).
+- **`INT_TEST=1`**: enables all integration tests globally.
+- **`INT_TEST_<TAG>=1`**: enables only tests matching that tag (e.g. `INT_TEST_VCS=1`).
 
 See the **[Integration Testing](./integration-testing.md)** guide for full details, including the test inventory and writing guidelines.
 

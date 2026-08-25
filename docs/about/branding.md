@@ -19,7 +19,7 @@ The visual identity of Go Tool Base is built upon a developer-centric theme call
 
 *   **The Hex Nut Mascot:** The core framework foundation ("the tool base") has evolved into a sentient mascot head. Complete with headset ears and a geometric widow's peak, it represents a friendly, attentive AI pairing with the developer.
 *   **The Glowing Eyes:** Evolving from the original terminal cursor double underscores (`__`), the horizontal neon eyes represent both shell command-line interaction and the mascot's steady focus.
-*   **The Neon Gradients:** A high-speed electric cyan (representing Go’s performance and speed) merging into a deep, intelligent violet (representing LLM client integrations and ReAct loop capabilities).
+*   **The Neon Gradients:** A high-speed electric cyan (representing Go's performance and speed) merging into a deep, intelligent violet (representing LLM client integrations and ReAct loop capabilities).
 
 ---
 

@@ -113,9 +113,9 @@ The `Type` field controls which health endpoints include the check:
 
 **Guidelines:**
 
-- **Readiness** — Use for dependencies that determine whether the service can accept traffic (database, downstream APIs).
-- **Liveness** — Use for checks that determine whether the process should be restarted (deadlock detection, critical subsystem failure).
-- **Both** — Use when the check is relevant to both decisions (e.g., a required cache that is both a startup dependency and a runtime health signal).
+- **Readiness**: Use for dependencies that determine whether the service can accept traffic (database, downstream APIs).
+- **Liveness**: Use for checks that determine whether the process should be restarted (deadlock detection, critical subsystem failure).
+- **Both**: Use when the check is relevant to both decisions (e.g., a required cache that is both a startup dependency and a runtime health signal).
 
 ## 5. Query Check Results Programmatically
 

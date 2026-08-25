@@ -65,13 +65,13 @@ A deeper look at the Initialiser pattern for modular, self-registering feature c
 Understand the middleware chain pattern for cross-cutting CLI command concerns.
 
 ### [Transport Middleware & Resilience](transport-middleware.md)
-Understand middleware/interceptor chains as the extension point for cross-cutting transport concerns — logging, auth, rate limiting, retry, circuit breaking — across HTTP and gRPC, server and client.
+Understand middleware/interceptor chains as the extension point for cross-cutting transport concerns (logging, auth, rate limiting, retry, circuit breaking) across HTTP and gRPC, server and client.
 
 ### [Auto-Update Lifecycle](../components/update.md)
 Learn how the framework manages throttled version checks and atomic binary replacement.
 
 ### [Release-binary Signing](release-binary-signing.md)
-How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI — without anyone holding a private key on their laptop.
+How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI: without anyone holding a private key on their laptop.
 
 ### [VCS & Repository Abstraction](../components/vcs/repo.md)
 Explore the polymorphic repository strategy and unified GitHub automation API.

@@ -8,7 +8,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Persist Chat Conversations
 
-By default, chat conversation history is lost when a `ChatClient` is destroyed. The persistence feature lets you save conversation state as snapshots and restore them later — enabling multi-turn conversations across CLI invocations.
+By default, chat conversation history is lost when a `ChatClient` is destroyed. The persistence feature lets you save conversation state as snapshots and restore them later: enabling multi-turn conversations across CLI invocations.
 
 This guide walks through:
 
@@ -155,7 +155,7 @@ When encryption is enabled:
 - The nonce is randomly generated per save and prepended to the ciphertext
 
 !!! tip "Key management"
-    The framework does not store or manage encryption keys. You are responsible for secure key storage — consider using the OS keychain, environment variables, or a secrets manager.
+    The framework does not store or manage encryption keys. You are responsible for secure key storage: consider using the OS keychain, environment variables, or a secrets manager.
 
 ---
 
@@ -220,7 +220,7 @@ func resumableChat(ctx context.Context, p *props.Props, conversationID string) e
 
 ## Related Documentation
 
-- [Chat Component](../explanation/components/chat/index.md) — full chat client documentation
-- [AI Integration](ai-integration.md) — setting up AI providers
-- [AI Tool Calling](ai-tool-calling.md) — configuring tools for AI
-- [Chat Persistence Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0036-chat-conversation-persistence) — design spec
+- [Chat Component](../explanation/components/chat/index.md): full chat client documentation
+- [AI Integration](ai-integration.md): setting up AI providers
+- [AI Tool Calling](ai-tool-calling.md): configuring tools for AI
+- [Chat Persistence Specification](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0036-chat-conversation-persistence): design spec

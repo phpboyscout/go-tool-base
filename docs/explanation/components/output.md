@@ -8,14 +8,14 @@ authors: [Matt Cockayne <matt@phpboyscout.uk>]
 
 # Output
 
-Structured command output — text/JSON/YAML/CSV/TSV/Markdown rendering, the
+Structured command output: text/JSON/YAML/CSV/TSV/Markdown rendering, the
 `{status, command, data, error}` JSON envelope, tables, spinners, progress bars,
-status lines, and glamour markdown rendering — now lives in the standalone module
+status lines, and glamour markdown rendering. Now lives in the standalone module
 **[`gitlab.com/phpboyscout/go/output`](https://gitlab.com/phpboyscout/go/output)**.
 
 It is a framework-free package built around a single configured `Renderer`: the
 destination writer, output format, theme, and interactivity are fixed once and
-every method reads them. The core carries no CLI-framework dependency — the
+every method reads them. The core carries no CLI-framework dependency, the
 cobra binding (reading the `--output` flag and the command's writer) is the opt-in
 **`go/output/cobra`** subpackage, which GTB's commands import as `ocobra`.
 
@@ -39,5 +39,5 @@ if r.IsJSON() {
 
 GTB consumes the module directly across its built-in commands (`version`,
 `doctor`, `config`, `changelog`, `update`, `init`, `docs`) and the root
-update-check spinner. There is no GTB-side adapter — the cut-over was a clean
+update-check spinner. There is no GTB-side adapter. The cut-over was a clean
 repoint to the redesigned façade.

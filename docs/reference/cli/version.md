@@ -27,12 +27,12 @@ a newer version is available.
 The latest-version check is **best-effort**: when the release source is
 unreachable (offline machine, firewalled network, source outage), the command
 still prints the local build information and exits `0`, logging a single
-warning — `failed to check latest version` — so you can see why the `Latest`
+warning (`failed to check latest version`) so you can see why the `Latest`
 line is absent. The passive check is bounded by a short timeout
 (`setup.VersionCheckTimeout`, 10 seconds), so a black-holing network cannot
 stall the command for long.
 
-Pass `--check` when you *want* hard semantics — a scriptable "is there an
+Pass `--check` when you *want* hard semantics. A scriptable "is there an
 update, and can you reach the release source" probe. With `--check`, a failed
 lookup exits non-zero with `unable to fetch latest version`, a longer (60
 second) timeout applies, and the check runs **even on development builds** so
@@ -101,7 +101,7 @@ When the check was attempted but the release source could not be reached, the
 response is still a success envelope carrying the local fields, with an
 explicit `check_failed` marker so scripts can distinguish "up to date" from
 "could not check". `latest` is absent and `current` is `false` (the answer is
-unknown — not "behind"):
+unknown, not "behind"):
 
 ```json
 {

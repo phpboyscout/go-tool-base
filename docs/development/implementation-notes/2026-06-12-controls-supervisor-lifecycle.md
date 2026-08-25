@@ -1,5 +1,5 @@
 ---
-title: "Implementation notes — controls supervisor & lifecycle hardening"
+title: "Implementation notes, controls supervisor & lifecycle hardening"
 description: "What was implemented for the 2026-06-12 controls supervisor/lifecycle spec, deviations, the O4 signature enumeration, and open questions."
 date: 2026-06-12
 tags: [implementation-notes, controls, lifecycle, concurrency]
@@ -14,33 +14,33 @@ Branch: `fix/controls-supervisor-lifecycle`
 
 All seven findings (and the three folded-in low/info items) are addressed.
 
-- **D1 — Explicit run outcomes.** `Services.classifyRun(ctx, err)` returns one of
+- **D1: Explicit run outcomes.** `Services.classifyRun(ctx, err)` returns one of
   `outcomeCleanStart`, `outcomeCancelled`, `outcomeError`. `runOnce` and the new
   `runOnceWithRestart` consult it. A `nil` Start return is a clean start, never an
   exit; a clean-start service with no health monitoring blocks in `monitorHealth`
   on `<-ctx.Done()` rather than falling through to a restart.
-- **D2 — No nil on errs; consecutive-failure counter.** `runWithRestartPolicy`
+- **D2: No nil on errs; consecutive-failure counter.** `runWithRestartPolicy`
   only forwards non-nil Start errors; health failures store their error via
   `monitorHealth`/`updateInfo`. The counter resets after `RestartResetInterval`
   (default `DefaultRestartResetInterval` = 30 s). `errors.Wrap(nil, …)` is guarded
   in the max-restarts path.
-- **D3 — Idempotent Start.** `Start` does `compareAndSetState(Unknown, Running)`
+- **D3: Idempotent Start.** `Start` does `compareAndSetState(Unknown, Running)`
   and returns early otherwise. The service count is snapshotted under
   `services.mu` before the matching `wg.Add`.
-- **D4 — No busy-spin; goroutines terminate.** The error/context handler nils its
+- **D4: No busy-spin; goroutines terminate.** The error/context handler nils its
   local `done` channel after first receipt and exits on `shutdownComplete` (closed
   by `handleStopMessage`), draining buffered errors first. The message processor
   and signal handler also exit on `shutdownComplete`; the signal handler adds a
   second-signal force-exit.
-- **D5 — Validated lifecycle funcs.** `Services.add` defaults missing
+- **D5: Validated lifecycle funcs.** `Services.add` defaults missing
   `Start`/`Stop` to `noopStart`/`noopStop`. `callStop` recover-wraps the stop call
   (matching the existing `callProbe` pattern).
-- **D6 — Signal disposition + force-stop.** `signal.Notify` is deferred until after
+- **D6: Signal disposition + force-stop.** `signal.Notify` is deferred until after
   options in `NewController` and only fires when `c.signals != nil`.
   `SetSignalsChannel` and shutdown call `signal.Stop`. `Services.stop` iterates in
   reverse registration order, running each `StopFunc` in a goroutine awaited
   against `ctx.Done()` so a context-ignoring stop is abandoned at the deadline.
-- **D7 — Readiness fails closed; ValidErrorFunc wired.** `toServiceStatus` takes a
+- **D7: Readiness fails closed; ValidErrorFunc wired.** `toServiceStatus` takes a
   `failClosed` flag (true only for `Readiness`); a nil cached async result is
   reported not-ready. `WithValidError` sets `Controller.validError`, propagated to
   `Services.validError` in `Start` and consulted by `classifyRun`.
@@ -66,7 +66,7 @@ All seven findings (and the three folded-in low/info items) are addressed.
    blocks on `<-ctx.Done()` when there is nothing to monitor, so a clean start is
    never restarted. This is internal-only.
 
-## O4 — Enumerated exported-signature changes (for changelog/migration)
+## O4: Enumerated exported-signature changes (for changelog/migration)
 
 Migration note: `docs/migration/v0.16-controls-supervisor.md`.
 
@@ -85,16 +85,16 @@ CHANGE:` footer and the migration note above. Pre-1.0, this is a MINOR bump.
 
 ## Verification
 
-- `go test ./pkg/controls/` — green.
-- `go test -race ./pkg/controls/` — green across repeated runs (the core goal).
-- `golangci-lint run ./pkg/controls/...` — 0 issues.
+- `go test ./pkg/controls/`: green.
+- `go test -race ./pkg/controls/`: green across repeated runs (the core goal).
+- `golangci-lint run ./pkg/controls/...`: 0 issues.
 - Coverage on `pkg/controls`: ~96% of statements (≥90% gate met).
 - Dependent packages (`pkg/grpc`, `pkg/http`, `pkg/gateway`, `pkg/telemetry`) and
   the full `go test ./...` suite pass.
 - `mockery` was **not run** locally (binary not installed in the worktree), but no
   mocked interface signature changed, so `mocks/pkg/controls/Controllable.go` is
   unaffected and still compiles (`go build ./mocks/...` passes).
-- Controls E2E BDD (`INT_TEST_E2E_CONTROLS=1 just test-e2e`) — **ran green** in this
+- Controls E2E BDD (`INT_TEST_E2E_CONTROLS=1 just test-e2e`): **ran green** in this
   worktree (graceful shutdown with real HTTP+gRPC, restart-after-health-failure,
   idempotent stop, context-cancellation, readiness/liveness scenarios all pass).
 
@@ -102,7 +102,7 @@ CHANGE:` footer and the migration note above. Pre-1.0, this is a MINOR bump.
 
 1. **`Register` return value.** Confirmed choice: default-to-no-ops over returning
    an error (keeps the API non-breaking). If reviewers prefer the validating
-   `Register(...) error` variant, it is a larger, mock-regenerating change — flag if
+   `Register(...) error` variant, it is a larger, mock-regenerating change, flag if
    wanted.
 2. **Restart-reset default of 30 s.** Taken verbatim from the resolved O1. Confirm
    this is the right default for the common embedder.

@@ -1,6 +1,6 @@
 ---
 title: Release-binary signing
-description: How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI — without anyone holding a private key on their laptop.
+description: How gtb-derived tools establish a cryptographic chain of trust between you, the release pipeline, and the people running your CLI: without anyone holding a private key on their laptop.
 date: 2026-06-08
 tags: [concepts, signing, openpgp, kms, rotation, trust]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
@@ -10,7 +10,7 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 When someone runs `mytool update`, they're trusting that the binary
 they're about to install came from you and hasn't been tampered with.
-That trust has to be **cryptographic** — not "we hope the registry
+That trust has to be **cryptographic**, not "we hope the registry
 wasn't compromised", but "the binary verifies against a public key we
 already shipped you".
 
@@ -41,7 +41,7 @@ different lifetimes, different storage, and different threat models.
 ### 1. The signing key
 
 The key that actually signs every release. Used on every `vX.Y.Z`
-tag — once per release.
+tag, once per release.
 
 - **Algorithm**: RSA-4096 (AWS KMS doesn't expose Ed25519 for
   asymmetric signing, so RSA is the production choice).
@@ -70,7 +70,7 @@ installs.
   and a printed `paperkey` recovery sheet, both in a home safe.
 - **Who can use it**: you, physically, on a trusted offline
   workstation.
-- **Created by**: `gtb keys generate --algorithm ed25519 ...` — the
+- **Created by**: `gtb keys generate --algorithm ed25519 ...`: the
   command produces both halves locally and asks you to move the
   private half to offline storage immediately.
 - **Rotation cadence**: typically never. If you ever have to use it,
@@ -79,7 +79,7 @@ installs.
 Both public halves are embedded in your tool's binary
 (`internal/trustkeys/keys/`) and published via WKD at a domain you
 control. The verifier on the end-user side requires both keys in its
-trust set to accept a signature — but in normal operation it only
+trust set to accept a signature, but in normal operation it only
 ever sees signatures from the signing key.
 
 ## How verification works at install time
@@ -92,8 +92,8 @@ When `mytool update` runs, it does this (sketch):
    into the running binary at `internal/trustkeys/keys/`. Both the
    signing key and the rotation-authority key are present.
 3. **Fetch the WKD-served copy** of the signing key from your
-   domain. Verify it matches the embedded copy by fingerprint —
-   this is the **cross-check** that catches a compromised release
+   domain. Verify it matches the embedded copy by fingerprint.
+   This is the **cross-check** that catches a compromised release
    registry (the embedded copy can't be tampered with after the
    binary shipped, and the WKD copy lives on a server administered
    independently from the release registry).
@@ -117,14 +117,14 @@ Every component above is one of:
 
 The line between them is exactly where the framework stops and the
 operator starts. `gtb` doesn't try to provision your AWS account or
-host your WKD endpoint — those are decisions tied to your
+host your WKD endpoint. Those are decisions tied to your
 infrastructure. But it does cover every cryptographic operation
 between "I have a KMS key" and "the verifier passed", with no
 external dependencies on `gpg`, `openssl`, or any other tool.
 
 ## The three-command tutorial flow
 
-For someone trying this without a cloud KMS — say, writing a blog
+For someone trying this without a cloud KMS, say, writing a blog
 post about it or proving the chain works end-to-end before reaching
 for Terraform:
 
@@ -177,20 +177,20 @@ gtb keys mint \
 
 The private half never leaves AWS. The OIDC trust on the IAM role
 ensures only tag pipelines on `mytool`'s git repository can call
-`kms:Sign` — not branches, not MRs, not humans.
+`kms:Sign`, not branches, not MRs, not humans.
 
 ## Why an external trust anchor (WKD)?
 
 The embedded trust set protects against any attacker who can change
 the release registry's contents *after* the user installed the
 binary. But it doesn't protect against an attacker who compromised
-the registry *before* the user installed — because that attacker
+the registry *before* the user installed, because that attacker
 could embed their own trust set in their poisoned binary.
 
 The WKD cross-check closes that gap. The WKD endpoint is a static
 file on a domain you administer **independently** from your release
 registry (we recommend Cloudflare Pages on a separate account with
-its own MFA factor — see the
+its own MFA factor. See the
 [`phase2-signing-prep`](../../development/phase2-signing-prep.md) doc).
 
 A successful poisoning attack now requires an attacker to compromise
@@ -201,8 +201,8 @@ materially higher bar.
 
 There is only **one** configurable input on the verifier side: the
 release email (`update.external_key_email`, e.g.
-`release@yourdomain.com`). Everything else — the hostname, the path,
-the file location — is mechanically derived from that email per
+`release@yourdomain.com`). Everything else, the hostname, the path,
+the file location, is mechanically derived from that email per
 [draft-koch-openpgp-webkey-service §3.1][wkd-draft], the protocol
 spec.
 
@@ -221,7 +221,7 @@ Walked through for `release@phpboyscout.uk`:
 
 ### Why specifically `openpgpkey.<domain>`?
 
-The literal string `openpgpkey.` is **not a `gtb` convention** — it
+The literal string `openpgpkey.` is **not a `gtb` convention**, it
 is mandated by the WKD spec for the "advanced" URL form. WKD
 clients (GnuPG, our `WKDResolver`, Sequoia, anything implementing
 the protocol) all hardcode this prefix when constructing the
@@ -234,7 +234,7 @@ A WKD-publishing domain can serve either or both URL forms:
 - **Advanced** is the production default. Hosting the key material
   under a dedicated subdomain (`openpgpkey.phpboyscout.uk`) lets you
   put the WKD endpoint behind separate TLS, separate hosting, and
-  ideally a separate registrar account — without disturbing the
+  ideally a separate registrar account, without disturbing the
   main site. This is what the trust-anchor independence story relies
   on (see [phase2-signing-prep][prep] for the Cloudflare Pages recipe).
 - **Direct** would serve the WKD layout from the bare `phpboyscout.uk`
@@ -269,12 +269,12 @@ produced the trust set. For a customer-facing summary:
 
 | `resolver=…` value | What it means |
 |--------------------|---------------|
-| `composite[embedded,wkd:<host>]` | **The intended Phase 2 default.** Both trust anchors (the keys baked into the binary at build time AND the keys served live from your WKD endpoint) were fetched and **must agree** on the same fingerprints before the update proceeds. Two-of-three trust-anchor independence — the security property this design exists to deliver. |
+| `composite[embedded,wkd:<host>]` | **The intended Phase 2 default.** Both trust anchors (the keys baked into the binary at build time AND the keys served live from your WKD endpoint) were fetched and **must agree** on the same fingerprints before the update proceeds. Two-of-three trust-anchor independence: the security property this design exists to deliver. |
 | `embedded` | Single-anchor verification: only the keys baked into the binary at build time were consulted. Cryptographically sound (the signature still has to validate against a trusted key), but lower defence-in-depth than the composite default. Most commonly seen in tools where `update.external_key_email` hasn't been configured. |
 | `wkd:<host>` | Single-anchor verification: only the keys served by that WKD endpoint were consulted. Useful for tools that intentionally don't embed any keys (e.g. server-side automation that trusts its DNS but doesn't ship binary releases). |
 
 If you ever see `ErrKeyResolverMismatch` in the logs, that's an
-**active-tampering signal** — two trust anchors disagreed on which
+**active-tampering signal**, two trust anchors disagreed on which
 key is currently valid. Investigate which anchor is wrong before
 re-running. This is the highest-priority signal the verifier emits.
 
@@ -305,7 +305,7 @@ The chain in tabular form:
 ## What's deliberately out of scope (for now)
 
 - **Generating keys *in* an HSM via `gtb`.** KMS keys are
-  provisioned by Terraform — that's a one-off infrastructure
+  provisioned by Terraform, that's a one-off infrastructure
   operation, not a release-time command.
 - **Publishing to WKD via `gtb`.** WKD hosting is an externally-
   administered concern; we don't presume your DNS, your TLS
@@ -318,16 +318,16 @@ The chain in tabular form:
 
 ## Related
 
-- [`gtb keys mint`](../../how-to/mint-signing-key.md) — the production
+- [`gtb keys mint`](../../how-to/mint-signing-key.md): the production
   signing key recipe.
 - [`gtb keys generate-rotation`](../../how-to/generate-rotation-key.md)
-  — the offline-storage flow.
-- [Adding a signing backend](../../how-to/add-signing-backend.md) — for
+, the offline-storage flow.
+- [Adding a signing backend](../../how-to/add-signing-backend.md): for
   GCP KMS, Vault, YubiKey, etc.
 - [openpgpkey](../components/openpgpkey.md) and
-  [signing](../components/signing.md) — the programmatic APIs, now
+  [signing](../components/signing.md), the programmatic APIs, now
   extracted into the standalone
   [signing module](https://signing.phpboyscout.uk)
   (`gitlab.com/phpboyscout/go/signing`).
 - [Phase 2 spec](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0056-remote-update-checksum-verification)
-  — verifier design.
+, verifier design.

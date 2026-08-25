@@ -132,11 +132,11 @@ subcommands:
 
 ## Shared Intersections
 
-There are two distinct shared codepaths — one for the root command file and one for individual command files.
+There are two distinct shared codepaths: one for the root command file and one for individual command files.
 
 ### Root command: `buildSkeletonRootData`
 
-Both `generate project` and `regenerate project` render `pkg/cmd/root/cmd.go` via the same Jennifer template (`templates.SkeletonRoot`). The data for that template is now built through a shared helper `buildSkeletonRootData` (`regenerate.go`) that maps all manifest fields — including help channel configuration — to a complete `SkeletonRootData`:
+Both `generate project` and `regenerate project` render `pkg/cmd/root/cmd.go` via the same Jennifer template (`templates.SkeletonRoot`). The data for that template is now built through a shared helper `buildSkeletonRootData` (`regenerate.go`) that maps all manifest fields (including help channel configuration) to a complete `SkeletonRootData`:
 
 ```
 generate project                              regenerate project
@@ -153,7 +153,7 @@ generate project                              regenerate project
                                                      → pkg/cmd/root/cmd.go
 ```
 
-Both paths call `templates.SkeletonRoot` with data from `buildSkeletonRootData`; the only difference is the upstream source — `SkeletonConfig` (user input at creation time) on the left, the persisted `Manifest` on the right.
+Both paths call `templates.SkeletonRoot` with data from `buildSkeletonRootData`; the only difference is the upstream source: `SkeletonConfig` (user input at creation time) on the left, the persisted `Manifest` on the right.
 
 | Field | `generate project` source | `regenerate project` source |
 |---|---|---|
@@ -161,7 +161,7 @@ Both paths call `templates.SkeletonRoot` with data from `buildSkeletonRootData`;
 | `ReleaseProvider`, `Org`, `RepoName`, `Host`, `Private` | `SkeletonConfig` | `Manifest.ReleaseSource` |
 | `DisabledFeatures`, `EnabledFeatures` | `SkeletonConfig.Features` | `Manifest.Properties.Features` |
 | `HelpType`, `SlackChannel`, `SlackTeam`, `TeamsChannel`, `TeamsTeam` | `SkeletonConfig` | `Manifest.Properties.Help` |
-| `Subcommands` | _(empty — no commands at creation)_ | Built from `Manifest.Commands` |
+| `Subcommands` | _(empty, no commands at creation)_ | Built from `Manifest.Commands` |
 
 All fields are now correctly propagated through regeneration. Previously `regenerateRootCommand` omitted the five help fields, silently zeroing them on every `regenerate project` run.
 
@@ -190,17 +190,17 @@ postGenerate(ctx, data, cmdDir)                   [commands.go]
        └─ Step 5: handleDocumentationGeneration()  → generates or updates docs  (advisory)
 ```
 
-Steps 1 (asset files) is **fatal** — a failure stops the pipeline. Steps 2–5 are **advisory** — failures are logged as warnings and accumulated in `PipelineResult.Warnings` rather than aborting the run.
+Steps 1 (asset files) is **fatal** (a failure stops the pipeline. Steps 2–5 are **advisory**) failures are logged as warnings and accumulated in `PipelineResult.Warnings` rather than aborting the run.
 
-Step 5 places each page according to the project's `docs_layout` (a manifest-only property: `diataxis` for new projects, `flat` for legacy ones) — commands under `docs/reference/cli/`, packages under `docs/explanation/components/`. The `module_published` property (set by `generate docs --public-api`) selects pkg.go.dev vs a local `go doc` hint for the package API reference. See [Documentation Layout (Diátaxis)](../explanation/concepts/documentation-layout.md).
+Step 5 places each page according to the project's `docs_layout` (a manifest-only property: `diataxis` for new projects, `flat` for legacy ones): commands under `docs/reference/cli/`, packages under `docs/explanation/components/`. The `module_published` property (set by `generate docs --public-api`) selects pkg.go.dev vs a local `go doc` hint for the package API reference. See [Documentation Layout (Diátaxis)](../explanation/concepts/documentation-layout.md).
 
 **`generate command`** calls `performGeneration` once (for the single target command) then `postGenerate`.
 
 **`regenerate project`** calls `regenerateCommandRecursive` which calls `performGeneration` then `postGenerate` for every command in the manifest tree, depth-first.
 
-**`regenerate manifest`** does **not** call `performGeneration` or `postGenerate` — it only scans source files and writes `manifest.yaml`.
+**`regenerate manifest`** does **not** call `performGeneration` or `postGenerate`. It only scans source files and writes `manifest.yaml`.
 
-**`generate project`** does **not** call `performGeneration` or `postGenerate` — it writes a full project skeleton and an empty manifest. Individual commands are added afterwards via `generate command`.
+**`generate project`** does **not** call `performGeneration` or `postGenerate`. It writes a full project skeleton and an empty manifest. Individual commands are added afterwards via `generate command`.
 
 ---
 
@@ -210,7 +210,7 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 |---|---|---|
 | `CommandPipeline` | `pipeline.go` | Owns the ordered post-generation steps shared by both `generate command` and `regenerate project`. Constructed with `newCommandPipeline(g, opts)` and executed via `Run()`. |
 | `PipelineOptions` | `pipeline.go` | Controls which steps run: `SkipAssets`, `SkipDocumentation`, `SkipRegistration`. Zero value enables all steps. |
-| `PipelineResult` | `pipeline.go` | Returned by `Run()`. Contains `Warnings []StepWarning` — a slice of non-fatal step failures the caller can inspect. |
+| `PipelineResult` | `pipeline.go` | Returned by `Run()`. Contains `Warnings []StepWarning`: a slice of non-fatal step failures the caller can inspect. |
 | `ManifestCommandUpdate` | `manifest_update.go` | Struct passed to `updateCommandRecursive` carrying all fields for a manifest command entry. Replaces a 14-parameter function signature. |
 | `CommandContext` | `context.go` | Value type holding the fully resolved config for a single command invocation. Used by `reRegisterChildCommands` to construct child generators without the bare-`Config` foot-gun. |
 
@@ -218,7 +218,7 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 
 ## Unique Code by Command
 
-### `generate project` — only path
+### `generate project`: only path
 
 | Function | File | Purpose |
 |---|---|---|
@@ -231,7 +231,7 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 | `releaseProviderForHost()` | `skeleton.go` | Maps host string to GitHub or GitLab provider |
 | `resolveGoVersion()` | `skeleton.go` | Detects Go toolchain version for `go.mod` |
 
-### `generate command` — only path
+### `generate command`: only path
 
 | Function | File | Purpose |
 |---|---|---|
@@ -241,13 +241,13 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 | `startAIGeneration()` / `resolveInput()` | `commands.go` | Resolves prompt source and executes AI request |
 | `verifyAndFixProject()` | `commands.go` | Post-generation lint/test verification loop with AI fixes |
 
-### `regenerate project` — only path
+### `regenerate project`: only path
 
 | Function | File | Purpose |
 |---|---|---|
 | `RegenerateProject()` | `regenerate.go` | Reads manifest, regenerates root + all commands + skeleton template files |
 | `regenerateRootCommand()` | `regenerate.go` | Re-renders `pkg/cmd/root/cmd.go` via `buildSkeletonRootData` + `SkeletonRoot` |
-| `buildSkeletonRootData()` | `regenerate.go` | Maps all manifest fields (incl. `Properties.Help`) to `SkeletonRootData` — the authoritative manifest → root data builder |
+| `buildSkeletonRootData()` | `regenerate.go` | Maps all manifest fields (incl. `Properties.Help`) to `SkeletonRootData`: the authoritative manifest → root data builder |
 | `buildSkeletonSubcommands()` | `regenerate.go` | Builds `[]SkeletonSubcommand` from manifest commands for root template |
 | `regenerateCommandRecursive()` | `regenerate.go` | Depth-first traversal calling `performGeneration` + `postGenerate` per command |
 | `setupCommandConfig()` | `regenerate.go` | Populates generator config from a manifest command entry |
@@ -255,7 +255,7 @@ Step 5 places each page according to the project's `docs_layout` (a manifest-onl
 | `regenerateSkeletonFiles()` | `regenerate.go` | Reconstructs skeleton template data from manifest, calls `generateSkeletonTemplateFiles`, merges hashes |
 | `persistProjectHashes()` | `regenerate.go` | Reads current manifest, sets `Hashes` field, writes it back to disk |
 
-### `regenerate manifest` — only path
+### `regenerate manifest`: only path
 
 | Function | File | Purpose |
 |---|---|---|
@@ -326,7 +326,7 @@ regenerate manifest
   └─ RegenerateManifest()       → rebuilds commands list from source, preserves properties/release_source/hashes
 ```
 
-The manifest is the single source of truth for `regenerate project` — it reads nothing from the filesystem except the manifest itself. `regenerate manifest` does the inverse: it reads the filesystem and reconstructs the manifest, making it a recovery tool when the manifest drifts from the code.
+The manifest is the single source of truth for `regenerate project`. It reads nothing from the filesystem except the manifest itself. `regenerate manifest` does the inverse: it reads the filesystem and reconstructs the manifest, making it a recovery tool when the manifest drifts from the code.
 
 ---
 
@@ -368,20 +368,20 @@ The `internal/generator` package is split into focused files:
 
 **`ManifestCommandUpdate` eliminates a 14-parameter function signature.** `updateCommandRecursive` previously took 14 positional parameters. New manifest fields now extend the struct rather than cascade through every call site.
 
-**`buildSkeletonRootData` makes the root rendering intersection explicit.** `regenerateRootCommand` now calls `buildSkeletonRootData(manifest, subcommands)` — the single authoritative function that maps every manifest field to `SkeletonRootData`, including the five `ManifestHelp` fields (`HelpType`, `SlackChannel`, `SlackTeam`, `TeamsChannel`, `TeamsTeam`) that were previously silently dropped on every regeneration. Adding a new project-level setting to the manifest now requires updating only this one function.
+**`buildSkeletonRootData` makes the root rendering intersection explicit.** `regenerateRootCommand` now calls `buildSkeletonRootData(manifest, subcommands)`: the single authoritative function that maps every manifest field to `SkeletonRootData`, including the five `ManifestHelp` fields (`HelpType`, `SlackChannel`, `SlackTeam`, `TeamsChannel`, `TeamsTeam`) that were previously silently dropped on every regeneration. Adding a new project-level setting to the manifest now requires updating only this one function.
 
-**Project skeleton files are now hash-tracked and protected.** `Manifest.Hashes` (top-level `map[string]string`, keyed by relative file path) records the SHA256 of every file written by `generateSkeletonTemplateFiles`. Before overwriting any existing file, `renderAndHashSkeletonTemplate` compares the current content hash against the stored value. A mismatch means the user has customised the file — the generator prompts before overwriting and skips non-interactively. Both `generate project` (via `writeSkeletonManifest`) and `regenerate project` (via `persistProjectHashes`) update `Manifest.Hashes` after each run, so customisation state is tracked across invocations.
+**Project skeleton files are now hash-tracked and protected.** `Manifest.Hashes` (top-level `map[string]string`, keyed by relative file path) records the SHA256 of every file written by `generateSkeletonTemplateFiles`. Before overwriting any existing file, `renderAndHashSkeletonTemplate` compares the current content hash against the stored value. A mismatch means the user has customised the file: the generator prompts before overwriting and skips non-interactively. Both `generate project` (via `writeSkeletonManifest`) and `regenerate project` (via `persistProjectHashes`) update `Manifest.Hashes` after each run, so customisation state is tracked across invocations.
 
-**One conflict resolver serves both write paths.** `resolveConflict` (`conflict.go`) is the single decision for every generated file — the skeleton walk and the per-command `cmd.go`/`init.go`/`main_test.go` alike. It returns `write`, `keep` or `ignored` plus the hash the manifest should record, and it **never returns an error**: a declined file is a skip, so the run continues to every remaining command. Before this there were two handlers, and only the skeleton one loaded `.gtb/ignore`, hinted a matchable path, or let a skip continue — the command path signalled "keep" by returning an error that unwound the whole regeneration at the first conflict (issue #13).
+**One conflict resolver serves both write paths.** `resolveConflict` (`conflict.go`) is the single decision for every generated file. The skeleton walk and the per-command `cmd.go`/`init.go`/`main_test.go` alike. It returns `write`, `keep` or `ignored` plus the hash the manifest should record, and it **never returns an error**: a declined file is a skip, so the run continues to every remaining command. Before this there were two handlers, and only the skeleton one loaded `.gtb/ignore`, hinted a matchable path, or let a skip continue: the command path signalled "keep" by returning an error that unwound the whole regeneration at the first conflict (issue #13).
 
 Precedence inside the resolver: `.gtb/ignore` first (outranking both `--force` and `--overwrite allow`), then the stored-hash comparison, then the policy prompt. A kept file retains its *stored* hash so it conflicts again next run. An **ignored** file keeps its stored hash too, and this is the part that changed in spec 0188 D9: it used to be refreshed from disk, which adopted the developer's edit as the new baseline, so `ignore add` → regenerate → `ignore remove` → regenerate destroyed the edit with no conflict and no prompt. `reportConflicts` prints one end-of-run summary naming what was kept, with the `gtb ignore add <path>` remedy, and counting what a rule already covered. Keeping is exit 0.
 
-**A rule blocks rendering, not wiring.** `IsIgnored` answers only the render question — may the generator rewrite this file from source — and every existing call site keeps that meaning. The localised writers (`registerSubcommand`, `deregisterSubcommand`, `reRegisterChildCommands`, `ensureHookStubs`, `handleExecutionFile`) instead ask `IsSealed` via the shared `wiringSealed` guard, because the cost of refusing *them* lands on the program: an unregistered subcommand still compiles and is simply absent from the built CLI, and a missing hook stub leaves `cmd.go` calling a function `main.go` never defines. `RuleState` (`managed`/`ignored`/`sealed`) is the resolved tier, parsed from a `.gitattributes`-style trailing attribute — and trailing tokens are only attributes when *every* one is known, so a pattern containing a space still parses as one pattern (spec 0188).
+**A rule blocks rendering, not wiring.** `IsIgnored` answers only the render question: may the generator rewrite this file from source, and every existing call site keeps that meaning. The localised writers (`registerSubcommand`, `deregisterSubcommand`, `reRegisterChildCommands`, `ensureHookStubs`, `handleExecutionFile`) instead ask `IsSealed` via the shared `wiringSealed` guard, because the cost of refusing *them* lands on the program: an unregistered subcommand still compiles and is simply absent from the built CLI, and a missing hook stub leaves `cmd.go` calling a function `main.go` never defines. `RuleState` (`managed`/`ignored`/`sealed`) is the resolved tier, parsed from a `.gitattributes`-style trailing attribute, and trailing tokens are only attributes when *every* one is known, so a pattern containing a space still parses as one pattern (spec 0188).
 
-**The conflict prompt is TTY-guarded.** `promptOverwrite` (`hash.go`) resolves a conflict by policy — `--overwrite=allow`/`deny` short-circuit, and the default `ask` degrades to *skip* whenever the run is non-interactive. `(*Generator).isNonInteractive` treats `GTB_NON_INTERACTIVE=true`, `CI=true`, the resolved `ci` config key (which the `--ci` flag feeds — agreeing with `pkg/cmd/root.isCIEnvironment`, which the standalone function did not), a non-terminal stdin (`utils.IsInteractive`), or an unopenable controlling terminal (`/dev/tty` on unix, `CONIN$` on Windows — probed in `tty_unix.go`/`tty_windows.go`) as non-interactive. This is checked **before** any `huh` call, so a headless/CI run no longer emits the per-file `Prompt failed … open /dev/tty` warning or blocks on a prompt (issue #6.2). This mirrors the `pkg/cmd/root` pre-run prompt TTY guard.
+**The conflict prompt is TTY-guarded.** `promptOverwrite` (`hash.go`) resolves a conflict by policy: `--overwrite=allow`/`deny` short-circuit, and the default `ask` degrades to *skip* whenever the run is non-interactive. `(*Generator).isNonInteractive` treats `GTB_NON_INTERACTIVE=true`, `CI=true`, the resolved `ci` config key (which the `--ci` flag feeds, agreeing with `pkg/cmd/root.isCIEnvironment`, which the standalone function did not), a non-terminal stdin (`utils.IsInteractive`), or an unopenable controlling terminal (`/dev/tty` on unix, `CONIN$` on Windows, probed in `tty_unix.go`/`tty_windows.go`) as non-interactive. This is checked **before** any `huh` call, so a headless/CI run no longer emits the per-file `Prompt failed … open /dev/tty` warning or blocks on a prompt (issue #6.2). This mirrors the `pkg/cmd/root` pre-run prompt TTY guard.
 
 **The generated CLI commands index is conflict-aware.** `generateCommandsIndex` no longer writes `docs/reference/cli/index.md` (or the flat `docs/commands/index.md`) unconditionally. It consults `.gtb/ignore` first, then splices the freshly rendered command table into the `gtb:commands:start`/`:end` markers via `mergeCommandsIndex`, preserving any surrounding hand-added prose. A purely-generated legacy index (no markers, no prose) is migrated to the marker form; a diverged index (markers removed, prose present) is preserved untouched with a warning. The scaffolded index ships with an empty marker pair (issue #6).
 
 **`generate project` is otherwise separate.** Beyond the shared skeleton template and `SkeletonRoot` template it shares with `regenerate project`, it writes files that are never touched by the per-command pipeline (`cmd/main.go`, CI assets) and creates an empty manifest. It does not participate in the per-command generation pipeline at all.
 
-**`regenerate manifest` is a recovery tool.** It is the only command that does not write Go source files — it only reads them. It does not share either the `SkeletonRoot` template or the `CommandPipeline` sequence.
+**`regenerate manifest` is a recovery tool.** It is the only command that does not write Go source files. It only reads them. It does not share either the `SkeletonRoot` template or the `CommandPipeline` sequence.

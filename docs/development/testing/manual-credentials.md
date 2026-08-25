@@ -1,6 +1,6 @@
 ---
 title: Manual credential testing
-description: Exercise the OS-keychain credential storage mode end-to-end against a real workstation using the cmd/e2e test binary — wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
+description: Exercise the OS-keychain credential storage mode end-to-end against a real workstation using the cmd/e2e test binary: wizard UX, runtime resolution, CI refusal, probe gating, Bitbucket JSON blob, and regulated-build stripping.
 tags: [testing, development, credentials, keychain]
 authors: [Matt Cockayne <matt@phpboyscout.com>]
 ---
@@ -23,7 +23,7 @@ A reachable OS keychain is required for most scenarios. Support matrix:
 
 | Platform | Backend | Ready out of the box? |
 |----------|---------|-----------------------|
-| macOS | Keychain | Yes — login keychain, unlocked after login. |
+| macOS | Keychain | Yes: login keychain, unlocked after login. |
 | Linux (desktop) | Secret Service via godbus (GNOME Keyring, KWallet) | If a desktop session is running. |
 | Linux (headless/SSH/containers) | — | No. Probe detects; wizard hides keychain option. See [headless keychain testing](headless-keychain-testing.md) to unblock. |
 | Windows | Credential Manager | Yes on a logged-in user session. |
@@ -38,7 +38,7 @@ dbus-send --session --print-reply \
 
 No error means the probe will succeed.
 
-## Scenario 1 — Happy path: wizard writes to keychain
+## Scenario 1: Happy path: wizard writes to keychain
 
 Exercises the end-to-end flow: storage-mode selector surfaces keychain, wizard calls `credentials.Store`, config records the reference, secret never touches disk.
 
@@ -49,11 +49,11 @@ rm -rf /tmp/e2etest
 
 At each prompt:
 
-1. **Select AI provider** — pick any (Claude, OpenAI, Gemini).
-2. **Credential Storage** — confirm `OS keychain` appears as an option.
-   If it doesn't, your host fails the probe — jump to [Troubleshooting](#troubleshooting) before going further.
+1. **Select AI provider**, pick any (Claude, OpenAI, Gemini).
+2. **Credential Storage**, confirm `OS keychain` appears as an option.
+   If it doesn't, your host fails the probe: jump to [Troubleshooting](#troubleshooting) before going further.
 3. Pick `OS keychain`.
-4. **API Key** — paste a recognisable fake, e.g. `sk-ant-test-xyzzy`.
+4. **API Key**, paste a recognisable fake, e.g. `sk-ant-test-xyzzy`.
 
 Verify the written config:
 
@@ -95,7 +95,7 @@ Confirm the secret actually landed in the OS keychain:
 
 Each must print `sk-ant-test-xyzzy`.
 
-## Scenario 2 — Doctor and config observe the keychain reference
+## Scenario 2: Doctor and config observe the keychain reference
 
 With the config from Scenario 1 still in place, point the tool at it via the root-level `--config` flag (`doctor` does not have its own `--dir`; it reads whichever config file is loaded):
 
@@ -103,7 +103,7 @@ With the config from Scenario 1 still in place, point the tool at it via the roo
 ./bin/e2e --config /tmp/e2etest/config.yaml doctor
 ```
 
-Expected: the `credentials.no-literal` check passes — no literal credentials were written.
+Expected: the `credentials.no-literal` check passes. No literal credentials were written.
 
 Inspect the resolved config:
 
@@ -112,7 +112,7 @@ Inspect the resolved config:
 # → e2e/anthropic.api
 ```
 
-The resolver itself is not directly exercised by any `gtb` subcommand — the e2e binary doesn't expose an `ai chat`-style invocation. To see a real resolution trace, run a tiny ad-hoc program that imports the library:
+The resolver itself is not directly exercised by any `gtb` subcommand: the e2e binary doesn't expose an `ai chat`-style invocation. To see a real resolution trace, run a tiny ad-hoc program that imports the library:
 
 ```bash
 cat > /tmp/resolve_check.go <<'EOF'
@@ -148,7 +148,7 @@ go run /tmp/resolve_check.go
 
 `client=true err=<nil>` confirms the resolver walked env → keychain → literal and found the keychain-stored value.
 
-## Scenario 3 — CI refuses literal mode (R5)
+## Scenario 3: CI refuses literal mode (R5)
 
 ```bash
 CI=true ./bin/e2e init ai --dir /tmp/e2etest-ci
@@ -157,9 +157,9 @@ CI=true ./bin/e2e init ai --dir /tmp/e2etest-ci
 - The storage-mode prompt must **not** list `Literal value in config file (plaintext)`.
 - If you bypass the form (via a test-only injection), the wizard exits non-zero with a hint pointing at CI secret injection.
 
-## Scenario 4 — Probe gates the option when backend unreachable
+## Scenario 4: Probe gates the option when backend unreachable
 
-If `OS keychain` is missing from the Scenario 1 prompt, you've already landed in this scenario. The probe returned `false` and the wizard hid the option — the designed behaviour on any host without a registered Secret Service provider.
+If `OS keychain` is missing from the Scenario 1 prompt, you've already landed in this scenario. The probe returned `false` and the wizard hid the option: the designed behaviour on any host without a registered Secret Service provider.
 
 Common triggers for probe failure:
 
@@ -191,7 +191,7 @@ dbus-send --session --print-reply \
 - `ServiceUnknown` error → bus is there, no Secret Service registered.
 - No error → bus and Secret Service both live; probe should succeed.
 
-## Scenario 5 — Bitbucket dual-credential JSON blob
+## Scenario 5: Bitbucket dual-credential JSON blob
 
 Bitbucket requires a `{username, app_password}` pair. The wizard for Bitbucket storage mode is Phase 3, but the resolver can be exercised today by hand-populating the keychain entry.
 
@@ -222,7 +222,7 @@ bitbucket:
 EOF
 ```
 
-No e2e subcommand exercises the Bitbucket resolver directly, so drive it with a tiny ad-hoc program that calls `bitbucket.SettingsFromConfig` (from the extracted `gitlab.com/phpboyscout/go/forge-bitbucket` module) — the config→settings adapter performs the keychain resolution and surfaces any error:
+No e2e subcommand exercises the Bitbucket resolver directly, so drive it with a tiny ad-hoc program that calls `bitbucket.SettingsFromConfig` (from the extracted `gitlab.com/phpboyscout/go/forge-bitbucket` module): the config→settings adapter performs the keychain resolution and surfaces any error:
 
 ```bash
 cat > /tmp/bb_check.go <<'EOF'
@@ -276,7 +276,7 @@ Replace the entry with malformed JSON:
 
 Re-run the ad-hoc program above. It must print an error containing `"not valid JSON"` rather than silently using a literal fallback. This is the R3 guarantee: a broken keychain entry is not masked by stale literals.
 
-## Scenario 6 — Regulated-build strips keychain entirely
+## Scenario 6: Regulated-build strips keychain entirely
 
 Confirm that deleting the opt-in import really removes every keychain code path:
 
@@ -357,12 +357,12 @@ go run /tmp/probe_check.go
 
 **`secret-tool: command not found` on Linux.** Install `libsecret-tools` (Debian/Ubuntu) or `libsecret` (Fedora/Arch). You can also verify entries via GNOME Seahorse (GUI) or `dbus-send` queries.
 
-**I'm on a server and want to verify behaviour that needs a reachable keychain.** Short of installing GNOME Keyring or similar, you can run the Gherkin suite against the mock backend (`just test-e2e`) — it covers the same paths without a real OS keychain. Scenarios that truly require the live round-trip (1, 2, 5) are only meaningful on a desktop or a macOS/Windows workstation.
+**I'm on a server and want to verify behaviour that needs a reachable keychain.** Short of installing GNOME Keyring or similar, you can run the Gherkin suite against the mock backend (`just test-e2e`): it covers the same paths without a real OS keychain. Scenarios that truly require the live round-trip (1, 2, 5) are only meaningful on a desktop or a macOS/Windows workstation.
 
-**Corrupt-JSON test isn't triggering.** Check you're pointing at the right keychain entry — service must be `e2e`, account must be `bitbucket.auth`. The resolver only inspects `bitbucket.keychain` config entries, not `bitbucket.<field>.env` or `bitbucket.username`.
+**Corrupt-JSON test isn't triggering.** Check you're pointing at the right keychain entry: service must be `e2e`, account must be `bitbucket.auth`. The resolver only inspects `bitbucket.keychain` config entries, not `bitbucket.<field>.env` or `bitbucket.username`.
 
 ## Related
 
-- [`docs/components/credentials.md`](../../explanation/components/credentials.md) — architecture reference.
-- [`docs/how-to/configure-credentials.md`](../../how-to/configure-credentials.md) — end-user configuration guide.
-- [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening) — spec driving this work; each scenario maps to a requirement (R1–R6).
+- [`docs/components/credentials.md`](../../explanation/components/credentials.md): architecture reference.
+- [`docs/how-to/configure-credentials.md`](../../how-to/configure-credentials.md): end-user configuration guide.
+- [`0054-credential-storage-hardening`](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0054-credential-storage-hardening): spec driving this work; each scenario maps to a requirement (R1–R6).

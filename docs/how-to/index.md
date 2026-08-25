@@ -62,7 +62,7 @@ A hands-on guide to implementing domain-specific logic and registering it with t
 Build multi-level command trees (e.g. `tool deploy canary`) via the generator or by hand using `setup.Command.Register`.
 
 ### [Attaching External Commands](attach-external-commands.md)
-Attach a whole Cobra command tree from a separate Go module onto the root with `gtb attach`, so it survives regeneration — no `main.go` hand-edit, no `.gtb/ignore` hack.
+Attach a whole Cobra command tree from a separate Go module onto the root with `gtb attach`, so it survives regeneration, no `main.go` hand-edit, no `.gtb/ignore` hack.
 
 ## Advanced Guides
 
@@ -128,9 +128,9 @@ Learn how to use afero-backed in-memory git repositories for high-speed testing 
 Wire up `UpdateCmd` with GitHub, GitLab, Bitbucket, Gitea, Codeberg, or a direct HTTP server as the release source for automatic binary updates.
 
 ### [Add a Custom Release Source](custom-release-source.md)
-Implement and register a custom `release.Provider` so your tool can self-update from any backend — S3, Artifactory, Nexus, or a proprietary store.
+Implement and register a custom `release.Provider` so your tool can self-update from any backend: S3, Artifactory, Nexus, or a proprietary store.
 
-### [Secure Releases — Checksum Verification](secure-releases.md)
+### [Secure Releases: Checksum Verification](secure-releases.md)
 Publish `checksums.txt` alongside release binaries so `Update()` rejects tampered or truncated downloads. Covers the fail-open library default, the `props.Tool.Signing.RequireChecksum` opt-in for fail-closed tools, and per-provider manifest retrieval (Bitbucket downloads, Direct's `checksum_url_template`).
 
 ## Telemetry
@@ -163,13 +163,13 @@ Orchestrate long-running daemons, crons, and background workers with graceful sh
 Register a gRPC server with the controller, wire the standard health protocol, and configure the port.
 
 ### [Expose a gRPC Service as REST](expose-grpc-as-rest.md)
-Put a JSON/REST surface over an existing gRPC service with the grpc-gateway — annotate the proto, mount `gateway.New`, and let `DialLocal` handle the connection.
+Put a JSON/REST surface over an existing gRPC service with the grpc-gateway: annotate the proto, mount `gateway.New`, and let `DialLocal` handle the connection.
 
 ### [Serve Interactive API Docs](serve-api-docs.md)
 Generate an OpenAPI v3 spec and serve it with an embedded Stoplight Elements "try it" console using the `go/transport-openapi` module.
 
 ### [Verify Requests (API Keys & JWT/OIDC)](verify-requests-with-authn.md)
-Authenticate HTTP requests with `go/authn` verifiers and the fail-closed `AuthMiddleware` — API keys, JWT/OIDC, mTLS, and an authorization policy.
+Authenticate HTTP requests with `go/authn` verifiers and the fail-closed `AuthMiddleware`: API keys, JWT/OIDC, mTLS, and an authorization policy.
 
 ## Security & Signatures
 
@@ -194,7 +194,7 @@ Securely rotate your cryptographic keys without breaking backwards compatibility
 ## Credentials
 
 ### [Configure Credentials](configure-credentials.md)
-Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords — env-var reference (recommended default), OS keychain (opt-in), or literal config (legacy) — and migrate between them safely. Also covers how a forge credential is *resolved* at runtime, which rung wins, and how to check what resolves without printing the secret.
+Choose a storage mode for AI API keys, VCS tokens, and Bitbucket app passwords: env-var reference (recommended default), OS keychain (opt-in), or literal config (legacy), and migrate between them safely. Also covers how a forge credential is *resolved* at runtime, which rung wins, and how to check what resolves without printing the secret.
 
 ### [Implement a Custom Credential Backend](custom-credential-backend.md)
 Plug Hashicorp Vault, AWS Secrets Manager, 1Password Connect, or any other secret store into your tool by implementing the `credentials.Backend` interface and registering it at startup.

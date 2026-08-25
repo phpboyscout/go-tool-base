@@ -74,7 +74,7 @@ as `setup.Wrap("serve", &cobra.Command{...})`.
 func (c *Command) Register(children ...*Command)
 ```
 Attaches each child to the underlying cobra tree and wraps its `RunE`
-with `Chain(child.Feature, child.RunE)` — applying every global
+with `Chain(child.Feature, child.RunE)`, applying every global
 middleware and any feature-specific middleware registered for the
 child's key. Each child is wrapped exactly once with **its own** feature;
 the parent's feature is not propagated downward.
@@ -90,8 +90,8 @@ parent.Register(
 ### Removed helpers
 
 The `AddCommandWithMiddleware(parent, child, feature)` and
-`ApplyMiddlewareRecursively(cmd, feature)` helpers — both `// Deprecated:` since
-the composed `setup.Command` type landed in v0.5 — were **removed in v0.20**.
+`ApplyMiddlewareRecursively(cmd, feature)` helpers, both `// Deprecated:` since
+the composed `setup.Command` type landed in v0.5, were **removed in v0.20**.
 Wrap each command with its own feature via `setup.Wrap` and attach it through
 `parent.Register(child)`; replace any `AddCommandWithMiddleware(parent, child,
 feature)` call with `parent.Register(setup.Wrap(feature, child))`. See the
@@ -158,7 +158,7 @@ func WithCustomHeader(header string) setup.Middleware {
 !!! note "CLI commands, not HTTP/gRPC"
     This page covers middleware for the **cobra command tree** (wrapping command
     `RunE` execution). For cross-cutting concerns on the **HTTP/gRPC transports**
-    — logging, auth, rate limiting, retry, circuit breaking — see
+ (logging, auth, rate limiting, retry, circuit breaking) see
     [Transport Middleware & Resilience](../../concepts/transport-middleware.md). The two share a
     philosophy but are entirely separate systems.
 
@@ -205,7 +205,7 @@ To ensure thread safety and architectural consistency, the middleware registry f
 
 1.  **Registration**: Occurs during the `init()` phase of your packages.
 2.  **Sealing**: The registry is "sealed" during the root command registration. No further middleware can be added once the command tree is being built.
-3.  **Execution**: When a parent attaches a child via `parent.Register(child)`, `Chain()` wraps the child's `RunE` exactly once — with that child's own feature key. Every command in the tree picks up its own middleware at attach time; nothing is wrapped twice.
+3.  **Execution**: When a parent attaches a child via `parent.Register(child)`, `Chain()` wraps the child's `RunE` exactly once: with that child's own feature key. Every command in the tree picks up its own middleware at attach time; nothing is wrapped twice.
 
 ## How wrapping is wired
 
@@ -219,7 +219,7 @@ Each `*setup.Command` carries a `Feature` field (`props.FeatureID`) that the wra
 When the root constructor (or any parent) calls `Register`, the framework:
 
 1. Iterates each child you pass in.
-2. Wraps the child's `RunE` with `Chain(child.Feature, child.RunE)` — applying global middleware then any middleware registered against the child's feature.
+2. Wraps the child's `RunE` with `Chain(child.Feature, child.RunE)`: applying global middleware then any middleware registered against the child's feature.
 3. Calls the embedded `(*cobra.Command).AddCommand` to splice the child into the cobra tree.
 
 Because each command owns its own feature, a parent never needs to know which middleware its descendants need. Siblings can have different feature keys and pick up entirely different middleware stacks.
@@ -239,16 +239,16 @@ if pluginEnabled {
 The `Register` call is idempotent against double-attachment (the underlying cobra parent rejects duplicates) and always wires middleware correctly, regardless of when it fires relative to `setup.Seal()`.
 
 !!! warning "Deprecated: `AddCommandWithMiddleware`"
-    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)` — the [v0.4-to-v0.5 migration guide](../../../reference/migration/v0.4-to-v0.5.md) has the diff.
+    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)`: the [v0.4-to-v0.5 migration guide](../../../reference/migration/v0.4-to-v0.5.md) has the diff.
 
 ## Hooks vs. the framework bootstrap
 
-The framework's own bootstrap — config loading, log-level setup, feature-flag resolution, telemetry collector construction, and the update check — runs in the **root command's `PersistentPreRunE`**. By default cobra runs only the *closest* `PersistentPreRunE` in the command chain, so a subcommand that defines its own would silently shadow the root bootstrap for that subtree (a footgun where `props.Config` ends up nil at runtime).
+The framework's own bootstrap: config loading, log-level setup, feature-flag resolution, telemetry collector construction, and the update check: runs in the **root command's `PersistentPreRunE`**. By default cobra runs only the *closest* `PersistentPreRunE` in the command chain, so a subcommand that defines its own would silently shadow the root bootstrap for that subtree (a footgun where `props.Config` ends up nil at runtime).
 
 GTB removes this footgun: `NewCmdRoot` sets `cobra.EnableTraverseRunHooks = true`, so cobra runs **every** `PersistentPreRunE` from root to leaf. The guarantee is:
 
 1. The framework bootstrap (root hook) **always runs first**.
-2. Your subcommand's `PersistentPreRunE` runs **after** it — never instead of it.
+2. Your subcommand's `PersistentPreRunE` runs **after** it. Never instead of it.
 
 This means a downstream `PersistentPreRunE` can safely rely on `props.Config`, `props.Collector`, and the resolved log level already being populated. You do **not** need to (and should not) call the framework bootstrap yourself. When the tree contains a downstream `PersistentPreRunE`, GTB emits a one-time debug log noting this bootstrap-then-child ordering.
 
@@ -257,4 +257,4 @@ This means a downstream `PersistentPreRunE` can safely rely on `props.Config`, `
 !!! tip "Middleware vs. Hooks"
     Use **Hooks** (`PersistentPreRunE`) for environmental setup like loading config files. Use **Middleware** for operational concerns that need to wrap the execution, like timing, logging, or error recovery.
 
-    A subcommand-level `PersistentPreRunE` does **not** replace the framework bootstrap — `NewCmdRoot` enables `cobra.EnableTraverseRunHooks`, so the root bootstrap always runs first and your hook runs after it (root→leaf). Your hook can rely on `props.Config` already being loaded.
+    A subcommand-level `PersistentPreRunE` does **not** replace the framework bootstrap: `NewCmdRoot` enables `cobra.EnableTraverseRunHooks`, so the root bootstrap always runs first and your hook runs after it (root→leaf). Your hook can rely on `props.Config` already being loaded.

@@ -9,9 +9,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 # Gateway
 
 !!! info "The pure gateway now lives in a standalone module"
-    The pure gateway construction (`New`, `Register`, `Settings`) has been extracted to [`gitlab.com/phpboyscout/go/transport/gateway`](https://transport.go.phpboyscout.uk). This was a **clean break**: `pkg/gateway` keeps only the `config.Reader` adapters (`NewFromConfig`, `RegisterFromConfig`, …), which resolve settings from config, dial the local gRPC server, and delegate to the module — and which own their own `WithDialOptions`/`WithMuxOptions`/`WithMiddleware`. Code that already has a `*grpc.ClientConn` uses `go/transport/gateway` directly — see the [migration note](../../reference/migration/v0.x-transport-extracted.md).
+    The pure gateway construction (`New`, `Register`, `Settings`) has been extracted to [`gitlab.com/phpboyscout/go/transport/gateway`](https://transport.go.phpboyscout.uk). This was a **clean break**: `pkg/gateway` keeps only the `config.Reader` adapters (`NewFromConfig`, `RegisterFromConfig`, …), which resolve settings from config, dial the local gRPC server, and delegate to the module (and which own their own `WithDialOptions`/`WithMuxOptions`/`WithMiddleware`. Code that already has a `*grpc.ClientConn` uses `go/transport/gateway` directly) see the [migration note](../../reference/migration/v0.x-transport-extracted.md).
 
-The `pkg/gateway` package makes a [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway) a first-class transport. It dials the local gRPC server — matching the server's own transport security — and serves the generated REST handlers, either mounted on an existing HTTP server or as its own controller-managed HTTP server.
+The `pkg/gateway` package makes a [grpc-gateway](https://github.com/grpc-ecosystem/grpc-gateway) a first-class transport. It dials the local gRPC server (matching the server's own transport security) and serves the generated REST handlers, either mounted on an existing HTTP server or as its own controller-managed HTTP server.
 
 This gives you a JSON/REST surface over an existing gRPC service without standing up a separate, hand-written translation layer. The only gateway-specific code you write is a single registration function.
 
@@ -45,8 +45,8 @@ register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientCo
 ## Middleware on the REST surface
 
 The gateway handler is an ordinary `http.Handler`, so the
-[HTTP server middleware chain](http.md#middleware-chaining) — logging, security
-headers, rate limiting, auth — applies to it like any other handler. Pass
+[HTTP server middleware chain](http.md#middleware-chaining), logging, security
+headers, rate limiting, auth, applies to it like any other handler. Pass
 `WithMiddleware` to either entry point:
 
 ```go
@@ -133,7 +133,7 @@ reconfiguration logic.
 
 ## Usage Example: mounted on an existing server
 
-Use `NewFromConfig` when the REST handlers should share an origin with other routes and GTB config should prepare the local gRPC connection for you — for example, serving the API alongside the OpenAPI docs on a single mux.
+Use `NewFromConfig` when the REST handlers should share an origin with other routes and GTB config should prepare the local gRPC connection for you: for example, serving the API alongside the OpenAPI docs on a single mux.
 
 ```go
 register := func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
@@ -176,6 +176,6 @@ if err != nil {
 
 The package builds on the rest of the web-service stack:
 
-- **`pkg/grpc`** — `DialLocal` opens the connection to the local gRPC server with matching transport security.
-- **`pkg/http`** — `Register` and `WithConfigPrefix` host the gateway as a controller-managed server when using `Register`.
-- **grpc-gateway/v2 `runtime`** — provides the `ServeMux` and the generated handler registration.
+- **`pkg/grpc`**: `DialLocal` opens the connection to the local gRPC server with matching transport security.
+- **`pkg/http`**: `Register` and `WithConfigPrefix` host the gateway as a controller-managed server when using `Register`.
+- **grpc-gateway/v2 `runtime`**: provides the `ServeMux` and the generated handler registration.

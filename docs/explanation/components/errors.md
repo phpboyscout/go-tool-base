@@ -8,13 +8,13 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 # Error Catalogue
 
-This document lists the sentinel errors a GTB tool may encounter — both those
+This document lists the sentinel errors a GTB tool may encounter, both those
 defined in GTB's own `pkg/` packages and those from the standalone
 `gitlab.com/phpboyscout/go/*` modules it consumes (each such section links to the
 owning module). All errors use `github.com/cockroachdb/errors` for wrapping and
 stack traces.
 
-Use `errors.Is(err, target)` to check for sentinel errors — this traverses
+Use `errors.Is(err, target)` to check for sentinel errors, this traverses
 wrapped error chains correctly.
 
 ```go
@@ -31,7 +31,7 @@ if errors.Is(err, root.ErrNoConfigFile) {
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
-| `ErrNoConfigFile` | no config file found | Gates auto-initialise. The root pre-run heals it by running a non-interactive `init` when `Tool.Bootstrap.AutoInitialise` is set; otherwise it surfaces so the tool can prompt the user to run `init` or pass `--config`. This is GTB's own sentinel — config v0.4.0's Store treats a missing optional file as an empty layer, not an error, so the framework owns the "no config at all" distinction (it replaces config v0.2.0's `ErrNoFilesFound`). |
+| `ErrNoConfigFile` | no config file found | Gates auto-initialise. The root pre-run heals it by running a non-interactive `init` when `Tool.Bootstrap.AutoInitialise` is set; otherwise it surfaces so the tool can prompt the user to run `init` or pass `--config`. This is GTB's own sentinel: config v0.4.0's Store treats a missing optional file as an empty layer, not an error, so the framework owns the "no config at all" distinction (it replaces config v0.2.0's `ErrNoFilesFound`). |
 
 ---
 
@@ -39,7 +39,7 @@ if errors.Is(err, root.ErrNoConfigFile) {
 
 Raised by the feature registry while a tool's feature set is being assembled at
 `init()` time. Every one is a programming error in the tool or a plugin it
-imports, not a runtime condition — they surface as a panic through
+imports, not a runtime condition, they surface as a panic through
 `RegisterFeature` rather than something a command can recover from.
 
 | Error | Message | Typical Handling |
@@ -47,7 +47,7 @@ imports, not a runtime condition — they surface as a panic through
 | `ErrInvalidDescriptor` | props: feature descriptor is incomplete | A `FeatureDescriptor` is missing one of `ID`, `ConstName`, `ConstPackage` or `Kind`. All four are required: the generator needs the constant's name *and* its package to emit a qualified reference. Fix the descriptor at its registration site. |
 | `ErrDuplicateFeature` | props: feature is already registered | Two registrations claim the same feature ID. Usually two plugins colliding on a name; rename one, since the ID is the key everything else keys off. |
 | `ErrRegistrySealed` | props: feature registry is sealed | Registration was attempted after the registry had been enumerated. Feature registration belongs in `init()`; anything registering later has already missed the enumeration that built the command tree. |
-| `ErrPluginDefaultOn` | props: only builtin features may be default-enabled | A non-builtin feature declared `Default: true`. Adding a blank import must change what is *available*, never what is *on* — otherwise an import list becomes a behavioural file and a downstream that omits a provider cannot reason about what its remaining imports switched on. Ship the feature default-off and let the tool enable it. |
+| `ErrPluginDefaultOn` | props: only builtin features may be default-enabled | A non-builtin feature declared `Default: true`. Adding a blank import must change what is *available*, never what is *on*: otherwise an import list becomes a behavioural file and a downstream that omits a provider cannot reason about what its remaining imports switched on. Ship the feature default-off and let the tool enable it. |
 
 ---
 
@@ -57,7 +57,7 @@ Extracted into the standalone [controls module](https://controls.go.phpboyscout.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
-| `ErrShutdown` | controller shutdown | Signals that the controller has stopped. Returned by `Wait()` in some shutdown paths. Generally expected — log at debug level and exit cleanly. |
+| `ErrShutdown` | controller shutdown | Signals that the controller has stopped. Returned by `Wait()` in some shutdown paths. Generally expected: log at debug level and exit cleanly. |
 
 ---
 
@@ -72,7 +72,7 @@ Extracted into the standalone [errorhandling module](https://errorhandling.go.ph
 
 ### Constructor Functions
 
-`NewErrNotImplemented(issueURL string) error` — creates an `ErrNotImplemented`
+`NewErrNotImplemented(issueURL string) error`, creates an `ErrNotImplemented`
 error with an optional issue URL. The error handler detects this and appends
 the link to the user-facing output.
 
@@ -91,7 +91,7 @@ the link to the user-facing output.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|
-| `ErrUpdateComplete` | update complete — restart required | Returned by the `update` command after a successful self-update. The root command's `Execute` detects this and exits with code 0, prompting the user to restart the tool. |
+| `ErrUpdateComplete` | update complete: restart required | Returned by the `update` command after a successful self-update. The root command's `Execute` detects this and exits with code 0, prompting the user to restart the tool. |
 
 ---
 
@@ -124,7 +124,7 @@ Extracted into the standalone [chat module](https://chat.go.phpboyscout.uk) (+ p
 |-------|---------|-----------------|
 | `ErrInvalidBaseURL` | invalid base url | Returned when configuring an AI provider with a malformed base URL. |
 | `ErrInvalidSnapshotID` | invalid snapshot ID | Returned by FileStore when attempting to load a conversation snapshot that doesn't exist or is corrupted. |
-| `ErrMediaRejected` | media rejected | Returned when an attachment fails the safety filter — empty, oversized, over the per-message count limit, or a disallowed MIME type. Surface to the user so they can drop or replace the attachment. |
+| `ErrMediaRejected` | media rejected | Returned when an attachment fails the safety filter: empty, oversized, over the per-message count limit, or a disallowed MIME type. Surface to the user so they can drop or replace the attachment. |
 | `ErrMediaUnsupported` | media not supported by provider | Returned when the selected provider or model cannot accept the attachment's media type. Fall back to text or select a multimodal provider. |
 
 ---
@@ -200,7 +200,7 @@ Extracted into the standalone [signing module](https://signing.phpboyscout.uk); 
 
 ## `gitlab.com/phpboyscout/go/signing-aws-kms`
 
-The `awskms` backend — a separate module consumed by the standard gtb binary.
+The `awskms` backend: a separate module consumed by the standard gtb binary.
 
 | Error | Message | Typical Handling |
 |-------|---------|-----------------|

@@ -10,9 +10,9 @@ authors: [Matt Cockayne <matt@phpboyscout.com>]
 
 The request-authentication primitives have been **extracted into the standalone
 [`gitlab.com/phpboyscout/go/authn`](https://gitlab.com/phpboyscout/go/authn)
-module** (framework-free — only `cockroachdb/errors` and `golang-jwt/jwt/v5`). The
-full documentation — the `Verifier`/`CertVerifier` API, the API-key/JWT-OIDC/mTLS
-verifiers, the `AuthorizeFunc` seam, and the **security model** — now lives at:
+module** (framework-free, only `cockroachdb/errors` and `golang-jwt/jwt/v5`). The
+full documentation, the `Verifier`/`CertVerifier` API, the API-key/JWT-OIDC/mTLS
+verifiers, the `AuthorizeFunc` seam, and the **security model**. Now lives at:
 
 > **[authn.go.phpboyscout.uk](https://authn.go.phpboyscout.uk)**
 
@@ -28,14 +28,14 @@ import-path change.
 GTB wires the module's verifiers into both server transports; the wiring is a GTB
 concern and stays in the framework:
 
-- **HTTP** — `pkg/http`'s fail-closed `AuthMiddleware` wraps a verifier via
+- **HTTP**: `pkg/http`'s fail-closed `AuthMiddleware` wraps a verifier via
   `WithAPIKeyHeader` / `WithBearerVerifier` / `WithMTLSVerifier`, gates with
   `WithAuthorize`, and exposes the verified `*authn.Identity` through
   `gtbhttp.IdentityFromContext`.
-- **gRPC** — `pkg/grpc`'s auth interceptor applies the same verifiers to the RPC
+- **gRPC**: `pkg/grpc`'s auth interceptor applies the same verifiers to the RPC
   metadata / peer certificate and puts the `Identity` on the RPC context.
 
-For the end-to-end setup — API keys, JWT/OIDC, mTLS, and authorization — see
+For the end-to-end setup (API keys, JWT/OIDC, mTLS, and authorization) see
 [How to verify requests](../../how-to/verify-requests-with-authn.md). The verifiers'
 threat model (fail-closed, leak-nothing, JWT hardening) is documented on the
 [module microsite](https://authn.go.phpboyscout.uk/explanation/security-model/).
