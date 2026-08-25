@@ -131,6 +131,15 @@ type SelfUpdater struct {
 	externalKeyEmail          string
 	requireExternalCrosscheck bool
 
+	// Connection identity and credential wiring for the release source, kept
+	// so a refusal can be explained rather than flattened (spec 0193 D5). Set
+	// by resolveReleaseClient, and left zero when a provider was injected
+	// directly via props.Tool.ReleaseProvider — explainRefusal degrades to a
+	// generic message rather than naming the wrong host.
+	endpoint    forge.Endpoint
+	authConfig  forge.Config
+	fallbackEnv string
+
 	// maxBinaryDownloadSize caps DownloadAsset's in-memory read. Zero means
 	// use DefaultMaxBinaryDownloadSize.
 	maxBinaryDownloadSize int64
@@ -467,12 +476,22 @@ func resolveReleaseClient(ctx context.Context, p *props.Props, s *SelfUpdater) e
 		Host: p.Tool.ReleaseSource.Host,
 	}
 
-	releaseClient, err := factory(ctx, endpoint, vcs.ConfigFromReader(cfg))
+	forgeCfg := vcs.ConfigFromReader(cfg)
+
+	releaseClient, err := factory(ctx, endpoint, forgeCfg)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
 	s.releaseClient = releaseClient
+
+	// Kept so a refusal can be explained rather than flattened: the endpoint
+	// names the host in the message, and the subtree lets explainRefusal say
+	// which credential rung supplied a token the forge rejected. Storing them
+	// costs nothing and resolves nothing (spec 0193 D5).
+	s.endpoint = endpoint
+	s.authConfig = endpoint.Section(forgeCfg)
+	s.fallbackEnv = strings.ToUpper(vcsProvider) + "_TOKEN"
 
 	return nil
 }
@@ -1173,7 +1192,7 @@ func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (forge.Release, erro
 
 		s.NextRelease, err = s.releaseClient.GetReleaseByTag(timeoutCtx, owner, repo, s.version)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get release by tag")
+			return nil, s.explainRefusal(ctx, errors.Wrap(err, "failed to get release by tag"))
 		}
 	}
 
@@ -1185,7 +1204,7 @@ func (s *SelfUpdater) GetLatestRelease(ctx context.Context) (forge.Release, erro
 
 		s.NextRelease, err = s.releaseClient.GetLatestRelease(timeoutCtx, owner, repo)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get latest release")
+			return nil, s.explainRefusal(ctx, errors.Wrap(err, "failed to get latest release"))
 		}
 	}
 
@@ -1283,7 +1302,7 @@ func (s *SelfUpdater) GetReleaseNotes(ctx context.Context, from string, to strin
 
 	releases, err := s.releaseClient.ListReleases(timeoutCtx, owner, repo, releasesPerPage)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return "", s.explainRefusal(ctx, errors.WithStack(err))
 	}
 
 	releaseNotes := s.filterReleaseNotes(releases, from, to)

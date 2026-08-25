@@ -41,15 +41,15 @@ require (
 	gitlab.com/phpboyscout/go/credentials v0.3.1
 	gitlab.com/phpboyscout/go/errorhandling v0.5.0
 	gitlab.com/phpboyscout/go/errors v0.3.0
-	gitlab.com/phpboyscout/go/forge v0.16.0
+	gitlab.com/phpboyscout/go/forge v0.16.1
 	gitlab.com/phpboyscout/go/forge-bitbucket v0.8.2
 	gitlab.com/phpboyscout/go/forge-gitea v0.13.2
 	gitlab.com/phpboyscout/go/forge-github v0.12.2
 	gitlab.com/phpboyscout/go/forge-gitlab v0.13.0
-	gitlab.com/phpboyscout/go/httpclient v0.2.2
+	gitlab.com/phpboyscout/go/httpclient v0.2.3
 	gitlab.com/phpboyscout/go/observability v0.3.1
 	gitlab.com/phpboyscout/go/output v0.2.1
-	gitlab.com/phpboyscout/go/redact v0.2.1
+	gitlab.com/phpboyscout/go/redact v0.2.2
 	gitlab.com/phpboyscout/go/regexutil v0.2.1
 	gitlab.com/phpboyscout/go/repo v0.2.2
 	gitlab.com/phpboyscout/go/signing v0.8.0

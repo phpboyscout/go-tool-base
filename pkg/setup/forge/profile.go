@@ -308,6 +308,27 @@ type clientIDSection struct {
 	profile Profile
 }
 
+// Sub keeps the decoration across a deeper hop.
+//
+// [forgeapi.Endpoint.Section] walks Sub(Type) and then Sub(Name), so a NAMED
+// source is two hops from the root. Without this, the embedded Config's Sub
+// answered the second hop with an undecorated section and the shipped client ID
+// silently stopped being supplied: a profile that ships one would behave as
+// though it ships none, with nothing failing and nothing logged.
+//
+// Inert today, because GTB keeps Endpoint.Name empty (spec 0192 D3) and there is
+// only ever one hop. It is fixed here rather than left as a comment because
+// pooling is the change most likely to introduce a named source, and a trap that
+// springs silently is worth closing while it is cheap (spec 0193 D4).
+func (s clientIDSection) Sub(key string) forgeapi.Config {
+	sub := s.Config.Sub(key)
+	if sub == nil {
+		return nil
+	}
+
+	return clientIDSection{Config: sub, profile: s.profile}
+}
+
 func (s clientIDSection) GetString(key string) string {
 	value := s.Config.GetString(key)
 	if key != "auth.client_id" || value != "" {
