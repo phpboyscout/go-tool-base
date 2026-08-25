@@ -238,8 +238,14 @@ if pluginEnabled {
 
 The `Register` call is idempotent against double-attachment (the underlying cobra parent rejects duplicates) and always wires middleware correctly, regardless of when it fires relative to `setup.Seal()`.
 
-!!! warning "Deprecated: `AddCommandWithMiddleware`"
-    The legacy `setup.AddCommandWithMiddleware(parent, child, feature)` helper is still exported but marked `// Deprecated:`. It now delegates to `Command.Register`, no longer recurses into descendants (the recursive re-wrap with the *parent's* feature was always semantically wrong), and will be removed in v1.0. Migrate to `parent.Register(child)`: the [v0.4-to-v0.5 migration guide](../../../reference/migration/v0.4-to-v0.5.md) has the diff.
+!!! warning "Removed: `AddCommandWithMiddleware`"
+    Gone since v0.20, not deprecated: code calling it will not compile. Use
+    `parent.Register(child)` instead, and see [Removed helpers](#removed-helpers)
+    above for the replacement diff.
+
+    It was wrong rather than merely superseded. It recursed into descendants and
+    re-wrapped each one with the *parent's* feature, so a subcommand of a
+    subcommand ended up gated by the wrong flag.
 
 ## Hooks vs. the framework bootstrap
 
