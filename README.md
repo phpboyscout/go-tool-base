@@ -6,13 +6,13 @@
 
 **The Intelligent Application Lifecycle Framework for Go.**
 
-Modern CLI tools, DevOps workflows, and developer utilities demand far more than basic flag parsing. GTB works as a "batteries-included" micro-framework (like Rails or Laravel), but meticulously tailored for Go command-line applications and beyond.
+Flag parsing is the easy part. What costs you is everything after it: configuration that layers properly, a self-update path you trust, errors a user can act on, and the same six commands written again in every tool. GTB is a batteries-included micro-framework (think Rails or Laravel) for Go command-line applications, and it ships those already built.
 
 ## ✅ What GTB IS / IS NOT
 
-- **IS a full-lifecycle framework** — provides configuration, versioning, auto-updates, embedded TUI docs, error handling, and structured logging cleanly out-of-the-box.
-- **IS a dependency injection container** — services are explicitly passed via the decoupled `Props` container to every command constructor.
-- **IS an AI-ready foundation** — built-in agentic loop orchestration and MCP exposition.
+- **IS a full-lifecycle framework.** Configuration, versioning, auto-updates, embedded TUI docs, error handling and structured logging, out of the box.
+- **IS a dependency injection container.** Services are passed explicitly through the `Props` container to every command constructor. Nothing reaches for a global.
+- **IS an AI-ready foundation.** Agentic loop orchestration and MCP exposure are built in.
 - **NOT a web framework (like Gin/Fiber)** or a microservice generator (like Sponge). GTB primarily bootstraps CLI utilities and background daemons, though you can easily build a `serve` command that boots an HTTP router via GTB's DI container!
 
 > [!IMPORTANT]
@@ -45,21 +45,21 @@ brew install --cask gtb
 Upgrade later with `brew upgrade --cask gtb`.
 
 > [!NOTE]
-> **Pass the tap URL.** The shorthand `brew tap phpboyscout/homebrew` resolves to `github.com/phpboyscout/homebrew-homebrew`, which does not exist — the tap is on GitLab, so the URL is required.
+> **Pass the tap URL.** The shorthand `brew tap phpboyscout/homebrew` resolves to `github.com/phpboyscout/homebrew-homebrew`, which does not exist. The tap is on GitLab, so the URL is required.
 >
 > If you tapped the pre-migration GitHub tap before it was withdrawn, remove it with `brew untap phpboyscout/homebrew`, or `brew update` will fail against it.
 
 > [!NOTE]
-> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest` — note the `/cmd/gtb` suffix, as the `main` package is not at the module root. However, this method will not include pre-built documentation assets, and the `docs` command will operate in a limited "source-build" mode.
+> For developers building from source, you can still use `go install gitlab.com/phpboyscout/go-tool-base/cmd/gtb@latest`. Note the `/cmd/gtb` suffix: the `main` package is not at the module root. A source build carries no pre-built documentation assets, so the `docs` command falls back to a limited source-build mode.
 
 ## 🚀 Key Advantages & Features
 
 - **🤖 AI Agentic Workflows**: Integrated support for Claude, Gemini, and OpenAI to power autonomous ReAct-style loops and built-in Q&A against your embedded docs.
 - **🔌 Model Context Protocol (MCP)**: Expose your CLI commands automatically as MCP tools for use by IDEs and external AI agents.
-- **📦 Auto Updates & Lifecycle**: Seamless, zero-config version checking and self-update capabilities directly from GitHub/GitLab releases via the built-in `update` command.
+- **📦 Auto Updates & Lifecycle**: Zero-config version checking and self-update, straight from GitHub/GitLab releases, via the built-in `update` command.
 - **📕 TUI Documentation**: A built-in, interactive terminal browser for your markdown documentation. Forget generic man pages.
 - **🧱 Scaffold**: Generate production-ready, interface-driven CLI tool skeletons in seconds.
-- **⚙️ Robust Configuration**: Overridable configurations seamlessly merging from files, environment variables, and embedded assets.
+- **⚙️ Robust Configuration**: Configuration merged from files, environment variables and embedded assets, in a precedence you can inspect.
 - **🏢 Enterprise VCS**: Deep integration with GitHub Enterprise and GitLab (including nested group paths) for auth, PR management, and assets.
 - **🩹 Error Handling**: Structured, testable error management with logging, stack traces, and integrated help context routing to user-facing output.
 
@@ -67,12 +67,12 @@ Upgrade later with `brew upgrade --cask gtb`.
 
 The framework is built around a centralized **Props** container that provides type-safe access to all system dependencies.
 
-Much of what GTB once implemented now lives in the standalone [phpboyscout Go toolkit](https://go.phpboyscout.uk) — small, framework-free modules under `gitlab.com/phpboyscout/go/`, so a tool can take one without taking all of GTB. Where that happened, the `pkg/` package that remains is a **thin config adapter** that wires the module from `Props`.
+Much of what GTB once implemented now lives in the standalone [phpboyscout Go toolkit](https://go.phpboyscout.uk), small framework-free modules under `gitlab.com/phpboyscout/go/`, so a tool can take one without taking all of GTB. Where that happened, the `pkg/` package that remains is a **thin config adapter** that wires the module from `Props`.
 
 | Component | Implementation | Responsibility |
 | :--- | :--- | :--- |
 | **[pkg/props](docs/explanation/components/props.md)** | GTB | Central dependency injection container for logger, config, assets, filesystem, version and error handling. |
-| **[config](docs/explanation/components/config/)** | [go/config](https://config.go.phpboyscout.uk) | Layered, snapshot-coherent configuration — provenance-aware reads, comment-preserving writes, explicit hot reload, and published mocks. |
+| **[config](docs/explanation/components/config/)** | [go/config](https://config.go.phpboyscout.uk) | Layered, snapshot-coherent configuration: provenance-aware reads, comment-preserving writes, explicit hot reload, and published mocks. |
 | **[pkg/chat](docs/explanation/components/chat/)** | [go/chat](https://chat.go.phpboyscout.uk) + provider modules | Unified multi-provider AI client (Claude, OpenAI, Gemini, Claude Local). `pkg/chat` owns the GTB config-key schema and registers the providers. |
 | **[controls](docs/explanation/components/controls/)** | [go/controls](https://controls.go.phpboyscout.uk) | Service lifecycle: startup ordering, health probes, graceful shutdown. |
 | **[pkg/http](docs/explanation/components/http.md), [pkg/grpc](docs/explanation/components/grpc.md), [pkg/gateway](docs/explanation/components/gateway.md)** | [go/transport](https://transport.go.phpboyscout.uk) | Hardened HTTP/gRPC servers and the REST gateway; the `pkg/` packages are the config adapters. |
@@ -96,7 +96,7 @@ Every tool built on GTB inherits these essential capabilities:
 - **`config`** *(opt-in)*: Reads and writes the tool's configuration.
 - **`man`** *(opt-in)*: Generates roff man pages for the command tree.
 
-Commands can be selectively enabled or disabled at bootstrap time via feature flags — see [Feature Flags](#-feature-flags) below.
+Commands can be selectively enabled or disabled at bootstrap time via feature flags. See [Feature Flags](#-feature-flags) below.
 
 ## 🤖 AI Providers
 
@@ -136,7 +136,7 @@ gtb generate project --name mytool --repo myorg/mygroup/mytool --git-backend git
 
 The scaffold produces a fully wired project. The key entry points are:
 
-**`cmd/mytool/main.go`** — entry point, reads version from `internal/version`. `Execute` runs the tree with a signal-aware context: SIGINT/SIGTERM cancel `cmd.Context()` for graceful shutdown, a second signal force-exits, and a signal-terminated run exits `128+signum`:
+**`cmd/mytool/main.go`.** The entry point, reading version from `internal/version`. `Execute` runs the tree with a signal-aware context: SIGINT/SIGTERM cancel `cmd.Context()` for graceful shutdown, a second signal force-exits, and a signal-terminated run exits `128+signum`:
 ```go
 func main() {
     rootCmd, p := root.NewCmdRoot(version.Get())
@@ -144,7 +144,7 @@ func main() {
 }
 ```
 
-**`pkg/cmd/root/cmd.go`** — wires the Props container and root command:
+**`pkg/cmd/root/cmd.go`.** Wires the Props container and the root command:
 ```go
 //go:embed assets/*
 var assets embed.FS
@@ -178,7 +178,7 @@ func NewCmdRoot(v version.Info) (*setup.Command, *props.Props) {
 > [!NOTE]
 > Command constructors return **`*setup.Command`**, not `*cobra.Command`. It embeds `*cobra.Command` and carries the feature the command belongs to, so it behaves as a cobra command everywhere; `.Command` exposes the raw pointer when a cobra API needs one. Register child commands with `parent.Register(child)` rather than `AddCommand`, so the feature middleware chain is applied.
 
-**`internal/version/version.go`** — populated from GoReleaser ldflags at release, or from `runtime/debug` VCS info in development:
+**`internal/version/version.go`.** Populated from GoReleaser ldflags at release, or from `runtime/debug` VCS info in development:
 ```go
 var (
     version = "dev"
