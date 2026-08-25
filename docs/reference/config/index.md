@@ -12,13 +12,13 @@ This page lists the configuration keys the **framework itself** reads, what each
 one defaults to, and what happens when it is set to something the framework
 cannot use. Tools built on GTB add their own keys on top.
 
-For the internals of the store behind all of this — snapshots, transactional
-writes, typed sections — see
+For the internals of the store behind all of this (snapshots, transactional
+writes, typed sections) see
 [config.go.phpboyscout.uk](https://config.go.phpboyscout.uk).
 
 ## Which layer wins: the precedence order
 
-GTB declares six layers. Highest precedence first — each one overrides
+GTB declares six layers, highest precedence first. Each one overrides
 everything below it:
 
 | | Layer | Notes |
@@ -28,11 +28,11 @@ everything below it:
 | 3 | **Project-local `.<tool>.yaml`** | Found by walking up from the working directory. Security-sensitive keys are ignored until the file is trusted. |
 | 4 | **Config files** | `--config` paths if given, otherwise `/etc/<tool>/config.yaml` then `~/.<tool>/config.yaml`. |
 | 5 | **The tool's `ConfigPaths` embedded assets** | Optional extra embedded documents a tool author registers. |
-| 6 | **Embedded defaults** — `assets/config.yaml`, merged across every registered bundle | Always applies, so a key omitted everywhere else still resolves. |
+| 6 | **Embedded defaults**: `assets/config.yaml`, merged across every registered bundle | Always applies, so a key omitted everywhere else still resolves. |
 
 Within the file layer, later files override earlier ones. The default order puts
 the system-wide `/etc` file **below** the per-user file, so a user's own config
-beats the machine's — the Unix convention. It also makes the per-user file the
+beats the machine's, which is the Unix convention. It also makes the per-user file the
 highest-precedence writable layer, which is why `config set`, `config unset` and
 `config edit` land there rather than in a root-owned `/etc` path.
 
@@ -41,7 +41,7 @@ The declaration order lives in `buildConfigStore` in
 
 ### Where the default config files live
 
-`~/.<tool>/config.yaml` and `/etc/<tool>/config.yaml` — note the leading dot on
+`~/.<tool>/config.yaml` and `/etc/<tool>/config.yaml`. Note the leading dot on
 the per-user directory. It is **not** `~/.config/<tool>/`. The per-user directory
 is derived from the tool's name (`props.Tool.Name`, lower-cased) and is created
 with owner-only permissions because it routinely holds credentials.
@@ -56,8 +56,8 @@ matters because a declared layer is a candidate write target, and a missing
 `/etc` path capturing a write is how a `config set` ends up failing with a
 permissions error.
 
-The one exception is the write target itself — the highest-precedence declared
-path — which is always available so a first write has somewhere to land and can
+The one exception is the write target itself (the highest-precedence declared
+path), which is always available so a first write has somewhere to land and can
 create the file.
 
 If **no** config file exists at all, most commands stop with `no config file
@@ -93,7 +93,7 @@ prefix `MYTOOL`, `log.level` reads `MYTOOL_LOG_LEVEL`.
 The prefix is set by the tool author (`props.Tool.EnvPrefix`) and is a security
 control, not tidiness: without it, an unrelated process on a shared runner
 setting `LOG_LEVEL` would reconfigure every tool on the box. **A tool with no
-`EnvPrefix` has no environment layer at all** — the whole layer is empty rather
+`EnvPrefix` has no environment layer at all**. The whole layer is empty rather
 than swallowing the entire environment.
 
 ### Why `MYTOOL_UPDATE_CHECK_INTERVAL` may do nothing
@@ -119,7 +119,7 @@ MYTOOL_UPDATE_CHECK_INTERVAL=1h mytool config get update.check_interval
 # 1h
 ```
 
-The fix is to declare the key — with an empty or default value — in the tool's
+The fix is to declare the key, with an empty or default value, in the tool's
 embedded `assets/config.yaml` or its `assets/init/config.yaml` template. Projects
 scaffolded by `gtb generate project` already do this for `update.policy` and
 `update.check_interval`.
@@ -136,7 +136,7 @@ does not set the token. See [Credentials](#credentials).
 ## Why security keys from a project `.<tool>.yaml` are ignored
 
 The project-local layer is convenient, but the file arrives with a repository you
-may not have written — `git clone` can ship one. So its **security-sensitive keys
+may not have written, because `git clone` can ship one. So its **security-sensitive keys
 are stripped** unless you explicitly trust the file, while ordinary workflow keys
 (logging, output, feature toggles) always apply. Without this, cloning a
 repository would be enough to turn off signature verification on your
@@ -163,8 +163,8 @@ WARN ignoring security-sensitive keys from an untrusted project-local config fil
 
 Trust is direnv-style. `<tool> config trust` records the file's absolute path and
 the SHA-256 of its exact content in `~/.<tool>/trusted-projects.yaml` (owner-only,
-never inside a repository). Editing a trusted file — or a fresh clone swapping it
-out — changes the hash and revokes trust until you run the command again.
+never inside a repository). Editing a trusted file, or a fresh clone swapping it
+out, changes the hash and revokes trust until you run the command again.
 
 An untrusted project file is also **read-only**: `config set` in an untrusted
 repository routes the write to your own config rather than the repository file.
@@ -188,7 +188,7 @@ See [`config trust`](../cli/config.md#config-trust) and the
 ### `output` and `debug` are flags, not usable config keys
 
 `--output` and `--debug` are bound into the store like every other flag, so they
-appear in `config list` when you pass them — but nothing reads them back out of
+appear in `config list` when you pass them, but nothing reads them back out of
 configuration. Commands read `--output` from the flag set directly, and the log
 level is applied from `flags.Debug`.
 
@@ -198,15 +198,15 @@ true of `debug`. Use `log.level: debug` to raise the log level from
 configuration.
 
 **`log.level`** accepts `debug`, `info`, `warn`, `error` and `fatal` at runtime
-(`logger.ParseLevel`). An unrecognised value is **silently ignored** — the logger
-keeps the level it already had — so a typo produces no warning and no visible
+(`logger.ParseLevel`). An unrecognised value is **silently ignored**: the logger
+keeps the level it already had, so a typo produces no warning and no visible
 change. Run `<tool> config validate` to catch it.
 
 Note the mismatch: `config validate`'s base schema allows only `debug`, `info`,
 `warn`, `error`, so a working `log.level: fatal` is reported as invalid.
 
 **`log.format`** is applied by the root pre-run, which honours `json` and
-`logfmt`. Any other value — including the literal `text` — leaves the formatter
+`logfmt`. Any other value (including the literal `text`) leaves the formatter
 alone, which produces text output because that is the constructed default.
 
 **`--debug` outranks `log.level`.** It is applied first and a config hot-reload
@@ -229,7 +229,7 @@ cannot downgrade it.
 `update.policy` resolution is case-insensitive and forgiving: an empty **or
 unrecognised** value falls back to the tool author's baseline
 (`props.Tool.UpdatePolicy`), and an empty or unrecognised baseline falls back to
-`disabled`. Nothing errors — `update.policy: enbaled` silently means `disabled`.
+`disabled`. Nothing errors, so `update.policy: enbaled` silently means `disabled`.
 
 `update.check_interval` takes any Go duration. An unparseable value, or a negative
 one, falls back to the tool baseline and then to `24h`. A tool baseline of zero
@@ -255,12 +255,12 @@ See [Configure self-updating](../../how-to/configure-self-updating.md) and
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `ai.provider` | string | `claude` | Active provider. |
-| `ai.request_timeout` | duration | `5m` | Bound on a single AI request. Deliberately generous — a large single-shot generation runs well past the shared 30s HTTP default — but bounded, so a model stuck in a loop fails rather than hanging. |
+| `ai.request_timeout` | duration | `5m` | Bound on a single AI request. Deliberately generous (a large single-shot generation runs well past the shared 30s HTTP default) but bounded, so a model stuck in a loop fails rather than hanging. |
 | `ai.fallback.enabled` | bool | `false` | Try other providers when the primary fails. |
 | `ai.fallback.providers` | list of string | `[]` | Ordered provider list for failover. |
 
 **`ai.provider` accepted values are `claude`, `openai` and `gemini`.**
-`anthropic` is *not* one of them — that is the name of the *credential section*
+`anthropic` is *not* one of them. That is the name of the *credential section*
 (`anthropic.api.*`), not the provider identifier. Setting `ai.provider:
 anthropic` leaves `init`'s "is AI configured?" check reporting unconfigured and
 fails at client construction with an unregistered-provider error.
@@ -268,7 +268,7 @@ fails at client construction with an unregistered-provider error.
 The chat module also defines `claude-local` (drives a locally installed `claude`
 CLI) and `openai-compatible` (any OpenAI-shaped endpoint; requires an explicit
 base URL). Neither is offered by the `init ai` wizard, and `openai-compatible`
-cannot be configured from these keys alone — it needs a `BaseURL` supplied in Go.
+cannot be configured from these keys alone: it needs a `BaseURL` supplied in Go.
 
 When `ai.provider` is unset, the framework uses the `AI_PROVIDER` environment
 variable if present, and otherwise defaults to `claude`. `AI_PROVIDER` is read
@@ -312,7 +312,7 @@ uses a username/app-password pair rather than a single token, so its keys are
 
 Only the values the framework's own defaults ship are guaranteed present; the
 rest appear once the matching `init <provider>` wizard has run. `vcs.provider` is
-only consulted when it is explicitly set — a value of `direct` (a plain download
+only consulted when it is explicitly set. A value of `direct` (a plain download
 source with no git remote) resolves to GitHub's conventions.
 
 See the [VCS component](../../explanation/components/vcs/index.md).
@@ -361,16 +361,16 @@ none of them.
 
 TLS resolves from `server.tls.*` and is then overridden field by field from the
 transport's own block (`server.http.tls`, `server.grpc.tls`,
-`server.gateway.tls`) — but only for keys that block actually sets, so enabling
+`server.gateway.tls`), but only for keys that block actually sets, so enabling
 TLS globally and overriding just the certificate for one transport works.
 
 **The mTLS keys are shared-only.** `server.tls.client_cas` and
 `server.tls.client_auth` apply to every transport; a `client_cas` or
 `client_auth` under a transport block (`server.http.tls.client_cas`) is not
 carried through and has no effect. An unrecognised `client_auth` value is a hard
-error — that one fails closed rather than falling back.
+error. That one fails closed rather than falling back.
 
-A malformed section — a non-numeric `port`, say — does not fail the load. The
+A malformed section (a non-numeric `port`, say) does not fail the load. The
 typed decode fails and the adapter falls back to per-key reads, which yield zero
 values for the bad keys. A port of `0` means "let the OS choose", so a typo can
 produce a server listening on a random port rather than an error.
@@ -378,33 +378,33 @@ produce a server listening on a random port rather than an error.
 !!! warning "Bind address defaults to all interfaces"
     `server.http.host` and `server.grpc.host` default to `""`, which binds **all
     interfaces** (`0.0.0.0` / `[::]`). Set them to `127.0.0.1` for any listener
-    that should not be reachable off-host — management, metrics or pprof
+    that should not be reachable off-host (management, metrics or pprof)
     endpoints in particular. The standalone metrics/pprof server shipped by
     `go/transport-metrics` defaults to loopback; see the
     [bind-address migration note](../migration/v0.x-server-bind-address.md).
 
 ## Credentials
 
-Secrets — AI API keys, forge tokens — resolve through a fixed chain so the
+Secrets, meaning AI API keys and forge tokens, resolve through a fixed chain so the
 literal value need never be written to disk. For a provider section, GTB checks
 in order:
 
 1. `<section>.api.env` (or `<section>.auth.env`) → read the **named** environment variable
 2. `<section>.api.keychain` (or `<section>.auth.keychain`) → read the OS keychain via a `<service>/<account>` reference
 3. `<section>.api.key` (or `<section>.auth.value`) → the literal value in config (legacy)
-4. a well-known unprefixed fallback env var — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `<FORGE>_TOKEN`
+4. a well-known unprefixed fallback env var: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `<FORGE>_TOKEN`
 
 Every step trims whitespace and an empty result falls through, so a
 half-configured entry cannot mask a fully-configured one lower down.
 
 A keychain reference that does not parse, or a keychain that is unavailable,
-returns nothing and falls through to the next step — it is not an error. That is
+returns nothing and falls through to the next step. It is not an error, and that is
 deliberate (a laptop without a keyring should still work from an env var) but it
 does mean a mistyped keychain reference degrades quietly.
 
 **Literal storage and CI.** The `init` wizards do not *offer* literal storage
 when `CI=true`; they offer env-var and, where a keychain is usable, keychain
-mode. A literal already written to a config file still resolves under CI — the
+mode. A literal already written to a config file still resolves under CI, because the
 restriction is on what the wizard will write, not on what the resolver will read.
 `doctor` warns about every literal it finds, and the root pre-run warns
 separately when one of these keys is set but empty:
@@ -429,7 +429,7 @@ they apply to every GTB tool on the machine.
 | `EDITOR` / `VISUAL` | Editor launched by `config edit`. |
 
 `CI` is compared against the literal string `true`. `CI=1`, which some runners
-set, does **not** trigger CI behaviour — pass `--ci` instead.
+set, does **not** trigger CI behaviour. Pass `--ci` instead.
 
 ## What configuration does not do
 
@@ -456,8 +456,8 @@ set, does **not** trigger CI behaviour — pass `--ci` instead.
 
 ## Related
 
-- [Root command reference](../cli/root.md#global-flags) — the persistent flags every GTB tool carries
+- [Root command reference](../cli/root.md#global-flags): the persistent flags every GTB tool carries
 - [`config` command reference](../cli/config.md)
-- [Configuration component](../../explanation/components/config/index.md) — what GTB layers on the standalone store
+- [Configuration component](../../explanation/components/config/index.md): what GTB layers on the standalone store
 - [Bind flags to config](../../how-to/bind-flags-to-config.md)
 - [React to config changes](../../how-to/config-hot-reload.md)
