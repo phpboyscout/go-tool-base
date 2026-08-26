@@ -241,7 +241,7 @@ osv-scanner:
 
 apidiff:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.1.1
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.0
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
@@ -270,7 +270,7 @@ apidiff:
 # package to .coverage-policy.yaml `excluded:` with a rationale.
 coverage-policy:
   stage: test
-  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.1.1
+  image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.0
   needs: []
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
