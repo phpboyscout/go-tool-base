@@ -217,7 +217,7 @@ Walked through for `release@phpboyscout.uk`:
 | Split on `@` → domain | `phpboyscout.uk` |
 | Local-part hash (SHA-1 → z-base-32) | `y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
 | **Advanced URL** (tried first) | `https://openpgpkey.phpboyscout.uk/.well-known/openpgpkey/phpboyscout.uk/hu/y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
-| **Direct URL** (fallback on 404) | `https://phpboyscout.uk/.well-known/openpgpkey/hu/y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
+| **Direct URL** (derived, **not served by this domain**) | `https://phpboyscout.uk/.well-known/openpgpkey/hu/y84sdmnksfqswe7fxf5mzjg53tbdz8f5` |
 
 ### Why specifically `openpgpkey.<domain>`?
 
@@ -240,6 +240,16 @@ A WKD-publishing domain can serve either or both URL forms:
 - **Direct** would serve the WKD layout from the bare `phpboyscout.uk`
   domain. The resolver falls back to it on 404, so a domain that
   hosts WKD on its main site also works.
+
+  **`phpboyscout.uk` deliberately does not serve it.** The apex is the
+  main site: it redeploys from CI on every merge and nightly, so key
+  material there would be rewritable by anyone who compromised the
+  forge — which is the whole thing the separate WKD host exists to
+  prevent. The direct URL above is derived correctly by the resolver
+  and returns 404, and that is intended rather than a gap. The
+  fallback also bought nothing here: `openpgpkey.phpboyscout.uk`
+  shares its zone, nameservers and edge IPs with the apex, so
+  whatever takes the advanced host out takes the fallback with it.
 
 [prep]: ../../development/phase2-signing-prep.md
 
