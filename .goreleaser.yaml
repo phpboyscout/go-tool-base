@@ -104,15 +104,38 @@ signs:
     args: ["${artifact}", "${signature}"]
     output: true
 
+# goreleaser BUILDS and UPLOADS; it does not own the release.
+#
+# It can only run after a tag, so a release created at tagging time is created
+# before its binaries exist -- and a release that exists with nothing on it
+# answers "yes" to the only question a consumer knows how to ask. colophon
+# creates it on the tag pipeline instead, carrying links to what was uploaded
+# here. See colophon's explanation/concepts/complete-releases.md.
+#
+# `disable` rather than `skip_upload`: the upload still happens, through the
+# pipe below, which needs no release. That independence is the mechanism.
 release:
-  use_existing_draft: true
-  replace_existing_artifacts: true
-  make_latest: true
-  # keep-existing: releaser-pleaser owns the Release notes (it creates
-  # the Release with its changelog when the Release MR is merged). This
-  # job only attaches/replaces the build artefacts — it must not
-  # overwrite the body.
-  mode: keep-existing
+  disable: true
+
+# The artefacts go to GitLab's generic package registry, which needs no release.
+#
+# This target must match the component's `asset_base`, and is written in both
+# places on purpose: colophon does not derive it, so a mismatch is a
+# configuration error somebody can see rather than a release full of 404s.
+#
+# No {{ .ArtifactName }} -- goreleaser appends the artefact's name itself, and
+# including it nests every file a path segment deeper than anything looks for
+# it. Measured on colophon v0.2.0, with a green build and nothing to show it.
+uploads:
+  - name: gitlab-generic
+    target: '{{ .Env.CI_API_V4_URL }}/projects/{{ .Env.CI_PROJECT_ID }}/packages/generic/{{ .ProjectName }}/{{ .Version }}/'
+    method: PUT
+    mode: archive
+    checksum: true
+    signature: true
+    custom_headers:
+      JOB-TOKEN: '{{ .Env.CI_JOB_TOKEN }}'
+
 changelog:
   # releaser-pleaser owns the changelog (CHANGELOG.md and the Release
   # notes), so GoReleaser does not generate its own.
