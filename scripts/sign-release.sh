@@ -46,8 +46,8 @@ fi
 artifact="$1"
 signature="$2"
 
-key_id="${GTB_SIGNING_KEY_ID:-alias/gtb-release-signing-v1}"
-public_key="${GTB_SIGNING_KEY_PUBLIC:-internal/trustkeys/keys/signing-key-v1.asc}"
+key_id="${GTB_SIGNING_KEY_ID:-alias/gtb-release-signing-v2}"
+public_key="${GTB_SIGNING_KEY_PUBLIC:-internal/trustkeys/keys/signing-key-v2.asc}"
 region="${AWS_REGION:-eu-west-2}"
 
 if [[ ! -f "${public_key}" ]]; then
