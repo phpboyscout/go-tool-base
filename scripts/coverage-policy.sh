@@ -2,10 +2,10 @@
 #
 # coverage-policy.sh — enforce the per-package ≥90% coverage policy advisorily.
 #
-# Reads .coverage-policy.yaml (the machine-readable form of the rule) and runs
-# unit coverage over the whole module. A package is FLAGGED when it is below the
-# threshold AND is neither in the `excluded` list nor matched by a `not_counted`
-# prefix. This is the enforcement half of
+# Reads .coverage-policy.yaml (the machine-readable form of the rule) and the
+# coverage profile the test run already produced. A package is FLAGGED when it is
+# below the threshold AND is neither in the `excluded` list nor matched by a
+# `not_counted` prefix. This is the enforcement half of
 # https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0090-coverage-gap-closure.
 #
 # It exits non-zero when there are violations so the wrapping CI job surfaces
@@ -17,6 +17,13 @@
 # Usage:
 #   scripts/coverage-policy.sh                  # uses .coverage-policy.yaml
 #   scripts/coverage-policy.sh path/to/policy.yaml
+#
+# It reads cover.out ($COVER_PROFILE to override) rather than running the suite.
+# In CI that file is go-test's artifact, so this job costs seconds instead of a
+# second full `go test ./...`; outside CI the profile is generated on demand if
+# it is missing. Measured 2026-09-05 at 1b40357: the per-package percentages
+# from the profile match `go test ./... -cover` for all 69 packages that carry a
+# number, with or without -race (cicd spec 0079 D8).
 #
 set -uo pipefail
 
@@ -70,27 +77,81 @@ is_excluded() {
 	return 1
 }
 
-echo "coverage-policy: running unit coverage over ./... (this can take a few minutes)"
+COVER="${COVER_PROFILE:-cover.out}"
 
-# stderr is captured rather than discarded, and an empty result is fatal.
+# The profile is read, not regenerated. go-test has already run
+# `go test -race -coverprofile=cover.out ./...` and publishes it, so running the
+# suite again here cost a second full run of the module for a number that
+# already existed (60 runs, 229 runner minutes over the 21 days to 2026-09-03).
 #
-# This used to be `go test ./... -cover 2>/dev/null | grep "coverage:"`. When the
-# test run itself failed — as it did from v0.39.0, when go.mod's directive
-# outran the job image's Go and GOTOOLCHAIN=local refused to fetch one — stdout
-# was empty, the reason was gone, the loop below never ran, and the script
-# reported "every countable package is >= 90%". A gate that answers OK because it
-# measured nothing is worse than one that is switched off, because nobody goes
-# looking.
-test_err=$(mktemp)
-trap 'rm -f "$test_err"' EXIT
+# Outside CI there is no artifact, so generate it once. In CI, never: a missing
+# or empty profile is a failure to report, not a gap to paper over. This used to
+# be `go test ./... -cover 2>/dev/null | grep "coverage:"`, and when the test run
+# itself failed — as it did from v0.39.0, when go.mod's directive outran the job
+# image's Go and GOTOOLCHAIN=local refused to fetch one — stdout was empty, the
+# reason was gone, the loop below never ran, and the script reported "every
+# countable package is >= 90%". A gate that answers OK because it measured
+# nothing is worse than one that is switched off, because nobody goes looking.
+# Reading an artifact can fail the same way by a different route, so every route
+# is checked below.
+if [ ! -f "$COVER" ]; then
+	if [ -n "${CI:-}" ]; then
+		echo "coverage-policy: $COVER is missing." >&2
+		echo "coverage-policy: it comes from the go-test job's artifact (needs: go-test, artifacts: true)." >&2
+		echo "coverage-policy: refusing to report a pass on no data." >&2
+		exit 1
+	fi
+	echo "coverage-policy: $COVER not found, generating it (this can take a few minutes)"
+	test_err=$(mktemp)
+	trap 'rm -f "$test_err"' EXIT
+	if ! go test -race -coverprofile="$COVER" ./... >/dev/null 2>"$test_err"; then
+		echo "coverage-policy: the coverage run failed." >&2
+		echo "coverage-policy: ---- go test stderr ----" >&2
+		cat "$test_err" >&2
+		echo "coverage-policy: ------------------------" >&2
+		echo "coverage-policy: refusing to report a pass on no data." >&2
+		exit 1
+	fi
+fi
 
-cover_out=$(go test ./... -cover 2>"$test_err" | grep "coverage:") || true
+if [ ! -s "$COVER" ]; then
+	echo "coverage-policy: $COVER is empty." >&2
+	echo "coverage-policy: refusing to report a pass on no data." >&2
+	exit 1
+fi
+
+if ! grep -q "^${MODULE}/" "$COVER"; then
+	echo "coverage-policy: $COVER carries no line for ${MODULE}." >&2
+	echo "coverage-policy: it is empty of this module, or belongs to another one." >&2
+	echo "coverage-policy: refusing to report a pass on no data." >&2
+	exit 1
+fi
+
+echo "coverage-policy: reading $COVER ($(grep -c . "$COVER") profile lines)"
+
+# Aggregate the profile per package, the way `go test -cover` does: covered
+# statements over total statements, counting a block once however many times it
+# ran. Emitted in `go test` output shape so the loop below is unchanged.
+cover_out=$(awk '
+	/^mode:/ { next }
+	{
+		split($1, a, ":")
+		file = a[1]
+		idx = match(file, /\/[^\/]*$/)
+		if (idx == 0) next
+		pkg = substr(file, 1, idx - 1)
+		total[pkg] += $2
+		if ($3 + 0 > 0) covered[pkg] += $2
+	}
+	END {
+		for (p in total)
+			if (total[p] > 0)
+				printf "ok  \t%s\tcoverage: %.1f%% of statements\n", p, 100 * covered[p] / total[p]
+	}
+' "$COVER")
 
 if [ -z "$cover_out" ]; then
-	echo "coverage-policy: the coverage run produced no package results." >&2
-	echo "coverage-policy: ---- go test stderr ----" >&2
-	cat "$test_err" >&2
-	echo "coverage-policy: ------------------------" >&2
+	echo "coverage-policy: $COVER parsed to no package results." >&2
 	echo "coverage-policy: refusing to report a pass on no data." >&2
 	exit 1
 fi

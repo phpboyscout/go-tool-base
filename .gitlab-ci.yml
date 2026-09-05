@@ -271,9 +271,25 @@ apidiff:
 coverage-policy:
   stage: test
   image: registry.gitlab.com/phpboyscout/images/go-tools:v0.2.0
-  needs: []
+  # Reads go-test's cover.out rather than running the module's tests a second
+  # time (cicd spec 0079 D8). `optional: true` so a drift between this rule and
+  # go-test's `changes` surfaces as this job failing with a reason, rather than
+  # as a pipeline that cannot be created; the script refuses to report a pass
+  # when the profile is missing, empty, or not this module's.
+  needs:
+    - job: go-test
+      artifacts: true
+      optional: true
+  # Mirrors go-test's default `changes`, so the two run together or not at all.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        paths:
+          - "**/*.go"
+          - "**/go.mod"
+          - "**/go.sum"
+          - ".golangci.*"
+          - ".gitlab-ci.yml"
   allow_failure: true
   variables:
     # Same trap as apidiff above, and it bit harder here: with the toolchain
