@@ -1,5 +1,25 @@
 # Changelog
 
+## [v0.41.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.41.0)
+
+[Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.40.0...v0.41.0)
+
+### Features
+
+- **setup**: say which refusal a forge returned ([87a7e68](https://gitlab.com/phpboyscout/go-tool-base/-/commit/87a7e68e38b802449a8deb5f7c112e7259563c16))
+
+### Bug Fixes
+
+- **deps**: update module golang.org/x/crypto to v0.56.0 [security] ([8928b22](https://gitlab.com/phpboyscout/go-tool-base/-/commit/8928b2249abca4893b761b0a8ddc4f859f5388bf))
+- **deps**: update module go.opentelemetry.io/contrib/bridges/otelslog to v0.20.1 ([c8bd5bd](https://gitlab.com/phpboyscout/go-tool-base/-/commit/c8bd5bd38f420cfffdddead2b9c3c12897838fd2))
+- **deps**: update opentelemetry-go monorepo ([eeeb5e5](https://gitlab.com/phpboyscout/go-tool-base/-/commit/eeeb5e51915b99f3addfa7bb80c6daa955a26f28))
+- **deps**: take the forge family to the current round ([29f61ac](https://gitlab.com/phpboyscout/go-tool-base/-/commit/29f61ac2eddb30a556d7fe6e38afe6da9a07d10d))
+
+### Performance Improvements
+
+- **ci**: read the coverage profile go-test already produced ([551488c](https://gitlab.com/phpboyscout/go-tool-base/-/commit/551488cfa5b1ab07d72913fd7ff381f0298c583f))
+- **generator**: let a generation skip the golangci-lint pass ([15734d1](https://gitlab.com/phpboyscout/go-tool-base/-/commit/15734d14ef1883ed6e831df878b0fe3712b1621a))
+
 ## [v0.40.0](https://gitlab.com/phpboyscout/go-tool-base/-/releases/v0.40.0)
 
 [Compare to previous version](https://gitlab.com/phpboyscout/go-tool-base/-/compare/v0.39.1...v0.40.0)
