@@ -163,8 +163,8 @@ accepts.
 Two destinations:
 
 1. **Embed in your tool**. Copy the file into your tool's
-   `cli/pkg/trustkeys/keys/` directory. Go's `//go:embed` directive
-   in `cli/pkg/trustkeys/trustkeys.go` picks it up automatically;
+   `internal/trustkeys/keys/` directory. Go's `//go:embed` directive
+   in `internal/trustkeys/trustkeys.go` picks it up automatically;
    it ends up in your binary's trust set at compile time.
 2. **Publish via WKD**. Upload the file to your WKD endpoint at
    `https://openpgpkey.<your-domain>/.well-known/openpgpkey/<your-domain>/hu/<z-base32-hash>?l=release`.
@@ -188,7 +188,7 @@ gtb keys mint --backend aws-kms \
 ```
 
 Both `release.asc` (v1) and `release-v2.asc` go into
-`cli/pkg/trustkeys/keys/` together for the rotation overlap window
+`internal/trustkeys/keys/` together for the rotation overlap window
 : old releases verify against v1, new releases against v2. Drop the
 v1 file once your supported-version window has cleared.
 

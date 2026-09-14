@@ -172,7 +172,7 @@ gpg --auto-key-locate clear,wkd --locate-keys release@phpboyscout.uk
 
 You should see both fingerprints (the rotation-authority and the
 signing-key) printed, matching what `gtb keys mint` reported and what
-you embedded in `cli/pkg/trustkeys/keys/`.
+you embedded in `internal/trustkeys/keys/`.
 
 Direct HTTP fetch also works for spot-checking. The hash is logged
 by the `gtb keys wkd` run that produced the file. Copy it from there:
@@ -203,7 +203,7 @@ key ever ships, redeploy a known-good staging directory in seconds.
 |---------|-------|-----|
 | `curl … /hu/<hash>` returns 404 | DNS still propagating, or you uploaded the wrong layout | Wait 2 min; if it persists, confirm the file is at `.well-known/openpgpkey/<domain>/hu/<hash>`, not `…openpgpkey/hu/…` |
 | `gpg --locate-keys` resolves direct but not advanced | Subdomain CNAME missing | Re-check DNS: `dig openpgpkey.<domain> CNAME` |
-| `gtb update` says "embedded ↔ WKD fingerprint mismatch" | A different key was uploaded than the one embedded | Redeploy from the same `.asc` set used to populate `cli/pkg/trustkeys/keys/` |
+| `gtb update` says "embedded ↔ WKD fingerprint mismatch" | A different key was uploaded than the one embedded | Redeploy from the same `.asc` set used to populate `internal/trustkeys/keys/` |
 | `wrangler` complains about an unknown project | Project not yet created or wrong `--project-name` | Re-check the Cloudflare dashboard project listing |
 
 ## Related

@@ -212,14 +212,14 @@ Press **Escape** at any stage to go back to the previous one. Press **Ctrl+C** t
 | `--no-git` | | Skip the post-generation git init and initial commit (init + commit is on by default) | `false` |
 | `--push` | | After the initial commit, add the derived remote as origin and push the default branch (push failures are non-fatal) | `false` |
 | `--git-branch` | | Default branch the initial commit lands on | `main` |
-| `--signing` | | Enable consumer-side release-signing verification (scaffolds `cli/pkg/trustkeys` and wires `props.Signing`) | `false` |
+| `--signing` | | Enable consumer-side release-signing verification (scaffolds `internal/trustkeys` and wires `props.Signing`) | `false` |
 | `--signing-email` | | Release WKD email for signing (`external_key_email`); implies `--signing` | — |
 | `--signing-key-source` | | Signing trust-anchor source (`embedded`, `external`, or `both`) | `both` |
 | `--signing-require-external-crosscheck` | | Fail signing closed when the external (WKD) resolver is unreachable | `false` |
 | `--signing-key-id` | | Signing key id/ARN/alias (or PEM path for local) the release pipeline signs with; wires the GoReleaser `signs` block | — |
 | `--signing-backend` | | `gtb sign` backend for the release pipeline | `aws-kms` (when `--signing-key-id` is set) |
 | `--signing-kms-region` | | AWS region for the `aws-kms` backend | `eu-west-2` |
-| `--signing-public-key` | | Path to the embedded public key the signature identifies | `cli/pkg/trustkeys/keys/signing-key-v1.asc` |
+| `--signing-public-key` | | Path to the embedded public key the signature identifies | `internal/trustkeys/keys/signing-key-v1.asc` |
 | `--template` | | Custom template overlay source `<src>@<ref>` (local path or forge repo); repeatable, layered in order | — |
 | `--dry-run` | | Preview changes without writing files | `false` |
 

@@ -69,9 +69,9 @@ or apply new releases. `enable`/`disable` warns when you turn `update` off.
 
 `gtb enable signing` / `gtb disable signing` toggle consumer-side
 release-signing verification. Unlike the feature toggles, `enable signing` scaffolds
-`cli/pkg/trustkeys`, wires `props.Signing`, and emits the enforcement defaults
+`internal/trustkeys`, wires `props.Signing`, and emits the enforcement defaults
 from its own flag set; `disable signing` drops the `Signing` field and
-`signing.go` while keeping `cli/pkg/trustkeys` and any `*.asc` keys. Run
+`signing.go` while keeping `internal/trustkeys` and any `*.asc` keys. Run
 `gtb enable signing --help` for the full flag surface, and see
 [signing](../../signing.md).
 

@@ -247,7 +247,7 @@ ERROR ErrKeyResolverMismatch: composite: resolvers returned divergent fingerprin
 
 For tickets where a user asks "is my update actually being verified?", read the `resolver=` value:
 
-- `resolver=composite[embedded,wkd:openpgpkey.phpboyscout.uk]`: full two-of-three trust-anchor independence. Both `cli/pkg/trustkeys/keys/*.asc` (embedded) and the live key served from Cloudflare Pages were consulted and agreed.
+- `resolver=composite[embedded,wkd:openpgpkey.phpboyscout.uk]`: full two-of-three trust-anchor independence. Both `internal/trustkeys/keys/*.asc` (embedded) and the live key served from Cloudflare Pages were consulted and agreed.
 - `resolver=embedded`: single-anchor verification. The embedded key alone was authoritative. **Cryptographically sound, but lower defence-in-depth.** This was the state of v0.13.0 binaries between 2026-06-09 (Phase 2 ship) and 2026-06-10 (the `DefaultExternalKeyEmail` fix in v0.13.1). Tell the customer: their next `gtb update` (from v0.13.1+) will upgrade to the composite resolver automatically.
 - `resolver=wkd:…`: single-anchor verification via WKD only. The customer's tool was built without an embedded key; the externally-served key is the sole trust anchor.
 
