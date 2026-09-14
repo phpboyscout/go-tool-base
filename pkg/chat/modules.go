@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"sort"
 	"strings"
 
 	gochat "gitlab.com/phpboyscout/go/chat"
@@ -81,35 +80,6 @@ func ConfigurableProviders() []gochat.Provider {
 		gochat.ProviderGemini,
 		gochat.ProviderAgyLocal,
 	}
-}
-
-// ModulesForProviders returns the distinct modules, sorted, whose blank imports
-// register the given providers, and the names it does not know.
-func ModulesForProviders(providers []gochat.Provider) ([]string, []gochat.Provider) {
-	seen := map[string]bool{}
-
-	var (
-		modules []string
-		unknown []gochat.Provider
-	)
-
-	for _, p := range providers {
-		module, ok := ProviderModule(p)
-		if !ok {
-			unknown = append(unknown, p)
-
-			continue
-		}
-
-		if !seen[module] {
-			seen[module] = true
-			modules = append(modules, module)
-		}
-	}
-
-	sort.Strings(modules)
-
-	return modules, unknown
 }
 
 // unsupportedProviderWording is go/chat's registry-miss message. Matched as text

@@ -80,12 +80,18 @@ func chatModulesFor(providers []string, features []ManifestFeature) []string {
 // validation is the generate command's job, and a manifest edited by hand to
 // name a provider this framework cannot configure still regenerates.
 func chatModules(providers []string) []string {
-	ps := make([]gochat.Provider, len(providers))
-	for i, p := range providers {
-		ps[i] = gochat.Provider(p)
+	var modules []string
+
+	for _, p := range providers {
+		module, ok := chat.ProviderModule(gochat.Provider(p))
+		if !ok || slices.Contains(modules, module) {
+			continue
+		}
+
+		modules = append(modules, module)
 	}
 
-	modules, _ := chat.ModulesForProviders(ps)
+	slices.Sort(modules)
 
 	return modules
 }
@@ -100,7 +106,9 @@ func forgeModules(features []ManifestFeature) []string {
 			continue
 		}
 
-		module, ok := forge.ModuleForFeature(d.Cmd)
+		// A forge feature's ID is its forge type (github, gitlab, gitea,
+		// codeberg, bitbucket), so the type table answers for the feature.
+		module, ok := forge.ModuleFor(string(d.Cmd))
 		if !ok || slices.Contains(modules, module) {
 			continue
 		}

@@ -359,7 +359,7 @@ The same pattern carries the chat providers and forge adapters
 the manifest's `chat.providers`, gated on the `ai` feature, and
 `cmd/<name>/forge.go` the adapters for the enabled forge features. Both are
 derived, never authored: `chatModulesFor` and `forgeModules` read the framework's
-own tables (`chat.ModulesForProviders`, `forge.ModuleForFeature`), and
+own tables (`chat.ProviderModule`, `forge.ModuleFor`), and
 `syncAdapterFiles` rewrites both on every regenerate. A manifest with no
 `chat:` block and `ai` enabled is a project older than the block; the sync
 records `DefaultChatProviders()` into it first, so the tool keeps every

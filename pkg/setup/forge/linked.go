@@ -35,19 +35,6 @@ func ModuleFor(provider string) (string, bool) {
 	return module, ok
 }
 
-// ModuleForFeature returns the module path whose blank import registers the
-// forge a feature gates, and reports whether the feature is a forge feature.
-// It is what the generator reads to emit a tool's forge imports from its
-// enabled features (spec 0194 D4).
-func ModuleForFeature(id props.FeatureID) (string, bool) {
-	profile, ok := profilesByFeature[id]
-	if !ok {
-		return "", false
-	}
-
-	return ModuleFor(profile.Provider)
-}
-
 // UnlinkedForge is a forge feature the tool enables without linking its adapter.
 type UnlinkedForge struct {
 	Feature  props.FeatureID
