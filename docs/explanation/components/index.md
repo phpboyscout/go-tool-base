@@ -91,4 +91,4 @@ Components for running a CLI as a long-lived service. See also **[Controls](cont
 
 ## Internal Development
 
-- **[Internal Packages](internal/index.md)**: Documentation for the private `internal/` packages that power the CLI generator itself. (Contributors Only)
+- **[CLI Packages](cli/index.md)**: Documentation for the `cli/` module's packages that power the gtb generator itself. (Contributors only; not a supported API)

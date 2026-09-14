@@ -34,7 +34,7 @@ go mod download
 just build
 # Or manually:
 go build ./...
-go test ./...
+go test ./... ./cli/...
 ```
 
 ### Environment Configuration
@@ -57,21 +57,25 @@ Understanding the codebase organization:
 gtb/
 ├── .github/                # CI/CD workflows and GitHub templates
 ├── .gtb/          # Configuration and manifest for the project
-├── cmd/                    # Built-in shareable command implementations (docs, init, root, update, version)
+├── cli/                    # The gtb CLI, a nested Go module (gitlab.com/phpboyscout/go-tool-base/cli)
+│   ├── cmd/gtb/            # Entry point; links every chat provider and forge adapter
+│   ├── cmd/e2e/            # Test binary for the CLI scenarios
+│   ├── pkg/agent/          # AI agent components used by the CLI
+│   ├── pkg/cmd/            # Cobra command logic used by the CLI (generate, regenerate, remove, …)
+│   ├── pkg/generator/      # Template generation logic that scaffolds CLI projects
+│   └── test/e2e/           # Godog step definitions (feature files stay in features/)
+├── cmd/                    # Framework-side mains: changelog and docs tools, the footprint smoke fixture
 ├── docs/                   # Project documentation
-├── internal/               # Internal components used exclusively by the CLI and not intended for public consumption
-│   └── agent/              # AI Agent components used by the CLI
-│   └── cmd/                # Cobra command logic use by the CLI
-│   └── generator/          # Template generation logic use by the CLI to create CLI projects
+├── go.work                 # Workspace over the framework and cli/ modules
+├── internal/               # Framework test helpers and the transport config adapter
 ├── pkg/                    # Public library packages
-│   ├── chat/               # GTB adapter over the extracted go/chat module (config schema, provider registration)
+│   ├── chat/               # GTB adapter over the extracted go/chat module (config schema; registers no provider)
 │   ├── cmd/                # Built-in command implementations (config, doctor, init, telemetry, update, version, …)
 │   ├── docs/               # TUI documentation browser and AI Q&A
 │   ├── props/              # Application-wide properties and dependency container
 │   ├── setup/              # Initialisation, feature registry, and self-update
 │   ├── utils/              # Common utility functions
 │   └── vcs/                # Forge/release adapters over the extracted go/forge + go/repo modules
-├── main.go                 # CLI entry point
 └── justfile                # Build and automation tasks
 ```
 
@@ -124,7 +128,7 @@ Update the spec status to `IN PROGRESS` when development begins.
 ```bash
 # Implement in phases as defined by the spec
 # Verify as you go
-go test ./...
+go test ./... ./cli/...
 golangci-lint run
 ```
 
@@ -150,7 +154,7 @@ The project uses comprehensive testing with mocks:
 
 ```bash
 # Run all tests
-go test ./...
+go test ./... ./cli/...
 
 # Run tests with coverage
 go test -cover ./...

@@ -48,9 +48,9 @@ Blank-import your module in the tool's `main`, before any update runs:
 import _ "example.com/myforge"
 ```
 
-GTB's own `pkg/setup/providers.go` does this for the first-party set. A tool that
-supports only your forge can import just yours and shed the built-in clients
-entirely.
+`gtb`'s own `cli/cmd/gtb/providers.go` does this for the first-party set; the
+framework itself registers only `direct`. A tool imports just the forges it
+uses, and a generated tool gets those imports from its enabled forge features.
 
 ## 3. Point the tool at it
 

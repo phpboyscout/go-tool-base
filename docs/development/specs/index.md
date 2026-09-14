@@ -192,6 +192,18 @@ conventions stay in `docs/`, because those change with the code.
 | [0180](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0180-generator-template-version-tracking) | Keep the project generator's baked-in version pins current via Renovate | `IMPLEMENTED` |
 | [0181](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0181-ignore-command-and-discoverability) | `gtb ignore` command group and `.gtb/ignore` discoverability | `IMPLEMENTED` |
 | [0182](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0182-external-command-attachment) | External Command Attachment Specification | `IMPLEMENTED` |
+| [0183](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0183-forge-credentials-and-configurable-config-layers) | Forge credentials via config layers, and a declarable layer set for generated projects | `IMPLEMENTED` |
+| [0184](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0184-self-registering-features) | Self-registering features — a kind-aware registry, and FeatureCmd becomes FeatureID | `IMPLEMENTED` |
+| [0185](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0185-forge-parity-across-adapters) | Forge parity — an initialiser for every adapter GTB ships | `IMPLEMENTED` |
+| [0186](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0186-ssh-keys-for-dual-credential-forges) | SSH-key configuration for dual-credential forges | `IMPLEMENTED` |
+| [0187](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0187-regeneration-completes-on-a-drifted-project) | Regeneration completes on a drifted project | `IMPLEMENTED` |
+| [0188](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0188-ignore-write-classes-and-sealed-rules) | Two write classes in `.gtb/ignore`: render versus wiring, and a sealed rule | `IMPLEMENTED` |
+| [0189](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0189-credential-lifecycle) | Credential lifecycle: resolution reporting, storage invariants and complete migration | `IMPLEMENTED` |
+| [0190](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0190-pure-command-groups-have-no-run-function) | A pure command group has no run function of its own | `IMPLEMENTED` |
+| [0191](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0191-gtb-command-groups-adopt-the-generated-model) | GTB's own command groups adopt the generated model | `IMPLEMENTED` |
+| [0192](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0192-release-sources-address-a-forge-by-endpoint) | Release sources address a forge by endpoint | `IMPLEMENTED` |
+| [0193](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0193-one-provider-per-endpoint-and-refusals-that-say-which) | One provider per endpoint, and refusals that say which | `IMPLEMENTED` |
+| [0194](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/specs/0194-the-gtb-cli-as-a-nested-module-and-adapters-chosen-per-tool) | The gtb CLI as a nested module, and adapters chosen per tool | `IN PROGRESS` |
 
 Reports (audits and reviews) moved with them: see the
 [reports index](https://gitlab.com/phpboyscout/go-tool-base/-/wikis/reports/home).

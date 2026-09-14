@@ -254,12 +254,16 @@ See [`0044-godog-bdd-strategy`](https://gitlab.com/phpboyscout/go-tool-base/-/wi
 
 | Recipe | Command | Description |
 | :--- | :--- | :--- |
-| `just test-integration` | `INT_TEST=1 go test ./... -v` | Run all integration tests |
-| `just coverage-full` | `INT_TEST=1 go test ./... -coverprofile=...` | Generate HTML coverage report including integration tests |
-| `just test` | `go test ./... -v -cover` | Unit tests only (default) |
-| `just test-e2e` | `INT_TEST_E2E=1 go test ./test/e2e/... -v -timeout 5m` | E2E BDD tests via Godog |
-| `just test-e2e-smoke` | `INT_TEST_E2E=1 INT_TEST_E2E_SMOKE=1 go test ./test/e2e/... -v -timeout 2m` | E2E smoke tests only (fast) |
-| `just ci` | `tidy, generate, test, test-race, lint` | CI suite: unit tests only |
+| `just test-integration` | `INT_TEST=1 go test ./... ./cli/... -v` | Run all integration tests |
+| `just coverage-full` | `INT_TEST=1 go test ./... ./cli/... -coverprofile=...` | Generate HTML coverage report including integration tests |
+| `just test` | `go test ./... ./cli/... -v -cover` | Unit tests only (default) |
+| `just test-e2e` | `INT_TEST_E2E=1 go test ./cli/test/e2e/... -v -timeout 15m` | E2E BDD tests via Godog |
+| `just test-e2e-smoke` | `INT_TEST_E2E=1 INT_TEST_E2E_SMOKE=1 go test ./cli/test/e2e/... -v -timeout 2m` | E2E smoke tests only (fast) |
+| `just ci` | `tidy, generate, test, test-race, lint, test-e2e` | Full local CI |
+
+The CLI is a nested module at `cli/`, and in workspace mode a bare `./...` at
+the repository root reaches only the framework module, so every recipe names
+both.
 
 ## CI Configuration
 
@@ -276,7 +280,7 @@ integration:
   variables:
     INT_TEST: "1"          # all groups; or INT_TEST_VCS: "1" for a single group
   script:
-    - go test ./... -v
+    - go test ./... ./cli/... -v
   rules:
     # Keep it off the normal merge gate — run on a schedule or manually
     - if: $CI_PIPELINE_SOURCE == "schedule"

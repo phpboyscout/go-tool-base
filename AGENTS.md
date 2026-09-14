@@ -64,17 +64,17 @@ just test-e2e-smoke   # E2E smoke tests only (fast, no external deps)
 just lint         # Run golangci-lint
 just lint-fix     # Auto-fix linting issues
 just mocks        # Regenerate mocks via mockery
-just ci           # Full local CI: tidy, generate, test, test-race, lint
+just ci           # Full local CI: tidy, generate, test, test-race, lint, test-e2e
 just coverage     # HTML coverage report
-just generate     # go generate ./...
+just generate     # go generate ./... ./cli/...
 just bench        # Run benchmarks with memory stats
 just check        # Run pre-commit hooks on all files
 just vuln         # govulncheck for dependency vulnerabilities
 just deadcode     # Find unreachable exported symbols
 just fix          # Apply go fix for deprecated API usage
-just install      # Install gtb binary to $GOPATH/bin
+just install      # Install gtb (cli/cmd/gtb) to $GOBIN
 just snapshot     # Local goreleaser snapshot build (output to dist/)
-just docs-serve   # Serve documentation locally via mkdocs
+just docs-serve   # Serve documentation locally via zensical
 just cleanup      # Remove build artifacts
 ```
 
@@ -164,7 +164,7 @@ config-key schema + `SettingsFromProps`/`NewFromProps` adapters. **It registers
 no provider.** A provider is a blank import in the binary that ships it (spec
 0194): `cli/cmd/gtb/providers.go` links every one, and a generated tool links
 what its manifest selects. `chat.ProviderModule` names the module for each.
-- Providers: Anthropic Claude, Claude Local (CLI binary, ships in the core module), OpenAI, OpenAI-compatible, Google Gemini
+- Providers (module in brackets): claude, claude-local (chat-anthropic); openai, openai-compatible, codex-local (chat-openai); gemini, gemini-vertex, agy-local (chat-gemini); bedrock (chat-bedrock); azure-openai (chat-openai-azure). `chat.ProviderModules()` is the table.
 - Core interface: `ChatClient` (Add, Chat, Ask, SetTools) — defined in the module
 - ReAct loop orchestration with automatic tool calling and JSON Schema parameter definitions
 - Module docs: [chat.go.phpboyscout.uk](https://chat.go.phpboyscout.uk); GTB-side details in `docs/explanation/components/chat/`. Keep the core↔provider modules at matching minor versions (see the module's compatibility matrix).

@@ -100,17 +100,22 @@ Commands can be selectively enabled or disabled at bootstrap time via feature fl
 
 ## 🤖 AI Providers
 
-GTB supports multiple AI providers via a unified `pkg/chat` interface:
+GTB reaches every provider the [`go/chat`](https://chat.go.phpboyscout.uk) module family registers, through a unified `pkg/chat` adapter. A provider is a module a tool blank-imports from its `main`; `gtb` itself links all of them.
 
-| Provider | Constant | Notes |
-| :--- | :--- | :--- |
-| **Anthropic Claude** | `ProviderClaude` | Requires `ANTHROPIC_API_KEY` |
-| **Claude Local** | `ProviderClaudeLocal` | Uses a locally installed `claude` CLI binary |
-| **OpenAI** | `ProviderOpenAI` | Requires `OPENAI_API_KEY` |
-| **OpenAI-Compatible** | `ProviderOpenAICompatible` | Any OpenAI-compatible endpoint |
-| **Google Gemini** | `ProviderGemini` | Requires `GEMINI_API_KEY` |
+| Provider | Constant | Module | Notes |
+| :--- | :--- | :--- | :--- |
+| **Anthropic Claude** | `ProviderClaude` | `go/chat-anthropic` | Requires `ANTHROPIC_API_KEY` |
+| **Claude Local** | `ProviderClaudeLocal` | `go/chat-anthropic` | The `claude` CLI on this machine; no key |
+| **OpenAI** | `ProviderOpenAI` | `go/chat-openai` | Requires `OPENAI_API_KEY` |
+| **OpenAI-Compatible** | `ProviderOpenAICompatible` | `go/chat-openai` | Any OpenAI-shaped endpoint (Ollama, xAI) |
+| **Codex Local** | `ProviderCodexLocal` | `go/chat-openai` | The `codex` CLI on this machine; no key |
+| **Google Gemini** | `ProviderGemini` | `go/chat-gemini` | Requires `GEMINI_API_KEY` |
+| **Gemini on Vertex AI** | `ProviderGeminiVertex` | `go/chat-gemini` | Google application default credentials |
+| **Agy Local** | `ProviderAgyLocal` | `go/chat-gemini` | The `agy` CLI on this machine; no key, no tools |
+| **AWS Bedrock** | `ProviderBedrock` | `go/chat-bedrock` | The AWS credential chain |
+| **Azure OpenAI** | `ProviderAzureOpenAI` | `go/chat-openai-azure` | A deployment endpoint; api-key or Entra token |
 
-Set the active provider with the `AI_PROVIDER` environment variable or in your tool's configuration.
+Set the active provider with the `AI_PROVIDER` environment variable or in your tool's configuration. GTB's own `init` wizard sets up credentials for the API-key providers; the local CLIs need none, and Vertex, Bedrock and Azure are configured through `go/chat`'s own settings.
 
 ## 🏁 Quick Start
 

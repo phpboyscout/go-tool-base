@@ -112,5 +112,5 @@ migration is required.
 - **[aferobilly](aferobilly.md)**: the extracted billy↔afero bridge
 - **[VCS index](index.md)**: package overview and authentication helper
 - **[forge.go.phpboyscout.uk](https://forge.go.phpboyscout.uk)**: the forge provider clients (separate from git operations)
-- **[Generator](../internal/generator.md)**: GTB's main consumer, for scaffold
+- **[Generator](../cli/generator.md)**: GTB's main consumer, for scaffold
   git initialisation and template-source clones

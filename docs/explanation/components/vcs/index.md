@@ -38,19 +38,25 @@ provider capabilities, driven from [setup](../setup/index.md).
 
 ## Provider registration
 
-Providers register themselves at `init()` when blank-imported.
-`pkg/setup/providers.go` imports the full first-party set, because the framework
-cannot know which forge a downstream tool targets:
+Providers register themselves at `init()` when blank-imported. The framework
+registers only `direct` (`pkg/setup/providers.go`); a forge adapter is a blank
+import in the binary that ships it, so a tool links exactly the forges it
+enables and no other forge's SDK. `gtb`'s own main links every one
+(`cli/cmd/gtb/providers.go`):
 
 ```go
 import (
     _ "gitlab.com/phpboyscout/go/forge-bitbucket"
+    _ "gitlab.com/phpboyscout/go/forge-gitea" // gitea, codeberg
     _ "gitlab.com/phpboyscout/go/forge-github"
-    _ "gitlab.com/phpboyscout/go/forge-gitea"
     _ "gitlab.com/phpboyscout/go/forge-gitlab"
-    _ "gitlab.com/phpboyscout/go/forge/direct"
 )
 ```
+
+`forge.ModuleFor(type)` names the module for each forge type, the root
+command's pre-run fails early when an enabled forge feature has no registered
+provider, and `doctor` reports the same as **Forge adapters**. See the
+[migration note](../../../reference/migration/v0.x-adapters-registered-by-main.md).
 
 A tool that supports one forge can import only that provider and shed the other
 clients entirely, which is the point of the per-provider split. `direct` is not
